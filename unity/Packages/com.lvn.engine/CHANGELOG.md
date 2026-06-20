@@ -50,6 +50,13 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
   plays with real art straight from Play with no code.
 
 ### Fixed
+- Freeze on click / advancing to the next op: `DirectoryAssets` decoded large
+  textures synchronously on the main thread for every show (no cache), so each
+  transition that revealed a background or character hitched. It now caches
+  sprites by url (instant re-show) and reads files off the main thread, so the
+  click → `Advance` path no longer blocks on a decode (measured ~1 ms per op).
+- `LvnPlayer.Advance` now guards against a cyclic `goto` with no pause between
+  jumps — it fails loudly instead of spinning the main thread forever.
 - Black screen on play, two causes: (1) `VnStage` could miss building its layers
   when `UIDocument.rootVisualElement` was still null in `OnEnable` (a script-order
   race) — it now builds in `OnEnable` **and** `Start`; (2) the asset loader was

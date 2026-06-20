@@ -76,8 +76,14 @@ namespace Lvn
         /// <summary>Run commands until the next pause point or the end.</summary>
         public void Advance()
         {
+            // A pause (say/choice) or the end breaks this loop. A guard catches a
+            // cyclic goto with no pause between iterations, which would otherwise
+            // spin the main thread forever (a freeze) instead of failing loudly.
+            int budget = _script.Count + 100000;
             while (!Finished && _ip >= 0 && _ip < _script.Count)
             {
+                if (--budget < 0)
+                    throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
                 var c = (JObject)_script[_ip];
                 switch ((string)c["op"])
                 {
