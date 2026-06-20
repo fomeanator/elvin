@@ -3,7 +3,7 @@
 All notable changes to the LVN Engine package are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
-## [Unreleased]
+## [0.2.0] — 2026-06-20
 
 ### Added
 - `LvnExpression` — built-in evaluator for string `expr` conditions

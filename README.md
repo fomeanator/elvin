@@ -73,7 +73,12 @@ Add the package via **Package Manager → Add package from git URL**:
 https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine
 ```
 
-Then point an `LvnPlayer` at a `.lvn` and implement `ILvnStage` to render. See
+Drop a **`VnStage`** on a GameObject with a `UIDocument`, assign a `.lvn`
+TextAsset, press Play — it renders and runs: background, characters, a dialogue
+box with typewriter reveal, and branching choices. Tap to advance, click to
+choose. Restyle everything from one `VnTheme`; load art through your own
+`ILvnAssets`. Want a bespoke skin instead? Use the headless `LvnPlayer` +
+`ILvnStage` and draw it yourself. See
 `unity/Packages/com.lvn.engine/README.md`.
 
 ## Design rules
@@ -90,11 +95,20 @@ Then point an `LvnPlayer` at a `.lvn` and implement `ILvnStage` to render. See
 
 ## Status
 
-`v0.1` — the transcoder (Ink + articy front-ends, validator), the format and
-staging-tag specs, the server template, and the Unity package scaffold with the
-pure interpreter core are in place. The full effect/expression runtime port and
-the premium meta-shell template land in subsequent releases. See
-[`docs/lvn-format.md`](docs/lvn-format.md) for the command catalog.
+`v0.2` — playable end-to-end and verified live in Unity 6:
+
+- **Transcoder** (`lvnconv`): Ink + articy front-ends, validator, `probe`.
+- **Container spec**: the `.lvn` command catalog and shared staging-tag vocabulary.
+- **Server template** (Go): manifest, content, player state, admin upload.
+- **Unity runtime**: `LvnPlayer` interpreter (flow, vars, tunnels, autosave) with
+  a built-in `LvnExpression` evaluator, plus the reference component set —
+  `VnTheme`, `DialogueBox`, `ChoiceList`, `BackgroundLayer`, `ActorLayer`, and
+  the `VnStage` drop-in. **11/11 EditMode tests green.**
+
+Next: effect modules (fade/tint/camera/particles), the layered-sprite
+compositor, and a premium meta-shell template. See
+[`docs/lvn-format.md`](docs/lvn-format.md) for the command catalog and the
+package [CHANGELOG](unity/Packages/com.lvn.engine/CHANGELOG.md) for detail.
 
 ## License
 
