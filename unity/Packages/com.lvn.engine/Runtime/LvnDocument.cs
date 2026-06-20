@@ -13,10 +13,14 @@ namespace Lvn
         public string Scene { get; }
         public JArray Script { get; }
 
-        private LvnDocument(string scene, JArray script)
+        /// <summary>The optional <c>cast</c> block (named sprite entities), or null.</summary>
+        public JObject Cast { get; }
+
+        private LvnDocument(string scene, JArray script, JObject cast)
         {
             Scene = scene;
             Script = script ?? new JArray();
+            Cast = cast;
         }
 
         /// <summary>Parse a .lvn document from JSON text.</summary>
@@ -29,7 +33,7 @@ namespace Lvn
             var scene = (string)root["scene"];
             var script = root["script"] as JArray
                          ?? throw new FormatException(".lvn has no \"script\" array");
-            return new LvnDocument(scene, script);
+            return new LvnDocument(scene, script, root["cast"] as JObject);
         }
     }
 }

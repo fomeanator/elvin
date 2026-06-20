@@ -39,6 +39,7 @@ namespace Lvn.UI
         private ChoiceList _choices;
         private FxLayer _fx;
         private AudioSource _music, _ambient, _sfx;
+        private Dictionary<string, CastEntity> _cast;
         private LvnPlayer _player;
         private CancellationTokenSource _cts;
         private bool _awaitingTap;
@@ -98,6 +99,7 @@ namespace Lvn.UI
         public void Play(string lvnJson)
         {
             var doc = LvnDocument.Parse(lvnJson);
+            _cast = SpriteComposer.ParseCast(doc.Cast);
             _player = new LvnPlayer(doc, this);
             _player.Advance();
         }
@@ -254,20 +256,87 @@ namespace Lvn.UI
             if (sprite != null) _bg.SetSprite(sprite);
         }
 
+        private static readonly HashSet<string> ReservedActorFields = new HashSet<string>
+        {
+            "op", "id", "show", "position", "x", "y", "width", "height", "scale",
+            "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
+            "transition", "enter", "exit",
+        };
+
         private async Task ApplyActorAsync(JObject cmd)
         {
             var id = (string)cmd["id"];
+            if (string.IsNullOrEmpty(id)) return;
             bool show = cmd["show"] == null || (bool)cmd["show"];
             var position = (string)cmd["position"];
             float? x = cmd["x"] != null ? (float?)(float)cmd["x"] : null;
             float height = cmd["height"] != null ? (float)cmd["height"] : 0.62f;
 
-            Sprite sprite = null;
-            var url = (string)cmd["sprite_url"];
-            if (Assets != null && !string.IsNullOrEmpty(url))
-                sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
+            List<Sprite> layers = null;
 
-            _actors.Apply(id, sprite, position, x, height, show);
+            if (_cast != null && _cast.TryGetValue(id, out var entity))
+            {
+                // Named entity: resolve its layer templates by the command's axes.
+                var urls = SpriteComposer.Resolve(entity, AxesFrom(cmd));
+                if (urls.Count > 0 && Assets != null)
+                {
+                    layers = new List<Sprite>(urls.Count);
+                    foreach (var u in urls)
+                    {
+                        Sprite s = null;
+                        try { s = await Assets.LoadSpriteAsync(u, _cts.Token); }
+                        catch { }
+                        if (s != null) layers.Add(s);
+                    }
+                }
+            }
+            else
+            {
+                // Direct layers: body → clothes → hair (skipping any absent),
+                // or a single sprite_url for a flat character.
+                var urls = new List<string>();
+                var body = (string)cmd["body_url"]; if (!string.IsNullOrEmpty(body)) urls.Add(body);
+                var clothes = (string)cmd["clothes_url"]; if (!string.IsNullOrEmpty(clothes)) urls.Add(clothes);
+                var hair = (string)cmd["hair_url"]; if (!string.IsNullOrEmpty(hair)) urls.Add(hair);
+                if (urls.Count == 0)
+                {
+                    var sp = (string)cmd["sprite_url"]; if (!string.IsNullOrEmpty(sp)) urls.Add(sp);
+                }
+                if (urls.Count > 0 && Assets != null)
+                {
+                    layers = new List<Sprite>(urls.Count);
+                    foreach (var u in urls)
+                    {
+                        Sprite s = null;
+                        try { s = await Assets.LoadSpriteAsync(u, _cts.Token); }
+                        catch { }
+                        if (s != null) layers.Add(s);
+                    }
+                }
+            }
+
+            _actors.Apply(id, layers, position, x, height, show);
+        }
+
+        // The actor command's free-form named fields (pose, emotion, prop, …) —
+        // everything outside the reserved layout/control set — are the cast axes.
+        private static Dictionary<string, string> AxesFrom(JObject cmd)
+        {
+            var axes = new Dictionary<string, string>();
+            foreach (var p in cmd.Properties())
+            {
+                if (ReservedActorFields.Contains(p.Name)) continue;
+                switch (p.Value.Type)
+                {
+                    case JTokenType.String:
+                    case JTokenType.Integer:
+                    case JTokenType.Float:
+                    case JTokenType.Boolean:
+                        axes[p.Name] = p.Value.ToString();
+                        break;
+                }
+            }
+            return axes;
         }
     }
 }

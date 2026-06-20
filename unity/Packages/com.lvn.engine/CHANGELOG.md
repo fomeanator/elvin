@@ -16,9 +16,25 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 - `VnStage` wraps background + actors in a "world" layer so camera effects move
   the scene but not the dialogue/choices.
 
+- **Cast — named, parametric sprite entities** (`SpriteComposer` + the `cast`
+  block). A character is a list of layer URL templates parameterised by named
+  axes (pose, emotion, outfit…); the `actor` command names the entity and the
+  axis values, and the runtime fills the templates and stacks the layers.
+  K poses + M emotions need K + M images, not K × M. Pure, engine-agnostic
+  resolution — see `docs/cast.md`. `ActorLayer` now composites layered sprites.
+- `actor` also takes direct `body_url` / `clothes_url` / `hair_url` layers
+  (composited bottom-to-top) for characters authored without a cast block.
+- `DirectoryAssets` — a reference `ILvnAssets` that loads sprites from a local
+  folder (offline/bundled content, and for tests).
+
 ### Verified
 - Live in Unity 6: rain renders over the dialogue while the typewriter reveals
-  the line (captured via the panel's render texture).
+  the line; a two-layer cast character (body + face) composites correctly.
+- Played a real 338-command production VN chapter end-to-end (its own
+  backgrounds, layered characters, fades/camera/dim/particles) through the
+  engine via `DirectoryAssets` — characters composite from their body/outfit
+  layers over the real art.
+- 15/15 EditMode tests green (expression, player, sprite composer).
 
 ## [0.2.0] — 2026-06-20
 
