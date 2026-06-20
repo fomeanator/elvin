@@ -26,6 +26,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
   (composited bottom-to-top) for characters authored without a cast block.
 - `DirectoryAssets` — a reference `ILvnAssets` that loads sprites from a local
   folder (offline/bundled content, and for tests).
+- **Full object placement** — `actor`/`obj` place any sprite by screen fraction:
+  `x`/`y`, `width`/`height`, `anchor` (pivot %), `z` (paint order), `flip`,
+  `rotation`, `opacity`, plus named slots `far_left`…`far_right`. `obj` puts any
+  sprite on screen; `actor` is the same with speaker dimming. See `docs/placement.md`.
+- **Clickable hotspots** — `on_click: "label"` makes any object tappable; the tap
+  jumps the script (via `LvnPlayer.GoTo`) and is swallowed so it doesn't advance
+  the dialogue. With placement + flow + state, the engine assembles button-driven
+  games (menus, point-and-click), not only visual novels.
 
 ### Verified
 - Live in Unity 6: rain renders over the dialogue while the typewriter reveals

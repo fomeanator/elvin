@@ -159,6 +159,19 @@ namespace Lvn
             else _ip++;
         }
 
+        /// <summary>
+        /// Jump to a label on demand — the hook for clickable hotspots and other
+        /// out-of-band navigation. The caller then calls <see cref="Advance"/>.
+        /// Re-activates a finished player so a hotspot on an end screen can drive
+        /// flow again. This plus placeable, clickable objects is enough to build
+        /// a button-driven game: each screen is a pause with its own hotspots.
+        /// </summary>
+        public void GoTo(string label)
+        {
+            Finished = false;
+            SeekTo(label);
+        }
+
         // ── internals ────────────────────────────────────────────────────────
 
         private void Jump(string label) => SeekTo(label);

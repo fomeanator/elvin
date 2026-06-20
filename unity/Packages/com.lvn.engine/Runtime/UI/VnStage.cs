@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -146,6 +147,7 @@ namespace Lvn.UI
             {
                 case "bg": _ = ApplyBgAsync(command); break;
                 case "actor": _ = ApplyActorAsync(command); break;
+                case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
                 case "fade": ApplyFade(command); break;
                 case "dim": ApplyDim(command); break;
                 case "camera": ApplyCamera(command); break;
@@ -259,7 +261,8 @@ namespace Lvn.UI
         private static readonly HashSet<string> ReservedActorFields = new HashSet<string>
         {
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
-            "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
+            "anchor", "anchor_x", "anchor_y", "z", "flip", "rotation", "opacity",
+            "on_click", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
             "transition", "enter", "exit",
         };
 
@@ -267,10 +270,6 @@ namespace Lvn.UI
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
-            bool show = cmd["show"] == null || (bool)cmd["show"];
-            var position = (string)cmd["position"];
-            float? x = cmd["x"] != null ? (float?)(float)cmd["x"] : null;
-            float height = cmd["height"] != null ? (float)cmd["height"] : 0.62f;
 
             List<Sprite> layers = null;
 
@@ -315,7 +314,59 @@ namespace Lvn.UI
                 }
             }
 
-            _actors.Apply(id, layers, position, x, height, show);
+            System.Action onClick = null;
+            var clickTarget = (string)cmd["on_click"];
+            if (!string.IsNullOrEmpty(clickTarget))
+                onClick = () =>
+                {
+                    if (_player == null) return;
+                    _player.GoTo(clickTarget);
+                    _awaitingTap = false;
+                    _choices.Dismiss();
+                    _player.Advance();
+                };
+
+            _actors.Apply(id, layers, PlacementFrom(cmd), onClick);
+        }
+
+        // Build placement from the command — everything in screen fractions so a
+        // script controls any object's position, size, anchor, z, flip, rotation
+        // and opacity without knowing the resolution.
+        private static Placement PlacementFrom(JObject cmd)
+        {
+            var p = new Placement
+            {
+                Show = cmd["show"] == null || (bool)cmd["show"],
+                X = cmd["x"] != null ? (float)cmd["x"] : ActorLayer.SlotX((string)cmd["position"]),
+                Y = cmd["y"] != null ? (float)cmd["y"] : 1f,
+                Width = cmd["width"] != null ? (float?)(float)cmd["width"] : null,
+                Height = cmd["height"] != null ? (float?)(float)cmd["height"] : null,
+                AnchorX = 0.5f,
+                AnchorY = 1f,
+                Z = cmd["z"] != null ? (int?)(int)cmd["z"] : null,
+                Flip = cmd["flip"] != null && (bool)cmd["flip"],
+                Rotation = cmd["rotation"] != null ? (float)cmd["rotation"] : 0f,
+                Opacity = cmd["opacity"] != null ? (float)cmd["opacity"] : 1f,
+            };
+
+            var anchor = (string)cmd["anchor"];
+            if (!string.IsNullOrEmpty(anchor))
+            {
+                var parts = anchor.Split(',');
+                if (parts.Length == 2
+                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var ax)
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ay))
+                {
+                    p.AnchorX = ax;
+                    p.AnchorY = ay;
+                }
+            }
+            else
+            {
+                if (cmd["anchor_x"] != null) p.AnchorX = (float)cmd["anchor_x"];
+                if (cmd["anchor_y"] != null) p.AnchorY = (float)cmd["anchor_y"];
+            }
+            return p;
         }
 
         // The actor command's free-form named fields (pose, emotion, prop, …) —

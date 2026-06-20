@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -5,15 +6,43 @@ using UnityEngine.UIElements;
 namespace Lvn.UI
 {
     /// <summary>
-    /// The character layer (z-order 1): each actor is a slot (left / center /
-    /// right or an explicit x), bottom-anchored and sized by a height fraction.
-    /// An actor is drawn as a stack of full-frame sprite layers (body, face,
-    /// prop…) resolved by <see cref="SpriteComposer"/> from the cast — pass one
-    /// sprite for a flat character, several to composite. Non-speakers dim.
+    /// Where to put a stage object, all in screen fractions so a script controls
+    /// it without knowing the resolution: the object's <see cref="AnchorX"/>/
+    /// <see cref="AnchorY"/> point (0..1 of the object) is placed at
+    /// <see cref="X"/>/<see cref="Y"/> (0..1 of the screen), sized by
+    /// <see cref="Width"/>/<see cref="Height"/>, ordered by <see cref="Z"/>, with
+    /// optional <see cref="Flip"/>, <see cref="Rotation"/> and <see cref="Opacity"/>.
+    /// Defaults give the classic standing character: bottom-centre anchored.
+    /// </summary>
+    public struct Placement
+    {
+        public bool Show;
+        public float X, Y;          // screen position of the anchor point (0..1)
+        public float? Width, Height; // size as a fraction of the screen (0..1)
+        public float AnchorX, AnchorY;
+        public int? Z;
+        public bool Flip;
+        public float Rotation;       // degrees
+        public float Opacity;
+
+        public static Placement Standing(float x) => new Placement
+        {
+            Show = true, X = x, Y = 1f, AnchorX = 0.5f, AnchorY = 1f, Opacity = 1f,
+        };
+    }
+
+    /// <summary>
+    /// The object layer (z-order 1): every actor or prop is a slot placed by a
+    /// <see cref="Placement"/> and drawn as a bottom-to-top stack of sprite
+    /// layers. Characters are just objects that also dim when not speaking — the
+    /// same `Apply` puts <em>any</em> sprite on screen from a script.
     /// </summary>
     public sealed class ActorLayer : VisualElement
     {
-        private readonly Dictionary<string, VisualElement> _actors = new Dictionary<string, VisualElement>();
+        private readonly Dictionary<string, VisualElement> _slots = new Dictionary<string, VisualElement>();
+        private readonly Dictionary<VisualElement, int> _z = new Dictionary<VisualElement, int>();
+        private readonly Dictionary<string, Action> _onClick = new Dictionary<string, Action>();
+        private int _nextZ;
 
         public ActorLayer()
         {
@@ -25,20 +54,36 @@ namespace Lvn.UI
             pickingMode = PickingMode.Ignore;
         }
 
-        /// <summary>Place / update / hide an actor as a stack of layer sprites
-        /// (bottom to top). A null/empty list leaves the current art unchanged.</summary>
-        public void Apply(string id, IReadOnlyList<Sprite> layers, string position, float? x, float heightFraction, bool show)
+        /// <summary>Place / update / hide an object as a stack of layer sprites.
+        /// A null/empty list leaves the current art unchanged. When
+        /// <paramref name="onClick"/> is set the object becomes a tappable hotspot
+        /// (and swallows the tap so it doesn't also advance the dialogue).</summary>
+        public void Apply(string id, IReadOnlyList<Sprite> layers, Placement p, Action onClick = null)
         {
             if (string.IsNullOrEmpty(id)) return;
 
-            if (!_actors.TryGetValue(id, out var slot))
+            if (!_slots.TryGetValue(id, out var slot))
             {
-                slot = new VisualElement { name = "vn-actor-" + id, pickingMode = PickingMode.Ignore };
+                slot = new VisualElement { name = "vn-obj-" + id, pickingMode = PickingMode.Ignore };
                 slot.style.position = Position.Absolute;
-                slot.style.bottom = 0;
+                var capturedId = id;
+                slot.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (_onClick.TryGetValue(capturedId, out var cb) && cb != null)
+                    {
+                        cb();
+                        evt.StopPropagation();
+                    }
+                });
                 Add(slot);
-                _actors[id] = slot;
+                _slots[id] = slot;
+                _z[slot] = _nextZ++;
             }
+
+            _onClick[id] = onClick;
+            // Only hotspots are pickable; everything else lets taps fall through
+            // to the stage's tap-to-advance.
+            slot.pickingMode = onClick != null ? PickingMode.Position : PickingMode.Ignore;
 
             if (layers != null && layers.Count > 0)
             {
@@ -48,45 +93,62 @@ namespace Lvn.UI
                     if (sprite == null) continue;
                     var img = new Image { sprite = sprite, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
                     img.style.position = Position.Absolute;
-                    img.style.left = 0;
-                    img.style.right = 0;
-                    img.style.top = 0;
-                    img.style.bottom = 0;
+                    img.style.left = 0; img.style.right = 0; img.style.top = 0; img.style.bottom = 0;
                     slot.Add(img);
                 }
             }
 
-            float fx = x ?? SlotX(position);
-            float h = heightFraction > 0.05f ? heightFraction : 0.62f;
-            slot.style.height = Length.Percent(h * 100f);
-            slot.style.width = Length.Percent(46f);
-            slot.style.left = Length.Percent(fx * 100f);
-            slot.style.translate = new Translate(Length.Percent(-50f), 0, 0);
-            slot.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            slot.style.width = Length.Percent((p.Width ?? 0.46f) * 100f);
+            slot.style.height = Length.Percent((p.Height ?? 0.62f) * 100f);
+            slot.style.left = Length.Percent(p.X * 100f);
+            slot.style.top = Length.Percent(p.Y * 100f);
+            // Translate so the object's own anchor point lands on (X, Y); UITK
+            // percent translate is relative to the element's own size.
+            slot.style.translate = new Translate(Length.Percent(-p.AnchorX * 100f), Length.Percent(-p.AnchorY * 100f), 0);
+            slot.style.scale = new Scale(new Vector2(p.Flip ? -1f : 1f, 1f));
+            slot.style.rotate = new Rotate(new Angle(p.Rotation, AngleUnit.Degree));
+            slot.style.opacity = p.Opacity;
+            slot.style.display = p.Show ? DisplayStyle.Flex : DisplayStyle.None;
+
+            if (p.Z.HasValue)
+            {
+                _z[slot] = p.Z.Value;
+                Sort((a, b) => ZOf(a).CompareTo(ZOf(b)));
+            }
         }
 
-        /// <summary>Full opacity for the speaker, dim for everyone else. Pass
-        /// null to undim all.</summary>
+        /// <summary>Full opacity for the speaker, dim for everyone else (null = undim all).</summary>
         public void SetSpeaker(string id)
         {
-            foreach (var kv in _actors)
+            foreach (var kv in _slots)
                 kv.Value.style.opacity = id == null || kv.Key == id ? 1f : 0.55f;
         }
 
         public void RemoveAll()
         {
             Clear();
-            _actors.Clear();
+            _slots.Clear();
+            _z.Clear();
+            _nextZ = 0;
         }
 
-        private static float SlotX(string position)
+        private int ZOf(VisualElement e) => _z.TryGetValue(e, out var z) ? z : 0;
+
+        /// <summary>Named horizontal placement presets — the common VN slots from
+        /// far-left to far-right (plus a few in between). A script can ignore
+        /// these and give an explicit x fraction instead.</summary>
+        public static float SlotX(string position)
         {
             switch (position)
             {
+                case "far_left": return 0.12f;
                 case "left": return 0.25f;
+                case "center_left": return 0.38f;
+                case "center": return 0.50f;
+                case "center_right": return 0.62f;
                 case "right": return 0.75f;
-                case "center": return 0.5f;
-                default: return 0.5f;
+                case "far_right": return 0.88f;
+                default: return 0.50f;
             }
         }
     }

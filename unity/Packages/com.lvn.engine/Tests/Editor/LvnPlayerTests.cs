@@ -98,6 +98,22 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void GoToDrivesHotspotJumps()
+        {
+            var json = @"{""script"":[
+                {""op"":""say"",""text"":""a room with a door""},
+                {""op"":""label"",""id"":""door""},{""op"":""say"",""text"":""the door opens""},{""op"":""goto"",""label"":""__end""}
+            ]}";
+            var p = Play(json, out var stage);
+            p.Advance();
+            Assert.AreEqual("a room with a door", stage.Last);
+
+            p.GoTo("door"); // a hotspot was clicked
+            p.Advance();
+            Assert.AreEqual("the door opens", stage.Last);
+        }
+
+        [Test]
         public void CallReturnTunnel()
         {
             var json = @"{""script"":[

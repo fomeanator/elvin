@@ -9,7 +9,7 @@ import (
 // outside this set is a content error, not a silent no-op — the same hard
 // rule the front-ends apply to staging tags, enforced here for any .lvn.
 var KnownOps = map[string]bool{
-	"say": true, "choice": true, "bg": true, "actor": true,
+	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
 	"fade": true, "dim": true, "camera": true, "particles": true,
 	"audio": true, "wait": true, "preload": true,
 	"label": true, "goto": true, "if": true,
