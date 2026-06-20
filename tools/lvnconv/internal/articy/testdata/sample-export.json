@@ -1,0 +1,156 @@
+{
+  "Settings": { "set_Localization": "False" },
+  "Project": { "Name": "Liminal Test" },
+  "GlobalVariables": [
+    {
+      "Namespace": "vars",
+      "Description": "",
+      "Variables": [
+        { "Variable": "courage", "Type": "Integer", "Value": "0" },
+        { "Variable": "met", "Type": "Boolean", "Value": "False" }
+      ]
+    }
+  ],
+  "Packages": [
+    {
+      "Name": "Default package",
+      "Models": [
+        {
+          "Type": "Entity",
+          "Properties": { "Id": "0xE1", "TechnicalName": "heroine", "DisplayName": "Луна" }
+        },
+        {
+          "Type": "Entity",
+          "Properties": { "Id": "0xE2", "TechnicalName": "player", "DisplayName": "Морт" }
+        },
+        {
+          "Type": "Dialogue",
+          "Properties": {
+            "Id": "0xD1",
+            "TechnicalName": "ch_test",
+            "DisplayName": "Тестовая глава",
+            "InputPins": [
+              { "Id": "0xD1I", "Owner": "0xD1", "Connections": [ { "Color": "", "Label": "", "TargetPin": "0xF1I", "Target": "0xF1" } ] }
+            ],
+            "OutputPins": [ { "Id": "0xD1O", "Owner": "0xD1" } ]
+          }
+        },
+        {
+          "Type": "DialogueFragment",
+          "Properties": {
+            "Id": "0xF1",
+            "Parent": "0xD1",
+            "Speaker": "0xE1",
+            "Text": "Ты всё-таки пришёл.",
+            "MenuText": "",
+            "StageDirections": "# bg: t.park sprite_url=/content/bg/park.jpg\n# style: whisper",
+            "InputPins": [ { "Id": "0xF1I", "Owner": "0xF1", "Text": "" } ],
+            "OutputPins": [ { "Id": "0xF1O", "Owner": "0xF1", "Text": "", "Connections": [ { "TargetPin": "0xF2I", "Target": "0xF2" } ] } ]
+          }
+        },
+        {
+          "Type": "DialogueFragment",
+          "Properties": {
+            "Id": "0xF2",
+            "Parent": "0xD1",
+            "Speaker": "0xE2",
+            "Text": "Что ответить?",
+            "MenuText": "",
+            "StageDirections": "",
+            "InputPins": [ { "Id": "0xF2I", "Owner": "0xF2", "Text": "" } ],
+            "OutputPins": [
+              { "Id": "0xF2O", "Owner": "0xF2", "Text": "", "Connections": [
+                { "TargetPin": "0xC1I", "Target": "0xC1" },
+                { "TargetPin": "0xC2I", "Target": "0xC2" }
+              ] }
+            ]
+          }
+        },
+        {
+          "Type": "DialogueFragment",
+          "Properties": {
+            "Id": "0xC1",
+            "Parent": "0xD1",
+            "Speaker": "0xE2",
+            "Text": "Я скажу правду.",
+            "MenuText": "Сказать правду (10 soft)",
+            "StageDirections": "",
+            "InputPins": [ { "Id": "0xC1I", "Owner": "0xC1", "Text": "vars.courage >= 0" } ],
+            "OutputPins": [ { "Id": "0xC1O", "Owner": "0xC1", "Text": "vars.met = true;", "Connections": [ { "TargetPin": "0xH1I", "Target": "0xH1" } ] } ]
+          }
+        },
+        {
+          "Type": "DialogueFragment",
+          "Properties": {
+            "Id": "0xC2",
+            "Parent": "0xD1",
+            "Speaker": "0xE2",
+            "Text": "",
+            "MenuText": "Промолчать",
+            "StageDirections": "",
+            "InputPins": [ { "Id": "0xC2I", "Owner": "0xC2", "Text": "" } ],
+            "OutputPins": [ { "Id": "0xC2O", "Owner": "0xC2", "Text": "", "Connections": [ { "TargetPin": "0xH1I", "Target": "0xH1" } ] } ]
+          }
+        },
+        {
+          "Type": "Hub",
+          "Properties": {
+            "Id": "0xH1",
+            "Parent": "0xD1",
+            "TechnicalName": "after_answer",
+            "DisplayName": "после ответа",
+            "InputPins": [ { "Id": "0xH1I", "Owner": "0xH1", "Text": "" } ],
+            "OutputPins": [ { "Id": "0xH1O", "Owner": "0xH1", "Text": "", "Connections": [ { "TargetPin": "0xI1I", "Target": "0xI1" } ] } ]
+          }
+        },
+        {
+          "Type": "Instruction",
+          "Properties": {
+            "Id": "0xI1",
+            "Parent": "0xD1",
+            "Expression": "vars.courage += 1;",
+            "InputPins": [ { "Id": "0xI1I", "Owner": "0xI1", "Text": "" } ],
+            "OutputPins": [ { "Id": "0xI1O", "Owner": "0xI1", "Text": "", "Connections": [ { "TargetPin": "0xK1I", "Target": "0xK1" } ] } ]
+          }
+        },
+        {
+          "Type": "Condition",
+          "Properties": {
+            "Id": "0xK1",
+            "Parent": "0xD1",
+            "Expression": "vars.courage >= 1 && vars.met",
+            "InputPins": [ { "Id": "0xK1I", "Owner": "0xK1", "Text": "" } ],
+            "OutputPins": [
+              { "Id": "0xK1T", "Owner": "0xK1", "Text": "", "Connections": [ { "TargetPin": "0xF3I", "Target": "0xF3" } ] },
+              { "Id": "0xK1F", "Owner": "0xK1", "Text": "", "Connections": [ { "TargetPin": "0xJ1I", "Target": "0xJ1" } ] }
+            ]
+          }
+        },
+        {
+          "Type": "DialogueFragment",
+          "Properties": {
+            "Id": "0xF3",
+            "Parent": "0xD1",
+            "Speaker": "0xE1",
+            "Text": "Идём. Дальше — вместе.",
+            "MenuText": "",
+            "StageDirections": "# fade: black 0.8",
+            "InputPins": [ { "Id": "0xF3I", "Owner": "0xF3", "Text": "" } ],
+            "OutputPins": [ { "Id": "0xF3O", "Owner": "0xF3", "Text": "", "Connections": [ { "TargetPin": "0xD1O", "Target": "0xD1" } ] } ]
+          }
+        },
+        {
+          "Type": "Jump",
+          "Properties": {
+            "Id": "0xJ1",
+            "Parent": "0xD1",
+            "Target": "0xF3",
+            "TargetPin": "0xF3I",
+            "InputPins": [ { "Id": "0xJ1I", "Owner": "0xJ1", "Text": "" } ],
+            "OutputPins": []
+          }
+        }
+      ]
+    }
+  ]
+}

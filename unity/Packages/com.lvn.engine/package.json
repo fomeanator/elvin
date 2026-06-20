@@ -1,0 +1,29 @@
+{
+  "name": "com.lvn.engine",
+  "version": "0.1.0",
+  "displayName": "LVN Engine",
+  "description": "An open visual-novel runtime that plays the .lvn container format. Drop it in, point an LvnPlayer at a .lvn, implement ILvnStage to render. 'ffmpeg for visual novels.'",
+  "unity": "2021.3",
+  "license": "MIT",
+  "keywords": [
+    "visual-novel",
+    "narrative",
+    "ink",
+    "articy",
+    "lvn"
+  ],
+  "author": {
+    "name": "fomeanator",
+    "url": "https://github.com/fomeanator/unity-lvn-vn-engine"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "samples": [
+    {
+      "displayName": "Hello LVN",
+      "description": "A tiny .lvn and a console host that plays it.",
+      "path": "Samples~/HelloLvn"
+    }
+  ]
+}

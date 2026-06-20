@@ -1,0 +1,151 @@
+{
+  "scene": "hello",
+  "script": [
+    {
+      "label": "porch",
+      "op": "goto"
+    },
+    {
+      "id": "porch",
+      "op": "label"
+    },
+    {
+      "id": "porch",
+      "op": "bg",
+      "sprite_url": "/content/bg/porch.jpg"
+    },
+    {
+      "duration": 0.6,
+      "op": "fade",
+      "to": "clear"
+    },
+    {
+      "op": "say",
+      "text": "Rain ticked on the porch roof.",
+      "who": null
+    },
+    {
+      "id": "mara",
+      "op": "actor",
+      "position": "left",
+      "show": true,
+      "sprite_url": "/content/actors/mara.png"
+    },
+    {
+      "op": "say",
+      "text": "You came back.",
+      "who": "Mara"
+    },
+    {
+      "op": "say",
+      "text": "I wasn't sure you would.",
+      "who": "Mara"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "expr": "__porch_once1 == 0",
+          "goto": "__porch_c3",
+          "text": "I did."
+        },
+        {
+          "expr": "__porch_once2 == 0",
+          "goto": "__porch_c4",
+          "text": "I can't stay."
+        }
+      ]
+    },
+    {
+      "id": "__porch_c3",
+      "op": "label"
+    },
+    {
+      "key": "__porch_once1",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "by": 1,
+      "key": "warmth",
+      "op": "inc"
+    },
+    {
+      "emotion": "smile",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Then come in out of the rain.",
+      "who": "Mara"
+    },
+    {
+      "label": "inside",
+      "op": "goto"
+    },
+    {
+      "id": "__porch_c4",
+      "op": "label"
+    },
+    {
+      "key": "__porch_once2",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "label": "leave",
+      "op": "goto"
+    },
+    {
+      "id": "inside",
+      "op": "label"
+    },
+    {
+      "on": false,
+      "op": "particles",
+      "type": "rain"
+    },
+    {
+      "op": "say",
+      "text": "The kettle's still warm.",
+      "who": "Mara"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "leave",
+      "op": "label"
+    },
+    {
+      "by": 1,
+      "key": "__seen_leave",
+      "op": "inc"
+    },
+    {
+      "op": "hint",
+      "show": true,
+      "text": "Some doors don't open twice."
+    },
+    {
+      "op": "say",
+      "text": "She watched the dark take you back.",
+      "who": "Mara"
+    },
+    {
+      "duration": 0.8,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "__end",
+      "op": "label"
+    }
+  ]
+}

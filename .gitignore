@@ -1,0 +1,27 @@
+# Go
+*.exe
+/tools/lvnconv/lvnconv
+/server/server
+bin/
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]serSettings/
+*.csproj
+*.sln
+*.unityproj
+.vs/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local
+*.local
+/tmp/
