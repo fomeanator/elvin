@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     {
         private readonly CarouselConfig _cfg;
         private readonly ILvnAssets _assets;
-        private readonly IReadOnlyList<LvnTitle> _titles;
+        private IReadOnlyList<LvnTitle> _titles;
 
         private readonly VisualElement _viewport;
         private readonly VisualElement _strip;
@@ -36,6 +36,8 @@ namespace Lvn.UI.Screens
         private int _index;
         private bool _dragging;
         private float _dragStartX, _dragStartOffset;
+        private bool _pendingPlay;      // latched RequestPlay fired before the shell subscribed
+        private int _pendingPlayIdx;
 
         public int Index => _index;
         public LvnTitle Current => (_titles != null && _index >= 0 && _index < _titles.Count) ? _titles[_index] : null;
@@ -56,7 +58,7 @@ namespace Lvn.UI.Screens
             _dotColor = UiColor.Parse(_cfg.dot_color, new Color(1f, 1f, 1f, 0.33f));
             _dotActiveColor = UiColor.Parse(_cfg.dot_active_color, new Color(0.96f, 0.93f, 0.85f));
 
-            Fill(this);
+            ScreenUi.Stretch(this);
             style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
 
             _viewport = new VisualElement();
@@ -74,9 +76,6 @@ namespace Lvn.UI.Screens
             _strip.style.alignItems = Align.Center;
             _viewport.Add(_strip);
 
-            for (int i = 0; i < _titles.Count; i++)
-                _strip.Add(BuildCard(_titles[i]));
-
             // page dots
             _dots = new VisualElement();
             _dots.style.position = Position.Absolute;
@@ -86,17 +85,8 @@ namespace Lvn.UI.Screens
             _dots.style.justifyContent = Justify.Center;
             _dots.pickingMode = PickingMode.Ignore;
             Add(_dots);
-            for (int i = 0; i < _titles.Count; i++)
-            {
-                var dot = new VisualElement();
-                dot.style.width = 10; dot.style.height = 10;
-                dot.style.marginLeft = 5; dot.style.marginRight = 5;
-                dot.style.borderTopLeftRadius = 5; dot.style.borderTopRightRadius = 5;
-                dot.style.borderBottomLeftRadius = 5; dot.style.borderBottomRightRadius = 5;
-                dot.style.backgroundColor = i == 0 ? _dotActiveColor : _dotColor;
-                _dots.Add(dot);
-                _dotEls.Add(dot);
-            }
+
+            BuildDeck();
 
             // Play button
             var play = new Button { text = _cfg.play_text ?? "Play" };
@@ -125,6 +115,65 @@ namespace Lvn.UI.Screens
         /// Play) — for automation, tests, or a keyboard/gamepad binding.</summary>
         public void Play() => OnPlay?.Invoke(_index);
 
+        /// <summary>Race-free programmatic play for auto-start / deep-linking into a
+        /// title. Unlike <see cref="Play"/>, this never drops the request when fired
+        /// before the shell hands control to the carousel (e.g. during the boot
+        /// splash, when <see cref="OnPlay"/> has no subscriber yet): the request is
+        /// latched and delivered the moment the shell starts waiting.</summary>
+        public void RequestPlay(int index)
+        {
+            int n = _titles?.Count ?? 0;
+            _index = n > 0 ? new CarouselSnap(_stride, n).Clamp(index) : 0;
+            if (OnPlay != null) OnPlay.Invoke(_index);
+            else { _pendingPlay = true; _pendingPlayIdx = _index; }
+        }
+
+        /// <summary>Drain a latched <see cref="RequestPlay"/>, if any. The shell calls
+        /// this right after subscribing so an early request is honoured exactly once.</summary>
+        public bool TryConsumePendingPlay(out int index)
+        {
+            index = _pendingPlayIdx;
+            if (!_pendingPlay) return false;
+            _pendingPlay = false;
+            return true;
+        }
+
+        /// <summary>Replace the deck with a new title list (live content update) —
+        /// rebuilds the cards and dots, keeps the selected index where possible,
+        /// and re-lays out. Lets the carousel react to a manifest change without a
+        /// full screen rebuild.</summary>
+        public void SetTitles(IReadOnlyList<LvnTitle> titles)
+        {
+            _titles = titles ?? new List<LvnTitle>();
+            BuildDeck();
+            _index = new CarouselSnap(_stride, _titles.Count).Clamp(_index);
+            Relayout();
+            UpdateDots();
+            OnIndexChanged?.Invoke(_index);
+        }
+
+        // (Re)builds the card strip and the page dots from the current title list.
+        private void BuildDeck()
+        {
+            _strip.Clear();
+            for (int i = 0; i < _titles.Count; i++)
+                _strip.Add(BuildCard(_titles[i]));
+
+            _dots.Clear();
+            _dotEls.Clear();
+            for (int i = 0; i < _titles.Count; i++)
+            {
+                var dot = new VisualElement();
+                dot.style.width = 10; dot.style.height = 10;
+                dot.style.marginLeft = 5; dot.style.marginRight = 5;
+                dot.style.borderTopLeftRadius = 5; dot.style.borderTopRightRadius = 5;
+                dot.style.borderBottomLeftRadius = 5; dot.style.borderBottomRightRadius = 5;
+                dot.style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
+                _dots.Add(dot);
+                _dotEls.Add(dot);
+            }
+        }
+
         /// <summary>Snap to a card index (clamped), animating the deck.</summary>
         public void SetIndex(int index, bool animate = true)
         {
@@ -135,7 +184,12 @@ namespace Lvn.UI.Screens
             OnIndexChanged?.Invoke(_index);
         }
 
-        private void OnGeometry(GeometryChangedEvent _)
+        private void OnGeometry(GeometryChangedEvent _) => Relayout();
+
+        // Sizes the cards in pixels and centres the deck on the current index.
+        // Safe to call any time the viewport has a resolved width (else the
+        // GeometryChanged callback re-runs it once layout settles).
+        private void Relayout()
         {
             float w = _viewport.resolvedStyle.width;
             if (w <= 1f) return;
@@ -175,7 +229,7 @@ namespace Lvn.UI.Screens
             cover.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             cover.pickingMode = PickingMode.Ignore;
             card.Add(cover);
-            _ = AssignBg(cover, t?.cover_url);
+            _ = ScreenUi.AssignBgAsync(cover, t?.cover_url, _assets);
 
             var caption = new VisualElement();
             caption.style.paddingLeft = 18; caption.style.paddingRight = 18;
@@ -247,24 +301,6 @@ namespace Lvn.UI.Screens
         {
             for (int i = 0; i < _dotEls.Count; i++)
                 _dotEls[i].style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
-        }
-
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { }
-        }
-
-        private static VisualElement Fill(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
-            return el;
         }
     }
 }

@@ -1,0 +1,12 @@
+scene last-guest-ch2
+actor_map Mara=mara
+
+The chapter opens here.
+Mara: Hello.
+
+- Continue -> next
+- Leave -> __end
+
+:next
+Mara [smile]: Glad you stayed.
+goto __end

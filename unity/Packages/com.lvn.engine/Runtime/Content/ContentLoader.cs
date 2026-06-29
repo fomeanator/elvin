@@ -29,6 +29,11 @@ namespace Lvn.Content
     public class ContentLoader
     {
         private readonly string _baseUrl;
+        // True when the content origin is a local bundle (file:// on desktop, or
+        // jar:file:// for Android StreamingAssets). Local reads are always
+        // available — they skip the offline gate and the ?v= cache-buster (which
+        // would corrupt a file path), so an exported game plays with no server.
+        private readonly bool _local;
         private readonly string _cacheRoot;
         private readonly string _scriptCacheDir;
         private readonly string _assetCacheDir;
@@ -61,10 +66,18 @@ namespace Lvn.Content
         // Fast-fail when we already know we're offline: skip the wire entirely so
         // callers fall straight back to the on-disk cache. Code "network" →
         // callers/retry-loops treat it as a connectivity miss.
-        private static void ThrowIfOffline()
+        private void ThrowIfOffline()
         {
+            if (_local) return; // local bundle is always available
             if (LvnNetworkStatus.IsOffline)
                 throw new LvnFetchException(0, "network", "offline (global status)");
+        }
+
+        // MarkOffline only when reading from a real network origin; a missing
+        // local file must not poison the global offline status.
+        private void MarkOfflineUnlessLocal(string reason)
+        {
+            if (!_local) LvnNetworkStatus.MarkOffline(reason);
         }
 
         // Dedup tracker for in-flight fetches. Key = url, value = the running
@@ -140,12 +153,50 @@ namespace Lvn.Content
         public ContentLoader(string baseUrl, string cacheRoot = null)
         {
             _baseUrl = (baseUrl ?? "").TrimEnd('/');
+            _local = _baseUrl.StartsWith("file://") || _baseUrl.StartsWith("jar:");
             cacheRoot ??= Path.Combine(Application.persistentDataPath, "cache");
             _cacheRoot = cacheRoot;
             _scriptCacheDir = Path.Combine(cacheRoot, "scripts");
             _assetCacheDir = Path.Combine(cacheRoot, "assets");
             Directory.CreateDirectory(_scriptCacheDir);
             Directory.CreateDirectory(_assetCacheDir);
+        }
+
+        /// <summary>Lightweight connectivity probe: GET <c>&lt;baseUrl&gt;/healthz</c>.
+        /// Returns true and marks the process online on a 2xx; returns false on any
+        /// error, non-2xx or cancellation WITHOUT flipping the global flag (the
+        /// caller decides whether to <see cref="LvnNetworkStatus.MarkOffline"/>), so
+        /// a cancelled probe never poisons a still-good connection. A local
+        /// (<c>file://</c>) origin is always reachable → true.
+        ///
+        /// <para>Pass a token with a hard deadline (e.g. <c>CancelAfter(3s)</c>):
+        /// <c>UnityWebRequest.timeout</c> alone doesn't reliably interrupt a stall at
+        /// DNS/TLS setup (a dead VPN), so the loop aborts on the token instead — the
+        /// difference between an instant offline fallback and a ~30s boot hang.</para></summary>
+        public async Task<bool> HealthzAsync(string path = "/healthz", CancellationToken ct = default)
+        {
+            if (_local) return true;
+            try
+            {
+                using var req = UnityWebRequest.Get(ResolveUrl(path));
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.timeout = RequestTimeoutSeconds;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                req.certificateHandler = new AcceptAllCertificates();
+#endif
+                var op = req.SendWebRequest();
+                while (!op.isDone)
+                {
+                    if (ct.IsCancellationRequested) { req.Abort(); return false; }
+                    await Task.Yield();
+                }
+                bool ok = req.result is not (UnityWebRequest.Result.ConnectionError
+                                          or UnityWebRequest.Result.DataProcessingError)
+                          && req.responseCode is >= 200 and < 300;
+                if (ok) LvnNetworkStatus.MarkOnline("healthz ok");
+                return ok;
+            }
+            catch { return false; }
         }
 
         /// <summary>Fetches the server's content-version index (path → sha256) and
@@ -651,7 +702,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    LvnNetworkStatus.MarkOffline("content fetch network error");
+                    MarkOfflineUnlessLocal("content fetch network error");
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -695,7 +746,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    LvnNetworkStatus.MarkOffline("content fetch network error");
+                    MarkOfflineUnlessLocal("content fetch network error");
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -748,20 +799,29 @@ namespace Lvn.Content
             catch { return false; }
         }
 
+        /// <summary>True when the content origin is a local bundle (StreamingAssets
+        /// via file://). For the offline policy this means everything is "cached"
+        /// and always reachable, so a bundled build lands on ReadyFromCache.</summary>
+        public bool IsLocal => _local;
+
         /// <summary>True if the version-pinned script for <paramref name="scriptUrl"/>
-        /// is on disk. Pure disk check (no network) — used by the offline policy.</summary>
+        /// is on disk. Pure disk check (no network) — used by the offline policy.
+        /// A local bundle is authoritative and complete, so it always reports true.</summary>
         public bool IsScriptCached(string scriptUrl)
         {
             if (string.IsNullOrEmpty(scriptUrl)) return false;
+            if (_local) return true;
             try { return File.Exists(CachePath(_scriptCacheDir, scriptUrl, ".txt")); }
             catch { return false; }
         }
 
         /// <summary>True if the asset bytes for <paramref name="url"/> are on disk
-        /// under the current version key. Pure disk check (no network).</summary>
+        /// under the current version key. Pure disk check (no network). A local
+        /// bundle reports true (the asset ships inside the build).</summary>
         public bool IsAssetCached(string url)
         {
             if (string.IsNullOrEmpty(url)) return false;
+            if (_local) return true;
             try { return File.Exists(CachePath(_assetCacheDir, url, ".bin")); }
             catch { return false; }
         }
@@ -897,7 +957,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    LvnNetworkStatus.MarkOffline("content fetch network error");
+                    MarkOfflineUnlessLocal("content fetch network error");
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -1037,7 +1097,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    LvnNetworkStatus.MarkOffline("content fetch network error");
+                    MarkOfflineUnlessLocal("content fetch network error");
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -1059,6 +1119,8 @@ namespace Lvn.Content
                 if (!url.StartsWith("/")) url = "/" + url;
                 full = _baseUrl + url;
             }
+            // A local bundle reads files by path — a ?v= query would corrupt it.
+            if (_local) return full;
             // Append the content version as a query param so the device's HTTP
             // cache treats each asset version as a distinct immutable resource.
             var ver = VersionFor(url);

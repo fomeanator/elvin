@@ -30,11 +30,11 @@ namespace Lvn.UI.Screens
             _hold = _cfg.hold_seconds ?? 2.5f;
             _fade = _cfg.fade_seconds ?? 0.6f;
 
-            FullScreen(this);
+            ScreenUi.Stretch(this);
             style.opacity = 0f;
             pickingMode = PickingMode.Ignore;
 
-            _fog = FullScreen(new VisualElement());
+            _fog = ScreenUi.Stretch(new VisualElement());
             _fog.style.opacity = 0f;
             Add(_fog);
 
@@ -63,8 +63,8 @@ namespace Lvn.UI.Screens
             _subtitle.style.marginTop = 12;
             _card.Add(_subtitle);
 
-            _ = AssignBg(_fog, _cfg.fog_url);
-            _ = AssignBg(_card, _cfg.frame_url);
+            _ = ScreenUi.AssignBgAsync(_fog, _cfg.fog_url, _assets);
+            _ = ScreenUi.AssignBgAsync(_card, _cfg.frame_url, _assets);
         }
 
         /// <summary>Set the two lines. Either may be null/empty to hide it.</summary>
@@ -100,27 +100,6 @@ namespace Lvn.UI.Screens
         {
             style.opacity = 0f;
             style.display = DisplayStyle.None;
-        }
-
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { /* missing art is non-fatal */ }
-        }
-
-        private static VisualElement FullScreen(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0;
-            el.style.right = 0;
-            el.style.top = 0;
-            el.style.bottom = 0;
-            return el;
         }
     }
 }

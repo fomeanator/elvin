@@ -14,6 +14,7 @@ namespace Lvn.UI
     public sealed class DialogueBox : VisualElement
     {
         private readonly VnTheme _theme;
+        private readonly VisualElement _box;
         private readonly VisualElement _plate;
         private readonly VisualElement _panel;
         private readonly Label _speaker;
@@ -31,50 +32,124 @@ namespace Lvn.UI
         {
             _theme = theme ?? new VnTheme();
 
+            var align = string.IsNullOrEmpty(_theme.BoxAlign) ? "stretch" : _theme.BoxAlign;
+            // The box is a universal popup. Three placement modes, decided by theme:
+            //  • free  — any x/y given: positioned absolutely anywhere on screen, the
+            //            given anchor point of the box landing on (x,y). Full control.
+            //  • NVL   — a tall full-width reading surface from a top inset.
+            //  • dock  — bottom-docked; BoxAlign sets the horizontal placement
+            //            (stretch bar / centre / left / right), hugging the text.
+            bool free = !_theme.Nvl && (_theme.BoxXPercent >= 0f || _theme.BoxYPercent >= 0f);
+            bool stretch = _theme.Nvl || (!free && align == "stretch");
+
+            // The root is a full-screen, click-through canvas; the box lives inside it.
             style.position = Position.Absolute;
-            style.left = 0;
-            style.right = 0;
-            style.bottom = 0;
-            style.paddingLeft = 24;
-            style.paddingRight = 24;
-            style.paddingBottom = 28;
+
+            _box = new VisualElement { name = "vn-box" };
+            _box.style.flexDirection = FlexDirection.Column;
+
+            if (free)
+            {
+                style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+                _box.style.position = Position.Absolute;
+                _box.style.left = Length.Percent(Mathf.Clamp(_theme.BoxXPercent >= 0f ? _theme.BoxXPercent : 50f, 0f, 100f));
+                _box.style.top = Length.Percent(Mathf.Clamp(_theme.BoxYPercent >= 0f ? _theme.BoxYPercent : 50f, 0f, 100f));
+                var (tx, ty) = AnchorTranslate(_theme.BoxAnchor);
+                _box.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
+            }
+            else if (_theme.Nvl)
+            {
+                // NVL: stretch from a top inset to the bottom as a tall reading surface.
+                style.left = 0; style.right = 0; style.bottom = 0;
+                style.top = Length.Percent(Mathf.Clamp01(_theme.NvlTop) * 100f);
+                style.paddingLeft = _theme.EdgePadding;
+                style.paddingRight = _theme.EdgePadding;
+                style.paddingTop = _theme.EdgePadding;
+                style.paddingBottom = _theme.BottomPadding;
+                _box.style.flexGrow = 1;
+            }
+            else
+            {
+                style.left = 0; style.right = 0; style.bottom = 0;
+                style.paddingLeft = _theme.EdgePadding;
+                style.paddingRight = _theme.EdgePadding;
+                style.paddingBottom = _theme.BottomPadding;
+                // alignItems places the box across the screen width.
+                style.alignItems = stretch ? Align.Stretch
+                    : align == "center" ? Align.Center
+                    : align == "right" ? Align.FlexEnd
+                    : Align.FlexStart;
+                if (stretch) _box.style.flexGrow = 1;
+            }
+
+            // Box width/height (skipped for stretch & NVL, which fill their region):
+            // The box has a FIXED width (it does NOT shrink to the text) — width =
+            // BoxWidthPercent, else BoxMaxWidthPercent, else a sensible default. The
+            // HEIGHT grows with the text (flex content height over PanelMinHeight),
+            // so a long line makes the box taller, not wider. BoxMaxHeightPercent caps
+            // that growth (the body clamps/scrolls beyond it).
+            if (!stretch && !_theme.Nvl)
+            {
+                float w = _theme.BoxWidthPercent > 0f ? _theme.BoxWidthPercent
+                        : _theme.BoxMaxWidthPercent > 0f ? _theme.BoxMaxWidthPercent
+                        : 80f;
+                _box.style.width = Length.Percent(Mathf.Clamp(w, 5f, 100f));
+                if (_theme.BoxMaxHeightPercent > 0f)
+                    _box.style.maxHeight = Length.Percent(Mathf.Clamp(_theme.BoxMaxHeightPercent, 5f, 100f));
+            }
+            Add(_box);
 
             // Nameplate (hidden for narration).
             _plate = new VisualElement { name = "vn-plate" };
             _plate.style.alignSelf = Align.FlexStart;
             _plate.style.backgroundColor = _theme.PanelColor;
-            _plate.style.paddingLeft = 14;
-            _plate.style.paddingRight = 14;
-            _plate.style.paddingTop = 4;
-            _plate.style.paddingBottom = 4;
+            _plate.style.paddingLeft = _theme.NamePaddingX;
+            _plate.style.paddingRight = _theme.NamePaddingX;
+            _plate.style.paddingTop = _theme.NamePaddingY;
+            _plate.style.paddingBottom = _theme.NamePaddingY;
             _plate.style.marginBottom = -2;
             SetCorner(_plate, _theme.PanelCornerRadius * 0.6f, top: true, bottom: false);
+            UiStyle.ApplyBackground(_plate, _theme.PlateSprite, _theme.PanelSlice);
             _speaker = new Label { name = "vn-speaker" };
             _speaker.style.color = _theme.SpeakerColor;
             _speaker.style.fontSize = _theme.SpeakerFontSize;
             _speaker.style.unityFontStyleAndWeight = FontStyle.Bold;
             if (_theme.Font != null) _speaker.style.unityFont = new StyleFont(_theme.Font);
             _plate.Add(_speaker);
-            Add(_plate);
+            _box.Add(_plate);
 
             // Body panel.
             _panel = new VisualElement { name = "vn-panel" };
             _panel.style.backgroundColor = _theme.PanelColor;
-            _panel.style.paddingLeft = 22;
-            _panel.style.paddingRight = 22;
-            _panel.style.paddingTop = 18;
-            _panel.style.paddingBottom = 18;
-            _panel.style.minHeight = 128;
+            _panel.style.paddingLeft = _theme.PanelPaddingX;
+            _panel.style.paddingRight = _theme.PanelPaddingX;
+            _panel.style.paddingTop = _theme.PanelPaddingY;
+            _panel.style.paddingBottom = _theme.PanelPaddingY;
+            _panel.style.minHeight = _theme.PanelMinHeight;
+            if (_theme.Nvl) _panel.style.flexGrow = 1; // fill the tall NVL region
             SetCorner(_panel, _theme.PanelCornerRadius, top: true, bottom: true);
+            UiStyle.ApplyBackground(_panel, _theme.PanelSprite, _theme.PanelSlice);
             _body = new Label { name = "vn-body" };
             _body.style.color = _theme.TextColor;
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.whiteSpace = WhiteSpace.Normal;
             if (_theme.Font != null) _body.style.unityFont = new StyleFont(_theme.Font);
             _panel.Add(_body);
-            Add(_panel);
+            _box.Add(_panel);
 
             pickingMode = PickingMode.Ignore; // the host root owns tap-to-advance
+        }
+
+        /// <summary>Translate fractions for an anchor keyword so the box's (x,y)
+        /// positions <em>that</em> point of the box: <c>center</c> → -50%,
+        /// <c>right</c>/<c>bottom</c> → -100%, <c>left</c>/<c>top</c> → 0. Accepts
+        /// combos like <c>"bottom-center"</c>, <c>"top-left"</c>, <c>"center"</c>.</summary>
+        private static (float tx, float ty) AnchorTranslate(string anchor)
+        {
+            string a = string.IsNullOrEmpty(anchor) ? "center" : anchor.ToLowerInvariant();
+            float tx = a.Contains("left") ? 0f : a.Contains("right") ? -100f : -50f;
+            float ty = a.Contains("top") ? 0f : a.Contains("bottom") ? -100f : -50f;
+            return (tx, ty);
         }
 
         /// <summary>Set the speaker name; empty/null hides the nameplate.</summary>

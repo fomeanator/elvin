@@ -1,0 +1,132 @@
+{
+  "scene": "codel-demo",
+  "script": [
+    {
+      "id": "backdrop",
+      "op": "bg",
+      "sprite_url": "/content/bg/Andrey_mothers_house_inside_day.jpg"
+    },
+    {
+      "emotion": "neutral",
+      "id": "codel",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "emotion": "neutral",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Привет. Я Codel — настоящий персонаж, скачанный из интернетаыфв.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "happy",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "А эмоции переключаются прямо из скрипта: вот я радуюсь.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "serious",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Теперь серьёзна.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "annoyed",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Немного раздражена.",
+      "who": "Codel"
+    },
+    {
+      "op": "say",
+      "text": "Привет",
+      "who": "..."
+    },
+    {
+      "emotion": "pout",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Надулас",
+      "who": "Codel"
+    },
+    {
+      "emotion": "sad",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Грустно…",
+      "who": "Codel"
+    },
+    {
+      "emotion": "worried",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Беспокоюсь.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "nervous",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Нервничаю!",
+      "who": "Codel"
+    },
+    {
+      "emotion": "shy",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Засмущалась.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "flustered",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Совсем растерялась.",
+      "who": "Codel"
+    },
+    {
+      "emotion": "happy",
+      "id": "codel",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Всё это — одна команда actor с осью emotion. Каталог заполнен автоматически.",
+      "who": "Codel"
+    }
+  ]
+}

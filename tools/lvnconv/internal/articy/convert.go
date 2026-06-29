@@ -327,6 +327,11 @@ func (g *gen) emitFragment(n *node) (string, error) {
 
 	if text := strings.TrimSpace(prop(n.props, "Text")); text != "" {
 		say := Cmd{"op": "say", "who": g.speaker(n), "text": text}
+		// A reimport-stable line id (when the front-end supplies one): saves,
+		// analytics and the localization catalog key off it, not off the text.
+		if sid := prop(n.props, "StableId"); sid != "" {
+			say["id"] = sid
+		}
 		for k, v := range sayExtras {
 			say[k] = v
 		}
@@ -393,6 +398,9 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 		}
 		opt := Cmd{"goto": g.labelFor(tn)} // reserves the label → branch gets it on emission
 		parseOptionTails(opt, menu)
+		if sid := prop(tn.props, "StableId"); sid != "" {
+			opt["id"] = sid // reimport-stable option id (localization/analytics key)
+		}
 		if cond := strings.TrimSpace(tn.inText); cond != "" {
 			opt["expr"] = cleanExpr(cond)
 		}

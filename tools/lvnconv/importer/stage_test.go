@@ -1,0 +1,197 @@
+package importer
+
+import (
+	"testing"
+
+	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+)
+
+func ops(s []articy.Cmd) []string {
+	out := make([]string, len(s))
+	for i, c := range s {
+		out[i], _ = c["op"].(string)
+	}
+	return out
+}
+
+func countOp(s []articy.Cmd, op string) int {
+	n := 0
+	for _, c := range s {
+		if c["op"] == op {
+			n++
+		}
+	}
+	return n
+}
+
+func TestSlug(t *testing.T) {
+	cases := map[string]string{
+		"Тимур":         "Тимур",
+		"Главный герой": "Главный_герой",
+		"  padded  ":    "padded",
+		"a b c":         "a_b_c",
+	}
+	for in, want := range cases {
+		if got := Slug(in); got != want {
+			t.Errorf("Slug(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// AutoStage turns a scene marker into a bg (dropping the marker line), walks the
+// first art-bearing speaker of each scene on stage, skips narrative roles, and
+// clears the stage when the scene changes.
+func TestAutoStageScenesAndActors(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "text": "Сцена 1. Двор."},
+		{"op": "say", "who": "Тимур", "text": "Привет"},
+		{"op": "say", "who": "Игрок", "text": "..."},   // narrative role → no actor
+		{"op": "say", "who": "Тимур", "text": "Снова"}, // already on stage → no second actor
+		{"op": "say", "text": "Сцена 2. Парк."},
+		{"op": "say", "who": "Тимур", "text": "В парке"},
+	}}
+	cast := map[string]string{"Тимур": "Тимур_Обычный.png", "Игрок": "Игрок.png"}
+
+	AutoStage(doc, cast)
+	got := ops(doc.Script)
+	want := []string{"bg", "actor", "say", "say", "say", "actor", "bg", "actor", "say"}
+	if len(got) != len(want) {
+		t.Fatalf("op sequence = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("op[%d] = %q, want %q (full %v)", i, got[i], want[i], got)
+		}
+	}
+
+	// scene markers became backgrounds and the spoken marker lines were dropped
+	if n := countOp(doc.Script, "bg"); n != 2 {
+		t.Fatalf("want 2 bg, got %d", n)
+	}
+	if doc.Script[0]["id"] != "Двор" || doc.Script[0]["sprite_url"] != "/content/bg/Двор.jpg" {
+		t.Errorf("first bg = %v", doc.Script[0])
+	}
+	for _, c := range doc.Script {
+		if c["op"] == "say" {
+			if txt, _ := c["text"].(string); txt == "Сцена 1. Двор." || txt == "Сцена 2. Парк." {
+				t.Errorf("scene marker survived as a say line: %q", txt)
+			}
+		}
+	}
+
+	// Тимур enters once per scene (re-entering after the clear), Игрок never does.
+	shows, hides := 0, 0
+	for _, c := range doc.Script {
+		if c["op"] != "actor" {
+			continue
+		}
+		if c["id"] == "Игрок" {
+			t.Error("a narrative role was walked on stage")
+		}
+		if c["show"] == true {
+			shows++
+			if c["position"] != "left" {
+				t.Errorf("first slot should be left, got %v", c["position"])
+			}
+			if c["sprite_url"] != "/content/art/Тимур_Обычный.png" {
+				t.Errorf("actor sprite_url = %v", c["sprite_url"])
+			}
+		} else {
+			hides++
+		}
+	}
+	if shows != 2 || hides != 1 {
+		t.Errorf("actor shows=%d hides=%d, want 2/1", shows, hides)
+	}
+}
+
+// Distinct speakers in one scene take successive slots.
+func TestAutoStageSlotRotation(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "text": "Сцена 1. Класс."},
+		{"op": "say", "who": "Тимур", "text": "a"},
+		{"op": "say", "who": "Люба", "text": "b"},
+	}}
+	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
+	AutoStage(doc, cast)
+
+	var positions []string
+	for _, c := range doc.Script {
+		if c["op"] == "actor" && c["show"] == true {
+			positions = append(positions, c["position"].(string))
+		}
+	}
+	if len(positions) != 2 || positions[0] != "left" || positions[1] != "right" {
+		t.Fatalf("slots = %v, want [left right]", positions)
+	}
+}
+
+// Localize moves each line's text into the catalog keyed by its stable id, leaving
+// a text_id reference; a line without an id falls back to keying on its text.
+func TestLocalizeExtractsCatalogByStableId(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Тимур", "text": "Привет", "id": "g-1"},
+		{"op": "say", "text": "Безымянная строка"}, // no id → keyed by its own text
+		{"op": "choice", "options": []any{
+			articy.Cmd{"goto": "a", "text": "Вариант А", "id": "g-2"},
+			articy.Cmd{"goto": "b", "text": "Вариант Б", "id": "g-3"},
+		}},
+	}}
+
+	cat := Localize(doc)
+
+	if cat["g-1"] != "Привет" || cat["g-2"] != "Вариант А" || cat["g-3"] != "Вариант Б" {
+		t.Fatalf("catalog by stable id wrong: %v", cat)
+	}
+	if cat["Безымянная строка"] != "Безымянная строка" {
+		t.Errorf("id-less line should key on its text: %v", cat)
+	}
+	say := doc.Script[0]
+	if say["text_id"] != "g-1" || say["text"] != nil || say["id"] != nil {
+		t.Errorf("say not rewritten to text_id: %v", say)
+	}
+	opt := doc.Script[2]["options"].([]any)[0].(articy.Cmd)
+	if opt["text_id"] != "g-2" || opt["text"] != nil {
+		t.Errorf("option not rewritten to text_id: %v", opt)
+	}
+	if opt["goto"] != "a" {
+		t.Errorf("option goto must be preserved: %v", opt)
+	}
+}
+
+// The two passes compose: AutoStage reads inline text (scene markers → bg) and
+// Localize then extracts what remains — the ordering bug where localized text hid
+// the scene markers from staging is gone.
+func TestAutoStageThenLocalizeCompose(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "text": "Сцена 1. Двор.", "id": "g-scene"},
+		{"op": "say", "who": "Тимур", "text": "Привет", "id": "g-1"},
+	}}
+	cast := map[string]string{"Тимур": "t.png"}
+
+	AutoStage(doc, cast)
+	if countOp(doc.Script, "bg") != 1 {
+		t.Fatalf("scene marker did not become a bg: %v", ops(doc.Script))
+	}
+	cat := Localize(doc)
+
+	if cat["g-1"] != "Привет" {
+		t.Errorf("dialogue not localized after staging: %v", cat)
+	}
+	for _, c := range doc.Script {
+		if c["op"] == "say" && c["text_id"] == nil {
+			t.Errorf("a say survived without a text_id: %v", c)
+		}
+	}
+}
+
+// A speaker with no art in the cast never gets an actor command.
+func TestAutoStageUnknownSpeakerNoActor(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Незнакомец", "text": "hi"},
+	}}
+	AutoStage(doc, map[string]string{})
+	if countOp(doc.Script, "actor") != 0 {
+		t.Error("unknown speaker should not be staged")
+	}
+}

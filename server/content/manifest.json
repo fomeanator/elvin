@@ -1,0 +1,709 @@
+{
+  "sprites": {
+    "mara": {
+      "anim": {
+        "idle": {
+          "auto": "true",
+          "duration": 3,
+          "loop": true,
+          "tracks": [
+            {
+              "ease": "inOutSine",
+              "keys": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  1.5,
+                  0.012
+                ],
+                [
+                  3,
+                  0
+                ]
+              ],
+              "prop": "y"
+            }
+          ]
+        },
+        "nod": {
+          "duration": 0.6,
+          "loop": false,
+          "tracks": [
+            {
+              "keys": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0.3,
+                  0.03
+                ],
+                [
+                  0.6,
+                  0
+                ]
+              ],
+              "prop": "y"
+            }
+          ]
+        },
+        "wave": {
+          "duration": 0.8,
+          "loop": false,
+          "tracks": [
+            {
+              "ease": "outBack",
+              "keys": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0.2,
+                  -4
+                ],
+                [
+                  0.5,
+                  4
+                ],
+                [
+                  0.8,
+                  0
+                ]
+              ],
+              "prop": "rotation"
+            }
+          ]
+        }
+      },
+      "axes": {
+        "emotion": [
+          "neutral",
+          "happy",
+          "sad"
+        ],
+        "pose": [
+          "standing"
+        ]
+      },
+      "defaults": {
+        "emotion": "happy",
+        "pose": "standing"
+      },
+      "kind": "rigged",
+      "layers": [
+        "/content/sprites/mara/body_{pose}.png",
+        "/content/sprites/mara/face_{emotion}.png"
+      ],
+      "name": "Mara"
+    },
+    "porch": {
+      "layers": [
+        "/content/bg/porch.jpg"
+      ]
+    },
+    "codel": {
+      "name": "Codel",
+      "layers": [
+        {
+          "url": "/content/sprites/codel/{emotion}.png"
+        }
+      ],
+      "defaults": {
+        "emotion": "neutral"
+      },
+      "axes": {
+        "emotion": [
+          "neutral",
+          "happy",
+          "serious",
+          "annoyed",
+          "pout",
+          "sad",
+          "worried",
+          "nervous",
+          "shy",
+          "flustered"
+        ]
+      },
+      "kind": "layered"
+    },
+    "codel_layered": {
+      "name": "Codel (слои)",
+      "layers": [
+        {
+          "url": "/content/sprites/codel_layered/body.png"
+        },
+        {
+          "url": "/content/sprites/codel_layered/face_{emotion}.png",
+          "x": 0.33,
+          "y": 0.095,
+          "w": 0.225,
+          "h": 0.11
+        }
+      ],
+      "defaults": {
+        "emotion": "neutral"
+      },
+      "axes": {
+        "emotion": [
+          "neutral",
+          "happy",
+          "serious",
+          "annoyed",
+          "pout",
+          "sad",
+          "worried",
+          "nervous",
+          "shy",
+          "flustered"
+        ]
+      },
+      "kind": "layered"
+    },
+    "goblin2": {
+      "name": "Гоблин",
+      "kind": "rigged",
+      "layers": [
+        {
+          "id": "body",
+          "url": "/content/sprites/goblin2/{pose}.png"
+        }
+      ],
+      "defaults": {
+        "pose": "idle_0"
+      },
+      "anim": {
+        "attack": {
+          "loop": false,
+          "duration": 0.3,
+          "tracks": [
+            {
+              "layer": "body",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0,
+                  "attack_0"
+                ],
+                [
+                  0.1,
+                  "attack_1"
+                ],
+                [
+                  0.2,
+                  "attack_2"
+                ]
+              ]
+            }
+          ]
+        },
+        "die": {
+          "loop": false,
+          "duration": 1.5,
+          "tracks": [
+            {
+              "layer": "body",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0,
+                  "death_0"
+                ],
+                [
+                  0.08,
+                  "death_1"
+                ],
+                [
+                  0.16,
+                  "death_2"
+                ],
+                [
+                  0.24,
+                  "death_3"
+                ],
+                [
+                  0.32,
+                  "death_4"
+                ],
+                [
+                  0.4,
+                  "death_5"
+                ],
+                [
+                  0.48,
+                  "death_6"
+                ],
+                [
+                  0.56,
+                  "death_7"
+                ],
+                [
+                  0.64,
+                  "death_8"
+                ],
+                [
+                  0.72,
+                  "death_9"
+                ],
+                [
+                  0.8,
+                  "death_10"
+                ],
+                [
+                  0.88,
+                  "death_11"
+                ],
+                [
+                  0.96,
+                  "death_12"
+                ],
+                [
+                  1.04,
+                  "death_13"
+                ],
+                [
+                  1.12,
+                  "death_14"
+                ],
+                [
+                  1.2,
+                  "death_15"
+                ],
+                [
+                  1.28,
+                  "death_16"
+                ],
+                [
+                  1.36,
+                  "death_17"
+                ],
+                [
+                  1.44,
+                  "death_18"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "hero": {
+      "name": "Странник",
+      "kind": "rigged",
+      "layers": [
+        {
+          "id": "body",
+          "url": "/content/sprites/hero/body_{pose}.png"
+        },
+        {
+          "id": "armor",
+          "url": "/content/sprites/hero/armor_{armor}_{pose}.png"
+        },
+        {
+          "id": "weapon",
+          "url": "/content/sprites/hero/weapon_{weapon}_{pose}.png"
+        }
+      ],
+      "axes": {
+        "armor": [
+          "leather",
+          "chain"
+        ],
+        "weapon": [
+          "sword",
+          "heavy"
+        ]
+      },
+      "defaults": {
+        "pose": "walk0"
+      },
+      "anim": {
+        "idle": {
+          "loop": true,
+          "auto": "true",
+          "duration": 0.96,
+          "tracks": [
+            {
+              "layer": "body",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0.0,
+                  "walk0"
+                ],
+                [
+                  0.12,
+                  "walk1"
+                ],
+                [
+                  0.24,
+                  "walk2"
+                ],
+                [
+                  0.36,
+                  "walk3"
+                ],
+                [
+                  0.48,
+                  "walk4"
+                ],
+                [
+                  0.6,
+                  "walk5"
+                ],
+                [
+                  0.72,
+                  "walk6"
+                ],
+                [
+                  0.84,
+                  "walk7"
+                ]
+              ]
+            },
+            {
+              "layer": "armor",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0.0,
+                  "walk0"
+                ],
+                [
+                  0.12,
+                  "walk1"
+                ],
+                [
+                  0.24,
+                  "walk2"
+                ],
+                [
+                  0.36,
+                  "walk3"
+                ],
+                [
+                  0.48,
+                  "walk4"
+                ],
+                [
+                  0.6,
+                  "walk5"
+                ],
+                [
+                  0.72,
+                  "walk6"
+                ],
+                [
+                  0.84,
+                  "walk7"
+                ]
+              ]
+            },
+            {
+              "layer": "weapon",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0.0,
+                  "walk0"
+                ],
+                [
+                  0.12,
+                  "walk1"
+                ],
+                [
+                  0.24,
+                  "walk2"
+                ],
+                [
+                  0.36,
+                  "walk3"
+                ],
+                [
+                  0.48,
+                  "walk4"
+                ],
+                [
+                  0.6,
+                  "walk5"
+                ],
+                [
+                  0.72,
+                  "walk6"
+                ],
+                [
+                  0.84,
+                  "walk7"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "skeleton": {
+      "name": "Скелет",
+      "kind": "rigged",
+      "layers": [
+        {
+          "id": "body",
+          "url": "/content/sprites/skeleton/skel_{pose}.png"
+        }
+      ],
+      "defaults": {
+        "pose": "walk0"
+      },
+      "anim": {
+        "idle": {
+          "loop": true,
+          "auto": "true",
+          "duration": 0.96,
+          "tracks": [
+            {
+              "layer": "body",
+              "prop": "frame",
+              "axis": "pose",
+              "keys": [
+                [
+                  0.0,
+                  "walk0"
+                ],
+                [
+                  0.12,
+                  "walk1"
+                ],
+                [
+                  0.24,
+                  "walk2"
+                ],
+                [
+                  0.36,
+                  "walk3"
+                ],
+                [
+                  0.48,
+                  "walk4"
+                ],
+                [
+                  0.6,
+                  "walk5"
+                ],
+                [
+                  0.72,
+                  "walk6"
+                ],
+                [
+                  0.84,
+                  "walk7"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "titles": [
+    {
+      "cover_url": "/content/ui/cover_last_guest.png",
+      "id": "last-guest",
+      "name": "The Last Guest",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "bg_url": "/content/ui/loading/ch1.png",
+              "id": "lg-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/ch1.lvn"
+            }
+          ]
+        }
+      ],
+      "subtitle": "A dark-fantasy visual novel"
+    },
+    {
+      "cover_url": "/content/bg/Andrey_mothers_house_inside_day.jpg",
+      "id": "engine-showcase",
+      "name": "Escape Room (point-and-click)",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "bg_url": "/content/bg/Andrey_mothers_house_inside_day.jpg",
+              "id": "showcase",
+              "number": 0,
+              "script_url": "/content/scripts/showcase.lvn"
+            }
+          ]
+        }
+      ],
+      "subtitle": "Не новелла: кликабельные хотспоты + состояние"
+    },
+    {
+      "cover_url": "/content/bg/Cemetery.jpg",
+      "id": "soviet",
+      "name": "Советское воспитание",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "bg_url": "/content/bg/Cemetery.jpg",
+              "id": "soviet-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/soviet.lvn"
+            }
+          ]
+        }
+      ],
+      "subtitle": "Импорт из articy"
+    },
+    {
+      "id": "codel-demo",
+      "name": "Codel — демо эмоций",
+      "subtitle": "Реальный персонаж, эмоции из скрипта",
+      "cover_url": "/content/sprites/codel/happy.png",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "codel-demo-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/codel-demo.lvn",
+              "bg_url": "/content/sprites/codel/happy.png"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codel-anim",
+      "name": "Codel — анимации",
+      "subtitle": "Сплайны/твины из языка (.lvns)",
+      "cover_url": "/content/sprites/codel/happy.png",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "codel-anim-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/codel-anim-demo.lvn",
+              "bg_url": "/content/bg/Andrey_mothers_house_inside_day.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "strandgade",
+      "name": "Особняк на Страндгаде",
+      "subtitle": "Детектив-квест · 3 комнаты, инвентарь, код",
+      "cover_url": "/content/bg/hh_room2.jpg",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "strandgade-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/strandgade.lvn",
+              "bg_url": "/content/bg/hh_room1.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goblin-battle",
+      "name": "Бой с гоблином",
+      "subtitle": "Пошаговый фэнтези-RPG · HP, меню, защита",
+      "cover_url": "/content/bg/fantasy_forest.jpg",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "goblin-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/goblin-battle.lvn",
+              "bg_url": "/content/bg/fantasy_forest.jpg"
+            }
+          ]
+        }
+      ],
+      "ui": {
+        "dialogue": {
+          "panel_image": "/content/ui/frames/panel.png",
+          "panel_slice": 36,
+          "text_color": "#f1e4c9",
+          "speaker_color": "#e3b24a",
+          "body_size": 36,
+          "panel_padding_x": 30,
+          "panel_padding_y": 24,
+          "x_percent": 50,
+          "anchor": "center",
+          "width_percent": 70,
+          "max_height_percent": 34,
+          "corner_radius": 18,
+          "y_percent": 85
+        },
+        "choices": {
+          "button_image": "/content/ui/frames/button.png",
+          "button_hover_image": "/content/ui/frames/button_hover.png",
+          "button_slice": 28,
+          "text_color": "#f1e4c9",
+          "cost_color": "#e3b24a",
+          "font_size": 30,
+          "padding_y": 16,
+          "spacing": 12,
+          "y_percent": 72,
+          "align": "center"
+        }
+      }
+    },
+    {
+      "id": "rpg-inv",
+      "name": "Тропа героя",
+      "subtitle": "RPG с инвентарём · списки, циклы, лут",
+      "cover_url": "/content/bg/fantasy_forest.jpg",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "rpg-inv-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/rpg-inv.lvn",
+              "bg_url": "/content/bg/fantasy_forest.jpg"
+            }
+          ]
+        }
+      ],
+      "ui": {
+        "dialogue": {
+          "align": "center",
+          "max_width_percent": 74,
+          "panel_image": "/content/ui/frames/panel.png",
+          "panel_slice": 36,
+          "text_color": "#f1e4c9",
+          "speaker_color": "#e3b24a",
+          "corner_radius": 16
+        },
+        "choices": {
+          "button_image": "/content/ui/frames/button.png",
+          "button_hover_image": "/content/ui/frames/button_hover.png",
+          "button_slice": 28,
+          "text_color": "#f1e4c9",
+          "spacing": 10
+        }
+      }
+    }
+  ],
+  "ui": {}
+}

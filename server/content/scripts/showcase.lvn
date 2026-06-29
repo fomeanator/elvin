@@ -1,0 +1,185 @@
+{
+  "scene": "escape-room",
+  "script": [
+    {
+      "id": "room",
+      "op": "bg",
+      "sprite_url": "/content/bg/Andrey_mothers_house_inside_day.jpg"
+    },
+    {
+      "key": "has_key",
+      "op": "set",
+      "value": 0
+    },
+    {
+      "key": "has_code",
+      "op": "set",
+      "value": 0
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "room",
+      "op": "label"
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.18,
+      "id": "drawer",
+      "on_click": "drawer",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/drawer.png",
+      "width": 0.16,
+      "x": 0.2,
+      "y": 0.72
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.2,
+      "id": "painting",
+      "on_click": "painting",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/painting.png",
+      "width": 0.18,
+      "x": 0.5,
+      "y": 0.3
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.17,
+      "id": "safe",
+      "on_click": "safe",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/safe.png",
+      "width": 0.15,
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.3,
+      "id": "door",
+      "on_click": "door",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/door.png",
+      "width": 0.18,
+      "x": 0.82,
+      "y": 0.52
+    },
+    {
+      "op": "say",
+      "text": "комод, картина, сейф, дверь.",
+      "who": "Комната-побег. Кликай по предметам"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "drawer",
+      "op": "label"
+    },
+    {
+      "key": "has_key",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "op": "say",
+      "text": "Ты выдвигаешь комод. Внутри — ключ от двери!"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "painting",
+      "op": "label"
+    },
+    {
+      "key": "has_code",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "op": "say",
+      "text": "451.",
+      "who": "За картиной нацарапан код сейфа"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "safe",
+      "op": "label"
+    },
+    {
+      "else": "safe_locked",
+      "expr": "has_code == 1",
+      "op": "if",
+      "then": "safe_open"
+    },
+    {
+      "id": "safe_open",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "«беги, пока можешь».",
+      "who": "Код 451 подходит. В сейфе — записка"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "safe_locked",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Сейф заперт. На дверце — поле для кода. Где-то он записан."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "door",
+      "op": "label"
+    },
+    {
+      "else": "door_locked",
+      "expr": "has_key == 1",
+      "op": "if",
+      "then": "escaped"
+    },
+    {
+      "id": "door_locked",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Дверь заперта. Нужен ключ."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "escaped",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ключ поворачивается. Дверь открыта — ты на свободе. Конец."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

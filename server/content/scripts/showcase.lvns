@@ -1,0 +1,46 @@
+scene escape-room
+
+// Point-and-click «комната-побег» — НЕ новелла: кликабельные хотспоты (obj +
+// on_click), состояние (set/if) и зацикленный «экран». Тот же движок, что и VN.
+bg id=room sprite_url="/content/bg/Andrey_mothers_house_inside_day.jpg"
+set key="has_key" value=0
+set key="has_code" value=0
+goto room
+
+:room
+// Хотспоты-предметы. Клик по любому уводит на его метку (и гасит тап).
+obj id=drawer   sprite_url="/content/ui/hotspot/drawer.png"   x=0.20 y=0.72 width=0.16 height=0.18 anchor="0.5,0.5" on_click="drawer"
+obj id=painting sprite_url="/content/ui/hotspot/painting.png" x=0.50 y=0.30 width=0.18 height=0.20 anchor="0.5,0.5" on_click="painting"
+obj id=safe     sprite_url="/content/ui/hotspot/safe.png"     x=0.50 y=0.60 width=0.15 height=0.17 anchor="0.5,0.5" on_click="safe"
+obj id=door     sprite_url="/content/ui/hotspot/door.png"     x=0.82 y=0.52 width=0.18 height=0.30 anchor="0.5,0.5" on_click="door"
+Комната-побег. Кликай по предметам: комод, картина, сейф, дверь.
+goto room
+
+:drawer
+set key="has_key" value=1
+Ты выдвигаешь комод. Внутри — ключ от двери!
+goto room
+
+:painting
+set key="has_code" value=1
+За картиной нацарапан код сейфа: 451.
+goto room
+
+:safe
+if expr="has_code == 1" then="safe_open" else="safe_locked"
+:safe_open
+Код 451 подходит. В сейфе — записка: «беги, пока можешь».
+goto room
+:safe_locked
+Сейф заперт. На дверце — поле для кода. Где-то он записан.
+goto room
+
+:door
+if expr="has_key == 1" then="escaped" else="door_locked"
+:door_locked
+Дверь заперта. Нужен ключ.
+goto room
+
+:escaped
+Ключ поворачивается. Дверь открыта — ты на свободе. Конец.
+goto __end

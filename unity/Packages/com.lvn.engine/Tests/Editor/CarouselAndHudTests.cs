@@ -101,6 +101,33 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void TitleCarousel_RequestPlayBeforeSubscribe_IsLatchedThenConsumed()
+        {
+            var titles = new List<LvnTitle>
+            {
+                new LvnTitle { id = "a" }, new LvnTitle { id = "b" }, new LvnTitle { id = "c" },
+            };
+            var c = new TitleCarousel(titles, new CarouselConfig(), new NoAssets());
+            // No OnPlay subscriber yet (mirrors firing during the boot splash).
+            c.RequestPlay(2);
+            Assert.IsTrue(c.TryConsumePendingPlay(out int idx), "early RequestPlay should latch");
+            Assert.AreEqual(2, idx);
+            Assert.IsFalse(c.TryConsumePendingPlay(out _), "latch is consumed exactly once");
+        }
+
+        [Test]
+        public void TitleCarousel_RequestPlayWithSubscriber_FiresImmediatelyAndDoesNotLatch()
+        {
+            var titles = new List<LvnTitle> { new LvnTitle { id = "a" }, new LvnTitle { id = "b" } };
+            var c = new TitleCarousel(titles, new CarouselConfig(), new NoAssets());
+            int fired = -1;
+            c.OnPlay += i => fired = i;
+            c.RequestPlay(1);
+            Assert.AreEqual(1, fired, "with a subscriber RequestPlay fires synchronously");
+            Assert.IsFalse(c.TryConsumePendingPlay(out _), "nothing latched when delivered live");
+        }
+
+        [Test]
         public void GameHud_ProgressAndPills()
         {
             var hud = new GameHud(new HudConfig(), new NoAssets());

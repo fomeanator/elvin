@@ -1,0 +1,96 @@
+scene strandgade
+
+// Мульти-комнатный point-and-click на одном движке: 3 комнаты (фоны — картины
+// Hammershøi, public domain), навигация дверями, инвентарь (переменные),
+// код-головоломка и концовка. Хотспоты — фикс. id h1..h5: в каждой комнате
+// переставляются, лишние show=false (так снимаются хотспоты прошлой комнаты).
+set key="code_found" value=0
+set key="has_key" value=0
+goto hall
+
+// ───────── Комната 1: Гостиная ─────────
+:hall
+bg id=room sprite_url="/content/bg/hh_room1.jpg"
+obj id=h1 sprite_url="/content/ui/markers/book_closed.png"      x=0.30 y=0.45 width=0.12 height=0.12 anchor="0.5,0.5" on_click="books"
+obj id=h2 sprite_url="/content/ui/markers/hexagon_question.png" x=0.64 y=0.34 width=0.10 height=0.10 anchor="0.5,0.5" on_click="window"
+obj id=h3 sprite_url="/content/ui/markers/arrow_right.png"      x=0.90 y=0.50 width=0.10 height=0.10 anchor="0.5,0.5" on_click="mirror_room"
+obj id=h4 sprite_url="/content/ui/markers/hand.png"            x=0.50 y=0.88 width=0.10 height=0.10 anchor="0.5,0.5" on_click="leave_prompt"
+obj id=h5 show=false
+Гостиная. Книжная полка слева, окно справа, дверь дальше по коридору. Снизу — выход на улицу.
+goto hall
+
+:books
+set key="code_found" value=1
+// инвентарь-HUD: иконка-записка появляется в углу и держится во всех комнатах
+obj id=inv_code sprite_url="/content/ui/markers/notepad.png" x=0.09 y=0.07 width=0.085 height=0.085 anchor="0.5,0.5"
+На полях старой книги нацарапаны цифры: 7-2-9. Записал в блокнот (см. угол).
+goto hall
+
+:window
+За окном — пустой двор Страндгаде. Где-то капает вода.
+goto hall
+
+// ───────── Комната 2: Зеркальная ─────────
+:mirror_room
+bg id=room sprite_url="/content/bg/hh_room2.jpg"
+obj id=h1 sprite_url="/content/ui/markers/hexagon_question.png" x=0.46 y=0.30 width=0.10 height=0.10 anchor="0.5,0.5" on_click="mirror"
+obj id=h2 sprite_url="/content/ui/markers/lock_closed.png"      x=0.30 y=0.55 width=0.11 height=0.11 anchor="0.5,0.5" on_click="cabinet"
+obj id=h3 sprite_url="/content/ui/markers/arrow_right.png"      x=0.90 y=0.50 width=0.10 height=0.10 anchor="0.5,0.5" on_click="study"
+obj id=h4 sprite_url="/content/ui/markers/arrow_right.png" flip=true x=0.10 y=0.50 width=0.10 height=0.10 anchor="0.5,0.5" on_click="hall"
+obj id=h5 show=false
+Зеркальная комната. Шкаф с кодовым замком. Двери в обе стороны.
+goto mirror_room
+
+:mirror
+В зеркале — только ты и пустая комната. И тень, которой быть не должно.
+goto mirror_room
+
+:cabinet
+if expr="code_found == 1" then="cabinet_open" else="cabinet_locked"
+:cabinet_locked
+Шкаф заперт на кодовый замок. Нужны три цифры.
+goto mirror_room
+:cabinet_open
+set key="has_key" value=1
+// инвентарь-HUD: иконка-ключ появляется рядом с запиской
+obj id=inv_key sprite_url="/content/ui/markers/lock_open.png" x=0.20 y=0.07 width=0.085 height=0.085 anchor="0.5,0.5"
+Код 7-2-9 подходит. В шкафу — латунный ключ от кабинета (теперь в инвентаре).
+goto mirror_room
+
+// ───────── Комната 3: Кабинет ─────────
+:study
+bg id=room sprite_url="/content/bg/hh_room3.jpg"
+obj id=h1 sprite_url="/content/ui/markers/lock_closed.png" x=0.50 y=0.52 width=0.12 height=0.12 anchor="0.5,0.5" on_click="desk"
+obj id=h2 sprite_url="/content/ui/markers/skull.png"       x=0.72 y=0.38 width=0.10 height=0.10 anchor="0.5,0.5" on_click="portrait"
+obj id=h3 sprite_url="/content/ui/markers/arrow_right.png" flip=true x=0.10 y=0.50 width=0.10 height=0.10 anchor="0.5,0.5" on_click="mirror_room"
+obj id=h4 show=false
+obj id=h5 show=false
+Кабинет. Массивный стол с запертым ящиком. Дверь налево.
+goto study
+
+:desk
+if expr="has_key == 1" then="desk_open" else="desk_locked"
+:desk_locked
+Ящик стола заперт. Где-то должен быть ключ.
+goto study
+:desk_open
+Латунный ключ поворачивается. В ящике — то самое письмо.
+goto ending
+
+:portrait
+Старый портрет на стене смотрит прямо на тебя. По спине бежит холодок.
+goto study
+
+:ending
+Ты держишь письмо. Тайна особняка на Страндгаде раскрыта. Хорошая концовка.
+goto __end
+
+// ───────── Вторая концовка: уйти без письма ─────────
+:leave_prompt
+Выйти через парадную дверь, не закончив поиски?
+- Остаться в особняке -> hall
+- Покинуть особняк навсегда -> ending_leave
+
+:ending_leave
+Ты вышел в холодный двор Страндгаде с пустыми руками. Тайна особняка осталась нераскрытой. Конец.
+goto __end

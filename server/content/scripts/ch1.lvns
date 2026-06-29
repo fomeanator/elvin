@@ -1,0 +1,14 @@
+scene lg-ch1
+actor_map Mara=mara
+
+...: Hello
+fade to="clear" duration=5
+The chapter opens here.
+Mara: Hello.
+
+- Continue -> next
+- Leave -> __end
+
+:next
+Mara [smile]: Glad you stayed.
+goto __end

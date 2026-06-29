@@ -73,7 +73,7 @@ namespace Lvn.UI.Screens
             _pillsRow.style.alignItems = Align.Center;
             Add(_pillsRow);
 
-            _ = AssignBg(_progressIcon, _cfg.progress_icon_url);
+            _ = ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets);
         }
 
         /// <summary>Update the chapter-progress percent (current command / total).</summary>
@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
                 icon.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 pill.Add(icon);
-                _ = AssignBg(icon, iconUrl);
+                _ = ScreenUi.AssignBgAsync(icon, iconUrl, _assets);
             }
 
             var label = new Label("0") { pickingMode = PickingMode.Ignore };
@@ -132,17 +132,6 @@ namespace Lvn.UI.Screens
 
             _pillsRow.Add(pill);
             return new Pill { Root = pill, Label = label };
-        }
-
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { }
         }
     }
 }
