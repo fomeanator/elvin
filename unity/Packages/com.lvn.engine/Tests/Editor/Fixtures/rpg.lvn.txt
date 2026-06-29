@@ -1,0 +1,584 @@
+{
+  "scene": "rpg",
+  "script": [
+    {
+      "expr": "1",
+      "key": "level",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "xp",
+      "op": "set"
+    },
+    {
+      "expr": "8",
+      "key": "need",
+      "op": "set"
+    },
+    {
+      "expr": "20",
+      "key": "maxhp",
+      "op": "set"
+    },
+    {
+      "expr": "20",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "expr": "4",
+      "key": "atk",
+      "op": "set"
+    },
+    {
+      "expr": "10",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "1",
+      "key": "potions",
+      "op": "set"
+    },
+    {
+      "color": "#f1e4c9",
+      "id": "hud",
+      "op": "text",
+      "size": 42,
+      "text": "Ур.{level}  ♥{hp}/{maxhp}  атк {atk}  💰{gold}  🧪{potions}",
+      "x": 3,
+      "y": 8
+    },
+    {
+      "id": "town",
+      "op": "bg",
+      "sprite_url": "/content/bg/town.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Городок Дубрава. Староста просит очистить лес от волков."
+    },
+    {
+      "label": "town",
+      "op": "goto"
+    },
+    {
+      "id": "town",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Площадь. Куда пойдёшь?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "shop",
+          "text": "🛒 К торговцу (зелья, меч)"
+        },
+        {
+          "goto": "forest",
+          "text": "🌲 В лес (бой)"
+        },
+        {
+          "goto": "boss",
+          "text": "🏆 Сразиться с вожаком стаи"
+        }
+      ]
+    },
+    {
+      "id": "shop",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Звонкой монеты — звонкий товар.",
+      "who": "Торговец"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "buy_pot",
+          "text": "Зелье лечения — 5💰"
+        },
+        {
+          "goto": "buy_sword",
+          "text": "Стальной меч (+3 атк) — 12💰"
+        },
+        {
+          "goto": "town",
+          "text": "Назад"
+        }
+      ]
+    },
+    {
+      "id": "buy_pot",
+      "op": "label"
+    },
+    {
+      "else": "__else1",
+      "expr": "gold \u003e= 5",
+      "op": "if",
+      "then": "__then1"
+    },
+    {
+      "id": "__then1",
+      "op": "label"
+    },
+    {
+      "expr": "gold - 5  potions = potions + 1  Торговец: Береги на чёрный день.",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "label": "__end1",
+      "op": "goto"
+    },
+    {
+      "id": "__else1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает.",
+      "who": "Торговец"
+    },
+    {
+      "id": "__end1",
+      "op": "label"
+    },
+    {
+      "label": "shop",
+      "op": "goto"
+    },
+    {
+      "id": "buy_sword",
+      "op": "label"
+    },
+    {
+      "else": "__else2",
+      "expr": "gold \u003e= 12",
+      "op": "if",
+      "then": "__then2"
+    },
+    {
+      "id": "__then2",
+      "op": "label"
+    },
+    {
+      "expr": "gold - 12  atk = atk + 3  Торговец: Добрый клинок.",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "label": "__end2",
+      "op": "goto"
+    },
+    {
+      "id": "__else2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает.",
+      "who": "Торговец"
+    },
+    {
+      "id": "__end2",
+      "op": "label"
+    },
+    {
+      "label": "shop",
+      "op": "goto"
+    },
+    {
+      "id": "forest",
+      "op": "label"
+    },
+    {
+      "id": "forest",
+      "op": "bg",
+      "sprite_url": "/content/bg/forest.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Из кустов выскакивает волк!"
+    },
+    {
+      "expr": "\"Волк\"",
+      "key": "ename",
+      "op": "set"
+    },
+    {
+      "expr": "12",
+      "key": "ehp",
+      "op": "set"
+    },
+    {
+      "expr": "5",
+      "key": "eatk",
+      "op": "set"
+    },
+    {
+      "expr": "6",
+      "key": "goldw",
+      "op": "set"
+    },
+    {
+      "expr": "5",
+      "key": "xpw",
+      "op": "set"
+    },
+    {
+      "label": "fight",
+      "op": "call"
+    },
+    {
+      "id": "town",
+      "op": "bg",
+      "sprite_url": "/content/bg/town.jpg"
+    },
+    {
+      "label": "town",
+      "op": "goto"
+    },
+    {
+      "id": "boss",
+      "op": "label"
+    },
+    {
+      "id": "forest",
+      "op": "bg",
+      "sprite_url": "/content/bg/forest.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Матёрый вожак стаи преграждает тропу!"
+    },
+    {
+      "expr": "\"Вожак стаи\"",
+      "key": "ename",
+      "op": "set"
+    },
+    {
+      "expr": "40",
+      "key": "ehp",
+      "op": "set"
+    },
+    {
+      "expr": "9",
+      "key": "eatk",
+      "op": "set"
+    },
+    {
+      "expr": "50",
+      "key": "goldw",
+      "op": "set"
+    },
+    {
+      "expr": "30",
+      "key": "xpw",
+      "op": "set"
+    },
+    {
+      "label": "fight",
+      "op": "call"
+    },
+    {
+      "label": "victory",
+      "op": "goto"
+    },
+    {
+      "id": "fight",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "{ename} перед тобой — ♥{ehp}. Твой ход."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "f_atk",
+          "text": "⚔ Атаковать"
+        },
+        {
+          "goto": "f_pot",
+          "text": "🧪 Выпить зелье"
+        },
+        {
+          "goto": "f_flee",
+          "text": "🏃 Бежать"
+        }
+      ]
+    },
+    {
+      "id": "f_atk",
+      "op": "label"
+    },
+    {
+      "expr": "max(1, atk + rand(0,3))",
+      "key": "dmg",
+      "op": "set"
+    },
+    {
+      "expr": "ehp - dmg",
+      "key": "ehp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "♥{ehp})",
+      "who": "Ты бьёшь на {dmg}. ({ename}"
+    },
+    {
+      "else": "__nf1",
+      "expr": "ehp \u003c= 0",
+      "op": "if",
+      "then": "f_win"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "label": "f_enemy",
+      "op": "goto"
+    },
+    {
+      "id": "f_pot",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "potions \u003e= 1",
+      "op": "if",
+      "then": "do_pot"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Зелий нет!"
+    },
+    {
+      "label": "fight",
+      "op": "goto"
+    },
+    {
+      "id": "do_pot",
+      "op": "label"
+    },
+    {
+      "expr": "potions - 1",
+      "key": "potions",
+      "op": "set"
+    },
+    {
+      "expr": "min(maxhp, hp + 12)",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Зелье восстановило силы."
+    },
+    {
+      "label": "f_enemy",
+      "op": "goto"
+    },
+    {
+      "id": "f_flee",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "chance(0.5)",
+      "op": "if",
+      "then": "fled"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Сбежать не вышло!"
+    },
+    {
+      "label": "f_enemy",
+      "op": "goto"
+    },
+    {
+      "id": "fled",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты сбежал."
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "f_enemy",
+      "op": "label"
+    },
+    {
+      "expr": "max(1, eatk - rand(0,2))",
+      "key": "edmg",
+      "op": "set"
+    },
+    {
+      "expr": "hp - edmg",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "{ename} бьёт на {edmg}. (♥{hp})"
+    },
+    {
+      "else": "__nf4",
+      "expr": "hp \u003c= 0",
+      "op": "if",
+      "then": "dead"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "label": "fight",
+      "op": "goto"
+    },
+    {
+      "id": "f_win",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "{ename} повержен! +{goldw}💰 +{xpw} опыта."
+    },
+    {
+      "expr": "gold + goldw",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "xp + xpw",
+      "key": "xp",
+      "op": "set"
+    },
+    {
+      "label": "levelup",
+      "op": "call"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "levelup",
+      "op": "label"
+    },
+    {
+      "id": "__loop3",
+      "op": "label"
+    },
+    {
+      "else": "__end3",
+      "expr": "xp \u003e= need",
+      "op": "if",
+      "then": "__body3"
+    },
+    {
+      "id": "__body3",
+      "op": "label"
+    },
+    {
+      "expr": "xp - need",
+      "key": "xp",
+      "op": "set"
+    },
+    {
+      "expr": "level + 1",
+      "key": "level",
+      "op": "set"
+    },
+    {
+      "expr": "maxhp + 5",
+      "key": "maxhp",
+      "op": "set"
+    },
+    {
+      "expr": "maxhp",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "expr": "atk + 1",
+      "key": "atk",
+      "op": "set"
+    },
+    {
+      "expr": "floor(need * 1.5)",
+      "key": "need",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "✨ Новый уровень — {level}!"
+    },
+    {
+      "label": "__loop3",
+      "op": "goto"
+    },
+    {
+      "id": "__end3",
+      "op": "label"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "victory",
+      "op": "label"
+    },
+    {
+      "id": "town",
+      "op": "bg",
+      "sprite_url": "/content/bg/town.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Вожак пал, лес свободен. Дубрава славит твоё имя! Ур.{level}, золота {gold}."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "dead",
+      "op": "label"
+    },
+    {
+      "duration": 0.8,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "op": "say",
+      "text": "Последний удар свалил тебя. Тропа героя обрывается."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

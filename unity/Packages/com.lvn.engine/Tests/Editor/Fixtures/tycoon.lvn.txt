@@ -1,0 +1,355 @@
+{
+  "scene": "tycoon",
+  "script": [
+    {
+      "expr": "100",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "expr": "1",
+      "key": "shops",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "rep",
+      "op": "set"
+    },
+    {
+      "expr": "1",
+      "key": "month",
+      "op": "set"
+    },
+    {
+      "expr": "8",
+      "key": "months",
+      "op": "set"
+    },
+    {
+      "color": "#c9f0d0",
+      "id": "hud",
+      "op": "text",
+      "size": 40,
+      "text": "Месяц {month}/{months}  💵{cash}  🏪{shops}  ⭐{rep}",
+      "x": 3,
+      "y": 8
+    },
+    {
+      "id": "city_office",
+      "op": "bg",
+      "sprite_url": "/content/bg/city_office.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Ты открыл сеть кофеен. Цель — за {months} месяцев выйти на 500💵."
+    },
+    {
+      "label": "turn",
+      "op": "goto"
+    },
+    {
+      "id": "turn",
+      "op": "label"
+    },
+    {
+      "else": "__nf1",
+      "expr": "month \u003e months",
+      "op": "if",
+      "then": "finale"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "expr": "shops * 25 + rep * 5",
+      "key": "income",
+      "op": "set"
+    },
+    {
+      "expr": "cash + income",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "id": "city_office",
+      "op": "bg",
+      "sprite_url": "/content/bg/city_office.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Месяц {month}. Доход составил {income}💵. Во что вложишься?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "invest_shop",
+          "text": "🏪 Новая кофейня — 120💵"
+        },
+        {
+          "goto": "invest_ad",
+          "text": "📣 Реклама — 40💵 (+репутация)"
+        },
+        {
+          "goto": "hold",
+          "text": "💰 Ничего, копить"
+        }
+      ]
+    },
+    {
+      "id": "invest_shop",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "cash \u003e= 120",
+      "op": "if",
+      "then": "do_shop"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает денег на новую точку."
+    },
+    {
+      "label": "turn",
+      "op": "goto"
+    },
+    {
+      "id": "do_shop",
+      "op": "label"
+    },
+    {
+      "expr": "cash - 120",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "expr": "shops + 1",
+      "key": "shops",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Открыта новая кофейня! Теперь их {shops}."
+    },
+    {
+      "label": "event",
+      "op": "goto"
+    },
+    {
+      "id": "invest_ad",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "cash \u003e= 40",
+      "op": "if",
+      "then": "do_ad"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает на рекламную кампанию."
+    },
+    {
+      "label": "turn",
+      "op": "goto"
+    },
+    {
+      "id": "do_ad",
+      "op": "label"
+    },
+    {
+      "expr": "cash - 40",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "expr": "rep + 2",
+      "key": "rep",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Реклама сработала — о тебе заговорили."
+    },
+    {
+      "label": "event",
+      "op": "goto"
+    },
+    {
+      "id": "hold",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты придержал капитал на следующий месяц."
+    },
+    {
+      "label": "event",
+      "op": "goto"
+    },
+    {
+      "id": "event",
+      "op": "label"
+    },
+    {
+      "expr": "rand(1, 6)",
+      "key": "roll",
+      "op": "set"
+    },
+    {
+      "else": "__nf4",
+      "expr": "roll \u003c= 2",
+      "op": "if",
+      "then": "ev_good"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "else": "__nf5",
+      "expr": "roll \u003c= 3",
+      "op": "if",
+      "then": "ev_bad"
+    },
+    {
+      "id": "__nf5",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Спокойный месяц без потрясений."
+    },
+    {
+      "label": "next_month",
+      "op": "goto"
+    },
+    {
+      "id": "ev_good",
+      "op": "label"
+    },
+    {
+      "expr": "30 + shops * 10",
+      "key": "bonus",
+      "op": "set"
+    },
+    {
+      "expr": "cash + bonus",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "+{bonus}💵.",
+      "who": "📈 Вирусный пост в сети! Наплыв клиентов"
+    },
+    {
+      "label": "next_month",
+      "op": "goto"
+    },
+    {
+      "id": "ev_bad",
+      "op": "label"
+    },
+    {
+      "expr": "25",
+      "key": "loss",
+      "op": "set"
+    },
+    {
+      "expr": "cash - loss",
+      "key": "cash",
+      "op": "set"
+    },
+    {
+      "expr": "max(0, rep - 1)",
+      "key": "rep",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "-{loss}💵, репутация просела.",
+      "who": "📉 Поломка кофемашины и жалобы"
+    },
+    {
+      "label": "next_month",
+      "op": "goto"
+    },
+    {
+      "id": "next_month",
+      "op": "label"
+    },
+    {
+      "expr": "month + 1",
+      "key": "month",
+      "op": "set"
+    },
+    {
+      "label": "turn",
+      "op": "goto"
+    },
+    {
+      "id": "finale",
+      "op": "label"
+    },
+    {
+      "id": "city_office",
+      "op": "bg",
+      "sprite_url": "/content/bg/city_office.jpg"
+    },
+    {
+      "op": "say",
+      "text": "{cash}💵, точек {shops}, репутация {rep}.",
+      "who": "Год подошёл к концу. Капитал"
+    },
+    {
+      "else": "__nf6",
+      "expr": "cash \u003e= 500",
+      "op": "if",
+      "then": "win"
+    },
+    {
+      "id": "__nf6",
+      "op": "label"
+    },
+    {
+      "label": "lose",
+      "op": "goto"
+    },
+    {
+      "id": "win",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "🏆 Ты сколотил кофейную империю! Цель достигнута."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "lose",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Бизнес устоял, но до цели не дотянул. В следующий раз получится."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "scene": "pnc-room",
+  "script": [
+    {
+      "id": "study_room",
+      "op": "bg",
+      "sprite_url": "/content/bg/study_room.jpg"
+    },
+    {
+      "expr": "0",
+      "key": "has_key",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "knows_code",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "safe_open",
+      "op": "set"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "room",
+      "op": "label"
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.16,
+      "id": "desk",
+      "on_click": "desk",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/desk.png",
+      "width": 0.18,
+      "x": 0.22,
+      "y": 0.7
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.2,
+      "id": "painting",
+      "on_click": "painting",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/painting.png",
+      "width": 0.16,
+      "x": 0.5,
+      "y": 0.28
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.16,
+      "id": "safe",
+      "on_click": "safe",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/safe.png",
+      "width": 0.14,
+      "x": 0.74,
+      "y": 0.55
+    },
+    {
+      "anchor": "0.5,0.5",
+      "height": 0.34,
+      "id": "door",
+      "on_click": "door",
+      "op": "obj",
+      "sprite_url": "/content/ui/hotspot/door.png",
+      "width": 0.12,
+      "x": 0.92,
+      "y": 0.5
+    },
+    {
+      "op": "say",
+      "text": "стол, картина, сейф, дверь.",
+      "who": "Кабинет заперт. Осмотрись"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "desk",
+      "op": "label"
+    },
+    {
+      "else": "__nf1",
+      "expr": "has_key == 1",
+      "op": "if",
+      "then": "desk_empty"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты обыскал стол. В нижнем ящике — латунный ключ."
+    },
+    {
+      "expr": "1",
+      "key": "has_key",
+      "op": "set"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "desk_empty",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "В столе больше ничего нет."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "painting",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "1962.",
+      "who": "За картиной нацарапан код сейфа"
+    },
+    {
+      "expr": "1",
+      "key": "knows_code",
+      "op": "set"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "safe",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "safe_open == 1",
+      "op": "if",
+      "then": "safe_done"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "knows_code == 1",
+      "op": "if",
+      "then": "safe_unlock"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Сейф заперт на код. Цифр ты пока не знаешь."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "safe_unlock",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "«выход не там, где вход».",
+      "who": "Ты набираешь 1962 — сейф щёлкает. Внутри записка"
+    },
+    {
+      "expr": "1",
+      "key": "safe_open",
+      "op": "set"
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "safe_done",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Сейф пуст — записку ты уже забрал."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "door",
+      "op": "label"
+    },
+    {
+      "else": "__nf4",
+      "expr": "has_key == 1",
+      "op": "if",
+      "then": "escaped"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Дверь заперта. Нужен ключ."
+    },
+    {
+      "label": "room",
+      "op": "goto"
+    },
+    {
+      "id": "escaped",
+      "op": "label"
+    },
+    {
+      "id": "corridor",
+      "op": "bg",
+      "sprite_url": "/content/bg/corridor.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Ключ поворачивается, дверь открыта. Ты выбрался из кабинета. Победа!"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

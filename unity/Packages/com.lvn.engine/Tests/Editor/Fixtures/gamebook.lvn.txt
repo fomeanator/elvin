@@ -1,0 +1,285 @@
+{
+  "scene": "gamebook",
+  "script": [
+    {
+      "expr": "[]",
+      "key": "inv",
+      "op": "set"
+    },
+    {
+      "expr": "3",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "id": "cave_mouth",
+      "op": "bg",
+      "sprite_url": "/content/bg/cave_mouth.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Развилка в пещере. Слева тянет сквозняком, справа капает вода."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "left",
+          "text": "Пойти налево (сквозняк)"
+        },
+        {
+          "goto": "right",
+          "text": "Пойти направо (капель)"
+        }
+      ]
+    },
+    {
+      "id": "left",
+      "op": "label"
+    },
+    {
+      "id": "torch_hall",
+      "op": "bg",
+      "sprite_url": "/content/bg/torch_hall.jpg"
+    },
+    {
+      "op": "say",
+      "text": "На стене догорает факел. Можно снять."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "take_torch",
+          "text": "Взять факел"
+        },
+        {
+          "goto": "dark",
+          "text": "Идти дальше во тьму"
+        }
+      ]
+    },
+    {
+      "id": "take_torch",
+      "op": "label"
+    },
+    {
+      "expr": "push(inv, \"факел\")",
+      "key": "inv",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Факел теперь у тебя. Огонь разгоняет тьму."
+    },
+    {
+      "label": "dark",
+      "op": "goto"
+    },
+    {
+      "id": "dark",
+      "op": "label"
+    },
+    {
+      "id": "dark_tunnel",
+      "op": "bg",
+      "sprite_url": "/content/bg/dark_tunnel.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Туннель ныряет в кромешную темноту. Без света легко сорваться."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "expr": "has(inv, \"факел\")",
+          "goto": "bridge",
+          "text": "Освятить путь факелом"
+        },
+        {
+          "goto": "grope",
+          "text": "Идти на ощупь"
+        }
+      ]
+    },
+    {
+      "id": "grope",
+      "op": "label"
+    },
+    {
+      "else": "__nf1",
+      "expr": "chance(0.5)",
+      "op": "if",
+      "then": "grope_ok"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "expr": "hp - 1",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Ты оступился в темноте и больно упал. (♥ {hp})"
+    },
+    {
+      "else": "__nf2",
+      "expr": "hp \u003c= 0",
+      "op": "if",
+      "then": "dead"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "label": "grope",
+      "op": "goto"
+    },
+    {
+      "id": "grope_ok",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Чудом нащупав стену, ты добрался до моста."
+    },
+    {
+      "label": "bridge",
+      "op": "goto"
+    },
+    {
+      "id": "right",
+      "op": "label"
+    },
+    {
+      "id": "underground_lake",
+      "op": "bg",
+      "sprite_url": "/content/bg/underground_lake.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Подземное озеро. У берега покачивается ключ на цепочке."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "take_key",
+          "text": "Достать ключ"
+        },
+        {
+          "goto": "reset",
+          "text": "Вернуться к развилке"
+        }
+      ]
+    },
+    {
+      "id": "take_key",
+      "op": "label"
+    },
+    {
+      "expr": "push(inv, \"ключ\")",
+      "key": "inv",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Холодный ключ лёг в ладонь."
+    },
+    {
+      "label": "reset",
+      "op": "goto"
+    },
+    {
+      "id": "reset",
+      "op": "label"
+    },
+    {
+      "label": "left",
+      "op": "goto"
+    },
+    {
+      "id": "bridge",
+      "op": "label"
+    },
+    {
+      "id": "stone_bridge",
+      "op": "bg",
+      "sprite_url": "/content/bg/stone_bridge.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Каменный мост над пропастью ведёт к окованной двери."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "expr": "has(inv, \"ключ\")",
+          "goto": "win",
+          "text": "Открыть дверь ключом"
+        },
+        {
+          "goto": "stuck",
+          "text": "Толкнуть дверь плечом"
+        }
+      ]
+    },
+    {
+      "id": "stuck",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Дверь не поддаётся. Нужен ключ — он был у воды, справа от развилки."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "reset",
+          "text": "Вернуться"
+        }
+      ]
+    },
+    {
+      "id": "win",
+      "op": "label"
+    },
+    {
+      "id": "treasure_room",
+      "op": "bg",
+      "sprite_url": "/content/bg/treasure_room.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Ключ проворачивается. За дверью — сокровищница. Ты прошёл приключение!"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "dead",
+      "op": "label"
+    },
+    {
+      "duration": 0.8,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "op": "say",
+      "text": "Тьма пещеры поглотила тебя. Приключение окончено."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

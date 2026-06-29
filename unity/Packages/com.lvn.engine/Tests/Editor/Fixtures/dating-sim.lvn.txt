@@ -1,0 +1,346 @@
+{
+  "scene": "dating-sim",
+  "script": [
+    {
+      "expr": "0",
+      "key": "lia",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "kim",
+      "op": "set"
+    },
+    {
+      "expr": "1",
+      "key": "day",
+      "op": "set"
+    },
+    {
+      "expr": "4",
+      "key": "days",
+      "op": "set"
+    },
+    {
+      "color": "#ffd9e6",
+      "id": "hud",
+      "op": "text",
+      "size": 40,
+      "text": "День {day}/{days}   ❤Лия {lia}   ❤Ким {kim}",
+      "x": 4,
+      "y": 8
+    },
+    {
+      "id": "campus",
+      "op": "bg",
+      "sprite_url": "/content/bg/campus.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Новый семестр. У тебя есть {days} дня, чтобы сблизиться с кем-то."
+    },
+    {
+      "label": "day_start",
+      "op": "goto"
+    },
+    {
+      "id": "day_start",
+      "op": "label"
+    },
+    {
+      "else": "__nf1",
+      "expr": "day \u003e days",
+      "op": "if",
+      "then": "finale"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "id": "campus",
+      "op": "bg",
+      "sprite_url": "/content/bg/campus.jpg"
+    },
+    {
+      "op": "say",
+      "text": "День {day}. С кем проведёшь время?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "see_lia",
+          "text": "☕ Лия в кофейне"
+        },
+        {
+          "goto": "see_kim",
+          "text": "📚 Ким в библиотеке"
+        }
+      ]
+    },
+    {
+      "id": "see_lia",
+      "op": "label"
+    },
+    {
+      "id": "cafe",
+      "op": "bg",
+      "sprite_url": "/content/bg/cafe.jpg"
+    },
+    {
+      "emotion": "smile",
+      "id": "lia",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "О, ты пришёл! Бери латте, я угощаю.",
+      "who": "Лия"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "lia_music",
+          "text": "Спросить о её музыке"
+        },
+        {
+          "goto": "lia_safe",
+          "text": "Похвалить кофе"
+        }
+      ]
+    },
+    {
+      "id": "lia_music",
+      "op": "label"
+    },
+    {
+      "expr": "lia + 2",
+      "key": "lia",
+      "op": "set"
+    },
+    {
+      "emotion": "smile",
+      "id": "lia",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Ты первый, кто спросил! Дай покажу плейлист…",
+      "who": "Лия"
+    },
+    {
+      "label": "end_day",
+      "op": "goto"
+    },
+    {
+      "id": "lia_safe",
+      "op": "label"
+    },
+    {
+      "expr": "lia + 1",
+      "key": "lia",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Да, бариста тут старается.",
+      "who": "Лия"
+    },
+    {
+      "label": "end_day",
+      "op": "goto"
+    },
+    {
+      "id": "see_kim",
+      "op": "label"
+    },
+    {
+      "id": "library",
+      "op": "bg",
+      "sprite_url": "/content/bg/library.jpg"
+    },
+    {
+      "emotion": "neutral",
+      "id": "kim",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Тихо. ...Ладно, тебе можно. Садись.",
+      "who": "Ким"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "kim_help",
+          "text": "Помочь с конспектом"
+        },
+        {
+          "goto": "kim_safe",
+          "text": "Поболтать о пустяках"
+        }
+      ]
+    },
+    {
+      "id": "kim_help",
+      "op": "label"
+    },
+    {
+      "expr": "kim + 2",
+      "key": "kim",
+      "op": "set"
+    },
+    {
+      "emotion": "smile",
+      "id": "kim",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "С тобой и зачёт не страшен. Спасибо.",
+      "who": "Ким"
+    },
+    {
+      "label": "end_day",
+      "op": "goto"
+    },
+    {
+      "id": "kim_safe",
+      "op": "label"
+    },
+    {
+      "expr": "kim - 1",
+      "key": "kim",
+      "op": "set"
+    },
+    {
+      "emotion": "sad",
+      "id": "kim",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Я вообще-то занимаюсь. Потом, ладно?",
+      "who": "Ким"
+    },
+    {
+      "label": "end_day",
+      "op": "goto"
+    },
+    {
+      "id": "end_day",
+      "op": "label"
+    },
+    {
+      "expr": "day + 1",
+      "key": "day",
+      "op": "set"
+    },
+    {
+      "label": "day_start",
+      "op": "goto"
+    },
+    {
+      "id": "finale",
+      "op": "label"
+    },
+    {
+      "id": "sunset_roof",
+      "op": "bg",
+      "sprite_url": "/content/bg/sunset_roof.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Семестр на исходе. Кого ты позовёшь на крышу под закат?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "expr": "lia \u003e= 4",
+          "goto": "route_lia",
+          "text": "Позвать Лию"
+        },
+        {
+          "expr": "kim \u003e= 4",
+          "goto": "route_kim",
+          "text": "Позвать Ким"
+        },
+        {
+          "goto": "route_alone",
+          "text": "Уйти одному"
+        }
+      ]
+    },
+    {
+      "id": "route_lia",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "lia",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "emotion": "smile",
+      "id": "lia",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Я надеялась, что это будешь ты. КОНЦОВКА: «Лия».",
+      "who": "Лия"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "route_kim",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "kim",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "emotion": "smile",
+      "id": "kim",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Тссс. Просто смотри на закат. Со мной. КОНЦОВКА: «Ким».",
+      "who": "Ким"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "route_alone",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "«В одиночку».",
+      "who": "Ни с кем ты так и не сблизился. Закат ты встретил один. КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

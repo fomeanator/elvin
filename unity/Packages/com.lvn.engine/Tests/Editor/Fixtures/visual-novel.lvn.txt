@@ -1,0 +1,292 @@
+{
+  "scene": "vn-demo",
+  "script": [
+    {
+      "expr": "0",
+      "key": "warmth",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "told_truth",
+      "op": "set"
+    },
+    {
+      "id": "porch",
+      "op": "bg",
+      "sprite_url": "/content/bg/porch.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Дождь барабанил по навесу крыльца. Ты вернулся туда, где обещал не появляться."
+    },
+    {
+      "emotion": "neutral",
+      "id": "mara",
+      "op": "actor",
+      "position": "left",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Ты пришёл. Я не была уверена, что придёшь.",
+      "who": "Мара"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "warm",
+          "text": "Я скучал."
+        },
+        {
+          "goto": "talk",
+          "text": "Нам надо поговорить."
+        },
+        {
+          "goto": "leave",
+          "text": "Зря я пришёл."
+        }
+      ]
+    },
+    {
+      "id": "warm",
+      "op": "label"
+    },
+    {
+      "expr": "warmth + 1",
+      "key": "warmth",
+      "op": "set"
+    },
+    {
+      "emotion": "smile",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Тогда заходи, не мокни.",
+      "who": "Мара"
+    },
+    {
+      "label": "kitchen",
+      "op": "goto"
+    },
+    {
+      "id": "talk",
+      "op": "label"
+    },
+    {
+      "emotion": "neutral",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Говори. Я слушаю.",
+      "who": "Мара"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "truth",
+          "text": "Сказать правду"
+        },
+        {
+          "goto": "lie",
+          "text": "Соврать"
+        }
+      ]
+    },
+    {
+      "id": "truth",
+      "op": "label"
+    },
+    {
+      "expr": "1",
+      "key": "told_truth",
+      "op": "set"
+    },
+    {
+      "expr": "warmth + 1",
+      "key": "warmth",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Ты рассказал всё как есть. Мара долго молчала."
+    },
+    {
+      "emotion": "smile",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Спасибо, что не стал выдумывать.",
+      "who": "Мара"
+    },
+    {
+      "label": "kitchen",
+      "op": "goto"
+    },
+    {
+      "id": "lie",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты сплёл удобную историю. Она кивнула, но взгляд потух."
+    },
+    {
+      "emotion": "sad",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Понятно.",
+      "who": "Мара"
+    },
+    {
+      "label": "kitchen",
+      "op": "goto"
+    },
+    {
+      "id": "kitchen",
+      "op": "label"
+    },
+    {
+      "id": "kitchen",
+      "op": "bg",
+      "sprite_url": "/content/bg/kitchen.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Чайник ещё тёплый. Будешь?",
+      "who": "Мара"
+    },
+    {
+      "else": "__nf1",
+      "expr": "warmth \u003e= 2",
+      "op": "if",
+      "then": "end_good"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "told_truth == 1",
+      "op": "if",
+      "then": "end_ok"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "label": "end_cold",
+      "op": "goto"
+    },
+    {
+      "id": "end_good",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Хорошо, что ты вернулся. По-настоящему хорошо.",
+      "who": "Мара"
+    },
+    {
+      "op": "say",
+      "text": "«Тёплый свет».",
+      "who": "Вы проговорили до рассвета. КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "end_ok",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Посидим. А там видно будет.",
+      "who": "Мара"
+    },
+    {
+      "op": "say",
+      "text": "«Перемирие».",
+      "who": "Между вами осталась трещина, но не пропасть. КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "leave",
+      "op": "label"
+    },
+    {
+      "expr": "warmth - 1",
+      "key": "warmth",
+      "op": "set"
+    },
+    {
+      "emotion": "sad",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "...Я так и думала.",
+      "who": "Мара"
+    },
+    {
+      "duration": 0.8,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "op": "say",
+      "text": "«Закрытая дверь».",
+      "who": "КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "end_cold",
+      "op": "label"
+    },
+    {
+      "emotion": "neutral",
+      "id": "mara",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Допивай и иди. Поздно уже.",
+      "who": "Мара"
+    },
+    {
+      "op": "say",
+      "text": "«Остывший чай».",
+      "who": "КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

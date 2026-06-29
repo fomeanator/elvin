@@ -1,0 +1,251 @@
+{
+  "scene": "kinetic-novel",
+  "script": [
+    {
+      "id": "night_station",
+      "op": "bg",
+      "sprite_url": "/content/bg/night_station.jpg"
+    },
+    {
+      "action": "play",
+      "channel": "music",
+      "op": "audio",
+      "url": "/content/audio/rain_theme.ogg"
+    },
+    {
+      "on": true,
+      "op": "particles",
+      "type": "rain"
+    },
+    {
+      "duration": 1.2,
+      "op": "fade",
+      "to": "clear"
+    },
+    {
+      "op": "say",
+      "text": "Перрон опустел. Последний поезд ушёл десять минут назад."
+    },
+    {
+      "emotion": "neutral",
+      "id": "amber",
+      "op": "actor",
+      "position": "left",
+      "show": true
+    },
+    {
+      "anim": {
+        "duration": 1.2,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                -0.2
+              ],
+              [
+                1.2,
+                0.28
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                0.5
+              ],
+              [
+                1.2,
+                0.5
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "amber",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 3,
+        "loop": true,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                1
+              ],
+              [
+                1.5,
+                1.03
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "prop": "scale"
+          }
+        ],
+        "yoyo": true
+      },
+      "id": "amber",
+      "op": "anim"
+    },
+    {
+      "emotion": "sad",
+      "id": "amber",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Я опоздала. Опять.",
+      "who": "Эмбер"
+    },
+    {
+      "anim": {
+        "duration": 3,
+        "loop": true,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                3
+              ],
+              [
+                2,
+                -3
+              ],
+              [
+                3,
+                0
+              ]
+            ],
+            "prop": "rotation"
+          }
+        ],
+        "yoyo": true
+      },
+      "id": "amber",
+      "op": "anim"
+    },
+    {
+      "emotion": "neutral",
+      "id": "amber",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Хотя... может, так и надо. Может, я и не хотела успеть.",
+      "who": "Эмбер"
+    },
+    {
+      "action": "shake",
+      "amplitude": 0.02,
+      "duration": 0.4,
+      "op": "camera"
+    },
+    {
+      "duration": 0.3,
+      "op": "flash",
+      "to": "white"
+    },
+    {
+      "op": "say",
+      "text": "«Если опоздаешь — я не буду ждать».",
+      "who": "Голос из памяти"
+    },
+    {
+      "alpha": 0.6,
+      "duration": 0.5,
+      "op": "dim"
+    },
+    {
+      "id": "empty_platform_dawn",
+      "op": "bg",
+      "sprite_url": "/content/bg/empty_platform_dawn.jpg"
+    },
+    {
+      "on": false,
+      "op": "particles",
+      "type": "rain"
+    },
+    {
+      "action": "stop",
+      "channel": "music",
+      "op": "audio"
+    },
+    {
+      "alpha": 0,
+      "duration": 0.8,
+      "op": "dim"
+    },
+    {
+      "op": "say",
+      "text": "Рассвет. Дождь кончился. Эмбер всё ещё стоит на перроне — но уже улыбается."
+    },
+    {
+      "emotion": "smile",
+      "id": "amber",
+      "op": "actor",
+      "position": "center",
+      "show": true
+    },
+    {
+      "anim": {
+        "duration": 0.4,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "outBack",
+            "keys": [
+              [
+                0,
+                1
+              ],
+              [
+                0.4,
+                1.08
+              ]
+            ],
+            "prop": "scale"
+          }
+        ]
+      },
+      "id": "amber",
+      "op": "anim"
+    },
+    {
+      "emotion": "smile",
+      "id": "amber",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Ладно. Следующий поезд — мой.",
+      "who": "Эмбер"
+    },
+    {
+      "duration": 1.5,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "scene": "detective",
+  "script": [
+    {
+      "expr": "[]",
+      "key": "clues",
+      "op": "set"
+    },
+    {
+      "id": "manor_hall",
+      "op": "bg",
+      "sprite_url": "/content/bg/manor_hall.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Особняк Грейсонов. Хозяина нашли мёртвым в кабинете. Ты — детектив."
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "hub",
+      "op": "label"
+    },
+    {
+      "color": "#e8e0c8",
+      "id": "hud",
+      "op": "text",
+      "size": 40,
+      "text": "Улик собрано: {len(clues)}/3",
+      "x": 4,
+      "y": 8
+    },
+    {
+      "op": "say",
+      "text": "Гостиная. С чего начнёшь?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "study",
+          "text": "🔍 Осмотреть кабинет"
+        },
+        {
+          "goto": "butler",
+          "text": "🍷 Допросить дворецкого"
+        },
+        {
+          "goto": "widow",
+          "text": "💍 Поговорить с вдовой"
+        },
+        {
+          "goto": "accuse",
+          "text": "⚖ Назвать убийцу"
+        }
+      ]
+    },
+    {
+      "id": "study",
+      "op": "label"
+    },
+    {
+      "id": "study_crime",
+      "op": "bg",
+      "sprite_url": "/content/bg/study_crime.jpg"
+    },
+    {
+      "op": "say",
+      "text": "На ковре — осколки бокала и слабый запах горького миндаля."
+    },
+    {
+      "else": "__nf1",
+      "expr": "has(clues, \"яд\")",
+      "op": "if",
+      "then": "study_seen"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "expr": "push(clues, \"яд\")",
+      "key": "clues",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "следы яда (горький миндаль). [записано]",
+      "who": "Улика"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "study_seen",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Здесь ты уже всё осмотрел."
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "butler",
+      "op": "label"
+    },
+    {
+      "id": "kitchen_dark",
+      "op": "bg",
+      "sprite_url": "/content/bg/kitchen_dark.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Я подавал вино в девять. Бокал был... один, для хозяина.",
+      "who": "Дворецкий"
+    },
+    {
+      "else": "__nf2",
+      "expr": "has(clues, \"один бокал\")",
+      "op": "if",
+      "then": "butler_seen"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "expr": "push(clues, \"один бокал\")",
+      "key": "clues",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "вино налили только хозяину. [записано]",
+      "who": "Улика"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "butler_seen",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Дворецкий нервно молчит — больше не скажет."
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "widow",
+      "op": "label"
+    },
+    {
+      "id": "parlor",
+      "op": "bg",
+      "sprite_url": "/content/bg/parlor.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Мы ужинали врозь. Я... готовила ему вино сама, как всегда.",
+      "who": "Вдова"
+    },
+    {
+      "else": "__nf3",
+      "expr": "has(clues, \"вино от вдовы\")",
+      "op": "if",
+      "then": "widow_seen"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "expr": "push(clues, \"вино от вдовы\")",
+      "key": "clues",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "вино готовила вдова лично. [записано]",
+      "who": "Улика"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "widow_seen",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Вдова отворачивается к окну."
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "accuse",
+      "op": "label"
+    },
+    {
+      "else": "__nf4",
+      "expr": "len(clues) \u003e= 3",
+      "op": "if",
+      "then": "solved"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Улик мало, обвинение рассыплется в суде. Ищи ещё."
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "solved",
+      "op": "label"
+    },
+    {
+      "id": "parlor",
+      "op": "bg",
+      "sprite_url": "/content/bg/parlor.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Яд. Один бокал. Вино из рук вдовы. Цепочка сошлась."
+    },
+    {
+      "op": "say",
+      "text": "Это вы, госпожа Грейсон. Вино для него готовили только вы.",
+      "who": "Детектив"
+    },
+    {
+      "op": "say",
+      "text": "Вдова опускает глаза. Дело раскрыто."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

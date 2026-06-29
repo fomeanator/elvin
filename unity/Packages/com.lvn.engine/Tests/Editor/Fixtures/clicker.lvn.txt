@@ -1,0 +1,206 @@
+{
+  "scene": "clicker",
+  "script": [
+    {
+      "expr": "0",
+      "key": "cookies",
+      "op": "set"
+    },
+    {
+      "expr": "1",
+      "key": "per_click",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "ovens",
+      "op": "set"
+    },
+    {
+      "expr": "15",
+      "key": "oven_cost",
+      "op": "set"
+    },
+    {
+      "expr": "50",
+      "key": "goal",
+      "op": "set"
+    },
+    {
+      "color": "#ffe9b0",
+      "id": "hud",
+      "op": "text",
+      "size": 44,
+      "text": "🍪 {cookies}   за клик: {per_click}   печей: {ovens}   цель: {goal}",
+      "x": 4,
+      "y": 8
+    },
+    {
+      "id": "bakery",
+      "op": "bg",
+      "sprite_url": "/content/bg/bakery.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Пекарня открыта! Пеки печенье и расширяй производство."
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "loop",
+      "op": "label"
+    },
+    {
+      "expr": "cookies + ovens",
+      "key": "cookies",
+      "op": "set"
+    },
+    {
+      "else": "__nf1",
+      "expr": "cookies \u003e= goal",
+      "op": "if",
+      "then": "win"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "bake",
+          "text": "🍪 Печь печенье (+{per_click})"
+        },
+        {
+          "goto": "buy_oven",
+          "text": "🔥 Купить печь ({oven_cost}🍪, +1/такт)"
+        },
+        {
+          "goto": "buy_hands",
+          "text": "⬆ Прокачать руки (20🍪, +1 за клик)"
+        }
+      ]
+    },
+    {
+      "id": "bake",
+      "op": "label"
+    },
+    {
+      "expr": "cookies + per_click",
+      "key": "cookies",
+      "op": "set"
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "buy_oven",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "cookies \u003e= oven_cost",
+      "op": "if",
+      "then": "do_oven"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает печенья на печь."
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "do_oven",
+      "op": "label"
+    },
+    {
+      "expr": "cookies - oven_cost",
+      "key": "cookies",
+      "op": "set"
+    },
+    {
+      "expr": "ovens + 1",
+      "key": "ovens",
+      "op": "set"
+    },
+    {
+      "expr": "floor(oven_cost * 1.6)",
+      "key": "oven_cost",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Новая печь гудит! Каждый такт приносит печенье само."
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "buy_hands",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "cookies \u003e= 20",
+      "op": "if",
+      "then": "do_hands"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не хватает печенья на прокачку."
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "do_hands",
+      "op": "label"
+    },
+    {
+      "expr": "cookies - 20",
+      "key": "cookies",
+      "op": "set"
+    },
+    {
+      "expr": "per_click + 1",
+      "key": "per_click",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Ловкие руки! Теперь каждый клик весомее."
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "win",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Цель достигнута — {goal} печений! Ты пекарь-магнат. 🎉"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

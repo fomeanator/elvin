@@ -1,0 +1,440 @@
+{
+  "scene": "roguelike",
+  "script": [
+    {
+      "expr": "12",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "expr": "12",
+      "key": "maxhp",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "depth",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "potions",
+      "op": "set"
+    },
+    {
+      "color": "#d8c9f0",
+      "id": "hud",
+      "op": "text",
+      "size": 42,
+      "text": "Глубина {depth}  ♥{hp}/{maxhp}  💰{gold}  🧪{potions}",
+      "x": 3,
+      "y": 8
+    },
+    {
+      "id": "dungeon_gate",
+      "op": "bg",
+      "sprite_url": "/content/bg/dungeon_gate.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Врата подземелья. Спускайся, собирай золото — и попробуй выбраться живым."
+    },
+    {
+      "label": "descend",
+      "op": "goto"
+    },
+    {
+      "id": "descend",
+      "op": "label"
+    },
+    {
+      "expr": "depth + 1",
+      "key": "depth",
+      "op": "set"
+    },
+    {
+      "expr": "rand(1, 6)",
+      "key": "room",
+      "op": "set"
+    },
+    {
+      "id": "dungeon_room",
+      "op": "bg",
+      "sprite_url": "/content/bg/dungeon_room.jpg"
+    },
+    {
+      "else": "__nf1",
+      "expr": "room \u003c= 2",
+      "op": "if",
+      "then": "r_monster"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "room \u003c= 3",
+      "op": "if",
+      "then": "r_treasure"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "room \u003c= 4",
+      "op": "if",
+      "then": "r_potion"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "else": "__nf4",
+      "expr": "room \u003c= 5",
+      "op": "if",
+      "then": "r_trap"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "label": "r_empty",
+      "op": "goto"
+    },
+    {
+      "id": "r_monster",
+      "op": "label"
+    },
+    {
+      "expr": "depth * 3 + rand(0, 4)",
+      "key": "mhp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "на тебя бросается тварь (♥{mhp})!",
+      "who": "Комната {depth}"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "fight",
+          "text": "⚔ Драться"
+        },
+        {
+          "goto": "sneak",
+          "text": "🚪 Прошмыгнуть мимо"
+        }
+      ]
+    },
+    {
+      "id": "fight",
+      "op": "label"
+    },
+    {
+      "expr": "rand(2, 6)",
+      "key": "hit",
+      "op": "set"
+    },
+    {
+      "expr": "mhp - hit",
+      "key": "mhp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Ты бьёшь на {hit}."
+    },
+    {
+      "else": "__nf5",
+      "expr": "mhp \u003c= 0",
+      "op": "if",
+      "then": "mon_dead"
+    },
+    {
+      "id": "__nf5",
+      "op": "label"
+    },
+    {
+      "expr": "rand(1, 4)",
+      "key": "bite",
+      "op": "set"
+    },
+    {
+      "expr": "hp - bite",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Тварь огрызается на {bite}. (♥{hp})"
+    },
+    {
+      "else": "__nf6",
+      "expr": "hp \u003c= 0",
+      "op": "if",
+      "then": "dead"
+    },
+    {
+      "id": "__nf6",
+      "op": "label"
+    },
+    {
+      "label": "fight",
+      "op": "goto"
+    },
+    {
+      "id": "mon_dead",
+      "op": "label"
+    },
+    {
+      "expr": "rand(3, 9)",
+      "key": "drop",
+      "op": "set"
+    },
+    {
+      "expr": "gold + drop",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "+{drop}💰.",
+      "who": "Тварь повержена! Добыча"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "sneak",
+      "op": "label"
+    },
+    {
+      "else": "__nf7",
+      "expr": "chance(0.5)",
+      "op": "if",
+      "then": "sneak_ok"
+    },
+    {
+      "id": "__nf7",
+      "op": "label"
+    },
+    {
+      "expr": "rand(1, 5)",
+      "key": "bite",
+      "op": "set"
+    },
+    {
+      "expr": "hp - bite",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Не вышло — тварь успела цапнуть (-{bite}). (♥{hp})"
+    },
+    {
+      "else": "__nf8",
+      "expr": "hp \u003c= 0",
+      "op": "if",
+      "then": "dead"
+    },
+    {
+      "id": "__nf8",
+      "op": "label"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "sneak_ok",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты бесшумно проскользнул мимо."
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "r_treasure",
+      "op": "label"
+    },
+    {
+      "expr": "rand(8, 20)",
+      "key": "loot",
+      "op": "set"
+    },
+    {
+      "expr": "gold + loot",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "сундук с золотом! +{loot}💰.",
+      "who": "Комната {depth}"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "r_potion",
+      "op": "label"
+    },
+    {
+      "expr": "potions + 1",
+      "key": "potions",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "на алтаре — склянка лечения. Взято.",
+      "who": "Комната {depth}"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "r_trap",
+      "op": "label"
+    },
+    {
+      "expr": "rand(2, 5)",
+      "key": "dmg",
+      "op": "set"
+    },
+    {
+      "expr": "hp - dmg",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "ловушка! Шипы бьют на {dmg}. (♥{hp})",
+      "who": "Комната {depth}"
+    },
+    {
+      "else": "__nf9",
+      "expr": "hp \u003c= 0",
+      "op": "if",
+      "then": "dead"
+    },
+    {
+      "id": "__nf9",
+      "op": "label"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "r_empty",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "пусто и тихо. Только эхо шагов.",
+      "who": "Комната {depth}"
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "after_room",
+      "op": "label"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "descend",
+          "text": "⬇ Спуститься глубже (риск)"
+        },
+        {
+          "expr": "potions \u003e= 1",
+          "goto": "drink",
+          "text": "🧪 Выпить зелье"
+        },
+        {
+          "goto": "escape",
+          "text": "🪜 Выйти с добычей"
+        }
+      ]
+    },
+    {
+      "id": "drink",
+      "op": "label"
+    },
+    {
+      "expr": "potions - 1",
+      "key": "potions",
+      "op": "set"
+    },
+    {
+      "expr": "min(maxhp, hp + 6)",
+      "key": "hp",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Зелье возвращает силы."
+    },
+    {
+      "label": "after_room",
+      "op": "goto"
+    },
+    {
+      "id": "escape",
+      "op": "label"
+    },
+    {
+      "id": "dungeon_gate",
+      "op": "bg",
+      "sprite_url": "/content/bg/dungeon_gate.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Ты выбрался на поверхность. Глубина {depth}, золота {gold}. Забег засчитан!"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "dead",
+      "op": "label"
+    },
+    {
+      "duration": 0.8,
+      "op": "fade",
+      "to": "black"
+    },
+    {
+      "op": "say",
+      "text": "Ты пал на глубине {depth} с {gold}💰 в кошеле. Подземелье забрало своё."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}
