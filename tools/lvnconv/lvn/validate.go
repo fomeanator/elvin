@@ -19,7 +19,7 @@ var KnownOps = map[string]bool{
 	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
 	"audio": true, "wait": true, "preload": true, "text_pace": true,
-	"text": true, // reactive HUD/stat label
+	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
 	"label": true, "goto": true, "if": true,
 	"set": true, "inc": true, "hint": true,
