@@ -6,9 +6,16 @@
       "subtitle": "A dark-fantasy visual novel",
       "cover_url": "/content/ui/cover_last_guest.png",
       "seasons": [
-        { "chapters": [
-          { "id": "lg-ch1", "number": 1, "script_url": "/content/scripts/ch1.lvn", "bg_url": "/content/ui/loading/ch1.png" }
-        ]}
+        {
+          "chapters": [
+            {
+              "id": "lg-ch1",
+              "number": 1,
+              "script_url": "/content/scripts/ch1.lvn",
+              "bg_url": "/content/ui/loading/ch1.png"
+            }
+          ]
+        }
       ]
     },
     {
@@ -17,9 +24,16 @@
       "subtitle": "A non-novel, button-driven demo of every feature",
       "cover_url": "/content/ui/cover_showcase.png",
       "seasons": [
-        { "chapters": [
-          { "id": "showcase", "number": 0, "script_url": "/content/scripts/showcase.lvn", "bg_url": "/content/bg/hub.jpg" }
-        ]}
+        {
+          "chapters": [
+            {
+              "id": "showcase",
+              "number": 0,
+              "script_url": "/content/scripts/showcase.lvn",
+              "bg_url": "/content/bg/hub.jpg"
+            }
+          ]
+        }
       ]
     }
   ],
@@ -68,6 +82,40 @@
       "height": 0.07,
       "progress_color": "#f4ecd8",
       "default_currency_icon_url": "/content/ui/icon_butterfly.png"
+    }
+  },
+  "sprites": {
+    "porch": {
+      "layers": [
+        "/content/bg/porch.jpg"
+      ]
+    },
+    "mara": {
+      "name": "Mara",
+      "color": "#e7b9d6",
+      "axes": {
+        "pose": [
+          "standing",
+          "sitting"
+        ],
+        "emotion": [
+          "neutral",
+          "smile",
+          "sad"
+        ]
+      },
+      "defaults": {
+        "pose": "standing",
+        "emotion": "neutral"
+      },
+      "layers": [
+        "/content/actors/mara/body_{pose}.png",
+        "/content/actors/mara/face_{emotion}.png",
+        {
+          "url": "/content/actors/mara/blush.png",
+          "when": "warmth >= 1"
+        }
+      ]
     }
   }
 }

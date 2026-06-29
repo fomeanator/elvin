@@ -33,14 +33,18 @@ namespace Lvn.Content
         /// marshal to the main thread before touching Unity objects.</summary>
         public static event Action<bool> Changed;
 
-        public static void MarkOffline(string reason = null) => Set(false);
-        public static void MarkOnline(string reason = null) => Set(true);
+        public static void MarkOffline(string reason = null) => Set(false, reason);
+        public static void MarkOnline(string reason = null) => Set(true, reason);
 
-        private static void Set(bool online)
+        private static void Set(bool online, string reason = null)
         {
             if (online && _forceOffline) return; // forced offline wins
             if (_online == online) return;        // idempotent — no spurious events
             _online = online;
+            // Log the transition with its cause — the single most useful breadcrumb
+            // when chasing "why did we go offline?" in the field.
+            if (!string.IsNullOrEmpty(reason))
+                UnityEngine.Debug.Log($"[net] {(online ? "online" : "offline")}: {reason}");
             try { Changed?.Invoke(online); } catch { /* a bad subscriber must not break status */ }
         }
     }
@@ -79,6 +83,20 @@ namespace Lvn.Content
             var exp = Math.Min(attempt - 2, 30);           // guard against overflow
             var delay = (float)Math.Pow(2d, exp);
             return Math.Min(capSeconds, delay);
+        }
+
+        /// <summary>
+        /// The same exponential curve with symmetric ±<paramref name="jitterFraction"/>
+        /// jitter, so many clients retrying after one outage don't reconverge into a
+        /// thundering herd. Deterministic given the same <paramref name="rng"/>.
+        /// </summary>
+        public static float DelaySecondsJittered(int attempt, Random rng,
+            float jitterFraction = 0.2f, float capSeconds = DefaultCapSeconds)
+        {
+            var baseDelay = DelaySeconds(attempt, capSeconds);
+            if (baseDelay <= 0f || rng == null || jitterFraction <= 0f) return baseDelay;
+            var factor = 1d + (rng.NextDouble() * 2d - 1d) * jitterFraction; // [1-j, 1+j]
+            return (float)Math.Min(capSeconds, baseDelay * factor);
         }
     }
 }

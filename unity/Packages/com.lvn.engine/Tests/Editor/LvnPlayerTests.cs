@@ -16,10 +16,12 @@ namespace Lvn.Tests
 
             public string Last => Lines.Count > 0 ? Lines[Lines.Count - 1] : null;
 
+            public readonly List<string> Staged = new List<string>(); // ops sent to ApplyStage
+
             public void ShowSay(string who, string text, string style)
                 => Lines.Add(string.IsNullOrEmpty(who) ? text : who + ": " + text);
             public void ShowChoice(IReadOnlyList<LvnOption> options) => Options = options;
-            public void ApplyStage(JObject command) { }
+            public void ApplyStage(JObject command) => Staged.Add((string)command["op"]);
             public void OnEnd() => Ended = true;
         }
 
@@ -111,6 +113,119 @@ namespace Lvn.Tests
             p.GoTo("door"); // a hotspot was clicked
             p.Advance();
             Assert.AreEqual("the door opens", stage.Last);
+        }
+
+        // ── live-edit hot-swap (keep position on a non-structural edit) ──────
+
+        [Test]
+        public void HotSwapKeepsPositionOnTextEdit()
+        {
+            var v1 = @"{""script"":[
+                {""op"":""say"",""text"":""line one""},
+                {""op"":""say"",""text"":""line two""},
+                {""op"":""say"",""text"":""line three""}
+            ]}";
+            var p = Play(v1, out var stage);
+            p.Advance();            // line one
+            p.Advance();            // line two — cursor now past index 1
+            Assert.AreEqual("line two", stage.Last);
+
+            // reword the current line and a future line — same structure
+            var v2 = @"{""script"":[
+                {""op"":""say"",""text"":""line one""},
+                {""op"":""say"",""text"":""line two EDITED""},
+                {""op"":""say"",""text"":""line three EDITED""}
+            ]}";
+            Assert.IsTrue(p.TryReplaceScript(LvnDocument.Parse(v2)));
+            p.RerenderCurrent();
+            Assert.AreEqual("line two EDITED", stage.Last, "current beat re-rendered with the edit");
+
+            p.Advance();
+            Assert.AreEqual("line three EDITED", stage.Last, "continues into the edited future line");
+            Assert.IsFalse(p.Finished);
+        }
+
+        [Test]
+        public void HotSwapReappliesEditedAnimBeforeCursor()
+        {
+            var v1 = @"{""script"":[
+                {""op"":""anim"",""id"":""h"",""anim"":{""loop"":true,""duration"":1,""tracks"":[{""prop"":""rotation"",""keys"":[[0,4]]}]}},
+                {""op"":""say"",""text"":""a""},
+                {""op"":""say"",""text"":""b""}
+            ]}";
+            var p = Play(v1, out var stage);
+            p.Advance(); // runs the anim (idx 0) then shows say "a"; cursor now past both
+            stage.Staged.Clear();
+
+            // edit ONLY the anim's amplitude — structure unchanged
+            var v2 = @"{""script"":[
+                {""op"":""anim"",""id"":""h"",""anim"":{""loop"":true,""duration"":1,""tracks"":[{""prop"":""rotation"",""keys"":[[0,20]]}]}},
+                {""op"":""say"",""text"":""a""},
+                {""op"":""say"",""text"":""b""}
+            ]}";
+            Assert.IsTrue(p.TryReplaceScript(LvnDocument.Parse(v2)));
+            // the already-run, edited anim was re-issued to the stage (live update)
+            Assert.AreEqual(1, stage.Staged.Count, "edited anim should be re-applied");
+            Assert.AreEqual("anim", stage.Staged[0]);
+        }
+
+        [Test]
+        public void HotSwapDoesNotReapplyUnchangedAnim()
+        {
+            var v = @"{""script"":[
+                {""op"":""anim"",""id"":""h"",""anim"":{""loop"":true,""duration"":1,""tracks"":[{""prop"":""rotation"",""keys"":[[0,4]]}]}},
+                {""op"":""say"",""text"":""a""}
+            ]}";
+            var p = Play(v, out var stage);
+            p.Advance();
+            stage.Staged.Clear();
+            // same content (only a say text differs elsewhere would still skip the anim)
+            Assert.IsTrue(p.TryReplaceScript(LvnDocument.Parse(v)));
+            Assert.AreEqual(0, stage.Staged.Count, "unchanged anim must not be re-applied");
+        }
+
+        [Test]
+        public void HotSwapRejectsStructuralChange()
+        {
+            var v1 = @"{""script"":[
+                {""op"":""say"",""text"":""a""},
+                {""op"":""say"",""text"":""b""}
+            ]}";
+            var p = Play(v1, out _);
+            p.Advance();
+
+            // an inserted command → count differs → reject (host restarts)
+            var inserted = @"{""script"":[
+                {""op"":""say"",""text"":""a""},
+                {""op"":""bg"",""id"":""x""},
+                {""op"":""say"",""text"":""b""}
+            ]}";
+            Assert.IsFalse(p.TryReplaceScript(LvnDocument.Parse(inserted)));
+
+            // same count but a changed op at index 1 → reject
+            var swappedOp = @"{""script"":[
+                {""op"":""say"",""text"":""a""},
+                {""op"":""choice"",""options"":[{""text"":""x"",""goto"":""__end""}]}
+            ]}";
+            Assert.IsFalse(p.TryReplaceScript(LvnDocument.Parse(swappedOp)));
+        }
+
+        [Test]
+        public void HotSwapRejectsRenamedLabel()
+        {
+            var v1 = @"{""script"":[
+                {""op"":""say"",""text"":""a""},
+                {""op"":""label"",""id"":""door""}
+            ]}";
+            var p = Play(v1, out _);
+            p.Advance();
+
+            var renamed = @"{""script"":[
+                {""op"":""say"",""text"":""a""},
+                {""op"":""label"",""id"":""window""}
+            ]}";
+            Assert.IsFalse(p.TryReplaceScript(LvnDocument.Parse(renamed)),
+                "a renamed label is structural — jumps would break");
         }
 
         [Test]

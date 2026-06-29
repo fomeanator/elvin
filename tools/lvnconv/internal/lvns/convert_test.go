@@ -76,3 +76,101 @@ return
 		}
 	}
 }
+
+func TestConvertAnimAndMove(t *testing.T) {
+	src := `
+scene anim_test
+anim id=hero prop=y keys="0:0 1:0.5" loop=true ease=inOutSine
+anim id=hero layer=face prop=rotation keys="0:0 2:8" interp=spline
+move id=hero path="0,0 1,1" dur=2 ease=outCubic
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+
+	expected := []Cmd{
+		{"op": "anim", "id": "hero", "anim": map[string]any{
+			"loop": true, "duration": 1.0,
+			"tracks": []any{map[string]any{
+				"prop": "y", "ease": "inOutSine",
+				"keys": []any{[]any{0.0, 0.0}, []any{1.0, 0.5}},
+			}},
+		}},
+		{"op": "anim", "id": "hero", "anim": map[string]any{
+			"loop": false, "duration": 2.0,
+			"tracks": []any{map[string]any{
+				"prop": "rotation", "layer": "face", "interp": "spline",
+				"keys": []any{[]any{0.0, 0.0}, []any{2.0, 8.0}},
+			}},
+		}},
+		{"op": "anim", "id": "hero", "anim": map[string]any{
+			"loop": false, "duration": 2.0,
+			"tracks": []any{
+				map[string]any{"prop": "screen_x", "ease": "outCubic", "keys": []any{[]any{0.0, 0.0}, []any{2.0, 1.0}}},
+				map[string]any{"prop": "screen_y", "ease": "outCubic", "keys": []any{[]any{0.0, 0.0}, []any{2.0, 1.0}}},
+			},
+		}},
+	}
+
+	if len(doc.Script) != len(expected) {
+		t.Fatalf("expected %d commands, got %d", len(expected), len(doc.Script))
+	}
+	for i, cmd := range doc.Script {
+		cmdJSON, _ := json.Marshal(cmd)
+		expJSON, _ := json.Marshal(expected[i])
+		var normCmd, normExp map[string]any
+		json.Unmarshal(cmdJSON, &normCmd)
+		json.Unmarshal(expJSON, &normExp)
+		if !reflect.DeepEqual(normCmd, normExp) {
+			t.Errorf("at index %d:\nexpected: %s\ngot:      %s", i, expJSON, cmdJSON)
+		}
+	}
+}
+
+func TestConvertAnimOneLinerYoyoStop(t *testing.T) {
+	src := `
+scene t
+anim id=h prop=scale to=1.15 dur=0.4 ease=outBack
+anim id=h prop=y keys="0:0 1:-0.05 2:0" loop=yoyo
+move id=h to=0.2,-0.05 dur=1
+anim id=h stop=all
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	expected := []Cmd{
+		{"op": "anim", "id": "h", "anim": map[string]any{
+			"loop": false, "duration": 0.4,
+			"tracks": []any{map[string]any{"prop": "scale", "ease": "outBack",
+				"keys": []any{[]any{0.0, 1.0}, []any{0.4, 1.15}}}},
+		}},
+		{"op": "anim", "id": "h", "anim": map[string]any{
+			"loop": true, "yoyo": true, "duration": 2.0,
+			"tracks": []any{map[string]any{"prop": "y",
+				"keys": []any{[]any{0.0, 0.0}, []any{1.0, -0.05}, []any{2.0, 0.0}}}},
+		}},
+		{"op": "anim", "id": "h", "anim": map[string]any{
+			"loop": false, "duration": 1.0,
+			"tracks": []any{
+				map[string]any{"prop": "screen_x", "keys": []any{[]any{0.0, 0.0}, []any{1.0, 0.2}}},
+				map[string]any{"prop": "screen_y", "keys": []any{[]any{0.0, 0.0}, []any{1.0, -0.05}}},
+			},
+		}},
+		{"op": "anim", "id": "h", "stop": "all"},
+	}
+	if len(doc.Script) != len(expected) {
+		t.Fatalf("expected %d commands, got %d", len(expected), len(doc.Script))
+	}
+	for i, cmd := range doc.Script {
+		c, _ := json.Marshal(cmd)
+		e, _ := json.Marshal(expected[i])
+		var nc, ne map[string]any
+		json.Unmarshal(c, &nc)
+		json.Unmarshal(e, &ne)
+		if !reflect.DeepEqual(nc, ne) {
+			t.Errorf("at %d:\nexpected: %s\ngot:      %s", i, e, c)
+		}
+	}
+}

@@ -84,6 +84,17 @@ namespace Lvn.UI.Screens
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
         }
 
+        /// <summary>Apply a live content update — swap in a freshly-fetched
+        /// manifest and re-render the data-driven screens (the carousel rebuilds
+        /// its deck, keeping the selected title). Cheap and safe to call any time;
+        /// the host's content-sync loop calls it when the server version changes.</summary>
+        public void ApplyLiveUpdate(LvnManifest manifest)
+        {
+            if (manifest == null) return;
+            _manifest = manifest;
+            Carousel?.SetTitles(manifest.titles);
+        }
+
         /// <summary>Run the whole loop. <paramref name="bootReady"/> gates the boot
         /// splash; <paramref name="chapterReady"/> (optional) gates each chapter's
         /// loading bar; <paramref name="playChapter"/> plays the chosen chapter and
@@ -92,7 +103,7 @@ namespace Lvn.UI.Screens
             Func<bool> bootReady = null,
             Func<LvnChapter, Func<bool>> chapterReady = null,
             Func<LvnChapter, Func<float>> chapterProgress = null,
-            Func<LvnChapter, string, Task> playChapter = null,
+            Func<LvnTitle, LvnChapter, string, Task> playChapter = null,
             bool askName = true,
             CancellationToken ct = default)
         {
@@ -145,7 +156,7 @@ namespace Lvn.UI.Screens
                 if (playChapter != null && chapter != null)
                 {
                     Show(Hud);
-                    try { await playChapter(chapter, _playerName); }
+                    try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }
                     catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
                     Hide(Hud);
@@ -153,11 +164,30 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>Auto-start a title by id without racing the boot splash — the
+        /// request is honoured the moment the carousel takes control. Returns false
+        /// if no title carries that id. Pairs with <see cref="TitleCarousel.RequestPlay"/>.</summary>
+        public bool RequestPlay(string titleId)
+        {
+            if (_manifest?.titles == null || Carousel == null) return false;
+            for (int i = 0; i < _manifest.titles.Count; i++)
+                if (_manifest.titles[i]?.id == titleId) { Carousel.RequestPlay(i); return true; }
+            return false;
+        }
+
         private Task<int> WaitForPlay(CancellationToken ct)
         {
             var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             void Handler(int i) { Carousel.OnPlay -= Handler; tcs.TrySetResult(i); }
             Carousel.OnPlay += Handler;
+            // Honour a play requested before we got here (auto-start / deep-link fired
+            // during the boot splash, when OnPlay had no subscriber yet).
+            if (Carousel.TryConsumePendingPlay(out int pending))
+            {
+                Carousel.OnPlay -= Handler;
+                tcs.TrySetResult(pending);
+                return tcs.Task;
+            }
             ct.Register(() => { Carousel.OnPlay -= Handler; tcs.TrySetCanceled(); });
             return tcs.Task;
         }

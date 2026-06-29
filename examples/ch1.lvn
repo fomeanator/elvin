@@ -1,0 +1,33 @@
+{
+  "scene": "the-last-guest-ch1",
+  "script": [
+    { "op": "bg", "sprite_url": "/content/bg/porch.jpg" },
+    { "op": "fade", "to": "clear", "duration": 0.6 },
+    { "op": "particles", "type": "rain", "on": true },
+    { "op": "say", "text": "Rain ticked on the porch roof." },
+    { "op": "say", "who": "Mara", "text": "You came back." },
+    { "op": "say", "who": "Mara", "text": "I wasn't sure you would, {player}." },
+    { "op": "choice", "options": [
+      { "text": "I did.", "goto": "warmth" },
+      { "text": "I can't stay.", "goto": "leave" }
+    ]},
+
+    { "op": "label", "id": "warmth" },
+    { "op": "set", "key": "warmth", "value": 1 },
+    { "op": "say", "who": "Mara", "text": "Then come in out of the rain." },
+    { "op": "goto", "label": "inside" },
+
+    { "op": "label", "id": "leave" },
+    { "op": "hint", "text": "Some doors don't open twice.", "show": true },
+    { "op": "say", "who": "Mara", "text": "She watched the dark take you back." },
+    { "op": "fade", "to": "black", "duration": 0.8 },
+    { "op": "goto", "label": "__end" },
+
+    { "op": "label", "id": "inside" },
+    { "op": "particles", "type": "rain", "on": false },
+    { "op": "tint", "color": "warm", "alpha": 0.25, "duration": 0.6 },
+    { "op": "say", "who": "Mara", "text": "The kettle's still warm. Sit." },
+    { "op": "say", "text": "For the first time in a long while, the house felt less empty." },
+    { "op": "goto", "label": "__end" }
+  ]
+}

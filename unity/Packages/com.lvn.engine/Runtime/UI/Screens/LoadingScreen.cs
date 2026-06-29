@@ -44,19 +44,19 @@ namespace Lvn.UI.Screens
             _model = new LoadingProgressModel(fillSpanPercent: _fillSpan);
             _scrimOpacity = _cfg.scrim_opacity ?? 0.65f;
 
-            Fill(this);
+            ScreenUi.Stretch(this);
             style.backgroundColor = UiColor.Parse(_cfg.bg_color, Color.black);
             pickingMode = PickingMode.Position; // swallow taps under the loader
 
-            _bg = Fill(new VisualElement());
+            _bg = ScreenUi.Stretch(new VisualElement());
             Add(_bg);
 
-            _scrim = Fill(new VisualElement());
+            _scrim = ScreenUi.Stretch(new VisualElement());
             _scrim.style.backgroundColor = UiColor.Parse(_cfg.scrim_color, Color.black);
             _scrim.style.opacity = _scrimOpacity;
             Add(_scrim);
 
-            _fog = Fill(new VisualElement());
+            _fog = ScreenUi.Stretch(new VisualElement());
             _fog.style.opacity = 0f;
             _fog.pickingMode = PickingMode.Ignore;
             Add(_fog);
@@ -67,52 +67,36 @@ namespace Lvn.UI.Screens
             float barW = _cfg.bar_width ?? 0.7f;
             float barH = _cfg.bar_height ?? 0.018f;
 
-            var bar = new VisualElement();
-            bar.style.position = Position.Absolute;
-            bar.style.left = Length.Percent(barX * 100f);
-            bar.style.top = Length.Percent(barY * 100f);
-            bar.style.width = Length.Percent(barW * 100f);
-            bar.style.height = Length.Percent(barH * 100f);
-            bar.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f), 0f);
-            bar.pickingMode = PickingMode.Ignore;
+            var bar = ScreenUi.ProgressBar(
+                barX, barY, barW, barH,
+                UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f)),
+                UiColor.Parse(_cfg.bar_fill_color, new Color(0.78f, 0.63f, 0.31f)),
+                out var track, out _fill);
             Add(bar);
 
-            var track = Fill(new VisualElement());
-            track.style.backgroundColor = UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f));
-            bar.Add(track);
-
-            _fill = new VisualElement();
-            _fill.style.position = Position.Absolute;
-            _fill.style.left = 0;
-            _fill.style.top = 0;
-            _fill.style.bottom = 0;
-            _fill.style.width = Length.Percent(0f);
-            _fill.style.backgroundColor = UiColor.Parse(_cfg.bar_fill_color, new Color(0.78f, 0.63f, 0.31f));
-            bar.Add(_fill);
-
-            var frame = Fill(new VisualElement());
+            var frame = ScreenUi.Stretch(new VisualElement());
             frame.pickingMode = PickingMode.Ignore;
             bar.Add(frame);
 
             // ── labels (placed relative to the bar) ──
-            _hint = MakeLabel(barY - 0.07f, UiColor.Parse(_cfg.hint_color, new Color(0.81f, 0.78f, 0.74f)), 24);
+            _hint = ScreenUi.CenterLabel(barY - 0.07f, UiColor.Parse(_cfg.hint_color, new Color(0.81f, 0.78f, 0.74f)), 24);
             _hint.style.display = (_cfg.show_hint ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_hint);
 
-            _percent = MakeLabel(barY + 0.02f, UiColor.Parse(_cfg.percent_color, Color.white), 26);
+            _percent = ScreenUi.CenterLabel(barY + 0.02f, UiColor.Parse(_cfg.percent_color, Color.white), 26);
             _percent.style.display = (_cfg.show_percent ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_percent);
 
-            _file = MakeLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, new Color(0.60f, 0.58f, 0.54f)), 18);
+            _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, new Color(0.60f, 0.58f, 0.54f)), 18);
             _file.style.display = (_cfg.show_file ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_file);
 
             // Static art from the config (async — non-fatal if missing).
-            _ = AssignBg(_fog, _cfg.fog_url);
-            _ = AssignBg(track, _cfg.bar_track_url);
-            _ = AssignBg(_fill, _cfg.bar_fill_url);
-            _ = AssignBg(frame, _cfg.bar_frame_url);
-            if (!string.IsNullOrEmpty(_cfg.bg_url)) _ = AssignBg(_bg, _cfg.bg_url);
+            _ = ScreenUi.AssignBgAsync(_fog, _cfg.fog_url, _assets);
+            _ = ScreenUi.AssignBgAsync(track, _cfg.bar_track_url, _assets);
+            _ = ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets);
+            _ = ScreenUi.AssignBgAsync(frame, _cfg.bar_frame_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.bg_url)) _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
         }
 
         /// <summary>Drives the loading bar until <paramref name="isDone"/> returns
@@ -132,12 +116,12 @@ namespace Lvn.UI.Screens
             _gate.Reset();
             style.display = DisplayStyle.Flex;
             style.opacity = 1f;
-            SetText(_percent, "");
-            SetText(_file, "");
-            SetText(_hint, "");
+            ScreenUi.SetText(_percent, "");
+            ScreenUi.SetText(_file, "");
+            ScreenUi.SetText(_hint, "");
             SetFill(0f);
 
-            if (!string.IsNullOrEmpty(bgUrl)) _ = AssignBg(_bg, bgUrl);
+            if (!string.IsNullOrEmpty(bgUrl)) _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
 
             var tips = _cfg.tips;
             float minSeconds = _cfg.min_seconds ?? 0f;
@@ -155,7 +139,7 @@ namespace Lvn.UI.Screens
                 // rotate tips
                 if (tips != null && tips.Length > 0 && now - lastTip >= 3.5f)
                 {
-                    SetText(_hint, tips[tipIdx % tips.Length] ?? "");
+                    ScreenUi.SetText(_hint, tips[tipIdx % tips.Length] ?? "");
                     tipIdx++;
                     lastTip = now;
                 }
@@ -169,12 +153,12 @@ namespace Lvn.UI.Screens
 
                 SetFill(_model.FillPercent);
                 if (_percent != null && _gate.PercentMoved(_model.Percent))
-                    SetText(_percent, ((done && elapsed >= minSeconds) ? 100 : _model.Percent) + "%");
+                    ScreenUi.SetText(_percent, ((done && elapsed >= minSeconds) ? 100 : _model.Percent) + "%");
 
                 if (_file != null && fileLabel != null)
                 {
                     var text = (!done) ? (fileLabel() ?? "") : "";
-                    if (_gate.LabelChanged(text)) SetText(_file, text);
+                    if (_gate.LabelChanged(text)) ScreenUi.SetText(_file, text);
                 }
 
                 if (done && elapsed >= minSeconds) { SetFill(_fillSpan); break; }
@@ -201,41 +185,5 @@ namespace Lvn.UI.Screens
                 _fill.style.width = Length.Percent(Mathf.Clamp(fillPercent, 0f, _fillSpan));
         }
 
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { /* missing art is non-fatal */ }
-        }
-
-        private static Label MakeLabel(float topFraction, Color color, float size)
-        {
-            var l = new Label();
-            l.style.position = Position.Absolute;
-            l.style.left = 0;
-            l.style.right = 0;
-            l.style.top = Length.Percent(topFraction * 100f);
-            l.style.unityTextAlign = TextAnchor.MiddleCenter;
-            l.style.color = color;
-            l.style.fontSize = size;
-            l.pickingMode = PickingMode.Ignore;
-            return l;
-        }
-
-        private static VisualElement Fill(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0;
-            el.style.right = 0;
-            el.style.top = 0;
-            el.style.bottom = 0;
-            return el;
-        }
-
-        private static void SetText(Label l, string t) { if (l != null) l.text = t; }
     }
 }

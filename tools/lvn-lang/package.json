@@ -1,0 +1,14 @@
+{
+  "name": "@lvn/lang",
+  "version": "0.1.0",
+  "description": "LVNScript language intelligence core — grammar + analysis shared by the authoring panel and the language server.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./grammar": "./src/grammar.js",
+    "./analyze": "./src/analyze.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

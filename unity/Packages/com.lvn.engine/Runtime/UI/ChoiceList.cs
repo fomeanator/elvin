@@ -26,8 +26,32 @@ namespace Lvn.UI
             style.right = 0;
             style.top = 0;
             style.bottom = 0;
-            style.justifyContent = Justify.Center;
-            style.alignItems = Align.Center;
+            style.paddingLeft = _theme.EdgePadding;
+            style.paddingRight = _theme.EdgePadding;
+            style.paddingBottom = _theme.BottomPadding;
+
+            // Horizontal placement of the button stack across the screen.
+            string al = string.IsNullOrEmpty(_theme.ChoiceAlign) ? "center" : _theme.ChoiceAlign;
+            style.alignItems = al == "left" ? Align.FlexStart
+                : al == "right" ? Align.FlexEnd
+                : Align.Center;
+
+            // Vertical placement: a free ChoiceYPercent puts the top of the stack at
+            // that screen % (e.g. 70 = lower third); otherwise ChoiceVAlign docks it
+            // top / centre / bottom.
+            if (_theme.ChoiceYPercent >= 0f)
+            {
+                style.justifyContent = Justify.FlexStart;
+                style.paddingTop = Length.Percent(Mathf.Clamp(_theme.ChoiceYPercent, 0f, 100f));
+            }
+            else
+            {
+                string v = string.IsNullOrEmpty(_theme.ChoiceVAlign) ? "center" : _theme.ChoiceVAlign;
+                style.justifyContent = v == "top" ? Justify.FlexStart
+                    : v == "bottom" ? Justify.FlexEnd
+                    : Justify.Center;
+            }
+
             pickingMode = PickingMode.Ignore; // only the buttons are interactive
             style.display = DisplayStyle.None;
         }
@@ -56,17 +80,17 @@ namespace Lvn.UI
             int index = option.Index;
             var btn = new Button(() => OnSelected?.Invoke(index)) { text = string.Empty };
             btn.style.backgroundColor = _theme.ChoiceColor;
-            btn.style.minWidth = Length.Percent(58f);
-            btn.style.maxWidth = Length.Percent(86f);
-            btn.style.marginBottom = 10;
-            btn.style.paddingTop = 12;
-            btn.style.paddingBottom = 12;
-            btn.style.paddingLeft = 20;
-            btn.style.paddingRight = 20;
-            btn.style.borderTopLeftRadius = 10;
-            btn.style.borderTopRightRadius = 10;
-            btn.style.borderBottomLeftRadius = 10;
-            btn.style.borderBottomRightRadius = 10;
+            btn.style.minWidth = Length.Percent(_theme.ChoiceMinWidthPercent);
+            btn.style.maxWidth = Length.Percent(_theme.ChoiceMaxWidthPercent);
+            btn.style.marginBottom = _theme.ChoiceSpacing;
+            btn.style.paddingTop = _theme.ChoicePaddingY;
+            btn.style.paddingBottom = _theme.ChoicePaddingY;
+            btn.style.paddingLeft = _theme.ChoicePaddingX;
+            btn.style.paddingRight = _theme.ChoicePaddingX;
+            btn.style.borderTopLeftRadius = _theme.ChoiceCornerRadius;
+            btn.style.borderTopRightRadius = _theme.ChoiceCornerRadius;
+            btn.style.borderBottomLeftRadius = _theme.ChoiceCornerRadius;
+            btn.style.borderBottomRightRadius = _theme.ChoiceCornerRadius;
             btn.style.flexDirection = FlexDirection.Column;
             btn.style.alignItems = Align.Center;
 
@@ -87,8 +111,18 @@ namespace Lvn.UI
                 btn.Add(cost);
             }
 
-            btn.RegisterCallback<MouseEnterEvent>(_ => btn.style.backgroundColor = _theme.ChoiceHoverColor);
-            btn.RegisterCallback<MouseLeaveEvent>(_ => btn.style.backgroundColor = _theme.ChoiceColor);
+            if (_theme.ChoiceSprite != null)
+            {
+                UiStyle.ApplyBackground(btn, _theme.ChoiceSprite, _theme.ChoiceSlice);
+                var hover = _theme.ChoiceHoverSprite != null ? _theme.ChoiceHoverSprite : _theme.ChoiceSprite;
+                btn.RegisterCallback<MouseEnterEvent>(_ => btn.style.backgroundImage = new StyleBackground(hover));
+                btn.RegisterCallback<MouseLeaveEvent>(_ => btn.style.backgroundImage = new StyleBackground(_theme.ChoiceSprite));
+            }
+            else
+            {
+                btn.RegisterCallback<MouseEnterEvent>(_ => btn.style.backgroundColor = _theme.ChoiceHoverColor);
+                btn.RegisterCallback<MouseLeaveEvent>(_ => btn.style.backgroundColor = _theme.ChoiceColor);
+            }
             return btn;
         }
     }

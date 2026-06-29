@@ -20,6 +20,77 @@ namespace Lvn.Content
         public BootScreenConfig boot;
         public CarouselConfig carousel;
         public HudConfig hud;
+        public DialogueConfig dialogue;
+        public ChoicesConfig choices;
+    }
+
+    /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
+    /// reveal. Maps onto the engine's <c>VnTheme</c> so the whole game — not just
+    /// the shell screens — is themeable from the manifest. Every field optional.</summary>
+    public sealed class DialogueConfig
+    {
+        public string panel_color;       // box + nameplate fill; default #0d0d14cc
+        public string text_color;        // body text; default #f5f5f5
+        public string speaker_color;     // name text; default #ffd166
+
+        public float? body_size;         // px; default 34
+        public float? speaker_size;      // px; default 24
+        public float? corner_radius;     // px; default 12
+
+        public string align;             // box placement: "stretch" (default bottom bar) | "center" | "left" | "right"; non-stretch hugs the text
+        public float? max_width_percent; // content-hug cap when align != stretch; default 80
+        public float? width_percent;     // fixed box width % (>0 overrides the content-hug); default hug
+        public float? max_height_percent;// cap box height as a screen %; default unbounded
+
+        // Free popup: set x/y (a screen % 0..100) to float the box anywhere on
+        // screen instead of docking it to the bottom — the universal popup mode.
+        public float? x_percent;         // horizontal position 0=left … 100=right
+        public float? y_percent;         // vertical position 0=top … 100=bottom
+        public string anchor;            // which box point lands on (x,y): "center" (default), "bottom-center", "top-left", …
+
+        public float? edge_padding;      // inset from screen edges; default 24
+        public float? bottom_padding;    // gap to screen bottom; default 28
+        public float? panel_padding_x;   // body inner padding; default 22
+        public float? panel_padding_y;   // default 18
+        public float? panel_min_height;  // default 128
+        public float? name_padding_x;    // nameplate inner padding; default 14
+        public float? name_padding_y;    // default 4
+
+        public float? chars_per_second;  // typewriter speed; default 45
+        public float? fade_width;        // soft per-glyph fade, trailing chars; default 5
+
+        public string font;              // Resources path to a Font (e.g. "Fonts/Serif")
+        public bool? nvl;                // NVL mode: tall full-screen text panel; default false
+        public float? nvl_top;           // NVL top inset, screen fraction; default 0.12
+
+        public string panel_image;       // content url: body-panel background sprite (overrides panel_color)
+        public string name_image;        // content url: nameplate background sprite
+        public int? panel_slice;         // 9-slice border px for the panel/name sprites; default 0 (stretch)
+    }
+
+    /// <summary>In-game choice buttons: colours, font, width and spacing.</summary>
+    public sealed class ChoicesConfig
+    {
+        public string color;             // button fill; default #1f1f29eb
+        public string hover_color;       // default #33333eF5
+        public string text_color;        // default #f5f5f5
+        public string cost_color;        // cost/lock label; default #e6a33b
+
+        public string align;             // horizontal placement: "center" (default) | "left" | "right"
+        public string valign;            // vertical placement: "center" (default) | "top" | "bottom"
+        public float? y_percent;         // free vertical: top of the stack at this screen % (overrides valign)
+
+        public float? font_size;         // px; default 28
+        public float? min_width_percent; // default 58
+        public float? max_width_percent; // default 86
+        public float? spacing;           // gap between buttons; default 10
+        public float? padding_x;         // button inner padding; default 20
+        public float? padding_y;         // default 12
+        public float? corner_radius;     // default 10
+
+        public string button_image;       // content url: button background sprite (overrides color)
+        public string button_hover_image; // content url: hovered-button sprite (defaults to button_image)
+        public int? button_slice;         // 9-slice border px for button sprites; default 0 (stretch)
     }
 
     /// <summary>The app boot / preload splash shown at launch (logo + progress).</summary>

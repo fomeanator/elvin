@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lvn.Content;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.UIElements.Experimental;
@@ -54,6 +55,8 @@ namespace Lvn.UI
     public sealed class ActorLayer : VisualElement
     {
         private readonly Dictionary<string, VisualElement> _slots = new Dictionary<string, VisualElement>();
+        private readonly Dictionary<string, VisualElement> _rigs = new Dictionary<string, VisualElement>(); // animation wrapper per slot
+        private readonly Dictionary<string, ActorAnimator> _animators = new Dictionary<string, ActorAnimator>();
         private readonly Dictionary<VisualElement, int> _z = new Dictionary<VisualElement, int>();
         private readonly Dictionary<string, Action> _onClick = new Dictionary<string, Action>();
         private readonly Dictionary<string, float> _hoverOpacity = new Dictionary<string, float>();
@@ -74,7 +77,8 @@ namespace Lvn.UI
         /// A null/empty list leaves the current art unchanged. When
         /// <paramref name="onClick"/> is set the object becomes a tappable hotspot
         /// (and swallows the tap so it doesn't also advance the dialogue).</summary>
-        public void Apply(string id, IReadOnlyList<Sprite> layers, Placement p, Action onClick = null)
+        public void Apply(string id, IReadOnlyList<Sprite> layers, Placement p, Action onClick = null,
+            IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null)
         {
             if (string.IsNullOrEmpty(id)) return;
 
@@ -115,14 +119,35 @@ namespace Lvn.UI
 
             if (layers != null && layers.Count > 0)
             {
-                slot.Clear();
-                foreach (var sprite in layers)
+                var rig = EnsureRig(slot, id);
+                rig.Clear();
+                var animator = AnimatorFor(id);
+                animator?.ClearLayers();
+                animator?.SetSlot(slot, p.X, p.Y); // for screen_x/screen_y travel
+                for (int i = 0; i < layers.Count; i++)
                 {
+                    var sprite = layers[i];
                     if (sprite == null) continue;
                     var img = new Image { sprite = sprite, scaleMode = ScaleMode.ScaleToFit, pickingMode = PickingMode.Ignore };
                     img.style.position = Position.Absolute;
-                    img.style.left = 0; img.style.right = 0; img.style.top = 0; img.style.bottom = 0;
-                    slot.Add(img);
+                    // A partial overlay (rect with w,h > 0) is placed at its sub-rect;
+                    // otherwise the layer fills the whole actor box (the default).
+                    var r = layerRects != null && i < layerRects.Count ? layerRects[i] : Vector4.zero;
+                    if (r.z > 0f && r.w > 0f)
+                    {
+                        img.style.left = Length.Percent(r.x * 100f);
+                        img.style.top = Length.Percent(r.y * 100f);
+                        img.style.width = Length.Percent(r.z * 100f);
+                        img.style.height = Length.Percent(r.w * 100f);
+                    }
+                    else
+                    {
+                        img.style.left = 0; img.style.right = 0; img.style.top = 0; img.style.bottom = 0;
+                    }
+                    rig.Add(img);
+                    // register a named layer so blink / lip-sync can target it
+                    var lid = layerIds != null && i < layerIds.Count ? layerIds[i] : null;
+                    if (!string.IsNullOrEmpty(lid)) animator?.SetLayer(lid, img, sprite);
                 }
             }
 
@@ -136,18 +161,124 @@ namespace Lvn.UI
             slot.style.scale = new Scale(new Vector2(p.Flip ? -1f : 1f, 1f));
             slot.style.rotate = new Rotate(new Angle(p.Rotation, AngleUnit.Degree));
             slot.style.opacity = p.Opacity;
-            slot.style.display = p.Show ? DisplayStyle.Flex : DisplayStyle.None;
+
+            // A departing object with an exit animation stays visible until the
+            // animation finishes (which then hides it). Without an exit animation,
+            // apply the requested visibility immediately.
+            if (!p.Show) StopAnims(id); // no looping idle on a hidden actor
+            bool exitWithAnim = !p.Show && p.ExitTransition != TransitionType.None;
+            if (!exitWithAnim)
+                slot.style.display = p.Show ? DisplayStyle.Flex : DisplayStyle.None;
 
             if (p.Show && p.EnterTransition != TransitionType.None)
-                PlayTransition(slot, p.EnterTransition, p.TransitionDuration, p);
-            else if (!p.Show && p.ExitTransition != TransitionType.None)
-                PlayTransition(slot, p.ExitTransition, p.TransitionDuration, p);
+                PlayTransition(slot, p.EnterTransition, p.TransitionDuration, p, exiting: false);
+            else if (exitWithAnim)
+                PlayTransition(slot, p.ExitTransition, p.TransitionDuration, p, exiting: true);
 
             if (p.Z.HasValue)
             {
                 _z[slot] = p.Z.Value;
                 Sort((a, b) => ZOf(a).CompareTo(ZOf(b)));
             }
+        }
+
+        // The animation wrapper between the slot (placement/anchor/flip) and the
+        // layer sprites, so animating it never fights the slot's positioning.
+        private VisualElement EnsureRig(VisualElement slot, string id)
+        {
+            if (_rigs.TryGetValue(id, out var rig) && rig.parent == slot) return rig;
+            rig = new VisualElement { name = "vn-rig-" + id, pickingMode = PickingMode.Ignore };
+            rig.style.position = Position.Absolute;
+            rig.style.left = 0; rig.style.right = 0; rig.style.top = 0; rig.style.bottom = 0;
+            rig.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(100), 0); // feet
+            slot.Add(rig);
+            _rigs[id] = rig;
+            return rig;
+        }
+
+        private ActorAnimator AnimatorFor(string id)
+        {
+            if (_animators.TryGetValue(id, out var a)) return a;
+            if (!_rigs.TryGetValue(id, out var rig)) return null;
+            a = new ActorAnimator(rig);
+            _animators[id] = a;
+            return a;
+        }
+
+        /// <summary>Preloaded frame sprites for blink/lip-sync: layerId → axisValue → sprite.</summary>
+        public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames)
+        {
+            AnimatorFor(id)?.SetFrames(frames);
+        }
+
+        /// <summary>Start (or keep) the looping idle on the <c>base</c> channel
+        /// (whole-actor bob). No-op if already playing, so repeated <c>actor</c>
+        /// commands don't restart it.</summary>
+        public void EnsureIdle(string id, LvnAnim idle)
+        {
+            var a = AnimatorFor(id);
+            if (a == null || idle == null) return;
+            if (!ReferenceEquals(a.Current("base"), idle)) a.Play("base", idle);
+        }
+
+        /// <summary>Looping blink (or any auto layer anim) on its own channel — runs
+        /// alongside idle/talk since it targets a different layer.</summary>
+        public void EnsureBlink(string id, LvnAnim blink)
+        {
+            var a = AnimatorFor(id);
+            if (a == null || blink == null) return;
+            if (!ReferenceEquals(a.Current("blink"), blink)) a.Play("blink", blink);
+        }
+
+        /// <summary>Toggle the talk (lip-sync) loop while an actor speaks.</summary>
+        public void Talk(string id, LvnAnim talk, bool on)
+        {
+            var a = AnimatorFor(id);
+            if (a == null) return;
+            if (on) { if (talk != null && !ReferenceEquals(a.Current("talk"), talk)) a.Play("talk", talk); }
+            else a.Stop("talk");
+        }
+
+        /// <summary>Play a one-shot gesture on the rig; pause idle while it runs and
+        /// resume it after (gesture and idle share the actor transform).</summary>
+        public void PlayGesture(string id, LvnAnim anim, LvnAnim idle)
+        {
+            var a = AnimatorFor(id);
+            if (a == null || anim == null) return;
+            if (anim.loop) { a.Play("gesture", anim); return; }
+            a.Stop("base");
+            a.Play("gesture", anim, onDone: () => { if (idle != null) EnsureIdle(id, idle); });
+        }
+
+        /// <summary>Play a script-driven animation on an arbitrary channel (e.g.
+        /// <c>script</c>) — lets .lvns <c>anim</c>/<c>move</c> tween any prop/layer
+        /// alongside the built-in idle/blink/talk channels (they composite).</summary>
+        public void PlayAnim(string id, string channel, LvnAnim anim)
+        {
+            if (string.IsNullOrEmpty(channel) || anim == null) return;
+            AnimatorFor(id)?.Play(channel, anim);
+        }
+
+        /// <summary>mode=queue: play after the current anim on this channel finishes.</summary>
+        public void PlayAnimQueued(string id, string channel, LvnAnim anim)
+        {
+            if (string.IsNullOrEmpty(channel) || anim == null) return;
+            AnimatorFor(id)?.PlayQueued(channel, anim);
+        }
+
+        /// <summary>Stop script animation: target "all"/null = every script lane,
+        /// else a specific channel or the derived "script:&lt;target&gt;".</summary>
+        public void StopAnim(string id, string target)
+        {
+            if (!_animators.TryGetValue(id, out var a)) return;
+            if (string.IsNullOrEmpty(target) || target == "all") a.StopScript();
+            else a.StopTarget(target);
+        }
+
+        /// <summary>Stop every animation on an actor and reset its transforms.</summary>
+        public void StopAnims(string id)
+        {
+            if (_animators.TryGetValue(id, out var a)) a.StopAll();
         }
 
         /// <summary>Full opacity for the speaker, dim for everyone else (null = undim all).</summary>
@@ -163,6 +294,9 @@ namespace Lvn.UI
 
         public void RemoveAll()
         {
+            foreach (var a in _animators.Values) a.StopAll();
+            _animators.Clear();
+            _rigs.Clear();
             Clear();
             _slots.Clear();
             _z.Clear();
@@ -174,55 +308,61 @@ namespace Lvn.UI
 
         private int ZOf(VisualElement e) => _z.TryGetValue(e, out var z) ? z : 0;
 
-        private void PlayTransition(VisualElement slot, TransitionType type, float duration, Placement p)
+        // Plays an enter (appear) or exit (disappear) transition. The animation
+        // always runs 0→1 and lerps the actual property between the right
+        // from/to for the direction; an exit hides the slot on completion.
+        private void PlayTransition(VisualElement slot, TransitionType type, float duration, Placement p, bool exiting)
         {
             if (duration <= 0f) duration = 0.3f;
             int ms = Mathf.Max(1, Mathf.RoundToInt(duration * 1000f));
+            float x = p.X * 100f;
 
             switch (type)
             {
                 case TransitionType.Fade:
-                    slot.style.opacity = 0f;
-                    slot.experimental.animation
-                        .Start(0f, p.Opacity, ms, (e, t) => e.style.opacity = Mathf.Lerp(0f, p.Opacity, t))
-                        .Ease(Easing.InOutSine);
+                {
+                    float from = exiting ? p.Opacity : 0f, to = exiting ? 0f : p.Opacity;
+                    slot.style.opacity = from;
+                    Finish(slot.experimental.animation
+                        .Start(0f, 1f, ms, (e, t) => e.style.opacity = Mathf.Lerp(from, to, t))
+                        .Ease(Easing.InOutSine), exiting, slot);
                     break;
-
+                }
                 case TransitionType.SlideLeft:
-                    float targetLeft = p.X * 100f;
-                    slot.style.left = Length.Percent(-20f);
-                    slot.experimental.animation
-                        .Start(0f, 1f, ms, (e, t) =>
-                        {
-                            float v = Mathf.Lerp(-20f, targetLeft, t);
-                            e.style.left = Length.Percent(v);
-                        })
-                        .Ease(Easing.OutCubic);
+                {
+                    float from = exiting ? x : -20f, to = exiting ? -20f : x;
+                    slot.style.left = Length.Percent(from);
+                    Finish(slot.experimental.animation
+                        .Start(0f, 1f, ms, (e, t) => e.style.left = Length.Percent(Mathf.Lerp(from, to, t)))
+                        .Ease(Easing.OutCubic), exiting, slot);
                     break;
-
+                }
                 case TransitionType.SlideRight:
-                    float targetRight = p.X * 100f;
-                    slot.style.left = Length.Percent(120f);
-                    slot.experimental.animation
-                        .Start(0f, 1f, ms, (e, t) =>
-                        {
-                            float v = Mathf.Lerp(120f, targetRight, t);
-                            e.style.left = Length.Percent(v);
-                        })
-                        .Ease(Easing.OutCubic);
+                {
+                    float from = exiting ? x : 120f, to = exiting ? 120f : x;
+                    slot.style.left = Length.Percent(from);
+                    Finish(slot.experimental.animation
+                        .Start(0f, 1f, ms, (e, t) => e.style.left = Length.Percent(Mathf.Lerp(from, to, t)))
+                        .Ease(Easing.OutCubic), exiting, slot);
                     break;
-
+                }
                 case TransitionType.Pop:
-                    slot.style.scale = new Scale(new Vector2(0f, 0f));
-                    slot.experimental.animation
-                        .Start(0f, 1f, ms, (e, t) =>
-                        {
-                            float s = Mathf.Lerp(0f, 1f, t);
-                            e.style.scale = new Scale(new Vector2(s, s));
-                        })
-                        .Ease(Easing.OutBack);
+                {
+                    float from = exiting ? 1f : 0f, to = exiting ? 0f : 1f;
+                    slot.style.scale = new Scale(new Vector2(from, from));
+                    Finish(slot.experimental.animation
+                        .Start(0f, 1f, ms, (e, t) => { float s = Mathf.Lerp(from, to, t); e.style.scale = new Scale(new Vector2(s, s)); })
+                        .Ease(exiting ? Easing.InBack : Easing.OutBack), exiting, slot);
                     break;
+                }
             }
+        }
+
+        // On an exit animation, hide the slot once it finishes so a faded-out
+        // character actually leaves the screen.
+        private static void Finish(ValueAnimation<float> anim, bool exiting, VisualElement slot)
+        {
+            if (exiting) anim.OnCompleted(() => slot.style.display = DisplayStyle.None);
         }
 
         /// <summary>Named horizontal placement presets — the common VN slots from

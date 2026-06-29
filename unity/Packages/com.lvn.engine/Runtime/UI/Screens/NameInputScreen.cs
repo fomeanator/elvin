@@ -33,12 +33,12 @@ namespace Lvn.UI.Screens
             _assets = assets;
             _maxLength = _cfg.max_length ?? PlayerNameInput.MaxLength;
 
-            FullScreen(this);
+            ScreenUi.Stretch(this);
             style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
-            _bg = FullScreen(new VisualElement());
+            _bg = ScreenUi.Stretch(new VisualElement());
             Add(_bg);
 
             _hero = new VisualElement();
@@ -104,10 +104,10 @@ namespace Lvn.UI.Screens
             _confirm.clicked += TryConfirm;
             row.Add(_confirm);
 
-            _ = AssignBg(_bg, _cfg.bg_url);
-            _ = AssignBg(_hero, _cfg.hero_url);
-            if (!string.IsNullOrEmpty(_cfg.field_url)) _ = AssignBg(_field, _cfg.field_url);
-            if (!string.IsNullOrEmpty(_cfg.button_url)) _ = AssignBg(_confirm, _cfg.button_url);
+            _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
+            _ = ScreenUi.AssignBgAsync(_hero, _cfg.hero_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.field_url)) _ = ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.button_url)) _ = ScreenUi.AssignBgAsync(_confirm, _cfg.button_url, _assets);
         }
 
         /// <summary>Show the screen and resolve with the player's sanitised name
@@ -154,17 +154,6 @@ namespace Lvn.UI.Screens
             _tcs?.TrySetResult(name);
         }
 
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { /* missing art is non-fatal */ }
-        }
-
         private static void StyleField(TextField f, Color bg, Color text)
         {
             f.style.color = text;
@@ -178,16 +167,6 @@ namespace Lvn.UI.Screens
                 input.style.paddingLeft = 14;
                 input.style.paddingRight = 14;
             }
-        }
-
-        private static VisualElement FullScreen(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0;
-            el.style.right = 0;
-            el.style.top = 0;
-            el.style.bottom = 0;
-            return el;
         }
     }
 }

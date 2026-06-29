@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/importer"
+	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/adpd"
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/ink"
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
@@ -42,6 +44,8 @@ func main() {
 	switch os.Args[1] {
 	case "convert":
 		cmdConvert(os.Args[2:])
+	case "import":
+		cmdImport(os.Args[2:])
 	case "validate":
 		cmdValidate(os.Args[2:])
 	case "probe":
@@ -59,7 +63,8 @@ func usage() {
 	fmt.Fprint(os.Stderr, `lvnconv — narrative transcoder (ffmpeg for visual novels)
 
 usage:
-  lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy] [-dialogue <name>]
+  lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy|adpd] [-dialogue <name>]
+  lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
   lvnconv validate <in.lvn> [-strict]
   lvnconv probe    <in.lvn>
 
@@ -79,36 +84,142 @@ func detectFormat(path string) string {
 		return "lvns"
 	case ".json", ".articy":
 		return "articy"
+	case ".adpd":
+		return "adpd"
 	case ".lvn":
 		return "lvn"
+	}
+	// A directory is treated as a raw articy:draft binary project.
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return "adpd"
 	}
 	return ""
 }
 
-func cmdConvert(args []string) {
-	fs := newFlagSet("convert")
-	in := fs.String("i", "", "input file")
-	out := fs.String("o", "", "output .lvn (default: stdout)")
-	format := fs.String("f", "", "force input format: ink | articy")
-	dialogue := fs.String("dialogue", "", "articy: Dialogue to convert (default: the only one)")
+// cmdImport is the one-shot pipeline behind the IDE's "Import articy" button,
+// exposed on the CLI: an extracted .adpd project directory in, a playable title
+// (script + matted art + manifest entry) written into a content root out.
+//
+//	lvnconv import <project-dir> -id soviet -name "Советское воспитание" -content ./server/content
+func cmdImport(args []string) {
+	var lead string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		lead, args = args[0], args[1:]
+	}
+	fs := newFlagSet("import")
+	dir := fs.String("i", "", "extracted articy:draft (.adpd) project directory")
+	content := fs.String("content", "./server/content", "content root to write into")
+	id := fs.String("id", "imported", "title id / script base name")
+	name := fs.String("name", "", "display name (default: id)")
+	subtitle := fs.String("subtitle", "Импорт из articy:draft (.adpd)", "carousel subtitle")
+	start := fs.Int("start", -1, "start node ordinal (default: story opening)")
+	maxNodes := fs.Int("max", 0, "cap chapter at N nodes (0 = no cap)")
+	localize := fs.Bool("localize", false, "extract text into a <id>.<lang>.json catalog (i18n)")
 	_ = fs.Parse(args)
-	if *in == "" {
-		// allow positional input: lvnconv convert chapter.ink
-		if fs.NArg() == 1 {
-			*in = fs.Arg(0)
+	if *dir == "" {
+		if lead != "" {
+			*dir = lead
+		} else if fs.NArg() == 1 {
+			*dir = fs.Arg(0)
 		} else {
-			die("convert: -i <input> is required")
+			die("import: <project-dir> is required")
 		}
 	}
 
-	src, err := os.ReadFile(*in)
+	res, err := importer.Run(*dir, importer.Options{
+		ID: *id, Name: *name, Subtitle: *subtitle,
+		Start: *start, Max: *maxNodes, AutoStage: true, Localize: *localize,
+	})
 	if err != nil {
-		die(err.Error())
+		die("import: " + err.Error())
+	}
+	if err := importer.WriteToContentDir(*content, res); err != nil {
+		die("import: " + err.Error())
+	}
+	fmt.Fprintf(os.Stderr, "imported %q → %s (%d ops, %d art files, %d bg unmatched)\n",
+		*id, res.ScriptRel, sumStats(res.Stats), len(res.Art), len(res.MissingBg))
+	if *localize {
+		fmt.Fprintf(os.Stderr, "i18n: %d strings → %s (lang=%s)\n", len(res.Catalog), res.CatalogRel, res.Lang)
+	}
+}
+
+func sumStats(m map[string]int) int {
+	n := 0
+	for _, v := range m {
+		n += v
+	}
+	return n
+}
+
+func cmdConvert(args []string) {
+	// Allow a leading positional input before flags: `convert <in> -o out.lvn`.
+	// (Go's flag package stops at the first non-flag, so pull it off first.)
+	var lead string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		lead, args = args[0], args[1:]
+	}
+
+	fs := newFlagSet("convert")
+	in := fs.String("i", "", "input file (or an articy:draft project directory)")
+	out := fs.String("o", "", "output .lvn (default: stdout)")
+	format := fs.String("f", "", "force input format: ink | articy | adpd")
+	dialogue := fs.String("dialogue", "", "articy: Dialogue to convert (default: the only one)")
+	start := fs.Int("start", -1, "adpd: start node ordinal (default: the story opening)")
+	maxNodes := fs.Int("max", 0, "adpd: cap the chapter at N nodes (0 = no cap)")
+	localize := fs.Bool("localize", false, "adpd: emit a text-id .lvn + a <out>.<lang>.json string catalog (i18n)")
+	autostage := fs.Bool("autostage", false, "adpd: auto-emit staging — a bg per scene marker and an actor per speaking character")
+	_ = fs.Parse(args)
+	if *in == "" {
+		switch {
+		case lead != "":
+			*in = lead
+		case fs.NArg() == 1: // trailing positional: lvnconv convert chapter.ink
+			*in = fs.Arg(0)
+		default:
+			die("convert: -i <input> is required")
+		}
 	}
 
 	f := *format
 	if f == "" {
 		f = detectFormat(*in)
+	}
+
+	// adpd takes a path (a directory or a .adpd file), not pre-read bytes: it
+	// reconstructs the articy model from the binary, then reuses the articy back-end.
+	if f == "adpd" {
+		js, err := adpd.BuildExportJSON(*in, *start, *maxNodes)
+		if err != nil {
+			die("adpd: " + err.Error())
+		}
+		doc, err := articy.Convert(js, *dialogue)
+		if err != nil {
+			die("adpd: " + err.Error())
+		}
+		// Order matters: auto-staging reads inline say text (scene markers), so it
+		// must run before localization swaps text for text_id keys.
+		if *autostage {
+			cast, err := adpd.Cast(*in)
+			if err != nil {
+				die("adpd: " + err.Error())
+			}
+			importer.AutoStage(doc, cast)
+		}
+		if *localize {
+			catalog := importer.Localize(doc)
+			writeOut(*out, mustJSON(doc))
+			lang, _ := adpd.Lang(*in)
+			writeCatalog(*out, lang, catalog)
+		} else {
+			importer.StripStableIds(doc)
+			writeOut(*out, mustJSON(doc))
+		}
+		return
+	}
+
+	src, err := os.ReadFile(*in)
+	if err != nil {
+		die(err.Error())
 	}
 
 	var data []byte
@@ -137,13 +248,32 @@ func cmdConvert(args []string) {
 		die(fmt.Sprintf("convert: cannot infer format from %q — pass -f ink|articy", *in))
 	}
 
-	if *out == "" {
+	writeOut(*out, data)
+}
+
+// writeOut sends bytes to a file, or stdout when out is empty.
+func writeOut(out string, data []byte) {
+	if out == "" {
 		os.Stdout.Write(data)
 		return
 	}
-	if err := os.WriteFile(*out, data, 0o644); err != nil {
+	if err := os.WriteFile(out, data, 0o644); err != nil {
 		die(err.Error())
 	}
+}
+
+// writeCatalog writes the string catalog next to the .lvn as <name>.<lang>.json.
+func writeCatalog(out, lang string, catalog map[string]string) {
+	data := mustJSON(catalog)
+	if out == "" {
+		fmt.Fprintf(os.Stderr, "i18n: %d strings (no -o, catalog not written)\n", len(catalog))
+		return
+	}
+	path := strings.TrimSuffix(out, ".lvn") + "." + lang + ".json"
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		die(err.Error())
+	}
+	fmt.Fprintf(os.Stderr, "i18n: %d strings → %s (lang=%s)\n", len(catalog), path, lang)
 }
 
 func cmdValidate(args []string) {
@@ -158,8 +288,7 @@ func cmdValidate(args []string) {
 	issues := lvn.Validate(doc)
 	var errs, warns int
 	for _, is := range issues {
-		// Document-level label findings are lint warnings; everything else fails.
-		warn := is.Index < 0
+		warn := is.Sev != lvn.SevError
 		if warn {
 			warns++
 			fmt.Fprintln(os.Stderr, "warning: "+is.String())

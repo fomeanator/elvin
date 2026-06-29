@@ -31,11 +31,11 @@ namespace Lvn.UI.Screens
             _assets = assets;
             _showPercent = _cfg.show_percent ?? true;
 
-            Fill(this);
+            ScreenUi.Stretch(this);
             style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.04f, 0.04f, 0.055f));
             pickingMode = PickingMode.Position;
 
-            var bg = Fill(new VisualElement());
+            var bg = ScreenUi.Stretch(new VisualElement());
             bg.pickingMode = PickingMode.Ignore;
             Add(bg);
 
@@ -58,28 +58,12 @@ namespace Lvn.UI.Screens
             float barY = _cfg.bar_y ?? 0.86f;
             float barW = _cfg.bar_width ?? 0.6f;
             float barH = _cfg.bar_height ?? 0.014f;
-            var bar = new VisualElement();
-            bar.style.position = Position.Absolute;
-            bar.style.left = Length.Percent(50f);
-            bar.style.top = Length.Percent(barY * 100f);
-            bar.style.width = Length.Percent(barW * 100f);
-            bar.style.height = Length.Percent(barH * 100f);
-            bar.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f), 0f);
-            bar.pickingMode = PickingMode.Ignore;
+            var bar = ScreenUi.ProgressBar(
+                0.5f, barY, barW, barH,
+                UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f)),
+                UiColor.Parse(_cfg.bar_fill_color, new Color(0.78f, 0.63f, 0.31f)),
+                out _, out _fill);
             Add(bar);
-
-            var track = Fill(new VisualElement());
-            track.style.backgroundColor = UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f));
-            bar.Add(track);
-
-            _fill = new VisualElement();
-            _fill.style.position = Position.Absolute;
-            _fill.style.left = 0;
-            _fill.style.top = 0;
-            _fill.style.bottom = 0;
-            _fill.style.width = Length.Percent(0f);
-            _fill.style.backgroundColor = UiColor.Parse(_cfg.bar_fill_color, new Color(0.78f, 0.63f, 0.31f));
-            bar.Add(_fill);
 
             _percent = new Label();
             _percent.style.position = Position.Absolute;
@@ -93,9 +77,9 @@ namespace Lvn.UI.Screens
             _percent.pickingMode = PickingMode.Ignore;
             Add(_percent);
 
-            _ = AssignBg(bg, _cfg.bg_url);
-            _ = AssignBg(_logo, _cfg.logo_url);
-            _ = AssignBg(_fill, _cfg.bar_fill_url);
+            _ = ScreenUi.AssignBgAsync(bg, _cfg.bg_url, _assets);
+            _ = ScreenUi.AssignBgAsync(_logo, _cfg.logo_url, _assets);
+            _ = ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets);
         }
 
         /// <summary>Drive the boot bar until <paramref name="isDone"/> and the
@@ -157,22 +141,5 @@ namespace Lvn.UI.Screens
                 _percent.text = (full ? 100 : _model.Percent) + "%";
         }
 
-        private async Task AssignBg(VisualElement el, string url)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
-            }
-            catch { }
-        }
-
-        private static VisualElement Fill(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
-            return el;
-        }
     }
 }
