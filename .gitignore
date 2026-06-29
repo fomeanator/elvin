@@ -25,3 +25,10 @@ Thumbs.db
 # Local
 *.local
 /tmp/
+
+# Local Unity sandbox / test harness
+/sandbox/
+
+# Stray screenshots
+Screenshot*.png
+*_demo.png
