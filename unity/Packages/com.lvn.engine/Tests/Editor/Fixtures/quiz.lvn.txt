@@ -1,0 +1,290 @@
+{
+  "scene": "quiz",
+  "script": [
+    {
+      "expr": "0",
+      "key": "score",
+      "op": "set"
+    },
+    {
+      "color": "#bfe3ff",
+      "id": "hud",
+      "op": "text",
+      "size": 42,
+      "text": "Счёт: {score}",
+      "x": 4,
+      "y": 8
+    },
+    {
+      "id": "quiz_stage",
+      "op": "bg",
+      "sprite_url": "/content/bg/quiz_stage.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Викторина «Знаток»! Три вопроса. Поехали."
+    },
+    {
+      "label": "q1",
+      "op": "goto"
+    },
+    {
+      "id": "q1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Вопрос 1. Сколько байт в килобайте (по двоичной системе)?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "w1",
+          "text": "1000"
+        },
+        {
+          "goto": "r1",
+          "text": "1024"
+        },
+        {
+          "goto": "w1",
+          "text": "512"
+        }
+      ]
+    },
+    {
+      "id": "r1",
+      "op": "label"
+    },
+    {
+      "expr": "score + 1",
+      "key": "score",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Верно! 1024 = 2¹⁰."
+    },
+    {
+      "label": "q2",
+      "op": "goto"
+    },
+    {
+      "id": "w1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Увы, правильный ответ — 1024."
+    },
+    {
+      "label": "q2",
+      "op": "goto"
+    },
+    {
+      "id": "q2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Вопрос 2. Какая планета — самая большая в Солнечной системе?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "w2",
+          "text": "Сатурн"
+        },
+        {
+          "goto": "r2",
+          "text": "Юпитер"
+        },
+        {
+          "goto": "w2",
+          "text": "Земля"
+        }
+      ]
+    },
+    {
+      "id": "r2",
+      "op": "label"
+    },
+    {
+      "expr": "score + 1",
+      "key": "score",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Точно — Юпитер."
+    },
+    {
+      "label": "q3",
+      "op": "goto"
+    },
+    {
+      "id": "w2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Нет, это Юпитер."
+    },
+    {
+      "label": "q3",
+      "op": "goto"
+    },
+    {
+      "id": "q3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Вопрос 3. В каком году человек впервые ступил на Луну?"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "r3",
+          "text": "1969"
+        },
+        {
+          "goto": "w3",
+          "text": "1959"
+        },
+        {
+          "goto": "w3",
+          "text": "1979"
+        }
+      ]
+    },
+    {
+      "id": "r3",
+      "op": "label"
+    },
+    {
+      "expr": "score + 1",
+      "key": "score",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Верно — 1969-й, «Аполлон-11»."
+    },
+    {
+      "label": "result",
+      "op": "goto"
+    },
+    {
+      "id": "w3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Правильно — 1969 год."
+    },
+    {
+      "label": "result",
+      "op": "goto"
+    },
+    {
+      "id": "result",
+      "op": "label"
+    },
+    {
+      "id": "quiz_result",
+      "op": "bg",
+      "sprite_url": "/content/bg/quiz_result.jpg"
+    },
+    {
+      "op": "say",
+      "text": "{score} из 3.",
+      "who": "Игра окончена. Твой счёт"
+    },
+    {
+      "else": "__nf1",
+      "expr": "score == 3",
+      "op": "if",
+      "then": "grade_a"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "score \u003e= 2",
+      "op": "if",
+      "then": "grade_b"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "score == 1",
+      "op": "if",
+      "then": "grade_c"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "label": "grade_d",
+      "op": "goto"
+    },
+    {
+      "id": "grade_a",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "🏆 Безупречно! Ты настоящий знаток."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "grade_b",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "👍 Хороший результат, почти идеально."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "grade_c",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "🙂 Неплохо для начала — попробуй ещё."
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "grade_d",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "😅 В этот раз не повезло. Реванш?"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

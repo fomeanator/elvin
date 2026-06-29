@@ -1,8 +1,12 @@
-# LVN Engine (Unity)
+# Elvin (Unity runtime)
 
-The runtime that plays the `.lvn` container format. It owns flow control; you
-own rendering. That split is the whole idea — the same engine plays any story,
-and you build your game by implementing one interface.
+Elvin plays narrative games written as plain text. Drop a `.lvns` script into
+`Assets/` — it compiles automatically — and the runtime plays it as a real game:
+dialogue, branching choices, characters with emotions, stats, animation,
+save/load — with no dialogue or branching system to build yourself. Use the
+drop-in `VnStage`, or, for a custom skin, the runtime owns flow control and you
+own rendering through one interface (`ILvnStage`). (`Elvin` = how you say `LVN` —
+the `.lvn` format it plays.)
 
 ## Install
 
@@ -53,10 +57,18 @@ Import **Hello LVN** from the package's Samples, drop `HelloLvnRunner` on a
 GameObject, assign `hello.lvn.txt`, and press Play — the story prints to the
 Console and advances on click. It is a complete, minimal `ILvnStage`.
 
-## Scope (v0.1)
+## Authoring
 
-The interpreter, document model, host contract and op registry are here. The
-full effect modules (camera/particles/tint), the Pratt expression evaluator,
-the layered-sprite compositor and the premium meta-shell template are tracked
-for following releases — see the repo root README. Author content with
-`lvnconv` and validate it before shipping.
+Drop a `.lvns` file into `Assets/` — the built-in ScriptedImporter compiles it to
+a playable asset automatically (no external tool). For CI, Ink, or articy, the
+standalone `lvnconv` transcoder also produces `.lvn` and validates it. The full
+language and engine limits are documented in the repo `howto/` folder.
+
+## Scope (v0.4)
+
+A full runtime: interpreter (flow, vars, subroutines, expressions via
+`LvnExpression`, autosave), the cast/compositor (layered parametric sprites),
+the animation engine (channels, easing, yoyo, queue), effect modules
+(fade/dim/flash/tint/blur/camera/particles/audio), the reactive HUD, save/load,
+and the novel-shell — plus the in-Unity `.lvns` importer. See the repo root
+README and `howto/CAPABILITIES.md` for exactly what is and isn't supported.

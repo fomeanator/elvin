@@ -1,0 +1,303 @@
+{
+  "scene": "puzzle",
+  "script": [
+    {
+      "expr": "0",
+      "key": "a",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "b",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "c",
+      "op": "set"
+    },
+    {
+      "color": "#cfe8d8",
+      "id": "hud",
+      "op": "text",
+      "size": 40,
+      "text": "Рычаги:  A:{a}  B:{b}  C:{c}",
+      "x": 4,
+      "y": 8
+    },
+    {
+      "id": "ancient_door",
+      "op": "bg",
+      "sprite_url": "/content/bg/ancient_door.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Каменная дверь с тремя рычагами. На стене стёртые подсказки."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "panel",
+      "op": "label"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "toggle_a",
+          "text": "🔺 Рычаг A (сейчас {a})"
+        },
+        {
+          "goto": "toggle_b",
+          "text": "🔺 Рычаг B (сейчас {b})"
+        },
+        {
+          "goto": "toggle_c",
+          "text": "🔺 Рычаг C (сейчас {c})"
+        },
+        {
+          "goto": "hints",
+          "text": "📜 Прочитать подсказки"
+        },
+        {
+          "goto": "check",
+          "text": "⚙ Потянуть за кольцо двери"
+        }
+      ]
+    },
+    {
+      "id": "toggle_a",
+      "op": "label"
+    },
+    {
+      "else": "__nf1",
+      "expr": "a == 0",
+      "op": "if",
+      "then": "a_on"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "expr": "0",
+      "key": "a",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг A со скрипом опускается."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "a_on",
+      "op": "label"
+    },
+    {
+      "expr": "1",
+      "key": "a",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг A поднимается вверх."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "toggle_b",
+      "op": "label"
+    },
+    {
+      "else": "__nf2",
+      "expr": "b == 0",
+      "op": "if",
+      "then": "b_on"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "expr": "0",
+      "key": "b",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг B опускается."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "b_on",
+      "op": "label"
+    },
+    {
+      "expr": "1",
+      "key": "b",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг B поднимается."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "toggle_c",
+      "op": "label"
+    },
+    {
+      "else": "__nf3",
+      "expr": "c == 0",
+      "op": "if",
+      "then": "c_on"
+    },
+    {
+      "id": "__nf3",
+      "op": "label"
+    },
+    {
+      "expr": "0",
+      "key": "c",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг C опускается."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "c_on",
+      "op": "label"
+    },
+    {
+      "expr": "1",
+      "key": "c",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Рычаг C поднимается."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "hints",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Крайние смотрят в небо, средний — в землю."
+    },
+    {
+      "op": "say",
+      "text": "A и C — подняты, B — опущен.)",
+      "who": "(То есть"
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "check",
+      "op": "label"
+    },
+    {
+      "else": "__nf4",
+      "expr": "a == 1",
+      "op": "if",
+      "then": "ck2"
+    },
+    {
+      "id": "__nf4",
+      "op": "label"
+    },
+    {
+      "label": "wrong",
+      "op": "goto"
+    },
+    {
+      "id": "ck2",
+      "op": "label"
+    },
+    {
+      "else": "__nf5",
+      "expr": "b == 0",
+      "op": "if",
+      "then": "ck3"
+    },
+    {
+      "id": "__nf5",
+      "op": "label"
+    },
+    {
+      "label": "wrong",
+      "op": "goto"
+    },
+    {
+      "id": "ck3",
+      "op": "label"
+    },
+    {
+      "else": "__nf6",
+      "expr": "c == 1",
+      "op": "if",
+      "then": "solved"
+    },
+    {
+      "id": "__nf6",
+      "op": "label"
+    },
+    {
+      "label": "wrong",
+      "op": "goto"
+    },
+    {
+      "id": "wrong",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Кольцо не поддаётся — комбинация рычагов неверна."
+    },
+    {
+      "label": "panel",
+      "op": "goto"
+    },
+    {
+      "id": "solved",
+      "op": "label"
+    },
+    {
+      "id": "light_passage",
+      "op": "bg",
+      "sprite_url": "/content/bg/light_passage.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Механизм щёлкает, и дверь медленно отъезжает. За ней — свет. Головоломка решена!"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

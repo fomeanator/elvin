@@ -1,15 +1,18 @@
 {
   "name": "com.lvn.engine",
   "version": "0.4.0",
-  "displayName": "LVN Engine",
-  "description": "An open visual-novel runtime that plays the .lvn container format. Drop it in, point an LvnPlayer at a .lvn, implement ILvnStage to render. 'ffmpeg for visual novels.'",
+  "displayName": "Elvin — Narrative Game Engine",
+  "description": "Write narrative games for Unity as plain text. Drop a .lvns script into Assets/ and Elvin runs it as a real game — dialogue, branching choices, characters with emotions, stats, animation, save/load — with no dialogue or branching system to build yourself. Plays the open .lvn container; also imports Ink and articy.",
   "unity": "2022.3",
   "license": "MIT",
   "keywords": [
     "visual-novel",
     "narrative",
+    "dialogue",
+    "interactive-fiction",
     "ink",
     "articy",
+    "elvin",
     "lvn"
   ],
   "author": {
