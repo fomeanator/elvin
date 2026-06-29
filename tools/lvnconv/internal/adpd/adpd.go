@@ -547,6 +547,105 @@ func (fl flow) hierarchyOrder() []uint32 {
 	return order
 }
 
+// linearizeByComponents reconstructs the flow with FAITHFUL reconvergence: within
+// a scene the 0x02 pin graph (articy's own TraverseFlow, via pinGraph.nextStops)
+// drives the successors, so a choice's branches rejoin at their shared next stop
+// (the merge points the spine flattens away). Scenes are not 0x02-connected, so any
+// node the entry's flow doesn't reach is chained — in authoring order — onto a
+// reached dead-end leaf (a single goto, never a bogus choice). Self-validates 100%
+// coverage; returns ok=false to fall back to linearizeByHierarchy if anything would
+// be stranded.
+func linearizeByComponents(fl flow) (uint32, bool) {
+	if fl.pg == nil {
+		return 0, false
+	}
+	order := fl.hierarchyOrder()
+	if len(order) == 0 {
+		return 0, false
+	}
+	pg := fl.pg
+	isOption := func(t uint32) bool {
+		txt := strings.TrimSpace(fl.text[t])
+		return txt != "" && !sceneTextRe.MatchString(txt)
+	}
+
+	var stops []uint32
+	for i, n := range order {
+		if ln, ok := fl.logic[n]; ok && ln.cond {
+			delete(fl.logic, n)
+		}
+		fl.nodes[n] = true
+		hasNext := i+1 < len(order)
+		if !pg.isStop(n) {
+			// scene-name beats / logic glue: chain along the authoring spine so they
+			// are emitted and lead into their scene's first stop.
+			if hasNext {
+				fl.succ[n] = []edge{{src: n, dst: order[i+1]}}
+			} else {
+				fl.succ[n] = nil
+			}
+			continue
+		}
+		stops = append(stops, n)
+		raw := pg.nextStops(n)
+		var opts []uint32
+		seen := map[uint32]bool{}
+		for _, t := range raw {
+			if !seen[t] && isOption(t) {
+				seen[t] = true
+				opts = append(opts, t)
+			}
+		}
+		switch {
+		case len(opts) >= 2 && len(opts) <= maxChoiceOptions:
+			var es []edge
+			for _, t := range opts {
+				es = append(es, edge{src: n, dst: t}) // branches reconverge via their own succ
+			}
+			fl.succ[n] = es
+		case len(raw) >= 1:
+			fl.succ[n] = []edge{{src: n, dst: raw[0]}} // in-scene linear flow
+		default:
+			fl.succ[n] = nil // leaf: a scene/branch end
+		}
+	}
+
+	entry := order[0]
+	_, R := bfs(fl, []uint32{entry}, 1<<30)
+	var leaves []uint32
+	for _, n := range stops {
+		if R[n] && len(fl.succ[n]) == 0 {
+			leaves = append(leaves, n)
+		}
+	}
+	for _, x := range order {
+		if R[x] {
+			continue
+		}
+		if len(leaves) == 0 {
+			return 0, false // nothing safe to chain from → fall back
+		}
+		l := leaves[len(leaves)-1]
+		leaves = leaves[:len(leaves)-1]
+		fl.succ[l] = []edge{{src: l, dst: x}}
+		_, sub := bfs(fl, []uint32{x}, 1<<30)
+		for k := range sub {
+			if !R[k] {
+				R[k] = true
+				if pg.isStop(k) && len(fl.succ[k]) == 0 {
+					leaves = append(leaves, k)
+				}
+			}
+		}
+	}
+	for _, n := range stops {
+		if !R[n] {
+			return 0, false // would strand content → fall back
+		}
+	}
+	return entry, true
+}
+
 // linearizeByHierarchy reconstructs the playable flow the way articy's own
 // ArticyFlowPlayer traverses it (decompiled TraverseFlow): a scene's local 0x02
 // connection graph carries the in-scene flow — including real player choices (a
@@ -1054,6 +1153,15 @@ func buildModel(fl flow, proj string, start, maxN int) export {
 		return buildExport(fl, uint32(start), maxN, gvars)
 	}
 
+	if entry, ok := linearizeByComponents(fl); ok {
+		gvars := globalVars(proj, flowExprs(fl))
+		return buildExport(fl, entry, math.MaxInt32, gvars)
+	}
+	// Faithful flow would strand content — clear its partial edges and fall back to
+	// the authoring-order spine (full coverage, no reconvergence).
+	for k := range fl.succ {
+		delete(fl.succ, k)
+	}
 	if entry, ok := linearizeByHierarchy(fl); ok {
 		gvars := globalVars(proj, flowExprs(fl))
 		return buildExport(fl, entry, math.MaxInt32, gvars)
