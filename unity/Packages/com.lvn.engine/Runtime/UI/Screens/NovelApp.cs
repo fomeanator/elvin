@@ -48,6 +48,11 @@ namespace Lvn.UI.Screens
 
         public bool AskName = true;
 
+        [Tooltip("Player/account id for server-synced saves (/v1/state?user=…). Leave " +
+                 "empty to use a per-device id generated once and kept in PlayerPrefs. " +
+                 "Stats always work offline; the server is a durable cross-device backup.")]
+        public string UserId = "";
+
         [Tooltip("Live content sync: poll the server's version endpoint this often (seconds). " +
                  "Edit a .lvn or the manifest on the server and the app reloads within one interval. " +
                  "0 disables polling.")]
@@ -57,6 +62,7 @@ namespace Lvn.UI.Screens
         private NovelShell _shell;
         private DownloadManager _downloads;
         private ContentSync _sync;
+        private ILvnStateStore _state;   // stat/var persistence (local-first, optional server sync)
         private LvnChapter _currentChapter;
         private LvnTitle _currentTitle; // the playing title — for live per-title re-theming
         private string _currentScriptJson;
@@ -80,6 +86,13 @@ namespace Lvn.UI.Screens
             }
 
             _assets = new CachingAssets(contentBase);
+
+            // Stat/var persistence: a bundled offline build keeps stats locally; a
+            // server build syncs through /v1/state (local-first, so it still plays and
+            // keeps stats when the server is down).
+            _state = OfflineBundled
+                ? (ILvnStateStore)new LocalStateStore()
+                : new HttpStateStore(contentBase, ResolveUserId());
 
             // Connectivity gate (Liminal-style): probe the server with a hard 3s
             // deadline so an unreachable server falls straight through to the offline
@@ -310,8 +323,9 @@ namespace Lvn.UI.Screens
             Stage.Strings = await LoadCatalogAsync(chapter.script_url); // localization (null → inline text)
             // Carry this title's persisted stats into the chapter (relationships, route,
             // memory flags…). The imported global defaults are `default:true`, so they
-            // don't overwrite these; a fresh game starts with an empty store.
-            Stage.SeedVars = LoadTitleVars(title?.id);
+            // don't overwrite these; a fresh game starts empty. The store is local-first
+            // (offline-safe) and, when a server is configured, syncs through /v1/state.
+            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
             Stage.Play(json);
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
@@ -326,39 +340,45 @@ namespace Lvn.UI.Screens
             // Persist the chapter's ending state so the next chapter (and the next
             // session) resume with the same stats — whether it finished or the player
             // left mid-chapter (the loop also breaks on cancellation).
-            if (Stage.Player != null) SaveTitleVars(title?.id, Stage.Player.Vars);
+            if (Stage.Player != null) await _state.SaveVarsAsync(title?.id, VarsToJObject(Stage.Player.Vars), default);
             _shell.Hud.SetProgress(1, 1);
             _currentChapter = null;
             _currentTitle = null;
         }
 
-        // ── persistent per-title variables (stats carry across chapters & sessions) ──
-        private static string VarsKey(string titleId) => "lvn_vars_" + (titleId ?? "");
-
-        private System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> LoadTitleVars(string titleId)
+        // The save identity for /v1/state. An explicit UserId (an account) wins; else
+        // a per-device id generated once and kept in PlayerPrefs.
+        private string ResolveUserId()
         {
-            var json = PlayerPrefs.GetString(VarsKey(titleId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-            try { return Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, Newtonsoft.Json.Linq.JToken>>(json); }
-            catch { return null; }
-        }
-
-        private void SaveTitleVars(string titleId, System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> vars)
-        {
-            if (string.IsNullOrEmpty(titleId) || vars == null) return;
-            try
+            if (!string.IsNullOrEmpty(UserId)) return UserId;
+            var id = PlayerPrefs.GetString("lvn_user", "");
+            if (string.IsNullOrEmpty(id))
             {
-                PlayerPrefs.SetString(VarsKey(titleId), Newtonsoft.Json.JsonConvert.SerializeObject(vars));
+                id = System.Guid.NewGuid().ToString("N");
+                PlayerPrefs.SetString("lvn_user", id);
                 PlayerPrefs.Save();
             }
-            catch (System.Exception e) { Debug.LogWarning("[novelapp] save vars failed: " + e.Message); }
+            return id;
+        }
+
+        // Snapshot the player's live variables as a JObject the state store persists.
+        private static Newtonsoft.Json.Linq.JObject VarsToJObject(
+            System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> vars)
+        {
+            var jo = new Newtonsoft.Json.Linq.JObject();
+            if (vars != null)
+                foreach (var kv in vars)
+                    jo[kv.Key] = kv.Value?.DeepClone();
+            return jo;
         }
 
         // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
+        // Fire-and-forget — the store writes its LOCAL cache synchronously before the
+        // first await, so stats are safe even if the process is suspended immediately.
         private void OnApplicationPause(bool paused)
         {
-            if (paused && Stage?.Player != null && _currentTitle != null)
-                SaveTitleVars(_currentTitle.id, Stage.Player.Vars);
+            if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
+                _ = _state.SaveVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars), default);
         }
 
         // Server content changed: refresh the version index, re-apply the manifest

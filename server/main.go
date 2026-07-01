@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -195,6 +196,15 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 		data, ok := s.state[user]
 		s.mu.RUnlock()
 		if !ok {
+			// Not in memory — try the on-disk mirror (survives a server restart).
+			if b, err := os.ReadFile(s.stateFile(user)); err == nil {
+				data, ok = b, true
+				s.mu.Lock()
+				s.state[user] = b
+				s.mu.Unlock()
+			}
+		}
+		if !ok {
 			http.Error(w, "no save", http.StatusNotFound)
 			return
 		}
@@ -213,10 +223,40 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.state[user] = body
 		s.mu.Unlock()
+		// Persist to disk so saves survive a restart (best-effort — the in-memory
+		// copy already answers this session).
+		if err := s.writeStateFile(user, body); err != nil {
+			fmt.Fprintf(os.Stderr, "state: persist %s: %v\n", user, err)
+		}
 		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// stateFile is the on-disk mirror path for a user's save, under <content>/state/.
+// The user key (may carry a "<uid>__<title>" composite) is sanitised into a safe
+// filename.
+func (s *server) stateFile(user string) string {
+	safe := make([]rune, 0, len(user))
+	for _, r := range user {
+		switch {
+		case r == '-' || r == '_' || r == '.' ||
+			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			safe = append(safe, r)
+		default:
+			safe = append(safe, '_')
+		}
+	}
+	return filepath.Join(s.content, "state", string(safe)+".json")
+}
+
+func (s *server) writeStateFile(user string, body []byte) error {
+	p := s.stateFile(user)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(p, body, 0o644)
 }
 
 func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
