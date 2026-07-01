@@ -41,7 +41,41 @@ func WriteToContentDir(contentDir string, res *Result) error {
 	if err := MergeTitleIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Title); err != nil {
 		return fmt.Errorf("manifest: %w", err)
 	}
+	if len(res.Sprites) > 0 {
+		if err := MergeSpritesIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Sprites); err != nil {
+			return fmt.Errorf("manifest sprites: %w", err)
+		}
+	}
 	return nil
+}
+
+// MergeSpritesIntoManifest splices auto-built cast entities into manifest.sprites
+// by id (replace-or-add), leaving hand-authored entities and every other field
+// untouched. A missing manifest is treated as empty.
+func MergeSpritesIntoManifest(manifestPath string, sprites map[string]any) error {
+	manifest := map[string]any{}
+	if data, err := os.ReadFile(manifestPath); err == nil && len(data) > 0 {
+		if err := json.Unmarshal(data, &manifest); err != nil {
+			return fmt.Errorf("parse existing manifest: %w", err)
+		}
+	}
+	existing, _ := manifest["sprites"].(map[string]any)
+	if existing == nil {
+		existing = map[string]any{}
+	}
+	for id, ent := range sprites {
+		existing[id] = ent
+	}
+	manifest["sprites"] = existing
+
+	out, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		return err
+	}
+	return atomicWrite(manifestPath, out, 0o644)
 }
 
 // MergeTitleIntoManifest splices a title into manifest.json by id (replace-or-

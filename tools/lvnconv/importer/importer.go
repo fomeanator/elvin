@@ -74,6 +74,11 @@ type Result struct {
 	Stats     map[string]int // op counts: say/choice/bg/actor/set/if…
 	MissingBg []string       // scene locations with no matching art file (rendered dark)
 
+	// Sprites is the auto-built cast catalog (id → entity) merged into
+	// manifest.sprites, so the imported novel's whole roster shows up in the panel
+	// ready to re-art. See BuildCatalog.
+	Sprites map[string]any
+
 	// Localization (set only when Options.Localize): the extracted string catalog
 	// (text_id → string), the project language code, and the content-relative path
 	// the catalog must be written to ("scripts/<id>.<lang>.json"). The runtime
@@ -117,6 +122,12 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	// not text, but keep the ordering intent explicit).
 	art, missing, firstBg := collectArt(projectDir, doc)
 
+	// Auto-build the cast catalog from the compiled script (characters + the states
+	// they're shown in), reusing the resolved art / placeholders. Extra placeholders
+	// cover any actor with no concrete sprite.
+	sprites, extraArt := BuildCatalog(doc)
+	art = append(art, extraArt...)
+
 	var catalog map[string]string
 	var lang, catalogRel string
 	if opt.Localize {
@@ -140,6 +151,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		Art:        art,
 		Stats:      opStats(doc),
 		MissingBg:  missing,
+		Sprites:    sprites,
 		Catalog:    catalog,
 		Lang:       lang,
 		CatalogRel: catalogRel,
