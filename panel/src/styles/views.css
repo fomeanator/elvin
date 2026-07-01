@@ -762,3 +762,17 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .ide-tr-dst:focus { outline: none; border-color: var(--accent, #c9a8ff); }
 .ide-tr-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line-soft); }
 .ide-tr-hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+
+/* ── cast animation editor ──────────────────────────────────────────────── */
+.anim-editor { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; }
+.anim-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.anim-head code { font-size: .85em; opacity: .8; }
+.anim-row { border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: rgba(255,255,255,.02); }
+.anim-row-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.anim-name { width: 120px; }
+.anim-flag { display: inline-flex; align-items: center; gap: 4px; font-size: .85em; opacity: .9; }
+.anim-num { width: 64px; }
+.anim-tracks { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-left: 4px; }
+.anim-track { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.anim-sel { padding: 3px 6px; }
+.anim-tween { display: inline-flex; align-items: center; gap: 6px; }

@@ -71,6 +71,28 @@ characters: a sign that changes text, a sky that changes weather). Front-ends
 validator rejects an `actor` that references an unknown entity, the same way an
 unknown op or staging tag fails the build.
 
+## Animating a character (in the panel)
+
+A cast entity may carry an `anim` block — named animations the runtime plays
+(`kind: "rigged"`; `auto:"true"` loops on show, others fire from the script via
+`actor <id> play=<name>`). Each animation has `loop`, `duration`, and `tracks`;
+a track drives one property — **`frame`** (swap the layer's sprite by an axis
+value, i.e. frame-by-frame) or a transform tween (`scale`/`scalex`/`scaley`/
+`rotation`/`alpha`/`x`/`y`/`screen_x`/`screen_y`). See `animation-system.md`.
+
+The **cast editor in the panel** authors all of this without hand-editing JSON:
+
+- **Animations** section — add named animations; set `loop`/`auto`/`duration`;
+  **▶ Play** previews the frames live on the stage.
+- **Tracks** — pick a property; for `frame`, pick the axis whose values are the
+  frames and the target layer, then **↻** rebuilds evenly-timed keys; for a tween,
+  set start → end and an easing.
+- **⊞ Import** on a frame set — slice an animated **GIF** or a **spritesheet**
+  (columns×rows) into per-frame images client-side, uploaded as the axis's values.
+
+The editor round-trips `kind`/`anim`/layer ids losslessly, so re-saving a rigged
+character never drops its animation.
+
 ## Compatibility
 
 `actor` keeps working without a cast: a plain `sprite_url` (or the
