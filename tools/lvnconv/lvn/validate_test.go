@@ -31,6 +31,56 @@ func hasWarn(issues []Issue, sub string) bool {
 	return false
 }
 
+func TestUnknownFieldWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"fade","too":"black","duration":0.5}]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `unknown field "too"`) {
+		t.Fatalf("expected unknown-field warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "to"`) {
+		t.Fatalf("expected a 'to' suggestion, got %v", issues)
+	}
+}
+
+func TestEnumValueWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"x","position":"lft","show":true}]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `position="lft" is not a known value`) {
+		t.Fatalf("expected enum warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "left"`) {
+		t.Fatalf("expected a 'left' suggestion, got %v", issues)
+	}
+}
+
+// Valid values and keys must NOT warn — the checks are only for typos.
+func TestValidFieldsAndEnumsDoNotWarn(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"fade","to":"black","duration":0.5},
+	 {"op":"actor","id":"x","position":"left","show":true,"emotion":"happy","enter":"fade"},
+	 {"op":"audio","channel":"music","url":"/a.mp3","action":"play"},
+	 {"op":"camera","action":"shake","duration":0.4},
+	 {"op":"particles","type":"rain","on":true},
+	 {"op":"set","key":"gold","value":5,"default":true},
+	 {"op":"say","who":"X","text":"hi {gold}"}
+	]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "unknown field") || contains(is.Msg, "is not a known value") {
+			t.Fatalf("false positive on valid content: %s", is.String())
+		}
+	}
+}
+
+// An unset/absent enum field (e.g. actor with no position) must not warn.
+func TestAbsentEnumFieldDoesNotWarn(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"x","show":true}]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "is not a known value") {
+			t.Fatalf("absent enum field must not warn: %s", is.String())
+		}
+	}
+}
+
 func contains(s, sub string) bool {
 	return len(sub) == 0 || (len(s) >= len(sub) && indexOf(s, sub) >= 0)
 }
