@@ -19,6 +19,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -28,22 +29,47 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
+
+// idRe is the safe character set for a title id: it becomes a path segment
+// (scripts/<id>.lvn, art/…) so anything outside this set could escape the
+// content root or produce a surprising filename.
+var idRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+func validID(id string) bool { return idRe.MatchString(id) }
+
+// bearerOK compares the request's bearer token to the expected one in constant
+// time, so a wrong token can't be recovered byte-by-byte via response timing.
+func bearerOK(r *http.Request, token string) bool {
+	got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	return subtle.ConstantTimeCompare([]byte(got), []byte(token)) == 1
+}
 
 func main() {
 	addr := flag.String("addr", ":8000", "listen address")
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
+	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
+	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
 	flag.Parse()
 
 	if err := os.MkdirAll(*contentDir, 0o755); err != nil {
 		log.Fatalf("content dir: %v", err)
 	}
-	srv := &server{content: *contentDir, adminToken: *adminToken, templateDir: *templateDir, state: map[string][]byte{}}
+	srv := &server{
+		content:     *contentDir,
+		adminToken:  *adminToken,
+		stateToken:  *stateToken,
+		importRoot:  *importRoot,
+		templateDir: *templateDir,
+		state:       map[string][]byte{},
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -74,17 +100,50 @@ func main() {
 	})
 	mux.Handle("/", site)
 
-	log.Printf("LVN server on %s, content=%s, admin=%v", *addr, *contentDir, *adminToken != "")
-	log.Fatal(http.ListenAndServe(*addr, withLog(mux)))
+	log.Printf("LVN server on %s, content=%s, admin=%v, state-auth=%v", *addr, *contentDir, *adminToken != "", *stateToken != "")
+	// Explicit timeouts so a slow/idle client (Slowloris) can't tie up a
+	// connection indefinitely. WriteTimeout is left unset because /v1/export
+	// streams a whole Unity project zip that can legitimately take minutes.
+	httpSrv := &http.Server{
+		Addr:              *addr,
+		Handler:           withLog(mux),
+		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       5 * time.Minute, // large multipart articy uploads
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(httpSrv.ListenAndServe())
 }
 
 type server struct {
 	content     string
 	adminToken  string
+	stateToken  string
+	importRoot  string
 	templateDir string
 	mu          sync.RWMutex
 	state       map[string][]byte // user id -> raw save JSON
+	stateOrder  []string          // insertion order, for bounded eviction
+
+	verMu    sync.Mutex
+	verCache map[bool]verCacheEntry // includeManifest -> cached versions
 }
+
+// stateMemMax bounds how many player saves are held in RAM. Disk is the source
+// of truth (every GET falls back to the on-disk mirror), so evicting the oldest
+// in-memory entry is safe — it just reloads on next access. Prevents an
+// unauthenticated PUT loop from exhausting the heap.
+const stateMemMax = 2000
+
+type verCacheEntry struct {
+	versions map[string]string
+	at       time.Time
+}
+
+// verCacheTTL bounds how often the whole content tree is walked+hashed. Many
+// clients polling /v1/content/version within this window share one walk, so a
+// poll storm can't amplify into repeated full-tree scans. A change is still
+// visible within the TTL, which is well inside the client's poll cadence.
+const verCacheTTL = 2 * time.Second
 
 func (s *server) handleManifest(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(filepath.Join(s.content, "manifest.json"))
@@ -143,13 +202,30 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 	return out
 }
 
+// computeVersionsCached memoises computeVersions for verCacheTTL so a burst of
+// version polls collapses into a single tree walk. The returned map is shared
+// and must be treated as read-only.
+func (s *server) computeVersionsCached(includeManifest bool) map[string]string {
+	s.verMu.Lock()
+	defer s.verMu.Unlock()
+	if s.verCache == nil {
+		s.verCache = map[bool]verCacheEntry{}
+	}
+	if e, ok := s.verCache[includeManifest]; ok && time.Since(e.at) < verCacheTTL {
+		return e.versions
+	}
+	v := s.computeVersions(includeManifest)
+	s.verCache[includeManifest] = verCacheEntry{versions: v, at: time.Now()}
+	return v
+}
+
 // handleAssetVersions returns {content-relative-path: sha256} for every served
 // asset/script. The client folds these hashes into its disk cache key and the
 // ?v= query, so re-uploaded content auto-invalidates.
 func (s *server) handleAssetVersions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(s.computeVersions(false))
+	json.NewEncoder(w).Encode(s.computeVersionsCached(false))
 }
 
 // handleVersion returns a single content version hash that changes whenever ANY
@@ -173,7 +249,7 @@ func versionHash(versions map[string]string) string {
 }
 
 func (s *server) handleVersion(w http.ResponseWriter, r *http.Request) {
-	sum := versionHash(s.computeVersions(true))
+	sum := versionHash(s.computeVersionsCached(true))
 	etag := `"` + sum + `"`
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "no-store")
@@ -185,6 +261,12 @@ func (s *server) handleVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
+	// Optional shared-secret gate. Empty state-token keeps the template open for
+	// local dev; production sets it so a stranger can't read/overwrite saves.
+	if s.stateToken != "" && !bearerOK(r, s.stateToken) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	user := r.URL.Query().Get("user")
 	if user == "" {
 		http.Error(w, "user query param required", http.StatusBadRequest)
@@ -199,9 +281,7 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 			// Not in memory — try the on-disk mirror (survives a server restart).
 			if b, err := os.ReadFile(s.stateFile(user)); err == nil {
 				data, ok = b, true
-				s.mu.Lock()
-				s.state[user] = b
-				s.mu.Unlock()
+				s.putState(user, b)
 			}
 		}
 		if !ok {
@@ -220,18 +300,34 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "body must be JSON", http.StatusBadRequest)
 			return
 		}
-		s.mu.Lock()
-		s.state[user] = body
-		s.mu.Unlock()
-		// Persist to disk so saves survive a restart (best-effort — the in-memory
-		// copy already answers this session).
+		// Persist to disk FIRST (atomically) so a reported success is durable — the
+		// client trusts {saved:true} and won't retry, so a failed write must 500.
 		if err := s.writeStateFile(user, body); err != nil {
 			fmt.Fprintf(os.Stderr, "state: persist %s: %v\n", user, err)
+			http.Error(w, "persist failed", http.StatusInternalServerError)
+			return
 		}
+		s.putState(user, body)
 		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// putState caches a save in memory with a bounded size, evicting the oldest
+// entry when full. Disk remains authoritative, so eviction only costs a reload.
+func (s *server) putState(user string, body []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.state[user]; !exists {
+		s.stateOrder = append(s.stateOrder, user)
+		for len(s.stateOrder) > stateMemMax {
+			oldest := s.stateOrder[0]
+			s.stateOrder = s.stateOrder[1:]
+			delete(s.state, oldest)
+		}
+	}
+	s.state[user] = body
 }
 
 // stateFile is the on-disk mirror path for a user's save, under <content>/state/.
@@ -256,7 +352,7 @@ func (s *server) writeStateFile(user string, body []byte) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(p, body, 0o644)
+	return atomicWrite(p, body, 0o644)
 }
 
 func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +360,7 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "admin disabled", http.StatusForbidden)
 		return
 	}
-	if r.Header.Get("Authorization") != "Bearer "+s.adminToken {
+	if !bearerOK(r, s.adminToken) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
