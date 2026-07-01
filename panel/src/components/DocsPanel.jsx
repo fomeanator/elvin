@@ -60,7 +60,7 @@ Write narrative scripts in LVNScript. Grammar:
 - Ops: \`set key="k" value=v\`, \`inc key="k" by=1\`, \`bg sprite_url="…"\`,
   \`actor id="x" show=true position="left"\`, \`fade to="black" duration=0.8\`,
   \`flash color="white"\`, \`tint color="cold" alpha=0.4\`, \`particles type="rain" on=true\`,
-  \`camera mode="shake" duration=0.5\`, \`if expr="score>=10" then="win" else="lose"\`.
+  \`camera action="shake" duration=0.5\`, \`if expr="score>=10" then="win" else="lose"\`.
 - End paths with \`goto __end\`.`;
 
 export default function DocsPanel({ onClose }) {

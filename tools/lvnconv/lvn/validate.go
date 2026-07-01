@@ -27,6 +27,49 @@ var KnownOps = map[string]bool{
 	"anim": true, // script-driven tween (lvns `anim`/`move` compile to this)
 }
 
+// OpFields is the set of accepted top-level field keys per op, used to catch
+// typo'd keys (e.g. `fade too=` instead of `to=`). Only ops with a CLOSED field
+// set are listed: say/choice/actor/obj are intentionally omitted because they
+// carry open-ended keys (catalog-defined emotion axes, a large placement
+// vocabulary, localization ids), where strict checking would false-positive.
+var OpFields = map[string][]string{
+	"bg":        {"id", "sprite_url"},
+	"fade":      {"to", "duration"},
+	"dim":       {"alpha", "duration"},
+	"flash":     {"color", "duration"},
+	"tint":      {"color", "alpha", "duration"},
+	"blur":      {"alpha", "duration"},
+	"camera":    {"action", "amplitude", "factor", "x", "y", "duration", "mode"},
+	"particles": {"type", "on"},
+	"audio":     {"channel", "url", "action", "fade", "volume", "loop"},
+	"wait":      {"ms"},
+	"preload":   {"assets"},
+	"text_pace": {"cps"},
+	"goto":      {"label"},
+	"if":        {"expr", "then", "else", "cond"},
+	"set":       {"key", "value", "expr", "default"},
+	"inc":       {"key", "by"},
+	"hint":      {"text", "show"},
+	"call":      {"label"},
+	"return":    {},
+	"label":     {"id"},
+	"save":      {"slot"},
+	"load":      {"slot"},
+	"text":      {"id", "text", "hide", "x", "y", "anchor", "size", "color", "font"},
+	"anim":      {"id", "anim", "stop", "channel", "mode"},
+}
+
+// EnumValues lists the CLOSED value sets per (op, field). A value outside the set
+// is almost always a typo (`position="lft"`). Only fully-closed sets are here —
+// colour names also accept hex, so they're deliberately excluded.
+var EnumValues = map[string]map[string][]string{
+	"fade":      {"to": {"black", "white", "clear", ""}},
+	"particles": {"type": {"rain", "snow"}},
+	"audio":     {"channel": {"music", "ambient", "sfx"}, "action": {"play", "stop"}},
+	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
+	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
+}
+
 // Builtin labels are resolved by the runtime and need no definition.
 var builtinLabels = map[string]bool{"__end": true}
 
@@ -140,6 +183,51 @@ func Validate(d *Doc) []Issue {
 			addErr(i, op, fmt.Sprintf("unknown op %q (typo?)", op))
 			return
 		}
+		// Unknown-key check: a typo'd key (e.g. `fade too=`) compiles clean and
+		// then silently no-ops at runtime. Only ops with a closed field set are
+		// checked (see OpFields).
+		if fields, ok := OpFields[op]; ok {
+			allowed := map[string]bool{"op": true}
+			for _, f := range fields {
+				allowed[f] = true
+			}
+			var bad []string
+			for k := range c {
+				if !allowed[k] {
+					bad = append(bad, k)
+				}
+			}
+			sort.Strings(bad)
+			for _, k := range bad {
+				msg := fmt.Sprintf("unknown field %q for op %q", k, op)
+				if s := suggest(k, fields); s != "" {
+					msg += fmt.Sprintf(" — did you mean %q?", s)
+				}
+				addWarn(i, op, msg)
+			}
+		}
+		// Enumerated-value check: a value outside a closed set (e.g.
+		// `position="lft"`) is almost always a typo. Only present string fields
+		// with a fully-closed value set are checked (see EnumValues).
+		if enums, ok := EnumValues[op]; ok {
+			for field, allowed := range enums {
+				raw, present := c[field]
+				if !present {
+					continue
+				}
+				val, isStr := raw.(string)
+				if !isStr {
+					continue
+				}
+				if !inSet(allowed, val) {
+					msg := fmt.Sprintf("%s=%q is not a known value (expected: %s)", field, val, strings.Join(nonEmpty(allowed), ", "))
+					if s := suggest(val, allowed); s != "" {
+						msg += fmt.Sprintf(" — did you mean %q?", s)
+					}
+					addWarn(i, op, msg)
+				}
+			}
+		}
 		switch op {
 		case "goto", "call":
 			ref(i, op, c.Str("label"))
@@ -237,6 +325,75 @@ func Validate(d *Doc) []Issue {
 	}
 
 	return issues
+}
+
+func inSet(set []string, v string) bool {
+	for _, s := range set {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
+// nonEmpty drops the "" sentinel (used to mean "absent is fine") from an enum
+// set so it doesn't show up in the human-readable "expected:" hint.
+func nonEmpty(set []string) []string {
+	out := make([]string, 0, len(set))
+	for _, s := range set {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// suggest returns the closest option to bad within edit distance 2 (the likely
+// typo correction), or "" if none is close enough.
+func suggest(bad string, options []string) string {
+	best, bestD := "", 3
+	for _, o := range options {
+		if o == "" {
+			continue
+		}
+		d := levenshtein(bad, o)
+		if d < bestD {
+			best, bestD = o, d
+		}
+	}
+	return best
+}
+
+// levenshtein is the classic edit distance, for typo suggestions.
+func levenshtein(a, b string) int {
+	ra, rb := []rune(a), []rune(b)
+	prev := make([]int, len(rb)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ra); i++ {
+		cur := make([]int, len(rb)+1)
+		cur[0] = i
+		for j := 1; j <= len(rb); j++ {
+			cost := 1
+			if ra[i-1] == rb[j-1] {
+				cost = 0
+			}
+			cur[j] = min3(cur[j-1]+1, prev[j]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(rb)]
+}
+
+func min3(a, b, c int) int {
+	if b < a {
+		a = b
+	}
+	if c < a {
+		a = c
+	}
+	return a
 }
 
 // braceIssue reports an unbalanced-brace problem in interpolated text, or "" if
