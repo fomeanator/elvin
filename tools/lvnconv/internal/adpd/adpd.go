@@ -1455,9 +1455,7 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 				speakers[sp] = true
 			}
 			text, menu := fl.text[o], fl.text[o]
-			if len(menu) > 80 {
-				menu = menu[:80]
-			}
+			menu = truncateRunes(menu, 80)
 			// StableId is the fragment's articy GUID — a key that survives reimport,
 			// so saves, analytics and localization catalogs stay valid across content
 			// edits. The back-end carries it onto the say/option for the importer's
@@ -1512,6 +1510,16 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 	return export{GlobalVariables: gvars, Packages: []pkg{{Models: models}}}
 }
 
+// truncateRunes caps s at n runes (not bytes), appending "…" when it trims, so
+// multi-byte text (Cyrillic, CJK) is never cut mid-character into mojibake.
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
 // conditionPins splits a condition's outgoing edges into two pins (true/false)
 // by source pin id, padding to the two pins convert.go expects.
 func conditionPins(es []edge) []any {
@@ -1527,9 +1535,14 @@ func conditionPins(es []edge) []any {
 	var pins []any
 	for _, sp := range order {
 		grp := bySrc[sp]
-		pins = append(pins, map[string]any{"Text": "", "Connections": []any{
-			map[string]any{"Target": nodeID(grp[0].dst)},
-		}})
+		// Emit every connection on the pin, not just the first — a condition pin
+		// that fans out to several targets would otherwise silently drop all but
+		// one (lost content, and the coverage self-check would disagree).
+		conns := make([]any, 0, len(grp))
+		for _, e := range grp {
+			conns = append(conns, map[string]any{"Target": nodeID(e.dst)})
+		}
+		pins = append(pins, map[string]any{"Text": "", "Connections": conns})
 	}
 	for len(pins) < 2 {
 		pins = append(pins, map[string]any{"Text": "", "Connections": []any{map[string]any{"Target": dlgID}}})

@@ -443,13 +443,33 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 
 func (g *gen) emitCondition(n *node) error {
 	expr := cleanExpr(prop(n.props, "Expression"))
+	// Resolve each branch's target. An unconnected pin (0 connections) branches to
+	// the dialogue exit instead of aborting the whole import; a fanned-out pin
+	// (>1 connections) takes its first connection as the branch — the extras stay
+	// in the model set and are reached via their own inbound edges. This keeps a
+	// malformed/unusual condition from stranding an entire chapter's content.
+	branch := func(pin int) string {
+		if pin < len(n.outs) && len(n.outs[pin]) > 0 {
+			return n.outs[pin][0]
+		}
+		return g.dlgID // → "__end"
+	}
+	tID, fID := branch(0), branch(1)
+
+	// A condition with no expression can't decide — treat it as an unconditional
+	// pass to its true branch rather than crashing the import.
 	if expr == "" {
-		return fmt.Errorf("condition %s has empty expression", n.id)
+		tLbl, err := g.branchLabel(tID)
+		if err != nil {
+			return err
+		}
+		g.emit(Cmd{"op": "goto", "label": tLbl})
+		if tID != g.dlgID && !g.emitted[tID] {
+			return g.walk(tID)
+		}
+		return nil
 	}
-	if len(n.outs) < 2 || len(n.outs[0]) != 1 || len(n.outs[1]) != 1 {
-		return fmt.Errorf("condition %s must have exactly one connection per pin (true/false)", n.id)
-	}
-	tID, fID := n.outs[0][0], n.outs[1][0]
+
 	tLbl, err := g.branchLabel(tID)
 	if err != nil {
 		return err
