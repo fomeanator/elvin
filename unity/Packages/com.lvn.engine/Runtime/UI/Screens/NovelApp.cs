@@ -362,7 +362,17 @@ namespace Lvn.UI.Screens
             string json;
             try { json = await _assets.Loader.DownloadScriptText(_currentChapter.script_url); }
             catch { return; }
-            if (string.IsNullOrEmpty(json) || json == _currentScriptJson) return;
+            if (string.IsNullOrEmpty(json)) return;
+            if (json == _currentScriptJson)
+            {
+                // The script didn't change — only assets did (a replaced sprite or
+                // background). Re-apply the visible stage in place so the new art shows
+                // live, without restarting the chapter. The version index was just
+                // re-warmed, so each sprite reloads under its new content hash.
+                if (Stage.Player != null && !Stage.Player.Finished)
+                    Stage.Player.ReplayVisuals(Stage.Player.Index + 1);
+                return;
+            }
             _assets.Loader.RefreshScriptInBackground(_currentChapter.script_url);
 
             _currentScriptJson = json;

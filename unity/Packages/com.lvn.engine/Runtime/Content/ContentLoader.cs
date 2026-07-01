@@ -218,7 +218,9 @@ namespace Lvn.Content
                 var map = ParseVersions(Encoding.UTF8.GetString(bytes));
                 if (map.Count > 0)
                 {
-                    lock (_versionsLock) _versions = map;
+                    Dictionary<string, string> prev;
+                    lock (_versionsLock) { prev = _versions; _versions = map; }
+                    EvictStaleSprites(prev, map);
                     try { await WriteAllBytesAsync(persistPath, bytes, ct); } catch { /* mirror is best-effort */ }
                     return;
                 }
@@ -254,11 +256,14 @@ namespace Lvn.Content
         // form and the raw-with-"content/" form.
         private string VersionFor(string url)
         {
-            if (string.IsNullOrEmpty(url)) return null;
             Dictionary<string, string> map;
             lock (_versionsLock) map = _versions;
-            if (map.Count == 0) return null;
+            return Lookup(map, url);
+        }
 
+        private static string Lookup(Dictionary<string, string> map, string url)
+        {
+            if (string.IsNullOrEmpty(url) || map == null || map.Count == 0) return null;
             var path = url;
             if (path.StartsWith("http://") || path.StartsWith("https://"))
             {
@@ -269,6 +274,22 @@ namespace Lvn.Content
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
             return null;
+        }
+
+        // When the version index changes (a live content update), any in-memory sprite
+        // whose content hash moved is stale — the memory cache is url-keyed, so it would
+        // otherwise keep handing back the OLD art forever. Evict exactly those, so the
+        // next load (e.g. a live ReplayVisuals) decodes the replaced file.
+        private void EvictStaleSprites(Dictionary<string, string> oldMap, Dictionary<string, string> newMap)
+        {
+            List<string> stale = null;
+            lock (_spriteCache)
+            {
+                foreach (var url in _spriteCache.Keys)
+                    if (Lookup(oldMap, url) != Lookup(newMap, url))
+                        (stale ??= new List<string>()).Add(url);
+            }
+            if (stale != null) foreach (var u in stale) Unload(u);
         }
 
         // Scripts ship from the server and change often — skip the on-disk cache

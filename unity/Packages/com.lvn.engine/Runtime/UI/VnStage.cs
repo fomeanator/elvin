@@ -438,6 +438,10 @@ namespace Lvn.UI
             _sayUp = true;
             _curChoices = null;
 
+            // Classic VN focus: the speaker is at full opacity, everyone else present
+            // dims — so a two-shot reads as "this one is talking" instead of a flat row.
+            SceneHighlightSpeaker(who);
+
             // Lip-sync: only the speaking actor's mouth moves while the line is up.
             var spId = ResolveSpeakerId(who);
             foreach (var kv in _talkAnims) SceneTalk(kv.Key, kv.Value, kv.Key == spId);
@@ -455,6 +459,7 @@ namespace Lvn.UI
         private void ScenePlayAnimQueued(string id, string channel, LvnAnim a) { if (UseCanvasScene) _scene?.PlayAnimQueued(id, channel, a); else _actors?.PlayAnimQueued(id, channel, a); }
         private void SceneStopAnim(string id, string target) { if (UseCanvasScene) _scene?.StopAnim(id, target); else _actors?.StopAnim(id, target); }
         private void SceneTalk(string id, LvnAnim t, bool on) { if (UseCanvasScene) _scene?.Talk(id, t, on); else _actors?.Talk(id, t, on); }
+        private void SceneHighlightSpeaker(string who) { if (UseCanvasScene) _scene?.HighlightSpeaker(who); else _actors?.HighlightSpeaker(who); }
 
         // ── save / load ──────────────────────────────────────────────────────
         // `save [slot=name]` writes the player snapshot (cursor + vars + call stack)
