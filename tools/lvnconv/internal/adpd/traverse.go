@@ -82,7 +82,7 @@ func (g *pinGraph) outPins(n uint32) []uint32 {
 // an output pin — whichever the connection entered) and hubs. This is TraverseFlow
 // reduced to "where does flow leaving this pin next pause / branch" — forward, by
 // construction, so a choice's options and a scene's linear next both fall out.
-func (g *pinGraph) reachFromPin(pin uint32) []uint32 {
+func (g *pinGraph) reachFromPin(pin uint32, allowed map[uint32]bool) []uint32 {
 	var out []uint32
 	seenStep := map[uint64]bool{}
 	seenOut := map[uint32]bool{}
@@ -90,6 +90,9 @@ func (g *pinGraph) reachFromPin(pin uint32) []uint32 {
 	visit = func(node, via uint32, depth int) {
 		if depth > 100000 {
 			return
+		}
+		if allowed != nil && !allowed[node] {
+			return // left the chapter scope — this branch ends here
 		}
 		key := uint64(node)<<32 | uint64(via)
 		if seenStep[key] {
@@ -121,21 +124,16 @@ func (g *pinGraph) reachFromPin(pin uint32) []uint32 {
 	return out
 }
 
-// rootEntry returns the first emittable node of the novel: descend from the
-// top-level container(s) (containers that own children but are never a child).
-func (g *pinGraph) rootEntry(childOf map[uint32]bool) []uint32 {
-	var tops []uint32
-	for n, c := range g.class {
-		if (c == cidStoryFolder || c == cidFlowFrag || c == cidDialog) && !childOf[n] {
-			tops = append(tops, n)
-		}
-	}
+// rootEntry returns the first emittable node(s): descend from the given top
+// container(s) through their input pin. allowed bounds the descent to a chapter
+// subtree (nil = whole novel).
+func (g *pinGraph) rootEntry(tops []uint32, allowed map[uint32]bool) []uint32 {
 	sort.Slice(tops, func(i, j int) bool { return tops[i] < tops[j] })
 	var out []uint32
 	seen := map[uint32]bool{}
 	for _, t := range tops {
 		if ps := g.pins[t]; len(ps) > 0 { // descend from the container's input pin
-			for _, r := range g.reachFromPin(ps[0]) {
+			for _, r := range g.reachFromPin(ps[0], allowed) {
 				if !seen[r] {
 					seen[r] = true
 					out = append(out, r)
