@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/importer"
+	"github.com/nwaples/rardecode"
 )
 
 // handleImportArticy is the server side of the IDE's one-click "Import articy"
@@ -153,8 +154,17 @@ func reconstructUpload(r *http.Request) (string, func(), error) {
 			clean()
 			return "", nil, err
 		}
-		if part.FormName() == "zip" || strings.HasSuffix(strings.ToLower(name), ".zip") {
+		lower := strings.ToLower(name)
+		switch {
+		case part.FormName() == "zip" || strings.HasSuffix(lower, ".zip"):
 			if err := unzipInto(tmp, data); err != nil {
+				clean()
+				return "", nil, err
+			}
+			wrote++
+			continue
+		case part.FormName() == "rar" || strings.HasSuffix(lower, ".rar"):
+			if err := unrarInto(tmp, data); err != nil {
 				clean()
 				return "", nil, err
 			}
@@ -212,6 +222,47 @@ func unzipInto(dst string, data []byte) error {
 			return err
 		}
 		if err := os.WriteFile(out, b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// unrarInto extracts a .rar archive into dst. RAR is proprietary and absent from
+// the Go stdlib, so this uses the pure-Go rardecode reader — same path-sanitising
+// and dir-first handling as unzipInto.
+func unrarInto(dst string, data []byte) error {
+	rr, err := rardecode.NewReader(bytes.NewReader(data), "")
+	if err != nil {
+		return err
+	}
+	for {
+		hdr, err := rr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		rel := filepath.Clean("/" + filepath.ToSlash(hdr.Name))[1:]
+		if rel == "" || strings.Contains(rel, "..") {
+			continue
+		}
+		out := filepath.Join(dst, rel)
+		if hdr.IsDir {
+			os.MkdirAll(out, 0o755)
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return err
+		}
+		f, err := os.Create(out)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(f, io.LimitReader(rr, 512<<20))
+		f.Close()
+		if err != nil {
 			return err
 		}
 	}
