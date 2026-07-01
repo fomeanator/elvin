@@ -24,6 +24,11 @@ func WriteToContentDir(contentDir string, res *Result) error {
 	if err := write(res.ScriptRel, res.Lvn); err != nil {
 		return fmt.Errorf("write script: %w", err)
 	}
+	if res.LvnsRel != "" && len(res.Lvns) > 0 {
+		if err := write(res.LvnsRel, res.Lvns); err != nil {
+			return fmt.Errorf("write lvns: %w", err)
+		}
+	}
 	if res.CatalogRel != "" && len(res.Catalog) > 0 {
 		cat, err := json.MarshalIndent(res.Catalog, "", " ")
 		if err != nil {

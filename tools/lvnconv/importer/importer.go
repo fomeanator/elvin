@@ -79,6 +79,11 @@ type Result struct {
 	// ready to re-art. See BuildCatalog.
 	Sprites map[string]any
 
+	// Lvns is the .lvns decompilation of the script (editable Elvin Script source),
+	// written beside the .lvn so the novel can be reworked as source in the panel.
+	Lvns    []byte
+	LvnsRel string
+
 	// Localization (set only when Options.Localize): the extracted string catalog
 	// (text_id → string), the project language code, and the content-relative path
 	// the catalog must be written to ("scripts/<id>.<lang>.json"). The runtime
@@ -128,6 +133,10 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	sprites, extraArt := BuildCatalog(doc)
 	art = append(art, extraArt...)
 
+	// Decompile to editable .lvns BEFORE localization swaps inline text for keys,
+	// so the source reads with the real lines.
+	lvns := ToLvns(doc)
+
 	var catalog map[string]string
 	var lang, catalogRel string
 	if opt.Localize {
@@ -152,6 +161,8 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		Stats:      opStats(doc),
 		MissingBg:  missing,
 		Sprites:    sprites,
+		Lvns:       lvns,
+		LvnsRel:    "scripts/" + opt.ID + ".lvns",
 		Catalog:    catalog,
 		Lang:       lang,
 		CatalogRel: catalogRel,
