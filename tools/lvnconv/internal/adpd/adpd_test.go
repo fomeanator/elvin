@@ -4,9 +4,27 @@ import (
 	"encoding/binary"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
 )
+
+func TestTruncateRunesKeepsCyrillicIntact(t *testing.T) {
+	// 90 Cyrillic runes (180 bytes). A byte-slice at 80 would land mid-character
+	// and produce invalid UTF-8; truncateRunes must cut on a rune boundary.
+	s := strings.Repeat("я", 90)
+	got := truncateRunes(s, 80)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncated to invalid UTF-8: %q", got)
+	}
+	if r := []rune(got); len(r) != 81 || string(r[:80]) != strings.Repeat("я", 80) || r[80] != '…' {
+		t.Fatalf("want 80 runes + ellipsis, got %d runes: %q", len(r), got)
+	}
+	// Short strings pass through untouched (no ellipsis).
+	if truncateRunes("привет", 80) != "привет" {
+		t.Fatal("short string must be returned unchanged")
+	}
+}
 
 func TestStripHTML(t *testing.T) {
 	in := `<html><head><style>#s0 {x}</style></head><body><p id="s0"><span id="s1">Привет &amp; пока</span></p></body></html>`
