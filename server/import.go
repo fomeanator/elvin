@@ -36,7 +36,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "admin disabled", http.StatusForbidden)
 		return
 	}
-	if r.Header.Get("Authorization") != "Bearer "+s.adminToken {
+	if !bearerOK(r, s.adminToken) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -70,6 +70,14 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "dir is required", http.StatusBadRequest)
 			return
 		}
+		if !s.importDirAllowed(body.Dir) {
+			http.Error(w, "dir must live under the configured import-root", http.StatusForbidden)
+			return
+		}
+		if body.ID != "" && !validID(body.ID) {
+			http.Error(w, "id must match [A-Za-z0-9_-]+", http.StatusBadRequest)
+			return
+		}
 		projectDir = body.Dir
 		opt.ID, opt.Name, opt.Subtitle = body.ID, body.Name, body.Subtitle
 		if body.Start != 0 {
@@ -86,6 +94,10 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		}
 		projectDir, cleanup = dir, clean
 		q := r.URL.Query()
+		if id := q.Get("id"); id != "" && !validID(id) {
+			http.Error(w, "id must match [A-Za-z0-9_-]+", http.StatusBadRequest)
+			return
+		}
 		opt.ID, opt.Name, opt.Subtitle = q.Get("id"), q.Get("name"), q.Get("subtitle")
 		opt.Localize = q.Get("localize") == "1" || q.Get("localize") == "true"
 
@@ -116,6 +128,28 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		"strings":    len(res.Catalog),
 	})
 }
+
+// importDirAllowed gates the JSON {dir} import mode. When -import-root is unset
+// (default) any host path is accepted — the endpoint is already admin-gated and
+// this mode exists to import a project already sitting on the server. When set,
+// the requested dir must resolve inside that root, so a leaked/guessed admin
+// token still can't turn the importer into an arbitrary-directory reader.
+func (s *server) importDirAllowed(dir string) bool {
+	if s.importRoot == "" {
+		return true
+	}
+	root := filepath.Clean(s.importRoot)
+	d := filepath.Clean(dir)
+	return d == root || strings.HasPrefix(d, root+string(os.PathSeparator))
+}
+
+// archive extraction limits — defence against zip/rar bombs. A single upload
+// can't exceed these no matter how it's compressed.
+const (
+	maxArchiveEntries = 50000     // entry-count cap (inode/FD exhaustion)
+	maxArchiveEntry   = 512 << 20 // 512 MiB per uncompressed entry
+	maxArchiveTotal   = 4 << 30   // 4 GiB total uncompressed across the archive
+)
 
 // reconstructUpload rebuilds an uploaded project into a temp dir. It accepts a
 // single zipped folder (part name "zip") or many parts whose filenames are the
@@ -199,6 +233,10 @@ func unzipInto(dst string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if len(zr.File) > maxArchiveEntries {
+		return fmt.Errorf("archive has too many entries (%d > %d)", len(zr.File), maxArchiveEntries)
+	}
+	var total int64
 	for _, f := range zr.File {
 		rel := filepath.Clean("/" + filepath.ToSlash(f.Name))[1:]
 		if rel == "" || strings.Contains(rel, "..") {
@@ -216,16 +254,43 @@ func unzipInto(dst string, data []byte) error {
 		if err != nil {
 			return err
 		}
-		b, err := io.ReadAll(rc)
+		// Cap per-entry (bomb) and running total — never trust the header's size.
+		n, err := writeCapped(out, rc, maxArchiveEntry)
 		rc.Close()
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(out, b, 0o644); err != nil {
-			return err
+		total += n
+		if total > maxArchiveTotal {
+			return fmt.Errorf("archive exceeds %d bytes uncompressed", maxArchiveTotal)
 		}
 	}
 	return nil
+}
+
+// writeCapped streams src to a new file at path, failing if it would exceed max
+// bytes. Reads one byte past the limit to detect overflow rather than trusting
+// any declared size.
+func writeCapped(path string, src io.Reader, max int64) (int64, error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return 0, err
+	}
+	n, err := io.Copy(f, io.LimitReader(src, max+1))
+	cerr := f.Close()
+	if err != nil {
+		os.Remove(path)
+		return n, err
+	}
+	if n > max {
+		os.Remove(path)
+		return n, fmt.Errorf("entry %s exceeds %d bytes", filepath.Base(path), max)
+	}
+	if cerr != nil {
+		os.Remove(path)
+		return n, cerr
+	}
+	return n, nil
 }
 
 // unrarInto extracts a .rar archive into dst. RAR is proprietary and absent from
@@ -236,6 +301,8 @@ func unrarInto(dst string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	var total int64
+	entries := 0
 	for {
 		hdr, err := rr.Next()
 		if err == io.EOF {
@@ -243,6 +310,10 @@ func unrarInto(dst string, data []byte) error {
 		}
 		if err != nil {
 			return err
+		}
+		entries++
+		if entries > maxArchiveEntries {
+			return fmt.Errorf("archive has too many entries (> %d)", maxArchiveEntries)
 		}
 		rel := filepath.Clean("/" + filepath.ToSlash(hdr.Name))[1:]
 		if rel == "" || strings.Contains(rel, "..") {
@@ -256,14 +327,13 @@ func unrarInto(dst string, data []byte) error {
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err
 		}
-		f, err := os.Create(out)
+		n, err := writeCapped(out, rr, maxArchiveEntry)
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(f, io.LimitReader(rr, 512<<20))
-		f.Close()
-		if err != nil {
-			return err
+		total += n
+		if total > maxArchiveTotal {
+			return fmt.Errorf("archive exceeds %d bytes uncompressed", maxArchiveTotal)
 		}
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // WriteToContentDir lands an import Result into a content root: the .lvn under
@@ -13,8 +14,15 @@ import (
 // rest of the manifest). After this the content server serves the new title and
 // the IDE/game see it on their next manifest poll — no restart needed.
 func WriteToContentDir(contentDir string, res *Result) error {
+	root := filepath.Clean(contentDir)
 	write := func(rel string, data []byte) error {
-		dst := filepath.Join(contentDir, filepath.FromSlash(rel))
+		dst := filepath.Clean(filepath.Join(root, filepath.FromSlash(rel)))
+		// Defence in depth: a crafted rel (e.g. an id of "../../etc/x") must never
+		// escape the content root. filepath.Join resolves "..", so verify the
+		// cleaned destination still lives under root before touching the disk.
+		if dst != root && !strings.HasPrefix(dst, root+string(os.PathSeparator)) {
+			return fmt.Errorf("refusing to write outside content root: %s", rel)
+		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
