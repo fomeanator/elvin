@@ -1,10 +1,73 @@
 import { useEffect, useMemo, useState } from "react";
+import { parseGIF, decompressFrames } from "gifuct-js";
 import { getManifest, putAsset } from "../lib/api.js";
 import {
-  uid, slug, tokenOf, partPath, toEditor, toEntity, fill, TEMPLATES, PRESETS,
+  uid, slug, tokenOf, partPath, toEditor, toEntity, fill, framesFromAxis, TEMPLATES, PRESETS,
 } from "../lib/sprites.js";
 
-const BLANK = { id: "", name: "", color: "", axes: {}, picked: {}, parts: [] };
+const BLANK = { id: "", name: "", color: "", kind: "", axes: {}, picked: {}, parts: [], anim: [] };
+
+// Tween properties a track can drive (frame = swap the layer's sprite by an axis
+// value; the rest are transform tweens).
+const TWEEN_PROPS = ["frame", "scale", "scalex", "scaley", "rotation", "alpha", "x", "y", "screen_x", "screen_y"];
+const EASES = ["", "linear", "inOutSine", "outCubic", "outBack", "inBack"];
+
+function uniqueAnimName(list) {
+  const names = new Set(list.map((a) => a.name));
+  if (!names.has("idle")) return "idle";
+  let i = 2;
+  while (names.has("anim" + i)) i++;
+  return "anim" + i;
+}
+
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+}
+
+// Decode every frame of an animated GIF into composited PNG blobs.
+async function gifToFrames(file) {
+  const buf = await file.arrayBuffer();
+  const gif = parseGIF(buf);
+  const frames = decompressFrames(gif, true);
+  const W = gif.lsd.width, H = gif.lsd.height;
+  const full = document.createElement("canvas"); full.width = W; full.height = H;
+  const fctx = full.getContext("2d");
+  const tmp = document.createElement("canvas"); const tctx = tmp.getContext("2d");
+  const out = [];
+  for (const fr of frames) {
+    const { width, height, top, left } = fr.dims;
+    tmp.width = width; tmp.height = height;
+    const data = tctx.createImageData(width, height);
+    data.data.set(fr.patch);
+    tctx.putImageData(data, 0, 0);
+    fctx.drawImage(tmp, left, top);
+    out.push(await new Promise((res) => full.toBlob(res, "image/png")));
+    if (fr.disposalType === 2) fctx.clearRect(left, top, width, height);
+  }
+  return out;
+}
+
+// Slice a spritesheet grid (columns×rows, prompted) into PNG blobs.
+async function sheetToFrames(file) {
+  const spec = prompt("Sheet grid as columns×rows (e.g. 4x2):", "4x1");
+  if (!spec) return null;
+  const m = spec.toLowerCase().match(/(\d+)\s*[x×,\s]\s*(\d+)/);
+  if (!m) throw new Error("bad grid — use e.g. 4x2");
+  const cols = +m[1], rows = +m[2];
+  const img = await loadImage(URL.createObjectURL(file));
+  const cw = Math.floor(img.width / cols), ch = Math.floor(img.height / rows);
+  const canvas = document.createElement("canvas"); canvas.width = cw; canvas.height = ch;
+  const g = canvas.getContext("2d");
+  const out = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      g.clearRect(0, 0, cw, ch);
+      g.drawImage(img, c * cw, r * ch, cw, ch, 0, 0, cw, ch);
+      out.push(await new Promise((res) => canvas.toBlob(res, "image/png")));
+    }
+  }
+  return out;
+}
 
 // A friendlier label for the common axes; anything else keeps its own name.
 const AXIS_LABEL = { pose: "Poses", emotion: "Moods" };
@@ -17,6 +80,7 @@ export default function SpritesView({ creds, notify }) {
   const [bust, setBust] = useState(() => Date.now());
   const [chooser, setChooser] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [preview, setPreview] = useState(null); // anim key being played on stage
 
   useEffect(() => {
     (async () => {
@@ -29,8 +93,30 @@ export default function SpritesView({ creds, notify }) {
     })();
   }, []);
 
+  // Preview player: cycle a frame track's axis values on the stage over the anim's
+  // duration (only re-renders when the visible frame changes).
+  useEffect(() => {
+    if (!preview) return undefined;
+    const a = (ed.anim || []).find((x) => x.key === preview);
+    const ft = a && a.tracks.find((t) => t.prop === "frame" && (t.keys || []).length);
+    if (!ft) return undefined;
+    const dur = Number(a.duration) || 1;
+    const start = performance.now();
+    let last = null, raf = 0;
+    const tick = (now) => {
+      const t = ((now - start) / 1000) % dur;
+      let v = ft.keys[0][1];
+      for (const [kt, kv] of ft.keys) if (kt <= t) v = kv;
+      if (v !== last) { last = v; setPicked(ft.axis, v); }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [preview, ed.anim]);
+
   function selectEntity(id) {
     setChooser(false);
+    setPreview(null);
     setCurrentId(id);
     setEd(id && catalog[id] ? toEditor(catalog[id], id) : BLANK);
   }
@@ -71,7 +157,7 @@ export default function SpritesView({ creds, notify }) {
       if (!picked[axisName] && cur.length) picked[axisName] = cur[0];
       let parts = s.parts;
       if (!parts.some((p) => p.axis === axisName)) {
-        const np = { key: uid(), name: partName || axisName, axis: axisName, when: null, url: "" };
+        const np = { key: uid(), name: partName || axisName, layerId: slug(partName || axisName), axis: axisName, when: null, url: "" };
         np.url = partPath(np, s.id);
         // Only when this is the FIRST category (a plain object becoming a
         // character) does its lone static image become the category's first frame.
@@ -105,6 +191,86 @@ export default function SpritesView({ creds, notify }) {
       const parts = s.parts.filter((p) => p.axis !== axis);
       return { ...s, axes, picked, parts };
     });
+  }
+
+  // ── animation mutations ──────────────────────────────────────────────────
+  const updateAnims = (fn) => patch((s) => ({ ...s, anim: fn(s.anim || []) }));
+
+  function addAnim() {
+    // Seed a frame animation from the first axis that has a layer, if any.
+    const axis = Object.keys(ed.axes).find((a) => (ed.axes[a] || []).length && ed.parts.some((p) => p.axis === a));
+    const part = axis ? ed.parts.find((p) => p.axis === axis) : null;
+    const dur = axis ? Math.max(0.3, (ed.axes[axis] || []).length * 0.12) : 1;
+    const track = axis
+      ? { key: uid(), layer: part?.layerId || "", prop: "frame", axis, ease: "", interp: "", keys: framesFromAxis(ed.axes[axis], dur) }
+      : { key: uid(), layer: ed.parts[0]?.layerId || "", prop: "scale", axis: "", ease: "outBack", interp: "", keys: [[0, 1], [dur, 1.1]] };
+    const name = uniqueAnimName(ed.anim || []);
+    updateAnims((a) => [...a, { key: uid(), name, loop: !!axis, auto: !!axis, duration: dur, tracks: [track] }]);
+    // rigged is required for named/idle animations to run
+    if (!ed.kind) patch((s) => ({ ...s, kind: "rigged" }));
+  }
+  function removeAnim(k) { updateAnims((a) => a.filter((x) => x.key !== k)); }
+  function updateAnim(k, patchObj) { updateAnims((a) => a.map((x) => (x.key === k ? { ...x, ...patchObj } : x))); }
+
+  function addTrack(animKey) {
+    updateAnims((a) => a.map((x) => x.key === animKey
+      ? { ...x, tracks: [...x.tracks, { key: uid(), layer: ed.parts[0]?.layerId || "", prop: "scale", axis: "", ease: "", interp: "", keys: [[0, 1], [x.duration || 1, 1.1]] }] }
+      : x));
+  }
+  function removeTrack(animKey, trackKey) {
+    updateAnims((a) => a.map((x) => x.key === animKey ? { ...x, tracks: x.tracks.filter((t) => t.key !== trackKey) } : x));
+  }
+  function updateTrack(animKey, trackKey, patchObj) {
+    updateAnims((a) => a.map((x) => x.key === animKey
+      ? { ...x, tracks: x.tracks.map((t) => (t.key === trackKey ? { ...t, ...patchObj } : t)) }
+      : x));
+  }
+  // Regenerate a frame track's keys evenly from its axis's current values.
+  function syncFrameKeys(animKey, trackKey) {
+    updateAnims((a) => a.map((x) => {
+      if (x.key !== animKey) return x;
+      return { ...x, tracks: x.tracks.map((t) => {
+        if (t.key !== trackKey || t.prop !== "frame") return t;
+        return { ...t, keys: framesFromAxis(ed.axes[t.axis], x.duration) };
+      }) };
+    }));
+  }
+
+  // Import frames from an animated GIF or a spritesheet grid: decode/slice into
+  // per-frame PNGs, upload each as an axis value (so they drive a `frame`
+  // animation). New supported source types, all client-side.
+  function importSheet(axis) {
+    const part = partForAxis(axis);
+    if (!part) { notify("Add art to this set first, then import frames.", "err"); return; }
+    const picker = document.createElement("input");
+    picker.type = "file"; picker.accept = "image/*,.gif";
+    picker.onchange = async () => {
+      const f = picker.files && picker.files[0];
+      if (!f) return;
+      const isGif = f.type === "image/gif" || /\.gif$/i.test(f.name);
+      try {
+        const blobs = isGif ? await gifToFrames(f) : await sheetToFrames(f);
+        if (!blobs) return; // cancelled
+        notify(`Uploading ${blobs.length} frames…`);
+        const values = [];
+        for (let i = 0; i < blobs.length; i++) {
+          const value = String(i);
+          const url = part.url.replace(new RegExp("\\{" + axis + "\\}"), value);
+          await putAsset(url, new File([blobs[i]], value + ".png", { type: "image/png" }), creds.token, "image/png");
+          values.push(value);
+        }
+        patch((s) => {
+          const cur = (s.axes[axis] || []).slice();
+          values.forEach((v) => { if (!cur.includes(v)) cur.push(v); });
+          const picked = { ...s.picked };
+          if (!picked[axis] && cur.length) picked[axis] = cur[0];
+          return { ...s, axes: { ...s.axes, [axis]: cur }, picked };
+        });
+        setBust(Date.now());
+        notify(`✓ Imported ${values.length} frames — add an animation to play them`, "ok");
+      } catch (e) { notify("✗ " + (e.message || e), "err"); }
+    };
+    picker.click();
   }
 
   // effective preview selection (first value as fallback)
@@ -237,6 +403,7 @@ export default function SpritesView({ creds, notify }) {
                   label={label}
                   hint={`click an option to see it on stage · click an empty card to add art`}
                   onRemove={() => removeCategory(axis)}
+                  onImport={() => importSheet(axis)}
                 >
                   {(ed.axes[axis] || []).map((v) => (
                     <OptionCard
@@ -279,6 +446,21 @@ export default function SpritesView({ creds, notify }) {
             </div>
           </div>
         </div>
+
+        {isCharacter && (
+          <AnimEditor
+            ed={ed}
+            preview={preview}
+            onAdd={addAnim}
+            onRemove={removeAnim}
+            onUpdate={updateAnim}
+            onAddTrack={addTrack}
+            onRemoveTrack={removeTrack}
+            onUpdateTrack={updateTrack}
+            onSyncFrames={syncFrameKeys}
+            onPreview={(k) => setPreview((p) => (p === k ? null : k))}
+          />
+        )}
 
         {advanced && (
           <Advanced
@@ -371,12 +553,13 @@ function Stage({ parts, picked, bust }) {
   );
 }
 
-function LookGroup({ label, hint, onRemove, children }) {
+function LookGroup({ label, hint, onRemove, onImport, children }) {
   return (
     <section className="look-group">
       <div className="look-head">
         <span className="look-label">{label}</span>
         {hint && <span className="look-hint">{hint}</span>}
+        {onImport && <button className="look-remove" onClick={onImport} title="import frames from a GIF or spritesheet (→ per-frame images)">⊞</button>}
         {onRemove && <button className="look-remove" onClick={onRemove} title={"remove " + label}>✕</button>}
       </div>
       <div className="look-cards">{children}</div>
@@ -470,6 +653,103 @@ function Advanced({ ed, setId, setColor, onPartWhen, onAddBlush }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ── animation editor ──────────────────────────────────────────────────────── */
+
+function AnimEditor(props) {
+  const { ed, preview, onAdd, onRemove, onUpdate, onAddTrack, onRemoveTrack, onUpdateTrack, onSyncFrames, onPreview } = props;
+  const layers = [...new Set(ed.parts.map((p) => p.layerId).filter(Boolean))];
+  const axes = Object.keys(ed.axes || {}).filter((a) => (ed.axes[a] || []).length);
+  const anims = ed.anim || [];
+  return (
+    <div className="anim-editor enter">
+      <div className="anim-head">
+        <span className="look-label">Animations</span>
+        <span className="look-hint">idle loops on show · others play from the script via <code>actor id play=name</code></span>
+        <button className="btn-ghost sm" onClick={onAdd}>+ Add animation</button>
+      </div>
+      {anims.length === 0 && (
+        <div className="adv-note">None yet. Add one to make a rigged character move (frame-swap or a scale/rotate tween).</div>
+      )}
+      {anims.map((a) => {
+        const playing = preview === a.key;
+        return (
+          <div className="anim-row" key={a.key}>
+            <div className="anim-row-head">
+              <input className="field anim-name" value={a.name}
+                onChange={(e) => onUpdate(a.key, { name: e.target.value })} placeholder="idle" />
+              <label className="anim-flag"><input type="checkbox" checked={a.loop}
+                onChange={(e) => onUpdate(a.key, { loop: e.target.checked })} /> loop</label>
+              <label className="anim-flag"><input type="checkbox" checked={a.auto}
+                onChange={(e) => onUpdate(a.key, { auto: e.target.checked })} /> auto</label>
+              <label className="anim-flag">dur
+                <input className="field anim-num" type="number" min="0.05" step="0.05" value={a.duration}
+                  onChange={(e) => onUpdate(a.key, { duration: parseFloat(e.target.value) || 0 })} />s</label>
+              <button className={"btn-ghost sm" + (playing ? " on" : "")} onClick={() => onPreview(a.key)}>
+                {playing ? "■ Stop" : "▶ Play"}
+              </button>
+              <button className="look-remove" onClick={() => onRemove(a.key)} title="remove animation">✕</button>
+            </div>
+            <div className="anim-tracks">
+              {a.tracks.map((t) => (
+                <AnimTrackRow key={t.key} anim={a} track={t} layers={layers} axes={axes}
+                  onChange={(patchObj) => onUpdateTrack(a.key, t.key, patchObj)}
+                  onRemove={() => onRemoveTrack(a.key, t.key)}
+                  onSync={() => onSyncFrames(a.key, t.key)} />
+              ))}
+              <button className="opt-add-new" onClick={() => onAddTrack(a.key)}>＋<em>track</em></button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnimTrackRow({ track, layers, axes, onChange, onRemove, onSync }) {
+  const isFrame = track.prop === "frame";
+  const startV = track.keys[0]?.[1] ?? (isFrame ? "" : 1);
+  const endV = track.keys[track.keys.length - 1]?.[1] ?? (isFrame ? "" : 1);
+  const setTween = (which, val) => {
+    const keys = track.keys.length >= 2 ? track.keys.map((k) => k.slice()) : [[0, 1], [1, 1]];
+    keys[which === "start" ? 0 : keys.length - 1][1] = parseFloat(val);
+    onChange({ keys });
+  };
+  return (
+    <div className="anim-track">
+      <select className="field anim-sel" value={track.prop} onChange={(e) => onChange({ prop: e.target.value })}>
+        {TWEEN_PROPS.map((p) => <option key={p} value={p}>{p}</option>)}
+      </select>
+      <select className="field anim-sel" value={track.layer} onChange={(e) => onChange({ layer: e.target.value })}>
+        <option value="">(whole actor)</option>
+        {layers.map((l) => <option key={l} value={l}>{l}</option>)}
+      </select>
+      {isFrame ? (
+        <>
+          <select className="field anim-sel" value={track.axis} onChange={(e) => onChange({ axis: e.target.value })}>
+            <option value="">axis…</option>
+            {axes.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <button className="btn-ghost sm" onClick={onSync} title="rebuild frame keys evenly from the axis's values">
+            ↻ {track.keys.length} frames
+          </button>
+        </>
+      ) : (
+        <span className="anim-tween">
+          <input className="field anim-num" type="number" step="0.05" value={startV}
+            onChange={(e) => setTween("start", e.target.value)} title="start value" />
+          →
+          <input className="field anim-num" type="number" step="0.05" value={endV}
+            onChange={(e) => setTween("end", e.target.value)} title="end value" />
+          <select className="field anim-sel" value={track.ease} onChange={(e) => onChange({ ease: e.target.value })}>
+            {EASES.map((x) => <option key={x} value={x}>{x || "ease…"}</option>)}
+          </select>
+        </span>
+      )}
+      <button className="opt-mini" onClick={onRemove} title="remove track">✕</button>
     </div>
   );
 }
