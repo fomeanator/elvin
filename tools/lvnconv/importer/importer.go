@@ -92,6 +92,17 @@ type Result struct {
 	Catalog    map[string]string
 	Lang       string
 	CatalogRel string
+
+	// Scripts holds every chapter's files (.lvn + .lvns) for a multi-chapter import.
+	// When non-empty, WriteToContentDir writes these (ScriptRel/Lvn is the single-
+	// chapter path).
+	Scripts []ScriptFile
+}
+
+// ScriptFile is one written script (content-relative path + bytes).
+type ScriptFile struct {
+	Rel  string
+	Data []byte
 }
 
 // Run executes the whole pipeline against an extracted .adpd project directory.
@@ -104,6 +115,23 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	}
 	if opt.Start == 0 {
 		opt.Start = -1
+	}
+
+	// Multi-chapter: a chaptered project (episodes = the Flow root's FlowFragment
+	// children) imports as one title with a chapter per episode. Skipped when the
+	// writer pinned a single -start chapter.
+	if opt.Start < 0 {
+		if chs, cerr := adpd.BuildChaptersJSON(projectDir); cerr == nil && len(chs) >= 2 {
+			res, rerr := runMultiChapter(projectDir, opt, chs)
+			if rerr != nil {
+				return nil, rerr
+			}
+			if res != nil {
+				return res, nil
+			}
+			// res == nil: a chapter isn't completable when scoped — fall through to
+			// the single whole-novel chapter (guaranteed playable end-to-end).
+		}
 	}
 
 	js, err := adpd.BuildExportJSON(projectDir, opt.Start, opt.Max)
@@ -181,6 +209,184 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		}}}},
 	}
 	return res, nil
+}
+
+// runMultiChapter assembles one title from a chaptered project: each episode is a
+// chapter with its own .lvn (+ editable .lvns), sharing one merged cast and art set.
+func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (*Result, error) {
+	var cast map[string]string
+	if opt.AutoStage {
+		c, err := adpd.Cast(projectDir)
+		if err != nil {
+			return nil, fmt.Errorf("adpd cast: %w", err)
+		}
+		cast = c
+	}
+
+	res := &Result{Sprites: map[string]any{}, Stats: map[string]int{}}
+	artSeen := map[string]bool{}
+	var chapters []Chapter
+	var cover string
+
+	for i, ch := range chs {
+		doc, err := articy.Convert(ch.JSON, "")
+		if err != nil {
+			return nil, fmt.Errorf("chapter %d convert: %w", i+1, err)
+		}
+		if opt.AutoStage {
+			AutoStage(doc, cast)
+		}
+		art, missing, firstBg := collectArt(projectDir, doc)
+		sprites, extraArt := BuildCatalog(doc)
+		art = append(art, extraArt...)
+		lvns := ToLvns(doc)
+		StripStableIds(doc)
+		lvn, err := json.MarshalIndent(doc, "", " ")
+		if err != nil {
+			return nil, err
+		}
+
+		if !reachesEnd(doc) {
+			return nil, nil // a chapter can't be finished when scoped → fall back to one
+		}
+		cid := fmt.Sprintf("%s-ch%d", opt.ID, i+1)
+		rel := "scripts/" + cid + ".lvn"
+		res.Scripts = append(res.Scripts,
+			ScriptFile{Rel: rel, Data: lvn},
+			ScriptFile{Rel: "scripts/" + cid + ".lvns", Data: lvns})
+		for _, a := range art {
+			if !artSeen[a.Rel] {
+				artSeen[a.Rel] = true
+				res.Art = append(res.Art, a)
+			}
+		}
+		for k, v := range sprites {
+			res.Sprites[k] = v
+		}
+		for k, v := range opStats(doc) {
+			res.Stats[k] += v
+		}
+		res.MissingBg = append(res.MissingBg, missing...)
+		if cover == "" {
+			cover = firstBg
+		}
+		chapters = append(chapters, Chapter{
+			ID: cid, Number: i + 1, ScriptURL: "/content/" + rel, BgURL: firstBg,
+		})
+	}
+
+	res.MissingBg = dedupe(res.MissingBg)
+	res.Title = Title{
+		ID: opt.ID, Name: opt.Name, Subtitle: opt.Subtitle, CoverURL: cover,
+		Seasons: []Season{{Chapters: chapters}},
+	}
+	return res, nil
+}
+
+// reachesEnd reports whether the chapter can be finished: some path of choices
+// from the start reaches __end (or runs off the script). A scoped chapter whose
+// flow only cycles (its real exit crossed into another episode) fails this — the
+// signal to keep the novel as one chapter.
+func reachesEnd(doc *articy.Doc) bool {
+	s := doc.Script
+	n := len(s)
+	lab := map[string]int{}
+	for i, c := range s {
+		if c["op"] == "label" {
+			if id, _ := c["id"].(string); id != "" {
+				lab[id] = i
+			}
+		}
+	}
+	jump := func(l string, st *[]int) bool {
+		if l == "__end" {
+			return true
+		}
+		if j, ok := lab[l]; ok {
+			*st = append(*st, j)
+		} else {
+			return true // unknown label resolves to the end
+		}
+		return false
+	}
+	seen := make([]bool, n)
+	st := []int{0}
+	for len(st) > 0 {
+		i := st[len(st)-1]
+		st = st[:len(st)-1]
+		if i >= n {
+			return true // ran off the end
+		}
+		if seen[i] {
+			continue
+		}
+		seen[i] = true
+		c := s[i]
+		switch c["op"] {
+		case "goto":
+			l, _ := c["label"].(string)
+			if jump(l, &st) {
+				return true
+			}
+		case "if":
+			for _, k := range []string{"then", "else"} {
+				if l, _ := c[k].(string); l != "" && jump(l, &st) {
+					return true
+				}
+			}
+		case "choice":
+			opts, _ := c["options"].([]any)
+			for _, o := range opts {
+				om, _ := o.(map[string]any)
+				if om == nil {
+					if cm, ok := o.(articy.Cmd); ok {
+						om = map[string]any(cm)
+					}
+				}
+				if l, _ := om["goto"].(string); l != "" {
+					if jump(l, &st) {
+						return true
+					}
+					continue
+				}
+				for _, b := range asAnyList(om["body"]) {
+					bm := asMapAny(b)
+					if bm["op"] == "goto" {
+						if l, _ := bm["label"].(string); l != "" && jump(l, &st) {
+							return true
+						}
+					}
+				}
+			}
+		case "return":
+			// tunnel return — treat as progress toward the end
+			if i+1 < n {
+				st = append(st, i+1)
+			} else {
+				return true
+			}
+		default:
+			st = append(st, i+1)
+		}
+	}
+	return false
+}
+
+func asAnyList(v any) []any {
+	if l, ok := v.([]any); ok {
+		return l
+	}
+	return nil
+}
+
+func asMapAny(v any) map[string]any {
+	if m, ok := v.(map[string]any); ok {
+		return m
+	}
+	if c, ok := v.(articy.Cmd); ok {
+		return map[string]any(c)
+	}
+	return map[string]any{}
 }
 
 func opStats(doc *articy.Doc) map[string]int {

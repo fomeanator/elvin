@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -322,6 +323,13 @@ type flow struct {
 	childrenOf map[uint32][]uint32
 	contSet    map[uint32]bool
 
+	// parentOf maps every flow node → its container parent (from pParent 0x0c on
+	// the child). This is articy's REAL hierarchy (ArticyHierarchyManager); the
+	// pChild-based childrenOf above is incomplete (a container doesn't list all its
+	// children). Chapter splitting uses parentOf — the project root's FlowFragment
+	// children are the chapters, each subtree complete.
+	parentOf map[uint32]uint32
+
 	// pg is articy's own pin/connection graph: for a DialogFragment it resolves the
 	// stops reachable next (descending containers via pins) — the player's branches.
 	pg *pinGraph
@@ -348,9 +356,18 @@ func decodeFlow(d []byte) flow {
 		text: map[uint32]string{}, guid: map[uint32]string{}, sp: map[uint32]string{},
 		logic: map[uint32]logicNode{}, succ: map[uint32][]edge{}, nodes: map[uint32]bool{},
 		childrenOf: map[uint32][]uint32{}, contSet: map[uint32]bool{},
-		pg: buildPinGraph(objs),
+		parentOf: map[uint32]uint32{},
+		pg:       buildPinGraph(objs),
 	}
 	for _, o := range objs {
+		// Real hierarchy: every flow node records its parent container (pParent).
+		if self, ok := o.u32(pSelf); ok {
+			if _, isFlow := fl.pg.class[self]; isFlow {
+				if par, ok := o.u32(pParent); ok {
+					fl.parentOf[self] = par
+				}
+			}
+		}
 		switch o.classId {
 		case cidConnection:
 			r := o.refs(pConn)
@@ -563,18 +580,14 @@ func (fl flow) hierarchyOrder() []uint32 {
 // the author genuinely wired one. Conditions stay as if/then/else (kept in
 // fl.logic), Outcomes as set. Returns the root entries + ok; ok=false (stranded
 // content) falls back to the older heuristics.
-func linearizeFaithful(fl flow) ([]uint32, bool) {
+// tops are the entry container(s) to descend from; allowed bounds it to a chapter
+// subtree (nil = whole novel).
+func linearizeFaithful(fl flow, tops []uint32, allowed map[uint32]bool) ([]uint32, bool) {
 	if fl.pg == nil {
 		return nil, false
 	}
 	pg := fl.pg
-	childOf := map[uint32]bool{}
-	for _, ch := range fl.childrenOf {
-		for _, c := range ch {
-			childOf[c] = true
-		}
-	}
-	entries := pg.rootEntry(childOf)
+	entries := pg.rootEntry(tops, allowed)
 	if len(entries) == 0 {
 		return nil, false
 	}
@@ -582,6 +595,9 @@ func linearizeFaithful(fl flow) ([]uint32, bool) {
 	var emit []uint32
 	for n, c := range pg.class {
 		if !pg.isEmittable(n) {
+			continue
+		}
+		if allowed != nil && !allowed[n] {
 			continue
 		}
 		emit = append(emit, n)
@@ -592,7 +608,7 @@ func linearizeFaithful(fl flow) ([]uint32, bool) {
 			ops := pg.outPins(n)
 			var es []edge
 			for _, op := range ops {
-				for _, t := range pg.reachFromPin(op) {
+				for _, t := range pg.reachFromPin(op, allowed) {
 					es = append(es, edge{src: n, dst: t, srcPin: op})
 				}
 			}
@@ -604,7 +620,7 @@ func linearizeFaithful(fl flow) ([]uint32, bool) {
 		var targets []uint32
 		seen := map[uint32]bool{}
 		for _, p := range pg.outPins(n) {
-			for _, t := range pg.reachFromPin(p) {
+			for _, t := range pg.reachFromPin(p, allowed) {
 				if !seen[t] {
 					seen[t] = true
 					targets = append(targets, t)
@@ -629,16 +645,21 @@ func linearizeFaithful(fl flow) ([]uint32, bool) {
 		}
 	}
 	sort.Slice(emit, func(i, j int) bool { return emit[i] < emit[j] })
+	extra := append([]uint32{}, entries...)
 	for _, x := range emit {
 		if R[x] {
 			continue
 		}
-		if len(leaves) == 0 {
-			return nil, false
+		// Chain the stranded island onto a reached dead-end leaf (a forward goto), so
+		// it flows in continuously. If there's no leaf to chain from, surface the
+		// island as an extra entry (a chapter-hub branch) — never drop it.
+		if len(leaves) > 0 {
+			l := leaves[len(leaves)-1]
+			leaves = leaves[:len(leaves)-1]
+			fl.succ[l] = []edge{{src: l, dst: x}}
+		} else {
+			extra = append(extra, x)
 		}
-		l := leaves[len(leaves)-1]
-		leaves = leaves[:len(leaves)-1]
-		fl.succ[l] = []edge{{src: l, dst: x}}
 		_, sub := bfs(fl, []uint32{x}, 1<<30)
 		for k := range sub {
 			if !R[k] {
@@ -649,12 +670,7 @@ func linearizeFaithful(fl flow) ([]uint32, bool) {
 			}
 		}
 	}
-	for _, n := range emit {
-		if !R[n] {
-			return nil, false
-		}
-	}
-	return entries, true
+	return extra, true
 }
 
 func linearizeByComponents(fl flow) (uint32, bool) {
@@ -1258,7 +1274,7 @@ func buildModel(fl flow, proj string, start, maxN int) export {
 	// Faithful port of articy's TraverseFlow (forward pin-flow over emittable nodes)
 	// — no spurious backward menu loops. Tried first; falls back only if it would
 	// strand content.
-	if entries, ok := linearizeFaithful(fl); ok {
+	if entries, ok := linearizeFaithful(fl, wholeNovelTops(fl), nil); ok {
 		gvars := globalVars(proj, flowExprs(fl))
 		reach, seen := bfs(fl, entries, math.MaxInt32)
 		return emitModels(fl, reach, seen, entries, gvars)
@@ -1304,6 +1320,164 @@ func BuildExportJSON(path string, start, maxN int) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(buildModel(fl, proj, start, maxN))
+}
+
+// wholeNovelTops are the entry containers for a whole-novel linearization: the
+// containers that aren't listed as anyone's pChild.
+func wholeNovelTops(fl flow) []uint32 {
+	childOf := map[uint32]bool{}
+	for _, ch := range fl.childrenOf {
+		for _, c := range ch {
+			childOf[c] = true
+		}
+	}
+	var tops []uint32
+	for n, c := range fl.pg.class {
+		if (c == cidStoryFolder || c == cidFlowFrag || c == cidDialog) && !childOf[n] {
+			tops = append(tops, n)
+		}
+	}
+	return tops
+}
+
+// completeChildren inverts parentOf (child→parent) into parent→children — the REAL
+// articy hierarchy (pChild-based childrenOf is incomplete).
+func completeChildren(fl flow) map[uint32][]uint32 {
+	kids := map[uint32][]uint32{}
+	for c, p := range fl.parentOf {
+		kids[p] = append(kids[p], c)
+	}
+	return kids
+}
+
+// hierarchyRoot returns the project's Flow root — the parentless node with the most
+// FlowFragment children (its children are the chapters).
+func hierarchyRoot(fl flow, kids map[uint32][]uint32) (uint32, bool) {
+	best := -1
+	var root uint32
+	for p := range kids {
+		if _, hasParent := fl.parentOf[p]; hasParent {
+			continue
+		}
+		ff := 0
+		for _, c := range kids[p] {
+			if fl.pg.class[c] == cidFlowFrag {
+				ff++
+			}
+		}
+		if ff > best {
+			best, root = ff, p
+		}
+	}
+	return root, best >= 2
+}
+
+var reChapterNum = regexp.MustCompile(`\d+`)
+
+func chapterNum(name string) int {
+	if m := reChapterNum.FindString(name); m != "" {
+		if v, err := strconv.Atoi(m); err == nil {
+			return v
+		}
+	}
+	return 1 << 30
+}
+
+type chapterDef struct {
+	root uint32
+	name string
+	num  int
+}
+
+// detectChapters returns the project's chapters — the Flow root's FlowFragment
+// children, ordered by the number in their name (Эпизод N). Nil when the project
+// isn't chaptered (→ single whole-novel export).
+func detectChapters(fl flow) []chapterDef {
+	kids := completeChildren(fl)
+	root, ok := hierarchyRoot(fl, kids)
+	if !ok {
+		return nil
+	}
+	var out []chapterDef
+	for _, c := range kids[root] {
+		if fl.pg.class[c] != cidFlowFrag {
+			continue
+		}
+		out = append(out, chapterDef{root: c, name: strings.TrimSpace(html.UnescapeString(fl.text[c])), num: chapterNum(fl.text[c])})
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].num != out[j].num {
+			return out[i].num < out[j].num
+		}
+		return out[i].root < out[j].root
+	})
+	return out
+}
+
+// subtree returns a container plus every transitive descendant (the complete
+// hierarchy) — one chapter's scope.
+func subtree(kids map[uint32][]uint32, root uint32) map[uint32]bool {
+	allowed := map[uint32]bool{}
+	var dfs func(uint32)
+	dfs = func(n uint32) {
+		if allowed[n] {
+			return
+		}
+		allowed[n] = true
+		for _, c := range kids[n] {
+			dfs(c)
+		}
+	}
+	dfs(root)
+	return allowed
+}
+
+// ChapterExport is one chapter's articy-export JSON plus its display name.
+type ChapterExport struct {
+	Name string
+	JSON []byte
+}
+
+// BuildChaptersJSON splits a chaptered project into one articy-export per chapter
+// (the Flow root's FlowFragment children), each faithfully linearised within its own
+// complete subtree — 100% coverage, forward flow. Global-variable inits go into
+// every chapter so each plays standalone. Nil when the project isn't chaptered.
+func BuildChaptersJSON(path string) ([]ChapterExport, error) {
+	fl0, proj, err := loadFlow(path)
+	if err != nil {
+		return nil, err
+	}
+	chs := detectChapters(fl0)
+	if len(chs) < 2 {
+		return nil, nil
+	}
+	gvars := globalVars(proj, flowExprs(fl0))
+
+	var out []ChapterExport
+	for _, ch := range chs {
+		fl, _, err := loadFlow(path) // fresh flow — linearize mutates succ/nodes
+		if err != nil {
+			return nil, err
+		}
+		allowed := subtree(completeChildren(fl), ch.root)
+		entries, ok := linearizeFaithful(fl, []uint32{ch.root}, allowed)
+		if !ok || len(entries) == 0 {
+			continue
+		}
+		reach, seen := bfs(fl, entries, math.MaxInt32)
+		js, err := json.Marshal(emitModels(fl, reach, seen, entries, gvars))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ChapterExport{Name: ch.name, JSON: js})
+	}
+	if len(out) < 2 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 // Lang returns the project's primary language code (from the Settings partition,

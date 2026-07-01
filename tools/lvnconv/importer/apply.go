@@ -21,8 +21,16 @@ func WriteToContentDir(contentDir string, res *Result) error {
 		return atomicWrite(dst, data, 0o644)
 	}
 
-	if err := write(res.ScriptRel, res.Lvn); err != nil {
-		return fmt.Errorf("write script: %w", err)
+	// Multi-chapter import: every chapter's .lvn/.lvns. Single-chapter: ScriptRel/Lvn.
+	for _, sc := range res.Scripts {
+		if err := write(sc.Rel, sc.Data); err != nil {
+			return fmt.Errorf("write %s: %w", sc.Rel, err)
+		}
+	}
+	if res.ScriptRel != "" {
+		if err := write(res.ScriptRel, res.Lvn); err != nil {
+			return fmt.Errorf("write script: %w", err)
+		}
 	}
 	if res.LvnsRel != "" && len(res.Lvns) > 0 {
 		if err := write(res.LvnsRel, res.Lvns); err != nil {
