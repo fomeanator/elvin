@@ -404,6 +404,26 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 		if cond := strings.TrimSpace(tn.inText); cond != "" {
 			opt["expr"] = cleanExpr(cond)
 		}
+		// [onetime]: show the option only until it's picked, so a revisitable
+		// topic/examine hub exhausts instead of looping forever. A per-target flag
+		// (set in the option body) gates it; combine with any input condition.
+		if opt["__once"] == true {
+			if lbl, ok := opt["goto"].(string); ok && lbl != "" {
+				flag := "_once_" + lbl
+				gate := "!" + flag
+				if e, _ := opt["expr"].(string); e != "" {
+					gate = gate + " && (" + e + ")"
+				}
+				opt["expr"] = gate
+				opt["body"] = []any{
+					Cmd{"op": "set", "key": flag, "value": true},
+					Cmd{"op": "goto", "label": lbl},
+				}
+				delete(opt, "goto")
+			}
+		}
+		delete(opt, "__once")
+		delete(opt, "__premium")
 		opts = append(opts, opt)
 	}
 	g.emit(Cmd{"op": "choice", "options": opts})
@@ -550,9 +570,26 @@ func varValue(typ, val string) any {
 var (
 	reOptCost = regexp.MustCompile(`\(\s*([0-9]+)\s+(\w+)\s*\)\s*$`)
 	reOptStat = regexp.MustCompile(`(?:^|\s)#\s*stat\s*:\s*(\S+)\s+([0-9]+)\s*$`)
+	reOptTag  = regexp.MustCompile(`^\s*\[([^\]]+)\]\s*`) // leading menu tag: [onetime], [premium], …
 )
 
 func parseOptionTails(opt Cmd, menu string) {
+	// Leading articy MenuText tags: [onetime] = show once (emitChoice turns it into a
+	// once-only gate), [premium] = paid (stripped for now; playable). Any other [tag]
+	// is stripped so it never leaks into the visible caption.
+	for {
+		m := reOptTag.FindStringSubmatch(menu)
+		if m == nil {
+			break
+		}
+		switch strings.ToLower(strings.TrimSpace(m[1])) {
+		case "onetime", "once":
+			opt["__once"] = true
+		case "premium", "paid":
+			opt["__premium"] = true
+		}
+		menu = menu[len(m[0]):]
+	}
 	if m := reOptStat.FindStringSubmatchIndex(menu); m != nil {
 		sm := reOptStat.FindStringSubmatch(menu)
 		min, _ := strconv.ParseInt(sm[2], 10, 64)
