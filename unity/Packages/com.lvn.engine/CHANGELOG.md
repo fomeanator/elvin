@@ -5,7 +5,55 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-02
+
+The "reads like a book, engineered like a product" release: the full player
+QoL box, chapters that flow into each other with genre-correct restart
+semantics, hardened offline/state sync, and the invariant net in CI.
+
 ### Added
+- **Player QoL box** — rollback (bounded beat history; undoing a choice
+  restores pre-choice variables; wheel-up on desktop), persistent save slots
+  per title (timestamps + line previews), autosave (every choice / 5th line /
+  app pause) with in-place resume, auto-advance (reading delay scales with
+  line length), player preferences (`LvnPrefs`: text speed, volumes per
+  channel, reduce-motion, dialogue-window opacity), and an in-game quick menu
+  (Save / Load / History / Auto / Settings) — themeable from `manifest.ui.menu`.
+- **Chapter flow** — chapters follow each other seamlessly; a per-title
+  Continue marker resumes the furthest chapter (the card's Play button reads
+  "Continue" with the episode name); a chapter picker lists episodes by name,
+  unlocking as reached. Picking a chapter restarts it with the variables it
+  ORIGINALLY began with (per-chapter entry checkpoints) — future stats never
+  leak into a replayed past.
+- **Cross-chapter save loading** — a slot from another chapter resolves its
+  chapter by script url, plays it and restores in place.
+- **State sync hardening** — server-owned versioning on `/v1/state` (stale
+  writes 409 + merge-retry), field-level conflict merge against a sync base
+  (two devices touching different stats both keep progress), and a per-blob
+  TOFU key (`X-State-Key`) so a user id leaked via URL logs can't read or
+  overwrite a save.
+- **Offline correctness** — the offline script fallback serves the RIGHT
+  chapter (url sidecars), atomic cache writes, sha256 integrity verification
+  against the version index, automatic online recovery (health-probe loop),
+  and a bounded LRU sprite cache with look-ahead prefetch (no mid-scene
+  pop-in, no OOM on long sessions).
+- **Reflow-free typewriter** — the whole line lays out from glyph 0 (the tail
+  hidden via alpha), so word-wrap and box height never shift mid-reveal.
+- **Scene renderer seam** (`ISceneRenderer`) — the UITK and uGUI scene paths
+  are proper implementations behind one contract instead of per-call-site
+  conditionals.
+- **Grammar single source of truth** — `grammar.json` drives the editor
+  grammar, docs, AI prompt and the Go validator; drift fails tests.
+- **CI** — Go suites, grammar contract, panel build and the package's
+  EditMode tests (via the committed `unity/TestHost`) run on every push.
+
+### Fixed
+- Malformed command fields degrade to defaults instead of aborting the
+  chapter; `narration` style no longer hides its own text; the engine package
+  now declares its built-in module dependencies (it compiles in a sterile
+  project).
+
+### Added (pre-0.5.0 backlog)
 - **Manifest-driven screen kit** (`Lvn.UI.Screens`) — three fully themeable novel
   screens built in code from the manifest's `ui` block: `LoadingScreen` (backdrop,
   scrim, fog, progress bar with optional track/fill/frame art, percent / current-file
