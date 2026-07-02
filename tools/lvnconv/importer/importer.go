@@ -128,6 +128,12 @@ type Result struct {
 	Stats     map[string]int // op counts: say/choice/bg/actor/set/if…
 	MissingBg []string       // scene locations with no matching art file (rendered dark)
 
+	// Linearize is the adpd linearizer's transparency report: which algorithm
+	// produced the script, why more faithful stages fell through, and how much
+	// content the raw pin-flow traps. Surfaced by the CLI and the import
+	// endpoint so a silent precision downgrade is visible to the author.
+	Linearize *adpd.LinearizeReport
+
 	// Sprites is the auto-built cast catalog (id → entity) merged into
 	// manifest.sprites, so the imported novel's whole roster shows up in the panel
 	// ready to re-art. See BuildCatalog.
@@ -179,23 +185,29 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	// Multi-chapter: a chaptered project (episodes = the Flow root's FlowFragment
 	// children) imports as one title with a chapter per episode. Skipped when the
 	// writer pinned a single -start chapter.
+	var chapterFallback string
 	if opt.Start < 0 {
-		if chs, cerr := adpd.BuildChaptersJSON(projectDir); cerr == nil && len(chs) >= 2 {
+		if chs, chRep, cerr := adpd.BuildChaptersJSONReport(projectDir); cerr == nil && len(chs) >= 2 {
 			res, rerr := runMultiChapter(projectDir, opt, chs)
 			if rerr != nil {
 				return nil, rerr
 			}
 			if res != nil {
+				res.Linearize = &chRep
 				return res, nil
 			}
 			// res == nil: a chapter isn't completable when scoped — fall through to
 			// the single whole-novel chapter (guaranteed playable end-to-end).
+			chapterFallback = "chapters: a scoped chapter can't reach an ending — merged into one whole-novel chapter"
 		}
 	}
 
-	js, err := adpd.BuildExportJSON(projectDir, opt.Start, opt.Max)
+	js, rep, err := adpd.BuildExportJSONReport(projectDir, opt.Start, opt.Max)
 	if err != nil {
 		return nil, fmt.Errorf("adpd export: %w", err)
+	}
+	if chapterFallback != "" {
+		rep.Fallbacks = append([]string{chapterFallback}, rep.Fallbacks...)
 	}
 	doc, err := articy.Convert(js, "")
 	if err != nil {
@@ -246,6 +258,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		Lvn:        lvn,
 		Art:        art,
 		Stats:      opStats(doc),
+		Linearize:  &rep,
 		MissingBg:  missing,
 		Sprites:    sprites,
 		Lvns:       lvns,
