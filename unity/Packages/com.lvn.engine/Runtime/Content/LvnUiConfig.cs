@@ -22,6 +22,22 @@ namespace Lvn.Content
         public HudConfig hud;
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
+        public MenuConfig menu;
+    }
+
+    /// <summary>The in-game quick menu (StageMenu): floating buttons, the sheet,
+    /// save/load slots, history and settings panels. Every field optional — the
+    /// engine's neutral dark look is the default.</summary>
+    public sealed class MenuConfig
+    {
+        public string bg_color;       // sheet/panel fill; default #14141af7
+        public string text_color;     // items and labels; default #f2eee1
+        public string dim_text_color; // secondary text (previews, narration); default #ccc7bd
+        public string fab_color;      // floating-button fill; default #00000059
+        public string scrim_color;    // fullscreen backdrop; default #0000008c
+        public float? corner_radius;  // sheet/panel rounding; default 12
+        public bool? show_rollback;   // the ↩ button; default true
+        public bool? show_menu;       // the ☰ button; default true
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
@@ -129,6 +145,8 @@ namespace Lvn.Content
         public float? subtitle_size;     // px; default 22
 
         public string play_text;         // default "Play"
+        public string continue_text;     // Play label when there's progress; default "Continue"
+        public string chapters_text;     // the chapter-picker button; default "Chapters"
         public string play_color;        // default #f4ecd8
         public string play_bg_color;     // default #3a3a44
         public string dot_color;         // page-dot inactive; default #ffffff55

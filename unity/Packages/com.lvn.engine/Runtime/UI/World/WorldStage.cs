@@ -128,6 +128,36 @@ namespace Lvn.UI.World
             }
         }
 
+        // Loose name key (lower-case, letters/digits only) so a slot id and a say's
+        // who match without an exact spelling agreement — see ActorLayer.HighlightSpeaker.
+        private static string NameKey(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (var c in s.ToLowerInvariant())
+                if (char.IsLetterOrDigit(c)) sb.Append(c);
+            return sb.ToString();
+        }
+
+        /// <summary>Classic VN focus: the speaking character goes full opacity, the rest
+        /// present dim. Speaker matched to a slot by loose name key; when off-stage
+        /// (narration) the current focus is kept.</summary>
+        public void HighlightSpeaker(string who)
+        {
+            var target = NameKey(who);
+            if (target == "") return;
+            bool present = false;
+            foreach (var kv in _slotGroups)
+                if (kv.Value != null && NameKey(kv.Key) == target) { present = true; break; }
+            if (!present) return;
+            foreach (var kv in _slotGroups)
+            {
+                if (kv.Value == null) continue;
+                float baseOp = _baseOpacity.TryGetValue(kv.Key, out var b) ? b : 1f;
+                kv.Value.alpha = NameKey(kv.Key) == target ? baseOp : baseOp * 0.55f;
+            }
+        }
+
         public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;
         public WorldActor ActorFor(string id) => _actors.TryGetValue(id, out var a) ? a : null;
 

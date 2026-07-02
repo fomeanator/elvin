@@ -63,10 +63,12 @@ func TestLabelGraphIsIntact(t *testing.T) {
 
 func TestGlobalVarsInitialiseFirst(t *testing.T) {
 	d := load(t)
-	if js(t, d.Script[0]) != `{"key":"vars.courage","op":"set","value":0}` {
+	// Global-var inits are DEFAULTS (default:true) so a value carried in from an
+	// earlier chapter / a save isn't reset to zero.
+	if js(t, d.Script[0]) != `{"default":true,"key":"vars.courage","op":"set","value":0}` {
 		t.Fatalf("vars init wrong: %s", js(t, d.Script[0]))
 	}
-	if js(t, d.Script[1]) != `{"key":"vars.met","op":"set","value":false}` {
+	if js(t, d.Script[1]) != `{"default":true,"key":"vars.met","op":"set","value":false}` {
 		t.Fatalf("vars init wrong: %s", js(t, d.Script[1]))
 	}
 }
@@ -154,6 +156,79 @@ func TestConditionAndJump(t *testing.T) {
 	// dialogue exit → __end label present
 	if !strings.Contains(src, `{"id":"__end","op":"label"}`) {
 		t.Fatalf("__end missing: %s", src)
+	}
+}
+
+// A Condition with an unconnected output pin must NOT abort the whole import —
+// the empty branch routes to the dialogue exit (__end) so the rest of the
+// chapter still compiles.
+func TestConditionEmptyPinRoutesToEnd(t *testing.T) {
+	src := []byte(`{
+      "Packages": [{"Models": [
+        {"Type":"Dialogue","Properties":{"Id":"dlg","TechnicalName":"ch",
+          "InputPins":[{"Text":"","Connections":[{"Target":"cond"}]}],
+          "OutputPins":[{"Text":"","Connections":[]}]}},
+        {"Type":"Condition","Properties":{"Id":"cond","Expression":"vars.x > 0",
+          "InputPins":[{"Text":"","Connections":[]}],
+          "OutputPins":[
+            {"Text":"","Connections":[{"Target":"frag"}]},
+            {"Text":"","Connections":[]}
+          ]}},
+        {"Type":"DialogueFragment","Properties":{"Id":"frag","Text":"hi","Speaker":"",
+          "InputPins":[{"Text":"","Connections":[]}],
+          "OutputPins":[{"Text":"","Connections":[{"Target":"dlg"}]}]}}
+      ]}]
+    }`)
+	d, err := Convert(src, "")
+	if err != nil {
+		t.Fatalf("empty condition pin must not abort the import: %v", err)
+	}
+	var iff Cmd
+	for _, c := range d.Script {
+		if c["op"] == "if" {
+			iff = c
+		}
+	}
+	if iff == nil {
+		t.Fatalf("no if emitted: %s", js(t, d.Script))
+	}
+	if iff["else"] != "__end" {
+		t.Fatalf("empty false pin should branch to __end, got else=%v", iff["else"])
+	}
+	if !strings.Contains(js(t, d.Script), `{"id":"__end","op":"label"}`) {
+		t.Fatalf("__end label missing: %s", js(t, d.Script))
+	}
+}
+
+// A Condition with no expression can't decide — it must pass through to its true
+// branch rather than crashing the import.
+func TestConditionEmptyExprPassesThrough(t *testing.T) {
+	src := []byte(`{
+      "Packages": [{"Models": [
+        {"Type":"Dialogue","Properties":{"Id":"dlg","TechnicalName":"ch",
+          "InputPins":[{"Text":"","Connections":[{"Target":"cond"}]}],
+          "OutputPins":[{"Text":"","Connections":[]}]}},
+        {"Type":"Condition","Properties":{"Id":"cond","Expression":"",
+          "InputPins":[{"Text":"","Connections":[]}],
+          "OutputPins":[
+            {"Text":"","Connections":[{"Target":"frag"}]},
+            {"Text":"","Connections":[]}
+          ]}},
+        {"Type":"DialogueFragment","Properties":{"Id":"frag","Text":"hi","Speaker":"",
+          "InputPins":[{"Text":"","Connections":[]}],
+          "OutputPins":[{"Text":"","Connections":[{"Target":"dlg"}]}]}}
+      ]}]
+    }`)
+	d, err := Convert(src, "")
+	if err != nil {
+		t.Fatalf("empty-expression condition must not abort: %v", err)
+	}
+	src2 := js(t, d.Script)
+	if strings.Contains(src2, `"op":"if"`) {
+		t.Fatalf("empty expr should not emit an if: %s", src2)
+	}
+	if !strings.Contains(src2, `"hi"`) {
+		t.Fatalf("true branch content missing: %s", src2)
 	}
 }
 

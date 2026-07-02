@@ -112,11 +112,14 @@ func Convert(src []byte, dialogue string) (*Doc, error) {
 	g.dlgID = prop(dlg.Properties, "Id")
 	g.doc.Scene = firstNonEmpty(prop(dlg.Properties, "TechnicalName"), prop(dlg.Properties, "DisplayName"))
 
-	// Global variables initialise at chapter start. Names stay dotted
-	// (namespace.var) — the engine's expression evaluator resolves them.
+	// Global variables initialise at chapter start — but as DEFAULTS only
+	// (`default:true`): they set the value just once, when the key doesn't exist
+	// yet, so a value carried in from an earlier chapter or a saved game isn't
+	// clobbered back to zero. Names stay dotted (namespace.var); the engine's
+	// expression evaluator resolves them.
 	for _, ns := range ex.GlobalVariables {
 		for _, v := range ns.Variables {
-			g.emit(Cmd{"op": "set", "key": ns.Namespace + "." + v.Variable, "value": varValue(v.Type, v.Value)})
+			g.emit(Cmd{"op": "set", "key": ns.Namespace + "." + v.Variable, "value": varValue(v.Type, v.Value), "default": true})
 		}
 	}
 
@@ -404,6 +407,26 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 		if cond := strings.TrimSpace(tn.inText); cond != "" {
 			opt["expr"] = cleanExpr(cond)
 		}
+		// [onetime]: show the option only until it's picked, so a revisitable
+		// topic/examine hub exhausts instead of looping forever. A per-target flag
+		// (set in the option body) gates it; combine with any input condition.
+		if opt["__once"] == true {
+			if lbl, ok := opt["goto"].(string); ok && lbl != "" {
+				flag := "_once_" + lbl
+				gate := "!" + flag
+				if e, _ := opt["expr"].(string); e != "" {
+					gate = gate + " && (" + e + ")"
+				}
+				opt["expr"] = gate
+				opt["body"] = []any{
+					Cmd{"op": "set", "key": flag, "value": true},
+					Cmd{"op": "goto", "label": lbl},
+				}
+				delete(opt, "goto")
+			}
+		}
+		delete(opt, "__once")
+		delete(opt, "__premium")
 		opts = append(opts, opt)
 	}
 	g.emit(Cmd{"op": "choice", "options": opts})
@@ -420,13 +443,33 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 
 func (g *gen) emitCondition(n *node) error {
 	expr := cleanExpr(prop(n.props, "Expression"))
+	// Resolve each branch's target. An unconnected pin (0 connections) branches to
+	// the dialogue exit instead of aborting the whole import; a fanned-out pin
+	// (>1 connections) takes its first connection as the branch — the extras stay
+	// in the model set and are reached via their own inbound edges. This keeps a
+	// malformed/unusual condition from stranding an entire chapter's content.
+	branch := func(pin int) string {
+		if pin < len(n.outs) && len(n.outs[pin]) > 0 {
+			return n.outs[pin][0]
+		}
+		return g.dlgID // → "__end"
+	}
+	tID, fID := branch(0), branch(1)
+
+	// A condition with no expression can't decide — treat it as an unconditional
+	// pass to its true branch rather than crashing the import.
 	if expr == "" {
-		return fmt.Errorf("condition %s has empty expression", n.id)
+		tLbl, err := g.branchLabel(tID)
+		if err != nil {
+			return err
+		}
+		g.emit(Cmd{"op": "goto", "label": tLbl})
+		if tID != g.dlgID && !g.emitted[tID] {
+			return g.walk(tID)
+		}
+		return nil
 	}
-	if len(n.outs) < 2 || len(n.outs[0]) != 1 || len(n.outs[1]) != 1 {
-		return fmt.Errorf("condition %s must have exactly one connection per pin (true/false)", n.id)
-	}
-	tID, fID := n.outs[0][0], n.outs[1][0]
+
 	tLbl, err := g.branchLabel(tID)
 	if err != nil {
 		return err
@@ -550,9 +593,26 @@ func varValue(typ, val string) any {
 var (
 	reOptCost = regexp.MustCompile(`\(\s*([0-9]+)\s+(\w+)\s*\)\s*$`)
 	reOptStat = regexp.MustCompile(`(?:^|\s)#\s*stat\s*:\s*(\S+)\s+([0-9]+)\s*$`)
+	reOptTag  = regexp.MustCompile(`^\s*\[([^\]]+)\]\s*`) // leading menu tag: [onetime], [premium], …
 )
 
 func parseOptionTails(opt Cmd, menu string) {
+	// Leading articy MenuText tags: [onetime] = show once (emitChoice turns it into a
+	// once-only gate), [premium] = paid (stripped for now; playable). Any other [tag]
+	// is stripped so it never leaks into the visible caption.
+	for {
+		m := reOptTag.FindStringSubmatch(menu)
+		if m == nil {
+			break
+		}
+		switch strings.ToLower(strings.TrimSpace(m[1])) {
+		case "onetime", "once":
+			opt["__once"] = true
+		case "premium", "paid":
+			opt["__premium"] = true
+		}
+		menu = menu[len(m[0]):]
+	}
 	if m := reOptStat.FindStringSubmatchIndex(menu); m != nil {
 		sm := reOptStat.FindStringSubmatch(menu)
 		min, _ := strconv.ParseInt(sm[2], 10, 64)

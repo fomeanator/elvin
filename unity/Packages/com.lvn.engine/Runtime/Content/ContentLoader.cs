@@ -74,10 +74,59 @@ namespace Lvn.Content
         }
 
         // MarkOffline only when reading from a real network origin; a missing
-        // local file must not poison the global offline status.
+        // local file must not poison the global offline status. Going offline also
+        // starts the recovery probe so the app self-heals when the wire returns.
         private void MarkOfflineUnlessLocal(string reason)
         {
-            if (!_local) LvnNetworkStatus.MarkOffline(reason);
+            if (_local) return;
+            LvnNetworkStatus.MarkOffline(reason);
+            EnsureRecoveryLoop();
+        }
+
+        // 1 while the background recovery probe is running (guards against starting
+        // a second one on every subsequent failed fetch).
+        private int _recovering;
+
+        // Once we've gone offline, nothing else re-probes connectivity — every
+        // fetch just fast-fails on the global flag — so a single network blip would
+        // wedge the app offline for the whole session (dead live-sync, no new
+        // chapters, dropped saves). This loop probes /healthz with backoff while
+        // offline and flips the flag back on the moment the server answers, which
+        // unblocks the next fetch/sync automatically. HealthzAsync MarkOnlines on a
+        // 2xx (and never MarkOffline), so a failed probe just waits and retries.
+        private void EnsureRecoveryLoop()
+        {
+            if (_local || LvnNetworkStatus.ForceOffline) return; // never probe a local bundle / a test kill-switch
+            if (Interlocked.Exchange(ref _recovering, 1) == 1) return; // already probing
+            _ = RecoveryLoopAsync();
+        }
+
+        private async Task RecoveryLoopAsync()
+        {
+            try
+            {
+                int attempt = 2; // start at the first non-zero backoff step
+                while (LvnNetworkStatus.IsOffline && !LvnNetworkStatus.ForceOffline)
+                {
+                    var delay = LvnBackoff.DelaySeconds(attempt++);
+                    // Wake the sleep early on ANY status change (recovered via another
+                    // path, or ForceOffline set) so the loop reacts at once instead of
+                    // idling out the full backoff. A fresh token per iteration avoids a
+                    // stale-cancelled-token hot spin.
+                    using (var wake = new CancellationTokenSource())
+                    {
+                        Action<bool> onChange = _ => { try { wake.Cancel(); } catch { } };
+                        LvnNetworkStatus.Changed += onChange;
+                        try { await Task.Delay((int)(delay * 1000f) + 500, wake.Token); }
+                        catch (OperationCanceledException) { /* status changed — re-check now */ }
+                        finally { LvnNetworkStatus.Changed -= onChange; }
+                    }
+                    if (LvnNetworkStatus.IsOnline || LvnNetworkStatus.ForceOffline) break;
+                    try { if (await HealthzAsync()) break; } // MarkOnlines on success
+                    catch { /* probe failed — keep waiting */ }
+                }
+            }
+            finally { Interlocked.Exchange(ref _recovering, 0); }
         }
 
         // Dedup tracker for in-flight fetches. Key = url, value = the running
@@ -103,9 +152,32 @@ namespace Lvn.Content
         private readonly Dictionary<string, int> _attempts = new();
 
         // Session-scoped sprite cache. Sprites are keyed by URL so the same
-        // background or portrait is decoded once per session — prevents a new
-        // Texture2D being allocated every time the same asset is requested.
-        private readonly Dictionary<string, Sprite> _spriteCache = new();
+        // background or portrait is decoded once — and BOUNDED: full-res RGBA32
+        // decodes are big (a 1080p background ≈ 8 MB), so an unbounded cache is an
+        // OOM on a large title. Over budget, the least-recently-requested entries
+        // are destroyed — except anything touched within the grace window, which
+        // is how "probably still on screen" art is protected without a pin API.
+        private sealed class SpriteEntry
+        {
+            public Sprite Sprite;
+            public long Bytes;
+            public long Seq;   // request recency (monotonic)
+            public float At;   // request time (realtime seconds)
+        }
+
+        private readonly Dictionary<string, SpriteEntry> _spriteCache = new();
+        private readonly Dictionary<string, Task<Sprite>> _decoding = new();
+        private long _spriteSeq;
+        private long _spriteBytes;
+
+        /// <summary>Decoded-sprite memory budget. Over it, the least-recently-used
+        /// sprites are evicted (grace-protected — see <see cref="SpriteEvictionGraceSeconds"/>).
+        /// Tune down for low-memory targets.</summary>
+        public static long SpriteCacheBudgetBytes = 384L << 20;
+
+        /// <summary>Entries requested within this window are never evicted — art
+        /// requested recently is very likely still on screen.</summary>
+        public static float SpriteEvictionGraceSeconds = 60f;
         public int AttemptOf(string url) =>
             url != null && _attempts.TryGetValue(url, out var n) ? n : 1;
 
@@ -160,6 +232,23 @@ namespace Lvn.Content
             _assetCacheDir = Path.Combine(cacheRoot, "assets");
             Directory.CreateDirectory(_scriptCacheDir);
             Directory.CreateDirectory(_assetCacheDir);
+            SweepStaleParts();
+        }
+
+        // Resume files (.part) enable interrupted downloads to continue — but one
+        // abandoned mid-download (its version has moved on, so its cache key will
+        // never be requested again) would sit on disk forever. Sweep any not
+        // touched for a week; a live download re-creates its .part instantly.
+        private void SweepStaleParts()
+        {
+            try
+            {
+                var cutoff = DateTime.UtcNow.AddDays(-7);
+                foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles("*.part"))
+                    if (f.LastWriteTimeUtc < cutoff)
+                        try { f.Delete(); } catch { }
+            }
+            catch { /* best-effort housekeeping */ }
         }
 
         /// <summary>Lightweight connectivity probe: GET <c>&lt;baseUrl&gt;/healthz</c>.
@@ -218,7 +307,9 @@ namespace Lvn.Content
                 var map = ParseVersions(Encoding.UTF8.GetString(bytes));
                 if (map.Count > 0)
                 {
-                    lock (_versionsLock) _versions = map;
+                    Dictionary<string, string> prev;
+                    lock (_versionsLock) { prev = _versions; _versions = map; }
+                    EvictStaleSprites(prev, map);
                     try { await WriteAllBytesAsync(persistPath, bytes, ct); } catch { /* mirror is best-effort */ }
                     return;
                 }
@@ -254,11 +345,14 @@ namespace Lvn.Content
         // form and the raw-with-"content/" form.
         private string VersionFor(string url)
         {
-            if (string.IsNullOrEmpty(url)) return null;
             Dictionary<string, string> map;
             lock (_versionsLock) map = _versions;
-            if (map.Count == 0) return null;
+            return Lookup(map, url);
+        }
 
+        private static string Lookup(Dictionary<string, string> map, string url)
+        {
+            if (string.IsNullOrEmpty(url) || map == null || map.Count == 0) return null;
             var path = url;
             if (path.StartsWith("http://") || path.StartsWith("https://"))
             {
@@ -269,6 +363,22 @@ namespace Lvn.Content
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
             return null;
+        }
+
+        // When the version index changes (a live content update), any in-memory sprite
+        // whose content hash moved is stale — the memory cache is url-keyed, so it would
+        // otherwise keep handing back the OLD art forever. Evict exactly those, so the
+        // next load (e.g. a live ReplayVisuals) decodes the replaced file.
+        private void EvictStaleSprites(Dictionary<string, string> oldMap, Dictionary<string, string> newMap)
+        {
+            List<string> stale = null;
+            lock (_spriteCache)
+            {
+                foreach (var url in _spriteCache.Keys)
+                    if (Lookup(oldMap, url) != Lookup(newMap, url))
+                        (stale ??= new List<string>()).Add(url);
+            }
+            if (stale != null) foreach (var u in stale) Unload(u);
         }
 
         // Scripts ship from the server and change often — skip the on-disk cache
@@ -301,15 +411,20 @@ namespace Lvn.Content
             try
             {
                 var bytes = await FetchOnce(scriptUrl, ct);
-                try { await WriteAllBytesAsync(path, bytes, ct); } catch { /* cache write best-effort */ }
+                try
+                {
+                    await WriteAllBytesAsync(path, bytes, ct);
+                    await WriteScriptUrlSidecar(path, scriptUrl, ct);
+                }
+                catch { /* cache write best-effort */ }
                 return Encoding.UTF8.GetString(bytes);
             }
             catch (OperationCanceledException) { throw; }
             catch
             {
-                // Offline and not cached for this version. Last resort: any
-                // previously cached version of the same url (older but playable).
-                var stale = NewestCachedScript();
+                // Offline and not cached for this version. Last resort: a previously
+                // cached version OF THE SAME url (older but the right chapter).
+                var stale = NewestCachedScript(scriptUrl);
                 if (stale != null)
                 {
                     try { return await ReadAllTextAsync(stale, ct); } catch { }
@@ -337,62 +452,169 @@ namespace Lvn.Content
                 if (File.Exists(path)) return; // newest version already cached
                 var bytes = await FetchOnce(scriptUrl, CancellationToken.None);
                 await WriteAllBytesAsync(path, bytes, CancellationToken.None);
+                await WriteScriptUrlSidecar(path, scriptUrl, CancellationToken.None);
                 Debug.Log($"[content] script cache refreshed: {scriptUrl}");
             }
             catch { /* best-effort background refresh */ }
         }
 
-        // Finds the most recently written cached script (the version-folded key
-        // embeds the hash, so different versions are different files). Used as an
-        // offline fallback.
-        private string NewestCachedScript()
+        // Finds the most recently written cached version OF THE SAME script url —
+        // the offline fallback. The version-folded filename (sha1(url@version))
+        // can't be reversed, so each cached script is written with a `.url` sidecar
+        // holding its plain url; we only accept a `.txt` whose sidecar matches the
+        // requested url. Without this the fallback returned whatever chapter was
+        // cached most recently — silently dropping the player into the wrong
+        // chapter and saving the wrong ending. Returns null (→ Unavailable) rather
+        // than ever serving a different script.
+        private string NewestCachedScript(string scriptUrl)
         {
+            if (string.IsNullOrEmpty(scriptUrl)) return null;
             try
             {
                 var dir = new DirectoryInfo(_scriptCacheDir);
                 if (!dir.Exists) return null;
                 FileInfo newest = null;
                 foreach (var f in dir.GetFiles("*.txt"))
+                {
+                    var sidecar = Path.ChangeExtension(f.FullName, ".url");
+                    string cachedUrl = null;
+                    try { if (File.Exists(sidecar)) cachedUrl = File.ReadAllText(sidecar).Trim(); }
+                    catch { }
+                    if (cachedUrl != scriptUrl) continue; // different (or legacy, un-tagged) script
                     if (newest == null || f.LastWriteTimeUtc > newest.LastWriteTimeUtc) newest = f;
+                }
                 return newest?.FullName;
             }
             catch { return null; }
+        }
+
+        // Records the plain url of a just-cached script beside its version-folded
+        // cache file, so the offline fallback can match cached versions to the
+        // requested url (see NewestCachedScript).
+        private static async Task WriteScriptUrlSidecar(string scriptPath, string scriptUrl, CancellationToken ct)
+        {
+            try
+            {
+                await WriteAllBytesAsync(Path.ChangeExtension(scriptPath, ".url"),
+                    Encoding.UTF8.GetBytes(scriptUrl), ct);
+            }
+            catch { /* sidecar is best-effort; a missing one just disables offline fallback for this file */ }
         }
 
         public Task<byte[]> DownloadAssetBytes(string assetUrl, CancellationToken ct = default) =>
             DownloadBytes(assetUrl, _assetCacheDir, ct);
 
         /// <summary>Loads (or fetches and caches) the URL, decodes the bytes into
-        /// a texture, and wraps it as a Sprite. Returns null on missing data. The
-        /// sprite is cached by URL for the session so the same asset is decoded
-        /// exactly once, regardless of how many views request it.</summary>
-        public async Task<Sprite> DownloadSpriteAsync(string url, CancellationToken ct = default)
+        /// a texture, and wraps it as a Sprite. Returns null on missing data.
+        /// Concurrent requests for the same url share ONE decode (no leaked
+        /// Texture2D from a lost race), and the cache is LRU-bounded by
+        /// <see cref="SpriteCacheBudgetBytes"/>.</summary>
+        public Task<Sprite> DownloadSpriteAsync(string url, CancellationToken ct = default)
         {
-            if (string.IsNullOrEmpty(url)) return null;
+            if (string.IsNullOrEmpty(url)) return Task.FromResult<Sprite>(null);
             lock (_spriteCache)
             {
-                if (_spriteCache.TryGetValue(url, out var hit) && hit != null) return hit;
+                if (_spriteCache.TryGetValue(url, out var hit) && hit.Sprite != null)
+                {
+                    Touch(hit);
+                    return Task.FromResult(hit.Sprite);
+                }
+                // Someone is already decoding this url — share their result instead
+                // of decoding a second texture and leaking the loser.
+                if (_decoding.TryGetValue(url, out var inflight)) return inflight;
+                var task = DecodeSpriteAsync(url, ct);
+                _decoding[url] = task;
+                return task;
             }
-            var bytes = await DownloadAssetBytes(url, ct);
-            if (bytes == null || bytes.Length == 0) return null;
-            // Another concurrent download of the same url may have finished and
-            // already filled the cache while we were awaiting.
-            lock (_spriteCache)
+        }
+
+        private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
+        {
+            try
             {
-                if (_spriteCache.TryGetValue(url, out var hit) && hit != null) return hit;
+                var bytes = await DownloadAssetBytes(url, ct);
+                if (bytes == null || bytes.Length == 0) return null;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
+                if (!tex.LoadImage(bytes))
+                {
+                    UnityEngine.Object.Destroy(tex);
+                    return null;
+                }
+                tex.wrapMode   = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Bilinear;
+                tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+
+                List<SpriteEntry> victims;
+                lock (_spriteCache)
+                {
+                    var e = new SpriteEntry { Sprite = sprite, Bytes = (long)tex.width * tex.height * 4 };
+                    Touch(e);
+                    _spriteCache[url] = e;
+                    _spriteBytes += e.Bytes;
+                    victims = EvictOverBudgetLocked();
+                }
+                foreach (var v in victims) DestroySprite(v.Sprite);
+                return sprite;
             }
-            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
-            if (!tex.LoadImage(bytes))
+            finally
             {
-                UnityEngine.Object.Destroy(tex);
-                return null;
+                lock (_spriteCache) _decoding.Remove(url);
             }
-            tex.wrapMode   = TextureWrapMode.Clamp;
-            tex.filterMode = FilterMode.Bilinear;
-            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
-            var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
-            lock (_spriteCache) { _spriteCache[url] = sprite; }
-            return sprite;
+        }
+
+        private void Touch(SpriteEntry e)
+        {
+            e.Seq = ++_spriteSeq;
+            e.At = Time.realtimeSinceStartup;
+        }
+
+        // Must run under the _spriteCache lock. Returns the evicted entries so the
+        // caller destroys their textures OUTSIDE the lock.
+        private List<SpriteEntry> EvictOverBudgetLocked()
+        {
+            var victims = new List<SpriteEntry>();
+            if (_spriteBytes <= SpriteCacheBudgetBytes) return victims;
+            float now = Time.realtimeSinceStartup;
+            foreach (var url in PickEvictions(
+                         SnapshotLocked(), SpriteCacheBudgetBytes, now, SpriteEvictionGraceSeconds))
+            {
+                if (!_spriteCache.TryGetValue(url, out var e)) continue;
+                _spriteCache.Remove(url);
+                _spriteBytes -= e.Bytes;
+                victims.Add(e);
+            }
+            return victims;
+        }
+
+        private List<(string url, long bytes, long seq, float at)> SnapshotLocked()
+        {
+            var list = new List<(string, long, long, float)>(_spriteCache.Count);
+            foreach (var kv in _spriteCache)
+                list.Add((kv.Key, kv.Value.Bytes, kv.Value.Seq, kv.Value.At));
+            return list;
+        }
+
+        /// <summary>Pure eviction policy, exposed for tests: evict oldest-requested
+        /// first until the total fits the budget, skipping anything requested within
+        /// the grace window (it's very likely still on screen).</summary>
+        internal static List<string> PickEvictions(
+            List<(string url, long bytes, long seq, float at)> entries,
+            long budgetBytes, float now, float graceSeconds)
+        {
+            var evict = new List<string>();
+            long total = 0;
+            foreach (var e in entries) total += e.bytes;
+            if (total <= budgetBytes) return evict;
+            entries.Sort((a, b) => a.seq.CompareTo(b.seq)); // oldest request first
+            foreach (var e in entries)
+            {
+                if (total <= budgetBytes) break;
+                if (now - e.at < graceSeconds) continue; // recently used — protected
+                evict.Add(e.url);
+                total -= e.bytes;
+            }
+            return evict;
         }
 
         /// <summary>Synchronous in-memory lookup — returns true (and the sprite)
@@ -405,7 +627,12 @@ namespace Lvn.Content
             sprite = null;
             if (string.IsNullOrEmpty(url)) return false;
             lock (_spriteCache)
-                return _spriteCache.TryGetValue(url, out sprite) && sprite != null;
+            {
+                if (!_spriteCache.TryGetValue(url, out var e) || e.Sprite == null) return false;
+                Touch(e);
+                sprite = e.Sprite;
+                return true;
+            }
         }
 
         /// <summary>Releases the in-memory sprite cached for a single url and
@@ -414,13 +641,34 @@ namespace Lvn.Content
         public void Unload(string url)
         {
             if (string.IsNullOrEmpty(url)) return;
-            Sprite sprite;
+            SpriteEntry entry;
             lock (_spriteCache)
             {
-                if (!_spriteCache.TryGetValue(url, out sprite)) return;
+                if (!_spriteCache.TryGetValue(url, out entry)) return;
                 _spriteCache.Remove(url);
+                _spriteBytes -= entry.Bytes;
             }
-            DestroySprite(sprite);
+            DestroySprite(entry.Sprite);
+        }
+
+        /// <summary>Releases every cached sprite whose url matches — e.g. a chapter's
+        /// art/backgrounds on chapter exit, keeping UI covers/skins warm.</summary>
+        public void UnloadWhere(Func<string, bool> match)
+        {
+            if (match == null) return;
+            var victims = new List<SpriteEntry>();
+            lock (_spriteCache)
+            {
+                var keys = new List<string>(_spriteCache.Keys);
+                foreach (var k in keys)
+                {
+                    if (!match(k)) continue;
+                    victims.Add(_spriteCache[k]);
+                    _spriteBytes -= _spriteCache[k].Bytes;
+                    _spriteCache.Remove(k);
+                }
+            }
+            foreach (var v in victims) DestroySprite(v.Sprite);
         }
 
         /// <summary>Releases every in-memory sprite and destroys its texture. Call
@@ -428,13 +676,14 @@ namespace Lvn.Content
         /// untouched.</summary>
         public void UnloadAll()
         {
-            List<Sprite> sprites;
+            List<SpriteEntry> entries;
             lock (_spriteCache)
             {
-                sprites = new List<Sprite>(_spriteCache.Values);
+                entries = new List<SpriteEntry>(_spriteCache.Values);
                 _spriteCache.Clear();
+                _spriteBytes = 0;
             }
-            foreach (var s in sprites) DestroySprite(s);
+            foreach (var e in entries) DestroySprite(e.Sprite);
         }
 
         private static void DestroySprite(Sprite sprite)
@@ -623,6 +872,12 @@ namespace Lvn.Content
                         }
 
                         body = await fetchTask;
+                        // Same integrity rule as DownloadBytes: never cache bytes
+                        // that don't match the version index's sha256.
+                        var expect = VersionFor(asset.Url);
+                        if (body != null && expect != null && !Sha256Matches(body, expect))
+                            throw new LvnFetchException(0, "integrity",
+                                "sha256 mismatch for " + asset.Url + " — refetching");
                         if (prefetchUrl == "") prefetchUrl = null;
                         break;
                     }
@@ -653,12 +908,10 @@ namespace Lvn.Content
                 var capBody = body;
                 await diskTask;
                 diskTask = capBody != null
-                    ? Task.Run(() =>
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(capPath));
-                        if (File.Exists(capPath)) File.Delete(capPath);
-                        File.WriteAllBytes(capPath, capBody);
-                    }, CancellationToken.None)
+                    // Write atomically (staged temp + move): a crash mid-write must
+                    // not leave a truncated .bin, which File.Exists would then treat
+                    // as a valid cache entry forever (permanent boot-art corruption).
+                    ? Task.Run(() => AtomicWriteAllBytes(capPath, capBody), CancellationToken.None)
                     : Task.CompletedTask;
 
                 lock (_inflight) BatchDone++;
@@ -886,6 +1139,19 @@ namespace Lvn.Content
                             try { resumeFrom = new FileInfo(partPath).Length; } catch { }
 
                         var bytes = await FetchResumable(url, partPath, resumeFrom, ct);
+
+                        // Integrity: the version index carries each asset's sha256.
+                        // A torn resume (server changed the file between two Range
+                        // requests) would otherwise cache spliced bytes as valid
+                        // forever. Mismatch → drop the .part and refetch clean.
+                        var expect = VersionFor(url);
+                        if (expect != null && !Sha256Matches(bytes, expect))
+                        {
+                            try { File.Delete(partPath); } catch { }
+                            throw new LvnFetchException(0, "integrity",
+                                "sha256 mismatch for " + url + " — refetching");
+                        }
+
                         lock (_inflight) _attempts.Remove(url);
 
                         if (File.Exists(path)) File.Delete(path);
@@ -1143,6 +1409,19 @@ namespace Lvn.Content
             return Path.Combine(dir, HashKey(url, ver) + ext);
         }
 
+        /// <summary>Content-integrity check: does the payload hash to the version
+        /// index's sha256 hex? Exposed for tests.</summary>
+        internal static bool Sha256Matches(byte[] data, string expectedHex)
+        {
+            if (data == null || string.IsNullOrEmpty(expectedHex)) return false;
+            using var sha = SHA256.Create();
+            var hash = sha.ComputeHash(data);
+            if (expectedHex.Length != hash.Length * 2) return false;
+            var sb = new StringBuilder(hash.Length * 2);
+            foreach (var b in hash) sb.Append(b.ToString("x2"));
+            return string.Equals(sb.ToString(), expectedHex, StringComparison.OrdinalIgnoreCase);
+        }
+
         // Pure cache-key hash, exposed for tests: sha1(url) or sha1(url@version).
         internal static string HashKey(string url, string version)
         {
@@ -1174,11 +1453,31 @@ namespace Lvn.Content
 
         private static async Task WriteAllBytesAsync(string path, byte[] bytes, CancellationToken ct)
         {
-#if UNITY_2021_2_OR_NEWER
-            await File.WriteAllBytesAsync(path, bytes, ct);
-#else
-            await Task.Run(() => File.WriteAllBytes(path, bytes), ct);
-#endif
+            // Always atomic — a half-written cache file is worse than none (File.Exists
+            // would treat the truncated file as valid on the next run).
+            await Task.Run(() => AtomicWriteAllBytes(path, bytes), ct);
+        }
+
+        // Atomic write: stage to a unique temp file in the same directory, then move
+        // it into place (mirrors the .part → File.Move pattern DownloadBytes uses).
+        // The destination path therefore only ever holds a complete file — never a
+        // truncated one from an interrupted write.
+        internal static void AtomicWriteAllBytes(string path, byte[] bytes)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tmp = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.WriteAllBytes(tmp, bytes);
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(tmp, path);
+            }
+            catch
+            {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                throw;
+            }
         }
     }
 

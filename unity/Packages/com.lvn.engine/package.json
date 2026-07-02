@@ -1,6 +1,6 @@
 {
   "name": "com.lvn.engine",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "displayName": "Elvin — Narrative Game Engine",
   "description": "Write narrative games for Unity as plain text. Drop a .lvns script into Assets/ and Elvin runs it as a real game — dialogue, branching choices, characters with emotions, stats, animation, save/load — with no dialogue or branching system to build yourself. Plays the open .lvn container; also imports Ink and articy.",
   "unity": "2022.3",
@@ -21,7 +21,15 @@
   },
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.1",
-    "com.unity.ugui": "1.0.0"
+    "com.unity.ugui": "1.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.unitywebrequestaudio": "1.0.0",
+    "com.unity.modules.unitywebrequesttexture": "1.0.0"
   },
   "samples": [
     {

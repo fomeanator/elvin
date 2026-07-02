@@ -169,11 +169,17 @@ namespace Lvn.UI
             _tw.SetText(text ?? "");
             _cps = cps.HasValue && cps.Value > TypewriterClock.MinCps ? cps.Value : _theme.CharsPerSecond;
             _startTime = Time.realtimeSinceStartup;
-            _body.text = "";
+            _lastQuantum = -1;
             _tick?.Pause();
 
             IsRevealing = _tw.VisibleCount > 0;
-            if (IsRevealing) _tick = schedule.Execute(Tick).Every(16);
+            if (IsRevealing)
+            {
+                // Fixed layout from frame 0: the whole line is present (hidden),
+                // so word-wrap and box height never shift during the reveal.
+                _body.text = _tw.SliceFadedFixed(0f, _theme.FadeWidth);
+                _tick = schedule.Execute(Tick).Every(16);
+            }
             else _body.text = _tw.Full();
         }
 
@@ -194,6 +200,32 @@ namespace Lvn.UI
             IsRevealing = false;
         }
 
+        // The player's window-opacity preference and the current style's own panel
+        // scale compose multiplicatively onto the PANEL BACKGROUND only — element
+        // opacity would dim the text with it (and "narration"'s old opacity=0
+        // silently hid the line, since the body label is a child of the panel).
+        private float _userOpacity = 1f;
+        private float _styleBgScale = 1f;
+
+        /// <summary>Scale the dialogue window's background opacity (0.2–1) — the
+        /// player's comfort setting. Text stays fully opaque.</summary>
+        public void SetUserOpacity(float value)
+        {
+            _userOpacity = Mathf.Clamp(value, 0.2f, 1f);
+            ApplyPanelBackground();
+        }
+
+        private void ApplyPanelBackground()
+        {
+            float a = _styleBgScale * _userOpacity;
+            var c = _theme.PanelColor;
+            c.a *= a;
+            _panel.style.backgroundColor = _theme.PanelSprite != null ? Color.clear : c;
+            // Sprite-skinned panels dim via the image tint instead.
+            if (_theme.PanelSprite != null)
+                _panel.style.unityBackgroundImageTintColor = new Color(1f, 1f, 1f, a);
+        }
+
         /// <summary>
         /// Apply a text style preset before <see cref="Reveal"/>: "thought"
         /// (italic), "shout" (bold, larger), "narration" (centered, no panel),
@@ -204,7 +236,7 @@ namespace Lvn.UI
             _body.style.unityFontStyleAndWeight = FontStyle.Normal;
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.unityTextAlign = TextAnchor.UpperLeft;
-            _panel.style.opacity = 1f;
+            _styleBgScale = 1f;
 
             switch (style)
             {
@@ -218,14 +250,20 @@ namespace Lvn.UI
                 case "narration":
                     _body.style.fontSize = Mathf.RoundToInt(_theme.BodyFontSize * 1.15f);
                     _body.style.unityTextAlign = TextAnchor.MiddleCenter;
-                    _panel.style.opacity = 0f;
+                    _styleBgScale = 0f; // no panel behind pure narration — text stays visible
                     break;
                 case "whisper":
                     _body.style.unityFontStyleAndWeight = FontStyle.Italic;
-                    _panel.style.opacity = 0.5f;
+                    _styleBgScale = 0.5f;
                     break;
             }
+            ApplyPanelBackground();
         }
+
+        // Progress quantum of the last rebuild — rebuilding the rich-text string
+        // (and regenerating the text mesh) every 16ms tick is pure GC churn when
+        // the reveal head barely moved. Eighth-glyph steps look identical.
+        private int _lastQuantum = -1;
 
         private void Tick()
         {
@@ -237,7 +275,10 @@ namespace Lvn.UI
                 Complete();
                 return;
             }
-            _body.text = _tw.SliceFaded(p, _theme.FadeWidth);
+            int q = (int)(p * 8f);
+            if (q == _lastQuantum) return; // head hasn't visibly moved — skip the rebuild
+            _lastQuantum = q;
+            _body.text = _tw.SliceFadedFixed(p, _theme.FadeWidth);
         }
 
         private static void SetCorner(VisualElement el, float r, bool top, bool bottom)

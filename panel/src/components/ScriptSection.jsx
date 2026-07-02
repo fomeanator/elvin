@@ -446,7 +446,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
 
       <div className="ide-body">
         <aside className="ide-explorer enter">
-          <ResizeHandle storageKey="ide-w-explorer" side="right" min={180} max={460} />
+          <ResizeHandle storageKey="ide-w-explorer" side="right" min={190} max={900} />
           <div className="ide-explorer-head">
             <span className="section-label">Files</span>
             <div className="ide-new">
@@ -468,10 +468,10 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
               const status = hasError ? "error" : isDraft ? "draft" : "live";
               return (
               <div key={c.id} className={"ide-file-row" + (c.id === selId ? " active" : "")}>
-                <button className="ide-file-open" onClick={() => openChapter(c)}>
+                <button className="ide-file-open" onClick={() => openChapter(c)} title={c.id + ".lvns"}>
                   <span className={"ide-file-ico st-" + status} title={status === "error" ? "has errors" : status === "draft" ? "draft — not in the game yet" : "live in the game"} />
                   <span className="ide-file-num">{c.number}</span>
-                  <span className="ide-file-label">{c.id}<em>.lvns</em></span>
+                  <span className="ide-file-label">{c.name ? c.name : <>{c.id}<em>.lvns</em></>}</span>
                   {isDraft && <span className="ide-file-tag">draft</span>}
                 </button>
                 <span className="ide-file-acts">
@@ -502,6 +502,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
           {sel && (
             <div className="ide-chapter-settings">
               <div className="section-label">Chapter</div>
+              <label className="ide-set-row">
+                <span>Name</span>
+                <input className="field" type="text" placeholder="Эпизод…" value={sel.name ?? ""}
+                  onChange={(e) => patchChapter(sel.id, { name: e.target.value })}
+                  onBlur={(e) => commitChapter(sel.id, { name: e.target.value })} />
+              </label>
               <label className="ide-set-row">
                 <span>Number</span>
                 <input className="field" type="number" value={sel.number ?? 0}

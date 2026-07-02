@@ -8,6 +8,7 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   const [titles, setTitles] = useState([]);
   const [bust, setBust] = useState(() => Date.now());
   const [modal, setModal] = useState(null); // {mode, draft, originalId}
+  const [imp, setImp] = useState(null); // articy import modal: {name, files, label, drag, busy}
   const [importing, setImporting] = useState(null); // {pct, phase}
 
   useEffect(() => {
@@ -31,42 +32,39 @@ export default function LibraryHome({ creds, notify, onOpen }) {
     setModal({ mode: "new", draft: { name: "", subtitle: "", cover_url: "" }, originalId: null });
   }
 
-  // One-click articy import: pick the extracted .adpd folder; the server does the
-  // whole pipeline (compile → auto-stage → matte art → manifest title). When it
-  // returns, the new novel is already live in the game — we just refresh the shelf.
-  function importArticyFolder() {
+  // Articy import via an in-app modal: drop (or pick) a .zip of the extracted
+  // .adpd project — no native folder dialog (which silently no-ops in some
+  // browsers when the input isn't in the DOM) and no window.prompt.
+  function openImport() {
     if (!creds.token) { notify("Set the admin token first (top bar).", "err"); return; }
-    const picker = document.createElement("input");
-    picker.type = "file";
-    picker.webkitdirectory = true;
-    picker.onchange = async () => {
-      const files = Array.from(picker.files || []);
-      if (!files.length) return;
-      const top = (files[0].webkitRelativePath || "").split("/")[0] || "imported";
-      const name = window.prompt("Название новеллы:", top.replace(/_/g, " "));
-      if (name == null) return;
-      let id = slug(name) || slug(top);
-      let base = id, i = 1;
-      while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
-      setImporting({ pct: 0, phase: "Загрузка " + files.length + " файлов…" });
-      try {
-        const r = await importArticy(
-          files, { id, name, subtitle: "Импорт из articy:draft (.adpd)" }, creds.token,
-          (p) => setImporting((s) => ({ ...s, pct: p < 0.99 ? p : 0.99 })),
-        );
-        setImporting({ pct: 1, phase: "Готово" });
-        const says = (r.ops && r.ops.say) || 0;
-        notify(`✓ «${r.name}»: ${says} реплик, ${r.art_files} артов, ${r.bg_missing} фонов без матча`, "ok");
-        setTitles((await getManifest()).titles || []);
-        setBust(Date.now());
-        setImporting(null);
-        if (r.id) onOpen(r.id, r.name);
-      } catch (e) {
-        setImporting(null);
-        notify("✗ " + e.message, "err");
-      }
-    };
-    picker.click();
+    setImp({ name: "", files: null, label: "", drag: false });
+  }
+
+  // Run the import for the chosen source (a .zip File, or a folder's FileList).
+  async function runImport(files, name) {
+    let id = slug(name) || "imported";
+    let base = id, i = 1;
+    while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
+    setImp((s) => ({ ...(s || {}), busy: true }));
+    setImporting({ pct: 0, phase: "Загрузка " + files.length + " файл(а/ов)…" });
+    try {
+      const r = await importArticy(
+        files, { id, name, subtitle: "Импорт из articy:draft (.adpd)" }, creds.token,
+        (p) => setImporting((s) => ({ ...s, pct: p < 0.99 ? p : 0.99, phase: "Загрузка… " })),
+      );
+      setImporting({ pct: 1, phase: "Готово" });
+      const says = (r.ops && r.ops.say) || 0;
+      notify(`✓ «${r.name}»: ${says} реплик, ${r.art_files} артов`, "ok");
+      setTitles((await getManifest()).titles || []);
+      setBust(Date.now());
+      setImporting(null);
+      setImp(null);
+      if (r.id) onOpen(r.id, r.name);
+    } catch (e) {
+      setImporting(null);
+      setImp((s) => ({ ...(s || {}), busy: false }));
+      notify("✗ " + e.message, "err");
+    }
   }
   function openEdit(t) {
     setModal({ mode: "edit", draft: { id: t.id, name: t.name || "", subtitle: t.subtitle || "", cover_url: t.cover_url || "" }, originalId: t.id });
@@ -150,11 +148,21 @@ export default function LibraryHome({ creds, notify, onOpen }) {
           New novel
         </button>
 
-        <button className="novel novel-add novel-import" onClick={importArticyFolder} title="Import an articy:draft (.adpd) project — one click loads it into the IDE and the game">
+        <button className="novel novel-add novel-import" onClick={openImport} title="Import an articy:draft (.adpd) project — drop a .zip and play it">
           <span className="novel-add-mark">⇪</span>
           Import articy
         </button>
       </div>
+
+      {imp && !importing && (
+        <ImportModal
+          imp={imp}
+          setImp={setImp}
+          onImport={runImport}
+          onCancel={() => setImp(null)}
+          notify={notify}
+        />
+      )}
 
       {importing && (
         <div className="sp-chooser">
@@ -208,6 +216,85 @@ function NovelModal({ modal, setDraft, onUploadCover, onSave, onDelete, onCancel
           <div className="grow" />
           <button className="btn-ghost" onClick={onCancel}>Cancel</button>
           <button className="btn btn-primary" onClick={onSave}>{modal.mode === "new" ? "Create ▸" : "Save"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ImportModal: drop a .zip of an extracted .adpd project (or pick a .zip / folder),
+// name it, and import. The pickers are <label>-wrapped file inputs — a label click
+// natively opens the OS picker in every browser (programmatic input.click() on a
+// display:none input silently no-ops in some browsers, which is what broke before).
+function ImportModal({ imp, setImp, onImport, onCancel, notify }) {
+  const pick = (files, suggested) =>
+    setImp((s) => ({
+      ...s,
+      files,
+      label: files.length === 1 ? files[0].name : files.length + " файлов",
+      name: (s.name && s.name.trim()) ? s.name : suggested,
+      drag: false,
+    }));
+
+  function onDrop(e) {
+    e.preventDefault();
+    const arr = Array.from(e.dataTransfer.files || []);
+    const arc = arr.find((f) => /\.(zip|rar)$/i.test(f.name));
+    if (arc) { pick([arc], arc.name.replace(/\.(zip|rar)$/i, "")); return; }
+    setImp((s) => ({ ...s, drag: false }));
+    notify("Перетащи .zip или .rar проекта articy (или нажми «выбрать»)", "err");
+  }
+  function onZip(e) {
+    const f = e.target.files && e.target.files[0];
+    if (f) pick([f], f.name.replace(/\.(zip|rar)$/i, ""));
+  }
+  function onDir(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const top = (files[0].webkitRelativePath || "").split("/")[0] || "imported";
+    pick(files, top.replace(/_/g, " "));
+  }
+  function go() {
+    if (!imp.files || !imp.files.length) { notify("Выбери .zip / .rar или папку проекта.", "err"); return; }
+    const name = (imp.name || "").trim();
+    if (!name) { notify("Назови новеллу.", "err"); return; }
+    onImport(imp.files, name);
+  }
+
+  return (
+    <div className="sp-chooser" onClick={onCancel}>
+      <div className="sp-chooser-box novel-modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Импорт articy</h3>
+        <label
+          className={"import-drop" + (imp.drag ? " over" : "")}
+          onDragOver={(e) => { e.preventDefault(); if (!imp.drag) setImp((s) => ({ ...s, drag: true })); }}
+          onDragLeave={() => setImp((s) => ({ ...s, drag: false }))}
+          onDrop={onDrop}
+        >
+          <input type="file" accept=".zip,.rar,application/zip,application/vnd.rar,application/x-rar-compressed" style={{ display: "none" }} onChange={onZip} />
+          {imp.files
+            ? <b>✓ {imp.label}</b>
+            : <><b>Перетащи или нажми — .zip / .rar</b><span>проекта articy:draft (.adpd)</span></>}
+        </label>
+        <div className="import-src-row">
+          <label className="btn-ghost import-pick">
+            Выбрать .zip / .rar
+            <input type="file" accept=".zip,.rar,application/zip,application/vnd.rar,application/x-rar-compressed" style={{ display: "none" }} onChange={onZip} />
+          </label>
+          <label className="btn-ghost import-pick">
+            …или папку
+            <input type="file" webkitdirectory="" directory="" style={{ display: "none" }} onChange={onDir} />
+          </label>
+        </div>
+        <label className="adv-field">
+          <span>Название новеллы</span>
+          <input className="field wide" autoFocus placeholder="Моя новелла" value={imp.name}
+                 onChange={(e) => setImp((s) => ({ ...s, name: e.target.value }))} />
+        </label>
+        <div className="novel-modal-actions">
+          <div className="grow" />
+          <button className="btn-ghost" onClick={onCancel}>Отмена</button>
+          <button className="btn btn-primary" onClick={go} disabled={imp.busy}>Импортировать ▸</button>
         </div>
       </div>
     </div>

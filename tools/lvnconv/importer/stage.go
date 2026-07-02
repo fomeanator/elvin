@@ -2,7 +2,6 @@ package importer
 
 import (
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
@@ -23,7 +22,12 @@ func Slug(s string) string { return strings.ReplaceAll(strings.TrimSpace(s), " "
 // pass removes.
 func Localize(doc *articy.Doc) map[string]string {
 	catalog := map[string]string{}
-	move := func(m map[string]any) {
+	// suffix namespaces a choice caption's key. A choice option and the spoken
+	// line share the SAME fragment stable id (the option's caption is the target
+	// fragment's MenuText; the walked target is emitted as a say with its Text) —
+	// so without a distinct suffix they collide on one catalog key and the button
+	// ends up showing the full spoken line. "#opt" keeps them separate.
+	move := func(m map[string]any, suffix string) {
 		text, _ := m["text"].(string)
 		if text == "" {
 			return
@@ -32,6 +36,7 @@ func Localize(doc *articy.Doc) map[string]string {
 		if key == "" {
 			key = text // no stable id available — the text is its own key
 		}
+		key += suffix
 		catalog[key] = text
 		m["text_id"] = key
 		delete(m, "text")
@@ -40,12 +45,12 @@ func Localize(doc *articy.Doc) map[string]string {
 	for _, c := range doc.Script {
 		switch c["op"] {
 		case "say":
-			move(c)
+			move(c, "")
 		case "choice":
 			if opts, ok := c["options"].([]any); ok {
 				for _, o := range opts {
 					if m, ok := o.(articy.Cmd); ok {
-						move(m)
+						move(m, "#opt")
 					}
 				}
 			}
@@ -79,50 +84,60 @@ func StripStableIds(doc *articy.Doc) {
 
 var sceneMarkerRe = regexp.MustCompile(`^\s*Сцена\s+\d+\.\s*(.+?)\.?\s*$`)
 
-// narrativeRoles never get an on-stage sprite: the narrator, the first-person
-// protagonist, the player-choice voice, and articy bookkeeping "speakers".
-var narrativeRoles = map[string]bool{
-	"Автор": true, "Игрок": true, "Главный герой": true, "ГГ": true,
-	"Выбор пути": true, "Информация": true, "Эпизод": true, "Отношения": true,
-	"Туториал": true, "Смена ГГ": true,
+// narratorRoles never get an on-stage sprite — the narrator, the player-choice
+// echo, and articy bookkeeping "speakers". A line from any of these clears the
+// stage (mobile convention: narration shows no one).
+var narratorRoles = map[string]bool{
+	"Автор": true, "Игрок": true, "Выбор пути": true, "Информация": true,
+	"Эпизод": true, "Отношения": true, "Туториал": true, "Смена ГГ": true,
 }
 
-// AutoStage enriches a dialogue script with a first pass of staging by rule: a
-// scene-marker line ("Сцена N. <Location>") becomes a `bg` and clears the stage;
-// the first time a character with art speaks in a scene, an `actor` enters at the
-// next slot. The result is regular .lvn ops the author can refine in the editor.
+// protagonistRoles are the player character — shown on the LEFT when they have a
+// sprite (the usual mobile framing: hero left, everyone else right). In a first-
+// person novel the protagonist has no sprite, so their lines just clear the stage.
+var protagonistRoles = map[string]bool{"Главный герой": true, "ГГ": true}
+
+// AutoStage enriches a dialogue script with a first pass of staging by rule.
+//
+// Mobile single-speaker model: only the CURRENT speaker is on screen, centred.
+// A character with art speaks → they fade in (and whoever was there fades out);
+// the narrator ("Автор") or any speaker with no sprite → the stage clears. A
+// scene-marker line ("Сцена N. <Location>") becomes a `bg` and clears the stage.
+// The result is regular .lvn ops the author can refine in the editor.
 func AutoStage(doc *articy.Doc, cast map[string]string) {
-	slots := []string{"left", "right", "center", "far_left", "far_right"}
 	out := make([]articy.Cmd, 0, len(doc.Script))
-	onStage := map[string]bool{}
-	order := 0
-	clear := func() {
-		names := make([]string, 0, len(onStage))
-		for n := range onStage {
-			names = append(names, n)
+	current := "" // the single character on screen ("" = empty stage)
+	hide := func() {
+		if current != "" {
+			out = append(out, articy.Cmd{"op": "actor", "id": Slug(current), "show": false, "exit": "fade"})
+			current = ""
 		}
-		sort.Strings(names)
-		for _, n := range names {
-			out = append(out, articy.Cmd{"op": "actor", "id": Slug(n), "show": false})
-		}
-		onStage = map[string]bool{}
-		order = 0
 	}
 	for _, c := range doc.Script {
 		if c["op"] == "say" {
 			text, _ := c["text"].(string)
 			who, _ := c["who"].(string)
 			if m := sceneMarkerRe.FindStringSubmatch(text); m != nil {
-				clear()
+				hide()
 				loc := Slug(m[1])
 				out = append(out, articy.Cmd{"op": "bg", "id": loc, "sprite_url": "/content/bg/" + loc + ".jpg"})
 				continue // a scene marker is a background, not a spoken line
 			}
-			if spr, ok := cast[who]; ok && !narrativeRoles[who] && !onStage[who] {
-				out = append(out, articy.Cmd{"op": "actor", "id": Slug(who), "show": true,
-					"position": slots[order%len(slots)], "sprite_url": "/content/art/" + spr})
-				onStage[who] = true
-				order++
+			if spr, ok := cast[who]; ok && !narratorRoles[who] {
+				// a character with a sprite speaks → show ONLY them: the hero on the
+				// left, everyone else on the right (the usual mobile framing).
+				if who != current {
+					hide() // swap out whoever was there
+					side := "right"
+					if protagonistRoles[who] {
+						side = "left"
+					}
+					out = append(out, articy.Cmd{"op": "actor", "id": Slug(who), "show": true,
+						"position": side, "sprite_url": "/content/art/" + spr, "enter": "fade"})
+					current = who
+				}
+			} else {
+				hide() // narrator / off-screen voice → clear the stage
 			}
 		}
 		out = append(out, c)

@@ -30,7 +30,13 @@ export async function putAsset(path, body, token, contentType) {
 export function importArticy(files, meta, token, onProgress) {
   return new Promise((resolve, reject) => {
     const fd = new FormData();
-    for (const f of files) fd.append("f", f, f.webkitRelativePath || f.name);
+    // A single .zip/.rar goes as the "zip"/"rar" part (the server unpacks it); a
+    // picked folder goes as many "f" parts carrying their relative paths so the
+    // tree rebuilds.
+    for (const f of files) {
+      const part = /\.zip$/i.test(f.name) ? "zip" : /\.rar$/i.test(f.name) ? "rar" : "f";
+      fd.append(part, f, f.webkitRelativePath || f.name);
+    }
     const q = new URLSearchParams({
       id: meta.id || "", name: meta.name || "", subtitle: meta.subtitle || "",
     });

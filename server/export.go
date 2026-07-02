@@ -72,7 +72,7 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "admin disabled", http.StatusForbidden)
 		return
 	}
-	if r.Header.Get("Authorization") != "Bearer "+s.adminToken {
+	if !bearerOK(r, s.adminToken) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -233,7 +233,10 @@ func bootSource(cfg exportConfig) string {
 	if cfg.Offline {
 		offline = "true"
 	}
-	url := strings.ReplaceAll(cfg.ServerURL, `"`, "")
+	// Emit the URL as a JSON string literal: json.Marshal escapes ", \ and
+	// control chars, which are all valid C# string escapes too — so a crafted
+	// serverUrl can't break out of the literal and inject code into Boot.cs.
+	urlLit, _ := json.Marshal(cfg.ServerURL)
 	return `using UnityEngine;
 using UnityEngine.EventSystems;
 using Lvn.UI.Screens;
@@ -244,7 +247,7 @@ namespace Game
     // configured server. Build from Unity (File ▸ Build Settings ▸ Build).
     public static class Boot
     {
-        public const string ServerUrl = "` + url + `";
+        public const string ServerUrl = ` + string(urlLit) + `;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Run()

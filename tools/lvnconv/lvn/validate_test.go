@@ -31,6 +31,112 @@ func hasWarn(issues []Issue, sub string) bool {
 	return false
 }
 
+func TestUnknownFieldWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"fade","too":"black","duration":0.5}]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `unknown field "too"`) {
+		t.Fatalf("expected unknown-field warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "to"`) {
+		t.Fatalf("expected a 'to' suggestion, got %v", issues)
+	}
+}
+
+func TestEnumValueWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"x","position":"lft","show":true}]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `position="lft" is not a known value`) {
+		t.Fatalf("expected enum warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "left"`) {
+		t.Fatalf("expected a 'left' suggestion, got %v", issues)
+	}
+}
+
+// Valid values and keys must NOT warn — the checks are only for typos.
+func TestValidFieldsAndEnumsDoNotWarn(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"fade","to":"black","duration":0.5},
+	 {"op":"actor","id":"x","position":"left","show":true,"emotion":"happy","enter":"fade"},
+	 {"op":"audio","channel":"music","url":"/a.mp3","action":"play"},
+	 {"op":"camera","action":"shake","duration":0.4},
+	 {"op":"particles","type":"rain","on":true},
+	 {"op":"set","key":"gold","value":5,"default":true},
+	 {"op":"say","who":"X","text":"hi {gold}"}
+	]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "unknown field") || contains(is.Msg, "is not a known value") {
+			t.Fatalf("false positive on valid content: %s", is.String())
+		}
+	}
+}
+
+func TestUndefinedVarTypoWarned(t *testing.T) {
+	// score is set; scoore is read in an expr and an interpolation → both typos.
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"score","value":0},
+	 {"op":"if","expr":"scoore >= 10","then":"w","else":"l"},
+	 {"op":"say","who":"X","text":"У тебя {scoore} очков"},
+	 {"op":"label","id":"w"},{"op":"label","id":"l"}
+	]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `variable "scoore" is read but never set`) {
+		t.Fatalf("expected undefined-var warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "score"`) {
+		t.Fatalf("expected a 'score' suggestion, got %v", issues)
+	}
+}
+
+// A variable that isn't a near-miss of any defined var is treated as seeded
+// externally (carried from an earlier chapter / the host), not a typo.
+func TestExternalVarNotFlagged(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"gold","value":0},
+	 {"op":"if","expr":"player_name_len > 3","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	if hasWarn(Validate(d), "is read but never set") {
+		t.Fatalf("a distinct external var must not be flagged as a typo")
+	}
+}
+
+// String literals inside an expression are not variables and must not be flagged.
+func TestStringLiteralNotFlaggedAsVar(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"state","value":"idle"},
+	 {"op":"if","expr":"state == \"stat\"","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	// "stat" is a quoted literal that is a near-miss of "state" — but it's a
+	// literal, so stripping quotes must prevent a false positive.
+	if hasWarn(Validate(d), `variable "stat"`) {
+		t.Fatalf("a string literal was mistaken for a variable: %v", Validate(d))
+	}
+}
+
+// With no vars set at all, the doc is assumed to rely on external seeding and the
+// typo check is skipped entirely (no noise).
+func TestNoDefinedVarsSkipsCheck(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"if","expr":"anything > 1","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	if hasWarn(Validate(d), "is read but never set") {
+		t.Fatalf("undefined-var check should not run when nothing is set")
+	}
+}
+
+// An unset/absent enum field (e.g. actor with no position) must not warn.
+func TestAbsentEnumFieldDoesNotWarn(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"x","show":true}]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "is not a known value") {
+			t.Fatalf("absent enum field must not warn: %s", is.String())
+		}
+	}
+}
+
 func contains(s, sub string) bool {
 	return len(sub) == 0 || (len(s) >= len(sub) && indexOf(s, sub) >= 0)
 }
