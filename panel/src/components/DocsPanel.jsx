@@ -5,6 +5,18 @@
 import ResizeHandle from "./ResizeHandle.jsx";
 import { GROUPS, OP_DOCS } from "lvn-lang/grammar.js";
 
+// Keyboard map — the IDE's muscle-memory contract, shown in Reference.
+const SHORTCUTS = [
+  ["Ctrl/⌘ S", "Save to app (.lvns + compiled .lvn)"],
+  ["Ctrl/⌘ P", "Quick open — jump to a chapter"],
+  ["Ctrl/⌘ ⇧ F", "Search across all chapters"],
+  ["Ctrl/⌘ F / H", "Find / replace in this chapter"],
+  ["F2", "Rename a label (updates every goto/-> to it)"],
+  ["Ctrl/⌘ Click", "Go to a label's definition"],
+  ["Ctrl/⌘ /", "Toggle comment"],
+  ["Ctrl/⌘ Z / ⇧Z", "Undo / redo"],
+];
+
 const SYNTAX = [
   [":label", "a jump target"],
   ["Mara [smile]: Hi.", "speech + emotion"],
@@ -47,6 +59,15 @@ export default function DocsPanel({ onClose }) {
       <div className="syntax-mini">
         {SYNTAX.map(([c, d]) => (
           <div key={c}><code>{c}</code><span>{d}</span></div>
+        ))}
+      </div>
+
+      <div className="ref-group">
+        <div className="ref-cat">Shortcuts</div>
+        {SHORTCUTS.map(([k, d]) => (
+          <div key={k} className="ref-row">
+            <code>{k}</code><span>{d}</span>
+          </div>
         ))}
       </div>
 
