@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+### Added
+- **Animation phase 2** — `interp=spline` (Catmull-Rom through the keys) and
+  `interp=step` in the shared sampler (UITK + Canvas paths), `move …
+  orient=true` rotates the actor along the path tangent. A typo'd `interp`
+  value now fails the `.lvns` compile instead of silently playing linear.
+
 ## [0.5.0] — 2026-07-02
 
 The "reads like a book, engineered like a product" release: the full player
