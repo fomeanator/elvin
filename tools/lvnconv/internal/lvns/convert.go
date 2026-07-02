@@ -1230,6 +1230,13 @@ func buildAnimCmd(op string, p map[string]any) (Cmd, error) {
 	loop, yoyo := parseLoop(p["loop"])
 	ease, _ := p["ease"].(string)
 	interp, _ := p["interp"].(string)
+	switch interp {
+	case "", "linear", "spline", "step":
+	default:
+		// The runtime treats unknown interp as linear — surface the typo here
+		// instead of silently flattening the author's curve.
+		return nil, fmt.Errorf("%s: interp=%q is not linear|spline|step", op, interp)
+	}
 	dur, durSet := numParam(p["dur"])
 
 	withShaping := func(tr map[string]any) map[string]any {

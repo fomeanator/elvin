@@ -128,6 +128,7 @@ namespace Lvn.UI
                 float elapsed = now - act.start;
                 float t = anim.loop ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur)) : Mathf.Min(elapsed, dur);
 
+                LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
                 foreach (var tr in anim.tracks)
                 {
                     if (tr == null || tr.keys == null || tr.keys.Count == 0 || string.IsNullOrEmpty(tr.prop)) continue;
@@ -141,8 +142,8 @@ namespace Lvn.UI
                         float v = Sample(tr, t);
                         if (string.IsNullOrEmpty(tr.layer))
                         {
-                            if (tr.prop == "screen_x") ssx = v;       // move the whole actor across the screen
-                            else if (tr.prop == "screen_y") ssy = v;
+                            if (tr.prop == "screen_x") { ssx = v; if (tr.orient) orientX = tr; } // move the whole actor across the screen
+                            else if (tr.prop == "screen_y") { ssy = v; pathY = tr; }
                             else rig.Apply(tr.prop, v);
                         }
                         else
@@ -153,6 +154,8 @@ namespace Lvn.UI
                         }
                     }
                 }
+                if (orientX != null && pathY != null)
+                    rig.Apply("rotation", OrientAngle(orientX, pathY, t, dur));
                 if (!anim.loop && elapsed >= dur) (done ??= new List<string>()).Add(kv.Key);
             }
 
@@ -225,12 +228,39 @@ namespace Lvn.UI
                 float t0 = K0(keys[i]), t1 = K0(keys[i + 1]);
                 if (t >= t0 && t <= t1)
                 {
+                    if (tr.interp == "step") return V(keys[i]); // hold until the next key
                     float u = t1 > t0 ? (t - t0) / (t1 - t0) : 0f;
                     u = Ease(tr.ease, Mathf.Clamp01(u));
+                    if (tr.interp == "spline")
+                    {
+                        // Catmull-Rom through the key values (ends clamped) — the
+                        // curve passes through every key, unlike a fitted Bezier.
+                        float p0 = V(keys[Mathf.Max(0, i - 1)]);
+                        float p1 = V(keys[i]);
+                        float p2 = V(keys[i + 1]);
+                        float p3 = V(keys[Mathf.Min(keys.Count - 1, i + 2)]);
+                        return 0.5f * ((2f * p1) + (-p0 + p2) * u
+                            + (2f * p0 - 5f * p1 + 4f * p2 - p3) * u * u
+                            + (-p0 + 3f * p1 - 3f * p2 + p3) * u * u * u);
+                    }
                     return Mathf.Lerp(V(keys[i]), V(keys[i + 1]), u);
                 }
             }
             return V(last);
+        }
+
+        /// <summary>Tangent angle of a screen-space path pair at time <paramref name="t"/>,
+        /// in degrees, y-down clockwise-positive (the UI Toolkit rotate convention;
+        /// the Canvas path negates it). Central difference over the sampled curve, so
+        /// it respects easing and spline interpolation.</summary>
+        internal static float OrientAngle(LvnAnimTrack xTr, LvnAnimTrack yTr, float t, float dur)
+        {
+            float eps = Mathf.Max(0.0005f, dur / 200f);
+            float t0 = Mathf.Max(0f, t - eps), t1 = Mathf.Min(dur, t + eps);
+            float dx = Sample(xTr, t1) - Sample(xTr, t0);
+            float dy = Sample(yTr, t1) - Sample(yTr, t0);
+            if (dx == 0f && dy == 0f) return 0f;
+            return Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
         }
 
         // Frame tracks step: the value of the last key whose time is <= t.

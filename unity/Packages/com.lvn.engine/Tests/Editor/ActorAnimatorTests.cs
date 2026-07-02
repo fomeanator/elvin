@@ -173,6 +173,95 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void Yoyo_PingPongsInsteadOfRestarting()
+        {
+            ActorAnimator.Clock = () => 0f;
+            var rig = new VisualElement();
+            var a = new ActorAnimator(rig);
+            var tracks = new List<LvnAnimTrack> {
+                new LvnAnimTrack { prop = "rotation", keys = K(new object[] { 0f, 0f }, new object[] { 1f, 20f }) } };
+            a.Play("c", new LvnAnim { loop = true, yoyo = true, duration = 1f, tracks = tracks });
+
+            ActorAnimator.Clock = () => 1.9f; a.Composite();
+            Assert.AreEqual(2f, rig.style.rotate.value.angle.value, 0.5f,
+                "yoyo at elapsed 1.9 of a 1s loop is on the way BACK (t=0.1)");
+
+            a.StopAll();
+            a.Play("c", new LvnAnim { loop = true, yoyo = false, duration = 1f, tracks = tracks, }); // start=1.9
+            ActorAnimator.Clock = () => 3.8f; a.Composite();
+            Assert.AreEqual(18f, rig.style.rotate.value.angle.value, 0.5f,
+                "plain loop restarts: elapsed 1.9 → t=0.9");
+        }
+
+        [Test]
+        public void Step_HoldsUntilTheNextKey()
+        {
+            var tr = new LvnAnimTrack { prop = "y", interp = "step",
+                keys = K(new object[] { 0f, 0f }, new object[] { 1f, 10f }) };
+            Assert.AreEqual(0f, ActorAnimator.Sample(tr, 0.5f), 0.001f, "holds the left key mid-segment");
+            Assert.AreEqual(0f, ActorAnimator.Sample(tr, 0.99f), 0.001f);
+            Assert.AreEqual(10f, ActorAnimator.Sample(tr, 1f), 0.001f, "jumps exactly at the key");
+        }
+
+        [Test]
+        public void Spline_PassesThroughKeysAndRoundsTheMiddle()
+        {
+            object[][] keys = { new object[] { 0f, 0f }, new object[] { 1f, 10f }, new object[] { 2f, 0f } };
+            var lin = new LvnAnimTrack { prop = "y", keys = K(keys) };
+            var spl = new LvnAnimTrack { prop = "y", interp = "spline", keys = K(keys) };
+            // through every key, exactly like linear
+            Assert.AreEqual(0f, ActorAnimator.Sample(spl, 0f), 0.001f);
+            Assert.AreEqual(10f, ActorAnimator.Sample(spl, 1f), 0.001f);
+            Assert.AreEqual(0f, ActorAnimator.Sample(spl, 2f), 0.001f);
+            // Catmull-Rom bulges above the straight chord on the way up
+            Assert.AreEqual(5.625f, ActorAnimator.Sample(spl, 0.5f), 0.01f);
+            Assert.Greater(ActorAnimator.Sample(spl, 0.5f), ActorAnimator.Sample(lin, 0.5f));
+        }
+
+        [Test]
+        public void OrientAngle_FollowsThePathTangent()
+        {
+            LvnAnimTrack T(string prop, float v0, float v1) => new LvnAnimTrack
+            { prop = prop, keys = K(new object[] { 0f, v0 }, new object[] { 1f, v1 }) };
+            // down-right diagonal (y grows downward on screen) → +45°
+            Assert.AreEqual(45f, ActorAnimator.OrientAngle(T("screen_x", 0f, 1f), T("screen_y", 0f, 1f), 0.5f, 1f), 0.5f);
+            // horizontal → 0°; up-right → -45°
+            Assert.AreEqual(0f, ActorAnimator.OrientAngle(T("screen_x", 0f, 1f), T("screen_y", 0.3f, 0.3f), 0.5f, 1f), 0.5f);
+            Assert.AreEqual(-45f, ActorAnimator.OrientAngle(T("screen_x", 0f, 1f), T("screen_y", 1f, 0f), 0.5f, 1f), 0.5f);
+        }
+
+        [Test]
+        public void Orient_RotatesTheRigAlongThePath()
+        {
+            ActorAnimator.Clock = () => 0f;
+            var slot = new VisualElement();
+            var rig = new VisualElement();
+            var a = new ActorAnimator(rig);
+            a.SetSlot(slot, 0f, 0f);
+            a.Play("move", new LvnAnim
+            {
+                loop = false, duration = 1f,
+                tracks = new List<LvnAnimTrack>
+                {
+                    new LvnAnimTrack { prop = "screen_x", orient = true, keys = K(new object[] { 0f, 0f }, new object[] { 1f, 0.5f }) },
+                    new LvnAnimTrack { prop = "screen_y", keys = K(new object[] { 0f, 0f }, new object[] { 1f, 0.5f }) },
+                },
+            });
+            ActorAnimator.Clock = () => 0.5f; a.Composite();
+            Assert.AreEqual(45f, rig.style.rotate.value.angle.value, 0.5f, "actor faces along the diagonal path");
+        }
+
+        [Test]
+        public void InterpAndOrient_DeserializeFromJson()
+        {
+            const string json = @"{ ""prop"": ""screen_x"", ""interp"": ""spline"", ""orient"": true,
+                ""keys"": [[0,0],[1,0.5]] }";
+            var tr = JsonConvert.DeserializeObject<LvnAnimTrack>(json);
+            Assert.AreEqual("spline", tr.interp);
+            Assert.IsTrue(tr.orient);
+        }
+
+        [Test]
         public void Easing_ChangesTheMidpointButNotEndpoints()
         {
             var lin = Track("linear", new object[] { 0f, 0f }, new object[] { 1f, 10f });

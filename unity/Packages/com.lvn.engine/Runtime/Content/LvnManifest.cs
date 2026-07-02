@@ -110,6 +110,9 @@ namespace Lvn.Content
         /// (smooth Catmull-Rom through the keys) | <c>step</c>. Forward-compatible —
         /// the linear sampler treats unknown values as linear.</summary>
         public string interp;
+        /// <summary>On the <c>screen_x</c> track of a path pair (<c>move …
+        /// orient=true</c>): rotate the actor to face along the path tangent.</summary>
+        public bool orient;
         /// <summary><c>[[time, value], …]</c>. Value is a number for transforms,
         /// or an axis value string for <c>frame</c> tracks.</summary>
         public List<object[]> keys;
