@@ -24,6 +24,11 @@ namespace Lvn.UI
         private readonly System.Collections.Generic.Dictionary<string, string> _playingUrl
             = new System.Collections.Generic.Dictionary<string, string>();
 
+        // The author's last set volume per channel — the player's preference
+        // multiplies onto it, so "музыка 50%" scales whatever the script asked for
+        // instead of overriding it.
+        private float _authMusic = 1f, _authAmbient = 1f, _authSfx = 1f;
+
         private void Awake()
         {
             _music = gameObject.AddComponent<AudioSource>();
@@ -32,6 +37,31 @@ namespace Lvn.UI
             foreach (var s in new[] { _music, _ambient, _sfx }) s.playOnAwake = false;
             _music.loop = true;
             _ambient.loop = true;
+            LvnPrefs.Changed += ApplyUserVolumes;
+        }
+
+        private void OnDestroy() => LvnPrefs.Changed -= ApplyUserVolumes;
+
+        private static float UserScale(string channel) =>
+            channel == "music" ? LvnPrefs.VolMusic
+            : channel == "ambient" ? LvnPrefs.VolAmbient
+            : LvnPrefs.VolSfx;
+
+        // Re-scale the live sources when the player moves a volume slider. A fade
+        // in flight keeps its own target (it snaps on the next command) — fine for
+        // a settings tweak.
+        private void ApplyUserVolumes()
+        {
+            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic;
+            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient;
+            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx;
+        }
+
+        private void RememberAuthored(string channel, float v)
+        {
+            if (channel == "music") _authMusic = v;
+            else if (channel == "ambient") _authAmbient = v;
+            else _authSfx = v;
         }
 
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host
@@ -55,13 +85,15 @@ namespace Lvn.UI
             if (assets == null || string.IsNullOrEmpty(url)) return;
 
             float volume = NumOr(cmd["volume"], 1f);
+            RememberAuthored(channel, volume);
+            float effective = volume * UserScale(channel);
 
             // Idempotent for looping channels: the same track already playing (a
             // load/rollback replay) keeps its position — only the volume updates.
             if (channel != "sfx" && src.isPlaying
                 && _playingUrl.TryGetValue(channel, out var cur) && cur == url)
             {
-                src.volume = volume;
+                src.volume = effective;
                 return;
             }
 
@@ -80,11 +112,11 @@ namespace Lvn.UI
             {
                 src.volume = 0f;
                 src.Play();
-                StartCoroutine(FadeAudio(src, 0f, volume, fade, stopAtEnd: false));
+                StartCoroutine(FadeAudio(src, 0f, effective, fade, stopAtEnd: false));
             }
             else
             {
-                src.volume = volume;
+                src.volume = effective;
                 src.Play();
             }
         }

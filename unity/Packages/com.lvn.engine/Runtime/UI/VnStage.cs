@@ -162,6 +162,15 @@ namespace Lvn.UI
             // current variables so on-screen stats track changes (incl. background ones).
             root.schedule.Execute(RefreshLabels).Every(200);
 
+            // Auto-advance: hands-free reading — once a line finishes revealing and
+            // its reading delay passes, advance as if tapped. Choices always wait.
+            root.schedule.Execute(AutoAdvanceTick).Every(100);
+
+            // Player comfort settings (dialogue window opacity now, live on change).
+            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
+            LvnPrefs.Changed -= OnPrefsChanged;
+            LvnPrefs.Changed += OnPrefsChanged;
+
             root.pickingMode = PickingMode.Position;
             root.RegisterCallback<PointerDownEvent>(OnPointerDown);
             // Desktop convenience (the Ren'Py convention): wheel-up steps back one beat.
@@ -204,6 +213,7 @@ namespace Lvn.UI
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
+            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             _choices = new ChoiceList(Theme);
             int fxIndex = root.IndexOf(_fx); // keep z-order: …, dialogue, choices, fx
             if (fxIndex < 0) fxIndex = root.childCount;
@@ -263,6 +273,45 @@ namespace Lvn.UI
             _cts?.Cancel();
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
+            LvnPrefs.Changed -= OnPrefsChanged;
+        }
+
+        private void OnPrefsChanged()
+        {
+            _dialogue?.SetUserOpacity(LvnPrefs.DialogOpacity);
+        }
+
+        // ── auto-advance ─────────────────────────────────────────────────────
+        // Reading delay after the reveal completes, scaled by line length and the
+        // player's preference — the standard hands-free mode.
+        private float _autoRevealDoneAt = -1f;
+        private int _lastSayLength;
+
+        /// <summary>Extra gate a host/menu can close to hold auto-advance (and
+        /// tap handling) while an overlay is up.</summary>
+        public bool InputBlocked;
+
+        private void AutoAdvanceTick()
+        {
+            if (!LvnPrefs.AutoAdvance || InputBlocked
+                || _player == null || _player.Finished || _player.AtChoice
+                || !_awaitingTap || _awaitingWait
+                || _dialogue == null || _dialogue.IsRevealing)
+            {
+                _autoRevealDoneAt = -1f;
+                return;
+            }
+            // First tick after the reveal finished: start the reading timer.
+            if (_autoRevealDoneAt < 0f)
+            {
+                _autoRevealDoneAt = Time.realtimeSinceStartup;
+                return;
+            }
+            float delay = (0.55f + 0.035f * _lastSayLength) * LvnPrefs.AutoDelayScale;
+            if (Time.realtimeSinceStartup - _autoRevealDoneAt < delay) return;
+            _autoRevealDoneAt = -1f;
+            _awaitingTap = false;
+            _player.Advance();
         }
 
         private void OnDestroy()
@@ -492,6 +541,8 @@ namespace Lvn.UI
             _dialogue.SetSpeaker(who);
             _dialogue.ApplyStyle(style);
             _dialogue.Reveal(text);
+            _lastSayLength = text?.Length ?? 0; // drives the auto-advance reading delay
+            _autoRevealDoneAt = -1f;
             _awaitingTap = true;
             _sayUp = true;
             _curChoices = null;
@@ -815,6 +866,7 @@ namespace Lvn.UI
 
         private void ApplyFlash(JObject cmd)
         {
+            if (LvnPrefs.ReduceMotion) return; // vestibular/photosensitivity comfort
             var colour = ParseColor((string)cmd["color"], Color.white);
             float dur = NumOr(cmd["duration"], 0.2f);
             _fx.Flash(colour, dur);
@@ -884,6 +936,7 @@ namespace Lvn.UI
             {
                 case "shake":
                 {
+                    if (LvnPrefs.ReduceMotion) break; // comfort setting: no screen shake
                     float amp = NumOr(cmd["amplitude"], 8f);
                     if (UseCanvasScene) _scene?.Shake(amp, dur); else _camera.Shake(amp, dur);
                     break;
