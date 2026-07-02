@@ -48,6 +48,14 @@ namespace Lvn.UI.Screens
 
         public bool AskName = true;
 
+        [Tooltip("Player/account id for server-synced saves (/v1/state?user=…). Leave " +
+                 "empty to use a per-device id generated once and kept in PlayerPrefs. " +
+                 "Stats always work offline; the server is a durable cross-device backup.")]
+        public string UserId = "";
+
+        [Tooltip("Shared secret gating this user's server saves (X-State-Key). MUST be the same on every device when UserId is a cross-device account; leave empty for a per-device secret.")]
+        public string StateKey = "";
+
         [Tooltip("Live content sync: poll the server's version endpoint this often (seconds). " +
                  "Edit a .lvn or the manifest on the server and the app reloads within one interval. " +
                  "0 disables polling.")]
@@ -57,11 +65,13 @@ namespace Lvn.UI.Screens
         private NovelShell _shell;
         private DownloadManager _downloads;
         private ContentSync _sync;
+        private ILvnStateStore _state;   // stat/var persistence (local-first, optional server sync)
         private LvnChapter _currentChapter;
         private LvnTitle _currentTitle; // the playing title — for live per-title re-theming
         private string _currentScriptJson;
         private string _playerName;
         private LvnUiConfig _globalUi; // manifest.ui — the base for per-title theming
+        private LvnManifest _manifest; // the live manifest (cross-chapter save routing)
 
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
@@ -80,6 +90,13 @@ namespace Lvn.UI.Screens
             }
 
             _assets = new CachingAssets(contentBase);
+
+            // Stat/var persistence: a bundled offline build keeps stats locally; a
+            // server build syncs through /v1/state (local-first, so it still plays and
+            // keeps stats when the server is down).
+            _state = OfflineBundled
+                ? (ILvnStateStore)new LocalStateStore()
+                : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
 
             // Connectivity gate (Liminal-style): probe the server with a hard 3s
             // deadline so an unreachable server falls straight through to the offline
@@ -121,7 +138,9 @@ namespace Lvn.UI.Screens
             // the shell screens read manifest.ui — so the whole game is themeable.
             // (A title can override this per-game; applied in PlayChapterAsync.)
             _globalUi = manifest.ui;
+            _manifest = manifest;
             Stage.ApplyTheme(VnThemeBuilder.From(manifest.ui, Stage.Theme));
+            Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
             _downloads = new DownloadManager(_assets.Loader);
             var prefetch = SafeBootPrefetch(manifest, online);
@@ -259,15 +278,62 @@ namespace Lvn.UI.Screens
             catch { return null; }
         }
 
-        // Stream the chapter script and run it through the VnStage. The shell's
-        // opaque carousel covers the stage between chapters, so no activation
-        // toggling is needed — we just play, drive the HUD, and return on finish.
+        // Play a title from its entry point and KEEP GOING: when a chapter finishes,
+        // the next one (by number) follows seamlessly — the player reads the whole
+        // novel without bouncing off the carousel between episodes. A progress
+        // marker remembers the furthest chapter started, so re-entering the title
+        // continues there (and the in-chapter autosave restores the exact line);
+        // finishing the last chapter clears it so a replay starts clean.
         private async Task PlayChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
+        {
+            var resume = LvnProgress.Current(title);
+            if (resume != null) chapter = resume;
+            while (chapter != null)
+            {
+                LvnProgress.SetCurrent(title, chapter);
+                var finished = await PlayOneChapterAsync(title, chapter, playerName);
+                if (finished == null) break; // left mid-chapter (cancel/error) → carousel
+                // A cross-chapter save load can land the player in another title —
+                // continue along whichever title the finished chapter belongs to.
+                var (owner, _) = FindChapterByScriptUrl(finished.script_url);
+                if (owner != null) title = owner;
+                var next = NextChapterOf(title, finished);
+                if (next == null)
+                {
+                    LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
+                    break;
+                }
+                chapter = next;
+            }
+        }
+
+        // The next chapter by number, or null when this was the last one.
+        private static LvnChapter NextChapterOf(LvnTitle title, LvnChapter current)
+        {
+            if (title?.seasons == null || current == null) return null;
+            LvnChapter best = null;
+            foreach (var s in title.seasons)
+            {
+                if (s?.chapters == null) continue;
+                foreach (var c in s.chapters)
+                {
+                    if (c == null || c.number <= current.number) continue;
+                    if (best == null || c.number < best.number) best = c;
+                }
+            }
+            return best;
+        }
+
+        // Stream one chapter's script and run it through the VnStage, driving the
+        // HUD until it ends. Returns the chapter that actually FINISHED (it can
+        // differ from the requested one — a cross-chapter save load switches the
+        // stage mid-play), or null when the player left mid-chapter.
+        private async Task<LvnChapter> PlayOneChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
         {
             if (Stage == null || chapter == null || string.IsNullOrEmpty(chapter.script_url))
             {
                 await Task.Delay(400);
-                return;
+                return null;
             }
 
             // Clean the stage at the START too — not just on the previous chapter's
@@ -295,22 +361,67 @@ namespace Lvn.UI.Screens
             {
                 Debug.LogWarning($"[novelapp] chapter '{chapter.id}' unavailable offline (script not cached)");
                 await Task.Delay(300);
-                return;
+                return null;
             }
 
             string json;
             try { json = await _assets.Loader.DownloadScriptCached(chapter.script_url); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] script fetch failed: {ex.Message}"); return; }
-            if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[novelapp] no script for '{chapter.id}'"); return; }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] script fetch failed: {ex.Message}"); return null; }
+            if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[novelapp] no script for '{chapter.id}'"); return null; }
 
             _currentChapter = chapter;
             _currentTitle = title;
             _playerName = playerName;
             _currentScriptJson = json;
             Stage.Strings = await LoadCatalogAsync(chapter.script_url); // localization (null → inline text)
+            // Carry this title's persisted stats into the chapter (relationships, route,
+            // memory flags…). The imported global defaults are `default:true`, so they
+            // don't overwrite these; a fresh game starts empty. The store is local-first
+            // (offline-safe) and, when a server is configured, syncs through /v1/state.
+            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
+
+            // The genre-standard restart semantics: picking a chapter from the
+            // picker resets the variables to what they were when that chapter was
+            // FIRST entered — stats from the future must not leak into the past
+            // and mis-gate its choices. The live state store rolls back with it,
+            // so a later stat sync doesn't resurrect the discarded future.
+            bool restart = LvnProgress.TakeRestart(title?.id, chapter.id);
+            if (restart)
+            {
+                Stage.SeedVars = LvnProgress.Checkpoint(title?.id, chapter.id)
+                                 ?? new Newtonsoft.Json.Linq.JObject();
+                await _state.SaveVarsAsync(title?.id, Stage.SeedVars, default);
+                LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
+                Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
+            }
+
+            // Resume where the player actually was: a mid-chapter autosave for THIS
+            // script (written on choices/every few lines/app pause) beats replaying
+            // the chapter from the top. A finished chapter's autosave was deleted on
+            // OnEnd, so replays start clean.
+            var autosave = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
+            bool resuming = !restart && autosave?.Snap != null
+                            && autosave.Snap.ScriptUrl == chapter.script_url
+                            && !autosave.Snap.Finished;
+
+            // A FRESH entry (chapter transition, picker restart, first launch) is
+            // the moment the entry checkpoint captures; a mid-chapter resume must
+            // NOT overwrite it with mid-chapter stats.
+            if (!resuming)
+                LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
+
+            Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
             Stage.Play(json);
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
+
+            if (resuming)
+            {
+                Debug.Log($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
+                Stage.RestoreSnapshot(autosave.Snap);
+                if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
+                    Stage.Player.Vars["player"] = playerName;
+            }
 
             // Drive the HUD percent until the player reaches the end of the chapter.
             while (Stage.Player != null && !Stage.Player.Finished)
@@ -319,9 +430,113 @@ namespace Lvn.UI.Screens
                 try { await Task.Yield(); }
                 catch (OperationCanceledException) { break; }
             }
+            // Persist the chapter's ending state so the next chapter (and the next
+            // session) resume with the same stats — whether it finished or the player
+            // left mid-chapter (the loop also breaks on cancellation).
+            if (Stage.Player != null) await _state.SaveVarsAsync(title?.id, VarsToJObject(Stage.Player.Vars), default);
             _shell.Hud.SetProgress(1, 1);
+            // The chapter that actually played to the end — a cross-chapter save
+            // load may have switched the stage away from the requested one.
+            bool finished = Stage.Player != null && Stage.Player.Finished;
+            var played = _currentChapter ?? chapter;
             _currentChapter = null;
             _currentTitle = null;
+            // Free the finished chapter's decoded art (a chapter can hold dozens of
+            // full-res RGBA sprites). UI art — covers, theme skins under ui/ — stays
+            // warm; the disk cache is intact so the next entry re-decodes quickly.
+            _assets.Loader.UnloadWhere(u => u.Contains("/art/") || u.Contains("/bg/"));
+            return finished ? played : null;
+        }
+
+        // Cross-chapter save routing: a slot taken in another chapter resolves to
+        // its chapter by script url, fetches that script, plays it and restores —
+        // all in place, while the shell's play-loop keeps driving whatever player
+        // the stage currently holds. Wired into VnStage.CrossChapterLoader.
+        private async Task<bool> CrossChapterLoadAsync(LvnSaveSlot slot)
+        {
+            var url = slot?.Snap?.ScriptUrl;
+            if (string.IsNullOrEmpty(url) || Stage == null) return false;
+            var (title, chapter) = FindChapterByScriptUrl(url);
+            if (chapter == null)
+            {
+                Debug.LogWarning($"[novelapp] save points at unknown chapter: {url}");
+                return false;
+            }
+
+            string json;
+            try { json = await _assets.Loader.DownloadScriptCached(url); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] cross-chapter fetch failed: {ex.Message}"); return false; }
+            if (string.IsNullOrEmpty(json)) return false;
+
+            Stage.ClearStage();
+            Stage.Strings = await LoadCatalogAsync(url);
+            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
+            Stage.SetSaveContext(title?.id, chapter.id, url);
+            Stage.Play(json);
+            if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
+                Stage.Player.Vars["player"] = _playerName;
+            Stage.RestoreSnapshot(slot.Snap);
+            _currentChapter = chapter;
+            _currentTitle = title ?? _currentTitle;
+            _currentScriptJson = json;
+            LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
+            Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
+            return true;
+        }
+
+        private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)
+        {
+            if (_manifest?.titles == null) return (null, null);
+            foreach (var t in _manifest.titles)
+            {
+                if (t?.seasons == null) continue;
+                foreach (var s in t.seasons)
+                {
+                    if (s?.chapters == null) continue;
+                    foreach (var c in s.chapters)
+                        if (c != null && c.script_url == scriptUrl)
+                            return (t, c);
+                }
+            }
+            return (null, null);
+        }
+
+        // The save identity for /v1/state. An explicit UserId (an account) wins; else
+        // a per-device id generated once and kept in PlayerPrefs.
+        private string ResolveUserId()
+        {
+            if (!string.IsNullOrEmpty(UserId)) return UserId;
+            var id = PlayerPrefs.GetString("lvn_user", "");
+            if (string.IsNullOrEmpty(id))
+            {
+                id = System.Guid.NewGuid().ToString("N");
+                PlayerPrefs.SetString("lvn_user", id);
+                PlayerPrefs.Save();
+            }
+            return id;
+        }
+
+        // Snapshot the player's live variables as a JObject the state store persists.
+        private static Newtonsoft.Json.Linq.JObject VarsToJObject(
+            System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> vars)
+        {
+            var jo = new Newtonsoft.Json.Linq.JObject();
+            if (vars != null)
+                foreach (var kv in vars)
+                    jo[kv.Key] = kv.Value?.DeepClone();
+            return jo;
+        }
+
+        // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
+        // Fire-and-forget — the store writes its LOCAL cache synchronously before the
+        // first await, so stats are safe even if the process is suspended immediately.
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
+                _ = _state.SaveVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars), default);
+            // Position too, not just stats — so a suspended app resumes on the same
+            // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
+            if (paused) Stage?.AutosaveNow();
         }
 
         // Server content changed: refresh the version index, re-apply the manifest
@@ -337,6 +552,7 @@ namespace Lvn.UI.Screens
             CacheManifest(manifest); // keep the offline copy fresh on every live update
             _shell?.ApplyLiveUpdate(manifest);
             _globalUi = manifest.ui;
+            _manifest = manifest; // cross-chapter routing follows the live manifest
             if (Stage != null)
             {
                 Stage.Catalog = new SpriteCatalog(manifest.sprites);
@@ -362,7 +578,17 @@ namespace Lvn.UI.Screens
             string json;
             try { json = await _assets.Loader.DownloadScriptText(_currentChapter.script_url); }
             catch { return; }
-            if (string.IsNullOrEmpty(json) || json == _currentScriptJson) return;
+            if (string.IsNullOrEmpty(json)) return;
+            if (json == _currentScriptJson)
+            {
+                // The script didn't change — only assets did (a replaced sprite or
+                // background). Re-apply the visible stage in place so the new art shows
+                // live, without restarting the chapter. The version index was just
+                // re-warmed, so each sprite reloads under its new content hash.
+                if (Stage.Player != null && !Stage.Player.Finished)
+                    Stage.Player.ReplayVisuals(Stage.Player.Index + 1);
+                return;
+            }
             _assets.Loader.RefreshScriptInBackground(_currentChapter.script_url);
 
             _currentScriptJson = json;

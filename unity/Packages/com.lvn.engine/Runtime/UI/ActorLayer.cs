@@ -292,6 +292,39 @@ namespace Lvn.UI
             }
         }
 
+        // Loose name key for speaker↔slot matching: lower-case, letters/digits only.
+        // A slot id ("Нина_Павловна") and a say's who ("Нина Павловна") fold to the
+        // same key, so the classic "speaker bright, rest dimmed" works without the
+        // script and the stage having to agree on an exact id spelling.
+        private static string NameKey(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (var c in s.ToLowerInvariant())
+                if (char.IsLetterOrDigit(c)) sb.Append(c);
+            return sb.ToString();
+        }
+
+        /// <summary>Classic VN focus: the character who is speaking goes full opacity,
+        /// everyone else present dims. Matches the speaker to a slot by loose name key.
+        /// When the speaker isn't on stage (narration / off-screen voice) the current
+        /// dim is left as-is, so prose about the scene doesn't make everyone flicker.</summary>
+        public void HighlightSpeaker(string who)
+        {
+            var target = NameKey(who);
+            if (target == "") return;
+            bool present = false;
+            foreach (var kv in _slots)
+                if (NameKey(kv.Key) == target) { present = true; break; }
+            if (!present) return; // speaker has no sprite — keep the current focus
+            foreach (var kv in _slots)
+            {
+                float op = NameKey(kv.Key) == target ? 1f : 0.55f;
+                kv.Value.style.opacity = op;
+                _baseOpacity[kv.Key] = op;
+            }
+        }
+
         public void RemoveAll()
         {
             foreach (var a in _animators.Values) a.StopAll();

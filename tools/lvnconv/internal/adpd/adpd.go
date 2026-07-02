@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -322,6 +323,13 @@ type flow struct {
 	childrenOf map[uint32][]uint32
 	contSet    map[uint32]bool
 
+	// parentOf maps every flow node → its container parent (from pParent 0x0c on
+	// the child). This is articy's REAL hierarchy (ArticyHierarchyManager); the
+	// pChild-based childrenOf above is incomplete (a container doesn't list all its
+	// children). Chapter splitting uses parentOf — the project root's FlowFragment
+	// children are the chapters, each subtree complete.
+	parentOf map[uint32]uint32
+
 	// pg is articy's own pin/connection graph: for a DialogFragment it resolves the
 	// stops reachable next (descending containers via pins) — the player's branches.
 	pg *pinGraph
@@ -348,9 +356,18 @@ func decodeFlow(d []byte) flow {
 		text: map[uint32]string{}, guid: map[uint32]string{}, sp: map[uint32]string{},
 		logic: map[uint32]logicNode{}, succ: map[uint32][]edge{}, nodes: map[uint32]bool{},
 		childrenOf: map[uint32][]uint32{}, contSet: map[uint32]bool{},
-		pg: buildPinGraph(objs),
+		parentOf: map[uint32]uint32{},
+		pg:       buildPinGraph(objs),
 	}
 	for _, o := range objs {
+		// Real hierarchy: every flow node records its parent container (pParent).
+		if self, ok := o.u32(pSelf); ok {
+			if _, isFlow := fl.pg.class[self]; isFlow {
+				if par, ok := o.u32(pParent); ok {
+					fl.parentOf[self] = par
+				}
+			}
+		}
 		switch o.classId {
 		case cidConnection:
 			r := o.refs(pConn)
@@ -555,6 +572,566 @@ func (fl flow) hierarchyOrder() []uint32 {
 // reached dead-end leaf (a single goto, never a bogus choice). Self-validates 100%
 // coverage; returns ok=false to fall back to linearizeByHierarchy if anything would
 // be stranded.
+// linearizeFaithful is the port of articy's TraverseFlow: it builds the flow graph
+// over ONLY emittable nodes (DialogFragment / Condition / Outcome), connected by
+// forward pin-flow (reachFromPin descends/surfaces containers, passes through
+// hubs). A DF with ≥2 forward targets is a player choice whose branches reconverge
+// forward at their shared next node — no backward "revisit the menu" loop unless
+// the author genuinely wired one. Conditions stay as if/then/else (kept in
+// fl.logic), Outcomes as set. Returns the root entries + ok; ok=false (stranded
+// content) falls back to the older heuristics.
+// tops are the entry container(s) to descend from; allowed bounds it to a chapter
+// subtree (nil = whole novel).
+func linearizeFaithful(fl flow, tops []uint32, allowed map[uint32]bool) ([]uint32, bool) {
+	if fl.pg == nil {
+		return nil, false
+	}
+	pg := fl.pg
+	entries := pg.rootEntry(tops, allowed)
+	if len(entries) == 0 {
+		return nil, false
+	}
+
+	var emit []uint32
+	for n, c := range pg.class {
+		if !pg.isEmittable(n) {
+			continue
+		}
+		if allowed != nil && !allowed[n] {
+			continue
+		}
+		emit = append(emit, n)
+		fl.nodes[n] = true
+		if c == cidCondition {
+			// [in, out-true, out-false] → two branches, tagged by source pin so
+			// emitModels' conditionPins can split them into the true/false outputs.
+			ops := pg.outPins(n)
+			var es []edge
+			for _, op := range ops {
+				for _, t := range pg.reachFromPin(op, allowed) {
+					es = append(es, edge{src: n, dst: t, srcPin: op})
+				}
+			}
+			fl.succ[n] = es
+			continue
+		}
+		// DialogFragment (say / choice) or Outcome (set): single output pin, its
+		// forward targets. ≥2 targets ⇒ a choice.
+		var targets []uint32
+		seen := map[uint32]bool{}
+		for _, p := range pg.outPins(n) {
+			for _, t := range pg.reachFromPin(p, allowed) {
+				if !seen[t] {
+					seen[t] = true
+					targets = append(targets, t)
+				}
+			}
+		}
+		var es []edge
+		for _, t := range targets {
+			es = append(es, edge{src: n, dst: t})
+		}
+		fl.succ[n] = es
+	}
+
+	// Coverage: reach from the root entries; chain any stranded emittable island
+	// (pockets entered only by Jump, etc.) onto a reached dead-end leaf so nothing
+	// is lost — a single forward goto, never a bogus choice.
+	_, R := bfs(fl, entries, 1<<30)
+	var leaves []uint32
+	for _, n := range emit {
+		if R[n] && len(fl.succ[n]) == 0 {
+			leaves = append(leaves, n)
+		}
+	}
+	sort.Slice(emit, func(i, j int) bool { return emit[i] < emit[j] })
+	extra := append([]uint32{}, entries...)
+	for _, x := range emit {
+		if R[x] {
+			continue
+		}
+		// Chain the stranded island onto a reached dead-end leaf (a forward goto), so
+		// it flows in continuously. If there's no leaf to chain from, surface the
+		// island as an extra entry (a chapter-hub branch) — never drop it.
+		if len(leaves) > 0 {
+			l := leaves[len(leaves)-1]
+			leaves = leaves[:len(leaves)-1]
+			fl.succ[l] = []edge{{src: l, dst: x}}
+		} else {
+			extra = append(extra, x)
+		}
+		_, sub := bfs(fl, []uint32{x}, 1<<30)
+		for k := range sub {
+			if !R[k] {
+				R[k] = true
+				if pg.isEmittable(k) && len(fl.succ[k]) == 0 {
+					leaves = append(leaves, k)
+				}
+			}
+		}
+	}
+	return extra, true
+}
+
+// forwardEdges returns a node's forward pin-flow edges over emittable targets —
+// articy's TraverseFlow reduced to "the next stop(s) leaving this node". A
+// Condition keeps its per-pin (true/false) source so emitModels can split it.
+// allowed (nil = whole novel) bounds the flow to a chapter subtree — a cross-
+// boundary edge is simply dropped, so a chapter file ends where the story leaves it.
+func forwardEdges(pg *pinGraph, n uint32, allowed map[uint32]bool) []edge {
+	if pg.class[n] == cidCondition {
+		var es []edge
+		for _, op := range pg.outPins(n) {
+			for _, t := range pg.reachFromPin(op, allowed) {
+				es = append(es, edge{src: n, dst: t, srcPin: op})
+			}
+		}
+		return es
+	}
+	var es []edge
+	seen := map[uint32]bool{}
+	for _, p := range pg.outPins(n) {
+		for _, t := range pg.reachFromPin(p, allowed) {
+			if !seen[t] {
+				seen[t] = true
+				es = append(es, edge{src: n, dst: t})
+			}
+		}
+	}
+	return es
+}
+
+// linearizeAnchored is the true articy linearizer: it anchors the flow to the
+// REAL container hierarchy (parentOf), so ANY project yields ONE continuous,
+// chapter-ordered spine — never a fan-out menu of disconnected islands (the
+// regression that turned a novel into a 54-button "Дальше" index).
+//
+//   - Sequencing and choices come from the forward pin-flow (reachFromPin) — this
+//     IS articy's own TraverseFlow: a DialogFragment with ≥2 forward targets is a
+//     real player choice whose branches reconverge forward; Conditions stay if/else,
+//     Outcomes stay set. So within any connected region the order and menus are exact.
+//   - The ENTRY and the order of otherwise-disconnected regions come from the
+//     hierarchy: the root's chapter children, ordered by the episode number in their
+//     name ("Эпизод 3. …" → 3), each entered through its input pin. Projects without
+//     numbered chapters fall back to authoring order — still one spine.
+//
+// Every emittable node lands on the single spine; a stranded pocket is chained onto
+// a reached dead-end as a forward goto (in chapter/reading order), never surfaced as
+// a bogus option. Returns a single entry; ok=false only without a hierarchy root.
+//
+// allowed (nil = whole novel) bounds everything to a subtree — this is how the
+// chapter splitter reuses the exact same linearizer per chapter (root = the chapter
+// container, allowed = its subtree), so a chapter file is linearised identically to
+// the whole novel, just scoped.
+func linearizeAnchored(fl flow, root uint32, allowed map[uint32]bool) ([]uint32, bool) {
+	pg := fl.pg
+	if pg == nil {
+		return nil, false
+	}
+	inScope := func(n uint32) bool { return allowed == nil || allowed[n] }
+	// 1. forward pin-flow graph over emittable nodes.
+	var emit []uint32
+	for n := range pg.class {
+		if !pg.isEmittable(n) || !inScope(n) {
+			continue
+		}
+		emit = append(emit, n)
+		fl.nodes[n] = true
+		fl.succ[n] = forwardEdges(pg, n, allowed)
+	}
+	if len(emit) == 0 {
+		return nil, false
+	}
+	sort.Slice(emit, func(i, j int) bool { return emit[i] < emit[j] })
+
+	// 2. chapters = root's children (in scope), ordered by the number in the name.
+	kids := completeChildren(fl)
+	chapters := []uint32{}
+	for _, c := range kids[root] {
+		if inScope(c) {
+			chapters = append(chapters, c)
+		}
+	}
+	sort.SliceStable(chapters, func(i, j int) bool {
+		ni, nj := chapterNum(fl.text[chapters[i]]), chapterNum(fl.text[chapters[j]])
+		if ni != nj {
+			return ni < nj
+		}
+		return chapters[i] < chapters[j]
+	})
+	chapIndex := map[uint32]int{}
+	for i, c := range chapters {
+		chapIndex[c] = i
+	}
+	chapterRank := func(n uint32) int {
+		cur := n
+		for i := 0; i < 1<<16; i++ {
+			p, ok := fl.parentOf[cur]
+			if !ok || p == root {
+				if idx, ok := chapIndex[cur]; ok {
+					return idx
+				}
+				return len(chapters)
+			}
+			cur = p
+		}
+		return len(chapters)
+	}
+
+	// 3. forward-roots (no predecessor). Every one needs an incoming edge to be
+	// reachable at all; a node WITH a predecessor is already reached from some root.
+	// Ordered by chapter (episode number) then ordinal so the spine reads in story
+	// order.
+	hasPred := map[uint32]bool{}
+	for _, n := range emit {
+		for _, e := range fl.succ[n] {
+			hasPred[e.dst] = true
+		}
+	}
+	var froots []uint32
+	for _, n := range emit {
+		if !hasPred[n] {
+			froots = append(froots, n)
+		}
+	}
+	if len(froots) == 0 { // fully cyclic (no head anywhere) — enter at the lowest node
+		froots = []uint32{emit[0]}
+	}
+	sort.SliceStable(froots, func(i, j int) bool {
+		ri, rj := chapterRank(froots[i]), chapterRank(froots[j])
+		if ri != rj {
+			return ri < rj
+		}
+		return froots[i] < froots[j]
+	})
+
+	// entry = the first chapter's real start (descend its input pin), pulled to the
+	// front. Everything else keeps chapter order.
+	entry := froots[0]
+	if len(chapters) > 0 {
+		if es := pg.rootEntry([]uint32{chapters[0]}, allowed); len(es) > 0 {
+			entry = es[0]
+		}
+	}
+	ordered := []uint32{entry}
+	for _, f := range froots {
+		if f != entry {
+			ordered = append(ordered, f)
+		}
+	}
+
+	// 4. chain the roots into ONE spine: root[i-1] flows — through a natural ending
+	// (leaf) it reaches — into root[i]. Consuming ONE fresh leaf per link (never the
+	// last region's) is what keeps the story END reachable from everywhere; the
+	// earlier bug drained every leaf and left the novel an exit-less loop.
+	//
+	// firstFreeLeaf walks the FROZEN pin-flow (pinDst, snapshotted before we add any
+	// chain edges) so a chain edge can never route it to another region's leaf and
+	// close an exit-less loop between weakly-connected roots.
+	pinDst := make(map[uint32][]uint32, len(emit))
+	for _, n := range emit {
+		ds := make([]uint32, 0, len(fl.succ[n]))
+		for _, e := range fl.succ[n] {
+			ds = append(ds, e.dst)
+		}
+		pinDst[n] = ds
+	}
+	usedLeaf := map[uint32]bool{}
+	firstFreeLeaf := func(r uint32) (uint32, bool) {
+		vis := map[uint32]bool{r: true}
+		q := []uint32{r}
+		for i := 0; i < len(q); i++ {
+			x := q[i]
+			if len(pinDst[x]) == 0 && !usedLeaf[x] {
+				return x, true
+			}
+			for _, d := range pinDst[x] {
+				if !vis[d] {
+					vis[d] = true
+					q = append(q, d)
+				}
+			}
+		}
+		return 0, false
+	}
+	// dfFallback adds an exit edge to dst when no free leaf is available. It must land
+	// on a DialogFragment: a DF may carry any number of outgoing connections (it just
+	// branches), but giving an Instruction/Outcome a second output pin makes the
+	// back-end reject it ("flow runs out"). Prefers the given node, else the latest DF.
+	var latestDF uint32
+	hasDF := false
+	for _, n := range emit {
+		if pg.class[n] == cidDialogFrag && (!hasDF || n > latestDF) {
+			latestDF, hasDF = n, true
+		}
+	}
+	dfFallback := func(preferred, dst uint32) {
+		src := preferred
+		if pg.class[src] != cidDialogFrag {
+			if !hasDF {
+				return // no DF anywhere (logic-only scope) — nothing safe to attach to
+			}
+			src = latestDF
+		}
+		fl.succ[src] = append(fl.succ[src], edge{src: src, dst: dst})
+	}
+	prev := ordered[0]
+	for i := 1; i < len(ordered); i++ {
+		if l, ok := firstFreeLeaf(prev); ok {
+			usedLeaf[l] = true
+			fl.succ[l] = []edge{{src: l, dst: ordered[i]}}
+		} else { // no free leaf under prev — branch at a DialogFragment
+			dfFallback(prev, ordered[i])
+		}
+		prev = ordered[i]
+	}
+
+	// 4b. coverage: a sub-region whose ONLY entry was a cross-scope edge (dropped by
+	// `allowed` when scoping to a chapter) has no forward-root, so the root chain
+	// misses it. Chain any still-unreachable beat onto a reached ending so no content
+	// is lost — the chapter carries every line that belongs to it.
+	_, reached := bfs(fl, []uint32{entry}, 1<<30)
+	var pool []uint32
+	for _, n := range emit {
+		if reached[n] && len(fl.succ[n]) == 0 {
+			pool = append(pool, n)
+		}
+	}
+	stranded := make([]uint32, 0)
+	for _, n := range emit {
+		if !reached[n] {
+			stranded = append(stranded, n)
+		}
+	}
+	sort.SliceStable(stranded, func(i, j int) bool {
+		ri, rj := chapterRank(stranded[i]), chapterRank(stranded[j])
+		if ri != rj {
+			return ri < rj
+		}
+		return stranded[i] < stranded[j]
+	})
+	for _, s := range stranded {
+		if reached[s] {
+			continue
+		}
+		if len(pool) > 0 {
+			l := pool[len(pool)-1]
+			pool = pool[:len(pool)-1]
+			fl.succ[l] = []edge{{src: l, dst: s}}
+		} else {
+			dfFallback(prev, s)
+		}
+		_, sub := bfs(fl, []uint32{s}, 1<<30)
+		for k := range sub {
+			if !reached[k] {
+				reached[k] = true
+				if len(fl.succ[k]) == 0 {
+					pool = append(pool, k)
+				}
+			}
+		}
+		prev = s
+	}
+
+	// 5. guarantee reach-to-END: chaining can still trap a node in a sink cycle when
+	// two weakly-connected roots cross-link. Break each such cycle minimally —
+	// redirect ONE edge of its deepest (highest-ordinal = latest) node to a real
+	// ending — so a player can never dead-loop, without adding a spurious choice.
+	ensureCanEnd(fl, emit)
+
+	// 6. scene backgrounds: articy names each scene on its Dialog container
+	// ("Сцена 16. Кухня общаги"), not inline — so drop them into the flow as a
+	// narration beat at each scene's entry. AutoStage turns such a line into a `bg`,
+	// and collectArt then makes a grey placeholder for any location without art — so
+	// the import has backgrounds (real or fill-in) and visible scene transitions.
+	// Runs AFTER ensureCanEnd: a marker is a pass-through narration node (M→entry), so
+	// it preserves every path — but it isn't in `emit`, so ensureCanEnd must not see
+	// it (it would read a path through a marker as a dead end and cut real content).
+	entry = injectSceneMarkers(fl, allowed, entry)
+	return []uint32{entry}, true
+}
+
+// sceneContainerRe matches an articy scene container's name ("Сцена 16. Кухня
+// общаги") — the same shape AutoStage converts into a `bg`.
+var sceneContainerRe = regexp.MustCompile(`^\s*Сцена\s+\d+\.`)
+
+// injectSceneMarkers drops each scene's name into the flow as a narration beat at
+// the scene's entry, so AutoStage emits a background there. A synthetic node holds
+// the name; every edge ENTERING the scene from outside is rerouted through it (so
+// it fires on scene entry, not on internal loops). Returns the (possibly wrapped)
+// entry node.
+func injectSceneMarkers(fl flow, allowed map[uint32]bool, entry uint32) uint32 {
+	pg := fl.pg
+	inScope := func(n uint32) bool { return allowed == nil || allowed[n] }
+	sceneName := func(container uint32) string {
+		n := strings.TrimSpace(html.UnescapeString(fl.text[container]))
+		if sceneContainerRe.MatchString(n) {
+			return n
+		}
+		return ""
+	}
+	// scene of a node = its nearest Dialog ancestor that carries a scene name.
+	sceneOf := func(n uint32) uint32 {
+		cur := n
+		for i := 0; i < 1<<16; i++ {
+			p, ok := fl.parentOf[cur]
+			if !ok {
+				return 0
+			}
+			if pg.class[p] == cidDialog && sceneName(p) != "" {
+				return p
+			}
+			cur = p
+		}
+		return 0
+	}
+	var emit []uint32
+	for n := range pg.class {
+		if pg.isEmittable(n) && inScope(n) {
+			emit = append(emit, n)
+		}
+	}
+	sc := make(map[uint32]uint32, len(emit))
+	preds := map[uint32][]uint32{}
+	for _, n := range emit {
+		sc[n] = sceneOf(n)
+	}
+	for _, n := range emit {
+		for _, e := range fl.succ[n] {
+			preds[e.dst] = append(preds[e.dst], n)
+		}
+	}
+	// scenes present in the flow, in a stable order.
+	var scenes []uint32
+	seenScene := map[uint32]bool{}
+	for _, n := range emit {
+		if s := sc[n]; s != 0 && !seenScene[s] {
+			seenScene[s] = true
+			scenes = append(scenes, s)
+		}
+	}
+	sort.Slice(scenes, func(i, j int) bool { return scenes[i] < scenes[j] })
+
+	synth := uint32(0xE0000000)
+	for _, s := range scenes {
+		es := pg.rootEntry([]uint32{s}, allowed)
+		if len(es) == 0 || sc[es[0]] != s {
+			continue // scene entry not resolvable / not actually inside the scene
+		}
+		e := es[0]
+		m := synth
+		synth++
+		fl.text[m] = sceneName(s)
+		fl.succ[m] = []edge{{src: m, dst: e}}
+		rerouted := false
+		for _, x := range preds[e] {
+			if sc[x] == s {
+				continue // an in-scene edge stays direct (no re-fire on internal loops)
+			}
+			for i := range fl.succ[x] {
+				if fl.succ[x][i].dst == e {
+					fl.succ[x][i].dst = m
+					rerouted = true
+				}
+			}
+		}
+		if entry == e {
+			entry = m
+			rerouted = true
+		}
+		if !rerouted { // nothing enters from outside — don't leave an orphan marker
+			delete(fl.text, m)
+			delete(fl.succ, m)
+		}
+	}
+	return entry
+}
+
+// ensureCanEnd redirects the minimal set of edges so every emittable node can reach
+// a terminal (a natural ending). It repeatedly finds nodes that cannot reach any
+// terminal, takes the highest-ordinal one (the latest content = the intended tail),
+// and ADDS an edge from it to a terminal (never replacing its edges — replacing
+// would orphan its successors and drop content). Each pass frees at least one sink
+// cycle; the added edge is a rare "way out of the loop" beat.
+func ensureCanEnd(fl flow, emit []uint32) {
+	for pass := 0; pass < len(emit)+1; pass++ {
+		preds := map[uint32][]uint32{}
+		var term uint32
+		haveTerm := false
+		canEnd := map[uint32]bool{}
+		var q []uint32
+		for _, n := range emit {
+			if len(fl.succ[n]) == 0 {
+				canEnd[n] = true
+				q = append(q, n)
+				if !haveTerm {
+					term, haveTerm = n, true
+				}
+			}
+			for _, e := range fl.succ[n] {
+				preds[e.dst] = append(preds[e.dst], n)
+			}
+		}
+		if !haveTerm {
+			// The whole scope is cyclic — no ending exists at all (e.g. a chapter whose
+			// only real ending was a cross-boundary edge). Make the latest beat (highest
+			// ordinal = the chapter's tail) the ending, then re-evaluate.
+			var w uint32
+			found := false
+			for _, n := range emit {
+				if fl.pg.class[n] == cidDialogFrag && (!found || n > w) {
+					w, found = n, true
+				}
+			}
+			if !found {
+				for _, n := range emit {
+					if !found || n > w {
+						w, found = n, true
+					}
+				}
+			}
+			if !found {
+				return
+			}
+			fl.succ[w] = nil // a leaf → the story END
+			continue
+		}
+		for i := 0; i < len(q); i++ {
+			for _, p := range preds[q[i]] {
+				if !canEnd[p] {
+					canEnd[p] = true
+					q = append(q, p)
+				}
+			}
+		}
+		// Prefer to add the exit edge on a DialogFragment — it can legitimately carry
+		// an extra outgoing connection (a "leave the loop" beat). Appending to an
+		// Instruction/Condition would give it a second output pin, which the back-end
+		// rejects ("flow runs out"); for a rare logic-only cycle, redirect instead.
+		var worstDF, worstAny uint32
+		foundDF, foundAny := false, false
+		for _, n := range emit {
+			if canEnd[n] {
+				continue
+			}
+			if !foundAny || n > worstAny {
+				worstAny, foundAny = n, true
+			}
+			if fl.pg.class[n] == cidDialogFrag && (!foundDF || n > worstDF) {
+				worstDF, foundDF = n, true
+			}
+		}
+		switch {
+		case foundDF:
+			fl.succ[worstDF] = append(fl.succ[worstDF], edge{src: worstDF, dst: term})
+		case foundAny:
+			fl.succ[worstAny] = []edge{{src: worstAny, dst: term}} // logic-only cycle: redirect
+		default:
+			return // every node can reach an ending
+		}
+	}
+}
+
 func linearizeByComponents(fl flow) (uint32, bool) {
 	if fl.pg == nil {
 		return 0, false
@@ -878,9 +1455,7 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 				speakers[sp] = true
 			}
 			text, menu := fl.text[o], fl.text[o]
-			if len(menu) > 80 {
-				menu = menu[:80]
-			}
+			menu = truncateRunes(menu, 80)
 			// StableId is the fragment's articy GUID — a key that survives reimport,
 			// so saves, analytics and localization catalogs stay valid across content
 			// edits. The back-end carries it onto the say/option for the importer's
@@ -935,6 +1510,16 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 	return export{GlobalVariables: gvars, Packages: []pkg{{Models: models}}}
 }
 
+// truncateRunes caps s at n runes (not bytes), appending "…" when it trims, so
+// multi-byte text (Cyrillic, CJK) is never cut mid-character into mojibake.
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
 // conditionPins splits a condition's outgoing edges into two pins (true/false)
 // by source pin id, padding to the two pins convert.go expects.
 func conditionPins(es []edge) []any {
@@ -950,9 +1535,14 @@ func conditionPins(es []edge) []any {
 	var pins []any
 	for _, sp := range order {
 		grp := bySrc[sp]
-		pins = append(pins, map[string]any{"Text": "", "Connections": []any{
-			map[string]any{"Target": nodeID(grp[0].dst)},
-		}})
+		// Emit every connection on the pin, not just the first — a condition pin
+		// that fans out to several targets would otherwise silently drop all but
+		// one (lost content, and the coverage self-check would disagree).
+		conns := make([]any, 0, len(grp))
+		for _, e := range grp {
+			conns = append(conns, map[string]any{"Target": nodeID(e.dst)})
+		}
+		pins = append(pins, map[string]any{"Text": "", "Connections": conns})
 	}
 	for len(pins) < 2 {
 		pins = append(pins, map[string]any{"Text": "", "Connections": []any{map[string]any{"Target": dlgID}}})
@@ -1153,6 +1743,33 @@ func buildModel(fl flow, proj string, start, maxN int) export {
 		return buildExport(fl, uint32(start), maxN, gvars)
 	}
 
+	// True articy linearizer: anchor the forward pin-flow to the real container
+	// hierarchy so the whole novel is ONE continuous, chapter-ordered spine (no
+	// island-menu). Tried first whenever the project has a hierarchy root.
+	if kids := completeChildren(fl); len(kids) > 0 {
+		if root, ok := hierarchyRoot(fl, kids); ok {
+			if entries, ok := linearizeAnchored(fl, root, nil); ok {
+				gvars := globalVars(proj, flowExprs(fl))
+				reach, seen := bfs(fl, entries, math.MaxInt32)
+				return emitModels(fl, reach, seen, entries, gvars)
+			}
+		}
+	}
+	for k := range fl.succ { // anchored mutated succ — reset before the fallbacks
+		delete(fl.succ, k)
+	}
+
+	// Faithful port of articy's TraverseFlow (forward pin-flow over emittable nodes)
+	// — no spurious backward menu loops. Falls back only if it would strand content.
+	if entries, ok := linearizeFaithful(fl, wholeNovelTops(fl), nil); ok {
+		gvars := globalVars(proj, flowExprs(fl))
+		reach, seen := bfs(fl, entries, math.MaxInt32)
+		return emitModels(fl, reach, seen, entries, gvars)
+	}
+	for k := range fl.succ { // faithful mutated succ — reset before the heuristics
+		delete(fl.succ, k)
+	}
+
 	if entry, ok := linearizeByComponents(fl); ok {
 		gvars := globalVars(proj, flowExprs(fl))
 		return buildExport(fl, entry, math.MaxInt32, gvars)
@@ -1190,6 +1807,172 @@ func BuildExportJSON(path string, start, maxN int) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(buildModel(fl, proj, start, maxN))
+}
+
+// wholeNovelTops are the entry containers for a whole-novel linearization: the
+// containers that aren't listed as anyone's pChild.
+func wholeNovelTops(fl flow) []uint32 {
+	childOf := map[uint32]bool{}
+	for _, ch := range fl.childrenOf {
+		for _, c := range ch {
+			childOf[c] = true
+		}
+	}
+	var tops []uint32
+	for n, c := range fl.pg.class {
+		if (c == cidStoryFolder || c == cidFlowFrag || c == cidDialog) && !childOf[n] {
+			tops = append(tops, n)
+		}
+	}
+	return tops
+}
+
+// completeChildren inverts parentOf (child→parent) into parent→children — the REAL
+// articy hierarchy (pChild-based childrenOf is incomplete).
+func completeChildren(fl flow) map[uint32][]uint32 {
+	kids := map[uint32][]uint32{}
+	for c, p := range fl.parentOf {
+		kids[p] = append(kids[p], c)
+	}
+	return kids
+}
+
+// hierarchyRoot returns the project's Flow root — the parentless node with the most
+// FlowFragment children (its children are the chapters).
+func hierarchyRoot(fl flow, kids map[uint32][]uint32) (uint32, bool) {
+	best := -1
+	var root uint32
+	for p := range kids {
+		if _, hasParent := fl.parentOf[p]; hasParent {
+			continue
+		}
+		ff := 0
+		for _, c := range kids[p] {
+			if fl.pg.class[c] == cidFlowFrag {
+				ff++
+			}
+		}
+		if ff > best {
+			best, root = ff, p
+		}
+	}
+	return root, best >= 2
+}
+
+var reChapterNum = regexp.MustCompile(`\d+`)
+
+func chapterNum(name string) int {
+	if m := reChapterNum.FindString(name); m != "" {
+		if v, err := strconv.Atoi(m); err == nil {
+			return v
+		}
+	}
+	return 1 << 30
+}
+
+type chapterDef struct {
+	root uint32
+	name string
+	num  int
+}
+
+// detectChapters returns the project's chapters — the Flow root's FlowFragment
+// children, ordered by the number in their name (Эпизод N). Nil when the project
+// isn't chaptered (→ single whole-novel export).
+func detectChapters(fl flow) []chapterDef {
+	kids := completeChildren(fl)
+	root, ok := hierarchyRoot(fl, kids)
+	if !ok {
+		return nil
+	}
+	var out []chapterDef
+	for _, c := range kids[root] {
+		if fl.pg.class[c] != cidFlowFrag {
+			continue
+		}
+		out = append(out, chapterDef{root: c, name: strings.TrimSpace(html.UnescapeString(fl.text[c])), num: chapterNum(fl.text[c])})
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].num != out[j].num {
+			return out[i].num < out[j].num
+		}
+		return out[i].root < out[j].root
+	})
+	return out
+}
+
+// subtree returns a container plus every transitive descendant (the complete
+// hierarchy) — one chapter's scope.
+func subtree(kids map[uint32][]uint32, root uint32) map[uint32]bool {
+	allowed := map[uint32]bool{}
+	var dfs func(uint32)
+	dfs = func(n uint32) {
+		if allowed[n] {
+			return
+		}
+		allowed[n] = true
+		for _, c := range kids[n] {
+			dfs(c)
+		}
+	}
+	dfs(root)
+	return allowed
+}
+
+// ChapterExport is one chapter's articy-export JSON plus its display name.
+type ChapterExport struct {
+	Name string
+	JSON []byte
+}
+
+// BuildChaptersJSON splits a chaptered project into one articy-export per chapter
+// (the Flow root's FlowFragment children, in episode order). Each chapter is
+// linearised with the SAME anchored algorithm as the whole novel, just scoped to
+// the chapter's subtree — so within a chapter the flow, choices and reachability are
+// identical to the single-file import, and a beat whose flow leaves the chapter
+// simply ends it (the next chapter continues the story). This makes each file small
+// enough to edit comfortably, unlike one 30k-line script. Global-variable inits go
+// into every chapter so each plays standalone. Nil when the project isn't chaptered.
+func BuildChaptersJSON(path string) ([]ChapterExport, error) {
+	fl0, proj, err := loadFlow(path)
+	if err != nil {
+		return nil, err
+	}
+	chs := detectChapters(fl0)
+	if len(chs) < 2 {
+		return nil, nil
+	}
+	gvars := globalVars(proj, flowExprs(fl0))
+	kids := completeChildren(fl0) // read-only across chapters — hoist out of the loop
+
+	var out []ChapterExport
+	for _, ch := range chs {
+		// Reuse the decoded flow; reset only the per-chapter MUTABLE state (succ/nodes
+		// that linearize rewrites). Reloading + re-decoding the whole Flow partition
+		// per chapter was O(chapters × flow size) — 26× a 28 MB decode for a big novel
+		// (minutes). Everything else (pin graph, hierarchy, text) is read-only here.
+		fl := fl0
+		fl.succ = map[uint32][]edge{}
+		fl.nodes = map[uint32]bool{}
+		allowed := subtree(kids, ch.root)
+		entries, ok := linearizeAnchored(fl, ch.root, allowed)
+		if !ok || len(entries) == 0 {
+			continue
+		}
+		reach, seen := bfs(fl, entries, math.MaxInt32)
+		js, err := json.Marshal(emitModels(fl, reach, seen, entries, gvars))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ChapterExport{Name: ch.name, JSON: js})
+	}
+	if len(out) < 2 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 // Lang returns the project's primary language code (from the Settings partition,

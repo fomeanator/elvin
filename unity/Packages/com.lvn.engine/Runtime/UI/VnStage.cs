@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -53,11 +54,8 @@ namespace Lvn.UI
                  "stay on UI Toolkit above it. Off by default (UITK scene).")]
         public bool UseCanvasScene;
 
-        private VisualElement _world;   // bg + actors, the camera target (UITK path)
-        private BackgroundLayer _bg;
-        private ActorLayer _actors;
-        private CameraRig _camera;
-        private World.WorldStage _scene; // uGUI scene path (when UseCanvasScene)
+        private VisualElement _world;      // the camera target (UITK path)
+        private ISceneRenderer _renderer;  // bg + actors + camera, renderer-agnostic
         private ParticleField _particles;
         private DialogueBox _dialogue;
         private ChoiceList _choices;
@@ -66,6 +64,7 @@ namespace Lvn.UI
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
         private FxLayer _fx;
         private StageAudio _audio;
+        private StageMenu _menu;
         private Dictionary<string, CastEntity> _cast;
         private readonly Dictionary<string, LvnAnim> _talkAnims = new Dictionary<string, LvnAnim>(); // actor id → lip-sync anim
         private LvnPlayer _player;
@@ -125,19 +124,20 @@ namespace Lvn.UI
             if (UseCanvasScene)
             {
                 // sortingOrder below the panel (10) so the UITK chrome composites on top.
-                _scene = new World.WorldStage(transform, sortingOrder: 0);
-                _scene.SetBackgroundColor(Color.black);
+                var scene = new World.WorldStage(transform, sortingOrder: 0);
+                scene.SetBackgroundColor(Color.black);
+                _renderer = new CanvasSceneRenderer(scene);
             }
             else
             {
                 _world = new VisualElement { name = "vn-world", pickingMode = PickingMode.Ignore };
                 _world.style.position = Position.Absolute;
                 _world.style.left = 0; _world.style.right = 0; _world.style.top = 0; _world.style.bottom = 0;
-                _bg = new BackgroundLayer();
-                _actors = new ActorLayer();
-                _world.Add(_bg);
-                _world.Add(_actors);
-                _camera = new CameraRig(_world);
+                var bg = new BackgroundLayer();
+                var actors = new ActorLayer();
+                _world.Add(bg);
+                _world.Add(actors);
+                _renderer = new UitkSceneRenderer(bg, actors, new CameraRig(_world));
             }
 
             _particles = new ParticleField();
@@ -156,14 +156,31 @@ namespace Lvn.UI
             root.Add(_choices);
             root.Add(_labelLayer);  // HUD/stat labels above dialogue/choices
             root.Add(_fx);          // top: fades/dim veil everything below
+            _menu = new StageMenu(this, Theme);
+            root.Add(_menu);        // quick menu above even the FX veil — always reachable
             _choices.OnSelected += OnChoiceSelected;
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
             // current variables so on-screen stats track changes (incl. background ones).
             root.schedule.Execute(RefreshLabels).Every(200);
 
+            // Auto-advance: hands-free reading — once a line finishes revealing and
+            // its reading delay passes, advance as if tapped. Choices always wait.
+            root.schedule.Execute(AutoAdvanceTick).Every(100);
+
+            // Player comfort settings (dialogue window opacity now, live on change).
+            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
+            LvnPrefs.Changed -= OnPrefsChanged;
+            LvnPrefs.Changed += OnPrefsChanged;
+
             root.pickingMode = PickingMode.Position;
             root.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            // Desktop convenience (the Ren'Py convention): wheel-up steps back one beat.
+            root.RegisterCallback<WheelEvent>(evt =>
+            {
+                if (InputBlocked) return;
+                if (evt.delta.y < 0f && RollbackStep()) evt.StopPropagation();
+            });
 
             // Audio channels (music/ambient/sfx) live in their own component.
             _audio = gameObject.AddComponent<StageAudio>();
@@ -199,12 +216,20 @@ namespace Lvn.UI
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
+            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             _choices = new ChoiceList(Theme);
             int fxIndex = root.IndexOf(_fx); // keep z-order: …, dialogue, choices, fx
             if (fxIndex < 0) fxIndex = root.childCount;
             root.Insert(fxIndex, _dialogue);
             root.Insert(fxIndex + 1, _choices);
             _choices.OnSelected += OnChoiceSelected;
+
+            // The quick menu is themeable too (manifest.ui.menu) — rebuild it with
+            // the fresh theme, keeping it the topmost layer.
+            _menu?.Close();
+            _menu?.RemoveFromHierarchy();
+            _menu = new StageMenu(this, Theme);
+            root.Add(_menu);
 
             // Restore the visible beat onto the fresh chrome so a live theme change
             // never blanks the line/choices the player is mid-reading (the text is
@@ -258,6 +283,80 @@ namespace Lvn.UI
             _cts?.Cancel();
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
+            LvnPrefs.Changed -= OnPrefsChanged;
+        }
+
+        private void OnPrefsChanged()
+        {
+            _dialogue?.SetUserOpacity(LvnPrefs.DialogOpacity);
+        }
+
+        // ── auto-advance ─────────────────────────────────────────────────────
+        // Reading delay after the reveal completes, scaled by line length and the
+        // player's preference — the standard hands-free mode.
+        private float _autoRevealDoneAt = -1f;
+        private int _lastSayLength;
+
+        /// <summary>Extra gate a host/menu can close to hold auto-advance (and
+        /// tap handling) while an overlay is up.</summary>
+        public bool InputBlocked;
+
+        // ── look-ahead prefetch ──────────────────────────────────────────────
+        // While the player reads a line, warm the assets the next few beats will
+        // show — the decode happens during the pause, so a cold bg/portrait never
+        // pops in a frame late mid-scene. Bounded per beat (the sprite cache and
+        // in-flight dedup make repeats free); the set resets with the stage.
+        private readonly HashSet<string> _prefetched = new HashSet<string>();
+
+        private void PrefetchAhead()
+        {
+            if (_player == null || Assets == null) return;
+            const int lookAhead = 25, maxSprites = 6, maxAudio = 2;
+            List<string> sprites = null, audio = null;
+            foreach (var c in _player.PeekForward(lookAhead))
+            {
+                var op = (string)c["op"];
+                if (op == "bg" || op == "actor" || op == "obj")
+                {
+                    var url = (string)c["sprite_url"];
+                    if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
+                    (sprites ??= new List<string>()).Add(url);
+                }
+                else if (op == "audio")
+                {
+                    var url = (string)c["url"];
+                    if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
+                    (audio ??= new List<string>()).Add(url);
+                }
+                if ((sprites?.Count ?? 0) >= maxSprites && (audio?.Count ?? 0) >= maxAudio) break;
+            }
+            if (sprites != null && sprites.Count > maxSprites) sprites.RemoveRange(maxSprites, sprites.Count - maxSprites);
+            if (audio != null && audio.Count > maxAudio) audio.RemoveRange(maxAudio, audio.Count - maxAudio);
+            if (sprites != null) _ = Assets.PreloadAsync(sprites, "sprite", _cts.Token);
+            if (audio != null) _ = Assets.PreloadAsync(audio, "audio", _cts.Token);
+        }
+
+        private void AutoAdvanceTick()
+        {
+            if (!LvnPrefs.AutoAdvance || InputBlocked
+                || _player == null || _player.Finished || _player.AtChoice
+                || !_awaitingTap || _awaitingWait
+                || _dialogue == null || _dialogue.IsRevealing)
+            {
+                _autoRevealDoneAt = -1f;
+                return;
+            }
+            // First tick after the reveal finished: start the reading timer.
+            if (_autoRevealDoneAt < 0f)
+            {
+                _autoRevealDoneAt = Time.realtimeSinceStartup;
+                return;
+            }
+            float delay = (0.55f + 0.035f * _lastSayLength) * LvnPrefs.AutoDelayScale;
+            if (Time.realtimeSinceStartup - _autoRevealDoneAt < delay) return;
+            _autoRevealDoneAt = -1f;
+            _awaitingTap = false;
+            _player.Advance();
         }
 
         private void OnDestroy()
@@ -300,6 +399,13 @@ namespace Lvn.UI
             _dialogue?.SetText(string.Empty);
         }
 
+        /// <summary>Persistent variables to preload into the next chapter BEFORE it
+        /// runs (set by the host from its state store). With the imported global
+        /// defaults marked `default:true`, these carried-in values survive the
+        /// chapter's init block — so relationship/route/memory stats flow from one
+        /// chapter to the next and across sessions.</summary>
+        public Newtonsoft.Json.Linq.JObject SeedVars;
+
         /// <summary>Parse and start playing a .lvn document.</summary>
         public void Play(string lvnJson)
         {
@@ -309,6 +415,8 @@ namespace Lvn.UI
             ResetStage();
             _player = new LvnPlayer(doc, this);
             _player.Strings = Strings; // localization catalog (text_id → string), if any
+            if (SeedVars != null)      // carry stats in before the init defaults run
+                foreach (var p in SeedVars.Properties()) _player.Vars[p.Name] = p.Value;
             _player.OnSay += RecordSay;
             _player.Advance();
         }
@@ -326,17 +434,16 @@ namespace Lvn.UI
             // on the fresh chapter when its old timer elapses.
             StopAllCoroutines();
             _hotspots.Clear();
-            _actors?.RemoveAll();
-            _scene?.RemoveAll();
-            _scene?.ResetCamera(0f);
+            _renderer?.RemoveAll();
+            _renderer?.ResetCamera(0f);
             _talkAnims.Clear();
-            _bg?.SetColor(Color.clear);
+            _renderer?.ClearBackground();
             _particles?.Set("rain", false);
             _particles?.Set("snow", false);
             _fx?.Clear(0f);
             _fx?.ClearBlur(0f);
-            _camera?.Reset(0f);
             _backlog.Clear();
+            _prefetched.Clear(); // the next chapter/load re-warms from scratch
             _awaitingTap = false;
             _awaitingWait = false;
             _sayUp = false;
@@ -348,10 +455,61 @@ namespace Lvn.UI
         }
 
         private void RecordSay(string who, string text, string style)
-            => _backlog.Add((who, text, style));
+        {
+            // After a rollback, the restored beat re-runs and would duplicate its
+            // own backlog entry — swallow exactly that one repeat.
+            if (_suppressDupSay)
+            {
+                _suppressDupSay = false;
+                if (_backlog.Count > 0)
+                {
+                    var last = _backlog[_backlog.Count - 1];
+                    if (last.who == who && last.text == text) return;
+                }
+            }
+            _backlog.Add((who, text, style));
+            // Rolling autosave so a crash mid-scene loses a few lines at most.
+            if (++_saySinceAutosave >= 5)
+            {
+                _saySinceAutosave = 0;
+                AutosaveNow();
+            }
+        }
+
+        private bool _suppressDupSay;
+
+        /// <summary>True when there is a previous beat to roll back to.</summary>
+        public bool CanRollback => _player != null && _player.CanRollback && !_awaitingWait;
+
+        /// <summary>Step one beat back (a mis-tap safety net): restore the previous
+        /// say/choice's snapshot — variables as they were BEFORE it ran, so a picked
+        /// option's set/inc is undone — rebuild the scene there and re-show it.
+        /// Returns false when already at the first beat.</summary>
+        public bool RollbackStep()
+        {
+            if (_player == null || _awaitingWait) return false;
+            var snap = _player.PopRollback();
+            if (snap == null) return false;
+
+            // ResetStage wipes the dialogue history; a one-step rewind must keep it
+            // (minus the beat being undone — its re-run is dedup'd in RecordSay).
+            var kept = new List<(string who, string text, string style)>(_backlog);
+            if (kept.Count > 0) kept.RemoveAt(kept.Count - 1);
+
+            ResetStage();
+            _backlog.AddRange(kept);
+            _suppressDupSay = true;
+
+            _player.Restore(snap);
+            int at = _player.Index;
+            _player.ReplayVisuals(at);
+            _player.ContinueFrom(at);
+            return true;
+        }
 
         private void OnPointerDown(PointerDownEvent evt)
         {
+            if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (_player == null || _player.Finished) return;
             if (_awaitingWait) return;
 
@@ -398,19 +556,15 @@ namespace Lvn.UI
         // pixel scale and aspect (and panel-vs-canvas coordinate differences).
         private System.Action HotspotAt(Vector2 panelPos, float panelW, float panelH)
         {
-            if (_scene == null || panelW <= 0f || panelH <= 0f) return null;
+            if (_renderer == null || panelW <= 0f || panelH <= 0f) return null;
             float nx = panelPos.x / panelW, ny = panelPos.y / panelH; // UITK: top-left, y-down
-            float sw = Screen.width, sh = Screen.height;
-            if (sw <= 0f || sh <= 0f) return null;
-            var c = new Vector3[4];
             for (int i = _hotspots.Count - 1; i >= 0; i--)
             {
-                var a = _scene.ActorFor(_hotspots[i].id);
-                if (a == null || a.Slot == null) continue;
-                a.Slot.GetWorldCorners(c); // ScreenSpaceOverlay → screen pixels (y-up)
-                float left = Mathf.Min(c[0].x, c[2].x) / sw, right = Mathf.Max(c[0].x, c[2].x) / sw;
-                float top = 1f - Mathf.Max(c[0].y, c[2].y) / sh, bot = 1f - Mathf.Min(c[0].y, c[2].y) / sh;
-                if (nx >= left && nx <= right && ny >= top && ny <= bot) return _hotspots[i].onClick;
+                // Renderer-normalized rect (0..1, top-left origin); null when the
+                // renderer does its own picking or the actor is gone.
+                var r = _renderer.ActorScreenRect(_hotspots[i].id);
+                if (r == null) continue;
+                if (r.Value.Contains(new Vector2(nx, ny))) return _hotspots[i].onClick;
             }
             return null;
         }
@@ -425,6 +579,8 @@ namespace Lvn.UI
             if (_player == null || !_player.AtChoice) return;
             _player.Choose(index);
             _player.Advance();
+            // A picked branch is exactly what a crash must not lose — autosave here.
+            AutosaveNow();
         }
 
         // ── ILvnStage ─────────────────────────────────────────────────────────
@@ -434,27 +590,34 @@ namespace Lvn.UI
             _dialogue.SetSpeaker(who);
             _dialogue.ApplyStyle(style);
             _dialogue.Reveal(text);
+            _lastSayLength = text?.Length ?? 0; // drives the auto-advance reading delay
+            _autoRevealDoneAt = -1f;
             _awaitingTap = true;
             _sayUp = true;
             _curChoices = null;
+            PrefetchAhead(); // warm the next beats' art/audio while the player reads
+
+            // Classic VN focus: the speaker is at full opacity, everyone else present
+            // dims — so a two-shot reads as "this one is talking" instead of a flat row.
+            SceneHighlightSpeaker(who);
 
             // Lip-sync: only the speaking actor's mouth moves while the line is up.
             var spId = ResolveSpeakerId(who);
             foreach (var kv in _talkAnims) SceneTalk(kv.Key, kv.Value, kv.Key == spId);
         }
 
-        // Scene dispatch: route actor placement/animation to whichever renderer is
-        // live (uGUI WorldStage when UseCanvasScene, else the UITK ActorLayer), so
-        // the ILvnStage logic stays renderer-agnostic.
-        private void SceneSetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames)
-        { if (UseCanvasScene) _scene?.SetFrames(id, frames); else _actors?.SetFrames(id, frames); }
-        private void SceneEnsureIdle(string id, LvnAnim a) { if (UseCanvasScene) _scene?.EnsureIdle(id, a); else _actors?.EnsureIdle(id, a); }
-        private void SceneEnsureBlink(string id, LvnAnim a) { if (UseCanvasScene) _scene?.EnsureBlink(id, a); else _actors?.EnsureBlink(id, a); }
-        private void ScenePlayGesture(string id, LvnAnim g, LvnAnim idle) { if (UseCanvasScene) _scene?.PlayGesture(id, g, idle); else _actors?.PlayGesture(id, g, idle); }
-        private void ScenePlayAnim(string id, string channel, LvnAnim a) { if (UseCanvasScene) _scene?.PlayAnim(id, channel, a); else _actors?.PlayAnim(id, channel, a); }
-        private void ScenePlayAnimQueued(string id, string channel, LvnAnim a) { if (UseCanvasScene) _scene?.PlayAnimQueued(id, channel, a); else _actors?.PlayAnimQueued(id, channel, a); }
-        private void SceneStopAnim(string id, string target) { if (UseCanvasScene) _scene?.StopAnim(id, target); else _actors?.StopAnim(id, target); }
-        private void SceneTalk(string id, LvnAnim t, bool on) { if (UseCanvasScene) _scene?.Talk(id, t, on); else _actors?.Talk(id, t, on); }
+        // Scene calls go through the ISceneRenderer seam — path-specific behaviour
+        // lives inside UitkSceneRenderer / CanvasSceneRenderer, not in per-call-site
+        // conditionals here. These thin aliases keep historical call names readable.
+        private void SceneSetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames) => _renderer?.SetFrames(id, frames);
+        private void SceneEnsureIdle(string id, LvnAnim a) => _renderer?.EnsureIdle(id, a);
+        private void SceneEnsureBlink(string id, LvnAnim a) => _renderer?.EnsureBlink(id, a);
+        private void ScenePlayGesture(string id, LvnAnim g, LvnAnim idle) => _renderer?.PlayGesture(id, g, idle);
+        private void ScenePlayAnim(string id, string channel, LvnAnim a) => _renderer?.PlayAnim(id, channel, a);
+        private void ScenePlayAnimQueued(string id, string channel, LvnAnim a) => _renderer?.PlayAnimQueued(id, channel, a);
+        private void SceneStopAnim(string id, string target) => _renderer?.StopAnim(id, target);
+        private void SceneTalk(string id, LvnAnim t, bool on) => _renderer?.Talk(id, t, on);
+        private void SceneHighlightSpeaker(string who) => _renderer?.HighlightSpeaker(who);
 
         // ── save / load ──────────────────────────────────────────────────────
         // `save [slot=name]` writes the player snapshot (cursor + vars + call stack)
@@ -493,10 +656,109 @@ namespace Lvn.UI
                 _player.ContinueFrom(_player.Index + 1); // no/invalid save → skip the load op
                 return;
             }
+            RestoreSnapshot(snap);
+        }
+
+        /// <summary>Restore a snapshot of the CURRENT chapter in place: clean the
+        /// stage, restore cursor/vars/call stack (position resolves via its label
+        /// anchor), rebuild the scene's visuals/FX/audio up to that point, resume.
+        /// The shared machinery behind the in-script `load` op, the save/load
+        /// panel and the autosave resume.</summary>
+        public void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
+        {
+            if (_player == null || snap == null) return;
             ResetStage();                       // clean slate
-            _player.Restore(snap);              // cursor + vars + call stack
-            _player.ReplayVisuals(snap.Index);  // rebuild bg / actors / HUD up to the saved point
-            _player.ContinueFrom(snap.Index);   // resume → renders the saved beat
+            _player.Restore(snap);              // cursor (via label anchor) + vars + call stack
+            _player.ClearHistory();             // the rollback trail no longer describes the path here
+            int at = _player.Index;             // the anchor-relocated cursor, not the raw saved index
+            _player.ReplayVisuals(at);          // rebuild bg / actors / FX / audio up to the saved point
+            _player.ContinueFrom(at);           // resume → renders the saved beat
+        }
+
+        // ── persistent save slots (per title, survive restarts) ─────────────
+
+        /// <summary>Save-slot namespace + labels, set by the host per chapter entry
+        /// (title id keys the slot store; script url tags snapshots so a slot is
+        /// only restored into the chapter it belongs to).</summary>
+        public void SetSaveContext(string titleId, string chapterId, string scriptUrl)
+        {
+            _saveTitleId = titleId;
+            _saveChapterId = chapterId;
+            _saveScriptUrl = scriptUrl;
+        }
+
+        private string _saveTitleId, _saveChapterId, _saveScriptUrl;
+        private int _saySinceAutosave;
+
+        /// <summary>The title id save slots are namespaced under (host-set).</summary>
+        public string SaveTitleId => _saveTitleId;
+
+        /// <summary>Write the current position into a named persistent slot.</summary>
+        public bool SaveToSlot(string slot)
+        {
+            if (_player == null || string.IsNullOrEmpty(slot)) return false;
+            var snap = _player.Save();
+            snap.ScriptUrl = _saveScriptUrl;
+            var last = _backlog.Count > 0 ? _backlog[_backlog.Count - 1].text : "";
+            LvnSaveStore.Put(_saveTitleId, slot, new LvnSaveSlot
+            {
+                Snap = snap,
+                ChapterId = _saveChapterId,
+                Preview = last,
+            });
+            LvnPlayer.Log?.Invoke("saved slot '" + slot + "' @#" + snap.Index);
+            return true;
+        }
+
+        /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
+        /// false for another chapter's slot (see <see cref="LoadFromSlotAsync"/> for
+        /// the cross-chapter path).</summary>
+        public bool LoadFromSlot(string slot)
+        {
+            var s = LvnSaveStore.Get(_saveTitleId, slot);
+            if (s?.Snap == null || _player == null) return false;
+            if (!string.IsNullOrEmpty(s.Snap.ScriptUrl) && s.Snap.ScriptUrl != _saveScriptUrl) return false;
+            RestoreSnapshot(s.Snap);
+            return true;
+        }
+
+        /// <summary>Host hook for loading a slot that belongs to ANOTHER chapter:
+        /// resolve the chapter by <c>Snap.ScriptUrl</c>, fetch its script, play it
+        /// and restore. Wired by NovelApp; when null, cross-chapter slots simply
+        /// aren't loadable (greyed out in the menu).</summary>
+        public Func<LvnSaveSlot, Task<bool>> CrossChapterLoader;
+
+        /// <summary>Load a slot wherever it points: in-place for the current
+        /// chapter, via <see cref="CrossChapterLoader"/> for another one.</summary>
+        public async Task<bool> LoadFromSlotAsync(string slot)
+        {
+            if (LoadFromSlot(slot)) return true;
+            var s = LvnSaveStore.Get(_saveTitleId, slot);
+            if (s?.Snap == null || CrossChapterLoader == null) return false;
+            try { return await CrossChapterLoader(s); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[lvn] cross-chapter load failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>True when the slot exists and is reachable — taken in the
+        /// current chapter, or in another one the host can route to.</summary>
+        public bool CanLoadSlot(string slot)
+        {
+            var s = LvnSaveStore.Get(_saveTitleId, slot);
+            if (s?.Snap == null) return false;
+            if (string.IsNullOrEmpty(s.Snap.ScriptUrl) || s.Snap.ScriptUrl == _saveScriptUrl) return true;
+            return CrossChapterLoader != null;
+        }
+
+        /// <summary>Autosave into the reserved slot now — called by the host on
+        /// app pause, and internally on choices / every few lines.</summary>
+        public void AutosaveNow()
+        {
+            if (_player == null || _player.Finished) return;
+            SaveToSlot(LvnSaveStore.AutoSlot);
         }
 
         // A persistent reactive text label (`text id=… x= y= anchor= «{expr}»`): a
@@ -508,7 +770,7 @@ namespace Lvn.UI
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id) || _labelLayer == null) return;
 
-            if (cmd["hide"] != null && (bool)cmd["hide"])
+            if (BoolOr(cmd["hide"], false))
             {
                 if (_labelEls.TryGetValue(id, out var old)) { old.RemoveFromHierarchy(); _labelEls.Remove(id); }
                 _labelTmpl.Remove(id);
@@ -556,10 +818,42 @@ namespace Lvn.UI
                 }
         }
 
-        private static float NumOr(JToken t, float dflt)
+        private static float NumOr(JToken t, float dflt) => NumOrNull(t) ?? dflt;
+
+        // Nullable numeric read: absent → null, malformed → null (never throws), so
+        // one bad field can't abort the whole chapter. A number written as a string
+        // ("0.5") is still accepted.
+        private static float? NumOrNull(JToken t)
+        {
+            if (t == null) return null;
+            try { return (float)t; } catch { }
+            try
+            {
+                if (float.TryParse((string)t, NumberStyles.Float, CultureInfo.InvariantCulture, out var f))
+                    return f;
+            }
+            catch { }
+            return null;
+        }
+
+        private static int? IntOrNull(JToken t)
+        {
+            var f = NumOrNull(t);
+            return f == null ? (int?)null : (int)Mathf.Round(f.Value);
+        }
+
+        // Tolerant boolean read: absent → dflt, and true/false/1/0 written as a
+        // string or number are all accepted rather than throwing an invalid cast.
+        private static bool BoolOr(JToken t, bool dflt)
         {
             if (t == null) return dflt;
-            try { return (float)t; } catch { return dflt; }
+            try { return (bool)t; } catch { }
+            switch (t.ToString().Trim().ToLowerInvariant())
+            {
+                case "true": case "1": case "yes": return true;
+                case "false": case "0": case "no": return false;
+                default: return dflt;
+            }
         }
 
         // Translate fractions for a label anchor (default top-left, so x/y read as an
@@ -634,7 +928,7 @@ namespace Lvn.UI
                 case "blur": ApplyBlur(command); break;
                 case "camera": ApplyCamera(command); break;
                 case "particles":
-                    _particles.Set((string)command["type"], command["on"] == null || (bool)command["on"]);
+                    _particles.Set((string)command["type"], BoolOr(command["on"], true));
                     break;
                 case "audio": _ = _audio.ApplyAsync(command, Assets, _cts.Token); break;
                 case "text": ApplyText(command); break; // reactive HUD/stat label
@@ -654,6 +948,9 @@ namespace Lvn.UI
 
         public void OnEnd()
         {
+            // The chapter is finished — its mid-chapter autosave must not hijack the
+            // next entry back to a stale position.
+            LvnSaveStore.Delete(_saveTitleId, LvnSaveStore.AutoSlot);
             // Garbage-collect the scene when the chapter ends: without this the last
             // actors keep their (looping) animations running and bleed into the menu
             // or the next chapter. ResetStage stops coroutines, removes actors,
@@ -667,7 +964,7 @@ namespace Lvn.UI
 
         private IEnumerator WaitCoroutine(JObject cmd)
         {
-            float ms = cmd["ms"] != null ? (float)cmd["ms"] : 1000f;
+            float ms = NumOr(cmd["ms"], 1000f);
             yield return new WaitForSecondsRealtime(ms / 1000f);
             _awaitingWait = false;
             if (_player != null && !_player.Finished)
@@ -704,44 +1001,45 @@ namespace Lvn.UI
         private void ApplyFade(JObject cmd)
         {
             var to = (string)cmd["to"] ?? "black";
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.5f;
+            float dur = NumOr(cmd["duration"], 0.5f);
             if (to == "clear" || to == "none") _fx.Clear(dur);
             else _fx.Fade(to == "white" ? Color.white : Color.black, dur);
         }
 
         private void ApplyDim(JObject cmd)
         {
-            float alpha = cmd["alpha"] != null ? (float)cmd["alpha"] : 0.4f;
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.5f;
+            float alpha = NumOr(cmd["alpha"], 0.4f);
+            float dur = NumOr(cmd["duration"], 0.5f);
             _fx.Dim(alpha, dur);
         }
 
         private void ApplyFlash(JObject cmd)
         {
+            if (LvnPrefs.ReduceMotion) return; // vestibular/photosensitivity comfort
             var colour = ParseColor((string)cmd["color"], Color.white);
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.2f;
+            float dur = NumOr(cmd["duration"], 0.2f);
             _fx.Flash(colour, dur);
         }
 
         private void ApplyTint(JObject cmd)
         {
             var colour = ParseColor((string)cmd["color"], Color.white);
-            float alpha = cmd["alpha"] != null ? (float)cmd["alpha"] : 0.3f;
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.5f;
+            float alpha = NumOr(cmd["alpha"], 0.3f);
+            float dur = NumOr(cmd["duration"], 0.5f);
             _fx.Tint(colour, alpha, dur);
         }
 
         private void ApplyBlur(JObject cmd)
         {
-            float alpha = cmd["alpha"] != null ? (float)cmd["alpha"] : 0.5f;
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.5f;
+            float alpha = NumOr(cmd["alpha"], 0.5f);
+            float dur = NumOr(cmd["duration"], 0.5f);
             if (alpha <= 0f) _fx.ClearBlur(dur);
             else _fx.Blur(alpha, dur);
         }
 
         private void ApplyTextPace(JObject cmd)
         {
-            float cps = cmd["cps"] != null ? (float)cmd["cps"] : 0f;
+            float cps = NumOr(cmd["cps"], 0f);
             TypewriterClock.GlobalCps = cps;
         }
 
@@ -782,30 +1080,31 @@ namespace Lvn.UI
 
         private void ApplyCamera(JObject cmd)
         {
-            float dur = cmd["duration"] != null ? (float)cmd["duration"] : 0.3f;
+            float dur = NumOr(cmd["duration"], 0.3f);
             switch ((string)cmd["action"])
             {
                 case "shake":
                 {
-                    float amp = cmd["amplitude"] != null ? (float)cmd["amplitude"] : 8f;
-                    if (UseCanvasScene) _scene?.Shake(amp, dur); else _camera.Shake(amp, dur);
+                    if (LvnPrefs.ReduceMotion) break; // comfort setting: no screen shake
+                    float amp = NumOr(cmd["amplitude"], 8f);
+                    _renderer?.Shake(amp, dur);
                     break;
                 }
                 case "zoom":
                 {
-                    float factor = cmd["factor"] != null ? (float)cmd["factor"] : 1.2f;
-                    if (UseCanvasScene) _scene?.Zoom(factor, dur); else _camera.Zoom(factor, dur);
+                    float factor = NumOr(cmd["factor"], 1.2f);
+                    _renderer?.Zoom(factor, dur);
                     break;
                 }
                 case "pan":
                 {
-                    float px = cmd["x"] != null ? (float)cmd["x"] : 0f;
-                    float py = cmd["y"] != null ? (float)cmd["y"] : 0f;
-                    if (UseCanvasScene) _scene?.Pan(px, py, dur); else _camera.Pan(px, py, dur);
+                    float px = NumOr(cmd["x"], 0f);
+                    float py = NumOr(cmd["y"], 0f);
+                    _renderer?.Pan(px, py, dur);
                     break;
                 }
                 case "reset":
-                    if (UseCanvasScene) _scene?.ResetCamera(dur); else _camera.Reset(dur);
+                    _renderer?.ResetCamera(dur);
                     break;
             }
         }
@@ -827,8 +1126,7 @@ namespace Lvn.UI
             if (Assets == null || string.IsNullOrEmpty(url)) return;
             var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
             if (sprite == null) return;
-            if (UseCanvasScene) _scene?.SetBackgroundSprite(sprite);
-            else _bg.SetSprite(sprite);
+            _renderer?.SetBackground(sprite);
         }
 
         // Evaluates a layer's `when` condition against the player's vars, so a
@@ -933,12 +1231,13 @@ namespace Lvn.UI
             }
 
             var placement = PlacementFrom(cmd);
-            if (UseCanvasScene)
-            {
-                _scene?.ApplyActor(id, null, placement, null, null); // create + place now; art loads below
-                _hotspots.RemoveAll(h => h.id == id);
-                if (onClick != null && placement.Show) _hotspots.Add((id, onClick));
-            }
+            // Place first so the slot exists before the (async) art arrives — a
+            // no-op on renderers that apply placement together with the art.
+            _renderer?.PlaceActor(id, placement);
+            _hotspots.RemoveAll(h => h.id == id);
+            // Manual hotspot hit-testing only applies to renderers that expose
+            // actor rects (the canvas path); the UITK path uses element picking.
+            if (onClick != null && placement.Show && UseCanvasScene) _hotspots.Add((id, onClick));
 
             // Now load the layer sprites (async) and set them on the placed actor.
             List<Sprite> layers = null;
@@ -963,12 +1262,7 @@ namespace Lvn.UI
                 }
             }
 
-            if (UseCanvasScene)
-            {
-                if (layers != null && layers.Count > 0)
-                    _scene?.ApplyActor(id, layers, placement, layerIds, layerRects);
-            }
-            else _actors.Apply(id, layers, placement, onClick, layerIds, layerRects);
+            _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects);
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
@@ -1042,21 +1336,21 @@ namespace Lvn.UI
         {
             var p = new Placement
             {
-                Show = cmd["show"] == null || (bool)cmd["show"],
-                X = cmd["x"] != null ? (float)cmd["x"] : ActorLayer.SlotX((string)cmd["position"]),
-                Y = cmd["y"] != null ? (float)cmd["y"] : 1f,
-                Width = cmd["width"] != null ? (float?)(float)cmd["width"] : null,
-                Height = cmd["height"] != null ? (float?)(float)cmd["height"] : null,
+                Show = BoolOr(cmd["show"], true),
+                X = NumOrNull(cmd["x"]) ?? ActorLayer.SlotX((string)cmd["position"]),
+                Y = NumOr(cmd["y"], 1f),
+                Width = NumOrNull(cmd["width"]),
+                Height = NumOrNull(cmd["height"]),
                 AnchorX = 0.5f,
                 AnchorY = 1f,
-                Z = cmd["z"] != null ? (int?)(int)cmd["z"] : null,
-                Flip = cmd["flip"] != null && (bool)cmd["flip"],
-                Rotation = cmd["rotation"] != null ? (float)cmd["rotation"] : 0f,
-                Opacity = cmd["opacity"] != null ? (float)cmd["opacity"] : 1f,
-                HoverOpacity = cmd["hover_opacity"] != null ? (float)cmd["hover_opacity"] : 1f,
+                Z = IntOrNull(cmd["z"]),
+                Flip = BoolOr(cmd["flip"], false),
+                Rotation = NumOr(cmd["rotation"], 0f),
+                Opacity = NumOr(cmd["opacity"], 1f),
+                HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
                 EnterTransition = ParseTransition((string)cmd["enter"]),
                 ExitTransition = ParseTransition((string)cmd["exit"]),
-                TransitionDuration = cmd["transition_duration"] != null ? (float)cmd["transition_duration"] : 0.3f,
+                TransitionDuration = NumOr(cmd["transition_duration"], 0.3f),
             };
 
             var anchor = (string)cmd["anchor"];
@@ -1073,8 +1367,8 @@ namespace Lvn.UI
             }
             else
             {
-                if (cmd["anchor_x"] != null) p.AnchorX = (float)cmd["anchor_x"];
-                if (cmd["anchor_y"] != null) p.AnchorY = (float)cmd["anchor_y"];
+                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX);
+                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY);
             }
             return p;
         }

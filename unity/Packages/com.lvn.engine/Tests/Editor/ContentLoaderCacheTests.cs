@@ -1,3 +1,6 @@
+using System.IO;
+using System.Linq;
+using System.Text;
 using Lvn.Content;
 using NUnit.Framework;
 
@@ -5,6 +8,81 @@ namespace Lvn.Tests
 {
     public class ContentLoaderCacheTests
     {
+        [Test]
+        public void AtomicWrite_WritesContentAndLeavesNoTemp()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "lvn-atomic-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                var path = Path.Combine(dir, "cache.bin");
+                ContentLoader.AtomicWriteAllBytes(path, Encoding.UTF8.GetBytes("hello"));
+                Assert.AreEqual("hello", File.ReadAllText(path));
+
+                // Overwrite must replace the content, not append or fail.
+                ContentLoader.AtomicWriteAllBytes(path, Encoding.UTF8.GetBytes("world!!"));
+                Assert.AreEqual("world!!", File.ReadAllText(path));
+
+                // No staging temp files may be left behind.
+                var leftovers = Directory.GetFiles(dir).Where(f => f.Contains(".tmp-")).ToArray();
+                CollectionAssert.IsEmpty(leftovers, "atomic write left a temp file behind");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Test]
+        public void PickEvictions_OldestFirstUntilUnderBudget()
+        {
+            const long MB = 1 << 20;
+            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            {
+                ("old-a", 10 * MB, 1, 0f),
+                ("old-b", 10 * MB, 2, 0f),
+                ("newer", 10 * MB, 3, 0f),
+            };
+            // Budget 15MB, total 30MB, all past grace → evict the two oldest.
+            var evict = ContentLoader.PickEvictions(entries, 15 * MB, 1000f, 60f);
+            CollectionAssert.AreEqual(new[] { "old-a", "old-b" }, evict);
+        }
+
+        [Test]
+        public void PickEvictions_GraceProtectsRecentlyUsed()
+        {
+            const long MB = 1 << 20;
+            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            {
+                ("visible-bg", 20 * MB, 1, 995f), // requested 5s ago — on screen
+                ("stale",      20 * MB, 2, 0f),
+            };
+            var evict = ContentLoader.PickEvictions(entries, 25 * MB, 1000f, 60f);
+            CollectionAssert.AreEqual(new[] { "stale" }, evict,
+                "recently-requested art is never evicted, even if it's the oldest by sequence");
+        }
+
+        [Test]
+        public void PickEvictions_UnderBudgetEvictsNothing()
+        {
+            const long MB = 1 << 20;
+            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            {
+                ("a", 5 * MB, 1, 0f), ("b", 5 * MB, 2, 0f),
+            };
+            CollectionAssert.IsEmpty(ContentLoader.PickEvictions(entries, 100 * MB, 1000f, 60f));
+        }
+
+        [Test]
+        public void Sha256Matches_AcceptsCorrectRejectsWrong()
+        {
+            var data = System.Text.Encoding.UTF8.GetBytes("hello");
+            const string good = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+            Assert.IsTrue(ContentLoader.Sha256Matches(data, good));
+            Assert.IsTrue(ContentLoader.Sha256Matches(data, good.ToUpperInvariant()), "hex case-insensitive");
+            Assert.IsFalse(ContentLoader.Sha256Matches(data, good.Replace('2', '3')));
+            Assert.IsFalse(ContentLoader.Sha256Matches(data, "deadbeef"), "wrong length rejected");
+            Assert.IsFalse(ContentLoader.Sha256Matches(null, good));
+            Assert.IsFalse(ContentLoader.Sha256Matches(data, null));
+        }
+
         [Test]
         public void HashKey_IsDeterministic()
         {

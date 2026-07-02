@@ -120,16 +120,61 @@ namespace Lvn
         }
 
         /// <summary>Re-apply the persistent visual side-effects (background, actors,
-        /// HUD labels, idle animations) of commands <c>0..upto</c> without showing
-        /// any dialogue — used after <see cref="Restore(LvnSnapshot)"/> to rebuild
-        /// the scene a save was taken in before resuming.</summary>
+        /// HUD labels, idle animations, and the net FX/audio state) of commands
+        /// <c>0..upto</c> without showing any dialogue — used after
+        /// <see cref="Restore(LvnSnapshot)"/> to rebuild the scene a save was taken
+        /// in before resuming.</summary>
         public void ReplayVisuals(int upto)
         {
             if (_script == null) return;
             int end = System.Math.Min(upto, _script.Count);
+            // Two replay classes. Structural ops (bg/actor/obj/anim/text) accumulate,
+            // so they re-run in order. FX/audio are stateful overlays where only the
+            // LAST setting matters — re-running every fade/tint/track of the chapter
+            // would flash through all of them — so they collapse to the final value
+            // per state key and apply once at the end.
+            var fx = new Dictionary<string, JObject>();
+            var fxOrder = new List<string>();
+            void SetFx(string key, JObject cmd)
+            {
+                if (!fx.ContainsKey(key)) fxOrder.Add(key);
+                fx[key] = cmd;
+            }
             for (int i = 0; i < end; i++)
-                if (_script[i] is JObject c && IsReapplyable((string)c["op"]))
-                    _stage.ApplyStage(c);
+            {
+                if (!(_script[i] is JObject c)) continue;
+                var op = (string)c["op"];
+                if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
+                switch (op)
+                {
+                    case "fade":
+                    case "dim":
+                    case "tint":
+                    case "blur":
+                        SetFx(op, c);
+                        break;
+                    case "particles":
+                        SetFx("particles:" + ((string)c["type"] ?? ""), c);
+                        break;
+                    case "camera":
+                        // zoom/pan persist; reset returns both to default (so drop
+                        // them); shake is transient and never replayed.
+                        var act = (string)c["action"];
+                        if (act == "zoom" || act == "pan") SetFx("camera:" + act, c);
+                        else if (act == "reset") { fx.Remove("camera:zoom"); fx.Remove("camera:pan"); }
+                        break;
+                    case "audio":
+                        // The looping channels (music/ambient) resume their last
+                        // track (or stay stopped if the last command was a stop);
+                        // sfx one-shots don't replay.
+                        var ch = (string)c["channel"] ?? "sfx";
+                        if (ch != "sfx") SetFx("audio:" + ch, c);
+                        break;
+                }
+            }
+            foreach (var key in fxOrder)
+                if (fx.TryGetValue(key, out var cmd))
+                    _stage.ApplyStage(cmd);
         }
 
         /// <summary>Set the cursor and run forward to the next pause — the resume
@@ -139,6 +184,61 @@ namespace Lvn
             _ip = index;
             Finished = false;
             Advance();
+        }
+
+        // ── rollback ─────────────────────────────────────────────────────────
+        // A bounded history of "beats": a snapshot pushed as each say (or a choice
+        // with no say line of its own) is shown, taken BEFORE the beat runs — so
+        // rolling back to a choice restores the variables as they were before the
+        // pick (an option's set/inc is undone). A say immediately followed by a
+        // choice is ONE beat anchored at the say, so a rollback re-shows the line
+        // together with its options.
+
+        /// <summary>Rollback history depth cap. Oldest beats fall off.</summary>
+        public const int MaxHistory = 100;
+
+        private readonly List<LvnSnapshot> _history = new List<LvnSnapshot>();
+
+        /// <summary>True when there is a previous beat to roll back to.</summary>
+        public bool CanRollback => _history.Count >= 2;
+
+        /// <summary>Pop the current beat and return the previous one to restore
+        /// (null when at the first beat). The returned beat re-enters the history
+        /// when it re-runs, so repeated rollbacks walk further back.</summary>
+        public LvnSnapshot PopRollback()
+        {
+            if (_history.Count < 2) return null;
+            _history.RemoveAt(_history.Count - 1); // the beat currently on screen
+            var prev = _history[_history.Count - 1];
+            _history.RemoveAt(_history.Count - 1); // re-pushed when it re-runs
+            return prev;
+        }
+
+        /// <summary>Drop the rollback history — call after restoring an external
+        /// save, where the recorded beats no longer describe the path taken.</summary>
+        public void ClearHistory() => _history.Clear();
+
+        /// <summary>The next <paramref name="maxCommands"/> commands ahead of the
+        /// cursor, in script order (a linear look-ahead — jumps are not followed).
+        /// The stage uses it to warm the art/audio the scene is about to need, so
+        /// a cold sprite never pops in mid-line.</summary>
+        public IEnumerable<JObject> PeekForward(int maxCommands)
+        {
+            if (_script == null) yield break;
+            int end = System.Math.Min(_ip + maxCommands, _script.Count);
+            for (int i = System.Math.Max(_ip, 0); i < end; i++)
+                if (_script[i] is JObject c)
+                    yield return c;
+        }
+
+        private void PushHistory()
+        {
+            // A re-presented beat (a tap while the same choice is up, a re-render)
+            // must not duplicate. Note: a revisit of the same index via a loop is
+            // also collapsed — rolling back to it lands on the FIRST visit's state.
+            if (_history.Count > 0 && _history[_history.Count - 1].Index == _ip) return;
+            _history.Add(Save());
+            if (_history.Count > MaxHistory) _history.RemoveAt(0);
         }
 
         public IReadOnlyCollection<int> CallStack => _callStack;
@@ -158,11 +258,18 @@ namespace Lvn
             public bool Finished;
             /// <summary>Host-supplied id/url of the script this slot belongs to.</summary>
             public string ScriptUrl;
+            /// <summary>Stable position anchor: the label the cursor was under and the
+            /// offset past it. Resume relocates by this first, so a save survives the
+            /// script being edited/re-imported (indices shifting) between sessions;
+            /// falls back to <see cref="Index"/> when the label is gone.</summary>
+            public string AnchorLabel;
+            public int AnchorSteps;
         }
 
         /// <summary>Capture the current state for serialization.</summary>
         public LvnSnapshot Save()
         {
+            var (aLabel, aSteps) = AnchorOf(_ip);
             return new LvnSnapshot
             {
                 Index = _ip,
@@ -170,14 +277,21 @@ namespace Lvn
                 CallStack = _callStack.ToArray(),
                 CommandCount = _script.Count,
                 Finished = Finished,
+                AnchorLabel = aLabel,
+                AnchorSteps = aSteps,
             };
         }
 
-        /// <summary>Restore from a snapshot.</summary>
+        /// <summary>Restore from a snapshot. Resolves the position by its label anchor
+        /// first (so a save survives the script being edited/re-imported), falling back
+        /// to the raw index for older saves that lack an anchor.</summary>
         public void Restore(LvnSnapshot snapshot)
         {
             if (snapshot == null) return;
-            Restore(snapshot.Index, snapshot.Vars, snapshot.CallStack);
+            int at = snapshot.AnchorLabel != null
+                ? Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index)
+                : snapshot.Index;
+            Restore(at, snapshot.Vars, snapshot.CallStack);
         }
 
         /// <summary>
@@ -189,27 +303,60 @@ namespace Lvn
         /// the saved cursor no longer means the same beat. Text/parameter edits
         /// (a reworded line, a tweaked emotion or position) all pass.
         /// </summary>
+        // A stable anchor for a script index: the nearest PRECEDING label id plus the
+        // offset from it. Labels are jump targets and don't move meaning across edits,
+        // so an anchor survives a script whose command indices shifted (a line added /
+        // removed, a re-import). Returns (null, index) when the cursor is before any
+        // label (the leading set/init block).
+        private (string label, int steps) AnchorOf(int index)
+        {
+            int from = System.Math.Min(index, _script.Count) - 1;
+            for (int i = from; i >= 0; i--)
+                if (_script[i] is JObject c && (string)c["op"] == "label")
+                    return ((string)c["id"], index - i);
+            return (null, index);
+        }
+
+        // Resolve an anchor back to an index in the CURRENT script (call after _labels
+        // is rebuilt). Falls back to the raw index if the label is gone. Clamped.
+        private int Relocate(string label, int steps, int fallback)
+        {
+            int at = fallback;
+            if (!string.IsNullOrEmpty(label) && _labels.TryGetValue(label, out var i))
+                at = i + steps;
+            if (at < 0) at = 0;
+            if (at > _script.Count) at = _script.Count;
+            return at;
+        }
+
         public bool TryReplaceScript(LvnDocument doc)
         {
             var next = doc?.Script;
-            if (next == null || next.Count != _script.Count) return false;
-            // Staging ops that are pure-visual and side-effect-free to re-issue
-            // (no var mutation, no pause). On a live edit we re-apply the ones that
-            // changed and have already run, so editing an on-screen animation /
-            // actor / background updates it in place instead of only on next entry.
+            if (next == null || next.Count == 0) return false;
+            int oldCount = _script.Count;
+
+            // Anchor the cursor BEFORE swapping, so we can restore the same beat even
+            // if the edit changed the command count and shifted every index.
+            var (aLabel, aSteps) = AnchorOf(_ip);
+
+            // Index-aligned edit (same length + same op structure) → keep the cursor
+            // exactly and re-issue only the visual ops that changed. The common "fix a
+            // typo" path: no reposition, no re-fade.
+            bool aligned = next.Count == oldCount;
             List<int> reapply = null;
-            for (int i = 0; i < next.Count; i++)
-            {
-                var a = _script[i] as JObject;
-                var b = next[i] as JObject;
-                if (a == null || b == null) return false;
-                var op = (string)a["op"];
-                if (op != (string)b["op"]) return false;
-                // labels are the jump targets — a renamed/moved label breaks flow.
-                if (op == "label" && (string)a["id"] != (string)b["id"]) return false;
-                if (i < _ip && IsReapplyable(op) && !JToken.DeepEquals(a, b))
-                    (reapply ??= new List<int>()).Add(i);
-            }
+            if (aligned)
+                for (int i = 0; i < next.Count; i++)
+                {
+                    var a = _script[i] as JObject;
+                    var b = next[i] as JObject;
+                    if (a == null || b == null) { aligned = false; break; }
+                    var op = (string)a["op"];
+                    if (op != (string)b["op"]) { aligned = false; break; }
+                    if (op == "label" && (string)a["id"] != (string)b["id"]) { aligned = false; break; }
+                    if (i < _ip && IsReapplyable(op) && !JToken.DeepEquals(a, b))
+                        (reapply ??= new List<int>()).Add(i);
+                }
+
             _script = next;
             _labels.Clear();
             for (int i = 0; i < _script.Count; i++)
@@ -218,10 +365,20 @@ namespace Lvn
                     var id = (string)c["id"];
                     if (!string.IsNullOrEmpty(id)) _labels[id] = i;
                 }
-            if (_ip > _script.Count) _ip = _script.Count;
-            // re-issue edited, already-run staging so the live picture reflects it
-            if (reapply != null)
-                foreach (var i in reapply) _stage.ApplyStage((JObject)_script[i]);
+
+            if (aligned)
+            {
+                if (_ip > _script.Count) _ip = _script.Count;
+                if (reapply != null)
+                    foreach (var i in reapply) _stage.ApplyStage((JObject)_script[i]);
+            }
+            else
+            {
+                // Indices shifted — relocate the cursor to the same beat via its label
+                // anchor and rebuild the visible stage there. No restart, no jump.
+                _ip = Relocate(aLabel, aSteps, _ip);
+                ReplayVisuals(_ip);
+            }
             return true;
         }
 
@@ -303,10 +460,16 @@ namespace Lvn
                         break;
 
                     case "choice":
+                        // A choice directly after a say is the same beat (the line
+                        // and its options show together) — the say already pushed.
+                        bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
+                                      && (string)prevCmd["op"] == "say";
+                        if (!paired) PushHistory();
                         _stage.ShowChoice(BuildOptions(c));
                         return;
 
                     case "say":
+                        PushHistory();
                         // Ink-style alternatives first (their counters key off the
                         // command index), then {var} interpolation — for both the
                         // line and the speaker name.
@@ -371,8 +534,13 @@ namespace Lvn
                 throw new InvalidOperationException("Choose called when not at a choice");
             var c = (JObject)_script[_ip];
 
-            var opts = (JArray)c["options"];
-            var opt = (JObject)opts[optionIndex];
+            // Degrade gracefully on a malformed choice (missing/typed-wrong options,
+            // or an out-of-range index) — skip past it instead of aborting the whole
+            // chapter with a cast/index exception. The validator flags these authoring.
+            var opts = c["options"] as JArray;
+            if (opts == null || optionIndex < 0 || optionIndex >= opts.Count) { _ip++; return; }
+            var opt = opts[optionIndex] as JObject;
+            if (opt == null) { _ip++; return; }
             Log?.Invoke("CHOOSE [" + optionIndex + "] \"" + (string)opt["text"] + "\"" + (opt["goto"] != null ? " → :" + opt["goto"] : ""));
 
             if (opt["body"] is JArray body)
@@ -442,10 +610,12 @@ namespace Lvn
         private List<LvnOption> BuildOptions(JObject choice)
         {
             var result = new List<LvnOption>();
-            var opts = (JArray)choice["options"];
+            var opts = choice["options"] as JArray;
+            if (opts == null) return result; // malformed choice → no options (validator flags this)
             for (int i = 0; i < opts.Count; i++)
             {
-                var o = (JObject)opts[i];
+                var o = opts[i] as JObject;
+                if (o == null) continue;
 
                 var requires = (string)o["requires_stat"];
                 if (requires != null && VarNum(requires) < Num(o["min"], 0))
@@ -518,6 +688,11 @@ namespace Lvn
         {
             var key = (string)c["key"];
             if (string.IsNullOrEmpty(key)) return;
+            // `default:true` = initialise-only. A global-variable default must not
+            // overwrite a value carried in from an earlier chapter or a loaded save,
+            // so skip it when the key already holds a value.
+            if (c["default"] != null && (bool)c["default"] && Vars.ContainsKey(key))
+                return;
             if ((string)c["op"] == "inc")
             {
                 Vars[key] = new JValue(VarNum(key) + Num(c["by"], 1));

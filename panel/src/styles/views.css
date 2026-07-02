@@ -776,3 +776,15 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .anim-track { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .anim-sel { padding: 3px 6px; }
 .anim-tween { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ── articy import modal ─────────────────────────────────────────────────── */
+.import-drop {
+  border: 2px dashed #4a4a5a; border-radius: 10px; padding: 28px 16px; text-align: center;
+  cursor: pointer; color: #b7b0c8; display: flex; flex-direction: column; gap: 4px;
+  transition: border-color .15s, background .15s;
+}
+.import-drop:hover, .import-drop.over { border-color: #8a7ff0; background: rgba(138,127,240,.08); }
+.import-drop b { color: #e7e2f4; font-size: 15px; }
+.import-drop span { font-size: 12px; opacity: .7; }
+.import-src-row { display: flex; gap: 8px; margin: 10px 0; justify-content: center; }
+.import-pick { cursor: pointer; user-select: none; }
