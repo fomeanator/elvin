@@ -308,10 +308,13 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 const engineGitURL = "https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine"
 
 // patchManifest swaps the engine's local file: dependency for the public git
-// URL so a downloaded project resolves the package on open.
+// URL so a downloaded project resolves the package on open, and drops repo-only
+// dev tooling (the MCP editor bridge) that players' builds must not depend on.
 func patchManifest(raw []byte) []byte {
 	re := regexp.MustCompile(`"com\.lvn\.engine"\s*:\s*"[^"]*"`)
 	out := re.ReplaceAllString(string(raw), `"com.lvn.engine": "`+engineGitURL+`"`)
+	dev := regexp.MustCompile(`\s*"com\.coplaydev\.unity-mcp"\s*:\s*"[^"]*",?`)
+	out = dev.ReplaceAllString(out, "")
 	return []byte(out)
 }
 
