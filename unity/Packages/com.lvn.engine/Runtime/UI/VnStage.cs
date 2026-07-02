@@ -66,6 +66,7 @@ namespace Lvn.UI
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
         private FxLayer _fx;
         private StageAudio _audio;
+        private StageMenu _menu;
         private Dictionary<string, CastEntity> _cast;
         private readonly Dictionary<string, LvnAnim> _talkAnims = new Dictionary<string, LvnAnim>(); // actor id → lip-sync anim
         private LvnPlayer _player;
@@ -156,6 +157,8 @@ namespace Lvn.UI
             root.Add(_choices);
             root.Add(_labelLayer);  // HUD/stat labels above dialogue/choices
             root.Add(_fx);          // top: fades/dim veil everything below
+            _menu = new StageMenu(this, Theme);
+            root.Add(_menu);        // quick menu above even the FX veil — always reachable
             _choices.OnSelected += OnChoiceSelected;
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
@@ -176,6 +179,7 @@ namespace Lvn.UI
             // Desktop convenience (the Ren'Py convention): wheel-up steps back one beat.
             root.RegisterCallback<WheelEvent>(evt =>
             {
+                if (InputBlocked) return;
                 if (evt.delta.y < 0f && RollbackStep()) evt.StopPropagation();
             });
 
@@ -465,6 +469,7 @@ namespace Lvn.UI
 
         private void OnPointerDown(PointerDownEvent evt)
         {
+            if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (_player == null || _player.Finished) return;
             if (_awaitingWait) return;
 
