@@ -190,9 +190,11 @@ namespace Lvn.UI
             }
         }
 
-        private void TryLoad(string slot)
+        private async void TryLoad(string slot)
         {
-            if (_stage.LoadFromSlot(slot)) Close();
+            // Same-chapter slots restore in place; another chapter's slot routes
+            // through the host (fetch that chapter's script, play, restore).
+            if (await _stage.LoadFromSlotAsync(slot)) Close();
         }
 
         private VisualElement SlotRow(string label, LvnSaveSlot slot, Action onClick, bool enabled = true)
