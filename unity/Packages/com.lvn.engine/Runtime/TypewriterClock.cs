@@ -15,13 +15,20 @@ namespace Lvn
         /// op. 0 or negative means "use the per-line default".</summary>
         public static float GlobalCps;
 
+        /// <summary>The PLAYER's speed preference, multiplied onto whatever rate
+        /// the author set (via theme or `text_pace`) — so a reader can speed up a
+        /// slow novel without flattening its relative pacing. 1 = author's pace;
+        /// 0 or negative is treated as 1.</summary>
+        public static float UserSpeedMultiplier = 1f;
+
         /// <summary>Reveal head position, in glyphs (fractional), after
         /// <paramref name="elapsedSeconds"/> at <paramref name="cps"/>.</summary>
         public static float Progress(float elapsedSeconds, float cps)
         {
             if (elapsedSeconds < 0f) elapsedSeconds = 0f;
             float rate = GlobalCps > MinCps ? GlobalCps : (cps > MinCps ? cps : MinCps);
-            return elapsedSeconds * rate;
+            float mult = UserSpeedMultiplier > 0f ? UserSpeedMultiplier : 1f;
+            return elapsedSeconds * rate * mult;
         }
 
         /// <summary>Progress (in glyphs) at which the last glyph is fully opaque,
