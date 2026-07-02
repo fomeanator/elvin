@@ -109,13 +109,22 @@ namespace Lvn.UI.Screens
             PlayerPrefs.Save();
         }
 
-        /// <summary>Consume a pending restart request for this chapter (one-shot).</summary>
+        /// <summary>Withdraw a pending restart request — the player chose to
+        /// continue their held position instead.</summary>
+        public static void ClearRestart(string titleId) =>
+            PlayerPrefs.DeleteKey(RestartKey(titleId));
+
+        /// <summary>Consume the pending restart request (one-shot): whatever
+        /// chapter enters FIRST after the pick clears the flag — a stale request
+        /// left by a failed load must never fire on a later, unrelated chapter
+        /// transition. Returns true only when the entering chapter IS the one
+        /// that was picked.</summary>
         public static bool TakeRestart(string titleId, string chapterId)
         {
             var pending = PlayerPrefs.GetString(RestartKey(titleId), "");
-            if (string.IsNullOrEmpty(pending) || pending != chapterId) return false;
+            if (string.IsNullOrEmpty(pending)) return false;
             PlayerPrefs.DeleteKey(RestartKey(titleId));
-            return true;
+            return pending == chapterId;
         }
     }
 }
