@@ -68,7 +68,7 @@ func main() {
 		stateToken:  *stateToken,
 		importRoot:  *importRoot,
 		templateDir: *templateDir,
-		state:       map[string][]byte{},
+		state:       map[string]stateEntry{},
 	}
 
 	mux := http.NewServeMux()
@@ -114,6 +114,14 @@ func main() {
 	log.Fatal(httpSrv.ListenAndServe())
 }
 
+// stateEntry is one player save plus its server-owned monotonic version. The
+// version lets a client detect that another device wrote since it last read
+// (optimistic concurrency) instead of silently last-write-wins clobbering.
+type stateEntry struct {
+	body    []byte
+	version int64
+}
+
 type server struct {
 	content     string
 	adminToken  string
@@ -121,8 +129,8 @@ type server struct {
 	importRoot  string
 	templateDir string
 	mu          sync.RWMutex
-	state       map[string][]byte // user id -> raw save JSON
-	stateOrder  []string          // insertion order, for bounded eviction
+	state       map[string]stateEntry // user id -> save + version
+	stateOrder  []string              // insertion order, for bounded eviction
 
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
@@ -274,22 +282,13 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		s.mu.RLock()
-		data, ok := s.state[user]
-		s.mu.RUnlock()
-		if !ok {
-			// Not in memory — try the on-disk mirror (survives a server restart).
-			if b, err := os.ReadFile(s.stateFile(user)); err == nil {
-				data, ok = b, true
-				s.putState(user, b)
-			}
-		}
+		entry, ok := s.loadState(user)
 		if !ok {
 			http.Error(w, "no save", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		w.Write(withVersion(entry.body, entry.version))
 	case http.MethodPut:
 		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
@@ -300,23 +299,134 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "body must be JSON", http.StatusBadRequest)
 			return
 		}
+		// Optimistic concurrency: a client that sends its last-seen `_version`
+		// gets a 409 (with the current doc) when another device wrote in between,
+		// so it can merge instead of silently clobbering hours of progress. A
+		// legacy client that sends no version keeps the old last-write-wins.
+		clientVer, hasVer := extractVersion(body)
+		cur, exists := s.loadState(user)
+		if hasVer && exists && clientVer != cur.version {
+			writeJSON409(w, cur)
+			return
+		}
+		next := stateEntry{body: stripVersion(body), version: cur.version + 1}
 		// Persist to disk FIRST (atomically) so a reported success is durable — the
 		// client trusts {saved:true} and won't retry, so a failed write must 500.
-		if err := s.writeStateFile(user, body); err != nil {
+		if err := s.writeStateFile(user, next); err != nil {
 			fmt.Fprintf(os.Stderr, "state: persist %s: %v\n", user, err)
 			http.Error(w, "persist failed", http.StatusInternalServerError)
 			return
 		}
-		s.putState(user, body)
-		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
+		s.putState(user, next)
+		writeJSON(w, http.StatusOK, map[string]any{"saved": true, "version": next.version})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
+// loadState returns a user's save from memory, falling back to the on-disk
+// mirror (which survives a restart).
+func (s *server) loadState(user string) (stateEntry, bool) {
+	s.mu.RLock()
+	entry, ok := s.state[user]
+	s.mu.RUnlock()
+	if ok {
+		return entry, true
+	}
+	b, err := os.ReadFile(s.stateFile(user))
+	if err != nil {
+		return stateEntry{}, false
+	}
+	entry = decodeStateFile(b)
+	s.putState(user, entry)
+	return entry, true
+}
+
+// On disk a save is wrapped as {"__v":N,"doc":{…}} so the version survives a
+// restart. Legacy files (raw client JSON) read as version 0.
+type stateWrapper struct {
+	V   int64           `json:"__v"`
+	Doc json.RawMessage `json:"doc"`
+}
+
+func encodeStateFile(e stateEntry) []byte {
+	b, _ := json.Marshal(stateWrapper{V: e.version, Doc: e.body})
+	return b
+}
+
+func decodeStateFile(b []byte) stateEntry {
+	var w stateWrapper
+	if err := json.Unmarshal(b, &w); err == nil && len(w.Doc) > 0 {
+		return stateEntry{body: w.Doc, version: w.V}
+	}
+	return stateEntry{body: b, version: 0} // legacy: the raw doc itself
+}
+
+// withVersion returns the doc with "_version" injected at the top level, so a
+// GET hands the client the token it must echo on its next PUT.
+func withVersion(doc []byte, version int64) []byte {
+	var m map[string]any
+	if err := json.Unmarshal(doc, &m); err != nil || m == nil {
+		return doc // not an object — serve as-is (no version support)
+	}
+	m["_version"] = version
+	out, err := json.Marshal(m)
+	if err != nil {
+		return doc
+	}
+	return out
+}
+
+// extractVersion pulls the client-echoed "_version" from a PUT body.
+func extractVersion(body []byte) (int64, bool) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(body, &m); err != nil {
+		return 0, false
+	}
+	raw, ok := m["_version"]
+	if !ok {
+		return 0, false
+	}
+	var v int64
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+// stripVersion removes the transport-only "_version" field before storing.
+func stripVersion(body []byte) []byte {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(body, &m); err != nil {
+		return body
+	}
+	if _, ok := m["_version"]; !ok {
+		return body
+	}
+	delete(m, "_version")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+// writeJSON409 answers a version conflict with the winning doc + its version,
+// so the client can merge and retry without a second round-trip.
+func writeJSON409(w http.ResponseWriter, cur stateEntry) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	resp := map[string]any{"error": "version_conflict", "version": cur.version}
+	var doc any
+	if err := json.Unmarshal(cur.body, &doc); err == nil {
+		resp["doc"] = doc
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
 // putState caches a save in memory with a bounded size, evicting the oldest
 // entry when full. Disk remains authoritative, so eviction only costs a reload.
-func (s *server) putState(user string, body []byte) {
+func (s *server) putState(user string, entry stateEntry) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.state[user]; !exists {
@@ -327,7 +437,7 @@ func (s *server) putState(user string, body []byte) {
 			delete(s.state, oldest)
 		}
 	}
-	s.state[user] = body
+	s.state[user] = entry
 }
 
 // stateFile is the on-disk mirror path for a user's save, under <content>/state/.
@@ -347,12 +457,12 @@ func (s *server) stateFile(user string) string {
 	return filepath.Join(s.content, "state", string(safe)+".json")
 }
 
-func (s *server) writeStateFile(user string, body []byte) error {
+func (s *server) writeStateFile(user string, entry stateEntry) error {
 	p := s.stateFile(user)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	return atomicWrite(p, body, 0o644)
+	return atomicWrite(p, encodeStateFile(entry), 0o644)
 }
 
 func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
