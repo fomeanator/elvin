@@ -172,6 +172,7 @@ namespace Lvn.UI.World
                 float elapsed = now - act.start;
                 float t = anim.loop ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur)) : Mathf.Min(elapsed, dur);
 
+                LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
                 foreach (var tr in anim.tracks)
                 {
                     if (tr == null || tr.keys == null || tr.keys.Count == 0 || string.IsNullOrEmpty(tr.prop)) continue;
@@ -188,8 +189,8 @@ namespace Lvn.UI.World
                         {
                             case "x": tx = v; break;
                             case "y": ty = v; break;
-                            case "screen_x": sx = v; break;
-                            case "screen_y": sy = v; break;
+                            case "screen_x": sx = v; if (tr.orient) orientX = tr; break;
+                            case "screen_y": sy = v; pathY = tr; break;
                             case "scale": scx = v; scy = v; break;
                             case "scalex": scx = v; break;
                             case "scaley": scy = v; break;
@@ -212,6 +213,10 @@ namespace Lvn.UI.World
                         }
                     }
                 }
+                // OrientAngle is y-down clockwise-positive; Canvas euler z is
+                // counter-clockwise-positive — negate.
+                if (orientX != null && pathY != null)
+                    rot = -ActorAnimator.OrientAngle(orientX, pathY, t, dur);
                 if (!anim.loop && elapsed >= dur) (done ??= new List<string>()).Add(kv.Key);
             }
 

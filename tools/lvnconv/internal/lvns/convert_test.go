@@ -3,6 +3,7 @@ package lvns
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -125,6 +126,18 @@ move id=hero path="0,0 1,1" dur=2 ease=outCubic
 		if !reflect.DeepEqual(normCmd, normExp) {
 			t.Errorf("at index %d:\nexpected: %s\ngot:      %s", i, expJSON, cmdJSON)
 		}
+	}
+}
+
+// A typo'd interp must fail the compile: the runtime falls back to linear for
+// unknown values, which would silently flatten the author's curve.
+func TestConvertAnimRejectsUnknownInterp(t *testing.T) {
+	_, err := Convert(`
+scene t
+anim id=h prop=y keys="0:0 1:1" interp=spilne
+`)
+	if err == nil || !strings.Contains(err.Error(), "interp") {
+		t.Fatalf("expected an interp error, got %v", err)
 	}
 }
 

@@ -90,11 +90,11 @@ move id=codel path="-0.18,0.04 0,-0.03 0.18,0.04" dur=2 ease=outCubic
 | `dur` | both | duration in seconds (default = max key time, or 1 for `to`/`path`) ✓ |
 | `layer` | `anim` | target a sprite layer (face/mouth/…); omit = whole rig ✓ |
 | `ease` | both | easing curve (see below) ✓ |
-| `interp` | both | `linear` (default) \| `spline` \| `step` ✓ field / ◻ spline runtime |
-| `loop` | both | `once` (default) \| `true`/`restart` \| `yoyo` ✓ once/restart, ◻ yoyo |
-| `orient` | `move` | `true` = rotate to face the path tangent ◻ |
+| `interp` | both | `linear` (default) \| `spline` \| `step` ✓ |
+| `loop` | both | `once` (default) \| `true`/`restart` \| `yoyo` ✓ |
+| `orient` | `move` | `true` = rotate to face the path tangent ✓ |
 | `channel` | both | explicit lane name; omit = derived per property ✓ |
-| `mode` | both | `replace` (default) \| `queue` ◻ |
+| `mode` | both | `replace` (default) \| `queue` ✓ |
 
 ---
 
@@ -226,12 +226,13 @@ units), which turns a feature list into a small language.
 | generic channel play | `Runtime/UI/ActorLayer.cs`, `Runtime/UI/World/WorldStage.cs` (`PlayAnim`) | ✓ |
 | per-property channel derivation | `VnStage.ApplyAnim` | ✓ |
 | keyframe sampling + easing (shared) | `Runtime/UI/ActorAnimator.cs` (`Sample`/`SampleFrame`), `WorldActor.Tick` | ✓ |
-| `interp` field on track | `Runtime/Content/LvnManifest.cs` (`LvnAnimTrack.interp`) | ✓ field |
+| `interp` (`spline` Catmull-Rom / `step`) | `LvnManifest.cs` (`LvnAnimTrack.interp`) + `ActorAnimator.Sample` | ✓ |
 | `to=` one-liner tween (from rest value) | `convert.go` (`buildAnimCmd`, `propIdentity`) | ✓ |
 | `loop=yoyo` (ping-pong) | convert.go + `ActorAnimator`/`WorldActor` (`Mathf.PingPong`) | ✓ |
 | `stop=all` / `stop=<channel/prop>` | convert.go + `StopScript`/`StopTarget` + `VnStage.ApplyAnim` | ✓ |
 | `mode=queue` (sequential on one lane) | convert.go + `PlayQueued`/per-channel FIFO in `ActorAnimator`/`WorldActor` (dequeues on completion) | ✓ |
-| spline value/path, `orient`, arc-length | `ActorAnimator.Sample`/`SamplePath` | ◻ |
+| `orient` (face along the path tangent) | `ActorAnimator.OrientAngle` + `Composite`/`WorldActor.Tick` | ✓ |
+| arc-length parameterised paths | `ActorAnimator.SamplePath` | ◻ |
 | `defanim`/`play` named anims | convert.go + VnStage | ◻ |
 | panel `lvns.wasm` rebuild (anim/move show in the IDE) | `panel/public/lvns.wasm` from `tools/lvnconv/wasm` | ✓ |
 
