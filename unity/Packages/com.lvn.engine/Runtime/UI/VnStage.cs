@@ -556,6 +556,10 @@ namespace Lvn.UI
             // (minus the beat being undone — its re-run is dedup'd in RecordSay).
             var kept = new List<(string who, string text, string style)>(_backlog);
             if (kept.Count > 0) kept.RemoveAt(kept.Count - 1);
+            // A trailing choice mark belongs to the pick being undone: the options
+            // re-present and the (re-)pick records a fresh mark.
+            while (kept.Count > 0 && kept[kept.Count - 1].style == "choice")
+                kept.RemoveAt(kept.Count - 1);
 
             ResetStage();
             _backlog.AddRange(kept);
@@ -710,12 +714,18 @@ namespace Lvn.UI
 
         private void OnChoiceSelected(int index)
         {
+            string picked = null;
+            if (_curChoices != null)
+                foreach (var o in _curChoices)
+                    if (o.Index == index) { picked = o.Text; break; }
             _choices.Dismiss();
             _curChoices = null;
             _awaitingTap = false;
             // Ignore a click on a stale button (the beat moved on via load/hot-reload
             // and these options no longer apply) instead of throwing.
             if (_player == null || !_player.AtChoice) return;
+            // History: record which branch was taken (rendered as a marked line).
+            if (!string.IsNullOrEmpty(picked)) _backlog.Add((null, picked, "choice"));
             _player.Choose(index);
             _player.Advance();
             // A picked branch is exactly what a crash must not lose — autosave here.

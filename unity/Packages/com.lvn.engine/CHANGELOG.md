@@ -6,6 +6,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **History shows the branches you took** — a picked choice lands in the
+  backlog as an accented "▸ option" line (indented, theme accent colour);
+  rollback of an undone pick removes its mark so a re-pick records fresh.
+- **Save-overwrite confirmation** — saving into an occupied slot asks
+  first (localizable `overwrite_q`/`overwrite`/`cancel` labels); empty
+  slots still save in one tap.
 - **Animation phase 2** — `interp=spline` (Catmull-Rom through the keys) and
   `interp=step` in the shared sampler (UITK + Canvas paths), `move …
   orient=true` rotates the actor along the path tangent. A typo'd `interp`
