@@ -324,7 +324,157 @@ func Validate(d *Doc) []Issue {
 		addWarn(-1, "label", fmt.Sprintf("label %q is never targeted (dead, or fall-through only)", id))
 	}
 
+	// Pass 5: likely-typo variable reads. A variable read in an expression or a
+	// {interpolation} that is never set — AND is a near-miss of a variable that IS
+	// set — is almost always a typo (`if expr="scoore>=1"` when `score` is set).
+	// We deliberately only flag close typos of defined vars, never every unknown
+	// name: a novel legitimately reads vars seeded from an earlier chapter or the
+	// host, so flagging all unknowns would be noise. Only runs when the doc sets
+	// at least one var of its own.
+	setVars := collectDefinedVars(d.Script)
+	if len(setVars) > 0 {
+		definedList := make([]string, 0, len(setVars))
+		for k := range setVars {
+			definedList = append(definedList, k)
+		}
+		sort.Strings(definedList)
+		var checkExpr func(i int, op, expr string)
+		checkExpr = func(i int, op, expr string) {
+			for _, id := range exprIdents(expr) {
+				if setVars[id] {
+					continue
+				}
+				if s := suggest(id, definedList); s != "" && len(s) >= 4 && s != id {
+					addWarn(i, op, fmt.Sprintf("variable %q is read but never set — did you mean %q?", id, s))
+				}
+			}
+		}
+		for i, c := range d.Script {
+			switch c.Op() {
+			case "if":
+				checkExpr(i, "if", c.Str("expr"))
+			case "set":
+				checkExpr(i, "set", c.Str("expr"))
+			case "say", "text":
+				for _, in := range interpolationExprs(c.Str("text")) {
+					checkExpr(i, c.Op(), in)
+				}
+			case "choice":
+				if opts, ok := c["options"].([]any); ok {
+					for _, o := range opts {
+						if om, ok := o.(map[string]any); ok {
+							checkExpr(i, "choice", Cmd(om).Str("expr"))
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return issues
+}
+
+// collectDefinedVars gathers every variable the document assigns: set/inc keys,
+// on_click set-maps, and set/inc inside choice option bodies.
+func collectDefinedVars(script []Cmd) map[string]bool {
+	defined := map[string]bool{}
+	var visit func(cmds []Cmd)
+	visit = func(cmds []Cmd) {
+		for _, c := range cmds {
+			switch c.Op() {
+			case "set", "inc":
+				if k := c.Str("key"); k != "" {
+					defined[k] = true
+				}
+			}
+			if oc, ok := c["on_click"].(map[string]any); ok {
+				if setm, ok := oc["set"].(map[string]any); ok {
+					for k := range setm {
+						defined[k] = true
+					}
+				}
+			}
+			if c.Op() == "choice" {
+				if opts, ok := c["options"].([]any); ok {
+					for _, o := range opts {
+						om, ok := o.(map[string]any)
+						if !ok {
+							continue
+						}
+						if body, ok := om["body"].([]any); ok {
+							var bcmds []Cmd
+							for _, b := range body {
+								if bm, ok := b.(map[string]any); ok {
+									bcmds = append(bcmds, Cmd(bm))
+								}
+							}
+							visit(bcmds)
+						}
+					}
+				}
+			}
+		}
+	}
+	visit(script)
+	return defined
+}
+
+var (
+	identRe  = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_.]*`)
+	strLitRe = regexp.MustCompile(`"[^"]*"|'[^']*'`)
+	// keywords/operators an expression may contain that are not variables.
+	exprKeywords = map[string]bool{
+		"true": true, "false": true, "null": true, "nil": true,
+		"and": true, "or": true, "not": true, "mod": true,
+	}
+)
+
+// exprIdents pulls the variable identifiers out of an expression, dropping string
+// literals, boolean/keyword tokens, numeric literals, and function-call names.
+func exprIdents(expr string) []string {
+	if expr == "" {
+		return nil
+	}
+	expr = strLitRe.ReplaceAllString(expr, " ") // a quoted literal is not a variable
+	var out []string
+	for _, m := range identRe.FindAllStringIndex(expr, -1) {
+		id := expr[m[0]:m[1]]
+		if exprKeywords[strings.ToLower(id)] {
+			continue
+		}
+		// A name immediately followed by '(' is a function call, not a variable.
+		j := m[1]
+		for j < len(expr) && (expr[j] == ' ' || expr[j] == '\t') {
+			j++
+		}
+		if j < len(expr) && expr[j] == '(' {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
+}
+
+// interpolationExprs returns the contents of each {…} span in text ({{ and }} are
+// literal-brace escapes), for variable-read checking.
+func interpolationExprs(s string) []string {
+	var out []string
+	for i := 0; i < len(s); i++ {
+		if s[i] != '{' {
+			continue
+		}
+		if i+1 < len(s) && s[i+1] == '{' { // literal "{{"
+			i++
+			continue
+		}
+		end := strings.IndexByte(s[i+1:], '}')
+		if end < 0 {
+			break
+		}
+		out = append(out, s[i+1:i+1+end])
+		i += end + 1
+	}
+	return out
 }
 
 func inSet(set []string, v string) bool {
