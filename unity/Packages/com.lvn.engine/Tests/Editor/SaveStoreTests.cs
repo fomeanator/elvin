@@ -76,6 +76,36 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void NewerSchemaSlotIsHiddenNotMisread()
+        {
+            // Simulate a save written by a future build (schema v99): this build
+            // must not load it into corrupt state — and must not destroy it.
+            LvnSaveStore.Put(TitleA, "future", Slot(1));
+            var json = PlayerPrefs.GetString("lvn_slots_" + TitleA);
+            PlayerPrefs.SetString("lvn_slots_" + TitleA, json.Replace("\"Version\":1", "\"Version\":99"));
+
+            Assert.IsNull(LvnSaveStore.Get(TitleA, "future"), "a newer-schema slot is invisible");
+            Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count);
+
+            // An unrelated write must not garbage-collect the hidden slot.
+            LvnSaveStore.Put(TitleA, "slot1", Slot(2));
+            LvnSaveStore.Delete(TitleA, "slot1");
+            StringAssert.Contains("\"Version\":99",
+                PlayerPrefs.GetString("lvn_slots_" + TitleA),
+                "the future save survives Put/Delete round-trips for when the app updates");
+        }
+
+        [Test]
+        public void PutStampsTheCurrentSchemaVersion()
+        {
+            var s = Slot(5);
+            s.Version = 0; // pretend it came from an ancient in-memory path
+            LvnSaveStore.Put(TitleA, "slot1", s);
+            Assert.AreEqual(LvnSaveSlot.CurrentVersion, LvnSaveStore.Get(TitleA, "slot1").Version,
+                "every write re-persists at the schema this build speaks");
+        }
+
+        [Test]
         public void MissingAndCorruptDataDegradeToEmpty()
         {
             Assert.IsNull(LvnSaveStore.Get(TitleA, "nope"));

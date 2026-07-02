@@ -6,6 +6,10 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Save schema versioning** — every slot write stamps
+  `LvnSaveSlot.CurrentVersion`; reads migrate older schemas up and HIDE
+  slots written by a newer build instead of misreading them (they survive
+  unrelated writes untouched, so upgrading the app brings them back).
 - **History shows the branches you took** — a picked choice lands in the
   backlog as an accented "▸ option" line (indented, theme accent colour);
   rollback of an undone pick removes its mark so a re-pick records fresh.
