@@ -91,7 +91,7 @@ func TestWriteCappedRejectsOversize(t *testing.T) {
 
 func TestStatePutGetRoundtripAndPersist(t *testing.T) {
 	dir := t.TempDir()
-	s := &server{content: dir, state: map[string][]byte{}}
+	s := &server{content: dir, state: map[string]stateEntry{}}
 
 	// PUT a save.
 	body := `{"vars":{"gold":5},"updatedAt":123}`
@@ -106,28 +106,113 @@ func TestStatePutGetRoundtripAndPersist(t *testing.T) {
 		t.Fatalf("state not persisted to disk: %v", err)
 	}
 
-	// GET returns it back.
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/v1/state?user=u1__title", nil)
-	s.handleState(rec, req)
-	if rec.Code != 200 || rec.Body.String() != body {
-		t.Fatalf("GET = (%d) %q, want (200) %q", rec.Code, rec.Body.String(), body)
+	// GET returns the doc plus the server-owned _version token.
+	checkGet := func(label string) {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest("GET", "/v1/state?user=u1__title", nil)
+		s.handleState(rec, req)
+		if rec.Code != 200 {
+			t.Fatalf("%s: GET code = %d, want 200", label, rec.Code)
+		}
+		var got map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("%s: GET body not JSON: %v", label, err)
+		}
+		vars, _ := got["vars"].(map[string]any)
+		if vars == nil || vars["gold"] != float64(5) {
+			t.Fatalf("%s: vars lost: %v", label, got)
+		}
+		if got["_version"] != float64(1) {
+			t.Fatalf("%s: _version = %v, want 1", label, got["_version"])
+		}
 	}
+	checkGet("fresh")
 
-	// Eviction from the in-memory cache still serves from disk.
+	// Eviction from the in-memory cache still serves from disk (with version).
 	s.mu.Lock()
 	delete(s.state, "u1__title")
 	s.mu.Unlock()
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/v1/state?user=u1__title", nil)
+	checkGet("after eviction")
+}
+
+// A client echoing a stale _version gets a 409 with the current doc, so it can
+// merge instead of clobbering another device's progress. A matching version
+// (or none at all — legacy last-write-wins) is accepted.
+func TestStateVersionConflict(t *testing.T) {
+	s := &server{content: t.TempDir(), state: map[string]stateEntry{}}
+	put := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/v1/state?user=u1", strings.NewReader(body))
+		s.handleState(rec, req)
+		return rec
+	}
+
+	// Device A writes twice — versions 1 then 2 (echoing 1).
+	if rec := put(`{"vars":{"g":1},"updatedAt":1}`); rec.Code != 200 {
+		t.Fatalf("first PUT = %d", rec.Code)
+	}
+	if rec := put(`{"vars":{"g":2},"updatedAt":2,"_version":1}`); rec.Code != 200 {
+		t.Fatalf("versioned PUT = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Device B, still holding version 1, writes → conflict with the current doc.
+	rec := put(`{"vars":{"g":99},"updatedAt":3,"_version":1}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("stale PUT code = %d, want 409", rec.Code)
+	}
+	var conflict map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &conflict)
+	if conflict["version"] != float64(2) {
+		t.Fatalf("conflict version = %v, want 2", conflict["version"])
+	}
+	doc, _ := conflict["doc"].(map[string]any)
+	if doc == nil || doc["vars"].(map[string]any)["g"] != float64(2) {
+		t.Fatalf("conflict must carry the winning doc: %v", conflict)
+	}
+
+	// Device B merges and retries with the fresh version → accepted, version 3.
+	rec = put(`{"vars":{"g":100},"updatedAt":4,"_version":2}`)
+	if rec.Code != 200 {
+		t.Fatalf("merged retry = %d", rec.Code)
+	}
+	var ok map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &ok)
+	if ok["version"] != float64(3) {
+		t.Fatalf("retry version = %v, want 3", ok["version"])
+	}
+
+	// A legacy client (no _version) is still accepted — LWW fallback.
+	if rec := put(`{"vars":{"g":7},"updatedAt":5}`); rec.Code != 200 {
+		t.Fatalf("legacy PUT = %d, want 200 (LWW fallback)", rec.Code)
+	}
+}
+
+// Legacy on-disk saves (raw client JSON, pre-versioning) read as version 0 and
+// upgrade transparently on the next write.
+func TestStateLegacyDiskFileMigrates(t *testing.T) {
+	dir := t.TempDir()
+	s := &server{content: dir, state: map[string]stateEntry{}}
+	// Simulate an old install: raw doc on disk, no wrapper.
+	p := s.stateFile("old")
+	_ = os.MkdirAll(filepath.Dir(p), 0o755)
+	_ = os.WriteFile(p, []byte(`{"vars":{"g":1},"updatedAt":1}`), 0o644)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/state?user=old", nil)
 	s.handleState(rec, req)
-	if rec.Code != 200 || rec.Body.String() != body {
-		t.Fatalf("GET after eviction = (%d) %q, want it reloaded from disk", rec.Code, rec.Body.String())
+	var got map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got["_version"] != float64(0) {
+		t.Fatalf("legacy file version = %v, want 0", got["_version"])
+	}
+	vars, _ := got["vars"].(map[string]any)
+	if vars == nil || vars["g"] != float64(1) {
+		t.Fatalf("legacy doc lost: %v", got)
 	}
 }
 
 func TestStateRejectsNonJSON(t *testing.T) {
-	s := &server{content: t.TempDir(), state: map[string][]byte{}}
+	s := &server{content: t.TempDir(), state: map[string]stateEntry{}}
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/v1/state?user=u1", strings.NewReader("not json"))
 	s.handleState(rec, req)
@@ -137,7 +222,7 @@ func TestStateRejectsNonJSON(t *testing.T) {
 }
 
 func TestStateTokenGate(t *testing.T) {
-	s := &server{content: t.TempDir(), state: map[string][]byte{}, stateToken: "sekret"}
+	s := &server{content: t.TempDir(), state: map[string]stateEntry{}, stateToken: "sekret"}
 	// No token → 401.
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/state?user=u1", nil)
@@ -156,9 +241,9 @@ func TestStateTokenGate(t *testing.T) {
 }
 
 func TestStateMemBounded(t *testing.T) {
-	s := &server{content: t.TempDir(), state: map[string][]byte{}}
+	s := &server{content: t.TempDir(), state: map[string]stateEntry{}}
 	for i := 0; i < stateMemMax+50; i++ {
-		s.putState("user"+strconvItoa(i), []byte("{}"))
+		s.putState("user"+strconvItoa(i), stateEntry{body: []byte("{}")})
 	}
 	s.mu.RLock()
 	n := len(s.state)

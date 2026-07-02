@@ -95,6 +95,15 @@ namespace Lvn.Content
         private readonly string _user;
         private const int TimeoutSeconds = 8;
 
+        // Last server version seen per title (the OCC token): echoed on PUT so the
+        // server can detect that another device wrote in between. A conflict comes
+        // back as a 409 with the winning doc — we merge (newer updatedAt wins) and
+        // retry once, instead of silently clobbering the other device's progress.
+        private readonly System.Collections.Generic.Dictionary<string, long> _versions
+            = new System.Collections.Generic.Dictionary<string, long>();
+
+        private string VKey(string titleId) => titleId ?? "";
+
         public HttpStateStore(string baseUrl, string userId)
         {
             _base = (baseUrl ?? "").TrimEnd('/');
@@ -169,30 +178,68 @@ namespace Lvn.Content
                 // recover the global flag so other subsystems resume too.
                 LvnNetworkStatus.MarkOnline("state GET ok");
                 if (req.responseCode < 200 || req.responseCode >= 300) return null; // 404 = no save yet
-                return JObject.Parse(req.downloadHandler.text);
+                var doc = JObject.Parse(req.downloadHandler.text);
+                if (doc["_version"] != null) // remember the OCC token for the next PUT
+                    _versions[VKey(titleId)] = (long)doc["_version"];
+                return doc;
             }
             catch { return null; }
         }
 
         private async Task Put(string titleId, JObject doc, CancellationToken ct)
         {
-            using var req = new UnityWebRequest(Url(titleId), "PUT");
-            var body = System.Text.Encoding.UTF8.GetBytes(doc.ToString(Newtonsoft.Json.Formatting.None));
-            req.uploadHandler = new UploadHandlerRaw(body);
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
-            req.timeout = TimeoutSeconds;
-            var op = req.SendWebRequest();
-            while (!op.isDone)
+            // Up to one merge-retry: attempt 1 with our last-seen version; on a 409
+            // (another device wrote) merge newer-wins and retry with the fresh token.
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                if (ct.IsCancellationRequested) { req.Abort(); return; }
-                await Task.Yield();
-            }
-            if (req.result is UnityWebRequest.Result.ConnectionError
-                           or UnityWebRequest.Result.DataProcessingError)
-                LvnNetworkStatus.MarkOffline("state PUT network error");
-            else
+                var send = (JObject)doc.DeepClone();
+                if (_versions.TryGetValue(VKey(titleId), out var known))
+                    send["_version"] = known;
+
+                using var req = new UnityWebRequest(Url(titleId), "PUT");
+                var body = System.Text.Encoding.UTF8.GetBytes(send.ToString(Newtonsoft.Json.Formatting.None));
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = TimeoutSeconds;
+                var op = req.SendWebRequest();
+                while (!op.isDone)
+                {
+                    if (ct.IsCancellationRequested) { req.Abort(); return; }
+                    await Task.Yield();
+                }
+                if (req.result is UnityWebRequest.Result.ConnectionError
+                               or UnityWebRequest.Result.DataProcessingError)
+                {
+                    LvnNetworkStatus.MarkOffline("state PUT network error");
+                    return;
+                }
                 LvnNetworkStatus.MarkOnline("state PUT ok"); // the sync reached the server → we're online
+
+                if (req.responseCode == 409)
+                {
+                    try
+                    {
+                        var resp = JObject.Parse(req.downloadHandler.text);
+                        _versions[VKey(titleId)] = (long?)resp["version"] ?? 0;
+                        var winner = Newer(resp["doc"] as JObject, doc);
+                        LocalStateStore.WriteDoc(titleId, winner); // local mirrors the merge outcome
+                        doc = winner;
+                        continue; // one retry with the fresh version
+                    }
+                    catch { return; } // unparseable conflict — leave it local, reconcile next load
+                }
+                if (req.responseCode >= 200 && req.responseCode < 300)
+                {
+                    try
+                    {
+                        var resp = JObject.Parse(req.downloadHandler.text);
+                        if (resp["version"] != null) _versions[VKey(titleId)] = (long)resp["version"];
+                    }
+                    catch { /* legacy server without versions — LWW as before */ }
+                }
+                return;
+            }
         }
     }
 }
