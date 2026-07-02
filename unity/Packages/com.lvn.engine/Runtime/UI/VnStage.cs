@@ -164,6 +164,11 @@ namespace Lvn.UI
 
             root.pickingMode = PickingMode.Position;
             root.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            // Desktop convenience (the Ren'Py convention): wheel-up steps back one beat.
+            root.RegisterCallback<WheelEvent>(evt =>
+            {
+                if (evt.delta.y < 0f && RollbackStep()) evt.StopPropagation();
+            });
 
             // Audio channels (music/ambient/sfx) live in their own component.
             _audio = gameObject.AddComponent<StageAudio>();
@@ -357,7 +362,51 @@ namespace Lvn.UI
         }
 
         private void RecordSay(string who, string text, string style)
-            => _backlog.Add((who, text, style));
+        {
+            // After a rollback, the restored beat re-runs and would duplicate its
+            // own backlog entry — swallow exactly that one repeat.
+            if (_suppressDupSay)
+            {
+                _suppressDupSay = false;
+                if (_backlog.Count > 0)
+                {
+                    var last = _backlog[_backlog.Count - 1];
+                    if (last.who == who && last.text == text) return;
+                }
+            }
+            _backlog.Add((who, text, style));
+        }
+
+        private bool _suppressDupSay;
+
+        /// <summary>True when there is a previous beat to roll back to.</summary>
+        public bool CanRollback => _player != null && _player.CanRollback && !_awaitingWait;
+
+        /// <summary>Step one beat back (a mis-tap safety net): restore the previous
+        /// say/choice's snapshot — variables as they were BEFORE it ran, so a picked
+        /// option's set/inc is undone — rebuild the scene there and re-show it.
+        /// Returns false when already at the first beat.</summary>
+        public bool RollbackStep()
+        {
+            if (_player == null || _awaitingWait) return false;
+            var snap = _player.PopRollback();
+            if (snap == null) return false;
+
+            // ResetStage wipes the dialogue history; a one-step rewind must keep it
+            // (minus the beat being undone — its re-run is dedup'd in RecordSay).
+            var kept = new List<(string who, string text, string style)>(_backlog);
+            if (kept.Count > 0) kept.RemoveAt(kept.Count - 1);
+
+            ResetStage();
+            _backlog.AddRange(kept);
+            _suppressDupSay = true;
+
+            _player.Restore(snap);
+            int at = _player.Index;
+            _player.ReplayVisuals(at);
+            _player.ContinueFrom(at);
+            return true;
+        }
 
         private void OnPointerDown(PointerDownEvent evt)
         {
@@ -509,6 +558,7 @@ namespace Lvn.UI
             }
             ResetStage();                       // clean slate
             _player.Restore(snap);              // cursor (via label anchor) + vars + call stack
+            _player.ClearHistory();             // the rollback trail no longer describes the path here
             int at = _player.Index;             // the anchor-relocated cursor, not the raw saved index
             _player.ReplayVisuals(at);          // rebuild bg / actors / HUD up to the saved point
             _player.ContinueFrom(at);           // resume → renders the saved beat

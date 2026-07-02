@@ -186,6 +186,48 @@ namespace Lvn
             Advance();
         }
 
+        // ── rollback ─────────────────────────────────────────────────────────
+        // A bounded history of "beats": a snapshot pushed as each say (or a choice
+        // with no say line of its own) is shown, taken BEFORE the beat runs — so
+        // rolling back to a choice restores the variables as they were before the
+        // pick (an option's set/inc is undone). A say immediately followed by a
+        // choice is ONE beat anchored at the say, so a rollback re-shows the line
+        // together with its options.
+
+        /// <summary>Rollback history depth cap. Oldest beats fall off.</summary>
+        public const int MaxHistory = 100;
+
+        private readonly List<LvnSnapshot> _history = new List<LvnSnapshot>();
+
+        /// <summary>True when there is a previous beat to roll back to.</summary>
+        public bool CanRollback => _history.Count >= 2;
+
+        /// <summary>Pop the current beat and return the previous one to restore
+        /// (null when at the first beat). The returned beat re-enters the history
+        /// when it re-runs, so repeated rollbacks walk further back.</summary>
+        public LvnSnapshot PopRollback()
+        {
+            if (_history.Count < 2) return null;
+            _history.RemoveAt(_history.Count - 1); // the beat currently on screen
+            var prev = _history[_history.Count - 1];
+            _history.RemoveAt(_history.Count - 1); // re-pushed when it re-runs
+            return prev;
+        }
+
+        /// <summary>Drop the rollback history — call after restoring an external
+        /// save, where the recorded beats no longer describe the path taken.</summary>
+        public void ClearHistory() => _history.Clear();
+
+        private void PushHistory()
+        {
+            // A re-presented beat (a tap while the same choice is up, a re-render)
+            // must not duplicate. Note: a revisit of the same index via a loop is
+            // also collapsed — rolling back to it lands on the FIRST visit's state.
+            if (_history.Count > 0 && _history[_history.Count - 1].Index == _ip) return;
+            _history.Add(Save());
+            if (_history.Count > MaxHistory) _history.RemoveAt(0);
+        }
+
         public IReadOnlyCollection<int> CallStack => _callStack;
 
         /// <summary>Snapshot of the player's state for save/load. <see cref="CommandCount"/>
@@ -405,10 +447,16 @@ namespace Lvn
                         break;
 
                     case "choice":
+                        // A choice directly after a say is the same beat (the line
+                        // and its options show together) — the say already pushed.
+                        bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
+                                      && (string)prevCmd["op"] == "say";
+                        if (!paired) PushHistory();
                         _stage.ShowChoice(BuildOptions(c));
                         return;
 
                     case "say":
+                        PushHistory();
                         // Ink-style alternatives first (their counters key off the
                         // command index), then {var} interpolation — for both the
                         // line and the speaker name.
