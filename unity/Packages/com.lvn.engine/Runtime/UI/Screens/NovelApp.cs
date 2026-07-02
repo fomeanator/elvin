@@ -68,6 +68,7 @@ namespace Lvn.UI.Screens
         private string _currentScriptJson;
         private string _playerName;
         private LvnUiConfig _globalUi; // manifest.ui — the base for per-title theming
+        private LvnManifest _manifest; // the live manifest (cross-chapter save routing)
 
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
@@ -134,7 +135,9 @@ namespace Lvn.UI.Screens
             // the shell screens read manifest.ui — so the whole game is themeable.
             // (A title can override this per-game; applied in PlayChapterAsync.)
             _globalUi = manifest.ui;
+            _manifest = manifest;
             Stage.ApplyTheme(VnThemeBuilder.From(manifest.ui, Stage.Theme));
+            Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
             _downloads = new DownloadManager(_assets.Loader);
             var prefetch = SafeBootPrefetch(manifest, online);
@@ -365,6 +368,58 @@ namespace Lvn.UI.Screens
             _assets.Loader.UnloadWhere(u => u.Contains("/art/") || u.Contains("/bg/"));
         }
 
+        // Cross-chapter save routing: a slot taken in another chapter resolves to
+        // its chapter by script url, fetches that script, plays it and restores —
+        // all in place, while the shell's play-loop keeps driving whatever player
+        // the stage currently holds. Wired into VnStage.CrossChapterLoader.
+        private async Task<bool> CrossChapterLoadAsync(LvnSaveSlot slot)
+        {
+            var url = slot?.Snap?.ScriptUrl;
+            if (string.IsNullOrEmpty(url) || Stage == null) return false;
+            var (title, chapter) = FindChapterByScriptUrl(url);
+            if (chapter == null)
+            {
+                Debug.LogWarning($"[novelapp] save points at unknown chapter: {url}");
+                return false;
+            }
+
+            string json;
+            try { json = await _assets.Loader.DownloadScriptCached(url); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] cross-chapter fetch failed: {ex.Message}"); return false; }
+            if (string.IsNullOrEmpty(json)) return false;
+
+            Stage.ClearStage();
+            Stage.Strings = await LoadCatalogAsync(url);
+            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
+            Stage.SetSaveContext(title?.id, chapter.id, url);
+            Stage.Play(json);
+            if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
+                Stage.Player.Vars["player"] = _playerName;
+            Stage.RestoreSnapshot(slot.Snap);
+            _currentChapter = chapter;
+            _currentTitle = title ?? _currentTitle;
+            _currentScriptJson = json;
+            Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
+            return true;
+        }
+
+        private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)
+        {
+            if (_manifest?.titles == null) return (null, null);
+            foreach (var t in _manifest.titles)
+            {
+                if (t?.seasons == null) continue;
+                foreach (var s in t.seasons)
+                {
+                    if (s?.chapters == null) continue;
+                    foreach (var c in s.chapters)
+                        if (c != null && c.script_url == scriptUrl)
+                            return (t, c);
+                }
+            }
+            return (null, null);
+        }
+
         // The save identity for /v1/state. An explicit UserId (an account) wins; else
         // a per-device id generated once and kept in PlayerPrefs.
         private string ResolveUserId()
@@ -416,6 +471,7 @@ namespace Lvn.UI.Screens
             CacheManifest(manifest); // keep the offline copy fresh on every live update
             _shell?.ApplyLiveUpdate(manifest);
             _globalUi = manifest.ui;
+            _manifest = manifest; // cross-chapter routing follows the live manifest
             if (Stage != null)
             {
                 Stage.Catalog = new SpriteCatalog(manifest.sprites);

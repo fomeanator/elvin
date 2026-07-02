@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -711,9 +712,9 @@ namespace Lvn.UI
             return true;
         }
 
-        /// <summary>Restore a persistent slot. Only slots taken in the CURRENT
-        /// chapter restore (a slot from another chapter needs that chapter's script
-        /// — the host's job); returns false otherwise so a UI can grey it out.</summary>
+        /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
+        /// false for another chapter's slot (see <see cref="LoadFromSlotAsync"/> for
+        /// the cross-chapter path).</summary>
         public bool LoadFromSlot(string slot)
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);
@@ -723,12 +724,35 @@ namespace Lvn.UI
             return true;
         }
 
-        /// <summary>True when the slot exists and belongs to the current chapter.</summary>
+        /// <summary>Host hook for loading a slot that belongs to ANOTHER chapter:
+        /// resolve the chapter by <c>Snap.ScriptUrl</c>, fetch its script, play it
+        /// and restore. Wired by NovelApp; when null, cross-chapter slots simply
+        /// aren't loadable (greyed out in the menu).</summary>
+        public Func<LvnSaveSlot, Task<bool>> CrossChapterLoader;
+
+        /// <summary>Load a slot wherever it points: in-place for the current
+        /// chapter, via <see cref="CrossChapterLoader"/> for another one.</summary>
+        public async Task<bool> LoadFromSlotAsync(string slot)
+        {
+            if (LoadFromSlot(slot)) return true;
+            var s = LvnSaveStore.Get(_saveTitleId, slot);
+            if (s?.Snap == null || CrossChapterLoader == null) return false;
+            try { return await CrossChapterLoader(s); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[lvn] cross-chapter load failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>True when the slot exists and is reachable — taken in the
+        /// current chapter, or in another one the host can route to.</summary>
         public bool CanLoadSlot(string slot)
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);
-            return s?.Snap != null
-                   && (string.IsNullOrEmpty(s.Snap.ScriptUrl) || s.Snap.ScriptUrl == _saveScriptUrl);
+            if (s?.Snap == null) return false;
+            if (string.IsNullOrEmpty(s.Snap.ScriptUrl) || s.Snap.ScriptUrl == _saveScriptUrl) return true;
+            return CrossChapterLoader != null;
         }
 
         /// <summary>Autosave into the reserved slot now — called by the host on
