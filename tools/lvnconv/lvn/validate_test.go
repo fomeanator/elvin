@@ -71,6 +71,62 @@ func TestValidFieldsAndEnumsDoNotWarn(t *testing.T) {
 	}
 }
 
+func TestUndefinedVarTypoWarned(t *testing.T) {
+	// score is set; scoore is read in an expr and an interpolation → both typos.
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"score","value":0},
+	 {"op":"if","expr":"scoore >= 10","then":"w","else":"l"},
+	 {"op":"say","who":"X","text":"У тебя {scoore} очков"},
+	 {"op":"label","id":"w"},{"op":"label","id":"l"}
+	]}`)
+	issues := Validate(d)
+	if !hasWarn(issues, `variable "scoore" is read but never set`) {
+		t.Fatalf("expected undefined-var warning, got %v", issues)
+	}
+	if !hasWarn(issues, `did you mean "score"`) {
+		t.Fatalf("expected a 'score' suggestion, got %v", issues)
+	}
+}
+
+// A variable that isn't a near-miss of any defined var is treated as seeded
+// externally (carried from an earlier chapter / the host), not a typo.
+func TestExternalVarNotFlagged(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"gold","value":0},
+	 {"op":"if","expr":"player_name_len > 3","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	if hasWarn(Validate(d), "is read but never set") {
+		t.Fatalf("a distinct external var must not be flagged as a typo")
+	}
+}
+
+// String literals inside an expression are not variables and must not be flagged.
+func TestStringLiteralNotFlaggedAsVar(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"set","key":"state","value":"idle"},
+	 {"op":"if","expr":"state == \"stat\"","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	// "stat" is a quoted literal that is a near-miss of "state" — but it's a
+	// literal, so stripping quotes must prevent a false positive.
+	if hasWarn(Validate(d), `variable "stat"`) {
+		t.Fatalf("a string literal was mistaken for a variable: %v", Validate(d))
+	}
+}
+
+// With no vars set at all, the doc is assumed to rely on external seeding and the
+// typo check is skipped entirely (no noise).
+func TestNoDefinedVarsSkipsCheck(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"if","expr":"anything > 1","then":"w","else":"w"},
+	 {"op":"label","id":"w"}
+	]}`)
+	if hasWarn(Validate(d), "is read but never set") {
+		t.Fatalf("undefined-var check should not run when nothing is set")
+	}
+}
+
 // An unset/absent enum field (e.g. actor with no position) must not warn.
 func TestAbsentEnumFieldDoesNotWarn(t *testing.T) {
 	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"x","show":true}]}`)
