@@ -247,13 +247,32 @@ namespace Lvn.UI
                 all.TryGetValue(name, out var slot);
                 var label = L("slot", "Slot") + " " + (i + 1);
                 if (saveMode)
+                {
+                    var occupied = slot?.Snap != null; // an occupied slot asks before it's lost
                     scroll.Add(SlotRow(label, slot, () =>
                     {
-                        if (_stage.SaveToSlot(name)) ShowSlots(true); // refresh with the new stamp
+                        if (occupied) ConfirmOverwrite(label, name);
+                        else if (_stage.SaveToSlot(name)) ShowSlots(true); // refresh with the new stamp
                     }));
+                }
                 else
                     scroll.Add(SlotRow(label, slot, () => TryLoad(name), enabled: _stage.CanLoadSlot(name)));
             }
+        }
+
+        // Overwriting a save is the one destructive tap in the whole menu — make
+        // it a two-step: a small panel naming the slot, confirm or go back.
+        private void ConfirmOverwrite(string label, string slotName)
+        {
+            var p = Panel(L("save", "Save"));
+            var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 16, FontStyle.Normal);
+            msg.style.marginBottom = 12;
+            p.Add(msg);
+            p.Add(Item(L("overwrite", "Overwrite"), () =>
+            {
+                if (_stage.SaveToSlot(slotName)) ShowSlots(true);
+            }));
+            p.Add(Item(L("cancel", "Cancel"), () => ShowSlots(true)));
         }
 
         private async void TryLoad(string slot)
@@ -295,12 +314,23 @@ namespace Lvn.UI
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
-            foreach (var (who, text, _) in _stage.Backlog)
+            foreach (var (who, text, style) in _stage.Backlog)
             {
                 var line = new VisualElement();
                 line.style.marginBottom = 8;
-                if (!string.IsNullOrEmpty(who)) line.Add(Text(who, 14, FontStyle.Bold));
-                line.Add(Text(text, 15, FontStyle.Normal, dim: string.IsNullOrEmpty(who)));
+                if (style == "choice")
+                {
+                    // The branch the player took — indented, accented, arrowed.
+                    var mark = Text("▸ " + text, 14, FontStyle.Italic);
+                    mark.style.color = _theme.MenuFabColor;
+                    line.style.marginLeft = 14;
+                    line.Add(mark);
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(who)) line.Add(Text(who, 14, FontStyle.Bold));
+                    line.Add(Text(text, 15, FontStyle.Normal, dim: string.IsNullOrEmpty(who)));
+                }
                 scroll.Add(line);
             }
             // Newest last — land the reader there.
