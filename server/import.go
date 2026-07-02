@@ -126,6 +126,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		"bg_missing": len(res.MissingBg),
 		"lang":       res.Lang,
 		"strings":    len(res.Catalog),
+		"linearizer": res.Linearize,
 	})
 }
 

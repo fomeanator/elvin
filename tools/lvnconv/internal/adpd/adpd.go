@@ -1729,31 +1729,38 @@ func loadFlow(path string) (flow, string, error) {
 	return fl, proj, nil
 }
 
-func buildModel(fl flow, proj string, start, maxN int) export {
+func buildModel(fl flow, proj string, start, maxN int) (export, LinearizeReport) {
+	rep := LinearizeReport{}
+	rep.Emittable, rep.Trapped = pinFlowHealth(fl)
+
 	// With an explicit -start, emit a single chapter from that node over the raw
 	// 0x02 flow (after collapsing structural fan-outs). Without it, emit the WHOLE
 	// novel as one connected, ordered chapter built from the container hierarchy —
 	// the only structure that links the otherwise-shattered 0x02 islands.
 	if start >= 0 {
+		rep.Algorithm = "start"
 		linearizeStructuralFanouts(fl)
 		gvars := globalVars(proj, flowExprs(fl))
 		if maxN <= 0 {
 			maxN = math.MaxInt32
 		}
-		return buildExport(fl, uint32(start), maxN, gvars)
+		return buildExport(fl, uint32(start), maxN, gvars), rep
 	}
 
 	// True articy linearizer: anchor the forward pin-flow to the real container
 	// hierarchy so the whole novel is ONE continuous, chapter-ordered spine (no
 	// island-menu). Tried first whenever the project has a hierarchy root.
-	if kids := completeChildren(fl); len(kids) > 0 {
-		if root, ok := hierarchyRoot(fl, kids); ok {
-			if entries, ok := linearizeAnchored(fl, root, nil); ok {
-				gvars := globalVars(proj, flowExprs(fl))
-				reach, seen := bfs(fl, entries, math.MaxInt32)
-				return emitModels(fl, reach, seen, entries, gvars)
-			}
-		}
+	if kids := completeChildren(fl); len(kids) == 0 {
+		rep.Fallbacks = append(rep.Fallbacks, "anchored: project has no container hierarchy")
+	} else if root, ok := hierarchyRoot(fl, kids); !ok {
+		rep.Fallbacks = append(rep.Fallbacks, "anchored: no Flow root with ≥2 chapter fragments")
+	} else if entries, ok := linearizeAnchored(fl, root, nil); ok {
+		rep.Algorithm = "anchored"
+		gvars := globalVars(proj, flowExprs(fl))
+		reach, seen := bfs(fl, entries, math.MaxInt32)
+		return emitModels(fl, reach, seen, entries, gvars), rep
+	} else {
+		rep.Fallbacks = append(rep.Fallbacks, "anchored: hierarchy-anchored linearization failed")
 	}
 	for k := range fl.succ { // anchored mutated succ — reset before the fallbacks
 		delete(fl.succ, k)
@@ -1762,31 +1769,38 @@ func buildModel(fl flow, proj string, start, maxN int) export {
 	// Faithful port of articy's TraverseFlow (forward pin-flow over emittable nodes)
 	// — no spurious backward menu loops. Falls back only if it would strand content.
 	if entries, ok := linearizeFaithful(fl, wholeNovelTops(fl), nil); ok {
+		rep.Algorithm = "faithful"
 		gvars := globalVars(proj, flowExprs(fl))
 		reach, seen := bfs(fl, entries, math.MaxInt32)
-		return emitModels(fl, reach, seen, entries, gvars)
+		return emitModels(fl, reach, seen, entries, gvars), rep
 	}
+	rep.Fallbacks = append(rep.Fallbacks, "faithful: forward pin-flow would strand content")
 	for k := range fl.succ { // faithful mutated succ — reset before the heuristics
 		delete(fl.succ, k)
 	}
 
 	if entry, ok := linearizeByComponents(fl); ok {
+		rep.Algorithm = "components"
 		gvars := globalVars(proj, flowExprs(fl))
-		return buildExport(fl, entry, math.MaxInt32, gvars)
+		return buildExport(fl, entry, math.MaxInt32, gvars), rep
 	}
+	rep.Fallbacks = append(rep.Fallbacks, "components: no safe reconvergent component chain")
 	// Faithful flow would strand content — clear its partial edges and fall back to
 	// the authoring-order spine (full coverage, no reconvergence).
 	for k := range fl.succ {
 		delete(fl.succ, k)
 	}
 	if entry, ok := linearizeByHierarchy(fl); ok {
+		rep.Algorithm = "hierarchy"
 		gvars := globalVars(proj, flowExprs(fl))
-		return buildExport(fl, entry, math.MaxInt32, gvars)
+		return buildExport(fl, entry, math.MaxInt32, gvars), rep
 	}
+	rep.Fallbacks = append(rep.Fallbacks, "hierarchy: no authoring-order spine")
 	// No container hierarchy (e.g. a synthetic test graph) — fall back to surfacing
 	// every 0x02 component through a chapter hub.
+	rep.Algorithm = "structural-fanouts"
 	linearizeStructuralFanouts(fl)
-	return buildExportAll(fl, globalVars(proj, flowExprs(fl)))
+	return buildExportAll(fl, globalVars(proj, flowExprs(fl))), rep
 }
 
 func flowExprs(fl flow) []string {
@@ -1802,11 +1816,21 @@ func flowExprs(fl flow) []string {
 // instructions and conditions), and returns it as JSON in the articy-export
 // shape. start < 0 picks the story opening; maxN caps the chapter (0 = no cap).
 func BuildExportJSON(path string, start, maxN int) ([]byte, error) {
+	js, _, err := BuildExportJSONReport(path, start, maxN)
+	return js, err
+}
+
+// BuildExportJSONReport is BuildExportJSON plus the linearizer transparency
+// report — which algorithm produced the export, why the more faithful stages
+// fell through, and the pin-flow trapped counter.
+func BuildExportJSONReport(path string, start, maxN int) ([]byte, LinearizeReport, error) {
 	fl, proj, err := loadFlow(path)
 	if err != nil {
-		return nil, err
+		return nil, LinearizeReport{}, err
 	}
-	return json.Marshal(buildModel(fl, proj, start, maxN))
+	model, rep := buildModel(fl, proj, start, maxN)
+	js, err := json.Marshal(model)
+	return js, rep, err
 }
 
 // wholeNovelTops are the entry containers for a whole-novel linearization: the
@@ -1937,14 +1961,24 @@ type ChapterExport struct {
 // enough to edit comfortably, unlike one 30k-line script. Global-variable inits go
 // into every chapter so each plays standalone. Nil when the project isn't chaptered.
 func BuildChaptersJSON(path string) ([]ChapterExport, error) {
+	chs, _, err := BuildChaptersJSONReport(path)
+	return chs, err
+}
+
+// BuildChaptersJSONReport is BuildChaptersJSON plus the linearizer transparency
+// report. Chapters that fail to linearize are dropped from the export — the
+// report records each one, so the loss is visible instead of silent.
+func BuildChaptersJSONReport(path string) ([]ChapterExport, LinearizeReport, error) {
 	fl0, proj, err := loadFlow(path)
 	if err != nil {
-		return nil, err
+		return nil, LinearizeReport{}, err
 	}
 	chs := detectChapters(fl0)
 	if len(chs) < 2 {
-		return nil, nil
+		return nil, LinearizeReport{}, nil
 	}
+	rep := LinearizeReport{Algorithm: "anchored/chapters"}
+	rep.Emittable, rep.Trapped = pinFlowHealth(fl0)
 	gvars := globalVars(proj, flowExprs(fl0))
 	kids := completeChildren(fl0) // read-only across chapters — hoist out of the loop
 
@@ -1960,19 +1994,22 @@ func BuildChaptersJSON(path string) ([]ChapterExport, error) {
 		allowed := subtree(kids, ch.root)
 		entries, ok := linearizeAnchored(fl, ch.root, allowed)
 		if !ok || len(entries) == 0 {
+			rep.Fallbacks = append(rep.Fallbacks,
+				fmt.Sprintf("chapter %q: anchored linearization failed — chapter dropped", ch.name))
 			continue
 		}
 		reach, seen := bfs(fl, entries, math.MaxInt32)
 		js, err := json.Marshal(emitModels(fl, reach, seen, entries, gvars))
 		if err != nil {
-			return nil, err
+			return nil, rep, err
 		}
 		out = append(out, ChapterExport{Name: ch.name, JSON: js})
 	}
+	rep.Chapters = len(out)
 	if len(out) < 2 {
-		return nil, nil
+		return nil, rep, nil
 	}
-	return out, nil
+	return out, rep, nil
 }
 
 // Lang returns the project's primary language code (from the Settings partition,

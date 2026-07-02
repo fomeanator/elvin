@@ -138,8 +138,30 @@ func cmdImport(args []string) {
 	}
 	fmt.Fprintf(os.Stderr, "imported %q → %s (%d ops, %d art files, %d bg unmatched)\n",
 		*id, res.ScriptRel, sumStats(res.Stats), len(res.Art), len(res.MissingBg))
+	printLinearizeReport(res.Linearize)
 	if *localize {
 		fmt.Fprintf(os.Stderr, "i18n: %d strings → %s (lang=%s)\n", len(res.Catalog), res.CatalogRel, res.Lang)
+	}
+}
+
+// printLinearizeReport surfaces the adpd cascade's choice on stderr: silent
+// fallback to a coarser linearizer (or a silently dropped chapter) is a
+// precision loss the author must see at import time, not in playtesting.
+func printLinearizeReport(rep *adpd.LinearizeReport) {
+	if rep == nil {
+		return
+	}
+	line := "linearizer: " + rep.Algorithm
+	if rep.Chapters > 0 {
+		line += fmt.Sprintf(" (%d chapters)", rep.Chapters)
+	}
+	if rep.Emittable > 0 {
+		line += fmt.Sprintf("; pin-flow: %d emittable, %d trapped (%.1f%%)",
+			rep.Emittable, rep.Trapped, 100*float64(rep.Trapped)/float64(rep.Emittable))
+	}
+	fmt.Fprintln(os.Stderr, line)
+	for _, f := range rep.Fallbacks {
+		fmt.Fprintln(os.Stderr, "  fallback: "+f)
 	}
 }
 
@@ -188,10 +210,11 @@ func cmdConvert(args []string) {
 	// adpd takes a path (a directory or a .adpd file), not pre-read bytes: it
 	// reconstructs the articy model from the binary, then reuses the articy back-end.
 	if f == "adpd" {
-		js, err := adpd.BuildExportJSON(*in, *start, *maxNodes)
+		js, rep, err := adpd.BuildExportJSONReport(*in, *start, *maxNodes)
 		if err != nil {
 			die("adpd: " + err.Error())
 		}
+		printLinearizeReport(&rep)
 		doc, err := articy.Convert(js, *dialogue)
 		if err != nil {
 			die("adpd: " + err.Error())
