@@ -379,6 +379,57 @@ namespace Lvn.UI.Screens
             scroll.style.flexGrow = 1;
             panel.Add(scroll);
 
+            // Top row: continue the held mid-chapter position, while it exists —
+            // the escape hatch back after browsing (or after a pick whose load
+            // failed and moved the marker). Resumes via the normal autosave path:
+            // no restart flag, so the exact line and variables come back.
+            var auto = LvnSaveStore.Get(t.id, LvnSaveStore.AutoSlot);
+            LvnChapter autoCh = null;
+            if (auto?.Snap != null && !auto.Snap.Finished)
+                foreach (var c in chapters)
+                    if (c.script_url == auto.Snap.ScriptUrl) { autoCh = c; break; }
+            if (autoCh != null)
+            {
+                // No Button.text here — the title and the line preview are two
+                // stacked labels (a button's own text element would overlap a
+                // child label drawn in the same box).
+                var cont = new Button(() =>
+                {
+                    LvnProgress.SetCurrent(t, autoCh);
+                    LvnProgress.ClearRestart(t.id); // continuing beats any pending restart
+                    CloseChapterPicker();
+                    OnPlay?.Invoke(_index);
+                });
+                cont.style.height = 64;
+                cont.style.marginBottom = 12;
+                cont.style.paddingLeft = 14;
+                cont.style.flexDirection = FlexDirection.Column;
+                cont.style.justifyContent = Justify.Center;
+                cont.style.alignItems = Align.FlexStart;
+                cont.style.backgroundColor = UiColor.Parse(_cfg.play_bg_color, new Color(0.23f, 0.23f, 0.27f));
+                cont.style.borderTopLeftRadius = 10; cont.style.borderTopRightRadius = 10;
+                cont.style.borderBottomLeftRadius = 10; cont.style.borderBottomRightRadius = 10;
+
+                var contTitle = new Label((_cfg.continue_text ?? "Continue") + " — " + ChapterLabel(autoCh));
+                contTitle.pickingMode = PickingMode.Ignore;
+                contTitle.style.fontSize = 19;
+                contTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+                contTitle.style.color = UiColor.Parse(_cfg.play_color, new Color(0.96f, 0.93f, 0.85f));
+                cont.Add(contTitle);
+
+                if (!string.IsNullOrEmpty(auto.Preview))
+                {
+                    var prev = new Label("«" + (auto.Preview.Length > 40 ? auto.Preview.Substring(0, 40) + "…" : auto.Preview) + "»");
+                    prev.pickingMode = PickingMode.Ignore;
+                    prev.style.fontSize = 14;
+                    prev.style.marginTop = 2;
+                    prev.style.unityFontStyleAndWeight = FontStyle.Italic;
+                    prev.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
+                    cont.Add(prev);
+                }
+                scroll.Add(cont);
+            }
+
             foreach (var c in chapters)
             {
                 var ch = c;
