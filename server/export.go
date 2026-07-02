@@ -154,7 +154,7 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 			data = patchProjectSettings(raw, cfg)
 		case manifestRel:
 			raw, _ := os.ReadFile(path)
-			data = patchManifest(raw)
+			data = patchManifest(raw, engineReleaseTag(tmpl))
 		default:
 			raw, derr := os.ReadFile(path)
 			if derr != nil {
@@ -310,12 +310,44 @@ const engineGitURL = "https://github.com/fomeanator/unity-lvn-vn-engine.git?path
 // patchManifest swaps the engine's local file: dependency for the public git
 // URL so a downloaded project resolves the package on open, and drops repo-only
 // dev tooling (the MCP editor bridge) that players' builds must not depend on.
-func patchManifest(raw []byte) []byte {
+// A non-empty tag pins the URL to that release (#vX.Y.Z), so an exported
+// project keeps building identically until its OWNER bumps the tag — engine
+// releases can never break it behind its back.
+func patchManifest(raw []byte, tag string) []byte {
+	url := engineGitURL
+	if tag != "" {
+		url += "#" + tag
+	}
 	re := regexp.MustCompile(`"com\.lvn\.engine"\s*:\s*"[^"]*"`)
-	out := re.ReplaceAllString(string(raw), `"com.lvn.engine": "`+engineGitURL+`"`)
+	out := re.ReplaceAllString(string(raw), `"com.lvn.engine": "`+url+`"`)
 	dev := regexp.MustCompile(`\s*"com\.coplaydev\.unity-mcp"\s*:\s*"[^"]*",?`)
 	out = dev.ReplaceAllString(out, "")
 	return []byte(out)
+}
+
+// engineReleaseTag derives the release tag to pin exports to: the version of
+// the engine package the template's manifest points at (vX.Y.Z — the release
+// process tags every published version). Empty when it can't be determined —
+// the export then tracks the default branch, which is only right for dev.
+func engineReleaseTag(tmpl string) string {
+	raw, err := os.ReadFile(filepath.Join(tmpl, "Packages", "manifest.json"))
+	if err != nil {
+		return ""
+	}
+	m := regexp.MustCompile(`"com\.lvn\.engine"\s*:\s*"file:([^"]+)"`).FindSubmatch(raw)
+	if m == nil {
+		return ""
+	}
+	// file: paths resolve relative to the Packages folder.
+	pkg, err := os.ReadFile(filepath.Join(tmpl, "Packages", filepath.FromSlash(string(m[1])), "package.json"))
+	if err != nil {
+		return ""
+	}
+	v := regexp.MustCompile(`"version"\s*:\s*"([^"]+)"`).FindSubmatch(pkg)
+	if v == nil {
+		return ""
+	}
+	return "v" + string(v[1])
 }
 
 func yamlScalar(s string) string {
@@ -330,7 +362,15 @@ func buildReadme(cfg exportConfig, name string) string {
 		"Exported from ELVIN IDE. This is a complete Unity project.\n\n" +
 		"## Build\n" +
 		"1. Open this folder in Unity (the engine package is pulled automatically).\n" +
-		"2. File ▸ Build Settings ▸ pick a platform ▸ Build.\n\n"
+		"2. File ▸ Build Settings ▸ pick a platform ▸ Build.\n\n" +
+		"## Updating the engine\n" +
+		"The engine dependency in `Packages/manifest.json` is pinned to the\n" +
+		"release it was exported with (`…com.lvn.engine#vX.Y.Z`) — engine updates\n" +
+		"never change your project until you opt in. To update: change the tag to\n" +
+		"the new release (see the engine CHANGELOG), reopen the project, and Unity\n" +
+		"re-resolves the package. Releases keep saves, scripts (.lvn/.lvns) and\n" +
+		"manifests compatible within a major version; player saves are\n" +
+		"schema-versioned and migrate automatically.\n\n"
 	if cfg.Offline {
 		return head + "## Content\n" +
 			"The novel is bundled inside the game (StreamingAssets). It runs fully\n" +
