@@ -388,12 +388,14 @@ namespace Lvn.UI.Screens
                 {
                     // An explicit pick means "start THIS chapter from its top,
                     // with the variables it originally began with" (the genre
-                    // convention): move the continue point, drop the mid-chapter
-                    // autosave, and ask the play loop to seed from the chapter's
-                    // entry checkpoint instead of the live accumulated state.
+                    // convention): move the continue point and ask the play loop
+                    // to seed from the chapter's entry checkpoint. The mid-chapter
+                    // autosave is NOT dropped here — the play loop drops it when
+                    // the restart actually starts, so a failed chapter load
+                    // (offline, missing script) never destroys the position the
+                    // player still holds.
                     LvnProgress.SetCurrent(t, ch);
                     LvnProgress.RequestRestart(t.id, ch.id);
-                    LvnSaveStore.Delete(t.id, LvnSaveStore.AutoSlot);
                     CloseChapterPicker();
                     OnPlay?.Invoke(_index);
                 })
