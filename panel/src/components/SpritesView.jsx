@@ -653,13 +653,6 @@ function SpineUpload({ token, notify, onDone, onCancel }) {
     }
   }
 
-  const F = ({ label, accept, k }) => (
-    <label className="adv-field">
-      <span>{label}</span>
-      <input type="file" accept={accept}
-        onChange={(e) => setFiles((f) => ({ ...f, [k]: e.target.files[0] }))} />
-    </label>
-  );
 
   return (
     <div className="sp-chooser" onClick={onCancel}>
@@ -674,9 +667,9 @@ function SpineUpload({ token, notify, onDone, onCancel }) {
         <label className="adv-field"><span>Idle animation (auto-plays on show)</span>
           <input className="field wide mono" value={auto} onChange={(e) => setAuto(e.target.value)} placeholder="Idle" />
         </label>
-        <F label="Skeleton (.json)" accept=".json" k="json" />
-        <F label="Atlas (.atlas / .atlas.txt)" accept=".atlas,.txt" k="atlas" />
-        <F label="Texture (.png)" accept=".png" k="texture" />
+        <SpineFile label="Skeleton (.json)" accept=".json" k="json" setFiles={setFiles} />
+        <SpineFile label="Atlas (.atlas / .atlas.txt)" accept=".atlas,.txt" k="atlas" setFiles={setFiles} />
+        <SpineFile label="Texture (.png)" accept=".png" k="texture" setFiles={setFiles} />
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="btn" disabled={!ok || busy} onClick={submit}>{busy ? "Uploading…" : "Add"}</button>
           <button className="btn-ghost" onClick={onCancel}>Cancel</button>
@@ -684,6 +677,18 @@ function SpineUpload({ token, notify, onDone, onCancel }) {
         <div className="adv-note">Runtime side needs the spine-unity integration (see howto/EMBEDDING).</div>
       </div>
     </div>
+  );
+}
+
+// Top-level on purpose: defined inside SpineUpload it would be a NEW component
+// every render, remounting the input and losing the picked file.
+function SpineFile({ label, accept, k, setFiles }) {
+  return (
+    <label className="adv-field">
+      <span>{label}</span>
+      <input type="file" accept={accept}
+        onChange={(e) => setFiles((f) => ({ ...f, [k]: e.target.files[0] }))} />
+    </label>
   );
 }
 
