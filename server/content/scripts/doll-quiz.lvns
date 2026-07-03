@@ -1,0 +1,46 @@
+scene doll_quiz
+
+bg sprite_url="/content/sprites/doll/bg.png"
+actor doll center w=0.42 h=0.78
+
+Кукла оживает и смотрит прямо на тебя.
+Кукла: Прежде чем играть дальше — познакомимся.
+
+input var=guest prompt="Как тебя зовут?" default="Гость" max=24
+
+Кукла: Приятно познакомиться, {guest}!
+Кукла: А теперь проверим твою реакцию. Отвечай быстро!
+
+Кукла: Сколько у меня пружинок в волосах — одна или две?
+choice timeout=5 timeout_goto=too_slow
+- Одна -> wrong
+- Две -> right
+- Не считал(а) -> honest
+
+:right
+Кукла: Верно, {guest}! Две — по одной на каждую прядь.
+score = 1
+-> finale
+
+:wrong
+Кукла: Не-а. Две! Смотри, как качаются.
+score = 0
+-> finale
+
+:honest
+Кукла: Честно — уже неплохо. Но в следующий раз считай!
+score = 0
+-> finale
+
+:too_slow
+Кукла: Время вышло, {guest}! Реакцию надо тренировать.
+score = 0
+-> finale
+
+:finale
+anim doll rotation [0 4 -4 0] 1.2s
+if score >= 1 -> praise
+Кукла: Ничего, {guest}. Зато теперь ты знаешь про таймеры и ввод текста.
+-> __end
+:praise
+Кукла: Быстро и точно. Отличная пара — ты и я, {guest}!

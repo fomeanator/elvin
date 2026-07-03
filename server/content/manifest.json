@@ -1327,6 +1327,13 @@
               "name": "Рыцарь (Spine)",
               "number": 3,
               "script_url": "/content/scripts/knight-demo.lvn"
+            },
+            {
+              "bg_url": "/content/sprites/doll/bg.png",
+              "id": "doll-demo-ch4",
+              "name": "Викторина на время",
+              "number": 4,
+              "script_url": "/content/scripts/doll-quiz.lvn"
             }
           ]
         }
