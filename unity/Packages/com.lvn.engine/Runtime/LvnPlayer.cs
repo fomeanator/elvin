@@ -214,6 +214,25 @@ namespace Lvn
             return prev;
         }
 
+        /// <summary>How many beats the rollback history currently holds — the
+        /// deepest multi-step rollback is <c>HistoryDepth - 1</c>.</summary>
+        public int HistoryDepth => _history.Count;
+
+        /// <summary>Multi-step rollback: pop <paramref name="steps"/> beats in one
+        /// hop and return the beat to restore (clamped to the recorded history;
+        /// null when there's nothing to roll back to). Equivalent to that many
+        /// single rollbacks, minus the intermediate re-runs — the History panel's
+        /// tap-to-return uses it for one scene rebuild instead of N.</summary>
+        public LvnSnapshot PopRollback(int steps)
+        {
+            if (steps > _history.Count - 1) steps = _history.Count - 1;
+            if (steps < 1) return null;
+            _history.RemoveRange(_history.Count - steps, steps);
+            var prev = _history[_history.Count - 1];
+            _history.RemoveAt(_history.Count - 1); // re-pushed when it re-runs
+            return prev;
+        }
+
         /// <summary>Drop the rollback history — call after restoring an external
         /// save, where the recorded beats no longer describe the path taken.</summary>
         public void ClearHistory() => _history.Clear();

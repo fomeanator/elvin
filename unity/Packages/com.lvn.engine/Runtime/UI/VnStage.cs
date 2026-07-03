@@ -621,20 +621,29 @@ namespace Lvn.UI
         /// say/choice's snapshot — variables as they were BEFORE it ran, so a picked
         /// option's set/inc is undone — rebuild the scene there and re-show it.
         /// Returns false when already at the first beat.</summary>
-        public bool RollbackStep()
+        public bool RollbackStep() => RollbackSteps(1);
+
+        /// <summary>Roll back several beats in one hop (clamped to the recorded
+        /// history) — the History panel's tap-to-return. The same recipe as a
+        /// single step, but one scene rebuild instead of N.</summary>
+        public bool RollbackSteps(int steps)
         {
-            if (_player == null || _awaitingWait) return false;
-            var snap = _player.PopRollback();
+            if (_player == null || _awaitingWait || steps < 1) return false;
+            int actual = Mathf.Min(steps, _player.HistoryDepth - 1);
+            var snap = _player.PopRollback(actual);
             if (snap == null) return false;
 
-            // ResetStage wipes the dialogue history; a one-step rewind must keep it
-            // (minus the beat being undone — its re-run is dedup'd in RecordSay).
+            // ResetStage wipes the dialogue history; a rewind must keep it minus
+            // the beats being undone (their re-runs are dedup'd in RecordSay).
             var kept = new List<(string who, string text, string style)>(_backlog);
-            if (kept.Count > 0) kept.RemoveAt(kept.Count - 1);
-            // A trailing choice mark belongs to the pick being undone: the options
-            // re-present and the (re-)pick records a fresh mark.
-            while (kept.Count > 0 && kept[kept.Count - 1].style == "choice")
-                kept.RemoveAt(kept.Count - 1);
+            for (int i = 0; i < actual; i++)
+            {
+                if (kept.Count > 0) kept.RemoveAt(kept.Count - 1);
+                // A trailing choice mark belongs to the pick being undone: the
+                // options re-present and the (re-)pick records a fresh mark.
+                while (kept.Count > 0 && kept[kept.Count - 1].style == "choice")
+                    kept.RemoveAt(kept.Count - 1);
+            }
 
             ResetStage();
             _backlog.AddRange(kept);

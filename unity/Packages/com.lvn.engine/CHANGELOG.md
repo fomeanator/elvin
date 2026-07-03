@@ -11,6 +11,11 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
   typewriter tick (throttled). Clips resolve through ILvnAssets, play on
   a dedicated StageAudio channel (never cut a story sfx) and scale by the
   player's SFX volume. Missing urls stay silent.
+- **History tap-to-return** — tapping a line in the History panel rewinds
+  the story to it: variables as they were, scene rebuilt, later beats
+  dropped — a multi-beat rollback in one hop (`VnStage.RollbackSteps`,
+  `LvnPlayer.PopRollback(steps)`). Lines beyond the snapshot history
+  (or before a load) stay inert.
 - **Read tracking + skip-read-only** — the engine remembers every line
   the player has seen (`LvnReadStore`, per-title, survives deleted
   saves), and the new Settings toggle "Skip read text only" (label key

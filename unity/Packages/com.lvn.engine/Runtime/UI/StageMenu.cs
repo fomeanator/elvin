@@ -384,7 +384,14 @@ namespace Lvn.UI
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
-            foreach (var (who, text, style) in _stage.Backlog)
+            // Say-lines count from the end so a tap knows how many beats back its
+            // line lives; the current line (0 back) and choice marks aren't jumps.
+            var backlog = _stage.Backlog;
+            int saysAfter = 0;
+            for (int bi = backlog.Count - 1; bi >= 0; bi--)
+                if (backlog[bi].style != "choice") saysAfter++;
+
+            foreach (var (who, text, style) in backlog)
             {
                 var line = new VisualElement();
                 line.style.marginBottom = 8;
@@ -398,8 +405,21 @@ namespace Lvn.UI
                 }
                 else
                 {
+                    saysAfter--;
                     if (!string.IsNullOrEmpty(who)) line.Add(Text(who, 14, FontStyle.Bold));
                     line.Add(Text(text, 15, FontStyle.Normal, dim: string.IsNullOrEmpty(who)));
+                    // Tap-to-return: rewind to this line (the genre's history
+                    // jump). Lines older than the snapshot history (or before a
+                    // load, which clears it) aren't reachable — leave them inert.
+                    int stepsBack = saysAfter;
+                    int reach = _stage.Player != null ? _stage.Player.HistoryDepth - 1 : 0;
+                    if (stepsBack > 0 && stepsBack <= reach)
+                        line.RegisterCallback<PointerDownEvent>(e =>
+                        {
+                            e.StopPropagation();
+                            Close();
+                            _stage.RollbackSteps(stepsBack);
+                        });
                 }
                 scroll.Add(line);
             }
