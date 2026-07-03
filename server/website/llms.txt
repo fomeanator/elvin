@@ -12,6 +12,8 @@ The quality gate for every generated script:
 
 ## Start here (AI agents)
 
+- [Human tutorial](howto/TUTORIAL.md): zero to a playing scene in 15
+  minutes (server → IDE → scene → Unity sandbox live-reload).
 - [Agent onboarding](howto/AGENTS.md): the mental model — language →
   converter → runtime → manifest; where everything lives.
 - [Cheatsheet](howto/CHEATSHEET.md): the whole language on one page.
