@@ -33,7 +33,12 @@ CHANGELOG.
 2. Bump `version` in `unity/Packages/com.lvn.engine/package.json`.
 3. Commit, merge to `main`, tag `vX.Y.Z`, push the tag
    (`git push origin vX.Y.Z`).
-4. CI must be green (Go, grammar parity, panel, Unity EditMode on TestHost).
+4. CI must be green (Go, grammar parity, panel, Unity EditMode+PlayMode on
+   the self-hosted runner).
+5. Pushing the tag also triggers the **Release APK** workflow: the runner
+   exports the demo novel offline, builds it with the tagged engine and
+   attaches `sovet-demo-vX.Y.Z.apk` to the GitHub Release (tags containing
+   `-` are marked pre-release).
 
 The export server derives the pin from the engine version the template points
 at, so from the moment `main` carries the new version, fresh exports pin to
