@@ -39,6 +39,54 @@ namespace Lvn.UI
         private static string Key(string titleId) =>
             "lvn_slots_" + (string.IsNullOrEmpty(titleId) ? "default" : titleId);
 
+        // ── thumbnails ───────────────────────────────────────────────────────
+        // A small scene screenshot per manual slot, stored as a PNG FILE (images
+        // don't belong in PlayerPrefs). Convention-addressed by title+slot, so
+        // the slot schema stays untouched.
+
+        /// <summary>The thumbnail file for a slot (may not exist).</summary>
+        public static string ThumbPath(string titleId, string slot) =>
+            System.IO.Path.Combine(Application.persistentDataPath, "lvn", "thumbs",
+                string.IsNullOrEmpty(titleId) ? "default" : titleId, slot + ".png");
+
+        /// <summary>Write (or, when <paramref name="thumb"/> is null, delete) a
+        /// slot's thumbnail. A save with no fresh capture must not keep showing
+        /// the previous save's scene. Never throws — a thumbnail is decoration.</summary>
+        public static void WriteThumb(string titleId, string slot, Texture2D thumb)
+        {
+            try
+            {
+                var path = ThumbPath(titleId, slot);
+                if (thumb == null)
+                {
+                    if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                    return;
+                }
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                System.IO.File.WriteAllBytes(path, thumb.EncodeToPNG());
+            }
+            catch (Exception e) { Debug.LogWarning("[lvn] thumb write failed: " + e.Message); }
+        }
+
+        /// <summary>Load a slot's thumbnail, or null when absent/unreadable.
+        /// The caller owns the returned texture (destroy it when the UI closes).</summary>
+        public static Texture2D LoadThumb(string titleId, string slot)
+        {
+            try
+            {
+                var path = ThumbPath(titleId, slot);
+                if (!System.IO.File.Exists(path)) return null;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!tex.LoadImage(System.IO.File.ReadAllBytes(path)))
+                {
+                    UnityEngine.Object.Destroy(tex);
+                    return null;
+                }
+                return tex;
+            }
+            catch { return null; }
+        }
+
         /// <summary>All of a title's slots (name → slot). Never null. Every slot
         /// is version-gated: older schemas are migrated up, a newer build's slots
         /// are dropped from the view (never misread, never deleted — an upgrade

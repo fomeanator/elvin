@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -112,6 +113,14 @@ namespace Lvn.UI
             if (IsOpen) return;
             IsOpen = true;
             _stage.InputBlocked = true;
+            // Snapshot the CLEAN frame first — it becomes the thumbnail of any
+            // save made from this menu. The scrim waits one frame for it.
+            _stage.CaptureMenuThumb(OpenSheetChrome);
+        }
+
+        private void OpenSheetChrome()
+        {
+            if (!IsOpen) return; // closed before the capture frame ended
 
             // Full-screen scrim: swallows every tap; tapping empty space closes.
             _scrim = new VisualElement();
@@ -136,11 +145,23 @@ namespace Lvn.UI
             _stage.InputBlocked = false;
             _scrim?.RemoveFromHierarchy();
             _scrim = null;
+            DestroyThumbs();
+        }
+
+        // Slot thumbnails shown by the CURRENT panel — destroyed on every panel
+        // swap/close (they are per-view decoded textures, not cached sprites).
+        private readonly List<Texture2D> _thumbs = new List<Texture2D>();
+
+        private void DestroyThumbs()
+        {
+            foreach (var t in _thumbs) if (t != null) UnityEngine.Object.Destroy(t);
+            _thumbs.Clear();
         }
 
         // Swap the scrim's content for a fresh panel.
         private VisualElement Panel(string title)
         {
+            DestroyThumbs();
             _scrim.Clear();
             var p = new VisualElement();
             p.style.position = Position.Absolute;
@@ -239,7 +260,7 @@ namespace Lvn.UI
             if (!saveMode && all.TryGetValue(LvnSaveStore.AutoSlot, out var auto) && auto?.Snap != null)
                 scroll.Add(SlotRow(L("autosave", "Autosave"), auto, () => TryLoad(LvnSaveStore.AutoSlot)));
             if (!saveMode && all.TryGetValue(QuickSlot, out var quick) && quick?.Snap != null)
-                scroll.Add(SlotRow(L("quick_slot", "Quick save"), quick, () => TryLoad(QuickSlot)));
+                scroll.Add(SlotRow(L("quick_slot", "Quick save"), quick, () => TryLoad(QuickSlot), thumbSlot: QuickSlot));
 
             for (int i = 0; i < SlotCount; i++)
             {
@@ -253,10 +274,10 @@ namespace Lvn.UI
                     {
                         if (occupied) ConfirmOverwrite(label, name);
                         else if (_stage.SaveToSlot(name)) ShowSlots(true); // refresh with the new stamp
-                    }));
+                    }, thumbSlot: name));
                 }
                 else
-                    scroll.Add(SlotRow(label, slot, () => TryLoad(name), enabled: _stage.CanLoadSlot(name)));
+                    scroll.Add(SlotRow(label, slot, () => TryLoad(name), enabled: _stage.CanLoadSlot(name), thumbSlot: name));
             }
         }
 
@@ -282,7 +303,8 @@ namespace Lvn.UI
             if (await _stage.LoadFromSlotAsync(slot)) Close();
         }
 
-        private VisualElement SlotRow(string label, LvnSaveSlot slot, Action onClick, bool enabled = true)
+        private VisualElement SlotRow(string label, LvnSaveSlot slot, Action onClick, bool enabled = true,
+            string thumbSlot = null)
         {
             var row = new Button(onClick);
             row.style.height = 56;
@@ -291,17 +313,37 @@ namespace Lvn.UI
             row.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
             row.style.unityTextAlign = TextAnchor.MiddleLeft;
             row.style.paddingLeft = 12;
-            row.style.flexDirection = FlexDirection.Column;
-            row.style.justifyContent = Justify.Center;
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
             Round(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
             ClearBorder(row);
             row.SetEnabled(enabled);
 
+            // The saved scene's screenshot, when one exists for this slot.
+            var thumb = thumbSlot != null && slot?.Snap != null
+                ? LvnSaveStore.LoadThumb(_stage.SaveTitleId, thumbSlot) : null;
+            if (thumb != null)
+            {
+                _thumbs.Add(thumb);
+                var img = new Image { image = thumb, scaleMode = ScaleMode.ScaleAndCrop, name = "slot-thumb" };
+                img.style.width = 80;
+                img.style.height = 45;
+                img.style.marginRight = 10;
+                img.style.flexShrink = 0;
+                Round(img, 4f);
+                row.Add(img);
+            }
+
+            var text = new VisualElement();
+            text.style.flexDirection = FlexDirection.Column;
+            text.style.justifyContent = Justify.Center;
+            text.style.flexGrow = 1;
             string when = slot?.Snap == null ? L("empty", "— empty —")
                 : DateTimeOffset.FromUnixTimeMilliseconds(slot.SavedAtUnixMs).ToLocalTime().ToString("dd.MM HH:mm");
-            row.Add(Text(label + "   " + when, 15, FontStyle.Bold));
+            text.Add(Text(label + "   " + when, 15, FontStyle.Bold));
             if (!string.IsNullOrEmpty(slot?.Preview))
-                row.Add(Text("«" + Trunc(slot.Preview, 46) + "»", 13, FontStyle.Italic, dim: true));
+                text.Add(Text("«" + Trunc(slot.Preview, 46) + "»", 13, FontStyle.Italic, dim: true));
+            row.Add(text);
             return row;
         }
 
