@@ -135,9 +135,15 @@ namespace Lvn.UI
                 _scene.ApplyActor(id, layers, placement, layerIds, layerRects, layerDefs);
         }
 
-        /// <summary>The actor's slot RectTransform — the parent a runtime
-        /// Spine skeleton mounts under.</summary>
+        /// <summary>The actor's slot RectTransform (placement target).</summary>
         public RectTransform SlotFor(string id) => _scene.ActorFor(id)?.Slot;
+
+        /// <summary>The actor's animated rig — a runtime Spine skeleton mounts
+        /// here so anim/move/alpha channels drive it like sprite layers.</summary>
+        public RectTransform RigFor(string id) => _scene.ActorFor(id)?.Rig;
+
+        /// <summary>Static placement opacity for a mounted guest.</summary>
+        public void SetActorOpacity(string id, float a) => _scene.ActorFor(id)?.SetBaseOpacity(a);
 
         public Rect? ActorScreenRect(string id)
         {

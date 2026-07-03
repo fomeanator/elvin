@@ -885,10 +885,11 @@ namespace Lvn.UI
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
             var placement = PlacementFrom(cmd);
+            // show=false hides but KEEPS the built skeleton — re-showing (or a
+            // later fade-in via an alpha track) is instant.
             if (!placement.Show)
             {
-                if (_spineActors.TryGetValue(id, out var old) && old != null) Destroy(old);
-                _spineActors.Remove(id);
+                if (_spineActors.TryGetValue(id, out var hidden) && hidden != null) hidden.SetActive(false);
                 return;
             }
             if (!LvnSpineBridge.Available)
@@ -903,9 +904,17 @@ namespace Lvn.UI
                 return;
             }
 
+            // The full sprite-actor placement vocabulary applies: x/y/width/height/
+            // anchor/flip/rotation via the slot, opacity via the rig's CanvasGroup —
+            // and because the skeleton mounts on the RIG, every anim/move/alpha
+            // channel (fades, travels, bobs) drives it exactly like sprite layers.
             _renderer.PlaceActor(id, placement);
-            var slot = canvas.SlotFor(id);
+            canvas.SetActorOpacity(id, placement.Opacity);
+            var slot = canvas.RigFor(id);
             if (slot == null) return;
+
+            if (_spineActors.TryGetValue(id, out var existing) && existing != null && !existing.activeSelf)
+                existing.SetActive(true); // re-shown after show=false
 
             if (!_spineActors.ContainsKey(id))
             {

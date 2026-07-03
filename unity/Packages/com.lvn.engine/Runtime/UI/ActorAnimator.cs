@@ -256,6 +256,7 @@ namespace Lvn.UI
             }
 
             rig.ApplyTo(_rig);
+            _heldAlpha = rig.Al; // a finished fade holds its final value
             if (_slot != null)
             {
                 _slot.style.left = Length.Percent((_baseX + ssx) * 100f);
@@ -317,9 +318,12 @@ namespace Lvn.UI
             return false;
         }
 
+        private float _heldAlpha = 1f;
+
         private void ResetTargets()
         {
             XForm.Identity.ApplyTo(_rig);
+            _rig.style.opacity = _heldAlpha; // fade-out stays faded
             if (_slot != null)
             {
                 _slot.style.left = Length.Percent(_baseX * 100f);

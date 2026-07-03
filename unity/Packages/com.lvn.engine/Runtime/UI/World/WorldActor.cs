@@ -38,6 +38,23 @@ namespace Lvn.UI.World
         /// moves the child rig, so placement and animation never fight.</summary>
         public RectTransform Slot { get { EnsureRig(); return _slot; } }
 
+        /// <summary>The animated rig (child of the slot) — mount runtime guests
+        /// (a Spine skeleton) here so anim/move channels and the CanvasGroup
+        /// fade drive them exactly like sprite layers.</summary>
+        public RectTransform Rig { get { EnsureRig(); return _rig; } }
+
+        /// <summary>Static placement opacity (multiplied by alpha tracks).</summary>
+        public void SetBaseOpacity(float a)
+        {
+            EnsureRig();
+            _heldAlpha = Mathf.Clamp01(a);
+            if (_group != null) _group.alpha = _heldAlpha;
+        }
+
+        // A finished one-shot alpha tween HOLDS its final value (a faded-out
+        // actor must not pop back when the channel ends) — the genre standard.
+        private float _heldAlpha = 1f;
+
         private sealed class Active
         {
             public LvnAnim anim; public float start; public Action onDone;
@@ -288,6 +305,7 @@ namespace Lvn.UI.World
             }
 
             ApplyRig(_rig, _group, tx, ty, scx, scy, rot, al);
+            _heldAlpha = al; // survives the channel ending (fade-out stays faded)
             _slot.anchoredPosition = _slotBase + new Vector2(sx * ContentSize.x, -sy * ContentSize.y);
 
             // Bone layers compose through the FK chain (+ springs). The solver
@@ -375,7 +393,7 @@ namespace Lvn.UI.World
         private void ResetTargets()
         {
             if (_rig == null) return;
-            ApplyRig(_rig, _group, 0, 0, 1, 1, 0, 1);
+            ApplyRig(_rig, _group, 0, 0, 1, 1, 0, _heldAlpha);
             _slot.anchoredPosition = _slotBase;
             foreach (var pair in _layers)
             {
