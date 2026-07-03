@@ -7,8 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert";
 
 async function load() {
-  const { Player } = await import("../../../server/website/play/core.js");
-  const expr = await import("../../../server/website/play/expr.js");
+  const { Player } = await import("../../../panel/public/play/core.js");
+  const expr = await import("../../../panel/public/play/expr.js");
   return { Player, ...expr };
 }
 

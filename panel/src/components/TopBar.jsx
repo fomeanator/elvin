@@ -39,6 +39,8 @@ export default function TopBar({ nav, status, creds }) {
       </div>
 
       <div className="topbar-actions">
+        <a className="vbtn" href="/play/" target="_blank" rel="noreferrer"
+           title="Песочница: пиши .lvns — играет сразу в браузере">▶ Playground</a>
         <input
           className="field token"
           type="password"
