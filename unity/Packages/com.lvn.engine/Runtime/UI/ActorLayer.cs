@@ -125,6 +125,13 @@ namespace Lvn.UI
                 var animator = AnimatorFor(id);
                 animator?.ClearLayers();
                 animator?.SetSlot(slot, p.X, p.Y); // for screen_x/screen_y travel
+                // A layer is a bone when it has bone data OR when someone attaches
+                // to it (a plain root like "body" must still exist in the chain).
+                HashSet<string> boneParents = null;
+                if (layerDefs != null)
+                    foreach (var d0 in layerDefs)
+                        if (!string.IsNullOrEmpty(d0.Parent))
+                            (boneParents ??= new HashSet<string>()).Add(d0.Parent);
                 for (int i = 0; i < layers.Count; i++)
                 {
                     var sprite = layers[i];
@@ -155,7 +162,8 @@ namespace Lvn.UI
                         if (layerDefs != null && i < layerDefs.Count)
                         {
                             var d = layerDefs[i];
-                            if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f)
+                            if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f
+                                || (boneParents != null && boneParents.Contains(lid)))
                                 animator?.SetLayerBone(lid, d.Parent, new Vector2(d.Px, d.Py), r, d.Spring, d.Damping);
                         }
                     }
