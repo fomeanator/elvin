@@ -220,6 +220,10 @@ namespace Lvn.UI
                 _stage.StartSkip(); // fast-forward until a choice or a tap
             }));
             sheet.Add(Item(L("settings", "Settings"), ShowSettings));
+            // The CG gallery — only when the title curates one (manifest
+            // title.gallery), so novels without CGs never show a dead entry.
+            if (_stage.Gallery != null && _stage.Gallery.Count > 0)
+                sheet.Add(Item(L("gallery", "Gallery"), ShowGallery));
             // Host-registered items (achievements, gallery, a debug screen…) —
             // the embedding game's own entries, between Settings and Exit.
             foreach (var kv in _customItems)
@@ -402,6 +406,88 @@ namespace Lvn.UI
             // Newest last — land the reader there.
             scroll.schedule.Execute(() =>
                 scroll.scrollOffset = new Vector2(0, float.MaxValue)).ExecuteLater(50);
+        }
+
+        // ── CG gallery ───────────────────────────────────────────────────────
+
+        private void ShowGallery()
+        {
+            var p = Panel(L("gallery", "Gallery"));
+            var scroll = new ScrollView();
+            scroll.style.flexGrow = 1;
+            p.Add(scroll);
+
+            var grid = new VisualElement();
+            grid.style.flexDirection = FlexDirection.Row;
+            grid.style.flexWrap = Wrap.Wrap;
+            scroll.Add(grid);
+
+            var unlocked = LvnGalleryStore.Unlocked(_stage.SaveTitleId);
+            foreach (var item in _stage.Gallery)
+            {
+                if (item == null) continue;
+                bool open = unlocked.Contains(item.id);
+
+                var cell = new VisualElement();
+                cell.style.width = Length.Percent(31);
+                cell.style.marginRight = Length.Percent(2);
+                cell.style.marginBottom = 12;
+
+                var frame = new VisualElement();
+                frame.style.height = 110;
+                frame.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+                frame.style.justifyContent = Justify.Center;
+                frame.style.alignItems = Align.Center;
+                Round(frame, 8f);
+                cell.Add(frame);
+
+                if (open)
+                {
+                    var img = new Image { scaleMode = ScaleMode.ScaleAndCrop };
+                    img.style.width = Length.Percent(100);
+                    img.style.height = Length.Percent(100);
+                    frame.Add(img);
+                    LoadCg(img, item.url);
+                    var full = item; // capture per cell
+                    frame.RegisterCallback<PointerDownEvent>(e =>
+                    {
+                        e.StopPropagation();
+                        ShowCgFull(full);
+                    });
+                    if (!string.IsNullOrEmpty(item.name))
+                        cell.Add(Text(item.name, 12, FontStyle.Normal, dim: true));
+                }
+                else frame.Add(Text("?", 30, FontStyle.Bold, dim: true));
+
+                grid.Add(cell);
+            }
+        }
+
+        // Fullscreen viewer for one unlocked CG — chrome-free art, tap closes
+        // back to the grid.
+        private void ShowCgFull(Lvn.Content.LvnGalleryItem item)
+        {
+            DestroyThumbs();
+            _scrim.Clear();
+            var img = new Image { scaleMode = ScaleMode.ScaleToFit };
+            img.style.position = Position.Absolute;
+            img.style.left = 0; img.style.right = 0; img.style.top = 0; img.style.bottom = 0;
+            _scrim.Add(img);
+            LoadCg(img, item.url);
+            img.RegisterCallback<PointerDownEvent>(e => { e.StopPropagation(); ShowGallery(); });
+        }
+
+        // Sprites come through the stage's asset chain (cache-aware); a panel
+        // closed mid-load just orphans the element — nothing to cancel.
+        private async void LoadCg(Image img, string url)
+        {
+            if (_stage.Assets == null || string.IsNullOrEmpty(url)) return;
+            try
+            {
+                var sprite = await _stage.Assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
+                if (sprite != null && img.panel != null) img.sprite = sprite;
+            }
+            catch { /* a missing CG just leaves the dark frame */ }
         }
 
         // ── settings ─────────────────────────────────────────────────────────

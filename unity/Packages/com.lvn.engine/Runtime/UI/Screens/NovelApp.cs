@@ -439,6 +439,7 @@ namespace Lvn.UI.Screens
                 LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
+            Stage.Gallery = title?.gallery;
             Stage.Play(json);
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
@@ -505,6 +506,7 @@ namespace Lvn.UI.Screens
             Stage.Strings = await LoadCatalogAsync(url);
             Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
             Stage.SetSaveContext(title?.id, chapter.id, url);
+            Stage.Gallery = title?.gallery;
             Stage.Play(json);
             if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                 Stage.Player.Vars["player"] = _playerName;

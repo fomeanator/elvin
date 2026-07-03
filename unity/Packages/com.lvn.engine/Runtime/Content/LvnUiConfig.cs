@@ -56,7 +56,7 @@ namespace Lvn.Content
 
         /// <summary>Text overrides for every chrome string, keyed by a stable id —
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,
-        /// quick_save, history, auto, skip, settings, exit, close, autosave, slot,
+        /// quick_save, history, auto, skip, settings, gallery, exit, close, autosave, slot,
         /// empty, quick_slot, overwrite_q ({0} = the slot label), overwrite, cancel,
         /// text_speed, auto_advance, auto_delay, music, ambient, sfx, language,
         /// language_original,

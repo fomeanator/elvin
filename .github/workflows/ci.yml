@@ -147,8 +147,12 @@ jobs:
                       print('  FAIL:', tc.get('fullname'))
           sys.exit(1 if bad else 0)
           PY
+      # The artifact is diagnostics, not the gate — the report step above already
+      # failed the job on any red test. Uploads regularly time out on this
+      # runner's flaky link to GitHub; that must not repaint a green run red.
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: unity-test-results
           path: test-results
