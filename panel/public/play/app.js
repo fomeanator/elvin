@@ -243,9 +243,48 @@ function compileAndRun() {
   setStatus(out.warnings ? "запущено (есть предупреждения)" : "запущено ✓", out.warnings ? "" : "ok");
 
   const doc = JSON.parse(out.json);
+  const sceneName = (/^\s*scene\s+(\S+)/m.exec(src) || [])[1] || "scene";
+  saveKey = "lvn-play-save:" + sceneName;
   resetStage();
   player = new Player(doc, { onStage: applyStage });
+
+  // A save from an earlier visit: offer to continue (the whole point of
+  // playing a shared story in more than one sitting).
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(saveKey) || "null"); } catch {}
+  if (saved && saved.snap && saved.snap.ip > 0 && saved.snap.ip < doc.script.length) {
+    showResume(saved);
+    return;
+  }
   render(player.advance());
+}
+
+function showResume(saved) {
+  els.choices.innerHTML = "";
+  els.choices.hidden = false;
+  const note = document.createElement("div");
+  note.style.color = "#cfc8bd";
+  note.textContent = "Есть сохранение — продолжить?";
+  els.choices.appendChild(note);
+  const btnGo = document.createElement("button");
+  btnGo.textContent = "▶ Продолжить";
+  btnGo.addEventListener("click", () => {
+    els.choices.hidden = true;
+    stagedState = saved.stage || stagedState;
+    if (stagedState.bg) applyStageDom({ op: "bg", sprite_url: stagedState.bg }, player.vars);
+    for (const cmd of Object.values(stagedState.actors)) applyStageDom(cmd, player.vars);
+    for (const cmd of Object.values(stagedState.hud)) applyStageDom(cmd, player.vars);
+    render(player.restore(saved.snap));
+  });
+  els.choices.appendChild(btnGo);
+  const btnNew = document.createElement("button");
+  btnNew.textContent = "↻ Заново";
+  btnNew.addEventListener("click", () => {
+    try { localStorage.removeItem(saveKey); } catch {}
+    els.choices.hidden = true;
+    render(player.advance());
+  });
+  els.choices.appendChild(btnNew);
 }
 
 function showProblems(text) {
@@ -258,17 +297,39 @@ function resetStage() {
   els.bg.style.backgroundImage = "";
   els.actors.innerHTML = "";
   els.hud.innerHTML = "";
+  hudLabels.clear();
   els.dialogue.hidden = true;
   els.choices.hidden = true;
   els.choices.innerHTML = "";
+  stagedState = { bg: null, actors: {}, hud: {} };
   els.inputbox.hidden = true;
   els.endcard.hidden = true;
   $("veil").style.opacity = 0;
 }
 
 const hudLabels = new Map();
+// A plain mirror of what's on stage — travels inside saves so a restore can
+// redraw bg/actors/HUD without replaying branching history.
+let stagedState = { bg: null, actors: {}, hud: {} };
 
 function applyStage(cmd, vars) {
+  trackStage(cmd);
+  applyStageDom(cmd, vars);
+}
+
+function trackStage(cmd) {
+  if (cmd.op === "bg" && cmd.sprite_url) stagedState.bg = cmd.sprite_url;
+  else if (cmd.op === "actor" || cmd.op === "obj") {
+    if (!cmd.id) return;
+    if (cmd.show === false) delete stagedState.actors[cmd.id];
+    else stagedState.actors[cmd.id] = { ...(stagedState.actors[cmd.id] || {}), ...cmd };
+  } else if (cmd.op === "text" && cmd.id) {
+    if (cmd.hide) delete stagedState.hud[cmd.id];
+    else stagedState.hud[cmd.id] = { ...(stagedState.hud[cmd.id] || {}), ...cmd };
+  }
+}
+
+function applyStageDom(cmd, vars) {
   switch (cmd.op) {
     case "bg":
       if (cmd.sprite_url) els.bg.style.backgroundImage = `url("${cmd.sprite_url}")`;
@@ -394,7 +455,17 @@ function refreshHud(vars) {
 }
 
 // ── pause-event rendering ──────────────────────────────────────────────────
+let saveKey = null;
+
+function autosave() {
+  if (!saveKey || !player || player.finished) return;
+  try {
+    localStorage.setItem(saveKey, JSON.stringify({ snap: player.snapshot(), stage: stagedState }));
+  } catch {}
+}
+
 function render(ev) {
+  autosave();
   if (window.__lvnDebug) console.log("[render]", ev.type, ev.text ?? "", new Error().stack.split("\n")[2]?.trim());
   refreshHud(player.vars);
   els.choices.hidden = true;
@@ -417,6 +488,7 @@ function render(ev) {
     case "end":
       els.dialogue.hidden = true;
       els.endcard.hidden = false;
+      try { if (saveKey) localStorage.removeItem(saveKey); } catch {} // finished = clean slate
       break;
   }
 }

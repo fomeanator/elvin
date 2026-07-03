@@ -83,6 +83,7 @@ export class Player {
           break;
         }
         case "say": {
+          this.pausedIp = this.ip; // the save anchor: restore re-runs this beat
           const who = interpolate(c.who, this.vars);
           const text = interpolate(c.text, this.vars);
           this.ip++;
@@ -95,8 +96,10 @@ export class Player {
           return { type: "say", who, text, style: c.style };
         }
         case "choice":
+          this.pausedIp = this.ip;
           return this.pauseChoice(c);
         case "input":
+          this.pausedIp = this.ip;
           this.ip++;
           this._awaitInput = c;
           return {
@@ -181,6 +184,28 @@ export class Player {
     this._choice = null;
     if (!c || !c.timeout_goto) return { type: "noop" };
     this.jump(c.timeout_goto);
+    return this.advance();
+  }
+
+  /** Save anchor: everything needed to come back to the CURRENT pause.
+   * Restore rewinds to the paused command and re-runs it, so the beat
+   * (line/options/input) re-presents itself — the engine's own recipe. */
+  snapshot() {
+    return {
+      ip: this.pausedIp ?? this.ip,
+      vars: JSON.parse(JSON.stringify(this.vars)),
+      callStack: [...this.callStack],
+    };
+  }
+
+  restore(snap) {
+    if (!snap || typeof snap.ip !== "number") return { type: "noop" };
+    this.ip = Math.max(0, Math.min(snap.ip, this.script.length));
+    this.vars = Object.assign(Object.create(null), snap.vars || {});
+    this.callStack = [...(snap.callStack || [])];
+    this.finished = false;
+    this._choice = null;
+    this._awaitInput = null;
     return this.advance();
   }
 

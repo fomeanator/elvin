@@ -94,7 +94,16 @@ func main() {
 	if _, err := os.Stat(webDir); os.IsNotExist(err) {
 		webDir = "server/website"
 	}
-	site := http.FileServer(http.Dir(webDir))
+	rawSite := http.FileServer(http.Dir(webDir))
+	// The playground is hand-edited ES modules; the browser's module map plus
+	// heuristic caching otherwise keeps stale interpreters alive across
+	// deploys. no-cache = revalidate every load (304s keep it fast).
+	site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/play/") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		rawSite.ServeHTTP(w, r)
+	})
 	mux.Handle("/panel/", http.StripPrefix("/panel/", site))
 	mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/panel/", http.StatusFound)
