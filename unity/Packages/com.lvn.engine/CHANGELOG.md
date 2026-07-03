@@ -6,6 +6,11 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Sticky placement** — an actor command only changes the fields it
+  explicitly mentions; everything else inherits the actor's current
+  placement (including a drag's drop spot). `actor id=knight
+  play="Jump"` no longer teleports him to the defaults. Transitions
+  stay one-shot (always from the command).
 - **Spine support (optional)** — `kind: "spine"` catalog entities render
   real Spine skeletons through the official spine-unity runtime: the
   export's json/atlas/png stream like any other content (no Unity
