@@ -158,3 +158,12 @@ select {
 .actors .actor-box img {
   position: absolute; max-height: none; transform: none; object-fit: contain;
 }
+
+@media (max-width: 860px) {
+  .bar { flex-wrap: wrap; row-gap: 8px; padding: 8px 10px; }
+  .logo { flex-basis: auto; }
+  .status { order: 10; flex-basis: 100%; }
+  .btn { padding: 8px 10px; font-size: 13px; }
+  .editor-wrap .backdrop, .editor-wrap #editor { font-size: 13px; padding: 12px; }
+  .choices button { min-width: 80%; }
+}

@@ -26,6 +26,13 @@ anything hand-placed there dies — `public/` survives every deploy).
   to a text-only story instead of failing.
 - **⬇ .lvn** downloads the compiled container for the Unity runtime.
 
+## Saves
+
+Every pause autosaves `{player snapshot, staged bg/actors/HUD}` to
+`localStorage` (a key per scene name; the exported HTML uses its title).
+Reopening offers **Продолжить / Заново**; finishing the story clears the
+save. A shared link or exported file is playable across sittings.
+
 ## For maintainers
 
 - Interpreter: `core.js` (pure, DOM-free) + `expr.js` (recursive-descent
