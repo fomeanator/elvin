@@ -150,6 +150,50 @@ has_key = 1
 -> room
 ```
 
+## Перетаскивание предмета (drag & drop)
+
+`draggable=true` + карта `on_drop="цель:метка"` (пары через пробел/запятую);
+`on_drop_miss` — ветка промаха (без неё предмет просто остаётся, где бросили).
+Короткое нажатие остаётся кликом — `on_click` работает параллельно.
+
+```
+:scene
+obj id=apple sprite_url="/obj/apple.png" x=0.3 y=0.6 width=0.12 draggable=true on_drop="bag:in_bag" on_drop_miss=missed
+obj id=bag sprite_url="/obj/bag.png" x=0.8 y=0.7 width=0.2
+Перетащи яблоко в сумку.
+-> scene
+:in_bag
+obj id=apple show=false
+inventory_apples = 1
+Яблоко в сумке!
+-> __end
+:missed
+Мимо. Попробуй ещё раз.
+-> scene
+```
+
+`drag_bounds="none"` снимает ограничение экраном (по умолчанию `screen`).
+
+## CG-галерея и звуки интерфейса (манифест, не скрипт)
+
+Не команды — блоки в `manifest.json`. Галерея: арт открывается навсегда при
+первом показе `bg` с тем же url; в quick-меню появляется пункт «Галерея».
+
+```json
+"titles": [{ "id": "my-novel", "gallery": [
+    { "id": "cg-beach", "url": "/content/bg/beach.png", "name": "Пляж" }
+] }],
+"ui": { "sounds": {
+    "click": "/content/ui/sounds/click.wav",
+    "choice": "/content/ui/sounds/choice.wav",
+    "type": "/content/ui/sounds/type.wav",
+    "volume": 0.8
+} }
+```
+
+`id` арта держи стабильным между релизами — разблокировки хранятся по нему.
+Отсутствующий звук = тишина; всё масштабируется пользовательской громкостью SFX.
+
 ## Кодовый/логический замок (без ввода текста)
 
 Состояние держим в переменных, проверяем условием.
