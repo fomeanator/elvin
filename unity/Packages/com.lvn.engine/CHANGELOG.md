@@ -5,6 +5,13 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+### Added
+- **Save slot thumbnails** — opening the menu snapshots the clean frame
+  (before the scrim), and every manual save (slots, quick save) stores it
+  as a PNG beside the saves; slot rows show an 80×45 preview. Autosave
+  stays text-only (its capture moment would be arbitrary). Requires the
+  screencapture module — now declared by the package.
+
 ## [0.6.0] — 2026-07-03
 
 The "update without fear" release: animation phase 2 lands in the runtime,

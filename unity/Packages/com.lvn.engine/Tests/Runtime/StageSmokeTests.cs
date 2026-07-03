@@ -136,6 +136,33 @@ namespace Lvn.Tests
         }
 
         [UnityTest]
+        public IEnumerator SaveSlots_RenderTheThumbnail()
+        {
+            // Occupy slot1 through the real save path, then give it a thumbnail
+            // (headless runs skip the screen capture — the file is the contract).
+            _stage.SetSaveContext("smoke-thumb", "ch1", "/content/x.lvn");
+            Assert.IsTrue(_stage.SaveToSlot("slot1"));
+            var tex = new Texture2D(8, 4, TextureFormat.RGBA32, false);
+            LvnSaveStore.WriteThumb("smoke-thumb", "slot1", tex);
+            Object.Destroy(tex);
+
+            var menu = (StageMenu)typeof(VnStage)
+                .GetField("_menu", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_stage);
+            typeof(StageMenu).GetMethod("OpenSheet", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, null);
+            typeof(StageMenu).GetMethod("ShowSlots", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, new object[] { true });
+            yield return null;
+
+            var thumbs = menu.Query<Image>("slot-thumb").ToList();
+            Assert.AreEqual(1, thumbs.Count, "exactly the occupied slot with a file shows a thumbnail");
+
+            // cleanup the on-disk artifacts of this test
+            LvnSaveStore.WriteThumb("smoke-thumb", "slot1", null);
+            PlayerPrefs.DeleteKey("lvn_slots_smoke-thumb");
+        }
+
+        [UnityTest]
         public IEnumerator Rollback_StripsTheUndoneMark_AndRepickRecordsFresh()
         {
             _stage.Player.Advance();

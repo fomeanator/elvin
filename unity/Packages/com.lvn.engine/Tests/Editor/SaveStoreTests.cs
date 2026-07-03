@@ -106,6 +106,23 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ThumbWriteLoadRoundtrip_AndNullWipes()
+        {
+            var tex = new Texture2D(4, 2, TextureFormat.RGBA32, false);
+            LvnSaveStore.WriteThumb(TitleA, "slot1", tex);
+            var back = LvnSaveStore.LoadThumb(TitleA, "slot1");
+            Assert.IsNotNull(back, "thumbnail file round-trips");
+            Assert.AreEqual(4, back.width);
+            Object.DestroyImmediate(tex);
+            Object.DestroyImmediate(back);
+
+            // a save with no fresh capture must not keep the stale scene
+            LvnSaveStore.WriteThumb(TitleA, "slot1", null);
+            Assert.IsNull(LvnSaveStore.LoadThumb(TitleA, "slot1"), "null wipes the file");
+            Assert.IsNull(LvnSaveStore.LoadThumb(TitleA, "never-existed"), "absent file → null, no throw");
+        }
+
+        [Test]
         public void MissingAndCorruptDataDegradeToEmpty()
         {
             Assert.IsNull(LvnSaveStore.Get(TitleA, "nope"));
