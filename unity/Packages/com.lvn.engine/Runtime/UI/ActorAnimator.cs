@@ -52,7 +52,83 @@ namespace Lvn.UI
             _layers[id] = img;
             _baseSprite[id] = baseSprite;
         }
-        public void ClearLayers() { _layers.Clear(); _baseSprite.Clear(); }
+        public void ClearLayers() { _layers.Clear(); _baseSprite.Clear(); _bones.Clear(); }
+
+        // ── bones (paper-doll FK + springs) ───────────────────────────────────
+        private sealed class BoneMeta
+        {
+            public string Parent;
+            public Vector2 PivotBox;   // rest pivot in actor-box fractions
+            public Vector4 Rect;       // layer rect in box fractions (full box when w/h ≤ 0)
+            public float Spring, Damping;
+            public BoneSolver.SpringState State;
+        }
+        private readonly Dictionary<string, BoneMeta> _bones = new Dictionary<string, BoneMeta>();
+        private float _lastTick = -1f;
+
+        /// <summary>Register a layer's bone: its parent joint, pivot (fractions of
+        /// the layer's own rect) and optional spring. The layer's element then
+        /// composes through the FK chain each tick; the tick keeps running while
+        /// any bone has a live spring.</summary>
+        public void SetLayerBone(string id, string parent, Vector2 pivotInRect, Vector4 rect, float spring, float damping)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            if (rect.z <= 0f || rect.w <= 0f) rect = new Vector4(0f, 0f, 1f, 1f);
+            _bones[id] = new BoneMeta
+            {
+                Parent = parent,
+                PivotBox = new Vector2(rect.x + pivotInRect.x * rect.z, rect.y + pivotInRect.y * rect.w),
+                Rect = rect,
+                Spring = spring,
+                Damping = damping,
+            };
+            if (_layers.TryGetValue(id, out var img))
+                img.style.transformOrigin = new TransformOrigin(
+                    Length.Percent(pivotInRect.x * 100f), Length.Percent(pivotInRect.y * 100f));
+            // springs animate even with no script channels — keep a tick alive
+            if (spring > 0f && _tick == null) _tick = _rig.schedule.Execute(Composite).Every(16);
+        }
+
+        // Compose every bone layer's world pose from the animated locals; springs
+        // run as a second pass so their swing carries children too.
+        private Dictionary<string, BoneSolver.Pose> SolveBones(Dictionary<string, XForm> lx, float dt)
+        {
+            var bones = new List<BoneSolver.Bone>(_bones.Count);
+            foreach (var kv in _bones)
+            {
+                var m = kv.Value;
+                var l = lx != null && lx.TryGetValue(kv.Key, out var x) ? x : XForm.Identity;
+                bones.Add(new BoneSolver.Bone
+                {
+                    Id = kv.Key, Parent = m.Parent, Pivot = m.PivotBox,
+                    Tx = l.Tx * m.Rect.z, Ty = l.Ty * m.Rect.w, // own-size fractions → box
+                    Angle = l.Rot, Sx = l.Scx, Sy = l.Scy,
+                });
+            }
+            var poses = BoneSolver.Solve(bones);
+
+            bool anySpring = false;
+            for (int i = 0; i < bones.Count; i++)
+            {
+                var m = _bones[bones[i].Id];
+                if (m.Spring <= 0f) continue;
+                m.State = BoneSolver.SpringStep(m.State, poses[bones[i].Id].PivotWorld, poses[bones[i].Id].Angle, m.Spring, m.Damping, dt);
+                if (Mathf.Abs(m.State.Angle) > 0.01f || Mathf.Abs(m.State.Velocity) > 0.01f) anySpring = true;
+                var b = bones[i]; b.Angle += m.State.Angle; bones[i] = b;
+            }
+            return anySpring ? BoneSolver.Solve(bones) : poses;
+        }
+
+        // Apply a solved pose to the layer's element: move its pivot to the
+        // solved spot (percent of own size), spin/scale around it.
+        private void ApplyPose(VisualElement el, BoneMeta m, BoneSolver.Pose p)
+        {
+            var d = p.PivotWorld - m.PivotBox;
+            el.style.translate = new Translate(
+                Length.Percent(d.x / m.Rect.z * 100f), Length.Percent(d.y / m.Rect.w * 100f), 0);
+            el.style.rotate = new Rotate(new Angle(p.Angle, AngleUnit.Degree));
+            el.style.scale = new Scale(new Vector2(p.Sx, p.Sy));
+        }
         public void SetFrames(Dictionary<string, Dictionary<string, Sprite>> frames) { _frames = frames; }
 
         public bool Has(string channel) => _channels.ContainsKey(channel);
@@ -110,6 +186,7 @@ namespace Lvn.UI
             _queue.Clear();
             _tick?.Pause();
             _tick = null;
+            _lastTick = -1f; // don't let a paused span feed the springs as one huge dt
             ResetTargets();
         }
 
@@ -118,6 +195,8 @@ namespace Lvn.UI
         internal void Composite()
         {
             float now = Clock();
+            float dt = _lastTick >= 0f ? Mathf.Clamp(now - _lastTick, 0f, 0.1f) : 0f;
+            _lastTick = now;
             var rig = new XForm();
             float ssx = 0f, ssy = 0f; // screen-space offset for the slot
             Dictionary<string, XForm> lx = null;
@@ -182,11 +261,21 @@ namespace Lvn.UI
                 _slot.style.left = Length.Percent((_baseX + ssx) * 100f);
                 _slot.style.top = Length.Percent((_baseY + ssy) * 100f);
             }
+            // Bone layers compose through the FK chain (+ springs); the rest keep
+            // their plain per-layer transforms.
+            var poses = _bones.Count > 0 ? SolveBones(lx, dt) : null;
+
             foreach (var pair in _layers)
             {
                 var id = pair.Key;
                 var img = pair.Value;
-                (lx != null && lx.TryGetValue(id, out var x) ? x : XForm.Identity).ApplyTo(img);
+                if (poses != null && _bones.TryGetValue(id, out var bm) && poses.TryGetValue(id, out var pose))
+                {
+                    ApplyPose(img, bm, pose);
+                    img.style.opacity = lx != null && lx.TryGetValue(id, out var xa) ? xa.Al : 1f;
+                }
+                else
+                    (lx != null && lx.TryGetValue(id, out var x) ? x : XForm.Identity).ApplyTo(img);
                 if (lf != null && lf.TryGetValue(id, out var frameVal))
                 {
                     if (_frames != null && _frames.TryGetValue(id, out var map) && map.TryGetValue(frameVal, out var sp) && sp != null)
@@ -209,7 +298,20 @@ namespace Lvn.UI
                         _channels[c] = new Active { anim = q.Dequeue(), start = now };
                     if (_queue.TryGetValue(c, out var q2) && q2.Count == 0) _queue.Remove(c);
                 }
-            if (_channels.Count == 0) StopAll();
+            // Springs keep swinging after their driving channel ends — let them
+            // decay before the scheduler goes to sleep.
+            if (_channels.Count == 0 && !AnySpringLive()) StopAll();
+        }
+
+        private bool AnySpringLive()
+        {
+            foreach (var kv in _bones)
+            {
+                var m = kv.Value;
+                if (m.Spring > 0f && (Mathf.Abs(m.State.Angle) > 0.05f || Mathf.Abs(m.State.Velocity) > 0.5f))
+                    return true;
+            }
+            return false;
         }
 
         private void ResetTargets()

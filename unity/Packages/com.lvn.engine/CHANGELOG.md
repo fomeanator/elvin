@@ -6,6 +6,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Bones + spring physics (paper-doll FK)** — catalog layers gain
+  `parent` (attach to another layer), `px`/`py` (the joint) and
+  `spring`/`damping` (secondary motion: hair/tails swing from the
+  parent's movement AND rotation — the VRM spring-bone model — and
+  settle by themselves). Transforms compose down the chain in a pure,
+  unit-tested solver; draw order stays the layer list order; both
+  renderers supported. Rotate an `arm` — the `hand` follows; `move`
+  the doll — her hair sways, no keyframes.
 - **Named animations** — `defanim shake prop=x keys="…"` defines once,
   `play id=x anim=shake` (terse: `play x shake`) stamps it anywhere;
   play-side params override the definition. Compile-time expansion — the
