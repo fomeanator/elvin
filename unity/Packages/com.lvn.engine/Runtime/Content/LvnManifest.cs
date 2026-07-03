@@ -26,6 +26,12 @@ namespace Lvn.Content
         /// title card, name input). Optional — components use defaults when null.</summary>
         public LvnUiConfig ui;
 
+        /// <summary>Language codes this content ships string catalogs for
+        /// (<c>["en", "ru"]</c> → <c>&lt;script&gt;.en.json</c> sidecars exist).
+        /// Non-empty enables the language picker in Settings; the script's
+        /// inline text (the original) is always an implicit option.</summary>
+        public List<string> languages;
+
         /// <summary>The sprite/entity catalog, keyed by id. Scripts reference these
         /// ids (e.g. <c>actor id="mara" pose="sitting"</c>) instead of raw urls; the
         /// client resolves an id to its ordered layer urls and composites them. A

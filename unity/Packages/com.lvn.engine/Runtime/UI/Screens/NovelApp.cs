@@ -142,6 +142,15 @@ namespace Lvn.UI.Screens
             Stage.ApplyTheme(VnThemeBuilder.From(manifest.ui, Stage.Theme));
             Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
+            // Language: the manifest declares which catalogs exist (Settings shows
+            // a picker when any); the reader's persisted choice wins over the
+            // inspector default, and changing it mid-story reloads the catalog.
+            LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
+                ? manifest.languages : System.Array.Empty<string>();
+            if (!string.IsNullOrEmpty(LvnPrefs.Locale)) Locale = LvnPrefs.Locale;
+            LvnPrefs.Changed -= OnPrefsMaybeLocale;
+            LvnPrefs.Changed += OnPrefsMaybeLocale;
+
             _downloads = new DownloadManager(_assets.Loader);
             var prefetch = SafeBootPrefetch(manifest, online);
 
@@ -623,6 +632,25 @@ namespace Lvn.UI.Screens
             }
         }
 
-        private void OnDestroy() => _sync?.Stop();
+        private void OnDestroy()
+        {
+            _sync?.Stop();
+            LvnPrefs.Changed -= OnPrefsMaybeLocale;
+        }
+
+        // The Settings language row writes LvnPrefs.Locale; pick the change up
+        // and swap the running chapter's string catalog — new lines render in
+        // the new language immediately (the visible line updates on advance).
+        private async void OnPrefsMaybeLocale()
+        {
+            var want = LvnPrefs.Locale;
+            if (want == Locale) return;
+            Locale = want;
+            if (_currentChapter != null && Stage != null)
+            {
+                try { Stage.Strings = await LoadCatalogAsync(_currentChapter.script_url); }
+                catch { Stage.Strings = null; } // no catalog → the inline original
+            }
+        }
     }
 }

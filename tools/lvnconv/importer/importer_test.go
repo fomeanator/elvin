@@ -123,3 +123,31 @@ func TestStripHashRemovesArticyTag(t *testing.T) {
 		t.Errorf("stripHash mangled a tag-less name: %q", got)
 	}
 }
+
+// A localized import declares its catalog language exactly once, preserving
+// the rest of the manifest — the runtime's language picker keys off this.
+func TestMergeLanguageDedupsAndPreservesKeys(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "manifest.json")
+	seed := map[string]any{"ui": map[string]any{"theme": "dark"}, "languages": []any{"en"}}
+	b, _ := json.Marshal(seed)
+	os.WriteFile(path, b, 0o644)
+
+	if err := MergeLanguageIntoManifest(path, "ru"); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeLanguageIntoManifest(path, "ru"); err != nil { // second run: no dup
+		t.Fatal(err)
+	}
+
+	var got map[string]any
+	raw, _ := os.ReadFile(path)
+	json.Unmarshal(raw, &got)
+	if got["ui"] == nil {
+		t.Error("unrelated 'ui' field was dropped")
+	}
+	langs, _ := got["languages"].([]any)
+	if len(langs) != 2 || langs[0] != "en" || langs[1] != "ru" {
+		t.Fatalf("want [en ru], got %v", langs)
+	}
+}

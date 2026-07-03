@@ -4737,7 +4737,9 @@
         "ambient": "Фоновые звуки",
         "sfx": "Эффекты",
         "window_opacity": "Прозрачность окна",
-        "reduce_motion": "Меньше движения"
+        "reduce_motion": "Меньше движения",
+        "language": "Язык",
+        "language_original": "Оригинал"
       }
     },
     "carousel": {

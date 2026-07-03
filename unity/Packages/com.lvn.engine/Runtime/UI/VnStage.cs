@@ -41,8 +41,14 @@ namespace Lvn.UI
         public SpriteCatalog Catalog;
 
         /// <summary>Optional localization catalog (<c>text_id</c> → string) for the
-        /// active language, applied to each chapter's player. Assign before Play.</summary>
-        public System.Collections.Generic.IReadOnlyDictionary<string, string> Strings;
+        /// active language. Assign before Play — or mid-chapter (a language switch):
+        /// the running player picks it up and renders subsequent lines with it.</summary>
+        public System.Collections.Generic.IReadOnlyDictionary<string, string> Strings
+        {
+            get => _strings;
+            set { _strings = value; if (_player != null) _player.Strings = value; }
+        }
+        private System.Collections.Generic.IReadOnlyDictionary<string, string> _strings;
 
         [Tooltip("Optional content folder. If set and Assets is unwired, the stage " +
                  "loads sprites from here via DirectoryAssets — so a scene plays with " +

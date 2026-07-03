@@ -73,7 +73,40 @@ func WriteToContentDir(contentDir string, res *Result) error {
 			return fmt.Errorf("manifest sprites: %w", err)
 		}
 	}
+	if res.Lang != "" && res.Lang != "und" {
+		if err := MergeLanguageIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Lang); err != nil {
+			return fmt.Errorf("manifest languages: %w", err)
+		}
+	}
 	return nil
+}
+
+// MergeLanguageIntoManifest declares a shipped string-catalog language in
+// manifest.languages (dedup append) — the runtime shows its language picker
+// only for languages listed here.
+func MergeLanguageIntoManifest(manifestPath, lang string) error {
+	manifest := map[string]any{}
+	if data, err := os.ReadFile(manifestPath); err == nil && len(data) > 0 {
+		if err := json.Unmarshal(data, &manifest); err != nil {
+			return fmt.Errorf("parse existing manifest: %w", err)
+		}
+	}
+	langs, _ := manifest["languages"].([]any)
+	for _, l := range langs {
+		if l == lang {
+			return nil // already declared
+		}
+	}
+	manifest["languages"] = append(langs, lang)
+
+	out, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		return err
+	}
+	return atomicWrite(manifestPath, out, 0o644)
 }
 
 // MergeSpritesIntoManifest splices auto-built cast entities into manifest.sprites
