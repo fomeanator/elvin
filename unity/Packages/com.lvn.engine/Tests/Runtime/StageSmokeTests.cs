@@ -1,0 +1,132 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using Lvn;
+using Lvn.UI;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UIElements;
+
+namespace Lvn.Tests
+{
+    /// <summary>
+    /// Headless PlayMode smoke over a REAL stage — a live UIDocument panel, the
+    /// full VnStage/StageMenu chrome, no ILvnStage fakes. Covers the behaviors
+    /// that only exist in the assembled UI: the choice a player picks landing in
+    /// the History backlog (and surviving/clearing correctly across rollback),
+    /// and History rendering the mark as its own accented line.
+    ///
+    ///   Unity -batchmode -nographics -projectPath unity/TestHost \
+    ///         -runTests -testPlatform PlayMode
+    /// </summary>
+    public class StageSmokeTests
+    {
+        private GameObject _go;
+        private PanelSettings _panel;
+        private VnStage _stage;
+
+        private const string Script = @"{
+          ""scene"": ""smoke"",
+          ""script"": [
+            { ""op"": ""say"", ""who"": ""A"", ""text"": ""line one"" },
+            { ""op"": ""choice"", ""options"": [
+              { ""text"": ""take the left path"", ""goto"": ""L"" },
+              { ""text"": ""take the right path"", ""goto"": ""R"" } ] },
+            { ""op"": ""label"", ""id"": ""L"" },
+            { ""op"": ""say"", ""text"": ""left it is"" },
+            { ""op"": ""label"", ""id"": ""R"" },
+            { ""op"": ""say"", ""text"": ""right it is"" }
+          ]
+        }";
+
+        [UnitySetUp]
+        public IEnumerator Boot()
+        {
+            _panel = ScriptableObject.CreateInstance<PanelSettings>();
+            _go = new GameObject("smoke-stage");
+            var doc = _go.AddComponent<UIDocument>();
+            doc.panelSettings = _panel;
+            _stage = _go.AddComponent<VnStage>();
+            yield return null; // UIDocument brings its panel up on its own OnEnable
+            _stage.Play(Script);
+            yield return null; // first beat renders
+        }
+
+        [TearDown]
+        public void Cleanup()
+        {
+            if (_go != null) Object.Destroy(_go);
+            if (_panel != null) Object.Destroy(_panel);
+        }
+
+        // The production entry point ChoiceList fires on a button click.
+        private void Pick(int optionListPosition)
+        {
+            var cur = (IReadOnlyList<LvnOption>)typeof(VnStage)
+                .GetField("_curChoices", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage);
+            Assert.IsNotNull(cur, "a choice must be on screen");
+            typeof(VnStage)
+                .GetMethod("OnChoiceSelected", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(_stage, new object[] { cur[optionListPosition].Index });
+        }
+
+        [UnityTest]
+        public IEnumerator PickedChoice_IsMarkedInBacklog_AndHistoryRendersIt()
+        {
+            Assert.AreEqual(1, _stage.Backlog.Count, "the opening line is on screen");
+
+            _stage.Player.Advance();     // tap through the say → options present
+            yield return null;
+            Pick(0);                     // take the left path
+            yield return null;
+
+            var marks = _stage.Backlog.Where(b => b.style == "choice").ToList();
+            Assert.AreEqual(1, marks.Count, "exactly one branch mark recorded");
+            Assert.AreEqual("take the left path", marks[0].text);
+            Assert.AreEqual("left it is", _stage.Backlog.Last().text, "the branch actually played");
+
+            // History renders the mark as its own ▸ line on the real panel —
+            // through the production path: open the sheet, then the History view.
+            var menu = (StageMenu)typeof(VnStage)
+                .GetField("_menu", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage);
+            typeof(StageMenu)
+                .GetMethod("OpenSheet", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, null);
+            typeof(StageMenu)
+                .GetMethod("ShowHistory", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, null);
+            yield return null;
+            var arrowed = menu.Query<Label>().ToList()
+                .Where(l => l.text != null && l.text.StartsWith("▸")).ToList();
+            Assert.AreEqual(1, arrowed.Count, "History shows the picked branch as a ▸ line");
+            StringAssert.Contains("take the left path", arrowed[0].text);
+        }
+
+        [UnityTest]
+        public IEnumerator Rollback_StripsTheUndoneMark_AndRepickRecordsFresh()
+        {
+            _stage.Player.Advance();
+            yield return null;
+            Pick(0);
+            yield return null;
+            Assert.AreEqual(1, _stage.Backlog.Count(b => b.style == "choice"));
+
+            Assert.IsTrue(_stage.RollbackStep(), "one beat back from the branch line");
+            yield return null;
+
+            Assert.AreEqual(0, _stage.Backlog.Count(b => b.style == "choice"),
+                "the undone pick's mark is gone from History");
+
+            Pick(1); // take the other branch this time
+            yield return null;
+            var marks = _stage.Backlog.Where(b => b.style == "choice").ToList();
+            Assert.AreEqual(1, marks.Count, "re-pick records exactly one fresh mark");
+            Assert.AreEqual("take the right path", marks[0].text);
+            Assert.AreEqual("right it is", _stage.Backlog.Last().text);
+        }
+    }
+}
