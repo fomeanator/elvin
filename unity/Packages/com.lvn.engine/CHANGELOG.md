@@ -6,6 +6,16 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Drag & drop** — `obj … draggable=true on_drop="bag:label"
+  [on_drop_miss=label]`: grab an object and it follows the pointer
+  (slot travel feeds the spring joints, so cloth/hair sway while
+  dragging); release over a mapped target runs that label (the branch
+  hides the item, bumps vars, plays its animation); release anywhere
+  else and it stays where dropped. A short press is still a tap
+  (on_click keeps working). UITK actors now expose ActorScreenRect for
+  the drop hit-testing.
+
+### Added
 - **Bones + spring physics (paper-doll FK)** — catalog layers gain
   `parent` (attach to another layer), `px`/`py` (the joint) and
   `spring`/`damping` (secondary motion: hair/tails swing from the

@@ -88,7 +88,7 @@ namespace Lvn.UI
             IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
             => _actors.Apply(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
 
-        public Rect? ActorScreenRect(string id) => null; // UITK elements do their own picking
+        public Rect? ActorScreenRect(string id) => _actors.ScreenRect(id); // drag/drop hit-testing
 
         public void RemoveAll() => _actors.RemoveAll();
 

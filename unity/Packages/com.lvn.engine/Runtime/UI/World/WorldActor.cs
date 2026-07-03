@@ -309,12 +309,15 @@ namespace Lvn.UI.World
                     });
                 }
                 bonePoses = BoneSolver.Solve(bones);
+                // slot travel (drag / move) sways the springs like local motion
+                var slotNorm = new Vector2(_slot.anchoredPosition.x / ContentSize.x,
+                                           -_slot.anchoredPosition.y / ContentSize.y);
                 bool anySpring = false;
                 for (int i = 0; i < bones.Count; i++)
                 {
                     var m = _bones[bones[i].Id];
                     if (m.Spring <= 0f) continue;
-                    m.State = BoneSolver.SpringStep(m.State, bonePoses[bones[i].Id].PivotWorld, bonePoses[bones[i].Id].Angle, m.Spring, m.Damping, bdt);
+                    m.State = BoneSolver.SpringStep(m.State, bonePoses[bones[i].Id].PivotWorld + slotNorm, bonePoses[bones[i].Id].Angle, m.Spring, m.Damping, bdt);
                     if (Mathf.Abs(m.State.Angle) > 0.01f || Mathf.Abs(m.State.Velocity) > 0.01f) anySpring = true;
                     var b = bones[i]; b.Angle += m.State.Angle; bones[i] = b;
                 }

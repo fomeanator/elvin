@@ -1303,6 +1303,13 @@
               "name": "Живые волосы",
               "script_url": "/content/scripts/doll-demo.lvn",
               "bg_url": "/content/sprites/doll/bg.png"
+            },
+            {
+              "id": "doll-demo-ch2",
+              "number": 2,
+              "name": "Яблоко в сумку",
+              "script_url": "/content/scripts/doll-drag.lvn",
+              "bg_url": "/content/sprites/doll/bg.png"
             }
           ]
         }

@@ -1,0 +1,16 @@
+scene doll_drag
+bg sprite_url="/content/sprites/doll/bg.png"
+set key=items value=0
+obj id=bag sprite_url="/content/sprites/doll/bag.png" x=0.8 y=0.78 width=0.24 height=0.24 anchor=center
+obj id=apple sprite_url="/content/sprites/doll/apple.png" x=0.2 y=0.78 width=0.11 height=0.11 anchor=center draggable=true on_drop="bag:apple_in_bag"
+
+:room
+Вон яблоко, а вон моя сумка. Перетащи яблоко пальцем — прямо в сумку.
+goto room
+
+:apple_in_bag
+obj id=apple show=false
+inc key=items
+Хоп! Яблоко в сумке. Предметов у меня: {items}.
+Отпустишь мимо — яблоко просто останется лежать, где бросил.
+Так и работает инвентарь в поинт-энд-клике. Занавес!
