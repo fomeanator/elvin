@@ -187,9 +187,15 @@ func TestValidate_DuplicateLabel(t *testing.T) {
 }
 
 func TestValidate_UnknownOp(t *testing.T) {
+	// Unknown ops are a WARNING, not an error: they may be host-defined
+	// (authored via `ext`, handled by the game through LvnOps.Register).
 	d := parse(t, `{"script":[{"op":"saay","text":"typo"}]}`)
-	if !hasError(Validate(d), "unknown op") {
-		t.Fatal("expected unknown-op error")
+	iss := Validate(d)
+	if hasError(iss, "unknown op") {
+		t.Fatal("unknown op must not be an error (host-defined ops are legal)")
+	}
+	if !hasWarn(iss, "unknown op") {
+		t.Fatal("expected unknown-op warning")
 	}
 }
 
@@ -325,8 +331,8 @@ func TestValidate_SeverityClassification(t *testing.T) {
 		{"op":"label","id":"orphan"}
 	]}`)
 	iss := Validate(d)
-	if !hasError(iss, "unknown op") {
-		t.Fatal("unknown op should be an error")
+	if !hasWarn(iss, "unknown op") {
+		t.Fatal("unknown op should be a warning (may be host-defined)")
 	}
 	if !hasWarn(iss, "never targeted") {
 		t.Fatal("an untargeted label should be a warning")

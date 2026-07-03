@@ -519,6 +519,19 @@ namespace Lvn
                         return;
 
                     default:
+                        // Host-registered custom ops (LvnOps) run the game's own
+                        // C# — with flow control: Hold() pauses here, Resume()
+                        // continues, GoTo() reroutes. Unregistered unknown ops
+                        // keep flowing to the stage (which ignores them).
+                        if (LvnOps.TryGet(curOp, out var custom))
+                        {
+                            var octx = new OpContext(this);
+                            try { custom(c, octx); }
+                            catch (System.Exception e) { Log?.Invoke("custom op '" + curOp + "' failed: " + e.Message); }
+                            if (!octx.Jumped) _ip++;
+                            if (octx.Held) { octx.Armed = true; return; }
+                            break;
+                        }
                         _stage.ApplyStage(c);
                         _ip++;
                         break;
@@ -526,6 +539,35 @@ namespace Lvn
             }
             if (!Finished)
                 Finish();
+        }
+
+        // The per-invocation flow context handed to a custom op handler.
+        private sealed class OpContext : ILvnOpContext
+        {
+            private readonly LvnPlayer _p;
+            public bool Held { get; private set; }
+            public bool Jumped { get; private set; }
+            public bool Armed; // the outer Advance returned while held — Resume restarts it
+
+            public OpContext(LvnPlayer p) => _p = p;
+
+            public System.Collections.Generic.IDictionary<string, JToken> Vars => _p.Vars;
+            public ILvnStage Stage => _p._stage;
+
+            public void GoTo(string label)
+            {
+                _p.GoTo(label);
+                Jumped = true;
+            }
+
+            public void Hold() => Held = true;
+
+            public void Resume()
+            {
+                if (!Held) return;
+                Held = false;
+                if (Armed) { Armed = false; _p.Advance(); }
+            }
         }
 
         /// <summary>True when the cursor is sitting on a choice command — the only

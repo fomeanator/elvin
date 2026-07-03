@@ -6,6 +6,15 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Library-first embedding** — the engine is now a proper library with
+  documented extension seams (docs/embedding.md): `LvnOps.Register` for
+  host-defined script ops with flow control (Hold/Resume/GoTo, story
+  vars) authored as `ext <op> k=v` in .lvns; `StageMenu.AddMenuItem`
+  for the game's own quick-menu entries; `VnStage.Saved` event for
+  cloud sync/achievements. The validator now treats unknown ops as a
+  warning (they may be host-defined), never an error.
+
+### Added
 - **Sticky placement** — an actor command only changes the fields it
   explicitly mentions; everything else inherits the actor's current
   placement (including a drag's drop spot). `actor id=knight

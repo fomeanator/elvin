@@ -180,7 +180,10 @@ func Validate(d *Doc) []Issue {
 			return
 		}
 		if !KnownOps[op] {
-			addErr(i, op, fmt.Sprintf("unknown op %q (typo?)", op))
+			// Not an engine op — either a typo or a HOST-DEFINED op (authored via
+			// `ext`, handled by the game's LvnOps.Register). The runtime ignores
+			// it when unhandled, so this is a warning, not an error.
+			addWarn(i, op, fmt.Sprintf("unknown op %q — a typo, or host-defined (needs LvnOps.Register in the game)", op))
 			return
 		}
 		// Unknown-key check: a typo'd key (e.g. `fade too=`) compiles clean and

@@ -220,6 +220,13 @@ namespace Lvn.UI
                 _stage.StartSkip(); // fast-forward until a choice or a tap
             }));
             sheet.Add(Item(L("settings", "Settings"), ShowSettings));
+            // Host-registered items (achievements, gallery, a debug screen…) —
+            // the embedding game's own entries, between Settings and Exit.
+            foreach (var kv in _customItems)
+            {
+                var cb = kv.Value;
+                sheet.Add(Item(kv.Key, () => cb(_stage)));
+            }
             sheet.Add(Item(L("exit", "Exit to menu"), () =>
             {
                 // Autosaves, then signals the host loop back to the title screen —
@@ -229,6 +236,23 @@ namespace Lvn.UI
             }));
             sheet.Add(Item(L("close", "Close"), Close));
         }
+
+        // ── host extension: custom menu items ────────────────────────────────
+        private static readonly Dictionary<string, Action<VnStage>> _customItems
+            = new Dictionary<string, Action<VnStage>>();
+
+        /// <summary>Add (or replace) a menu item supplied by the EMBEDDING game —
+        /// e.g. "Достижения" opening the host's own screen. Appears between
+        /// Settings and Exit the next time the menu opens. The callback receives
+        /// the running stage (close the menu yourself via stage if needed).</summary>
+        public static void AddMenuItem(string label, Action<VnStage> onClick)
+        {
+            if (string.IsNullOrEmpty(label) || onClick == null) return;
+            _customItems[label] = onClick;
+        }
+
+        /// <summary>Remove a host-registered menu item by its label.</summary>
+        public static void RemoveMenuItem(string label) => _customItems.Remove(label ?? "");
 
         private VisualElement Item(string label, Action onClick)
         {
