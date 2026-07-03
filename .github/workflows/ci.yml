@@ -9,10 +9,12 @@
 #            grammar.json ↔ grammar.js parity guard) + a regen-diff check so a
 #            hand-edited generated file fails loudly.
 #   panel  — the authoring panel builds (catches broken imports/aliases).
-#   unity  — the engine package's 300+ EditMode tests via game-ci, using the
-#            committed unity/TestHost project. Needs the UNITY_LICENSE secret
-#            (the contents of a Unity .ulf activation file); without it the job
-#            emits a notice and passes, so forks stay green until configured.
+#   unity  — the engine package's 300+ EditMode tests + the PlayMode smoke via
+#            game-ci, using the committed unity/TestHost project. Needs either
+#            the UNITY_EMAIL + UNITY_PASSWORD secrets (Personal license — Unity
+#            dropped manual .ulf activation for it) or a UNITY_LICENSE .ulf
+#            (Pro). Without credentials the job emits a notice and passes, so
+#            forks stay green until configured.
 name: CI
 
 on:
@@ -107,7 +109,7 @@ jobs:
           npm run build
 
   unity:
-    name: engine EditMode tests
+    name: engine tests (EditMode + PlayMode)
     runs-on: ubuntu-latest
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -117,11 +119,11 @@ jobs:
       - name: check license secret
         id: lic
         run: |
-          if [ -n "$UNITY_LICENSE" ]; then
+          if [ -n "$UNITY_LICENSE" ] || { [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; }; then
             echo "has=true" >> "$GITHUB_OUTPUT"
           else
             echo "has=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::UNITY_LICENSE secret not set — skipping the engine's EditMode tests. Add the contents of your Unity .ulf file as the UNITY_LICENSE repo secret to enable them."
+            echo "::notice::No Unity credentials — skipping the engine tests. Add UNITY_EMAIL + UNITY_PASSWORD repo secrets (Personal license; manual .ulf activation is discontinued) or a UNITY_LICENSE .ulf (Pro) to enable them."
           fi
       - uses: actions/checkout@v4
         if: steps.lic.outputs.has == 'true'
@@ -136,7 +138,7 @@ jobs:
         uses: game-ci/unity-test-runner@v4
         with:
           projectPath: unity/TestHost
-          testMode: EditMode
+          testMode: All
           artifactsPath: test-results
       - uses: actions/upload-artifact@v4
         if: always() && steps.lic.outputs.has == 'true'
