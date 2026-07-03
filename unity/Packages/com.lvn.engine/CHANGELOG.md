@@ -22,6 +22,11 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
   referenced; StageMenu's History and save/load slots are the shipped
   equivalents). Hosts needing custom panels build on the public
   `VnStage.Backlog` / `LvnSaveStore` instead.
+- The `MetaShell` prototypes (`HubScreen`, `PaywallGate`,
+  `LifeCardSystem`) — unreferenced monetization scaffolding. The engine
+  is a narrative library; lives/paywalls/IAP belong to the embedding
+  game, which has all the seams it needs (`LvnOps`, menu items, events,
+  overlay drawing).
 
 ### Added
 - **Library-first embedding** — the engine is now a proper library with
