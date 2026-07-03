@@ -1,0 +1,90 @@
+# Release APK: on every version tag (v*), the self-hosted mac runner exports
+# the demo novel as a self-contained offline Unity project (/v1/export), builds
+# it with the engine code AT THE TAG, and attaches the .apk to the GitHub
+# Release — the same artifact a project owner would ship.
+#
+# Runner-local assumption: the export template (the gitignored /sandbox Unity
+# project) lives in the primary working copy on the runner machine.
+name: Release APK
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the release + upload the asset
+
+jobs:
+  apk:
+    name: build & attach APK
+    if: github.repository == 'fomeanator/unity-lvn-vn-engine'
+    runs-on: [self-hosted, unity-mac]
+    timeout-minutes: 60
+    env:
+      UNITY: /Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
+      TEMPLATE: /Users/fomean/ominis/unity-lvn-vn-engine/sandbox
+      PORT: "8079" # the dev server on this mac owns :8077 — stay clear
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: export offline project
+        run: |
+          go build -o /tmp/lvnserver-release ./server
+          /tmp/lvnserver-release -addr ":$PORT" -content ./server/content \
+            -admin-token release -template "$TEMPLATE" &
+          SRV=$!
+          trap "kill $SRV" EXIT
+          until curl -s -m 1 "http://localhost:$PORT/healthz" >/dev/null; do sleep 0.5; done
+          curl -s -X POST "http://localhost:$PORT/v1/export" \
+            -H "Authorization: Bearer release" -H "Content-Type: application/json" \
+            -d '{"name":"Sovet Demo","bundleId":"com.ominis.sovetdemo","company":"Ominis","offline":true}' \
+            -o export.zip
+          mkdir -p export && tar -xf export.zip -C export
+          test -d "export/SovetDemo/Assets/StreamingAssets/lvn"
+
+      - name: build APK from the tagged engine
+        run: |
+          # The exported manifest pins the engine git tag; for the build itself
+          # use the checked-out package — identical code, no network fetch.
+          python3 - <<PY
+          import json
+          p = 'export/SovetDemo/Packages/manifest.json'
+          d = json.load(open(p))
+          d['dependencies']['com.lvn.engine'] = 'file:${{ github.workspace }}/unity/Packages/com.lvn.engine'
+          json.dump(d, open(p, 'w'), indent=2)
+          PY
+          export LVN_BUILD_OUT="$PWD/sovet-demo-${GITHUB_REF_NAME}.apk"
+          "$UNITY" -batchmode -nographics -projectPath "$PWD/export/SovetDemo" \
+            -buildTarget Android -executeMethod Lvn.EditorTools.CliBuild.Android \
+            -quit -logFile - | grep -E "\[lvn-build\]|error CS" || true
+          test -s "sovet-demo-${GITHUB_REF_NAME}.apk"
+
+      - name: attach to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          APK="sovet-demo-${TAG}.apk"
+          PRERELEASE=$([[ "$TAG" == *-* ]] && echo true || echo false)
+          # create the release for this tag, or reuse an existing one
+          RID=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases" \
+            -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"prerelease\":$PRERELEASE,\"generate_release_notes\":true}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+          if [ -z "$RID" ]; then
+            RID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" \
+              | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+          fi
+          curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @"$APK" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/$RID/assets?name=$APK" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print('attached:', d.get('browser_download_url', d))"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sovet-demo-apk
+          path: "*.apk"
+          if-no-files-found: ignore
