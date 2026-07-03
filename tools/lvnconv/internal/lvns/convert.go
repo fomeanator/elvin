@@ -36,6 +36,9 @@ var KnownOps = map[string]bool{
 	// reusable animation and `play` stamps it onto an entity — pure compile-time
 	// expansion, the runtime only ever sees "anim".
 	"anim": true, "move": true, "defanim": true, "play": true,
+	// `ext <op> k=v …` compiles a HOST-DEFINED op ({op:"<op>", …}) — the game's
+	// C# handles it via LvnOps.Register (see the embedding guide).
+	"ext": true,
 }
 
 var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*(.*)$`)
@@ -241,7 +244,25 @@ func Convert(src string) (*Doc, error) {
 		var cmd Cmd
 
 		if KnownOps[firstWord] {
-			if firstWord == "defanim" {
+			if firstWord == "ext" {
+				// ext minigame kind="lockpick" → {"op":"minigame","kind":"lockpick"}
+				rest := strings.TrimSpace(line[len("ext"):])
+				toks := strings.Fields(rest)
+				if len(toks) < 1 || strings.Contains(toks[0], "=") {
+					return nil, fmt.Errorf("line %d: ext: usage: ext <op> key=value …", srcNo[i])
+				}
+				opName := toks[0]
+				params, perr := parseKeyValue(strings.TrimSpace(strings.TrimPrefix(rest, opName)))
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: ext %s: %w", srcNo[i], opName, perr)
+				}
+				ec := Cmd{"op": opName}
+				for k, v := range params {
+					ec[k] = v
+				}
+				isCommand = true
+				cmd = ec
+			} else if firstWord == "defanim" {
 				// defanim <name> prop=… keys=… [loop=… ease=… dur=…] — stored,
 				// no runtime command; `play` stamps it later.
 				rest := strings.TrimSpace(line[len("defanim"):])

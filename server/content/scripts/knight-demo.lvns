@@ -7,10 +7,8 @@ actor id=knight play="Walk" loop=true
 Шагает на месте.
 actor id=knight play="SwordAttak01"
 Рубит мечом!
-actor id=knight play="Run" loop=true
-move id=knight to=-0.25,0 dur=1.6 ease=inOutSine
+actor id=knight play="Run"
 Бежит по сцене.
-move id=knight to=0,0 dur=1.6 ease=inOutSine
 actor id=knight play="Jump"
 Прыжок!
 actor id=knight play="Idle" loop=true

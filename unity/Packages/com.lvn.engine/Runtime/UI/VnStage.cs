@@ -642,6 +642,10 @@ namespace Lvn.UI
         private Vector2 _pressPos;
         private IVisualElementScheduledItem _longPress;
 
+        /// <summary>Raised after any successful save (autosave, quick, slots) —
+        /// the host's hook for cloud sync / analytics. Argument: the slot name.</summary>
+        public event Action<string> Saved;
+
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
         public event Action<bool> ChromeHiddenChanged;
@@ -1161,6 +1165,7 @@ namespace Lvn.UI
             if (slot != LvnSaveStore.AutoSlot)
                 LvnSaveStore.WriteThumb(_saveTitleId, slot, _pendingThumb);
             LvnPlayer.Log?.Invoke("saved slot '" + slot + "' @#" + snap.Index);
+            Saved?.Invoke(slot); // host hook: cloud sync, achievements, analytics
             return true;
         }
 

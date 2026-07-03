@@ -40,89 +40,12 @@
     },
     {
       "id": "knight",
-      "loop": true,
       "op": "actor",
       "play": "Run"
     },
     {
-      "anim": {
-        "duration": 1.6,
-        "loop": false,
-        "tracks": [
-          {
-            "ease": "inOutSine",
-            "keys": [
-              [
-                0,
-                0
-              ],
-              [
-                1.6,
-                -0.25
-              ]
-            ],
-            "prop": "screen_x"
-          },
-          {
-            "ease": "inOutSine",
-            "keys": [
-              [
-                0,
-                0
-              ],
-              [
-                1.6,
-                0
-              ]
-            ],
-            "prop": "screen_y"
-          }
-        ]
-      },
-      "id": "knight",
-      "op": "anim"
-    },
-    {
       "op": "say",
       "text": "Бежит по сцене."
-    },
-    {
-      "anim": {
-        "duration": 1.6,
-        "loop": false,
-        "tracks": [
-          {
-            "ease": "inOutSine",
-            "keys": [
-              [
-                0,
-                0
-              ],
-              [
-                1.6,
-                0
-              ]
-            ],
-            "prop": "screen_x"
-          },
-          {
-            "ease": "inOutSine",
-            "keys": [
-              [
-                0,
-                0
-              ],
-              [
-                1.6,
-                0
-              ]
-            ],
-            "prop": "screen_y"
-          }
-        ]
-      },
-      "id": "knight",
-      "op": "anim"
     },
     {
       "id": "knight",
