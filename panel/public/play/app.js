@@ -148,6 +148,16 @@ fade to=black
 dim alpha=0.35
 Пусть лежит. Живописно же.`,
 
+  "Кукла (слои из каталога)": `scene doll_pg
+
+bg sprite_url="/content/sprites/doll/bg.png"
+actor doll x=0.5 height=0.85
+Кукла из четырёх слоёв — тело, рука, голова, волосы — с пер-слойной геометрией из каталога.
+В Unity-рантайме она ещё и дышит, кивает и качает волосами на пружинах.
+- Понятно -> fin
+:fin
+Загляни в Unity-песочницу за полной версией!`,
+
   "Codel: эмоции из каталога": `scene codel_demo
 
 actor codel x=0.5 height=0.85
@@ -523,7 +533,7 @@ $("export-html").addEventListener("click", async () => {
   const out = window.lvnsCompile(els.editor.value);
   if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
   const m = /^\s*scene\s+(\S+)/m.exec(els.editor.value);
-  await exportHtml(m ? m[1] : "game", out.json);
+  await exportHtml(m ? m[1] : "game", out.json, catalog);
   setStatus("HTML сохранён — файл играет сам по себе", "ok");
 });
 
@@ -552,8 +562,17 @@ examplesSel.addEventListener("change", () => {
 });
 
 // ── boot: URL script → example ─────────────────────────────────────────────
+let lintTimer = null;
 els.editor.addEventListener("input", () => {
   try { localStorage.setItem("lvn-play-draft", els.editor.value); } catch {}
+  // Live lint (debounced): same compiler, just not restarting the story.
+  clearTimeout(lintTimer);
+  lintTimer = setTimeout(() => {
+    if (!wasmReady) return;
+    const out = window.lvnsCompile(els.editor.value);
+    if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка — исправь и ▶", "err"); }
+    else { showProblems(out.warnings ? "Предупреждения:\n" + out.warnings : ""); setStatus("скомпилируется ✓ (▶ чтобы перезапустить)", "ok"); }
+  }, 400);
 });
 const repaint = attachHighlight(els.editor, document.getElementById("backdrop"));
 

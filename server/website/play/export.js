@@ -4,11 +4,65 @@
 // Text, choices, timers, input and variables play anywhere the file opens;
 // art urls keep pointing wherever they pointed (absolute urls travel well).
 
-export async function exportHtml(title, lvnJson) {
+/** Collect every art/audio url the script can touch (bg / sprite urls /
+ * catalog layers for the actors it stages, across the axis values it uses),
+ * fetch each and return {url → dataURL}. Unreachable art is skipped — the
+ * exported story degrades to text instead of failing. */
+async function inlineAssets(doc, catalog) {
+  const urls = new Set();
+  const actorAxes = new Map(); // id → Set of "axis=value" combos seen
+  for (const c of doc.script || []) {
+    if (c.op === "bg" && c.sprite_url) urls.add(c.sprite_url);
+    if ((c.op === "actor" || c.op === "obj")) {
+      if (c.sprite_url) urls.add(c.sprite_url);
+      if (c.body_url) urls.add(c.body_url);
+      if (!c.sprite_url && !c.body_url && c.id && catalog[c.id]) {
+        if (!actorAxes.has(c.id)) actorAxes.set(c.id, [{}]);
+        actorAxes.get(c.id).push({ ...c });
+      }
+    }
+    if (c.op === "audio" && c.url) urls.add(c.url);
+    if (c.op === "say" && c.voice) urls.add(c.voice);
+  }
+  const usedCatalog = {};
+  for (const [id, cmds] of actorAxes) {
+    const entity = catalog[id];
+    usedCatalog[id] = entity;
+    const axes = entity.axes || {};
+    const defs = entity.defaults || {};
+    for (const cmd of cmds) {
+      for (const raw of entity.layers || []) {
+        const l = typeof raw === "string" ? { url: raw } : raw;
+        if (!l.url) continue;
+        urls.add(l.url.replace(/\{(\w+)\}/g, (_, a) =>
+          cmd[a] ?? defs[a] ?? (axes[a] && axes[a][0]) ?? ""));
+      }
+    }
+  }
+  const map = {};
+  await Promise.all([...urls].map(async (u) => {
+    try {
+      const r = await fetch(u);
+      if (!r.ok) return;
+      const blob = await r.blob();
+      if (blob.size > 4 * 1024 * 1024) return; // one oversized asset won't balloon the file
+      map[u] = await new Promise((res) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.readAsDataURL(blob);
+      });
+    } catch { /* offline/missing art → text-only beat */ }
+  }));
+  return { assetMap: map, usedCatalog };
+}
+
+export async function exportHtml(title, lvnJson, catalog = {}) {
   const [core, expr] = await Promise.all([
     fetch("core.js").then((r) => r.text()),
     fetch("expr.js").then((r) => r.text()),
   ]);
+  const doc = JSON.parse(lvnJson);
+  const { assetMap, usedCatalog } = await inlineAssets(doc, catalog);
   const strip = (s) => s
     .replace(/^import .*$/gm, "")
     .replace(/^export default /gm, "")
@@ -19,7 +73,8 @@ export async function exportHtml(title, lvnJson) {
     .replace("__EXPR__", strip(expr))
     .replace("__CORE__", strip(core))
     .replace("__DOC__", "<" + "script id=\"lvn-doc\" type=\"application/json\">"
-      + lvnJson.replace(/<\/script/gi, "<\\/script") + "</" + "script>");
+      + JSON.stringify({ doc, assets: assetMap, catalog: usedCatalog }).replace(/<\/script/gi, "<\\/script")
+      + "</" + "script>");
 
   const blob = new Blob([html], { type: "text/html" });
   const a = document.createElement("a");
@@ -48,6 +103,8 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
 .bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .actors { position: absolute; inset: 0; pointer-events: none; }
 .actors img { position: absolute; bottom: 0; transform: translateX(-50%); max-height: 85%; }
+.actors .actor-box { position: absolute; bottom: 0; transform: translateX(-50%); }
+.actors .actor-box img { position: absolute; max-height: none; transform: none; object-fit: contain; bottom: auto; }
 .hud { position: absolute; inset: 0; pointer-events: none; }
 .hud .hud-label { position: absolute; font-weight: 600; text-shadow: 0 1px 3px #000; }
 .veil { position: absolute; inset: 0; pointer-events: none; background: #000; opacity: 0; transition: opacity .5s; }
@@ -104,7 +161,9 @@ __CORE__
 
 // ── lean standalone renderer (a distilled app.js without the editor) ──
 const $id = (x) => document.getElementById(x);
-const doc = JSON.parse($id("lvn-doc").textContent);
+const bundle = JSON.parse($id("lvn-doc").textContent);
+const doc = bundle.doc, ASSETS = bundle.assets || {}, CATALOG = bundle.catalog || {};
+const art = (u) => ASSETS[u] || u;
 let player, typeTimer, choiceTimer, fullLine = "", revealing = false;
 const hudLabels = new Map();
 
@@ -120,18 +179,41 @@ function start() {
 
 function applyStage(cmd) {
   switch (cmd.op) {
-    case "bg": if (cmd.sprite_url) $id("bg").style.backgroundImage = 'url("' + cmd.sprite_url + '")'; break;
+    case "bg": if (cmd.sprite_url) $id("bg").style.backgroundImage = 'url("' + art(cmd.sprite_url) + '")'; break;
     case "actor": case "obj": {
       if (!cmd.id) break;
-      let img = $id("actors").querySelector('[data-id="' + cmd.id + '"]');
-      if (cmd.show === false) { img && img.remove(); break; }
+      let node = $id("actors").querySelector('[data-id="' + cmd.id + '"]');
+      if (cmd.show === false) { node && node.remove(); break; }
+      const entity = !cmd.sprite_url && !cmd.body_url ? CATALOG[cmd.id] : null;
+      if (entity && entity.layers) {
+        if (!node || node.tagName !== "DIV") { node && node.remove();
+          node = document.createElement("div"); node.className = "actor-box"; node.dataset.id = cmd.id; $id("actors").appendChild(node); }
+        node.innerHTML = "";
+        const axes = entity.axes || {}, defs = entity.defaults || {};
+        const val = (a) => cmd[a] ?? defs[a] ?? (axes[a] && axes[a][0]) ?? "";
+        for (const raw of entity.layers) {
+          const l = typeof raw === "string" ? { url: raw } : raw;
+          if (!l.url) continue;
+          const img = document.createElement("img");
+          img.src = art(l.url.replace(/\\{(\\w+)\\}/g, (_, a) => val(a)));
+          if (typeof l.x === "number") { img.style.left = (l.x * 100) + "%"; img.style.top = ((l.y ?? 0) * 100) + "%";
+            img.style.width = ((l.w ?? 1) * 100) + "%"; img.style.height = ((l.h ?? 1) * 100) + "%"; }
+          else { img.style.left = "0"; img.style.top = "0"; img.style.width = "100%"; img.style.height = "100%"; }
+          node.appendChild(img);
+        }
+        const bx = typeof cmd.x === "number" ? cmd.x : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+        node.style.left = (bx * 100) + "%";
+        node.style.height = ((typeof cmd.height === "number" ? cmd.height : 0.8) * 100) + "%";
+        node.style.aspectRatio = String(entity.aspect || 0.6);
+        break;
+      }
       const url = cmd.sprite_url || cmd.body_url;
-      if (!img && url) { img = document.createElement("img"); img.dataset.id = cmd.id; $id("actors").appendChild(img); }
-      if (!img) break;
-      if (url) img.src = url;
+      if (!node && url) { node = document.createElement("img"); node.dataset.id = cmd.id; $id("actors").appendChild(node); }
+      if (!node) break;
+      if (url && node.tagName === "IMG") node.src = art(url);
       const x = typeof cmd.x === "number" ? cmd.x : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
-      img.style.left = (x * 100) + "%";
-      if (typeof cmd.width === "number") img.style.maxWidth = (cmd.width * 100) + "%";
+      node.style.left = (x * 100) + "%";
+      if (typeof cmd.width === "number") node.style.maxWidth = (cmd.width * 100) + "%";
       break;
     }
     case "text": {
@@ -152,7 +234,7 @@ function applyStage(cmd) {
     case "tint": { const v = $id("veil"); v.style.background = cmd.color || "#000"; v.style.opacity = cmd.alpha ?? 0.3; break; }
     case "audio": if (cmd.channel === "music") {
       if (cmd.action === "stop") { window.__m && window.__m.pause(); break; }
-      if (cmd.url) { window.__m && window.__m.pause(); const a = new Audio(cmd.url); a.loop = cmd.loop !== false; a.play().catch(() => {}); window.__m = a; }
+      if (cmd.url) { window.__m && window.__m.pause(); const a = new Audio(art(cmd.url)); a.loop = cmd.loop !== false; a.play().catch(() => {}); window.__m = a; }
     } break;
   }
 }

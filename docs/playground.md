@@ -20,9 +20,10 @@ anything hand-placed there dies — `public/` survives every deploy).
 - **🔗 Поделиться** packs the script into the URL hash (base64). Anyone
   opening the link plays it immediately — no account, no server round-trip.
 - **⬇ HTML** exports ONE self-contained file: the compiled `.lvn`, the
-  interpreter and a lean renderer inlined. It opens from disk (`file://`)
-  and plays anywhere; art URLs keep pointing wherever they pointed, so use
-  absolute URLs if the file should travel.
+  interpreter, a lean renderer — and **the art, inlined as data URLs**
+  (backgrounds, sprites and the catalog layers your script actually uses),
+  so the file plays fully offline from `file://`. Unreachable art degrades
+  to a text-only story instead of failing.
 - **⬇ .lvn** downloads the compiled container for the Unity runtime.
 
 ## For maintainers
