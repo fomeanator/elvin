@@ -108,40 +108,47 @@ jobs:
           npm ci
           npm run build
 
+  # Runs on the self-hosted mac runner: Unity is installed and licensed there
+  # (Unity discontinued .ulf activation for Personal licenses, so the docker
+  # route can't activate). Push-only + repo guard: pull requests from forks
+  # must never execute on our hardware.
   unity:
     name: engine tests (EditMode + PlayMode)
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.repository == 'fomeanator/unity-lvn-vn-engine'
+    runs-on: [self-hosted, unity-mac]
+    timeout-minutes: 40
     env:
-      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY: /Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
     steps:
-      - name: check license secret
-        id: lic
-        run: |
-          if [ -n "$UNITY_LICENSE" ] || { [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; }; then
-            echo "has=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Unity credentials — skipping the engine tests. Add UNITY_EMAIL + UNITY_PASSWORD repo secrets (Personal license; manual .ulf activation is discontinued) or a UNITY_LICENSE .ulf (Pro) to enable them."
-          fi
       - uses: actions/checkout@v4
-        if: steps.lic.outputs.has == 'true'
-      - uses: actions/cache@v4
-        if: steps.lic.outputs.has == 'true'
-        with:
-          path: unity/TestHost/Library
-          key: testhost-library-${{ hashFiles('unity/Packages/com.lvn.engine/package.json', 'unity/TestHost/Packages/manifest.json') }}
-          restore-keys: testhost-library-
-      - name: run tests
-        if: steps.lic.outputs.has == 'true'
-        uses: game-ci/unity-test-runner@v4
-        with:
-          projectPath: unity/TestHost
-          testMode: All
-          artifactsPath: test-results
+      - name: EditMode
+        run: |
+          "$UNITY" -batchmode -nographics -projectPath unity/TestHost \
+            -runTests -testPlatform EditMode \
+            -testResults "$PWD/test-results/editmode.xml" -logFile - | tail -20 || true
+          test -s test-results/editmode.xml
+      - name: PlayMode
+        run: |
+          "$UNITY" -batchmode -nographics -projectPath unity/TestHost \
+            -runTests -testPlatform PlayMode \
+            -testResults "$PWD/test-results/playmode.xml" -logFile - | tail -20 || true
+          test -s test-results/playmode.xml
+      - name: report
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          bad = 0
+          for f in sorted(glob.glob('test-results/*.xml')):
+              r = ET.parse(f).getroot()
+              print(f"{f}: total={r.get('total')} passed={r.get('passed')} failed={r.get('failed')}")
+              for tc in r.iter('test-case'):
+                  if tc.get('result') != 'Passed':
+                      bad += 1
+                      print('  FAIL:', tc.get('fullname'))
+          sys.exit(1 if bad else 0)
+          PY
       - uses: actions/upload-artifact@v4
-        if: always() && steps.lic.outputs.has == 'true'
+        if: always()
         with:
           name: unity-test-results
           path: test-results
