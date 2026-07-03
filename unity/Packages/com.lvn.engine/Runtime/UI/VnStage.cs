@@ -1386,9 +1386,23 @@ namespace Lvn.UI
                 }
             }
             if (Assets == null || string.IsNullOrEmpty(url)) return;
+            UnlockGalleryFor(url);
             var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
             if (sprite == null) return;
             _renderer?.SetBackground(sprite);
+        }
+
+        /// <summary>The title's curated CG list (manifest title.gallery), set by the
+        /// host per chapter entry. Non-empty ⇒ the quick menu shows a Gallery item;
+        /// a shown <c>bg</c> whose url matches an item unlocks it forever.</summary>
+        public System.Collections.Generic.IReadOnlyList<Lvn.Content.LvnGalleryItem> Gallery { get; set; }
+
+        private void UnlockGalleryFor(string url)
+        {
+            if (Gallery == null) return;
+            foreach (var g in Gallery)
+                if (g != null && g.url == url)
+                    LvnGalleryStore.Unlock(_saveTitleId, g.id);
         }
 
         // Evaluates a layer's `when` condition against the player's vars, so a

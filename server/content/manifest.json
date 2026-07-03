@@ -1331,7 +1331,19 @@
           ]
         }
       ],
-      "subtitle": "Демо костей и пружин"
+      "subtitle": "Демо костей и пружин",
+      "gallery": [
+        {
+          "id": "cg-cover",
+          "url": "/content/sprites/doll/cover.png",
+          "name": "Обложка"
+        },
+        {
+          "id": "cg-room",
+          "url": "/content/sprites/doll/bg.png",
+          "name": "Комната"
+        }
+      ]
     },
     {
       "cover_url": "/content/ui/cover_last_guest.png",
@@ -4904,7 +4916,8 @@
         "skip": "Пропуск",
         "slot": "Слот",
         "text_speed": "Скорость текста",
-        "window_opacity": "Прозрачность окна"
+        "window_opacity": "Прозрачность окна",
+        "gallery": "Галерея"
       }
     },
     "sounds": {

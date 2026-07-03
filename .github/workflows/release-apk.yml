@@ -80,8 +80,11 @@ jobs:
             "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/$RID/assets?name=$APK" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print('attached:', d.get('browser_download_url', d))"
 
+      # Diagnostics duplicate of the release asset — a flaky-link upload timeout
+      # must not fail a release whose APK already attached above.
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: sovet-demo-apk
           path: "*.apk"

@@ -163,6 +163,22 @@ namespace Lvn.Content
         /// manifest.ui when this title's chapters play, so each game can have its
         /// own dialogue/choice look (e.g. a fantasy frame for an RPG).</summary>
         public LvnUiConfig ui;
+        /// <summary>Optional CG gallery: the curated list of unlockable art. An
+        /// item unlocks forever the first time a <c>bg</c> with its url is shown;
+        /// the quick menu grows a Gallery entry when this list is non-empty.</summary>
+        public List<LvnGalleryItem> gallery;
+    }
+
+    /// <summary>One unlockable gallery CG.</summary>
+    public sealed class LvnGalleryItem
+    {
+        /// <summary>Stable id the unlock is stored under — keep it constant across
+        /// releases or players lose their unlocks.</summary>
+        public string id;
+        /// <summary>The CG's content url — must match the <c>bg</c> url that shows it.</summary>
+        public string url;
+        /// <summary>Optional caption shown in the gallery.</summary>
+        public string name;
     }
 
     /// <summary>A season — an ordered group of chapters within a title.</summary>
