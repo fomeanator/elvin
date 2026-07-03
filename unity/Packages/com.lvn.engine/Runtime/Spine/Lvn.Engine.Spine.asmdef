@@ -1,0 +1,26 @@
+{
+  "name": "Lvn.Engine.Spine",
+  "rootNamespace": "Lvn.Spine",
+  "references": [
+    "Lvn.Engine.UI",
+    "spine-unity",
+    "spine-csharp"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "LVN_SPINE"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.esotericsoftware.spine.spine-unity",
+      "expression": "",
+      "define": "LVN_SPINE"
+    }
+  ],
+  "noEngineReferences": false
+}

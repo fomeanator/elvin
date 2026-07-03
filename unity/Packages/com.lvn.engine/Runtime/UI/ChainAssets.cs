@@ -41,6 +41,16 @@ namespace Lvn.UI
             return null;
         }
 
+        public async Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
+        {
+            foreach (var l in _chain)
+            {
+                var t = await l.LoadTextAsync(url, ct);
+                if (!string.IsNullOrEmpty(t)) return t;
+            }
+            return null;
+        }
+
         public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
         {
             foreach (var loader in _chain)

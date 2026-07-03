@@ -77,6 +77,23 @@ namespace Lvn.Content
         /// these via <c>actor play="name"</c>; <c>auto:true</c> animations loop on
         /// show. See <see cref="LvnAnim"/>.</summary>
         public Dictionary<string, LvnAnim> anim;
+
+        /// <summary>For <c>kind: "spine"</c>: the exported skeleton's files. The
+        /// runtime builds the skeleton from these at load (no Unity assets) —
+        /// requires the optional spine-unity integration to be installed.</summary>
+        public LvnSpineRef spine;
+    }
+
+    /// <summary>A Spine export reference: content urls of the three files the
+    /// Spine editor produces, plus the import scale and the idle to auto-play.</summary>
+    public sealed class LvnSpineRef
+    {
+        public string json;    // skeleton (.json export)
+        public string atlas;   // .atlas text
+        public string texture; // the atlas page image
+        public float scale = 1f;
+        /// <summary>Animation to loop on show (e.g. "idle"/"walk").</summary>
+        public string auto;
     }
 
     /// <summary>A named animation: a set of tracks tweened over <c>duration</c>

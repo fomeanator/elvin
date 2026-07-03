@@ -1,0 +1,155 @@
+{
+  "scene": "knight_demo",
+  "script": [
+    {
+      "op": "bg",
+      "sprite_url": "/content/sprites/doll/bg.png"
+    },
+    {
+      "height": 0.75,
+      "id": "knight",
+      "op": "actor",
+      "width": 0.5,
+      "x": 0.5,
+      "y": 0.97
+    },
+    {
+      "op": "say",
+      "text": "настоящий Spine-скелет. 26 костей, меши, официальный рантайм.",
+      "who": "Знакомься"
+    },
+    {
+      "id": "knight",
+      "loop": true,
+      "op": "actor",
+      "play": "Walk"
+    },
+    {
+      "op": "say",
+      "text": "Шагает на месте."
+    },
+    {
+      "id": "knight",
+      "op": "actor",
+      "play": "SwordAttak01"
+    },
+    {
+      "op": "say",
+      "text": "Рубит мечом!"
+    },
+    {
+      "id": "knight",
+      "op": "actor",
+      "play": "SwordAttak02"
+    },
+    {
+      "op": "say",
+      "text": "И ещё раз, с разворота."
+    },
+    {
+      "id": "knight",
+      "loop": true,
+      "op": "actor",
+      "play": "Run"
+    },
+    {
+      "anim": {
+        "duration": 1.6,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.6,
+                -0.25
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.6,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "knight",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Бежит по сцене."
+    },
+    {
+      "anim": {
+        "duration": 1.6,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.6,
+                0
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.6,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "knight",
+      "op": "anim"
+    },
+    {
+      "id": "knight",
+      "op": "actor",
+      "play": "Jump"
+    },
+    {
+      "op": "say",
+      "text": "Прыжок!"
+    },
+    {
+      "id": "knight",
+      "loop": true,
+      "op": "actor",
+      "play": "Idle"
+    },
+    {
+      "op": "say",
+      "text": "И в стойку. Твой рыцарь — в нашем движке. Занавес!"
+    }
+  ]
+}

@@ -1286,6 +1286,17 @@
         }
       },
       "aspect": 0.5
+    },
+    "knight": {
+      "name": "Рыцарь",
+      "kind": "spine",
+      "spine": {
+        "json": "/content/spine/knight/knight.json",
+        "atlas": "/content/spine/knight/knight.atlas.txt",
+        "texture": "/content/spine/knight/CharacterAnimation_01.png",
+        "scale": 1.0,
+        "auto": "Idle"
+      }
     }
   },
   "titles": [
@@ -1309,6 +1320,13 @@
               "number": 2,
               "name": "Яблоко в сумку",
               "script_url": "/content/scripts/doll-drag.lvn",
+              "bg_url": "/content/sprites/doll/bg.png"
+            },
+            {
+              "id": "doll-demo-ch3",
+              "number": 3,
+              "name": "Рыцарь (Spine)",
+              "script_url": "/content/scripts/knight-demo.lvn",
               "bg_url": "/content/sprites/doll/bg.png"
             }
           ]

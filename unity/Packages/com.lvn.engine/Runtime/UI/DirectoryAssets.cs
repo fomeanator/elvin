@@ -60,6 +60,14 @@ namespace Lvn.UI
             return sprite;
         }
 
+        public Task<string> LoadTextAsync(string url, CancellationToken ct)
+        {
+            var path = PathFor(url);
+            if (path == null || !File.Exists(path)) return Task.FromResult<string>(null);
+            try { return Task.FromResult(File.ReadAllText(path)); }
+            catch { return Task.FromResult<string>(null); }
+        }
+
         public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(url)) return null;

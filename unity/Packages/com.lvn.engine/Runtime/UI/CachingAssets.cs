@@ -58,6 +58,9 @@ namespace Lvn.UI
         public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) =>
             Loader.DownloadSpriteAsync(url, ct);
 
+        public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
+            => Loader.DownloadScriptText(url, ct);
+
         public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) =>
             Loader.DownloadAudioClipAsync(url, ct);
 

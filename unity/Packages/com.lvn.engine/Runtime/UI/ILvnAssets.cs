@@ -25,6 +25,10 @@ namespace Lvn.UI
         /// (or throw) if you don't ship audio — the stage just stays silent.</summary>
         Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct);
 
+        /// <summary>Load a text asset (a Spine skeleton json / atlas). Default:
+        /// unsupported (null) — implemented by the network and directory loaders.</summary>
+        Task<string> LoadTextAsync(string url, CancellationToken ct) => Task.FromResult<string>(null);
+
         /// <summary>Speculative batch load: warm the cache for upcoming urls.
         /// Default implementation calls <see cref="LoadSpriteAsync"/> for each
         /// sprite-kind url and <see cref="LoadAudioAsync"/> for audio-kind urls.
