@@ -107,6 +107,35 @@ namespace Lvn.Tests
         }
 
         [UnityTest]
+        public IEnumerator DisableEnable_RebuildsTheChrome_AndReshowsTheBeat()
+        {
+            // The historical "black screen": UIDocument brings up a FRESH empty
+            // root after a disable/enable cycle, and a _built guard used to skip
+            // the rebuild — a permanently blank stage over a live player.
+            _go.SetActive(false);
+            yield return null;
+            _go.SetActive(true);
+            yield return null;
+            yield return null; // panel may need a frame; Update() retries Build
+
+            var doc = _go.GetComponent<UIDocument>();
+            Assert.Greater(doc.rootVisualElement.childCount, 0, "chrome rebuilt on the new panel root");
+
+            var labels = doc.rootVisualElement.Query<Label>().ToList()
+                .Where(l => l.text != null &&
+                    System.Text.RegularExpressions.Regex.Replace(l.text, "<[^>]+>", "").Contains("line one"))
+                .ToList();
+            Assert.IsTrue(labels.Count > 0, "the current beat re-rendered after re-enable");
+            Assert.AreEqual(1, _stage.Backlog.Count(b => b.text == "line one"),
+                "the re-run beat did not duplicate its backlog entry");
+
+            // and the story still advances
+            _stage.Player.Advance();
+            yield return null;
+            Assert.IsNotNull(_stage.Backlog, "player alive after rebuild");
+        }
+
+        [UnityTest]
         public IEnumerator Rollback_StripsTheUndoneMark_AndRepickRecordsFresh()
         {
             _stage.Player.Advance();

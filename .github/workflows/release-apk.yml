@@ -3,8 +3,6 @@
 # it with the engine code AT THE TAG, and attaches the .apk to the GitHub
 # Release — the same artifact a project owner would ship.
 #
-# Runner-local assumption: the export template (the gitignored /sandbox Unity
-# project) lives in the primary working copy on the runner machine.
 name: Release APK
 
 on:
@@ -22,7 +20,7 @@ jobs:
     timeout-minutes: 60
     env:
       UNITY: /Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
-      TEMPLATE: /Users/fomean/ominis/unity-lvn-vn-engine/sandbox
+      TEMPLATE: ./sandbox # the template skeleton is committed — comes with the checkout
       PORT: "8079" # the dev server on this mac owns :8077 — stay clear
     steps:
       - uses: actions/checkout@v4

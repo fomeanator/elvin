@@ -218,6 +218,18 @@ namespace Lvn
         /// save, where the recorded beats no longer describe the path taken.</summary>
         public void ClearHistory() => _history.Clear();
 
+        /// <summary>Pop and return the CURRENT beat's snapshot (taken before it
+        /// ran) — the re-render anchor for a chrome rebuild after a disable/
+        /// enable cycle. Null when no beat has run yet. The beat re-enters the
+        /// history when it re-runs.</summary>
+        public LvnSnapshot PopCurrent()
+        {
+            if (_history.Count < 1) return null;
+            var cur = _history[_history.Count - 1];
+            _history.RemoveAt(_history.Count - 1);
+            return cur;
+        }
+
         /// <summary>The next <paramref name="maxCommands"/> commands ahead of the
         /// cursor, in script order (a linear look-ahead — jumps are not followed).
         /// The stage uses it to warm the art/audio the scene is about to need, so

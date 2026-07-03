@@ -5,6 +5,21 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- **Blank stage after a disable/enable cycle** — UIDocument brings up a
+  fresh empty panel root on re-enable, and the build guard used to skip
+  the rebuild. The stage now tears down on disable (canvas scene,
+  audio component) and rebuilds its chrome on enable, re-rendering a
+  live player's current beat via the rollback anchor — no duplicate
+  backlog entries, story continues.
+
+### Changed
+- **Texture memory halved** — loaded art frees its CPU-side copy
+  (`makeNoLongerReadable`); nothing reads pixels back. On mobile,
+  oversized art is GPU-resampled to ≤2560 px on the longest side at
+  load (a 4K background drops 4× in memory, visually lossless on
+  phone screens).
+
 ### Added
 - **Save schema versioning** — every slot write stamps
   `LvnSaveSlot.CurrentVersion`; reads migrate older schemas up and HIDE

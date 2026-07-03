@@ -53,6 +53,11 @@ namespace Lvn.UI
         void Zoom(float factor, float seconds);
         void Pan(float x, float y, float seconds);
         void ResetCamera(float seconds);
+
+        /// <summary>Destroy engine-side objects that OUTLIVE the UI panel (the
+        /// Canvas scene's GameObjects). UITK elements die with their panel, so
+        /// that path is a no-op. Called on stage disable before a rebuild.</summary>
+        void Teardown();
     }
 
     /// <summary>The UI Toolkit scene: a colour/sprite background layer and an
@@ -97,6 +102,8 @@ namespace Lvn.UI
         public void Zoom(float factor, float seconds) => _camera.Zoom(factor, seconds);
         public void Pan(float x, float y, float seconds) => _camera.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _camera.Reset(seconds);
+
+        public void Teardown() { /* UITK elements die with the panel root */ }
     }
 
     /// <summary>The uGUI Canvas scene (WorldStage): 60fps sprites/Spine on a
@@ -152,5 +159,7 @@ namespace Lvn.UI
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
         public void Pan(float x, float y, float seconds) => _scene.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _scene.ResetCamera(seconds);
+
+        public void Teardown() => _scene.Dispose(); // the canvas GO survives the panel — destroy it
     }
 }
