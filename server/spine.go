@@ -24,7 +24,11 @@ import (
 // spine-unity integration installed). The ELVIN IDE's Characters panel is
 // the intended caller.
 func (s *server) handleAdminSpine(w http.ResponseWriter, r *http.Request) {
-	if !s.adminOK(r) {
+	if s.adminToken == "" {
+		http.Error(w, "admin api disabled (start with -admin-token)", http.StatusForbidden)
+		return
+	}
+	if !bearerOK(r, s.adminToken) {
 		http.Error(w, "admin token required", http.StatusUnauthorized)
 		return
 	}
