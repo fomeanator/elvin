@@ -5,6 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-03
+
+The "update without fear" release: animation phase 2 lands in the runtime,
+saves get schema versioning, exported projects pin the engine to a release
+tag, and the two long-standing player gaps (history marks, overwrite
+confirmation) close — plus the historical blank-stage bug dies and texture
+memory halves.
+
 ### Fixed
 - **Blank stage after a disable/enable cycle** — UIDocument brings up a
   fresh empty panel root on re-enable, and the build guard used to skip

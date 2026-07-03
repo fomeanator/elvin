@@ -1,6 +1,6 @@
 {
   "name": "com.lvn.engine",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "displayName": "Elvin — Narrative Game Engine",
   "description": "Write narrative games for Unity as plain text. Drop a .lvns script into Assets/ and Elvin runs it as a real game — dialogue, branching choices, characters with emotions, stats, animation, save/load — with no dialogue or branching system to build yourself. Plays the open .lvn container; also imports Ink and articy.",
   "unity": "2022.3",
