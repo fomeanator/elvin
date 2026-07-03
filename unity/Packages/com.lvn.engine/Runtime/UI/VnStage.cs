@@ -557,6 +557,7 @@ namespace Lvn.UI
             _sayUp = false;
             _curChoices = null;
             _draggables.Clear();
+            _placements.Clear();
             _dragId = null;
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
@@ -736,6 +737,8 @@ namespace Lvn.UI
             public Vector2 Size;                    // measured at drag begin (normalized)
         }
         private readonly Dictionary<string, DragInfo> _draggables = new Dictionary<string, DragInfo>();
+        // The actor's last APPLIED placement — the base sticky actor commands merge over.
+        private readonly Dictionary<string, Placement> _placements = new Dictionary<string, Placement>();
         private string _dragCandidate, _dragId;
         private Vector2 _dragGrab; // pointer→anchor offset in screen fractions
 
@@ -822,6 +825,7 @@ namespace Lvn.UI
             var clEnd = ClampToScreen(new Vector2(np.x - _dragGrab.x, np.y - _dragGrab.y), di);
             di.Home.X = clEnd.x;
             di.Home.Y = clEnd.y;
+            _placements[id] = di.Home; // future actor commands keep the dropped spot
 
             string label = null;
             foreach (var kv in di.Drop)
@@ -913,7 +917,9 @@ namespace Lvn.UI
 
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
-            var placement = PlacementFrom(cmd);
+            var placement = _placements.TryGetValue(id, out var prevSp)
+                ? PlacementFrom(cmd, prevSp) : PlacementFrom(cmd);
+            _placements[id] = placement; // sticky base (spine actors too)
             // show=false hides but KEEPS the built skeleton — re-showing (or a
             // later fade-in via an alpha track) is instant.
             if (!placement.Show)
@@ -1740,7 +1746,8 @@ namespace Lvn.UI
                 }
             }
 
-            var placement = PlacementFrom(cmd);
+            var placement = _placements.TryGetValue(id, out var prevPl)
+                ? PlacementFrom(cmd, prevPl) : PlacementFrom(cmd);
             // Layered/boned entities declare the aspect their art was authored in —
             // the renderer locks the box to it so layers register pixel-exact.
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
@@ -1798,6 +1805,7 @@ namespace Lvn.UI
             }
 
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
+            _placements[id] = placement; // the sticky base for the next command
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
@@ -1867,6 +1875,45 @@ namespace Lvn.UI
         // Build placement from the command — everything in screen fractions so a
         // script controls any object's position, size, anchor, z, flip, rotation
         // and opacity without knowing the resolution.
+        /// <summary>Sticky placement: merge an actor command over the actor's
+        /// LAST applied placement — only fields the command explicitly mentions
+        /// change, so <c>actor id=knight play="Jump"</c> keeps the position a
+        /// drag, a move-follow-up or an earlier command left him at.
+        /// Transitions are one-shot and always come from the command.</summary>
+        internal static Placement PlacementFrom(JObject cmd, Placement prev)
+        {
+            var p = prev;
+            p.Show = BoolOr(cmd["show"], true); // re-issuing an actor shows it (existing semantics)
+            if (cmd["x"] != null || cmd["position"] != null)
+                p.X = NumOrNull(cmd["x"]) ?? ActorLayer.SlotX((string)cmd["position"]);
+            if (cmd["y"] != null) p.Y = NumOr(cmd["y"], p.Y);
+            if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
+            if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
+            if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
+            if (cmd["flip"] != null) p.Flip = BoolOr(cmd["flip"], false);
+            if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
+            if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
+            if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);
+            p.EnterTransition = ParseTransition((string)cmd["enter"]);
+            p.ExitTransition = ParseTransition((string)cmd["exit"]);
+            p.TransitionDuration = NumOr(cmd["transition_duration"], 0.3f);
+            var anch = (string)cmd["anchor"];
+            if (!string.IsNullOrEmpty(anch))
+            {
+                var parts = anch.Split(',');
+                if (parts.Length == 2
+                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var ax)
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ay))
+                { p.AnchorX = ax; p.AnchorY = ay; }
+            }
+            else
+            {
+                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX);
+                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY);
+            }
+            return p;
+        }
+
         internal static Placement PlacementFrom(JObject cmd)
         {
             var p = new Placement
