@@ -20,6 +20,13 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class NovelApp : MonoBehaviour
     {
+        /// <summary>Shell lifecycle for the embedding game: a chapter is about
+        /// to play (analytics, music ducking, achievements). Args: title, chapter.</summary>
+        public event System.Action<LvnTitle, LvnChapter> ChapterStarted;
+
+        /// <summary>A chapter finished END-TO-END (not an exit-to-menu).</summary>
+        public event System.Action<LvnTitle, LvnChapter> ChapterFinished;
+
         [Tooltip("Content origin — the LVN server (manifest + scripts + assets).")]
         public string ServerUrl = "http://127.0.0.1:8000";
 
@@ -310,8 +317,10 @@ namespace Lvn.UI.Screens
             while (chapter != null)
             {
                 LvnProgress.SetCurrent(title, chapter);
+                ChapterStarted?.Invoke(title, chapter);
                 var finished = await PlayOneChapterAsync(title, chapter, playerName);
                 if (finished == null) break; // left mid-chapter (cancel/error) → carousel
+                ChapterFinished?.Invoke(title, finished);
                 // A cross-chapter save load can land the player in another title —
                 // continue along whichever title the finished chapter belongs to.
                 var (owner, _) = FindChapterByScriptUrl(finished.script_url);
