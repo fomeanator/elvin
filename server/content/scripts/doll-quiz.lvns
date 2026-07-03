@@ -4,13 +4,16 @@ bg sprite_url="/content/sprites/doll/bg.png"
 actor doll center w=0.42 h=0.78
 
 Кукла оживает и смотрит прямо на тебя.
+voice "/content/voice/doll/q01.wav"
 Кукла: Прежде чем играть дальше — познакомимся.
 
 input var=guest prompt="Как тебя зовут?" default="Гость" max=24
 
 Кукла: Приятно познакомиться, {guest}!
+voice "/content/voice/doll/q02.wav"
 Кукла: А теперь проверим твою реакцию. Отвечай быстро!
 
+voice "/content/voice/doll/q03.wav"
 Кукла: Сколько у меня пружинок в волосах — одна или две?
 choice timeout=5 timeout_goto=too_slow
 - Одна -> wrong
@@ -23,11 +26,13 @@ score = 1
 -> finale
 
 :wrong
+voice "/content/voice/doll/q04.wav"
 Кукла: Не-а. Две! Смотри, как качаются.
 score = 0
 -> finale
 
 :honest
+voice "/content/voice/doll/q05.wav"
 Кукла: Честно — уже неплохо. Но в следующий раз считай!
 score = 0
 -> finale

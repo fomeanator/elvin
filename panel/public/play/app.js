@@ -404,6 +404,18 @@ document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); compileAndRun(); }
 });
 
+$("download").addEventListener("click", () => {
+  if (!wasmReady) return;
+  const out = window.lvnsCompile(els.editor.value);
+  if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
+  const blob = new Blob([out.json], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "game.lvn";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
 $("share").addEventListener("click", async () => {
   const packed = btoa(String.fromCharCode(...new TextEncoder().encode(els.editor.value)));
   const url = location.origin + location.pathname + "#s=" + packed;
