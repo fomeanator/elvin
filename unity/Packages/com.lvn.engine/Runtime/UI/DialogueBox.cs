@@ -60,6 +60,10 @@ namespace Lvn.UI
         /// <summary>True while the typewriter is still revealing the line.</summary>
         public bool IsRevealing { get; private set; }
 
+        /// <summary>Fires each time the reveal head visibly moves (the eighth-glyph
+        /// rebuild steps) — the stage throttles it into the typewriter tick sound.</summary>
+        public event System.Action RevealTicked;
+
         public DialogueBox(VnTheme theme)
         {
             _theme = theme ?? new VnTheme();
@@ -328,6 +332,7 @@ namespace Lvn.UI
             if (q == _lastQuantum) return; // head hasn't visibly moved — skip the rebuild
             _lastQuantum = q;
             _body.text = _tw.SliceFadedFixed(p, _theme.FadeWidth);
+            RevealTicked?.Invoke();
         }
 
         private static void SetCorner(VisualElement el, float r, bool top, bool bottom)

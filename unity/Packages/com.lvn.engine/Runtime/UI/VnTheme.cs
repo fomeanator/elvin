@@ -138,6 +138,13 @@ namespace Lvn.UI
         [HideInInspector] public string ChoiceImageUrl;
         [HideInInspector] public string ChoiceHoverImageUrl;
 
+        // UI interaction sounds (manifest ui.sounds) — content urls resolved through
+        // ILvnAssets like the image urls above. Empty url = that interaction is silent.
+        [HideInInspector] public string ClickSoundUrl;
+        [HideInInspector] public string ChoiceSoundUrl;
+        [HideInInspector] public string TypeSoundUrl;
+        [HideInInspector] public float UiSoundVolume = 1f;
+
         [Header("Quick menu (StageMenu)")]
         [Tooltip("Sheet / panel background of the in-game quick menu.")]
         public Color MenuBgColor = new Color(0.08f, 0.08f, 0.10f, 0.97f);

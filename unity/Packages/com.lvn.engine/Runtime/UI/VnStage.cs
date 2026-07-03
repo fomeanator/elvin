@@ -246,11 +246,12 @@ namespace Lvn.UI
             if (root == null || _fx == null) return;
 
             if (_choices != null) { _choices.OnSelected -= OnChoiceSelected; _choices.RemoveFromHierarchy(); }
-            _dialogue?.RemoveFromHierarchy();
+            if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
+            _dialogue.RevealTicked += OnRevealTicked;
             _choices = new ChoiceList(Theme);
             int fxIndex = root.IndexOf(_fx); // keep z-order: …, dialogue, choices, fx
             if (fxIndex < 0) fxIndex = root.childCount;
@@ -302,6 +303,18 @@ namespace Lvn.UI
             if (Theme.ChoiceHoverSprite == null) any |= await Resolve(Theme.ChoiceHoverImageUrl, s => Theme.ChoiceHoverSprite = s);
 
             if (any && _built) RebuildChrome();
+
+            // UI sound clips ride the same lazy pattern (no chrome rebuild needed —
+            // the play sites read the fields directly). Missing audio stays silent.
+            async Task Clip(string url, System.Action<AudioClip> assign)
+            {
+                if (string.IsNullOrEmpty(url)) return;
+                try { assign(await Assets.LoadAudioAsync(url, _cts.Token)); }
+                catch { /* silent if the host ships no audio */ }
+            }
+            if (_sndClick == null) await Clip(Theme.ClickSoundUrl, c => _sndClick = c);
+            if (_sndChoice == null) await Clip(Theme.ChoiceSoundUrl, c => _sndChoice = c);
+            if (_sndType == null) await Clip(Theme.TypeSoundUrl, c => _sndType = c);
         }
 
         // Load a Font named by Theme.FontResourcePath (from a Resources folder)
@@ -317,6 +330,7 @@ namespace Lvn.UI
             _cts?.Cancel();
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
+            if (_dialogue != null) _dialogue.RevealTicked -= OnRevealTicked;
             LvnPrefs.Changed -= OnPrefsChanged;
 
             // UIDocument tears its panel down on disable and brings up a FRESH
@@ -637,6 +651,25 @@ namespace Lvn.UI
         private const long LongPressMs = 450;
         private const float PressDriftSq = 400f; // ~20px of drift cancels tap & hold
 
+        // UI sounds (manifest ui.sounds), loaded by EnsureThemeImagesAsync. The
+        // typewriter blip is throttled by wall time: the reveal event fires on
+        // eighth-glyph steps, far denser than a blip can stay pleasant.
+        private AudioClip _sndClick, _sndChoice, _sndType;
+        private float _lastTypeBlip;
+        private const float TypeBlipMinGap = 0.055f;
+
+        private void PlayUiSound(AudioClip clip) =>
+            _audio?.PlayUi(clip, Theme != null ? Theme.UiSoundVolume : 1f);
+
+        private void OnRevealTicked()
+        {
+            if (_sndType == null) return;
+            float now = Time.unscaledTime;
+            if (now - _lastTypeBlip < TypeBlipMinGap) return;
+            _lastTypeBlip = now;
+            PlayUiSound(_sndType);
+        }
+
         private bool _chromeHidden;
         private bool _pressTracking, _suppressTap;
         private Vector2 _pressPos;
@@ -756,9 +789,10 @@ namespace Lvn.UI
                 // fall through to tap-to-advance
             }
 
-            if (_dialogue.IsRevealing) { _dialogue.Complete(); return; }
+            if (_dialogue.IsRevealing) { PlayUiSound(_sndClick); _dialogue.Complete(); return; }
             if (_awaitingTap)
             {
+                PlayUiSound(_sndClick);
                 _awaitingTap = false;
                 _player.Advance();
             }
@@ -787,6 +821,7 @@ namespace Lvn.UI
 
         private void OnChoiceSelected(int index)
         {
+            PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
             string picked = null;
             if (_curChoices != null)
                 foreach (var o in _curChoices)

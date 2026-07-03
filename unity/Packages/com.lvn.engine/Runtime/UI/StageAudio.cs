@@ -16,7 +16,7 @@ namespace Lvn.UI
     [DisallowMultipleComponent]
     public sealed class StageAudio : MonoBehaviour
     {
-        private AudioSource _music, _ambient, _sfx;
+        private AudioSource _music, _ambient, _sfx, _ui;
 
         // Track what each looping channel is playing (by url) so a replayed audio
         // command after a load/rollback recognises "this track is already on" and
@@ -34,7 +34,8 @@ namespace Lvn.UI
             _music = gameObject.AddComponent<AudioSource>();
             _ambient = gameObject.AddComponent<AudioSource>();
             _sfx = gameObject.AddComponent<AudioSource>();
-            foreach (var s in new[] { _music, _ambient, _sfx }) s.playOnAwake = false;
+            _ui = gameObject.AddComponent<AudioSource>();
+            foreach (var s in new[] { _music, _ambient, _sfx, _ui }) s.playOnAwake = false;
             _music.loop = true;
             _ambient.loop = true;
             LvnPrefs.Changed += ApplyUserVolumes;
@@ -62,6 +63,15 @@ namespace Lvn.UI
             if (channel == "music") _authMusic = v;
             else if (channel == "ambient") _authAmbient = v;
             else _authSfx = v;
+        }
+
+        /// <summary>Play a UI one-shot (tap / choice / typewriter blip) on a channel
+        /// of its own, so a blip never cuts a story sfx. Scaled by the player's SFX
+        /// preference; a null clip no-ops (a novel without UI audio stays silent).</summary>
+        public void PlayUi(AudioClip clip, float volume = 1f)
+        {
+            if (clip == null || _ui == null) return;
+            _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnPrefs.VolSfx);
         }
 
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host

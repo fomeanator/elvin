@@ -4906,6 +4906,12 @@
         "text_speed": "Скорость текста",
         "window_opacity": "Прозрачность окна"
       }
+    },
+    "sounds": {
+      "click": "/content/ui/sounds/click.wav",
+      "choice": "/content/ui/sounds/choice.wav",
+      "type": "/content/ui/sounds/type.wav",
+      "volume": 0.8
     }
   }
 }
