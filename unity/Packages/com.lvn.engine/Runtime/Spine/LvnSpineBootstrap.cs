@@ -46,10 +46,11 @@ namespace Lvn.Spine
                 // The skeleton renders at its AUTHORED pixel size — fit it to the
                 // actor's slot height instead, with `scale` as a multiplier on top
                 // (1 = exactly the placed height).
+                // Fit by what the renderer ACTUALLY draws: skeleton data height
+                // times the graphic's own mesh scale — no unit guessing.
                 var sd = data.GetSkeletonData(true);
-                var canvas = parent.GetComponentInParent<Canvas>();
-                float ppu = canvas != null ? canvas.referencePixelsPerUnit : 100f;
-                float renderedH = sd != null && sd.Height > 0f ? sd.Height * ppu : 1f;
+                float mesh = graphic.MeshScale > 0f ? graphic.MeshScale : 1f;
+                float renderedH = sd != null && sd.Height > 0f ? sd.Height * mesh : 0f;
                 float slotH = parent.rect.height;
                 if (slotH > 0f && renderedH > 0f)
                     rt.localScale = Vector3.one * (slotH / renderedH * (scale <= 0f ? 1f : scale));

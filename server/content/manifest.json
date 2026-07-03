@@ -719,6 +719,122 @@
       ],
       "name": "Codel (слои)"
     },
+    "doll": {
+      "anim": {
+        "idle": {
+          "auto": "true",
+          "duration": 2.8,
+          "loop": true,
+          "tracks": [
+            {
+              "ease": "inOutSine",
+              "keys": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  1.4,
+                  0.015
+                ],
+                [
+                  2.8,
+                  0
+                ]
+              ],
+              "layer": "body",
+              "prop": "y"
+            },
+            {
+              "ease": "inOutSine",
+              "keys": [
+                [
+                  0,
+                  -3
+                ],
+                [
+                  1.4,
+                  3
+                ],
+                [
+                  2.8,
+                  -3
+                ]
+              ],
+              "layer": "head",
+              "prop": "rotation"
+            },
+            {
+              "ease": "inOutSine",
+              "keys": [
+                [
+                  0,
+                  2
+                ],
+                [
+                  1.4,
+                  -5
+                ],
+                [
+                  2.8,
+                  2
+                ]
+              ],
+              "layer": "arm",
+              "prop": "rotation"
+            }
+          ]
+        }
+      },
+      "aspect": 0.5,
+      "kind": "layered",
+      "layers": [
+        {
+          "h": 0.63,
+          "id": "body",
+          "url": "/content/sprites/doll/body.png",
+          "w": 0.48,
+          "x": 0.26,
+          "y": 0.35
+        },
+        {
+          "h": 0.27,
+          "id": "arm",
+          "parent": "body",
+          "px": 0.35,
+          "py": 0.12,
+          "url": "/content/sprites/doll/arm.png",
+          "w": 0.14,
+          "x": 0.55,
+          "y": 0.36
+        },
+        {
+          "h": 0.32,
+          "id": "head",
+          "parent": "body",
+          "px": 0.5,
+          "py": 0.84,
+          "url": "/content/sprites/doll/head.png",
+          "w": 0.42,
+          "x": 0.29,
+          "y": 0.08
+        },
+        {
+          "damping": 5,
+          "h": 0.44,
+          "id": "hair",
+          "parent": "head",
+          "px": 0.5,
+          "py": 0.15,
+          "spring": 12,
+          "url": "/content/sprites/doll/hair.png",
+          "w": 0.52,
+          "x": 0.24,
+          "y": 0.06
+        }
+      ],
+      "name": "Кукла"
+    },
     "goblin2": {
       "anim": {
         "attack": {
@@ -1005,6 +1121,17 @@
       ],
       "name": "Странник"
     },
+    "knight": {
+      "kind": "spine",
+      "name": "Рыцарь",
+      "spine": {
+        "atlas": "/content/spine/knight/knight.atlas.txt",
+        "auto": "Idle",
+        "json": "/content/spine/knight/knight.json",
+        "scale": 1,
+        "texture": "/content/spine/knight/CharacterAnimation_01.png"
+      }
+    },
     "mara": {
       "anim": {
         "idle": {
@@ -1170,168 +1297,41 @@
         }
       ],
       "name": "Скелет"
-    },
-    "doll": {
-      "name": "Кукла",
-      "kind": "layered",
-      "layers": [
-        {
-          "url": "/content/sprites/doll/body.png",
-          "id": "body",
-          "x": 0.26,
-          "y": 0.35,
-          "w": 0.48,
-          "h": 0.63
-        },
-        {
-          "url": "/content/sprites/doll/arm.png",
-          "id": "arm",
-          "x": 0.55,
-          "y": 0.36,
-          "w": 0.14,
-          "h": 0.27,
-          "parent": "body",
-          "px": 0.35,
-          "py": 0.12
-        },
-        {
-          "url": "/content/sprites/doll/head.png",
-          "id": "head",
-          "x": 0.29,
-          "y": 0.08,
-          "w": 0.42,
-          "h": 0.32,
-          "parent": "body",
-          "px": 0.5,
-          "py": 0.84
-        },
-        {
-          "url": "/content/sprites/doll/hair.png",
-          "id": "hair",
-          "x": 0.24,
-          "y": 0.06,
-          "w": 0.52,
-          "h": 0.44,
-          "parent": "head",
-          "px": 0.5,
-          "py": 0.15,
-          "spring": 12,
-          "damping": 5
-        }
-      ],
-      "anim": {
-        "idle": {
-          "auto": "true",
-          "loop": true,
-          "duration": 2.8,
-          "tracks": [
-            {
-              "layer": "body",
-              "prop": "y",
-              "ease": "inOutSine",
-              "keys": [
-                [
-                  0,
-                  0
-                ],
-                [
-                  1.4,
-                  0.015
-                ],
-                [
-                  2.8,
-                  0
-                ]
-              ]
-            },
-            {
-              "layer": "head",
-              "prop": "rotation",
-              "ease": "inOutSine",
-              "keys": [
-                [
-                  0,
-                  -3
-                ],
-                [
-                  1.4,
-                  3
-                ],
-                [
-                  2.8,
-                  -3
-                ]
-              ]
-            },
-            {
-              "layer": "arm",
-              "prop": "rotation",
-              "ease": "inOutSine",
-              "keys": [
-                [
-                  0,
-                  2
-                ],
-                [
-                  1.4,
-                  -5
-                ],
-                [
-                  2.8,
-                  2
-                ]
-              ]
-            }
-          ]
-        }
-      },
-      "aspect": 0.5
-    },
-    "knight": {
-      "name": "Рыцарь",
-      "kind": "spine",
-      "spine": {
-        "json": "/content/spine/knight/knight.json",
-        "atlas": "/content/spine/knight/knight.atlas.txt",
-        "texture": "/content/spine/knight/CharacterAnimation_01.png",
-        "scale": 1.0,
-        "auto": "Idle"
-      }
     }
   },
   "titles": [
     {
+      "cover_url": "/content/sprites/doll/cover.png",
       "id": "doll-demo",
       "name": "Кукла",
-      "subtitle": "Демо костей и пружин",
-      "cover_url": "/content/sprites/doll/cover.png",
       "seasons": [
         {
           "chapters": [
             {
+              "bg_url": "/content/sprites/doll/bg.png",
               "id": "doll-demo-ch1",
-              "number": 1,
               "name": "Живые волосы",
-              "script_url": "/content/scripts/doll-demo.lvn",
-              "bg_url": "/content/sprites/doll/bg.png"
+              "number": 1,
+              "script_url": "/content/scripts/doll-demo.lvn"
             },
             {
+              "bg_url": "/content/sprites/doll/bg.png",
               "id": "doll-demo-ch2",
-              "number": 2,
               "name": "Яблоко в сумку",
-              "script_url": "/content/scripts/doll-drag.lvn",
-              "bg_url": "/content/sprites/doll/bg.png"
+              "number": 2,
+              "script_url": "/content/scripts/doll-drag.lvn"
             },
             {
+              "bg_url": "/content/sprites/doll/bg.png",
               "id": "doll-demo-ch3",
-              "number": 3,
               "name": "Рыцарь (Spine)",
-              "script_url": "/content/scripts/knight-demo.lvn",
-              "bg_url": "/content/sprites/doll/bg.png"
+              "number": 3,
+              "script_url": "/content/scripts/knight-demo.lvn"
             }
           ]
         }
-      ]
+      ],
+      "subtitle": "Демо костей и пружин"
     },
     {
       "cover_url": "/content/ui/cover_last_guest.png",
@@ -4872,40 +4872,40 @@
     }
   ],
   "ui": {
+    "carousel": {
+      "chapters_text": "Главы",
+      "continue_text": "Продолжить",
+      "play_text": "Играть"
+    },
     "menu": {
       "labels": {
-        "save": "Сохранить",
-        "load": "Загрузить",
-        "quick_save": "Быстрое сохранение",
-        "history": "История",
+        "ambient": "Фоновые звуки",
         "auto": "Авто",
-        "skip": "Пропуск",
-        "settings": "Настройки",
-        "exit": "Выйти в меню",
-        "close": "Закрыть",
-        "autosave": "Автосохранение",
-        "slot": "Слот",
-        "empty": "— пусто —",
-        "quick_slot": "Быстрое сохранение",
-        "overwrite_q": "Перезаписать {0}?",
-        "overwrite": "Перезаписать",
-        "cancel": "Отмена",
-        "text_speed": "Скорость текста",
         "auto_advance": "Авто-чтение",
         "auto_delay": "Задержка авто",
-        "music": "Музыка",
-        "ambient": "Фоновые звуки",
-        "sfx": "Эффекты",
-        "window_opacity": "Прозрачность окна",
-        "reduce_motion": "Меньше движения",
+        "autosave": "Автосохранение",
+        "cancel": "Отмена",
+        "close": "Закрыть",
+        "empty": "— пусто —",
+        "exit": "Выйти в меню",
+        "history": "История",
         "language": "Язык",
-        "language_original": "Оригинал"
+        "language_original": "Оригинал",
+        "load": "Загрузить",
+        "music": "Музыка",
+        "overwrite": "Перезаписать",
+        "overwrite_q": "Перезаписать {0}?",
+        "quick_save": "Быстрое сохранение",
+        "quick_slot": "Быстрое сохранение",
+        "reduce_motion": "Меньше движения",
+        "save": "Сохранить",
+        "settings": "Настройки",
+        "sfx": "Эффекты",
+        "skip": "Пропуск",
+        "slot": "Слот",
+        "text_speed": "Скорость текста",
+        "window_opacity": "Прозрачность окна"
       }
-    },
-    "carousel": {
-      "play_text": "Играть",
-      "continue_text": "Продолжить",
-      "chapters_text": "Главы"
     }
   }
 }
