@@ -264,3 +264,24 @@ choice timeout=10 timeout_goto=late
 		t.Errorf("options lost while folding: %v", ch["options"])
 	}
 }
+
+// A `voice <url>` prefix line voices exactly the NEXT say (dialogue or
+// narration) and never leaks onto the ones after it.
+func TestConvertVoicePrefix(t *testing.T) {
+	src := `
+scene v
+voice "/content/voice/a1.ogg"
+Мара: Привет!
+Без озвучки.
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if doc.Script[0]["voice"] != "/content/voice/a1.ogg" {
+		t.Errorf("voiced line lost its url: %v", doc.Script[0])
+	}
+	if _, has := doc.Script[1]["voice"]; has {
+		t.Errorf("voice leaked onto the next line: %v", doc.Script[1])
+	}
+}
