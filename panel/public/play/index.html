@@ -22,7 +22,10 @@
 
   <main class="split">
     <section class="pane editor-pane">
-      <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+      <div class="editor-wrap">
+        <pre id="backdrop" class="backdrop" aria-hidden="true"></pre>
+        <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+      </div>
       <pre id="problems" class="problems" hidden></pre>
     </section>
 
