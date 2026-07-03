@@ -31,8 +31,11 @@ namespace Lvn.Spine
                 var material = new Material(shader);
                 var atlas = SpineAtlasAsset.CreateRuntimeInstance(
                     new TextAsset(atlasText), new[] { texture }, material, true);
+                // spine-unity convention: data loads at 0.01 units/px and
+                // SkeletonGraphic multiplies by the canvas PPU (100) — net 1:1.
+                // The catalog's `scale` stays a pure fit multiplier below.
                 var data = SkeletonDataAsset.CreateRuntimeInstance(
-                    new TextAsset(skeletonJson), atlas, true, scale);
+                    new TextAsset(skeletonJson), atlas, true, 0.01f);
                 var graphic = SkeletonGraphic.NewSkeletonGraphicGameObject(data, parent, material);
                 graphic.Initialize(false);
                 var rt = graphic.rectTransform;
@@ -44,10 +47,12 @@ namespace Lvn.Spine
                 // actor's slot height instead, with `scale` as a multiplier on top
                 // (1 = exactly the placed height).
                 var sd = data.GetSkeletonData(true);
-                float skelH = sd != null && sd.Height > 0f ? sd.Height : 1f;
+                var canvas = parent.GetComponentInParent<Canvas>();
+                float ppu = canvas != null ? canvas.referencePixelsPerUnit : 100f;
+                float renderedH = sd != null && sd.Height > 0f ? sd.Height * ppu : 1f;
                 float slotH = parent.rect.height;
-                if (slotH > 0f)
-                    rt.localScale = Vector3.one * (slotH / skelH * (scale <= 0f ? 1f : scale));
+                if (slotH > 0f && renderedH > 0f)
+                    rt.localScale = Vector3.one * (slotH / renderedH * (scale <= 0f ? 1f : scale));
                 return graphic.gameObject;
             };
             LvnSpineBridge.Play = (go, name, loop) =>
