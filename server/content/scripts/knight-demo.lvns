@@ -2,13 +2,11 @@ scene knight_demo
 bg sprite_url="/content/sprites/doll/bg.png"
 actor id=knight x=0.5 y=0.97 width=0.5 height=0.75
 
-Знакомься: настоящий Spine-скелет. 26 костей, меши, официальный рантайм.
+Знакомься: настоящий Spine-скелет. 26 костей, официальный рантайм.
 actor id=knight play="Walk" loop=true
 Шагает на месте.
 actor id=knight play="SwordAttak01"
 Рубит мечом!
-actor id=knight play="SwordAttak02"
-И ещё раз, с разворота.
 actor id=knight play="Run" loop=true
 move id=knight to=-0.25,0 dur=1.6 ease=inOutSine
 Бежит по сцене.
@@ -16,4 +14,9 @@ move id=knight to=0,0 dur=1.6 ease=inOutSine
 actor id=knight play="Jump"
 Прыжок!
 actor id=knight play="Idle" loop=true
-И в стойку. Твой рыцарь — в нашем движке. Занавес!
+Он полноправный актёр: сейчас растает фейдом, как любой спрайт.
+anim id=knight prop=alpha to=0 dur=0.8
+wait ms=900
+И вернётся.
+anim id=knight prop=alpha to=1 dur=0.8
+Управляется всё из скрипта: позиция, размер, фейды, движение. Занавес!
