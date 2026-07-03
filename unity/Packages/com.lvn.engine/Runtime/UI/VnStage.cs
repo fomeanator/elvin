@@ -102,6 +102,10 @@ namespace Lvn.UI
         // and every bg/actor/audio load would throw immediately → a blank stage.
         private void OnEnable() { _cts?.Dispose(); _cts = new CancellationTokenSource(); Build(); }
         private void Start() => Build();
+        // Start runs once per component lifetime — after a disable/enable cycle
+        // it can't retry a Build whose panel wasn't ready yet, so keep a cheap
+        // per-frame guard until the chrome exists.
+        private void Update() { if (!_built) Build(); }
 
         private void Build()
         {
@@ -193,7 +197,24 @@ namespace Lvn.UI
             _audio = gameObject.AddComponent<StageAudio>();
 
             _cts ??= new CancellationTokenSource(); // OnEnable usually made it; safety for a direct Build()
-            if (Script != null) Play(Script.text);
+
+            if (_player != null)
+            {
+                // The chrome was rebuilt under a LIVE player (a disable/enable
+                // cycle — see OnDisable): re-render the scene and the current
+                // beat on the new panel, the same recipe rollback uses.
+                var snap = _player.PopCurrent();
+                if (snap != null)
+                {
+                    _player.OnSay += RecordSay; // OnDisable unhooked it
+                    _player.Restore(snap);
+                    _suppressDupSay = true; // the re-run beat is already in the backlog
+                    int at = _player.Index;
+                    _player.ReplayVisuals(at);
+                    _player.ContinueFrom(at);
+                }
+            }
+            else if (Script != null) Play(Script.text);
         }
 
         /// <summary>Replace the visual theme. If the stage is already built, the
@@ -291,6 +312,25 @@ namespace Lvn.UI
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
             LvnPrefs.Changed -= OnPrefsChanged;
+
+            // UIDocument tears its panel down on disable and brings up a FRESH
+            // empty root on the next enable — everything Build() made is orphaned
+            // on the dead one. Drop the flag and the objects that outlive the
+            // panel, so the next enable rebuilds the chrome (and re-renders a
+            // live player's current beat) instead of leaving a blank stage.
+            if (_built)
+            {
+                _built = false;
+                _renderer?.Teardown();
+                _renderer = null;
+                _world = null;
+                _uiRoot = null;
+                _menu = null;
+                _labelLayer = null;
+                _labelEls.Clear();
+                _labelTmpl.Clear();
+                if (_audio != null) { Destroy(_audio); _audio = null; }
+            }
         }
 
         private void OnPrefsChanged()

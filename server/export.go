@@ -144,6 +144,16 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if rel == lockRel {
 			return nil
 		}
+		// local junk that must not ship in every export: dev screenshots under
+		// Assets and loose images at the template root.
+		relSlash := filepath.ToSlash(rel)
+		if strings.HasPrefix(relSlash, "Assets/Screenshots") {
+			return nil
+		}
+		if !strings.Contains(relSlash, "/") &&
+			(strings.HasSuffix(relSlash, ".png") || strings.HasSuffix(relSlash, ".jpg")) {
+			return nil
+		}
 
 		var data []byte
 		switch rel {

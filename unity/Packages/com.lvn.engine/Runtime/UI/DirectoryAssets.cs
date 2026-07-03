@@ -53,6 +53,8 @@ namespace Lvn.UI
 
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!tex.LoadImage(bytes)) return null;
+            // Nothing reads pixels back — free the CPU copy (halves per-sprite memory).
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
             _spriteCache[url] = sprite;
             return sprite;

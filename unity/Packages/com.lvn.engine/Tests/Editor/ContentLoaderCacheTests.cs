@@ -119,5 +119,20 @@ namespace Lvn.Tests
             var b = ContentLoader.HashKey("/content/bg/b.jpg", "v1");
             Assert.AreNotEqual(a, b);
         }
+
+        // The mobile texture cap: oversized art fits the cap on its longest
+        // side, aspect preserved; anything within passes through untouched.
+        [Test]
+        public void FitWithin_CapsTheLongestSideKeepingAspect()
+        {
+            Assert.AreEqual(new UnityEngine.Vector2Int(1920, 1080),
+                ContentLoader.FitWithin(1920, 1080, 2560), "within the cap → identity");
+            Assert.AreEqual(new UnityEngine.Vector2Int(2560, 1440),
+                ContentLoader.FitWithin(3840, 2160, 2560), "4K → capped, 16:9 kept");
+            Assert.AreEqual(new UnityEngine.Vector2Int(1440, 2560),
+                ContentLoader.FitWithin(2160, 3840, 2560), "portrait caps the height");
+            Assert.AreEqual(new UnityEngine.Vector2Int(1, 2560),
+                ContentLoader.FitWithin(1, 10000, 2560), "degenerate strip never hits 0");
+        }
     }
 }

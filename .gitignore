@@ -26,8 +26,20 @@ Thumbs.db
 *.local
 /tmp/
 
-# Local Unity sandbox / test harness
-/sandbox/
+# Local Unity sandbox / test harness. The EXPORT TEMPLATE skeleton is
+# committed (Boot.cs + asmdef, ProjectSettings, Packages manifest, UI theme)
+# so /v1/export works from any fresh clone; everything else stays local.
+/sandbox/*
+!/sandbox/Packages/
+/sandbox/Packages/*
+!/sandbox/Packages/manifest.json
+!/sandbox/ProjectSettings/
+!/sandbox/Assets/
+/sandbox/Assets/*
+!/sandbox/Assets/Sandbox/
+!/sandbox/Assets/Sandbox.meta
+!/sandbox/Assets/Resources/
+!/sandbox/Assets/Resources.meta
 
 # Stray screenshots
 Screenshot*.png

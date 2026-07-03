@@ -528,6 +528,41 @@ namespace Lvn.Content
             }
         }
 
+        /// <summary>The longest texture side kept on mobile. Art above it is
+        /// GPU-resampled once at load; typical phone screens are ≤ ~2400 px, so
+        /// visually this is lossless while a 4K background drops 4× in memory.</summary>
+        internal const int MobileMaxTextureSize = 2560;
+
+        /// <summary>Fit (w, h) within <paramref name="cap"/> on the longest side,
+        /// preserving aspect. Identity when already within. Pure — unit-tested.</summary>
+        internal static Vector2Int FitWithin(int w, int h, int cap)
+        {
+            int m = Mathf.Max(w, h);
+            if (m <= cap) return new Vector2Int(w, h);
+            float k = (float)cap / m;
+            return new Vector2Int(Mathf.Max(1, Mathf.RoundToInt(w * k)),
+                                  Mathf.Max(1, Mathf.RoundToInt(h * k)));
+        }
+
+        // GPU-resample an oversized texture down to the cap and destroy the
+        // original. Returns the input unchanged when it already fits.
+        private static Texture2D DownscaleIfOversized(Texture2D tex, int cap)
+        {
+            var size = FitWithin(tex.width, tex.height, cap);
+            if (size.x == tex.width && size.y == tex.height) return tex;
+            var rt = RenderTexture.GetTemporary(size.x, size.y, 0, RenderTextureFormat.ARGB32);
+            Graphics.Blit(tex, rt);
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var small = new Texture2D(size.x, size.y, TextureFormat.RGBA32, mipChain: false);
+            small.ReadPixels(new Rect(0, 0, size.x, size.y), 0, 0);
+            small.Apply(updateMipmaps: false, makeNoLongerReadable: false); // caller finalizes
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            UnityEngine.Object.Destroy(tex);
+            return small;
+        }
+
         private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
         {
             try
@@ -540,9 +575,16 @@ namespace Lvn.Content
                     UnityEngine.Object.Destroy(tex);
                     return null;
                 }
+                // Phones must not pay 33 MB of RGBA for a 4K background they
+                // display at ~1080p — cap the longest side and let the GPU
+                // resample once at load.
+                if (Application.isMobilePlatform)
+                    tex = DownscaleIfOversized(tex, MobileMaxTextureSize);
                 tex.wrapMode   = TextureWrapMode.Clamp;
                 tex.filterMode = FilterMode.Bilinear;
-                tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+                // Nothing reads pixels back — free the CPU copy (halves the
+                // memory of every loaded sprite).
+                tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
                 var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
 
                 List<SpriteEntry> victims;
