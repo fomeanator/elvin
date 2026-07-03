@@ -525,6 +525,13 @@ namespace Lvn
                         _ip++;
                         return;
 
+                    case "input":
+                        // The stage shows a text-entry overlay; the story pauses
+                        // here until the host writes the variable and re-Advances.
+                        _stage.ApplyStage(c);
+                        _ip++;
+                        return;
+
                     case "preload":
                         _stage.ApplyStage(c);
                         _ip++;
@@ -596,6 +603,34 @@ namespace Lvn
         public bool AtChoice =>
             !Finished && _script != null && _ip >= 0 && _ip < _script.Count
             && _script[_ip] is JObject c && (string)c["op"] == "choice";
+
+        /// <summary>Seconds the current choice gives the player before its
+        /// timeout branch fires — 0 means untimed. Valid while <see cref="AtChoice"/>;
+        /// the stage reads it to run the countdown UI.</summary>
+        public float CurrentChoiceTimeout
+        {
+            get
+            {
+                if (!AtChoice) return 0f;
+                var t = ((JObject)_script[_ip])["timeout"];
+                if (t == null) return 0f;
+                try { return (float)t; } catch { return 0f; }
+            }
+        }
+
+        /// <summary>The countdown expired: jump to the choice's <c>timeout_goto</c>
+        /// branch and continue. Returns false when not at a (timed) choice — a
+        /// stale timer after a load/rollback is simply ignored.</summary>
+        public bool ResolveChoiceTimeout()
+        {
+            if (!AtChoice) return false;
+            var target = (string)((JObject)_script[_ip])["timeout_goto"];
+            if (string.IsNullOrEmpty(target)) return false;
+            Log?.Invoke("CHOICE TIMEOUT → :" + target);
+            Jump(target);
+            Advance();
+            return true;
+        }
 
         /// <summary>
         /// Resolve a picked option (by its <see cref="LvnOption.Index"/>). Sets

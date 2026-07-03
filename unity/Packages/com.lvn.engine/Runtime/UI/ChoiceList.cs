@@ -59,6 +59,7 @@ namespace Lvn.UI
         /// <summary>Show the options. Replaces any currently shown.</summary>
         public void Present(IReadOnlyList<LvnOption> options)
         {
+            _timerFill = null; // cleared with the children below
             Clear();
             if (options != null)
             {
@@ -71,8 +72,34 @@ namespace Lvn.UI
         /// <summary>Hide and clear the options.</summary>
         public void Dismiss()
         {
+            _timerFill = null;
             Clear();
             style.display = DisplayStyle.None;
+        }
+
+        // ── countdown bar (timed choices) ────────────────────────────────────
+        private VisualElement _timerFill;
+
+        /// <summary>Show the countdown bar above the options (call after
+        /// <see cref="Present"/>) and set its remaining fraction (1 → 0).</summary>
+        public void SetTimer(float remaining01)
+        {
+            if (_timerFill == null)
+            {
+                var track = new VisualElement();
+                track.style.width = Length.Percent(_theme.ChoiceMinWidthPercent);
+                track.style.height = 6;
+                track.style.marginBottom = _theme.ChoiceSpacing;
+                track.style.backgroundColor = new Color(1f, 1f, 1f, 0.15f);
+                track.style.borderTopLeftRadius = 3; track.style.borderTopRightRadius = 3;
+                track.style.borderBottomLeftRadius = 3; track.style.borderBottomRightRadius = 3;
+                _timerFill = new VisualElement();
+                _timerFill.style.height = Length.Percent(100);
+                _timerFill.style.backgroundColor = _theme.ChoiceCostColor;
+                track.Add(_timerFill);
+                Insert(0, track);
+            }
+            _timerFill.style.width = Length.Percent(Mathf.Clamp01(remaining01) * 100f);
         }
 
         private VisualElement BuildOption(LvnOption option)

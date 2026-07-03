@@ -24,7 +24,7 @@ var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
 	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
-	"audio": true, "wait": true, "preload": true, "text_pace": true,
+	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load (func is lowered away by expandLoops)
 	"label": true, "goto": true, "if": true,
@@ -60,6 +60,7 @@ func Convert(src string) (*Doc, error) {
 	actorMaps := make(map[string]string)
 	defAnims := make(map[string]map[string]any) // defanim <name> … → params, expanded by `play`
 	nf := 0                                     // counter for synthesized fall-through labels (single-branch `if … -> …`)
+	var pendingChoice map[string]any            // `choice timeout=…` attrs awaiting the next `- option` block
 
 	// Pre-process and clean lines. `srcNo` keeps each cleaned line's original
 	// 1-based source line number, so commands can map back to the editor.
@@ -191,7 +192,12 @@ func Convert(src string) (*Doc, error) {
 					break
 				}
 			}
-			emit(Cmd{"op": "choice", "options": options}, srcNo[i])
+			cc := Cmd{"op": "choice", "options": options}
+			for k, v := range pendingChoice { // a preceding `choice timeout=…` line
+				cc[k] = v
+			}
+			pendingChoice = nil
+			emit(cc, srcNo[i])
 			i = j
 			continue
 		}
@@ -440,6 +446,16 @@ func Convert(src string) (*Doc, error) {
 					isCommand = true
 					cmd = c
 				}
+			} else if firstWord == "choice" {
+				// `choice timeout=10 timeout_goto=late` — attributes for the
+				// NEXT `- option` block (a timed choice). No command by itself.
+				params, perr := parseKeyValue(strings.TrimSpace(line[len("choice"):]))
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: choice: %w", srcNo[i], perr)
+				}
+				pendingChoice = params
+				i++
+				continue
 			} else if firstWord == "return" && len(words) == 1 {
 				isCommand = true
 				cmd = Cmd{"op": "return"}

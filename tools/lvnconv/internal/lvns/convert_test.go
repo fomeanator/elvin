@@ -2,6 +2,7 @@ package lvns
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -225,5 +226,41 @@ play id=x anim=nope
 `)
 	if err == nil || !strings.Contains(err.Error(), "unknown animation") {
 		t.Fatalf("expected unknown-animation error, got %v", err)
+	}
+}
+
+// `input var=… prompt=…` compiles as a plain command, and a `choice timeout=…`
+// prefix line folds its attributes into the option block that follows.
+func TestConvertInputAndTimedChoice(t *testing.T) {
+	src := `
+scene ti
+input var=name prompt="Кто ты?" default="Гость" max=24
+choice timeout=10 timeout_goto=late
+- Да -> yes
+- Нет -> no
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if len(doc.Script) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(doc.Script))
+	}
+	in := doc.Script[0]
+	if in["op"] != "input" || in["var"] != "name" || in["prompt"] != "Кто ты?" {
+		t.Errorf("input mis-compiled: %v", in)
+	}
+	ch := doc.Script[1]
+	if ch["op"] != "choice" {
+		t.Fatalf("expected the option block, got %v", ch)
+	}
+	if fmt.Sprint(ch["timeout"]) != "10" {
+		t.Errorf("timeout not folded into the choice: %v (%T)", ch["timeout"], ch["timeout"])
+	}
+	if ch["timeout_goto"] != "late" {
+		t.Errorf("timeout_goto not folded: %v", ch["timeout_goto"])
+	}
+	if opts, _ := ch["options"].([]any); len(opts) != 2 {
+		t.Errorf("options lost while folding: %v", ch["options"])
 	}
 }

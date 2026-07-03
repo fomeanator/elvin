@@ -382,7 +382,7 @@ namespace Lvn.UI
                 Skipping = false; // something needs the player — gear down
                 return;
             }
-            if (InputBlocked || _chromeHidden || _awaitingWait) return; // paused, not cancelled
+            if (InputBlocked || _chromeHidden || _awaitingWait || _awaitingInput) return; // paused, not cancelled
             if (_dialogue != null && _dialogue.IsRevealing) { _dialogue.Complete(); return; }
             if (_awaitingTap)
             {
@@ -458,7 +458,7 @@ namespace Lvn.UI
         {
             if (!LvnPrefs.AutoAdvance || InputBlocked || _chromeHidden
                 || _player == null || _player.Finished || _player.AtChoice
-                || !_awaitingTap || _awaitingWait
+                || !_awaitingTap || _awaitingWait || _awaitingInput
                 || _dialogue == null || _dialogue.IsRevealing)
             {
                 _autoRevealDoneAt = -1f;
@@ -570,6 +570,9 @@ namespace Lvn.UI
             _awaitingWait = false;
             _sayUp = false;
             _curChoices = null;
+            StopChoiceTimer();
+            CloseInput();
+            _awaitingInput = false;
             _draggables.Clear();
             _placements.Clear();
             _dragId = null;
@@ -714,7 +717,7 @@ namespace Lvn.UI
         {
             if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (_player == null || _player.Finished) return;
-            if (_awaitingWait) return;
+            if (_awaitingWait || _awaitingInput) return;
             if (evt.target is Button) return; // buttons (choices etc.) own their press
 
             _pressTracking = true;
@@ -775,7 +778,7 @@ namespace Lvn.UI
         {
             if (InputBlocked) return;
             if (_player == null || _player.Finished) return;
-            if (_awaitingWait) return;
+            if (_awaitingWait || _awaitingInput) return;
 
             // Canvas-scene hotspots: there's no uGUI raycaster, so a tap is routed
             // here. Test it against each obj's normalized placement rect (top-left
@@ -836,6 +839,7 @@ namespace Lvn.UI
 
         private void OnChoiceSelected(int index)
         {
+            StopChoiceTimer(); // the pick beat the clock
             PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
             string picked = null;
             if (_curChoices != null)
@@ -1188,6 +1192,9 @@ namespace Lvn.UI
             _curChoices = options;
             _dialogue?.SuppressAdvanceHint(true); // a choice is up — don't invite a tap
             _choices.Present(options);
+            // A timed choice races the player: countdown bar over the options,
+            // expiry takes the timeout branch (VnStage.Input.cs).
+            StartChoiceTimer(_player != null ? _player.CurrentChoiceTimeout : 0f);
         }
 
         public void ApplyStage(JObject command)
@@ -1216,6 +1223,7 @@ namespace Lvn.UI
                     _awaitingWait = true;
                     StartCoroutine(WaitCoroutine(command));
                     break;
+                case "input": ApplyInput(command); break; // text entry → story var
                 case "preload":
                     _ = PreloadAssetsAsync(command);
                     break;
