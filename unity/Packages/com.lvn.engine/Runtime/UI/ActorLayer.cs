@@ -78,7 +78,8 @@ namespace Lvn.UI
         /// <paramref name="onClick"/> is set the object becomes a tappable hotspot
         /// (and swallows the tap so it doesn't also advance the dialogue).</summary>
         public void Apply(string id, IReadOnlyList<Sprite> layers, Placement p, Action onClick = null,
-            IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null)
+            IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null,
+            IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             if (string.IsNullOrEmpty(id)) return;
 
@@ -147,7 +148,17 @@ namespace Lvn.UI
                     rig.Add(img);
                     // register a named layer so blink / lip-sync can target it
                     var lid = layerIds != null && i < layerIds.Count ? layerIds[i] : null;
-                    if (!string.IsNullOrEmpty(lid)) animator?.SetLayer(lid, img, sprite);
+                    if (!string.IsNullOrEmpty(lid))
+                    {
+                        animator?.SetLayer(lid, img, sprite);
+                        // bone metadata: parent joint / pivot / spring (paper-doll FK)
+                        if (layerDefs != null && i < layerDefs.Count)
+                        {
+                            var d = layerDefs[i];
+                            if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f)
+                                animator?.SetLayerBone(lid, d.Parent, new Vector2(d.Px, d.Py), r, d.Spring, d.Damping);
+                        }
+                    }
                 }
             }
 

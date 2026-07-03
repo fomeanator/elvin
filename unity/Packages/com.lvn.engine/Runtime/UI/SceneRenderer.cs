@@ -28,9 +28,12 @@ namespace Lvn.UI
         /// slot exists for hit-testing/animation immediately. The UITK path
         /// applies placement and art together, so this is a no-op there.</summary>
         void PlaceActor(string id, Placement placement);
-        /// <summary>Apply the actor's final state (art layers + placement).</summary>
+        /// <summary>Apply the actor's final state (art layers + placement).
+        /// <paramref name="layerDefs"/> (optional, catalog path) carries each
+        /// layer's bone metadata — parent joint, pivot, spring.</summary>
         void ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement placement, Action onClick,
-            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects);
+            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
+            IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null);
         /// <summary>The actor's on-screen rect, normalized 0..1 with a top-left
         /// origin — for manual hotspot hit-testing. Null when this renderer does
         /// its own picking (UITK) or the actor doesn't exist.</summary>
@@ -81,8 +84,9 @@ namespace Lvn.UI
         public void PlaceActor(string id, Placement placement) { /* placement applies with the art */ }
 
         public void ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement placement, Action onClick,
-            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects)
-            => _actors.Apply(id, layers, placement, onClick, layerIds, layerRects);
+            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
+            IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
+            => _actors.Apply(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
 
         public Rect? ActorScreenRect(string id) => null; // UITK elements do their own picking
 
@@ -121,13 +125,14 @@ namespace Lvn.UI
             => _scene.ApplyActor(id, null, placement, null, null); // create + place now; art follows
 
         public void ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement placement, Action onClick,
-            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects)
+            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
+            IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             // onClick is intentionally unused: canvas hotspots are hit-tested by the
             // stage (ActorScreenRect), not by per-element handlers. An actor with no
             // loaded art keeps its PlaceActor slot — nothing to re-apply.
             if (layers != null && layers.Count > 0)
-                _scene.ApplyActor(id, layers, placement, layerIds, layerRects);
+                _scene.ApplyActor(id, layers, placement, layerIds, layerRects, layerDefs);
         }
 
         public Rect? ActorScreenRect(string id)

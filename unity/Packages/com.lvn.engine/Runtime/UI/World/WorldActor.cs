@@ -65,12 +65,14 @@ namespace Lvn.UI.World
             rt.pivot = new Vector2(0.5f, 0f); // feet — match rotation/scale origin
         }
 
-        /// <summary>Build (or rebuild) the layer Images from resolved sprites + ids.</summary>
-        public void Configure(IReadOnlyList<Sprite> sprites, IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects = null)
+        /// <summary>Build (or rebuild) the layer Images from resolved sprites + ids.
+        /// <paramref name="layerDefs"/> carries bone metadata (parent/pivot/spring).</summary>
+        public void Configure(IReadOnlyList<Sprite> sprites, IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects = null,
+            IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             EnsureRig();
             for (int i = _rig.childCount - 1; i >= 0; i--) Destroy(_rig.GetChild(i).gameObject);
-            _layers.Clear(); _baseSprite.Clear();
+            _layers.Clear(); _baseSprite.Clear(); _bones.Clear();
             if (sprites == null) return;
             for (int i = 0; i < sprites.Count; i++)
             {
@@ -94,8 +96,49 @@ namespace Lvn.UI.World
                 img.raycastTarget = false;
                 img.preserveAspect = true;
                 var lid = layerIds != null && i < layerIds.Count ? layerIds[i] : null;
-                if (!string.IsNullOrEmpty(lid)) { _layers[lid] = img; _baseSprite[lid] = sp; }
+                if (!string.IsNullOrEmpty(lid))
+                {
+                    _layers[lid] = img; _baseSprite[lid] = sp;
+                    if (layerDefs != null && i < layerDefs.Count)
+                    {
+                        var d = layerDefs[i];
+                        if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f)
+                        {
+                            var rr = r.z > 0f && r.w > 0f ? r : new Vector4(0f, 0f, 1f, 1f);
+                            rt.pivot = new Vector2(d.Px, 1f - d.Py); // rotation/scale joint (uGUI y-up)
+                            _bones[lid] = new BoneMeta
+                            {
+                                Parent = d.Parent,
+                                PivotBox = new Vector2(rr.x + d.Px * rr.z, rr.y + d.Py * rr.w),
+                                Rect = rr, Spring = d.Spring, Damping = d.Damping,
+                            };
+                        }
+                    }
+                }
             }
+        }
+
+        // ── bones (paper-doll FK + springs) — the canvas twin of ActorAnimator ──
+        private sealed class BoneMeta
+        {
+            public string Parent;
+            public Vector2 PivotBox;
+            public Vector4 Rect;
+            public float Spring, Damping;
+            public BoneSolver.SpringState State;
+        }
+        private readonly Dictionary<string, BoneMeta> _bones = new Dictionary<string, BoneMeta>();
+        private float _lastTick = -1f;
+
+        private bool AnySpringLive()
+        {
+            foreach (var kv in _bones)
+            {
+                var m = kv.Value;
+                if (m.Spring > 0f && (Mathf.Abs(m.State.Angle) > 0.05f || Mathf.Abs(m.State.Velocity) > 0.5f))
+                    return true;
+            }
+            return false;
         }
 
         public void SetSlotBase(Vector2 anchored) { EnsureRig(); _slotBase = anchored; _slot.anchoredPosition = anchored; }
@@ -156,7 +199,8 @@ namespace Lvn.UI.World
 
         private void Update()
         {
-            if (_channels.Count > 0) Tick(ActorAnimator.Clock());
+            // Springs keep swinging after their driving channel ends.
+            if (_channels.Count > 0 || AnySpringLive()) Tick(ActorAnimator.Clock());
         }
 
         // One composite step — internal so tests can drive it with ActorAnimator.Clock.
@@ -239,11 +283,52 @@ namespace Lvn.UI.World
             ApplyRig(_rig, _group, tx, ty, scx, scy, rot, al);
             _slot.anchoredPosition = _slotBase + new Vector2(sx * ContentSize.x, -sy * ContentSize.y);
 
+            // Bone layers compose through the FK chain (+ springs). The solver
+            // works y-down/clockwise (the UITK convention) — flip on both ends.
+            Dictionary<string, BoneSolver.Pose> bonePoses = null;
+            if (_bones.Count > 0)
+            {
+                float bdt = _lastTick >= 0f ? Mathf.Clamp(now - _lastTick, 0f, 0.1f) : 0f;
+                var bones = new List<BoneSolver.Bone>(_bones.Count);
+                foreach (var kv in _bones)
+                {
+                    var m = kv.Value;
+                    float[] la = layerX.TryGetValue(kv.Key, out var arr) ? arr : null;
+                    bones.Add(new BoneSolver.Bone
+                    {
+                        Id = kv.Key, Parent = m.Parent, Pivot = m.PivotBox,
+                        Tx = (la?[0] ?? 0f) * m.Rect.z, Ty = (la?[1] ?? 0f) * m.Rect.w,
+                        Angle = -(la?[4] ?? 0f), Sx = la?[2] ?? 1f, Sy = la?[3] ?? 1f,
+                    });
+                }
+                bonePoses = BoneSolver.Solve(bones);
+                bool anySpring = false;
+                for (int i = 0; i < bones.Count; i++)
+                {
+                    var m = _bones[bones[i].Id];
+                    if (m.Spring <= 0f) continue;
+                    m.State = BoneSolver.SpringStep(m.State, bonePoses[bones[i].Id].PivotWorld, bonePoses[bones[i].Id].Angle, m.Spring, m.Damping, bdt);
+                    if (Mathf.Abs(m.State.Angle) > 0.01f || Mathf.Abs(m.State.Velocity) > 0.01f) anySpring = true;
+                    var b = bones[i]; b.Angle += m.State.Angle; bones[i] = b;
+                }
+                if (anySpring) bonePoses = BoneSolver.Solve(bones);
+            }
+            _lastTick = now;
+
+            var rigSize = _rig.rect.size;
             foreach (var pair in _layers)
             {
                 var img = pair.Value;
                 var lrt = (RectTransform)img.transform;
-                if (layerX.TryGetValue(pair.Key, out var a)) ApplyRig(lrt, null, a[0], a[1], a[2], a[3], a[4], a[5], img);
+                if (bonePoses != null && _bones.TryGetValue(pair.Key, out var bm) && bonePoses.TryGetValue(pair.Key, out var pose))
+                {
+                    var dlt = pose.PivotWorld - bm.PivotBox;
+                    lrt.anchoredPosition = new Vector2(dlt.x * rigSize.x, -dlt.y * rigSize.y);
+                    lrt.localEulerAngles = new Vector3(0f, 0f, -pose.Angle);
+                    lrt.localScale = new Vector3(pose.Sx, pose.Sy, 1f);
+                    var c2 = img.color; c2.a = layerX.TryGetValue(pair.Key, out var la2) ? la2[5] : 1f; img.color = c2;
+                }
+                else if (layerX.TryGetValue(pair.Key, out var a)) ApplyRig(lrt, null, a[0], a[1], a[2], a[3], a[4], a[5], img);
                 else ApplyRig(lrt, null, 0, 0, 1, 1, 0, 1, img);
                 if (layerFrame != null && layerFrame.TryGetValue(pair.Key, out var fv))
                 {

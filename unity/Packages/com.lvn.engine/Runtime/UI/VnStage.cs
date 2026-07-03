@@ -1411,12 +1411,14 @@ namespace Lvn.UI
             List<string> urls;
             List<string> urlIds = null;      // parallel layer ids (catalog path), for blink/lip-sync
             List<Vector4> urlRects = null;    // parallel per-layer sub-rects (x,y,w,h); w≤0 = fill
+            List<SpriteCatalog.ResolvedLayer> urlDefs = null; // parallel full defs (bones: parent/pivot/spring)
             if (Catalog != null && Catalog.Has(id))
             {
                 var rls = Catalog.ResolveLayers(id, AxesOf(cmd), CatalogCond());
                 urls = new List<string>(rls.Count);
                 urlIds = new List<string>(rls.Count);
                 urlRects = new List<Vector4>(rls.Count);
+                urlDefs = rls;
                 foreach (var rl in rls) { urls.Add(rl.Url); urlIds.Add(rl.Id); urlRects.Add(new Vector4(rl.X, rl.Y, rl.W, rl.H)); }
             }
             else if (_cast != null && _cast.TryGetValue(id, out var entity))
@@ -1496,11 +1498,13 @@ namespace Lvn.UI
             List<Sprite> layers = null;
             List<string> layerIds = null;
             List<Vector4> layerRects = null;
+            List<SpriteCatalog.ResolvedLayer> layerDefs = null;
             if (urls != null && urls.Count > 0 && Assets != null)
             {
                 layers = new List<Sprite>(urls.Count);
                 layerIds = urlIds != null ? new List<string>(urls.Count) : null;
                 layerRects = urlRects != null ? new List<Vector4>(urls.Count) : null;
+                layerDefs = urlDefs != null ? new List<SpriteCatalog.ResolvedLayer>(urls.Count) : null;
                 for (int i = 0; i < urls.Count; i++)
                 {
                     Sprite s = null;
@@ -1511,11 +1515,12 @@ namespace Lvn.UI
                         layers.Add(s);
                         layerIds?.Add(i < urlIds.Count ? urlIds[i] : null);
                         layerRects?.Add(i < urlRects.Count ? urlRects[i] : Vector4.zero);
+                        layerDefs?.Add(i < urlDefs.Count ? urlDefs[i] : default);
                     }
                 }
             }
 
-            _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects);
+            _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an

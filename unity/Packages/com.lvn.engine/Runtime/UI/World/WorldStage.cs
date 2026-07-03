@@ -96,13 +96,14 @@ namespace Lvn.UI.World
         /// the Canvas equivalent of <c>ActorLayer.Apply</c>. A null/empty
         /// <paramref name="layers"/> list leaves the current art unchanged.</summary>
         public WorldActor ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement p,
-            IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null)
+            IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null,
+            IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             if (string.IsNullOrEmpty(id)) return null;
             var a = EnsureActor(id);
 
             if (layers != null && layers.Count > 0)
-                a.Configure(layers, layerIds, layerRects);
+                a.Configure(layers, layerIds, layerRects, layerDefs);
 
             WorldPlacement.Apply(a.Slot, p, _reference);
             a.SetSlotBase(a.Slot.anchoredPosition);

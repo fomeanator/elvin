@@ -31,6 +31,27 @@ namespace Lvn.Content
         /// overlays, and partial overlays alike.</summary>
         public float x, y, w, h;
 
+        /// <summary>Bone hierarchy: the id of the layer this one is ATTACHED to.
+        /// A parented layer inherits the whole ancestor chain's rotation/scale/
+        /// movement, composed around each ancestor's pivot — a paper-doll FK
+        /// skeleton over plain sprite layers. Draw order stays the layer list
+        /// order (a back arm can be the body's child yet draw behind it).</summary>
+        public string parent;
+
+        /// <summary>The pivot — this layer's own rotation/scale origin AND the
+        /// joint the parent swings it around — as fractions of the LAYER's rect
+        /// (0..1). Default = centre. For an arm, put it at the shoulder.</summary>
+        public float px = 0.5f, py = 0.5f;
+
+        /// <summary>Secondary motion: &gt; 0 turns the joint into a spring that
+        /// LAGS behind the parent's movement (hair, tails, cloth) — the layer
+        /// swings from motion and settles by itself, no keyframes. Typical 4–20.</summary>
+        public float spring;
+
+        /// <summary>Spring energy loss (only with <see cref="spring"/>).
+        /// Higher = calms faster. Default 6.</summary>
+        public float damping = 6f;
+
         public LvnLayer() { }
         public LvnLayer(string url, string when = null, string id = null) { this.url = url; this.when = when; this.id = id; }
 
@@ -53,6 +74,11 @@ namespace Lvn.Content
                 l.y = (float?)o["y"] ?? 0f;
                 l.w = (float?)o["w"] ?? 0f;
                 l.h = (float?)o["h"] ?? 0f;
+                l.parent = (string)o["parent"];
+                l.px = (float?)o["px"] ?? 0.5f;
+                l.py = (float?)o["py"] ?? 0.5f;
+                l.spring = (float?)o["spring"] ?? 0f;
+                l.damping = (float?)o["damping"] ?? 6f;
                 return l;
             }
             return new LvnLayer(null);
@@ -61,7 +87,8 @@ namespace Lvn.Content
         public override void WriteJson(JsonWriter w, object value, JsonSerializer s)
         {
             var l = (LvnLayer)value;
-            if (string.IsNullOrEmpty(l.when) && string.IsNullOrEmpty(l.id) && !l.HasRect) { w.WriteValue(l.url); return; }
+            bool boned = !string.IsNullOrEmpty(l.parent) || l.spring > 0f || l.px != 0.5f || l.py != 0.5f;
+            if (string.IsNullOrEmpty(l.when) && string.IsNullOrEmpty(l.id) && !l.HasRect && !boned) { w.WriteValue(l.url); return; }
             w.WriteStartObject();
             w.WritePropertyName("url"); w.WriteValue(l.url);
             if (!string.IsNullOrEmpty(l.when)) { w.WritePropertyName("when"); w.WriteValue(l.when); }
@@ -72,6 +99,14 @@ namespace Lvn.Content
                 w.WritePropertyName("y"); w.WriteValue(l.y);
                 w.WritePropertyName("w"); w.WriteValue(l.w);
                 w.WritePropertyName("h"); w.WriteValue(l.h);
+            }
+            if (!string.IsNullOrEmpty(l.parent)) { w.WritePropertyName("parent"); w.WriteValue(l.parent); }
+            if (l.px != 0.5f) { w.WritePropertyName("px"); w.WriteValue(l.px); }
+            if (l.py != 0.5f) { w.WritePropertyName("py"); w.WriteValue(l.py); }
+            if (l.spring > 0f)
+            {
+                w.WritePropertyName("spring"); w.WriteValue(l.spring);
+                w.WritePropertyName("damping"); w.WriteValue(l.damping);
             }
             w.WriteEndObject();
         }
@@ -114,7 +149,12 @@ namespace Lvn.Content
 
         /// <summary>A resolved layer: its filled url plus its catalog id (for
         /// per-layer animation targeting); id is null for anonymous layers.</summary>
-        public struct ResolvedLayer { public string Url; public string Id; public float X, Y, W, H; }
+        public struct ResolvedLayer
+        {
+            public string Url; public string Id; public float X, Y, W, H;
+            // bone metadata (see LvnLayer.parent/px/py/spring/damping)
+            public string Parent; public float Px, Py, Spring, Damping;
+        }
 
         /// <summary>Like <see cref="Resolve"/> but also returns each layer's id, so
         /// the runtime can map a sprite to a named layer (eyes/mouth) for blink and
@@ -129,7 +169,11 @@ namespace Lvn.Content
                 if (layer == null || string.IsNullOrEmpty(layer.url)) continue;
                 if (!string.IsNullOrEmpty(layer.when) && cond != null && !cond(layer.when)) continue;
                 var filled = Fill(layer.url, axes, e.defaults);
-                if (filled != null) outl.Add(new ResolvedLayer { Url = filled, Id = layer.id, X = layer.x, Y = layer.y, W = layer.w, H = layer.h });
+                if (filled != null) outl.Add(new ResolvedLayer
+                {
+                    Url = filled, Id = layer.id, X = layer.x, Y = layer.y, W = layer.w, H = layer.h,
+                    Parent = layer.parent, Px = layer.px, Py = layer.py, Spring = layer.spring, Damping = layer.damping,
+                });
             }
             return outl;
         }
