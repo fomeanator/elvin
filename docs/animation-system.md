@@ -232,8 +232,8 @@ units), which turns a feature list into a small language.
 | `stop=all` / `stop=<channel/prop>` | convert.go + `StopScript`/`StopTarget` + `VnStage.ApplyAnim` | ✓ |
 | `mode=queue` (sequential on one lane) | convert.go + `PlayQueued`/per-channel FIFO in `ActorAnimator`/`WorldActor` (dequeues on completion) | ✓ |
 | `orient` (face along the path tangent) | `ActorAnimator.OrientAngle` + `Composite`/`WorldActor.Tick` | ✓ |
-| arc-length parameterised paths | `ActorAnimator.SamplePath` | ◻ |
-| `defanim`/`play` named anims | convert.go + VnStage | ◻ |
+| arc-length parameterised paths (constant speed on spline pairs) | `ActorAnimator.BuildArcTable`/`WarpProgress`/`ArcTime` | ✓ |
+| `defanim`/`play` named anims (compile-time expansion) | convert.go (Convert: defAnims map) | ✓ |
 | panel `lvns.wasm` rebuild (anim/move show in the IDE) | `panel/public/lvns.wasm` from `tools/lvnconv/wasm` | ✓ |
 
 ---

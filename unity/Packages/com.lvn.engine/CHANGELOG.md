@@ -6,6 +6,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Named animations** — `defanim shake prop=x keys="…"` defines once,
+  `play id=x anim=shake` (terse: `play x shake`) stamps it anywhere;
+  play-side params override the definition. Compile-time expansion — the
+  runtime only ever sees plain `anim` commands.
+- **Constant-speed spline paths** — a spline `move` path now covers equal
+  distance per second (arc-length table, built lazily per playing anim),
+  with easing driving progress along the length; `orient` follows the
+  warped time. No more speed jumps between unevenly spaced path points.
 - **Language picker in Settings** — when the manifest declares shipped
   catalogs (`languages: ["en", …]`, auto-declared by a localized import),
   Settings shows a cycling Original → lang → … row. The choice persists
