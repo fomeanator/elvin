@@ -37,6 +37,29 @@ function setStatus(text, cls) {
   els.status.className = "status" + (cls ? " " + cls : "");
 }
 
+// ── sprite catalog (manifest) — layered actors render honestly ────────────
+let catalog = {};
+fetch("/v1/content/manifest").then((r) => r.json()).then((m) => {
+  catalog = (m && m.sprites) || {};
+}).catch(() => {});
+
+function resolveLayers(entity, cmd) {
+  // Normalize the three catalog shapes: ["url"], [{url}], and full layer
+  // objects with per-layer geometry; {axis} templates fill from the command
+  // (falling back to the entity defaults).
+  const axes = entity.axes || {};
+  const defs = entity.defaults || {};
+  const val = (axis) => cmd[axis] ?? defs[axis] ?? (axes[axis] && axes[axis][0]) ?? "";
+  const out = [];
+  for (const raw of entity.layers || []) {
+    const l = typeof raw === "string" ? { url: raw } : raw;
+    if (!l.url) continue;
+    const url = l.url.replace(/\{(\w+)\}/g, (_, a) => val(a));
+    out.push({ ...l, url });
+  }
+  return out;
+}
+
 // ── examples ───────────────────────────────────────────────────────────────
 const EXAMPLES = {
   "Первая сцена": `scene playground
@@ -124,6 +147,26 @@ fade to=black
 :leave
 dim alpha=0.35
 Пусть лежит. Живописно же.`,
+
+  "Codel: эмоции из каталога": `scene codel_demo
+
+actor codel x=0.5 height=0.85
+Codel: Привет! Я — персонаж из каталога манифеста.
+actor codel emotion=happy
+Codel: Одно слово в скрипте — и у меня другая эмоция.
+actor codel emotion=annoyed
+Codel: emotion=annoyed. Заметно, да?
+actor codel emotion=shy
+Codel: А это shy... не смотри так.
+- Улыбнись! -> smile
+- Хватит -> bye
+:smile
+actor codel emotion=happy
+Codel: Ну вот, совсем другое дело!
+-> __end
+:bye
+actor codel emotion=sad
+Codel: Эх. Ну пока.`,
 
   "Викторина-блиц": `scene quiz
 
@@ -223,21 +266,59 @@ function applyStage(cmd, vars) {
     case "actor":
     case "obj": {
       if (!cmd.id) break;
-      let img = els.actors.querySelector(`[data-id="${cmd.id}"]`);
-      if (cmd.show === false) { img?.remove(); break; }
-      const url = cmd.sprite_url || cmd.body_url;
-      if (!img && url) {
-        img = document.createElement("img");
-        img.dataset.id = cmd.id;
-        els.actors.appendChild(img);
+      let node = els.actors.querySelector(`[data-id="${cmd.id}"]`);
+      if (cmd.show === false) { node?.remove(); break; }
+
+      const entity = !cmd.sprite_url && !cmd.body_url ? catalog[cmd.id] : null;
+      if (entity && entity.layers) {
+        // Layered catalog actor: a positioned box with stacked layer images.
+        if (!node || node.tagName !== "DIV") {
+          node?.remove();
+          node = document.createElement("div");
+          node.className = "actor-box";
+          node.dataset.id = cmd.id;
+          els.actors.appendChild(node);
+        }
+        node.innerHTML = "";
+        for (const l of resolveLayers(entity, cmd)) {
+          const img = document.createElement("img");
+          img.src = l.url;
+          if (typeof l.x === "number") {
+            img.style.left = (l.x * 100) + "%";
+            img.style.top = ((l.y ?? 0) * 100) + "%";
+            img.style.width = ((l.w ?? 1) * 100) + "%";
+            img.style.height = ((l.h ?? 1) * 100) + "%";
+          } else {
+            img.style.left = "0"; img.style.top = "0";
+            img.style.width = "100%"; img.style.height = "100%";
+          }
+          node.appendChild(img);
+        }
+        const bx = typeof cmd.x === "number" ? cmd.x
+          : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+        node.style.left = (bx * 100) + "%";
+        const h = typeof cmd.height === "number" ? cmd.height : 0.8;
+        node.style.height = (h * 100) + "%";
+        const aspect = entity.aspect || (typeof cmd.width === "number" && typeof cmd.height === "number"
+          ? cmd.width / cmd.height : 0.6);
+        node.style.aspectRatio = String(aspect);
+        if (typeof cmd.opacity === "number") node.style.opacity = cmd.opacity;
+        break;
       }
-      if (!img) break;
-      if (url) img.src = url;
+
+      const url = cmd.sprite_url || cmd.body_url;
+      if (!node && url) {
+        node = document.createElement("img");
+        node.dataset.id = cmd.id;
+        els.actors.appendChild(node);
+      }
+      if (!node) break;
+      if (url && node.tagName === "IMG") node.src = url;
       const x = typeof cmd.x === "number" ? cmd.x
         : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
-      img.style.left = (x * 100) + "%";
-      if (typeof cmd.width === "number") img.style.maxWidth = (cmd.width * 100) + "%";
-      if (typeof cmd.opacity === "number") img.style.opacity = cmd.opacity;
+      node.style.left = (x * 100) + "%";
+      if (typeof cmd.width === "number") node.style.maxWidth = (cmd.width * 100) + "%";
+      if (typeof cmd.opacity === "number") node.style.opacity = cmd.opacity;
       break;
     }
     case "text": {
