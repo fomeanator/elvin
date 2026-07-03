@@ -163,6 +163,36 @@ namespace Lvn.Tests
         }
 
         [UnityTest]
+        public IEnumerator RollbackSteps_JumpsSeveralBeatsInOneHop()
+        {
+            const string script = @"{""script"":[
+                {""op"":""say"",""text"":""one""},
+                {""op"":""say"",""text"":""two""},
+                {""op"":""say"",""text"":""three""},
+                {""op"":""say"",""text"":""four""}
+            ]}";
+            _stage.Play(script);
+            yield return null;
+            _stage.Player.Advance(); // two
+            _stage.Player.Advance(); // three
+            _stage.Player.Advance(); // four
+            yield return null;
+            Assert.AreEqual("four", _stage.Backlog.Last().text);
+
+            // Two beats back in ONE hop — the History tap-to-return path.
+            Assert.IsTrue(_stage.RollbackSteps(2));
+            yield return null;
+            Assert.AreEqual("two", _stage.Backlog.Last().text, "landed two beats back");
+            Assert.AreEqual(2, _stage.Backlog.Count, "undone beats left the history");
+
+            // The story continues forward from there without duplicates.
+            _stage.Player.Advance();
+            yield return null;
+            Assert.AreEqual("three", _stage.Backlog.Last().text);
+            Assert.AreEqual(1, _stage.Backlog.Count(b => b.text == "three"));
+        }
+
+        [UnityTest]
         public IEnumerator GalleryCg_UnlocksOnMatchingBg_AndGridShowsLockedAsQuestion()
         {
             const string title = "smoke-gallery";
