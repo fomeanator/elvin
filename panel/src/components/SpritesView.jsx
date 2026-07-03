@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { parseGIF, decompressFrames } from "gifuct-js";
-import { getManifest, putAsset } from "../lib/api.js";
+import { getManifest, putAsset, uploadSpine } from "../lib/api.js";
 import {
   uid, slug, tokenOf, partPath, toEditor, toEntity, fill, framesFromAxis, TEMPLATES, PRESETS,
 } from "../lib/sprites.js";
@@ -79,6 +79,7 @@ export default function SpritesView({ creds, notify }) {
   const [ed, setEd] = useState(BLANK);
   const [bust, setBust] = useState(() => Date.now());
   const [chooser, setChooser] = useState(false);
+  const [spineDlg, setSpineDlg] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [preview, setPreview] = useState(null); // anim key being played on stage
 
@@ -118,10 +119,18 @@ export default function SpritesView({ creds, notify }) {
     setChooser(false);
     setPreview(null);
     setCurrentId(id);
-    setEd(id && catalog[id] ? toEditor(catalog[id], id) : BLANK);
+    const ent = id ? catalog[id] : null;
+    if (ent && ent.kind === "spine") {
+      // Spine entities have no layer editor — they are driven from scripts.
+      setEd(BLANK);
+      notify(`«${id}» — Spine-персонаж. В сценах: actor id=${id} play="Idle"`, "ok");
+      return;
+    }
+    setEd(ent ? toEditor(ent, id) : BLANK);
   }
   function newEntity(kind) {
     setChooser(false);
+    if (kind === "spine") { setSpineDlg(true); return; }
     setAdvanced(false);
     setCurrentId(null);
     setEd(toEditor(TEMPLATES[kind] || TEMPLATES.simple, ""));
@@ -482,6 +491,21 @@ export default function SpritesView({ creds, notify }) {
       </main>
 
       {chooser && <Chooser onPick={newEntity} onCancel={() => setChooser(false)} />}
+      {spineDlg && (
+        <SpineUpload
+          token={creds.token}
+          notify={notify}
+          onDone={async (id) => {
+            setSpineDlg(false);
+            try {
+              const sprites = (await getManifest()).sprites || {};
+              setCatalog(sprites);
+              setCurrentId(id);
+            } catch { /* manifest refresh is best-effort */ }
+          }}
+          onCancel={() => setSpineDlg(false)}
+        />
+      )}
     </div>
   );
 }
@@ -606,6 +630,63 @@ function AddOption({ onAdd }) {
   );
 }
 
+/* A Spine editor export in: three files + an id. The server stores them under
+   content/spine/<id>/ and splices a kind:"spine" entity into the catalog. */
+function SpineUpload({ token, notify, onDone, onCancel }) {
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [auto, setAuto] = useState("Idle");
+  const [files, setFiles] = useState({});
+  const [busy, setBusy] = useState(false);
+  const ok = id.trim() && files.json && files.atlas && files.texture;
+
+  async function submit() {
+    if (!ok || busy) return;
+    setBusy(true);
+    try {
+      const r = await uploadSpine({ id: id.trim(), name: name.trim(), auto: auto.trim() }, files, token);
+      notify(`Spine character “${r.id}” added — use it as actor id=${r.id}`, "ok");
+      onDone(r.id);
+    } catch (e) {
+      notify("Spine upload failed: " + (e.message || e), "err");
+      setBusy(false);
+    }
+  }
+
+  const F = ({ label, accept, k }) => (
+    <label className="adv-field">
+      <span>{label}</span>
+      <input type="file" accept={accept}
+        onChange={(e) => setFiles((f) => ({ ...f, [k]: e.target.files[0] }))} />
+    </label>
+  );
+
+  return (
+    <div className="sp-chooser" onClick={onCancel}>
+      <div className="sp-chooser-box" onClick={(e) => e.stopPropagation()}>
+        <h3>Add a Spine character</h3>
+        <label className="adv-field"><span>Script id</span>
+          <input className="field wide mono" value={id} onChange={(e) => setId(e.target.value)} placeholder="knight" />
+        </label>
+        <label className="adv-field"><span>Name (speaker label, optional)</span>
+          <input className="field wide" value={name} onChange={(e) => setName(e.target.value)} placeholder="Рыцарь" />
+        </label>
+        <label className="adv-field"><span>Idle animation (auto-plays on show)</span>
+          <input className="field wide mono" value={auto} onChange={(e) => setAuto(e.target.value)} placeholder="Idle" />
+        </label>
+        <F label="Skeleton (.json)" accept=".json" k="json" />
+        <F label="Atlas (.atlas / .atlas.txt)" accept=".atlas,.txt" k="atlas" />
+        <F label="Texture (.png)" accept=".png" k="texture" />
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button className="btn" disabled={!ok || busy} onClick={submit}>{busy ? "Uploading…" : "Add"}</button>
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+        </div>
+        <div className="adv-note">Runtime side needs the spine-unity integration (see howto/EMBEDDING).</div>
+      </div>
+    </div>
+  );
+}
+
 function Chooser({ onPick, onCancel }) {
   return (
     <div className="sp-chooser" onClick={onCancel}>
@@ -618,6 +699,10 @@ function Chooser({ onPick, onCancel }) {
         <button className="sp-choice" onClick={() => onPick("simple")}>
           <b>🖼 A background or object</b>
           <span>just one picture — a scene, a prop, a UI piece</span>
+        </button>
+        <button className="sp-choice" onClick={() => onPick("spine")}>
+          <b>🦴 A Spine character</b>
+          <span>an export from the Spine editor — json + atlas + texture, real skeletal animation</span>
         </button>
         <button className="btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
