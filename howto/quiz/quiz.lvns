@@ -10,7 +10,8 @@ score = 0
 text hud x=4 y=8 size=42 color=#bfe3ff «Счёт: {score}»
 
 bg /content/bg/quiz_stage.jpg
-Викторина «Знаток»! Три вопроса. Поехали.
+input var=player_name prompt="Представься, знаток!" default="Игрок" max=20
+Викторина «Знаток»! Три вопроса, {player_name}. Поехали.
 -> q1
 
 :q1
@@ -40,7 +41,8 @@ score = score + 1
 -> q3
 
 :q3
-Вопрос 3. В каком году человек впервые ступил на Луну?
+Вопрос 3 — блиц! Пять секунд на ответ. В каком году человек впервые ступил на Луну?
+choice timeout=5 timeout_goto=slow3
 - 1969 -> r3
 - 1959 -> w3
 - 1979 -> w3
@@ -51,10 +53,13 @@ score = score + 1
 :w3
 Правильно — 1969 год.
 -> result
+:slow3
+Время вышло! Блиц есть блиц. Ответ — 1969-й.
+-> result
 
 :result
 bg /content/bg/quiz_result.jpg
-Игра окончена. Твой счёт: {score} из 3.
+Игра окончена. Твой счёт, {player_name}: {score} из 3.
 if score == 3 -> grade_a
 if score >= 2 -> grade_b
 if score == 1 -> grade_c
