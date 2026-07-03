@@ -19,6 +19,7 @@
     "particles",
     "audio",
     "wait",
+    "input",
     "preload",
     "text_pace",
     "text",
@@ -191,6 +192,12 @@
     ],
     "load": [
       "slot"
+    ],
+    "input": [
+      "var",
+      "prompt",
+      "default",
+      "max"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -218,7 +225,8 @@
     "return",
     "label",
     "save",
-    "load"
+    "load",
+    "input"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
   "enums": {

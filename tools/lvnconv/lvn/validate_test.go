@@ -364,3 +364,32 @@ func TestValidate_SeverityClassification(t *testing.T) {
 		t.Fatal("an untargeted label should be a warning")
 	}
 }
+
+func TestValidate_InputNeedsVar(t *testing.T) {
+	d := parse(t, `{"script":[{"op":"input","prompt":"Name?"}]}`)
+	if !hasError(Validate(d), "input needs var") {
+		t.Fatal("expected missing-var error")
+	}
+	d2 := parse(t, `{"script":[{"op":"input","var":"name","prompt":"Name?"}]}`)
+	if hasError(Validate(d2), "input") {
+		t.Fatal("valid input must pass")
+	}
+}
+
+func TestValidate_TimedChoicePairing(t *testing.T) {
+	// timeout_goto is a jump reference; either half without the other warns.
+	d := parse(t, `{"script":[
+		{"op":"choice","options":[{"text":"a","goto":"x"}],"timeout":5,"timeout_goto":"nowhere"},
+		{"op":"label","id":"x"}
+	]}`)
+	if !hasError(Validate(d), `undefined label "nowhere"`) {
+		t.Fatal("expected error for the typo'd timeout branch")
+	}
+	half := parse(t, `{"script":[
+		{"op":"choice","options":[{"text":"a","goto":"x"}],"timeout":5},
+		{"op":"label","id":"x"}
+	]}`)
+	if !hasWarn(Validate(half), "nowhere to go when time runs out") {
+		t.Fatal("expected timeout-without-goto warning")
+	}
+}

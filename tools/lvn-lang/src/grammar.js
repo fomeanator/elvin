@@ -23,6 +23,7 @@ export const OPS = [
   "particles",
   "audio",
   "wait",
+  "input",
   "preload",
   "text_pace",
   "text",
@@ -193,6 +194,12 @@ export const OP_FIELDS = {
   ],
   "load": [
     "slot"
+  ],
+  "input": [
+    "var",
+    "prompt",
+    "default",
+    "max"
   ]
 };
 

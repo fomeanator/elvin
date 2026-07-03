@@ -163,6 +163,52 @@ namespace Lvn.Tests
         }
 
         [UnityTest]
+        public IEnumerator InputOp_OverlayWritesTheVariable_AndStoryContinues()
+        {
+            const string script = @"{""script"":[
+                {""op"":""input"",""var"":""name"",""prompt"":""Кто ты?"",""default"":""Гость""},
+                {""op"":""say"",""text"":""Привет, {name}!""}
+            ]}";
+            _stage.Play(script);
+            yield return null;
+
+            var doc = _go.GetComponent<UIDocument>();
+            var field = doc.rootVisualElement.Q<TextField>();
+            Assert.IsNotNull(field, "the text-entry overlay is on screen");
+            Assert.AreEqual("Гость", field.value, "default pre-filled");
+
+            _stage.ConfirmInput("Вася"); // the production commit path
+            yield return null;
+
+            Assert.AreEqual("Вася", (string)_stage.Player.Vars["name"]);
+            Assert.IsNull(doc.rootVisualElement.Q<TextField>(), "overlay closed");
+            Assert.AreEqual("Привет, Вася!", _stage.Backlog.Last().text, "the var interpolates");
+        }
+
+        [UnityTest]
+        public IEnumerator TimedChoice_ExpiryTakesTheTimeoutBranch()
+        {
+            const string script = @"{""script"":[
+                {""op"":""choice"",""timeout"":0.25,""timeout_goto"":""late"",""options"":[
+                    {""text"":""Да"",""goto"":""yes""}]},
+                {""op"":""label"",""id"":""yes""},
+                {""op"":""say"",""text"":""успел""},
+                {""op"":""goto"",""label"":""__end""},
+                {""op"":""label"",""id"":""late""},
+                {""op"":""say"",""text"":""время вышло""}
+            ]}";
+            _stage.Play(script);
+            yield return null;
+            Assert.IsTrue(_stage.Player.AtChoice, "options up, clock running");
+
+            // Let the 0.25s countdown expire (the tick polls every 100ms).
+            yield return new WaitForSecondsRealtime(0.6f);
+
+            Assert.AreEqual("время вышло", _stage.Backlog.Last().text,
+                "expiry took the timeout branch");
+        }
+
+        [UnityTest]
         public IEnumerator RollbackSteps_JumpsSeveralBeatsInOneHop()
         {
             const string script = @"{""script"":[

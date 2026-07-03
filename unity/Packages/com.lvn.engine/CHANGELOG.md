@@ -5,6 +5,19 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+### Added
+- **Timed choices** — `choice timeout=10 timeout_goto=late` before an
+  option block: a countdown bar over the buttons, expiry jumps to the
+  branch (`LvnPlayer.CurrentChoiceTimeout` / `ResolveChoiceTimeout` for
+  custom stages). An open menu or the long-press art view freezes the
+  clock. The validator pins `timeout_goto` as a jump target and warns
+  on a half-configured pair.
+- **Text input** — `input var=name prompt="Кто ты?" default="Гость"
+  max=24`: the stage pauses on a text-entry overlay; the typed string
+  lands in the story variable and interpolates like any other
+  (`Привет, {name}!`). Enter or the OK button (label key `input_ok`)
+  commits; the entered value autosaves immediately.
+
 ## [0.7.0] — 2026-07-03
 
 ### Added

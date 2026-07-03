@@ -18,7 +18,7 @@ var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
 	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
-	"audio": true, "wait": true, "preload": true, "text_pace": true,
+	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
 	"label": true, "goto": true, "if": true,
@@ -43,6 +43,7 @@ var OpFields = map[string][]string{
 	"particles": {"type", "on"},
 	"audio":     {"channel", "url", "action", "fade", "volume", "loop"},
 	"wait":      {"ms"},
+	"input":     {"var", "prompt", "default", "max"},
 	"preload":   {"assets"},
 	"text_pace": {"cps"},
 	"goto":      {"label"},
@@ -274,10 +275,26 @@ func Validate(d *Doc) []Issue {
 				}
 			}
 			ref(i, op, c.Str("on_drop_miss"))
+		case "input":
+			// Text input writes the player's string into a variable — without
+			// the variable the whole stop is pointless.
+			if c.Str("var") == "" {
+				addErr(i, op, "input needs var= (the variable that receives the text)")
+			}
 		case "choice":
 			opts, _ := c["options"].([]any)
 			if len(opts) == 0 {
 				addWarn(i, op, "choice has no options")
+			}
+			// A timed choice: timeout seconds + the branch taken on expiry.
+			// Either half alone is an authoring mistake.
+			if tg := c.Str("timeout_goto"); tg != "" {
+				ref(i, op, tg)
+				if c["timeout"] == nil {
+					addWarn(i, op, "timeout_goto without timeout= — the timer never starts")
+				}
+			} else if c["timeout"] != nil {
+				addWarn(i, op, "timeout without timeout_goto — nowhere to go when time runs out")
 			}
 			for oi, o := range opts {
 				om, ok := o.(map[string]any)
