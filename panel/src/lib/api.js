@@ -55,3 +55,23 @@ export function importArticy(files, meta, token, onProgress) {
     xhr.send(fd);
   });
 }
+
+// Register a Spine character from its editor export: the three files land in
+// content/spine/<id>/ and the entity is spliced into manifest.sprites.
+export async function uploadSpine(meta, files, token) {
+  const fd = new FormData();
+  fd.append("id", meta.id);
+  if (meta.name) fd.append("name", meta.name);
+  if (meta.auto) fd.append("auto", meta.auto);
+  if (meta.scale) fd.append("scale", String(meta.scale));
+  fd.append("json", files.json);
+  fd.append("atlas", files.atlas);
+  fd.append("texture", files.texture);
+  const res = await fetch("/v1/admin/spine", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + (token || "") },
+    body: fd,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

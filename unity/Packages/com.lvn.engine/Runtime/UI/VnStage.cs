@@ -561,6 +561,8 @@ namespace Lvn.UI
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
             _spineActors.Clear();
+            _spineLoading.Clear();
+            _spinePendingPlay.Clear();
             _choices?.Dismiss(); // clear any on-screen choice buttons (avoid stale clicks)
             _labelLayer?.Clear();
             _labelEls.Clear();
@@ -730,6 +732,8 @@ namespace Lvn.UI
             public Placement Home;
             public Dictionary<string, string> Drop; // target id → label
             public string MissLabel;
+            public bool BoundToScreen = true;       // keep the WHOLE rect on-screen
+            public Vector2 Size;                    // measured at drag begin (normalized)
         }
         private readonly Dictionary<string, DragInfo> _draggables = new Dictionary<string, DragInfo>();
         private string _dragCandidate, _dragId;
@@ -773,7 +777,24 @@ namespace Lvn.UI
             _longPress?.Pause();
             float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
             _dragGrab = new Vector2(pos.x / pw - di.Home.X, pos.y / ph - di.Home.Y);
+            var r = _renderer?.ActorScreenRect(id); // rect size for screen bounding
+            di.Size = r != null ? new Vector2(r.Value.width, r.Value.height) : Vector2.zero;
             LvnPlayer.Log?.Invoke("drag begin '" + id + "'");
+        }
+
+        // Clamp the anchor position so the object's WHOLE rect stays on-screen
+        // (drag_bounds=screen, the default). The anchor fractions say how much
+        // of the rect hangs on each side of the anchor point.
+        private static Vector2 ClampToScreen(Vector2 p, DragInfo di)
+        {
+            if (!di.BoundToScreen || di.Size.x <= 0f || di.Size.y <= 0f)
+                return new Vector2(Mathf.Clamp01(p.x), Mathf.Clamp01(p.y));
+            float ax = di.Home.AnchorX, ay = di.Home.AnchorY;
+            float minX = ax * di.Size.x, maxX = 1f - (1f - ax) * di.Size.x;
+            float minY = ay * di.Size.y, maxY = 1f - (1f - ay) * di.Size.y;
+            return new Vector2(
+                maxX >= minX ? Mathf.Clamp(p.x, minX, maxX) : 0.5f,
+                maxY >= minY ? Mathf.Clamp(p.y, minY, maxY) : 0.5f);
         }
 
         internal void DragMove(Vector2 pos)
@@ -782,8 +803,9 @@ namespace Lvn.UI
             float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
             if (pw <= 0f || ph <= 0f) return;
             var p = di.Home;
-            p.X = Mathf.Clamp01(pos.x / pw - _dragGrab.x);
-            p.Y = Mathf.Clamp01(pos.y / ph - _dragGrab.y);
+            var cl = ClampToScreen(new Vector2(pos.x / pw - _dragGrab.x, pos.y / ph - _dragGrab.y), di);
+            p.X = cl.x;
+            p.Y = cl.y;
             _renderer?.PlaceActor(_dragId, p);
             _renderer?.ApplyActor(_dragId, null, p, null, null, null); // renderers that place with the art
         }
@@ -797,8 +819,9 @@ namespace Lvn.UI
             float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
             var np = new Vector2(pos.x / pw, pos.y / ph);
             // it stays where it was dropped — remember the spot as the new home
-            di.Home.X = Mathf.Clamp01(np.x - _dragGrab.x);
-            di.Home.Y = Mathf.Clamp01(np.y - _dragGrab.y);
+            var clEnd = ClampToScreen(new Vector2(np.x - _dragGrab.x, np.y - _dragGrab.y), di);
+            di.Home.X = clEnd.x;
+            di.Home.Y = clEnd.y;
 
             string label = null;
             foreach (var kv in di.Drop)
@@ -881,6 +904,12 @@ namespace Lvn.UI
 
         // ── spine actors (the optional spine-unity runtime) ─────────────────
         private readonly Dictionary<string, GameObject> _spineActors = new Dictionary<string, GameObject>();
+        // Replays fire actor commands in a burst while the first build is still
+        // awaiting its file loads — reserve the id or every call builds its own
+        // skeleton (the shadow-clone army). Plays requested mid-load apply after.
+        private readonly HashSet<string> _spineLoading = new HashSet<string>();
+        private readonly Dictionary<string, (string name, bool loop)> _spinePendingPlay
+            = new Dictionary<string, (string, bool)>();
 
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
@@ -916,32 +945,64 @@ namespace Lvn.UI
             if (_spineActors.TryGetValue(id, out var existing) && existing != null && !existing.activeSelf)
                 existing.SetActive(true); // re-shown after show=false
 
-            if (!_spineActors.ContainsKey(id))
+            bool alive = _spineActors.TryGetValue(id, out var cur) && cur != null; // fake-null = destroyed → rebuild
+            if (!alive && !_spineLoading.Contains(id))
             {
-                var sp = e.spine;
-                string json = null, atlasText = null;
-                Sprite page = null;
+                _spineLoading.Add(id);
                 try
                 {
-                    json = await Assets.LoadTextAsync(sp.json, _cts.Token);
-                    atlasText = await Assets.LoadTextAsync(sp.atlas, _cts.Token);
-                    page = await Assets.LoadSpriteAsync(sp.texture, _cts.Token);
+                    var sp = e.spine;
+                    string json = null, atlasText = null;
+                    Sprite page = null;
+                    try
+                    {
+                        json = await Assets.LoadTextAsync(sp.json, _cts.Token);
+                        atlasText = await Assets.LoadTextAsync(sp.atlas, _cts.Token);
+                        page = await Assets.LoadSpriteAsync(sp.texture, _cts.Token);
+                    }
+                    catch { }
+                    if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(atlasText) || page == null)
+                    {
+                        Debug.LogWarning("[lvn] spine '" + id + "': failed to load skeleton files");
+                        return;
+                    }
+                    var go = LvnSpineBridge.Create(slot, json, atlasText, page.texture, sp.scale);
+                    if (go == null) return;
+                    _spineActors[id] = go;
+                    if (_spinePendingPlay.TryGetValue(id, out var pend))
+                    {
+                        _spinePendingPlay.Remove(id);
+                        LvnSpineBridge.Play(go, pend.name, pend.loop);
+                    }
+                    else if (!string.IsNullOrEmpty(sp.auto)) LvnSpineBridge.Play(go, sp.auto, true);
                 }
-                catch { }
-                if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(atlasText) || page == null)
-                {
-                    Debug.LogWarning("[lvn] spine '" + id + "': failed to load skeleton files");
-                    return;
-                }
-                var go = LvnSpineBridge.Create(slot, json, atlasText, page.texture, sp.scale);
-                if (go == null) return;
-                _spineActors[id] = go;
-                if (!string.IsNullOrEmpty(sp.auto)) LvnSpineBridge.Play(go, sp.auto, true);
+                finally { _spineLoading.Remove(id); }
             }
 
             var play = (string)cmd["play"];
-            if (!string.IsNullOrEmpty(play) && _spineActors.TryGetValue(id, out var g) && g != null)
-                LvnSpineBridge.Play(g, play, BoolOr(cmd["loop"], false));
+            if (!string.IsNullOrEmpty(play))
+            {
+                if (_spineActors.TryGetValue(id, out var g) && g != null)
+                    LvnSpineBridge.Play(g, play, BoolOr(cmd["loop"], false));
+                else
+                    _spinePendingPlay[id] = (play, BoolOr(cmd["loop"], false)); // lands after the build
+            }
+
+            // Spine actors join drag & drop like any object: the drag moves the
+            // slot, the skeleton rides the rig and keeps animating.
+            if (cmd["draggable"] != null)
+            {
+                if (BoolOr(cmd["draggable"], false))
+                    _draggables[id] = new DragInfo
+                    {
+                        Home = placement,
+                        Drop = ParseDropMap((string)cmd["on_drop"]),
+                        MissLabel = (string)cmd["on_drop_miss"],
+                        BoundToScreen = (string)cmd["drag_bounds"] != "none",
+                    };
+                else
+                    _draggables.Remove(id);
+            }
         }
 
         private void OnChoiceSelected(int index)
@@ -1704,6 +1765,7 @@ namespace Lvn.UI
                         Home = placement,
                         Drop = ParseDropMap((string)cmd["on_drop"]),
                         MissLabel = (string)cmd["on_drop_miss"],
+                        BoundToScreen = (string)cmd["drag_bounds"] != "none",
                     };
                 else
                     _draggables.Remove(id);

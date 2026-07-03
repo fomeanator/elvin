@@ -65,7 +65,8 @@ export const OP_FIELDS = {
     "draggable",
     "on_drop",
     "on_drop_miss",
-    "loop"
+    "loop",
+    "drag_bounds"
   ],
   "obj": [
     "id",
@@ -85,7 +86,8 @@ export const OP_FIELDS = {
     "on_drop",
     "on_drop_miss",
     "loop",
-    "play"
+    "play",
+    "drag_bounds"
   ],
   "fade": [
     "to",
@@ -429,11 +431,11 @@ export const GROUPS = [
       ],
       [
         "actor",
-        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop"
+        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop, drag_bounds"
       ],
       [
         "obj",
-        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play"
+        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds"
       ],
       [
         "fade",
