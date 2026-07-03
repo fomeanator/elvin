@@ -1,0 +1,44 @@
+# LVN / Elvin — narrative-game engine and language
+
+> LVN is an open engine + plain-text language (.lvns) for non-realtime 2D
+> games: visual novels, CYOA, quests, point-and-click, RPG-lite, quizzes.
+> Scripts read like screenplays; an AI agent writes them, a human reads and
+> edits the diff. Compile: `.lvns → lvnconv → .lvn` (JSON container) →
+> Unity runtime (`com.lvn.engine`, UPM) or your own host.
+
+The quality gate for every generated script:
+`lvnconv convert -i game.lvns -o game.lvn && lvnconv validate game.lvn`
+(zero warnings is the bar; the validator explains fixes).
+
+## Start here (AI agents)
+
+- [Agent onboarding](howto/AGENTS.md): the mental model — language →
+  converter → runtime → manifest; where everything lives.
+- [Cheatsheet](howto/CHEATSHEET.md): the whole language on one page.
+- [Capabilities & limits](howto/CAPABILITIES.md): every op with fields,
+  verified engine limits (what does NOT work).
+
+## Reference
+
+- [Language reference](howto/LANGUAGE.md): full .lvns syntax.
+- [.lvn container format](docs/lvn-format.md): the compiled JSON contract.
+- [Recipe book](howto/recipes.md): 25+ validated patterns — inventory,
+  shops, timers, text input, drag & drop, CG gallery, voice-over, dice.
+- [Animation system](docs/animation-system.md): tweens, splines, bones,
+  spring physics, Spine integration.
+- [Placement](docs/placement.md) and [staging tags](docs/staging-tags.md).
+- [Cast & characters](docs/cast.md): layered art, emotion axes, catalog.
+
+## Genre templates (each ships a validated .lvns example)
+
+- [All 12 genres](howto/README.md): visual-novel, gamebook, point-and-click,
+  rpg, clicker, dating-sim, quiz, detective, tycoon, roguelike,
+  kinetic-novel, puzzle.
+
+## Embedding & operations
+
+- [Embedding the engine](docs/embedding.md): three entry levels, custom ops
+  (LvnOps/ext), menu items, events, meta-progress stores.
+- [Unity quickstart](docs/unity-getting-started.md).
+- [Releasing & compatibility contract](docs/releasing.md): formats only
+  grow within a major version; saves migrate.
