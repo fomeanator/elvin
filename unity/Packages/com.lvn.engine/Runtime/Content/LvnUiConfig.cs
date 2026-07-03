@@ -25,6 +25,19 @@ namespace Lvn.Content
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
         public MenuConfig menu;
+        public SoundsConfig sounds;
+    }
+
+    /// <summary>UI interaction sounds — short one-shot clips played by the stage
+    /// on top of the story's audio channels, scaled by the player's SFX volume.
+    /// Every field optional: a missing url simply keeps that interaction silent,
+    /// so a novel without UI audio ships nothing and hears nothing.</summary>
+    public sealed class SoundsConfig
+    {
+        public string click;   // content url: tap-to-advance / reveal-complete blip
+        public string choice;  // content url: picking a choice button
+        public string type;    // content url: typewriter tick (very short; throttled)
+        public float? volume;  // 0..1 scale applied to all three; default 1
     }
 
     /// <summary>The in-game quick menu (StageMenu): floating buttons, the sheet,

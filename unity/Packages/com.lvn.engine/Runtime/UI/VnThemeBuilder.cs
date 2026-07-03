@@ -99,6 +99,15 @@ namespace Lvn.UI
                 if (m.labels != null && m.labels.Count > 0) t.MenuLabels = m.labels;
             }
 
+            var s = ui.sounds;
+            if (s != null)
+            {
+                if (!string.IsNullOrEmpty(s.click)) t.ClickSoundUrl = s.click;
+                if (!string.IsNullOrEmpty(s.choice)) t.ChoiceSoundUrl = s.choice;
+                if (!string.IsNullOrEmpty(s.type)) t.TypeSoundUrl = s.type;
+                if (s.volume.HasValue) t.UiSoundVolume = Mathf.Clamp01(s.volume.Value);
+            }
+
             return t;
         }
     }
