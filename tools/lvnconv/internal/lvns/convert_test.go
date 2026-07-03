@@ -187,3 +187,43 @@ anim id=h stop=all
 		}
 	}
 }
+
+// defanim/play: named animations expand at compile time — the runtime only
+// ever sees plain "anim" commands; play's own params override the definition.
+func TestConvertDefanimPlayExpansion(t *testing.T) {
+	doc, err := Convert(`
+scene t
+defanim shake prop=x keys="0:0 0.1:0.02 0.2:0"
+play id=codel anim=shake
+play guard shake
+play id=codel anim=shake mode=queue
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if len(doc.Script) != 3 {
+		t.Fatalf("want 3 anim commands (defanim emits none), got %d", len(doc.Script))
+	}
+	for i, c := range doc.Script {
+		if c["op"] != "anim" {
+			t.Fatalf("cmd %d: op = %v, want anim", i, c["op"])
+		}
+	}
+	if doc.Script[0]["id"] != "codel" || doc.Script[1]["id"] != "guard" {
+		t.Fatalf("ids: %v / %v", doc.Script[0]["id"], doc.Script[1]["id"])
+	}
+	if doc.Script[2]["mode"] != "queue" {
+		t.Fatalf("play params must override/extend the definition, mode = %v", doc.Script[2]["mode"])
+	}
+}
+
+// An unknown name is a compile error, not silent narration.
+func TestConvertPlayUnknownNameFails(t *testing.T) {
+	_, err := Convert(`
+scene t
+play id=x anim=nope
+`)
+	if err == nil || !strings.Contains(err.Error(), "unknown animation") {
+		t.Fatalf("expected unknown-animation error, got %v", err)
+	}
+}

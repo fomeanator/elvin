@@ -38,7 +38,11 @@ namespace Lvn.UI.World
         /// moves the child rig, so placement and animation never fight.</summary>
         public RectTransform Slot { get { EnsureRig(); return _slot; } }
 
-        private sealed class Active { public LvnAnim anim; public float start; public Action onDone; }
+        private sealed class Active
+        {
+            public LvnAnim anim; public float start; public Action onDone;
+            public float[] Arc; // arc-length table for a spline path pair (built lazily)
+        }
 
         private void Awake() => EnsureRig();
 
@@ -172,6 +176,17 @@ namespace Lvn.UI.World
                 float elapsed = now - act.start;
                 float t = anim.loop ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur)) : Mathf.Min(elapsed, dur);
 
+                // A spline path pair moves at constant speed (see ActorAnimator).
+                LvnAnimTrack psx = null, psy = null;
+                foreach (var tr in anim.tracks)
+                {
+                    if (tr == null || !string.IsNullOrEmpty(tr.layer) || tr.keys == null) continue;
+                    if (tr.prop == "screen_x") psx = tr;
+                    else if (tr.prop == "screen_y") psy = tr;
+                }
+                bool arcPath = psx != null && psy != null && psx.interp == "spline" && psy.interp == "spline";
+                float pt = arcPath ? ActorAnimator.ArcTime(psx, psy, t, dur, ref act.Arc) : t;
+
                 LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
                 foreach (var tr in anim.tracks)
                 {
@@ -182,7 +197,8 @@ namespace Lvn.UI.World
                             (layerFrame ??= new Dictionary<string, string>())[tr.layer] = ActorAnimator.SampleFrame(tr, t);
                         continue;
                     }
-                    float v = ActorAnimator.Sample(tr, t);
+                    bool onPath = arcPath && (tr == psx || tr == psy);
+                    float v = ActorAnimator.Sample(tr, onPath ? pt : t, easeless: onPath);
                     if (string.IsNullOrEmpty(tr.layer))
                     {
                         switch (tr.prop)
@@ -216,7 +232,7 @@ namespace Lvn.UI.World
                 // OrientAngle is y-down clockwise-positive; Canvas euler z is
                 // counter-clockwise-positive — negate.
                 if (orientX != null && pathY != null)
-                    rot = -ActorAnimator.OrientAngle(orientX, pathY, t, dur);
+                    rot = -ActorAnimator.OrientAngle(orientX, pathY, arcPath ? pt : t, dur);
                 if (!anim.loop && elapsed >= dur) (done ??= new List<string>()).Add(kv.Key);
             }
 

@@ -261,6 +261,39 @@ namespace Lvn.Tests
             Assert.IsTrue(tr.orient);
         }
 
+        // Arc-length: a spline path with wildly uneven key spacing still moves
+        // at constant speed — equal time covers equal distance.
+        [Test]
+        public void ArcLength_EqualTimeCoversEqualDistance()
+        {
+            // Path: a long straight run crammed into the FIRST tenth of the
+            // timeline, then a short run over the rest — grossly uneven speed
+            // without arc-length warping.
+            var x = new LvnAnimTrack { prop = "screen_x", interp = "spline",
+                keys = K(new object[] { 0f, 0f }, new object[] { 0.1f, 0.8f }, new object[] { 1f, 1f }) };
+            var y = new LvnAnimTrack { prop = "screen_y", interp = "spline",
+                keys = K(new object[] { 0f, 0f }, new object[] { 0.1f, 0f }, new object[] { 1f, 0f }) };
+
+            float[] cache = null;
+            float PosAt(float t)
+            {
+                var tw = ActorAnimator.ArcTime(x, y, t, 1f, ref cache);
+                return ActorAnimator.Sample(x, tw, easeless: true);
+            }
+            // quarter points of TIME must land near quarter points of DISTANCE
+            Assert.AreEqual(0.25f, PosAt(0.25f), 0.06f);
+            Assert.AreEqual(0.50f, PosAt(0.50f), 0.06f);
+            Assert.AreEqual(0.75f, PosAt(0.75f), 0.06f);
+            Assert.AreEqual(1.00f, PosAt(1.00f), 0.01f);
+        }
+
+        [Test]
+        public void WarpProgress_DegeneratePathFallsBackToLinearTime()
+        {
+            var flat = new float[] { 0f, 0f, 0f }; // zero-length path
+            Assert.AreEqual(0.5f, ActorAnimator.WarpProgress(flat, 0.5f, 1f), 0.001f);
+        }
+
         [Test]
         public void Easing_ChangesTheMidpointButNotEndpoints()
         {

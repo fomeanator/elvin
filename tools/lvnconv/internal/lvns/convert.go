@@ -32,8 +32,10 @@ var KnownOps = map[string]bool{
 	"call": true, "return": true,
 	// Script-driven animation: `anim` tweens any prop of an entity/layer over
 	// time; `move` is sugar for a screen-space path. Both compile to an "anim"
-	// command carrying an LvnAnim payload (see buildAnimCmd).
-	"anim": true, "move": true,
+	// command carrying an LvnAnim payload (see buildAnimCmd). `defanim` names a
+	// reusable animation and `play` stamps it onto an entity — pure compile-time
+	// expansion, the runtime only ever sees "anim".
+	"anim": true, "move": true, "defanim": true, "play": true,
 }
 
 var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*(.*)$`)
@@ -53,6 +55,7 @@ func Convert(src string) (*Doc, error) {
 
 	doc := &Doc{Script: []Cmd{}}
 	actorMaps := make(map[string]string)
+	defAnims := make(map[string]map[string]any) // defanim <name> … → params, expanded by `play`
 	nf := 0 // counter for synthesized fall-through labels (single-branch `if … -> …`)
 
 	// Pre-process and clean lines. `srcNo` keeps each cleaned line's original
@@ -238,7 +241,65 @@ func Convert(src string) (*Doc, error) {
 		var cmd Cmd
 
 		if KnownOps[firstWord] {
-			if firstWord == "anim" || firstWord == "move" {
+			if firstWord == "defanim" {
+				// defanim <name> prop=… keys=… [loop=… ease=… dur=…] — stored,
+				// no runtime command; `play` stamps it later.
+				rest := strings.TrimSpace(line[len("defanim"):])
+				toks := strings.Fields(rest)
+				if len(toks) < 2 || strings.Contains(toks[0], "=") {
+					return nil, fmt.Errorf("line %d: defanim: usage: defanim <name> prop=… keys=…", srcNo[i])
+				}
+				name := toks[0]
+				params, perr := parseKeyValue(strings.TrimSpace(strings.TrimPrefix(rest, name)))
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: defanim %s: %w", srcNo[i], name, perr)
+				}
+				if _, hasProp := params["prop"]; !hasProp {
+					return nil, fmt.Errorf("line %d: defanim %s: prop required", srcNo[i], name)
+				}
+				defAnims[name] = params
+				i++ // the line loop advances manually — a bare continue would spin forever
+				continue
+			}
+			if firstWord == "play" {
+				// play id=<entity> anim=<name> [overrides] — or terse: play <id> <name>
+				rest := strings.TrimSpace(line[len("play"):])
+				toks := strings.Fields(rest)
+				var params map[string]any
+				var perr error
+				if len(toks) >= 2 && !strings.Contains(toks[0], "=") && !strings.Contains(toks[1], "=") {
+					params, perr = parseKeyValue(strings.TrimSpace(strings.Join(toks[2:], " ")))
+					if perr == nil {
+						params["id"] = toks[0]
+						params["anim"] = toks[1]
+					}
+				} else {
+					params, perr = parseKeyValue(rest)
+				}
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: play: %w", srcNo[i], perr)
+				}
+				name, _ := params["anim"].(string)
+				def, ok := defAnims[name]
+				if !ok {
+					return nil, fmt.Errorf("line %d: play: unknown animation %q (defanim it first)", srcNo[i], name)
+				}
+				merged := make(map[string]any, len(def)+len(params))
+				for k, v := range def {
+					merged[k] = v
+				}
+				for k, v := range params { // play's own params override the definition
+					if k != "anim" {
+						merged[k] = v
+					}
+				}
+				ac, aerr := buildAnimCmd("anim", merged)
+				if aerr != nil {
+					return nil, fmt.Errorf("line %d: play %s: %w", srcNo[i], name, aerr)
+				}
+				isCommand = true
+				cmd = ac
+			} else if firstWord == "anim" || firstWord == "move" {
 				// Surface malformed anim/move as a real compile error instead of
 				// silently letting the line fall through to narration (`say`).
 				rest := strings.TrimSpace(line[len(firstWord):])

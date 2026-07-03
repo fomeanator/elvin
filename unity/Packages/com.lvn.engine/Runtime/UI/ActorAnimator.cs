@@ -29,7 +29,11 @@ namespace Lvn.UI
         private readonly Dictionary<string, Queue<LvnAnim>> _queue = new Dictionary<string, Queue<LvnAnim>>(); // mode=queue: pending steps per channel
         private IVisualElementScheduledItem _tick;
 
-        private sealed class Active { public LvnAnim anim; public float start; public Action onDone; }
+        private sealed class Active
+        {
+            public LvnAnim anim; public float start; public Action onDone;
+            public float[] Arc; // arc-length table for a spline path pair (built lazily)
+        }
 
         // Time source — overridable so tests can drive Composite() deterministically.
         internal static Func<float> Clock = () => Time.realtimeSinceStartup;
@@ -128,6 +132,18 @@ namespace Lvn.UI
                 float elapsed = now - act.start;
                 float t = anim.loop ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur)) : Mathf.Min(elapsed, dur);
 
+                // A spline path pair moves at constant speed: warp its sample time
+                // through the arc-length table (other tracks keep wall time).
+                LvnAnimTrack sx = null, sy = null;
+                foreach (var tr in anim.tracks)
+                {
+                    if (tr == null || !string.IsNullOrEmpty(tr.layer) || tr.keys == null) continue;
+                    if (tr.prop == "screen_x") sx = tr;
+                    else if (tr.prop == "screen_y") sy = tr;
+                }
+                bool arcPath = sx != null && sy != null && sx.interp == "spline" && sy.interp == "spline";
+                float pt = arcPath ? ArcTime(sx, sy, t, dur, ref act.Arc) : t;
+
                 LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
                 foreach (var tr in anim.tracks)
                 {
@@ -139,7 +155,8 @@ namespace Lvn.UI
                     }
                     else
                     {
-                        float v = Sample(tr, t);
+                        bool onPath = arcPath && (tr == sx || tr == sy);
+                        float v = Sample(tr, onPath ? pt : t, easeless: onPath);
                         if (string.IsNullOrEmpty(tr.layer))
                         {
                             if (tr.prop == "screen_x") { ssx = v; if (tr.orient) orientX = tr; } // move the whole actor across the screen
@@ -155,7 +172,7 @@ namespace Lvn.UI
                     }
                 }
                 if (orientX != null && pathY != null)
-                    rig.Apply("rotation", OrientAngle(orientX, pathY, t, dur));
+                    rig.Apply("rotation", OrientAngle(orientX, pathY, arcPath ? pt : t, dur));
                 if (!anim.loop && elapsed >= dur) (done ??= new List<string>()).Add(kv.Key);
             }
 
@@ -214,7 +231,9 @@ namespace Lvn.UI
         private static float F(object o) =>
             o == null ? 0f : Convert.ToSingle(o, CultureInfo.InvariantCulture);
 
-        internal static float Sample(LvnAnimTrack tr, float t)
+        internal static float Sample(LvnAnimTrack tr, float t) => Sample(tr, t, easeless: false);
+
+        internal static float Sample(LvnAnimTrack tr, float t, bool easeless)
         {
             var keys = tr.keys;
             float K0(object[] k) => k != null && k.Length > 0 ? F(k[0]) : 0f;
@@ -230,7 +249,7 @@ namespace Lvn.UI
                 {
                     if (tr.interp == "step") return V(keys[i]); // hold until the next key
                     float u = t1 > t0 ? (t - t0) / (t1 - t0) : 0f;
-                    u = Ease(tr.ease, Mathf.Clamp01(u));
+                    u = easeless ? Mathf.Clamp01(u) : Ease(tr.ease, Mathf.Clamp01(u));
                     if (tr.interp == "spline")
                     {
                         // Catmull-Rom through the key values (ends clamped) — the
@@ -247,6 +266,53 @@ namespace Lvn.UI
                 }
             }
             return V(last);
+        }
+
+        // ── arc-length (constant speed along a spline path) ──────────────────
+        // Per-axis Catmull-Rom makes speed vary with key spacing. For a spline
+        // path pair we warp time so equal TIME covers equal DISTANCE, and the
+        // easing curve drives progress along the length (the spec's model),
+        // instead of easing each segment separately.
+
+        /// <summary>Cumulative length of the raw (unesased) path at uniform time
+        /// steps. Built once per playing anim; ~64 samples is visually exact.</summary>
+        internal static float[] BuildArcTable(LvnAnimTrack x, LvnAnimTrack y, float dur, int samples = 64)
+        {
+            var cum = new float[samples + 1];
+            float px = Sample(x, 0f, easeless: true), py = Sample(y, 0f, easeless: true);
+            for (int i = 1; i <= samples; i++)
+            {
+                float t = dur * i / samples;
+                float cx = Sample(x, t, easeless: true), cy = Sample(y, t, easeless: true);
+                cum[i] = cum[i - 1] + Mathf.Sqrt((cx - px) * (cx - px) + (cy - py) * (cy - py));
+                px = cx; py = cy;
+            }
+            return cum;
+        }
+
+        /// <summary>Map progress <paramref name="u01"/> (0..1 along the LENGTH)
+        /// back to the raw sample time that reaches that distance.</summary>
+        internal static float WarpProgress(float[] cum, float u01, float dur)
+        {
+            int n = cum.Length - 1;
+            float total = cum[n];
+            if (total <= 0f || dur <= 0f) return u01 * dur; // degenerate path → linear time
+            float target = Mathf.Clamp01(u01) * total;
+            int lo = 0, hi = n;
+            while (lo < hi) { int mid = (lo + hi) / 2; if (cum[mid] < target) lo = mid + 1; else hi = mid; }
+            if (lo == 0) return 0f;
+            float seg = cum[lo] - cum[lo - 1];
+            float frac = seg > 0f ? (target - cum[lo - 1]) / seg : 0f;
+            return dur * (lo - 1 + frac) / n;
+        }
+
+        // The warped sample time for a spline path pair at wall time t: easing
+        // drives progress along the length, the table converts it to raw time.
+        internal static float ArcTime(LvnAnimTrack x, LvnAnimTrack y, float t, float dur, ref float[] cache)
+        {
+            cache ??= BuildArcTable(x, y, dur);
+            float u = Ease(x.ease, Mathf.Clamp01(t / dur));
+            return WarpProgress(cache, u, dur);
         }
 
         /// <summary>Tangent angle of a screen-space path pair at time <paramref name="t"/>,
