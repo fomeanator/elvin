@@ -58,7 +58,7 @@ namespace Lvn.Content
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,
         /// quick_save, history, auto, skip, settings, gallery, exit, close, autosave, slot,
         /// empty, quick_slot, overwrite_q ({0} = the slot label), overwrite, cancel,
-        /// text_speed, auto_advance, auto_delay, music, ambient, sfx, language,
+        /// text_speed, auto_advance, auto_delay, music, ambient, sfx, voice, language,
         /// language_original,
         /// window_opacity, reduce_motion, skip_read_only. Missing keys fall back
         /// to English.</summary>

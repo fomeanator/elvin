@@ -6,6 +6,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Voice-over channel** — `say` gains a `voice` url (`.lvns`: a
+  `voice "<url>"` line before the reply): the clip starts with its
+  text, the next line (or a scene reset) cuts it, voice never overlaps
+  itself, and the typewriter blip stays silent under a speaking actor.
+  New Settings slider (label key `voice`, `LvnPrefs.VolVoice`);
+  `LvnPlayer.CurrentVoiceUrl` for custom stages. Unvoiced novels no-op.
 - **Timed choices** — `choice timeout=10 timeout_goto=late` before an
   option block: a countdown bar over the buttons, expiry jumps to the
   branch (`LvnPlayer.CurrentChoiceTimeout` / `ResolveChoiceTimeout` for

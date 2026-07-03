@@ -573,6 +573,7 @@ namespace Lvn.UI
             StopChoiceTimer();
             CloseInput();
             _awaitingInput = false;
+            _audio?.StopVoice();
             _draggables.Clear();
             _placements.Clear();
             _dragId = null;
@@ -682,6 +683,7 @@ namespace Lvn.UI
         private void OnRevealTicked()
         {
             if (_sndType == null) return;
+            if (_audio != null && _audio.VoicePlaying) return; // the actor speaks — no blip under it
             float now = Time.unscaledTime;
             if (now - _lastTypeBlip < TypeBlipMinGap) return;
             _lastTypeBlip = now;
@@ -867,6 +869,10 @@ namespace Lvn.UI
             _dialogue.ApplyStyle(style);
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
             _dialogue.Reveal(text);
+            // Voice-over: the line's clip starts with its text; the previous line's
+            // voice stops (never overlaps). Silent lines just stop the old one.
+            if (_audio != null)
+                _ = _audio.PlayVoiceAsync(_player?.CurrentVoiceUrl, Assets, _cts != null ? _cts.Token : default);
             _lastSayLength = text?.Length ?? 0; // drives the auto-advance reading delay
             _autoRevealDoneAt = -1f;
             _awaitingTap = true;

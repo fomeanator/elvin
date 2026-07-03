@@ -16,7 +16,7 @@ namespace Lvn.UI
     [DisallowMultipleComponent]
     public sealed class StageAudio : MonoBehaviour
     {
-        private AudioSource _music, _ambient, _sfx, _ui;
+        private AudioSource _music, _ambient, _sfx, _ui, _voice;
 
         // Track what each looping channel is playing (by url) so a replayed audio
         // command after a load/rollback recognises "this track is already on" and
@@ -35,7 +35,8 @@ namespace Lvn.UI
             _ambient = gameObject.AddComponent<AudioSource>();
             _sfx = gameObject.AddComponent<AudioSource>();
             _ui = gameObject.AddComponent<AudioSource>();
-            foreach (var s in new[] { _music, _ambient, _sfx, _ui }) s.playOnAwake = false;
+            _voice = gameObject.AddComponent<AudioSource>();
+            foreach (var s in new[] { _music, _ambient, _sfx, _ui, _voice }) s.playOnAwake = false;
             _music.loop = true;
             _ambient.loop = true;
             LvnPrefs.Changed += ApplyUserVolumes;
@@ -56,6 +57,7 @@ namespace Lvn.UI
             if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic;
             if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient;
             if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx;
+            if (_voice != null) _voice.volume = LvnPrefs.VolVoice;
         }
 
         private void RememberAuthored(string channel, float v)
@@ -63,6 +65,37 @@ namespace Lvn.UI
             if (channel == "music") _authMusic = v;
             else if (channel == "ambient") _authAmbient = v;
             else _authSfx = v;
+        }
+
+        /// <summary>True while a voice-over line is speaking — the stage mutes the
+        /// typewriter blip under it.</summary>
+        public bool VoicePlaying => _voice != null && _voice.isPlaying;
+
+        /// <summary>Voice the line on screen: stop the previous one (voice never
+        /// overlaps itself) and play the clip at the player's voice volume. A null/
+        /// missing url or a failed load is silence — unvoiced novels no-op. The
+        /// generation guard drops a slow load that finishes after the NEXT line
+        /// already started (or stopped) its own voice.</summary>
+        private int _voiceGen;
+        public async Task PlayVoiceAsync(string url, ILvnAssets assets, CancellationToken ct)
+        {
+            int gen = ++_voiceGen;
+            if (_voice != null) _voice.Stop();
+            if (string.IsNullOrEmpty(url) || assets == null) return;
+            AudioClip clip = null;
+            try { clip = await assets.LoadAudioAsync(url, ct); }
+            catch { /* silent if the host ships no voice */ }
+            if (clip == null || _voice == null || gen != _voiceGen) return;
+            _voice.clip = clip;
+            _voice.volume = LvnPrefs.VolVoice;
+            _voice.Play();
+        }
+
+        /// <summary>Cut the voice line (scene reset / chapter end).</summary>
+        public void StopVoice()
+        {
+            _voiceGen++;
+            if (_voice != null) _voice.Stop();
         }
 
         /// <summary>Play a UI one-shot (tap / choice / typewriter blip) on a channel

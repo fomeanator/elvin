@@ -436,6 +436,7 @@ namespace Lvn
             int j = _ip - 1;
             if (j >= 0 && j < _script.Count && _script[j] is JObject c && (string)c["op"] == "say")
             {
+                CurrentVoiceUrl = (string)c["voice"];
                 var who = TextInterpolation.Apply((string)c["who"], Vars);
                 var text = TextAlternatives.Apply(Localized(c), Vars, j);
                 text = TextInterpolation.Apply(text, Vars);
@@ -501,6 +502,7 @@ namespace Lvn
 
                     case "say":
                         PushHistory();
+                        CurrentVoiceUrl = (string)c["voice"]; // the stage picks it up in ShowSay
                         // Ink-style alternatives first (their counters key off the
                         // command index), then {var} interpolation — for both the
                         // line and the speaker name.
@@ -603,6 +605,11 @@ namespace Lvn
         public bool AtChoice =>
             !Finished && _script != null && _ip >= 0 && _ip < _script.Count
             && _script[_ip] is JObject c && (string)c["op"] == "choice";
+
+        /// <summary>The voice-over url of the line currently on screen (null for a
+        /// silent line) — set just before <see cref="ILvnStage.ShowSay"/> fires, so
+        /// the stage can start the clip with the text.</summary>
+        public string CurrentVoiceUrl { get; private set; }
 
         /// <summary>Seconds the current choice gives the player before its
         /// timeout branch fires — 0 means untimed. Valid while <see cref="AtChoice"/>;

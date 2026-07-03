@@ -25,8 +25,9 @@ var KnownOps = map[string]bool{
 	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
-	"text": true,               // reactive HUD/stat label
-	"save": true, "load": true, // snapshot save/load (func is lowered away by expandLoops)
+	"voice": true,               // compile-time prefix: voices the NEXT say line
+	"text":  true,               // reactive HUD/stat label
+	"save":  true, "load": true, // snapshot save/load (func is lowered away by expandLoops)
 	"label": true, "goto": true, "if": true,
 	"set": true, "inc": true, "hint": true,
 	"call": true, "return": true,
@@ -61,6 +62,7 @@ func Convert(src string) (*Doc, error) {
 	defAnims := make(map[string]map[string]any) // defanim <name> … → params, expanded by `play`
 	nf := 0                                     // counter for synthesized fall-through labels (single-branch `if … -> …`)
 	var pendingChoice map[string]any            // `choice timeout=…` attrs awaiting the next `- option` block
+	pendingVoice := ""                          // `voice <url>` awaiting the next say line
 
 	// Pre-process and clean lines. `srcNo` keeps each cleaned line's original
 	// 1-based source line number, so commands can map back to the editor.
@@ -446,6 +448,18 @@ func Convert(src string) (*Doc, error) {
 					isCommand = true
 					cmd = c
 				}
+			} else if firstWord == "voice" {
+				// `voice "/content/voice/x.ogg"` — the NEXT say line speaks it.
+				rest := strings.TrimSpace(line[len("voice"):])
+				if strings.HasPrefix(rest, "url=") {
+					rest = strings.TrimSpace(rest[len("url="):])
+				}
+				pendingVoice = stripQuotes(rest)
+				if pendingVoice == "" {
+					return nil, fmt.Errorf("line %d: voice: usage: voice <url>", srcNo[i])
+				}
+				i++
+				continue
 			} else if firstWord == "choice" {
 				// `choice timeout=10 timeout_goto=late` — attributes for the
 				// NEXT `- option` block (a timed choice). No command by itself.
@@ -501,11 +515,21 @@ func Convert(src string) (*Doc, error) {
 				emit(Cmd{"op": "actor", "id": actorID, "emotion": emotion}, srcNo[i])
 			}
 
-			emit(Cmd{"op": "say", "who": speaker, "text": text}, srcNo[i])
+			sc := Cmd{"op": "say", "who": speaker, "text": text}
+			if pendingVoice != "" {
+				sc["voice"] = pendingVoice
+				pendingVoice = ""
+			}
+			emit(sc, srcNo[i])
 		} else {
 			// Narration
 			text := stripQuotes(line)
-			emit(Cmd{"op": "say", "text": text}, srcNo[i])
+			sc := Cmd{"op": "say", "text": text}
+			if pendingVoice != "" {
+				sc["voice"] = pendingVoice
+				pendingVoice = ""
+			}
+			emit(sc, srcNo[i])
 		}
 
 		i++
