@@ -163,6 +163,44 @@ namespace Lvn.Tests
         }
 
         [UnityTest]
+        public IEnumerator GalleryCg_UnlocksOnMatchingBg_AndGridShowsLockedAsQuestion()
+        {
+            const string title = "smoke-gallery";
+            LvnGalleryStore.Clear(title);
+            _stage.SetSaveContext(title, "ch1", "/content/x.lvn");
+            _stage.Gallery = new List<Lvn.Content.LvnGalleryItem>
+            {
+                new Lvn.Content.LvnGalleryItem { id = "cg1", url = "/content/cg/one.png", name = "One" },
+                new Lvn.Content.LvnGalleryItem { id = "cg2", url = "/content/cg/two.png" },
+            };
+
+            // The script reaches a bg whose url matches an item → unlocked forever,
+            // even headless where the sprite itself never loads.
+            _stage.ApplyStage(Newtonsoft.Json.Linq.JObject.Parse(
+                @"{""op"":""bg"",""sprite_url"":""/content/cg/one.png""}"));
+            yield return null;
+
+            Assert.IsTrue(LvnGalleryStore.IsUnlocked(title, "cg1"), "shown CG unlocked");
+            Assert.IsFalse(LvnGalleryStore.IsUnlocked(title, "cg2"), "unseen CG stays locked");
+
+            // The grid on the real panel: one open cell, one locked "?" cell.
+            var menu = (StageMenu)typeof(VnStage)
+                .GetField("_menu", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_stage);
+            typeof(StageMenu).GetMethod("OpenSheet", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, null);
+            typeof(StageMenu).GetMethod("ShowGallery", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(menu, null);
+            yield return null;
+
+            var locks = menu.Query<Label>().ToList().Where(l => l.text == "?").ToList();
+            Assert.AreEqual(1, locks.Count, "exactly the unseen CG renders locked");
+            var captions = menu.Query<Label>().ToList().Where(l => l.text == "One").ToList();
+            Assert.AreEqual(1, captions.Count, "the unlocked CG shows its caption");
+
+            LvnGalleryStore.Clear(title);
+        }
+
+        [UnityTest]
         public IEnumerator Rollback_StripsTheUndoneMark_AndRepickRecordsFresh()
         {
             _stage.Player.Advance();

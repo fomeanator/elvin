@@ -1385,8 +1385,11 @@ namespace Lvn.UI
                     if (urls.Count > 0) url = urls[0];
                 }
             }
-            if (Assets == null || string.IsNullOrEmpty(url)) return;
+            if (string.IsNullOrEmpty(url)) return;
+            // The script reached this bg — that's the unlock moment, independent of
+            // whether the sprite itself loads (a cache miss doesn't unsee the CG).
             UnlockGalleryFor(url);
+            if (Assets == null) return;
             var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
             if (sprite == null) return;
             _renderer?.SetBackground(sprite);
