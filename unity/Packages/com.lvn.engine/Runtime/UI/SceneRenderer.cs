@@ -135,6 +135,10 @@ namespace Lvn.UI
                 _scene.ApplyActor(id, layers, placement, layerIds, layerRects, layerDefs);
         }
 
+        /// <summary>The actor's slot RectTransform — the parent a runtime
+        /// Spine skeleton mounts under.</summary>
+        public RectTransform SlotFor(string id) => _scene.ActorFor(id)?.Slot;
+
         public Rect? ActorScreenRect(string id)
         {
             var a = _scene.ActorFor(id);

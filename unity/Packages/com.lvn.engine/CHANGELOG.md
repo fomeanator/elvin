@@ -6,6 +6,16 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Spine support (optional)** — `kind: "spine"` catalog entities render
+  real Spine skeletons through the official spine-unity runtime: the
+  export's json/atlas/png stream like any other content (no Unity
+  assets), `spine.auto` loops on show, `actor … play="Run" loop=true`
+  drives the skeleton's own animations. The integration is an optional
+  assembly compiled only when com.esotericsoftware.spine.spine-unity is
+  installed (version define — the Addressables pattern); without it the
+  engine logs a clear warning and carries no Spine dependency or
+  license obligation. Canvas scene path; asset loaders gain
+  LoadTextAsync across the chain.
 - **Drag & drop** — `obj … draggable=true on_drop="bag:label"
   [on_drop_miss=label]`: grab an object and it follows the pointer
   (slot travel feeds the spring joints, so cloth/hair sway while

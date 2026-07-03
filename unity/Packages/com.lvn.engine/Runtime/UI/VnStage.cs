@@ -559,6 +559,8 @@ namespace Lvn.UI
             _draggables.Clear();
             _dragId = null;
             _dragCandidate = null;
+            foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
+            _spineActors.Clear();
             _choices?.Dismiss(); // clear any on-screen choice buttons (avoid stale clicks)
             _labelLayer?.Clear();
             _labelEls.Clear();
@@ -875,6 +877,62 @@ namespace Lvn.UI
                 if (r.Value.Contains(new Vector2(nx, ny))) return _hotspots[i].onClick;
             }
             return null;
+        }
+
+        // ── spine actors (the optional spine-unity runtime) ─────────────────
+        private readonly Dictionary<string, GameObject> _spineActors = new Dictionary<string, GameObject>();
+
+        private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
+        {
+            var placement = PlacementFrom(cmd);
+            if (!placement.Show)
+            {
+                if (_spineActors.TryGetValue(id, out var old) && old != null) Destroy(old);
+                _spineActors.Remove(id);
+                return;
+            }
+            if (!LvnSpineBridge.Available)
+            {
+                Debug.LogWarning("[lvn] '" + id + "' is kind:spine, but the spine-unity integration " +
+                                 "isn't installed (add com.esotericsoftware.spine.spine-unity to the project)");
+                return;
+            }
+            if (!(_renderer is CanvasSceneRenderer canvas))
+            {
+                Debug.LogWarning("[lvn] spine entities render on the Canvas scene path only");
+                return;
+            }
+
+            _renderer.PlaceActor(id, placement);
+            var slot = canvas.SlotFor(id);
+            if (slot == null) return;
+
+            if (!_spineActors.ContainsKey(id))
+            {
+                var sp = e.spine;
+                string json = null, atlasText = null;
+                Sprite page = null;
+                try
+                {
+                    json = await Assets.LoadTextAsync(sp.json, _cts.Token);
+                    atlasText = await Assets.LoadTextAsync(sp.atlas, _cts.Token);
+                    page = await Assets.LoadSpriteAsync(sp.texture, _cts.Token);
+                }
+                catch { }
+                if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(atlasText) || page == null)
+                {
+                    Debug.LogWarning("[lvn] spine '" + id + "': failed to load skeleton files");
+                    return;
+                }
+                var go = LvnSpineBridge.Create(slot, json, atlasText, page.texture, sp.scale);
+                if (go == null) return;
+                _spineActors[id] = go;
+                if (!string.IsNullOrEmpty(sp.auto)) LvnSpineBridge.Play(go, sp.auto, true);
+            }
+
+            var play = (string)cmd["play"];
+            if (!string.IsNullOrEmpty(play) && _spineActors.TryGetValue(id, out var g) && g != null)
+                LvnSpineBridge.Play(g, play, BoolOr(cmd["loop"], false));
         }
 
         private void OnChoiceSelected(int index)
@@ -1521,6 +1579,15 @@ namespace Lvn.UI
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
+
+            // Spine entities render through the optional spine-unity bridge —
+            // a different pipeline entirely (runtime skeleton, own animations).
+            var spineEntity = Catalog != null ? Catalog.Get(id) : null;
+            if (spineEntity != null && spineEntity.kind == "spine" && spineEntity.spine != null)
+            {
+                await ApplySpineAsync(id, spineEntity, cmd);
+                return;
+            }
 
             // Resolve the layer urls, in priority order:
             //   1. catalog id (manifest.sprites) — layered, with conditional `when`;
