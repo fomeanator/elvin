@@ -27,8 +27,10 @@ dialogue system, a branching engine, or a save system — that **is** the engine
   like a screenplay with choices) and watch it run as a real game, no engineer in
   the loop.
 - **AI-first teams** — the script language is simple and unambiguous enough that
-  an **LLM can write an entire game** in one go. See
-  [`howto/AGENTS.md`](howto/AGENTS.md).
+  an **LLM can write an entire game** in one go. Point your agent at
+  [`llms.txt`](llms.txt), or plug the toolchain straight in via the
+  **[MCP server](docs/mcp.md)** (`lvns_check` / `lvns_convert` / `lvn_doc`).
+  Onboarding: [`howto/AGENTS.md`](howto/AGENTS.md).
 
 > The name: **Elvin** is just how you say **LVN** — the `.lvn` format it plays.
 > You write **Elvin Script** (`.lvns`); it compiles to the `.lvn` container; the
@@ -94,6 +96,15 @@ choices and clicks. The exact, code-verified list of what it can and can't do is
 
 ## Quickstart
 
+### Zero-install: the browser playground
+
+Run the content server (`go run ./server -content ./server/content -addr :8077`)
+and open **`/play/`** — write Elvin Script on the left, it plays on the right
+(the real compiler in wasm; story core incl. timed choices and text input).
+**Share** packs your script into the URL — anyone opening the link plays it.
+For the full 15-minute path to a real game, read
+[`howto/TUTORIAL.md`](howto/TUTORIAL.md).
+
 ### A. In Unity (the common path)
 
 1. Add the package — **Package Manager → Add package from git URL**:
@@ -148,18 +159,23 @@ the backend only adds saves, live content updates, and the docs site.
 
 ## Status
 
-`v0.4` — a full, working narrative-game engine for Unity:
+`v0.7` — a full, working narrative-game engine for Unity:
 
-- **Elvin Script** + the `.lvn` container spec.
-- **Unity runtime**: interpreter (flow, vars, expressions, subroutines, autosave,
-  `wait`, `preload`), cast system, animation engine, reactive HUD,
-  effects/camera/particles, save/load, novel-shell, and the in-Unity `.lvns`
-  importer.
-- **`lvnconv`**: Elvin Script + Ink + articy (XML and binary `.adpd`) front-ends,
-  validator, `probe`, WASM build. Green CI builds each module standalone.
-- **Server template** (Go) + **web panel**.
-- **Docs**: the `howto/` build kit (genre guides + validated examples + a
-  code-verified capabilities/limitations map).
+- **Elvin Script** + the `.lvn` container spec: dialogue, branching (incl.
+  **timed choices**), **text input**, **voice-over**, vars & expressions,
+  subroutines, script-driven animation with splines.
+- **Unity runtime**: interpreter, layered cast with **bones + spring physics**,
+  optional **Spine** integration (official runtime, version-define module),
+  **drag & drop** objects, effects/camera/particles, UI sounds, **CG gallery**,
+  read-text tracking + skip-read-only, History tap-to-return, save/load with
+  thumbnails & migration, localization, the novel-shell, in-Unity importer.
+- **`lvnconv`**: Elvin Script + Ink + articy (XML and binary `.adpd`)
+  front-ends, teaching validator, WASM build, **MCP server**.
+- **Authoring**: web IDE (cast editor, live-validated script editor, Spine
+  upload, articy import, APK export) + the **browser playground** at `/play/`.
+- **Pipeline**: tag → CI (self-hosted Unity runner) → GitHub Release with the
+  demo APK attached. Library embedding seams (`LvnOps`, menu slots, events)
+  under a compatibility contract.
 
 See [`docs/lvn-format.md`](docs/lvn-format.md) for the command catalog,
 [`howto/CAPABILITIES.md`](howto/CAPABILITIES.md) for exact limits, and the package
