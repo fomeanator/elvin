@@ -1486,6 +1486,11 @@ namespace Lvn.UI
             }
 
             var placement = PlacementFrom(cmd);
+            // Layered/boned entities declare the aspect their art was authored in —
+            // the renderer locks the box to it so layers register pixel-exact.
+            var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
+            if (aspectEntity != null && aspectEntity.aspect > 0f)
+                placement.BoxAspect = aspectEntity.aspect;
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
             _renderer?.PlaceActor(id, placement);

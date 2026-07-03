@@ -27,8 +27,15 @@ namespace Lvn.UI.World
             // uGUI pivot is measured from the bottom-left; the placement anchor is
             // from the top-left — flip Y.
             slot.pivot = new Vector2(p.AnchorX, 1f - p.AnchorY);
-            slot.sizeDelta = new Vector2((p.Width ?? DefaultWidth) * size.x,
-                                         (p.Height ?? DefaultHeight) * size.y);
+            float w = (p.Width ?? DefaultWidth) * size.x;
+            float h = (p.Height ?? DefaultHeight) * size.y;
+            // Aspect-locked box (layered/boned art): fit within the placed bounds.
+            if (p.BoxAspect is float a && a > 0f)
+            {
+                if (w / h > a) w = h * a;
+                else h = w / a;
+            }
+            slot.sizeDelta = new Vector2(w, h);
             slot.anchoredPosition = new Vector2(p.X * size.x, -p.Y * size.y);
             // Flip mirrors on X; rotation negated so positive degrees read clockwise
             // (UITK's convention) on the Canvas.

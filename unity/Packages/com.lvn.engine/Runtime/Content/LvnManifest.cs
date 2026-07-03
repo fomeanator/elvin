@@ -66,6 +66,13 @@ namespace Lvn.Content
         /// <summary>Renderer kind: <c>static</c> (default) | <c>rigged</c> (named
         /// transform animations) | <c>spine</c> | <c>live2d</c> (future).</summary>
         public string kind;
+
+        /// <summary>The width/height ratio of the box the layers were AUTHORED in.
+        /// When set, the renderer locks the actor's on-screen box to this aspect
+        /// (shrinking within the placed width/height) — layered/boned art keeps
+        /// pixel-exact registration on every screen instead of each layer
+        /// letterboxing differently. Unset (0) = legacy percent box.</summary>
+        public float aspect;
         /// <summary>Named animations (name → tracks). A <c>rigged</c> entity plays
         /// these via <c>actor play="name"</c>; <c>auto:true</c> animations loop on
         /// show. See <see cref="LvnAnim"/>.</summary>

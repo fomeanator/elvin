@@ -28,6 +28,10 @@ namespace Lvn.UI
     public struct Placement
     {
         public bool Show;
+        /// <summary>Lock the box to this width/height ratio (from the entity's
+        /// <c>aspect</c>): the placed Width/Height become maximums and the box
+        /// shrinks to match — required for layered/boned art registration.</summary>
+        public float? BoxAspect;
         public float X, Y;          // screen position of the anchor point (0..1)
         public float? Width, Height; // size as a fraction of the screen (0..1)
         public float AnchorX, AnchorY;
@@ -106,6 +110,8 @@ namespace Lvn.UI
                     if (_baseOpacity.TryGetValue(capturedId, out var baseOp))
                         slot.style.opacity = baseOp;
                 });
+                // Aspect-locked boxes re-fit whenever layout hands us a new size.
+                slot.RegisterCallback<GeometryChangedEvent>(_ => FitAspect(capturedId));
                 Add(slot);
                 _slots[id] = slot;
                 _z[slot] = _nextZ++;
@@ -114,6 +120,7 @@ namespace Lvn.UI
             _onClick[id] = onClick;
             _hoverOpacity[id] = p.HoverOpacity;
             _baseOpacity[id] = p.Opacity;
+            _aspect[id] = p.BoxAspect ?? 0f;
             // Only hotspots are pickable; everything else lets taps fall through
             // to the stage's tap-to-advance.
             slot.pickingMode = onClick != null ? PickingMode.Position : PickingMode.Ignore;
@@ -203,6 +210,24 @@ namespace Lvn.UI
 
         // The animation wrapper between the slot (placement/anchor/flip) and the
         // layer sprites, so animating it never fights the slot's positioning.
+        // Layered/boned art must keep its authored proportions on every screen:
+        // the placed percent box is a MAXIMUM, the real box shrinks to the
+        // entity's aspect (see LvnSpriteEntity.aspect). Percent-sized boxes
+        // (aspect 0) are untouched.
+        private readonly Dictionary<string, float> _aspect = new Dictionary<string, float>();
+
+        private void FitAspect(string id)
+        {
+            if (!_aspect.TryGetValue(id, out var a) || a <= 0f) return;
+            if (!_slots.TryGetValue(id, out var slot)) return;
+            var r = slot.layout;
+            if (float.IsNaN(r.width) || float.IsNaN(r.height) || r.height <= 0f) return;
+            float want = r.height * a;
+            if (Mathf.Abs(r.width - want) < 0.5f) return; // already fitted
+            if (want <= r.width + 0.5f) slot.style.width = want;
+            else slot.style.height = r.width / a;
+        }
+
         private VisualElement EnsureRig(VisualElement slot, string id)
         {
             if (_rigs.TryGetValue(id, out var rig) && rig.parent == slot) return rig;
