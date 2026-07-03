@@ -397,6 +397,40 @@ namespace Lvn.UI
             scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
             scroll.Add(SliderRow(L("window_opacity", "Window opacity"), 0.2f, 1f, LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
             scroll.Add(ToggleRow(L("reduce_motion", "Reduce motion"), LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+
+            // Language — only when the content ships catalogs (manifest.languages).
+            // Tapping cycles Original → each language → Original.
+            if (LvnPrefs.AvailableLocales.Count > 0)
+                scroll.Add(LanguageRow());
+        }
+
+        private VisualElement LanguageRow()
+        {
+            var row = new VisualElement();
+            row.style.marginBottom = 10;
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.alignItems = Align.Center;
+            row.Add(Text(L("language", "Language"), 14, FontStyle.Normal));
+
+            string Caption(string code) =>
+                string.IsNullOrEmpty(code) ? L("language_original", "Original") : code.ToUpperInvariant();
+
+            var btn = new Button { text = Caption(LvnPrefs.Locale) };
+            btn.style.minWidth = 110;
+            btn.style.height = 30;
+            btn.style.color = _theme.MenuTextColor;
+            var tint = _theme.MenuTextColor;
+            btn.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+            ClearBorder(btn);
+            Round(btn, 6f);
+            btn.clicked += () =>
+            {
+                LvnPrefs.Locale = LvnPrefs.NextLocale(LvnPrefs.Locale, LvnPrefs.AvailableLocales);
+                btn.text = Caption(LvnPrefs.Locale);
+            };
+            row.Add(btn);
+            return row;
         }
 
         private VisualElement SliderRow(string label, float min, float max, float value, Action<float> onChange)

@@ -6,6 +6,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **Language picker in Settings** — when the manifest declares shipped
+  catalogs (`languages: ["en", …]`, auto-declared by a localized import),
+  Settings shows a cycling Original → lang → … row. The choice persists
+  (`LvnPrefs.Locale`), overrides the host default, and switching
+  mid-chapter reloads the catalog — subsequent lines render in the new
+  language at once.
 - **Save slot thumbnails** — opening the menu snapshots the clean frame
   (before the scrim), and every manual save (slots, quick save) stores it
   as a PNG beside the saves; slot rows show an 80×45 preview. Autosave

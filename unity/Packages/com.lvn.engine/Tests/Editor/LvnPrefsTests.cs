@@ -66,6 +66,36 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void LocalePersists_AndRaisesChanged()
+        {
+            int fired = 0;
+            void Count() => fired++;
+            LvnPrefs.Changed += Count;
+            try
+            {
+                LvnPrefs.Locale = "en";
+                Assert.AreEqual("en", PlayerPrefs.GetString("lvn_pref_locale", "?"));
+                Assert.AreEqual(1, fired);
+                LvnPrefs.Locale = "en"; // same value → no event
+                Assert.AreEqual(1, fired);
+                LvnPrefs.Locale = null; // null normalizes to the original
+                Assert.AreEqual("", LvnPrefs.Locale);
+            }
+            finally { LvnPrefs.Changed -= Count; LvnPrefs.Locale = ""; }
+        }
+
+        [Test]
+        public void NextLocale_CyclesOriginalThroughEveryLanguage()
+        {
+            var langs = new[] { "en", "ru" };
+            Assert.AreEqual("en", LvnPrefs.NextLocale("", langs), "original → first language");
+            Assert.AreEqual("ru", LvnPrefs.NextLocale("en", langs));
+            Assert.AreEqual("", LvnPrefs.NextLocale("ru", langs), "last language → back to the original");
+            Assert.AreEqual("", LvnPrefs.NextLocale("de", langs), "a stale pref cycles home");
+            Assert.AreEqual("", LvnPrefs.NextLocale("en", System.Array.Empty<string>()), "no catalogs → always original");
+        }
+
+        [Test]
         public void PrefsPersistToPlayerPrefs()
         {
             LvnPrefs.DialogOpacity = 0.6f;

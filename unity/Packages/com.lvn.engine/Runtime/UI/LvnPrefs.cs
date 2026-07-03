@@ -35,6 +35,7 @@ namespace Lvn.UI
             _volSfx = PlayerPrefs.GetFloat(P + "vol_sfx", 1f);
             _reduceMotion = PlayerPrefs.GetInt(P + "reduce_motion", 0) == 1;
             _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
+            _locale = PlayerPrefs.GetString(P + "locale", "");
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
 
@@ -120,6 +121,43 @@ namespace Lvn.UI
         {
             get { EnsureLoaded(); return _dialogOpacity; }
             set { EnsureLoaded(); Set(ref _dialogOpacity, "dialog_opacity", Mathf.Clamp(value, 0.2f, 1f)); }
+        }
+
+        /// <summary>The reader's language code ("ru", "en", …); "" = the script's
+        /// inline text (the original). The host (NovelApp) reloads the string
+        /// catalog on change — new lines render in the new language at once.</summary>
+        public static string Locale
+        {
+            get { EnsureLoaded(); return _locale; }
+            set
+            {
+                EnsureLoaded();
+                var v = value ?? "";
+                if (_locale == v) return;
+                _locale = v;
+                PlayerPrefs.SetString(P + "locale", v);
+                PlayerPrefs.Save();
+                Changed?.Invoke();
+            }
+        }
+        private static string _locale;
+
+        /// <summary>Languages the running title offers, set by the host from the
+        /// manifest (<c>languages</c>). The settings row shows a picker only when
+        /// this is non-empty. "" (the original) is always an implicit option.</summary>
+        public static System.Collections.Generic.IReadOnlyList<string> AvailableLocales
+        { get; set; } = System.Array.Empty<string>();
+
+        /// <summary>The next option in the Original → lang1 → lang2 → … cycle
+        /// (pure — the settings row's tap handler).</summary>
+        public static string NextLocale(string current, System.Collections.Generic.IReadOnlyList<string> available)
+        {
+            if (available == null || available.Count == 0) return "";
+            if (string.IsNullOrEmpty(current)) return available[0];
+            for (int i = 0; i < available.Count; i++)
+                if (available[i] == current)
+                    return i + 1 < available.Count ? available[i + 1] : "";
+            return ""; // a stale pref (language removed) cycles back to the original
         }
     }
 }
