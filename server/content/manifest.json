@@ -1289,6 +1289,25 @@
   },
   "titles": [
     {
+      "id": "doll-demo",
+      "name": "Кукла",
+      "subtitle": "Демо костей и пружин",
+      "cover_url": "/content/sprites/doll/cover.png",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "doll-demo-ch1",
+              "number": 1,
+              "name": "Живые волосы",
+              "script_url": "/content/scripts/doll-demo.lvn",
+              "bg_url": "/content/sprites/doll/bg.png"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "cover_url": "/content/ui/cover_last_guest.png",
       "id": "last-guest",
       "name": "The Last Guest",

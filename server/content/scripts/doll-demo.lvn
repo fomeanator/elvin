@@ -1,0 +1,317 @@
+{
+  "scene": "doll_demo",
+  "script": [
+    {
+      "op": "bg",
+      "sprite_url": "/content/sprites/doll/bg.png"
+    },
+    {
+      "height": 0.8,
+      "id": "doll",
+      "op": "actor",
+      "width": 0.42,
+      "x": 0.5
+    },
+    {
+      "op": "say",
+      "text": "Привет! Я — кукла из четырёх спрайтовых слоёв."
+    },
+    {
+      "op": "say",
+      "text": "Рука и голова прикреплены к телу, а волосы — к голове. Через пружину."
+    },
+    {
+      "op": "say",
+      "text": "Смотри, что будет, если я пройдусь."
+    },
+    {
+      "anim": {
+        "duration": 1.2,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.2,
+                -0.24
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.2,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "doll",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Волосы качнулись сами — в сценарии нет ни одного ключа для них."
+    },
+    {
+      "anim": {
+        "duration": 1.4,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.4,
+                0.24
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.4,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "doll",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "И на обратном пути тоже. Это пружинная физика, как у VRM-аватаров."
+    },
+    {
+      "anim": {
+        "duration": 0.8,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                0.22,
+                8
+              ],
+              [
+                0.55,
+                -2
+              ],
+              [
+                0.8,
+                0
+              ]
+            ],
+            "layer": "head",
+            "prop": "rotation"
+          }
+        ]
+      },
+      "id": "doll",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "волосы отстают от поворота головы и догоняют её.",
+      "who": "А это кивок"
+    },
+    {
+      "anim": {
+        "duration": 0.8,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                0.22,
+                8
+              ],
+              [
+                0.55,
+                -2
+              ],
+              [
+                0.8,
+                0
+              ]
+            ],
+            "layer": "head",
+            "prop": "rotation"
+          }
+        ]
+      },
+      "id": "doll",
+      "mode": "queue",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 0.8,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                0.22,
+                8
+              ],
+              [
+                0.55,
+                -2
+              ],
+              [
+                0.8,
+                0
+              ]
+            ],
+            "layer": "head",
+            "prop": "rotation"
+          }
+        ]
+      },
+      "id": "doll",
+      "mode": "queue",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Два кивка подряд — очередь на канале."
+    },
+    {
+      "anim": {
+        "duration": 2.2,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "interp": "spline",
+            "keys": [
+              [
+                0,
+                0.24
+              ],
+              [
+                1.1,
+                0
+              ],
+              [
+                2.2,
+                -0.24
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "inOutSine",
+            "interp": "spline",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.1,
+                -0.05
+              ],
+              [
+                2.2,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "doll",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Прогулка по сплайну — скорость ровная по всей дуге (arc-length)."
+    },
+    {
+      "anim": {
+        "duration": 1,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "outCubic",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "doll",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Вот и всё. Тело дышит, голова качается, рука машет — это idle из каталога."
+    },
+    {
+      "op": "say",
+      "text": "А волосы просто живут свою жизнь. Занавес!"
+    }
+  ]
+}
