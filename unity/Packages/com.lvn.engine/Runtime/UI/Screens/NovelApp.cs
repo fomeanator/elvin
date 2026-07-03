@@ -585,6 +585,11 @@ namespace Lvn.UI.Screens
             try { manifest = await FetchManifestAsync(); }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] live manifest fetch failed: {ex.Message}"); return; }
             CacheManifest(manifest); // keep the offline copy fresh on every live update
+            // Pull the changed boot-set bytes and re-warm replaced covers BEFORE the
+            // carousel rebuilds — otherwise it re-renders from the stale in-memory
+            // sprites and a cover swap on the server never shows up.
+            try { await _downloads.MenuRefreshAsync(manifest, default); }
+            catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
