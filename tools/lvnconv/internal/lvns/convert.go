@@ -59,7 +59,7 @@ func Convert(src string) (*Doc, error) {
 	doc := &Doc{Script: []Cmd{}}
 	actorMaps := make(map[string]string)
 	defAnims := make(map[string]map[string]any) // defanim <name> … → params, expanded by `play`
-	nf := 0 // counter for synthesized fall-through labels (single-branch `if … -> …`)
+	nf := 0                                     // counter for synthesized fall-through labels (single-branch `if … -> …`)
 
 	// Pre-process and clean lines. `srcNo` keeps each cleaned line's original
 	// 1-based source line number, so commands can map back to the editor.
