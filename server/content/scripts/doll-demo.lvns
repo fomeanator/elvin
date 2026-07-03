@@ -2,11 +2,15 @@ scene doll_demo
 bg sprite_url="/content/sprites/doll/bg.png"
 actor id=doll x=0.5 width=0.42 height=0.8
 
+voice "/content/voice/doll/d01.wav"
 Привет! Я — кукла из четырёх спрайтовых слоёв.
+voice "/content/voice/doll/d02.wav"
 Рука и голова прикреплены к телу, а волосы — к голове. Через пружину.
+voice "/content/voice/doll/d03.wav"
 Смотри, что будет, если я пройдусь.
 
 move id=doll to=-0.24,0 dur=1.2 ease=outCubic
+voice "/content/voice/doll/d04.wav"
 Волосы качнулись сами — в сценарии нет ни одного ключа для них.
 move id=doll to=0.24,0 dur=1.4 ease=inOutSine
 И на обратном пути тоже. Это пружинная физика, как у VRM-аватаров.
@@ -23,4 +27,5 @@ move id=doll path="0.24,0 0,-0.05 -0.24,0" dur=2.2 interp=spline ease=inOutSine
 move id=doll to=0,0 dur=1 ease=outCubic
 
 Вот и всё. Тело дышит, голова качается, рука машет — это idle из каталога.
+voice "/content/voice/doll/d05.wav"
 А волосы просто живут свою жизнь. Занавес!
