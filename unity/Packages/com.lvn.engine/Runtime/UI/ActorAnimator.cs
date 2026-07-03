@@ -91,7 +91,7 @@ namespace Lvn.UI
 
         // Compose every bone layer's world pose from the animated locals; springs
         // run as a second pass so their swing carries children too.
-        private Dictionary<string, BoneSolver.Pose> SolveBones(Dictionary<string, XForm> lx, float dt)
+        private Dictionary<string, BoneSolver.Pose> SolveBones(Dictionary<string, XForm> lx, float dt, Vector2 slotPos)
         {
             var bones = new List<BoneSolver.Bone>(_bones.Count);
             foreach (var kv in _bones)
@@ -112,7 +112,7 @@ namespace Lvn.UI
             {
                 var m = _bones[bones[i].Id];
                 if (m.Spring <= 0f) continue;
-                m.State = BoneSolver.SpringStep(m.State, poses[bones[i].Id].PivotWorld, poses[bones[i].Id].Angle, m.Spring, m.Damping, dt);
+                m.State = BoneSolver.SpringStep(m.State, poses[bones[i].Id].PivotWorld + slotPos, poses[bones[i].Id].Angle, m.Spring, m.Damping, dt);
                 if (Mathf.Abs(m.State.Angle) > 0.01f || Mathf.Abs(m.State.Velocity) > 0.01f) anySpring = true;
                 var b = bones[i]; b.Angle += m.State.Angle; bones[i] = b;
             }
@@ -263,7 +263,10 @@ namespace Lvn.UI
             }
             // Bone layers compose through the FK chain (+ springs); the rest keep
             // their plain per-layer transforms.
-            var poses = _bones.Count > 0 ? SolveBones(lx, dt) : null;
+            // The slot's screen position feeds the springs too, so dragging or a
+            // `move` travel makes cloth/hair sway exactly like local motion does.
+            var poses = _bones.Count > 0
+                ? SolveBones(lx, dt, new Vector2(_baseX + ssx, _baseY + ssy)) : null;
 
             foreach (var pair in _layers)
             {

@@ -556,6 +556,9 @@ namespace Lvn.UI
             _awaitingWait = false;
             _sayUp = false;
             _curChoices = null;
+            _draggables.Clear();
+            _dragId = null;
+            _dragCandidate = null;
             _choices?.Dismiss(); // clear any on-screen choice buttons (avoid stale clicks)
             _labelLayer?.Clear();
             _labelEls.Clear();
@@ -660,10 +663,16 @@ namespace Lvn.UI
             _pressTracking = true;
             _suppressTap = false;
             _pressPos = evt.position;
+
+            // A press on a draggable object arms a drag CANDIDATE: below the
+            // drift threshold a release is still a tap (on_click works); past it
+            // the object starts following the pointer instead.
+            _dragCandidate = DraggableAt(evt.position);
+
             _longPress?.Pause();
             _longPress = _uiRoot?.schedule.Execute(() =>
             {
-                if (!_pressTracking) return;
+                if (!_pressTracking || _dragId != null) return;
                 _suppressTap = true;      // this press is an art view, not a tap
                 SetChromeHidden(true);
             });
@@ -673,9 +682,11 @@ namespace Lvn.UI
         private void OnPointerMove(PointerMoveEvent evt)
         {
             if (!_pressTracking) return;
+            if (_dragId != null) { DragMove(evt.position); return; }
             if (((Vector2)evt.position - _pressPos).sqrMagnitude <= PressDriftSq) return;
             _suppressTap = true; // a drag is neither a tap nor a hold
             _longPress?.Pause();
+            if (_dragCandidate != null) DragBegin(_dragCandidate, evt.position);
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -683,7 +694,9 @@ namespace Lvn.UI
             bool wasTracking = _pressTracking;
             _pressTracking = false;
             _longPress?.Pause();
+            _dragCandidate = null;
 
+            if (_dragId != null) { DragEnd(evt.position); return; }
             if (_chromeHidden) { SetChromeHidden(false); return; } // release restores, swallows the tap
             if (!wasTracking || _suppressTap) return;
             if (Skipping) { StopSkip(); return; } // a tap during fast-forward just stops it
@@ -692,10 +705,115 @@ namespace Lvn.UI
 
         private void OnPointerCancelled()
         {
-            // Touch cancelled / capture lost mid-hold — never strand a hidden UI.
+            // Touch cancelled / capture lost mid-hold — never strand a hidden UI
+            // or a half-dragged object.
             _pressTracking = false;
+            _dragCandidate = null;
+            if (_dragId != null) DragEnd(_pressPos);
             _longPress?.Pause();
             SetChromeHidden(false);
+        }
+
+        // ── drag & drop ──────────────────────────────────────────────────────
+        // The point-and-click inventory verb: `obj … draggable=true
+        // on_drop="bag:apple_in_bag pond:apple_lost" [on_drop_miss=label]`.
+        // Grab → the object follows the pointer (springs make cloth sway);
+        // release over a mapped target → that label runs (the branch hides the
+        // item, sets vars, plays its animation — author's script decides);
+        // release anywhere else → the object STAYS where it was dropped
+        // (per design), optionally firing on_drop_miss.
+
+        private sealed class DragInfo
+        {
+            public Placement Home;
+            public Dictionary<string, string> Drop; // target id → label
+            public string MissLabel;
+        }
+        private readonly Dictionary<string, DragInfo> _draggables = new Dictionary<string, DragInfo>();
+        private string _dragCandidate, _dragId;
+        private Vector2 _dragGrab; // pointer→anchor offset in screen fractions
+
+        /// <summary>Parse the on_drop mapping: <c>"bag:label pond:other"</c>.
+        /// Pure — unit-tested; malformed pairs are skipped.</summary>
+        internal static Dictionary<string, string> ParseDropMap(string raw)
+        {
+            var map = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(raw)) return map;
+            foreach (var pair in raw.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int c = pair.IndexOf(':');
+                if (c <= 0 || c >= pair.Length - 1) continue;
+                map[pair.Substring(0, c)] = pair.Substring(c + 1);
+            }
+            return map;
+        }
+
+        private string DraggableAt(Vector2 pos)
+        {
+            if (_draggables.Count == 0 || _renderer == null || _uiRoot == null) return null;
+            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
+            if (pw <= 0f || ph <= 0f) return null;
+            var np = new Vector2(pos.x / pw, pos.y / ph);
+            string hit = null; // last (topmost-placed) wins
+            foreach (var kv in _draggables)
+            {
+                var r = _renderer.ActorScreenRect(kv.Key);
+                if (r != null && r.Value.Contains(np)) hit = kv.Key;
+            }
+            return hit;
+        }
+
+        private void DragBegin(string id, Vector2 pos)
+        {
+            if (!_draggables.TryGetValue(id, out var di)) return;
+            _dragId = id;
+            _suppressTap = true;
+            _longPress?.Pause();
+            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
+            _dragGrab = new Vector2(pos.x / pw - di.Home.X, pos.y / ph - di.Home.Y);
+            LvnPlayer.Log?.Invoke("drag begin '" + id + "'");
+        }
+
+        internal void DragMove(Vector2 pos)
+        {
+            if (_dragId == null || !_draggables.TryGetValue(_dragId, out var di)) return;
+            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
+            if (pw <= 0f || ph <= 0f) return;
+            var p = di.Home;
+            p.X = Mathf.Clamp01(pos.x / pw - _dragGrab.x);
+            p.Y = Mathf.Clamp01(pos.y / ph - _dragGrab.y);
+            _renderer?.PlaceActor(_dragId, p);
+            _renderer?.ApplyActor(_dragId, null, p, null, null, null); // renderers that place with the art
+        }
+
+        private void DragEnd(Vector2 pos)
+        {
+            var id = _dragId;
+            _dragId = null;
+            if (id == null || !_draggables.TryGetValue(id, out var di)) return;
+
+            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
+            var np = new Vector2(pos.x / pw, pos.y / ph);
+            // it stays where it was dropped — remember the spot as the new home
+            di.Home.X = Mathf.Clamp01(np.x - _dragGrab.x);
+            di.Home.Y = Mathf.Clamp01(np.y - _dragGrab.y);
+
+            string label = null;
+            foreach (var kv in di.Drop)
+            {
+                var r = _renderer?.ActorScreenRect(kv.Key);
+                if (r != null && r.Value.Contains(np)) { label = kv.Value; break; }
+            }
+            label ??= di.MissLabel;
+            LvnPlayer.Log?.Invoke("drag end '" + id + "' → " + (label ?? "(stay)"));
+            if (label == null || _player == null) return;
+
+            _awaitingTap = false;
+            _curChoices = null;
+            _choices?.Dismiss();
+            _player.GoTo(label);
+            _player.Advance();
+            AutosaveNow(); // a completed interaction must survive a crash
         }
 
         private void HandleTap(Vector2 pos)
@@ -1498,6 +1616,22 @@ namespace Lvn.UI
             // Manual hotspot hit-testing only applies to renderers that expose
             // actor rects (the canvas path); the UITK path uses element picking.
             if (onClick != null && placement.Show && UseCanvasScene) _hotspots.Add((id, onClick));
+
+            // Drag & drop: `draggable=true` arms the object; on_drop maps
+            // target ids to labels ("bag:apple_in_bag"), on_drop_miss is the
+            // released-anywhere-else branch (default: it just stays put).
+            if (cmd["draggable"] != null)
+            {
+                if (BoolOr(cmd["draggable"], false))
+                    _draggables[id] = new DragInfo
+                    {
+                        Home = placement,
+                        Drop = ParseDropMap((string)cmd["on_drop"]),
+                        MissLabel = (string)cmd["on_drop_miss"],
+                    };
+                else
+                    _draggables.Remove(id);
+            }
 
             // Now load the layer sprites (async) and set them on the placed actor.
             List<Sprite> layers = null;

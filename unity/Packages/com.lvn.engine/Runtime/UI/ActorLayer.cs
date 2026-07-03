@@ -228,6 +228,20 @@ namespace Lvn.UI
             else slot.style.height = r.width / a;
         }
 
+        /// <summary>The object's on-screen rect, normalized 0..1 with a top-left
+        /// origin (transforms included) — drop-target hit-testing and the drag
+        /// pipeline use it. Null when the object/layout isn't ready.</summary>
+        public Rect? ScreenRect(string id)
+        {
+            if (string.IsNullOrEmpty(id) || !_slots.TryGetValue(id, out var slot)) return null;
+            var mine = worldBound;
+            if (float.IsNaN(mine.width) || mine.width <= 0f || mine.height <= 0f) return null;
+            var wb = slot.worldBound;
+            if (float.IsNaN(wb.width) || wb.width <= 0f) return null;
+            return new Rect((wb.x - mine.x) / mine.width, (wb.y - mine.y) / mine.height,
+                wb.width / mine.width, wb.height / mine.height);
+        }
+
         private VisualElement EnsureRig(VisualElement slot, string id)
         {
             if (_rigs.TryGetValue(id, out var rig) && rig.parent == slot) return rig;
