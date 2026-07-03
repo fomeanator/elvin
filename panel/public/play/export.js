@@ -166,6 +166,25 @@ const doc = bundle.doc, ASSETS = bundle.assets || {}, CATALOG = bundle.catalog |
 const art = (u) => ASSETS[u] || u;
 let player, typeTimer, choiceTimer, fullLine = "", revealing = false;
 const hudLabels = new Map();
+const SAVE_KEY = "lvn-html-save:" + (document.title || "story");
+let stagedState = { bg: null, actors: {}, hud: {} };
+
+function trackStage(cmd) {
+  if (cmd.op === "bg" && cmd.sprite_url) stagedState.bg = cmd.sprite_url;
+  else if (cmd.op === "actor" || cmd.op === "obj") {
+    if (!cmd.id) return;
+    if (cmd.show === false) delete stagedState.actors[cmd.id];
+    else stagedState.actors[cmd.id] = Object.assign({}, stagedState.actors[cmd.id] || {}, cmd);
+  } else if (cmd.op === "text" && cmd.id) {
+    if (cmd.hide) delete stagedState.hud[cmd.id];
+    else stagedState.hud[cmd.id] = Object.assign({}, stagedState.hud[cmd.id] || {}, cmd);
+  }
+}
+
+function autosave() {
+  if (!player || player.finished) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ snap: player.snapshot(), stage: stagedState })); } catch {}
+}
 
 function start() {
   clearInterval(typeTimer); clearInterval(choiceTimer);
@@ -173,7 +192,33 @@ function start() {
   $id("actors").innerHTML = ""; $id("hud").innerHTML = ""; hudLabels.clear();
   $id("veil").style.opacity = 0;
   for (const x of ["dialogue", "choices", "inputbox", "endcard"]) $id(x).hidden = true;
-  player = new Player(doc, { onStage: applyStage });
+  hudLabels.clear();
+  stagedState = { bg: null, actors: {}, hud: {} };
+  player = new Player(doc, { onStage: (c) => { trackStage(c); applyStage(c); } });
+
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch {}
+  if (saved && saved.snap && saved.snap.ip > 0 && saved.snap.ip < doc.script.length) {
+    const box = $id("choices"); box.innerHTML = ""; box.hidden = false;
+    const note = document.createElement("div");
+    note.style.color = "#cfc8bd"; note.textContent = "Есть сохранение — продолжить?";
+    box.appendChild(note);
+    const go = document.createElement("button"); go.textContent = "▶ Продолжить";
+    go.addEventListener("click", () => {
+      box.hidden = true;
+      stagedState = saved.stage || stagedState;
+      if (stagedState.bg) applyStage({ op: "bg", sprite_url: stagedState.bg });
+      for (const cmd of Object.values(stagedState.actors)) applyStage(cmd);
+      for (const cmd of Object.values(stagedState.hud)) applyStage(cmd);
+      render(player.restore(saved.snap));
+    });
+    box.appendChild(go);
+    const anew = document.createElement("button"); anew.textContent = "↻ Заново";
+    anew.addEventListener("click", () => { try { localStorage.removeItem(SAVE_KEY); } catch {}
+      box.hidden = true; render(player.advance()); });
+    box.appendChild(anew);
+    return;
+  }
   render(player.advance());
 }
 
@@ -242,13 +287,15 @@ function applyStage(cmd) {
 function refreshHud() { for (const { el, template } of hudLabels.values()) el.textContent = interpolate(template, player.vars); }
 
 function render(ev) {
+  autosave();
   refreshHud();
   $id("choices").hidden = true; $id("inputbox").hidden = true;
   if (ev.type === "say") showLine(ev, false);
   else if (ev.type === "choice") { if (ev.text !== undefined) showLine(ev, true); showChoices(ev); }
   else if (ev.type === "input") { $id("inputbox").hidden = false; $id("input-prompt").textContent = ev.prompt || ""; const f = $id("input-field"); f.value = ev.default || ""; if (ev.max > 0) f.maxLength = ev.max; f.focus(); f.select(); }
   else if (ev.type === "wait") setTimeout(() => render(player.advance()), ev.ms);
-  else if (ev.type === "end") { $id("dialogue").hidden = true; $id("endcard").hidden = false; }
+  else if (ev.type === "end") { $id("dialogue").hidden = true; $id("endcard").hidden = false;
+    try { localStorage.removeItem(SAVE_KEY); } catch {} }
 }
 
 function showLine(ev, noAdvance) {

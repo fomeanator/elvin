@@ -93,3 +93,22 @@ test("player: call/return + inc + stage forwarding", async () => {
   assert.deepEqual(staged, ["bg"]);
   assert.equal(p.advance().type, "end");
 });
+
+test("player: snapshot/restore re-presents the paused beat with its vars", async () => {
+  const { Player } = await load();
+  const doc = { script: [
+    { op: "set", key: "gold", expr: "7" },
+    { op: "say", text: "у тебя {gold} золота" },
+    { op: "say", text: "дальше" },
+  ] };
+  const p = new Player(doc);
+  const ev = p.advance();
+  assert.equal(ev.text, "у тебя 7 золота");
+  const snap = p.snapshot();
+
+  const p2 = new Player(doc);
+  const back = p2.restore(snap);
+  assert.equal(back.text, "у тебя 7 золота", "the same beat re-presents");
+  assert.equal(p2.vars.gold, 7, "vars travel with the save");
+  assert.equal(p2.advance().text, "дальше");
+});
