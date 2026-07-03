@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -39,9 +41,39 @@ func TestPatchManifestUnpinnedFallback(t *testing.T) {
 	}
 }
 
-// The tag comes from the version of the engine package the REAL template
-// points at — the release process tags every published version as vX.Y.Z.
+// The tag is the version of the engine package the template's file: entry
+// points at — hermetic fixture, mirrors the sandbox layout.
+func TestEngineReleaseTagDerivation(t *testing.T) {
+	tmpl := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpl, "Packages"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpl, "engine"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	must := func(p, s string) {
+		if err := os.WriteFile(p, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(filepath.Join(tmpl, "Packages", "manifest.json"),
+		`{"dependencies":{"com.lvn.engine":"file:../engine"}}`)
+	must(filepath.Join(tmpl, "engine", "package.json"), `{"version":"1.2.3"}`)
+
+	if got := engineReleaseTag(tmpl); got != "v1.2.3" {
+		t.Fatalf("engineReleaseTag = %q, want v1.2.3", got)
+	}
+	if got := engineReleaseTag(t.TempDir()); got != "" {
+		t.Fatalf("no manifest must mean no pin, got %q", got)
+	}
+}
+
+// Against the REAL local template (gitignored — skipped in CI): the release
+// process tags every published version as vX.Y.Z.
 func TestEngineReleaseTagFromSandboxTemplate(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "sandbox", "Packages", "manifest.json")); err != nil {
+		t.Skip("local sandbox template not present")
+	}
 	tag := engineReleaseTag("../sandbox")
 	if !regexp.MustCompile(`^v\d+\.\d+\.\d+`).MatchString(tag) {
 		t.Fatalf("engineReleaseTag(../sandbox) = %q, want vX.Y.Z", tag)
