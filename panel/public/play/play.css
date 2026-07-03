@@ -151,3 +151,10 @@ select {
 .backdrop .cmt { color: #6d6962; font-style: italic; }
 .backdrop .str { color: #d0a0a0; font-style: normal; }
 .backdrop .interp { color: #8fd0a0; font-style: normal; }
+
+.actors .actor-box {
+  position: absolute; bottom: 0; transform: translateX(-50%);
+}
+.actors .actor-box img {
+  position: absolute; max-height: none; transform: none; object-fit: contain;
+}
