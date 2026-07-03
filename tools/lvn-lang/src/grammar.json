@@ -63,7 +63,8 @@
       "draggable",
       "on_drop",
       "on_drop_miss",
-      "loop"
+      "loop",
+      "drag_bounds"
     ],
     "obj": [
       "id",
@@ -83,7 +84,8 @@
       "on_drop",
       "on_drop_miss",
       "loop",
-      "play"
+      "play",
+      "drag_bounds"
     ],
     "fade": [
       "to",

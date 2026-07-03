@@ -1,6 +1,6 @@
 scene knight_demo
 bg sprite_url="/content/sprites/doll/bg.png"
-actor id=knight x=0.5 y=0.97 width=0.5 height=0.75
+actor id=knight x=0.1 y=0.97 width=0.5 height=0.75 draggable=true
 
 Знакомься: настоящий Spine-скелет. 26 костей, официальный рантайм.
 actor id=knight play="Walk" loop=true
@@ -19,4 +19,8 @@ anim id=knight prop=alpha to=0 dur=0.8
 wait ms=900
 И вернётся.
 anim id=knight prop=alpha to=1 dur=0.8
-Управляется всё из скрипта: позиция, размер, фейды, движение. Занавес!
+Управляется всё из скрипта: позиция, размер, фейды, движение.
+А ещё его можно ХВАТАТЬ и таскать по сцене прямо пальцем. Попробуй!
+:idle_forever
+Таскай сколько хочешь. Занавес!
+goto idle_forever
