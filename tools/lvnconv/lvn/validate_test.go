@@ -199,6 +199,32 @@ func TestValidate_UnknownOp(t *testing.T) {
 	}
 }
 
+func TestValidate_DropMapTargets(t *testing.T) {
+	// on_drop "target:label" pairs and on_drop_miss are jump references: a
+	// typo must error, and a label reached only via a drop is NOT dead.
+	d := parse(t, `{"script":[
+		{"op":"obj","id":"apple","draggable":true,"on_drop":"bag:in_bag, box:nowhere","on_drop_miss":"missed"},
+		{"op":"label","id":"in_bag"},
+		{"op":"label","id":"missed"}
+	]}`)
+	iss := Validate(d)
+	if !hasError(iss, `undefined label "nowhere"`) {
+		t.Fatal("expected error for the typo'd drop label")
+	}
+	if hasWarn(iss, `"in_bag" is never targeted`) || hasWarn(iss, `"missed" is never targeted`) {
+		t.Fatal("drop-reached labels must not read as dead")
+	}
+}
+
+func TestValidate_MalformedDropPair(t *testing.T) {
+	d := parse(t, `{"script":[
+		{"op":"obj","id":"apple","draggable":true,"on_drop":"baglabel"}
+	]}`)
+	if !hasWarn(Validate(d), "not target:label") {
+		t.Fatal("expected malformed-pair warning")
+	}
+}
+
 func TestValidate_IfBranchTargets(t *testing.T) {
 	d := parse(t, `{"script":[
 		{"op":"if","cond":{},"then":"yes","else":"no"},

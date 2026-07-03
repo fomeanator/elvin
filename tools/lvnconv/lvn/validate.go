@@ -260,6 +260,20 @@ func Validate(d *Doc) []Issue {
 			case map[string]any:
 				ref(i, op, Cmd(v).Str("goto"))
 			}
+			// Drag & drop branches jump too: on_drop is "target:label" pairs
+			// (space/comma separated — the runtime's ParseDropMap syntax),
+			// on_drop_miss a plain label. Typos here used to slip through and
+			// the labels they reach read as dead.
+			if raw := c.Str("on_drop"); raw != "" {
+				for _, pair := range strings.FieldsFunc(raw, func(r rune) bool { return r == ' ' || r == ',' }) {
+					if k := strings.Index(pair, ":"); k > 0 && k < len(pair)-1 {
+						ref(i, op, pair[k+1:])
+					} else {
+						addWarn(i, op, fmt.Sprintf("on_drop pair %q is not target:label", pair))
+					}
+				}
+			}
+			ref(i, op, c.Str("on_drop_miss"))
 		case "choice":
 			opts, _ := c["options"].([]any)
 			if len(opts) == 0 {
