@@ -6,6 +6,24 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Added
+- **UI interaction sounds** — `manifest.ui.sounds { click, choice, type,
+  volume }`: short one-shots for tap-to-advance, picking a choice and the
+  typewriter tick (throttled). Clips resolve through ILvnAssets, play on
+  a dedicated StageAudio channel (never cut a story sfx) and scale by the
+  player's SFX volume. Missing urls stay silent.
+- **CG gallery** — `title.gallery = [{id, url, name?}]` curates unlockable
+  art: a shown `bg` with a matching url unlocks the item forever
+  (per-title PlayerPrefs meta-progress, survives deleted saves). The
+  quick menu grows a Gallery entry (label key `gallery`): thumbnail grid,
+  locked cells render `?`, tap opens a fullscreen viewer.
+
+### Removed
+- Dead duplicate components `BacklogPanel` and `SaveLoadPanel` (never
+  referenced; StageMenu's History and save/load slots are the shipped
+  equivalents). Hosts needing custom panels build on the public
+  `VnStage.Backlog` / `LvnSaveStore` instead.
+
+### Added
 - **Library-first embedding** — the engine is now a proper library with
   documented extension seams (docs/embedding.md): `LvnOps.Register` for
   host-defined script ops with flow control (Hold/Resume/GoTo, story
