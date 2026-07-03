@@ -1,0 +1,37 @@
+# The browser playground (`/play/`)
+
+Write Elvin Script on the left — it plays on the right. Zero install, zero
+tokens: the page ships with the **real** `lvnconv` compiler (wasm build, the
+same binary source the CLI and IDE use) and a faithful JS port of the story
+interpreter. Served by the content server at `/play/`; the canonical sources
+live in `panel/public/play/` (the panel deploy wipes `server/website`, so
+anything hand-placed there dies — `public/` survives every deploy).
+
+## What it covers
+
+| Layer | Coverage |
+|---|---|
+| Story core | `say`, choices (expr/stat filters, costs, **timeouts** with a countdown bar), **text input**, `if`/`set`/`inc`, `goto`/`call`/`return`, `wait`, lists & the expression built-ins, `{interpolation}` |
+| Staging | `bg` and `actor`/`obj` as images, reactive `text` HUD labels, `fade`/`dim`/`tint` as a CSS veil, one looping `audio` music channel |
+| Not here | bones/springs, Spine, particles, camera, drag & drop, saves — the full staging is the Unity runtime's job (the page says so under the stage) |
+
+## Sharing
+
+- **🔗 Поделиться** packs the script into the URL hash (base64). Anyone
+  opening the link plays it immediately — no account, no server round-trip.
+- **⬇ HTML** exports ONE self-contained file: the compiled `.lvn`, the
+  interpreter and a lean renderer inlined. It opens from disk (`file://`)
+  and plays anywhere; art URLs keep pointing wherever they pointed, so use
+  absolute URLs if the file should travel.
+- **⬇ .lvn** downloads the compiled container for the Unity runtime.
+
+## For maintainers
+
+- Interpreter: `core.js` (pure, DOM-free) + `expr.js` (recursive-descent
+  evaluator). Node tests ride the lang CI job:
+  `tools/lvn-lang/test/playground.test.js`.
+- Renderer/glue: `app.js`; syntax highlighting: `highlight.js` (a painted
+  `<pre>` behind a transparent textarea — no editor dependency).
+- The one-file exporter: `export.js` (fetches core/expr, strips module
+  syntax, inlines into a template with its own lean renderer).
+- Drafts autosave to `localStorage` (`lvn-play-draft`); a `#s=` URL wins.
