@@ -40,6 +40,14 @@ namespace Lvn.Spine
                 rt.anchorMax = new Vector2(0.5f, 0f);
                 rt.pivot = new Vector2(0.5f, 0f);
                 rt.anchoredPosition = Vector2.zero;
+                // The skeleton renders at its AUTHORED pixel size — fit it to the
+                // actor's slot height instead, with `scale` as a multiplier on top
+                // (1 = exactly the placed height).
+                var sd = data.GetSkeletonData(true);
+                float skelH = sd != null && sd.Height > 0f ? sd.Height : 1f;
+                float slotH = parent.rect.height;
+                if (slotH > 0f)
+                    rt.localScale = Vector3.one * (slotH / skelH * (scale <= 0f ? 1f : scale));
                 return graphic.gameObject;
             };
             LvnSpineBridge.Play = (go, name, loop) =>
