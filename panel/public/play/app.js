@@ -4,6 +4,7 @@
 
 import { Player } from "./core.js";
 import { interpolate } from "./expr.js";
+import { attach as attachHighlight } from "./highlight.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -423,6 +424,7 @@ for (const name of Object.keys(EXAMPLES)) {
 }
 examplesSel.addEventListener("change", () => {
   els.editor.value = EXAMPLES[examplesSel.value];
+  repaint();
   compileAndRun();
 });
 
@@ -430,6 +432,7 @@ examplesSel.addEventListener("change", () => {
 els.editor.addEventListener("input", () => {
   try { localStorage.setItem("lvn-play-draft", els.editor.value); } catch {}
 });
+const repaint = attachHighlight(els.editor, document.getElementById("backdrop"));
 
 function boot() {
   const m = /#s=(.+)/.exec(location.hash);
@@ -445,5 +448,6 @@ function boot() {
     try { draft = localStorage.getItem("lvn-play-draft"); } catch {}
     els.editor.value = draft || EXAMPLES["Первая сцена"];
   }
+  repaint();
   compileAndRun();
 }

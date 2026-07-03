@@ -129,3 +129,25 @@ select {
   position: absolute; inset: 0; pointer-events: none;
   background: #000; opacity: 0; transition: opacity .5s;
 }
+
+/* ── syntax highlighting: backdrop <pre> under a transparent textarea ── */
+.editor-wrap { position: relative; flex: 1; min-height: 0; }
+.editor-wrap .backdrop, .editor-wrap #editor {
+  position: absolute; inset: 0; margin: 0; overflow: auto;
+  font: 14px/1.6 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  padding: 16px; tab-size: 2; white-space: pre-wrap; word-break: break-word;
+}
+.editor-wrap .backdrop { color: #e8e4da; pointer-events: none; }
+.editor-wrap #editor {
+  background: transparent; color: transparent; caret-color: #e8e4da;
+  resize: none; border: 0; outline: none;
+}
+.backdrop .cmd { color: #7fb4e0; font-style: normal; }
+.backdrop .kw { color: #c8a050; font-style: normal; }
+.backdrop .lbl { color: #b48ce0; font-style: normal; }
+.backdrop .opt { color: #e8e4da; font-style: normal; }
+.backdrop .who { color: #ffd166; font-style: normal; }
+.backdrop .var { color: #8fd0a0; font-style: normal; }
+.backdrop .cmt { color: #6d6962; font-style: italic; }
+.backdrop .str { color: #d0a0a0; font-style: normal; }
+.backdrop .interp { color: #8fd0a0; font-style: normal; }
