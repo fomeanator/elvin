@@ -81,6 +81,15 @@ it yourself), the callback gets the running stage.
 - `VnStage.ExitRequested` / `RequestExit()` — the menu's Exit, or trigger it.
 - `VnStage.ChromeHiddenChanged` — the long-press art view (mirror your HUD).
 
+### Meta-progress stores
+
+- `LvnGalleryStore` — CG unlocks (per-title, survives deleted saves). The
+  engine unlocks on matching `bg`s; a host can read `Unlocked(titleId)` for
+  its own gallery screen, `Unlock` from custom ops, or `Clear` on "reset
+  progress". Feed `VnStage.Gallery` yourself when you bypass `NovelApp`.
+- `LvnSaveStore` — save slots (List/Get/Put/Delete, thumbnails, schema
+  migration) if you build your own save UI.
+
 ### Drawing over the engine
 
 The stage renders in a `UIDocument`; your own `UIDocument` with a higher
