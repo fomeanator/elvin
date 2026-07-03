@@ -5,6 +5,8 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-03
+
 ### Added
 - **UI interaction sounds** — `manifest.ui.sounds { click, choice, type,
   volume }`: short one-shots for tap-to-advance, picking a choice and the
