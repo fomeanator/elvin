@@ -5,6 +5,7 @@
 import { Player } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
+import { exportHtml } from "./export.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -103,6 +104,26 @@ if has(inv, "меч") -> armed
 -> __end
 :armed
 Торговец: С мечом-то оно спокойнее, да?`,
+
+  "Сцена с артом": `scene art_demo
+
+bg sprite_url="/content/sprites/doll/bg.png"
+obj id=apple sprite_url="/content/sprites/doll/apple.png" x=0.3 width=0.1
+obj id=bag sprite_url="/content/sprites/doll/bag.png" x=0.75 width=0.18
+
+Комната куклы. На полу — яблоко и сумка.
+- Убрать яблоко в сумку -> tidy
+- Оставить как есть -> leave
+
+:tidy
+obj id=apple show=false
+fade to=black
+Порядок! Яблоко в сумке.
+-> __end
+
+:leave
+dim alpha=0.35
+Пусть лежит. Живописно же.`,
 
   "Викторина-блиц": `scene quiz
 
@@ -414,6 +435,15 @@ $("download").addEventListener("click", () => {
   a.download = "game.lvn";
   a.click();
   URL.revokeObjectURL(a.href);
+});
+
+$("export-html").addEventListener("click", async () => {
+  if (!wasmReady) return;
+  const out = window.lvnsCompile(els.editor.value);
+  if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
+  const m = /^\s*scene\s+(\S+)/m.exec(els.editor.value);
+  await exportHtml(m ? m[1] : "game", out.json);
+  setStatus("HTML сохранён — файл играет сам по себе", "ok");
 });
 
 $("share").addEventListener("click", async () => {
