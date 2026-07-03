@@ -74,6 +74,12 @@ namespace Lvn.UI.World
             for (int i = _rig.childCount - 1; i >= 0; i--) Destroy(_rig.GetChild(i).gameObject);
             _layers.Clear(); _baseSprite.Clear(); _bones.Clear();
             if (sprites == null) return;
+            // A layer is a bone when it has bone data OR when someone attaches to it.
+            HashSet<string> boneParents = null;
+            if (layerDefs != null)
+                foreach (var d0 in layerDefs)
+                    if (!string.IsNullOrEmpty(d0.Parent))
+                        (boneParents ??= new HashSet<string>()).Add(d0.Parent);
             for (int i = 0; i < sprites.Count; i++)
             {
                 var sp = sprites[i];
@@ -102,7 +108,8 @@ namespace Lvn.UI.World
                     if (layerDefs != null && i < layerDefs.Count)
                     {
                         var d = layerDefs[i];
-                        if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f)
+                        if (!string.IsNullOrEmpty(d.Parent) || d.Spring > 0f
+                            || (boneParents != null && boneParents.Contains(lid)))
                         {
                             var rr = r.z > 0f && r.w > 0f ? r : new Vector4(0f, 0f, 1f, 1f);
                             rt.pivot = new Vector2(d.Px, 1f - d.Py); // rotation/scale joint (uGUI y-up)
