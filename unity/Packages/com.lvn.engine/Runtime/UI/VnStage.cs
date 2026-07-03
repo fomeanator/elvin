@@ -598,6 +598,12 @@ namespace Lvn.UI
                 }
             }
             _backlog.Add((who, text, style));
+            // Read tracking: remember the line, and if fast-forward is in
+            // read-only gear, stop it the moment something NEW comes up — the
+            // line stays on screen with its typewriter, exactly where the
+            // player's actual reading resumes.
+            bool wasNew = LvnReadStore.MarkRead(_saveTitleId, who, text);
+            if (wasNew && Skipping && LvnPrefs.SkipReadOnly) StopSkip();
             // Rolling autosave so a crash mid-scene loses a few lines at most.
             if (++_saySinceAutosave >= 5)
             {

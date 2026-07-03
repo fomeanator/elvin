@@ -21,7 +21,7 @@ namespace Lvn.UI
         // Backing fields, loaded once on first touch.
         private static bool _loaded;
         private static float _textSpeed, _autoDelayScale, _volMusic, _volAmbient, _volSfx, _dialogOpacity;
-        private static bool _autoAdvance, _reduceMotion;
+        private static bool _autoAdvance, _reduceMotion, _skipReadOnly;
 
         private static void EnsureLoaded()
         {
@@ -34,6 +34,7 @@ namespace Lvn.UI
             _volAmbient = PlayerPrefs.GetFloat(P + "vol_ambient", 1f);
             _volSfx = PlayerPrefs.GetFloat(P + "vol_sfx", 1f);
             _reduceMotion = PlayerPrefs.GetInt(P + "reduce_motion", 0) == 1;
+            _skipReadOnly = PlayerPrefs.GetInt(P + "skip_read_only", 0) == 1;
             _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
             _locale = PlayerPrefs.GetString(P + "locale", "");
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
@@ -105,6 +106,15 @@ namespace Lvn.UI
         {
             get { EnsureLoaded(); return _volSfx; }
             set { EnsureLoaded(); Set(ref _volSfx, "vol_sfx", Mathf.Clamp01(value)); }
+        }
+
+        /// <summary>Fast-forward stops at the first line the player has never
+        /// seen (per-title read tracking) instead of skipping blindly through
+        /// new content. Off by default — skip means skip.</summary>
+        public static bool SkipReadOnly
+        {
+            get { EnsureLoaded(); return _skipReadOnly; }
+            set { EnsureLoaded(); Set(ref _skipReadOnly, "skip_read_only", value); }
         }
 
         /// <summary>Suppress vestibular triggers: camera shake and full-screen

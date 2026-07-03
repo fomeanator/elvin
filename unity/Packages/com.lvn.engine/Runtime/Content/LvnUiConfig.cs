@@ -60,7 +60,8 @@ namespace Lvn.Content
         /// empty, quick_slot, overwrite_q ({0} = the slot label), overwrite, cancel,
         /// text_speed, auto_advance, auto_delay, music, ambient, sfx, language,
         /// language_original,
-        /// window_opacity, reduce_motion. Missing keys fall back to English.</summary>
+        /// window_opacity, reduce_motion, skip_read_only. Missing keys fall back
+        /// to English.</summary>
         public Dictionary<string, string> labels;
     }
 

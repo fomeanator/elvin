@@ -11,6 +11,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
   typewriter tick (throttled). Clips resolve through ILvnAssets, play on
   a dedicated StageAudio channel (never cut a story sfx) and scale by the
   player's SFX volume. Missing urls stay silent.
+- **Read tracking + skip-read-only** — the engine remembers every line
+  the player has seen (`LvnReadStore`, per-title, survives deleted
+  saves), and the new Settings toggle "Skip read text only" (label key
+  `skip_read_only`) stops fast-forward at the first never-seen line —
+  the genre's safe re-read gear. Hosts can read `ReadCount` for
+  seen-percentage UI.
 - **CG gallery** — `title.gallery = [{id, url, name?}]` curates unlockable
   art: a shown `bg` with a matching url unlocks the item forever
   (per-title PlayerPrefs meta-progress, survives deleted saves). The
