@@ -168,6 +168,23 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 	}
 }
 
+// Grant credits a user outside an HTTP request (the daily service etc.) —
+// same lock, same audit history as any earn.
+func (s *WalletService) Grant(userID, currency string, amount int64, reason string) {
+	if !reUserFile.MatchString(userID) || amount <= 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc := s.load(userID)
+	doc.Balances[currency] += amount
+	doc.History = append(doc.History, walletEntry{
+		TS: time.Now().UTC().Format(time.RFC3339), Type: "earn",
+		Currency: currency, Amount: amount, Reason: reason,
+	})
+	s.save(userID, doc)
+}
+
 func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)

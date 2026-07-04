@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func servicesMux(t *testing.T, iapDev bool) (*http.ServeMux, string) {
@@ -172,5 +173,51 @@ func TestAnalytics_BatchThenSummary(t *testing.T) {
 	}
 	if out["by_name"].(map[string]any)["chapter_start"].(float64) != 2 {
 		t.Fatalf("by_name off: %v", out)
+	}
+}
+
+func TestDaily_StreakGrowsResetsAndRefusesSecondClaim(t *testing.T) {
+	mux, dir := servicesMux(t, false)
+	_, tok := register(t, mux)
+
+	// A time machine for the daily service: rebuild it on the same stores
+	// with a controllable clock.
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	day := time.Date(2026, 7, 4, 10, 0, 0, 0, time.UTC)
+	daily, _ := NewDailyService(filepath.Join(dir, "daily"), auth, wallet,
+		filepath.Join(dir, "no-rewards.json")) // default: 25 gold
+	daily.now = func() time.Time { return day }
+	dm := http.NewServeMux()
+	daily.Routes(dm)
+
+	claim := func() (*httptest.ResponseRecorder, map[string]any) {
+		return call(t, dm, "POST", "/v1/daily/claim", tok, nil)
+	}
+
+	rec, out := claim()
+	if rec.Code != 200 || out["streak"].(float64) != 1 {
+		t.Fatalf("day1: %d %v", rec.Code, out)
+	}
+	if rec, out = claim(); rec.Code != 409 || out["error"] != "already_claimed" {
+		t.Fatalf("second claim same day must 409: %d %v", rec.Code, out)
+	}
+
+	day = day.AddDate(0, 0, 1) // next day → streak 2
+	if rec, out = claim(); rec.Code != 200 || out["streak"].(float64) != 2 {
+		t.Fatalf("day2 streak: %d %v", rec.Code, out)
+	}
+
+	day = day.AddDate(0, 0, 3) // a gap → streak resets to 1
+	if rec, out = claim(); rec.Code != 200 || out["streak"].(float64) != 1 {
+		t.Fatalf("gap must reset the streak: %d %v", rec.Code, out)
+	}
+
+	// The wallet actually received the three grants (3 × 25 default).
+	wm := http.NewServeMux()
+	wallet.Routes(wm)
+	rec, out = call(t, wm, "GET", "/v1/wallet", tok, nil)
+	if rec.Code != 200 || out["balances"].(map[string]any)["gold"].(float64) != 75 {
+		t.Fatalf("wallet after 3 dailies: %d %v", rec.Code, out)
 	}
 }

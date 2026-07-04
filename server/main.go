@@ -102,9 +102,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("analytics service: %v", err)
 	}
+	dailySvc, err := NewDailyService(filepath.Join(servicesDir, "daily"), authSvc, walletSvc,
+		filepath.Join(*contentDir, "daily-rewards.json"))
+	if err != nil {
+		log.Fatalf("daily service: %v", err)
+	}
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
 	analyticsSvc.Routes(mux)
+	dailySvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)

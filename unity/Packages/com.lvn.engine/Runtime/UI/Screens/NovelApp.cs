@@ -89,6 +89,11 @@ namespace Lvn.UI.Screens
                 ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
 
             var contentBase = ServerUrl;
+            // Product services ride the same host; registration is idempotent
+            // and a no-op offline — a pure-offline game just never signs in.
+            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            _ = Lvn.Services.LvnBackend.EnsureRegisteredAsync();
+            Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
             {
                 contentBase = LocalContentBase(BundleSubdir);
@@ -318,9 +323,13 @@ namespace Lvn.UI.Screens
             {
                 LvnProgress.SetCurrent(title, chapter);
                 ChapterStarted?.Invoke(title, chapter);
+                Lvn.Services.LvnAnalytics.Track("chapter_start",
+                    ("title", title?.id), ("chapter", chapter.id));
                 var finished = await PlayOneChapterAsync(title, chapter, playerName);
                 if (finished == null) break; // left mid-chapter (cancel/error) → carousel
                 ChapterFinished?.Invoke(title, finished);
+                Lvn.Services.LvnAnalytics.Track("chapter_finish",
+                    ("title", title?.id), ("chapter", finished.id));
                 // A cross-chapter save load can land the player in another title —
                 // continue along whichever title the finished chapter belongs to.
                 var (owner, _) = FindChapterByScriptUrl(finished.script_url);
