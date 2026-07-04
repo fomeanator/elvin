@@ -93,6 +93,7 @@ namespace Lvn.UI.Screens
             // and a no-op offline — a pure-offline game just never signs in.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
             _ = Lvn.Services.LvnBackend.EnsureRegisteredAsync();
+            Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
             Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
             {
