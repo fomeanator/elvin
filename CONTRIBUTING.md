@@ -3,6 +3,27 @@
 Thanks for your interest. LVN is a small, sharp toolkit; contributions that keep
 it that way are very welcome.
 
+## The easiest (and most needed) contributions: content
+
+You don't need Unity or Go for any of these:
+
+- **A recipe** — build a small `.lvns` pattern in the
+  [playground](https://fomeanator.github.io/unity-lvn-vn-engine/) (or `/play/`
+  locally), pass the gate below, add a section to `howto/recipes.md`.
+- **A genre example** — a folder under `howto/<genre>/` (README + validated
+  `.lvns`; the 12 existing ones show the shape).
+- **Playground examples** — the dropdown lives in
+  `panel/public/play/app.js` (`EXAMPLES`).
+- **Docs fixes** — anything in `howto/`/`docs/` that confused you is a bug.
+
+The quality gate every shipped example passes:
+
+```sh
+cd tools/lvnconv
+go run . convert -i your.lvns -o /tmp/out.lvn && go run . validate /tmp/out.lvn
+# the bar: OK … 0 warning(s)
+```
+
 ## The shape of the project
 
 - **`.lvn` is the contract.** Everything compiles to it; the runtime plays it.

@@ -4,6 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Write your story as a simple script — Elvin plays it as a real game in Unity.**
+
+> 🎮 **Try it in 10 seconds — no install:**
+> **[the browser playground](https://fomeanator.github.io/unity-lvn-vn-engine/)** —
+> write on the left, play on the right, share by link, export a single HTML file.
 Dialogue, branching choices, characters with emotions, stats and inventory,
 animation, music, save/load — all from plain text a writer (or an AI) can author.
 Drop the script into your Unity project and press Play. You don't build a

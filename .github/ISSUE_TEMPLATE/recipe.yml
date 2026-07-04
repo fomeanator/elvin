@@ -1,0 +1,10 @@
+name: 📖 Recipe or example request
+description: A pattern you want shown in howto/recipes.md or a genre kit
+labels: [docs, good first issue]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What should the recipe demonstrate?
+      description: e.g. "a shop with limited stock", "a timed stealth sequence". PRs welcome — see CONTRIBUTING.md, it takes ~10 minutes.
+    validations: { required: true }
