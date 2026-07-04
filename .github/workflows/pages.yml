@@ -1,7 +1,7 @@
-# The public playground: panel/public/play is fully static (the compiler is
-# wasm in the browser), so GitHub Pages hosts it for free — the project's
-# "try it right now" link. Server-backed extras (catalog art, leaderboards)
-# degrade silently; write→play→share→export-HTML works entirely client-side.
+# The public site on GitHub Pages: the playground at the root and the docs at
+# /docs/ — both fully static (the compiler is wasm; the docs viewer is a
+# zero-dependency SPA). Server-backed extras (catalog art, leaderboards)
+# degrade silently.
 #
 # One-time setup: repo Settings → Pages → Source: "GitHub Actions".
 name: pages
@@ -10,7 +10,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "panel/public/play/**"
+      - "panel/public/**"
+      - "howto/**"
+      - "docs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -32,9 +34,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp -r panel/public/play/* _site/          # playground at the root
+          mkdir -p _site/docs
+          cp panel/public/docs/*.html panel/public/docs/*.css panel/public/docs/*.js _site/docs/
+          bash panel/public/docs/build-content.sh . _site/docs/content
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: panel/public/play
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

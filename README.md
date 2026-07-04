@@ -8,6 +8,9 @@
 > 🎮 **Try it in 10 seconds — no install:**
 > **[the browser playground](https://fomeanator.github.io/unity-lvn-vn-engine/)** —
 > write on the left, play on the right, share by link, export a single HTML file.
+>
+> 📚 **Docs:** the whole `howto/` + `docs/` as a searchable site —
+> **[fomeanator.github.io/unity-lvn-vn-engine/docs](https://fomeanator.github.io/unity-lvn-vn-engine/docs/)**.
 Dialogue, branching choices, characters with emotions, stats and inventory,
 animation, music, save/load — all from plain text a writer (or an AI) can author.
 Drop the script into your Unity project and press Play. You don't build a
