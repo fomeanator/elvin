@@ -1,7 +1,7 @@
 {
-  "__v": 3,
+  "__v": 4,
   "balances": {
-    "gold": 0
+    "gold": 25
   },
   "inventory": {
     "epic_sword": 1
@@ -29,6 +29,13 @@
       "amount": 600,
       "sku": "epic_sword",
       "reason": "shop"
+    },
+    {
+      "ts": "2026-07-04T03:20:53Z",
+      "type": "earn",
+      "currency": "gold",
+      "amount": 25,
+      "reason": "daily:day1"
     }
   ]
 }

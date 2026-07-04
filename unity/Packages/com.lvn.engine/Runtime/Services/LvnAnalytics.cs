@@ -28,6 +28,7 @@ namespace Lvn.Services
         public static void Track(string name, params (string key, object value)[] props)
         {
             if (string.IsNullOrEmpty(name)) return;
+            if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return; // pure-offline game: no queue growth
             EnsureLoaded();
             var ev = new JObject
             {

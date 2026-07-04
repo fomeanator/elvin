@@ -1,0 +1,9 @@
+[
+  { "currency": "gold", "amount": 25 },
+  { "currency": "gold", "amount": 50 },
+  { "currency": "gold", "amount": 75 },
+  { "currency": "gold", "amount": 100 },
+  { "currency": "crystals", "amount": 1 },
+  { "currency": "gold", "amount": 150 },
+  { "currency": "crystals", "amount": 3 }
+]
