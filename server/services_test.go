@@ -17,6 +17,11 @@ import (
 )
 
 func servicesMux(t *testing.T, iapDev bool) (*http.ServeMux, string) {
+	mux, _, dir := servicesMuxFull(t, iapDev)
+	return mux, dir
+}
+
+func servicesMuxFull(t *testing.T, iapDev bool) (*http.ServeMux, *AuthService, string) {
 	t.Helper()
 	dir := t.TempDir()
 	catalog := filepath.Join(dir, "iap-catalog.json")
@@ -38,7 +43,7 @@ func servicesMux(t *testing.T, iapDev bool) (*http.ServeMux, string) {
 	auth.Routes(mux)
 	wallet.Routes(mux)
 	analytics.Routes(mux)
-	return mux, dir
+	return mux, auth, dir
 }
 
 func call(t *testing.T, mux *http.ServeMux, method, path, token string, body any) (*httptest.ResponseRecorder, map[string]any) {
@@ -219,5 +224,58 @@ func TestDaily_StreakGrowsResetsAndRefusesSecondClaim(t *testing.T) {
 	rec, out = call(t, wm, "GET", "/v1/wallet", tok, nil)
 	if rec.Code != 200 || out["balances"].(map[string]any)["gold"].(float64) != 75 {
 		t.Fatalf("wallet after 3 dailies: %d %v", rec.Code, out)
+	}
+}
+
+func TestLeaderboard_BestScoreWinsAndRanks(t *testing.T) {
+	mux, auth, dir := servicesMuxFull(t, false)
+	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb"), auth)
+	lb.Routes(mux)
+
+	_, tok1 := register(t, mux)
+	// a second player from another device
+	rec, out := call(t, mux, "POST", "/v1/auth/register", "",
+		map[string]string{"device_id": "another-device-9876543210fedcba"})
+	if rec.Code != 200 {
+		t.Fatal("second register failed")
+	}
+	tok2 := out["token"].(string)
+
+	rec, out = call(t, mux, "POST", "/v1/leaderboard/quiz_score", tok1,
+		map[string]any{"score": 100, "name": "Фомин"})
+	if rec.Code != 200 || out["rank"].(float64) != 1 {
+		t.Fatalf("first submit: %d %v", rec.Code, out)
+	}
+	rec, out = call(t, mux, "POST", "/v1/leaderboard/quiz_score", tok2,
+		map[string]any{"score": 150, "name": "Арам"})
+	if out["rank"].(float64) != 1 {
+		t.Fatalf("higher score must lead: %v", out)
+	}
+	// a worse re-submit never downgrades
+	rec, out = call(t, mux, "POST", "/v1/leaderboard/quiz_score", tok2,
+		map[string]any{"score": 50})
+	if out["improved"].(bool) != false || out["rank"].(float64) != 1 {
+		t.Fatalf("worse score must keep the best: %v", out)
+	}
+
+	rec, out = call(t, mux, "GET", "/v1/leaderboard/quiz_score?n=10", tok1, nil)
+	if rec.Code != 200 || out["total"].(float64) != 2 {
+		t.Fatalf("top: %d %v", rec.Code, out)
+	}
+	top := out["top"].([]any)
+	if top[0].(map[string]any)["name"] != "Арам" {
+		t.Fatalf("order off: %v", top)
+	}
+	if out["me"].(map[string]any)["rank"].(float64) != 2 {
+		t.Fatalf("caller's rank off: %v", out["me"])
+	}
+
+	// ServeMux normalizes ".." with a redirect before our handler; the slug
+	// regexp still guards encoded variants. Either way: no 200, no file.
+	if rec, _ := call(t, mux, "POST", "/v1/leaderboard/../etc", tok1, map[string]any{"score": 1}); rec.Code == 200 {
+		t.Fatalf("path traversal must not succeed, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "POST", "/v1/leaderboard/Bad%2FName", tok1, map[string]any{"score": 1}); rec.Code == 200 {
+		t.Fatalf("encoded slash in board name must not succeed, got %d", rec.Code)
 	}
 }
