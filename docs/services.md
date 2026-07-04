@@ -47,6 +47,19 @@ wallet — the audit history shows `daily:dayN`.
 Unity: `await LvnDaily.GetAsync()` / `await LvnDaily.ClaimAsync()` (the wallet
 mirror refreshes itself after a claim).
 
+## Leaderboards
+
+Named boards (`[a-z0-9_-]`), created on first submit. Best score wins;
+ties go to the earlier claim. Top-N includes the caller's own rank.
+
+| Route | Body | Result |
+|---|---|---|
+| `POST /v1/leaderboard/{board}` | `{score, name?}` (Bearer) | `{improved, rank}` — a worse re-submit never downgrades |
+| `GET /v1/leaderboard/{board}?n=10` | — (Bearer optional) | `{top, total, me?: {rank, score}}` |
+
+Unity: `await LvnLeaderboard.SubmitAsync("quiz_score", 420, "Фомин")` /
+`await LvnLeaderboard.GetTopAsync("quiz_score")`.
+
 ## Analytics — append-only event log
 
 Anonymous or authenticated batches; each day is a JSONL file under

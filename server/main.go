@@ -107,6 +107,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("daily service: %v", err)
 	}
+	lbSvc, err := NewLeaderboardService(filepath.Join(servicesDir, "leaderboards"), authSvc)
+	if err != nil {
+		log.Fatalf("leaderboard service: %v", err)
+	}
+	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
 	analyticsSvc.Routes(mux)
