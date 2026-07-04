@@ -124,7 +124,10 @@ namespace Lvn.UI
                 if (r != null && r.Value.Contains(np)) { label = kv.Value; break; }
             }
             label ??= di.MissLabel;
-            LvnPlayer.Log?.Invoke("drag end '" + id + "' → " + (label ?? "(stay)"));
+            // Log the drop coords in the same 0..1 units the script uses — copy
+            // them straight into an `actor x= y=` to pin the object there.
+            LvnPlayer.Log?.Invoke("drag end '" + id + "' → x=" + clEnd.x.ToString("0.###")
+                + " y=" + clEnd.y.ToString("0.###") + " → " + (label ?? "(stay)"));
             if (label == null || _player == null) return;
 
             _awaitingTap = false;

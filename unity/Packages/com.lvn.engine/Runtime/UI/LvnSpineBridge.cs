@@ -23,6 +23,11 @@ namespace Lvn.UI
         /// <summary>Play a named animation: (skeleton GO, name, loop).</summary>
         public static Action<GameObject, string, bool> Play;
 
+        /// <summary>Re-fit a live skeleton to its slot's CURRENT height:
+        /// (skeleton GO, catalog scale). Called on every actor command so
+        /// `height`/`scale` resize the Spine in real time, not just at build.</summary>
+        public static Action<GameObject, float> Refit;
+
         public static bool Available => Create != null;
     }
 }

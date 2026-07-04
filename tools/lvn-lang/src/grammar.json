@@ -134,7 +134,9 @@
       "ms"
     ],
     "preload": [
-      "assets"
+      "assets",
+      "url",
+      "kind"
     ],
     "text_pace": [
       "cps"
