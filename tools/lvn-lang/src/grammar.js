@@ -136,7 +136,9 @@ export const OP_FIELDS = {
     "ms"
   ],
   "preload": [
-    "assets"
+    "assets",
+    "url",
+    "kind"
   ],
   "text_pace": [
     "cps"
@@ -495,7 +497,7 @@ export const GROUPS = [
       ],
       [
         "preload",
-        "assets"
+        "assets, url, kind"
       ]
     ]
   },

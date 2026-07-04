@@ -23,13 +23,7 @@ namespace Lvn.UI
             var placement = _placements.TryGetValue(id, out var prevSp)
                 ? PlacementFrom(cmd, prevSp) : PlacementFrom(cmd);
             _placements[id] = placement; // sticky base (spine actors too)
-            // show=false hides but KEEPS the built skeleton — re-showing (or a
-            // later fade-in via an alpha track) is instant.
-            if (!placement.Show)
-            {
-                if (_spineActors.TryGetValue(id, out var hidden) && hidden != null) hidden.SetActive(false);
-                return;
-            }
+
             if (!LvnSpineBridge.Available)
             {
                 Debug.LogWarning("[lvn] '" + id + "' is kind:spine, but the spine-unity integration " +
@@ -42,20 +36,29 @@ namespace Lvn.UI
                 return;
             }
 
+            bool alreadyBuilt = _spineActors.TryGetValue(id, out var existing) && existing != null;
+
+            // Fast hide: an already-built skeleton just toggles off. But a
+            // NEVER-built one with show=false is WARMED below — created hidden so
+            // the later reveal is a single SetActive, never a synchronous build
+            // in the frame the player sees. (Author: `actor id=x show=false` a
+            // couple of lines before you need it.)
+            if (!placement.Show && alreadyBuilt)
+            {
+                existing.SetActive(false);
+                return;
+            }
+
             // The full sprite-actor placement vocabulary applies: x/y/width/height/
-            // anchor/flip/rotation via the slot, opacity via the rig's CanvasGroup —
-            // and because the skeleton mounts on the RIG, every anim/move/alpha
-            // channel (fades, travels, bobs) drives it exactly like sprite layers.
+            // anchor/flip/rotation via the slot, opacity via the rig's CanvasGroup.
             _renderer.PlaceActor(id, placement);
             canvas.SetActorOpacity(id, placement.Opacity);
             var slot = canvas.RigFor(id);
             if (slot == null) return;
 
-            if (_spineActors.TryGetValue(id, out var existing) && existing != null && !existing.activeSelf)
-                existing.SetActive(true); // re-shown after show=false
-
-            bool alive = _spineActors.TryGetValue(id, out var cur) && cur != null; // fake-null = destroyed → rebuild
-            if (!alive && !_spineLoading.Contains(id))
+            // Build once — for a real show OR a warm (show=false, never built).
+            // The reveal frame never pays the skeleton-parse + mesh cost.
+            if (!alreadyBuilt && !_spineLoading.Contains(id))
             {
                 _spineLoading.Add(id);
                 try
@@ -78,6 +81,7 @@ namespace Lvn.UI
                     var go = LvnSpineBridge.Create(slot, json, atlasText, page.texture, sp.scale);
                     if (go == null) return;
                     _spineActors[id] = go;
+                    existing = go;
                     if (_spinePendingPlay.TryGetValue(id, out var pend))
                     {
                         _spinePendingPlay.Remove(id);
@@ -86,6 +90,16 @@ namespace Lvn.UI
                     else if (!string.IsNullOrEmpty(sp.auto)) LvnSpineBridge.Play(go, sp.auto, true);
                 }
                 finally { _spineLoading.Remove(id); }
+            }
+
+            // Visibility follows show; a warm build stays inactive until the
+            // later show=true flips it on with zero build cost.
+            if (existing != null)
+            {
+                existing.SetActive(placement.Show);
+                // Real-time size: re-fit to the slot's (possibly changed) height
+                // each command, so `actor id=x height=…` resizes on the fly.
+                LvnSpineBridge.Refit?.Invoke(existing, e.spine.scale);
             }
 
             var play = (string)cmd["play"];

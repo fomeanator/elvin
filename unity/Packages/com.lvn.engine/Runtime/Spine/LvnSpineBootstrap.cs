@@ -39,21 +39,26 @@ namespace Lvn.Spine
                 var graphic = SkeletonGraphic.NewSkeletonGraphicGameObject(data, parent, material);
                 graphic.Initialize(false);
                 var rt = graphic.rectTransform;
-                rt.anchorMin = new Vector2(0.5f, 0f); // feet at the slot's bottom-centre
-                rt.anchorMax = new Vector2(0.5f, 0f);
-                rt.pivot = new Vector2(0.5f, 0f);
-                rt.anchoredPosition = Vector2.zero;
-                // The skeleton renders at its AUTHORED pixel size — fit it to the
-                // actor's slot height instead, with `scale` as a multiplier on top
-                // (1 = exactly the placed height).
-                // Fit by what the renderer ACTUALLY draws: skeleton data height
-                // times the graphic's own mesh scale — no unit guessing.
-                var sd = data.GetSkeletonData(true);
-                float mesh = graphic.MeshScale > 0f ? graphic.MeshScale : 1f;
-                float renderedH = sd != null && sd.Height > 0f ? sd.Height * mesh : 0f;
-                float slotH = parent.rect.height;
-                if (slotH > 0f && renderedH > 0f)
-                    rt.localScale = Vector3.one * (slotH / renderedH * (scale <= 0f ? 1f : scale));
+                // Stretch to fill the actor's slot, then let spine-unity's OWN
+                // layout scaling fit the skeleton into it — the supported path
+                // (Layout Scale Mode), not a hand-rolled localScale guess. It
+                // re-fits every frame, so changing the slot height resizes the
+                // Spine in real time for free.
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                graphic.layoutScaleMode = SkeletonGraphic.LayoutMode.None;
+                graphic.MatchRectTransformWithBounds();   // referenceSize = skeleton bounds
+                rt.anchorMin = Vector2.zero;               // restore stretch (Match set it to bounds)
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                graphic.layoutScaleMode = SkeletonGraphic.LayoutMode.FitInParent;
+                // The catalog `scale` is a multiplier ON TOP of the auto-fit.
+                if (scale > 0f && scale != 1f)
+                    rt.localScale = Vector3.one * scale;
                 return graphic.gameObject;
             };
             LvnSpineBridge.Play = (go, name, loop) =>
@@ -61,7 +66,16 @@ namespace Lvn.Spine
                 var g = go != null ? go.GetComponent<SkeletonGraphic>() : null;
                 if (g != null && g.AnimationState != null) g.AnimationState.SetAnimation(0, name, loop);
             };
+            // Real-time size is now automatic (layoutScaleMode), but keep the
+            // catalog-scale multiplier reapplied on demand.
+            LvnSpineBridge.Refit = (go, scale) =>
+            {
+                var g = go != null ? go.GetComponent<SkeletonGraphic>() : null;
+                if (g != null && scale > 0f)
+                    g.rectTransform.localScale = Vector3.one * scale;
+            };
             Debug.Log("[lvn] spine-unity bridge hooked");
         }
+
     }
 }

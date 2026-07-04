@@ -437,6 +437,15 @@ namespace Lvn.UI
                 if (op == "bg" || op == "actor" || op == "obj")
                 {
                     var url = (string)c["sprite_url"];
+                    // A Spine actor carries no sprite_url — its (heavy) texture
+                    // lives in the catalog. Warm it here so the skeleton builds
+                    // from cache when shown, never streaming in the reveal frame.
+                    if (string.IsNullOrEmpty(url) && (op == "actor" || op == "obj"))
+                    {
+                        var sp = Catalog?.Get((string)c["id"]);
+                        if (sp != null && sp.kind == "spine" && sp.spine != null)
+                            url = sp.spine.texture;
+                    }
                     if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
                     (sprites ??= new List<string>()).Add(url);
                 }
@@ -1265,19 +1274,27 @@ namespace Lvn.UI
         private async Task PreloadAssetsAsync(JObject cmd)
         {
             if (Assets == null) return;
-            var assetArray = cmd["assets"] as JArray;
-            if (assetArray == null || assetArray.Count == 0) return;
 
             var spriteUrls = new List<string>();
             var audioUrls = new List<string>();
-            foreach (var a in assetArray)
+
+            void Add(string url, string kind)
             {
-                var url = (string)((JObject)a)["url"];
-                var kind = (string)((JObject)a)["kind"];
-                if (string.IsNullOrEmpty(url)) continue;
+                if (string.IsNullOrEmpty(url)) return;
                 if (kind == "audio") audioUrls.Add(url);
-                else spriteUrls.Add(url);
+                else spriteUrls.Add(url); // a Spine texture warms as a sprite too
             }
+
+            // Batch form (`assets=[…]`) OR the terse single-asset form
+            // (`preload url=… kind=…`) — the latter is how a chapter warms one
+            // heavy Spine texture before its actor appears, killing the pop-in.
+            if (cmd["assets"] is JArray assetArray)
+                foreach (var a in assetArray)
+                    Add((string)((JObject)a)["url"], (string)((JObject)a)["kind"]);
+            else
+                Add((string)cmd["url"], (string)cmd["kind"]);
+
+            if (spriteUrls.Count == 0 && audioUrls.Count == 0) return;
 
             var tasks = new List<Task>();
             if (spriteUrls.Count > 0)

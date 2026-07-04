@@ -44,7 +44,7 @@ var OpFields = map[string][]string{
 	"audio":     {"channel", "url", "action", "fade", "volume", "loop"},
 	"wait":      {"ms"},
 	"input":     {"var", "prompt", "default", "max"},
-	"preload":   {"assets"},
+	"preload":   {"assets", "url", "kind"},
 	"text_pace": {"cps"},
 	"goto":      {"label"},
 	"if":        {"expr", "then", "else", "cond"},
