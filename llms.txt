@@ -47,6 +47,13 @@ The quality gate for every generated script:
   (compile+validate quality gate), `lvns_convert`, `lvn_doc`. Build:
   `go build ./tools/lvnconv/cmd/lvn-mcp`.
 
+## Product services (optional backend)
+
+- [Services](docs/services.md): anonymous device auth, server-authoritative
+  wallet + IAP verify, append-only analytics — modular Go services in the
+  content server, Unity clients in `Lvn.Services` (LvnBackend / LvnWallet /
+  LvnAnalytics). Fully optional; games play offline without them.
+
 ## Embedding & operations
 
 - [Embedding the engine](docs/embedding.md): three entry levels, custom ops

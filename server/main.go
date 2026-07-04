@@ -54,6 +54,7 @@ func main() {
 	addr := flag.String("addr", ":8000", "listen address")
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
+	iapDev := flag.Bool("iap-dev", false, "accept any IAP receipt (test builds only — never production)")
 	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
 	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
@@ -83,6 +84,27 @@ func main() {
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
 	mux.Handle("/content/", srv.contentHandler(*contentDir))
 	mux.HandleFunc("/v1/state", srv.handleState)
+
+	// Product services — auth, wallet/IAP, analytics. Modular by design: each
+	// owns its store under <content>/services and registers its own routes, so
+	// promoting one to a separate process is a file move, not a rewrite.
+	servicesDir := filepath.Join(*contentDir, "services")
+	authSvc, err := NewAuthService(servicesDir)
+	if err != nil {
+		log.Fatalf("auth service: %v", err)
+	}
+	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), authSvc,
+		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev)
+	if err != nil {
+		log.Fatalf("wallet service: %v", err)
+	}
+	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken)
+	if err != nil {
+		log.Fatalf("analytics service: %v", err)
+	}
+	authSvc.Routes(mux)
+	walletSvc.Routes(mux)
+	analyticsSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)
