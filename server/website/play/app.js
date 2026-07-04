@@ -22,7 +22,7 @@ let wasmReady = false;
 (async () => {
   try {
     const go = new window.Go();
-    const res = await WebAssembly.instantiateStreaming(fetch("/lvns.wasm"), go.importObject);
+    const res = await WebAssembly.instantiateStreaming(fetch("lvns.wasm"), go.importObject); // relative: works at / and under GitHub Pages subpaths
     go.run(res.instance);
     wasmReady = true;
     setStatus("готов", "ok");
@@ -429,6 +429,7 @@ function applyStageDom(cmd, vars) {
         node.innerHTML = "";
         for (const l of resolveLayers(entity, cmd)) {
           const img = document.createElement("img");
+          img.onerror = () => img.remove();
           img.src = l.url;
           if (typeof l.x === "number") {
             img.style.left = (l.x * 100) + "%";
@@ -457,6 +458,7 @@ function applyStageDom(cmd, vars) {
       if (!node && url) {
         node = document.createElement("img");
         node.dataset.id = cmd.id;
+        node.onerror = () => node.remove(); // no content server (e.g. Pages) → text-only beat
         els.actors.appendChild(node);
       }
       if (!node) break;
