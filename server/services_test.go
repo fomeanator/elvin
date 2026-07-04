@@ -279,3 +279,22 @@ func TestLeaderboard_BestScoreWinsAndRanks(t *testing.T) {
 		t.Fatalf("encoded slash in board name must not succeed, got %d", rec.Code)
 	}
 }
+
+func TestLeaderboard_NameTruncationIsRuneSafe(t *testing.T) {
+	mux, auth, dir := servicesMuxFull(t, false)
+	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb2"), auth)
+	lb.Routes(mux)
+	_, tok := register(t, mux)
+	long := "БраузерныйЧемпионСОченьДлиннымИменемКоторое"
+	_, _ = call(t, mux, "POST", "/v1/leaderboard/names", tok, map[string]any{"score": 1, "name": long})
+	_, out := call(t, mux, "GET", "/v1/leaderboard/names", tok, nil)
+	got := out["top"].([]any)[0].(map[string]any)["name"].(string)
+	if len([]rune(got)) != 32 {
+		t.Fatalf("expected 32 runes, got %d (%q)", len([]rune(got)), got)
+	}
+	for _, r := range got {
+		if r == '�' {
+			t.Fatalf("broken rune in %q", got)
+		}
+	}
+}

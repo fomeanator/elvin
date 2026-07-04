@@ -90,8 +90,8 @@ func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request
 		http.Error(w, "score required", http.StatusBadRequest)
 		return
 	}
-	if len(req.Name) > 32 {
-		req.Name = req.Name[:32]
+	if r := []rune(req.Name); len(r) > 32 {
+		req.Name = string(r[:32]) // rune-safe: never cut a UTF-8 char in half
 	}
 
 	s.mu.Lock()
