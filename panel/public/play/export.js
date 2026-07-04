@@ -69,7 +69,7 @@ export async function exportHtml(title, lvnJson, catalog = {}) {
     .replace(/^export /gm, "");
 
   const html = TEMPLATE
-    .replace("__TITLE__", escapeHtml(title || "LVN story"))
+    .replaceAll("__TITLE__", escapeHtml(title || "LVN story"))
     .replace("__EXPR__", strip(expr))
     .replace("__CORE__", strip(core))
     .replace("__DOC__", "<" + "script id=\"lvn-doc\" type=\"application/json\">"
@@ -128,6 +128,13 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
 .endcard { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 16px; background: rgba(0,0,0,.55); font-size: 28px; }
 .made { position: absolute; top: 8px; right: 12px; font-size: 11px; color: #6d6962; z-index: 5; }
+.titlecard { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 24px;
+  background: radial-gradient(ellipse at 50% 35%, #1c1c28 0%, #0a0a0f 80%); }
+.tc-name { font-size: 34px; font-weight: 700; letter-spacing: .5px; color: #f4ecd8;
+  text-align: center; padding: 0 24px; }
+.titlecard button { background: #c8a050; color: #14141a; font-weight: 700; border: 0;
+  border-radius: 12px; padding: 14px 34px; font-size: 18px; cursor: pointer; }
 .backbtn { position: absolute; top: 8px; left: 10px; z-index: 5; background: rgba(38,38,46,.8);
   color: #e8e4da; border: 0; border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; }
 .made a { color: #8f8a80; }
@@ -153,6 +160,10 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
   <div id="endcard" class="endcard" hidden>
     <div>Конец</div>
     <button id="restart">↻ Сначала</button>
+  </div>
+  <div id="titlecard" class="titlecard">
+    <div class="tc-name">__TITLE__</div>
+    <button id="play-btn">▶ Играть</button>
   </div>
   <button id="back" class="backbtn" title="Шаг назад">↩</button>
   <span class="made">made with <a href="https://github.com/fomeanator/unity-lvn-vn-engine">LVN</a></span>
@@ -364,7 +375,12 @@ $id("input-field").addEventListener("keydown", (e) => { if (e.key === "Enter") s
 $id("restart").addEventListener("click", start);
 $id("back").addEventListener("click", rollback);
 document.addEventListener("wheel", (e) => { if (e.deltaY < 0) rollback(); });
-start();
+// The title card doubles as the user gesture the autoplay policy wants —
+// music started after this click is allowed to sound.
+$id("play-btn").addEventListener("click", () => {
+  $id("titlecard").remove();
+  start();
+});
 </script>
 </body>
 </html>`;
