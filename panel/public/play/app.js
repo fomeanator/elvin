@@ -246,6 +246,7 @@ function compileAndRun() {
   const sceneName = (/^\s*scene\s+(\S+)/m.exec(src) || [])[1] || "scene";
   saveKey = "lvn-play-save:" + sceneName;
   resetStage();
+  history = [];
   player = new Player(doc, { onStage: applyStage });
 
   // A save from an earlier visit: offer to continue (the whole point of
@@ -411,7 +412,10 @@ function applyStageDom(cmd, vars) {
       break;
     }
     case "audio": {
-      // One looping music channel is enough for a demo pane.
+      if (cmd.channel === "sfx" && cmd.action !== "stop" && cmd.url) {
+        new Audio(cmd.url).play().catch(() => {});
+        break;
+      }
       if (cmd.channel === "music") {
         if (cmd.action === "stop") { window.__lvnMusic?.pause(); break; }
         if (cmd.url) {
@@ -456,6 +460,29 @@ function refreshHud(vars) {
 
 // ── pause-event rendering ──────────────────────────────────────────────────
 let saveKey = null;
+// Rollback history: one {snap, stage} pair per pause, engine-style.
+let history = [];
+const HISTORY_MAX = 100;
+
+function pushHistory() {
+  if (!player || player.finished) return;
+  history.push({ snap: player.snapshot(), stage: JSON.parse(JSON.stringify(stagedState)) });
+  if (history.length > HISTORY_MAX) history.shift();
+}
+
+function rollback() {
+  if (history.length < 2) return;
+  stopTimers();
+  history.pop(); // the beat on screen
+  const prev = history.pop(); // re-pushed when its beat re-runs
+  els.choices.hidden = true; els.inputbox.hidden = true; els.endcard.hidden = true;
+  stagedState = prev.stage;
+  els.actors.innerHTML = ""; els.hud.innerHTML = ""; hudLabels.clear();
+  if (stagedState.bg) applyStageDom({ op: "bg", sprite_url: stagedState.bg }, player.vars);
+  for (const cmd of Object.values(stagedState.actors)) applyStageDom(cmd, player.vars);
+  for (const cmd of Object.values(stagedState.hud)) applyStageDom(cmd, player.vars);
+  render(player.restore(prev.snap));
+}
 
 function autosave() {
   if (!saveKey || !player || player.finished) return;
@@ -465,6 +492,7 @@ function autosave() {
 }
 
 function render(ev) {
+  if (ev.type === "say" || ev.type === "choice" || ev.type === "input") pushHistory();
   autosave();
   if (window.__lvnDebug) console.log("[render]", ev.type, ev.text ?? "", new Error().stack.split("\n")[2]?.trim());
   refreshHud(player.vars);
@@ -581,6 +609,10 @@ function stopTimers() {
 }
 
 $("restart").addEventListener("click", compileAndRun);
+$("rollback").addEventListener("click", rollback);
+document.getElementById("stage").addEventListener("wheel", (e) => {
+  if (e.deltaY < 0) { e.preventDefault(); rollback(); }
+}, { passive: false });
 
 // ── toolbar ────────────────────────────────────────────────────────────────
 $("run").addEventListener("click", compileAndRun);

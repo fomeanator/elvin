@@ -128,6 +128,8 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
 .endcard { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 16px; background: rgba(0,0,0,.55); font-size: 28px; }
 .made { position: absolute; top: 8px; right: 12px; font-size: 11px; color: #6d6962; z-index: 5; }
+.backbtn { position: absolute; top: 8px; left: 10px; z-index: 5; background: rgba(38,38,46,.8);
+  color: #e8e4da; border: 0; border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; }
 .made a { color: #8f8a80; }
 </style>
 </head>
@@ -152,6 +154,7 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
     <div>Конец</div>
     <button id="restart">↻ Сначала</button>
   </div>
+  <button id="back" class="backbtn" title="Шаг назад">↩</button>
   <span class="made">made with <a href="https://github.com/fomeanator/unity-lvn-vn-engine">LVN</a></span>
 </div>
 __DOC__
@@ -186,6 +189,26 @@ function autosave() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ snap: player.snapshot(), stage: stagedState })); } catch {}
 }
 
+let history = [];
+function pushHistory() {
+  if (!player || player.finished) return;
+  history.push({ snap: player.snapshot(), stage: JSON.parse(JSON.stringify(stagedState)) });
+  if (history.length > 100) history.shift();
+}
+function rollback() {
+  if (history.length < 2) return;
+  clearInterval(typeTimer); clearInterval(choiceTimer);
+  history.pop();
+  const prev = history.pop();
+  for (const x of ["choices", "inputbox", "endcard"]) $id(x).hidden = true;
+  stagedState = prev.stage;
+  $id("actors").innerHTML = ""; $id("hud").innerHTML = ""; hudLabels.clear();
+  if (stagedState.bg) applyStage({ op: "bg", sprite_url: stagedState.bg });
+  for (const cmd of Object.values(stagedState.actors)) applyStage(cmd);
+  for (const cmd of Object.values(stagedState.hud)) applyStage(cmd);
+  render(player.restore(prev.snap));
+}
+
 function start() {
   clearInterval(typeTimer); clearInterval(choiceTimer);
   $id("bg").style.backgroundImage = "";
@@ -194,6 +217,7 @@ function start() {
   for (const x of ["dialogue", "choices", "inputbox", "endcard"]) $id(x).hidden = true;
   hudLabels.clear();
   stagedState = { bg: null, actors: {}, hud: {} };
+  history = [];
   player = new Player(doc, { onStage: (c) => { trackStage(c); applyStage(c); } });
 
   let saved = null;
@@ -277,7 +301,8 @@ function applyStage(cmd) {
       if (to !== "clear") setTimeout(() => { v.style.opacity = 0; }, 650); break; }
     case "dim": { const v = $id("veil"); v.style.background = "#000"; v.style.opacity = cmd.alpha ?? 0.4; break; }
     case "tint": { const v = $id("veil"); v.style.background = cmd.color || "#000"; v.style.opacity = cmd.alpha ?? 0.3; break; }
-    case "audio": if (cmd.channel === "music") {
+    case "audio": if (cmd.channel === "sfx" && cmd.action !== "stop" && cmd.url) { new Audio(art(cmd.url)).play().catch(() => {}); break; }
+      if (cmd.channel === "music") {
       if (cmd.action === "stop") { window.__m && window.__m.pause(); break; }
       if (cmd.url) { window.__m && window.__m.pause(); const a = new Audio(art(cmd.url)); a.loop = cmd.loop !== false; a.play().catch(() => {}); window.__m = a; }
     } break;
@@ -287,6 +312,7 @@ function applyStage(cmd) {
 function refreshHud() { for (const { el, template } of hudLabels.values()) el.textContent = interpolate(template, player.vars); }
 
 function render(ev) {
+  if (ev.type === "say" || ev.type === "choice" || ev.type === "input") pushHistory();
   autosave();
   refreshHud();
   $id("choices").hidden = true; $id("inputbox").hidden = true;
@@ -336,6 +362,8 @@ function submit() { if ($id("inputbox").hidden) return; $id("inputbox").hidden =
 $id("input-ok").addEventListener("click", submit);
 $id("input-field").addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
 $id("restart").addEventListener("click", start);
+$id("back").addEventListener("click", rollback);
+document.addEventListener("wheel", (e) => { if (e.deltaY < 0) rollback(); });
 start();
 </script>
 </body>
