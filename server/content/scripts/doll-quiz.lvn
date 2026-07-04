@@ -141,6 +141,12 @@
       "op": "goto"
     },
     {
+      "board": "quiz_score",
+      "name_var": "guest",
+      "op": "leaderboard_submit",
+      "score_var": "score"
+    },
+    {
       "id": "finale",
       "op": "label"
     },

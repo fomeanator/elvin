@@ -42,6 +42,7 @@ score = 0
 score = 0
 -> finale
 
+ext leaderboard_submit board=quiz_score score_var=score name_var=guest
 :finale
 anim doll rotation [0 4 -4 0] 1.2s
 if score >= 1 -> praise

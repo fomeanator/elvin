@@ -307,6 +307,23 @@ while xp >= need {
 return
 ```
 
+## Онлайн-сервисы из скрипта (кошелёк, лидерборд, аналитика)
+
+Когда игра ходит с бэкендом LVN (NovelApp подключает его сам), сценаристу
+доступны готовые `ext`-опы — всё fire-and-forget и офлайн-безопасно:
+
+```
+ext wallet_earn currency=gold amount=10 reason="quest_done"
+ext wallet_spend currency=gold amount=5 reason="shop" sku=amulet
+ext leaderboard_submit board=quiz_score score_var=score name_var=player_name
+ext daily_claim
+ext track name=secret_ending_found
+```
+
+`*_var`-поля читают переменную истории — «отправь то, что игрок набрал».
+Валидатор пометит эти опы предупреждением «host-defined» — это норма.
+Кастомный хост включает их одной строкой: `LvnServiceOps.RegisterAll()`.
+
 ## Сохранение и загрузка
 
 ```
