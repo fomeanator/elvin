@@ -50,3 +50,5 @@ Screenshot*.png
 
 # Runtime player saves written by the server's /v1/state (per-user state mirror)
 server/content/state/
+panel/public/docs/content/
+server/website/docs/
