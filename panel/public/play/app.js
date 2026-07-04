@@ -637,7 +637,10 @@ $("export-html").addEventListener("click", async () => {
   const out = window.lvnsCompile(els.editor.value);
   if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
   const m = /^\s*scene\s+(\S+)/m.exec(els.editor.value);
-  await exportHtml(m ? m[1] : "game", out.json, catalog);
+  // scene ids are snake_case tech names; the card deserves a human title.
+  const raw = m ? m[1] : "game";
+  const pretty = raw.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
+  await exportHtml(pretty, out.json, catalog);
   setStatus("HTML сохранён — файл играет сам по себе", "ok");
 });
 
