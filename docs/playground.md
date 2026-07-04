@@ -33,6 +33,15 @@ Every pause autosaves `{player snapshot, staged bg/actors/HUD}` to
 Reopening offers **Продолжить / Заново**; finishing the story clears the
 save. A shared link or exported file is playable across sittings.
 
+## Services from the browser
+
+Same-origin with the content server, the playground speaks to the product
+services: a device account is minted on demand (localStorage), and the
+script's `ext` ops just work — `ext track name=…` posts analytics,
+`ext leaderboard_submit board=… score_var=…` lands on a real board and
+shows the resulting rank (plus the board's top). A shared quiz link is a
+real competition. Exported HTML files skip this (no server on `file://`).
+
 ## For maintainers
 
 - Interpreter: `core.js` (pure, DOM-free) + `expr.js` (recursive-descent

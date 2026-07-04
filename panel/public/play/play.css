@@ -167,3 +167,13 @@ select {
   .editor-wrap .backdrop, .editor-wrap #editor { font-size: 13px; padding: 12px; }
   .choices button { min-width: 80%; }
 }
+
+.lb-overlay {
+  position: absolute; right: 3%; top: 6%; z-index: 7; min-width: 220px;
+  background: rgba(16,16,22,.96); border-radius: 12px; padding: 14px 16px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.55); cursor: pointer; font-size: 14px;
+}
+.lb-title { font-weight: 700; color: #ffd166; margin-bottom: 8px; }
+.lb-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; color: #e8e4da; }
+.lb-me { margin-top: 8px; color: #8fd0a0; }
+.lb-hint { margin-top: 6px; color: #6d6962; font-size: 11px; }
