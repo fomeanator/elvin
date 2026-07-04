@@ -79,9 +79,35 @@ async function svcOp(cmd, vars) {
       if (r.ok) {
         const { rank } = await r.json();
         setStatus(`счёт отправлен в «${cmd.board}» — ранг ${rank}`, "ok");
+        void showBoard(cmd.board, tok);
       }
     }
   } catch { /* offline playground stays a playground */ }
+}
+
+// A small overlay with the board's top — the competition made visible.
+async function showBoard(board, tok) {
+  try {
+    const r = await fetch(`/v1/leaderboard/${board}?n=5`, { headers: { "Authorization": "Bearer " + tok } });
+    if (!r.ok) return;
+    const d = await r.json();
+    let box = document.getElementById("lb-overlay");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "lb-overlay";
+      box.className = "lb-overlay";
+      document.getElementById("stage").appendChild(box);
+      box.addEventListener("click", () => box.remove());
+    }
+    const rows = (d.top || []).map((e, i) =>
+      `<div class="lb-row"><span>${i + 1}. ${escapeHtml(e.name || "Аноним")}</span><b>${e.score}</b></div>`).join("");
+    const me = d.me ? `<div class="lb-me">Ты — ранг ${d.me.rank} (${d.me.score})</div>` : "";
+    box.innerHTML = `<div class="lb-title">🏆 ${escapeHtml(board)}</div>${rows}${me}<div class="lb-hint">тап — закрыть</div>`;
+  } catch { }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 }
 
 // ── sprite catalog (manifest) — layered actors render honestly ────────────
