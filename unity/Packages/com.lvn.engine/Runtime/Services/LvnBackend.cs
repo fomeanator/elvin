@@ -1,0 +1,92 @@
+using System;
+using System.Text;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.Networking;
+
+namespace Lvn.Services
+{
+    /// <summary>
+    /// The device-account session against the LVN product services (auth /
+    /// wallet / analytics). Anonymous, mobile-style: a random device secret is
+    /// minted once and kept in PlayerPrefs; <see cref="EnsureRegisteredAsync"/>
+    /// exchanges it for a bearer token (idempotent — the same device always
+    /// gets the same account back, e.g. after a reinstall-with-backup).
+    /// Everything is optional: a game that never calls this plays fully
+    /// offline, exactly as before.
+    /// </summary>
+    public static class LvnBackend
+    {
+        private const string PDevice = "lvn.svc.device";
+        private const string PToken = "lvn.svc.token";
+        private const string PUser = "lvn.svc.user";
+
+        /// <summary>Server base url, e.g. "http://127.0.0.1:8077". The host sets
+        /// it once at boot (NovelApp's ServerUrl is the usual source).</summary>
+        public static string BaseUrl = "";
+
+        public static string UserId => PlayerPrefs.GetString(PUser, "");
+        public static string Token => PlayerPrefs.GetString(PToken, "");
+        public static bool SignedIn => !string.IsNullOrEmpty(Token);
+
+        /// <summary>Raised after a successful (re-)registration.</summary>
+        public static event Action<string> SignedInChanged;
+
+        /// <summary>Register (or recover) the device account. Safe to call every
+        /// boot; no-ops offline and keeps the previous token.</summary>
+        public static async Task<bool> EnsureRegisteredAsync()
+        {
+            if (string.IsNullOrEmpty(BaseUrl)) return SignedIn;
+            var device = PlayerPrefs.GetString(PDevice, "");
+            if (string.IsNullOrEmpty(device))
+            {
+                device = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+                PlayerPrefs.SetString(PDevice, device);
+                PlayerPrefs.Save();
+            }
+            var body = JsonUtility.ToJson(new RegisterReq { device_id = device });
+            var (code, json) = await PostAsync("/v1/auth/register", body, auth: false);
+            if (code != 200 || string.IsNullOrEmpty(json)) return SignedIn;
+            var resp = JsonUtility.FromJson<RegisterResp>(json);
+            if (string.IsNullOrEmpty(resp?.token)) return SignedIn;
+            PlayerPrefs.SetString(PToken, resp.token);
+            PlayerPrefs.SetString(PUser, resp.user_id);
+            PlayerPrefs.Save();
+            SignedInChanged?.Invoke(resp.user_id);
+            return true;
+        }
+
+        [Serializable] private class RegisterReq { public string device_id; }
+        [Serializable] private class RegisterResp { public string user_id; public string token; }
+
+        /// <summary>POST json; returns (status, body). 0 = transport error
+        /// (offline). Attaches the bearer token unless auth=false.</summary>
+        public static async Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)
+        {
+            if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
+            using var req = new UnityWebRequest(BaseUrl + path, "POST");
+            req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json ?? "{}"));
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/json");
+            if (auth && SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
+            req.timeout = 10;
+            var op = req.SendWebRequest();
+            while (!op.isDone) await Task.Yield();
+            if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
+            return (req.responseCode, req.downloadHandler.text);
+        }
+
+        /// <summary>GET json with the bearer token; same contract as PostAsync.</summary>
+        public static async Task<(long code, string body)> GetAsync(string path)
+        {
+            if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
+            using var req = UnityWebRequest.Get(BaseUrl + path);
+            if (SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
+            req.timeout = 10;
+            var op = req.SendWebRequest();
+            while (!op.isDone) await Task.Yield();
+            if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
+            return (req.responseCode, req.downloadHandler.text);
+        }
+    }
+}
