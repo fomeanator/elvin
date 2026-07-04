@@ -37,6 +37,53 @@ function setStatus(text, cls) {
   els.status.className = "status" + (cls ? " " + cls : "");
 }
 
+// ── product services from the browser ─────────────────────────────────────
+// The playground is same-origin with the content server, so shared stories
+// get REAL analytics and leaderboards: a device account is minted on demand
+// (localStorage), then ext ops from the script just work.
+let svcToken = null;
+async function svcAuth() {
+  if (svcToken) return svcToken;
+  let device = localStorage.getItem("lvn-play-device");
+  if (!device) {
+    device = crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
+    localStorage.setItem("lvn-play-device", device);
+  }
+  try {
+    const r = await fetch("/v1/auth/register", { method: "POST", body: JSON.stringify({ device_id: device }) });
+    if (!r.ok) return null;
+    svcToken = (await r.json()).token;
+  } catch { return null; }
+  return svcToken;
+}
+
+async function svcOp(cmd, vars) {
+  const tok = await svcAuth();
+  if (!tok) return;
+  const auth = { "Authorization": "Bearer " + tok };
+  const num = (field, varField) => {
+    if (typeof cmd[field] === "number") return cmd[field];
+    const n = parseFloat(vars[cmd[varField]]);
+    return Number.isFinite(n) ? n : 0;
+  };
+  try {
+    if (cmd.op === "track" && cmd.name) {
+      await fetch("/v1/analytics/events", { method: "POST", headers: auth,
+        body: JSON.stringify([{ name: cmd.name }]) });
+    } else if (cmd.op === "leaderboard_submit" && cmd.board) {
+      const payload = { score: num("score", "score_var") };
+      const nm = vars[cmd.name_var];
+      if (nm) payload.name = String(nm);
+      const r = await fetch("/v1/leaderboard/" + cmd.board, { method: "POST", headers: auth,
+        body: JSON.stringify(payload) });
+      if (r.ok) {
+        const { rank } = await r.json();
+        setStatus(`счёт отправлен в «${cmd.board}» — ранг ${rank}`, "ok");
+      }
+    }
+  } catch { /* offline playground stays a playground */ }
+}
+
 // ── sprite catalog (manifest) — layered actors render honestly ────────────
 let catalog = {};
 fetch("/v1/content/manifest").then((r) => r.json()).then((m) => {
@@ -181,7 +228,8 @@ Codel: Эх. Ну пока.`,
   "Викторина-блиц": `scene quiz
 
 score = 0
-Викторина! Три вопроса, времени мало.
+input var=player_name prompt="Как записать тебя в таблицу рекордов?" default="Аноним" max=20
+Викторина! Два вопроса, времени мало.
 
 Вопрос 1. Сколько байт в килобайте?
 choice timeout=6 timeout_goto=miss1
@@ -215,7 +263,8 @@ score = score + 1
 -> res
 
 :res
-Твой счёт — {score} из 2.
+ext leaderboard_submit board=playground_quiz score_var=score name_var=player_name
+Твой счёт — {score} из 2. Он уже в общей таблице рекордов!
 if score >= 2 -> ace
 Неплохо. Реванш?
 -> __end
@@ -448,6 +497,10 @@ function applyStageDom(cmd, vars) {
       veil.style.opacity = cmd.alpha ?? 0.3;
       break;
     }
+    case "track":
+    case "leaderboard_submit":
+      void svcOp(cmd, vars || (player ? player.vars : {}));
+      break;
     // camera/particles/anim: quietly skipped — the note under the stage says
     // the full staging lives in the Unity runtime.
   }
