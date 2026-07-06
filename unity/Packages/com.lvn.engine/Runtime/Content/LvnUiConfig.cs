@@ -28,6 +28,37 @@ namespace Lvn.Content
         public SoundsConfig sounds;
         public AuthConfig auth;
         public StoreConfig store;
+        public WardrobeConfig wardrobe;
+    }
+
+    /// <summary>The wardrobe overlay: a live layered preview of the character
+    /// plus slot tabs with buy/equip cards. The ITEMS live with the character
+    /// (<c>sprites.&lt;id&gt;.wardrobe</c>); this block is only the screen's
+    /// look and strings. Every field optional.</summary>
+    public sealed class WardrobeConfig
+    {
+        public string entity;         // character to open by default (else: first with a wardrobe)
+        public string title;          // default "Wardrobe"
+        public string scrim_color;    // default #000000b3
+        public string panel_color;    // default #14141af7
+        public string title_color;    // default #f4ecd8
+        public string text_color;     // default #f2eee1
+        public string dim_text_color; // default #9a948a
+        public string card_color;     // item card fill; default #1c1c22
+        public string accent_color;   // equipped ring / action fill; default #c8a050
+        public string accent_text_color; // action button text; default #14141a
+        public string preview_bg_color;  // behind the character; default #101015
+        public float? corner_radius;  // default 12
+
+        public string equip_text;     // default "Equip"
+        public string equipped_text;  // default "Equipped"
+        public string remove_text;    // default "Take off"
+        public string close_text;     // default "Close"
+        public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
+        public string menu_label;     // quick-menu entry; default "Wardrobe"
+        public bool? show_menu_item;  // default true
+
+        public Dictionary<string, string> rarity_colors; // rarity key → hex (card ring tint)
     }
 
     /// <summary>The boot auth screen — the game's customizable face over the

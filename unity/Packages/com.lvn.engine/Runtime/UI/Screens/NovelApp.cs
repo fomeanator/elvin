@@ -182,6 +182,19 @@ namespace Lvn.UI.Screens
                 _ = OpenStoreFromScriptAsync(ctx);
             });
 
+            // The wardrobe: a quick-menu entry when any character has one (or
+            // ui.wardrobe opts in explicitly), and `ext wardrobe_show char=id`.
+            var wardrobeCfg = manifest.ui?.wardrobe;
+            if ((wardrobeCfg != null || _shell.Wardrobe.Entities().Count > 0)
+                && (wardrobeCfg?.show_menu_item ?? true))
+                StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
+                    stage => _ = _shell.OpenWardrobeAsync());
+            Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = OpenWardrobeFromScriptAsync((string)cmd["char"], ctx);
+            });
+
             // The long-press art view hides the stage's chrome; mirror it onto the
             // shell HUD (a separate UIDocument) so the WHOLE screen is just the scene.
             Stage.ChromeHiddenChanged += hidden =>
@@ -211,6 +224,12 @@ namespace Lvn.UI.Screens
         private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
         {
             try { await _shell.OpenStoreAsync(); }
+            finally { ctx.Resume(); }
+        }
+
+        private async Task OpenWardrobeFromScriptAsync(string entity, Lvn.ILvnOpContext ctx)
+        {
+            try { await _shell.OpenWardrobeAsync(entity); }
             finally { ctx.Resume(); }
         }
 

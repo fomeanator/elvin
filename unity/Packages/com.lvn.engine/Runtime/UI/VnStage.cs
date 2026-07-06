@@ -197,6 +197,9 @@ namespace Lvn.UI
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             LvnPrefs.Changed -= OnPrefsChanged;
             LvnPrefs.Changed += OnPrefsChanged;
+            // Wardrobe equips re-apply the actor live if it's on screen.
+            LvnWardrobe.Changed -= OnWardrobeChanged;
+            LvnWardrobe.Changed += OnWardrobeChanged;
 
             root.pickingMode = PickingMode.Position;
             root.RegisterCallback<PointerDownEvent>(OnPointerDown);
@@ -358,6 +361,7 @@ namespace Lvn.UI
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
             if (_dialogue != null) _dialogue.RevealTicked -= OnRevealTicked;
             LvnPrefs.Changed -= OnPrefsChanged;
+            LvnWardrobe.Changed -= OnWardrobeChanged;
 
             // UIDocument tears its panel down on disable and brings up a FRESH
             // empty root on the next enable — everything Build() made is orphaned
@@ -665,6 +669,7 @@ namespace Lvn.UI
             _audio?.StopVoice();
             _draggables.Clear();
             _placements.Clear();
+            _actorCmds.Clear();
             _dragId = null;
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
@@ -1589,6 +1594,21 @@ namespace Lvn.UI
             "transition", "transition_duration", "enter", "exit", "play",
         };
 
+        // The last actor command per id — RefreshActor replays it so a wardrobe
+        // change re-resolves the SAME pose/placement with the new equipment.
+        private readonly Dictionary<string, JObject> _actorCmds = new Dictionary<string, JObject>();
+
+        /// <summary>Re-apply an on-screen actor from its last command (art
+        /// re-resolves against the current variables + wardrobe). No-op when
+        /// the actor isn't on stage.</summary>
+        public void RefreshActor(string id)
+        {
+            if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
+                _ = ApplyActorAsync(cmd);
+        }
+
+        private void OnWardrobeChanged(string entity) => RefreshActor(entity);
+
         private async Task ApplyActorAsync(JObject cmd)
         {
             var id = (string)cmd["id"];
@@ -1744,6 +1764,7 @@ namespace Lvn.UI
 
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
             _placements[id] = placement; // the sticky base for the next command
+            _actorCmds[id] = cmd;        // wardrobe changes replay this in place
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
@@ -1909,6 +1930,9 @@ namespace Lvn.UI
                 if (string.IsNullOrEmpty(v) || v.IndexOf('{') >= 0) axes.Remove(k); // no value → no layer
                 else axes[k] = v;
             }
+            // The player's wardrobe fills axes the script left unset — the
+            // writer's explicit value above still wins (story-forced costumes).
+            LvnWardrobe.MergeInto(axes, (string)cmd["id"]);
             return axes;
         }
 
