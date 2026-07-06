@@ -54,12 +54,14 @@ namespace Lvn.Content
         public string equipped_text;  // default "Equipped"
         public string remove_text;    // default "Take off"
         public string confirm_text;   // the in-story sheet's commit button; default "Choose"
+        public string insufficient_text; // shown when a buy fails for funds; default "Not enough"
         public string close_text;     // default "Close"
         public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
         public string menu_label;     // quick-menu entry; default "Wardrobe"
         public bool? show_menu_item;  // default true
 
         public Dictionary<string, string> rarity_colors; // rarity key → hex (card ring tint)
+        public Dictionary<string, string> currency_icons; // currency → content url (balance pills)
     }
 
     /// <summary>The boot auth screen — the game's customizable face over the
