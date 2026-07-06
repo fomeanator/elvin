@@ -175,6 +175,8 @@ namespace Lvn.UI.Screens
             LvnWallet.Changed += OnWalletChanged;
             _ = LvnWallet.RefreshAsync(); // ownership lives in the wallet inventory
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
+            // Hide() during the fade-in cancels the open (see StoreScreen).
+            if (!_open) { LvnWallet.Changed -= OnWalletChanged; return; }
 
             _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var reg = ct.Register(() => _tcs.TrySetResult(false));

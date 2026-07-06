@@ -419,7 +419,7 @@ func TestIAP_AppleReceiptPathAndReplayGuard(t *testing.T) {
 	auth, _ := NewAuthService(dir)
 	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false)
 	wallet.AppleSharedSecret = "shhh"
-	wallet.verifyApple = func(receipt, sku, secret string) (string, error) {
+	wallet.verifyApple = func(receipt, sku, secret, bundleID string) (string, error) {
 		if receipt != "valid-receipt" {
 			return "", fmt.Errorf("bad receipt")
 		}

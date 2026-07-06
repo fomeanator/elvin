@@ -278,8 +278,13 @@ namespace Lvn.UI
             if (_choices != null) { _choices.OnSelected -= OnChoiceSelected; _choices.RemoveFromHierarchy(); }
             if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
             // The shared window wears the theme too — drop it so the next use
-            // rebuilds it with the fresh skin (content owners re-show anyway).
-            if (_panelHost != null) { _panelHost.RemoveFromHierarchy(); _panelHost = null; }
+            // rebuilds it with the fresh skin. NEVER while it's open: a live
+            // re-theme (content sync) during an in-story wardrobe would orphan
+            // the hosted content, its await would never resolve, and the held
+            // script would soft-lock. An open window just keeps the old skin
+            // until it closes.
+            if (_panelHost != null && !_panelHost.IsOpen)
+            { _panelHost.RemoveFromHierarchy(); _panelHost = null; }
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
@@ -1656,6 +1661,12 @@ namespace Lvn.UI
         // change re-resolves the SAME pose/placement with the new equipment.
         private readonly Dictionary<string, JObject> _actorCmds = new Dictionary<string, JObject>();
 
+        // Per-actor apply generation: rapid wardrobe browsing fires overlapping
+        // ApplyActorAsync calls whose sprite loads finish out of order — only
+        // the NEWEST may touch the renderer, or an older outfit "wins" by
+        // arriving late.
+        private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
+
         /// <summary>Re-apply an on-screen actor from its last command (art
         /// re-resolves against the current variables + wardrobe). No-op when
         /// the actor isn't on stage.</summary>
@@ -1671,6 +1682,8 @@ namespace Lvn.UI
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
+            int gen = (_actorGen.TryGetValue(id, out var g) ? g : 0) + 1;
+            _actorGen[id] = gen; // this call owns the actor until a newer one starts
 
             // Spine entities render through the optional spine-unity bridge —
             // a different pipeline entirely (runtime skeleton, own animations).
@@ -1819,6 +1832,10 @@ namespace Lvn.UI
                     }
                 }
             }
+
+            // A newer apply started while our sprites loaded — ITS art must win;
+            // this stale pass may not touch the renderer (late-arrival outfit bug).
+            if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
 
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
             _placements[id] = placement; // the sticky base for the next command
