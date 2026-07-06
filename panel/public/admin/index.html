@@ -66,6 +66,7 @@
   <nav>
     <button data-tab="novel" class="active">Новелла</button>
     <button data-tab="visual">Визуал</button>
+    <button data-tab="economy">Экономика</button>
     <button data-tab="users">Пользователи</button>
     <button data-tab="orders">Заказы</button>
     <button data-tab="saves">Сохранения</button>
@@ -113,7 +114,34 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   show(b.dataset.tab);
 });
 
-function show(tab) { ({novel, visual, users, orders, saves, analytics})[tab](); }
+function show(tab) { ({novel, visual, economy, users, orders, saves, analytics})[tab](); }
+
+/* ── Экономика: паки, реклама, ежедневки — правки живые (hot-reload) ──── */
+async function economy() {
+  const files = [
+    ['iap-catalog.json', 'Паки валюты (IAP)', '{ "sku": {"currency","amount","title","price","icon","bonus","order"} }'],
+    ['ads.json', 'Награды за рекламу', '{ "placement": {"currency","amount","daily_cap"} }'],
+    ['daily-rewards.json', 'Ежедневные награды (стрик)', '[ {"currency","amount"}, … день за днём; последний повторяется ]'],
+  ];
+  const bodies = await Promise.all(files.map(([f]) => api('/v1/admin/config/' + f)));
+  $('#main').innerHTML = files.map(([f, title, hint], i) => `
+    <div class="card">
+      <div class="row">
+        <h2 style="flex:1">${title} <span class="pill">${f}</span></h2>
+        <button class="btn" data-save="${f}">Сохранить</button>
+      </div>
+      <p class="muted" style="margin-bottom:8px">${esc(hint)}. Сервер подхватывает сохранение сразу, без рестарта.</p>
+      <textarea data-cfg="${f}" style="min-height:180px">${esc(JSON.stringify(bodies[i], null, 2))}</textarea>
+    </div>`).join('');
+  document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
+    const f = b.dataset.save;
+    let doc;
+    try { doc = JSON.parse(document.querySelector(`[data-cfg="${f}"]`).value); }
+    catch (e) { toast(f + ': битый JSON — ' + e.message); return; }
+    await api('/v1/admin/config/' + f, { method: 'PUT', body: JSON.stringify(doc), headers: { 'Content-Type': 'application/json' } });
+    toast(f + ' сохранён — уже действует');
+  });
+}
 
 /* ── Визуал: весь manifest.ui формами, live-sync доносит до игры ──────── */
 // Схема секций ui-темы. Типы: c=цвет(hex/hex8), n=число, s=строка,
