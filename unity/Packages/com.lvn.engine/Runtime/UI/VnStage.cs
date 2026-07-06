@@ -164,6 +164,7 @@ namespace Lvn.UI
 
             _particles = new ParticleField();
             ResolveFont();
+            _panelHost = null; // died with the previous panel root — recreate lazily
             _dialogue = new DialogueBox(Theme);
             _choices = new ChoiceList(Theme);
             _fx = new FxLayer();
@@ -276,6 +277,9 @@ namespace Lvn.UI
 
             if (_choices != null) { _choices.OnSelected -= OnChoiceSelected; _choices.RemoveFromHierarchy(); }
             if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
+            // The shared window wears the theme too — drop it so the next use
+            // rebuilds it with the fresh skin (content owners re-show anyway).
+            if (_panelHost != null) { _panelHost.RemoveFromHierarchy(); _panelHost = null; }
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
@@ -792,6 +796,60 @@ namespace Lvn.UI
         /// <summary>Raised after any successful save (autosave, quick, slots) —
         /// the host's hook for cloud sync / analytics. Argument: the slot name.</summary>
         public event Action<string> Saved;
+
+        // ── the shared bottom window (VnPanelHost) ───────────────────────────
+        // One dialogue-skinned frame on the dialogue layer that hosts ANY
+        // content (wardrobe, shop, minigames): showing it fades the dialogue
+        // out and slides the frame up; new content cross-fades inside the same
+        // frame. Lazily created; dropped with the chrome on rebuild.
+        private VnPanelHost _panelHost;
+
+        /// <summary>The stage's shared content window (created on demand, on
+        /// the dialogue layer, wearing the dialogue's exact skin).</summary>
+        public VnPanelHost PanelHost
+        {
+            get
+            {
+                if (_panelHost == null)
+                {
+                    _panelHost = new VnPanelHost(Theme);
+                    var root = GetComponent<UIDocument>()?.rootVisualElement;
+                    if (root != null)
+                    {
+                        int fxIndex = _fx != null ? root.IndexOf(_fx) : -1;
+                        root.Insert(fxIndex < 0 ? root.childCount : fxIndex, _panelHost);
+                    }
+                }
+                return _panelHost;
+            }
+        }
+
+        /// <summary>Show host content in the shared window: the dialogue fades
+        /// out and the same-skinned frame takes its place (or cross-fades from
+        /// whatever it was already showing).</summary>
+        public async Task ShowPanelAsync(VisualElement content)
+        {
+            SetDialogueFaded(true);
+            await PanelHost.ShowAsync(content);
+        }
+
+        /// <summary>Dismiss the shared window and bring the dialogue back.</summary>
+        public async Task HidePanelAsync()
+        {
+            if (_panelHost != null) await _panelHost.HideAsync();
+            SetDialogueFaded(false);
+        }
+
+        /// <summary>Fade the dialogue box (and choices) out/in — the shared
+        /// window replaces it visually, so both never fight for the bottom.</summary>
+        public void SetDialogueFaded(bool faded)
+        {
+            float to = faded ? 0f : 1f;
+            if (_dialogue != null)
+                _ = Screens.ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+            if (_choices != null)
+                _ = Screens.ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+        }
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
