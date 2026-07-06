@@ -58,7 +58,7 @@ type WalletService struct {
 	dir     string
 	auth    *AuthService
 	iapDev  bool
-	catalog map[string]iapProduct // sku → grant
+	catalog *hotJSON[map[string]iapProduct] // sku → grant; follows disk edits live
 
 	// AppleSharedSecret enables REAL App Store receipt validation on
 	// /v1/iap/verify (platform "appstore"). Google Play needs a service
@@ -78,11 +78,9 @@ func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev, catalog: map[string]iapProduct{}}
+	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev,
+		catalog: newHotJSON(catalogPath, map[string]iapProduct{})}
 	s.verifyApple = verifyAppleReceipt
-	if data, err := os.ReadFile(catalogPath); err == nil {
-		_ = json.Unmarshal(data, &s.catalog)
-	}
 	return s, nil
 }
 
@@ -102,8 +100,9 @@ func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		SKU string `json:"sku"`
 		iapProduct
 	}
-	packs := make([]pack, 0, len(s.catalog))
-	for sku, p := range s.catalog {
+	catalog := s.catalog.Get()
+	packs := make([]pack, 0, len(catalog))
+	for sku, p := range catalog {
 		packs = append(packs, pack{SKU: sku, iapProduct: p})
 	}
 	sort.Slice(packs, func(i, j int) bool {
@@ -296,7 +295,7 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sku and receipt required", http.StatusBadRequest)
 		return
 	}
-	grant, known := s.catalog[req.SKU]
+	grant, known := s.catalog.Get()[req.SKU]
 	if !known {
 		http.Error(w, "unknown sku", http.StatusNotFound)
 		return

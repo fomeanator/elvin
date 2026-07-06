@@ -543,3 +543,58 @@ func TestAdmin_UsersOrdersGrantAndManifest(t *testing.T) {
 		t.Fatalf("manifest get after put: %d %v", rec.Code, out)
 	}
 }
+
+func TestEconomy_CatalogsHotReloadFromDisk(t *testing.T) {
+	dir := t.TempDir()
+	catalog := filepath.Join(dir, "iap-catalog.json")
+	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency":"gold","amount":100}}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true)
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+
+	if _, out := call(t, mux, "GET", "/v1/iap/catalog", "", nil); len(out["packs"].([]any)) != 1 {
+		t.Fatalf("initial catalog: %v", out)
+	}
+	// edit the file on disk (what the admin panel's PUT does) — no restart
+	time.Sleep(15 * time.Millisecond) // ensure a fresh mtime on coarse filesystems
+	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency":"gold","amount":100},
+		"gold_999": {"currency":"gold","amount":999}}`), 0o644)
+	if _, out := call(t, mux, "GET", "/v1/iap/catalog", "", nil); len(out["packs"].([]any)) != 2 {
+		t.Fatalf("catalog must follow the disk edit live: %v", out)
+	}
+	// and the verify path sees the new sku too
+	_, tok := register(t, mux)
+	if rec, _ := call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]string{"platform": "dev", "sku": "gold_999", "receipt": "r"}); rec.Code != 200 {
+		t.Fatalf("new sku must be grantable: %d", rec.Code)
+	}
+}
+
+func TestAdmin_ConfigWhitelistRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	_ = os.MkdirAll(content, 0o755)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	admin := NewAdminService(content, "admintok", auth, wallet)
+	mux := http.NewServeMux()
+	admin.Routes(mux)
+
+	rec, _ := call(t, mux, "PUT", "/v1/admin/config/ads.json", "admintok",
+		map[string]any{"gold_small": map[string]any{"currency": "gold", "amount": 25, "daily_cap": 3}})
+	if rec.Code != 200 {
+		t.Fatalf("config put: %d %s", rec.Code, rec.Body)
+	}
+	if _, out := call(t, mux, "GET", "/v1/admin/config/ads.json", "admintok", nil); out["gold_small"] == nil {
+		t.Fatalf("config get after put: %v", out)
+	}
+	if rec, _ := call(t, mux, "PUT", "/v1/admin/config/../../etc/passwd", "admintok",
+		map[string]any{}); rec.Code == 200 {
+		t.Fatalf("non-whitelisted config must not be writable, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "GET", "/v1/admin/config/users.json", "admintok", nil); rec.Code != 404 {
+		t.Fatalf("whitelist must reject users.json, got %d", rec.Code)
+	}
+}

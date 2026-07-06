@@ -34,6 +34,54 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/orders", s.handleOrders)
 	mux.HandleFunc("/v1/admin/saves", s.handleSaves)
 	mux.HandleFunc("/v1/admin/saves/", s.handleSaveDetail)
+	mux.HandleFunc("/v1/admin/config/", s.handleConfig)
+}
+
+// The economy configs the panel edits directly. Whitelisted by name — the
+// admin surface must never become a generic file writer.
+var adminConfigs = map[string]bool{
+	"iap-catalog.json":   true, // packs (sku → grant + presentation)
+	"ads.json":           true, // rewarded placements (currency/amount/daily_cap)
+	"daily-rewards.json": true, // streak rewards, day by day
+}
+
+// GET/PUT /v1/admin/config/<name> — validated JSON, atomic write. Services
+// hot-reload these by mtime, so the panel edit takes effect immediately.
+func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
+	if !s.ok(w, r) {
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/v1/admin/config/")
+	if !adminConfigs[name] {
+		http.Error(w, "unknown config (iap-catalog.json | ads.json | daily-rewards.json)", http.StatusNotFound)
+		return
+	}
+	path := filepath.Join(s.content, name)
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(path)
+		if err != nil {
+			data = []byte("{}")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(data)
+	case http.MethodPut:
+		var doc json.RawMessage
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&doc); err != nil {
+			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		var pretty any
+		_ = json.Unmarshal(doc, &pretty)
+		data, _ := json.MarshalIndent(pretty, "", "  ")
+		if err := atomicWrite(path, data, 0o644); err != nil {
+			http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
+	default:
+		http.Error(w, "GET or PUT", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *AdminService) ok(w http.ResponseWriter, r *http.Request) bool {
