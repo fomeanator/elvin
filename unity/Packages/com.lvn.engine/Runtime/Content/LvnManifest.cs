@@ -82,6 +82,37 @@ namespace Lvn.Content
         /// runtime builds the skeleton from these at load (no Unity assets) —
         /// requires the optional spine-unity integration to be installed.</summary>
         public LvnSpineRef spine;
+
+        /// <summary>The entity's wardrobe, keyed by axis (<c>"armor"</c>,
+        /// <c>"outfit"</c>…): each slot lists the axis values as purchasable /
+        /// equippable items. Presence of this block puts the character in the
+        /// wardrobe screen; the layers themselves already handle "nothing
+        /// equipped" (an unset axis skips its layer). Optional.</summary>
+        public Dictionary<string, LvnWardrobeSlot> wardrobe;
+    }
+
+    /// <summary>One wardrobe slot — a themed group of items behind one axis
+    /// (the "Armor" tab). Items map to the axis' values; buying uses the
+    /// wallet's sku inventory, so ownership is server-authoritative.</summary>
+    public sealed class LvnWardrobeSlot
+    {
+        public string name;               // tab label; default: the axis id
+        /// <summary>Can the slot be emptied (item taken off)? Default true —
+        /// matches the layer model where an unset axis draws nothing.</summary>
+        public bool? removable;
+        public List<LvnWardrobeItem> items;
+    }
+
+    /// <summary>One wardrobe item: an axis value with shop presentation. No
+    /// price (or 0) = free, owned from the start.</summary>
+    public sealed class LvnWardrobeItem
+    {
+        public string value;    // the axis value this item sets (required)
+        public string name;     // display name; default: the value
+        public string icon;     // content url (a layer png works fine)
+        public string currency; // price currency; with price>0 the item is bought
+        public long price;
+        public string rarity;   // optional tint key ("rare"/"epic"/…) → WardrobeConfig.rarity_colors
     }
 
     /// <summary>A Spine export reference: content urls of the three files the

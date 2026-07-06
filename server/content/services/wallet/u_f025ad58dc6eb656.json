@@ -1,9 +1,11 @@
 {
-  "__v": 1,
+  "__v": 4,
   "balances": {
-    "gold": 100
+    "gold": 450
   },
-  "inventory": {},
+  "inventory": {
+    "wardrobe:hero:armor:chain": 1
+  },
   "history": [
     {
       "ts": "2026-07-06T15:17:34Z",
@@ -12,6 +14,30 @@
       "amount": 100,
       "sku": "gold_100",
       "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:22:23Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 550,
+      "sku": "gold_550",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:22:25Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "gold_100",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:40:14Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 300,
+      "sku": "wardrobe:hero:armor:chain",
+      "reason": "wardrobe"
     }
   ]
 }
