@@ -95,7 +95,10 @@ namespace Lvn.UI.Screens
             if (Auth != null) Add(Auth);
             Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
             Wardrobe.Hide(); Add(Wardrobe);
-            WardrobeStory = new WardrobeSheet(ui.wardrobe, assets); WardrobeStory.SetManifest(_manifest);
+            // Native skin: the sheet wears the game's dialogue panel + choice buttons.
+            WardrobeStory = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, assets);
+            WardrobeStory.SetManifest(_manifest);
+            WardrobeStory.OpenStore = () => OpenStoreAsync(); // the balance pills' "+"
             WardrobeStory.Hide(); _root.Add(WardrobeStory); // bottom sheet — keeps its own docked layout
             Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
 
