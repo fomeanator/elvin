@@ -82,7 +82,7 @@ func main() {
 	// the exact path wins.
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
-	mux.Handle("/content/", srv.contentHandler(*contentDir))
+	mux.Handle("/content/", srv.withASTC(srv.withDownscale(srv.contentHandler(*contentDir))))
 	mux.HandleFunc("/v1/state", srv.handleState)
 
 	// Product services — auth, wallet/IAP, analytics. Modular by design: each
@@ -240,6 +240,26 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		}
 		rel = filepath.ToSlash(rel)
 		if rel == "asset-versions.json" || (rel == "manifest.json" && !includeManifest) {
+			return nil
+		}
+		// Derived, regenerable artifacts (downscale.go's @2k variants, astc.go's
+		// transcodes) must NOT fold into the content version: they appear on
+		// disk lazily as clients request them, and counting them made every
+		// first visit to a scene bump the version — the client's ContentSync
+		// then "detected a content change" and reloaded the chapter MID-PLAY
+		// (multi-second freeze + the story jumping a beat forward off the
+		// autosave). The source images they derive from are versioned already.
+		base := filepath.Base(rel)
+		if strings.HasSuffix(base, ".astc") || strings.Contains(base, downscaleSuffix+".") {
+			return nil
+		}
+		// Runtime state (player saves under state/, analytics/wallets under
+		// services/) mutates DURING play — every autosave was bumping the
+		// content version, which the client answered with a full chapter
+		// reload: save → version change → reload → resume → save → … a loop
+		// of multi-second freezes. This state is API-served, never a
+		// cacheable asset, so it has no business in the version index.
+		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") {
 			return nil
 		}
 		data, derr := os.ReadFile(path)

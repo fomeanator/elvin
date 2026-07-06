@@ -52,3 +52,15 @@ Screenshot*.png
 server/content/state/
 panel/public/docs/content/
 server/website/docs/
+server/content/.cache/
+
+# On-demand ASTC transcodes (server/astc.go) — generated next to their PNG/JPG
+# source on first request, regenerable any time astcenc is on PATH; never a
+# thing to commit (a re-uploaded source would leave a stale sidecar behind).
+*.astc
+
+# On-demand downscaled texture variants (server/downscale.go) — generated next
+# to their full-size source on first request; same regenerable-sidecar rule.
+*@2k.png
+*@2k.jpg
+*@2k.jpeg
