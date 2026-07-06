@@ -598,3 +598,77 @@ func TestAdmin_ConfigWhitelistRoundTrip(t *testing.T) {
 		t.Fatalf("whitelist must reject users.json, got %d", rec.Code)
 	}
 }
+
+func TestAdmin_DraftPublishAndHistoryRollback(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	_ = os.MkdirAll(content, 0o755)
+	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"v": 1}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	admin := NewAdminService(content, "admintok", auth, wallet)
+	mux := http.NewServeMux()
+	admin.Routes(mux)
+
+	// draft edits never touch the live manifest…
+	rec, _ := call(t, mux, "PUT", "/v1/admin/manifest?draft=1", "admintok", map[string]any{"v": 2})
+	if rec.Code != 200 {
+		t.Fatalf("draft put: %d", rec.Code)
+	}
+	if _, out := call(t, mux, "GET", "/v1/admin/manifest", "admintok", nil); out["v"].(float64) != 1 {
+		t.Fatalf("live manifest must stay untouched by the draft: %v", out)
+	}
+	// …until publish promotes them (and snapshots the previous live version)
+	if rec, _ := call(t, mux, "POST", "/v1/admin/manifest/publish", "admintok", nil); rec.Code != 200 {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	if _, out := call(t, mux, "GET", "/v1/admin/manifest", "admintok", nil); out["v"].(float64) != 2 {
+		t.Fatalf("publish must promote the draft: %v", out)
+	}
+	if rec, _ := call(t, mux, "POST", "/v1/admin/manifest/publish", "admintok", nil); rec.Code != 404 {
+		t.Fatalf("second publish without a draft must 404, got %d", rec.Code)
+	}
+
+	// history holds v1 → roll back → live is v1 again
+	_, out := call(t, mux, "GET", "/v1/admin/history?file=manifest.json", "admintok", nil)
+	versions := out["versions"].([]any)
+	if len(versions) == 0 {
+		t.Fatal("publish must snapshot the previous live manifest")
+	}
+	ts := versions[0].(map[string]any)["ts"].(string)
+	if rec, _ := call(t, mux, "POST", "/v1/admin/rollback", "admintok",
+		map[string]string{"File": "manifest.json", "TS": ts}); rec.Code != 200 {
+		t.Fatalf("rollback: %d", rec.Code)
+	}
+	if _, out := call(t, mux, "GET", "/v1/admin/manifest", "admintok", nil); out["v"].(float64) != 1 {
+		t.Fatalf("rollback must restore v1: %v", out)
+	}
+}
+
+func TestAdmin_FilesBrowserHidesInternals(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	_ = os.MkdirAll(filepath.Join(content, "bg"), 0o755)
+	_ = os.MkdirAll(filepath.Join(content, "services"), 0o755)
+	_ = os.MkdirAll(filepath.Join(content, ".history"), 0o755)
+	_ = os.WriteFile(filepath.Join(content, "bg", "room.jpg"), []byte("jpg"), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	admin := NewAdminService(content, "admintok", auth, wallet)
+	mux := http.NewServeMux()
+	admin.Routes(mux)
+
+	_, out := call(t, mux, "GET", "/v1/admin/files?dir=", "admintok", nil)
+	for _, f := range out["files"].([]any) {
+		name := f.(map[string]any)["name"].(string)
+		if name == "services" || name == ".history" {
+			t.Fatalf("internal dir %q must not be browsable", name)
+		}
+	}
+	if rec, _ := call(t, mux, "GET", "/v1/admin/files?dir=services", "admintok", nil); rec.Code != 403 {
+		t.Fatalf("services must be 403, got %d", rec.Code)
+	}
+	if _, out := call(t, mux, "GET", "/v1/admin/files?dir=bg", "admintok", nil); len(out["files"].([]any)) != 1 {
+		t.Fatalf("bg listing: %v", out)
+	}
+}

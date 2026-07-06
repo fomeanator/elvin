@@ -278,6 +278,12 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") {
 			return nil
 		}
+		// Editorial plumbing, not content: history snapshots and the unpublished
+		// manifest draft must never bump the version (a backup would otherwise
+		// reload every client).
+		if strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
+			return nil
+		}
 		data, derr := os.ReadFile(path)
 		if derr != nil {
 			return nil
@@ -586,30 +592,39 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if r.Method != http.MethodPut {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	rel := strings.TrimPrefix(r.URL.Path, "/v1/admin/assets/")
 	if rel == "" || strings.Contains(rel, "..") {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 	dst := filepath.Join(s.content, filepath.Clean(rel))
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	switch r.Method {
+	case http.MethodPut:
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+		if err != nil {
+			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		snapshotHistory(s.content, rel) // scripts keep their past versions
+		if err := atomicWrite(dst, body, 0o644); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"path": rel, "bytes": len(body)})
+	case http.MethodDelete:
+		snapshotHistory(s.content, rel)
+		if err := os.Remove(dst); err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": rel})
+	default:
+		http.Error(w, "PUT or DELETE", http.StatusMethodNotAllowed)
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
-	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
-		return
-	}
-	if err := atomicWrite(dst, body, 0o644); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"path": rel, "bytes": len(body)})
 }
 
 // atomicWrite writes via a temp file in the same directory then renames, so a
