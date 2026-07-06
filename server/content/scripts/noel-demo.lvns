@@ -1,0 +1,13 @@
+scene noel_demo
+bg sprite_url="/content/bg/noel_heroine.jpg"
+preload url="/content/spine/noel/Hill_Noel_and_Phantom.png" kind=sprite
+actor id=noel x=0.5 y=0.60 height=1.4 play="static_Noel_Phantom" loop=true draggable=true
+
+Ещё один Spine-скелет — на этот раз из свежего дропа.
+
+Знакомься: Noel и её Phantom. 49 костей, Spine 4.2.
+Видно её целиком? Скажи — подстрою размер.
+:hold
+Таскай пальцем. Надоест — «Занавес».
+- Ещё -> hold
+- Занавес -> __end

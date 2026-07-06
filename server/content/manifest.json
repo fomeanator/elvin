@@ -50,7 +50,7 @@
     },
     "Andrey_Axe": {
       "layers": [
-        "/content/art/Andrey_Axe.png"
+        "/content/art/Andrey_Axe.jpg"
       ],
       "name": "Andrey_Axe"
     },
@@ -158,7 +158,7 @@
     },
     "Cat": {
       "layers": [
-        "/content/art/Cat.png"
+        "/content/art/Cat.jpg"
       ],
       "name": "Cat"
     },
@@ -1297,6 +1297,155 @@
         }
       ],
       "name": "Скелет"
+    },
+    "noel": {
+      "kind": "spine",
+      "name": "Noel & Phantom",
+      "spine": {
+        "json": "/content/spine/noel/noel.json",
+        "atlas": "/content/spine/noel/noel.atlas.txt",
+        "texture": "/content/spine/noel/Hill_Noel_and_Phantom.png",
+        "bg": "/content/spine/noel/back.jpg",
+        "scale": 0.8,
+        "auto": "static_Noel_Phantom"
+      }
+    },
+    "masquerade": {
+      "kind": "spine",
+      "name": "masquerade",
+      "spine": {
+        "json": "/content/spine/masquerade/Masquerade.json",
+        "atlas": "/content/spine/masquerade/Masquerade.atlas.txt",
+        "texture": "/content/spine/masquerade/Masquerade.png",
+        "scale": 1,
+        "auto": "masquerade_static"
+      }
+    },
+    "mansion_livingroom": {
+      "kind": "spine",
+      "name": "mansion_livingroom",
+      "spine": {
+        "json": "/content/spine/mansion_livingroom/Mansion_livingroom.json",
+        "atlas": "/content/spine/mansion_livingroom/Mansion_livingroom.atlas.txt",
+        "texture": "/content/spine/mansion_livingroom/Mansion_livingroom.png",
+        "scale": 1,
+        "auto": "Mansion_livingroom_static",
+        "bg": "/content/spine/mansion_livingroom/back.jpg"
+      }
+    },
+    "vampires": {
+      "kind": "spine",
+      "name": "vampires",
+      "spine": {
+        "json": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.json",
+        "atlas": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.atlas.txt",
+        "texture": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.png",
+        "scale": 1,
+        "auto": "static_midnight",
+        "bg": "/content/spine/vampires/back.jpg"
+      }
+    },
+    "river_winter": {
+      "kind": "spine",
+      "name": "river_winter",
+      "spine": {
+        "json": "/content/spine/river_winter/River_winter.json",
+        "atlas": "/content/spine/river_winter/River_winter.atlas.txt",
+        "texture": "/content/spine/river_winter/River_winter.png",
+        "scale": 1,
+        "auto": "night_static"
+      }
+    },
+    "singer": {
+      "kind": "spine",
+      "name": "singer",
+      "spine": {
+        "json": "/content/spine/singer/Phymessh_kat_microphone_28.json",
+        "atlas": "/content/spine/singer/Phymessh_kat_microphone_28.atlas.txt",
+        "texture": "/content/spine/singer/Phymessh_kat_microphone_28.png",
+        "scale": 1,
+        "auto": "Phymessh_kat_microphone_28_static"
+      }
+    },
+    "bathroom": {
+      "kind": "spine",
+      "name": "bathroom",
+      "spine": {
+        "json": "/content/spine/bathroom/Bathroom_mansion.json",
+        "atlas": "/content/spine/bathroom/Bathroom_mansion.atlas.txt",
+        "texture": "/content/spine/bathroom/Bathroom_mansion.png",
+        "scale": 1,
+        "auto": "Bathroom_mansion_static",
+        "bg": "/content/spine/bathroom/back.jpg"
+      }
+    },
+    "hill_lucien": {
+      "kind": "spine",
+      "name": "hill_lucien",
+      "spine": {
+        "json": "/content/spine/hill_lucien/Hill_Death_of_Lucien.json",
+        "atlas": "/content/spine/hill_lucien/Hill_Death_of_Lucien.atlas.txt",
+        "texture": "/content/spine/hill_lucien/Hill_Death_of_Lucien.png",
+        "scale": 1,
+        "auto": "Hill_Death_of_Lucien_static"
+      }
+    },
+    "znahari_plowing": {
+      "kind": "spine",
+      "name": "znahari_plowing",
+      "spine": {
+        "json": "/content/spine/znahari_plowing/ZnahariPlowing.json",
+        "atlas": "/content/spine/znahari_plowing/ZnahariPlowing.atlas.txt",
+        "texture": "/content/spine/znahari_plowing/ZnahariPlowing.png",
+        "scale": 1,
+        "auto": "ZnahariPlowing_static",
+        "bg": "/content/spine/znahari_plowing/back.jpg"
+      }
+    },
+    "znahari_ritual": {
+      "kind": "spine",
+      "name": "znahari_ritual",
+      "spine": {
+        "json": "/content/spine/znahari_ritual/Znahari_ward_ritual.json",
+        "atlas": "/content/spine/znahari_ritual/Znahari_ward_ritual.atlas.txt",
+        "texture": "/content/spine/znahari_ritual/Znahari_ward_ritual.png",
+        "scale": 1,
+        "auto": "Znahari_wardritual_static",
+        "bg": "/content/spine/znahari_ritual/back.jpg"
+      }
+    },
+    "ball_dance": {
+      "kind": "spine",
+      "name": "ball_dance",
+      "spine": {
+        "json": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.json",
+        "atlas": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.atlas.txt",
+        "texture": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.png",
+        "scale": 1,
+        "auto": "Vampire_21_Ball_Dance_Anim_over_static"
+      }
+    },
+    "wardrobe": {
+      "kind": "spine",
+      "name": "wardrobe",
+      "spine": {
+        "json": "/content/spine/wardrobe/back_static.json",
+        "atlas": "/content/spine/wardrobe/back_static.atlas.txt",
+        "texture": "/content/spine/wardrobe/back_static.png",
+        "scale": 1,
+        "auto": "back_static"
+      }
+    },
+    "dragon": {
+      "kind": "spine",
+      "name": "dragon",
+      "spine": {
+        "json": "/content/spine/dragon/back_static_2.json",
+        "atlas": "/content/spine/dragon/back_static_2.atlas.txt",
+        "texture": "/content/spine/dragon/back_static_2.png",
+        "scale": 1,
+        "auto": "back_static_2"
+      }
     }
   },
   "titles": [
@@ -1334,6 +1483,13 @@
               "name": "Викторина на время",
               "number": 4,
               "script_url": "/content/scripts/doll-quiz.lvn"
+            },
+            {
+              "bg_url": "/content/sprites/doll/bg.png",
+              "id": "doll-demo-ch5",
+              "name": "Noel & Phantom (Spine)",
+              "number": 5,
+              "script_url": "/content/scripts/noel-demo.lvn"
             }
           ]
         }
@@ -1353,14 +1509,14 @@
       ]
     },
     {
-      "cover_url": "/content/ui/cover_last_guest.png",
+      "cover_url": "/content/bg/hh_room2.jpg",
       "id": "last-guest",
       "name": "The Last Guest",
       "seasons": [
         {
           "chapters": [
             {
-              "bg_url": "/content/ui/loading/ch1.png",
+              "bg_url": "/content/bg/hh_room2.jpg",
               "id": "lg-ch1",
               "number": 1,
               "script_url": "/content/scripts/ch1.lvn"
@@ -2102,7 +2258,7 @@
                   "kind": "sprite",
                   "scope": "chapter"
                 },
-                "/content/art/Cat.png": {
+                "/content/art/Cat.jpg": {
                   "eta_ms": 920,
                   "kind": "sprite",
                   "scope": "chapter"
@@ -2503,7 +2659,7 @@
                   "kind": "sprite",
                   "scope": "chapter"
                 },
-                "/content/art/Cat.png": {
+                "/content/art/Cat.jpg": {
                   "eta_ms": 440,
                   "kind": "sprite",
                   "scope": "chapter"
@@ -2653,7 +2809,7 @@
                   "kind": "sprite",
                   "scope": "chapter"
                 },
-                "/content/art/Cat.png": {
+                "/content/art/Cat.jpg": {
                   "eta_ms": 760,
                   "kind": "sprite",
                   "scope": "chapter"
@@ -2941,7 +3097,7 @@
                   "kind": "sprite",
                   "scope": "chapter"
                 },
-                "/content/art/Cat.png": {
+                "/content/art/Cat.jpg": {
                   "eta_ms": 1120,
                   "kind": "sprite",
                   "scope": "chapter"
@@ -3062,7 +3218,7 @@
                   "kind": "sprite",
                   "scope": "chapter"
                 },
-                "/content/art/Andrey_Axe.png": {
+                "/content/art/Andrey_Axe.jpg": {
                   "eta_ms": 1280,
                   "kind": "sprite",
                   "scope": "chapter"
@@ -4888,6 +5044,24 @@
           "text_color": "#f1e4c9"
         }
       }
+    },
+    {
+      "id": "anna-mystery",
+      "name": "Галерея Анны",
+      "subtitle": "Последовательный показ всех Spine-сцен (арт: Анна)",
+      "cover_url": "/content/spine/masquerade/Masquerade.png",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "id": "am-ch1",
+              "name": "Все сцены",
+              "number": 1,
+              "script_url": "/content/scripts/anna-mystery.lvn"
+            }
+          ]
+        }
+      ]
     }
   ],
   "ui": {

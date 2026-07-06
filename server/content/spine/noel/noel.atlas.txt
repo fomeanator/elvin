@@ -1,0 +1,33 @@
+Hill_Noel_and_Phantom.png
+	size: 2672, 2488
+	filter: Linear, Linear
+	pma: true
+	scale: 1.1
+arm_l
+	bounds: 915, 308, 840, 1074
+	offsets: 0, 8, 840, 1082
+	rotate: 270
+arm_r
+	bounds: 2, 2, 1047, 877
+	offsets: 0, 18, 1047, 895
+breath
+	bounds: 915, 936, 862, 1549
+finger_l
+	bounds: 2341, 1179, 326, 548
+	rotate: 180
+finger_r
+	bounds: 1368, 49, 539, 321
+	rotate: 180
+fog
+	bounds: 1051, 16, 316, 385
+smoke1
+	bounds: 1990, 698, 479, 624
+	rotate: 270
+smoke2
+	bounds: 1960, 95, 594, 601
+smoke_l
+	bounds: 1779, 1281, 635, 1204
+	offsets: 1, 87, 735, 1355
+smoke_r
+	bounds: 2, 881, 911, 1604
+	offsets: 88, 52, 1001, 1709
