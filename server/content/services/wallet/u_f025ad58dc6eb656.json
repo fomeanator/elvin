@@ -1,0 +1,17 @@
+{
+  "__v": 1,
+  "balances": {
+    "gold": 100
+  },
+  "inventory": {},
+  "history": [
+    {
+      "ts": "2026-07-06T15:17:34Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "gold_100",
+      "reason": "iap:dev"
+    }
+  ]
+}

@@ -25,6 +25,10 @@ namespace Lvn.UI.Screens
         public LoadingScreen Loading { get; private set; }
         public TitleCard Title { get; private set; }
         public GameHud Hud { get; private set; }
+        /// <summary>The boot auth screen; null unless manifest ui.auth enables it.</summary>
+        public AuthScreen Auth { get; private set; }
+        /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
+        public StoreScreen Store { get; private set; }
 
         private UIDocument _doc;
         private VisualElement _root;
@@ -82,7 +86,38 @@ namespace Lvn.UI.Screens
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
+            Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
+            if (Auth != null) Add(Auth);
+            Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
+
+            // Wallet → HUD pills: the server's balances mirror onto the in-game
+            // strip whenever the wallet changes (earn/spend/IAP/refresh).
+            _storeUi = ui.store;
+            Lvn.Services.LvnWallet.Changed -= OnWalletChanged;
+            Lvn.Services.LvnWallet.Changed += OnWalletChanged;
+            OnWalletChanged();
         }
+
+        private StoreConfig _storeUi;
+
+        private void OnWalletChanged()
+        {
+            if (Hud == null) return;
+            foreach (var kv in Lvn.Services.LvnWallet.Balances)
+            {
+                string icon = _storeUi?.currency_icons != null
+                              && _storeUi.currency_icons.TryGetValue(kv.Key, out var u) ? u : null;
+                Hud.SetBalance(kv.Key, kv.Value, icon);
+            }
+        }
+
+        private void OnDestroy() => Lvn.Services.LvnWallet.Changed -= OnWalletChanged;
+
+        /// <summary>Open the currency store overlay; completes when the player
+        /// closes it. Safe from anywhere on the main thread (quick-menu item,
+        /// HUD tap, a script's <c>ext store_show</c>).</summary>
+        public Task OpenStoreAsync(CancellationToken ct = default)
+            => Store != null ? Store.ShowAsync(ct) : Task.CompletedTask;
 
         /// <summary>Apply a live content update — swap in a freshly-fetched
         /// manifest and re-render the data-driven screens (the carousel rebuilds
@@ -115,6 +150,19 @@ namespace Lvn.UI.Screens
             Show(Boot);
             await Boot.RunAsync(bootReady ?? (() => true), null, ct);
             Hide(Boot);
+
+            // ── auth screen (once, when the manifest enables it) ──
+            // Its nickname doubles as the player name, so the name-input screen
+            // is skipped when one was entered here.
+            if (Auth != null)
+            {
+                try
+                {
+                    var nick = await Auth.AskAsync(ct);
+                    if (!string.IsNullOrEmpty(nick)) _playerName = nick;
+                }
+                catch (OperationCanceledException) { return; }
+            }
 
             while (!ct.IsCancellationRequested)
             {
@@ -156,6 +204,7 @@ namespace Lvn.UI.Screens
                 // ── play ──
                 if (playChapter != null && chapter != null)
                 {
+                    _ = Lvn.Services.LvnWallet.RefreshAsync(); // fresh pills for the HUD
                     Show(Hud);
                     try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }
@@ -225,6 +274,8 @@ namespace Lvn.UI.Screens
         {
             Hide(Boot); Hide(Carousel); Hide(Loading); Hide(Title); Hide(Hud);
             NameInput.Hide();
+            Auth?.Hide();
+            Store?.Hide();
         }
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }

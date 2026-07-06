@@ -47,6 +47,54 @@ namespace Lvn.Services
             return code == 200 && Apply(body);
         }
 
+        /// <summary>One purchasable pack from the server's IAP catalog — the
+        /// store screen's card. Amount is the full grant (bonus included);
+        /// Price is a display string, billing happens in the platform store.</summary>
+        public sealed class IapPack
+        {
+            public string Sku;
+            public string Currency;
+            public long Amount;
+            public string Title;   // optional; "" → the screen composes one
+            public string Price;   // optional display price ("$4.99")
+            public string Icon;    // optional content url
+            public long Bonus;     // optional "+N bonus" share of Amount
+        }
+
+        /// <summary>The purchasable packs (GET /v1/iap/catalog, server-sorted).
+        /// Null offline / when no server is configured.</summary>
+        public static async Task<List<IapPack>> GetCatalogAsync()
+        {
+            var (code, body) = await LvnBackend.GetAsync("/v1/iap/catalog");
+            return code == 200 ? ParseCatalog(body) : null;
+        }
+
+        /// <summary>Parse a /v1/iap/catalog response; null on garbage.</summary>
+        public static List<IapPack> ParseCatalog(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                var packs = new List<IapPack>();
+                foreach (var t in JObject.Parse(json)["packs"] as JArray ?? new JArray())
+                {
+                    if (!(t is JObject o) || string.IsNullOrEmpty((string)o["sku"])) continue;
+                    packs.Add(new IapPack
+                    {
+                        Sku = (string)o["sku"],
+                        Currency = (string)o["currency"] ?? "",
+                        Amount = (long?)o["amount"] ?? 0,
+                        Title = (string)o["title"] ?? "",
+                        Price = (string)o["price"] ?? "",
+                        Icon = (string)o["icon"] ?? "",
+                        Bonus = (long?)o["bonus"] ?? 0,
+                    });
+                }
+                return packs;
+            }
+            catch { return null; }
+        }
+
         /// <summary>Redeem a store purchase. The server validates the receipt
         /// (dev mode: -iap-dev) and grants from its catalog — the client never
         /// decides amounts.</summary>
