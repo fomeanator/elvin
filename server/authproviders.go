@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -48,7 +47,7 @@ func (s *AuthService) verifyProviderReal(provider, token string) (string, error)
 // (signature, expiry) and returns the stable subject. aud is pinned when a
 // client id is configured.
 func verifyGoogleIDToken(idToken, clientID string) (string, error) {
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken))
+	resp, err := verifyHTTP.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken))
 	if err != nil {
 		return "", fmt.Errorf("google tokeninfo unreachable: %w", err)
 	}
@@ -144,7 +143,7 @@ func appleKeyFor(kid string) (*rsa.PublicKey, error) {
 	if time.Since(appleKeys.fetched) < time.Minute && appleKeys.byKid != nil {
 		return nil, errors.New("unknown apple key id")
 	}
-	resp, err := http.Get("https://appleid.apple.com/auth/keys")
+	resp, err := verifyHTTP.Get("https://appleid.apple.com/auth/keys")
 	if err != nil {
 		return nil, fmt.Errorf("apple JWKS unreachable: %w", err)
 	}

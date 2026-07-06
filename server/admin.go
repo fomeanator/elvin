@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +23,9 @@ type AdminService struct {
 	token   string
 	auth    *AuthService
 	wallet  *WalletService
+	// writeMu serialises snapshot+write pairs so two parallel panel saves
+	// can't lose a history revision (same-millisecond .bak collision).
+	writeMu sync.Mutex
 }
 
 func NewAdminService(content, token string, auth *AuthService, wallet *WalletService) *AdminService {
@@ -46,13 +51,21 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 
 // historyEligible: the editable text-ish content whose past versions are
 // worth keeping. Binary art is excluded (bulky, and reuploading is cheap).
+// Doubles as the path guard for history/rollback — reject traversal HERE so
+// every caller (list, fetch, restore-write) inherits the check.
 func historyEligible(rel string) bool {
+	if strings.Contains(rel, "..") || strings.ContainsAny(rel, "\\") {
+		return false
+	}
 	if rel == "manifest.json" || adminConfigs[rel] {
 		return true
 	}
 	return strings.HasPrefix(rel, "scripts/") &&
 		(strings.HasSuffix(rel, ".lvn") || strings.HasSuffix(rel, ".lvns"))
 }
+
+// history timestamps are pure decimal millis — anything else is an attack.
+var reHistoryTS = regexp.MustCompile(`^[0-9]{10,16}$`)
 
 // snapshotHistory copies the CURRENT file into content/.history/<rel>/<ms>.bak
 // before it gets overwritten; keeps the newest 50 per file.
@@ -95,6 +108,10 @@ func (s *AdminService) handleHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ts := r.URL.Query().Get("ts"); ts != "" { // fetch one version's body
+		if !reHistoryTS.MatchString(ts) {
+			http.Error(w, "bad ts", http.StatusBadRequest)
+			return
+		}
 		data, err := os.ReadFile(filepath.Join(s.content, ".history", rel, ts+".bak"))
 		if err != nil {
 			http.Error(w, "not found", http.StatusNotFound)
@@ -136,7 +153,7 @@ func (s *AdminService) handleRollback(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct{ File, TS string }
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req) != nil ||
-		!historyEligible(req.File) || strings.ContainsAny(req.TS, "/\\.") {
+		!historyEligible(req.File) || !reHistoryTS.MatchString(req.TS) {
 		http.Error(w, "file and ts required", http.StatusBadRequest)
 		return
 	}
@@ -145,8 +162,11 @@ func (s *AdminService) handleRollback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "version not found", http.StatusNotFound)
 		return
 	}
+	s.writeMu.Lock()
 	snapshotHistory(s.content, req.File)
-	if err := atomicWrite(filepath.Join(s.content, req.File), data, 0o644); err != nil {
+	err = atomicWrite(filepath.Join(s.content, req.File), data, 0o644)
+	s.writeMu.Unlock()
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -171,8 +191,11 @@ func (s *AdminService) handlePublish(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no draft to publish", http.StatusNotFound)
 		return
 	}
+	s.writeMu.Lock()
 	snapshotHistory(s.content, "manifest.json")
-	if err := atomicWrite(filepath.Join(s.content, "manifest.json"), data, 0o644); err != nil {
+	err = atomicWrite(filepath.Join(s.content, "manifest.json"), data, 0o644)
+	s.writeMu.Unlock()
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -188,7 +211,10 @@ func (s *AdminService) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rel := filepath.Clean("/" + r.URL.Query().Get("dir"))[1:] // no escapes
-	if strings.HasPrefix(rel, ".history") || strings.HasPrefix(rel, "services") || strings.HasPrefix(rel, "state") {
+	// Case-folded: macOS/Windows filesystems are case-insensitive, so
+	// dir=State would otherwise open the very folder the blacklist names.
+	low := strings.ToLower(rel)
+	if strings.HasPrefix(low, ".history") || strings.HasPrefix(low, "services") || strings.HasPrefix(low, "state") {
 		http.Error(w, "not browsable", http.StatusForbidden)
 		return
 	}
@@ -262,8 +288,11 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 		var pretty any
 		_ = json.Unmarshal(doc, &pretty)
 		data, _ := json.MarshalIndent(pretty, "", "  ")
+		s.writeMu.Lock()
 		snapshotHistory(s.content, name)
-		if err := atomicWrite(path, data, 0o644); err != nil {
+		err := atomicWrite(path, data, 0o644)
+		s.writeMu.Unlock()
+		if err != nil {
 			http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -321,10 +350,13 @@ func (s *AdminService) handleManifest(w http.ResponseWriter, r *http.Request) {
 		var pretty any
 		_ = json.Unmarshal(doc, &pretty)
 		data, _ := json.MarshalIndent(pretty, "", "  ")
+		s.writeMu.Lock()
 		if !draft {
 			snapshotHistory(s.content, "manifest.json")
 		}
-		if err := atomicWrite(path, data, 0o644); err != nil {
+		err := atomicWrite(path, data, 0o644)
+		s.writeMu.Unlock()
+		if err != nil {
 			http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -408,6 +440,12 @@ func (s *AdminService) handleGrant(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil ||
 		req.UserID == "" || req.Currency == "" || req.Amount == 0 {
 		http.Error(w, "user_id, currency and amount required", http.StatusBadRequest)
+		return
+	}
+	// A typo'd user id must be a loud 400, not a silent no-op "ok" the
+	// support person walks away from believing the grant landed.
+	if !reUserFile.MatchString(req.UserID) {
+		http.Error(w, "malformed user_id", http.StatusBadRequest)
 		return
 	}
 	if req.Reason == "" {

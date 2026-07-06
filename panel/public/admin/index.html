@@ -82,7 +82,14 @@ const $ = s => document.querySelector(s);
 let TOKEN = localStorage.getItem('lvn_admin_token') || '';
 let manifest = null;
 
+let dirty = false; // несохранённые правки форм — предупреждаем перед уходом
+document.addEventListener('change', e => {
+  if (e.target.closest('#main') && (e.target.matches('input,textarea,select')) && !e.target.matches('[type=file],[type=date],#scope,#draftTgl')) dirty = true;
+});
+const confirmLeave = () => !dirty || confirm('Есть несохранённые правки — уйти без сохранения?');
+
 const api = async (path, opt = {}) => {
+  if ((opt.method === 'PUT' || opt.method === 'POST') && path.startsWith('/v1/admin/')) dirty = false;
   opt.headers = Object.assign({ 'Authorization': 'Bearer ' + TOKEN }, opt.headers || {});
   const r = await fetch(path, opt);
   if (r.status === 401) { logout(); throw new Error('unauthorized'); }
@@ -111,6 +118,8 @@ $('#enter').onclick = enter;
 $('#tok').addEventListener('keydown', e => { if (e.key === 'Enter') enter(); });
 $('#logout').onclick = logout;
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  if (!confirmLeave()) return;
+  dirty = false;
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x === b));
   show(b.dataset.tab);
 });
@@ -125,6 +134,7 @@ async function showHistory(file, host) {
         <td class="muted">${fmt(v.size)} b</td>
         <td><button class="btn ghost" data-rb="${v.ts}">Откатить на эту</button></td></tr>`).join('');
   host.innerHTML = `<div class="card"><h2>История: ${esc(file)}</h2>
+    ${file === 'manifest.json' ? '<p class="muted">Откат применяется к ОПУБЛИКОВАННОМУ манифесту (черновик не трогает).</p>' : ''}
     ${rows ? `<table><tr><th>сохранено</th><th>размер</th><th></th></tr>${rows}</table>`
            : '<p class="muted">Пока пусто — версии появляются при каждом сохранении.</p>'}</div>`;
   host.querySelectorAll('[data-rb]').forEach(b => b.onclick = async () => {
@@ -146,7 +156,7 @@ async function assets(dir) {
     <div class="card">
       <div class="row">
         <h2 style="flex:1">${crumbs.map((c, i) =>
-          `<a href="#" data-crumb="${crumbs.slice(1, i + 1).join('/')}" style="color:var(--accent);text-decoration:none">${esc(c)}</a>`
+          `<a href="#" data-crumb="${esc(crumbs.slice(1, i + 1).join('/'))}" style="color:var(--accent);text-decoration:none">${esc(c)}</a>`
         ).join(' / ')}</h2>
         <input type="file" id="upl" multiple style="display:none" />
         <button class="btn" id="uplBtn">Загрузить файлы сюда</button>
@@ -385,7 +395,10 @@ async function novel() {
       </div>
     </div>
     <div id="histbox"></div>`;
-  $('#draftTgl').onchange = () => { draftMode = $('#draftTgl').checked; novel(); };
+  $('#draftTgl').onchange = () => {
+    if (!confirmLeave()) { $('#draftTgl').checked = draftMode; return; }
+    dirty = false; draftMode = $('#draftTgl').checked; novel();
+  };
   $('#hist').onclick = () => showHistory('manifest.json', $('#histbox'));
   $('#openIde').onclick = () => window.open('/panel/', '_blank');
   if (draftMode) {
@@ -412,7 +425,7 @@ async function novel() {
         </div>
         ${(t.seasons || []).flatMap((s, si) => (s.chapters || []).map((c, ci) => `
           <div class="chapter">
-            <input style="width:70px"  value="${c.number ?? 0}"  data-t="${ti}" data-s="${si}" data-c="${ci}" data-f="number" title="номер" />
+            <input style="width:70px"  value="${esc(c.number ?? 0)}"  data-t="${ti}" data-s="${si}" data-c="${ci}" data-f="number" title="номер" />
             <input style="width:160px" value="${esc(c.id || '')}"        data-t="${ti}" data-s="${si}" data-c="${ci}" data-f="id" placeholder="id" />
             <input style="width:200px" value="${esc(c.name || '')}"      data-t="${ti}" data-s="${si}" data-c="${ci}" data-f="name" placeholder="название" />
             <input style="width:260px" value="${esc(c.script_url || '')}" data-t="${ti}" data-s="${si}" data-c="${ci}" data-f="script_url" placeholder="/content/scripts/….lvn" />
@@ -500,8 +513,12 @@ async function userDetail(id) {
   $('#grant').onclick = async () => {
     const body = { user_id: id, currency: $('#gcur').value.trim(), amount: Number($('#gamt').value), reason: $('#grsn').value.trim() || 'admin:panel' };
     if (!body.currency || !body.amount) { toast('нужны валюта и количество'); return; }
-    await api('/v1/admin/grant', { method: 'POST', body: JSON.stringify(body) });
-    toast('Готово'); userDetail(id);
+    const b = $('#grant');
+    b.disabled = true; // деньги: двойной клик не должен начислить дважды
+    try {
+      await api('/v1/admin/grant', { method: 'POST', body: JSON.stringify(body) });
+      toast('Готово'); userDetail(id);
+    } finally { b.disabled = false; }
   };
 }
 

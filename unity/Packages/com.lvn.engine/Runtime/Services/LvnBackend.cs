@@ -53,6 +53,7 @@ namespace Lvn.Services
             PlayerPrefs.SetString(PToken, resp.token);
             PlayerPrefs.SetString(PUser, resp.user_id);
             PlayerPrefs.Save();
+            LvnWallet.NoteUser(resp.user_id); // bind (or reset) the offline wallet to this account
             SignedInChanged?.Invoke(resp.user_id);
             return true;
         }
@@ -94,6 +95,9 @@ namespace Lvn.Services
             PlayerPrefs.SetString(PUser, resp.user_id);
             if (!string.IsNullOrEmpty(resp.name)) PlayerPrefs.SetString(PName, resp.name);
             PlayerPrefs.Save();
+            // Cross-device recovery may have switched ACCOUNTS on this device —
+            // the previous user's offline wallet must not leak into this one.
+            LvnWallet.NoteUser(resp.user_id);
             SignedInChanged?.Invoke(resp.user_id);
             return true;
         }

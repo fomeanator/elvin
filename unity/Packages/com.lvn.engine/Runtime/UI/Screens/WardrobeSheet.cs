@@ -194,6 +194,8 @@ namespace Lvn.UI.Screens
             {
                 style.display = DisplayStyle.Flex;
                 await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
+                // Hide() during the fade-in cancels the open (see StoreScreen).
+                if (!_open) { LvnWallet.Changed -= OnWalletChanged; return; }
             }
 
             _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

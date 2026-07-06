@@ -64,10 +64,13 @@ type WalletService struct {
 	// /v1/iap/verify (platform "appstore"). Google Play needs a service
 	// account and stays an honest 501 until one is configured.
 	AppleSharedSecret string
+	// AppleBundleID pins receipts to OUR app — without it any genuine App
+	// Store receipt (from anyone's app) with a same-named product would pass.
+	AppleBundleID string
 
 	// verifyApple validates a receipt against Apple and returns the matching
 	// transaction id for a sku. Swappable in tests.
-	verifyApple func(receipt, sku, sharedSecret string) (txID string, err error)
+	verifyApple func(receipt, sku, sharedSecret, bundleID string) (txID string, err error)
 }
 
 var reUserFile = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -312,7 +315,7 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "appstore verification not configured (set -apple-shared-secret)", http.StatusNotImplemented)
 			return
 		}
-		id, err := s.verifyApple(req.Receipt, req.SKU, s.AppleSharedSecret)
+		id, err := s.verifyApple(req.Receipt, req.SKU, s.AppleSharedSecret, s.AppleBundleID)
 		if err != nil {
 			http.Error(w, "receipt rejected: "+err.Error(), http.StatusPaymentRequired)
 			return
@@ -342,10 +345,9 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// Never trimmed: evicting an old id would re-open it for replay, and
+		// at ~25 bytes per purchase the list stays trivially small for life.
 		doc.Transactions = append(doc.Transactions, txID)
-		if len(doc.Transactions) > 500 {
-			doc.Transactions = doc.Transactions[len(doc.Transactions)-500:]
-		}
 	}
 	doc.Balances[grant.Currency] += grant.Amount
 	doc.History = append(doc.History, walletEntry{
