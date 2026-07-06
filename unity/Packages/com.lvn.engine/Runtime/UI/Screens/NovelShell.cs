@@ -29,6 +29,8 @@ namespace Lvn.UI.Screens
         public AuthScreen Auth { get; private set; }
         /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
         public StoreScreen Store { get; private set; }
+        /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).</summary>
+        public WardrobeScreen Wardrobe { get; private set; }
 
         private UIDocument _doc;
         private VisualElement _root;
@@ -88,6 +90,8 @@ namespace Lvn.UI.Screens
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
+            Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
+            Wardrobe.Hide(); Add(Wardrobe);
             Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
 
             // Wallet → HUD pills: the server's balances mirror onto the in-game
@@ -119,6 +123,11 @@ namespace Lvn.UI.Screens
         public Task OpenStoreAsync(CancellationToken ct = default)
             => Store != null ? Store.ShowAsync(ct) : Task.CompletedTask;
 
+        /// <summary>Open the wardrobe overlay for a character (null → the
+        /// configured/first one); completes when the player closes it.</summary>
+        public Task OpenWardrobeAsync(string entityId = null, CancellationToken ct = default)
+            => Wardrobe != null ? Wardrobe.ShowAsync(entityId, ct) : Task.CompletedTask;
+
         /// <summary>Apply a live content update — swap in a freshly-fetched
         /// manifest and re-render the data-driven screens (the carousel rebuilds
         /// its deck, keeping the selected title). Cheap and safe to call any time;
@@ -128,6 +137,7 @@ namespace Lvn.UI.Screens
             if (manifest == null) return;
             _manifest = manifest;
             Carousel?.SetTitles(manifest.titles);
+            Wardrobe?.SetManifest(manifest);
         }
 
         /// <summary>Run the whole loop. <paramref name="bootReady"/> gates the boot
@@ -276,6 +286,7 @@ namespace Lvn.UI.Screens
             NameInput.Hide();
             Auth?.Hide();
             Store?.Hide();
+            Wardrobe?.Hide();
         }
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }

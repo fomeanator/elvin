@@ -1119,7 +1119,45 @@
           "url": "/content/sprites/hero/weapon_{weapon}_{pose}.png"
         }
       ],
-      "name": "Странник"
+      "name": "Странник",
+      "wardrobe": {
+        "armor": {
+          "name": "Броня",
+          "items": [
+            {
+              "value": "leather",
+              "name": "Кожаный доспех",
+              "icon": "/content/sprites/hero/armor_leather.png"
+            },
+            {
+              "value": "chain",
+              "name": "Кольчуга",
+              "icon": "/content/sprites/hero/armor_chain.png",
+              "currency": "gold",
+              "price": 300,
+              "rarity": "rare"
+            }
+          ]
+        },
+        "weapon": {
+          "name": "Оружие",
+          "items": [
+            {
+              "value": "sword",
+              "name": "Меч странника",
+              "icon": "/content/sprites/hero/weapon_sword.png"
+            },
+            {
+              "value": "heavy",
+              "name": "Тяжёлый клинок",
+              "icon": "/content/sprites/hero/weapon_heavy.png",
+              "currency": "gold",
+              "price": 500,
+              "rarity": "epic"
+            }
+          ]
+        }
+      }
     },
     "knight": {
       "kind": "spine",
@@ -5130,6 +5168,20 @@
       "currency_names": {
         "gold": "золота",
         "crystals": "кристаллов"
+      }
+    },
+    "wardrobe": {
+      "entity": "hero",
+      "title": "Гардероб",
+      "menu_label": "Гардероб",
+      "equip_text": "Надеть",
+      "equipped_text": "Надето",
+      "remove_text": "Снять",
+      "close_text": "Закрыть",
+      "empty_text": "Гардероб пуст",
+      "rarity_colors": {
+        "rare": "#5aa0e6",
+        "epic": "#b06ae6"
       }
     }
   }
