@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -347,5 +348,198 @@ func TestAuth_ProfileNameRoundTrips(t *testing.T) {
 	}
 	if _, out := call(t, mux, "GET", "/v1/auth/me", tok, nil); out["name"] != "Арам" {
 		t.Fatalf("me must return the name: %v", out)
+	}
+}
+
+func TestAuth_ProviderLinkAndCrossDeviceLogin(t *testing.T) {
+	mux, auth, _ := servicesMuxFull(t, false)
+	auth.AuthDev = true
+
+	// device account links a provider identity…
+	user1, tok := register(t, mux)
+	rec, out := call(t, mux, "POST", "/v1/auth/link", tok,
+		map[string]string{"provider": "dev", "token": "google-sub-12345"})
+	if rec.Code != 200 || out["user_id"] != user1 {
+		t.Fatalf("link: %d %v", rec.Code, out)
+	}
+
+	// …and a "new phone" logs in with the SAME identity → same account back
+	rec, out = call(t, mux, "POST", "/v1/auth/login", "",
+		map[string]string{"provider": "dev", "token": "google-sub-12345"})
+	if rec.Code != 200 || out["user_id"] != user1 {
+		t.Fatalf("cross-device login must recover the account: %d %v", rec.Code, out)
+	}
+	if out["token"] == tok {
+		t.Fatal("login must mint a fresh session token")
+	}
+
+	// an unknown identity auto-creates a new account
+	rec, out = call(t, mux, "POST", "/v1/auth/login", "",
+		map[string]string{"provider": "dev", "token": "apple-sub-99999"})
+	if rec.Code != 200 || out["user_id"] == user1 {
+		t.Fatalf("unknown identity must create a fresh account: %d %v", rec.Code, out)
+	}
+
+	// linking an identity that belongs to someone else → 409 with the owner
+	user3tok := ""
+	{
+		var buf bytes.Buffer
+		_ = json.NewEncoder(&buf).Encode(map[string]string{"device_id": "another-device-9876543210"})
+		req := httptest.NewRequest("POST", "/v1/auth/register", &buf)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		var o map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &o)
+		user3tok = o["token"].(string)
+	}
+	rec, out = call(t, mux, "POST", "/v1/auth/link", user3tok,
+		map[string]string{"provider": "dev", "token": "google-sub-12345"})
+	if rec.Code != 409 || out["error"] != "already_linked" || out["user_id"] != user1 {
+		t.Fatalf("stealing a linked identity must 409: %d %v", rec.Code, out)
+	}
+}
+
+func TestAuth_DevProviderRequiresTheFlag(t *testing.T) {
+	mux, _ := servicesMux(t, false) // AuthDev NOT set
+	_, tok := register(t, mux)
+	if rec, _ := call(t, mux, "POST", "/v1/auth/link", tok,
+		map[string]string{"provider": "dev", "token": "sub"}); rec.Code != 401 {
+		t.Fatalf("dev provider without -auth-dev must 401, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "POST", "/v1/auth/link", tok,
+		map[string]string{"provider": "martian", "token": "x"}); rec.Code != 401 {
+		t.Fatalf("unknown provider must 401, got %d", rec.Code)
+	}
+}
+
+func TestIAP_AppleReceiptPathAndReplayGuard(t *testing.T) {
+	dir := t.TempDir()
+	catalog := filepath.Join(dir, "iap-catalog.json")
+	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency": "gold", "amount": 100}}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false)
+	wallet.AppleSharedSecret = "shhh"
+	wallet.verifyApple = func(receipt, sku, secret string) (string, error) {
+		if receipt != "valid-receipt" {
+			return "", fmt.Errorf("bad receipt")
+		}
+		return "tx-001", nil
+	}
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	_, tok := register(t, mux)
+
+	rec, out := call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]string{"platform": "appstore", "sku": "gold_100", "receipt": "valid-receipt"})
+	if rec.Code != 200 || out["balances"].(map[string]any)["gold"].(float64) != 100 {
+		t.Fatalf("apple verify: %d %v", rec.Code, out)
+	}
+	// same transaction again → idempotent, no double credit
+	rec, out = call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]string{"platform": "appstore", "sku": "gold_100", "receipt": "valid-receipt"})
+	if rec.Code != 200 || out["balances"].(map[string]any)["gold"].(float64) != 100 {
+		t.Fatalf("replay must not double-credit: %d %v", rec.Code, out)
+	}
+	// a rejected receipt → 402
+	if rec, _ := call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]string{"platform": "appstore", "sku": "gold_100", "receipt": "forged"}); rec.Code != 402 {
+		t.Fatalf("bad receipt must 402, got %d", rec.Code)
+	}
+	// gplay without credentials → honest 501
+	if rec, _ := call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]string{"platform": "gplay", "sku": "gold_100", "receipt": "r"}); rec.Code != 501 {
+		t.Fatalf("gplay must 501, got %d", rec.Code)
+	}
+}
+
+func TestAds_RewardGrantsAndDailyCap(t *testing.T) {
+	dir := t.TempDir()
+	adsPath := filepath.Join(dir, "ads.json")
+	_ = os.WriteFile(adsPath, []byte(`{"gold_small":{"currency":"gold","amount":25,"daily_cap":2}}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	ads, _ := NewAdsService(filepath.Join(dir, "ads"), auth, wallet, adsPath)
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	ads.Routes(mux)
+	_, tok := register(t, mux)
+
+	if rec, out := call(t, mux, "GET", "/v1/ads/catalog", "", nil); rec.Code != 200 ||
+		len(out["placements"].([]any)) != 1 {
+		t.Fatalf("ads catalog: %d %v", rec.Code, out)
+	}
+	for i := 0; i < 2; i++ {
+		rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "gold_small"})
+		if rec.Code != 200 || out["granted"] != true {
+			t.Fatalf("reward %d: %d %v", i, rec.Code, out)
+		}
+	}
+	rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "gold_small"})
+	if rec.Code != 429 || out["error"] != "daily_cap" {
+		t.Fatalf("cap must 429 daily_cap: %d %v", rec.Code, out)
+	}
+	if rec, out := call(t, mux, "GET", "/v1/wallet", tok, nil); rec.Code != 200 ||
+		out["balances"].(map[string]any)["gold"].(float64) != 50 {
+		t.Fatalf("two rewards must land exactly 50 gold: %d %v", rec.Code, out)
+	}
+	if rec, _ := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "nope"}); rec.Code != 404 {
+		t.Fatalf("unknown placement must 404, got %d", rec.Code)
+	}
+}
+
+func TestAdmin_UsersOrdersGrantAndManifest(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	_ = os.MkdirAll(content, 0o755)
+	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"titles":[]}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", true)
+	admin := NewAdminService(content, "admintok", auth, wallet)
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	admin.Routes(mux)
+	user, tok := register(t, mux)
+
+	// no/bad token → 401 everywhere
+	if rec, _ := call(t, mux, "GET", "/v1/admin/users", "", nil); rec.Code != 401 {
+		t.Fatalf("admin without token must 401, got %d", rec.Code)
+	}
+	// grant + user list with balances
+	rec, _ := call(t, mux, "POST", "/v1/admin/grant", "admintok",
+		map[string]any{"user_id": user, "currency": "gold", "amount": 500})
+	if rec.Code != 200 {
+		t.Fatalf("grant: %d %s", rec.Code, rec.Body)
+	}
+	rec, out := call(t, mux, "GET", "/v1/admin/users", "admintok", nil)
+	users := out["users"].([]any)
+	if rec.Code != 200 || len(users) != 1 ||
+		users[0].(map[string]any)["balances"].(map[string]any)["gold"].(float64) != 500 {
+		t.Fatalf("users list: %d %v", rec.Code, out)
+	}
+	// clawback floors at zero
+	_, _ = call(t, mux, "POST", "/v1/admin/grant", "admintok",
+		map[string]any{"user_id": user, "currency": "gold", "amount": -9999})
+	if _, out := call(t, mux, "GET", "/v1/admin/users/"+user, "admintok", nil); out["wallet"].(map[string]any)["balances"].(map[string]any)["gold"].(float64) != 0 {
+		t.Fatalf("clawback must floor at zero: %v", out)
+	}
+	// a dev IAP shows up in the orders ledger
+	_, _ = call(t, mux, "POST", "/v1/wallet/spend", tok,
+		map[string]any{"currency": "gold", "amount": 1, "reason": "x"}) // not an order (no sku)
+	rec, out = call(t, mux, "GET", "/v1/admin/orders", "admintok", nil)
+	if rec.Code != 200 {
+		t.Fatalf("orders: %d", rec.Code)
+	}
+	// manifest GET/PUT round-trip
+	rec, _ = call(t, mux, "PUT", "/v1/admin/manifest", "admintok",
+		map[string]any{"titles": []any{map[string]any{"id": "t1"}}})
+	if rec.Code != 200 {
+		t.Fatalf("manifest put: %d %s", rec.Code, rec.Body)
+	}
+	rec, out = call(t, mux, "GET", "/v1/admin/manifest", "admintok", nil)
+	if rec.Code != 200 || len(out["titles"].([]any)) != 1 {
+		t.Fatalf("manifest get after put: %d %v", rec.Code, out)
 	}
 }

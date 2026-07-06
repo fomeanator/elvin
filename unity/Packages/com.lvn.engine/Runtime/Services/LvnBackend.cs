@@ -79,6 +79,39 @@ namespace Lvn.Services
 
         [Serializable] private class ProfileReq { public string name; }
 
+        /// <summary>Sign in with a verified platform identity (POST
+        /// /v1/auth/login) — cross-device recovery: a known identity returns
+        /// its account and this device switches to it (token + user id are
+        /// replaced); an unknown identity gets a fresh account.</summary>
+        public static async Task<bool> LoginWithProviderAsync(string provider, string token)
+        {
+            var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
+            var (code, json) = await PostAsync("/v1/auth/login", body, auth: false);
+            if (code != 200 || string.IsNullOrEmpty(json)) return false;
+            var resp = JsonUtility.FromJson<LoginResp>(json);
+            if (string.IsNullOrEmpty(resp?.token)) return false;
+            PlayerPrefs.SetString(PToken, resp.token);
+            PlayerPrefs.SetString(PUser, resp.user_id);
+            if (!string.IsNullOrEmpty(resp.name)) PlayerPrefs.SetString(PName, resp.name);
+            PlayerPrefs.Save();
+            SignedInChanged?.Invoke(resp.user_id);
+            return true;
+        }
+
+        /// <summary>Attach a platform identity to the current account (POST
+        /// /v1/auth/link) so it becomes recoverable from any device.</summary>
+        public static async Task<LvnPlatformAuth.LinkResult> LinkProviderAsync(string provider, string token)
+        {
+            var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
+            var (code, _) = await PostAsync("/v1/auth/link", body);
+            if (code == 200) return LvnPlatformAuth.LinkResult.Linked;
+            if (code == 409) return LvnPlatformAuth.LinkResult.Conflict;
+            return LvnPlatformAuth.LinkResult.Failed;
+        }
+
+        [Serializable] private class ProviderReq { public string provider; public string token; }
+        [Serializable] private class LoginResp { public string user_id; public string token; public string name; }
+
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>
         public static async Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)
