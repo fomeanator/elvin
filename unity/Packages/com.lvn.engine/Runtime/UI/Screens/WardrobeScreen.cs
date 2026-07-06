@@ -393,10 +393,22 @@ namespace Lvn.UI.Screens
             bool ok = false;
             try
             {
-                ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe",
-                    LvnWardrobe.Sku(_entity, _tab, item.value));
-                LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
-                    ("entity", _entity), ("sku", LvnWardrobe.Sku(_entity, _tab, item.value)));
+                var sku = LvnWardrobe.Sku(_entity, _tab, item.value);
+                // Fresh inventory first — never charge twice for an owned sku.
+                await LvnWallet.RefreshAsync();
+                if (LvnWallet.Inventory.ContainsKey(sku))
+                {
+                    Debug.Log($"[lvn-wardrobe] screen: {sku} already owned — equipping without charge");
+                    ok = true;
+                }
+                else
+                {
+                    Debug.Log($"[lvn-wardrobe] screen buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
+                    ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+                    Debug.Log($"[lvn-wardrobe] screen buy {sku} → {(ok ? "OK" : "FAILED")}");
+                    LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
+                        ("entity", _entity), ("sku", sku));
+                }
             }
             catch { }
             finally { _buying = false; }
