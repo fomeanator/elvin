@@ -92,6 +92,16 @@ namespace Lvn.UI.Screens
             // Product services ride the same host; registration is idempotent
             // and a no-op offline — a pure-offline game just never signs in.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+#if UNITY_EDITOR
+            // Editor test doubles: the 'dev' auth provider (server -auth-dev)
+            // and an instantly-"watched" rewarded ad — the full sign-in and
+            // ad-reward flows run end-to-end without any store SDKs. Real
+            // builds: the host plugs LvnPlatformAuth.Google/Apple and
+            // LvnAds.ShowRewarded (CAS.AI etc.) instead.
+            Lvn.Services.LvnPlatformAuth.Dev ??=
+                () => Task.FromResult("editor-dev-" + SystemInfo.deviceUniqueIdentifier);
+            Lvn.Services.LvnAds.ShowRewarded ??= _ => Task.FromResult(true);
+#endif
             _ = Lvn.Services.LvnBackend.EnsureRegisteredAsync();
             Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
             Lvn.Services.LvnAnalytics.Track("boot");

@@ -150,6 +150,62 @@ namespace Lvn.UI.Screens
             var packs = await LvnWallet.GetCatalogAsync();
             if (!_open) return;
             SetPacks(packs);
+            // Free money row: rewarded-ad placements, only when the host
+            // plugged an ad SDK (LvnAds.ShowRewarded) — server owns amounts.
+            if (LvnAds.Available)
+            {
+                var ads = await LvnAds.GetCatalogAsync();
+                if (!_open || ads == null) return;
+                foreach (var p in ads) _list.Add(AdCard(p));
+            }
+        }
+
+        private VisualElement AdCard(LvnAds.Placement p)
+        {
+            var card = new VisualElement();
+            card.style.flexDirection = FlexDirection.Row;
+            card.style.alignItems = Align.Center;
+            card.style.backgroundColor = UiColor.Parse(_cfg.card_color, new Color(0.11f, 0.11f, 0.13f));
+            Round(card, _radius);
+            card.style.marginBottom = 10;
+            card.style.paddingTop = 14; card.style.paddingBottom = 14;
+            card.style.paddingLeft = 16; card.style.paddingRight = 16;
+
+            var col = new VisualElement();
+            col.style.flexGrow = 1;
+            card.Add(col);
+            var name = new Label($"+{p.Amount:N0} {NameFor(p.Currency)}");
+            name.style.color = _text;
+            name.style.fontSize = 26;
+            col.Add(name);
+            if (p.DailyCap > 0)
+            {
+                var sub = new Label($"×{p.DailyCap}/day");
+                sub.style.color = _dim;
+                sub.style.fontSize = 20;
+                sub.style.marginTop = 2;
+                col.Add(sub);
+            }
+
+            var watch = new Button { text = _cfg.ad_text ?? "Watch ad" };
+            watch.style.fontSize = 24;
+            watch.style.minWidth = 130;
+            watch.style.paddingTop = 12; watch.style.paddingBottom = 12;
+            watch.style.paddingLeft = 18; watch.style.paddingRight = 18;
+            watch.style.color = _text;
+            watch.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
+            Round(watch, _radius);
+            watch.clicked += async () =>
+            {
+                watch.SetEnabled(false);
+                var label = watch.text;
+                watch.text = "…";
+                bool ok = await LvnAds.WatchAndRewardAsync(p.Id);
+                watch.text = ok ? "✓" : "✕";
+                watch.schedule.Execute(() => { watch.text = label; watch.SetEnabled(true); }).ExecuteLater(1400);
+            };
+            card.Add(watch);
+            return card;
         }
 
         /// <summary>Render the pack cards (null/empty → the empty note). Split

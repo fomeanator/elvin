@@ -101,6 +101,14 @@ namespace Lvn.Content
         public string signing_text;   // default "Connecting…"
         public string signed_text;    // default "Connected"
         public string offline_text;   // default "Offline — progress stays on this device"
+
+        // platform sign-in buttons — shown only when the host plugged the
+        // matching LvnPlatformAuth flow AND the flag allows it
+        public bool? show_google;     // default true (when the hook exists)
+        public bool? show_apple;      // default true (when the hook exists)
+        public string google_text;    // default "Sign in with Google"
+        public string apple_text;     // default "Sign in with Apple"
+        public string provider_done_text; // status after a provider sign-in; default "Signed in"
     }
 
     /// <summary>The currency store overlay: packs from the server's IAP catalog
@@ -121,6 +129,7 @@ namespace Lvn.Content
         public float? corner_radius;  // sheet/card rounding; default 12
 
         public string buy_text;       // button label when a pack has no price; default "Get"
+        public string ad_text;        // rewarded-ad card button; default "Watch ad"
         public string close_text;     // default "Close"
         public string empty_text;     // no packs / server unreachable; default "The shop is closed right now"
         public string bonus_text;     // "{0}" = bonus amount; default "+{0} bonus"
