@@ -35,9 +35,30 @@ namespace Lvn.Services
 
         private const string PMirror = "lvn.wallet.mirror";
         private const string PQueue = "lvn.wallet.queue";
+        private const string POwner = "lvn.wallet.owner";
         private static readonly List<JObject> _queue = new List<JObject>();
         private static bool _loaded;
         private static bool _flushing;
+
+        /// <summary>Bind the local mirror/queue to an account. Called by
+        /// LvnBackend whenever a sign-in lands: if the device switched to a
+        /// DIFFERENT account (cross-device recovery via Google/Apple), the
+        /// previous user's offline mirror and queued ops are dropped — they
+        /// must never replay into someone else's wallet.</summary>
+        internal static void NoteUser(string userId)
+        {
+            if (string.IsNullOrEmpty(userId)) return;
+            var prev = UnityEngine.PlayerPrefs.GetString(POwner, "");
+            if (prev == userId) return;
+            if (!string.IsNullOrEmpty(prev))
+            {
+                UnityEngine.Debug.Log($"[lvn-wallet] account switched ({prev} → {userId}) — local mirror and {_queue.Count} queued op(s) discarded");
+                ResetLocal();
+                Changed?.Invoke();
+            }
+            UnityEngine.PlayerPrefs.SetString(POwner, userId);
+            UnityEngine.PlayerPrefs.Save();
+        }
 
         public static async Task<bool> RefreshAsync()
         {
@@ -52,12 +73,13 @@ namespace Lvn.Services
         public static async Task<bool> EarnAsync(string currency, long amount, string reason)
         {
             EnsureLoaded();
+            await FlushAsync(); // FIFO holds even mid-chapter: queued ops go first
             var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason };
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/earn", payload.ToString());
             if (code == 200) return Apply(body);
             if (code != 0) return false; // the server SAW it and refused — not an offline case
-            ApplyLocal(payload);
-            Enqueue(payload);
+            Enqueue(payload);    // the durable replay record FIRST (kill-safe) —
+            ApplyLocal(payload); // the mirror is just a view derived from it
             return true;
         }
 
@@ -68,14 +90,15 @@ namespace Lvn.Services
         public static async Task<bool> SpendAsync(string currency, long amount, string reason, string sku = null)
         {
             EnsureLoaded();
+            await FlushAsync(); // offline earnings must land before this spend is judged
             var payload = new JObject { ["op"] = "spend", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason };
             if (!string.IsNullOrEmpty(sku)) payload["sku"] = sku;
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/spend", payload.ToString());
             if (code == 200) return Apply(body);
             if (code != 0) return false; // 409 insufficient etc. — the server's word stands
             if (!CanApplyLocal(payload)) return false; // offline overdraft — honest no
+            Enqueue(payload);    // durable first, view second (see EarnAsync)
             ApplyLocal(payload);
-            Enqueue(payload);
             return true;
         }
 
@@ -169,6 +192,7 @@ namespace Lvn.Services
         private static bool Apply(string json)
         {
             if (string.IsNullOrEmpty(json)) return false;
+            EnsureLoaded(); // else a later first-read would resurrect the stale prefs mirror
             try
             {
                 var doc = JObject.Parse(json);

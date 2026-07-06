@@ -120,6 +120,9 @@ namespace Lvn.UI.Screens
             _ = LvnWallet.RefreshAsync();
             _ = LoadCatalogAsync();
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
+            // Hide() during the fade-in must cancel the open, not leave this
+            // await parked on a _tcs nobody will ever resolve.
+            if (!_open) { LvnWallet.Changed -= RefreshBalances; return; }
 
             _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var reg = ct.Register(() => _tcs.TrySetResult(false));
