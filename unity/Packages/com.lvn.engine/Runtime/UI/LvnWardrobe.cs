@@ -49,13 +49,52 @@ namespace Lvn.UI
             Changed?.Invoke(entity);
         }
 
-        /// <summary>Overlay the equipped values onto a command's axes IN PLACE,
-        /// filling only the axes the command didn't set — the script's explicit
-        /// value (a story-forced costume) always wins. Pure; the stage calls it
+        // ── try-on preview: not persisted, wins over equipped ────────────────
+        // The in-story wardrobe sheet dresses the LIVE actor while the player
+        // browses: previewed values overlay the committed ones until the sheet
+        // confirms (→ Equip) or cancels (→ ClearPreview).
+        private static readonly Dictionary<string, Dictionary<string, string>> _previews
+            = new Dictionary<string, Dictionary<string, string>>();
+
+        /// <summary>Try a value on (preview only; null value clears that axis'
+        /// preview). Raises <see cref="Changed"/> so the stage re-dresses.</summary>
+        public static void Preview(string entity, string axis, string value)
+        {
+            if (string.IsNullOrEmpty(entity) || string.IsNullOrEmpty(axis)) return;
+            if (!_previews.TryGetValue(entity, out var map))
+                _previews[entity] = map = new Dictionary<string, string>();
+            bool remove = string.IsNullOrEmpty(value);
+            if (remove ? !map.Remove(axis) : (map.TryGetValue(axis, out var cur) && cur == value))
+                return;
+            if (!remove) map[axis] = value;
+            Changed?.Invoke(entity);
+        }
+
+        /// <summary>Current previewed values for an entity (axis → value).</summary>
+        public static IReadOnlyDictionary<string, string> Previewed(string entity)
+            => !string.IsNullOrEmpty(entity) && _previews.TryGetValue(entity, out var map)
+                ? map : (IReadOnlyDictionary<string, string>)_empty;
+        private static readonly Dictionary<string, string> _empty = new Dictionary<string, string>();
+
+        /// <summary>Drop every preview for an entity (sheet closed) — the actor
+        /// snaps back to what's actually equipped.</summary>
+        public static void ClearPreview(string entity)
+        {
+            if (string.IsNullOrEmpty(entity) || !_previews.Remove(entity)) return;
+            Changed?.Invoke(entity);
+        }
+
+        /// <summary>Overlay the previewed + equipped values onto a command's
+        /// axes IN PLACE, filling only the axes the command didn't set — the
+        /// script's explicit value (a story-forced costume) always wins, and a
+        /// live try-on beats the committed equip. Pure; the stage calls it
         /// from its axis resolve.</summary>
         public static void MergeInto(Dictionary<string, string> axes, string entity)
         {
             if (axes == null) return;
+            foreach (var kv in Previewed(entity))
+                if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value))
+                    axes[kv.Key] = kv.Value;
             foreach (var kv in Load(entity))
                 if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value))
                     axes[kv.Key] = kv.Value;

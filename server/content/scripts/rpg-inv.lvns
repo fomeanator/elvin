@@ -47,6 +47,13 @@ bg /content/bg/Clearing_in_forest.jpg
 - К торговцу (зелья, факел, продажа) -> merchant
 - В лес (охота, добыча) -> forest
 - К пещере орка -> cave_gate
+- К зеркалу у колодца (гардероб) -> mirror
+
+:mirror
+Гладь старого зеркала отражает тебя в полный рост.
+ext wardrobe_show char=hero
+Ну что ж, выглядишь готовым к дороге.
+-> village
 
 :tavern
 bg /content/bg/hh_room1.jpg

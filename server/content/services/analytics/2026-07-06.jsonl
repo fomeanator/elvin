@@ -187,3 +187,6 @@
 {"name":"chapter_start","ts":"2026-07-06T15:27:55Z","props":{"chapter":"soviet-ch02","title":"soviet"},"user":"u_f025ad58dc6eb656"}
 {"name":"boot","ts":"2026-07-06T15:39:25Z","user":"u_f025ad58dc6eb656"}
 {"name":"wardrobe_buy","ts":"2026-07-06T15:40:14Z","props":{"entity":"hero","sku":"wardrobe:hero:armor:chain"},"user":"u_f025ad58dc6eb656"}
+{"name":"boot","ts":"2026-07-06T15:41:30Z","user":"u_f025ad58dc6eb656"}
+{"name":"boot","ts":"2026-07-06T16:02:33Z","user":"u_f025ad58dc6eb656"}
+{"name":"chapter_start","ts":"2026-07-06T16:03:05Z","props":{"chapter":"rpg-inv-ch1","title":"rpg-inv"},"user":"u_f025ad58dc6eb656"}

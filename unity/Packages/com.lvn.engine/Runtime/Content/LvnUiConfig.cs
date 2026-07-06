@@ -53,6 +53,7 @@ namespace Lvn.Content
         public string equip_text;     // default "Equip"
         public string equipped_text;  // default "Equipped"
         public string remove_text;    // default "Take off"
+        public string confirm_text;   // the in-story sheet's commit button; default "Choose"
         public string close_text;     // default "Close"
         public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
         public string menu_label;     // quick-menu entry; default "Wardrobe"
