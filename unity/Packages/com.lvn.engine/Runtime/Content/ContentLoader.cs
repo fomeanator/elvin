@@ -26,7 +26,7 @@ namespace Lvn.Content
     /// prioritize a chapter's release set; <c>NetworkAssets</c> adapts it to the
     /// engine's <c>ILvnAssets</c> seam.
     /// </summary>
-    public class ContentLoader
+    public partial class ContentLoader
     {
         private readonly string _baseUrl;
         // True when the content origin is a local bundle (file:// on desktop, or
@@ -533,6 +533,14 @@ namespace Lvn.Content
         /// visually this is lossless while a 4K background drops 4× in memory.</summary>
         internal const int MobileMaxTextureSize = 2560;
 
+        /// <summary>The longest texture side kept everywhere ELSE (editor,
+        /// desktop, WebGL). Looser than mobile — desktop GPUs have the VRAM for
+        /// 4K art — but still a hard ceiling: raw Spine page exports run
+        /// 7708×8252 (254 MB of RGBA), and before this cap the non-mobile
+        /// platforms uploaded that whole thing (the mobile-only check silently
+        /// exempted the shipping WebGL build, the worst place to spend it).</summary>
+        internal const int DesktopMaxTextureSize = 4096;
+
         /// <summary>Fit (w, h) within <paramref name="cap"/> on the longest side,
         /// preserving aspect. Identity when already within. Pure — unit-tested.</summary>
         internal static Vector2Int FitWithin(int w, int h, int cap)
@@ -563,46 +571,134 @@ namespace Lvn.Content
             return small;
         }
 
+        // PNG/JPG decode OFF the main thread. UnityWebRequestTexture's native
+        // DownloadHandlerTexture buffers, decompresses and creates the texture
+        // on a worker thread — unlike Texture2D.LoadImage, which blocks the
+        // main thread 75-400 ms per 2K Spine page (the "prefetch still
+        // hitches" stutter). Bytes land in the same disk cache first (offline
+        // policy unchanged); the request then reads them back via file://.
+        // Returns null wherever the trick can't work — WebGL has no file://,
+        // and any request failure just falls back to the synchronous decode.
+        private async Task<Texture2D> DecodeTextureOffThreadAsync(string url, CancellationToken ct)
+        {
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return null;
+            string reqUrl;
+            try
+            {
+                if (_local) reqUrl = ResolveUrl(url); // file:// or jar:file:// already
+                else
+                {
+                    var path = CachePath(_assetCacheDir, url, ".bin");
+                    if (!File.Exists(path))
+                    {
+                        var bytes = await DownloadBytes(url, _assetCacheDir, ct); // writes the cache file
+                        if (bytes == null || bytes.Length == 0) return null;
+                    }
+                    if (!File.Exists(path)) return null;
+                    reqUrl = "file://" + path;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { return null; }
+
+            using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
+            var op = req.SendWebRequest();
+            while (!op.isDone)
+            {
+                if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
+                await Task.Yield();
+            }
+            if (req.result != UnityWebRequest.Result.Success) return null;
+            try { return DownloadHandlerTexture.GetContent(req); }
+            catch { return null; }
+        }
+
         private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
         {
             try
             {
-                var bytes = await DownloadAssetBytes(url, ct);
-                if (bytes == null || bytes.Length == 0) return null;
-                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
-                if (!tex.LoadImage(bytes))
+                // GPU-native compressed texture, when the device supports it and the
+                // server has a transcoded variant: the ONE encoding that actually cuts
+                // runtime VRAM (the GPU samples the compressed bytes directly), not
+                // just download size. Never a hard dependency — any miss (unsupported
+                // GPU, no server-side astcenc, corrupt data) falls through to the
+                // normal PNG/JPG decode below untouched. See ContentLoader.Astc.cs.
+                var (astcSprite, astcBytes) = await TryDecodeAstcAsync(url, ct);
+                if (astcSprite != null)
                 {
-                    UnityEngine.Object.Destroy(tex);
-                    return null;
+                    // ASTC's whole point is using far fewer bytes than raw RGBA — charge
+                    // the cache budget the texture's ACTUAL compressed size, not
+                    // width*height*4, or the LRU would evict as if every hit here were
+                    // still full-size and erase most of the memory win.
+                    return CacheSprite(url, astcSprite, astcBytes);
                 }
-                // Phones must not pay 33 MB of RGBA for a 4K background they
-                // display at ~1080p — cap the longest side and let the GPU
-                // resample once at load.
-                if (Application.isMobilePlatform)
-                    tex = DownscaleIfOversized(tex, MobileMaxTextureSize);
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var tex = await DecodeTextureOffThreadAsync(url, ct);
+                bool offThread = tex != null;
+                if (!offThread)
+                {
+                    var bytes = await DownloadAssetBytes(url, ct);
+                    if (bytes == null || bytes.Length == 0) return null;
+                    sw.Restart();
+                    tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
+                    if (!tex.LoadImage(bytes))
+                    {
+                        UnityEngine.Object.Destroy(tex);
+                        return null;
+                    }
+                }
+                long decodeMs = sw.ElapsedMilliseconds;
+                // No platform pays full price for oversized art: phones must not
+                // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
+                // even desktop/WebGL must not upload a raw 8K Spine page. Cap
+                // the longest side and let the GPU resample once at load.
+                tex = DownscaleIfOversized(tex,
+                    Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize);
                 tex.wrapMode   = TextureWrapMode.Clamp;
                 tex.filterMode = FilterMode.Bilinear;
                 // Nothing reads pixels back — free the CPU copy (halves the
-                // memory of every loaded sprite).
-                tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
-
-                List<SpriteEntry> victims;
-                lock (_spriteCache)
-                {
-                    var e = new SpriteEntry { Sprite = sprite, Bytes = (long)tex.width * tex.height * 4 };
-                    Touch(e);
-                    _spriteCache[url] = e;
-                    _spriteBytes += e.Bytes;
-                    victims = EvictOverBudgetLocked();
-                }
-                foreach (var v in victims) DestroySprite(v.Sprite);
-                return sprite;
+                // memory of every loaded sprite). The off-thread texture is born
+                // non-readable (no CPU copy to free — Apply would throw).
+                if (tex.isReadable)
+                    tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+                long resizeMs = sw.ElapsedMilliseconds - decodeMs;
+                // FullRect, explicitly: Sprite.Create's DEFAULT mesh type is
+                // Tight — it walks the whole texture's alpha on the main thread
+                // to trace an outline (hundreds of ms for a 2K Spine page), and
+                // full-frame VN art gains nothing from a tight mesh anyway.
+                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+                // [lvn-perf] main-thread hitch map. Off-thread decodes log wall
+                // time (mostly worker-thread, not a hitch); the LoadImage
+                // fallback is a true main-thread stall. Only meaningful ones —
+                // the console stays quiet for icons and thumbnails.
+                if (sw.ElapsedMilliseconds > 30)
+                    Debug.Log($"[lvn-perf] sprite decode {url}: decode={decodeMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height})");
+                return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
             }
             finally
             {
                 lock (_spriteCache) _decoding.Remove(url);
             }
+        }
+
+        // Inserts a freshly decoded sprite into the cache, evicting over-budget
+        // entries. Shared by every DecodeSpriteAsync path (ASTC and PNG/JPG) so
+        // LRU accounting and eviction stay in exactly one place.
+        private Sprite CacheSprite(string url, Sprite sprite, long bytes)
+        {
+            List<SpriteEntry> victims;
+            lock (_spriteCache)
+            {
+                var e = new SpriteEntry { Sprite = sprite, Bytes = bytes };
+                Touch(e);
+                _spriteCache[url] = e;
+                _spriteBytes += e.Bytes;
+                victims = EvictOverBudgetLocked();
+            }
+            foreach (var v in victims) DestroySprite(v.Sprite);
+            return sprite;
         }
 
         private void Touch(SpriteEntry e)

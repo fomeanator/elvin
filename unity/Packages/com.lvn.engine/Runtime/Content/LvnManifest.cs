@@ -94,6 +94,18 @@ namespace Lvn.Content
         public float scale = 1f;
         /// <summary>Animation to loop on show (e.g. "idle"/"walk").</summary>
         public string auto;
+        /// <summary>How the skeleton sizes itself to the screen — a
+        /// self-contained container that depends on nothing but the canvas and
+        /// its own posed bounds. Mirrors spine-unity's LayoutScaleMode:
+        /// <c>"width"</c> (DEFAULT) width-to-width, height follows the aspect;
+        /// <c>"height"</c> height-to-height; <c>"cover"</c> fill both (crop);
+        /// <c>"contain"</c> fit inside (letterbox). Times <see cref="scale"/>.</summary>
+        public string fit = "width";
+        /// <summary>Optional static background image that BELONGS to the
+        /// skeleton: rendered behind it inside the same container, so it scales,
+        /// moves and drags together with the Spine and stays perfectly aligned
+        /// (the base plate the animated overlay was authored on top of).</summary>
+        public string bg;
     }
 
     /// <summary>A named animation: a set of tracks tweened over <c>duration</c>

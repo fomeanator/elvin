@@ -128,11 +128,16 @@ namespace Lvn
         {
             if (_script == null) return;
             int end = System.Math.Min(upto, _script.Count);
-            // Two replay classes. Structural ops (bg/actor/obj/anim/text) accumulate,
+            // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
             // so they re-run in order. FX/audio are stateful overlays where only the
             // LAST setting matters — re-running every fade/tint/track of the chapter
             // would flash through all of them — so they collapse to the final value
-            // per state key and apply once at the end.
+            // per state key and apply once at the end. ACTORS collapse per id: every
+            // command for the same id MERGES into one (later fields win), replayed
+            // INLINE at that id's LAST occurrence — so relative order against bg/obj
+            // is preserved exactly as authored — and only if the merged result ends
+            // visible, so a chapter that showed & hid ten Spine scenes rebuilds just
+            // the one on screen, not all ten (each an expensive skeleton build).
             var fx = new Dictionary<string, JObject>();
             var fxOrder = new List<string>();
             void SetFx(string key, JObject cmd)
@@ -140,10 +145,39 @@ namespace Lvn
                 if (!fx.ContainsKey(key)) fxOrder.Add(key);
                 fx[key] = cmd;
             }
+
+            // Pass 1: merge every actor id's fields across all its occurrences, and
+            // note the LAST index it appears at — that's where the merged result
+            // replays in pass 2, keeping it in its natural position in the sequence.
+            var actorMerged = new Dictionary<string, JObject>();
+            var actorLastIndex = new Dictionary<string, int>();
+            for (int i = 0; i < end; i++)
+            {
+                if (!(_script[i] is JObject c) || (string)c["op"] != "actor") continue;
+                var aid = (string)c["id"];
+                if (string.IsNullOrEmpty(aid)) continue;
+                if (!actorMerged.TryGetValue(aid, out var m)) { m = new JObject(); actorMerged[aid] = m; }
+                foreach (var prop in c.Properties()) m[prop.Name] = prop.Value.DeepClone(); // later fields win
+                actorLastIndex[aid] = i;
+            }
+
+            // Pass 2: replay inline, in original order. An actor op fires exactly
+            // once — at its LAST index, with the fully-merged fields; earlier
+            // occurrences of the same id are silent (already folded into that one).
             for (int i = 0; i < end; i++)
             {
                 if (!(_script[i] is JObject c)) continue;
                 var op = (string)c["op"];
+                if (op == "actor")
+                {
+                    var aid = (string)c["id"];
+                    if (!string.IsNullOrEmpty(aid) && actorLastIndex.TryGetValue(aid, out var last) && last == i)
+                    {
+                        var m = actorMerged[aid];
+                        if ((bool?)m["show"] ?? true) _stage.ApplyStage(m);
+                    }
+                    continue;
+                }
                 if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
                 switch (op)
                 {
@@ -247,6 +281,19 @@ namespace Lvn
             var cur = _history[_history.Count - 1];
             _history.RemoveAt(_history.Count - 1);
             return cur;
+        }
+
+        /// <summary>The index a resume should render from. A <c>say</c> pauses
+        /// with the cursor already PAST it (see its <c>_ip++</c>), so restoring
+        /// at the raw saved index silently skips the line the player was reading
+        /// — re-entry "jumped a beat forward". Stepping back onto the say
+        /// re-shows the last seen line and then naturally continues; a choice
+        /// pauses ON its own op, so it needs no correction.</summary>
+        public int ResumeRenderIndex(int at)
+        {
+            if (at > 0 && at <= _script.Count && _script[at - 1] is JObject p && (string)p["op"] == "say")
+                return at - 1;
+            return at;
         }
 
         /// <summary>The next <paramref name="maxCommands"/> commands ahead of the
@@ -416,7 +463,7 @@ namespace Lvn
         // Pure-visual staging ops safe to re-apply on a hot-swap (no side effects
         // on vars/flow/pauses). NOT set/inc (would double-count) nor say/choice/wait.
         private static bool IsReapplyable(string op) =>
-            op == "bg" || op == "actor" || op == "obj" || op == "anim" || op == "text";
+            op == "bg" || op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
 
         /// <summary>
         /// Re-issue the stage command for the beat currently on screen (the say

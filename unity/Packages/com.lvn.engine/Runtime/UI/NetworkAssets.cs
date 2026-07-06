@@ -64,9 +64,21 @@ namespace Lvn.UI
                 var tex = DownloadHandlerTexture.GetContent(request);
                 if (tex == null) return null;
 
+                // Cap oversized textures ON MOBILE only (content ships 4k–8k Spine
+                // atlases; a phone shows them at ~1080p, so 2560 is ~lossless and
+                // drops memory 4–15×). Desktop/editor keeps the original so quality
+                // is pristine and frame-packed atlases never risk resample skew.
+                if (Application.isMobilePlatform)
+                    tex = DownscaleIfOversized(tex, MaxTextureSize);
+                tex.wrapMode   = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Bilinear;
+                tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+
+                // FullRect, explicitly — the default Tight mesh walks the whole
+                // texture's alpha on the main thread (hundreds of ms at 2K+).
                 var sprite = Sprite.Create(tex,
                     new Rect(0, 0, tex.width, tex.height),
-                    new Vector2(0.5f, 0.5f));
+                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
                 _spriteCache[url] = sprite;
                 return sprite;
             }
@@ -121,6 +133,31 @@ namespace Lvn.UI
                     : LoadSpriteAsync(url, ct).ContinueWith(_ => { }));
             }
             await Task.WhenAll(tasks);
+        }
+
+        // Longest-side cap for loaded textures. A mobile-first VN never needs
+        // more; huge atlases otherwise stall on decode/upload and blow memory.
+        private const int MaxTextureSize = 2560;
+
+        // GPU-resample an oversized texture down to the cap and destroy the
+        // original. Returns the input unchanged when it already fits.
+        private static Texture2D DownscaleIfOversized(Texture2D tex, int cap)
+        {
+            int m = Mathf.Max(tex.width, tex.height);
+            if (m <= cap) return tex;
+            float k = (float)cap / m;
+            int w = Mathf.Max(1, Mathf.RoundToInt(tex.width * k));
+            int h = Mathf.Max(1, Mathf.RoundToInt(tex.height * k));
+            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+            Graphics.Blit(tex, rt);
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var small = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false);
+            small.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Object.Destroy(tex);
+            return small;
         }
 
         public void Unload(string url)
