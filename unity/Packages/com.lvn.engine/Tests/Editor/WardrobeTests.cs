@@ -76,6 +76,35 @@ namespace Lvn.Tests
             Assert.AreEqual("wardrobe:hero:armor:chain", LvnWardrobe.Sku("hero", "armor", "chain"));
         }
 
+        [Test]
+        public void Wardrobe_PreviewBeatsEquipped_AndClearSnapsBack()
+        {
+            LvnWardrobe.Equip(Entity, "armor", "leather");
+            LvnWardrobe.Preview(Entity, "armor", "chain"); // trying on in-story
+
+            var axes = new Dictionary<string, string>();
+            LvnWardrobe.MergeInto(axes, Entity);
+            Assert.AreEqual("chain", axes["armor"], "the live try-on wins over the committed equip");
+
+            LvnWardrobe.ClearPreview(Entity); // sheet collapsed without buying
+            axes.Clear();
+            LvnWardrobe.MergeInto(axes, Entity);
+            Assert.AreEqual("leather", axes["armor"], "cancel snaps back to what's equipped");
+        }
+
+        [Test]
+        public void Wardrobe_ScriptAxisStillBeatsThePreview()
+        {
+            LvnWardrobe.Preview(Entity, "armor", "chain");
+            try
+            {
+                var axes = new Dictionary<string, string> { ["armor"] = "leather" };
+                LvnWardrobe.MergeInto(axes, Entity);
+                Assert.AreEqual("leather", axes["armor"]);
+            }
+            finally { LvnWardrobe.ClearPreview(Entity); }
+        }
+
         // ── WardrobeScreen ──
         private static LvnManifest Manifest()
         {
@@ -160,6 +189,50 @@ namespace Lvn.Tests
             var screen = new WardrobeScreen(null, new NoAssets());
             screen.SetManifest(m);
             CollectionAssert.AreEqual(new[] { Entity }, screen.Entities());
+        }
+
+        // ── WardrobeSheet (the in-story bottom sheet) ──
+        [Test]
+        public void Sheet_BrowsingPreviewsOnTheLiveActor()
+        {
+            var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать наряд" }, new NoAssets());
+            sheet.SetManifest(Manifest());
+            try
+            {
+                sheet.BuildFor(Entity);
+                // opening the slot previews its first (or worn) item immediately —
+                // the carousel and the actor must agree
+                Assert.AreEqual("leather", LvnWardrobe.Previewed(Entity)["armor"]);
+
+                var texts = new List<string>();
+                Walk(sheet, el =>
+                {
+                    if (el is Label l) texts.Add(l.text);
+                    if (el is Button b) texts.Add(b.text);
+                });
+                Assert.IsTrue(texts.Contains("Кожаный доспех"), "the carousel names the previewed item");
+                Assert.IsTrue(texts.Contains("Выбрать наряд"), "free preview confirms at no cost");
+            }
+            finally { LvnWardrobe.ClearPreview(Entity); }
+        }
+
+        [Test]
+        public void Sheet_ConfirmPriceSumsUnownedPreviews()
+        {
+            var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать" }, new NoAssets());
+            sheet.SetManifest(Manifest());
+            try
+            {
+                sheet.BuildFor(Entity);
+                LvnWardrobe.Preview(Entity, "armor", "chain"); // priced, unowned
+                // rebuild the button text through the same path the arrows use
+                sheet.BuildFor(Entity);
+
+                string confirm = null;
+                Walk(sheet, el => { if (el is Button b && b.text.StartsWith("Выбрать")) confirm = b.text; });
+                StringAssert.Contains("300 gold", confirm, "the confirm button carries the unowned total");
+            }
+            finally { LvnWardrobe.ClearPreview(Entity); }
         }
 
         private static void Walk(VisualElement root, System.Action<VisualElement> visit)

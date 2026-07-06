@@ -97,6 +97,7 @@ namespace Lvn.Content
     public sealed class LvnWardrobeSlot
     {
         public string name;               // tab label; default: the axis id
+        public string icon;               // content url — the in-story sheet's tab icon
         /// <summary>Can the slot be emptied (item taken off)? Default true —
         /// matches the layer model where an unset axis draws nothing.</summary>
         public bool? removable;

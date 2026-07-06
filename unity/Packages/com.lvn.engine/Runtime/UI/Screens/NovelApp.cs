@@ -192,7 +192,9 @@ namespace Lvn.UI.Screens
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = OpenWardrobeFromScriptAsync((string)cmd["char"], ctx);
+                // Default: the in-story bottom sheet (the live actor is the
+                // mirror). mode=full opens the full-screen overlay instead.
+                _ = OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx);
             });
 
             // The long-press art view hides the stage's chrome; mirror it onto the
@@ -227,9 +229,13 @@ namespace Lvn.UI.Screens
             finally { ctx.Resume(); }
         }
 
-        private async Task OpenWardrobeFromScriptAsync(string entity, Lvn.ILvnOpContext ctx)
+        private async Task OpenWardrobeFromScriptAsync(string entity, bool full, Lvn.ILvnOpContext ctx)
         {
-            try { await _shell.OpenWardrobeAsync(entity); }
+            try
+            {
+                if (full) await _shell.OpenWardrobeAsync(entity);
+                else await _shell.OpenWardrobeSheetAsync(entity);
+            }
             finally { ctx.Resume(); }
         }
 
