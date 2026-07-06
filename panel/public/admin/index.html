@@ -65,6 +65,7 @@
 <div id="app" style="display:none">
   <nav>
     <button data-tab="novel" class="active">Новелла</button>
+    <button data-tab="visual">Визуал</button>
     <button data-tab="users">Пользователи</button>
     <button data-tab="orders">Заказы</button>
     <button data-tab="saves">Сохранения</button>
@@ -112,7 +113,137 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   show(b.dataset.tab);
 });
 
-function show(tab) { ({novel, users, orders, saves, analytics})[tab](); }
+function show(tab) { ({novel, visual, users, orders, saves, analytics})[tab](); }
+
+/* ── Визуал: весь manifest.ui формами, live-sync доносит до игры ──────── */
+// Схема секций ui-темы. Типы: c=цвет(hex/hex8), n=число, s=строка,
+// u=content-url, b=да/нет, j=JSON (словарь/список).
+const UI_SCHEMA = {
+  dialogue: { panel_color:'c', text_color:'c', speaker_color:'c', body_size:'n', speaker_size:'n',
+    corner_radius:'n', align:'s', max_width_percent:'n', width_percent:'n', max_height_percent:'n',
+    x_percent:'n', y_percent:'n', anchor:'s', edge_padding:'n', bottom_padding:'n',
+    panel_padding_x:'n', panel_padding_y:'n', panel_min_height:'n', name_padding_x:'n', name_padding_y:'n',
+    chars_per_second:'n', fade_width:'n', font:'s', nvl:'b', nvl_top:'n',
+    panel_image:'u', name_image:'u', panel_slice:'n' },
+  choices: { color:'c', hover_color:'c', text_color:'c', cost_color:'c', align:'s', valign:'s',
+    y_percent:'n', font_size:'n', min_width_percent:'n', max_width_percent:'n', spacing:'n',
+    padding_x:'n', padding_y:'n', corner_radius:'n', button_image:'u', button_hover_image:'u', button_slice:'n' },
+  menu: { bg_color:'c', text_color:'c', dim_text_color:'c', fab_color:'c', scrim_color:'c',
+    corner_radius:'n', show_rollback:'b', show_menu:'b', labels:'j' },
+  hud: { bg_color:'c', height:'n', progress_icon_url:'u', progress_color:'c', show_progress:'b',
+    pill_bg_color:'c', pill_text_color:'c', default_currency_icon_url:'u' },
+  carousel: { bg_color:'c', card_width:'n', card_height:'n', card_gap:'n', card_bg_color:'c', card_radius:'n',
+    title_color:'c', title_size:'n', subtitle_color:'c', subtitle_size:'n',
+    play_text:'s', continue_text:'s', chapters_text:'s', play_color:'c', play_bg_color:'c',
+    dot_color:'c', dot_active_color:'c' },
+  loading: { bg_color:'c', bg_url:'u', fog_url:'u', scrim_color:'c', scrim_opacity:'n',
+    bar_track_url:'u', bar_fill_url:'u', bar_frame_url:'u', bar_fill_color:'c', bar_track_color:'c',
+    bar_x:'n', bar_y:'n', bar_width:'n', bar_height:'n', fill_span_percent:'n',
+    show_percent:'b', show_file:'b', show_hint:'b', percent_color:'c', hint_color:'c', file_color:'c',
+    tips:'j', min_seconds:'n' },
+  boot: { bg_color:'c', bg_url:'u', logo_url:'u', logo_width:'n', logo_y:'n',
+    bar_track_color:'c', bar_fill_color:'c', bar_fill_url:'u', bar_y:'n', bar_width:'n', bar_height:'n',
+    show_percent:'b', percent_color:'c', min_seconds:'n' },
+  title: { frame_url:'u', fog_url:'u', chapter_color:'c', subtitle_color:'c',
+    chapter_size:'n', subtitle_size:'n', hold_seconds:'n', fade_seconds:'n' },
+  name_input: { bg_url:'u', hero_url:'u', field_url:'u', button_url:'u', badge_url:'u', bg_color:'c',
+    prompt:'s', speaker_label:'s', default_name:'s', confirm_text:'s', max_length:'n',
+    prompt_color:'c', text_color:'c', field_color:'c', button_color:'c' },
+  auth: { enabled:'b', bg_url:'u', logo_url:'u', logo_width:'n', logo_y:'n', title:'s', subtitle:'s',
+    ask_nickname:'b', name_prompt:'s', default_name:'s', max_length:'n', start_text:'s',
+    bg_color:'c', panel_color:'c', title_color:'c', subtitle_color:'c', text_color:'c',
+    field_color:'c', button_color:'c', button_text_color:'c', status_color:'c', field_url:'u', button_url:'u',
+    signing_text:'s', signed_text:'s', offline_text:'s',
+    show_google:'b', show_apple:'b', google_text:'s', apple_text:'s', provider_done_text:'s' },
+  store: { title:'s', scrim_color:'c', panel_color:'c', title_color:'c', text_color:'c', dim_text_color:'c',
+    card_color:'c', buy_color:'c', buy_text_color:'c', corner_radius:'n',
+    buy_text:'s', ad_text:'s', close_text:'s', empty_text:'s', bonus_text:'s',
+    menu_label:'s', show_menu_item:'b', currency_icons:'j', currency_names:'j' },
+  wardrobe: { entity:'s', title:'s', scrim_color:'c', panel_color:'c', title_color:'c', text_color:'c',
+    dim_text_color:'c', card_color:'c', accent_color:'c', accent_text_color:'c', preview_bg_color:'c',
+    corner_radius:'n', equip_text:'s', equipped_text:'s', remove_text:'s', confirm_text:'s',
+    insufficient_text:'s', close_text:'s', empty_text:'s', menu_label:'s', show_menu_item:'b',
+    rarity_colors:'j', currency_icons:'j' },
+  sounds: { click:'u', choice:'u', type:'u', volume:'n' },
+};
+
+async function visual() {
+  manifest = await api('/v1/admin/manifest');
+  const titles = manifest.titles || [];
+  const m = $('#main');
+  m.innerHTML = `
+    <div class="card">
+      <div class="row">
+        <h2 style="flex:1">Визуал приложения — вся тема из манифеста</h2>
+        <label class="muted">Область:&nbsp;</label>
+        <select id="scope">
+          <option value="">Глобально (manifest.ui)</option>
+          ${titles.map((t, i) => `<option value="${i}">Тайтл: ${esc(t.name || t.id)}</option>`).join('')}
+        </select>
+        <button class="btn" id="saveUi">Сохранить</button>
+      </div>
+      <p class="muted">Пустое поле = наследование (тайтл ← глобальная тема ← дефолты движка).
+      Сохранение — это деплой: запущенная игра перекрасится за пару секунд (live-sync).</p>
+      <div id="uiForm"></div>
+    </div>`;
+  const scopeUi = () => {
+    const v = $('#scope').value;
+    if (v === '') { manifest.ui = manifest.ui || {}; return manifest.ui; }
+    const t = titles[Number(v)];
+    t.ui = t.ui || {};
+    return t.ui;
+  };
+  const renderForm = () => {
+    const ui = scopeUi();
+    $('#uiForm').innerHTML = Object.entries(UI_SCHEMA).map(([sec, fields]) => `
+      <details ${sec === 'dialogue' ? 'open' : ''} style="margin:8px 0">
+        <summary style="cursor:pointer;color:var(--accent);padding:6px 0">${sec}</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px;padding:8px 0">
+        ${Object.entries(fields).map(([f, ty]) => {
+          const cur = ui[sec]?.[f];
+          const val = cur === undefined || cur === null ? '' : (ty === 'j' ? JSON.stringify(cur) : cur);
+          const swatch = ty === 'c'
+            ? `<input type="color" data-pick="${sec}.${f}" value="${/^#([0-9a-f]{6})/i.test(val) ? val.slice(0,7) : '#888888'}" style="width:34px;height:34px;padding:2px;border-radius:6px" />`
+            : '';
+          const input = ty === 'b'
+            ? `<select data-ui="${sec}.${f}" data-ty="b" style="flex:1">
+                 <option value="" ${val===''?'selected':''}>—</option>
+                 <option value="true" ${val===true?'selected':''}>да</option>
+                 <option value="false" ${val===false?'selected':''}>нет</option>
+               </select>`
+            : `<input data-ui="${sec}.${f}" data-ty="${ty}" value="${esc(val)}" style="flex:1"
+                 placeholder="${ty==='c'?'#rrggbb(aa)':ty==='n'?'число':ty==='u'?'/content/…':ty==='j'?'{JSON}':''}" />`;
+          return `<label style="display:flex;align-items:center;gap:6px">
+            <span class="muted" style="width:150px;overflow:hidden;text-overflow:ellipsis">${f}</span>
+            ${input}${swatch}</label>`;
+        }).join('')}
+        </div>
+      </details>`).join('');
+    $('#uiForm').querySelectorAll('[data-pick]').forEach(p => p.oninput = () => {
+      const inp = $('#uiForm').querySelector(`[data-ui="${p.dataset.pick}"]`);
+      const alpha = /^#[0-9a-f]{8}$/i.test(inp.value) ? inp.value.slice(7) : '';
+      inp.value = p.value + alpha;
+      inp.dispatchEvent(new Event('change'));
+    });
+    $('#uiForm').querySelectorAll('[data-ui]').forEach(inp => inp.onchange = () => {
+      const [sec, f] = inp.dataset.ui.split('.');
+      const ui = scopeUi();
+      const raw = inp.value.trim();
+      if (raw === '') { if (ui[sec]) { delete ui[sec][f]; if (!Object.keys(ui[sec]).length) delete ui[sec]; } return; }
+      let v = raw;
+      if (inp.dataset.ty === 'n') { v = Number(raw); if (Number.isNaN(v)) { toast(f + ': не число'); return; } }
+      if (inp.dataset.ty === 'b') v = raw === 'true';
+      if (inp.dataset.ty === 'j') { try { v = JSON.parse(raw); } catch (e) { toast(f + ': битый JSON'); return; } }
+      (ui[sec] = ui[sec] || {})[f] = v;
+    });
+  };
+  renderForm();
+  $('#scope').onchange = renderForm;
+  $('#saveUi').onclick = async () => {
+    await api('/v1/admin/manifest', { method: 'PUT', body: JSON.stringify(manifest), headers: { 'Content-Type': 'application/json' } });
+    toast('Тема сохранена — игра перекрасится сама');
+  };
+}
 
 /* ── Новелла: главы/бандлы + raw JSON ─────────────────────────────────── */
 async function novel() {
