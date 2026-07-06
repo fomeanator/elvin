@@ -67,6 +67,7 @@
     <button data-tab="novel" class="active">Новелла</button>
     <button data-tab="visual">Визуал</button>
     <button data-tab="economy">Экономика</button>
+    <button data-tab="assets">Ассеты</button>
     <button data-tab="users">Пользователи</button>
     <button data-tab="orders">Заказы</button>
     <button data-tab="saves">Сохранения</button>
@@ -114,7 +115,79 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   show(b.dataset.tab);
 });
 
-function show(tab) { ({novel, visual, economy, users, orders, saves, analytics})[tab](); }
+function show(tab) { ({novel, visual, economy, assets, users, orders, saves, analytics})[tab](); }
+
+/* ── история версий: список + откат (сам откат тоже версионируется) ────── */
+async function showHistory(file, host) {
+  const d = await api('/v1/admin/history?file=' + encodeURIComponent(file));
+  const rows = (d.versions || []).map(v => `
+    <tr><td>${new Date(Number(v.ts)).toLocaleString('ru-RU')}</td>
+        <td class="muted">${fmt(v.size)} b</td>
+        <td><button class="btn ghost" data-rb="${v.ts}">Откатить на эту</button></td></tr>`).join('');
+  host.innerHTML = `<div class="card"><h2>История: ${esc(file)}</h2>
+    ${rows ? `<table><tr><th>сохранено</th><th>размер</th><th></th></tr>${rows}</table>`
+           : '<p class="muted">Пока пусто — версии появляются при каждом сохранении.</p>'}</div>`;
+  host.querySelectorAll('[data-rb]').forEach(b => b.onclick = async () => {
+    if (!confirm('Откатить ' + file + ' на версию от ' + new Date(Number(b.dataset.rb)).toLocaleString('ru-RU') + '?')) return;
+    await api('/v1/admin/rollback', { method: 'POST', body: JSON.stringify({ file, ts: b.dataset.rb }) });
+    toast('Откатено — клиенты подхватят сами');
+    show(document.querySelector('nav button.active').dataset.tab);
+  });
+}
+
+/* ── Ассеты: браузер контента, загрузка, удаление, копирование пути ────── */
+let assetsDir = '';
+async function assets(dir) {
+  assetsDir = dir !== undefined ? dir : assetsDir;
+  const d = await api('/v1/admin/files?dir=' + encodeURIComponent(assetsDir));
+  const crumbs = ['content', ...assetsDir.split('/').filter(Boolean)];
+  const isImg = n => /\.(png|jpe?g|webp|gif)$/i.test(n);
+  $('#main').innerHTML = `
+    <div class="card">
+      <div class="row">
+        <h2 style="flex:1">${crumbs.map((c, i) =>
+          `<a href="#" data-crumb="${crumbs.slice(1, i + 1).join('/')}" style="color:var(--accent);text-decoration:none">${esc(c)}</a>`
+        ).join(' / ')}</h2>
+        <input type="file" id="upl" multiple style="display:none" />
+        <button class="btn" id="uplBtn">Загрузить файлы сюда</button>
+      </div>
+      <p class="muted">Клик по имени — копирует content-url для манифеста/скрипта. Картинки с превью.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">
+        ${(d.files || []).map(f => f.dir ? `
+          <div class="chapter" style="cursor:pointer;text-align:center" data-open="${esc((assetsDir ? assetsDir + '/' : '') + f.name)}">
+            <div style="font-size:34px">📁</div><div>${esc(f.name)}</div>
+          </div>` : `
+          <div class="chapter" style="text-align:center">
+            ${isImg(f.name) ? `<img src="/content/${esc((assetsDir ? assetsDir + '/' : '') + f.name)}" loading="lazy"
+                style="max-width:100%;height:90px;object-fit:contain;border-radius:6px;background:#000" />`
+              : `<div style="font-size:34px">📄</div>`}
+            <div style="cursor:pointer;word-break:break-all;font-size:12.5px" data-copy="/content/${esc((assetsDir ? assetsDir + '/' : '') + f.name)}">${esc(f.name)}</div>
+            <div class="muted" style="font-size:11px">${fmt(f.size)} b</div>
+            <button class="btn danger" style="margin-top:4px;padding:3px 10px;font-size:12px"
+              data-delfile="${esc((assetsDir ? assetsDir + '/' : '') + f.name)}">удалить</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  document.querySelectorAll('[data-crumb]').forEach(a => a.onclick = e => { e.preventDefault(); assets(a.dataset.crumb); });
+  document.querySelectorAll('[data-open]').forEach(el => el.onclick = () => assets(el.dataset.open));
+  document.querySelectorAll('[data-copy]').forEach(el => el.onclick = () => {
+    navigator.clipboard.writeText(el.dataset.copy); toast('Скопировано: ' + el.dataset.copy);
+  });
+  document.querySelectorAll('[data-delfile]').forEach(b => b.onclick = async () => {
+    if (!confirm('Удалить ' + b.dataset.delfile + '? (скрипты уходят в историю, арт — безвозвратно)')) return;
+    await api('/v1/admin/assets/' + b.dataset.delfile, { method: 'DELETE' });
+    toast('Удалено'); assets();
+  });
+  $('#uplBtn').onclick = () => $('#upl').click();
+  $('#upl').onchange = async () => {
+    for (const f of $('#upl').files) {
+      const path = (assetsDir ? assetsDir + '/' : '') + f.name;
+      await api('/v1/admin/assets/' + path, { method: 'PUT', body: f });
+      toast('Загружен ' + f.name);
+    }
+    assets();
+  };
+}
 
 /* ── Экономика: паки, реклама, ежедневки — правки живые (hot-reload) ──── */
 async function economy() {
@@ -132,7 +205,11 @@ async function economy() {
       </div>
       <p class="muted" style="margin-bottom:8px">${esc(hint)}. Сервер подхватывает сохранение сразу, без рестарта.</p>
       <textarea data-cfg="${f}" style="min-height:180px">${esc(JSON.stringify(bodies[i], null, 2))}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn ghost" data-hist="${f}">История</button></div>
+      <div data-histbox="${f}"></div>
     </div>`).join('');
+  document.querySelectorAll('[data-hist]').forEach(b => b.onclick = () =>
+    showHistory(b.dataset.hist, document.querySelector(`[data-histbox="${b.dataset.hist}"]`)));
   document.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
     const f = b.dataset.save;
     let doc;
@@ -273,19 +350,29 @@ async function visual() {
   };
 }
 
-/* ── Новелла: главы/бандлы + raw JSON ─────────────────────────────────── */
+/* ── Новелла: главы/бандлы + raw JSON, черновик и история ─────────────── */
+let draftMode = false;
 async function novel() {
-  manifest = await api('/v1/admin/manifest');
+  const q = draftMode ? '?draft=1' : '';
+  manifest = await api('/v1/admin/manifest' + q);
   const m = $('#main');
   const titles = manifest.titles || [];
   m.innerHTML = `
     <div class="card">
       <div class="row">
-        <h2 style="flex:1">Тайтлы и главы</h2>
+        <h2 style="flex:1">Тайтлы и главы ${draftMode ? '<span class="pill" style="color:var(--accent)">ЧЕРНОВИК</span>' : ''}</h2>
+        <label class="muted" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="draftTgl" ${draftMode ? 'checked' : ''} /> черновик</label>
+        ${draftMode ? `<button class="btn" id="publish">Опубликовать</button>
+                       <button class="btn danger" id="discard">Сбросить</button>` : ''}
+        <button class="btn ghost" id="hist">История</button>
+        <button class="btn ghost" id="openIde" title="редактор скриптов">IDE</button>
         <button class="btn ghost" id="addTitle">+ тайтл</button>
-        <button class="btn" id="saveNovel">Сохранить манифест</button>
+        <button class="btn" id="saveNovel">${draftMode ? 'Сохранить черновик' : 'Сохранить манифест'}</button>
       </div>
-      <p class="muted">Правки уезжают живым клиентам в течение пары секунд (live-sync).</p>
+      <p class="muted">${draftMode
+        ? 'Черновик игроки НЕ видят — правь спокойно, потом «Опубликовать» одним действием.'
+        : 'Правки уезжают живым клиентам в течение пары секунд (live-sync). Каждое сохранение попадает в историю.'}</p>
       <div id="titles"></div>
     </div>
     <div class="card">
@@ -296,7 +383,22 @@ async function novel() {
         <button class="btn" id="saveRaw">Сохранить raw</button>
         <span class="muted">осторожно: raw перезаписывает всё</span>
       </div>
-    </div>`;
+    </div>
+    <div id="histbox"></div>`;
+  $('#draftTgl').onchange = () => { draftMode = $('#draftTgl').checked; novel(); };
+  $('#hist').onclick = () => showHistory('manifest.json', $('#histbox'));
+  $('#openIde').onclick = () => window.open('/panel/', '_blank');
+  if (draftMode) {
+    $('#publish').onclick = async () => {
+      await api('/v1/admin/manifest/publish', { method: 'POST' });
+      draftMode = false; toast('Опубликовано — клиенты подхватят сами'); novel();
+    };
+    $('#discard').onclick = async () => {
+      if (!confirm('Сбросить черновик? Несохранённые правки пропадут.')) return;
+      await api('/v1/admin/manifest?draft=1', { method: 'DELETE' });
+      draftMode = false; toast('Черновик сброшен'); novel();
+    };
+  }
   $('#raw').value = JSON.stringify(manifest, null, 2);
   const box = $('#titles');
   const render = () => {
@@ -345,16 +447,18 @@ async function novel() {
     titles.push({ id, name: id, seasons: [{ id: 's1', name: 'Season 1', chapters: [] }] });
     manifest.titles = titles; render();
   };
+  const putQ = draftMode ? '?draft=1' : '';
+  const savedMsg = draftMode ? 'Черновик сохранён (игроки не видят)' : 'Манифест сохранён — клиенты подхватят сами';
   $('#saveNovel').onclick = async () => {
     manifest.titles = titles;
-    await api('/v1/admin/manifest', { method: 'PUT', body: JSON.stringify(manifest), headers: { 'Content-Type': 'application/json' } });
-    toast('Манифест сохранён — клиенты подхватят сами');
+    await api('/v1/admin/manifest' + putQ, { method: 'PUT', body: JSON.stringify(manifest), headers: { 'Content-Type': 'application/json' } });
+    toast(savedMsg);
   };
   $('#saveRaw').onclick = async () => {
     let doc;
     try { doc = JSON.parse($('#raw').value); } catch (e) { toast('JSON битый: ' + e.message); return; }
-    await api('/v1/admin/manifest', { method: 'PUT', body: JSON.stringify(doc), headers: { 'Content-Type': 'application/json' } });
-    manifest = doc; toast('Манифест сохранён'); novel();
+    await api('/v1/admin/manifest' + putQ, { method: 'PUT', body: JSON.stringify(doc), headers: { 'Content-Type': 'application/json' } });
+    manifest = doc; toast(savedMsg); novel();
   };
 }
 
