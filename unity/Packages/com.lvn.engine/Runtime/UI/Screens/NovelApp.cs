@@ -229,12 +229,27 @@ namespace Lvn.UI.Screens
             finally { ctx.Resume(); }
         }
 
+        // The in-story sheet as CONTENT of the stage's shared window: the
+        // dialogue fades out, the same-skinned frame slides up with the
+        // wardrobe inside — one panel, native transitions (no overlay pop).
+        private WardrobeSheet _storySheet;
+
         private async Task OpenWardrobeFromScriptAsync(string entity, bool full, Lvn.ILvnOpContext ctx)
         {
             try
             {
-                if (full) await _shell.OpenWardrobeAsync(entity);
-                else await _shell.OpenWardrobeSheetAsync(entity);
+                if (full) { await _shell.OpenWardrobeAsync(entity); return; }
+                if (_storySheet == null)
+                {
+                    var ui = _manifest?.ui ?? new LvnUiConfig();
+                    _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
+                    _storySheet.SetManifest(_manifest);
+                    _storySheet.OpenStore = () => _shell.OpenStoreAsync();
+                }
+                var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
+                await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
+                try { await done; }
+                finally { await Stage.HidePanelAsync(); }   // frame slides away, dialogue returns
             }
             finally { ctx.Resume(); }
         }
@@ -644,6 +659,7 @@ namespace Lvn.UI.Screens
             try { await _downloads.MenuRefreshAsync(manifest, default); }
             catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
+            _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
             if (Stage != null)
