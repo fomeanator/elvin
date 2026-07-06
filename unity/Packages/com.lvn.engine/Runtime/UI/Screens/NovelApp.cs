@@ -450,7 +450,7 @@ namespace Lvn.UI.Screens
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
             Stage.Gallery = title?.gallery;
-            Stage.Play(json);
+            Stage.Play(json, warmIntroSpine: !resuming); // resume restores below — don't run/warm the intro
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
 
@@ -517,7 +517,7 @@ namespace Lvn.UI.Screens
             Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
             Stage.SetSaveContext(title?.id, chapter.id, url);
             Stage.Gallery = title?.gallery;
-            Stage.Play(json);
+            Stage.Play(json, warmIntroSpine: false); // the restore below advances
             if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                 Stage.Player.Vars["player"] = _playerName;
             Stage.RestoreSnapshot(slot.Snap);

@@ -111,7 +111,18 @@ namespace Lvn.UI
         // Start runs once per component lifetime — after a disable/enable cycle
         // it can't retry a Build whose panel wasn't ready yet, so keep a cheap
         // per-frame guard until the chrome exists.
-        private void Update() { if (!_built) Build(); }
+        private void Update()
+        {
+            if (!_built) Build();
+            // [lvn-perf] frame-hitch watchdog: any frame past 150 ms is a felt
+            // freeze — log it with the in-flight spine work so a hitch can be
+            // attributed (or ruled out) at a glance. Skips the very first frames
+            // after a scene load, which are always heavy and not interesting.
+            float dt = Time.unscaledDeltaTime;
+            if (dt > 0.15f && Time.frameCount > 10)
+                Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {Time.frameCount}"
+                          + (_spineLoading.Count > 0 ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : ""));
+        }
 
         private void Build()
         {
@@ -137,6 +148,7 @@ namespace Lvn.UI
                 var scene = new World.WorldStage(transform, sortingOrder: 0);
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);
+                _ = ApplyDefaultBackdropAsync(scene); // seamless tiled filler instead of flat black
             }
             else
             {
@@ -235,6 +247,20 @@ namespace Lvn.UI
             // Resolve any manifest-driven background-image urls to sprites, then
             // rebuild once more so the dialogue/choices show their skinned panels.
             _ = EnsureThemeImagesAsync();
+        }
+
+        // The default backdrop behind the canvas scene: a seamless texture tiled
+        // as a fine grid, so letterboxed scenes (a width-fit Spine leaves bars)
+        // sit on a pattern instead of flat black. Overridden by any real `bg`.
+        private async System.Threading.Tasks.Task ApplyDefaultBackdropAsync(World.WorldStage scene)
+        {
+            if (Assets == null || scene == null) return;
+            try
+            {
+                var spr = await Assets.LoadSpriteAsync("/content/ui/tile-bg.jpg", _cts.Token);
+                if (spr != null && spr.texture != null) scene.Background.SetTile(spr.texture, 140f);
+            }
+            catch { }
         }
 
         // Recreate the dialogue box and choice list from the current Theme, keeping
@@ -431,20 +457,46 @@ namespace Lvn.UI
             if (_player == null || Assets == null) return;
             const int lookAhead = 25, maxSprites = 6, maxAudio = 2;
             List<string> sprites = null, audio = null;
+            bool spineKicked = false;
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 var op = (string)c["op"];
                 if (op == "bg" || op == "actor" || op == "obj")
                 {
                     var url = (string)c["sprite_url"];
-                    // A Spine actor carries no sprite_url — its (heavy) texture
-                    // lives in the catalog. Warm it here so the skeleton builds
-                    // from cache when shown, never streaming in the reveal frame.
+                    // A Spine actor carries no sprite_url — its (heavy) assets
+                    // live in the catalog. Warm the WHOLE scene (json + atlas +
+                    // every page + bg, 2K variants preferred): the un-prefetched
+                    // SECOND page of a multi-page atlas used to decode
+                    // synchronously in the reveal frame. Fire-and-forget,
+                    // deduped per actor id — and at most ONE new spine per pass:
+                    // each page decode is a main-thread hit, and kicking several
+                    // scenes at once stacked those hits into a visible stutter
+                    // right at chapter entry. Later beats warm the rest.
                     if (string.IsNullOrEmpty(url) && (op == "actor" || op == "obj"))
                     {
                         var sp = Catalog?.Get((string)c["id"]);
                         if (sp != null && sp.kind == "spine" && sp.spine != null)
-                            url = sp.spine.texture;
+                        {
+                            var spineId = (string)c["id"];
+                            // A skeleton that's already built (e.g. the scene
+                            // currently showing right after a resume, when
+                            // _prefetched starts empty) must not eat the
+                            // one-per-pass slot — otherwise the pause before
+                            // the NEXT scene warms nothing and its build lands
+                            // cold in the reveal frame.
+                            if (_spineActors.TryGetValue(spineId, out var builtGo) && builtGo != null)
+                            {
+                                _prefetched.Add("spine:" + spineId);
+                                continue;
+                            }
+                            if (!spineKicked && _prefetched.Add("spine:" + spineId))
+                            {
+                                spineKicked = true;
+                                _ = PrefetchSpineAsync(spineId, sp);
+                            }
+                            continue;
+                        }
                     }
                     if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
                     (sprites ??= new List<string>()).Add(url);
@@ -534,8 +586,12 @@ namespace Lvn.UI
         /// chapter to the next and across sessions.</summary>
         public Newtonsoft.Json.Linq.JObject SeedVars;
 
-        /// <summary>Parse and start playing a .lvn document.</summary>
-        public void Play(string lvnJson)
+        /// <summary>Parse and start playing a .lvn document.
+        /// <paramref name="warmIntroSpine"/>: pass false when a snapshot restore
+        /// follows immediately (resume/load) — the intro warmup would otherwise
+        /// build the CHAPTER-OPENING spine that the restore is about to discard,
+        /// doubling the entry wait with a scene the player isn't even on.</summary>
+        public void Play(string lvnJson, bool warmIntroSpine = true)
         {
             var doc = LvnDocument.Parse(lvnJson);
             LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0) + " cmds) ════");
@@ -547,7 +603,31 @@ namespace Lvn.UI
             if (SeedVars != null)      // carry stats in before the init defaults run
                 foreach (var p in SeedVars.Properties()) _player.Vars[p.Name] = p.Value;
             _player.OnSay += RecordSay;
-            _player.Advance();
+            ++_startGen;
+            // warmIntroSpine=false ⇒ a RestoreSnapshot follows immediately and
+            // advances via ContinueFrom. Running the intro here anyway (the old
+            // behaviour) kicked the chapter-opening spine's build just to have
+            // the restore reset it — the player watched the WRONG scene load
+            // before their saved one.
+            if (warmIntroSpine) StartWithSpineWarmup(_player, _startGen);
+        }
+
+        // Bumped by every fresh start AND every snapshot restore, so a pending
+        // intro warmup can tell its run was superseded. Pinning the player
+        // reference alone is not enough: a resume REUSES the player Play just
+        // created, and the stale warmup's Advance() would push the restored
+        // chapter one beat past its saved position.
+        private int _startGen;
+
+        // The staged opening: if a Spine scene is imminent, build it hidden
+        // BEFORE the intro advances — otherwise the typewriter starts and then
+        // freezes mid-sentence while the skeleton decodes and builds.
+        private async void StartWithSpineWarmup(LvnPlayer player, int gen)
+        {
+            try { await WarmUpcomingSpineAsync(12); }
+            catch (System.OperationCanceledException) { return; }
+            catch { /* warmup is best-effort; the show path reloads what it needs */ }
+            if (_player == player && _startGen == gen) player.Advance();
         }
 
         /// <summary>
@@ -956,15 +1036,53 @@ namespace Lvn.UI
         /// anchor), rebuild the scene's visuals/FX/audio up to that point, resume.
         /// The shared machinery behind the in-script `load` op, the save/load
         /// panel and the autosave resume.</summary>
-        public void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
+        public async void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
         {
-            if (_player == null || snap == null) return;
+            if (_player == null) return;
+            if (snap == null) { _player.Advance(); return; } // no snapshot after all — play from the top (Play skipped its own advance expecting us)
+            var player = _player;               // pin: a re-entry mid-await must not resume a dead run
+            int gen = ++_startGen;              // supersede a pending intro warmup (see StartWithSpineWarmup)
             ResetStage();                       // clean slate
-            _player.Restore(snap);              // cursor (via label anchor) + vars + call stack
-            _player.ClearHistory();             // the rollback trail no longer describes the path here
-            int at = _player.Index;             // the anchor-relocated cursor, not the raw saved index
-            _player.ReplayVisuals(at);          // rebuild bg / actors / FX / audio up to the saved point
-            _player.ContinueFrom(at);           // resume → renders the saved beat
+            player.Restore(snap);               // cursor (via label anchor) + vars + call stack
+            player.ClearHistory();              // the rollback trail no longer describes the path here
+            int at = player.Index;              // the anchor-relocated cursor, not the raw saved index
+            at = player.ResumeRenderIndex(at);  // step back onto the say the player was reading (never skip a seen beat)
+            player.ReplayVisuals(at);           // rebuild bg / actors / FX / audio up to the saved point
+            // Veil the half-built stage: between ReplayVisuals and the settled
+            // builds only the bg is up — the player saw that as a white flash
+            // on resume. NOT alpha 0: the Canvas would cull the children's
+            // draw calls and defeat the spine warm pulse (PSO compile +
+            // texture upload need real draws); 1/255 is imperceptible but
+            // keeps the GPU warm. (Same trick as LvnSpineFader.WarmAlpha —
+            // that constant lives in the optional Spine assembly.)
+            const float veilWarmAlpha = 1f / 255f;
+            CanvasGroup veil = null;
+            if (_renderer is CanvasSceneRenderer veilCanvas && veilCanvas.Root != null)
+            {
+                veil = veilCanvas.Root.GetComponent<CanvasGroup>();
+                if (veil == null) veil = veilCanvas.Root.AddComponent<CanvasGroup>();
+                veil.alpha = veilWarmAlpha;
+            }
+            // The staged opening, resume flavour: ReplayVisuals fires its spine
+            // builds without awaiting them — rendering the saved beat now would
+            // typewrite over a still-building stage and freeze mid-sentence.
+            var t0 = Time.realtimeSinceStartup;
+            int inFlight = PendingSpineBuilds;
+            try { await SpineBuildsSettled(); } catch { }
+            if (inFlight > 0)
+                Debug.Log($"[lvn] resume warmed {inFlight} spine build(s) in {(Time.realtimeSinceStartup - t0):F2}s before rendering");
+            if (veil != null)
+            {
+                // Reveal the fully built scene with a short fade instead of a pop.
+                for (float a = veilWarmAlpha; a < 1f && _player == player && _startGen == gen; a += Time.unscaledDeltaTime / 0.15f)
+                {
+                    veil.alpha = a;
+                    await Task.Yield();
+                }
+                veil.alpha = 1f;
+            }
+            if (_player == player && _startGen == gen)
+                player.ContinueFrom(at); // resume → renders the saved beat
         }
 
         // ── persistent save slots (per title, survive restarts) ─────────────
