@@ -1,11 +1,13 @@
 {
-  "__v": 10,
+  "__v": 13,
   "balances": {
     "crystals": 190,
-    "gold": 1250
+    "gold": 1110
   },
   "inventory": {
     "wardrobe:hero:armor:chain": 1,
+    "wardrobe:hill:decor:rose": 1,
+    "wardrobe:hill:hair:blond": 1,
     "wardrobe:hill:hair:brunette": 1,
     "wardrobe:hill:outfit:medical": 1,
     "wardrobe:hill:outfit:peignoir_wet": 1
@@ -90,6 +92,29 @@
       "amount": 130,
       "sku": "crystals_130",
       "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T18:20:38Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "wardrobe:hill:hair:blond",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T18:50:21Z",
+      "type": "earn",
+      "currency": "gold",
+      "amount": 40,
+      "reason": "offline-quest"
+    },
+    {
+      "ts": "2026-07-06T18:50:21Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 80,
+      "sku": "wardrobe:hill:decor:rose",
+      "reason": "wardrobe"
     }
   ]
 }
