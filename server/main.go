@@ -55,6 +55,10 @@ func main() {
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
 	iapDev := flag.Bool("iap-dev", false, "accept any IAP receipt (test builds only — never production)")
+	authDev := flag.Bool("auth-dev", false, "accept the 'dev' auth provider (test builds only — never production)")
+	googleClientID := flag.String("google-client-id", "", "pin Google id_token audience for /v1/auth/link|login")
+	appleBundleID := flag.String("apple-bundle-id", "", "pin Apple identity-token audience for /v1/auth/link|login")
+	appleSharedSecret := flag.String("apple-shared-secret", "", "App Store shared secret for /v1/iap/verify receipt validation")
 	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
 	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
@@ -93,11 +97,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("auth service: %v", err)
 	}
+	authSvc.AuthDev = *authDev
+	authSvc.GoogleClientID = *googleClientID
+	authSvc.AppleBundleID = *appleBundleID
 	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), authSvc,
 		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev)
 	if err != nil {
 		log.Fatalf("wallet service: %v", err)
 	}
+	walletSvc.AppleSharedSecret = *appleSharedSecret
 	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken)
 	if err != nil {
 		log.Fatalf("analytics service: %v", err)
@@ -111,11 +119,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("leaderboard service: %v", err)
 	}
+	adsSvc, err := NewAdsService(filepath.Join(servicesDir, "ads"), authSvc, walletSvc,
+		filepath.Join(*contentDir, "ads.json"))
+	if err != nil {
+		log.Fatalf("ads service: %v", err)
+	}
+	adminSvc := NewAdminService(*contentDir, *adminToken, authSvc, walletSvc)
 	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
 	analyticsSvc.Routes(mux)
 	dailySvc.Routes(mux)
+	adsSvc.Routes(mux)
+	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)

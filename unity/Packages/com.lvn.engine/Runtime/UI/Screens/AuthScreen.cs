@@ -126,6 +126,23 @@ namespace Lvn.UI.Screens
             panel.Add(start);
             if (!string.IsNullOrEmpty(_cfg.button_url)) _ = ScreenUi.AssignBgAsync(start, _cfg.button_url, _assets);
 
+            // Platform sign-in — a button per provider the HOST actually
+            // plugged into LvnPlatformAuth (no SDK, no button). Signing in
+            // switches this device to that identity's account: the standard
+            // cross-device recovery, wallet and saves included.
+            var provRow = new VisualElement();
+            provRow.style.flexDirection = FlexDirection.Row;
+            provRow.style.justifyContent = Justify.Center;
+            provRow.style.marginTop = 12;
+            panel.Add(provRow);
+            AddProviderButton(provRow, "google", _cfg.show_google ?? true,
+                _cfg.google_text ?? "Sign in with Google", textColor);
+            AddProviderButton(provRow, "apple", _cfg.show_apple ?? true,
+                _cfg.apple_text ?? "Sign in with Apple", textColor);
+#if UNITY_EDITOR
+            AddProviderButton(provRow, "dev", true, "Dev sign-in", textColor);
+#endif
+
             _status = new Label("");
             _status.style.color = UiColor.Parse(_cfg.status_color, new Color(0.60f, 0.58f, 0.54f));
             _status.style.fontSize = 18;
@@ -179,6 +196,34 @@ namespace Lvn.UI.Screens
         {
             var name = _field != null ? PlayerNameInput.Sanitize(_field.value, _maxLength) : "";
             _tcs?.TrySetResult(name ?? "");
+        }
+
+        private void AddProviderButton(VisualElement row, string provider, bool allowed, string label, Color textColor)
+        {
+            if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
+            var b = new Button { text = label };
+            b.style.fontSize = 20;
+            b.style.marginLeft = 6; b.style.marginRight = 6;
+            b.style.paddingTop = 10; b.style.paddingBottom = 10;
+            b.style.paddingLeft = 18; b.style.paddingRight = 18;
+            b.style.color = textColor;
+            b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
+            b.style.borderTopLeftRadius = 10; b.style.borderTopRightRadius = 10;
+            b.style.borderBottomLeftRadius = 10; b.style.borderBottomRightRadius = 10;
+            b.clicked += async () =>
+            {
+                b.SetEnabled(false);
+                _status.text = _cfg.signing_text ?? "Connecting…";
+                bool ok = await Lvn.Services.LvnPlatformAuth.SignInAsync(provider);
+                b.SetEnabled(true);
+                _status.text = ok
+                    ? (_cfg.provider_done_text ?? "Signed in")
+                    : (_cfg.offline_text ?? "Offline — progress stays on this device");
+                // the recovered account may carry a display name — pre-fill it
+                if (ok && _field != null && !string.IsNullOrEmpty(Lvn.Services.LvnBackend.DisplayName))
+                    _field.value = Lvn.Services.LvnBackend.DisplayName;
+            };
+            row.Add(b);
         }
 
         private async Task DriveStatusAsync()

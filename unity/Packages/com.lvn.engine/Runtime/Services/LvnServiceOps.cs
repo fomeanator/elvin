@@ -52,11 +52,28 @@ namespace Lvn.Services
 
             LvnOps.Register("daily_claim", (cmd, ctx) => _ = LvnDaily.ClaimAsync());
 
+            // ext ad_reward placement=gold_small — a story-placed rewarded ad
+            // (the wall between chapters, the "double your loot" beat). Holds
+            // the script while the ad runs; no ad SDK plugged → no-op flow-on.
+            LvnOps.Register("ad_reward", (cmd, ctx) =>
+            {
+                var placement = (string)cmd["placement"];
+                if (string.IsNullOrEmpty(placement) || !LvnAds.Available) return;
+                ctx.Hold();
+                _ = RunAdAsync(placement, ctx);
+            });
+
             LvnOps.Register("track", (cmd, ctx) =>
             {
                 var name = (string)cmd["name"];
                 if (!string.IsNullOrEmpty(name)) LvnAnalytics.Track(name);
             });
+        }
+
+        private static async System.Threading.Tasks.Task RunAdAsync(string placement, ILvnOpContext ctx)
+        {
+            try { await LvnAds.WatchAndRewardAsync(placement); }
+            finally { ctx.Resume(); }
         }
 
         private static (string currency, long amount) MoneyArgs(
