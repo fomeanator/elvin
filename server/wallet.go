@@ -25,6 +25,9 @@ type walletDoc struct {
 	Balances  map[string]int64 `json:"balances"`
 	Inventory map[string]int64 `json:"inventory"`
 	History   []walletEntry    `json:"history"`
+	// Store transaction ids already granted — replaying the same receipt
+	// (restore, retry, or an attack) must never double-credit.
+	Transactions []string `json:"transactions,omitempty"`
 }
 
 type walletEntry struct {
@@ -56,6 +59,15 @@ type WalletService struct {
 	auth    *AuthService
 	iapDev  bool
 	catalog map[string]iapProduct // sku → grant
+
+	// AppleSharedSecret enables REAL App Store receipt validation on
+	// /v1/iap/verify (platform "appstore"). Google Play needs a service
+	// account and stays an honest 501 until one is configured.
+	AppleSharedSecret string
+
+	// verifyApple validates a receipt against Apple and returns the matching
+	// transaction id for a sku. Swappable in tests.
+	verifyApple func(receipt, sku, sharedSecret string) (txID string, err error)
 }
 
 var reUserFile = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -67,6 +79,7 @@ func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev 
 		return nil, err
 	}
 	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev, catalog: map[string]iapProduct{}}
+	s.verifyApple = verifyAppleReceipt
 	if data, err := os.ReadFile(catalogPath); err == nil {
 		_ = json.Unmarshal(data, &s.catalog)
 	}
@@ -204,6 +217,49 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 	}
 }
 
+// AdminLoad returns a read-only copy of a user's wallet for the admin views.
+func (s *WalletService) AdminLoad(userID string) *walletDoc {
+	if !reUserFile.MatchString(userID) {
+		return &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.load(userID)
+}
+
+// AllUserIDs lists every wallet on disk (the admin ledger walks these).
+func (s *WalletService) AllUserIDs() []string {
+	entries, _ := os.ReadDir(s.dir)
+	var ids []string
+	for _, e := range entries {
+		name := e.Name()
+		if !e.IsDir() && len(name) > 5 && name[len(name)-5:] == ".json" {
+			ids = append(ids, name[:len(name)-5])
+		}
+	}
+	return ids
+}
+
+// Clawback removes currency (support/ops corrections), flooring at zero —
+// audited like everything else.
+func (s *WalletService) Clawback(userID, currency string, amount int64, reason string) {
+	if !reUserFile.MatchString(userID) || amount <= 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc := s.load(userID)
+	doc.Balances[currency] -= amount
+	if doc.Balances[currency] < 0 {
+		doc.Balances[currency] = 0
+	}
+	doc.History = append(doc.History, walletEntry{
+		TS: time.Now().UTC().Format(time.RFC3339), Type: "spend",
+		Currency: currency, Amount: amount, Reason: reason,
+	})
+	s.save(userID, doc)
+}
+
 // Grant credits a user outside an HTTP request (the daily service etc.) —
 // same lock, same audit history as any earn.
 func (s *WalletService) Grant(userID, currency string, amount int64, reason string) {
@@ -245,16 +301,53 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown sku", http.StatusNotFound)
 		return
 	}
-	if !s.iapDev {
-		// Store-side verification needs store credentials; pretending would be
-		// a security hole, so the endpoint says so until they're configured.
-		http.Error(w, "store verification not configured (run with -iap-dev for test builds)", http.StatusNotImplemented)
+
+	// Establish trust in the receipt, platform by platform. txID guards
+	// against replaying the same purchase.
+	txID := ""
+	switch {
+	case s.iapDev:
+		// test builds trust anything — never run production with -iap-dev
+	case req.Platform == "appstore":
+		if s.AppleSharedSecret == "" {
+			http.Error(w, "appstore verification not configured (set -apple-shared-secret)", http.StatusNotImplemented)
+			return
+		}
+		id, err := s.verifyApple(req.Receipt, req.SKU, s.AppleSharedSecret)
+		if err != nil {
+			http.Error(w, "receipt rejected: "+err.Error(), http.StatusPaymentRequired)
+			return
+		}
+		txID = "appstore:" + id
+	case req.Platform == "gplay":
+		// Real Play validation needs a service-account credential (Android
+		// Publisher API). Honest 501 until one exists — a fake "verified"
+		// would be worse than not-implemented.
+		http.Error(w, "gplay verification not configured (service account required)", http.StatusNotImplemented)
+		return
+	default:
+		http.Error(w, "unknown platform (use appstore | gplay, or -iap-dev for test builds)", http.StatusNotImplemented)
 		return
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doc := s.load(userID)
+	if txID != "" {
+		for _, t := range doc.Transactions {
+			if t == txID {
+				// Already granted — idempotent OK with the current state, so a
+				// client-side retry/restore never double-credits.
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(doc)
+				return
+			}
+		}
+		doc.Transactions = append(doc.Transactions, txID)
+		if len(doc.Transactions) > 500 {
+			doc.Transactions = doc.Transactions[len(doc.Transactions)-500:]
+		}
+	}
 	doc.Balances[grant.Currency] += grant.Amount
 	doc.History = append(doc.History, walletEntry{
 		TS: time.Now().UTC().Format(time.RFC3339), Type: "iap",
