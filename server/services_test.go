@@ -298,3 +298,54 @@ func TestLeaderboard_NameTruncationIsRuneSafe(t *testing.T) {
 		}
 	}
 }
+
+func TestIAP_CatalogIsPublicAndSorted(t *testing.T) {
+	dir := t.TempDir()
+	catalog := filepath.Join(dir, "iap-catalog.json")
+	_ = os.WriteFile(catalog, []byte(`{
+		"z_first":  {"currency": "gold", "amount": 999, "title": "Big", "price": "$9.99", "bonus": 100, "order": 1},
+		"a_second": {"currency": "gold", "amount": 5, "order": 2},
+		"plain":    {"currency": "crystals", "amount": 1}
+	}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false)
+	mux := http.NewServeMux()
+	wallet.Routes(mux)
+
+	rec, out := call(t, mux, "GET", "/v1/iap/catalog", "", nil) // no token — public
+	if rec.Code != 200 {
+		t.Fatalf("catalog: %d %s", rec.Code, rec.Body)
+	}
+	packs := out["packs"].([]any)
+	if len(packs) != 3 {
+		t.Fatalf("expected 3 packs, got %d", len(packs))
+	}
+	// order 0 (unset) sorts first, then order 1, then 2.
+	first := packs[0].(map[string]any)
+	second := packs[1].(map[string]any)
+	if first["sku"] != "plain" || second["sku"] != "z_first" {
+		t.Fatalf("wrong sort: %v", packs)
+	}
+	if second["title"] != "Big" || second["price"] != "$9.99" || second["bonus"].(float64) != 100 {
+		t.Fatalf("presentation fields lost: %v", second)
+	}
+	if _, has := first["title"]; has {
+		t.Fatalf("plain pack must omit empty presentation fields: %v", first)
+	}
+}
+
+func TestAuth_ProfileNameRoundTrips(t *testing.T) {
+	mux, _ := servicesMux(t, false)
+	_, tok := register(t, mux)
+
+	if rec, _ := call(t, mux, "POST", "/v1/auth/profile", "", map[string]string{"name": "x"}); rec.Code != 401 {
+		t.Fatalf("anonymous profile must 401, got %d", rec.Code)
+	}
+	rec, out := call(t, mux, "POST", "/v1/auth/profile", tok, map[string]string{"name": "  Арам  "})
+	if rec.Code != 200 || out["name"] != "Арам" {
+		t.Fatalf("profile set: %d %v", rec.Code, out)
+	}
+	if _, out := call(t, mux, "GET", "/v1/auth/me", tok, nil); out["name"] != "Арам" {
+		t.Fatalf("me must return the name: %v", out)
+	}
+}
