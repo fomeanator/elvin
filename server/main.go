@@ -106,6 +106,15 @@ func main() {
 		log.Fatalf("wallet service: %v", err)
 	}
 	walletSvc.AppleSharedSecret = *appleSharedSecret
+	walletSvc.AppleBundleID = *appleBundleID
+	// Production nudges: these pins are what stand between "verified" and
+	// "any token/receipt from any app" — silence here has bitten people.
+	if *appleSharedSecret != "" && *appleBundleID == "" {
+		log.Printf("WARNING: -apple-shared-secret is set but -apple-bundle-id is empty — receipts from OTHER apps would validate; set the bundle id in production")
+	}
+	if !*authDev && (*googleClientID == "" || *appleBundleID == "") {
+		log.Printf("note: -google-client-id / -apple-bundle-id unset — platform token audience is not pinned (fine for dev, set both in production)")
+	}
 	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken)
 	if err != nil {
 		log.Fatalf("analytics service: %v", err)
@@ -231,6 +240,18 @@ func (s *server) handleManifest(w http.ResponseWriter, r *http.Request) {
 func (s *server) contentHandler(dir string) http.Handler {
 	fs := http.StripPrefix("/content/", http.FileServer(http.Dir(dir)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// PRIVATE subtrees live under the content root for operational
+		// convenience but are API-served, never static: player saves
+		// (state/ — guarded by X-State-Key on /v1/state), wallets/users
+		// (services/), edit history and the unpublished draft. Serving
+		// them here would hand any visitor another player's wallet and
+		// bypass the save-key check entirely.
+		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
+		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
+			strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".lvn") {
 			w.Header().Set("Cache-Control", "no-store")
 		} else {
