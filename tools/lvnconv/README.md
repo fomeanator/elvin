@@ -8,6 +8,7 @@ lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy|adpd] [-dialogue <name>] 
 lvnconv import   <project-dir> -id <id> -name <name> [-content <dir>] [-localize]
 lvnconv validate <in.lvn> [-strict]
 lvnconv probe    <in.lvn>
+lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
 ```
 
 ## Commands
@@ -26,6 +27,44 @@ lvnconv probe    <in.lvn>
   dangling jump targets, duplicate labels. `-strict` also fails on lint
   warnings (labels never targeted).
 - **probe** — a one-line summary (op counts) of a `.lvn`.
+- **optimize** — the built-in image compressor (see **Asset optimization**).
+
+## Asset optimization
+
+Content trees pick up huge source art fast (a Spine export can land at
+7000×8000+ px). `optimize` walks a content directory and shrinks what's safe
+to shrink, without ever guessing:
+
+- **Spine atlas pages** (any `.png`/`.jpg` named on a page line inside a
+  sibling `*.atlas.txt`/`*.atlas`) are **never resized** — a tightly
+  frame-packed atlas (many small regions sharing edges) bleeds neighbouring
+  frames into each other under any resampling filter. They only get a
+  lossless recompress (same pixels, denser DEFLATE).
+- Everything else (backgrounds, standalone sprites, UI art) is resized to fit
+  `-max` (default 2560 px, the longest side) when oversized, then encoded as
+  whichever of PNG or JPEG is actually **smaller** — never guessed, always
+  measured, so a flat-colour icon that would balloon under JPEG's block DCT
+  stays PNG automatically.
+- An already-JPEG file that isn't oversized is left completely alone — a
+  second lossy re-encode would only cost quality for a size win nobody asked
+  for.
+- No WebP: Unity has no built-in WebP decoder, and WebP wouldn't even help at
+  runtime (it's still full RGBA in VRAM once decoded) — it only saves
+  wire/disk bytes, which JPEG already achieves without a new client dependency.
+
+Dry run by default (reports only, writes nothing). `-apply` writes the
+results. When a PNG converts to JPEG the reference in `manifest.json`/`.lvns`
+scripts needs its extension fixed — pass `-rewrite-refs` (implies `-apply`) to
+patch those and recompile every touched `.lvns` back to `.lvn` automatically.
+`.lvns` sources are patched (never the compiled `.lvn` directly), so a later
+edit-and-recompile can't silently revert the rename.
+
+Lossless PNG recompression uses the stdlib encoder by default and
+transparently gets stronger if `oxipng`, `zopflipng`, or `optipng` is on
+`PATH` — nothing needs installing for the tool to work, but any of those give
+a further squeeze for free. `pngquant` is deliberately never used: it
+quantizes to a palette (lossy), which is exactly the kind of artifact that
+wrecks a soft glow/VFX gradient.
 
 ## Localization
 
