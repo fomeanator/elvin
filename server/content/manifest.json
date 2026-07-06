@@ -5109,6 +5109,28 @@
       "choice": "/content/ui/sounds/choice.wav",
       "type": "/content/ui/sounds/type.wav",
       "volume": 0.8
+    },
+    "auth": {
+      "enabled": true,
+      "title": "Добро пожаловать",
+      "subtitle": "Истории, которые оживают",
+      "name_prompt": "Как тебя зовут?",
+      "start_text": "Начать",
+      "signing_text": "Подключение…",
+      "signed_text": "Аккаунт подключён",
+      "offline_text": "Оффлайн — прогресс хранится на устройстве"
+    },
+    "store": {
+      "title": "Магазин",
+      "menu_label": "Магазин",
+      "buy_text": "Купить",
+      "close_text": "Закрыть",
+      "empty_text": "Магазин сейчас закрыт",
+      "bonus_text": "+{0} бонусом",
+      "currency_names": {
+        "gold": "золота",
+        "crystals": "кристаллов"
+      }
     }
   }
 }

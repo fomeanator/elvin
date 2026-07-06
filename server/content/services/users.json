@@ -9,9 +9,16 @@
     "token_hash": "a7c8b17f06ea7e004a3a02b58a62d010df913245fc1db70bb25445c4da8d6b3f",
     "created": "2026-07-04T03:34:52Z"
   },
+  "u_eb7adaa16eee59be": {
+    "device_hash": "1159cea9ede47a7e4b1fbd51178c08db1ff0daf71889df5e67a426838063f4d7",
+    "token_hash": "136dd1fb630032ed8fd0660e4a314d20670cc83b2d45a252dafe81f559e17745",
+    "created": "2026-07-06T15:14:56Z",
+    "name": "Арам"
+  },
   "u_f025ad58dc6eb656": {
     "device_hash": "c2831ecb30065e4d3d03344b9d8ec05a6f7e38a573c4a84bb300abf281f173b1",
-    "token_hash": "fcc00e3c27828147c5a3cb364f63bb7061544838cef99af19c1ff8e8415f8ab1",
-    "created": "2026-07-04T19:14:23Z"
+    "token_hash": "37492d9b6e06e0fc2b623d19935d18da2cd71160f011216654b19a55558a8945",
+    "created": "2026-07-04T19:14:23Z",
+    "name": "Арам"
   }
 }

@@ -27,6 +27,7 @@ type authUser struct {
 	DeviceHash string `json:"device_hash"` // sha256 of the client's device_id
 	TokenHash  string `json:"token_hash"`  // sha256 of the current session secret
 	Created    string `json:"created"`
+	Name       string `json:"name,omitempty"` // display name set from the auth screen
 }
 
 type AuthService struct {
@@ -57,6 +58,7 @@ func NewAuthService(dir string) (*AuthService, error) {
 func (s *AuthService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/auth/register", s.handleRegister)
 	mux.HandleFunc("/v1/auth/me", s.handleMe)
+	mux.HandleFunc("/v1/auth/profile", s.handleProfile)
 }
 
 func (s *AuthService) persistLocked() {
@@ -145,8 +147,39 @@ func (s *AuthService) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	created := s.users[userID].Created
+	created, name := s.users[userID].Created, s.users[userID].Name
 	s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "created": created})
+	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "created": created, "name": name})
+}
+
+// handleProfile sets the display name shown by the auth screen and anywhere
+// else the account surfaces (leaderboards already carry their own name field).
+func (s *AuthService) handleProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := s.UserFromRequest(r)
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	s.mu.Lock()
+	s.users[userID].Name = name
+	s.persistLocked()
+	s.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "name": name})
 }

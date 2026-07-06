@@ -26,6 +26,75 @@ namespace Lvn.Content
         public ChoicesConfig choices;
         public MenuConfig menu;
         public SoundsConfig sounds;
+        public AuthConfig auth;
+        public StoreConfig store;
+    }
+
+    /// <summary>The boot auth screen — the game's customizable face over the
+    /// silent device sign-in: backdrop + logo + welcome text, an optional
+    /// nickname field and a start button, with a status line reflecting the
+    /// connection underneath. Not a gate: Start always works, online or
+    /// offline. Absent section keeps the old behaviour (no screen, silent
+    /// registration).</summary>
+    public sealed class AuthConfig
+    {
+        public bool? enabled;         // show the screen after boot; default true when the section exists
+        public string bg_url;         // full-screen backdrop
+        public string logo_url;       // logo art, centred horizontally
+        public float? logo_width;     // screen fraction; default 0.5
+        public float? logo_y;         // logo centre y, screen fraction; default 0.28
+        public string title;          // default "Welcome"
+        public string subtitle;       // extra line under the title; default hidden
+        public bool? ask_nickname;    // show the nickname field; default true
+        public string name_prompt;    // field label; default "Your name"
+        public string default_name;   // pre-filled value (a previously saved name wins)
+        public int? max_length;       // default 24
+        public string start_text;     // the big button; default "Start"
+
+        public string bg_color;       // default #101015
+        public string panel_color;    // bottom panel fill; default #000000a6
+        public string title_color;    // default #f4ecd8
+        public string subtitle_color; // default #cbb98f
+        public string text_color;     // field/button text; default #f4ecd8
+        public string field_color;    // default #1c1c22 (used when no field art)
+        public string button_color;   // default #c8a050 (used when no button art)
+        public string button_text_color; // default #14141a
+        public string status_color;   // connection line; default #9a948a
+        public string field_url;      // optional text-field background art
+        public string button_url;     // optional start-button art
+
+        // status line strings (the localization hook)
+        public string signing_text;   // default "Connecting…"
+        public string signed_text;    // default "Connected"
+        public string offline_text;   // default "Offline — progress stays on this device"
+    }
+
+    /// <summary>The currency store overlay: packs from the server's IAP catalog
+    /// (<c>/v1/iap/catalog</c>) rendered as buy cards over a scrim. Every field
+    /// optional — the engine's neutral dark look is the default; the section's
+    /// mere presence adds the quick-menu entry.</summary>
+    public sealed class StoreConfig
+    {
+        public string title;          // default "Store"
+        public string scrim_color;    // fullscreen backdrop; default #000000b3
+        public string panel_color;    // sheet fill; default #14141af7
+        public string title_color;    // default #f4ecd8
+        public string text_color;     // card titles / balances; default #f2eee1
+        public string dim_text_color; // bonus line, status; default #9a948a
+        public string card_color;     // pack card fill; default #1c1c22
+        public string buy_color;      // buy button fill; default #c8a050
+        public string buy_text_color; // buy button text; default #14141a
+        public float? corner_radius;  // sheet/card rounding; default 12
+
+        public string buy_text;       // button label when a pack has no price; default "Get"
+        public string close_text;     // default "Close"
+        public string empty_text;     // no packs / server unreachable; default "The shop is closed right now"
+        public string bonus_text;     // "{0}" = bonus amount; default "+{0} bonus"
+        public string menu_label;     // quick-menu entry; default "Store"
+        public bool? show_menu_item;  // add the quick-menu entry; default true
+
+        public Dictionary<string, string> currency_icons; // currency → content url (cards + HUD pills)
+        public Dictionary<string, string> currency_names; // currency → display name (default: the raw key)
     }
 
     /// <summary>UI interaction sounds — short one-shot clips played by the stage

@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"sync"
 	"time"
 )
@@ -35,9 +36,18 @@ type walletEntry struct {
 	Reason   string `json:"reason,omitempty"`
 }
 
+// iapProduct is a catalog entry. Currency+Amount are what /v1/iap/verify
+// grants (the original format); the rest is storefront presentation served by
+// /v1/iap/catalog — a plain {currency,amount} catalog still works, the store
+// screen just renders it without a price tag or title.
 type iapProduct struct {
 	Currency string `json:"currency"`
 	Amount   int64  `json:"amount"`
+	Title    string `json:"title,omitempty"`
+	Price    string `json:"price,omitempty"` // display string ("$4.99"); the store bills, not us
+	Icon     string `json:"icon,omitempty"`  // content url
+	Bonus    int64  `json:"bonus,omitempty"` // extra amount shown as "+N bonus" (already inside Amount)
+	Order    int    `json:"order,omitempty"` // catalog sort key; ties break by amount
 }
 
 type WalletService struct {
@@ -68,6 +78,32 @@ func (s *WalletService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/wallet/earn", s.mutate("earn"))
 	mux.HandleFunc("/v1/wallet/spend", s.mutate("spend"))
 	mux.HandleFunc("/v1/iap/verify", s.handleIAP)
+	mux.HandleFunc("/v1/iap/catalog", s.handleCatalog)
+}
+
+// handleCatalog lists the purchasable packs for the store screen. Public (no
+// auth): prices are as secret as a shop window, and the screen may render
+// before the device session lands.
+func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
+	type pack struct {
+		SKU string `json:"sku"`
+		iapProduct
+	}
+	packs := make([]pack, 0, len(s.catalog))
+	for sku, p := range s.catalog {
+		packs = append(packs, pack{SKU: sku, iapProduct: p})
+	}
+	sort.Slice(packs, func(i, j int) bool {
+		if packs[i].Order != packs[j].Order {
+			return packs[i].Order < packs[j].Order
+		}
+		if packs[i].Amount != packs[j].Amount {
+			return packs[i].Amount < packs[j].Amount
+		}
+		return packs[i].SKU < packs[j].SKU
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"packs": packs})
 }
 
 func (s *WalletService) load(userID string) *walletDoc {

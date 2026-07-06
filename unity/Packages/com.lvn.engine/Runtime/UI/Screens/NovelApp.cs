@@ -170,6 +170,18 @@ namespace Lvn.UI.Screens
             _shell = NovelShell.Create(transform, 30, ShellTheme);
             _shell.Build(manifest, _assets);
 
+            // The currency store: a quick-menu entry when the manifest opts in
+            // (ui.store present), and the `ext store_show` op for scripts —
+            // the story holds while the shop is open, then rolls on.
+            var storeCfg = manifest.ui?.store;
+            if (storeCfg != null && (storeCfg.show_menu_item ?? true))
+                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => _ = _shell.OpenStoreAsync());
+            Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = OpenStoreFromScriptAsync(ctx);
+            });
+
             // The long-press art view hides the stage's chrome; mirror it onto the
             // shell HUD (a separate UIDocument) so the WHOLE screen is just the scene.
             Stage.ChromeHiddenChanged += hidden =>
@@ -194,6 +206,12 @@ namespace Lvn.UI.Screens
                 chapterProgress: null,
                 playChapter: PlayChapterAsync,
                 askName: AskName);
+        }
+
+        private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
+        {
+            try { await _shell.OpenStoreAsync(); }
+            finally { ctx.Resume(); }
         }
 
         // Builds a VnStage on a child GameObject with its own UIDocument + panel

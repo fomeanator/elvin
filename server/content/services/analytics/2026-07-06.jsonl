@@ -173,3 +173,8 @@
 {"name":"chapter_start","ts":"2026-07-06T14:52:55Z","props":{"chapter":"am-ch1","title":"anna-mystery"},"user":"u_f025ad58dc6eb656"}
 {"name":"chapter_finish","ts":"2026-07-06T14:53:12Z","props":{"chapter":"am-ch1","title":"anna-mystery"},"user":"u_f025ad58dc6eb656"}
 {"name":"chapter_start","ts":"2026-07-06T14:58:15Z","props":{"chapter":"am-ch1","title":"anna-mystery"},"user":"u_f025ad58dc6eb656"}
+{"name":"chapter_finish","ts":"2026-07-06T15:02:43Z","props":{"chapter":"am-ch1","title":"anna-mystery"},"user":"u_f025ad58dc6eb656"}
+{"name":"chapter_start","ts":"2026-07-06T15:02:48Z","props":{"chapter":"am-ch1","title":"anna-mystery"},"user":"u_f025ad58dc6eb656"}
+{"name":"boot","ts":"2026-07-06T15:15:10Z","user":"u_f025ad58dc6eb656"}
+{"name":"boot","ts":"2026-07-06T15:16:08Z","user":"u_f025ad58dc6eb656"}
+{"name":"iap_success","ts":"2026-07-06T15:17:34Z","props":{"sku":"gold_100"},"user":"u_f025ad58dc6eb656"}

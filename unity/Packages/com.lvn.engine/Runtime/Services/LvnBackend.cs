@@ -20,6 +20,7 @@ namespace Lvn.Services
         private const string PDevice = "lvn.svc.device";
         private const string PToken = "lvn.svc.token";
         private const string PUser = "lvn.svc.user";
+        private const string PName = "lvn.svc.name";
 
         /// <summary>Server base url, e.g. "http://127.0.0.1:8077". The host sets
         /// it once at boot (NovelApp's ServerUrl is the usual source).</summary>
@@ -58,6 +59,25 @@ namespace Lvn.Services
 
         [Serializable] private class RegisterReq { public string device_id; }
         [Serializable] private class RegisterResp { public string user_id; public string token; }
+
+        /// <summary>The profile display name — local-first (kept in PlayerPrefs
+        /// even offline), synced to the account when a server is reachable.</summary>
+        public static string DisplayName => PlayerPrefs.GetString(PName, "");
+
+        /// <summary>Save the display name locally and push it to the account
+        /// (POST /v1/auth/profile). Offline the local copy still sticks — the
+        /// next successful call syncs it.</summary>
+        public static async Task<bool> SetDisplayNameAsync(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) return false;
+            PlayerPrefs.SetString(PName, name);
+            PlayerPrefs.Save();
+            var (code, _) = await PostAsync("/v1/auth/profile", JsonUtility.ToJson(new ProfileReq { name = name }));
+            return code == 200;
+        }
+
+        [Serializable] private class ProfileReq { public string name; }
 
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>

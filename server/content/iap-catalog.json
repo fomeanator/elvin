@@ -1,5 +1,8 @@
 {
-  "gold_100": { "currency": "gold", "amount": 100 },
-  "gold_550": { "currency": "gold", "amount": 550 },
-  "crystals_10": { "currency": "crystals", "amount": 10 }
+  "gold_100":  { "currency": "gold", "amount": 100,  "title": "Handful of Gold", "price": "$0.99", "order": 1 },
+  "gold_550":  { "currency": "gold", "amount": 550,  "title": "Pouch of Gold",   "price": "$4.99", "bonus": 50,  "order": 2 },
+  "gold_1200": { "currency": "gold", "amount": 1200, "title": "Chest of Gold",   "price": "$9.99", "bonus": 200, "order": 3 },
+  "crystals_10":  { "currency": "crystals", "amount": 10,  "title": "Crystal Shard",   "price": "$1.99",  "order": 4 },
+  "crystals_60":  { "currency": "crystals", "amount": 60,  "title": "Crystal Cluster", "price": "$9.99",  "bonus": 10, "order": 5 },
+  "crystals_130": { "currency": "crystals", "amount": 130, "title": "Crystal Geode",   "price": "$19.99", "bonus": 30, "order": 6 }
 }
