@@ -34,18 +34,15 @@ type AdsService struct {
 	dir     string
 	auth    *AuthService
 	wallet  *WalletService
-	catalog map[string]adReward
+	catalog *hotJSON[map[string]adReward] // follows disk edits live
 }
 
 func NewAdsService(dir string, auth *AuthService, wallet *WalletService, catalogPath string) (*AdsService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	s := &AdsService{dir: dir, auth: auth, wallet: wallet, catalog: map[string]adReward{}}
-	if data, err := os.ReadFile(catalogPath); err == nil {
-		_ = json.Unmarshal(data, &s.catalog)
-	}
-	return s, nil
+	return &AdsService{dir: dir, auth: auth, wallet: wallet,
+		catalog: newHotJSON(catalogPath, map[string]adReward{})}, nil
 }
 
 func (s *AdsService) Routes(mux *http.ServeMux) {
@@ -59,8 +56,9 @@ func (s *AdsService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		Placement string `json:"placement"`
 		adReward
 	}
-	out := make([]row, 0, len(s.catalog))
-	for p, a := range s.catalog {
+	catalog := s.catalog.Get()
+	out := make([]row, 0, len(catalog))
+	for p, a := range catalog {
 		out = append(out, row{Placement: p, adReward: a})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"placements": out})
@@ -83,7 +81,7 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "placement required", http.StatusBadRequest)
 		return
 	}
-	reward, known := s.catalog[req.Placement]
+	reward, known := s.catalog.Get()[req.Placement]
 	if !known {
 		http.Error(w, "unknown placement", http.StatusNotFound)
 		return

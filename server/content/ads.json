@@ -1,4 +1,12 @@
 {
-  "gold_small": { "currency": "gold", "amount": 25, "daily_cap": 10 },
-  "crystals_small": { "currency": "crystals", "amount": 2, "daily_cap": 5 }
+  "crystals_small": {
+    "amount": 2,
+    "currency": "crystals",
+    "daily_cap": 5
+  },
+  "gold_small": {
+    "amount": 25,
+    "currency": "gold",
+    "daily_cap": 10
+  }
 }

@@ -1,0 +1,261 @@
+{
+  "scene": "wardrobe-test",
+  "script": [
+    {
+      "id": "Dressing_room",
+      "op": "bg",
+      "sprite_url": "/content/bg/Dressing_room.jpg"
+    },
+    {
+      "label": "__fnskip1",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_show_hill",
+      "op": "label"
+    },
+    {
+      "emotion": "{emo}",
+      "height": 2,
+      "id": "hill",
+      "op": "actor",
+      "position": "center",
+      "show": true,
+      "width": 1.5,
+      "x": 0.5,
+      "y": 1.22
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip1",
+      "op": "label"
+    },
+    {
+      "expr": "\"idle\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Ну наконец-то. Целая комната зеркал — и вся моя.",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"happy\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Посмотрим, что мне сегодня к лицу.",
+      "who": "Хилл"
+    },
+    {
+      "id": "loop",
+      "op": "label"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "mirror",
+          "text": "Подойти к зеркалу (гардероб)"
+        },
+        {
+          "goto": "talk",
+          "text": "Поболтать с Хилл"
+        },
+        {
+          "goto": "emotions",
+          "text": "Проверить эмоции"
+        },
+        {
+          "goto": "fin",
+          "text": "Закончить примерку"
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "op": "label"
+    },
+    {
+      "expr": "\"dreamy\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Так… что бы примерить?",
+      "who": "Хилл"
+    },
+    {
+      "char": "hill",
+      "op": "wardrobe_show"
+    },
+    {
+      "expr": "\"delight\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Ну как тебе? По-моему, идеально.",
+      "who": "Хилл"
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "talk",
+      "op": "label"
+    },
+    {
+      "expr": "\"flirt\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Нравится смотреть? Тогда помоги выбрать наряд.",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"smirk\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Или боишься, что я передумаю семь раз? Правильно боишься.",
+      "who": "Хилл"
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "emotions",
+      "op": "label"
+    },
+    {
+      "expr": "\"surprised\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Ой! Ты что, проверяешь мои эмоции?",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"anger\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Так. Это уже наглость.",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"sad\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "…я же просто хотела красивое платье.",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"tears\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Совсем чуть-чуть хотела…",
+      "who": "Хилл"
+    },
+    {
+      "expr": "\"happy\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Шучу! Видел, как я умею? Двадцать эмоций, между прочим.",
+      "who": "Хилл"
+    },
+    {
+      "label": "loop",
+      "op": "goto"
+    },
+    {
+      "id": "fin",
+      "op": "label"
+    },
+    {
+      "expr": "\"delight\"",
+      "key": "emo",
+      "op": "set"
+    },
+    {
+      "label": "__fn_show_hill",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Запомни этот образ. Завтра будет другой.",
+      "who": "Хилл"
+    }
+  ]
+}
