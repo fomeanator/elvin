@@ -176,6 +176,7 @@ namespace Lvn.UI
 
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
+            int epoch = _stageEpoch; // the scene this build belongs to (see ResetStage)
             var placement = _placements.TryGetValue(id, out var prevSp)
                 ? PlacementFrom(cmd, prevSp) : PlacementFrom(cmd);
             _placements[id] = placement; // sticky base (spine actors too)
@@ -288,6 +289,13 @@ namespace Lvn.UI
                     // it's an await like any other, and the scene can be torn
                     // down during it.
                     await Task.Yield();
+                    // A chapter change happened during the load: a new scene may
+                    // have re-created a slot with this same id, so a null-check
+                    // isn't enough — this stale build would parent a SECOND
+                    // skeleton into the new scene and orphan/leak one. Bail on a
+                    // superseded epoch. (Sprites are fenced by _actorGen; spine
+                    // had no equivalent.)
+                    if (!StageCurrent(epoch)) return;
                     slot = canvas.RigFor(id);
                     if (slot == null) return;
                     var go = LvnSpineBridge.Create(slot, json, atlasText, pageArr, sp.scale, bgTex);
