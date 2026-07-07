@@ -1,0 +1,161 @@
+{
+  "scene": "exp_victoria",
+  "script": [
+    {
+      "expr": "false",
+      "key": "smelo",
+      "op": "set"
+    },
+    {
+      "id": "ballroom",
+      "op": "bg",
+      "sprite_url": "/content/bg/ballroom.jpg"
+    },
+    {
+      "emotion": "neutral",
+      "id": "graf",
+      "op": "actor",
+      "position": "right",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Вы новенькая при дворе?",
+      "who": "Граф"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "derzko",
+          "text": "Дерзко"
+        },
+        {
+          "goto": "myagko",
+          "text": "Мягко"
+        }
+      ]
+    },
+    {
+      "id": "derzko",
+      "op": "label"
+    },
+    {
+      "key": "smelo",
+      "op": "set",
+      "value": true
+    },
+    {
+      "label": "balcony",
+      "op": "goto"
+    },
+    {
+      "id": "myagko",
+      "op": "label"
+    },
+    {
+      "key": "smelo",
+      "op": "set",
+      "value": false
+    },
+    {
+      "label": "balcony",
+      "op": "goto"
+    },
+    {
+      "id": "balcony",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Граф провожает вас на балкон."
+    },
+    {
+      "else": "__nf1",
+      "expr": "smelo == true",
+      "op": "if",
+      "then": "bold"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "label": "soft",
+      "op": "goto"
+    },
+    {
+      "id": "bold",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "graf",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "А вы смелее, чем кажетесь…",
+      "who": "Граф"
+    },
+    {
+      "label": "finale",
+      "op": "goto"
+    },
+    {
+      "id": "soft",
+      "op": "label"
+    },
+    {
+      "emotion": "neutral",
+      "id": "graf",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "С вами спокойно…",
+      "who": "Граф"
+    },
+    {
+      "label": "finale",
+      "op": "goto"
+    },
+    {
+      "id": "finale",
+      "op": "label"
+    },
+    {
+      "id": "victoria_finale",
+      "op": "bg",
+      "sprite_url": "/content/cg/victoria_finale.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Между вами вспыхнуло что-то настоящее."
+    },
+    {
+      "key": "global.exp_victoria_done",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "key": "global.date_victoria",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "key": "global.reality_beat_2",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "op": "say",
+      "text": "Мы ещё увидимся. Обещаю.",
+      "who": "Граф"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}
