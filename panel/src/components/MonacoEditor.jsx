@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useEffect } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { OP_DOCS } from "lvn-lang/grammar.js";
+import { OP_DOCS, OPS, DIRECTIVES, SOURCE_OPS } from "lvn-lang/grammar.js";
 import {
   completionAt, hoverAt, definitionAt, documentSymbols, predictGhost, labelsIn, labelInfo, varInfo,
   labelOccurrences,
@@ -53,10 +53,12 @@ function registerLvns(mo, getCtx) {
   });
 
   // Monarch highlighter — labels, ops, strings, interpolation, choices, comments.
+  // The keyword set is derived from the grammar contract (OPS + DIRECTIVES +
+  // compile-time-only SOURCE_OPS), never hand-listed — a hand-list silently
+  // drifts and stops colouring newer ops (voice/ext/defanim/move/play, and even
+  // say/input/text/anim were missing before this).
   mo.languages.setMonarchTokensProvider("lvns", {
-    ops: ["scene", "actor_map", "bg", "actor", "obj", "fade", "dim", "flash", "tint", "blur",
-      "camera", "particles", "audio", "wait", "preload", "text_pace", "goto", "if", "set", "inc",
-      "hint", "call", "return", "choice"],
+    ops: [...DIRECTIVES, ...OPS, ...SOURCE_OPS],
     tokenizer: {
       root: [
         [/^\s*\/\/.*$/, "comment"],
