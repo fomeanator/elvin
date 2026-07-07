@@ -21,6 +21,9 @@ namespace Lvn.UI.Screens
     {
         public BootScreen Boot { get; private set; }
         public TitleCarousel Carousel { get; private set; }
+        /// <summary>The hub browse flow (collections → cards → detail), used when
+        /// <c>ui.browse.layout == "hub"</c> instead of the carousel.</summary>
+        public BrowseHub Hub { get; private set; }
         public NameInputScreen NameInput { get; private set; }
         public LoadingScreen Loading { get; private set; }
         public TitleCard Title { get; private set; }
@@ -91,6 +94,8 @@ namespace Lvn.UI.Screens
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
+            Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
+            Hide(Hub); Add(Hub);
             NameInput = new NameInputScreen(ui.name_input, assets); Add(NameInput);
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
@@ -181,6 +186,7 @@ namespace Lvn.UI.Screens
             if (manifest == null) return;
             _manifest = manifest;
             Carousel?.SetTitles(manifest.titles);
+            Hub?.SetData(manifest.collections, manifest.titles);
             Wardrobe?.SetManifest(manifest);
             WardrobeStory?.SetManifest(manifest);
         }
@@ -219,17 +225,32 @@ namespace Lvn.UI.Screens
                 catch (OperationCanceledException) { return; }
             }
 
+            // Hub browse (collections → cards → detail) vs the default carousel.
+            bool useHub = _manifest.ui?.browse?.layout == "hub"
+                          && _manifest.collections != null && _manifest.collections.Count > 0;
+
             while (!ct.IsCancellationRequested)
             {
-                // ── title carousel: wait for Play ──
-                Carousel.RefreshProgress(); // progress moved while a chapter played
-                Show(Carousel);
-                int idx = await WaitForPlay(ct);
-                if (ct.IsCancellationRequested) return;
-                Hide(Carousel);
-
-                var title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
-                    ? _manifest.titles[idx] : null;
+                // ── choose a title: hub flow or the carousel ──
+                LvnTitle title;
+                if (useHub && Hub != null)
+                {
+                    Show(Hub);
+                    title = await Hub.PickTitleAsync(ct);
+                    if (ct.IsCancellationRequested) return;
+                    Hide(Hub);
+                    if (title == null) continue; // never picked → re-enter the hub
+                }
+                else
+                {
+                    Carousel.RefreshProgress(); // progress moved while a chapter played
+                    Show(Carousel);
+                    int idx = await WaitForPlay(ct);
+                    if (ct.IsCancellationRequested) return;
+                    Hide(Carousel);
+                    title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
+                        ? _manifest.titles[idx] : null;
+                }
                 var chapter = FirstChapter(title);
 
                 // ── name input (once) ──
@@ -327,7 +348,7 @@ namespace Lvn.UI.Screens
 
         private void ShowOnly()
         {
-            Hide(Boot); Hide(Carousel); Hide(Loading); Hide(Title); Hide(Hud);
+            Hide(Boot); Hide(Carousel); Hide(Hub); Hide(Loading); Hide(Title); Hide(Hud);
             NameInput.Hide();
             Auth?.Hide();
             Store?.Hide();
