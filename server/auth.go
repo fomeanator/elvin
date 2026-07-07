@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -190,9 +191,18 @@ func (s *AuthService) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	created, name := s.users[userID].Created, s.users[userID].Name
+	// The provider NAMES (not the subject ids) so the client can show "signed in
+	// via Google/Apple" vs a device-only account — without leaking the subject.
+	var providers []string
+	for p := range s.users[userID].Providers {
+		providers = append(providers, p)
+	}
 	s.mu.Unlock()
+	sort.Strings(providers) // stable order for the UI
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "created": created, "name": name})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"user_id": userID, "created": created, "name": name, "providers": providers,
+	})
 }
 
 // handleLink attaches a verified platform identity (Google/Apple) to the
