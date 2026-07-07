@@ -70,7 +70,6 @@ func Convert(src string) (*Doc, error) {
 	var lines []string
 	var srcNo []int
 	rawLines := strings.Split(src, "\n")
-	const urlGuard = "\x00PROTO\x00"
 
 	chevDepth := 0 // >0 while inside an unclosed «…» (multi-line string)
 	var cbuf strings.Builder
@@ -96,12 +95,11 @@ func Convert(src string) (*Doc, error) {
 			continue
 		}
 
-		// Strip inline // comments, protecting URL "://".
-		line := strings.ReplaceAll(raw, "://", urlGuard)
-		if ci := strings.Index(line, "//"); ci >= 0 {
-			line = line[:ci]
-		}
-		line = strings.TrimSpace(strings.ReplaceAll(line, urlGuard, "://"))
+		// Strip inline // comments — quote-, «…»- and URL-aware, so a // inside
+		// a "string", a «…» text or after :// in a url is kept (a bare Index
+		// would truncate `hint text="press A // or B"` mid-value and, worse, eat
+		// the closing » of `Анна: «Пауза // тишина»` and swallow the rest).
+		line := strings.TrimSpace(stripLineComment(raw))
 
 		// Skip comments and empty lines
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -445,11 +443,21 @@ func Convert(src string) (*Doc, error) {
 						break // w begins the template — stop consuming params
 					}
 					tmpl := strings.TrimSpace(rem)
-					if tmpl != "" {
-						c["text"] = stripQuotes(tmpl)
+					// A reactive label's template is quoted («…»/"…") or references
+					// a variable ({expr}). A bare unquoted run of words is almost
+					// certainly prose that happens to start with "text" ("text me
+					// when you arrive.") — let it fall through to narration rather
+					// than silently minting a label with id "me".
+					quoted := strings.HasPrefix(tmpl, "«") || strings.HasPrefix(tmpl, "\"")
+					if tmpl != "" && !quoted && !strings.Contains(tmpl, "{") {
+						// not a command — drop to dialogue handling below
+					} else {
+						if tmpl != "" {
+							c["text"] = stripQuotes(tmpl)
+						}
+						isCommand = true
+						cmd = c
 					}
-					isCommand = true
-					cmd = c
 				}
 			} else if firstWord == "voice" {
 				// `voice "/content/voice/x.ogg"` — the NEXT say line speaks it.
@@ -457,12 +465,20 @@ func Convert(src string) (*Doc, error) {
 				if strings.HasPrefix(rest, "url=") {
 					rest = strings.TrimSpace(rest[len("url="):])
 				}
-				pendingVoice = stripQuotes(rest)
-				if pendingVoice == "" {
-					return nil, fmt.Errorf("line %d: voice: usage: voice <url>", srcNo[i])
+				// A voice url is one token (or quoted). An unquoted value with
+				// spaces ("voice of reason spoke first.") is prose starting with
+				// the word "voice" — don't swallow it and mis-voice the next say.
+				quoted := strings.HasPrefix(rest, "«") || strings.HasPrefix(rest, "\"")
+				if !quoted && strings.ContainsAny(rest, " \t") {
+					// fall through to narration below
+				} else {
+					pendingVoice = stripQuotes(rest)
+					if pendingVoice == "" {
+						return nil, fmt.Errorf("line %d: voice: usage: voice <url>", srcNo[i])
+					}
+					i++
+					continue
 				}
-				i++
-				continue
 			} else if firstWord == "choice" {
 				// `choice timeout=10 timeout_goto=late` — attributes for the
 				// NEXT `- option` block (a timed choice). No command by itself.
@@ -476,22 +492,37 @@ func Convert(src string) (*Doc, error) {
 			} else if firstWord == "return" && len(words) == 1 {
 				isCommand = true
 				cmd = Cmd{"op": "return"}
-			} else if (firstWord == "goto" || firstWord == "call") && len(words) == 2 {
-				isCommand = true
-				cmd = Cmd{"op": firstWord, "label": words[1]}
-			} else if firstWord != "return" && firstWord != "goto" && firstWord != "call" {
+			} else if firstWord == "goto" || firstWord == "call" {
+				// Structural keywords: never prose. A label with spaces or a
+				// missing target is a mistake — fail loudly instead of silently
+				// rendering "goto my label" as an on-screen dialogue line.
+				if len(words) == 2 {
+					isCommand = true
+					cmd = Cmd{"op": firstWord, "label": words[1]}
+				} else {
+					return nil, fmt.Errorf("line %d: %s needs exactly one label with no spaces (got %q) — labels can't contain spaces", srcNo[i], firstWord, strings.TrimSpace(line[len(firstWord):]))
+				}
+			} else if firstWord != "return" {
 				rest := strings.TrimSpace(line[len(firstWord):])
 				if rest == "" {
 					isCommand = true
 					cmd = Cmd{"op": firstWord}
 				} else {
-					if params, err := parseKeyValue(rest); err == nil {
+					params, err := parseKeyValue(rest)
+					if err == nil {
 						isCommand = true
 						cmd = Cmd{"op": firstWord}
 						for k, v := range params {
 							cmd[k] = v
 						}
+					} else if looksLikeCommand(words) {
+						// Shaped exactly like a command (op + key=value tokens) but
+						// the params didn't parse — a syntax slip in a real command,
+						// not prose. Don't let it fall through to a dialogue line.
+						return nil, fmt.Errorf("line %d: %s: %v", srcNo[i], firstWord, err)
 					}
+					// else: a known word starting genuine prose ("wait here," she
+					// said) — fall through to narration as before.
 				}
 			}
 		}
@@ -714,7 +745,12 @@ var reCall = regexp.MustCompile(`^\s*(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*)\s*
 // bind arguments to the parameter names positionally.
 func collectFuncs(src string) map[string][]string {
 	m := map[string][]string{}
+	depth := 0
 	for _, line := range strings.Split(src, "\n") {
+		if depth > 0 || chevRun(0, line) > 0 { // a `func …` line inside «…» is prose
+			depth = chevRun(depth, line)
+			continue
+		}
 		mm := reFuncDef.FindStringSubmatch(line)
 		if mm == nil {
 			continue
@@ -730,6 +766,21 @@ func collectFuncs(src string) map[string][]string {
 	return m
 }
 
+// chevRun advances a running «…» nesting depth across one physical line.
+// Used by the macro passes to leave the INSIDE of a multi-line string alone —
+// a `return`/`if`/`for` that appears as prose within «…» must not be lowered
+// into a real command (it would inject control flow into a dialogue line).
+func chevRun(depth int, s string) int {
+	for _, r := range s {
+		if r == '«' {
+			depth++
+		} else if r == '»' && depth > 0 {
+			depth--
+		}
+	}
+	return depth
+}
+
 // expandCalls rewrites call statements and `return <expr>` into core primitives,
 // once blocks have been flattened to own-lines. A call `name(a, b)` becomes
 // `<param1> = a` / `<param2> = b` / `call __fn_name`; `r = name(a)` adds
@@ -737,7 +788,15 @@ func collectFuncs(src string) map[string][]string {
 // calls (push/rand/…) and ordinary text pass through untouched.
 func expandCalls(src string, funcs map[string][]string) string {
 	var out []string
+	depth := 0
 	for _, line := range strings.Split(src, "\n") {
+		// Inside (or opening) a multi-line «…»: pass the line through untouched
+		// so prose like `return home, she thought.` never becomes a `return` op.
+		if depth > 0 || chevRun(0, line) > 0 {
+			out = append(out, line)
+			depth = chevRun(depth, line)
+			continue
+		}
 		t := strings.TrimSpace(line)
 
 		// `return <expr>` → stash the value, then return.
@@ -831,13 +890,28 @@ func expandLoops(src string) (string, error) {
 	ctr := 0
 
 	// Flatten inline blocks (`if c { … }`, `} else { … }`, `for/while c { … }`)
-	// into the own-line brace form the loop below expects.
+	// into the own-line brace form the loop below expects. Lines inside a
+	// multi-line «…» are passed through verbatim — their `{`/`}` are prose or
+	// interpolation, not control-flow braces.
 	var srcLines []string
+	fdepth := 0
 	for _, raw := range strings.Split(src, "\n") {
+		if fdepth > 0 || chevRun(0, raw) > 0 {
+			srcLines = append(srcLines, raw)
+			fdepth = chevRun(fdepth, raw)
+			continue
+		}
 		srcLines = append(srcLines, splitInline(raw)...)
 	}
 
+	cdepth := 0
 	for _, raw := range srcLines {
+		// Inside/opening a «…»: emit verbatim, never interpret as a block.
+		if cdepth > 0 || chevRun(0, raw) > 0 {
+			out = append(out, raw)
+			cdepth = chevRun(cdepth, raw)
+			continue
+		}
 		det := strings.TrimSpace(raw)
 		if ci := strings.Index(det, "//"); ci >= 0 { // ignore trailing comments for detection
 			det = strings.TrimSpace(det[:ci])
