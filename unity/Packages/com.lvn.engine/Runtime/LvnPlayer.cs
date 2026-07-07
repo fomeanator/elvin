@@ -342,17 +342,29 @@ namespace Lvn
             /// falls back to <see cref="Index"/> when the label is gone.</summary>
             public string AnchorLabel;
             public int AnchorSteps;
+            /// <summary>Per-frame anchors for <see cref="CallStack"/> (same order,
+            /// top-first). Return addresses are raw indices too, so they need the
+            /// same label+offset relocation as the cursor; null on older saves.</summary>
+            public string[] CallAnchorLabels;
+            public int[] CallAnchorSteps;
         }
 
         /// <summary>Capture the current state for serialization.</summary>
         public LvnSnapshot Save()
         {
             var (aLabel, aSteps) = AnchorOf(_ip);
+            var frames = _callStack.ToArray();
+            var caLabels = new string[frames.Length];
+            var caSteps = new int[frames.Length];
+            for (int i = 0; i < frames.Length; i++)
+                (caLabels[i], caSteps[i]) = AnchorOf(frames[i]);
             return new LvnSnapshot
             {
                 Index = _ip,
                 Vars = new Dictionary<string, JToken>(Vars),
-                CallStack = _callStack.ToArray(),
+                CallStack = frames,
+                CallAnchorLabels = caLabels,
+                CallAnchorSteps = caSteps,
                 CommandCount = _script.Count,
                 Finished = Finished,
                 AnchorLabel = aLabel,
@@ -369,7 +381,22 @@ namespace Lvn
             int at = snapshot.AnchorLabel != null
                 ? Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index)
                 : snapshot.Index;
-            Restore(at, snapshot.Vars, snapshot.CallStack);
+            // Return addresses shift with the script just like the cursor does —
+            // relocate each frame by its own anchor, falling back to the raw index.
+            var stack = snapshot.CallStack;
+            if (stack != null && snapshot.CallAnchorLabels != null
+                && snapshot.CallAnchorLabels.Length == stack.Length
+                && snapshot.CallAnchorSteps != null
+                && snapshot.CallAnchorSteps.Length == stack.Length)
+            {
+                var relocated = new int[stack.Length];
+                for (int i = 0; i < stack.Length; i++)
+                    relocated[i] = snapshot.CallAnchorLabels[i] != null
+                        ? Relocate(snapshot.CallAnchorLabels[i], snapshot.CallAnchorSteps[i], stack[i])
+                        : stack[i];
+                stack = relocated;
+            }
+            Restore(at, snapshot.Vars, stack);
         }
 
         /// <summary>
@@ -414,8 +441,12 @@ namespace Lvn
             int oldCount = _script.Count;
 
             // Anchor the cursor BEFORE swapping, so we can restore the same beat even
-            // if the edit changed the command count and shifted every index.
+            // if the edit changed the command count and shifted every index. Call-stack
+            // return addresses are raw indices with the same problem — anchor each frame.
             var (aLabel, aSteps) = AnchorOf(_ip);
+            var frames = _callStack.ToArray(); // top-first
+            var frameAnchors = new (string label, int steps)[frames.Length];
+            for (int i = 0; i < frames.Length; i++) frameAnchors[i] = AnchorOf(frames[i]);
 
             // Index-aligned edit (same length + same op structure) → keep the cursor
             // exactly and re-issue only the visual ops that changed. The common "fix a
@@ -455,6 +486,12 @@ namespace Lvn
                 // Indices shifted — relocate the cursor to the same beat via its label
                 // anchor and rebuild the visible stage there. No restart, no jump.
                 _ip = Relocate(aLabel, aSteps, _ip);
+                if (frames.Length > 0)
+                {
+                    _callStack.Clear();
+                    for (int i = frames.Length - 1; i >= 0; i--)
+                        _callStack.Push(Relocate(frameAnchors[i].label, frameAnchors[i].steps, frames[i]));
+                }
                 ReplayVisuals(_ip);
             }
             return true;
@@ -502,7 +539,9 @@ namespace Lvn
             {
                 if (--budget < 0)
                     throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
-                var c = (JObject)_script[_ip];
+                // Malformed content must never crash the runtime: a non-object
+                // command (bad export/hand-edited JSON) is skipped, not cast-thrown.
+                if (!(_script[_ip] is JObject c)) { _ip++; continue; }
                 var curOp = (string)c["op"];
                 if (Log != null) Log("#" + _ip + " " + curOp + DescribeCmd(c));
                 switch (curOp)
@@ -709,7 +748,7 @@ namespace Lvn
             {
                 foreach (var bt in body)
                 {
-                    var bc = (JObject)bt;
+                    if (!(bt is JObject bc)) continue; // malformed body element — skip, don't crash the choice
                     var bop = (string)bc["op"];
                     if (bop == "set" || bop == "inc") ApplyData(bc);
                     else if (bop == "goto") { Jump((string)bc["label"]); return; }

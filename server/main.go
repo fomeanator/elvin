@@ -202,6 +202,32 @@ type server struct {
 
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
+
+	userMu    sync.Mutex
+	userLocks map[string]*sync.Mutex // per-user: serializes state PUT + key claim
+}
+
+// lockUser returns the mutex serializing writes for one user's state blob.
+// The version check + file write + memory update must be one critical section —
+// without it two concurrent PUTs both pass the OCC check and one update is lost.
+func (s *server) lockUser(user string) *sync.Mutex {
+	s.userMu.Lock()
+	defer s.userMu.Unlock()
+	if s.userLocks == nil {
+		s.userLocks = make(map[string]*sync.Mutex)
+	}
+	m, ok := s.userLocks[user]
+	if !ok {
+		// Bound the map like stateMemMax bounds saves: drop it wholesale when it
+		// grows unreasonably (locks are transient; a fresh one is fine once no
+		// request holds the old — and holders keep their own pointer safely).
+		if len(s.userLocks) > stateMemMax*2 {
+			s.userLocks = make(map[string]*sync.Mutex)
+		}
+		m = &sync.Mutex{}
+		s.userLocks[user] = m
+	}
+	return m
 }
 
 // stateMemMax bounds how many player saves are held in RAM. Disk is the source
@@ -392,6 +418,13 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 	// and access logs record — so the id alone must not be enough to read or
 	// overwrite a stranger's save. Unclaimed blobs stay open (legacy clients).
 	key := r.Header.Get("X-State-Key")
+	// One writer per user: the TOFU key claim below and the OCC version
+	// check+write in PUT are check-then-act sequences — serialize them.
+	if r.Method == http.MethodPut {
+		lk := s.lockUser(user)
+		lk.Lock()
+		defer lk.Unlock()
+	}
 	if !s.stateKeyOK(user, key, r.Method == http.MethodPut) {
 		http.Error(w, "state key mismatch", http.StatusUnauthorized)
 		return

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/optimize"
 )
@@ -85,6 +86,7 @@ func cmdOptimize(args []string) {
 		die("optimize: rewriting references: " + err.Error())
 	}
 	fmt.Fprintf(os.Stderr, "rewrite-refs: patched %d reference(s) in %d file(s)\n", len(renames), len(touched))
+	var failed []string
 	for _, path := range touched {
 		if !isLvns(path) {
 			continue // manifest.json needs no recompile step
@@ -94,9 +96,17 @@ func cmdOptimize(args []string) {
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err := cmd.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "  recompile FAILED %s: %v\n", path, err)
+			failed = append(failed, path)
 			continue
 		}
 		fmt.Fprintf(os.Stderr, "  recompiled %s → %s\n", path, out)
+	}
+	if len(failed) > 0 {
+		// The images are renamed and the .lvns already reference the new names,
+		// but these compiled .lvn still point at files that no longer exist —
+		// shipping now means broken art at runtime. Refuse to exit clean.
+		die(fmt.Sprintf("optimize: %d script(s) failed to recompile after rewrite-refs (their .lvn still reference the OLD image names): %s — fix the syntax errors above and run `lvnconv convert` on each",
+			len(failed), strings.Join(failed, ", ")))
 	}
 }
 

@@ -46,6 +46,12 @@ namespace Lvn.UI
         /// width), "height", "cover", "contain".</summary>
         public static Action<GameObject, float, string> Refit;
 
+        /// <summary>Drop the integration's parsed-skeleton cache. The stage
+        /// calls it from <c>ResetStage</c>'s asset unload: cached
+        /// SkeletonData/materials reference textures the loader is about to
+        /// Destroy — reusing them after an unload draws black/pink skeletons.</summary>
+        public static Action ClearCache;
+
         public static bool Available => Create != null;
     }
 }
