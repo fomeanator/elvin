@@ -247,6 +247,37 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnPlay = ChargeTitleEntryAsync;
                 _shell.Hub.OnLockedHint = (name, hint) =>
                     _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
+                _shell.Hub.OnMenu = () => _shell.OpenSettingsAsync(); // avatar → account/settings
+                _shell.Hub.OnStore = () => _shell.OpenPackShopAsync();   // currency "+" / Магазин → pack shop
+                // Гардероб → the REAL, wallet-synced wardrobe for the game's main
+                // heroine (title.hero ?? manifest.hero). Ownership lives in the
+                // shared LvnWallet.Inventory, so it stays in sync with the in-story
+                // wardrobe. (The prettier SkinShop screen gets wired to this same
+                // data next.)
+                string heroId = _manifest?.hero;
+                _shell.Hub.OnWardrobe = () => _shell.OpenWardrobeAsync(heroId);
+                _shell.Hub.OnGallery = OpenGalleryForRealAsync;
+                _shell.Hub.OnProfile = () => _shell.OpenProfileAsync();
+                _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
+                _shell.Hub.PlayerName = _playerName;
+                // Tapping a card opens the rich detail page seeded with this title.
+                _shell.Hub.OnOpenDetail = t =>
+                {
+                    if (_shell.Detail != null)
+                    {
+                        _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
+                        var img = t?.card?.image ?? t?.cover_url;
+                        if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
+                        if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
+                        _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
+                        // Real title behind the page → the Restart menu lists its
+                        // actual chapters and reads/clears this title's progress.
+                        _shell.Detail.Title = t;
+                        _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
+                        _shell.Detail.Rebuild();
+                    }
+                    return _shell.OpenDetailAsync();
+                };
             }
 
             await _shell.RunAsync(
@@ -271,17 +302,50 @@ namespace Lvn.UI.Screens
 
             var eco = _manifest?.economy;
             string title2 = eco?.gate_title ?? "Not enough energy";
-            string msg = eco?.gate_message ?? "You need more to start this.";
+            string msg = (eco?.gate_message ?? "You need more to start this.") + RefillHint(cost.currency);
             bool toStore = await _shell.ConfirmAsync(title2, msg,
                 eco?.gate_buy ?? "Store", eco?.gate_cancel ?? "Not now");
             if (!toStore) return false;
 
-            await _shell.OpenStoreAsync();
+            await _shell.OpenPackShopAsync();
             await Lvn.Services.LvnWallet.RefreshAsync();
             if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
 
             await _shell.AlertAsync(eco?.gate_denied ?? title2, msg);
             return false;
+        }
+
+        // Populate the CG gallery from every title's `gallery` (unlock state from
+        // LvnGalleryStore), then open it. No items anywhere → the screen keeps its
+        // built-in demo fallback.
+        private Task OpenGalleryForRealAsync()
+        {
+            if (_shell?.Gallery != null && _manifest?.titles != null)
+            {
+                var entries = new System.Collections.Generic.List<CgGalleryScreen.Entry>();
+                foreach (var t in _manifest.titles)
+                    if (t?.gallery != null)
+                        foreach (var g in t.gallery)
+                            entries.Add(new CgGalleryScreen.Entry
+                            {
+                                Url = g.url,
+                                Caption = g.name ?? g.id,
+                                Unlocked = Lvn.UI.LvnGalleryStore.IsUnlocked(t.id, g.id),
+                            });
+                if (entries.Count > 0) _shell.Gallery.SetEntries(entries);
+            }
+            return _shell.OpenGalleryAsync();
+        }
+
+        // "⚡ +1 через 1 ч 20 мин" — the regen countdown for the gate popup, from the
+        // wallet's computed refill state. Empty when the currency isn't regenerating.
+        private static string RefillHint(string currency)
+        {
+            if (!Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) || r.NextRefillUnix <= 0) return "";
+            long rem = r.NextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (rem <= 0) return "";
+            long h = rem / 3600, m = (rem % 3600) / 60;
+            return "\n\n⚡ +1 через " + (h > 0 ? h + " ч " + m + " мин" : m + " мин");
         }
 
         private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
@@ -496,12 +560,12 @@ namespace Lvn.UI.Screens
             // Not enough — offer the store, then retry the spend once.
             if (_shell == null) return false;
             string title = eco.gate_title ?? "Not enough energy";
-            string msg = eco.gate_message ?? "You need more to open this chapter.";
+            string msg = (eco.gate_message ?? "You need more to open this chapter.") + RefillHint(currency);
             bool toStore = await _shell.ConfirmAsync(title, msg,
                 eco.gate_buy ?? "Store", eco.gate_cancel ?? "Not now");
             if (!toStore) return false;
 
-            await _shell.OpenStoreAsync();
+            await _shell.OpenPackShopAsync();
             await Lvn.Services.LvnWallet.RefreshAsync();
             if (await Lvn.Services.LvnWallet.SpendAsync(currency, cost, reason)) return true;
 
@@ -695,6 +759,22 @@ namespace Lvn.UI.Screens
             LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
             Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
             return true;
+        }
+
+        // "Restart the whole expedition": wipe this title's persisted stats and
+        // drop every save slot, then clear its reading progress/checkpoints so the
+        // next play starts from chapter one, clean. The cross-novel `global` stats
+        // are LEFT intact — they belong to the player, not this one expedition.
+        // Wired into TitleDetailScreen.OnResetProgress.
+        private async Task ResetTitleProgressAsync(LvnTitle title)
+        {
+            if (title == null) return;
+            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
+            foreach (var slot in new System.Collections.Generic.List<string>(LvnSaveStore.Slots(title.id).Keys))
+                LvnSaveStore.Delete(title.id, slot);
+            LvnProgress.ResetTitle(title.id);
+            Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
         }
 
         private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)

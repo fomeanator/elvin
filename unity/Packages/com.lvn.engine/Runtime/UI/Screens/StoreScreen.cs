@@ -43,12 +43,12 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new StoreConfig();
             _assets = assets;
-            _text = UiColor.Parse(_cfg.text_color, new Color(0.95f, 0.93f, 0.88f));
-            _dim = UiColor.Parse(_cfg.dim_text_color, new Color(0.60f, 0.58f, 0.54f));
+            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
+            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
             _radius = _cfg.corner_radius ?? 12f;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, new Color(0f, 0f, 0f, 0.7f));
+            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
             style.opacity = 0f;
             style.display = DisplayStyle.None;
             // tap the scrim (not the sheet) to close
@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
             sheet.style.right = Length.Percent(6f);
             sheet.style.top = Length.Percent(10f);
             sheet.style.bottom = Length.Percent(10f);
-            sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
+            sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
             Round(sheet, _radius + 4f);
             sheet.style.paddingTop = 22;
             sheet.style.paddingBottom = 18;
@@ -76,8 +76,8 @@ namespace Lvn.UI.Screens
             sheet.Add(header);
 
             var title = new Label(_cfg.title ?? "Store");
-            title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            title.style.fontSize = 34;
+            title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            title.style.fontSize = 36;
             header.Add(title);
 
             _balances = new VisualElement();
@@ -91,19 +91,19 @@ namespace Lvn.UI.Screens
 
             _note = new Label("");
             _note.style.color = _dim;
-            _note.style.fontSize = 20;
+            _note.style.fontSize = 22;
             _note.style.unityTextAlign = TextAnchor.MiddleCenter;
             _note.style.marginTop = 10;
             _note.style.display = DisplayStyle.None;
             sheet.Add(_note);
 
             var close = new Button(Close) { text = _cfg.close_text ?? "Close" };
-            close.style.fontSize = 24;
+            close.style.fontSize = 26;
             close.style.marginTop = 12;
             close.style.paddingTop = 12;
             close.style.paddingBottom = 12;
             close.style.color = _text;
-            close.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
+            close.style.backgroundColor = LvnTokens.Faint;
             Round(close, _radius);
             sheet.Add(close);
         }
@@ -179,19 +179,19 @@ namespace Lvn.UI.Screens
             card.Add(col);
             var name = new Label($"+{p.Amount:N0} {NameFor(p.Currency)}");
             name.style.color = _text;
-            name.style.fontSize = 26;
+            name.style.fontSize = 28;
             col.Add(name);
             if (p.DailyCap > 0)
             {
                 var sub = new Label($"×{p.DailyCap}/day");
                 sub.style.color = _dim;
-                sub.style.fontSize = 20;
+                sub.style.fontSize = 22;
                 sub.style.marginTop = 2;
                 col.Add(sub);
             }
 
             var watch = new Button { text = _cfg.ad_text ?? "Watch ad" };
-            watch.style.fontSize = 24;
+            watch.style.fontSize = 26;
             watch.style.minWidth = 130;
             watch.style.paddingTop = 12; watch.style.paddingBottom = 12;
             watch.style.paddingLeft = 18; watch.style.paddingRight = 18;
@@ -258,8 +258,8 @@ namespace Lvn.UI.Screens
                 ? t : sectionId;
             var lbl = new Label(text);
             lbl.style.color = UiColor.Parse(_cfg.section_title_color,
-                UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f)));
-            lbl.style.fontSize = 26;
+                UiColor.Parse(_cfg.title_color, LvnTokens.Text));
+            lbl.style.fontSize = 28;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.marginTop = 6;
             lbl.style.marginBottom = 8;
@@ -287,7 +287,7 @@ namespace Lvn.UI.Screens
 
             var text = new Label(_cfg.pay_banner_text ?? "How to pay from your region →");
             text.style.color = UiColor.Parse(_cfg.pay_banner_text_color, _text);
-            text.style.fontSize = 22;
+            text.style.fontSize = 24;
             text.style.whiteSpace = WhiteSpace.Normal;
             text.style.flexGrow = 1;
             banner.Add(text);
@@ -337,7 +337,7 @@ namespace Lvn.UI.Screens
                 ? pack.Title
                 : $"{pack.Amount:N0} {NameFor(pack.Currency)}");
             name.style.color = _text;
-            name.style.fontSize = 26;
+            name.style.fontSize = 28;
             col.Add(name);
 
             var subText = !string.IsNullOrEmpty(pack.Title)
@@ -352,20 +352,20 @@ namespace Lvn.UI.Screens
             {
                 var sub = new Label(subText);
                 sub.style.color = _dim;
-                sub.style.fontSize = 20;
+                sub.style.fontSize = 22;
                 sub.style.marginTop = 2;
                 col.Add(sub);
             }
 
             var buy = new Button { text = !string.IsNullOrEmpty(pack.Price) ? pack.Price : (_cfg.buy_text ?? "Get") };
-            buy.style.fontSize = 24;
+            buy.style.fontSize = 26;
             buy.style.minWidth = 130;
             buy.style.paddingTop = 12;
             buy.style.paddingBottom = 12;
             buy.style.paddingLeft = 18;
             buy.style.paddingRight = 18;
-            buy.style.color = UiColor.Parse(_cfg.buy_text_color, new Color(0.08f, 0.08f, 0.10f));
-            buy.style.backgroundColor = UiColor.Parse(_cfg.buy_color, new Color(0.78f, 0.63f, 0.31f));
+            buy.style.color = UiColor.Parse(_cfg.buy_text_color, LvnTokens.OnAccent);
+            buy.style.backgroundColor = UiColor.Parse(_cfg.buy_color, LvnTokens.Accent);
             Round(buy, _radius);
             buy.clicked += () => _ = BuyAsync(pack, buy);
             card.Add(buy);
@@ -428,7 +428,7 @@ namespace Lvn.UI.Screens
                 }
                 var amount = new Label(kv.Value.ToString("N0"));
                 amount.style.color = _text;
-                amount.style.fontSize = 22;
+                amount.style.fontSize = 24;
                 pill.Add(amount);
                 _balances.Add(pill);
             }
