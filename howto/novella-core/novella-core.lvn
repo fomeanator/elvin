@@ -1,0 +1,310 @@
+{
+  "scene": "novella-core",
+  "script": [
+    {
+      "expr": "0",
+      "key": "X",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "доверие",
+      "op": "set"
+    },
+    {
+      "expr": "0",
+      "key": "опыт",
+      "op": "set"
+    },
+    {
+      "id": "room",
+      "op": "bg",
+      "sprite_url": "/content/bg/room.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Утро. Кабинет ещё пуст, но на столе уже лежит папка с твоим первым делом."
+    },
+    {
+      "id": "hero",
+      "op": "actor",
+      "position": "left",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Ну что ж. Посмотрим, во что я ввязался.",
+      "who": "Ты"
+    },
+    {
+      "emotion": "neutral",
+      "id": "nata",
+      "op": "actor",
+      "position": "right",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Не спеши. Сначала реши, как будешь работать. Это важнее, чем кажется.",
+      "who": "Ната"
+    },
+    {
+      "duration": 6,
+      "op": "hint",
+      "text": "Подсказка: выбор ниже меняет твои статы — они решают развилку впереди."
+    },
+    {
+      "op": "say",
+      "text": "С чего начнёшь?",
+      "who": "Ната"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "cost": "1 час",
+          "goto": "book",
+          "text": "Разобрать всё по учебнику."
+        },
+        {
+          "goto": "gut",
+          "text": "Довериться чутью."
+        },
+        {
+          "goto": "ask",
+          "text": "Спросить совета у Наты."
+        }
+      ]
+    },
+    {
+      "id": "book",
+      "op": "label"
+    },
+    {
+      "by": 1,
+      "key": "опыт",
+      "op": "inc"
+    },
+    {
+      "emotion": "neutral",
+      "id": "hero Ната=nata",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Методично. Пункт за пунктом.",
+      "who": "Ты"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "gut",
+      "op": "label"
+    },
+    {
+      "by": 6,
+      "key": "X",
+      "op": "inc"
+    },
+    {
+      "emotion": "smile",
+      "id": "hero Ната=nata",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Иногда чутьё быстрее любого учебника.",
+      "who": "Ты"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "ask",
+      "op": "label"
+    },
+    {
+      "by": 1,
+      "key": "доверие",
+      "op": "inc"
+    },
+    {
+      "by": 1,
+      "key": "опыт",
+      "op": "inc"
+    },
+    {
+      "emotion": "smile",
+      "id": "ната",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Правильный вопрос — уже половина ответа.",
+      "who": "Ната"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "hub",
+      "op": "label"
+    },
+    {
+      "expr": "X+2",
+      "key": "X",
+      "op": "set"
+    },
+    {
+      "expr": "опыт+2",
+      "key": "опыт",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Хорошо. Теперь — по делу.",
+      "who": "Ната"
+    },
+    {
+      "else": "__nf1",
+      "expr": "X \u003e 5",
+      "op": "if",
+      "then": "tip_high"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "duration": 5,
+      "op": "hint",
+      "text": "Твой ход осторожен. Иногда полезно рискнуть."
+    },
+    {
+      "label": "slide100",
+      "op": "goto"
+    },
+    {
+      "id": "tip_high",
+      "op": "label"
+    },
+    {
+      "duration": 5,
+      "op": "hint",
+      "text": "Ты играешь смело — это открывает быстрые пути."
+    },
+    {
+      "label": "slide100",
+      "op": "goto"
+    },
+    {
+      "id": "slide100",
+      "op": "label"
+    },
+    {
+      "id": "street",
+      "op": "bg",
+      "sprite_url": "/content/bg/street.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Ты выходишь на улицу. Развилка — но выбирать будешь не ты, а всё, что успел набрать."
+    },
+    {
+      "else": "__nf2",
+      "expr": "X \u003e 5",
+      "op": "if",
+      "then": "slide101"
+    },
+    {
+      "id": "__nf2",
+      "op": "label"
+    },
+    {
+      "label": "slide110",
+      "op": "goto"
+    },
+    {
+      "id": "slide101",
+      "op": "label"
+    },
+    {
+      "id": "hero",
+      "op": "actor",
+      "position": "left",
+      "show": true
+    },
+    {
+      "emotion": "smile",
+      "id": "hero Ната=nata",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Решение приходит само — ты уже знаешь, куда идти.",
+      "who": "Ты"
+    },
+    {
+      "label": "slide120",
+      "op": "goto"
+    },
+    {
+      "id": "slide110",
+      "op": "label"
+    },
+    {
+      "id": "hero",
+      "op": "actor",
+      "position": "left",
+      "show": true
+    },
+    {
+      "emotion": "neutral",
+      "id": "hero Ната=nata",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "Приходится идти длинным путём и собирать всё по крупицам.",
+      "who": "Ты"
+    },
+    {
+      "label": "slide120",
+      "op": "goto"
+    },
+    {
+      "id": "slide120",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "nata",
+      "op": "actor",
+      "position": "right",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "Как бы ты ни дошёл — ты дошёл. Дело раскрыто.",
+      "who": "Ната"
+    },
+    {
+      "duration": 8,
+      "op": "hint",
+      "text": "Статы на финише — опыт: {опыт}, доверие: {доверие}, X: {X}."
+    },
+    {
+      "op": "say",
+      "text": "«Первое дело закрыто».",
+      "who": "КОНЦОВКА"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}
