@@ -29,6 +29,36 @@ namespace Lvn.UI
         private const int SpineLiveCap = 4;
         private readonly List<string> _spineMru = new List<string>();
 
+        // Page textures pinned in the sprite LRU per live skeleton (see PinSpinePages).
+        private readonly Dictionary<string, List<Sprite>> _spinePages = new Dictionary<string, List<Sprite>>();
+
+        private void PinSpinePages(string id, List<Sprite> pages)
+        {
+            var loader = (Assets as CachingAssets)?.Loader;
+            if (loader == null || pages == null || pages.Count == 0) return;
+            UnpinSpinePages(id); // a rebuild of the same id replaces the old pin set
+            foreach (var s in pages) loader.PinSprite(s, true);
+            _spinePages[id] = pages;
+        }
+
+        private void UnpinSpinePages(string id)
+        {
+            if (!_spinePages.TryGetValue(id, out var pages)) return;
+            _spinePages.Remove(id);
+            var loader = (Assets as CachingAssets)?.Loader;
+            if (loader != null)
+                foreach (var s in pages) loader.PinSprite(s, false);
+        }
+
+        private void UnpinAllSpinePages()
+        {
+            var loader = (Assets as CachingAssets)?.Loader;
+            if (loader != null)
+                foreach (var pages in _spinePages.Values)
+                    foreach (var s in pages) loader.PinSprite(s, false);
+            _spinePages.Clear();
+        }
+
         private void TouchSpine(string id)
         {
             _spineMru.Remove(id);
@@ -40,6 +70,7 @@ namespace Lvn.UI
                 // screen (don't destroy what the player is looking at).
                 if (_spineActors.TryGetValue(victim, out var go) && go != null && go.activeSelf) { i++; continue; }
                 if (go != null) UnityEngine.Object.Destroy(go);
+                UnpinSpinePages(victim); // its pages may now be evicted like any art
                 _spineActors.Remove(victim);
                 _spineMru.RemoveAt(i);
             }
@@ -236,6 +267,7 @@ namespace Lvn.UI
                     var sp = e.spine;
                     string json = null, atlasText = null;
                     var textures = new List<Texture2D>();
+                    var pageSprites = new List<Sprite>(); // pinned below so the LRU can't evict a live skeleton's pages
                     Texture2D bgTex = null;
                     try
                     {
@@ -248,14 +280,14 @@ namespace Lvn.UI
                         foreach (var url in SpinePageUrls(sp.atlas, atlasText, sp.texture))
                         {
                             var spr = await LoadSpineImageAsync(url, _cts.Token);
-                            if (spr != null && spr.texture != null) textures.Add(spr.texture);
+                            if (spr != null && spr.texture != null) { textures.Add(spr.texture); pageSprites.Add(spr); }
                             lap("page(" + (spr != null && spr.texture != null ? spr.texture.width + "x" + spr.texture.height : "miss") + ")");
                         }
                         // Optional bg that belongs to the skeleton (rides with it).
                         if (!string.IsNullOrEmpty(sp.bg))
                         {
                             var bgSpr = await LoadSpineImageAsync(sp.bg, _cts.Token);
-                            if (bgSpr != null) bgTex = bgSpr.texture;
+                            if (bgSpr != null) { bgTex = bgSpr.texture; pageSprites.Add(bgSpr); }
                             lap("bg");
                         }
                     }
@@ -303,6 +335,11 @@ namespace Lvn.UI
                     Debug.Log(perf.Append(" total=").Append(sw.ElapsedMilliseconds).Append("ms").ToString());
                     if (go == null) return;
                     _spineActors[id] = go;
+                    // Pin the page textures for as long as this skeleton is alive:
+                    // its atlas/material reference them directly, and the sprite
+                    // LRU would otherwise destroy them after the grace window in a
+                    // long session, blacking out the skeleton with no recovery.
+                    PinSpinePages(id, pageSprites);
                     TouchSpine(id); // MRU + evict passed skeletons past the cap
                     existing = go;
                     if (_spinePendingPlay.TryGetValue(id, out var pend))

@@ -70,20 +70,24 @@ namespace Lvn.UI
 
         private void OnDestroy() => LvnPrefs.Changed -= ApplyUserVolumes;
 
-        private static float UserScale(string channel) =>
-            channel == "music" ? LvnPrefs.VolMusic
-            : channel == "ambient" ? LvnPrefs.VolAmbient
-            : LvnPrefs.VolSfx;
+        // The master sound switch collapses every channel to silence when off.
+        private static float Master => LvnPrefs.SoundOn ? 1f : 0f;
 
-        // Re-scale the live sources when the player moves a volume slider. A fade
-        // in flight keeps its own target (it snaps on the next command) — fine for
-        // a settings tweak.
+        private static float UserScale(string channel) =>
+            Master * (channel == "music" ? LvnPrefs.VolMusic
+            : channel == "ambient" ? LvnPrefs.VolAmbient
+            : LvnPrefs.VolSfx);
+
+        // Re-scale the live sources when the player moves a volume slider or flips
+        // the master sound switch. A fade in flight keeps its own target (it snaps
+        // on the next command) — fine for a settings tweak.
         private void ApplyUserVolumes()
         {
-            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic;
-            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient;
-            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx;
-            if (_voice != null) _voice.volume = LvnPrefs.VolVoice;
+            float m = Master;
+            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic * m;
+            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient * m;
+            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx * m;
+            if (_voice != null) _voice.volume = LvnPrefs.VolVoice * m;
         }
 
         private void RememberAuthored(string channel, float v)
@@ -129,7 +133,7 @@ namespace Lvn.UI
         /// preference; a null clip no-ops (a novel without UI audio stays silent).</summary>
         public void PlayUi(AudioClip clip, float volume = 1f)
         {
-            if (clip == null || _ui == null) return;
+            if (clip == null || _ui == null || !LvnPrefs.SoundOn) return;
             _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnPrefs.VolSfx);
         }
 

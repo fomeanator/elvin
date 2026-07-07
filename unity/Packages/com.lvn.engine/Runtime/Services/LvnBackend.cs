@@ -133,6 +133,20 @@ namespace Lvn.Services
             return (req.responseCode, req.downloadHandler.text);
         }
 
+        [Serializable] private class MeResp { public string user_id; public string[] providers; }
+
+        /// <summary>The platform providers this account is linked to
+        /// (<c>"google"</c>, <c>"apple"</c>); empty for a device-only account,
+        /// null when offline. The settings screen shows "signed in via …" from
+        /// this (GET /v1/auth/me).</summary>
+        public static async Task<string[]> GetProvidersAsync()
+        {
+            var (code, json) = await GetAsync("/v1/auth/me");
+            if (code != 200 || string.IsNullOrEmpty(json)) return null;
+            try { return JsonUtility.FromJson<MeResp>(json)?.providers ?? Array.Empty<string>(); }
+            catch { return Array.Empty<string>(); }
+        }
+
         /// <summary>GET json with the bearer token; same contract as PostAsync.</summary>
         public static async Task<(long code, string body)> GetAsync(string path)
         {

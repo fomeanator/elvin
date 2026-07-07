@@ -211,8 +211,11 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        /// <summary>Render the pack cards (null/empty → the empty note). Split
-        /// out from the fetch so tests and hosts can feed their own list.</summary>
+        /// <summary>Render the pack cards, grouped into sections (null/empty → the
+        /// empty note). Split out from the fetch so tests and hosts can feed their
+        /// own list. Packs are grouped by their <c>Section</c> id in first-seen
+        /// order (the catalog arrives server-sorted); each section gets a heading
+        /// and a pinned "pay from region" banner.</summary>
         public void SetPacks(IReadOnlyList<LvnWallet.IapPack> packs)
         {
             _list.Clear();
@@ -222,8 +225,83 @@ namespace Lvn.UI.Screens
                 return;
             }
             SetNote(null);
-            foreach (var p in packs) _list.Add(Card(p));
+
+            // Preserve the catalog's order while bucketing by section id.
+            var order = new List<string>();
+            var bySection = new Dictionary<string, List<LvnWallet.IapPack>>();
+            foreach (var p in packs)
+            {
+                var key = p.Section ?? "";
+                if (!bySection.TryGetValue(key, out var g))
+                {
+                    g = new List<LvnWallet.IapPack>();
+                    bySection[key] = g;
+                    order.Add(key);
+                }
+                g.Add(p);
+            }
+
+            // Headings only make sense once packs actually declare sections.
+            bool grouped = order.Count > 1 || (order.Count == 1 && order[0] != "");
+            foreach (var key in order)
+            {
+                if (grouped && key != "") _list.Add(SectionHeader(key));
+                var banner = PayBanner();
+                if (banner != null) _list.Add(banner); // pinned at the top of each section
+                foreach (var p in bySection[key]) _list.Add(Card(p));
+            }
         }
+
+        private Label SectionHeader(string sectionId)
+        {
+            string text = _cfg.section_titles != null && _cfg.section_titles.TryGetValue(sectionId, out var t)
+                ? t : sectionId;
+            var lbl = new Label(text);
+            lbl.style.color = UiColor.Parse(_cfg.section_title_color,
+                UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f)));
+            lbl.style.fontSize = 26;
+            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            lbl.style.marginTop = 6;
+            lbl.style.marginBottom = 8;
+            return lbl;
+        }
+
+        // The pinned region-payment banner (e.g. "how to pay from Russia"). Null
+        // when no url is configured, or when the viewer isn't in the target region
+        // and the banner isn't forced on. Tapping opens the page via the
+        // LvnWebView seam — in-app if the host plugged a web view, else the browser.
+        private VisualElement PayBanner()
+        {
+            var url = _cfg.pay_banner_url;
+            if (string.IsNullOrEmpty(url)) return null;
+            if (!(_cfg.pay_banner_always ?? false) && !RegionIsRussia()) return null;
+
+            var banner = new VisualElement();
+            banner.style.flexDirection = FlexDirection.Row;
+            banner.style.alignItems = Align.Center;
+            banner.style.backgroundColor = UiColor.Parse(_cfg.pay_banner_color, new Color(0.20f, 0.16f, 0.08f, 0.95f));
+            Round(banner, _radius);
+            banner.style.marginBottom = 10;
+            banner.style.paddingTop = 12; banner.style.paddingBottom = 12;
+            banner.style.paddingLeft = 16; banner.style.paddingRight = 16;
+
+            var text = new Label(_cfg.pay_banner_text ?? "How to pay from your region →");
+            text.style.color = UiColor.Parse(_cfg.pay_banner_text_color, _text);
+            text.style.fontSize = 22;
+            text.style.whiteSpace = WhiteSpace.Normal;
+            text.style.flexGrow = 1;
+            banner.Add(text);
+
+            banner.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
+            return banner;
+        }
+
+        /// <summary>Region gate for the payment banner. Default: the device locale
+        /// is Russian. A host with server-side geo-IP can override this.</summary>
+        public static System.Func<bool> RegionIsRussiaHook;
+
+        private static bool RegionIsRussia()
+            => RegionIsRussiaHook != null ? RegionIsRussiaHook() : Application.systemLanguage == SystemLanguage.Russian;
 
         private VisualElement Card(LvnWallet.IapPack pack)
         {

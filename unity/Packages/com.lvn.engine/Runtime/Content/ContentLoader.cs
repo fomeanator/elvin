@@ -163,6 +163,8 @@ namespace Lvn.Content
             public long Bytes;
             public long Seq;   // request recency (monotonic)
             public float At;   // request time (realtime seconds)
+            public int Pins;   // >0 ⇒ a live consumer (e.g. a built Spine skeleton
+                               // whose atlas references this texture) forbids eviction
         }
 
         private readonly Dictionary<string, SpriteEntry> _spriteCache = new();
@@ -739,19 +741,20 @@ namespace Lvn.Content
             return victims;
         }
 
-        private List<(string url, long bytes, long seq, float at)> SnapshotLocked()
+        private List<(string url, long bytes, long seq, float at, bool pinned)> SnapshotLocked()
         {
-            var list = new List<(string, long, long, float)>(_spriteCache.Count);
+            var list = new List<(string, long, long, float, bool)>(_spriteCache.Count);
             foreach (var kv in _spriteCache)
-                list.Add((kv.Key, kv.Value.Bytes, kv.Value.Seq, kv.Value.At));
+                list.Add((kv.Key, kv.Value.Bytes, kv.Value.Seq, kv.Value.At, kv.Value.Pins > 0));
             return list;
         }
 
         /// <summary>Pure eviction policy, exposed for tests: evict oldest-requested
         /// first until the total fits the budget, skipping anything requested within
-        /// the grace window (it's very likely still on screen).</summary>
+        /// the grace window (it's very likely still on screen) or pinned (a live
+        /// consumer, e.g. a built Spine skeleton, still references its texture).</summary>
         internal static List<string> PickEvictions(
-            List<(string url, long bytes, long seq, float at)> entries,
+            List<(string url, long bytes, long seq, float at, bool pinned)> entries,
             long budgetBytes, float now, float graceSeconds)
         {
             var evict = new List<string>();
@@ -762,11 +765,31 @@ namespace Lvn.Content
             foreach (var e in entries)
             {
                 if (total <= budgetBytes) break;
-                if (now - e.at < graceSeconds) continue; // recently used — protected
+                if (e.pinned) continue;                     // in use by a live skeleton — never evict
+                if (now - e.at < graceSeconds) continue;    // recently used — protected
                 evict.Add(e.url);
                 total -= e.bytes;
             }
             return evict;
+        }
+
+        /// <summary>Pin/unpin the cache entry backing <paramref name="sprite"/> so
+        /// the LRU never destroys a texture still in use by a live consumer — a
+        /// built Spine skeleton whose atlas/material references these page textures
+        /// (an evicted page turns the skeleton black/pink with no way to recover
+        /// short of a full rebuild). Balanced: each Pin(true) needs a Pin(false).
+        /// No-op if the sprite isn't cached (already gone / never went through here).</summary>
+        public void PinSprite(Sprite sprite, bool pinned)
+        {
+            if (sprite == null) return;
+            lock (_spriteCache)
+                foreach (var e in _spriteCache.Values)
+                    if (ReferenceEquals(e.Sprite, sprite))
+                    {
+                        e.Pins += pinned ? 1 : -1;
+                        if (e.Pins < 0) e.Pins = 0;
+                        return;
+                    }
         }
 
         /// <summary>Synchronous in-memory lookup — returns true (and the sprite)

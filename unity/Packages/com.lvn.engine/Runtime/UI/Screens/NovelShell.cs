@@ -29,6 +29,10 @@ namespace Lvn.UI.Screens
         public AuthScreen Auth { get; private set; }
         /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
         public StoreScreen Store { get; private set; }
+        /// <summary>The app-level settings overlay (open via <see cref="OpenSettingsAsync"/>).</summary>
+        public SettingsScreen Settings { get; private set; }
+        /// <summary>The universal modal popup (alerts/confirms), topmost overlay.</summary>
+        public PopupScreen Popup { get; private set; }
         /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).</summary>
         public WardrobeScreen Wardrobe { get; private set; }
         /// <summary>The in-story wardrobe bottom sheet — dresses the live actor
@@ -101,6 +105,15 @@ namespace Lvn.UI.Screens
             WardrobeStory.OpenStore = () => OpenStoreAsync(); // the balance pills' "+"
             WardrobeStory.Hide(); _root.Add(WardrobeStory); // bottom sheet — keeps its own docked layout
             Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
+            Settings = new SettingsScreen(ui.settings, assets);
+            // "Sign in" closes settings and shows the boot auth screen (which sits
+            // below settings in z-order, so we must hide settings first).
+            if (Auth != null)
+                Settings.OnSignIn = async () => { Settings.Hide(); await Auth.AskAsync(); };
+            Settings.Hide(); Add(Settings);
+            // The popup sits ABOVE everything so a "not enough currency → buy?"
+            // confirm can appear over an open store/settings, and warnings over any.
+            Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
 
             // Wallet → HUD pills: the server's balances mirror onto the in-game
             // strip whenever the wallet changes (earn/spend/IAP/refresh).
@@ -130,6 +143,23 @@ namespace Lvn.UI.Screens
         /// HUD tap, a script's <c>ext store_show</c>).</summary>
         public Task OpenStoreAsync(CancellationToken ct = default)
             => Store != null ? Store.ShowAsync(ct) : Task.CompletedTask;
+
+        /// <summary>Open the app-level settings overlay (sound, language, account,
+        /// version, socials, legal). Completes when the player closes it.</summary>
+        public Task OpenSettingsAsync(CancellationToken ct = default)
+            => Settings != null ? Settings.ShowAsync(ct) : Task.CompletedTask;
+
+        /// <summary>Show a single-button notice over everything (a warning / info
+        /// box). Completes when the player dismisses it. Safe from any main-thread
+        /// caller (host code, a failed chapter-entry, a script op).</summary>
+        public Task AlertAsync(string title, string message, string ok = null, CancellationToken ct = default)
+            => Popup != null ? Popup.AlertAsync(title, message, ok, ct) : Task.CompletedTask;
+
+        /// <summary>Show a two-button confirm; returns true if the player pressed
+        /// the confirm button. Used e.g. for "not enough energy — buy?".</summary>
+        public Task<bool> ConfirmAsync(string title, string message, string confirm = null,
+                                       string cancel = null, CancellationToken ct = default)
+            => Popup != null ? Popup.ConfirmAsync(title, message, confirm, cancel, ct) : Task.FromResult(false);
 
         /// <summary>Open the wardrobe overlay for a character (null → the
         /// configured/first one); completes when the player closes it.</summary>
@@ -301,6 +331,7 @@ namespace Lvn.UI.Screens
             NameInput.Hide();
             Auth?.Hide();
             Store?.Hide();
+            Settings?.Hide();
             Wardrobe?.Hide();
             WardrobeStory?.Hide();
         }

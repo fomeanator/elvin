@@ -68,6 +68,9 @@ namespace Lvn.UI
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
         private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
+        private VisualElement _hintCard;   // top-center popup for the `hint` op
+        private Label _hintLabel;
+        private IVisualElementScheduledItem _hintHide; // auto-dismiss timer (duration>0)
         private FxLayer _fx;
         private StageAudio _audio;
         private StageMenu _menu;
@@ -386,6 +389,8 @@ namespace Lvn.UI
                 _uiRoot = null;
                 _menu = null;
                 _labelLayer = null;
+                _hintHide?.Pause(); _hintHide = null;
+                _hintCard = null; _hintLabel = null;
                 _labelEls.Clear();
                 _labelTmpl.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }
@@ -674,6 +679,11 @@ namespace Lvn.UI
         private void ResetStage()
         {
             _stageEpoch++; // supersede any in-flight content apply from the old scene
+            // Close the quick menu FIRST: it may be mid-open (IsOpen + InputBlocked
+            // set, its clean-frame screenshot coroutine pending). The StopAllCoroutines
+            // below would kill that coroutine before its OpenSheetChrome callback,
+            // stranding InputBlocked=true forever — a soft-lock. Close() resets both.
+            _menu?.Close();
             // Kill any in-flight `wait` coroutine — it reads the _player field, so
             // after Play() swaps in a new player it would otherwise fire Advance()
             // on the fresh chapter when its old timer elapses.
@@ -705,6 +715,7 @@ namespace Lvn.UI
             _dragId = null;
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
+            UnpinAllSpinePages(); // release page-texture pins so the LRU can reclaim them
             _spineActors.Clear();
             _spineLoading.Clear();
             _spinePendingPlay.Clear();
@@ -712,6 +723,8 @@ namespace Lvn.UI
             _labelLayer?.Clear();
             _labelEls.Clear();
             _labelTmpl.Clear();
+            _hintHide?.Pause(); _hintHide = null;
+            _hintCard = null; _hintLabel = null; // detached by the Clear above
         }
 
         private void RecordSay(string who, string text, string style)
@@ -1475,8 +1488,67 @@ namespace Lvn.UI
                 case "preload":
                     _ = PreloadAssetsAsync(command);
                     break;
-                // hint is a no-op; unknown-but-registered ops are simply not drawn.
+                case "hint": ApplyHint(command); break;
+                // unknown-but-registered ops are simply not drawn.
             }
+        }
+
+        // `hint text="…" show=true [duration=0]` — a small card that pops up
+        // top-center over the scene: a tutorial nudge, a stat unlock, a note tied
+        // to a specific beat. `show=false` (or empty text) dismisses it; a positive
+        // `duration` auto-dismisses after that many seconds. Text interpolates
+        // {vars} like dialogue. Lives on the HUD layer, ignores the pointer.
+        private void ApplyHint(JObject cmd)
+        {
+            if (_labelLayer == null) return;
+            var text = (string)cmd["text"] ?? "";
+            bool show = BoolOr(cmd["show"], true) && text.Length > 0;
+
+            _hintHide?.Pause();
+            _hintHide = null;
+
+            if (!show)
+            {
+                if (_hintCard != null) _hintCard.style.display = DisplayStyle.None;
+                return;
+            }
+
+            if (_hintCard == null)
+            {
+                _hintCard = new VisualElement { name = "vn-hint", pickingMode = PickingMode.Ignore };
+                _hintCard.style.position = Position.Absolute;
+                _hintCard.style.maxWidth = Length.Percent(72);
+                _hintCard.style.paddingLeft = 22; _hintCard.style.paddingRight = 22;
+                _hintCard.style.paddingTop = 12; _hintCard.style.paddingBottom = 12;
+                // top-center: anchor the card's own top-centre to (50%, 5%).
+                _hintCard.style.left = Length.Percent(50);
+                _hintCard.style.top = Length.Percent(5);
+                _hintCard.style.translate = new Translate(Length.Percent(-50), Length.Percent(0));
+                _hintLabel = new Label { name = "vn-hint-text", pickingMode = PickingMode.Ignore };
+                _hintLabel.style.whiteSpace = WhiteSpace.Normal;
+                _hintLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                _hintCard.Add(_hintLabel);
+                _labelLayer.Add(_hintCard);
+            }
+
+            var bg = Theme != null ? Theme.PanelColor : new Color(0.05f, 0.05f, 0.08f, 0.9f);
+            _hintCard.style.backgroundColor = bg;
+            float r = Theme != null ? Theme.PanelCornerRadius : 12f;
+            _hintCard.style.borderTopLeftRadius = r; _hintCard.style.borderTopRightRadius = r;
+            _hintCard.style.borderBottomLeftRadius = r; _hintCard.style.borderBottomRightRadius = r;
+
+            _hintLabel.style.color = Theme != null ? Theme.TextColor : Color.white;
+            _hintLabel.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
+            if (Theme != null && Theme.Font != null) _hintLabel.style.unityFont = new StyleFont(Theme.Font);
+            _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
+
+            _hintCard.style.display = DisplayStyle.Flex;
+
+            float dur = NumOr(cmd["duration"], 0f);
+            if (dur > 0f)
+                _hintHide = _labelLayer.schedule
+                    .Execute(() => { if (_hintCard != null) _hintCard.style.display = DisplayStyle.None; })
+                    .StartingIn((long)(dur * 1000f));
         }
 
         public void OnEnd()
