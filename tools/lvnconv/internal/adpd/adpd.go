@@ -2108,6 +2108,9 @@ func Cast(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(d) < 16 { // header is a magic + an 8-byte offset; a truncated file must not panic the slice
+		return nil, fmt.Errorf("Entities partition %s is truncated (%d bytes)", p, len(d))
+	}
 	idx := int(binary.LittleEndian.Uint64(d[8:]))
 	if idx <= 0 || idx > len(d) {
 		idx = len(d)

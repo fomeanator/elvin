@@ -89,6 +89,15 @@ func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev 
 
 func (s *WalletService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/wallet", s.handleGet)
+	// SECURITY-TODO(monetization): /v1/wallet/earn is OPEN by design for now —
+	// any authenticated device can credit itself arbitrary currency. This is a
+	// DELIBERATE test-mode affordance while store payments aren't wired up yet
+	// (we still need SOME way to hand out currency). BEFORE shipping real IAP:
+	// gate this so client earns are server-defined (a reason→amount table +
+	// per-day cap, like ads.json/daily-rewards.json), or remove the route and
+	// grant only in-process via Grant() (daily/ads/iap). Until then the soft
+	// economy is not truly server-authoritative — do not enable real IAP/ads
+	// payouts against the same balances without closing this first.
 	mux.HandleFunc("/v1/wallet/earn", s.mutate("earn"))
 	mux.HandleFunc("/v1/wallet/spend", s.mutate("spend"))
 	mux.HandleFunc("/v1/iap/verify", s.handleIAP)

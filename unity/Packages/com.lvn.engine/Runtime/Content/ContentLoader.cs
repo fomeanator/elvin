@@ -524,6 +524,20 @@ namespace Lvn.Content
                 if (_decoding.TryGetValue(url, out var inflight)) return inflight;
                 var task = DecodeSpriteAsync(url, ct);
                 _decoding[url] = task;
+                // Self-clean via a continuation, NOT a finally inside the async
+                // body: a decode that throws BEFORE its first await (e.g. an
+                // offline guard) runs its finally synchronously — i.e. before the
+                // `_decoding[url] = task` above — so a finally-based remove would
+                // delete nothing and then leave the faulted task wedged in the map
+                // forever (every later request returns the dead task). The
+                // continuation runs strictly after this insert. Guard on identity
+                // so we never evict a newer in-flight decode of the same url.
+                task.ContinueWith(t =>
+                {
+                    lock (_spriteCache)
+                        if (_decoding.TryGetValue(url, out var cur) && ReferenceEquals(cur, t))
+                            _decoding.Remove(url);
+                }, System.Threading.Tasks.TaskScheduler.Default);
                 return task;
             }
         }
