@@ -126,5 +126,18 @@ namespace Lvn.UI.Screens
             PlayerPrefs.DeleteKey(RestartKey(titleId));
             return pending == chapterId;
         }
+
+        /// <summary>A full "restart the whole expedition" wipe: forget the continue
+        /// point, the furthest-reached marker, every entry checkpoint and any pending
+        /// restart request. The next play starts the title from chapter one, clean.
+        /// (Persisted stats and save slots live elsewhere — the host clears those.)</summary>
+        public static void ResetTitle(string titleId)
+        {
+            PlayerPrefs.DeleteKey(CurKey(titleId));
+            PlayerPrefs.DeleteKey(ReachedKey(titleId));
+            PlayerPrefs.DeleteKey(EntryKey(titleId));
+            PlayerPrefs.DeleteKey(RestartKey(titleId));
+            PlayerPrefs.Save();
+        }
     }
 }
