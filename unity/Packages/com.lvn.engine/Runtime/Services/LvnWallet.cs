@@ -27,6 +27,24 @@ namespace Lvn.Services
         private static Dictionary<string, long> _balances = new Dictionary<string, long>();
         private static Dictionary<string, long> _inventory = new Dictionary<string, long>();
 
+        /// <summary>Refill state for regenerating currencies (energy/lives): the
+        /// server's computed cap and next-refill timestamp, for a HUD countdown.
+        /// Only present for currencies the server marks as regenerating.</summary>
+        public static IReadOnlyDictionary<string, RegenInfo> Regen { get { EnsureLoaded(); return _regen; } }
+        private static Dictionary<string, RegenInfo> _regen = new Dictionary<string, RegenInfo>();
+
+        /// <summary>A regenerating currency's live refill state (from /v1/wallet's
+        /// computed <c>regen</c> block).</summary>
+        public struct RegenInfo
+        {
+            public long Balance;
+            public long Cap;
+            public long IntervalSeconds;
+            public long NextRefillUnix; // 0 when at/above the cap
+            /// <summary>At/above the free cap — no refill pending.</summary>
+            public bool Full => NextRefillUnix <= 0 || Balance >= Cap;
+        }
+
         /// <summary>Raised whenever the mirrored state changes.</summary>
         public static event Action Changed;
 
@@ -191,7 +209,7 @@ namespace Lvn.Services
             return code == 200 && Apply(body);
         }
 
-        private static bool Apply(string json)
+        internal static bool Apply(string json)
         {
             if (string.IsNullOrEmpty(json)) return false;
             EnsureLoaded(); // else a later first-read would resurrect the stale prefs mirror
@@ -200,6 +218,7 @@ namespace Lvn.Services
                 var doc = JObject.Parse(json);
                 _balances = ToMap(doc["balances"] as JObject);
                 _inventory = ToMap(doc["inventory"] as JObject);
+                _regen = ParseRegen(doc["regen"] as JObject);
                 PersistMirror();
                 Changed?.Invoke();
                 return true;
@@ -282,6 +301,7 @@ namespace Lvn.Services
         {
             _balances = new Dictionary<string, long>();
             _inventory = new Dictionary<string, long>();
+            _regen = new Dictionary<string, RegenInfo>();
             _queue.Clear();
             _loaded = true;
             UnityEngine.PlayerPrefs.DeleteKey(PMirror);
@@ -301,6 +321,22 @@ namespace Lvn.Services
             if (o != null)
                 foreach (var kv in o)
                     map[kv.Key] = (long?)kv.Value ?? 0;
+            return map;
+        }
+
+        private static Dictionary<string, RegenInfo> ParseRegen(JObject o)
+        {
+            var map = new Dictionary<string, RegenInfo>();
+            if (o != null)
+                foreach (var p in o.Properties())
+                    if (p.Value is JObject r)
+                        map[p.Name] = new RegenInfo
+                        {
+                            Balance = (long?)r["balance"] ?? 0,
+                            Cap = (long?)r["cap"] ?? 0,
+                            IntervalSeconds = (long?)r["interval_seconds"] ?? 0,
+                            NextRefillUnix = (long?)r["next_refill_unix"] ?? 0,
+                        };
             return map;
         }
     }

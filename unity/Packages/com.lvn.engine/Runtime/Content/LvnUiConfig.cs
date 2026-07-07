@@ -393,6 +393,7 @@ namespace Lvn.Content
         public string pill_bg_color;     // default #00000066
         public string pill_text_color;   // default #f4ecd8
         public string default_currency_icon_url; // fallback pill icon
+        public string regen_ready_text;  // shown on a refill countdown that hit 0; default "…"
     }
 
     /// <summary>Look and behaviour of the loading screen (background, scrim, and a
