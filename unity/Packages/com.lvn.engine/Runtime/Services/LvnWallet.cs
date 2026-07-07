@@ -143,6 +143,7 @@ namespace Lvn.Services
             public string Price;   // optional display price ("$4.99")
             public string Icon;    // optional content url
             public long Bonus;     // optional "+N bonus" share of Amount
+            public string Section; // optional store section id ("currency1"/"currency2"/"bundles")
         }
 
         /// <summary>The purchasable packs (GET /v1/iap/catalog, server-sorted).
@@ -172,6 +173,7 @@ namespace Lvn.Services
                         Price = (string)o["price"] ?? "",
                         Icon = (string)o["icon"] ?? "",
                         Bonus = (long?)o["bonus"] ?? 0,
+                        Section = (string)o["section"] ?? "",
                     });
                 }
                 return packs;

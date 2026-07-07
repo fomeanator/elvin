@@ -93,6 +93,99 @@ namespace Lvn.Tests
             Assert.IsTrue(labels.Exists(l => l.text == "closed!"));
         }
 
+        [Test]
+        public void ParseCatalog_ReadsSection()
+        {
+            var packs = LvnWallet.ParseCatalog(
+                @"{""packs"":[{""sku"":""x"",""currency"":""energy"",""amount"":3,""section"":""currency2""}]}");
+            Assert.AreEqual("currency2", packs[0].Section);
+        }
+
+        [Test]
+        public void StoreScreen_GroupsBySectionWithHeadersAndPinnedBanner()
+        {
+            var screen = new StoreScreen(new StoreConfig
+            {
+                section_titles = new Dictionary<string, string> { ["currency1"] = "Coins", ["currency2"] = "Energy" },
+                pay_banner_text = "Pay from RU →",
+                pay_banner_url = "https://help.example/ru",
+                pay_banner_always = true, // deterministic regardless of the test machine's locale
+            }, new NoAssets());
+
+            screen.SetPacks(new List<LvnWallet.IapPack>
+            {
+                new LvnWallet.IapPack { Sku = "g1", Currency = "gold", Amount = 100, Section = "currency1" },
+                new LvnWallet.IapPack { Sku = "g2", Currency = "gold", Amount = 500, Section = "currency1" },
+                new LvnWallet.IapPack { Sku = "e1", Currency = "energy", Amount = 3, Section = "currency2" },
+            });
+
+            var labels = screen.Query<Label>().ToList();
+            Assert.IsTrue(labels.Exists(l => l.text == "Coins"), "section 1 heading");
+            Assert.IsTrue(labels.Exists(l => l.text == "Energy"), "section 2 heading");
+            Assert.AreEqual(2, labels.FindAll(l => l.text == "Pay from RU →").Count,
+                "the pay banner is pinned at the top of EACH section");
+        }
+
+        [Test]
+        public void StoreScreen_PayBannerHiddenForNonRuUnlessForced()
+        {
+            var prev = StoreScreen.RegionIsRussiaHook;
+            try
+            {
+                var cfg = new StoreConfig { pay_banner_text = "Pay from RU →", pay_banner_url = "https://help.example/ru" };
+                var packs = new List<LvnWallet.IapPack>
+                {
+                    new LvnWallet.IapPack { Sku = "g1", Currency = "gold", Amount = 100, Section = "currency1" },
+                };
+
+                StoreScreen.RegionIsRussiaHook = () => false; // a non-RU viewer
+                var screen = new StoreScreen(cfg, new NoAssets());
+                screen.SetPacks(packs);
+                Assert.IsFalse(screen.Query<Label>().ToList().Exists(l => l.text == "Pay from RU →"),
+                    "non-RU viewer sees no banner");
+
+                StoreScreen.RegionIsRussiaHook = () => true; // an RU viewer
+                screen.SetPacks(packs);
+                Assert.IsTrue(screen.Query<Label>().ToList().Exists(l => l.text == "Pay from RU →"),
+                    "RU viewer sees the banner");
+            }
+            finally { StoreScreen.RegionIsRussiaHook = prev; }
+        }
+
+        // ── SettingsScreen ──
+        [Test]
+        public void SettingsScreen_RendersRows_TogglesSound_AndShowsLinks()
+        {
+            bool prevSound = LvnPrefs.SoundOn;
+            try
+            {
+                LvnPrefs.SoundOn = true;
+                var screen = new SettingsScreen(new SettingsConfig
+                {
+                    sound_label = "Звук", on_text = "Вкл", off_text = "Выкл",
+                    uid_label = "ID", version_label = "Версия",
+                    terms_text = "Условия", terms_url = "https://x/terms",
+                    privacy_text = "Политика", privacy_url = "https://x/privacy",
+                    social = new List<SocialLink> { new SocialLink { name = "Discord", url = "https://x/dc" } },
+                }, new NoAssets());
+                screen.Rebuild();
+
+                var labels = screen.Query<Label>().ToList();
+                Assert.IsTrue(labels.Exists(l => l.text == "Звук"), "sound row label");
+                Assert.IsTrue(labels.Exists(l => l.text == "Версия"), "version row label");
+                Assert.IsTrue(labels.Exists(l => l.text == "Условия"), "terms link");
+                Assert.IsTrue(labels.Exists(l => l.text == "Политика"), "privacy link");
+                Assert.IsTrue(labels.Exists(l => l.text == "Discord"), "social link (no icon → name)");
+
+                // The sound toggle reflects LvnPrefs.SoundOn (On → "Вкл").
+                Assert.IsTrue(screen.Query<Button>().ToList().Exists(b => b.text == "Вкл"), "sound toggle shows On");
+                LvnPrefs.SoundOn = false;
+                screen.Rebuild();
+                Assert.IsTrue(screen.Query<Button>().ToList().Exists(b => b.text == "Выкл"), "sound toggle now Off");
+            }
+            finally { LvnPrefs.SoundOn = prevSound; }
+        }
+
         // ── AuthScreen ──
         [Test]
         public void AuthScreen_BuildsFromConfig_WithNicknameField()

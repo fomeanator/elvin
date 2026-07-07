@@ -38,6 +38,37 @@ namespace Lvn.Content
         /// simple sprite is just a one-layer entity; a character is a multi-layer
         /// entity parameterised by axes. Optional.</summary>
         public Dictionary<string, LvnSpriteEntity> sprites;
+
+        /// <summary>Product economy rules layered over the wallet (chapter-entry
+        /// gating). Optional — null, or an empty chapter_currency, means chapters
+        /// are free and nothing gates entry (the default for every existing
+        /// novel).</summary>
+        public LvnEconomyConfig economy;
+    }
+
+    /// <summary>
+    /// Economy rules that gate content behind currency. Today: the chapter-entry
+    /// gate (spend N of a currency — typically the regenerating "energy" — to
+    /// start a chapter). All strings are optional with neutral English fallbacks;
+    /// content localizes them here.
+    /// </summary>
+    public sealed class LvnEconomyConfig
+    {
+        /// <summary>Currency spent to ENTER a chapter (e.g. "energy"). Empty/null
+        /// disables the gate entirely.</summary>
+        public string chapter_currency;
+        /// <summary>Amount spent per chapter entry; default 1 when a currency is set.</summary>
+        public int? chapter_cost;
+        /// <summary>Chapter ids that never charge (onboarding/tutorial). The first
+        /// chapter can be listed here to keep it free.</summary>
+        public List<string> free_chapters;
+
+        // Gate popup copy (optional; English fallbacks in NovelApp).
+        public string gate_title;    // e.g. "Not enough energy"
+        public string gate_message;  // e.g. "You need 1 energy to open this chapter."
+        public string gate_buy;      // confirm button → store; default "Store"
+        public string gate_cancel;   // cancel button; default "Not now"
+        public string gate_denied;   // shown when still short after the store; default gate_title
     }
 
     /// <summary>

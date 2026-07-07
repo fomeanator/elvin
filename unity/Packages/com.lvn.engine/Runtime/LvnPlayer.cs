@@ -86,6 +86,20 @@ namespace Lvn
         /// a chapter-progress readout (e.g. the in-game HUD percent).</summary>
         public int Count => _script.Count;
 
+        // Furthest MAIN-LINE command reached this chapter. The raw cursor moves
+        // backward on any loop or hub revisit (a `while`, a choice that jumps to an
+        // earlier label) and dives into out-of-order labels during a `call`, so a
+        // percent built from Index alone visibly "resets and starts over" — the
+        // reported bug. Progress is the running max, and it's frozen while inside a
+        // call (callStack non-empty) so a subroutine whose label sits late in the
+        // file (e.g. `call levelup`) doesn't spike the bar to ~100% and back.
+        private int _progressMax;
+
+        /// <summary>Monotonic chapter progress index (0..<see cref="Count"/>) for
+        /// the HUD percent — never runs backward on a loop/hub jump. Pair with
+        /// <see cref="Count"/> exactly like <see cref="Index"/>.</summary>
+        public int ProgressIndex => System.Math.Min(_progressMax, _script.Count);
+
         public LvnPlayer(LvnDocument doc, ILvnStage stage)
         {
             _script = doc.Script;
@@ -105,6 +119,7 @@ namespace Lvn
         public void Restore(int index, IDictionary<string, JToken> vars, IEnumerable<int> callStack)
         {
             _ip = index;
+            _progressMax = index; // resume: the bar reflects where we land, then climbs
             Finished = false;
             Vars.Clear();
             if (vars != null)
@@ -174,7 +189,7 @@ namespace Lvn
                     if (!string.IsNullOrEmpty(aid) && actorLastIndex.TryGetValue(aid, out var last) && last == i)
                     {
                         var m = actorMerged[aid];
-                        if ((bool?)m["show"] ?? true) _stage.ApplyStage(m);
+                        if (BoolOr(m["show"], true)) _stage.ApplyStage(m);
                     }
                     continue;
                 }
@@ -522,7 +537,10 @@ namespace Lvn
             {
                 CurrentVoiceUrl = (string)c["voice"];
                 var who = TextInterpolation.Apply((string)c["who"], Vars);
-                var text = TextAlternatives.Apply(Localized(c), Vars, j);
+                // mutate:false — a re-render shows the SAME variant, never advancing
+                // the {a|b|c} sequence or re-rolling {~shuffle} (that would silently
+                // change the visible line on every hot-reload / chrome rebuild).
+                var text = TextAlternatives.Apply(Localized(c), Vars, j, null, mutate: false);
                 text = TextInterpolation.Apply(text, Vars);
                 _stage.ShowSay(who, text, (string)c["style"]);
             }
@@ -537,6 +555,10 @@ namespace Lvn
             int budget = _script.Count + 100000;
             while (!Finished && _ip >= 0 && _ip < _script.Count)
             {
+                // Advance the monotonic progress high-water mark, but only on the
+                // main line — inside a call the cursor visits a subroutine's
+                // (possibly late) labels, which shouldn't move the chapter bar.
+                if (_callStack.Count == 0 && _ip > _progressMax) _progressMax = _ip;
                 if (--budget < 0)
                     throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
                 // Malformed content must never crash the runtime: a non-object
@@ -892,11 +914,11 @@ namespace Lvn
             // `default:true` = initialise-only. A global-variable default must not
             // overwrite a value carried in from an earlier chapter or a loaded save,
             // so skip it when the key already holds a value.
-            if (c["default"] != null && (bool)c["default"] && Vars.ContainsKey(key))
+            if (c["default"] != null && BoolOr(c["default"], false) && GetVarPath(key) != null)
                 return;
             if ((string)c["op"] == "inc")
             {
-                Vars[key] = new JValue(VarNum(key) + Num(c["by"], 1));
+                SetVarPath(key, new JValue(VarNum(key) + Num(c["by"], 1)));
                 return;
             }
             // set: a computed `expr` (mirrors `if expr`) takes priority over a
@@ -906,15 +928,66 @@ namespace Lvn
             {
                 // A malformed set-expression must not crash the novel; fall back to
                 // the literal value (or leave the variable untouched).
-                try { Vars[key] = LvnExpression.Evaluate((string)exprTok, Vars); }
-                catch (LvnException) { if (c["value"] != null) Vars[key] = c["value"]; }
+                try { SetVarPath(key, LvnExpression.Evaluate((string)exprTok, Vars)); }
+                catch (LvnException) { if (c["value"] != null) SetVarPath(key, c["value"]); }
             }
             else
-                Vars[key] = c["value"] ?? JValue.CreateNull();
+                SetVarPath(key, c["value"] ?? JValue.CreateNull());
         }
 
-        private double VarNum(string key) =>
-            key != null && Vars.TryGetValue(key, out var t) ? Num(t, 0) : 0;
+        private double VarNum(string key) => Num(GetVarPath(key), 0);
+
+        // Read a possibly-dotted variable path ("global.rep") — navigates nested
+        // JObjects, mirroring the expression evaluator's member access so `set`/
+        // `inc key="a.b"` and `if a.b` / `{a.b}` refer to the SAME value. A plain
+        // key is a direct Vars lookup; a missing segment reads as null.
+        private JToken GetVarPath(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            int dot = key.IndexOf('.');
+            if (dot < 0) return Vars.TryGetValue(key, out var flat) ? flat : null;
+            if (!Vars.TryGetValue(key.Substring(0, dot), out var rootTok) || !(rootTok is JObject node))
+                return null;
+            JToken cur = node;
+            foreach (var seg in key.Substring(dot + 1).Split('.'))
+            {
+                if (!(cur is JObject o)) return null;
+                cur = o[seg];
+                if (cur == null) return null;
+            }
+            return cur;
+        }
+
+        // Write a possibly-dotted variable path, creating intermediate JObjects.
+        // A plain key writes Vars directly (unchanged behaviour); "a.b.c" nests
+        // under the root object `a`, so `global.*` all live in one `global` object
+        // the state store persists as a unit (per-player, cross-novel).
+        private void SetVarPath(string key, JToken value)
+        {
+            value ??= JValue.CreateNull();
+            int dot = key.IndexOf('.');
+            if (dot < 0) { Vars[key] = value; return; }
+            var root = key.Substring(0, dot);
+            var node = Vars.TryGetValue(root, out var t) && t is JObject o ? o : new JObject();
+            var segs = key.Substring(dot + 1).Split('.');
+            var cur = node;
+            for (int i = 0; i < segs.Length - 1; i++)
+            {
+                if (!(cur[segs[i]] is JObject next)) { next = new JObject(); cur[segs[i]] = next; }
+                cur = next;
+            }
+            cur[segs[segs.Length - 1]] = value;
+            Vars[root] = node;
+        }
+
+        // Tolerant boolean read: malformed content (a string "да", null) degrades to
+        // the default instead of throwing out of Advance and killing the chapter.
+        private static bool BoolOr(JToken t, bool def)
+        {
+            if (t == null) return def;
+            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
+            try { return t.Value<bool>(); } catch { return def; }
+        }
 
         private static double Num(JToken t, double def)
         {
