@@ -125,6 +125,104 @@ func TestWallet_EarnSpendAndInsufficientFunds(t *testing.T) {
 	}
 }
 
+func TestWallet_EnergyRegenSeedCapSpendAndBuyPastCap(t *testing.T) {
+	dir := t.TempDir()
+	// energy.json beside the wallet dir: cap 3, +1 per 2h, seed 3.
+	if err := os.WriteFile(filepath.Join(dir, "energy.json"),
+		[]byte(`{"energy":{"cap":3,"interval_seconds":7200,"start":3}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	now := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
+	wallet.clock = func() time.Time { return now }
+
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	uid, tok := register(t, mux)
+
+	// bal, and the next-refill timestamp (0/absent when full).
+	state := func() (float64, int64) {
+		rec, out := call(t, mux, "GET", "/v1/wallet", tok, nil)
+		if rec.Code != 200 {
+			t.Fatalf("wallet GET: %d %s", rec.Code, rec.Body)
+		}
+		bal := out["balances"].(map[string]any)["energy"].(float64)
+		reg := out["regen"].(map[string]any)["energy"].(map[string]any)
+		var next int64
+		if v, ok := reg["next_refill_unix"].(float64); ok {
+			next = int64(v)
+		}
+		return bal, next
+	}
+	spend := func(n int) int {
+		rec, _ := call(t, mux, "POST", "/v1/wallet/spend", tok,
+			map[string]any{"currency": "energy", "amount": n, "reason": "chapter"})
+		return rec.Code
+	}
+
+	// New user is seeded at the cap; the refill clock is parked.
+	if bal, next := state(); bal != 3 || next != 0 {
+		t.Fatalf("new user: bal=%v next=%d (want 3, parked)", bal, next)
+	}
+
+	// Spend 1 → 2; the clock starts, first refill 2h out.
+	if code := spend(1); code != 200 {
+		t.Fatalf("spend: %d", code)
+	}
+	spentAt := now.Unix()
+	if bal, next := state(); bal != 2 || next != spentAt+7200 {
+		t.Fatalf("after spend: bal=%v next=%d (want 2, +2h)", bal, next)
+	}
+
+	// 2h later → back to the cap, clock parks again.
+	now = now.Add(2 * time.Hour)
+	if bal, next := state(); bal != 3 || next != 0 {
+		t.Fatalf("after 2h: bal=%v next=%d (want 3, parked)", bal, next)
+	}
+
+	// Burn all 3 at once (3 chapters back to back) → 0; a 4th spend 409s.
+	drainAt := now.Unix()
+	spend(1)
+	spend(1)
+	spend(1)
+	if bal, _ := state(); bal != 0 {
+		t.Fatalf("drain: bal=%v (want 0)", bal)
+	}
+	if code := spend(1); code != 409 {
+		t.Fatalf("spending at 0 must 409, got %d", code)
+	}
+
+	// 5h after draining → floor(5/2)=2 restored (2 of 3), clock still running.
+	now = now.Add(5 * time.Hour)
+	if bal, next := state(); bal != 2 || next != drainAt+4*3600+7200 {
+		t.Fatalf("5h after drain: bal=%v next=%d (want 2, running)", bal, next)
+	}
+	// 4h more → hits the cap and parks.
+	now = now.Add(4 * time.Hour)
+	if bal, next := state(); bal != 3 || next != 0 {
+		t.Fatalf("refill to cap: bal=%v next=%d (want 3, parked)", bal, next)
+	}
+
+	// Buy past the cap: a grant of 5 while at 3 → 8, no regen and no decay.
+	wallet.Grant(uid, "energy", 5, "iap:refill")
+	if bal, next := state(); bal != 8 || next != 0 {
+		t.Fatalf("after buy past cap: bal=%v next=%d (want 8, parked)", bal, next)
+	}
+	now = now.Add(10 * time.Hour) // surplus above the cap never regens
+	if bal, _ := state(); bal != 8 {
+		t.Fatalf("surplus must not regen: bal=%v (want 8)", bal)
+	}
+	// Spend back below the cap → the clock resumes.
+	if code := spend(6); code != 200 {
+		t.Fatalf("spend 6: %d", code)
+	}
+	if bal, next := state(); bal != 2 || next != now.Unix()+7200 {
+		t.Fatalf("after dropping below cap: bal=%v next=%d (want 2, running)", bal, next)
+	}
+}
+
 func TestIAP_DevModeGrantsFromCatalog_ProdRefusesHonestly(t *testing.T) {
 	devMux, _ := servicesMux(t, true)
 	_, tok := register(t, devMux)
@@ -146,6 +244,32 @@ func TestIAP_DevModeGrantsFromCatalog_ProdRefusesHonestly(t *testing.T) {
 	if rec, _ := call(t, prodMux, "POST", "/v1/iap/verify", tok2,
 		map[string]any{"platform": "gplay", "sku": "gold_100", "receipt": "r"}); rec.Code != 501 {
 		t.Fatalf("unverifiable store receipt must 501, got %d", rec.Code)
+	}
+}
+
+func TestIAP_BundleGrantsMultipleCurrencies(t *testing.T) {
+	dir := t.TempDir()
+	catalog := filepath.Join(dir, "iap-catalog.json")
+	// A bundle: grants takes precedence over currency/amount (the latter is
+	// only the card headline).
+	_ = os.WriteFile(catalog, []byte(
+		`{"bundle_starter":{"currency":"gold","amount":500,"grants":{"gold":500,"energy":3}}}`), 0o644)
+
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true) // dev IAP
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	_, tok := register(t, mux)
+
+	rec, out := call(t, mux, "POST", "/v1/iap/verify", tok,
+		map[string]any{"platform": "dev", "sku": "bundle_starter", "receipt": "r"})
+	if rec.Code != 200 {
+		t.Fatalf("bundle IAP: %d %s", rec.Code, rec.Body)
+	}
+	bal := out["balances"].(map[string]any)
+	if bal["gold"].(float64) != 500 || bal["energy"].(float64) != 3 {
+		t.Fatalf("bundle must grant both currencies: %v", bal)
 	}
 }
 

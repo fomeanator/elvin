@@ -28,6 +28,37 @@ type walletDoc struct {
 	// Store transaction ids already granted — replaying the same receipt
 	// (restore, retry, or an attack) must never double-credit.
 	Transactions []string `json:"transactions,omitempty"`
+	// Regen anchors: currency → unix seconds the refill clock last settled.
+	// Absent/zero for a currency means the clock is NOT running (its balance is
+	// at or above the free cap). See accrue.
+	Regen map[string]int64 `json:"regen_anchors,omitempty"`
+}
+
+// regenRule configures a lives/energy-style regenerating currency (from
+// services/energy.json, hot-reloaded). A balance below Cap refills +1 every
+// Interval seconds up to Cap; buying past Cap is allowed and neither regens
+// nor decays. New wallets seed at Start.
+type regenRule struct {
+	Cap      int64 `json:"cap"`
+	Interval int64 `json:"interval_seconds"`
+	Start    int64 `json:"start"`
+}
+
+// regenView is the client-facing refill state per regen currency — enough for
+// the HUD/popup to show "N/Cap" and a countdown without duplicating the
+// accrual formula. NextRefillUnix is 0 when the balance is at/above the cap.
+type regenView struct {
+	Balance        int64 `json:"balance"`
+	Cap            int64 `json:"cap"`
+	IntervalSecs   int64 `json:"interval_seconds"`
+	NextRefillUnix int64 `json:"next_refill_unix,omitempty"`
+}
+
+// walletResponse is what the client receives: the raw doc plus computed regen
+// state (embedded doc promotes its own json fields).
+type walletResponse struct {
+	*walletDoc
+	RegenState map[string]regenView `json:"regen,omitempty"`
 }
 
 type walletEntry struct {
@@ -51,6 +82,15 @@ type iapProduct struct {
 	Icon     string `json:"icon,omitempty"`  // content url
 	Bonus    int64  `json:"bonus,omitempty"` // extra amount shown as "+N bonus" (already inside Amount)
 	Order    int    `json:"order,omitempty"` // catalog sort key; ties break by amount
+	// Section groups packs in the store screen (e.g. "currency1", "currency2",
+	// "bundles"). Empty = the default ungrouped list. The client maps the id to
+	// a display title (store.section_titles); packs appear section-by-section in
+	// Order.
+	Section string `json:"section,omitempty"`
+	// Grants lets a "bundle" pack award MULTIPLE currencies at once
+	// (currency→amount). When set it takes precedence over Currency/Amount for
+	// the grant; Currency/Amount may still be set for the card's headline.
+	Grants map[string]int64 `json:"grants,omitempty"`
 }
 
 type WalletService struct {
@@ -59,6 +99,10 @@ type WalletService struct {
 	auth    *AuthService
 	iapDev  bool
 	catalog *hotJSON[map[string]iapProduct] // sku → grant; follows disk edits live
+	regen   *hotJSON[map[string]regenRule]  // currency → refill rule (energy.json)
+
+	// clock is the time source, swappable in tests. nil → time.Now.
+	clock func() time.Time
 
 	// AppleSharedSecret enables REAL App Store receipt validation on
 	// /v1/iap/verify (platform "appstore"). Google Play needs a service
@@ -81,10 +125,115 @@ func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
+	// Regen config lives beside the other economy catalogs, one level up from
+	// the per-user wallet dir (services/energy.json). Missing file = no regen
+	// currencies, so this is a no-op for anyone who doesn't ship energy.
+	regenPath := filepath.Join(filepath.Dir(dir), "energy.json")
 	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev,
-		catalog: newHotJSON(catalogPath, map[string]iapProduct{})}
+		catalog: newHotJSON(catalogPath, map[string]iapProduct{}),
+		regen:   newHotJSON(regenPath, map[string]regenRule{})}
 	s.verifyApple = verifyAppleReceipt
 	return s, nil
+}
+
+// now is the wallet's time source (tests inject a fixed clock).
+func (s *WalletService) now() time.Time {
+	if s.clock != nil {
+		return s.clock()
+	}
+	return time.Now()
+}
+
+// accrue credits time-based regeneration for every regen currency, mutating
+// balances and anchors in place. Idempotent when no interval elapsed. A
+// currency below its cap gains +1 per interval up to the cap; at/above the cap
+// the clock is parked (anchor deleted) so a purchased surplus neither regens
+// nor decays. Returns true if it changed anything (caller should persist).
+func (s *WalletService) accrue(doc *walletDoc, now time.Time) bool {
+	rules := s.regen.Get()
+	if len(rules) == 0 {
+		return false
+	}
+	nowU := now.Unix()
+	changed := false
+	for cur, rule := range rules {
+		if rule.Interval <= 0 || rule.Cap <= 0 {
+			continue
+		}
+		bal := doc.Balances[cur]
+		anchor := doc.Regen[cur]
+		if bal >= rule.Cap {
+			if anchor != 0 { // at/above cap — park the refill clock
+				s.setAnchor(doc, cur, 0)
+				changed = true
+			}
+			continue
+		}
+		if anchor == 0 { // below cap with a stopped clock — start it now
+			s.setAnchor(doc, cur, nowU)
+			changed = true
+			continue
+		}
+		if nowU <= anchor {
+			continue
+		}
+		gained := (nowU - anchor) / rule.Interval
+		if gained <= 0 {
+			continue
+		}
+		if newBal := bal + gained; newBal >= rule.Cap {
+			doc.Balances[cur] = rule.Cap
+			s.setAnchor(doc, cur, 0) // hit the cap — stop the clock
+		} else {
+			doc.Balances[cur] = newBal
+			s.setAnchor(doc, cur, anchor+gained*rule.Interval)
+		}
+		changed = true
+	}
+	return changed
+}
+
+// setAnchor writes (or clears, when v==0) a currency's refill anchor.
+func (s *WalletService) setAnchor(doc *walletDoc, cur string, v int64) {
+	if v == 0 {
+		delete(doc.Regen, cur)
+		return
+	}
+	if doc.Regen == nil {
+		doc.Regen = map[string]int64{}
+	}
+	doc.Regen[cur] = v
+}
+
+// regenState computes the client-facing refill state for every regen currency.
+func (s *WalletService) regenState(doc *walletDoc, now time.Time) map[string]regenView {
+	rules := s.regen.Get()
+	if len(rules) == 0 {
+		return nil
+	}
+	out := make(map[string]regenView, len(rules))
+	for cur, rule := range rules {
+		if rule.Interval <= 0 || rule.Cap <= 0 {
+			continue
+		}
+		bal := doc.Balances[cur]
+		var next int64
+		if bal < rule.Cap {
+			anchor := doc.Regen[cur]
+			if anchor == 0 {
+				anchor = now.Unix()
+			}
+			next = anchor + rule.Interval
+		}
+		out[cur] = regenView{Balance: bal, Cap: rule.Cap, IntervalSecs: rule.Interval, NextRefillUnix: next}
+	}
+	return out
+}
+
+// writeDoc encodes the wallet plus computed regen state to the client.
+func (s *WalletService) writeDoc(w http.ResponseWriter, doc *walletDoc) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(walletResponse{walletDoc: doc, RegenState: s.regenState(doc, s.now())})
 }
 
 func (s *WalletService) Routes(mux *http.ServeMux) {
@@ -140,6 +289,14 @@ func (s *WalletService) load(userID string) *walletDoc {
 		if doc.Inventory == nil {
 			doc.Inventory = map[string]int64{}
 		}
+	} else {
+		// Brand-new wallet: seed every regen currency at its starting balance
+		// (e.g. 3 chapter energy). Non-regen currencies start at 0.
+		for cur, rule := range s.regen.Get() {
+			if rule.Start > 0 {
+				doc.Balances[cur] = rule.Start
+			}
+		}
 	}
 	return doc
 }
@@ -172,9 +329,11 @@ func (s *WalletService) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	doc := s.load(userID)
+	if s.accrue(doc, s.now()) { // persist any regen the client is now seeing
+		s.save(userID, doc)
+	}
 	s.mu.Unlock()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(doc)
+	s.writeDoc(w, doc)
 }
 
 func (s *WalletService) mutate(kind string) http.HandlerFunc {
@@ -202,6 +361,7 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		doc := s.load(userID)
+		s.accrue(doc, s.now()) // credit pending regen before checking the balance
 		if kind == "spend" {
 			if doc.Balances[req.Currency] < req.Amount {
 				w.Header().Set("Content-Type", "application/json")
@@ -218,13 +378,13 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 		} else {
 			doc.Balances[req.Currency] += req.Amount
 		}
+		s.accrue(doc, s.now()) // re-settle the refill clock for the new balance
 		doc.History = append(doc.History, walletEntry{
 			TS: time.Now().UTC().Format(time.RFC3339), Type: kind,
 			Currency: req.Currency, Amount: req.Amount, SKU: req.SKU, Reason: req.Reason,
 		})
 		s.save(userID, doc)
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(doc)
+		s.writeDoc(w, doc)
 	}
 }
 
@@ -260,10 +420,12 @@ func (s *WalletService) Clawback(userID, currency string, amount int64, reason s
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doc := s.load(userID)
+	s.accrue(doc, s.now())
 	doc.Balances[currency] -= amount
 	if doc.Balances[currency] < 0 {
 		doc.Balances[currency] = 0
 	}
+	s.accrue(doc, s.now())
 	doc.History = append(doc.History, walletEntry{
 		TS: time.Now().UTC().Format(time.RFC3339), Type: "spend",
 		Currency: currency, Amount: amount, Reason: reason,
@@ -280,7 +442,9 @@ func (s *WalletService) Grant(userID, currency string, amount int64, reason stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doc := s.load(userID)
+	s.accrue(doc, s.now())
 	doc.Balances[currency] += amount
+	s.accrue(doc, s.now())
 	doc.History = append(doc.History, walletEntry{
 		TS: time.Now().UTC().Format(time.RFC3339), Type: "earn",
 		Currency: currency, Amount: amount, Reason: reason,
@@ -349,8 +513,10 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 			if t == txID {
 				// Already granted — idempotent OK with the current state, so a
 				// client-side retry/restore never double-credits.
-				w.Header().Set("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(doc)
+				if s.accrue(doc, s.now()) {
+					s.save(userID, doc)
+				}
+				s.writeDoc(w, doc)
 				return
 			}
 		}
@@ -358,12 +524,23 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		// at ~25 bytes per purchase the list stays trivially small for life.
 		doc.Transactions = append(doc.Transactions, txID)
 	}
-	doc.Balances[grant.Currency] += grant.Amount
-	doc.History = append(doc.History, walletEntry{
-		TS: time.Now().UTC().Format(time.RFC3339), Type: "iap",
-		Currency: grant.Currency, Amount: grant.Amount, SKU: req.SKU, Reason: "iap:" + req.Platform,
-	})
+	s.accrue(doc, s.now())
+	// A bundle grants several currencies; a plain pack grants Currency/Amount.
+	grants := grant.Grants
+	if len(grants) == 0 {
+		grants = map[string]int64{grant.Currency: grant.Amount}
+	}
+	for cur, amt := range grants {
+		if cur == "" || amt <= 0 {
+			continue
+		}
+		doc.Balances[cur] += amt
+		doc.History = append(doc.History, walletEntry{
+			TS: time.Now().UTC().Format(time.RFC3339), Type: "iap",
+			Currency: cur, Amount: amt, SKU: req.SKU, Reason: "iap:" + req.Platform,
+		})
+	}
+	s.accrue(doc, s.now()) // a purchase past the cap parks the refill clock
 	s.save(userID, doc)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(doc)
+	s.writeDoc(w, doc)
 }
