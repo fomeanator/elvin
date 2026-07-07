@@ -39,6 +39,17 @@ export const OPS = [
   "load"
 ];
 
+// Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
+// lvnconv, so they are NOT compiled ops (absent from OPS / the validator), but
+// the editor must still highlight and complete them.
+export const SOURCE_OPS = [
+  "voice",
+  "ext",
+  "defanim",
+  "move",
+  "play"
+];
+
 export const OP_FIELDS = {
   "bg": [
     "sprite_url",
@@ -182,7 +193,8 @@ export const OP_FIELDS = {
   ],
   "hint": [
     "text",
-    "show"
+    "show",
+    "duration"
   ],
   "call": [
     "label"
@@ -360,8 +372,8 @@ export const OP_DOCS = {
     "Increment a numeric variable."
   ],
   "hint": [
-    "hint text=\"…\" show=true",
-    "Show or hide a hint."
+    "hint text=\"…\" show=true duration=0",
+    "Всплывающее окно-подсказка сверху по центру сцены. show=false убирает его; duration>0 — авто-скрытие через N секунд."
   ],
   "call": [
     "call label",
@@ -378,6 +390,26 @@ export const OP_DOCS = {
   "load": [
     "load slot=\"quick\"",
     "Restore state from a slot."
+  ],
+  "voice": [
+    "voice \"/content/voice/x.ogg\"",
+    "Voice the NEXT say line with an audio clip."
+  ],
+  "ext": [
+    "ext <op> key=value …",
+    "Invoke a host-defined op (minigame, wardrobe, custom) — handled by the game’s LvnOps.Register."
+  ],
+  "defanim": [
+    "defanim <name> prop=… keys=… [loop= ease= dur=]",
+    "Define a reusable animation; stamp it onto an actor later with `play`."
+  ],
+  "move": [
+    "move <id> <path> [dur= ease= loop=]",
+    "Move an actor along a path (compiles to an anim)."
+  ],
+  "play": [
+    "play <id> <animName> [overrides]  ·  play id= anim=",
+    "Play a previously defined `defanim` on an actor."
   ]
 };
 
@@ -547,7 +579,7 @@ export const GROUPS = [
       ],
       [
         "hint",
-        "text, show"
+        "text, show, duration"
       ]
     ]
   }

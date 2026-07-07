@@ -50,7 +50,7 @@ var OpFields = map[string][]string{
 	"if":        {"expr", "then", "else", "cond"},
 	"set":       {"key", "value", "expr", "default"},
 	"inc":       {"key", "by"},
-	"hint":      {"text", "show"},
+	"hint":      {"text", "show", "duration"},
 	"call":      {"label"},
 	"return":    {},
 	"label":     {"id"},
