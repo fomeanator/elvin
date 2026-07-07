@@ -659,8 +659,21 @@ namespace Lvn.UI
         /// chapter (or a live hot-reload) bleed into the new one — e.g. a character
         /// standing on the very first beat, before any <c>actor</c> command runs.
         /// </summary>
+        // Bumped on every stage reset (chapter change / load). An async content
+        // apply (bg, actor, spine, audio) captures it before its first await and
+        // bails if it changed — otherwise a slow load from the PREVIOUS chapter
+        // resolves after the reset and paints the new one (ghost actor, wrong bg,
+        // wrong music). The shared _cts only cancels on OnDisable, not here.
+        private int _stageEpoch;
+
+        /// <summary>True if <paramref name="epoch"/> is still the current stage
+        /// generation — a content apply calls this after each await and stops
+        /// touching the stage once it's stale.</summary>
+        private bool StageCurrent(int epoch) => _stageEpoch == epoch;
+
         private void ResetStage()
         {
+            _stageEpoch++; // supersede any in-flight content apply from the old scene
             // Kill any in-flight `wait` coroutine — it reads the _player field, so
             // after Play() swaps in a new player it would otherwise fire Advance()
             // on the fresh chapter when its old timer elapses.
@@ -1178,7 +1191,10 @@ namespace Lvn.UI
                     veil.alpha = a;
                     await Task.Yield();
                 }
-                veil.alpha = 1f;
+                // Only finish the reveal if we're STILL the current restore — a
+                // newer one may have re-veiled this same canvas to warm-alpha, and
+                // slamming it to 1 here would flash its half-built stage.
+                if (_player == player && _startGen == gen) veil.alpha = 1f;
             }
             if (_player == player && _startGen == gen)
                 player.ContinueFrom(at); // resume → renders the saved beat
@@ -1653,8 +1669,10 @@ namespace Lvn.UI
             // whether the sprite itself loads (a cache miss doesn't unsee the CG).
             UnlockGalleryFor(url);
             if (Assets == null) return;
+            int epoch = _stageEpoch;
             var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
             if (sprite == null) return;
+            if (!StageCurrent(epoch)) return; // a chapter change landed while this bg loaded
             _renderer?.SetBackground(sprite);
         }
 
@@ -1713,6 +1731,7 @@ namespace Lvn.UI
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
+            int epoch = _stageEpoch; // the scene this apply belongs to (see ResetStage)
             int gen = (_actorGen.TryGetValue(id, out var g) ? g : 0) + 1;
             _actorGen[id] = gen; // this call owns the actor until a newer one starts
 
@@ -1864,6 +1883,11 @@ namespace Lvn.UI
                 }
             }
 
+            // A chapter change landed while our sprites loaded — this actor
+            // belongs to a scene that no longer exists; never resurrect it on the
+            // clean stage (the ghost-actor bug: a per-id gen doesn't catch an id
+            // the new chapter never uses, so it's never superseded).
+            if (!StageCurrent(epoch)) return;
             // A newer apply started while our sprites loaded — ITS art must win;
             // this stale pass may not touch the renderer (late-arrival outfit bug).
             if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
