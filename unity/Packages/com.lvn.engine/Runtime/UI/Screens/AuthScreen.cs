@@ -76,7 +76,7 @@ namespace Lvn.UI.Screens
 
             var title = new Label(_cfg.title ?? "Welcome");
             title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            title.style.fontSize = 40;
+            title.style.fontSize = 42;
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
             panel.Add(title);
 
@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
             {
                 var subtitle = new Label(_cfg.subtitle);
                 subtitle.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
-                subtitle.style.fontSize = 24;
+                subtitle.style.fontSize = 26;
                 subtitle.style.marginTop = 6;
                 subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
                 subtitle.style.whiteSpace = WhiteSpace.Normal;
@@ -96,13 +96,13 @@ namespace Lvn.UI.Screens
             {
                 var prompt = new Label(_cfg.name_prompt ?? "Your name");
                 prompt.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
-                prompt.style.fontSize = 22;
+                prompt.style.fontSize = 24;
                 prompt.style.marginTop = 20;
                 prompt.style.marginBottom = 8;
                 panel.Add(prompt);
 
                 _field = new TextField { maxLength = _maxLength };
-                _field.style.fontSize = 30;
+                _field.style.fontSize = 32;
                 StyleField(_field, UiColor.Parse(_cfg.field_color, new Color(0.11f, 0.11f, 0.13f)), textColor);
                 _field.RegisterCallback<KeyDownEvent>(e =>
                 {
@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
             }
 
             var start = new Button(Confirm) { text = _cfg.start_text ?? "Start" };
-            start.style.fontSize = 30;
+            start.style.fontSize = 32;
             start.style.marginTop = 22;
             start.style.paddingTop = 16;
             start.style.paddingBottom = 16;
@@ -145,7 +145,7 @@ namespace Lvn.UI.Screens
 
             _status = new Label("");
             _status.style.color = UiColor.Parse(_cfg.status_color, new Color(0.60f, 0.58f, 0.54f));
-            _status.style.fontSize = 18;
+            _status.style.fontSize = 20;
             _status.style.marginTop = 14;
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;
             _status.pickingMode = PickingMode.Ignore;
@@ -202,7 +202,7 @@ namespace Lvn.UI.Screens
         {
             if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
             var b = new Button { text = label };
-            b.style.fontSize = 20;
+            b.style.fontSize = 22;
             b.style.marginLeft = 6; b.style.marginRight = 6;
             b.style.paddingTop = 10; b.style.paddingBottom = 10;
             b.style.paddingLeft = 18; b.style.paddingRight = 18;

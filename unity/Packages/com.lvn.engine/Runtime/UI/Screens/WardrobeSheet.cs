@@ -115,7 +115,7 @@ namespace Lvn.UI.Screens
 
             _title = new Label(_cfg.title ?? "Wardrobe");
             _title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            _title.style.fontSize = 26;
+            _title.style.fontSize = 28;
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
             _title.style.paddingLeft = 24; _title.style.paddingRight = 24;
             _title.style.paddingTop = 4; _title.style.paddingBottom = 4;
@@ -126,7 +126,7 @@ namespace Lvn.UI.Screens
             var collapse = new Button(Cancel) { text = "▼" };
             collapse.style.position = Position.Absolute;
             collapse.style.right = 0;
-            collapse.style.fontSize = 20;
+            collapse.style.fontSize = 22;
             collapse.style.paddingLeft = 14; collapse.style.paddingRight = 14;
             collapse.style.paddingTop = 6; collapse.style.paddingBottom = 6;
             SkinButton(collapse, false);
@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
             var next = new Button(() => Step(+1)) { text = "▶" };
             foreach (var b in new[] { prev, next })
             {
-                b.style.fontSize = 22;
+                b.style.fontSize = 24;
                 b.style.paddingLeft = 16; b.style.paddingRight = 16;
                 b.style.paddingTop = 10; b.style.paddingBottom = 10;
                 SkinButton(b, false);
@@ -159,7 +159,7 @@ namespace Lvn.UI.Screens
             _itemName = new Label("");
             _itemName.style.flexGrow = 1;
             _itemName.style.color = _text;
-            _itemName.style.fontSize = 26;
+            _itemName.style.fontSize = 28;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
             _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
             _itemName.style.marginLeft = 10; _itemName.style.marginRight = 10;
@@ -169,7 +169,7 @@ namespace Lvn.UI.Screens
             carousel.Add(next);
 
             _confirm = new Button(() => _ = ConfirmAsync());
-            _confirm.style.fontSize = 26;
+            _confirm.style.fontSize = 28;
             _confirm.style.marginTop = 12;
             _confirm.style.paddingTop = 14;
             _confirm.style.paddingBottom = 14;
@@ -270,13 +270,13 @@ namespace Lvn.UI.Screens
                 }
                 var label = new Label(amount.ToString("N0") + (iconUrl == null ? " " + cur : ""));
                 label.style.color = _text;
-                label.style.fontSize = 20;
+                label.style.fontSize = 22;
                 pill.Add(label);
 
                 if (OpenStore != null)
                 {
                     var plus = new Button(() => _ = OpenStore()) { text = "+" };
-                    plus.style.fontSize = 20;
+                    plus.style.fontSize = 22;
                     plus.style.marginLeft = 8;
                     plus.style.paddingLeft = 10; plus.style.paddingRight = 10;
                     plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
@@ -333,7 +333,7 @@ namespace Lvn.UI.Screens
                 else
                 {
                     b.text = slot?.name ?? axis;
-                    b.style.fontSize = 18;
+                    b.style.fontSize = 20;
                     b.style.whiteSpace = WhiteSpace.Normal;
                 }
                 _tabs.Add(b);

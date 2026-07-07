@@ -34,6 +34,18 @@ namespace Lvn.UI.Screens
         public StoreScreen Store { get; private set; }
         /// <summary>The app-level settings overlay (open via <see cref="OpenSettingsAsync"/>).</summary>
         public SettingsScreen Settings { get; private set; }
+        /// <summary>The rich title-detail page (chapters, saves, stats, play).</summary>
+        public TitleDetailScreen Detail { get; private set; }
+        /// <summary>The CG art gallery.</summary>
+        public CgGalleryScreen Gallery { get; private set; }
+        /// <summary>The player profile page.</summary>
+        public ProfileScreen Profile { get; private set; }
+        /// <summary>The daily-rewards calendar.</summary>
+        public DailyRewardsScreen Daily { get; private set; }
+        /// <summary>The wardrobe / skin shop.</summary>
+        public SkinShopScreen SkinShop { get; private set; }
+        /// <summary>The currency-pack shop.</summary>
+        public PackShopScreen PackShop { get; private set; }
         /// <summary>The universal modal popup (alerts/confirms), topmost overlay.</summary>
         public PopupScreen Popup { get; private set; }
         /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).</summary>
@@ -116,6 +128,12 @@ namespace Lvn.UI.Screens
             if (Auth != null)
                 Settings.OnSignIn = async () => { Settings.Hide(); await Auth.AskAsync(); };
             Settings.Hide(); Add(Settings);
+            Detail = new TitleDetailScreen(assets); Detail.Hide(); Add(Detail);
+            Gallery = new CgGalleryScreen(assets); Gallery.Hide(); Add(Gallery);
+            Profile = new ProfileScreen(assets); Profile.Hide(); Add(Profile);
+            Daily = new DailyRewardsScreen(assets); Daily.Hide(); Add(Daily);
+            SkinShop = new SkinShopScreen(assets); SkinShop.Hide(); Add(SkinShop);
+            PackShop = new PackShopScreen(assets); PackShop.Hide(); Add(PackShop);
             // The popup sits ABOVE everything so a "not enough currency → buy?"
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
@@ -153,6 +171,21 @@ namespace Lvn.UI.Screens
         /// version, socials, legal). Completes when the player closes it.</summary>
         public Task OpenSettingsAsync(CancellationToken ct = default)
             => Settings != null ? Settings.ShowAsync(ct) : Task.CompletedTask;
+
+        /// <summary>Open the rich detail page for a title; returns true if the player
+        /// pressed Play/Continue. Configure Detail's fields before calling.</summary>
+        public Task<bool> OpenDetailAsync(CancellationToken ct = default)
+            => Detail != null ? Detail.ShowAsync(ct) : Task.FromResult(false);
+        public Task OpenGalleryAsync(CancellationToken ct = default)
+            => Gallery != null ? Gallery.ShowAsync(ct) : Task.CompletedTask;
+        public Task OpenProfileAsync(CancellationToken ct = default)
+            => Profile != null ? Profile.ShowAsync(ct) : Task.CompletedTask;
+        public Task OpenDailyAsync(CancellationToken ct = default)
+            => Daily != null ? Daily.ShowAsync(ct) : Task.CompletedTask;
+        public Task OpenSkinShopAsync(CancellationToken ct = default)
+            => SkinShop != null ? SkinShop.ShowAsync(ct) : Task.CompletedTask;
+        public Task OpenPackShopAsync(CancellationToken ct = default)
+            => PackShop != null ? PackShop.ShowAsync(ct) : Task.CompletedTask;
 
         /// <summary>Show a single-button notice over everything (a warning / info
         /// box). Completes when the player dismisses it. Safe from any main-thread
@@ -353,6 +386,8 @@ namespace Lvn.UI.Screens
             Auth?.Hide();
             Store?.Hide();
             Settings?.Hide();
+            Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
+            SkinShop?.Hide(); PackShop?.Hide();
             Wardrobe?.Hide();
             WardrobeStory?.Hide();
         }
