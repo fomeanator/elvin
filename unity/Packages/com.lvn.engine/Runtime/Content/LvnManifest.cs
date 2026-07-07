@@ -22,6 +22,11 @@ namespace Lvn.Content
         /// <summary>The title catalog (anthology). Optional.</summary>
         public List<LvnTitle> titles;
 
+        /// <summary>Hub collections grouping titles into browsable tiles
+        /// (expeditions/dates/reality). Drives the <c>ui.browse.layout = "hub"</c>
+        /// screen flow; ignored by the default carousel. Optional.</summary>
+        public List<LvnCollection> collections;
+
         /// <summary>Manifest-driven theme for the built-in novel screens (loading,
         /// title card, name input). Optional — components use defaults when null.</summary>
         public LvnUiConfig ui;
@@ -242,6 +247,55 @@ namespace Lvn.Content
         /// item unlocks forever the first time a <c>bg</c> with its url is shown;
         /// the quick menu grows a Gallery entry when this list is non-empty.</summary>
         public List<LvnGalleryItem> gallery;
+
+        // ── the hub/collection browse model (ui.browse.layout = "hub") ──
+        /// <summary>Content type — an author tag mirroring the title's collection
+        /// (<c>expedition</c>/<c>date</c>/<c>reality</c>). Purely informational for
+        /// the engine; access/completion is driven by <see cref="unlock"/> and the
+        /// script's <c>global.*</c> flags.</summary>
+        public string type;
+        /// <summary>Detail-card presentation on the hub's title screen: big image +
+        /// description + a Play button. Falls back to name/subtitle/cover_url.</summary>
+        public LvnCardArt card;
+        /// <summary>Access gate — an expression over the player's <c>global.*</c>
+        /// stats (e.g. <c>"exp_1_done"</c> or <c>"rep >= 5 &amp;&amp; date_a_done"</c>).
+        /// Empty/absent = always available. When false the card shows locked and a
+        /// tap explains why (see <see cref="locked_hint"/>).</summary>
+        public string unlock;
+        /// <summary>Shown in a popup when a locked card is tapped ("Пройди
+        /// Экспедицию 1"). Optional.</summary>
+        public string locked_hint;
+        /// <summary>Cost to START this title from the hub (typically 1 energy for an
+        /// expedition). Null/zero = free. Charged on Play via the wallet; too little
+        /// → a "buy?" popup routes to the store.</summary>
+        public LvnCost cost;
+    }
+
+    /// <summary>A named group of titles shown as one hub tile (an "expeditions",
+    /// "dates" or "reality" collection). Titles are listed explicitly and in
+    /// order; a title may appear in more than one collection.</summary>
+    public sealed class LvnCollection
+    {
+        public string id;
+        public string name;      // "Экспедиции"
+        public string subtitle;  // optional line under the name
+        public string type;      // author tag applied to the group
+        public LvnCardArt card;  // the hub tile's art/description
+        public List<string> titles; // ordered title ids in this collection
+    }
+
+    /// <summary>Card art + copy for a hub tile or a title's detail screen.</summary>
+    public sealed class LvnCardArt
+    {
+        public string image;       // content url (big card image)
+        public string description; // body text on the detail screen
+    }
+
+    /// <summary>A currency price (hub entry cost). Amount 0 = free.</summary>
+    public sealed class LvnCost
+    {
+        public string currency; // e.g. "energy"
+        public int amount;
     }
 
     /// <summary>One unlockable gallery CG.</summary>
