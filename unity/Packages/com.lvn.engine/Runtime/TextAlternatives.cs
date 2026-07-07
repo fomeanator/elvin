@@ -22,18 +22,26 @@ namespace Lvn
     /// </summary>
     public static class TextAlternatives
     {
+        /// <param name="mutate">When false, the visible variant is re-computed
+        /// WITHOUT advancing any sequence/cycle/once counter or re-rolling a
+        /// shuffle — a pure re-render (hot-reload of the on-screen line, a chrome
+        /// rebuild) must show the SAME text it's showing, not the next variant.</param>
         public static string Apply(string template, IDictionary<string, JToken> vars,
-            int siteKey, Random rng = null)
+            int siteKey, Random rng = null, bool mutate = true)
         {
             if (string.IsNullOrEmpty(template) || template.IndexOf('{') < 0) return template;
             int ordinal = 0;
-            return Process(template, vars, siteKey.ToString(), ref ordinal, rng ?? Shared);
+            // A no-mutate re-render seeds shuffle deterministically from the site so
+            // repeated re-renders are stable (the original random pick wasn't
+            // recorded, so exact reproduction isn't possible — stability is).
+            var effRng = mutate ? (rng ?? Shared) : new Random(siteKey);
+            return Process(template, vars, siteKey.ToString(), ref ordinal, effRng, mutate);
         }
 
         private static readonly Random Shared = new Random();
 
         private static string Process(string s, IDictionary<string, JToken> vars,
-            string site, ref int ordinal, Random rng)
+            string site, ref int ordinal, Random rng, bool mutate)
         {
             var sb = new StringBuilder(s.Length + 16);
             for (int i = 0; i < s.Length; i++)
@@ -47,7 +55,7 @@ namespace Lvn
                 if (end < 0) { sb.Append(s, i, s.Length - i); break; }
 
                 var body = s.Substring(i + 1, end - i - 1);
-                var replaced = Expand(body, vars, site, ref ordinal, rng);
+                var replaced = Expand(body, vars, site, ref ordinal, rng, mutate);
                 if (replaced == null)
                     sb.Append('{').Append(body).Append('}'); // plain {var} — not ours
                 else
@@ -60,7 +68,7 @@ namespace Lvn
         /// <summary>Expands one <c>{…}</c> body, or returns null when it is not an
         /// alternative (plain interpolation placeholder).</summary>
         private static string Expand(string body, IDictionary<string, JToken> vars,
-            string site, ref int ordinal, Random rng)
+            string site, ref int ordinal, Random rng, bool mutate)
         {
             char mode = '\0';
             var inner = body;
@@ -95,27 +103,31 @@ namespace Lvn
                 switch (mode)
                 {
                     case '~': chosen = parts[rng.Next(parts.Count)]; break;
-                    case '&': chosen = parts[(int)(NextCounter(vars, site, myOrdinal) % parts.Count)]; break;
-                    case '!': chosen = PickOnce(parts, NextCounter(vars, site, myOrdinal)); break;
-                    default: chosen = parts[(int)Math.Min(NextCounter(vars, site, myOrdinal), parts.Count - 1)]; break;
+                    case '&': chosen = parts[(int)(NextCounter(vars, site, myOrdinal, mutate) % parts.Count)]; break;
+                    case '!': chosen = PickOnce(parts, NextCounter(vars, site, myOrdinal, mutate)); break;
+                    default: chosen = parts[(int)Math.Min(NextCounter(vars, site, myOrdinal, mutate), parts.Count - 1)]; break;
                 }
             }
 
             // The chosen branch may itself contain alternatives.
             int sub = 0;
-            return Process(chosen.Trim(), vars, site + "_" + myOrdinal, ref sub, rng);
+            return Process(chosen.Trim(), vars, site + "_" + myOrdinal, ref sub, rng, mutate);
         }
 
         private static string PickOnce(List<string> parts, long counter) =>
             counter < parts.Count ? parts[(int)counter] : "";
 
-        /// <summary>Reads, increments and stores the per-site counter in Vars.</summary>
-        private static long NextCounter(IDictionary<string, JToken> vars, string site, int ordinal)
+        /// <summary>Reads the per-site counter. When <paramref name="mutate"/> is
+        /// true it increments+stores and returns the value to USE now; when false
+        /// (a re-render) it returns the LAST-shown value (n-1, clamped) and leaves
+        /// the stored counter untouched, so the same variant re-appears.</summary>
+        private static long NextCounter(IDictionary<string, JToken> vars, string site, int ordinal, bool mutate)
         {
             var key = "__alt_" + site + "_" + ordinal;
             long n = 0;
             if (vars != null && vars.TryGetValue(key, out var v) && v != null && v.Type == JTokenType.Integer)
                 n = (long)v;
+            if (!mutate) return n > 0 ? n - 1 : 0; // last shown, no advance
             if (vars != null) vars[key] = n + 1;
             return n;
         }
