@@ -288,7 +288,15 @@ func processFile(path string, kind Kind, opt Options) Result {
 	if r.NewPath != "" {
 		writePath = r.NewPath
 	}
-	if err := os.WriteFile(writePath, out, 0o644); err != nil {
+	// Atomic replace: -apply usually overwrites the original in place, and a
+	// crash mid-write must never leave a half-written image where art used to be.
+	tmp := writePath + ".opt.tmp"
+	if err := os.WriteFile(tmp, out, 0o644); err != nil {
+		r.Err = fmt.Errorf("write: %w", err)
+		return r
+	}
+	if err := os.Rename(tmp, writePath); err != nil {
+		_ = os.Remove(tmp)
 		r.Err = fmt.Errorf("write: %w", err)
 		return r
 	}

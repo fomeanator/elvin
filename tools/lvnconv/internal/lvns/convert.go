@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Cmd is one .lvn command object.
@@ -128,9 +129,11 @@ func Convert(src string) (*Doc, error) {
 		lines = append(lines, line)
 		srcNo = append(srcNo, idx+1)
 	}
-	if cbuf.Len() > 0 { // unterminated «…» at EOF — emit what we have
-		lines = append(lines, strings.TrimSpace(cbuf.String()))
-		srcNo = append(srcNo, cbufSrc)
+	if cbuf.Len() > 0 {
+		// An unterminated «…» has swallowed everything to EOF. Emitting "what
+		// we have" would silently compile the rest of the chapter into one
+		// giant say — fail loudly at the opening line instead.
+		return nil, fmt.Errorf("line %d: unclosed «…» — the opening « never finds its »; the rest of the file would be swallowed into this string", cbufSrc)
 	}
 
 	// emit appends a command and records the source line it came from.
@@ -497,6 +500,17 @@ func Convert(src string) (*Doc, error) {
 			emit(cmd, srcNo[i])
 			i++
 			continue
+		}
+
+		// A line shaped exactly like a command (`word key=value …`) whose op
+		// isn't known is almost certainly a typo — `actro id=hill` compiling
+		// into the on-screen line "actro id=hill" is the silent-failure mode
+		// authors lose hours to. Real prose never matches this shape.
+		if looksLikeCommand(words) && !KnownOps[firstWord] {
+			if hint := nearestOp(firstWord); hint != "" {
+				return nil, fmt.Errorf("line %d: unknown command %q — did you mean %q?", srcNo[i], firstWord, hint)
+			}
+			return nil, fmt.Errorf("line %d: unknown command %q (write it as dialogue with «…» quoting if this is prose)", srcNo[i], firstWord)
 		}
 
 		// Dialogue: Name [emotion]: Text or Narration
@@ -1068,18 +1082,87 @@ func isValidKey(k string) bool {
 		return false
 	}
 	for _, r := range k {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '.') {
+		// Any unicode letter: authors write Russian variable names
+		// (`set здоровье=10`) as naturally as English ones.
+		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '.') {
 			return false
 		}
 	}
 	return true
 }
 
+// looksLikeCommand: an ASCII-lowercase first word followed ONLY by key=value
+// tokens — the exact shape of every .lvns command and of no natural sentence.
+func looksLikeCommand(words []string) bool {
+	if len(words) < 2 {
+		return false
+	}
+	for _, r := range words[0] {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	for _, w := range words[1:] {
+		eq := strings.IndexByte(w, '=')
+		if eq <= 0 || !isValidKey(w[:eq]) {
+			return false
+		}
+	}
+	return true
+}
+
+// nearestOp: the known op within edit distance 2 of s, or "".
+func nearestOp(s string) string {
+	best, bestD := "", 3
+	for op := range KnownOps {
+		if d := editDistance(s, op); d < bestD {
+			best, bestD = op, d
+		}
+	}
+	return best
+}
+
+func editDistance(a, b string) int {
+	ra, rb := []rune(a), []rune(b)
+	prev := make([]int, len(rb)+1)
+	cur := make([]int, len(rb)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ra); i++ {
+		cur[0] = i
+		for j := 1; j <= len(rb); j++ {
+			cost := 1
+			if ra[i-1] == rb[j-1] {
+				cost = 0
+			}
+			cur[j] = min3(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(rb)]
+}
+
+func min3(a, b, c int) int {
+	if b < a {
+		a = b
+	}
+	if c < a {
+		a = c
+	}
+	return a
+}
+
 func stripQuotes(s string) string {
 	s = strings.TrimSpace(s)
 	if len(s) >= 2 {
+		// Strip a WRAPPING quote pair only: if the same quote also appears
+		// inside, the outer ones are part of the prose («"Да" — и "нет"»),
+		// not delimiters, and cutting them would corrupt the line.
 		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
-			return s[1 : len(s)-1]
+			if !strings.ContainsRune(s[1:len(s)-1], rune(s[0])) {
+				return s[1 : len(s)-1]
+			}
 		}
 	}
 	// French quotes «…» (the multi-line/dialogue delimiter), trimmed as a unit.

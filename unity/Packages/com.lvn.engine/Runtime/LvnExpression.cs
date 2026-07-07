@@ -468,7 +468,7 @@ namespace Lvn
                     // ── numbers / chance ──
                     case "rand":
                         if (a.Count == 0) return Val.Of(_rng.NextDouble());
-                        if (a.Count == 1) return Val.Of((double)_rng.Next(0, (int)System.Math.Round(N(0)) + 1));
+                        if (a.Count == 1) { int n = (int)System.Math.Round(N(0)); return Val.Of((double)_rng.Next(0, (n < 0 ? 0 : n) + 1)); }
                         int lo = (int)System.Math.Round(N(0)), hi = (int)System.Math.Round(N(1));
                         if (lo > hi) { var t = lo; lo = hi; hi = t; }
                         return Val.Of((double)_rng.Next(lo, hi + 1)); // inclusive
