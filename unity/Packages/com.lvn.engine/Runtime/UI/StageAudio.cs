@@ -24,6 +24,32 @@ namespace Lvn.UI
         private readonly System.Collections.Generic.Dictionary<string, string> _playingUrl
             = new System.Collections.Generic.Dictionary<string, string>();
 
+        // Per-channel command generation: a later audio command on the same
+        // channel supersedes an earlier one whose clip is still loading, so two
+        // music commands replayed on resume (or a stop racing a play) can't let
+        // the slower load win and play the wrong/old track.
+        private readonly System.Collections.Generic.Dictionary<string, int> _channelGen
+            = new System.Collections.Generic.Dictionary<string, int>();
+
+        // The live fade coroutine per channel, so a new command cancels the
+        // previous fade instead of letting a fade-out keep lerping the volume
+        // down (and Stop()) right over a track the next command just started.
+        private readonly System.Collections.Generic.Dictionary<string, Coroutine> _fadeCo
+            = new System.Collections.Generic.Dictionary<string, Coroutine>();
+
+        private int BumpChannel(string channel)
+        {
+            int g = (_channelGen.TryGetValue(channel, out var c) ? c : 0) + 1;
+            _channelGen[channel] = g;
+            return g;
+        }
+
+        private void StartFade(string channel, AudioSource src, float from, float to, float seconds, bool stopAtEnd)
+        {
+            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
+            _fadeCo[channel] = StartCoroutine(FadeAudio(src, from, to, seconds, stopAtEnd));
+        }
+
         // The author's last set volume per channel — the player's preference
         // multiplies onto it, so "музыка 50%" scales whatever the script asked for
         // instead of overriding it.
@@ -115,12 +141,13 @@ namespace Lvn.UI
             var channel = (string)cmd["channel"] ?? "sfx";
             var src = channel == "music" ? _music : channel == "ambient" ? _ambient : _sfx;
             float fade = NumOr(cmd["fade"], 0f);
+            int gen = BumpChannel(channel); // this command now owns the channel
 
             if ((string)cmd["action"] == "stop")
             {
                 _playingUrl.Remove(channel);
-                if (fade > 0f) StartCoroutine(FadeAudio(src, src.volume, 0f, fade, stopAtEnd: true));
-                else src.Stop();
+                if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, stopAtEnd: true);
+                else { CancelFade(channel); src.Stop(); }
                 return;
             }
 
@@ -144,6 +171,11 @@ namespace Lvn.UI
             try { clip = await assets.LoadAudioAsync(url, ct); }
             catch { /* silent if the host ships no audio */ }
             if (clip == null) return;
+            // A newer audio command (or a chapter reset that bumps the channel via
+            // StopVoice/ResetStage's stop) started on this channel while we loaded
+            // — it must win. Without this the slower of two replayed music loads
+            // plays last and the wrong track ends up on screen.
+            if (!_channelGen.TryGetValue(channel, out var g2) || g2 != gen) return;
 
             if (channel != "sfx")
             {
@@ -155,13 +187,20 @@ namespace Lvn.UI
             {
                 src.volume = 0f;
                 src.Play();
-                StartCoroutine(FadeAudio(src, 0f, effective, fade, stopAtEnd: false));
+                StartFade(channel, src, 0f, effective, fade, stopAtEnd: false);
             }
             else
             {
+                CancelFade(channel);
                 src.volume = effective;
                 src.Play();
             }
+        }
+
+        private void CancelFade(string channel)
+        {
+            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
+            _fadeCo.Remove(channel);
         }
 
         // Tolerant field reads (mirror VnStage's): a malformed value degrades to the
