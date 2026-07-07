@@ -238,12 +238,50 @@ namespace Lvn.UI.Screens
                 _sync.Start();
             }
 
+            // Hub browse flow (ui.browse.layout = "hub"): unlock conditions read the
+            // player's global stat flags; Play charges the title's entry cost; a
+            // locked card explains itself with a popup.
+            if (_shell.Hub != null)
+            {
+                _shell.Hub.GlobalStatsProvider = () => _state.LoadVarsAsync(GlobalScopeId, default);
+                _shell.Hub.OnPlay = ChargeTitleEntryAsync;
+                _shell.Hub.OnLockedHint = (name, hint) =>
+                    _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
+            }
+
             await _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
                 chapterReady: ch => () => true,
                 chapterProgress: null,
                 playChapter: PlayChapterAsync,
                 askName: AskName);
+        }
+
+        // Charge a title's hub-entry cost (typically 1 energy for an expedition)
+        // before it launches. Same store-retry flow as the per-chapter gate; free
+        // when the title has no cost. Returns true if the player may enter.
+        private async Task<bool> ChargeTitleEntryAsync(LvnTitle title)
+        {
+            var cost = title?.cost;
+            if (cost == null || string.IsNullOrEmpty(cost.currency) || cost.amount <= 0) return true;
+
+            string reason = "title:" + title.id;
+            if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
+            if (_shell == null) return false;
+
+            var eco = _manifest?.economy;
+            string title2 = eco?.gate_title ?? "Not enough energy";
+            string msg = eco?.gate_message ?? "You need more to start this.";
+            bool toStore = await _shell.ConfirmAsync(title2, msg,
+                eco?.gate_buy ?? "Store", eco?.gate_cancel ?? "Not now");
+            if (!toStore) return false;
+
+            await _shell.OpenStoreAsync();
+            await Lvn.Services.LvnWallet.RefreshAsync();
+            if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
+
+            await _shell.AlertAsync(eco?.gate_denied ?? title2, msg);
+            return false;
         }
 
         private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)

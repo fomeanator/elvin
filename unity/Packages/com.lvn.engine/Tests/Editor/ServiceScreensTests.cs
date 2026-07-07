@@ -186,6 +186,30 @@ namespace Lvn.Tests
             finally { LvnPrefs.SoundOn = prevSound; }
         }
 
+        // ── BrowseHub (data-driven, no hardcoded entities) ──
+        [Test]
+        public void BrowseHub_IsDataDriven_RendersWhateverCollectionsItIsGiven()
+        {
+            var hub = new BrowseHub(new BrowseConfig(), new NoAssets());
+            // A totally different game — not expeditions/dates, just arbitrary groups.
+            hub.SetData(
+                new List<LvnCollection>
+                {
+                    new LvnCollection { id = "main", name = "Главы", titles = new List<string> { "t1" } },
+                    new LvnCollection { id = "bonus", name = "Бонусы", titles = new List<string> { "t2" } },
+                },
+                new List<LvnTitle>
+                {
+                    new LvnTitle { id = "t1", name = "Глава 1" },
+                    new LvnTitle { id = "t2", name = "Бонус 1" },
+                });
+
+            var labels = hub.Query<Label>().ToList();
+            Assert.IsTrue(labels.Exists(l => l.text == "Главы"), "renders the first collection's name");
+            Assert.IsTrue(labels.Exists(l => l.text == "Бонусы"), "renders the second collection's name");
+            // No engine assumption about what a collection 'means' — pure data.
+        }
+
         // ── AuthScreen ──
         [Test]
         public void AuthScreen_BuildsFromConfig_WithNicknameField()

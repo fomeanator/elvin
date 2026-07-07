@@ -21,6 +21,7 @@ namespace Lvn.Content
         public NameInputConfig name_input;
         public BootScreenConfig boot;
         public CarouselConfig carousel;
+        public BrowseConfig browse;
         public HudConfig hud;
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
@@ -358,6 +359,32 @@ namespace Lvn.Content
     }
 
     /// <summary>The title slider / carousel on the main menu.</summary>
+    /// <summary>The hub/collection browse flow (BrowseHub) — an alternative to the
+    /// carousel selected by <c>layout = "hub"</c>. Three themeable screens: the hub
+    /// (game title + collection tiles), a collection (title cards), and a title
+    /// detail (image + description + Play). Every colour/label optional.</summary>
+    public sealed class BrowseConfig
+    {
+        public string layout;            // "carousel" (default) | "hub"
+
+        public string bg_color;          // screen background; default #101015
+        public string title;             // hub headline; default the app/product name
+        public string subtitle;          // hub sub-line; default "Выбери…"
+        public string title_color;       // headings; default #f4ecd8
+        public string text_color;        // body/desc; default #e8e4d8
+        public string dim_text_color;    // secondary; default #9a948a
+        public string card_color;        // tile/card fill; default #35c88f (green like the mock)
+        public string card_text_color;   // text on cards; default #14141a
+        public string accent_color;      // buttons; default #35c88f
+        public string accent_text_color; // button text; default #14141a
+        public float? card_radius;       // px; default 16
+
+        public string play_text;         // detail Play button; default "Играть"
+        public string back_text;         // back button; default "‹"
+        public string locked_text;       // lock badge on a gated card; default "🔒"
+        public string cost_text;         // cost chip, "{0}" = amount; default "{0}"
+    }
+
     public sealed class CarouselConfig
     {
         public string bg_color;          // default #101015
