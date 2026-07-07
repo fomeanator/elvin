@@ -40,6 +40,24 @@ namespace Lvn.Spine
         private static readonly Dictionary<string, Res> _cache = new Dictionary<string, Res>();
         private static Shader _shader;
 
+        // Flush the parsed-skeleton cache and destroy the runtime assets it
+        // owns. Wired to LvnSpineBridge.ClearCache; the stage calls it when it
+        // unloads its textures — cached entries reference those textures, and
+        // a stale entry after an unload renders black/pink.
+        private static void ClearCache()
+        {
+            foreach (var res in _cache.Values)
+                DestroyRes(res);
+            _cache.Clear();
+        }
+
+        private static void DestroyRes(Res res)
+        {
+            if (res.Data != null) Object.Destroy(res.Data);
+            if (res.Atlas != null) Object.Destroy(res.Atlas);
+            if (res.Mat != null) Object.Destroy(res.Mat);
+        }
+
         // Units-per-pixel the skeleton data is loaded at (see Resource). The
         // json's canvas fields (skeleton x/y/width/height) are read RAW by
         // SkeletonJson — unlike bone/attachment coords they are NOT multiplied
@@ -132,6 +150,7 @@ namespace Lvn.Spine
             };
 
             LvnSpineBridge.Prepare = PrepareAsync;
+            LvnSpineBridge.ClearCache = ClearCache;
 
             Debug.Log("[lvn] spine-unity bridge hooked");
         }
@@ -246,7 +265,13 @@ namespace Lvn.Spine
             if (data != null) data.GetSkeletonData(false); // parse NOW so later instances are instant
 
             var res = new Res { Data = data, Atlas = atlas, Mat = mat };
-            if (!string.IsNullOrEmpty(key)) _cache[key] = res;
+            if (!string.IsNullOrEmpty(key))
+            {
+                // Replacing a dead entry (its Data was destroyed by an unload):
+                // free the leftovers before dropping the reference.
+                if (_cache.TryGetValue(key, out var old)) DestroyRes(old);
+                _cache[key] = res;
+            }
             return res;
         }
 
@@ -310,7 +335,10 @@ namespace Lvn.Spine
                 return;
             }
             if (!string.IsNullOrEmpty(key))
+            {
+                if (_cache.TryGetValue(key, out var old)) DestroyRes(old);
                 _cache[key] = new Res { Data = data, Atlas = atlasAsset, Mat = mat };
+            }
         }
     }
 }

@@ -178,7 +178,10 @@ func (s *server) withASTC(next http.Handler) http.Handler {
 		lock.Lock()
 		defer lock.Unlock()
 		if !fileExists(astcPath) { // re-check: a queued sibling request may have just finished it
-			if err := t.transcode(srcPath, astcPath); err != nil {
+			heavyGen <- struct{}{}
+			err := t.transcode(srcPath, astcPath)
+			<-heavyGen
+			if err != nil {
 				log.Printf("astc: %v", err)
 				http.NotFound(w, r)
 				return

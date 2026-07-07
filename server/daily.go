@@ -57,12 +57,13 @@ func (s *DailyService) load(userID string) *dailyDoc {
 	return doc
 }
 
-func (s *DailyService) save(userID string, doc *dailyDoc) {
+func (s *DailyService) save(userID string, doc *dailyDoc) error {
 	data, _ := json.Marshal(doc)
 	tmp := filepath.Join(s.dir, userID+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err == nil {
-		_ = os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
 	}
+	return os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {
@@ -136,7 +137,12 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 	reward := s.rewardFor(streak)
 	doc.LastClaim = today
 	doc.Streak = streak
-	s.save(userID, doc)
+	// Persist the claim BEFORE granting: if the write fails and we granted
+	// anyway, a restart forgets the claim and the next POST pays out again.
+	if err := s.save(userID, doc); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 	s.wallet.Grant(userID, reward.Currency, reward.Amount, "daily:day"+itoa(streak))
 
 	w.Header().Set("Content-Type", "application/json")
