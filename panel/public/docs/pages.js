@@ -6,6 +6,7 @@ export const SECTIONS = [
     title: "Начало",
     pages: [
       { id: "tutorial", title: "Быстрый старт (15 мин)", file: "howto-TUTORIAL.md" },
+      { id: "novella-core", title: "Основа новеллы (5 кирпичей)", file: "howto-novella-core-README.md" },
       { id: "agents", title: "Для ИИ-агента", file: "howto-AGENTS.md" },
       { id: "capabilities", title: "Что умеет / не умеет", file: "howto-CAPABILITIES.md" },
     ],

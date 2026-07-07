@@ -48,6 +48,21 @@ StageMenu.AddMenuItem("Достижения", stage => MyAchievements.Show());
 Свой `UIDocument` с большим `sortingOrder` — поверх движка; на время своего
 экрана ставь `stage.InputBlocked = true`.
 
+### Веб-вью (in-app browser)
+
+Движок **не линкует** веб-вью-либу — только шов `Lvn.Services.LvnWebView`:
+движок зовёт `LvnWebView.Open(url)` (баннер «как оплатить из РФ» в магазине,
+ToS/Policy), хост подключает реализацию через переменную-хук.
+
+```csharp
+LvnWebView.Opener = url => { web.LoadURL(url); web.SetVisibility(true); return true; };
+```
+
+Без хука `Open` открывает системный браузер (`Application.OpenURL`) — безопасный
+дефолт, ноль зависимостей. Готовая обвязка под gree/unity-webview — сэмпл
+**Web view (gree adapter)** (Package Manager ▸ LVN Engine ▸ Samples):
+ставишь плагин в `Assets/`, импортируешь сэмпл — он сам регистрирует шов.
+
 ### Опциональные модули
 
 Тяжёлые интеграции — отдельной сборкой с version define (образцы:
