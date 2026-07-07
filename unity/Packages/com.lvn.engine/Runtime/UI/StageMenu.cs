@@ -59,7 +59,7 @@ namespace Lvn.UI
             _modeBadge.style.height = 44;
             _modeBadge.style.marginRight = 8;
             _modeBadge.style.paddingLeft = 12; _modeBadge.style.paddingRight = 12;
-            _modeBadge.style.fontSize = 15;
+            _modeBadge.style.fontSize = 17;
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
             _modeBadge.style.backgroundColor = _theme.MenuFabColor;
@@ -95,7 +95,7 @@ namespace Lvn.UI
             var b = new Button(onClick) { text = glyph };
             b.style.width = 44; b.style.height = 44;
             b.style.marginLeft = 8;
-            b.style.fontSize = 20;
+            b.style.fontSize = 22;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = _theme.MenuFabColor;
             Round(b, 22);
@@ -262,7 +262,7 @@ namespace Lvn.UI
         {
             var b = new Button(onClick) { text = label };
             b.style.height = 46;
-            b.style.fontSize = 17;
+            b.style.fontSize = 19;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = Color.clear;
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -606,7 +606,7 @@ namespace Lvn.UI
         {
             b.style.backgroundColor = Color.clear;
             b.style.color = _theme.MenuTextColor;
-            b.style.fontSize = 22;
+            b.style.fontSize = 24;
             b.style.width = 34; b.style.height = 30;
             ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);

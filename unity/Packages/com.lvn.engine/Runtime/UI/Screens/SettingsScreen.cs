@@ -43,13 +43,13 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new SettingsConfig();
             _assets = assets;
-            _text = UiColor.Parse(_cfg.text_color, new Color(0.95f, 0.93f, 0.88f));
-            _dim = UiColor.Parse(_cfg.dim_text_color, new Color(0.60f, 0.58f, 0.54f));
-            _accent = UiColor.Parse(_cfg.accent_color, new Color(0.78f, 0.63f, 0.31f));
+            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
+            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
+            _accent = UiColor.Parse(_cfg.accent_color, LvnTokens.Accent);
             _radius = _cfg.corner_radius ?? 12f;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, new Color(0f, 0f, 0f, 0.7f));
+            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
             style.opacity = 0f;
             style.display = DisplayStyle.None;
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Close(); });
@@ -60,15 +60,15 @@ namespace Lvn.UI.Screens
             sheet.style.right = Length.Percent(6f);
             sheet.style.top = Length.Percent(8f);
             sheet.style.bottom = Length.Percent(8f);
-            sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
+            sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
             Round(sheet, _radius + 4f);
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
             Add(sheet);
 
             var title = new Label(_cfg.title ?? "Settings");
-            title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            title.style.fontSize = 34;
+            title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            title.style.fontSize = 36;
             title.style.marginBottom = 14;
             sheet.Add(title);
 
@@ -77,11 +77,11 @@ namespace Lvn.UI.Screens
             sheet.Add(_list);
 
             var close = new Button(Close) { text = _cfg.close_text ?? "Close" };
-            close.style.fontSize = 24;
+            close.style.fontSize = 26;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = _text;
-            close.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
+            close.style.backgroundColor = LvnTokens.Faint;
             ClearBorder(close);
             Round(close, _radius);
             sheet.Add(close);
@@ -125,12 +125,17 @@ namespace Lvn.UI.Screens
         {
             _list.Clear();
             _list.Add(SoundRow());
+            _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+            _list.Add(VolumeRow("Эмбиент", () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+            _list.Add(VolumeRow("Эффекты", () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+            _list.Add(VolumeRow("Голос", () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
                 _list.Add(LanguageRow());
             _list.Add(UidRow());
             _accountRow = Row(_cfg.account_label ?? "Account");
             _list.Add(_accountRow);
             SetAccountStatus("…", showSignIn: false);
+            _list.Add(RestoreRow());
             _list.Add(VersionRow());
             var links = LinksRow();
             if (links != null) _list.Add(links);
@@ -150,6 +155,38 @@ namespace Lvn.UI.Screens
                 LvnPrefs.SoundOn = !LvnPrefs.SoundOn;
                 btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "On") : (_cfg.off_text ?? "Off");
                 StyleValueButton(btn, LvnPrefs.SoundOn);
+            };
+            row.Add(btn);
+            return row;
+        }
+
+        // A per-channel volume slider (0–1) that reads the current pref and writes
+        // it back live as the player drags. Sits under the master Sound toggle.
+        private VisualElement VolumeRow(string label, System.Func<float> get, System.Action<float> set)
+        {
+            var row = Row(label);
+            var slider = new Slider(0f, 1f) { value = get() };
+            slider.style.width = 200;
+            slider.style.marginLeft = 12;
+            var drag = slider.Q("unity-dragger");
+            if (drag != null) drag.style.backgroundColor = _accent;
+            slider.RegisterValueChangedCallback(evt => set(evt.newValue));
+            row.Add(slider);
+            return row;
+        }
+
+        // "Restore purchases": re-syncs the wallet from the server, which re-grants
+        // any purchases the account already owns. (Real platform restore is host-side.)
+        private VisualElement RestoreRow()
+        {
+            var row = Row("Восстановить покупки");
+            var btn = new Button { text = "Восстановить" };
+            StyleValueButton(btn, false);
+            btn.clicked += () =>
+            {
+                _ = Lvn.Services.LvnWallet.RefreshAsync();
+                btn.text = "…";
+                btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(1200);
             };
             row.Add(btn);
             return row;
@@ -191,7 +228,7 @@ namespace Lvn.UI.Screens
             var shortId = string.IsNullOrEmpty(uid) ? "—" : (uid.Length > 12 ? uid.Substring(0, 12) + "…" : uid);
             var val = new Label(shortId);
             val.style.color = _dim;
-            val.style.fontSize = 20;
+            val.style.fontSize = 22;
             val.style.marginRight = 10;
             row.Add(val);
 
@@ -213,7 +250,7 @@ namespace Lvn.UI.Screens
             var row = Row(_cfg.version_label ?? "Version");
             var val = new Label(Application.version);
             val.style.color = _dim;
-            val.style.fontSize = 20;
+            val.style.fontSize = 22;
             row.Add(val);
             return row;
         }
@@ -262,7 +299,7 @@ namespace Lvn.UI.Screens
                 {
                     var lbl = new Label(s.name ?? "link");
                     lbl.style.color = _accent;
-                    lbl.style.fontSize = 22;
+                    lbl.style.fontSize = 24;
                     el = lbl;
                 }
                 el.style.marginLeft = 10; el.style.marginRight = 10;
@@ -300,7 +337,7 @@ namespace Lvn.UI.Screens
                 _accountRow.RemoveAt(i);
             var val = new Label(text);
             val.style.color = _dim;
-            val.style.fontSize = 20;
+            val.style.fontSize = 22;
             val.style.marginRight = 10;
             _accountRow.Add(val);
             if (showSignIn)
@@ -325,7 +362,7 @@ namespace Lvn.UI.Screens
             row.style.paddingTop = 10; row.style.paddingBottom = 10;
             var lbl = new Label(label);
             lbl.style.color = _text;
-            lbl.style.fontSize = 24;
+            lbl.style.fontSize = 26;
             lbl.style.flexGrow = 1;
             row.Add(lbl);
             return row;
@@ -335,18 +372,18 @@ namespace Lvn.UI.Screens
         {
             var lbl = new Label(text);
             lbl.style.color = _accent;
-            lbl.style.fontSize = 20;
+            lbl.style.fontSize = 22;
             lbl.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
             return lbl;
         }
 
         private void StyleValueButton(Button b, bool active)
         {
-            b.style.fontSize = 22;
+            b.style.fontSize = 24;
             b.style.paddingTop = 8; b.style.paddingBottom = 8;
             b.style.paddingLeft = 16; b.style.paddingRight = 16;
-            b.style.color = active ? new Color(0.08f, 0.08f, 0.10f) : _text;
-            b.style.backgroundColor = active ? _accent : new Color(1f, 1f, 1f, 0.08f);
+            b.style.color = active ? LvnTokens.OnAccent : _text;
+            b.style.backgroundColor = active ? _accent : LvnTokens.Faint;
             ClearBorder(b);
             Round(b, _radius);
         }

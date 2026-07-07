@@ -54,16 +54,16 @@ namespace Lvn.UI.Screens
         public PopupScreen(PopupConfig cfg)
         {
             _cfg = cfg ?? new PopupConfig();
-            _text = UiColor.Parse(_cfg.text_color, new Color(0.91f, 0.89f, 0.85f));
-            _titleColor = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            _btnColor = UiColor.Parse(_cfg.button_color, new Color(1f, 1f, 1f, 0.08f));
+            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
+            _titleColor = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            _btnColor = UiColor.Parse(_cfg.button_color, LvnTokens.Faint);
             _btnText = UiColor.Parse(_cfg.button_text_color, _text);
-            _primaryColor = UiColor.Parse(_cfg.primary_color, new Color(0.78f, 0.63f, 0.31f));
-            _primaryText = UiColor.Parse(_cfg.primary_text_color, new Color(0.08f, 0.08f, 0.10f));
-            _radius = _cfg.corner_radius ?? 12f;
+            _primaryColor = UiColor.Parse(_cfg.primary_color, LvnTokens.Accent);
+            _primaryText = UiColor.Parse(_cfg.primary_text_color, LvnTokens.OnAccent);
+            _radius = _cfg.corner_radius ?? LvnTokens.RadiusSm;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, new Color(0f, 0f, 0f, 0.7f));
+            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
             style.justifyContent = Justify.Center;
             style.alignItems = Align.Center;
             style.opacity = 0f;
@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
             _card = new VisualElement();
             _card.style.maxWidth = 560;
             _card.style.width = Length.Percent(80f);
-            _card.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
+            _card.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
             Round(_card, _radius + 4f);
             _card.style.paddingTop = 24;
             _card.style.paddingBottom = 20;
@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             _title = new Label { name = "popup-title" };
             _title.style.color = _titleColor;
-            _title.style.fontSize = 30;
+            _title.style.fontSize = 32;
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             _title.style.whiteSpace = WhiteSpace.Normal;
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
 
             _message = new Label { name = "popup-message" };
             _message.style.color = _text;
-            _message.style.fontSize = 24;
+            _message.style.fontSize = 26;
             _message.style.whiteSpace = WhiteSpace.Normal;
             _message.style.unityTextAlign = TextAnchor.MiddleCenter;
             _message.style.marginBottom = 20;
@@ -180,7 +180,7 @@ namespace Lvn.UI.Screens
         private UnityEngine.UIElements.Button MakeButton(Button spec, int index, int count)
         {
             var b = new UnityEngine.UIElements.Button(() => Resolve(index)) { text = spec.Label ?? "" };
-            b.style.fontSize = 24;
+            b.style.fontSize = 26;
             b.style.flexGrow = count > 1 ? 1 : 0;
             b.style.minWidth = 120;
             b.style.marginLeft = index > 0 ? 8 : 0;

@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             _title = new Label(_cfg.title ?? "Wardrobe");
             _title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
-            _title.style.fontSize = 32;
+            _title.style.fontSize = 34;
             header.Add(_title);
 
             _balances = new VisualElement();
@@ -94,8 +94,17 @@ namespace Lvn.UI.Screens
 
             // ── live preview: a fixed-aspect box, layers stacked inside ──
             _previewBox = new VisualElement();
-            _previewBox.style.height = Length.Percent(38f);
+            _previewBox.style.height = Length.Percent(60f); // taller heroine preview
             _previewBox.style.backgroundColor = UiColor.Parse(_cfg.preview_bg_color, new Color(0.06f, 0.06f, 0.08f));
+            // Optional configurable scene behind the heroine (manifest ui.wardrobe.preview_bg_image).
+            if (!string.IsNullOrEmpty(_cfg.preview_bg_image))
+            {
+                _previewBox.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                _previewBox.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                _previewBox.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                _previewBox.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                _ = ScreenUi.AssignBgAsync(_previewBox, _cfg.preview_bg_image, _assets);
+            }
             Round(_previewBox, _radius);
             _previewBox.style.alignItems = Align.Center;
             _previewBox.style.justifyContent = Justify.Center;
@@ -121,14 +130,14 @@ namespace Lvn.UI.Screens
 
             _note = new Label("");
             _note.style.color = _dim;
-            _note.style.fontSize = 20;
+            _note.style.fontSize = 22;
             _note.style.unityTextAlign = TextAnchor.MiddleCenter;
             _note.style.marginTop = 8;
             _note.style.display = DisplayStyle.None;
             sheet.Add(_note);
 
             var close = new Button(Close) { text = _cfg.close_text ?? "Close" };
-            close.style.fontSize = 24;
+            close.style.fontSize = 26;
             close.style.marginTop = 10;
             close.style.paddingTop = 12;
             close.style.paddingBottom = 12;
@@ -237,7 +246,7 @@ namespace Lvn.UI.Screens
                 if (_tab == null) _tab = axis;
                 var b = new Button(() => { _tab = axis; StyleTabs(); RebuildTab(); })
                 { text = kv.Value?.name ?? axis };
-                b.style.fontSize = 22;
+                b.style.fontSize = 24;
                 b.style.marginRight = 8;
                 b.style.paddingTop = 8; b.style.paddingBottom = 8;
                 b.style.paddingLeft = 16; b.style.paddingRight = 16;
@@ -316,14 +325,14 @@ namespace Lvn.UI.Screens
 
             var name = new Label(item.name ?? item.value);
             name.style.color = _text;
-            name.style.fontSize = 24;
+            name.style.fontSize = 26;
             col.Add(name);
 
             if (isWorn)
             {
                 var state = new Label(_cfg.equipped_text ?? "Equipped");
                 state.style.color = _accent;
-                state.style.fontSize = 18;
+                state.style.fontSize = 20;
                 state.style.marginTop = 2;
                 col.Add(state);
             }
@@ -339,7 +348,7 @@ namespace Lvn.UI.Screens
 
             // the action button: buy → equip → take off
             var action = new Button();
-            action.style.fontSize = 22;
+            action.style.fontSize = 24;
             action.style.minWidth = 130;
             action.style.paddingTop = 10; action.style.paddingBottom = 10;
             action.style.paddingLeft = 14; action.style.paddingRight = 14;
@@ -463,7 +472,7 @@ namespace Lvn.UI.Screens
             float boxH = _previewBox.resolvedStyle.height;
             if (float.IsNaN(boxH) || boxH <= 0f) return;
             float aspect = _def != null && _def.aspect > 0f ? _def.aspect : 0.6f;
-            float h = boxH * 0.96f;
+            float h = boxH * 1.10f; // heroine ~15% bigger inside the box (crops slightly)
             _preview.style.height = h;
             _preview.style.width = h * aspect;
         }
@@ -475,7 +484,7 @@ namespace Lvn.UI.Screens
             {
                 var pill = new Label(kv.Value.ToString("N0") + " " + kv.Key);
                 pill.style.color = _text;
-                pill.style.fontSize = 20;
+                pill.style.fontSize = 22;
                 pill.style.marginLeft = 10;
                 pill.style.paddingLeft = 12; pill.style.paddingRight = 12;
                 pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
