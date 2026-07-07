@@ -53,6 +53,23 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void Apply_ParsesRegenBlock_ForTheHudCountdown()
+        {
+            Assert.IsTrue(LvnWallet.Apply(
+                @"{""balances"":{""energy"":2},""inventory"":{},
+                   ""regen"":{""energy"":{""balance"":2,""cap"":3,""interval_seconds"":7200,""next_refill_unix"":1783440000}}}"));
+            Assert.IsTrue(LvnWallet.Regen.TryGetValue("energy", out var r), "regen currency is exposed");
+            Assert.AreEqual(3, r.Cap);
+            Assert.AreEqual(7200, r.IntervalSeconds);
+            Assert.AreEqual(1783440000, r.NextRefillUnix);
+            Assert.IsFalse(r.Full, "below cap with a pending refill → not full");
+
+            // A wallet with no regen block leaves the map empty (plain currencies).
+            Assert.IsTrue(LvnWallet.Apply(@"{""balances"":{""gold"":10},""inventory"":{}}"));
+            Assert.AreEqual(0, LvnWallet.Regen.Count);
+        }
+
+        [Test]
         public void LocalOps_ArePureAndExact()
         {
             LvnWallet.ApplyLocal(new JObject { ["op"] = "earn", ["currency"] = "gold", ["amount"] = 10L });
