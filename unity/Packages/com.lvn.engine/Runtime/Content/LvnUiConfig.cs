@@ -28,6 +28,8 @@ namespace Lvn.Content
         public SoundsConfig sounds;
         public AuthConfig auth;
         public StoreConfig store;
+        public PopupConfig popup;
+        public SettingsConfig settings;
         public WardrobeConfig wardrobe;
     }
 
@@ -138,6 +140,95 @@ namespace Lvn.Content
 
         public Dictionary<string, string> currency_icons; // currency → content url (cards + HUD pills)
         public Dictionary<string, string> currency_names; // currency → display name (default: the raw key)
+
+        // Sections: packs are grouped by their catalog `section` id, shown in the
+        // order sections first appear in the (server-sorted) catalog. This maps a
+        // section id to a display heading; a missing id falls back to the raw id,
+        // and packs with no section render as one unlabelled group (legacy).
+        public Dictionary<string, string> section_titles;
+        public string section_title_color; // section heading color; default title_color
+
+        // "Pay from Russia" (or any region) banner, pinned at the top of each
+        // section. When pay_banner_url is set the banner opens it via the
+        // LvnWebView seam (in-app web view if the host plugged one, else the
+        // system browser). Shown only to RU-region users unless pay_banner_always.
+        public string pay_banner_text;   // e.g. "Как оплатить из России →"
+        public string pay_banner_url;    // instructions page; empty → no banner
+        public string pay_banner_color;  // banner fill; default a warm accent tint
+        public string pay_banner_text_color; // banner text; default text_color
+        public bool? pay_banner_always;  // show to everyone, not just RU; default false
+    }
+
+    /// <summary>The universal popup/dialog overlay (PopupScreen): a modal card
+    /// centered over everything, used for warnings, confirmations and errors
+    /// ("not enough energy", "buy currency?"). Every field optional — the
+    /// engine's neutral dark look is the default. Buttons are supplied per-call,
+    /// but the two default button labels (OK / Cancel) come from here so a host
+    /// can localize them once.</summary>
+    public sealed class PopupConfig
+    {
+        public string scrim_color;     // fullscreen backdrop; default #000000b3
+        public string panel_color;     // card fill; default #14141af7
+        public string title_color;     // default #f4ecd8
+        public string text_color;      // message body; default #e8e4d8
+        public string button_color;    // secondary button fill; default #ffffff14
+        public string button_text_color;   // secondary button text; default text_color
+        public string primary_color;   // primary/confirm button fill; default #c8a050
+        public string primary_text_color;  // primary button text; default #14141a
+        public float? corner_radius;   // card/button rounding; default 12
+        public string ok_text;         // default OK/alert button; default "OK"
+        public string cancel_text;     // default cancel button; default "Cancel"
+    }
+
+    /// <summary>The full settings overlay (SettingsScreen): master sound switch,
+    /// language, player id + copy, account/sign-in status, app version, social
+    /// links and Terms/Privacy. All strings optional with English fallbacks;
+    /// social links and legal urls live here. Distinct from the quick-menu's
+    /// in-game settings panel (playback tweaks) — this is the app-level screen.</summary>
+    public sealed class SettingsConfig
+    {
+        public string title;           // default "Settings"
+        public string scrim_color;     // default #000000b3
+        public string panel_color;     // default #14141af7
+        public string title_color;     // default #f4ecd8
+        public string text_color;      // row labels; default #f2eee1
+        public string dim_text_color;  // values/secondary; default #9a948a
+        public string accent_color;    // toggle-on / links; default #c8a050
+        public float? corner_radius;   // default 12
+        public string close_text;      // default "Close"
+        public string menu_label;      // quick-menu entry; default "Settings"
+        public bool? show_menu_item;   // add the quick-menu entry; default true
+
+        // Row labels / values (all localizable).
+        public string sound_label;     // "Sound"
+        public string on_text;         // "On"
+        public string off_text;        // "Off"
+        public string language_label;  // "Language"
+        public string original_lang_text; // the script's inline language; default "Original"
+        public string uid_label;       // "Player ID"
+        public string copy_text;       // "Copy"
+        public string copied_text;     // "Copied"
+        public string account_label;   // "Account"
+        public string signed_in_text;  // "Signed in"; provider appended as " · {name}"
+        public string device_text;     // provider name for a device-only account; default "device"
+        public string sign_in_text;    // "Sign in"
+        public string version_label;   // "Version"
+
+        // Legal + socials, opened via the LvnWebView seam.
+        public string terms_url;
+        public string terms_text;      // "Terms of Use"
+        public string privacy_url;
+        public string privacy_text;    // "Privacy Policy"
+        public System.Collections.Generic.List<SocialLink> social; // 2-3 clickable icons
+    }
+
+    /// <summary>One social link in the settings screen — a clickable icon (or its
+    /// name as a fallback) that opens a url via the web-view seam.</summary>
+    public sealed class SocialLink
+    {
+        public string name; // "Discord" — shown when no icon, and as the tooltip
+        public string icon; // content url for the icon (optional)
+        public string url;  // opened via LvnWebView.Open
     }
 
     /// <summary>UI interaction sounds — short one-shot clips played by the stage
