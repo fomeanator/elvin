@@ -34,7 +34,7 @@ namespace Lvn.UI.Screens
             _cfg = cfg ?? new HudConfig();
             _assets = assets;
             _pillBg = UiColor.Parse(_cfg.pill_bg_color, new Color(0f, 0f, 0f, 0.4f));
-            _pillText = UiColor.Parse(_cfg.pill_text_color, new Color(0.96f, 0.93f, 0.85f));
+            _pillText = UiColor.Parse(_cfg.pill_text_color, LvnTokens.Text);
 
             float h = _cfg.height ?? 0.07f;
             style.position = Position.Absolute;
@@ -65,8 +65,8 @@ namespace Lvn.UI.Screens
             left.Add(_progressIcon);
 
             _progressLabel = new Label("0%") { pickingMode = PickingMode.Ignore };
-            _progressLabel.style.color = UiColor.Parse(_cfg.progress_color, new Color(0.96f, 0.93f, 0.85f));
-            _progressLabel.style.fontSize = 22;
+            _progressLabel.style.color = UiColor.Parse(_cfg.progress_color, LvnTokens.Text);
+            _progressLabel.style.fontSize = 24;
             left.Add(_progressLabel);
 
             // right: currency pills
@@ -190,13 +190,13 @@ namespace Lvn.UI.Screens
 
             var label = new Label("0") { pickingMode = PickingMode.Ignore };
             label.style.color = _pillText;
-            label.style.fontSize = 20;
+            label.style.fontSize = 22;
             pill.Add(label);
 
             // Refill countdown for regenerating currencies (hidden until needed).
             var timer = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
             timer.style.color = _pillText;
-            timer.style.fontSize = 15;
+            timer.style.fontSize = 17;
             timer.style.marginLeft = 6;
             timer.style.opacity = 0.7f;
             timer.style.display = DisplayStyle.None;
