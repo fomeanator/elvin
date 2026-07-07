@@ -27,6 +27,14 @@ namespace Lvn.Content
         /// screen flow; ignored by the default carousel. Optional.</summary>
         public List<LvnCollection> collections;
 
+        /// <summary>The game's default MAIN HEROINE — a sprite catalog entity id.
+        /// The concept a single-heroine game (e.g. Time Romance) leans on: her
+        /// wardrobe fronts the skin shop and her portrait can front the profile.
+        /// A title may override it with <see cref="LvnTitle.hero"/>. The skin shop
+        /// itself still holds outfits for EVERY actor across all novels — this is
+        /// just which one it opens on.</summary>
+        public string hero;
+
         /// <summary>Manifest-driven theme for the built-in novel screens (loading,
         /// title card, name input). Optional — components use defaults when null.</summary>
         public LvnUiConfig ui;
@@ -269,6 +277,11 @@ namespace Lvn.Content
         /// expedition). Null/zero = free. Charged on Play via the wallet; too little
         /// → a "buy?" popup routes to the store.</summary>
         public LvnCost cost;
+        /// <summary>The main heroine / player character of this title — a sprite
+        /// catalog entity id. Her wardrobe is the default one the skin shop opens,
+        /// and her portrait can front the profile. Falls back to
+        /// <see cref="LvnManifest.hero"/>.</summary>
+        public string hero;
     }
 
     /// <summary>A named group of titles shown as one hub tile (an "expeditions",

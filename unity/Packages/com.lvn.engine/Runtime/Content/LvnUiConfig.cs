@@ -51,6 +51,7 @@ namespace Lvn.Content
         public string accent_color;   // equipped ring / action fill; default #c8a050
         public string accent_text_color; // action button text; default #14141a
         public string preview_bg_color;  // behind the character; default #101015
+        public string preview_bg_image;  // optional content-url scene behind the heroine
         public float? corner_radius;  // default 12
 
         public string equip_text;     // default "Equip"
@@ -383,6 +384,15 @@ namespace Lvn.Content
         public string back_text;         // back button; default "‹"
         public string locked_text;       // lock badge on a gated card; default "🔒"
         public string cost_text;         // cost chip, "{0}" = amount; default "{0}"
+        public string all_text;          // slider "see all" link; default "Все"
+        public string more_text;         // card details button; default "Подробнее"
+        public string featured_text;     // featured-banner eyebrow; default "Рекомендуем"
+        public string continue_text;     // resume banner label; default "Продолжить"
+        public string nav_home;          // bottom nav labels
+        public string nav_store;
+        public string nav_wardrobe;
+        public string nav_gallery;
+        public string nav_profile;
     }
 
     public sealed class CarouselConfig
