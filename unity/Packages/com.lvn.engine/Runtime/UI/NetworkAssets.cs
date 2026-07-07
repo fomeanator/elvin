@@ -18,6 +18,12 @@ namespace Lvn.UI
     {
         private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>();
         private readonly Dictionary<string, AudioClip> _audioCache = new Dictionary<string, AudioClip>();
+        // In-flight de-dup: a prefetch and a show racing for the same url must
+        // share ONE download — the loser of an unguarded race overwrote the
+        // cache entry and leaked the winner's Texture2D/AudioClip forever.
+        // Main-thread only (Unity awaits resume on the main thread), no locks.
+        private readonly Dictionary<string, Task<Sprite>> _spriteInFlight = new Dictionary<string, Task<Sprite>>();
+        private readonly Dictionary<string, Task<AudioClip>> _audioInFlight = new Dictionary<string, Task<AudioClip>>();
         private readonly string _baseUrl;
 
         /// <summary>Optional base url prepended to relative urls.
@@ -45,7 +51,19 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(url)) return null;
             if (_spriteCache.TryGetValue(url, out var hit)) return hit;
+            if (_spriteInFlight.TryGetValue(url, out var pending))
+            {
+                try { return await pending; }
+                catch { return null; } // the initiating call's ct fired — behave like a plain miss
+            }
+            var task = LoadSpriteCoreAsync(url, ct);
+            _spriteInFlight[url] = task;
+            try { return await task; }
+            finally { _spriteInFlight.Remove(url); }
+        }
 
+        private async Task<Sprite> LoadSpriteCoreAsync(string url, CancellationToken ct)
+        {
             var fullUrl = FullUrl(url);
             if (fullUrl == null) return null;
 
@@ -92,7 +110,19 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(url)) return null;
             if (_audioCache.TryGetValue(url, out var hit)) return hit;
+            if (_audioInFlight.TryGetValue(url, out var pending))
+            {
+                try { return await pending; }
+                catch { return null; }
+            }
+            var task = LoadAudioCoreAsync(url, ct);
+            _audioInFlight[url] = task;
+            try { return await task; }
+            finally { _audioInFlight.Remove(url); }
+        }
 
+        private async Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
+        {
             var fullUrl = FullUrl(url);
             if (fullUrl == null) return null;
 

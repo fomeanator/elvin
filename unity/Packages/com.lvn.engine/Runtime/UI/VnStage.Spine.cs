@@ -308,15 +308,20 @@ namespace Lvn.UI
             }
 
             // Visibility follows show; a warm build stays inactive until the
-            // later show=true flips it on with zero build cost.
+            // later show=true flips it on with zero build cost. Read the FRESH
+            // placement, not this call's local one: a `show=true` that arrived
+            // while our warm build was awaiting skipped the build (dedup via
+            // _spineLoading) and updated _placements — applying the stale local
+            // Show=false here would hide an actor the script just revealed.
             if (existing != null)
             {
+                bool show = _placements.TryGetValue(id, out var cur) ? cur.Show : placement.Show;
                 // Real-time size: re-fit to the screen each command, so `scale`/
                 // `fit` resize the Spine on the fly. Refit BEFORE the fade so the
                 // reveal is already correctly sized.
                 LvnSpineBridge.Refit?.Invoke(existing, e.spine.scale, e.spine.fit);
-                SetSpineVisible(existing, placement.Show);
-                if (placement.Show) TouchSpine(id); // showing it makes it most-recent
+                SetSpineVisible(existing, show);
+                if (show) TouchSpine(id); // showing it makes it most-recent
             }
 
             var play = (string)cmd["play"];

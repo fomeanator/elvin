@@ -437,8 +437,15 @@ namespace Lvn.UI
         private int _lastSayLength;
 
         /// <summary>Extra gate a host/menu can close to hold auto-advance (and
-        /// tap handling) while an overlay is up.</summary>
-        public bool InputBlocked;
+        /// tap handling) while an overlay is up. An open shared panel
+        /// (<see cref="VnPanelHost"/>) blocks implicitly, so a wardrobe sheet or
+        /// in-script screen can't be tapped/auto-advanced through.</summary>
+        public bool InputBlocked
+        {
+            get => _inputBlockedFlag || (_panelHost != null && _panelHost.IsOpen);
+            set => _inputBlockedFlag = value;
+        }
+        private bool _inputBlockedFlag;
 
         /// <summary>Set when the player asks to leave the chapter (the quick
         /// menu's Exit). The host's play loop watches it and returns to the
@@ -554,6 +561,9 @@ namespace Lvn.UI
         private void OnDestroy()
         {
             Assets?.UnloadAll();
+            // The spine integration's static cache holds SkeletonData/materials
+            // built around textures UnloadAll just destroyed — flush it with them.
+            LvnSpineBridge.ClearCache?.Invoke();
             if (_pendingThumb != null) Destroy(_pendingThumb);
         }
 
@@ -1063,10 +1073,13 @@ namespace Lvn.UI
         // `save [slot=name]` writes the player snapshot (cursor + vars + call stack)
         // to PlayerPrefs; `load [slot=name]` restores it, rebuilds the scene from the
         // saved point (ReplayVisuals) and resumes. Default slot is "quick".
-        private static string SaveKey(JObject cmd)
+        private string SaveKey(JObject cmd)
         {
             var slot = (string)cmd["slot"];
-            return "lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot);
+            // Namespaced by title id — two novels in one app (or the IDE preview
+            // next to a game) must not read each other's quick saves.
+            var ns = string.IsNullOrEmpty(_saveTitleId) ? "" : _saveTitleId + "_";
+            return "lvn_save_" + ns + (string.IsNullOrEmpty(slot) ? "quick" : slot);
         }
 
         private void SaveSlot(JObject cmd)
@@ -1086,6 +1099,12 @@ namespace Lvn.UI
         {
             if (_player == null) return;
             var json = PlayerPrefs.GetString(SaveKey(cmd), "");
+            if (string.IsNullOrEmpty(json))
+            {
+                // Legacy fallback: saves written before keys were title-namespaced.
+                var slot = (string)cmd["slot"];
+                json = PlayerPrefs.GetString("lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot), "");
+            }
             LvnPlayer.LvnSnapshot snap = null;
             if (!string.IsNullOrEmpty(json))
                 try { snap = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnPlayer.LvnSnapshot>(json); }
@@ -1105,6 +1124,18 @@ namespace Lvn.UI
         /// The shared machinery behind the in-script `load` op, the save/load
         /// panel and the autosave resume.</summary>
         public async void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
+        {
+            // async void: an escaped exception here would take down the frame with
+            // no caller to observe it — catch, log, and try to resume anyway.
+            try { await RestoreSnapshotAsync(snap); }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[lvn] restore failed: " + e);
+                try { _player?.Advance(); } catch { /* stage unusable; error already logged */ }
+            }
+        }
+
+        private async Task RestoreSnapshotAsync(LvnPlayer.LvnSnapshot snap)
         {
             if (_player == null) return;
             if (snap == null) { _player.Advance(); return; } // no snapshot after all — play from the top (Play skipped its own advance expecting us)
@@ -1178,12 +1209,12 @@ namespace Lvn.UI
             var snap = _player.Save();
             snap.ScriptUrl = _saveScriptUrl;
             var last = _backlog.Count > 0 ? _backlog[_backlog.Count - 1].text : "";
-            LvnSaveStore.Put(_saveTitleId, slot, new LvnSaveSlot
+            if (!LvnSaveStore.Put(_saveTitleId, slot, new LvnSaveSlot
             {
                 Snap = snap,
                 ChapterId = _saveChapterId,
                 Preview = last,
-            });
+            })) return false;
             // Manual slots get the scene screenshot captured when the menu
             // opened (null wipes a stale one). The rolling autosave doesn't —
             // its capture moment would be arbitrary.

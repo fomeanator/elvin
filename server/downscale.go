@@ -182,6 +182,13 @@ func (d *downscaler) generate(srcPath, variantPath string) error {
 
 var errFitsAlready = fmt.Errorf("source already fits within the variant box")
 
+// heavyGen bounds concurrent on-demand image jobs (downscale decodes + ASTC
+// transcodes): each holds a full decoded frame in RAM (a 4k spine page is
+// ~64 MB RGBA), so a burst of cold-cache requests without a cap is a
+// memory-exhaustion DoS. Queued requests just wait — the per-path locks
+// already dedupe identical URLs.
+var heavyGen = make(chan struct{}, 3)
+
 // isPMAPage reports whether srcPath is a Spine atlas page whose pixels are
 // alpha-premultiplied: a sibling .atlas/.atlas.txt that names this file and
 // carries a `pma: true` line. Cheap (two small text files at most per dir)
@@ -202,13 +209,22 @@ func isPMAPage(srcPath string) bool {
 		if err != nil {
 			continue
 		}
-		text := string(data)
-		if !strings.Contains(text, base) {
-			continue // an atlas for some other page set in the same dir
-		}
-		for _, line := range strings.Split(text, "\n") {
-			l := strings.ReplaceAll(strings.TrimSpace(line), " ", "")
-			if l == "pma:true" {
+		// libgdx atlas: pages are blocks starting with the image filename on
+		// its own line, followed by `key: value` page settings. Read pma only
+		// from THIS page's block — a multi-page atlas can mix pma flags, and a
+		// bare Contains would take another page's setting for ours.
+		inPage := false
+		for _, line := range strings.Split(string(data), "\n") {
+			t := strings.TrimSpace(line)
+			if t == "" {
+				inPage = false
+				continue
+			}
+			if !strings.Contains(t, ":") { // a page-name line
+				inPage = strings.EqualFold(t, base)
+				continue
+			}
+			if inPage && strings.ReplaceAll(t, " ", "") == "pma:true" {
 				return true
 			}
 		}
@@ -250,7 +266,10 @@ func (s *server) withDownscale(next http.Handler) http.Handler {
 		lock.Lock()
 		defer lock.Unlock()
 		if !fileExists(variantPath) { // re-check: a queued sibling request may have just finished it
-			switch err := d.generate(srcRel, variantPath); err {
+			heavyGen <- struct{}{}
+			err := d.generate(srcRel, variantPath)
+			<-heavyGen
+			switch err {
 			case nil:
 			case errFitsAlready:
 				http.ServeFile(w, r, srcRel) // small enough already — the source IS the variant

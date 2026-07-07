@@ -52,12 +52,13 @@ func (s *LeaderboardService) load(board string) []lbEntry {
 	return entries
 }
 
-func (s *LeaderboardService) save(board string, entries []lbEntry) {
+func (s *LeaderboardService) save(board string, entries []lbEntry) error {
 	data, _ := json.MarshalIndent(entries, "", "  ")
 	tmp := filepath.Join(s.dir, board+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err == nil {
-		_ = os.Rename(tmp, filepath.Join(s.dir, board+".json"))
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
 	}
+	return os.Rename(tmp, filepath.Join(s.dir, board+".json"))
 }
 
 func (s *LeaderboardService) handle(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +121,10 @@ func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request
 			Updated: time.Now().UTC().Format(time.RFC3339),
 		})
 	}
-	s.save(board, entries)
+	if err := s.save(board, entries); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{

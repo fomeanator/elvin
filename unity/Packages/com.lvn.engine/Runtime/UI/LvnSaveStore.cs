@@ -144,15 +144,17 @@ namespace Lvn.UI
         }
 
         /// <summary>Write a slot (stamps <see cref="LvnSaveSlot.SavedAtUnixMs"/>
-        /// and the current schema version).</summary>
-        public static void Put(string titleId, string slot, LvnSaveSlot data)
+        /// and the current schema version). Returns false when the write failed
+        /// (storage full/serialization error) so callers can tell the player
+        /// instead of pretending the save exists.</summary>
+        public static bool Put(string titleId, string slot, LvnSaveSlot data)
         {
-            if (string.IsNullOrEmpty(slot) || data == null) return;
+            if (string.IsNullOrEmpty(slot) || data == null) return false;
             data.Version = LvnSaveSlot.CurrentVersion;
             data.SavedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var all = Raw(titleId);
             all[slot] = data;
-            Write(titleId, all);
+            return Write(titleId, all);
         }
 
         public static void Delete(string titleId, string slot)
@@ -162,14 +164,19 @@ namespace Lvn.UI
             Write(titleId, all);
         }
 
-        private static void Write(string titleId, Dictionary<string, LvnSaveSlot> all)
+        private static bool Write(string titleId, Dictionary<string, LvnSaveSlot> all)
         {
             try
             {
                 PlayerPrefs.SetString(Key(titleId), JsonConvert.SerializeObject(all));
                 PlayerPrefs.Save();
+                return true;
             }
-            catch (Exception e) { Debug.LogWarning("[lvn] save write failed: " + e.Message); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[lvn] save write failed: " + e.Message);
+                return false;
+            }
         }
     }
 }
