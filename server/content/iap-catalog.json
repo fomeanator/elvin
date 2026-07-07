@@ -1,8 +1,18 @@
 {
-  "gold_100":  { "currency": "gold", "amount": 100,  "title": "Handful of Gold", "price": "$0.99", "order": 1 },
-  "gold_550":  { "currency": "gold", "amount": 550,  "title": "Pouch of Gold",   "price": "$4.99", "bonus": 50,  "order": 2 },
-  "gold_1200": { "currency": "gold", "amount": 1200, "title": "Chest of Gold",   "price": "$9.99", "bonus": 200, "order": 3 },
-  "crystals_10":  { "currency": "crystals", "amount": 10,  "title": "Crystal Shard",   "price": "$1.99",  "order": 4 },
-  "crystals_60":  { "currency": "crystals", "amount": 60,  "title": "Crystal Cluster", "price": "$9.99",  "bonus": 10, "order": 5 },
-  "crystals_130": { "currency": "crystals", "amount": 130, "title": "Crystal Geode",   "price": "$19.99", "bonus": 30, "order": 6 }
+  "gold_100":  { "currency": "gold", "amount": 100,  "title": "Handful of Gold", "price": "$0.99",  "order": 1, "section": "currency1" },
+  "gold_550":  { "currency": "gold", "amount": 550,  "title": "Pouch of Gold",   "price": "$4.99",  "order": 2, "section": "currency1", "bonus": 50 },
+  "gold_1200": { "currency": "gold", "amount": 1200, "title": "Chest of Gold",   "price": "$9.99",  "order": 3, "section": "currency1", "bonus": 200 },
+  "gold_3000": { "currency": "gold", "amount": 3000, "title": "Vault of Gold",   "price": "$19.99", "order": 4, "section": "currency1", "bonus": 700 },
+
+  "energy_1":  { "currency": "energy", "amount": 1,  "title": "1 Chapter Key",  "price": "$0.99", "order": 11, "section": "currency2" },
+  "energy_3":  { "currency": "energy", "amount": 3,  "title": "3 Chapter Keys", "price": "$2.49", "order": 12, "section": "currency2" },
+  "energy_7":  { "currency": "energy", "amount": 7,  "title": "7 Chapter Keys", "price": "$4.99", "order": 13, "section": "currency2", "bonus": 1 },
+  "energy_15": { "currency": "energy", "amount": 15, "title": "15 Chapter Keys","price": "$9.99", "order": 14, "section": "currency2", "bonus": 3 },
+
+  "bundle_starter": { "title": "Starter Bundle", "price": "$4.99",  "order": 21, "section": "bundles",
+                      "currency": "gold", "amount": 500, "grants": { "gold": 500, "energy": 3 } },
+  "bundle_value":   { "title": "Adventurer Bundle", "price": "$14.99", "order": 22, "section": "bundles",
+                      "currency": "gold", "amount": 1500, "grants": { "gold": 1500, "energy": 8 } },
+  "bundle_mega":    { "title": "Hero Bundle", "price": "$29.99", "order": 23, "section": "bundles",
+                      "currency": "gold", "amount": 3500, "grants": { "gold": 3500, "energy": 20 } }
 }
