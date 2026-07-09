@@ -82,59 +82,71 @@ func StripStableIds(doc *articy.Doc) {
 
 // ── auto-staging ─────────────────────────────────────────────────────────────
 
-var sceneMarkerRe = regexp.MustCompile(`^\s*Сцена\s+\d+\.\s*(.+?)\.?\s*$`)
-
-// narratorRoles never get an on-stage sprite — the narrator, the player-choice
-// echo, and articy bookkeeping "speakers". A line from any of these clears the
-// stage (mobile convention: narration shows no one).
-var narratorRoles = map[string]bool{
-	"Автор": true, "Игрок": true, "Выбор пути": true, "Информация": true,
-	"Эпизод": true, "Отношения": true, "Туториал": true, "Смена ГГ": true,
-}
-
-// protagonistRoles are the player character — shown on the LEFT when they have a
-// sprite (the usual mobile framing: hero left, everyone else right). In a first-
-// person novel the protagonist has no sprite, so their lines just clear the stage.
-var protagonistRoles = map[string]bool{"Главный герой": true, "ГГ": true}
-
 // AutoStage enriches a dialogue script with a first pass of staging by rule.
 //
 // Mobile single-speaker model: only the CURRENT speaker is on screen, centred.
 // A character with art speaks → they fade in (and whoever was there fades out);
-// the narrator ("Автор") or any speaker with no sprite → the stage clears. A
-// scene-marker line ("Сцена N. <Location>") becomes a `bg` and clears the stage.
-// The result is regular .lvn ops the author can refine in the editor.
-func AutoStage(doc *articy.Doc, cast map[string]string) {
+// the narrator or any speaker with no sprite → the stage clears. A scene-marker
+// line ("Сцена N. <Location>") becomes a `bg` and clears the stage. Which roles
+// narrate, which is the protagonist (staged on which side), and how a scene
+// marker reads all come from the Template (nil → DefaultTemplate). The result is
+// regular .lvn ops the author can refine in the editor.
+func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
+	tpl = tpl.resolve()
+	bgExt := tpl.Staging.BgExt
+	if bgExt == "" {
+		bgExt = ".jpg"
+	}
+	protagSide := tpl.Staging.ProtagonistSide
+	if protagSide == "" {
+		protagSide = "left"
+	}
+	npcSide := tpl.Staging.NpcSide
+	if npcSide == "" {
+		npcSide = "right"
+	}
+
 	out := make([]articy.Cmd, 0, len(doc.Script))
-	current := "" // the single character on screen ("" = empty stage)
+	current := ""    // the single character on screen ("" = empty stage)
+	curEmotion := "" // the emotion the on-screen character was last shown with
 	hide := func() {
 		if current != "" {
 			out = append(out, articy.Cmd{"op": "actor", "id": Slug(current), "show": false, "exit": "fade"})
-			current = ""
+			current, curEmotion = "", ""
 		}
 	}
 	for _, c := range doc.Script {
 		if c["op"] == "say" {
 			text, _ := c["text"].(string)
 			who, _ := c["who"].(string)
-			if m := sceneMarkerRe.FindStringSubmatch(text); m != nil {
+			if loc, ok := tpl.sceneMarkerMatch(text); ok {
 				hide()
-				loc := Slug(m[1])
-				out = append(out, articy.Cmd{"op": "bg", "id": loc, "sprite_url": "/content/bg/" + loc + ".jpg"})
+				id := Slug(loc)
+				out = append(out, articy.Cmd{"op": "bg", "id": id, "sprite_url": "/content/bg/" + id + bgExt})
 				continue // a scene marker is a background, not a spoken line
 			}
-			if spr, ok := cast[who]; ok && !narratorRoles[who] {
-				// a character with a sprite speaks → show ONLY them: the hero on the
-				// left, everyone else on the right (the usual mobile framing).
-				if who != current {
-					hide() // swap out whoever was there
-					side := "right"
-					if protagonistRoles[who] {
-						side = "left"
+			if spr, ok := cast[who]; ok && !tpl.isNarrator(who) {
+				// a character with a sprite speaks → show ONLY them: the protagonist on
+				// their side, everyone else on the other (the usual mobile framing). The
+				// fragment's marker emotion rides onto the actor; a re-show is also
+				// emitted when the SAME speaker changes to a new (non-empty) emotion, so
+				// the expression tracks the dialogue without ever putting two up at once.
+				emo, _ := c["emotion"].(string)
+				if who != current || (emo != "" && emo != curEmotion) {
+					side := npcSide
+					if tpl.isProtagonist(who) {
+						side = protagSide
 					}
-					out = append(out, articy.Cmd{"op": "actor", "id": Slug(who), "show": true,
-						"position": side, "sprite_url": "/content/art/" + spr, "enter": "fade"})
-					current = who
+					if who != current {
+						hide() // swap out whoever was there
+					}
+					actor := articy.Cmd{"op": "actor", "id": Slug(who), "show": true,
+						"position": side, "sprite_url": "/content/art/" + spr, "enter": "fade"}
+					if emo != "" {
+						actor["emotion"] = emo
+					}
+					out = append(out, actor)
+					current, curEmotion = who, emo
 				}
 			} else {
 				hide() // narrator / off-screen voice → clear the stage

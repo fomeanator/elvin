@@ -70,6 +70,7 @@ export const OP_FIELDS = {
     "enter",
     "exit",
     "flip",
+    "mirror",
     "rotation",
     "opacity",
     "z",
@@ -255,6 +256,10 @@ export const ATTR_VALUES = {
     "false"
   ],
   "on": [
+    "true",
+    "false"
+  ],
+  "mirror": [
     "true",
     "false"
   ],
@@ -472,7 +477,7 @@ export const GROUPS = [
       ],
       [
         "actor",
-        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop, drag_bounds"
+        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, mirror, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop, drag_bounds"
       ],
       [
         "obj",

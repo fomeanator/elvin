@@ -67,3 +67,7 @@ server/content/.cache/
 
 # Licensed heroine art pack — LOCAL TESTING ONLY, never publish (dist/Перс.rar)
 server/content/sprites/hill/
+
+# bundle import sources (licensed art, ~1GB) and runtime version history
+content/cold/
+server/content/.history/
