@@ -77,6 +77,23 @@ namespace Lvn.UI.World
 
         // ── actors ───────────────────────────────────────────────────────────
 
+        /// <summary>The live content rect in canvas units — the device's real size
+        /// (width-matched to the reference, so its height is the true screen height,
+        /// taller than 1920 on a modern phone). Falls back to the reference before the
+        /// canvas has laid out. This is what actor placement maps against so Y=1 lands
+        /// on the actual screen bottom, matching the full-bleed background.</summary>
+        private Vector2 ContentSize()
+        {
+            // The canvas is width-matched to the reference (matchWidthOrHeight=0), so the
+            // logical width is always the reference width and the logical height is that
+            // width × the device aspect. Derive it from Screen — always valid — rather
+            // than _content.rect, which lags a layout pass and would leave actors floating
+            // at the 1920 reference bottom until the rect settles ("не всегда съезжает").
+            float sw = Screen.width, sh = Screen.height;
+            if (sw > 1f && sh > 1f) return new Vector2(_reference.x, _reference.x * (sh / sw));
+            return _reference;
+        }
+
         /// <summary>Get (or create) the <see cref="WorldActor"/> for an id.</summary>
         public WorldActor EnsureActor(string id)
         {
@@ -105,7 +122,22 @@ namespace Lvn.UI.World
             if (layers != null && layers.Count > 0)
                 a.Configure(layers, layerIds, layerRects, layerDefs);
 
+            // Size/pivot/flip come from the fixed reference so a character is the SAME
+            // size on every device. But the VERTICAL position maps against the REAL
+            // content height (the canvas is width-matched, so _content is the device's
+            // true height — taller than 1920 on a modern phone). The background is
+            // full-bleed to that rect, so without this actors stop at the 1920 reference
+            // bottom (≈82% on a tall phone) and float; remapping Y grounds Y=1 on the
+            // actual screen bottom — the figure just slides down, unchanged in size.
             WorldPlacement.Apply(a.Slot, p, _reference);
+            var content = ContentSize();
+            if (content.y > _reference.y + 0.5f)
+            {
+                var pos = a.Slot.anchoredPosition;
+                pos.y = -p.Y * content.y;
+                a.Slot.anchoredPosition = pos;
+            }
+            a.ContentSize = new Vector2(_reference.x, content.y);
             a.SetSlotBase(a.Slot.anchoredPosition);
 
             if (p.Z.HasValue) { a.transform.SetSiblingIndex(Mathf.Max(0, p.Z.Value)); }

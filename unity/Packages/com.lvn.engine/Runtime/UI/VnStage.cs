@@ -1773,7 +1773,7 @@ namespace Lvn.UI
         internal static readonly HashSet<string> ReservedActorFields = new HashSet<string>
         {
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
-            "anchor", "anchor_x", "anchor_y", "z", "flip", "rotation", "opacity",
+            "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
             "transition", "transition_duration", "enter", "exit", "play",
         };
@@ -1795,6 +1795,30 @@ namespace Lvn.UI
         {
             if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
                 _ = ApplyActorAsync(cmd);
+        }
+
+        /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
+        /// always has the active hero to dress, even when the beat left the stage empty
+        /// (imported novels open the wardrobe without staging anyone). Replays the
+        /// actor's last pose forcing it visible, or stages it fresh (centred) from its
+        /// catalog entity. No-op for an empty id.</summary>
+        public void EnsureActorShown(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            // Already on stage (the story/import staged her) → do NOTHING. Re-applying
+            // would reload the whole layered composite and lag the wardrobe open.
+            if (_placements.TryGetValue(id, out var pl) && pl.Show) return;
+            JObject cmd;
+            if (_actorCmds.TryGetValue(id, out var last) && (string)last["op"] == "actor")
+            {
+                cmd = (JObject)last.DeepClone();
+                cmd["show"] = true; // in case the last op hid her
+            }
+            else
+            {
+                cmd = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center" };
+            }
+            _ = ApplyActorAsync(cmd);
         }
 
         private void OnWardrobeChanged(string entity) => RefreshActor(entity);
@@ -1897,8 +1921,29 @@ namespace Lvn.UI
                 }
             }
 
-            var placement = _placements.TryGetValue(id, out var prevPl)
-                ? PlacementFrom(cmd, prevPl) : PlacementFrom(cmd);
+            bool fresh = !_placements.TryGetValue(id, out var prevPl);
+            var placement = fresh ? PlacementFrom(cmd) : PlacementFrom(cmd, prevPl);
+            // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
+            // the op left it unset, so every novel gets the standard bottom-anchored
+            // pose — tunable from ui.stage without editing the script. A follow-up op
+            // inherits via the sticky merge above.
+            if (Theme != null)
+            {
+                // Size/baseline seed the FIRST show; a sticky update inherits them from
+                // the previous placement, so only apply on a fresh actor.
+                if (fresh)
+                {
+                    if (cmd["y"] == null) placement.Y = Theme.ActorBaselineY;
+                    if (cmd["width"] == null) placement.Width = Placement.DefaultWidth * Theme.ActorScale;
+                    if (cmd["height"] == null) placement.Height = Placement.DefaultHeight * Theme.ActorScale;
+                }
+                // Spread must re-apply on EVERY op that positions by slot: the autostage
+                // re-emits position= on each emotion change, so the sticky merge recomputes
+                // X from SlotX (0.25/0.75) and would snap the actor back to the un-spread
+                // column after the first line. Only when X came from position, not x=.
+                if (cmd["x"] == null && cmd["position"] != null && Theme.ActorSpread != 1f)
+                    placement.X = 0.5f + (placement.X - 0.5f) * Theme.ActorSpread;
+            }
             // Layered/boned entities declare the aspect their art was authored in —
             // the renderer locks the box to it so layers register pixel-exact.
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
@@ -2051,7 +2096,7 @@ namespace Lvn.UI
             if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
             if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
             if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
-            if (cmd["flip"] != null) p.Flip = BoolOr(cmd["flip"], false);
+            if (cmd["flip"] != null || cmd["mirror"] != null) p.Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false);
             if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
             if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
             if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);
@@ -2087,7 +2132,7 @@ namespace Lvn.UI
                 AnchorX = 0.5f,
                 AnchorY = 1f,
                 Z = IntOrNull(cmd["z"]),
-                Flip = BoolOr(cmd["flip"], false),
+                Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false), // `mirror` is an authoring alias for flip
                 Rotation = NumOr(cmd["rotation"], 0f),
                 Opacity = NumOr(cmd["opacity"], 1f),
                 HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
@@ -2124,17 +2169,26 @@ namespace Lvn.UI
         {
             var axes = AxesFrom(cmd);
             var vars = _player?.Vars;
+            // Axes whose raw value was a {var} template (e.g. the imported protagonist's
+            // outfit={Wardrobe.mainCh_Clothes}) are variable-DRIVEN, not story-forced
+            // literals — a live wardrobe preview may override those in realtime, while a
+            // literal costume the writer pinned stays put. Track them for MergeInto.
+            var templated = new HashSet<string>();
             foreach (var k in new List<string>(axes.Keys))
             {
                 var v = axes[k];
-                if (!string.IsNullOrEmpty(v) && v.IndexOf('{') >= 0 && vars != null)
-                    v = TextInterpolation.Apply(v, vars);
+                bool wasTemplate = !string.IsNullOrEmpty(v) && v.IndexOf('{') >= 0;
+                if (wasTemplate)
+                {
+                    templated.Add(k);
+                    if (vars != null) v = TextInterpolation.Apply(v, vars);
+                }
                 if (string.IsNullOrEmpty(v) || v.IndexOf('{') >= 0) axes.Remove(k); // no value → no layer
                 else axes[k] = v;
             }
-            // The player's wardrobe fills axes the script left unset — the
-            // writer's explicit value above still wins (story-forced costumes).
-            LvnWardrobe.MergeInto(axes, (string)cmd["id"]);
+            // The player's wardrobe fills axes the script left unset — a story-forced
+            // literal still wins, but a preview overrides a variable-driven axis.
+            LvnWardrobe.MergeInto(axes, (string)cmd["id"], templated);
             return axes;
         }
 
