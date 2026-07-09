@@ -335,6 +335,11 @@ func (g *gen) emitFragment(n *node) (string, error) {
 		if sid := prop(n.props, "StableId"); sid != "" {
 			say["id"] = sid
 		}
+		// The articy marker colour (BackgroundColor) rides along so the importer can
+		// resolve it to an emotion; it's a transient field the importer consumes.
+		if col := prop(n.props, "BackgroundColor"); col != "" {
+			say["color"] = col
+		}
 		for k, v := range sayExtras {
 			say[k] = v
 		}

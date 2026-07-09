@@ -233,7 +233,7 @@ func cmdConvert(args []string) {
 			if err != nil {
 				die("adpd: " + err.Error())
 			}
-			importer.AutoStage(doc, cast)
+			importer.AutoStage(doc, cast, nil)
 		}
 		if *localize {
 			catalog := importer.Localize(doc)
