@@ -101,6 +101,7 @@ namespace Lvn.UI.Screens
             _scroll = new ScrollView(ScrollViewMode.Vertical);
             _scroll.style.flexGrow = 1;
             _scroll.style.flexShrink = 1;
+            _scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel
             Add(_scroll);
 
             // Sticky action bar — a sibling of the scroll, so it never scrolls away.

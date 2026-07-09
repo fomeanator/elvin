@@ -85,16 +85,23 @@ namespace Lvn.UI
             Changed?.Invoke(entity);
         }
 
-        /// <summary>Overlay the previewed + equipped values onto a command's
-        /// axes IN PLACE, filling only the axes the command didn't set — the
-        /// script's explicit value (a story-forced costume) always wins, and a
-        /// live try-on beats the committed equip. Pure; the stage calls it
-        /// from its axis resolve.</summary>
-        public static void MergeInto(Dictionary<string, string> axes, string entity)
+        /// <summary>Overlay the previewed + equipped values onto a command's axes
+        /// IN PLACE. Committed EQUIPPED only fills axes the command left unset. A live
+        /// PREVIEW fills an unset axis too, and overrides an axis the script pinned
+        /// ONLY when that axis is <paramref name="previewOverridable"/> — i.e. it was
+        /// itself driven by a story variable (a template like
+        /// <c>{Wardrobe.mainCh_Clothes}</c>). So a story-forced literal costume
+        /// (<c>actor hero armor=chain</c>) still wins over a try-on, but the imported
+        /// protagonist's variable-driven outfit updates live while she's being dressed.
+        /// Pure; the stage calls it from its axis resolve.</summary>
+        public static void MergeInto(Dictionary<string, string> axes, string entity,
+            ICollection<string> previewOverridable = null)
         {
             if (axes == null) return;
             foreach (var kv in Previewed(entity))
-                if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value))
+                if (!string.IsNullOrEmpty(kv.Value)
+                    && (!axes.ContainsKey(kv.Key)
+                        || (previewOverridable != null && previewOverridable.Contains(kv.Key))))
                     axes[kv.Key] = kv.Value;
             foreach (var kv in Load(entity))
                 if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value))

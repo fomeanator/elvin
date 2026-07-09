@@ -21,6 +21,14 @@ namespace Lvn.UI
             var t = baseline ?? new VnTheme();
             if (ui == null) return t;
 
+            var stg = ui.stage;
+            if (stg != null)
+            {
+                if (stg.actor_y.HasValue) t.ActorBaselineY = stg.actor_y.Value;
+                if (stg.actor_scale.HasValue) t.ActorScale = stg.actor_scale.Value;
+                if (stg.actor_spread.HasValue) t.ActorSpread = stg.actor_spread.Value;
+            }
+
             var d = ui.dialogue;
             if (d != null)
             {
@@ -41,6 +49,8 @@ namespace Lvn.UI
                 if (!string.IsNullOrEmpty(d.anchor)) t.BoxAnchor = d.anchor;
                 if (d.edge_padding.HasValue) t.EdgePadding = d.edge_padding.Value;
                 if (d.bottom_padding.HasValue) t.BottomPadding = d.bottom_padding.Value;
+                if (d.bottom_lift_percent.HasValue) t.BottomLiftPercent = d.bottom_lift_percent.Value;
+                if (d.dock_top_percent.HasValue) t.DockTopPercent = d.dock_top_percent.Value;
                 if (d.panel_padding_x.HasValue) t.PanelPaddingX = d.panel_padding_x.Value;
                 if (d.panel_padding_y.HasValue) t.PanelPaddingY = d.panel_padding_y.Value;
                 if (d.panel_min_height.HasValue) t.PanelMinHeight = d.panel_min_height.Value;
