@@ -105,6 +105,22 @@ namespace Lvn.Tests
             finally { LvnWardrobe.ClearPreview(Entity); }
         }
 
+        // The other side of the contract: an axis that was VARIABLE-driven (the
+        // imported protagonist's outfit={Wardrobe.mainCh_Clothes}) is overridable, so
+        // a live try-on updates the on-stage mirror in realtime while she's dressed.
+        [Test]
+        public void Wardrobe_PreviewOverridesVariableDrivenAxis()
+        {
+            LvnWardrobe.Preview(Entity, "armor", "chain");
+            try
+            {
+                var axes = new Dictionary<string, string> { ["armor"] = "leather" };
+                LvnWardrobe.MergeInto(axes, Entity, new HashSet<string> { "armor" });
+                Assert.AreEqual("chain", axes["armor"], "a variable-driven axis yields to the preview");
+            }
+            finally { LvnWardrobe.ClearPreview(Entity); }
+        }
+
         // ── WardrobeScreen ──
         private static LvnManifest Manifest()
         {

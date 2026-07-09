@@ -73,6 +73,8 @@ namespace Lvn.UI.Screens
             sheet.Add(title);
 
             _list = new ScrollView(ScrollViewMode.Vertical);
+            _list.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 

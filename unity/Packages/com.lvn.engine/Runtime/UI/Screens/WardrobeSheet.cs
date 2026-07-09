@@ -37,6 +37,11 @@ namespace Lvn.UI.Screens
         /// <summary>Host hook: open the currency store (the pills' "+" tap).
         /// NovelShell wires this to its StoreScreen.</summary>
         public System.Func<Task> OpenStore;
+        /// <summary>Fired on confirm, once per equipped axis that carries a story `var`
+        /// (entity, storyVar, value) — the host writes it back into the novel's state.
+        /// Not fired on cancel/collapse or for a skipped axis, so an unchanged slot
+        /// keeps its current value.</summary>
+        public System.Action<string, string, string> OnEquip;
 
         private LvnManifest _manifest;
         private string _entity;
@@ -135,7 +140,7 @@ namespace Lvn.UI.Screens
             _tabs = new VisualElement();
             _tabs.style.flexDirection = FlexDirection.Row;
             _tabs.style.justifyContent = Justify.Center;
-            _tabs.style.marginTop = 12;
+            _tabs.style.marginTop = 24; // breathing room under the title before the tabs
             Add(_tabs);
 
             // ◀ item name ▶
@@ -477,6 +482,11 @@ namespace Lvn.UI.Screens
                         }
                     }
                     LvnWardrobe.Equip(_entity, kv.Key, kv.Value);
+                    // Write the pick back into the novel's story state (nested var) so
+                    // its downstream logic reads the choice — only for axes bound to one.
+                    string sv = _def?.wardrobe != null && _def.wardrobe.TryGetValue(kv.Key, out var slot)
+                        ? slot.storyVar : null;
+                    if (!string.IsNullOrEmpty(sv)) OnEquip?.Invoke(_entity, sv, kv.Value);
                 }
                 Debug.Log($"[lvn-wardrobe] sheet confirm DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]" +
                           (failed.Count > 0 ? $", failed [{string.Join(", ", failed)}]" : ""));

@@ -145,6 +145,12 @@ namespace Lvn.Content
         /// <summary>Can the slot be emptied (item taken off)? Default true —
         /// matches the layer model where an unset axis draws nothing.</summary>
         public bool? removable;
+        /// <summary>Story variable this axis drives (e.g. "Wardrobe.mainCh_Clothes").
+        /// When set, equipping the axis in the in-story sheet writes the picked value
+        /// back into the novel's state so its logic sees the choice. Empty = wardrobe-
+        /// only (no write-back). JSON key is "var" (a C# keyword, hence the alias).</summary>
+        [Newtonsoft.Json.JsonProperty("var")]
+        public string storyVar;
         public List<LvnWardrobeItem> items;
     }
 
