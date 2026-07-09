@@ -57,6 +57,7 @@
       "enter",
       "exit",
       "flip",
+      "mirror",
       "rotation",
       "opacity",
       "z",
@@ -316,6 +317,10 @@
       "false"
     ],
     "on": [
+      "true",
+      "false"
+    ],
+    "mirror": [
       "true",
       "false"
     ],
