@@ -1,15 +1,21 @@
 // The fixed header: identity, a breadcrumb (Library › Novel) with the
 // Characters / Script switch once a novel is open, and the shared admin token.
 export default function TopBar({ nav, status, creds }) {
-  const inside = nav.titleId != null;
+  const admin = nav.mode === "admin";
+  const inside = !admin && nav.titleId != null;
   return (
     <header className="topbar">
       <div className="brand">
-        <button className="brand-mark as-link" onClick={nav.goHome} title="Library">
+        <button className="brand-mark as-link" onClick={() => { nav.setMode("studio"); nav.goHome(); }} title="Library">
           ELVIN <em>IDE</em>
         </button>
 
-        {inside ? (
+        <div className="mode-switch" role="tablist">
+          <button className={"vbtn" + (!admin ? " active" : "")} onClick={() => nav.setMode("studio")}>Студия</button>
+          <button className={"vbtn" + (admin ? " active" : "")} onClick={() => nav.setMode("admin")}>Админка</button>
+        </div>
+
+        {admin ? null : inside ? (
           <>
             <span className="crumb-sep">›</span>
             <button className="crumb" onClick={nav.goHome}>Library</button>
