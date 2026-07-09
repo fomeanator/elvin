@@ -1,16 +1,11 @@
 import { forwardRef, useImperativeHandle, useRef, useEffect } from "react";
-import Editor, { loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import Editor from "@monaco-editor/react";
+import { monaco } from "../lib/monacoSetup.js"; // shared bootstrap: workers (editor+json) + loader
 import { OP_DOCS, OPS, DIRECTIVES, SOURCE_OPS } from "lvn-lang/grammar.js";
 import {
   completionAt, hoverAt, definitionAt, documentSymbols, predictGhost, labelsIn, labelInfo, varInfo,
   labelOccurrences,
 } from "lvn-lang/analyze.js";
-
-// Bundle Monaco from npm (no CDN) and give it a local worker — works offline.
-self.MonacoEnvironment = { getWorker: () => new editorWorker() };
-loader.config({ monaco });
 
 // actor_map aliases parsed straight from the document, for character completion.
 function actorMapOf(text) {
