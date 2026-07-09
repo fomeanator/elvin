@@ -660,6 +660,29 @@
       ],
       "name": "Zoya"
     },
+    "ball_dance": {
+      "kind": "spine",
+      "name": "ball_dance",
+      "spine": {
+        "atlas": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.atlas.txt",
+        "auto": "Vampire_21_Ball_Dance_Anim_over_static",
+        "json": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.json",
+        "scale": 1,
+        "texture": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.png"
+      }
+    },
+    "bathroom": {
+      "kind": "spine",
+      "name": "bathroom",
+      "spine": {
+        "atlas": "/content/spine/bathroom/Bathroom_mansion.atlas.txt",
+        "auto": "Bathroom_mansion_static",
+        "bg": "/content/spine/bathroom/back.jpg",
+        "json": "/content/spine/bathroom/Bathroom_mansion.json",
+        "scale": 1,
+        "texture": "/content/spine/bathroom/Bathroom_mansion.png"
+      }
+    },
     "codel": {
       "axes": {
         "emotion": [
@@ -834,6 +857,17 @@
         }
       ],
       "name": "Кукла"
+    },
+    "dragon": {
+      "kind": "spine",
+      "name": "dragon",
+      "spine": {
+        "atlas": "/content/spine/dragon/back_static_2.atlas.txt",
+        "auto": "back_static_2",
+        "json": "/content/spine/dragon/back_static_2.json",
+        "scale": 1,
+        "texture": "/content/spine/dragon/back_static_2.png"
+      }
     },
     "goblin2": {
       "anim": {
@@ -1122,41 +1156,299 @@
       "name": "Странник",
       "wardrobe": {
         "armor": {
-          "name": "Броня",
           "items": [
             {
-              "value": "leather",
+              "icon": "/content/sprites/hero/armor_leather.png",
               "name": "Кожаный доспех",
-              "icon": "/content/sprites/hero/armor_leather.png"
+              "value": "leather"
             },
             {
-              "value": "chain",
-              "name": "Кольчуга",
-              "icon": "/content/sprites/hero/armor_chain.png",
               "currency": "gold",
+              "icon": "/content/sprites/hero/armor_chain.png",
+              "name": "Кольчуга",
               "price": 300,
-              "rarity": "rare"
+              "rarity": "rare",
+              "value": "chain"
             }
-          ]
+          ],
+          "name": "Броня"
         },
         "weapon": {
-          "name": "Оружие",
           "items": [
             {
-              "value": "sword",
+              "icon": "/content/sprites/hero/weapon_sword.png",
               "name": "Меч странника",
-              "icon": "/content/sprites/hero/weapon_sword.png"
+              "value": "sword"
             },
             {
-              "value": "heavy",
-              "name": "Тяжёлый клинок",
-              "icon": "/content/sprites/hero/weapon_heavy.png",
               "currency": "gold",
+              "icon": "/content/sprites/hero/weapon_heavy.png",
+              "name": "Тяжёлый клинок",
               "price": 500,
-              "rarity": "epic"
+              "rarity": "epic",
+              "value": "heavy"
             }
-          ]
+          ],
+          "name": "Оружие"
         }
+      }
+    },
+    "hill": {
+      "aspect": 0.78125,
+      "axes": {
+        "decor": [
+          "poppy",
+          "rose",
+          "orchid",
+          "orchid2"
+        ],
+        "emotion": [
+          "anger",
+          "boredom",
+          "delight",
+          "discontent",
+          "dreamy",
+          "fear",
+          "flirt",
+          "happy",
+          "horny",
+          "idle",
+          "medium",
+          "offence",
+          "sad",
+          "sarcasm",
+          "shame",
+          "sleep",
+          "smirk",
+          "surprised",
+          "tears",
+          "thoughtfulness"
+        ],
+        "face": [
+          "west",
+          "north"
+        ],
+        "hair": [
+          "black",
+          "blond",
+          "brunette",
+          "red"
+        ],
+        "outfit": [
+          "peignoir",
+          "peignoir_wet",
+          "medical",
+          "poppy",
+          "rose",
+          "orchid"
+        ],
+        "hairstyle": [
+          "poppy",
+          "rose",
+          "orchid"
+        ]
+      },
+      "color": "#d9a7c7",
+      "defaults": {
+        "face": "west",
+        "hair": "black",
+        "outfit": "poppy",
+        "hairstyle": "poppy"
+      },
+      "kind": "layered",
+      "layers": [
+        {
+          "id": "body",
+          "url": "/content/sprites/hill/body_{face}.png"
+        },
+        {
+          "id": "clothes",
+          "url": "/content/sprites/hill/clothes_{outfit}.png"
+        },
+        {
+          "id": "decor",
+          "url": "/content/sprites/hill/decor_{decor}.png"
+        },
+        {
+          "id": "face",
+          "url": "/content/sprites/hill/face_{face}_{emotion}.png"
+        },
+        {
+          "id": "hair",
+          "url": "/content/sprites/hill/hair_{hairstyle}_{hair}.png"
+        }
+      ],
+      "name": "Хилл",
+      "wardrobe": {
+        "decor": {
+          "items": [
+            {
+              "icon": "/content/sprites/hill/decor_poppy.png",
+              "name": "Кулон «Мак»",
+              "value": "poppy"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/decor_rose.png",
+              "name": "Кулон «Роза»",
+              "price": 80,
+              "value": "rose"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/decor_orchid.png",
+              "name": "Колье «Орхидея»",
+              "price": 120,
+              "rarity": "rare",
+              "value": "orchid"
+            },
+            {
+              "currency": "crystals",
+              "icon": "/content/sprites/hill/decor_orchid2.png",
+              "name": "Серьги «Орхидея»",
+              "price": 10,
+              "rarity": "epic",
+              "value": "orchid2"
+            }
+          ],
+          "name": "Украшения"
+        },
+        "face": {
+          "items": [
+            {
+              "icon": "/content/sprites/hill/face_west_idle.png",
+              "name": "Запад",
+              "value": "west"
+            },
+            {
+              "currency": "crystals",
+              "icon": "/content/sprites/hill/face_north_idle.png",
+              "name": "Север",
+              "price": 20,
+              "rarity": "epic",
+              "value": "north"
+            }
+          ],
+          "name": "Внешность",
+          "removable": false
+        },
+        "hair": {
+          "items": [
+            {
+              "icon": "/content/sprites/hill/hair_poppy_black.png",
+              "name": "Чёрные волосы",
+              "value": "black"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/hair_poppy_brunette.png",
+              "name": "Каштановые",
+              "price": 100,
+              "value": "brunette"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/hair_poppy_blond.png",
+              "name": "Блонд",
+              "price": 100,
+              "value": "blond"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/hair_poppy_red.png",
+              "name": "Рыжие",
+              "price": 100,
+              "rarity": "rare",
+              "value": "red"
+            }
+          ],
+          "name": "Цвет волос",
+          "removable": false
+        },
+        "hairstyle": {
+          "items": [
+            {
+              "icon": "/content/sprites/hill/hair_poppy_black.png",
+              "name": "Распущенные",
+              "value": "poppy"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/hair_rose_black.png",
+              "name": "Хвост «Роза»",
+              "price": 150,
+              "rarity": "rare",
+              "value": "rose"
+            },
+            {
+              "currency": "crystals",
+              "icon": "/content/sprites/hill/hair_orchid_black.png",
+              "name": "Локоны «Орхидея»",
+              "price": 15,
+              "rarity": "epic",
+              "value": "orchid"
+            }
+          ],
+          "name": "Причёска",
+          "removable": false
+        },
+        "outfit": {
+          "items": [
+            {
+              "icon": "/content/sprites/hill/clothes_poppy.png",
+              "name": "Сонный мак",
+              "value": "poppy"
+            },
+            {
+              "icon": "/content/sprites/hill/clothes_peignoir.png",
+              "name": "Пеньюар",
+              "value": "peignoir"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/clothes_peignoir_wet.png",
+              "name": "Пеньюар (мокрый)",
+              "price": 150,
+              "value": "peignoir_wet"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/clothes_medical.png",
+              "name": "Медицинский халат",
+              "price": 150,
+              "value": "medical"
+            },
+            {
+              "currency": "gold",
+              "icon": "/content/sprites/hill/clothes_rose.png",
+              "name": "Роза",
+              "price": 300,
+              "rarity": "rare",
+              "value": "rose"
+            },
+            {
+              "currency": "crystals",
+              "icon": "/content/sprites/hill/clothes_orchid.png",
+              "name": "Орхидея",
+              "price": 30,
+              "rarity": "epic",
+              "value": "orchid"
+            }
+          ],
+          "name": "Наряд",
+          "removable": false
+        }
+      }
+    },
+    "hill_lucien": {
+      "kind": "spine",
+      "name": "hill_lucien",
+      "spine": {
+        "atlas": "/content/spine/hill_lucien/Hill_Death_of_Lucien.atlas.txt",
+        "auto": "Hill_Death_of_Lucien_static",
+        "json": "/content/spine/hill_lucien/Hill_Death_of_Lucien.json",
+        "scale": 1,
+        "texture": "/content/spine/hill_lucien/Hill_Death_of_Lucien.png"
       }
     },
     "knight": {
@@ -1168,6 +1460,18 @@
         "json": "/content/spine/knight/knight.json",
         "scale": 1,
         "texture": "/content/spine/knight/CharacterAnimation_01.png"
+      }
+    },
+    "mansion_livingroom": {
+      "kind": "spine",
+      "name": "mansion_livingroom",
+      "spine": {
+        "atlas": "/content/spine/mansion_livingroom/Mansion_livingroom.atlas.txt",
+        "auto": "Mansion_livingroom_static",
+        "bg": "/content/spine/mansion_livingroom/back.jpg",
+        "json": "/content/spine/mansion_livingroom/Mansion_livingroom.json",
+        "scale": 1,
+        "texture": "/content/spine/mansion_livingroom/Mansion_livingroom.png"
       }
     },
     "mara": {
@@ -1270,10 +1574,55 @@
       ],
       "name": "Mara"
     },
+    "masquerade": {
+      "kind": "spine",
+      "name": "masquerade",
+      "spine": {
+        "atlas": "/content/spine/masquerade/Masquerade.atlas.txt",
+        "auto": "masquerade_static",
+        "json": "/content/spine/masquerade/Masquerade.json",
+        "scale": 1,
+        "texture": "/content/spine/masquerade/Masquerade.png"
+      }
+    },
+    "noel": {
+      "kind": "spine",
+      "name": "Noel & Phantom",
+      "spine": {
+        "atlas": "/content/spine/noel/noel.atlas.txt",
+        "auto": "static_Noel_Phantom",
+        "bg": "/content/spine/noel/back.jpg",
+        "json": "/content/spine/noel/noel.json",
+        "scale": 0.8,
+        "texture": "/content/spine/noel/Hill_Noel_and_Phantom.png"
+      }
+    },
     "porch": {
       "layers": [
         "/content/bg/porch.jpg"
       ]
+    },
+    "river_winter": {
+      "kind": "spine",
+      "name": "river_winter",
+      "spine": {
+        "atlas": "/content/spine/river_winter/River_winter.atlas.txt",
+        "auto": "night_static",
+        "json": "/content/spine/river_winter/River_winter.json",
+        "scale": 1,
+        "texture": "/content/spine/river_winter/River_winter.png"
+      }
+    },
+    "singer": {
+      "kind": "spine",
+      "name": "singer",
+      "spine": {
+        "atlas": "/content/spine/singer/Phymessh_kat_microphone_28.atlas.txt",
+        "auto": "Phymessh_kat_microphone_28_static",
+        "json": "/content/spine/singer/Phymessh_kat_microphone_28.json",
+        "scale": 1,
+        "texture": "/content/spine/singer/Phymessh_kat_microphone_28.png"
+      }
     },
     "skeleton": {
       "anim": {
@@ -1336,159 +1685,89 @@
       ],
       "name": "Скелет"
     },
-    "noel": {
-      "kind": "spine",
-      "name": "Noel & Phantom",
-      "spine": {
-        "json": "/content/spine/noel/noel.json",
-        "atlas": "/content/spine/noel/noel.atlas.txt",
-        "texture": "/content/spine/noel/Hill_Noel_and_Phantom.png",
-        "bg": "/content/spine/noel/back.jpg",
-        "scale": 0.8,
-        "auto": "static_Noel_Phantom"
-      }
-    },
-    "masquerade": {
-      "kind": "spine",
-      "name": "masquerade",
-      "spine": {
-        "json": "/content/spine/masquerade/Masquerade.json",
-        "atlas": "/content/spine/masquerade/Masquerade.atlas.txt",
-        "texture": "/content/spine/masquerade/Masquerade.png",
-        "scale": 1,
-        "auto": "masquerade_static"
-      }
-    },
-    "mansion_livingroom": {
-      "kind": "spine",
-      "name": "mansion_livingroom",
-      "spine": {
-        "json": "/content/spine/mansion_livingroom/Mansion_livingroom.json",
-        "atlas": "/content/spine/mansion_livingroom/Mansion_livingroom.atlas.txt",
-        "texture": "/content/spine/mansion_livingroom/Mansion_livingroom.png",
-        "scale": 1,
-        "auto": "Mansion_livingroom_static",
-        "bg": "/content/spine/mansion_livingroom/back.jpg"
-      }
-    },
     "vampires": {
       "kind": "spine",
       "name": "vampires",
       "spine": {
-        "json": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.json",
         "atlas": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.atlas.txt",
-        "texture": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.png",
-        "scale": 1,
         "auto": "static_midnight",
-        "bg": "/content/spine/vampires/back.jpg"
-      }
-    },
-    "river_winter": {
-      "kind": "spine",
-      "name": "river_winter",
-      "spine": {
-        "json": "/content/spine/river_winter/River_winter.json",
-        "atlas": "/content/spine/river_winter/River_winter.atlas.txt",
-        "texture": "/content/spine/river_winter/River_winter.png",
+        "bg": "/content/spine/vampires/back.jpg",
+        "json": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.json",
         "scale": 1,
-        "auto": "night_static"
-      }
-    },
-    "singer": {
-      "kind": "spine",
-      "name": "singer",
-      "spine": {
-        "json": "/content/spine/singer/Phymessh_kat_microphone_28.json",
-        "atlas": "/content/spine/singer/Phymessh_kat_microphone_28.atlas.txt",
-        "texture": "/content/spine/singer/Phymessh_kat_microphone_28.png",
-        "scale": 1,
-        "auto": "Phymessh_kat_microphone_28_static"
-      }
-    },
-    "bathroom": {
-      "kind": "spine",
-      "name": "bathroom",
-      "spine": {
-        "json": "/content/spine/bathroom/Bathroom_mansion.json",
-        "atlas": "/content/spine/bathroom/Bathroom_mansion.atlas.txt",
-        "texture": "/content/spine/bathroom/Bathroom_mansion.png",
-        "scale": 1,
-        "auto": "Bathroom_mansion_static",
-        "bg": "/content/spine/bathroom/back.jpg"
-      }
-    },
-    "hill_lucien": {
-      "kind": "spine",
-      "name": "hill_lucien",
-      "spine": {
-        "json": "/content/spine/hill_lucien/Hill_Death_of_Lucien.json",
-        "atlas": "/content/spine/hill_lucien/Hill_Death_of_Lucien.atlas.txt",
-        "texture": "/content/spine/hill_lucien/Hill_Death_of_Lucien.png",
-        "scale": 1,
-        "auto": "Hill_Death_of_Lucien_static"
-      }
-    },
-    "znahari_plowing": {
-      "kind": "spine",
-      "name": "znahari_plowing",
-      "spine": {
-        "json": "/content/spine/znahari_plowing/ZnahariPlowing.json",
-        "atlas": "/content/spine/znahari_plowing/ZnahariPlowing.atlas.txt",
-        "texture": "/content/spine/znahari_plowing/ZnahariPlowing.png",
-        "scale": 1,
-        "auto": "ZnahariPlowing_static",
-        "bg": "/content/spine/znahari_plowing/back.jpg"
-      }
-    },
-    "znahari_ritual": {
-      "kind": "spine",
-      "name": "znahari_ritual",
-      "spine": {
-        "json": "/content/spine/znahari_ritual/Znahari_ward_ritual.json",
-        "atlas": "/content/spine/znahari_ritual/Znahari_ward_ritual.atlas.txt",
-        "texture": "/content/spine/znahari_ritual/Znahari_ward_ritual.png",
-        "scale": 1,
-        "auto": "Znahari_wardritual_static",
-        "bg": "/content/spine/znahari_ritual/back.jpg"
-      }
-    },
-    "ball_dance": {
-      "kind": "spine",
-      "name": "ball_dance",
-      "spine": {
-        "json": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.json",
-        "atlas": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.atlas.txt",
-        "texture": "/content/spine/ball_dance/Vampire_21_Ball_Dance_Anim_over.png",
-        "scale": 1,
-        "auto": "Vampire_21_Ball_Dance_Anim_over_static"
+        "texture": "/content/spine/vampires/Vampire_Ada_Michael_Dorian_20_Anim.png"
       }
     },
     "wardrobe": {
       "kind": "spine",
       "name": "wardrobe",
       "spine": {
-        "json": "/content/spine/wardrobe/back_static.json",
         "atlas": "/content/spine/wardrobe/back_static.atlas.txt",
-        "texture": "/content/spine/wardrobe/back_static.png",
+        "auto": "back_static",
+        "json": "/content/spine/wardrobe/back_static.json",
         "scale": 1,
-        "auto": "back_static"
+        "texture": "/content/spine/wardrobe/back_static.png"
       }
     },
-    "dragon": {
+    "znahari_plowing": {
       "kind": "spine",
-      "name": "dragon",
+      "name": "znahari_plowing",
       "spine": {
-        "json": "/content/spine/dragon/back_static_2.json",
-        "atlas": "/content/spine/dragon/back_static_2.atlas.txt",
-        "texture": "/content/spine/dragon/back_static_2.png",
+        "atlas": "/content/spine/znahari_plowing/ZnahariPlowing.atlas.txt",
+        "auto": "ZnahariPlowing_static",
+        "bg": "/content/spine/znahari_plowing/back.jpg",
+        "json": "/content/spine/znahari_plowing/ZnahariPlowing.json",
         "scale": 1,
-        "auto": "back_static_2"
+        "texture": "/content/spine/znahari_plowing/ZnahariPlowing.png"
+      }
+    },
+    "znahari_ritual": {
+      "kind": "spine",
+      "name": "znahari_ritual",
+      "spine": {
+        "atlas": "/content/spine/znahari_ritual/Znahari_ward_ritual.atlas.txt",
+        "auto": "Znahari_wardritual_static",
+        "bg": "/content/spine/znahari_ritual/back.jpg",
+        "json": "/content/spine/znahari_ritual/Znahari_ward_ritual.json",
+        "scale": 1,
+        "texture": "/content/spine/znahari_ritual/Znahari_ward_ritual.png"
       }
     }
   },
   "titles": [
     {
+      "description": "Локальная тестовая сцена: героиня Хилл, эмоции и гардероб по ходу сюжета.",
+      "id": "wardrobe-test",
+      "name": "Гардероб — тест",
+      "seasons": [
+        {
+          "chapters": [
+            {
+              "bg_url": "/content/bg/Dressing_room.jpg",
+              "id": "wardrobe-test-ch1",
+              "name": "Примерочная",
+              "number": 1,
+              "script_url": "/content/scripts/wardrobe-test.lvn"
+            }
+          ],
+          "id": "s1",
+          "name": "Тест"
+        }
+      ]
+    },
+    {
       "cover_url": "/content/sprites/doll/cover.png",
+      "gallery": [
+        {
+          "id": "cg-cover",
+          "name": "Обложка",
+          "url": "/content/sprites/doll/cover.png"
+        },
+        {
+          "id": "cg-room",
+          "name": "Комната",
+          "url": "/content/sprites/doll/bg.png"
+        }
+      ],
       "id": "doll-demo",
       "name": "Кукла",
       "seasons": [
@@ -1532,19 +1811,7 @@
           ]
         }
       ],
-      "subtitle": "Демо костей и пружин",
-      "gallery": [
-        {
-          "id": "cg-cover",
-          "url": "/content/sprites/doll/cover.png",
-          "name": "Обложка"
-        },
-        {
-          "id": "cg-room",
-          "url": "/content/sprites/doll/bg.png",
-          "name": "Комната"
-        }
-      ]
+      "subtitle": "Демо костей и пружин"
     },
     {
       "cover_url": "/content/bg/hh_room2.jpg",
@@ -5058,7 +5325,8 @@
               "bg_url": "/content/bg/fantasy_forest.jpg",
               "id": "rpg-inv-ch1",
               "number": 1,
-              "script_url": "/content/scripts/rpg-inv.lvn"
+              "script_url": "/content/scripts/rpg-inv.lvn",
+              "name": ""
             }
           ]
         }
@@ -5084,10 +5352,9 @@
       }
     },
     {
+      "cover_url": "/content/spine/masquerade/Masquerade.png",
       "id": "anna-mystery",
       "name": "Галерея Анны",
-      "subtitle": "Последовательный показ всех Spine-сцен (арт: Анна)",
-      "cover_url": "/content/spine/masquerade/Masquerade.png",
       "seasons": [
         {
           "chapters": [
@@ -5099,10 +5366,21 @@
             }
           ]
         }
-      ]
+      ],
+      "subtitle": "Последовательный показ всех Spine-сцен (арт: Анна)"
     }
   ],
   "ui": {
+    "auth": {
+      "enabled": true,
+      "name_prompt": "Как тебя зовут?",
+      "offline_text": "Оффлайн — прогресс хранится на устройстве",
+      "signed_text": "Аккаунт подключён",
+      "signing_text": "Подключение…",
+      "start_text": "Начать",
+      "subtitle": "Истории, которые оживают",
+      "title": "Добро пожаловать"
+    },
     "carousel": {
       "chapters_text": "Главы",
       "continue_text": "Продолжить",
@@ -5119,7 +5397,9 @@
         "close": "Закрыть",
         "empty": "— пусто —",
         "exit": "Выйти в меню",
+        "gallery": "Галерея",
         "history": "История",
+        "input_ok": "Готово",
         "language": "Язык",
         "language_original": "Оригинал",
         "load": "Загрузить",
@@ -5133,56 +5413,46 @@
         "settings": "Настройки",
         "sfx": "Эффекты",
         "skip": "Пропуск",
+        "skip_read_only": "Скип: только прочитанное",
         "slot": "Слот",
         "text_speed": "Скорость текста",
-        "window_opacity": "Прозрачность окна",
-        "gallery": "Галерея",
-        "skip_read_only": "Скип: только прочитанное",
         "voice": "Озвучка",
-        "input_ok": "Готово"
+        "window_opacity": "Прозрачность окна"
       }
     },
     "sounds": {
-      "click": "/content/ui/sounds/click.wav",
       "choice": "/content/ui/sounds/choice.wav",
+      "click": "/content/ui/sounds/click.wav",
       "type": "/content/ui/sounds/type.wav",
       "volume": 0.8
     },
-    "auth": {
-      "enabled": true,
-      "title": "Добро пожаловать",
-      "subtitle": "Истории, которые оживают",
-      "name_prompt": "Как тебя зовут?",
-      "start_text": "Начать",
-      "signing_text": "Подключение…",
-      "signed_text": "Аккаунт подключён",
-      "offline_text": "Оффлайн — прогресс хранится на устройстве"
-    },
     "store": {
-      "title": "Магазин",
-      "menu_label": "Магазин",
+      "bonus_text": "+{0} бонусом",
       "buy_text": "Купить",
       "close_text": "Закрыть",
-      "empty_text": "Магазин сейчас закрыт",
-      "bonus_text": "+{0} бонусом",
       "currency_names": {
-        "gold": "золота",
-        "crystals": "кристаллов"
-      }
+        "crystals": "кристаллов",
+        "gold": "золота"
+      },
+      "empty_text": "Магазин сейчас закрыт",
+      "menu_label": "Магазин",
+      "title": "Магазин"
     },
     "wardrobe": {
+      "close_text": "Закрыть",
+      "confirm_text": "Выбрать наряд",
+      "empty_text": "Гардероб пуст",
       "entity": "hero",
-      "title": "Гардероб",
-      "menu_label": "Гардероб",
       "equip_text": "Надеть",
       "equipped_text": "Надето",
-      "remove_text": "Снять",
-      "close_text": "Закрыть",
-      "empty_text": "Гардероб пуст",
+      "insufficient_text": "Не хватает",
+      "menu_label": "Гардероб",
       "rarity_colors": {
-        "rare": "#5aa0e6",
-        "epic": "#b06ae6"
-      }
+        "epic": "#b06ae6",
+        "rare": "#5aa0e6"
+      },
+      "remove_text": "Снять",
+      "title": "Гардероб"
     }
   }
 }
