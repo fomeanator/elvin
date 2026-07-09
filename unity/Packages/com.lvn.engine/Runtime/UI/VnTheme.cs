@@ -69,6 +69,14 @@ namespace Lvn.UI
         public float EdgePadding = 24f;
         [Tooltip("Gap below the dialogue block to the screen bottom (px).")]
         public float BottomPadding = 28f;
+        [Tooltip("Lift the whole docked dialogue box up by this percent of screen " +
+                 "height (0 = flush to the bottom, 15 = a bit higher). Free-popup / NVL " +
+                 "modes ignore it.")]
+        public float BottomLiftPercent = 0f;
+        [Tooltip("Anchor the docked box by its TOP at this percent of screen height " +
+                 "so it GROWS DOWNWARD as the text lengthens (instead of upward). " +
+                 "<0 (default) = bottom-anchored (grows up, uses BottomLiftPercent).")]
+        public float DockTopPercent = -1f;
         [Tooltip("Body panel inner horizontal / vertical padding (px).")]
         public float PanelPaddingX = 22f;
         public float PanelPaddingY = 18f;
@@ -77,6 +85,20 @@ namespace Lvn.UI
         [Tooltip("Nameplate inner horizontal / vertical padding (px).")]
         public float NamePaddingX = 14f;
         public float NamePaddingY = 4f;
+
+        [Header("Stage / actors")]
+        [Tooltip("Vertical baseline for a staged character: the screen fraction where " +
+                 "their bottom-anchored feet land. 1 = flush to the screen bottom; >1 " +
+                 "sinks them (feet off-screen, head lower — the usual portrait framing).")]
+        public float ActorBaselineY = 1f;
+        [Tooltip("Multiplier on the default actor size (standard VN framing is already " +
+                 "large). 1 = default; 1.2 = 20% bigger. Per-op width=/height= override.")]
+        public float ActorScale = 1f;
+        [Tooltip("Multiplier on a positioned actor's horizontal offset from centre. " +
+                 "1 = default (left=0.25/right=0.75); 0.6 pulls left/right in by 10% of " +
+                 "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +
+                 "sets an explicit x=.")]
+        public float ActorSpread = 1f;
 
         [Header("Reveal")]
         [Tooltip("Typewriter speed in characters per second.")]

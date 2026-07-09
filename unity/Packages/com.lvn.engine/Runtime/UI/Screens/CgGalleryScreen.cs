@@ -114,6 +114,8 @@ namespace Lvn.UI.Screens
 
             // ── Grid of tiles ──────────────────────────────────────────────────
             _grid = new ScrollView(ScrollViewMode.Vertical);
+            _grid.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _grid.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _grid.style.flexGrow = 1;
             _grid.contentContainer.style.flexDirection = FlexDirection.Row;
             _grid.contentContainer.style.flexWrap = Wrap.Wrap;

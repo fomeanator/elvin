@@ -23,6 +23,7 @@ namespace Lvn.Content
         public CarouselConfig carousel;
         public BrowseConfig browse;
         public HudConfig hud;
+        public StageConfig stage;
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
         public MenuConfig menu;
@@ -270,6 +271,16 @@ namespace Lvn.Content
         public Dictionary<string, string> labels;
     }
 
+    /// <summary>On-stage character framing: where a bottom-anchored actor sits and
+    /// how big. Maps onto <c>VnTheme.ActorBaselineY</c>/<c>ActorScale</c>. Lets a novel
+    /// tune the "standard pose" from the manifest without touching the engine.</summary>
+    public sealed class StageConfig
+    {
+        public float? actor_y;      // bottom-anchored feet baseline (screen fraction); 1 = screen bottom, >1 sinks
+        public float? actor_scale;  // multiplier on the default actor size; 1 = default
+        public float? actor_spread; // multiplier on left/right offset from centre; 1 = default, <1 = closer to centre
+    }
+
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
     /// reveal. Maps onto the engine's <c>VnTheme</c> so the whole game — not just
     /// the shell screens — is themeable from the manifest. Every field optional.</summary>
@@ -296,6 +307,8 @@ namespace Lvn.Content
 
         public float? edge_padding;      // inset from screen edges; default 24
         public float? bottom_padding;    // gap to screen bottom; default 28
+        public float? bottom_lift_percent; // lift the docked box up by this % of screen height; default 0
+        public float? dock_top_percent;    // anchor docked box by its TOP at this % → grows DOWN; <0 = bottom-anchored
         public float? panel_padding_x;   // body inner padding; default 22
         public float? panel_padding_y;   // default 18
         public float? panel_min_height;  // default 128
@@ -388,6 +401,7 @@ namespace Lvn.Content
         public string more_text;         // card details button; default "Подробнее"
         public string featured_text;     // featured-banner eyebrow; default "Рекомендуем"
         public string continue_text;     // resume banner label; default "Продолжить"
+        public string library_text;      // auto row for un-collected titles; default "Новеллы"
         public string nav_home;          // bottom nav labels
         public string nav_store;
         public string nav_wardrobe;
