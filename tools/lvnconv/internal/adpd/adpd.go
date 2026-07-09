@@ -40,9 +40,22 @@ const (
 	pSelf    = 0x39  // self ordinal (edge id of a flow node)
 	pCond    = 0x79  // pin enter-condition ({ns}.{var} == ...;)
 	pID      = 0x3a  // object GUID id (stable localization key)
+	pColor   = 0x01  // DialogFragment marker BackgroundColor (tag 0xee = packed RGBA)
 	pCaption = 0x100 // speaker caption (string) / colour (non-string)
 	pText    = 0x200 // line text (HTML)
 )
+
+// articyDefaultColor is articy:draft's default DialogFragment marker colour (a
+// light blue). A fragment left at the default carries no deliberate emotion
+// marker, so the decoder treats it as "no colour" and omits it.
+const articyDefaultColor = "#c8e2e7"
+
+// colorHex renders articy's packed RGBA colour word — tag 0xee, bytes R,G,B,A in
+// ascending memory, so the entries() reader's little-endian u32 is A<<24|B<<16|
+// G<<8|R — as "#rrggbb" (alpha dropped).
+func colorHex(u uint32) string {
+	return fmt.Sprintf("#%02x%02x%02x", byte(u), byte(u>>8), byte(u>>16))
+}
 
 // object kinds, by the header's (C, typecode) pair (legacy heuristic; the Global
 // Variables / Entities partitions are still classified this way).
@@ -183,6 +196,16 @@ func (o object) str(pid uint16) string {
 	return ""
 }
 
+// color returns the packed RGBA colour word of the tag-0xee property pid, if any.
+func (o object) color(pid uint16) (uint32, bool) {
+	for _, e := range o.es {
+		if e.propid == pid && e.tag == 0xee {
+			return e.u, true
+		}
+	}
+	return 0, false
+}
+
 func (o object) refs(pid uint16) []uint32 {
 	var r []uint32
 	for _, e := range o.es {
@@ -311,6 +334,7 @@ type flow struct {
 	text  map[uint32]string    // node ordinal → line
 	guid  map[uint32]string    // node ordinal → fragment GUID (stable i18n key)
 	sp    map[uint32]string    // node ordinal → speaker caption
+	color map[uint32]string    // node ordinal → marker colour (#rrggbb, emotion cue)
 	logic map[uint32]logicNode // node ordinal → instruction/condition
 	succ  map[uint32][]edge    // node ordinal → outgoing edges
 	nodes map[uint32]bool      // every node that appears in an edge
@@ -354,6 +378,7 @@ func decodeFlow(d []byte) flow {
 	vm := varMap(objs)
 	fl := flow{
 		text: map[uint32]string{}, guid: map[uint32]string{}, sp: map[uint32]string{},
+		color: map[uint32]string{},
 		logic: map[uint32]logicNode{}, succ: map[uint32][]edge{}, nodes: map[uint32]bool{},
 		childrenOf: map[uint32][]uint32{}, contSet: map[uint32]bool{},
 		parentOf: map[uint32]uint32{},
@@ -390,6 +415,14 @@ func decodeFlow(d []byte) flow {
 			if par, ok := o.u32(pParent); ok {
 				if s := o.str(pCaption); s != "" {
 					fl.sp[par] = s
+				}
+			}
+		case cidDialogFrag: // the dialogue node itself — carries the marker BackgroundColor
+			if self, ok := o.u32(pSelf); ok {
+				if u, ok := o.color(pColor); ok {
+					if hex := colorHex(u); hex != articyDefaultColor {
+						fl.color[self] = hex // a deliberate emotion marker (non-default)
+					}
 				}
 			}
 		case cidDialog, cidFlowFrag, cidStoryFolder: // container — ordered children
@@ -1464,10 +1497,15 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 			if key == "" {
 				key = nodeID(o)
 			}
-			models = append(models, model{Type: "DialogueFragment", Properties: map[string]any{
+			props := map[string]any{
 				"Id": nodeID(o), "Text": text, "MenuText": menu, "Speaker": sp,
 				"StableId": key, "InputPins": emptyIn, "OutputPins": onePin(es),
-			}})
+			}
+			// The fragment's marker colour (emotion cue) — omitted at the default.
+			if col := fl.color[o]; col != "" {
+				props["BackgroundColor"] = col
+			}
+			models = append(models, model{Type: "DialogueFragment", Properties: props})
 		default:
 			models = append(models, model{Type: "Hub", Properties: map[string]any{
 				"Id": nodeID(o), "DisplayName": "", "InputPins": emptyIn, "OutputPins": onePin(es),
