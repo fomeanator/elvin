@@ -145,6 +145,8 @@ namespace Lvn.UI.Screens
 
             // ── Scrollable body ───────────────────────────────────────────
             _body = new ScrollView(ScrollViewMode.Vertical);
+            _body.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _body.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _body.style.flexGrow = 1;
             sheet.Add(_body);
 

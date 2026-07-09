@@ -106,10 +106,22 @@ namespace Lvn.UI
             }
             else
             {
-                style.left = 0; style.right = 0; style.bottom = 0;
+                style.left = 0; style.right = 0;
+                if (_theme.DockTopPercent >= 0f)
+                {
+                    // Anchor the box by its TOP → it GROWS DOWNWARD as the text gets
+                    // longer (instead of pushing its top up). BottomPadding unused here.
+                    style.top = Length.Percent(Mathf.Clamp(_theme.DockTopPercent, 0f, 100f));
+                }
+                else
+                {
+                    // Bottom-anchored: BottomLiftPercent floats the box up from the
+                    // screen edge; BottomPadding is the small inner gap. Grows UP.
+                    style.bottom = Length.Percent(Mathf.Max(0f, _theme.BottomLiftPercent));
+                    style.paddingBottom = _theme.BottomPadding;
+                }
                 style.paddingLeft = _theme.EdgePadding;
                 style.paddingRight = _theme.EdgePadding;
-                style.paddingBottom = _theme.BottomPadding;
                 // alignItems places the box across the screen width.
                 style.alignItems = stretch ? Align.Stretch
                     : align == "center" ? Align.Center
