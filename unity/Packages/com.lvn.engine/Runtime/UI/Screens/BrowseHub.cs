@@ -170,6 +170,7 @@ namespace Lvn.UI.Screens
             _hubView.Add(brand);
             _hubRows = new ScrollView(ScrollViewMode.Vertical);
             _hubRows.style.flexGrow = 1;
+            _hubRows.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel, no track/arrows
             _hubView.Add(_hubRows);
             _hubView.Add(BottomNav()); // Home / Store / Wardrobe / Profile
             Add(_hubView);
@@ -179,6 +180,7 @@ namespace Lvn.UI.Screens
             _collectionView.Add(BackBar(out _collectionTitle, () => ShowHub()));
             _collectionList = new ScrollView(ScrollViewMode.Vertical);
             _collectionList.style.flexGrow = 1;
+            _collectionList.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _collectionView.Add(_collectionList);
             Add(_collectionView);
 
@@ -385,13 +387,37 @@ namespace Lvn.UI.Screens
         {
             if (_hubRows == null) return;
             _hubRows.Clear();
+            // Any title not curated into a collection (e.g. a freshly imported novel)
+            // still shows — grouped into an auto "library" row so the hub reflects the
+            // real content, not just the hand-authored shelves.
+            var orphans = OrphanTitles();
             // Feature the title the player can CONTINUE, if any; else a recommended one.
             var resume = ResumableTitle();
             var featured = resume ?? FirstTitle();
+            if (featured == null && orphans.Count > 0) _titles.TryGetValue(orphans[0], out featured);
             if (featured != null) _hubRows.Add(FeaturedBanner(featured, resume != null));
             for (int i = 0; i < _collections.Count; i++)
                 _hubRows.Add(CollectionRow(_collections[i], hero: i == 0));
+            if (orphans.Count > 0)
+            {
+                var lib = new LvnCollection { id = "_library", name = _cfg.library_text ?? "Новеллы", titles = orphans };
+                _hubRows.Add(CollectionRow(lib, hero: _collections.Count == 0));
+            }
             AnimateIn(_hubRows); // staggered entrance
+        }
+
+        // Titles present in the manifest but not referenced by any collection —
+        // preserves manifest order (dictionary order follows insertion in SetData).
+        private List<string> OrphanTitles()
+        {
+            var inCol = new HashSet<string>();
+            foreach (var c in _collections)
+                if (c.titles != null)
+                    foreach (var id in c.titles) inCol.Add(id);
+            var orphans = new List<string>();
+            foreach (var kv in _titles)
+                if (!inCol.Contains(kv.Key)) orphans.Add(kv.Key);
+            return orphans;
         }
 
         private LvnTitle FirstTitle()
@@ -565,74 +591,73 @@ namespace Lvn.UI.Screens
 
         // A poster card inside a slider: gradient depth, a cost/lock chip top-right,
         // the title + a "Подробнее" button at the bottom. Whole card opens detail.
+        // A Spotify-style shelf card: a rounded poster on top, the title and a
+        // dimmed subtitle below it (no overlaid text, no "more" button — the whole
+        // card is the tap target).
         private VisualElement SliderCard(LvnTitle t, LvnCollection from, bool hero)
         {
             bool locked = IsLocked(t);
             var card = new VisualElement();
-            card.style.width = 440; card.style.height = 300;
-            card.style.flexShrink = 0; // horizontal slider: keep the poster size
-            card.style.marginRight = 16;
-            card.style.overflow = Overflow.Hidden;
-            Round(card, _radius);
-            card.style.opacity = locked ? 0.55f : 1f;
+            card.style.width = 250;
+            card.style.flexShrink = 0;      // horizontal slider: keep the poster size
+            card.style.marginRight = 18;
+            card.style.opacity = locked ? 0.5f : 1f;
+
+            // poster — rounded, art fills it (portrait crop reads best for character art)
+            var poster = new VisualElement();
+            poster.style.width = Length.Percent(100f);
+            poster.style.height = 320;
+            poster.style.overflow = Overflow.Hidden;
+            poster.style.backgroundColor = _card;
+            Round(poster, _radius);
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
             {
-                // Real card art fills the card; a bottom scrim keeps the text legible.
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
-                img.style.backgroundColor = _card; // shows while the art streams in
                 img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
                 img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                card.Add(img);
+                poster.Add(img);
                 _ = ScreenUi.AssignBgAsync(img, art, _assets);
-                var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
-                ScreenUi.Stretch(scrim);
-                scrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0f), new Color(0.03f, 0.01f, 0.03f, 0.9f));
-                card.Add(scrim);
             }
             else
             {
-                card.style.backgroundImage = hero
-                    ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.55f))
-                    : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.30f));
-                if (!hero)
-                {
-                    card.style.borderTopWidth = 1; card.style.borderBottomWidth = 1;
-                    card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
-                    SetBorderColor(card, _border);
-                }
+                poster.style.backgroundImage = hero
+                    ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.5f))
+                    : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.3f));
             }
-            card.style.justifyContent = Justify.FlexEnd;
-            card.style.paddingLeft = 18; card.style.paddingRight = 18;
-            card.style.paddingTop = 16; card.style.paddingBottom = 16;
 
-            // On a solid-accent hero card (no art) the ink is dark; on art or a
-            // surface card it's light.
-            bool darkInk = hero && string.IsNullOrEmpty(art);
-
-            var chip = locked ? Chip(_cfg.locked_text ?? "🔒", darkInk ? _accentText : _dim)
+            // cost / lock chip, small, floated on the poster
+            var chip = locked ? Chip(_cfg.locked_text ?? "🔒", _dim)
                 : (t.cost != null && t.cost.amount > 0 ? Chip("⚡ " + t.cost.amount, LvnTokens.Gold) : null);
             if (chip != null)
             {
-                chip.style.position = Position.Absolute; chip.style.top = 14; chip.style.right = 14;
-                card.Add(chip);
+                chip.style.position = Position.Absolute; chip.style.top = 12; chip.style.right = 12;
+                poster.Add(chip);
             }
+            card.Add(poster);
 
+            // title + subtitle, below the poster (Spotify-style)
             var name = new Label(t.name ?? t.id);
-            name.style.color = darkInk ? _accentText : _text;
-            name.style.fontSize = 32; name.style.unityFontStyleAndWeight = FontStyle.Bold;
+            name.style.color = _text; name.style.fontSize = 24;
+            name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
+            name.style.marginTop = 12;
             card.Add(name);
 
-            var more = new Label(_cfg.more_text ?? "Подробнее");
-            more.style.color = darkInk ? _accentText : _accent;
-            more.style.fontSize = 22; more.style.unityFontStyleAndWeight = FontStyle.Bold;
-            more.style.marginTop = 10;
-            card.Add(more);
+            string sub = t.subtitle ?? t.card?.description;
+            if (!string.IsNullOrEmpty(sub))
+            {
+                var subLbl = new Label(sub);
+                subLbl.style.color = _dim; subLbl.style.fontSize = 17; subLbl.style.marginTop = 4;
+                subLbl.style.whiteSpace = WhiteSpace.NoWrap;
+                subLbl.style.overflow = Overflow.Hidden;
+                subLbl.style.textOverflow = TextOverflow.Ellipsis;
+                card.Add(subLbl);
+            }
 
             card.RegisterCallback<ClickEvent>(evt =>
             {

@@ -126,6 +126,8 @@ namespace Lvn.UI.Screens
             // ── Pack grid ─────────────────────────────────────────────────────
             _list = new ScrollView(ScrollViewMode.Vertical);
             _list.style.flexGrow = 1;
+            _list.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden; // kill the stray horizontal bar
             sheet.Add(_list);
 
             RefreshBalances();
@@ -212,11 +214,11 @@ namespace Lvn.UI.Screens
             card.style.alignItems = Align.Center;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             Round(card, LvnTokens.Radius);
-            card.style.marginBottom = pack.Best ? 16 : 11;
-            card.style.paddingTop = pack.Best ? 20 : 14;
-            card.style.paddingBottom = pack.Best ? 20 : 14;
-            card.style.paddingLeft = 16;
-            card.style.paddingRight = 16;
+            card.style.marginBottom = pack.Best ? 12 : 9;
+            card.style.paddingTop = pack.Best ? 14 : 11;
+            card.style.paddingBottom = pack.Best ? 14 : 11;
+            card.style.paddingLeft = 14;
+            card.style.paddingRight = 14;
             card.style.overflow = Overflow.Visible;
             if (pack.Best)
             {
@@ -237,11 +239,11 @@ namespace Lvn.UI.Screens
             }
 
             // Illustration block (tinted, rounded) with a glyph + art overlay.
-            float box = pack.Best ? 108 : 88;
+            float box = pack.Best ? 78 : 62;
             var art = new VisualElement();
             art.style.width = box;
             art.style.height = box;
-            art.style.marginRight = 16;
+            art.style.marginRight = 14;
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
             art.style.backgroundColor = pack.Tint;

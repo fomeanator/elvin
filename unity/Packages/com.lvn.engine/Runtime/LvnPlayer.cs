@@ -958,6 +958,11 @@ namespace Lvn
             return cur;
         }
 
+        /// <summary>Set a story variable from host code exactly as the `set` op does
+        /// (dotted paths nest). Used by the in-story wardrobe to write the player's
+        /// pick back into the novel's state so downstream logic reads it.</summary>
+        public void SetVar(string key, JToken value) => SetVarPath(key, value);
+
         // Write a possibly-dotted variable path, creating intermediate JObjects.
         // A plain key writes Vars directly (unchanged behaviour); "a.b.c" nests
         // under the root object `a`, so `global.*` all live in one `global` object

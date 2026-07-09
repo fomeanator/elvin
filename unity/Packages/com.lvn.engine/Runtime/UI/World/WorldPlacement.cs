@@ -16,8 +16,8 @@ namespace Lvn.UI.World
     /// </summary>
     public static class WorldPlacement
     {
-        public const float DefaultWidth = 0.46f;  // matches ActorLayer's slot defaults
-        public const float DefaultHeight = 0.62f;
+        public const float DefaultWidth = Placement.DefaultWidth;  // one source of truth (standard VN framing)
+        public const float DefaultHeight = Placement.DefaultHeight;
 
         public static void Apply(RectTransform slot, Placement p, Vector2 size)
         {

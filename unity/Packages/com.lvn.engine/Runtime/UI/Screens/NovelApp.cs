@@ -376,7 +376,26 @@ namespace Lvn.UI.Screens
                     _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
                     _storySheet.SetManifest(_manifest);
                     _storySheet.OpenStore = () => _shell.OpenStoreAsync();
+                    // Write the player's wardrobe pick back into the novel's story state
+                    // (nested, like the script's own `set`), then re-dress the actor
+                    // against the new value. Order matters: SetVar BEFORE RefreshActor so
+                    // the {Wardrobe.*} axes re-interpolate against the fresh var.
+                    _storySheet.OnEquip = (ent, storyVar, value) =>
+                    {
+                        var p = Stage?.Player;
+                        if (p == null || string.IsNullOrEmpty(storyVar)) return;
+                        Newtonsoft.Json.Linq.JToken jv =
+                            long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
+                            : double.TryParse(value, out var d) ? new Newtonsoft.Json.Linq.JValue(d)
+                            : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
+                        p.SetVar(storyVar, jv);
+                        Stage.RefreshActor(ent);
+                    };
                 }
+                // The sheet mirrors the LIVE actor — make sure the active hero is on
+                // stage so the wardrobe always shows who you're dressing, even when the
+                // story beat opened it on an empty stage.
+                Stage?.EnsureActorShown(entity);
                 var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
                 await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
                 try { await done; }
