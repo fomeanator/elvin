@@ -1,0 +1,364 @@
+scene rpg-inv
+
+// ═══════════════════ ТРОПА ГЕРОЯ — RPG ═══════════════════
+// Уровни/опыт, экипировка, лавки, отдых, случайные бои, инвентарь,
+// квест (факел → пещера), босс-орк. Боевой движок — переиспользуемая
+// подпрограмма (call/return) с глобальными параметрами врага.
+
+// — стат-блок —
+level = 1
+xp = 0
+need = 10
+maxhp = 24
+hp = 24
+atk = 4
+def = 1
+gold = 12
+watk = 0
+darm = 0
+wname = "кулаки"
+inv = []
+guard = 0
+has_torch = 0
+arm = ""
+wpn = ""
+
+// Герой через каст (manifest.sprites "hero") — никаких путей, только оси
+// брони/оружия из переменных. Меняется экипировка → перерисовали.
+func show_hero() {
+  actor hero left y=.50 w=.50 h=.50 x=.50 armor={arm} weapon={wpn}
+}
+
+// — постоянный реактивный HUD (значения сами обновляются) —
+text hud x=3 y=80 size=46 color=#f1e4c9 «Ур.{level}   ♥{hp}/{maxhp}   атк {atk+watk}   
+защ {def+darm}   зол {gold}   сумка {len(inv)}»
+
+bg /content/bg/fantasy_forest.jpg
+Холодное утро. Ты — безвестный странник на тропе к деревне Двуречье. Говорят, в пещере за околицей пробудился орк-вожак, и староста сулит золото смельчаку.
+show_hero()
+-> village
+
+// ═══════════════════ ДЕРЕВНЯ ═══════════════════
+:village
+bg /content/bg/Clearing_in_forest.jpg
+Площадь Двуречья. Куда направишься?
+- В таверну (слухи, отдых) -> tavern
+- К кузнецу (оружие, броня) -> smith
+- К торговцу (зелья, факел, продажа) -> merchant
+- В лес (охота, добыча) -> forest
+- К пещере орка -> cave_gate
+- К зеркалу у колодца (гардероб) -> mirror
+
+:mirror
+Гладь старого зеркала отражает тебя в полный рост.
+ext wardrobe_show char=hero
+Ну что ж, выглядишь готовым к дороге.
+-> village
+
+:tavern
+bg /content/bg/hh_room1.jpg
+Староста: Одолеешь орка — золото твоё. Но сперва окрепни, юнец.
+- Отдохнуть (6 зол — полное здоровье) -> rest
+- Записать путь (сохранить) -> dosave
+- Вернуться к записи (загрузить) -> doload
+- Расспросить о пещере -> rumor
+- Уйти -> village
+:dosave
+save
+Староста заносит твой путь в книгу. Сохранено.
+-> tavern
+:doload
+load
+:rest
+if gold >= 6 {
+  gold = gold - 6
+  hp = maxhp
+  Тёплая похлёбка и сон у очага вернули силы сполна.
+} else {
+  Хозяин: Нет золота — нет постели.
+}
+-> tavern
+:rumor
+Старик у огня: В пещере темно, хоть глаз выколи. Без факела туда не суйся — спроси у торговца.
+-> tavern
+
+// ═══════════════════ КУЗНЕЦ ═══════════════════
+:smith
+bg /content/bg/hh_room2.jpg
+Кузнец: Доброе железо. Бери, пока есть.
+- Железный меч (+5 атк) — 18 зол -> buy_sword
+- Стальной топор (+9 атк) — 40 зол -> buy_axe
+- Кожаный доспех (+2 защ) — 12 зол -> buy_leather
+- Кольчуга (+5 защ) — 35 зол -> buy_chain
+- Уйти -> village
+:buy_sword
+if gold >= 18 {
+  gold = gold - 18
+  watk = 5
+  wname = "железный меч"
+  wpn = "sword"
+  show_hero()
+  Кузнец: Этот клинок не подведёт.
+} else {
+  Кузнец: Звонкой монеты маловато.
+}
+-> smith
+:buy_axe
+if gold >= 40 {
+  gold = gold - 40
+  watk = 9
+  wname = "тяжёлый клинок"
+  wpn = "heavy"
+  show_hero()
+  Кузнец: Тяжёлый, но сокрушительный.
+} else {
+  Кузнец: Звонкой монеты маловато.
+}
+-> smith
+:buy_leather
+if gold >= 12 {
+  gold = gold - 12
+  darm = 2
+  arm = "leather"
+  show_hero()
+  Кузнец: Лёгкая, дышит, держит удар.
+} else {
+  Кузнец: Звонкой монеты маловато.
+}
+-> smith
+:buy_chain
+if gold >= 35 {
+  gold = gold - 35
+  darm = 5
+  arm = "chain"
+  show_hero()
+  Кузнец: В такой и орка не страшно встретить.
+} else {
+  Кузнец: Звонкой монеты маловато.
+}
+-> smith
+
+// ═══════════════════ ТОРГОВЕЦ ═══════════════════
+:merchant
+bg /content/bg/Hardware_store.jpg
+Торговец: Зелья, факелы и скупка добычи.
+- Купить зелье — 6 зол -> buy_pot
+- Купить факел — 8 зол -> buy_torch
+- Продать добычу -> sell
+- Уйти -> village
+:buy_pot
+if gold >= 6 {
+  gold = gold - 6
+  inv = push(inv, "зелье")
+  Торговец: Береги на чёрный день.
+} else {
+  Торговец: Не хватает монет.
+}
+-> merchant
+:buy_torch
+if gold >= 8 {
+  if has_torch == 1 {
+    Торговец: Факел у тебя уже есть.
+  } else {
+    gold = gold - 8
+    has_torch = 1
+    Торговец: Теперь тьма пещеры тебе не страшна.
+  }
+} else {
+  Торговец: Не хватает монет.
+}
+-> merchant
+:sell
+gain = 0
+keep = []
+for it in inv {
+  if it == "зелье" {
+    keep = push(keep, it)
+  } else {
+    gain = gain + 4
+  }
+}
+inv = keep
+gold = gold + gain
+Торговец пересчитывает хлам и отсыпает {gain} золота.
+-> merchant
+
+// ═══════════════════ ЛЕС (случайные бои) ═══════════════════
+:forest
+bg /content/bg/Morning_pine_forest.jpg
+Сосновый бор. Ты крадёшься по тропе, держа оружие наготове.
+- Искать добычу -> hunt
+- Вернуться в деревню -> village
+:hunt
+r = rand(1,10)
+if r <= 4 -> enc_goblin
+if r <= 7 -> enc_wolf
+if r <= 8 -> find_gold
+if r <= 9 -> find_potion
+Тихо. Только хвоя шуршит под ногами.
+-> forest
+
+:enc_goblin
+actor goblin2 center y=.52 w=.45 h=.5
+Из-за пня с визгом выскакивает гоблин!
+ename = "Гоблин"
+ehp = 12
+eatk = 5
+edef = 1
+goldw = 4
+xpw = 6
+loot = "клык гоблина"
+loot_has = 1
+call fight
+actor goblin2 hide
+-> forest
+
+:enc_wolf
+Серый волк припадает к земле и скалит клыки.
+ename = "Волк"
+ehp = 10
+eatk = 6
+edef = 0
+goldw = 3
+xpw = 5
+loot = "волчья шкура"
+loot_has = 1
+call fight
+-> forest
+
+:find_gold
+g = rand(3,7)
+gold = gold + g
+Под корягой блеснул кошель — плюс {g} золота.
+-> forest
+:find_potion
+inv = push(inv, "зелье")
+В дупле старого дуба спрятано зелье.
+-> forest
+
+// ═══════════════════ ПЕЩЕРА / БОСС ═══════════════════
+:cave_gate
+bg /content/bg/Ravine.jpg
+Узкое ущелье ведёт к пещере. Изнутри тянет холодом и непроглядной тьмой.
+if has_torch == 1 -> cave_in
+Без факела внутри ни зги не видать. Нужен факел — он есть у торговца.
+-> village
+:cave_in
+bg /content/bg/Scene_with_mountaines.jpg
+Факел трещит, выхватывая из мрака кости и ржавое железо. В глубине ворочается нечто огромное.
+- Бросить вызов вожаку -> boss
+- Отступить, пока не поздно -> village
+:boss
+actor goblin2 center y=.5 w=.6 h=.62
+Орк-вожак с рёвом поднимается во весь рост — выше тебя на две головы!
+ename = "Орк-вожак"
+ehp = 60
+eatk = 11
+edef = 3
+goldw = 60
+xpw = 45
+loot = "сердце орка"
+loot_has = 1
+call fight
+actor goblin2 hide
+-> victory
+
+// ═══════════════════ БОЕВОЙ ДВИЖОК (подпрограмма) ═══════════════════
+// Вход: ename, ehp, eatk, edef, goldw, xpw, loot, loot_has. Возврат — return
+// (победа/бегство). Поражение уводит в gameover.
+:fight
+{ename} перед тобой — ♥{ehp}. Твой ход.
+- Атаковать ({wname}) -> f_atk
+- Сильный удар (риск промаха) -> f_heavy
+- Выпить зелье -> f_potion
+- Защита -> f_defend
+- Бежать -> f_flee
+
+:f_atk
+pdmg = max(1, atk + watk - edef + rand(0,3))
+ehp = ehp - pdmg
+Ты наносишь {pdmg} урона.
+if ehp <= 0 -> f_win
+-> f_enemy
+
+:f_heavy
+if chance(0.7) {
+  pdmg = max(1, (atk + watk) * 2 - edef + rand(0,2))
+  ehp = ehp - pdmg
+  Размашистый удар! {pdmg} урона.
+} else {
+  Ты слишком широко замахнулся и промахнулся.
+}
+if ehp <= 0 -> f_win
+-> f_enemy
+
+:f_potion
+if has(inv, "зелье") {
+  inv = removeat(inv, indexof(inv, "зелье"))
+  hp = min(maxhp, hp + 10)
+  Зелье возвращает силы.
+  -> f_enemy
+} else {
+  Зелий в сумке нет!
+  -> fight
+}
+
+:f_defend
+guard = 1
+Ты вскидываешь руку, готовясь принять удар.
+-> f_enemy
+
+:f_flee
+if chance(0.5) {
+  Ты отрываешься и уходишь в чащу.
+  return
+} else {
+  Сбежать не вышло — враг отрезал путь!
+  -> f_enemy
+}
+
+:f_enemy
+edmg = max(0, eatk - def - darm - guard * 3 + rand(0,2))
+guard = 0
+hp = hp - edmg
+{ename} бьёт в ответ — {edmg} урона.
+if hp <= 0 -> gameover
+-> fight
+
+:f_win
+{ename} повержен!
+gold = gold + goldw
+xp = xp + xpw
+Награда — {goldw} золота и {xpw} опыта.
+if loot_has == 1 {
+  inv = push(inv, loot)
+  В добыче — {loot}.
+}
+call levelup
+return
+
+// — повышение уровня (может сработать несколько раз за бой) —
+:levelup
+while xp >= need {
+  xp = xp - need
+  level = level + 1
+  maxhp = maxhp + 6
+  hp = maxhp
+  atk = atk + 2
+  def = def + 1
+  need = floor(need * 1.5)
+  ✨ Новый уровень — {level}! Здоровье и сила возросли.
+}
+return
+
+// ═══════════════════ КОНЦОВКИ ═══════════════════
+:victory
+bg /content/bg/River_and_bonfire.jpg
+Орк рухнул, и пещера затихла. Двуречье спасено, а твоё имя теперь знают в каждом доме.
+Тропа привела тебя к славе. Ур.{level}, золота {gold}, добычи {len(inv)}.
+-> __end
+
+:gameover
+bg /content/bg/Cemetery.jpg
+Последний удар валит тебя наземь. Тьма смыкается, и тропа героя обрывается здесь...
+-> __end

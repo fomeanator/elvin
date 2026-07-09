@@ -1,16 +1,21 @@
 {
-  "__v": 13,
+  "__v": 19,
   "balances": {
-    "crystals": 190,
-    "gold": 1110
+    "crystals": 135,
+    "gold": 710
   },
   "inventory": {
     "wardrobe:hero:armor:chain": 1,
     "wardrobe:hill:decor:rose": 1,
+    "wardrobe:hill:face:north": 1,
     "wardrobe:hill:hair:blond": 1,
     "wardrobe:hill:hair:brunette": 1,
+    "wardrobe:hill:hair:red": 1,
+    "wardrobe:hill:hairstyle:orchid": 1,
     "wardrobe:hill:outfit:medical": 1,
-    "wardrobe:hill:outfit:peignoir_wet": 1
+    "wardrobe:hill:outfit:orchid": 1,
+    "wardrobe:hill:outfit:peignoir_wet": 1,
+    "wardrobe:hill:outfit:rose": 1
   },
   "history": [
     {
@@ -114,6 +119,54 @@
       "currency": "gold",
       "amount": 80,
       "sku": "wardrobe:hill:decor:rose",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:28Z",
+      "type": "iap",
+      "currency": "crystals",
+      "amount": 10,
+      "sku": "crystals_10",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 300,
+      "sku": "wardrobe:hill:outfit:rose",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "wardrobe:hill:hair:red",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 20,
+      "sku": "wardrobe:hill:face:north",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:11:16Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 30,
+      "sku": "wardrobe:hill:outfit:orchid",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-07T08:07:51Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 15,
+      "sku": "wardrobe:hill:hairstyle:orchid",
       "reason": "wardrobe"
     }
   ]
