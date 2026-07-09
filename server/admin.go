@@ -490,6 +490,10 @@ func (s *AdminService) handleOrders(w http.ResponseWriter, r *http.Request) {
 
 // ── saves (cloud state blobs) ───────────────────────────────────────────────
 
+// reSaveKey mirrors stateFile's filename alphabet (letters, digits, -_.) so any
+// key handleSaves can list is addressable by the detail endpoint.
+var reSaveKey = regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+
 func (s *AdminService) handleSaves(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
@@ -525,7 +529,10 @@ func (s *AdminService) handleSaveDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	key := strings.TrimPrefix(r.URL.Path, "/v1/admin/saves/")
-	if key == "" || !reUserFile.MatchString(strings.ReplaceAll(key, "__", "")) {
+	// The key alphabet must match stateFile's sanitiser (main.go), which ALLOWS
+	// '.' — a "<uid>__<title>" key with a dotted title is listed by handleSaves,
+	// so it must be viewable/deletable here too. ".." is still rejected outright.
+	if key == "" || strings.Contains(key, "..") || !reSaveKey.MatchString(key) {
 		http.Error(w, "bad save key", http.StatusBadRequest)
 		return
 	}
