@@ -143,6 +143,7 @@ func main() {
 	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
+	mux.HandleFunc("/v1/admin/import-bundle", srv.handleImportBundle)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)
 	mux.HandleFunc("/v1/export", srv.handleExport)
 
