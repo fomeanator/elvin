@@ -120,3 +120,28 @@ func TestFindExtGrammarSidecar(t *testing.T) {
 		t.Fatal("broken sidecar must surface an error")
 	}
 }
+
+// A label-reference field: the target participates like a goto's — it must
+// exist, and it stops counting as dead.
+func TestExtLabelFieldTargetsAndValidates(t *testing.T) {
+	g, err := ParseExtGrammar([]byte(`{"ops":{"minigame":{"required":["id"],"labels":["on_lose"]}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The declared target keeps the label alive (no dead-label warning) …
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"minigame","id":"r","on_lose":"failed"},
+	 {"op":"goto","label":"__end"},
+	 {"op":"label","id":"failed"},
+	 {"op":"say","text":"lost"}]}`)
+	for _, is := range ValidateExt(d, g) {
+		if contains(is.Msg, "never targeted") {
+			t.Fatalf("label referenced from a declared label field must not be dead: %v", is)
+		}
+	}
+	// … and a missing target is an error, exactly like a dangling goto.
+	d2 := parse(t, `{"scene":"t","script":[{"op":"minigame","id":"r","on_lose":"nowhere"}]}`)
+	if issues := ValidateExt(d2, g); !hasError(issues, `undefined label "nowhere"`) {
+		t.Fatalf("expected undefined-label error, got %v", issues)
+	}
+}

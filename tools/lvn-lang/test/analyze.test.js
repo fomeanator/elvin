@@ -188,3 +188,11 @@ test("ext ghost: the snippet tail follows `ext <op> `", () => {
   const g2 = predictGhost("ext confetti ", { catalog, actorMap, extGrammar });
   assert.equal(g2, 'amount=""', "no snippet → fields seeded");
 });
+
+test("ext completion: a declared label field completes label names", () => {
+  const g = { ops: { minigame: { required: ["id"], labels: ["on_lose"] } } };
+  const r = completionAt('ext minigame id="r" on_lose="fa', ["failed", "finale"], catalog, actorMap, g);
+  assert.ok(r && r.items.some((i) => i.text === "failed"));
+  const rf = completionAt("ext minigame on_", [], catalog, actorMap, g);
+  assert.ok(rf && rf.items.some((i) => i.text === "on_lose" && i.kind === "attr"), "label fields complete as attrs");
+});
