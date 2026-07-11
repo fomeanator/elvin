@@ -1,6 +1,9 @@
 {
   "dependencies": {
     "com.lvn.engine": "file:../../Packages/com.lvn.engine",
+    "com.lvn.engine.addressables": "file:../../Packages/com.lvn.engine.addressables",
+    "com.lvn.engine.services": "file:../../Packages/com.lvn.engine.services",
+    "com.lvn.engine.shell": "file:../../Packages/com.lvn.engine.shell",
     "com.lvn.engine.spine": "file:../../Packages/com.lvn.engine.spine",
     "com.unity.modules.audio": "1.0.0",
     "com.unity.modules.imageconversion": "1.0.0",
