@@ -46,11 +46,22 @@ func resolveDocLine(src string, op, msg string) int {
 	return 0
 }
 
-// lvnsCompile(src) -> { ok, json, errors, warnings }
+// lvnsCompile(src[, extGrammarJSON]) -> { ok, json, errors, warnings }
+// The optional second argument is the project's ext-grammar.json content:
+// declared host ops then validate like built-ins (same contract as the CLI's
+// -ext-grammar). A broken declaration is itself a compile error.
 func compile(this js.Value, args []js.Value) any {
 	src := ""
 	if len(args) > 0 {
 		src = args[0].String()
+	}
+	var ext *lvn.ExtGrammar
+	if len(args) > 1 && args[1].Type() == js.TypeString && args[1].String() != "" {
+		g, gerr := lvn.ParseExtGrammar([]byte(args[1].String()))
+		if gerr != nil {
+			return map[string]any{"ok": false, "json": "", "errors": "ext-grammar: " + gerr.Error(), "warnings": ""}
+		}
+		ext = g
 	}
 
 	doc, err := lvns.Convert(src)
@@ -65,7 +76,7 @@ func compile(this js.Value, args []js.Value) any {
 	var errs, warns []string
 	var diags []any
 	if ld, perr := lvn.Parse(data); perr == nil {
-		for _, is := range lvn.Validate(ld) {
+		for _, is := range lvn.ValidateExt(ld, ext) {
 			line := 0
 			if is.Index >= 0 && is.Index < len(doc.SrcLine) {
 				line = doc.SrcLine[is.Index]
