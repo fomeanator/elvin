@@ -24,6 +24,32 @@ namespace Lvn.UI
         private readonly System.Collections.Generic.Dictionary<string, string> _playingUrl
             = new System.Collections.Generic.Dictionary<string, string>();
 
+        // Per-channel command generation: a later audio command on the same
+        // channel supersedes an earlier one whose clip is still loading, so two
+        // music commands replayed on resume (or a stop racing a play) can't let
+        // the slower load win and play the wrong/old track.
+        private readonly System.Collections.Generic.Dictionary<string, int> _channelGen
+            = new System.Collections.Generic.Dictionary<string, int>();
+
+        // The live fade coroutine per channel, so a new command cancels the
+        // previous fade instead of letting a fade-out keep lerping the volume
+        // down (and Stop()) right over a track the next command just started.
+        private readonly System.Collections.Generic.Dictionary<string, Coroutine> _fadeCo
+            = new System.Collections.Generic.Dictionary<string, Coroutine>();
+
+        private int BumpChannel(string channel)
+        {
+            int g = (_channelGen.TryGetValue(channel, out var c) ? c : 0) + 1;
+            _channelGen[channel] = g;
+            return g;
+        }
+
+        private void StartFade(string channel, AudioSource src, float from, float to, float seconds, bool stopAtEnd)
+        {
+            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
+            _fadeCo[channel] = StartCoroutine(FadeAudio(src, from, to, seconds, stopAtEnd));
+        }
+
         // The author's last set volume per channel — the player's preference
         // multiplies onto it, so "музыка 50%" scales whatever the script asked for
         // instead of overriding it.
@@ -44,20 +70,24 @@ namespace Lvn.UI
 
         private void OnDestroy() => LvnPrefs.Changed -= ApplyUserVolumes;
 
-        private static float UserScale(string channel) =>
-            channel == "music" ? LvnPrefs.VolMusic
-            : channel == "ambient" ? LvnPrefs.VolAmbient
-            : LvnPrefs.VolSfx;
+        // The master sound switch collapses every channel to silence when off.
+        private static float Master => LvnPrefs.SoundOn ? 1f : 0f;
 
-        // Re-scale the live sources when the player moves a volume slider. A fade
-        // in flight keeps its own target (it snaps on the next command) — fine for
-        // a settings tweak.
+        private static float UserScale(string channel) =>
+            Master * (channel == "music" ? LvnPrefs.VolMusic
+            : channel == "ambient" ? LvnPrefs.VolAmbient
+            : LvnPrefs.VolSfx);
+
+        // Re-scale the live sources when the player moves a volume slider or flips
+        // the master sound switch. A fade in flight keeps its own target (it snaps
+        // on the next command) — fine for a settings tweak.
         private void ApplyUserVolumes()
         {
-            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic;
-            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient;
-            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx;
-            if (_voice != null) _voice.volume = LvnPrefs.VolVoice;
+            float m = Master;
+            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic * m;
+            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient * m;
+            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx * m;
+            if (_voice != null) _voice.volume = LvnPrefs.VolVoice * m;
         }
 
         private void RememberAuthored(string channel, float v)
@@ -103,7 +133,7 @@ namespace Lvn.UI
         /// preference; a null clip no-ops (a novel without UI audio stays silent).</summary>
         public void PlayUi(AudioClip clip, float volume = 1f)
         {
-            if (clip == null || _ui == null) return;
+            if (clip == null || _ui == null || !LvnPrefs.SoundOn) return;
             _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnPrefs.VolSfx);
         }
 
@@ -115,12 +145,13 @@ namespace Lvn.UI
             var channel = (string)cmd["channel"] ?? "sfx";
             var src = channel == "music" ? _music : channel == "ambient" ? _ambient : _sfx;
             float fade = NumOr(cmd["fade"], 0f);
+            int gen = BumpChannel(channel); // this command now owns the channel
 
             if ((string)cmd["action"] == "stop")
             {
                 _playingUrl.Remove(channel);
-                if (fade > 0f) StartCoroutine(FadeAudio(src, src.volume, 0f, fade, stopAtEnd: true));
-                else src.Stop();
+                if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, stopAtEnd: true);
+                else { CancelFade(channel); src.Stop(); }
                 return;
             }
 
@@ -144,6 +175,11 @@ namespace Lvn.UI
             try { clip = await assets.LoadAudioAsync(url, ct); }
             catch { /* silent if the host ships no audio */ }
             if (clip == null) return;
+            // A newer audio command (or a chapter reset that bumps the channel via
+            // StopVoice/ResetStage's stop) started on this channel while we loaded
+            // — it must win. Without this the slower of two replayed music loads
+            // plays last and the wrong track ends up on screen.
+            if (!_channelGen.TryGetValue(channel, out var g2) || g2 != gen) return;
 
             if (channel != "sfx")
             {
@@ -155,13 +191,20 @@ namespace Lvn.UI
             {
                 src.volume = 0f;
                 src.Play();
-                StartCoroutine(FadeAudio(src, 0f, effective, fade, stopAtEnd: false));
+                StartFade(channel, src, 0f, effective, fade, stopAtEnd: false);
             }
             else
             {
+                CancelFade(channel);
                 src.volume = effective;
                 src.Play();
             }
+        }
+
+        private void CancelFade(string channel)
+        {
+            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
+            _fadeCo.Remove(channel);
         }
 
         // Tolerant field reads (mirror VnStage's): a malformed value degrades to the

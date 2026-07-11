@@ -25,8 +25,8 @@ namespace Lvn.Tests
             Assert.AreEqual(new Vector2(0f, 1f), rt.anchorMin, "anchored to top-left");
             Assert.AreEqual(0.5f, rt.pivot.x, 0.001f, "anchor_x 0.5 → pivot.x");
             Assert.AreEqual(0f, rt.pivot.y, 0.001f, "anchor_y 1 (feet) → pivot.y 0 (uGUI bottom)");
-            Assert.AreEqual(0.46f * 1080f, rt.sizeDelta.x, 0.1f, "default width fraction");
-            Assert.AreEqual(0.62f * 1920f, rt.sizeDelta.y, 0.1f, "default height fraction");
+            Assert.AreEqual(0.69f * 1080f, rt.sizeDelta.x, 0.1f, "default width fraction (standard novel pose, ~1.5×)");
+            Assert.AreEqual(0.93f * 1920f, rt.sizeDelta.y, 0.1f, "default height fraction (standard novel pose, ~1.5×)");
             Assert.AreEqual(540f, rt.anchoredPosition.x, 0.1f, "X 0.5 → 540");
             Assert.AreEqual(-1920f, rt.anchoredPosition.y, 0.1f, "Y 1 → -1920 (down from top)");
             Assert.AreEqual(1f, rt.localScale.x, 0.001f, "not flipped");

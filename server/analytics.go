@@ -9,6 +9,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,9 +46,71 @@ type analyticsEvent struct {
 
 var reDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
+// Analytics ingest is anonymous by design, which also makes it the cheapest
+// disk-filling target on the server. Two honest caps instead of trust:
+// a per-source token bucket (IP or user id) and a hard per-day file size.
+const (
+	analyticsBurst      = 30        // instant burst per source
+	analyticsPerMinute  = 60        // sustained batches/min per source
+	analyticsDayMaxSize = 256 << 20 // one day's JSONL hard cap (bytes)
+)
+
+// clientIP: the peer address without the port. Deliberately IGNORES
+// X-Forwarded-For — a spoofable header would let one host mint unlimited
+// rate-limit identities; behind a reverse proxy all traffic shares one
+// bucket, which for an analytics firehose is an acceptable floor.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+type anaBucket struct {
+	tokens float64
+	last   time.Time
+}
+
+var (
+	anaMu      sync.Mutex
+	anaBuckets = map[string]*anaBucket{}
+)
+
+func analyticsAllow(source string, now time.Time) bool {
+	anaMu.Lock()
+	defer anaMu.Unlock()
+	if len(anaBuckets) > 10000 { // transient counters; shed wholesale
+		anaBuckets = map[string]*anaBucket{}
+	}
+	b, ok := anaBuckets[source]
+	if !ok {
+		b = &anaBucket{tokens: analyticsBurst, last: now}
+		anaBuckets[source] = b
+	}
+	b.tokens += now.Sub(b.last).Minutes() * analyticsPerMinute
+	if b.tokens > analyticsBurst {
+		b.tokens = analyticsBurst
+	}
+	b.last = now
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
 func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	source := s.auth.UserFromRequest(r)
+	if source == "" {
+		source = clientIP(r)
+	}
+	if !analyticsAllow(source, time.Now()) {
+		http.Error(w, "rate limited", http.StatusTooManyRequests)
 		return
 	}
 	var events []analyticsEvent
@@ -65,6 +128,10 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	path := filepath.Join(s.dir, now.Format("2006-01-02")+".jsonl")
+	if st, err := os.Stat(path); err == nil && st.Size() > analyticsDayMaxSize {
+		http.Error(w, "daily volume cap reached", http.StatusTooManyRequests)
+		return
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		http.Error(w, "storage error", http.StatusInternalServerError)

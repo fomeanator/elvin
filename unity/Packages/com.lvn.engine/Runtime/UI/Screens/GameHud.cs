@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,15 +25,16 @@ namespace Lvn.UI.Screens
         private readonly Color _pillBg;
         private readonly Color _pillText;
 
-        private sealed class Pill { public VisualElement Root; public Label Label; }
+        private sealed class Pill { public VisualElement Root; public Label Label; public Label Timer; }
         private readonly Dictionary<string, Pill> _pills = new Dictionary<string, Pill>();
+        private float _nextRegenRefresh; // throttle the auto-refresh when a timer hits 0
 
         public GameHud(HudConfig cfg, ILvnAssets assets)
         {
             _cfg = cfg ?? new HudConfig();
             _assets = assets;
             _pillBg = UiColor.Parse(_cfg.pill_bg_color, new Color(0f, 0f, 0f, 0.4f));
-            _pillText = UiColor.Parse(_cfg.pill_text_color, new Color(0.96f, 0.93f, 0.85f));
+            _pillText = UiColor.Parse(_cfg.pill_text_color, LvnTokens.Text);
 
             float h = _cfg.height ?? 0.07f;
             style.position = Position.Absolute;
@@ -63,8 +65,8 @@ namespace Lvn.UI.Screens
             left.Add(_progressIcon);
 
             _progressLabel = new Label("0%") { pickingMode = PickingMode.Ignore };
-            _progressLabel.style.color = UiColor.Parse(_cfg.progress_color, new Color(0.96f, 0.93f, 0.85f));
-            _progressLabel.style.fontSize = 22;
+            _progressLabel.style.color = UiColor.Parse(_cfg.progress_color, LvnTokens.Text);
+            _progressLabel.style.fontSize = 24;
             left.Add(_progressLabel);
 
             // right: currency pills
@@ -74,6 +76,10 @@ namespace Lvn.UI.Screens
             Add(_pillsRow);
 
             _ = ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets);
+
+            // Tick the energy/lives refill countdowns once a second (activates
+            // when the HUD attaches to its panel).
+            schedule.Execute(TickRegen).Every(1000);
         }
 
         /// <summary>Update the chapter-progress percent (current command / total).</summary>
@@ -98,7 +104,64 @@ namespace Lvn.UI.Screens
                 p = SpawnPill(iconUrl ?? _cfg.default_currency_icon_url);
                 _pills[currency] = p;
             }
-            p.Label.text = amount.ToString("N0");
+            ApplyPillValue(p, currency, amount);
+        }
+
+        // A regenerating currency below its cap shows "amount/cap" plus a live
+        // countdown to the next refill; otherwise just the amount.
+        private void ApplyPillValue(Pill p, string currency, long amount)
+        {
+            if (LvnWallet.Regen.TryGetValue(currency, out var r)
+                && r.Cap > 0 && amount < r.Cap && r.NextRefillUnix > 0)
+            {
+                p.Label.text = amount + "/" + r.Cap;
+                UpdateTimer(p, r.NextRefillUnix);
+            }
+            else
+            {
+                p.Label.text = amount.ToString("N0");
+                if (p.Timer != null) p.Timer.style.display = DisplayStyle.None;
+            }
+        }
+
+        private void UpdateTimer(Pill p, long nextRefillUnix)
+        {
+            if (p.Timer == null) return;
+            long remaining = nextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (remaining <= 0)
+            {
+                // The refill is due — pull the server's fresh balance (throttled).
+                p.Timer.text = _cfg.regen_ready_text ?? "…";
+                RequestRegenRefresh();
+            }
+            else p.Timer.text = FormatDuration(remaining);
+            p.Timer.style.display = DisplayStyle.Flex;
+        }
+
+        // Re-run the countdowns every second without touching balances.
+        private void TickRegen()
+        {
+            foreach (var kv in _pills)
+            {
+                if (LvnWallet.Regen.TryGetValue(kv.Key, out var r) && r.Cap > 0 && r.NextRefillUnix > 0
+                    && LvnWallet.Balances.TryGetValue(kv.Key, out var bal) && bal < r.Cap)
+                    UpdateTimer(kv.Value, r.NextRefillUnix);
+                else if (kv.Value.Timer != null)
+                    kv.Value.Timer.style.display = DisplayStyle.None;
+            }
+        }
+
+        private void RequestRegenRefresh()
+        {
+            if (Time.realtimeSinceStartup < _nextRegenRefresh) return;
+            _nextRegenRefresh = Time.realtimeSinceStartup + 15f; // avoid hammering the server at 0
+            _ = LvnWallet.RefreshAsync();
+        }
+
+        private static string FormatDuration(long seconds)
+        {
+            long h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
+            return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
         }
 
         private Pill SpawnPill(string iconUrl)
@@ -127,11 +190,20 @@ namespace Lvn.UI.Screens
 
             var label = new Label("0") { pickingMode = PickingMode.Ignore };
             label.style.color = _pillText;
-            label.style.fontSize = 20;
+            label.style.fontSize = 22;
             pill.Add(label);
 
+            // Refill countdown for regenerating currencies (hidden until needed).
+            var timer = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
+            timer.style.color = _pillText;
+            timer.style.fontSize = 17;
+            timer.style.marginLeft = 6;
+            timer.style.opacity = 0.7f;
+            timer.style.display = DisplayStyle.None;
+            pill.Add(timer);
+
             _pillsRow.Add(pill);
-            return new Pill { Root = pill, Label = label };
+            return new Pill { Root = pill, Label = label, Timer = timer };
         }
     }
 }

@@ -50,7 +50,7 @@ var OpFields = map[string][]string{
 	"if":        {"expr", "then", "else", "cond"},
 	"set":       {"key", "value", "expr", "default"},
 	"inc":       {"key", "by"},
-	"hint":      {"text", "show"},
+	"hint":      {"text", "show", "duration"},
 	"call":      {"label"},
 	"return":    {},
 	"label":     {"id"},
@@ -248,8 +248,14 @@ func Validate(d *Doc) []Issue {
 			// Narration that begins like a command + `=` is almost always a
 			// command with a syntax slip that silently fell through to dialogue.
 			if c.Str("who") == "" {
-				if mm := reFailedOp.FindStringSubmatch(c.Str("text")); mm != nil && KnownOps[mm[1]] {
-					addWarn(i, op, fmt.Sprintf("looks like a %q command but its syntax didn't parse — it became dialogue text", mm[1]))
+				if mm := reFailedOp.FindStringSubmatch(c.Str("text")); mm != nil {
+					if KnownOps[mm[1]] {
+						addWarn(i, op, fmt.Sprintf("looks like a %q command but its syntax didn't parse — it became dialogue text", mm[1]))
+					} else if s := suggest(mm[1], knownOpNames()); s != "" {
+						// A near-miss of a real op name (`actro id=…`) that an
+						// older compiler let fall through into dialogue.
+						addWarn(i, op, fmt.Sprintf("looks like a mistyped command %q — did you mean %q? (it became dialogue text)", mm[1], s))
+					}
 				}
 			}
 		case "obj", "actor":
@@ -319,6 +325,25 @@ func Validate(d *Doc) []Issue {
 	}
 	for i, c := range d.Script {
 		walk(i, c)
+	}
+
+	// call/return sanity: a `return` in a script with no `call` at all pops an
+	// empty stack at runtime (the player jumps to end-of-chapter) — always an
+	// authoring slip, usually a subroutine label entered by goto instead of call.
+	calls, returns, firstReturn := 0, 0, -1
+	for i, c := range d.Script {
+		switch c.Op() {
+		case "call":
+			calls++
+		case "return":
+			returns++
+			if firstReturn < 0 {
+				firstReturn = i
+			}
+		}
+	}
+	if returns > 0 && calls == 0 {
+		addWarn(firstReturn, "return", "script has `return` but no `call` — an empty call stack returns to END OF CHAPTER; did you mean goto, or is a call missing?")
 	}
 
 	// Pass 3: fall-through into a jump-target label. A label entered BOTH by a
@@ -534,6 +559,15 @@ func nonEmpty(set []string) []string {
 
 // suggest returns the closest option to bad within edit distance 2 (the likely
 // typo correction), or "" if none is close enough.
+// knownOpNames: KnownOps' keys, for typo suggestions.
+func knownOpNames() []string {
+	names := make([]string, 0, len(KnownOps))
+	for op := range KnownOps {
+		names = append(names, op)
+	}
+	return names
+}
+
 func suggest(bad string, options []string) string {
 	best, bestD := "", 3
 	for _, o := range options {

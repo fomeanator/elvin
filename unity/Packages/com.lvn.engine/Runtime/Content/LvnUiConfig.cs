@@ -21,11 +21,217 @@ namespace Lvn.Content
         public NameInputConfig name_input;
         public BootScreenConfig boot;
         public CarouselConfig carousel;
+        public BrowseConfig browse;
         public HudConfig hud;
+        public StageConfig stage;
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
         public MenuConfig menu;
         public SoundsConfig sounds;
+        public AuthConfig auth;
+        public StoreConfig store;
+        public PopupConfig popup;
+        public SettingsConfig settings;
+        public WardrobeConfig wardrobe;
+    }
+
+    /// <summary>The wardrobe overlay: a live layered preview of the character
+    /// plus slot tabs with buy/equip cards. The ITEMS live with the character
+    /// (<c>sprites.&lt;id&gt;.wardrobe</c>); this block is only the screen's
+    /// look and strings. Every field optional.</summary>
+    public sealed class WardrobeConfig
+    {
+        public string entity;         // character to open by default (else: first with a wardrobe)
+        public string title;          // default "Wardrobe"
+        public string scrim_color;    // default #000000b3
+        public string panel_color;    // default #14141af7
+        public string title_color;    // default #f4ecd8
+        public string text_color;     // default #f2eee1
+        public string dim_text_color; // default #9a948a
+        public string card_color;     // item card fill; default #1c1c22
+        public string accent_color;   // equipped ring / action fill; default #c8a050
+        public string accent_text_color; // action button text; default #14141a
+        public string preview_bg_color;  // behind the character; default #101015
+        public string preview_bg_image;  // optional content-url scene behind the heroine
+        public float? corner_radius;  // default 12
+
+        public string equip_text;     // default "Equip"
+        public string equipped_text;  // default "Equipped"
+        public string remove_text;    // default "Take off"
+        public string confirm_text;   // the in-story sheet's commit button; default "Choose"
+        public string insufficient_text; // shown when a buy fails for funds; default "Not enough"
+        public string close_text;     // default "Close"
+        public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
+        public string menu_label;     // quick-menu entry; default "Wardrobe"
+        public bool? show_menu_item;  // default true
+
+        public Dictionary<string, string> rarity_colors; // rarity key → hex (card ring tint)
+        public Dictionary<string, string> currency_icons; // currency → content url (balance pills)
+    }
+
+    /// <summary>The boot auth screen — the game's customizable face over the
+    /// silent device sign-in: backdrop + logo + welcome text, an optional
+    /// nickname field and a start button, with a status line reflecting the
+    /// connection underneath. Not a gate: Start always works, online or
+    /// offline. Absent section keeps the old behaviour (no screen, silent
+    /// registration).</summary>
+    public sealed class AuthConfig
+    {
+        public bool? enabled;         // show the screen after boot; default true when the section exists
+        public string bg_url;         // full-screen backdrop
+        public string logo_url;       // logo art, centred horizontally
+        public float? logo_width;     // screen fraction; default 0.5
+        public float? logo_y;         // logo centre y, screen fraction; default 0.28
+        public string title;          // default "Welcome"
+        public string subtitle;       // extra line under the title; default hidden
+        public bool? ask_nickname;    // show the nickname field; default true
+        public string name_prompt;    // field label; default "Your name"
+        public string default_name;   // pre-filled value (a previously saved name wins)
+        public int? max_length;       // default 24
+        public string start_text;     // the big button; default "Start"
+
+        public string bg_color;       // default #101015
+        public string panel_color;    // bottom panel fill; default #000000a6
+        public string title_color;    // default #f4ecd8
+        public string subtitle_color; // default #cbb98f
+        public string text_color;     // field/button text; default #f4ecd8
+        public string field_color;    // default #1c1c22 (used when no field art)
+        public string button_color;   // default #c8a050 (used when no button art)
+        public string button_text_color; // default #14141a
+        public string status_color;   // connection line; default #9a948a
+        public string field_url;      // optional text-field background art
+        public string button_url;     // optional start-button art
+
+        // status line strings (the localization hook)
+        public string signing_text;   // default "Connecting…"
+        public string signed_text;    // default "Connected"
+        public string offline_text;   // default "Offline — progress stays on this device"
+
+        // platform sign-in buttons — shown only when the host plugged the
+        // matching LvnPlatformAuth flow AND the flag allows it
+        public bool? show_google;     // default true (when the hook exists)
+        public bool? show_apple;      // default true (when the hook exists)
+        public string google_text;    // default "Sign in with Google"
+        public string apple_text;     // default "Sign in with Apple"
+        public string provider_done_text; // status after a provider sign-in; default "Signed in"
+    }
+
+    /// <summary>The currency store overlay: packs from the server's IAP catalog
+    /// (<c>/v1/iap/catalog</c>) rendered as buy cards over a scrim. Every field
+    /// optional — the engine's neutral dark look is the default; the section's
+    /// mere presence adds the quick-menu entry.</summary>
+    public sealed class StoreConfig
+    {
+        public string title;          // default "Store"
+        public string scrim_color;    // fullscreen backdrop; default #000000b3
+        public string panel_color;    // sheet fill; default #14141af7
+        public string title_color;    // default #f4ecd8
+        public string text_color;     // card titles / balances; default #f2eee1
+        public string dim_text_color; // bonus line, status; default #9a948a
+        public string card_color;     // pack card fill; default #1c1c22
+        public string buy_color;      // buy button fill; default #c8a050
+        public string buy_text_color; // buy button text; default #14141a
+        public float? corner_radius;  // sheet/card rounding; default 12
+
+        public string buy_text;       // button label when a pack has no price; default "Get"
+        public string ad_text;        // rewarded-ad card button; default "Watch ad"
+        public string close_text;     // default "Close"
+        public string empty_text;     // no packs / server unreachable; default "The shop is closed right now"
+        public string bonus_text;     // "{0}" = bonus amount; default "+{0} bonus"
+        public string menu_label;     // quick-menu entry; default "Store"
+        public bool? show_menu_item;  // add the quick-menu entry; default true
+
+        public Dictionary<string, string> currency_icons; // currency → content url (cards + HUD pills)
+        public Dictionary<string, string> currency_names; // currency → display name (default: the raw key)
+
+        // Sections: packs are grouped by their catalog `section` id, shown in the
+        // order sections first appear in the (server-sorted) catalog. This maps a
+        // section id to a display heading; a missing id falls back to the raw id,
+        // and packs with no section render as one unlabelled group (legacy).
+        public Dictionary<string, string> section_titles;
+        public string section_title_color; // section heading color; default title_color
+
+        // "Pay from Russia" (or any region) banner, pinned at the top of each
+        // section. When pay_banner_url is set the banner opens it via the
+        // LvnWebView seam (in-app web view if the host plugged one, else the
+        // system browser). Shown only to RU-region users unless pay_banner_always.
+        public string pay_banner_text;   // e.g. "Как оплатить из России →"
+        public string pay_banner_url;    // instructions page; empty → no banner
+        public string pay_banner_color;  // banner fill; default a warm accent tint
+        public string pay_banner_text_color; // banner text; default text_color
+        public bool? pay_banner_always;  // show to everyone, not just RU; default false
+    }
+
+    /// <summary>The universal popup/dialog overlay (PopupScreen): a modal card
+    /// centered over everything, used for warnings, confirmations and errors
+    /// ("not enough energy", "buy currency?"). Every field optional — the
+    /// engine's neutral dark look is the default. Buttons are supplied per-call,
+    /// but the two default button labels (OK / Cancel) come from here so a host
+    /// can localize them once.</summary>
+    public sealed class PopupConfig
+    {
+        public string scrim_color;     // fullscreen backdrop; default #000000b3
+        public string panel_color;     // card fill; default #14141af7
+        public string title_color;     // default #f4ecd8
+        public string text_color;      // message body; default #e8e4d8
+        public string button_color;    // secondary button fill; default #ffffff14
+        public string button_text_color;   // secondary button text; default text_color
+        public string primary_color;   // primary/confirm button fill; default #c8a050
+        public string primary_text_color;  // primary button text; default #14141a
+        public float? corner_radius;   // card/button rounding; default 12
+        public string ok_text;         // default OK/alert button; default "OK"
+        public string cancel_text;     // default cancel button; default "Cancel"
+    }
+
+    /// <summary>The full settings overlay (SettingsScreen): master sound switch,
+    /// language, player id + copy, account/sign-in status, app version, social
+    /// links and Terms/Privacy. All strings optional with English fallbacks;
+    /// social links and legal urls live here. Distinct from the quick-menu's
+    /// in-game settings panel (playback tweaks) — this is the app-level screen.</summary>
+    public sealed class SettingsConfig
+    {
+        public string title;           // default "Settings"
+        public string scrim_color;     // default #000000b3
+        public string panel_color;     // default #14141af7
+        public string title_color;     // default #f4ecd8
+        public string text_color;      // row labels; default #f2eee1
+        public string dim_text_color;  // values/secondary; default #9a948a
+        public string accent_color;    // toggle-on / links; default #c8a050
+        public float? corner_radius;   // default 12
+        public string close_text;      // default "Close"
+        public string menu_label;      // quick-menu entry; default "Settings"
+        public bool? show_menu_item;   // add the quick-menu entry; default true
+
+        // Row labels / values (all localizable).
+        public string sound_label;     // "Sound"
+        public string on_text;         // "On"
+        public string off_text;        // "Off"
+        public string language_label;  // "Language"
+        public string original_lang_text; // the script's inline language; default "Original"
+        public string uid_label;       // "Player ID"
+        public string copy_text;       // "Copy"
+        public string copied_text;     // "Copied"
+        public string account_label;   // "Account"
+        public string signed_in_text;  // "Signed in"; provider appended as " · {name}"
+        public string device_text;     // provider name for a device-only account; default "device"
+        public string sign_in_text;    // "Sign in"
+        public string version_label;   // "Version"
+
+        // Legal + socials, opened via the LvnWebView seam.
+        public string terms_url;
+        public string terms_text;      // "Terms of Use"
+        public string privacy_url;
+        public string privacy_text;    // "Privacy Policy"
+        public System.Collections.Generic.List<SocialLink> social; // 2-3 clickable icons
+    }
+
+    /// <summary>One social link in the settings screen — a clickable icon (or its
+    /// name as a fallback) that opens a url via the web-view seam.</summary>
+    public sealed class SocialLink
+    {
+        public string name; // "Discord" — shown when no icon, and as the tooltip
+        public string icon; // content url for the icon (optional)
+        public string url;  // opened via LvnWebView.Open
     }
 
     /// <summary>UI interaction sounds — short one-shot clips played by the stage
@@ -65,6 +271,16 @@ namespace Lvn.Content
         public Dictionary<string, string> labels;
     }
 
+    /// <summary>On-stage character framing: where a bottom-anchored actor sits and
+    /// how big. Maps onto <c>VnTheme.ActorBaselineY</c>/<c>ActorScale</c>. Lets a novel
+    /// tune the "standard pose" from the manifest without touching the engine.</summary>
+    public sealed class StageConfig
+    {
+        public float? actor_y;      // bottom-anchored feet baseline (screen fraction); 1 = screen bottom, >1 sinks
+        public float? actor_scale;  // multiplier on the default actor size; 1 = default
+        public float? actor_spread; // multiplier on left/right offset from centre; 1 = default, <1 = closer to centre
+    }
+
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
     /// reveal. Maps onto the engine's <c>VnTheme</c> so the whole game — not just
     /// the shell screens — is themeable from the manifest. Every field optional.</summary>
@@ -91,6 +307,8 @@ namespace Lvn.Content
 
         public float? edge_padding;      // inset from screen edges; default 24
         public float? bottom_padding;    // gap to screen bottom; default 28
+        public float? bottom_lift_percent; // lift the docked box up by this % of screen height; default 0
+        public float? dock_top_percent;    // anchor docked box by its TOP at this % → grows DOWN; <0 = bottom-anchored
         public float? panel_padding_x;   // body inner padding; default 22
         public float? panel_padding_y;   // default 18
         public float? panel_min_height;  // default 128
@@ -155,6 +373,42 @@ namespace Lvn.Content
     }
 
     /// <summary>The title slider / carousel on the main menu.</summary>
+    /// <summary>The hub/collection browse flow (BrowseHub) — an alternative to the
+    /// carousel selected by <c>layout = "hub"</c>. Three themeable screens: the hub
+    /// (game title + collection tiles), a collection (title cards), and a title
+    /// detail (image + description + Play). Every colour/label optional.</summary>
+    public sealed class BrowseConfig
+    {
+        public string layout;            // "carousel" (default) | "hub"
+
+        public string bg_color;          // screen background; default #101015
+        public string title;             // hub headline; default the app/product name
+        public string subtitle;          // hub sub-line; default "Выбери…"
+        public string title_color;       // headings; default #f4ecd8
+        public string text_color;        // body/desc; default #e8e4d8
+        public string dim_text_color;    // secondary; default #9a948a
+        public string card_color;        // tile/card fill; default #35c88f (green like the mock)
+        public string card_text_color;   // text on cards; default #14141a
+        public string accent_color;      // buttons; default #35c88f
+        public string accent_text_color; // button text; default #14141a
+        public float? card_radius;       // px; default 16
+
+        public string play_text;         // detail Play button; default "Играть"
+        public string back_text;         // back button; default "‹"
+        public string locked_text;       // lock badge on a gated card; default "🔒"
+        public string cost_text;         // cost chip, "{0}" = amount; default "{0}"
+        public string all_text;          // slider "see all" link; default "Все"
+        public string more_text;         // card details button; default "Подробнее"
+        public string featured_text;     // featured-banner eyebrow; default "Рекомендуем"
+        public string continue_text;     // resume banner label; default "Продолжить"
+        public string library_text;      // auto row for un-collected titles; default "Новеллы"
+        public string nav_home;          // bottom nav labels
+        public string nav_store;
+        public string nav_wardrobe;
+        public string nav_gallery;
+        public string nav_profile;
+    }
+
     public sealed class CarouselConfig
     {
         public string bg_color;          // default #101015
@@ -190,6 +444,7 @@ namespace Lvn.Content
         public string pill_bg_color;     // default #00000066
         public string pill_text_color;   // default #f4ecd8
         public string default_currency_icon_url; // fallback pill icon
+        public string regen_ready_text;  // shown on a refill countdown that hit 0; default "…"
     }
 
     /// <summary>Look and behaviour of the loading screen (background, scrim, and a

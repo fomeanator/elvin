@@ -43,6 +43,17 @@
 
   --shadow-soft: 0 1px 0 rgba(255, 255, 255, 0.02), 0 18px 40px -24px rgba(0, 0, 0, 0.7);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* admin dashboard scale (spec: shadcn/Supabase-grounded) */
+  --sidebar-w: 240px;
+  --sidebar-w-icon: 52px;
+  --header-h: 48px;
+  --hairline: rgba(236, 227, 212, 0.08);
+  --hairline-strong: rgba(236, 227, 212, 0.16);
+  --hover-bg: rgba(236, 227, 212, 0.04);
+  --selected-bg: rgba(233, 188, 217, 0.09);
+  --skeleton-base: rgba(236, 227, 212, 0.07);
+  --skeleton-hi: rgba(236, 227, 212, 0.14);
 }
 
 * { box-sizing: border-box; }
@@ -255,6 +266,19 @@ input, select, textarea { font-family: inherit; }
 .save-status.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .save-status.ok { border-color: rgba(147, 178, 124, 0.5); color: var(--good); }
 .save-status.err { border-color: rgba(223, 138, 112, 0.5); color: var(--bad); }
+
+/* toast stack: bottom-right column (max 3), each toast static inside the stack */
+.toast-stack {
+  position: fixed; right: 24px; bottom: 24px; z-index: 70;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  pointer-events: none;
+}
+.save-status.stacked {
+  position: static; transform: none; max-width: 356px;
+  border-radius: 8px; text-align: left;
+  animation: toastIn 0.25s var(--ease);
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ── Workspace ─────────────────────────────────────────────────────────── */
 .workspace { min-height: 0; overflow: hidden; }

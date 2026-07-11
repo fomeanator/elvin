@@ -55,6 +55,11 @@ func main() {
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
 	iapDev := flag.Bool("iap-dev", false, "accept any IAP receipt (test builds only — never production)")
+	walletEarn := flag.Bool("wallet-earn", true, "allow client-initiated POST /v1/wallet/earn (test-mode affordance; set to false before enabling real payments)")
+	authDev := flag.Bool("auth-dev", false, "accept the 'dev' auth provider (test builds only — never production)")
+	googleClientID := flag.String("google-client-id", "", "pin Google id_token audience for /v1/auth/link|login")
+	appleBundleID := flag.String("apple-bundle-id", "", "pin Apple identity-token audience for /v1/auth/link|login")
+	appleSharedSecret := flag.String("apple-shared-secret", "", "App Store shared secret for /v1/iap/verify receipt validation")
 	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
 	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
@@ -82,7 +87,7 @@ func main() {
 	// the exact path wins.
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
-	mux.Handle("/content/", srv.contentHandler(*contentDir))
+	mux.Handle("/content/", srv.withASTC(srv.withDownscale(srv.contentHandler(*contentDir))))
 	mux.HandleFunc("/v1/state", srv.handleState)
 
 	// Product services — auth, wallet/IAP, analytics. Modular by design: each
@@ -93,10 +98,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("auth service: %v", err)
 	}
+	authSvc.AuthDev = *authDev
+	authSvc.GoogleClientID = *googleClientID
+	authSvc.AppleBundleID = *appleBundleID
 	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), authSvc,
 		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev)
 	if err != nil {
 		log.Fatalf("wallet service: %v", err)
+	}
+	walletSvc.AppleSharedSecret = *appleSharedSecret
+	walletSvc.AppleBundleID = *appleBundleID
+	walletSvc.EarnDisabled = !*walletEarn
+	// Production nudges: these pins are what stand between "verified" and
+	// "any token/receipt from any app" — silence here has bitten people.
+	if *walletEarn {
+		log.Printf("note: /v1/wallet/earn is OPEN — any signed-in device can credit itself (test mode). Set -wallet-earn=false before real IAP/ads payouts")
+	}
+	if *appleSharedSecret != "" && *appleBundleID == "" {
+		log.Printf("WARNING: -apple-shared-secret is set but -apple-bundle-id is empty — receipts from OTHER apps would validate; set the bundle id in production")
+	}
+	if !*authDev && (*googleClientID == "" || *appleBundleID == "") {
+		log.Printf("note: -google-client-id / -apple-bundle-id unset — platform token audience is not pinned (fine for dev, set both in production)")
 	}
 	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken)
 	if err != nil {
@@ -111,13 +133,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("leaderboard service: %v", err)
 	}
+	adsSvc, err := NewAdsService(filepath.Join(servicesDir, "ads"), authSvc, walletSvc,
+		filepath.Join(*contentDir, "ads.json"))
+	if err != nil {
+		log.Fatalf("ads service: %v", err)
+	}
+	adminSvc := NewAdminService(*contentDir, *adminToken, authSvc, walletSvc)
 	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
 	analyticsSvc.Routes(mux)
 	dailySvc.Routes(mux)
+	adsSvc.Routes(mux)
+	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
+	mux.HandleFunc("/v1/admin/import-bundle", srv.handleImportBundle)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)
 	mux.HandleFunc("/v1/export", srv.handleExport)
 
@@ -140,6 +171,11 @@ func main() {
 	mux.Handle("/panel/", http.StripPrefix("/panel/", site))
 	mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/panel/", http.StatusFound)
+	})
+	// The vanilla /admin/ page retired into the React app's "Админка" mode —
+	// keep bookmarked URLs working.
+	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/?admin=1", http.StatusFound)
 	})
 	mux.Handle("/", site)
 
@@ -177,6 +213,32 @@ type server struct {
 
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
+
+	userMu    sync.Mutex
+	userLocks map[string]*sync.Mutex // per-user: serializes state PUT + key claim
+}
+
+// lockUser returns the mutex serializing writes for one user's state blob.
+// The version check + file write + memory update must be one critical section —
+// without it two concurrent PUTs both pass the OCC check and one update is lost.
+func (s *server) lockUser(user string) *sync.Mutex {
+	s.userMu.Lock()
+	defer s.userMu.Unlock()
+	if s.userLocks == nil {
+		s.userLocks = make(map[string]*sync.Mutex)
+	}
+	m, ok := s.userLocks[user]
+	if !ok {
+		// Bound the map like stateMemMax bounds saves: drop it wholesale when it
+		// grows unreasonably (locks are transient; a fresh one is fine once no
+		// request holds the old — and holders keep their own pointer safely).
+		if len(s.userLocks) > stateMemMax*2 {
+			s.userLocks = make(map[string]*sync.Mutex)
+		}
+		m = &sync.Mutex{}
+		s.userLocks[user] = m
+	}
+	return m
 }
 
 // stateMemMax bounds how many player saves are held in RAM. Disk is the source
@@ -215,6 +277,18 @@ func (s *server) handleManifest(w http.ResponseWriter, r *http.Request) {
 func (s *server) contentHandler(dir string) http.Handler {
 	fs := http.StripPrefix("/content/", http.FileServer(http.Dir(dir)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// PRIVATE subtrees live under the content root for operational
+		// convenience but are API-served, never static: player saves
+		// (state/ — guarded by X-State-Key on /v1/state), wallets/users
+		// (services/), edit history and the unpublished draft. Serving
+		// them here would hand any visitor another player's wallet and
+		// bypass the save-key check entirely.
+		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
+		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
+			strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".lvn") {
 			w.Header().Set("Cache-Control", "no-store")
 		} else {
@@ -240,6 +314,32 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		}
 		rel = filepath.ToSlash(rel)
 		if rel == "asset-versions.json" || (rel == "manifest.json" && !includeManifest) {
+			return nil
+		}
+		// Derived, regenerable artifacts (downscale.go's @2k variants, astc.go's
+		// transcodes) must NOT fold into the content version: they appear on
+		// disk lazily as clients request them, and counting them made every
+		// first visit to a scene bump the version — the client's ContentSync
+		// then "detected a content change" and reloaded the chapter MID-PLAY
+		// (multi-second freeze + the story jumping a beat forward off the
+		// autosave). The source images they derive from are versioned already.
+		base := filepath.Base(rel)
+		if strings.HasSuffix(base, ".astc") || strings.Contains(base, downscaleSuffix+".") {
+			return nil
+		}
+		// Runtime state (player saves under state/, analytics/wallets under
+		// services/) mutates DURING play — every autosave was bumping the
+		// content version, which the client answered with a full chapter
+		// reload: save → version change → reload → resume → save → … a loop
+		// of multi-second freezes. This state is API-served, never a
+		// cacheable asset, so it has no business in the version index.
+		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") {
+			return nil
+		}
+		// Editorial plumbing, not content: history snapshots and the unpublished
+		// manifest draft must never bump the version (a backup would otherwise
+		// reload every client).
+		if strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
 			return nil
 		}
 		data, derr := os.ReadFile(path)
@@ -329,6 +429,13 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 	// and access logs record — so the id alone must not be enough to read or
 	// overwrite a stranger's save. Unclaimed blobs stay open (legacy clients).
 	key := r.Header.Get("X-State-Key")
+	// One writer per user: the TOFU key claim below and the OCC version
+	// check+write in PUT are check-then-act sequences — serialize them.
+	if r.Method == http.MethodPut {
+		lk := s.lockUser(user)
+		lk.Lock()
+		defer lk.Unlock()
+	}
 	if !s.stateKeyOK(user, key, r.Method == http.MethodPut) {
 		http.Error(w, "state key mismatch", http.StatusUnauthorized)
 		return
@@ -550,35 +657,47 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if r.Method != http.MethodPut {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	rel := strings.TrimPrefix(r.URL.Path, "/v1/admin/assets/")
 	if rel == "" || strings.Contains(rel, "..") {
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 	dst := filepath.Join(s.content, filepath.Clean(rel))
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	switch r.Method {
+	case http.MethodPut:
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+		if err != nil {
+			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		snapshotHistory(s.content, rel) // scripts keep their past versions
+		if err := atomicWrite(dst, body, 0o644); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"path": rel, "bytes": len(body)})
+	case http.MethodDelete:
+		snapshotHistory(s.content, rel)
+		if err := os.Remove(dst); err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": rel})
+	default:
+		http.Error(w, "PUT or DELETE", http.StatusMethodNotAllowed)
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
-	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
-		return
-	}
-	if err := atomicWrite(dst, body, 0o644); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"path": rel, "bytes": len(body)})
 }
 
 // atomicWrite writes via a temp file in the same directory then renames, so a
 // concurrent reader (e.g. computeVersions hashing for cache-busting) never sees
-// a half-written or zero-byte file. Rename is atomic on the same filesystem.
+// a half-written or zero-byte file. Rename is atomic on the same filesystem,
+// and the explicit fsyncs extend the guarantee from "survives a process crash"
+// to "survives a power cut": the data hits stable storage before the rename
+// publishes it, and the directory entry itself is flushed after.
 func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tmp-*")
 	if err != nil {
@@ -586,6 +705,11 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(body); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
 		return err
@@ -601,6 +725,12 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	if err := os.Rename(tmpName, dst); err != nil {
 		os.Remove(tmpName)
 		return err
+	}
+	// Flush the rename itself. Best-effort: not every filesystem supports
+	// fsync on a directory, and the write is already durable content-wise.
+	if d, err := os.Open(filepath.Dir(dst)); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }

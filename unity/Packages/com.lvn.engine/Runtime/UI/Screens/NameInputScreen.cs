@@ -73,7 +73,7 @@ namespace Lvn.UI.Screens
 
             _prompt = new Label(_cfg.prompt ?? "Enter your name");
             _prompt.style.color = UiColor.Parse(_cfg.prompt_color, new Color(0.80f, 0.72f, 0.56f));
-            _prompt.style.fontSize = 28;
+            _prompt.style.fontSize = 30;
             _prompt.style.marginBottom = 14;
             panel.Add(_prompt);
 
@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             _field = new TextField { maxLength = _maxLength };
             _field.style.flexGrow = 1;
-            _field.style.fontSize = 30;
+            _field.style.fontSize = 32;
             _field.style.marginRight = 16;
             var fieldColor = UiColor.Parse(_cfg.field_color, new Color(0.11f, 0.11f, 0.13f));
             var textColor = UiColor.Parse(_cfg.text_color, new Color(0.96f, 0.93f, 0.85f));
@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             row.Add(_field);
 
             _confirm = new Button { text = _cfg.confirm_text ?? "Confirm" };
-            _confirm.style.fontSize = 26;
+            _confirm.style.fontSize = 28;
             _confirm.style.paddingLeft = 28;
             _confirm.style.paddingRight = 28;
             _confirm.style.paddingTop = 12;

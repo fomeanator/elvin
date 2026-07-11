@@ -118,6 +118,10 @@ namespace Lvn.UI
 
         public CanvasSceneRenderer(World.WorldStage scene) => _scene = scene;
 
+        /// <summary>The stage canvas root — hosts the resume veil (see
+        /// VnStage.RestoreSnapshot).</summary>
+        public GameObject Root => _scene.Root;
+
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
         public void ClearBackground() { /* the canvas keeps its black board; the next bg paints over */ }
 

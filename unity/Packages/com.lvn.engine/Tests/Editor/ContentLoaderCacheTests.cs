@@ -34,11 +34,11 @@ namespace Lvn.Tests
         public void PickEvictions_OldestFirstUntilUnderBudget()
         {
             const long MB = 1 << 20;
-            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            var entries = new System.Collections.Generic.List<(string, long, long, float, bool)>
             {
-                ("old-a", 10 * MB, 1, 0f),
-                ("old-b", 10 * MB, 2, 0f),
-                ("newer", 10 * MB, 3, 0f),
+                ("old-a", 10 * MB, 1, 0f, false),
+                ("old-b", 10 * MB, 2, 0f, false),
+                ("newer", 10 * MB, 3, 0f, false),
             };
             // Budget 15MB, total 30MB, all past grace → evict the two oldest.
             var evict = ContentLoader.PickEvictions(entries, 15 * MB, 1000f, 60f);
@@ -49,10 +49,10 @@ namespace Lvn.Tests
         public void PickEvictions_GraceProtectsRecentlyUsed()
         {
             const long MB = 1 << 20;
-            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            var entries = new System.Collections.Generic.List<(string, long, long, float, bool)>
             {
-                ("visible-bg", 20 * MB, 1, 995f), // requested 5s ago — on screen
-                ("stale",      20 * MB, 2, 0f),
+                ("visible-bg", 20 * MB, 1, 995f, false), // requested 5s ago — on screen
+                ("stale",      20 * MB, 2, 0f, false),
             };
             var evict = ContentLoader.PickEvictions(entries, 25 * MB, 1000f, 60f);
             CollectionAssert.AreEqual(new[] { "stale" }, evict,
@@ -63,11 +63,27 @@ namespace Lvn.Tests
         public void PickEvictions_UnderBudgetEvictsNothing()
         {
             const long MB = 1 << 20;
-            var entries = new System.Collections.Generic.List<(string, long, long, float)>
+            var entries = new System.Collections.Generic.List<(string, long, long, float, bool)>
             {
-                ("a", 5 * MB, 1, 0f), ("b", 5 * MB, 2, 0f),
+                ("a", 5 * MB, 1, 0f, false), ("b", 5 * MB, 2, 0f, false),
             };
             CollectionAssert.IsEmpty(ContentLoader.PickEvictions(entries, 100 * MB, 1000f, 60f));
+        }
+
+        [Test]
+        public void PickEvictions_PinnedNeverEvicted()
+        {
+            const long MB = 1 << 20;
+            var entries = new System.Collections.Generic.List<(string, long, long, float, bool)>
+            {
+                ("spine-page", 30 * MB, 1, 0f, true),  // pinned: a live skeleton's texture
+                ("stale-bg",   30 * MB, 2, 0f, false),
+            };
+            // Over budget and both past grace, but the pinned page is off-limits —
+            // the evictor must take the unpinned one even though it's newer.
+            var evict = ContentLoader.PickEvictions(entries, 25 * MB, 1000f, 60f);
+            CollectionAssert.AreEqual(new[] { "stale-bg" }, evict,
+                "a pinned texture (in use by a live skeleton) is never evicted");
         }
 
         [Test]

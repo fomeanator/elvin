@@ -1,44 +1,62 @@
 # Changelog
 
 All notable changes to Elvin. Format based on [Keep a Changelog](https://keepachangelog.com/);
-the project aims for [Semantic Versioning](https://semver.org/).
+the project aims for [Semantic Versioning](https://semver.org/). This file tracks
+the repo as a whole; the Unity package keeps its own detailed
+[CHANGELOG](unity/Packages/com.lvn.engine/CHANGELOG.md).
 
 ## [Unreleased]
 
 ### Added
-- **In-Unity `.lvns` importer** — a `ScriptedImporter` compiles Elvin Script to a
-  playable `.lvn` asset on import; no external CLI needed
-  (`unity/.../Editor/LvnsImporter.cs`).
-- **C# Elvin Script compiler** — a faithful port of the Go transcoder
-  (`unity/.../Editor/LvnsCompiler.cs`), guarded against drift by a golden corpus
-  (13 `.lvns` + Go-produced `.lvn`) and an EditMode parity test. Verified: all
-  EditMode tests pass; a `.lvns` imports and plays through `VnStage` end-to-end.
-- **`ElvinVnStageSample`** — a one-component, self-contained visual sample
-  (story + theme bundled): add it, press Play, see a game.
-- **`docs/unity-getting-started.md`** — zero-to-playable Unity guide.
-- **`howto/`** — a build-a-game kit: language reference, a code-verified
-  capabilities/limitations map, cheatsheet, recipes, and 12 genre guides each with
-  a validated `.lvns` example.
-- **`AGENTS.md`** (root + `howto/`) — onboarding for coding agents and authors.
-- **`GROWTH.md`** — growth analysis and a Unity-native plan.
-- **Faithful branch reconvergence in the articy `.adpd` importer**
-  (`linearizeByComponents`): within a scene the 0x02 pin graph drives the flow, so
-  a choice's branches rejoin at their shared next stop (the merge points the
-  authoring-order spine flattened away); scenes are chained in authoring order onto
-  reached dead-ends (never a bogus choice). Self-validates 100% coverage and falls
-  back to the spine, so it can never produce worse coverage. Validated on 5 real
-  novels — 100% content coverage, 0 lost lines, 348–606 real merge points each
-  (previously 0), cleaner choice counts.
+- **Bundle import** — one-shot "five files → playable novel" in the admin panel:
+  an articy archive + backgrounds/characters/heroine zips + a variables `.xlsx`,
+  mapped onto real art and wardrobe wiring (`lvnconv importer.RunBundle`,
+  `POST /v1/admin/import-bundle`).
+- **Per-project import templates** — the authoring conventions of an articy
+  project (narrator roles, scene regexes, wardrobe/audio naming) live in
+  `content/import-templates/<name>.json`; the default `cold` template keeps the
+  previous behaviour. New projects add a JSON, not a fork.
+- **Unified admin dashboard** inside the React panel (`/?admin=1`): overview,
+  users/grants, orders, saves, economy configs, assets, manifest draft/publish
+  with history rollback, analytics — all over the same `/v1/admin/*` API. The
+  old vanilla `/admin/` page is retired (the server redirects it here).
+- **Hub & collections novel-shell** — `ui.browse.layout="hub"` renders a
+  hub → collections → title-detail flow (`BrowseHub`) with per-title
+  type/unlock/cost, chapter-energy gating, wardrobe preview contract, actor
+  mirror and the standard novel pose; "Полночь" design tokens across screens.
+- **Regenerating currencies** — energy-style refill (`services/energy.json`):
+  cap/interval/start, HUD countdown, popup paywall seam.
+- **Cross-novel global stats** — `global.*` variables persist in a shared
+  per-player blob and drive `unlock` expressions in the hub.
+- **Server durability for money** — `atomicWrite` now fsyncs the file and its
+  directory; wallet/auth/ads persist failures surface as 500s (money never
+  moves in a response the disk didn't confirm); a corrupt wallet or
+  `users.json` fails closed instead of silently becoming empty. New
+  `-wallet-earn=false` kill switch closes the client-initiated earn route
+  before real payments go live.
+- **lvnconv miscompile guard** — a command-shaped line with an unknown op (or a
+  known op with unparsable params) is a compile error with a "did you mean"
+  hint, never silently swallowed into dialogue.
 
-### Changed
-- **Rebrand to "Elvin"** (how "LVN" is pronounced). The `.lvn`/`.lvns` extensions
-  and all code identifiers (`com.lvn.engine`, `Lvn.*`, `LvnPlayer`) are unchanged.
-- README / package description now lead with a plain value statement instead of
-  the "ffmpeg" metaphor.
+## [0.7.0] — 2026-07-03
 
-### Fixed
-- CI: `gofmt` alignment in `lvnconv`; missing `golang.org/x/image` entry in the
-  server `go.sum` (each Go module now builds standalone with `GOWORK=off`).
+- Engine: UI interaction sounds, History tap-to-return, read tracking +
+  skip-read-only, CG gallery; library-first embedding seams (`LvnOps.Register`,
+  menu slots, `VnStage.Saved`), sticky placement. Voice-over, timed choices and
+  text input land across the language, validator and runtime.
+- Removed dead `BacklogPanel`/`SaveLoadPanel` and the `MetaShell` prototypes.
+
+## [0.6.0] — 2026-07-03
+
+- Script-driven animation with splines/orient/arc-length and `defanim`;
+  paper-doll bones with spring physics (`BoneSolver`); optional Spine runtime
+  integration (version-define module); drag & drop objects.
+
+## [0.5.0] — 2026-07-02
+
+- QoL box: multi-step rollback, settings screen, save/load panel with
+  thumbnails & migration, autosave/resume, quick menu. Self-hosted Unity CI
+  job (EditMode + PlayMode) and the release-APK pipeline.
 
 ## [0.4.0]
 
@@ -50,5 +68,8 @@ the project aims for [Semantic Versioning](https://semver.org/).
   camera/particles/audio), reactive HUD, save/load, and the novel-shell.
 - Server template (Go) + web authoring panel.
 
-[Unreleased]: https://github.com/fomeanator/unity-lvn-vn-engine/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/fomeanator/unity-lvn-vn-engine/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.7.0
+[0.6.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.6.0
+[0.5.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.5.0
 [0.4.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.4.0

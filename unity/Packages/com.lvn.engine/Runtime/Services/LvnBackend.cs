@@ -20,6 +20,7 @@ namespace Lvn.Services
         private const string PDevice = "lvn.svc.device";
         private const string PToken = "lvn.svc.token";
         private const string PUser = "lvn.svc.user";
+        private const string PName = "lvn.svc.name";
 
         /// <summary>Server base url, e.g. "http://127.0.0.1:8077". The host sets
         /// it once at boot (NovelApp's ServerUrl is the usual source).</summary>
@@ -52,12 +53,68 @@ namespace Lvn.Services
             PlayerPrefs.SetString(PToken, resp.token);
             PlayerPrefs.SetString(PUser, resp.user_id);
             PlayerPrefs.Save();
+            LvnWallet.NoteUser(resp.user_id); // bind (or reset) the offline wallet to this account
             SignedInChanged?.Invoke(resp.user_id);
             return true;
         }
 
         [Serializable] private class RegisterReq { public string device_id; }
         [Serializable] private class RegisterResp { public string user_id; public string token; }
+
+        /// <summary>The profile display name — local-first (kept in PlayerPrefs
+        /// even offline), synced to the account when a server is reachable.</summary>
+        public static string DisplayName => PlayerPrefs.GetString(PName, "");
+
+        /// <summary>Save the display name locally and push it to the account
+        /// (POST /v1/auth/profile). Offline the local copy still sticks — the
+        /// next successful call syncs it.</summary>
+        public static async Task<bool> SetDisplayNameAsync(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) return false;
+            PlayerPrefs.SetString(PName, name);
+            PlayerPrefs.Save();
+            var (code, _) = await PostAsync("/v1/auth/profile", JsonUtility.ToJson(new ProfileReq { name = name }));
+            return code == 200;
+        }
+
+        [Serializable] private class ProfileReq { public string name; }
+
+        /// <summary>Sign in with a verified platform identity (POST
+        /// /v1/auth/login) — cross-device recovery: a known identity returns
+        /// its account and this device switches to it (token + user id are
+        /// replaced); an unknown identity gets a fresh account.</summary>
+        public static async Task<bool> LoginWithProviderAsync(string provider, string token)
+        {
+            var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
+            var (code, json) = await PostAsync("/v1/auth/login", body, auth: false);
+            if (code != 200 || string.IsNullOrEmpty(json)) return false;
+            var resp = JsonUtility.FromJson<LoginResp>(json);
+            if (string.IsNullOrEmpty(resp?.token)) return false;
+            PlayerPrefs.SetString(PToken, resp.token);
+            PlayerPrefs.SetString(PUser, resp.user_id);
+            if (!string.IsNullOrEmpty(resp.name)) PlayerPrefs.SetString(PName, resp.name);
+            PlayerPrefs.Save();
+            // Cross-device recovery may have switched ACCOUNTS on this device —
+            // the previous user's offline wallet must not leak into this one.
+            LvnWallet.NoteUser(resp.user_id);
+            SignedInChanged?.Invoke(resp.user_id);
+            return true;
+        }
+
+        /// <summary>Attach a platform identity to the current account (POST
+        /// /v1/auth/link) so it becomes recoverable from any device.</summary>
+        public static async Task<LvnPlatformAuth.LinkResult> LinkProviderAsync(string provider, string token)
+        {
+            var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
+            var (code, _) = await PostAsync("/v1/auth/link", body);
+            if (code == 200) return LvnPlatformAuth.LinkResult.Linked;
+            if (code == 409) return LvnPlatformAuth.LinkResult.Conflict;
+            return LvnPlatformAuth.LinkResult.Failed;
+        }
+
+        [Serializable] private class ProviderReq { public string provider; public string token; }
+        [Serializable] private class LoginResp { public string user_id; public string token; public string name; }
 
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>
@@ -74,6 +131,20 @@ namespace Lvn.Services
             while (!op.isDone) await Task.Yield();
             if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
             return (req.responseCode, req.downloadHandler.text);
+        }
+
+        [Serializable] private class MeResp { public string user_id; public string[] providers; }
+
+        /// <summary>The platform providers this account is linked to
+        /// (<c>"google"</c>, <c>"apple"</c>); empty for a device-only account,
+        /// null when offline. The settings screen shows "signed in via …" from
+        /// this (GET /v1/auth/me).</summary>
+        public static async Task<string[]> GetProvidersAsync()
+        {
+            var (code, json) = await GetAsync("/v1/auth/me");
+            if (code != 200 || string.IsNullOrEmpty(json)) return null;
+            try { return JsonUtility.FromJson<MeResp>(json)?.providers ?? Array.Empty<string>(); }
+            catch { return Array.Empty<string>(); }
         }
 
         /// <summary>GET json with the bearer token; same contract as PostAsync.</summary>

@@ -43,6 +43,11 @@ export const DIRECTIVES = ${j(g.directives)};
 
 export const OPS = ${j(g.ops)};
 
+// Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
+// lvnconv, so they are NOT compiled ops (absent from OPS / the validator), but
+// the editor must still highlight and complete them.
+export const SOURCE_OPS = ${j(g.source_ops || [])};
+
 export const OP_FIELDS = ${j(g.op_fields)};
 
 // Enumerated values per attribute key — suggested after \`key=\`.
