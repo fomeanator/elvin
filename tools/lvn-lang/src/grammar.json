@@ -57,6 +57,7 @@
       "enter",
       "exit",
       "flip",
+      "mirror",
       "rotation",
       "opacity",
       "z",
@@ -180,7 +181,8 @@
     ],
     "hint": [
       "text",
-      "show"
+      "show",
+      "duration"
     ],
     "call": [
       "label"
@@ -318,6 +320,10 @@
       "true",
       "false"
     ],
+    "mirror": [
+      "true",
+      "false"
+    ],
     "channel": [
       "music",
       "ambient",
@@ -430,8 +436,8 @@
       "Increment a numeric variable."
     ],
     "hint": [
-      "hint text=\"…\" show=true",
-      "Show or hide a hint."
+      "hint text=\"…\" show=true duration=0",
+      "Всплывающее окно-подсказка сверху по центру сцены. show=false убирает его; duration>0 — авто-скрытие через N секунд."
     ],
     "call": [
       "call label",
@@ -448,6 +454,26 @@
     "load": [
       "load slot=\"quick\"",
       "Restore state from a slot."
+    ],
+    "voice": [
+      "voice \"/content/voice/x.ogg\"",
+      "Voice the NEXT say line with an audio clip."
+    ],
+    "ext": [
+      "ext <op> key=value …",
+      "Invoke a host-defined op (minigame, wardrobe, custom) — handled by the game’s LvnOps.Register."
+    ],
+    "defanim": [
+      "defanim <name> prop=… keys=… [loop= ease= dur=]",
+      "Define a reusable animation; stamp it onto an actor later with `play`."
+    ],
+    "move": [
+      "move <id> <path> [dur= ease= loop=]",
+      "Move an actor along a path (compiles to an anim)."
+    ],
+    "play": [
+      "play <id> <animName> [overrides]  ·  play id= anim=",
+      "Play a previously defined `defanim` on an actor."
     ]
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
@@ -541,5 +567,13 @@
     "sad",
     "angry",
     "smile"
-  ]
+  ],
+  "source_ops": [
+    "voice",
+    "ext",
+    "defanim",
+    "move",
+    "play"
+  ],
+  "$source_comment": "Compile-time-only keywords (lowered away by lvnconv): editor knows them for highlight/completion; NOT compiled ops, so absent from `ops`/validator KnownOps."
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getManifest, putAsset, importArticy } from "../lib/api.js";
+import { getManifest, putAsset, importArticy, importBundle } from "../lib/api.js";
 import { slug } from "../lib/sprites.js";
 
 const chapterCount = (t) => (t.seasons || []).reduce((n, s) => n + (s.chapters || []).length, 0);
@@ -9,6 +9,7 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   const [bust, setBust] = useState(() => Date.now());
   const [modal, setModal] = useState(null); // {mode, draft, originalId}
   const [imp, setImp] = useState(null); // articy import modal: {name, files, label, drag, busy}
+  const [bundle, setBundle] = useState(null); // bundle import modal: {name, files:{...}, busy}
   const [importing, setImporting] = useState(null); // {pct, phase}
 
   useEffect(() => {
@@ -66,6 +67,38 @@ export default function LibraryHome({ creds, notify, onOpen }) {
       notify("✗ " + e.message, "err");
     }
   }
+  // Full novel bundle: pick the articy project + optional art/vars packs.
+  function openBundle() {
+    if (!creds.token) { notify("Set the admin token first (top bar).", "err"); return; }
+    setBundle({ name: "", files: { articy: null, backgrounds: null, heroine: null, characters: null, vars: null } });
+  }
+
+  async function runBundleImport(files, name, template) {
+    let id = slug(name) || "imported";
+    let base = id, i = 1;
+    while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
+    setBundle((s) => ({ ...(s || {}), busy: true }));
+    setImporting({ pct: 0, phase: "Загрузка файлов…" });
+    try {
+      const r = await importBundle(
+        files, { id, name, subtitle: "", template }, creds.token,
+        (p) => setImporting((s) => ({ ...s, pct: p < 0.99 ? p : 0.99, phase: "Загрузка… " })),
+      );
+      setImporting({ pct: 1, phase: "Готово" });
+      const says = (r.ops && r.ops.say) || 0;
+      notify(`✓ «${r.name || name}»: ${says} реплик, ${r.art_files || 0} артов`, "ok");
+      setTitles((await getManifest()).titles || []);
+      setBust(Date.now());
+      setImporting(null);
+      setBundle(null);
+      if (r.id) onOpen(r.id, r.name);
+    } catch (e) {
+      setImporting(null);
+      setBundle((s) => ({ ...(s || {}), busy: false }));
+      notify("✗ " + e.message, "err");
+    }
+  }
+
   function openEdit(t) {
     setModal({ mode: "edit", draft: { id: t.id, name: t.name || "", subtitle: t.subtitle || "", cover_url: t.cover_url || "" }, originalId: t.id });
   }
@@ -152,6 +185,11 @@ export default function LibraryHome({ creds, notify, onOpen }) {
           <span className="novel-add-mark">⇪</span>
           Import articy
         </button>
+
+        <button className="novel novel-add novel-import" onClick={openBundle} title="Импорт полной новеллы — articy-проект + фоны/героиня/персонажи/переменные">
+          <span className="novel-add-mark">⇪</span>
+          Импорт новеллы (5 файлов)
+        </button>
       </div>
 
       {imp && !importing && (
@@ -160,6 +198,16 @@ export default function LibraryHome({ creds, notify, onOpen }) {
           setImp={setImp}
           onImport={runImport}
           onCancel={() => setImp(null)}
+          notify={notify}
+        />
+      )}
+
+      {bundle && !importing && (
+        <BundleModal
+          bundle={bundle}
+          setBundle={setBundle}
+          onImport={runBundleImport}
+          onCancel={() => setBundle(null)}
           notify={notify}
         />
       )}
@@ -295,6 +343,72 @@ function ImportModal({ imp, setImp, onImport, onCancel, notify }) {
           <div className="grow" />
           <button className="btn-ghost" onClick={onCancel}>Отмена</button>
           <button className="btn btn-primary" onClick={go} disabled={imp.busy}>Импортировать ▸</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// BundleModal: five labelled file pickers for a full novel import — the articy
+// project (required) plus optional backgrounds / heroine / characters / vars
+// packs — and a name. Each picker is a <label>-wrapped input so a click opens
+// the OS dialog natively (see the ImportModal note). Enabled once the required
+// articy file and a name are set.
+const BUNDLE_FIELDS = [
+  { key: "articy", label: "Articy проект", hint: ".rar / .zip", accept: ".rar,.zip,application/zip,application/vnd.rar,application/x-rar-compressed", required: true },
+  { key: "backgrounds", label: "Фоны", hint: ".zip", accept: ".zip,application/zip" },
+  { key: "heroine", label: "Героиня", hint: ".zip", accept: ".zip,application/zip" },
+  { key: "characters", label: "Персонажи", hint: ".zip", accept: ".zip,application/zip" },
+  { key: "vars", label: "Переменные", hint: ".xlsx", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+];
+
+function BundleModal({ bundle, setBundle, onImport, onCancel, notify }) {
+  const setFile = (key, file) =>
+    setBundle((s) => ({
+      ...s,
+      files: { ...s.files, [key]: file || null },
+      name: (s.name && s.name.trim()) || (key === "articy" && file ? file.name.replace(/\.(zip|rar)$/i, "") : s.name),
+    }));
+
+  const name = (bundle.name || "").trim();
+  const ready = !!(bundle.files.articy && name);
+
+  function go() {
+    if (!bundle.files.articy) { notify("Выбери articy-проект (.rar / .zip).", "err"); return; }
+    if (!name) { notify("Назови новеллу.", "err"); return; }
+    onImport(bundle.files, name, (bundle.template || "").trim());
+  }
+
+  return (
+    <div className="sp-chooser" onClick={onCancel}>
+      <div className="sp-chooser-box novel-modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Импорт новеллы (5 файлов)</h3>
+        {BUNDLE_FIELDS.map((f) => {
+          const picked = bundle.files[f.key];
+          return (
+            <label key={f.key} className={"import-drop" + (picked ? " over" : "")}>
+              <input type="file" accept={f.accept} style={{ display: "none" }}
+                     onChange={(e) => setFile(f.key, e.target.files && e.target.files[0])} />
+              {picked
+                ? <b>✓ {picked.name}</b>
+                : <><b>«{f.label}»{f.required ? " *" : ""}</b><span>{f.hint}</span></>}
+            </label>
+          );
+        })}
+        <label className="adv-field">
+          <span>Название новеллы</span>
+          <input className="field wide" autoFocus placeholder="Моя новелла" value={bundle.name}
+                 onChange={(e) => setBundle((s) => ({ ...s, name: e.target.value }))} />
+        </label>
+        <label className="adv-field">
+          <span>Шаблон импорта</span>
+          <input className="field wide" placeholder="cold (по умолчанию)" value={bundle.template || ""}
+                 onChange={(e) => setBundle((s) => ({ ...s, template: e.target.value }))} />
+        </label>
+        <div className="novel-modal-actions">
+          <div className="grow" />
+          <button className="btn-ghost" onClick={onCancel}>Отмена</button>
+          <button className="btn btn-primary" onClick={go} disabled={!ready || bundle.busy}>Импортировать ▸</button>
         </div>
       </div>
     </div>

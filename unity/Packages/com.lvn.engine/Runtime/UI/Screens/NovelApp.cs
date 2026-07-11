@@ -92,6 +92,16 @@ namespace Lvn.UI.Screens
             // Product services ride the same host; registration is idempotent
             // and a no-op offline — a pure-offline game just never signs in.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+#if UNITY_EDITOR
+            // Editor test doubles: the 'dev' auth provider (server -auth-dev)
+            // and an instantly-"watched" rewarded ad — the full sign-in and
+            // ad-reward flows run end-to-end without any store SDKs. Real
+            // builds: the host plugs LvnPlatformAuth.Google/Apple and
+            // LvnAds.ShowRewarded (CAS.AI etc.) instead.
+            Lvn.Services.LvnPlatformAuth.Dev ??=
+                () => Task.FromResult("editor-dev-" + SystemInfo.deviceUniqueIdentifier);
+            Lvn.Services.LvnAds.ShowRewarded ??= _ => Task.FromResult(true);
+#endif
             _ = Lvn.Services.LvnBackend.EnsureRegisteredAsync();
             Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
             Lvn.Services.LvnAnalytics.Track("boot");
@@ -170,6 +180,46 @@ namespace Lvn.UI.Screens
             _shell = NovelShell.Create(transform, 30, ShellTheme);
             _shell.Build(manifest, _assets);
 
+            // The currency store: a quick-menu entry when the manifest opts in
+            // (ui.store present), and the `ext store_show` op for scripts —
+            // the story holds while the shop is open, then rolls on.
+            var storeCfg = manifest.ui?.store;
+            if (storeCfg != null && (storeCfg.show_menu_item ?? true))
+                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => _ = _shell.OpenStoreAsync());
+            Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = OpenStoreFromScriptAsync(ctx);
+            });
+
+            // The wardrobe: a quick-menu entry when any character has one (or
+            // ui.wardrobe opts in explicitly), and `ext wardrobe_show char=id`.
+            var wardrobeCfg = manifest.ui?.wardrobe;
+            if ((wardrobeCfg != null || _shell.Wardrobe.Entities().Count > 0)
+                && (wardrobeCfg?.show_menu_item ?? true))
+                StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
+                    stage => _ = _shell.OpenWardrobeAsync());
+            Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                // Default: the in-story bottom sheet (the live actor is the
+                // mirror). mode=full opens the full-screen overlay instead.
+                _ = OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx);
+            });
+
+            // The app-level settings screen: `ext settings_show` for scripts, and
+            // an opt-in quick-menu entry (default OFF — the quick menu already has
+            // its own in-game playback settings; set ui.settings.show_menu_item to
+            // surface this fuller screen there too).
+            var settingsCfg = manifest.ui?.settings;
+            if (settingsCfg != null && (settingsCfg.show_menu_item ?? false))
+                StageMenu.AddMenuItem(settingsCfg.menu_label ?? "Settings", stage => _ = _shell.OpenSettingsAsync());
+            Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = OpenSettingsFromScriptAsync(ctx);
+            });
+
             // The long-press art view hides the stage's chrome; mirror it onto the
             // shell HUD (a separate UIDocument) so the WHOLE screen is just the scene.
             Stage.ChromeHiddenChanged += hidden =>
@@ -188,12 +238,170 @@ namespace Lvn.UI.Screens
                 _sync.Start();
             }
 
+            // Hub browse flow (ui.browse.layout = "hub"): unlock conditions read the
+            // player's global stat flags; Play charges the title's entry cost; a
+            // locked card explains itself with a popup.
+            if (_shell.Hub != null)
+            {
+                _shell.Hub.GlobalStatsProvider = () => _state.LoadVarsAsync(GlobalScopeId, default);
+                _shell.Hub.OnPlay = ChargeTitleEntryAsync;
+                _shell.Hub.OnLockedHint = (name, hint) =>
+                    _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
+                _shell.Hub.OnMenu = () => _shell.OpenSettingsAsync(); // avatar → account/settings
+                _shell.Hub.OnStore = () => _shell.OpenPackShopAsync();   // currency "+" / Магазин → pack shop
+                // Гардероб → the REAL, wallet-synced wardrobe for the game's main
+                // heroine (title.hero ?? manifest.hero). Ownership lives in the
+                // shared LvnWallet.Inventory, so it stays in sync with the in-story
+                // wardrobe. (The prettier SkinShop screen gets wired to this same
+                // data next.)
+                string heroId = _manifest?.hero;
+                _shell.Hub.OnWardrobe = () => _shell.OpenWardrobeAsync(heroId);
+                _shell.Hub.OnGallery = OpenGalleryForRealAsync;
+                _shell.Hub.OnProfile = () => _shell.OpenProfileAsync();
+                _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
+                _shell.Hub.PlayerName = _playerName;
+                // Tapping a card opens the rich detail page seeded with this title.
+                _shell.Hub.OnOpenDetail = t =>
+                {
+                    if (_shell.Detail != null)
+                    {
+                        _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
+                        var img = t?.card?.image ?? t?.cover_url;
+                        if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
+                        if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
+                        _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
+                        // Real title behind the page → the Restart menu lists its
+                        // actual chapters and reads/clears this title's progress.
+                        _shell.Detail.Title = t;
+                        _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
+                        _shell.Detail.Rebuild();
+                    }
+                    return _shell.OpenDetailAsync();
+                };
+            }
+
             await _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
                 chapterReady: ch => () => true,
                 chapterProgress: null,
                 playChapter: PlayChapterAsync,
                 askName: AskName);
+        }
+
+        // Charge a title's hub-entry cost (typically 1 energy for an expedition)
+        // before it launches. Same store-retry flow as the per-chapter gate; free
+        // when the title has no cost. Returns true if the player may enter.
+        private async Task<bool> ChargeTitleEntryAsync(LvnTitle title)
+        {
+            var cost = title?.cost;
+            if (cost == null || string.IsNullOrEmpty(cost.currency) || cost.amount <= 0) return true;
+
+            string reason = "title:" + title.id;
+            if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
+            if (_shell == null) return false;
+
+            var eco = _manifest?.economy;
+            string title2 = eco?.gate_title ?? "Not enough energy";
+            string msg = (eco?.gate_message ?? "You need more to start this.") + RefillHint(cost.currency);
+            bool toStore = await _shell.ConfirmAsync(title2, msg,
+                eco?.gate_buy ?? "Store", eco?.gate_cancel ?? "Not now");
+            if (!toStore) return false;
+
+            await _shell.OpenPackShopAsync();
+            await Lvn.Services.LvnWallet.RefreshAsync();
+            if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
+
+            await _shell.AlertAsync(eco?.gate_denied ?? title2, msg);
+            return false;
+        }
+
+        // Populate the CG gallery from every title's `gallery` (unlock state from
+        // LvnGalleryStore), then open it. No items anywhere → the screen keeps its
+        // built-in demo fallback.
+        private Task OpenGalleryForRealAsync()
+        {
+            if (_shell?.Gallery != null && _manifest?.titles != null)
+            {
+                var entries = new System.Collections.Generic.List<CgGalleryScreen.Entry>();
+                foreach (var t in _manifest.titles)
+                    if (t?.gallery != null)
+                        foreach (var g in t.gallery)
+                            entries.Add(new CgGalleryScreen.Entry
+                            {
+                                Url = g.url,
+                                Caption = g.name ?? g.id,
+                                Unlocked = Lvn.UI.LvnGalleryStore.IsUnlocked(t.id, g.id),
+                            });
+                if (entries.Count > 0) _shell.Gallery.SetEntries(entries);
+            }
+            return _shell.OpenGalleryAsync();
+        }
+
+        // "⚡ +1 через 1 ч 20 мин" — the regen countdown for the gate popup, from the
+        // wallet's computed refill state. Empty when the currency isn't regenerating.
+        private static string RefillHint(string currency)
+        {
+            if (!Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) || r.NextRefillUnix <= 0) return "";
+            long rem = r.NextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (rem <= 0) return "";
+            long h = rem / 3600, m = (rem % 3600) / 60;
+            return "\n\n⚡ +1 через " + (h > 0 ? h + " ч " + m + " мин" : m + " мин");
+        }
+
+        private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
+        {
+            try { await _shell.OpenStoreAsync(); }
+            finally { ctx.Resume(); }
+        }
+
+        private async Task OpenSettingsFromScriptAsync(Lvn.ILvnOpContext ctx)
+        {
+            try { await _shell.OpenSettingsAsync(); }
+            finally { ctx.Resume(); }
+        }
+
+        // The in-story sheet as CONTENT of the stage's shared window: the
+        // dialogue fades out, the same-skinned frame slides up with the
+        // wardrobe inside — one panel, native transitions (no overlay pop).
+        private WardrobeSheet _storySheet;
+
+        private async Task OpenWardrobeFromScriptAsync(string entity, bool full, Lvn.ILvnOpContext ctx)
+        {
+            try
+            {
+                if (full) { await _shell.OpenWardrobeAsync(entity); return; }
+                if (_storySheet == null)
+                {
+                    var ui = _manifest?.ui ?? new LvnUiConfig();
+                    _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
+                    _storySheet.SetManifest(_manifest);
+                    _storySheet.OpenStore = () => _shell.OpenStoreAsync();
+                    // Write the player's wardrobe pick back into the novel's story state
+                    // (nested, like the script's own `set`), then re-dress the actor
+                    // against the new value. Order matters: SetVar BEFORE RefreshActor so
+                    // the {Wardrobe.*} axes re-interpolate against the fresh var.
+                    _storySheet.OnEquip = (ent, storyVar, value) =>
+                    {
+                        var p = Stage?.Player;
+                        if (p == null || string.IsNullOrEmpty(storyVar)) return;
+                        Newtonsoft.Json.Linq.JToken jv =
+                            long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
+                            : double.TryParse(value, out var d) ? new Newtonsoft.Json.Linq.JValue(d)
+                            : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
+                        p.SetVar(storyVar, jv);
+                        Stage.RefreshActor(ent);
+                    };
+                }
+                // The sheet mirrors the LIVE actor — make sure the active hero is on
+                // stage so the wardrobe always shows who you're dressing, even when the
+                // story beat opened it on an empty stage.
+                Stage?.EnsureActorShown(entity);
+                var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
+                await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
+                try { await done; }
+                finally { await Stage.HidePanelAsync(); }   // frame slides away, dialogue returns
+            }
+            finally { ctx.Resume(); }
         }
 
         // Builds a VnStage on a child GameObject with its own UIDocument + panel
@@ -319,9 +527,15 @@ namespace Lvn.UI.Screens
         private async Task PlayChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
         {
             var resume = LvnProgress.Current(title);
+            // Resuming a chapter the player already paid to enter must not charge
+            // again; only fresh entries (this fresh start and every `next`) do.
+            bool alreadyEntered = resume != null;
             if (resume != null) chapter = resume;
             while (chapter != null)
             {
+                if (!alreadyEntered && !await ChargeChapterEntryAsync(chapter))
+                    break; // couldn't/wouldn't pay the entry cost → back to the carousel
+                alreadyEntered = false;
                 LvnProgress.SetCurrent(title, chapter);
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
@@ -343,6 +557,39 @@ namespace Lvn.UI.Screens
                 }
                 chapter = next;
             }
+        }
+
+        // Charge the chapter-entry currency (typically the regenerating "energy")
+        // before a fresh chapter loads. Returns true when the player may enter:
+        // the gate is disabled, the chapter is free, the spend succeeded, or a
+        // store purchase covered it. On a hard refusal (no funds and no/failed
+        // purchase) shows a popup and returns false, dropping back to the carousel.
+        private async Task<bool> ChargeChapterEntryAsync(LvnChapter chapter)
+        {
+            var eco = _manifest?.economy;
+            var currency = eco?.chapter_currency;
+            int cost = eco?.chapter_cost ?? 1;
+            if (string.IsNullOrEmpty(currency) || cost <= 0) return true; // gate off
+            if (eco.free_chapters != null && chapter != null && eco.free_chapters.Contains(chapter.id))
+                return true; // this chapter is on the house
+
+            string reason = "chapter:" + chapter?.id;
+            if (await Lvn.Services.LvnWallet.SpendAsync(currency, cost, reason)) return true;
+
+            // Not enough — offer the store, then retry the spend once.
+            if (_shell == null) return false;
+            string title = eco.gate_title ?? "Not enough energy";
+            string msg = (eco.gate_message ?? "You need more to open this chapter.") + RefillHint(currency);
+            bool toStore = await _shell.ConfirmAsync(title, msg,
+                eco.gate_buy ?? "Store", eco.gate_cancel ?? "Not now");
+            if (!toStore) return false;
+
+            await _shell.OpenPackShopAsync();
+            await Lvn.Services.LvnWallet.RefreshAsync();
+            if (await Lvn.Services.LvnWallet.SpendAsync(currency, cost, reason)) return true;
+
+            await _shell.AlertAsync(eco.gate_denied ?? title, msg);
+            return false;
         }
 
         // The next chapter by number, or null when this was the last one.
@@ -416,7 +663,7 @@ namespace Lvn.UI.Screens
             // memory flags…). The imported global defaults are `default:true`, so they
             // don't overwrite these; a fresh game starts empty. The store is local-first
             // (offline-safe) and, when a server is configured, syncs through /v1/state.
-            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
+            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
 
             // The genre-standard restart semantics: picking a chapter from the
             // picker resets the variables to what they were when that chapter was
@@ -428,7 +675,11 @@ namespace Lvn.UI.Screens
             {
                 Stage.SeedVars = LvnProgress.Checkpoint(title?.id, chapter.id)
                                  ?? new Newtonsoft.Json.Linq.JObject();
-                await _state.SaveVarsAsync(title?.id, Stage.SeedVars, default);
+                // Global (cross-novel) stats must NOT roll back with a per-chapter
+                // restart — overlay the CURRENT global stats over the checkpoint.
+                var curGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
+                if (curGlobal != null && curGlobal.Count > 0) Stage.SeedVars[GlobalVar] = curGlobal;
+                await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
                 LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
                 Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
             }
@@ -450,7 +701,7 @@ namespace Lvn.UI.Screens
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
             Stage.Gallery = title?.gallery;
-            Stage.Play(json);
+            Stage.Play(json, warmIntroSpine: !resuming); // resume restores below — don't run/warm the intro
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
 
@@ -467,7 +718,7 @@ namespace Lvn.UI.Screens
             // carousel's Continue leads straight back to this line).
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested)
             {
-                _shell.Hud.SetProgress(Stage.Player.Index, Stage.Player.Count);
+                _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.Count);
                 try { await Task.Yield(); }
                 catch (OperationCanceledException) { break; }
             }
@@ -477,7 +728,7 @@ namespace Lvn.UI.Screens
             // Persist the chapter's ending state so the next chapter (and the next
             // session) resume with the same stats — whether it finished or the player
             // left mid-chapter (the loop also breaks on cancellation).
-            if (Stage.Player != null) await _state.SaveVarsAsync(title?.id, VarsToJObject(Stage.Player.Vars), default);
+            if (Stage.Player != null) await SaveScopedVarsAsync(title?.id, VarsToJObject(Stage.Player.Vars));
             _shell.Hud.SetProgress(1, 1);
             // The chapter that actually played to the end — a cross-chapter save
             // load may have switched the stage away from the requested one.
@@ -514,10 +765,10 @@ namespace Lvn.UI.Screens
 
             Stage.ClearStage();
             Stage.Strings = await LoadCatalogAsync(url);
-            Stage.SeedVars = await _state.LoadVarsAsync(title?.id, default);
+            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
             Stage.SetSaveContext(title?.id, chapter.id, url);
             Stage.Gallery = title?.gallery;
-            Stage.Play(json);
+            Stage.Play(json, warmIntroSpine: false); // the restore below advances
             if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                 Stage.Player.Vars["player"] = _playerName;
             Stage.RestoreSnapshot(slot.Snap);
@@ -527,6 +778,22 @@ namespace Lvn.UI.Screens
             LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
             Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
             return true;
+        }
+
+        // "Restart the whole expedition": wipe this title's persisted stats and
+        // drop every save slot, then clear its reading progress/checkpoints so the
+        // next play starts from chapter one, clean. The cross-novel `global` stats
+        // are LEFT intact — they belong to the player, not this one expedition.
+        // Wired into TitleDetailScreen.OnResetProgress.
+        private async Task ResetTitleProgressAsync(LvnTitle title)
+        {
+            if (title == null) return;
+            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
+            foreach (var slot in new System.Collections.Generic.List<string>(LvnSaveStore.Slots(title.id).Keys))
+                LvnSaveStore.Delete(title.id, slot);
+            LvnProgress.ResetTitle(title.id);
+            Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
         }
 
         private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)
@@ -561,6 +828,38 @@ namespace Lvn.UI.Screens
             return id;
         }
 
+        // The cross-novel player-stat namespace. Stats under the `global` var
+        // (scripts: `set/inc key="global.<stat>"`, read `global.<stat>`) persist to
+        // a per-player state blob shared by EVERY novel, so they accumulate across
+        // titles and one novel can read what another left behind. Ordinary vars stay
+        // scoped to their title.
+        private const string GlobalVar = "global";
+        private const string GlobalScopeId = "__global";
+
+        // Load a title's stats plus the player's global stats, merged into one seed
+        // (global stats land under the `global` var). Two blobs, one per scope.
+        private async Task<Newtonsoft.Json.Linq.JObject> LoadScopedVarsAsync(string titleId)
+        {
+            var vars = await _state.LoadVarsAsync(titleId, default) ?? new Newtonsoft.Json.Linq.JObject();
+            var global = await _state.LoadVarsAsync(GlobalScopeId, default);
+            if (global != null && global.Count > 0) vars[GlobalVar] = global;
+            return vars;
+        }
+
+        // Persist ending stats, splitting the `global` namespace out to its own
+        // per-player blob so it survives beyond this novel.
+        private async Task SaveScopedVarsAsync(string titleId, Newtonsoft.Json.Linq.JObject vars)
+        {
+            if (vars == null) return;
+            if (vars[GlobalVar] is Newtonsoft.Json.Linq.JObject global)
+            {
+                vars = (Newtonsoft.Json.Linq.JObject)vars.DeepClone(); // don't mutate the caller's live vars
+                vars.Remove(GlobalVar);
+                await _state.SaveVarsAsync(GlobalScopeId, global, default);
+            }
+            await _state.SaveVarsAsync(titleId, vars, default);
+        }
+
         // Snapshot the player's live variables as a JObject the state store persists.
         private static Newtonsoft.Json.Linq.JObject VarsToJObject(
             System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> vars)
@@ -578,7 +877,7 @@ namespace Lvn.UI.Screens
         private void OnApplicationPause(bool paused)
         {
             if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
-                _ = _state.SaveVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars), default);
+                _ = SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars));
             // Position too, not just stats — so a suspended app resumes on the same
             // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
             if (paused) Stage?.AutosaveNow();
@@ -601,6 +900,7 @@ namespace Lvn.UI.Screens
             try { await _downloads.MenuRefreshAsync(manifest, default); }
             catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
+            _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
             if (Stage != null)

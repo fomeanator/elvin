@@ -30,7 +30,7 @@ type DailyService struct {
 	dir     string
 	auth    *AuthService
 	wallet  *WalletService
-	rewards []dailyReward
+	rewards *hotJSON[[]dailyReward] // follows disk edits live
 	// now is swappable so tests can travel in time.
 	now func() time.Time
 }
@@ -39,13 +39,8 @@ func NewDailyService(dir string, auth *AuthService, wallet *WalletService, rewar
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	s := &DailyService{dir: dir, auth: auth, wallet: wallet, now: time.Now}
-	if data, err := os.ReadFile(rewardsPath); err == nil {
-		_ = json.Unmarshal(data, &s.rewards)
-	}
-	if len(s.rewards) == 0 {
-		s.rewards = []dailyReward{{Currency: "gold", Amount: 25}}
-	}
+	s := &DailyService{dir: dir, auth: auth, wallet: wallet, now: time.Now,
+		rewards: newHotJSON(rewardsPath, []dailyReward{})}
 	return s, nil
 }
 
@@ -62,12 +57,13 @@ func (s *DailyService) load(userID string) *dailyDoc {
 	return doc
 }
 
-func (s *DailyService) save(userID string, doc *dailyDoc) {
+func (s *DailyService) save(userID string, doc *dailyDoc) error {
 	data, _ := json.Marshal(doc)
 	tmp := filepath.Join(s.dir, userID+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err == nil {
-		_ = os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
 	}
+	return os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {
@@ -75,10 +71,14 @@ func (s *DailyService) rewardFor(streak int) dailyReward {
 	if idx < 0 {
 		idx = 0
 	}
-	if idx >= len(s.rewards) {
-		idx = len(s.rewards) - 1 // the last configured day repeats
+	rewards := s.rewards.Get()
+	if len(rewards) == 0 {
+		rewards = []dailyReward{{Currency: "gold", Amount: 25}}
 	}
-	return s.rewards[idx]
+	if idx >= len(rewards) {
+		idx = len(rewards) - 1 // the last configured day repeats
+	}
+	return rewards[idx]
 }
 
 // nextStreak computes the streak the NEXT claim would have, given the doc.
@@ -137,8 +137,18 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 	reward := s.rewardFor(streak)
 	doc.LastClaim = today
 	doc.Streak = streak
-	s.save(userID, doc)
-	s.wallet.Grant(userID, reward.Currency, reward.Amount, "daily:day"+itoa(streak))
+	// Persist the claim BEFORE granting: if the write fails and we granted
+	// anyway, a restart forgets the claim and the next POST pays out again.
+	if err := s.save(userID, doc); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
+	if err := s.wallet.Grant(userID, reward.Currency, reward.Amount, "daily:day"+itoa(streak)); err != nil {
+		// The claim is already on disk (a retry would 409), so this payout is
+		// lost to a support re-grant rather than double-paid — surface it.
+		http.Error(w, "grant failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
