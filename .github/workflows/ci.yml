@@ -85,7 +85,7 @@ jobs:
             if ! /tmp/lvnconv convert -i "$f" -o "$out"; then
               echo "::error file=${f#../../}::convert failed"; fail=1; continue
             fi
-            v=$(/tmp/lvnconv validate "$out")
+            v=$(/tmp/lvnconv validate "$out" 2>&1)
             echo "${f#../../}: $v"
             case "$v" in
               *" 0 warning(s)"*) ;;
