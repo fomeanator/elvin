@@ -5,7 +5,19 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
 ## [Unreleased]
 
+### Changed
+- **Spine moved out** — the optional Spine driver (`Runtime/Spine/`, assembly
+  `Lvn.Engine.Spine`) now ships as its own package, `com.lvn.engine.spine`
+  (same assembly name and GUIDs, unchanged behaviour). The core keeps the
+  `LvnSpineBridge` seam and the whole `kind:"spine"` staging path; projects
+  using Spine add the new package next to the official spine-unity runtime.
+
 ### Added
+- **Extension plugin (template) sample** — the complete anatomy of a plugin:
+  a custom `ext` op with `Hold`/`Resume` flow control (`LvnOps.Register`), a
+  quick-menu item, the `ext-grammar.json` declaration that makes the
+  validator and the IDE treat host ops like built-ins, a playable demo
+  scene, and a README on shipping it as a standalone UPM package.
 - **Voice-over channel** — `say` gains a `voice` url (`.lvns`: a
   `voice "<url>"` line before the reply): the clip starts with its
   text, the next line (or a scene reset) cuts it, voice never overlaps
