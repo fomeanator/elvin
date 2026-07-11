@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { parseGIF, decompressFrames } from "gifuct-js";
 import { getManifest, putAsset, uploadSpine } from "../lib/api.js";
 import {
-  uid, slug, tokenOf, partPath, toEditor, toEntity, fill, framesFromAxis, TEMPLATES, PRESETS,
+  uid, slug, partPath, toEditor, toEntity, fill, framesFromAxis, TEMPLATES, PRESETS,
 } from "../lib/sprites.js";
 
 const BLANK = { id: "", name: "", color: "", kind: "", axes: {}, picked: {}, parts: [], anim: [] };
@@ -113,6 +113,9 @@ export default function SpritesView({ creds, notify }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
+    // setPicked is recreated every render; depending on it would restart the
+    // preview loop each frame. The loop only needs preview/anim identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview, ed.anim]);
 
   function selectEntity(id) {
