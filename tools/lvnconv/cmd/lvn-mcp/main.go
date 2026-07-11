@@ -108,13 +108,22 @@ func toolList() []map[string]any {
 			"source": map[string]any{"type": "string", "description": "The .lvns script text"},
 		},
 	}
+	check := map[string]any{
+		"type":     "object",
+		"required": []string{"source"},
+		"properties": map[string]any{
+			"source": map[string]any{"type": "string", "description": "The .lvns script text"},
+			"ext_grammar": map[string]any{"type": "string", "description": "Optional ext-grammar.json content declaring the project's host ops (`ext …`) " +
+				"so they validate like built-ins instead of warning as unknown"},
+		},
+	}
 	return []map[string]any{
 		{
 			"name": "lvns_check",
 			"description": "Compile a .lvns script and run the structural validator. " +
 				"Returns ok/errors/warnings — the same quality gate every shipped example passes " +
 				"(the bar is ok=true with zero warnings).",
-			"inputSchema": src,
+			"inputSchema": check,
 		},
 		{
 			"name": "lvns_convert",
@@ -141,15 +150,16 @@ func callTool(params json.RawMessage) (any, *rpcError) {
 	var p struct {
 		Name      string `json:"name"`
 		Arguments struct {
-			Source string `json:"source"`
-			Name   string `json:"name"`
+			Source     string `json:"source"`
+			Name       string `json:"name"`
+			ExtGrammar string `json:"ext_grammar"`
 		} `json:"arguments"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, &rpcError{Code: -32602, Message: "bad params: " + err.Error()}
 	}
 
-	text, isErr := runTool(p.Name, p.Arguments.Source, p.Arguments.Name)
+	text, isErr := runTool(p.Name, p.Arguments.Source, p.Arguments.Name, p.Arguments.ExtGrammar)
 	return map[string]any{
 		"content": []map[string]any{{"type": "text", "text": text}},
 		"isError": isErr,
@@ -158,10 +168,10 @@ func callTool(params json.RawMessage) (any, *rpcError) {
 
 // runTool executes a tool and returns its text payload; isErr marks tool-level
 // failures (the MCP way — protocol errors are reserved for malformed calls).
-func runTool(tool, source, docName string) (text string, isErr bool) {
+func runTool(tool, source, docName, extGrammar string) (text string, isErr bool) {
 	switch tool {
 	case "lvns_check":
-		return checkSource(source)
+		return checkSource(source, extGrammar)
 	case "lvns_convert":
 		doc, err := lvns.Convert(source)
 		if err != nil {
@@ -176,7 +186,7 @@ func runTool(tool, source, docName string) (text string, isErr bool) {
 	}
 }
 
-func checkSource(source string) (string, bool) {
+func checkSource(source, extGrammar string) (string, bool) {
 	type report struct {
 		OK       bool     `json:"ok"`
 		Commands int      `json:"commands"`
@@ -184,6 +194,17 @@ func checkSource(source string) (string, bool) {
 		Warnings []string `json:"warnings"`
 	}
 	rep := report{Errors: []string{}, Warnings: []string{}}
+
+	var ext *lvn.ExtGrammar
+	if extGrammar != "" {
+		g, gerr := lvn.ParseExtGrammar([]byte(extGrammar))
+		if gerr != nil {
+			rep.Errors = append(rep.Errors, "ext-grammar: "+gerr.Error())
+			b, _ := json.MarshalIndent(rep, "", "  ")
+			return string(b), true
+		}
+		ext = g
+	}
 
 	compiled, err := lvns.Convert(source)
 	if err != nil {
@@ -202,7 +223,7 @@ func checkSource(source string) (string, bool) {
 		return string(b), true
 	}
 	rep.Commands = len(doc.Script)
-	for _, is := range lvn.Validate(doc) {
+	for _, is := range lvn.ValidateExt(doc, ext) {
 		if is.Sev == lvn.SevError {
 			rep.Errors = append(rep.Errors, is.String())
 		} else {
