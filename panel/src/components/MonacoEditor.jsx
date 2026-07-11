@@ -1,9 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import { monaco } from "../lib/monacoSetup.js"; // shared bootstrap: workers (editor+json) + loader
+import "../lib/monacoSetup.js"; // shared bootstrap: workers (editor+json) + loader
 import { OP_DOCS, OPS, DIRECTIVES, SOURCE_OPS } from "lvn-lang/grammar.js";
 import {
-  completionAt, hoverAt, definitionAt, documentSymbols, predictGhost, labelsIn, labelInfo, varInfo,
+  completionAt, hoverAt, definitionAt, documentSymbols, predictGhost, labelsIn,
   labelOccurrences,
 } from "lvn-lang/analyze.js";
 
