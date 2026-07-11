@@ -6,11 +6,22 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 ## [Unreleased]
 
 ### Changed
-- **Spine moved out** — the optional Spine driver (`Runtime/Spine/`, assembly
-  `Lvn.Engine.Spine`) now ships as its own package, `com.lvn.engine.spine`
-  (same assembly name and GUIDs, unchanged behaviour). The core keeps the
-  `LvnSpineBridge` seam and the whole `kind:"spine"` staging path; projects
-  using Spine add the new package next to the official spine-unity runtime.
+- **The package split** — the engine is now a thin narrative core with the
+  product layer as optional first-party packages (file GUIDs kept via git
+  renames, behaviour unchanged):
+  - `com.lvn.engine.spine` — the Spine driver (`Runtime/Spine/`, assembly
+    `Lvn.Engine.Spine`). The core keeps the `LvnSpineBridge` seam and the
+    whole `kind:"spine"` staging path.
+  - `com.lvn.engine.shell` — the whole novel-shell (`Runtime/UI/Screens/`,
+    26 files → new assembly `Lvn.Engine.Shell`): NovelApp/NovelShell, title
+    browse, store/wardrobe/gallery/profile/… screens. The tiny
+    `UiColor`/`ScreenFx` helpers moved DOWN into the UI core (`Lvn.UI`).
+  - `com.lvn.engine.services` — the product-backend clients
+    (`Runtime/Services/` → new assembly `Lvn.Engine.Services`): wallet, IAP,
+    ads, analytics, daily, leaderboards, platform auth, web-view seam and
+    the `ext` economy ops.
+  - `com.lvn.engine.addressables` — the `ILvnAssets`-over-Addressables
+    loader (assembly `Lvn.Engine.Addressables`, version-defined as before).
 
 ### Added
 - **Extension plugin (template) sample** — the complete anatomy of a plugin:
