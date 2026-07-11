@@ -7,6 +7,7 @@
       "fields": ["difficulty", "timeout"],
       "required": ["id"],
       "enums": { "difficulty": ["easy", "normal", "hard"] },
+      "labels": ["on_lose"],
       "snippet": "ext minigame id=\"river\" difficulty=normal"
     },
     "vibrate": {
