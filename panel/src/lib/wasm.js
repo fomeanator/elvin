@@ -23,10 +23,12 @@ export function ensureWasm() {
   return loading;
 }
 
-// Returns { ok, json, errors, warnings }.
-export function compileLvns(src) {
+// Returns { ok, json, errors, warnings }. extGrammar is the project's optional
+// host-op declaration (an object); the wasm side takes it as a JSON string and
+// then validates declared `ext` ops like built-ins.
+export function compileLvns(src, extGrammar) {
   if (typeof window.lvnsCompile !== "function") {
     return { ok: false, errors: "compiler not ready" };
   }
-  return window.lvnsCompile(src);
+  return window.lvnsCompile(src, extGrammar ? JSON.stringify(extGrammar) : "");
 }
