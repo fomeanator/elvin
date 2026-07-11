@@ -1,0 +1,17 @@
+{
+  "name": "Lvn.Engine.Services",
+  "rootNamespace": "Lvn.Services",
+  "references": [
+    "Lvn.Engine",
+    "Unity.Nuget.Newtonsoft-Json"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
