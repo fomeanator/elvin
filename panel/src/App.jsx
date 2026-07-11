@@ -9,8 +9,12 @@ import AdminView from "./components/AdminView.jsx";
 // and — once you open a novel — a workspace with its Characters and its Script.
 export default function App() {
   // "studio" (authoring IDE) | "admin" (dashboard) — persisted so a reload
-  // drops you back where you worked.
-  const [mode, setMode] = useState(() => localStorage.getItem("lvn_mode") || "studio");
+  // drops you back where you worked. ?admin=1 forces the dashboard (the
+  // server redirects the retired /admin/ page here with it).
+  const [mode, setMode] = useState(() =>
+    new URLSearchParams(window.location.search).has("admin")
+      ? "admin"
+      : localStorage.getItem("lvn_mode") || "studio");
   useEffect(() => localStorage.setItem("lvn_mode", mode), [mode]);
   const [titleId, setTitleId] = useState(null);   // null = Home
   const [titleName, setTitleName] = useState("");
