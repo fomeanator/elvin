@@ -150,3 +150,9 @@ the Package Manager.
 Everything shown here is the supported surface and follows the compatibility
 contract in `releasing.md`: within a major version it only grows. Types not
 mentioned here (and everything `internal`) may change between minor versions.
+
+The surface is pinned by a contract test —
+`Tests/Editor/ExtensionApiContractTests.cs` implements `ILvnStage`/`ILvnAssets`
+with exactly the documented members, registers ops, subscribes the events and
+assigns every `LvnSpineBridge` delegate **typed**, so a signature change fails
+CI before it can break a released plugin.
