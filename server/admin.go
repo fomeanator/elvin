@@ -451,11 +451,18 @@ func (s *AdminService) handleGrant(w http.ResponseWriter, r *http.Request) {
 	if req.Reason == "" {
 		req.Reason = "admin:grant"
 	}
+	var gerr error
 	if req.Amount > 0 {
-		s.wallet.Grant(req.UserID, req.Currency, req.Amount, req.Reason)
+		gerr = s.wallet.Grant(req.UserID, req.Currency, req.Amount, req.Reason)
 	} else {
 		// negative grant = clawback (refund abuse etc.) — floor at zero
-		s.wallet.Clawback(req.UserID, req.Currency, -req.Amount, req.Reason)
+		gerr = s.wallet.Clawback(req.UserID, req.Currency, -req.Amount, req.Reason)
+	}
+	if gerr != nil {
+		// The support person must know the grant did NOT land — a cheerful
+		// "ok" over a failed write is exactly the lie this endpoint fights.
+		http.Error(w, "grant failed: "+gerr.Error(), http.StatusInternalServerError)
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "wallet": s.wallet.AdminLoad(req.UserID)})
 }
