@@ -1,0 +1,17 @@
+# Rename to story.lvns (or copy the lines into your chapter) to try the plugin.
+# With ext-grammar.json beside the script, `lvnconv validate` and the IDE treat
+# the plugin ops as first-class: typos in fields/enums warn, missing id errors.
+
+scene plugin-demo
+
+«У брода тебя ждёт испытание.»
+
+ext vibrate ms=80
+ext minigame id="river" difficulty=normal on_lose="failed"
+
+«Ты перебрался на тот берег!»
+if expr="minigame_won" then="__end"
+
+:failed
+«Течение снесло тебя вниз. В другой раз повезёт больше.»
+goto __end

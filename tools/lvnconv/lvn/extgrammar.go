@@ -26,13 +26,18 @@ import (
 )
 
 // ExtOp declares one host-defined op: its closed field set, which of those
-// fields are mandatory, closed value sets per field, and authoring help.
+// fields are mandatory, closed value sets per field, which fields hold jump
+// targets, and authoring help.
 type ExtOp struct {
 	Doc      string              `json:"doc,omitempty"`
 	Fields   []string            `json:"fields,omitempty"`
 	Required []string            `json:"required,omitempty"`
 	Enums    map[string][]string `json:"enums,omitempty"`
-	Snippet  string              `json:"snippet,omitempty"`
+	// Labels lists fields whose value is a LABEL REFERENCE (the host jumps
+	// there via ctx.GoTo). The validator then treats the target like any
+	// goto's: it must exist, and the label stops counting as dead.
+	Labels  []string `json:"labels,omitempty"`
+	Snippet string   `json:"snippet,omitempty"`
 }
 
 // ExtGrammar is the root of an ext-grammar.json.
@@ -55,12 +60,14 @@ func (g *ExtGrammar) OpNames() []string {
 	return names
 }
 
-// allFields is the op's complete allowed field set: Fields ∪ Required (listing
-// a field only under `required` is fine — required implies allowed).
+// allFields is the op's complete allowed field set: Fields ∪ Required ∪
+// Labels (listing a field only under `required`/`labels` is fine — both
+// imply allowed).
 func (o ExtOp) allFields() []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, f := range append(append([]string{}, o.Fields...), o.Required...) {
+	all := append(append(append([]string{}, o.Fields...), o.Required...), o.Labels...)
+	for _, f := range all {
 		if f != "" && !seen[f] {
 			seen[f] = true
 			out = append(out, f)
@@ -119,8 +126,9 @@ func LoadExtGrammar(path string) (*ExtGrammar, error) {
 // checkExtOp validates one command against its ext-grammar declaration with
 // the same rigour built-ins get: unknown/typo'd fields and out-of-set enum
 // values warn (they no-op at runtime), a missing required field is an error —
-// the author of the declaration said the op cannot work without it.
-func checkExtOp(i int, c Cmd, op string, spec ExtOp, addErr, addWarn func(int, string, string)) {
+// the author of the declaration said the op cannot work without it. Fields
+// declared as label references go through ref() like any goto target.
+func checkExtOp(i int, c Cmd, op string, spec ExtOp, addErr, addWarn func(int, string, string), ref func(int, string, string)) {
 	fields := spec.allFields()
 	allowed := map[string]bool{"op": true}
 	for _, f := range fields {
@@ -164,6 +172,9 @@ func checkExtOp(i int, c Cmd, op string, spec ExtOp, addErr, addWarn func(int, s
 			}
 			addWarn(i, op, msg)
 		}
+	}
+	for _, lf := range spec.Labels {
+		ref(i, op, c.Str(lf))
 	}
 }
 

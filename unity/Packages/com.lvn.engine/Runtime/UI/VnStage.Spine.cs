@@ -214,8 +214,9 @@ namespace Lvn.UI
 
             if (!LvnSpineBridge.Available)
             {
-                Debug.LogWarning("[lvn] '" + id + "' is kind:spine, but the spine-unity integration " +
-                                 "isn't installed (add com.esotericsoftware.spine.spine-unity to the project)");
+                Debug.LogWarning("[lvn] '" + id + "' is kind:spine, but the Spine integration " +
+                                 "isn't installed (add the com.lvn.engine.spine package plus the official " +
+                                 "com.esotericsoftware.spine.spine-unity runtime to the project)");
                 return;
             }
             if (!(_renderer is CanvasSceneRenderer canvas))

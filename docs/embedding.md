@@ -79,11 +79,16 @@ document it. Declare it once and it becomes a first-class citizen everywhere
       "fields": ["difficulty", "timeout"],
       "required": ["id"],
       "enums": { "difficulty": ["easy", "normal", "hard"] },
+      "labels": ["on_lose"],
       "snippet": "ext minigame id=\"river\" difficulty=normal"
     }
   }
 }
 ```
+
+`labels` lists fields whose value is a label reference (your handler jumps
+there via `ctx.GoTo`) — the validator then checks the target exists and stops
+counting that label as dead, and the editor completes label names in it.
 
 Put it beside your scripts or one directory up (`content/ext-grammar.json`
 covers `content/scripts/*.lvn`); `lvnconv validate` auto-detects it (or take
@@ -131,9 +136,14 @@ overlay owns the screen so tap-to-advance sleeps.
 ### Optional modules (the version-define pattern)
 
 Heavy integrations ship as assemblies that compile only when their package is
-present — `Lvn.Engine.Spine` (spine-unity) and `Lvn.Engine.Addressables` are
-the references. Follow the same pattern for yours: an `.asmdef` with a
-`versionDefines` entry and a `[RuntimeInitializeOnLoadMethod]` hookup.
+present — the standalone `com.lvn.engine.spine` package (activates over
+spine-unity, drives the core's `LvnSpineBridge` seam) and
+`Lvn.Engine.Addressables` are the references. Follow the same pattern for
+yours: an `.asmdef` with a `versionDefines` entry and a
+`[RuntimeInitializeOnLoadMethod]` hookup. A ready-to-copy skeleton — custom
+op + menu item + `ext-grammar.json` + a package manifest to publish it as
+your own UPM package — ships as the **Extension plugin (template)** sample in
+the Package Manager.
 
 ## API stability
 
