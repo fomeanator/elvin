@@ -172,7 +172,8 @@ the backend only adds saves, live content updates, and the docs site.
   **timed choices**), **text input**, **voice-over**, vars & expressions,
   subroutines, script-driven animation with splines.
 - **Unity runtime**: interpreter, layered cast with **bones + spring physics**,
-  optional **Spine** integration (official runtime, version-define module),
+  optional **Spine** integration (the separate `com.lvn.engine.spine` package
+  over the official runtime — the first-party example of the plugin seams),
   **drag & drop** objects, effects/camera/particles, UI sounds, **CG gallery**,
   read-text tracking + skip-read-only, History tap-to-return, save/load with
   thumbnails & migration, localization, the novel-shell, in-Unity importer.
