@@ -133,13 +133,20 @@ The stage renders in a `UIDocument`; your own `UIDocument` with a higher
 `sortingOrder` draws above it. Set `stage.InputBlocked = true` while your
 overlay owns the screen so tap-to-advance sleeps.
 
-### Optional modules (the version-define pattern)
+### Optional modules — the first-party packages
 
-Heavy integrations ship as assemblies that compile only when their package is
-present — the standalone `com.lvn.engine.spine` package (activates over
-spine-unity, drives the core's `LvnSpineBridge` seam) and
-`Lvn.Engine.Addressables` are the references. Follow the same pattern for
-yours: an `.asmdef` with a `versionDefines` entry and a
+The engine core is a thin narrative runtime; everything else ships as
+optional packages beside it:
+
+| Package | What | Activation |
+|---|---|---|
+| `com.lvn.engine.shell` | The ready novel app: NovelApp/NovelShell, title browse, store/wardrobe/gallery/profile/… screens | always compiles (plain dependency) |
+| `com.lvn.engine.services` | Offline-first wallet/IAP/ads/analytics/daily/leaderboards/platform-auth clients + the `ext` economy ops | always compiles |
+| `com.lvn.engine.spine` | Spine skeletal characters (drives the core's `LvnSpineBridge` seam) | version define over spine-unity |
+| `com.lvn.engine.addressables` | `ILvnAssets` over Unity Addressables | version define over com.unity.addressables |
+
+Wrapping a third-party library yourself? Follow the version-define pattern:
+an `.asmdef` with a `versionDefines` entry and a
 `[RuntimeInitializeOnLoadMethod]` hookup. A ready-to-copy skeleton — custom
 op + menu item + `ext-grammar.json` + a package manifest to publish it as
 your own UPM package — ships as the **Extension plugin (template)** sample in
