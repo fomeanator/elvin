@@ -4,6 +4,8 @@
   "references": [
     "Lvn.Engine",
     "Lvn.Engine.UI",
+    "Lvn.Engine.Shell",
+    "Lvn.Engine.Services",
     "Lvn.Engine.Content",
     "Lvn.Engine.Editor",
     "Unity.Nuget.Newtonsoft-Json",
