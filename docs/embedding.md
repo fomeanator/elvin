@@ -64,6 +64,38 @@ validator flags unknown ops as a warning (they may be yours), never an error.
 Custom ops are not replayed by save/restore visual rebuilds — persist your
 own state in `ctx.Vars` (it IS saved) or your own systems.
 
+### Declaring your ops — `ext-grammar.json`
+
+Undeclared, a host op is a stranger to the toolchain: the validator warns
+"unknown op" (so the 0-warnings gate fails) and the editor can't complete or
+document it. Declare it once and it becomes a first-class citizen everywhere
+— *without* touching compilation or the core grammar:
+
+```json
+{
+  "ops": {
+    "minigame": {
+      "doc": "Runs a host mini-game; the story waits for Resume().",
+      "fields": ["difficulty", "timeout"],
+      "required": ["id"],
+      "enums": { "difficulty": ["easy", "normal", "hard"] },
+      "snippet": "ext minigame id=\"river\" difficulty=normal"
+    }
+  }
+}
+```
+
+Put it beside your scripts or one directory up (`content/ext-grammar.json`
+covers `content/scripts/*.lvn`); `lvnconv validate` auto-detects it (or take
+`-ext-grammar <file>`), the panel editor picks it up from `/content/`, the
+playground compiler accepts it as `lvnsCompile(src, extGrammarJSON)`, and the
+MCP `lvns_check` takes an `ext_grammar` argument. A declared op then validates
+like a built-in: unknown/typo'd fields and out-of-set enum values warn, a
+missing `required` field is an error. Redeclaring a core op, unknown JSON
+keys, or an enum on an undeclared field are declaration errors — the same
+"unknown is an error" rule the language keeps. Full example:
+[`examples/ext-grammar.json`](../examples/ext-grammar.json).
+
 ### Menu items — `StageMenu.AddMenuItem`
 
 ```csharp
