@@ -138,3 +138,53 @@ test("position helpers round-trip", () => {
   const off = posToOffset(SCRIPT, { line: 2, character: 3 });
   assert.deepEqual(offsetToPos(SCRIPT, off), { line: 2, character: 3 });
 });
+
+// ── ext-grammar: host-op declarations power ext completion/hover/ghost ──────
+const extGrammar = {
+  ops: {
+    minigame: {
+      doc: "Runs a host mini-game; the story waits for Resume().",
+      fields: ["difficulty", "timeout"],
+      required: ["id"],
+      enums: { difficulty: ["easy", "normal", "hard"] },
+      snippet: 'ext minigame id="river" difficulty=normal',
+    },
+    confetti: { fields: ["amount"] },
+  },
+};
+
+test("ext completion: `ext <partial>` lists declared host ops", () => {
+  const r = completionAt("ext mini", [], catalog, actorMap, extGrammar);
+  assert.ok(r && r.items.some((i) => i.text === "minigame" && i.kind === "op"));
+  assert.ok(!r.items.some((i) => i.text === "confetti"), "prefix-filtered");
+});
+
+test("ext completion: fields come from the declaration (fields ∪ required)", () => {
+  const r = completionAt('ext minigame id="river" di', [], catalog, actorMap, extGrammar);
+  assert.ok(r && r.items.some((i) => i.text === "difficulty" && i.kind === "attr"));
+  const r2 = completionAt("ext minigame i", [], catalog, actorMap, extGrammar);
+  assert.ok(r2 && r2.items.some((i) => i.text === "id"), "required fields complete too");
+});
+
+test("ext completion: enum values complete inside key=", () => {
+  const r = completionAt("ext minigame difficulty=ha", [], catalog, actorMap, extGrammar);
+  assert.ok(r && r.items.some((i) => i.text === "hard" && i.kind === "value"));
+});
+
+test("ext completion: without a grammar `ext` stays quiet", () => {
+  assert.equal(completionAt("ext mini", [], catalog, actorMap), null);
+});
+
+test("ext hover: a declared op shows its doc and snippet signature", () => {
+  const src = 'ext minigame id="river"';
+  const h = hoverAt(src, 1, 5, { catalog, actorMap, extGrammar });
+  assert.ok(h && h.kind === "op" && h.desc.includes("mini-game"));
+  assert.ok(h.sig.includes("minigame"));
+});
+
+test("ext ghost: the snippet tail follows `ext <op> `", () => {
+  const g = predictGhost("ext minigame ", { catalog, actorMap, extGrammar });
+  assert.equal(g, 'id="river" difficulty=normal');
+  const g2 = predictGhost("ext confetti ", { catalog, actorMap, extGrammar });
+  assert.equal(g2, 'amount=""', "no snippet → fields seeded");
+});
