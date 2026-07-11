@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Lvn.UI.Screens
+namespace Lvn.UI
 {
     /// <summary>Parses the manifest's <c>"#rrggbb"</c> / <c>"#rrggbbaa"</c> hex
     /// color strings into <see cref="Color"/>, with a fallback for null/garbage.
