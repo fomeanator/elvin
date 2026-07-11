@@ -26,7 +26,7 @@ directory is outside the repository — `lvn_doc` needs it to find the docs.
 
 | Tool | Input | What it does |
 |---|---|---|
-| `lvns_check` | `source` (.lvns text) | Compile + structural validation. Returns `{ok, commands, errors[], warnings[]}`. The bar: `ok: true`, zero warnings. |
+| `lvns_check` | `source` (.lvns text), optional `ext_grammar` (ext-grammar.json content) | Compile + structural validation. Returns `{ok, commands, errors[], warnings[]}`. The bar: `ok: true`, zero warnings. With `ext_grammar`, declared host ops (`ext …`) validate like built-ins instead of warning as unknown. |
 | `lvns_convert` | `source` | Compile to the runnable `.lvn` JSON container. |
 | `lvn_doc` | `name` | Read an authoring doc: `tutorial`, `cheatsheet`, `capabilities`, `language`, `recipes`, `agents`, `format`, `embedding`. |
 

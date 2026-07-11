@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getManifest, putAsset } from "../lib/api.js";
+import { getManifest, getExtGrammar, putAsset } from "../lib/api.js";
 import { ensureWasm, compileLvns } from "../lib/wasm.js";
 import DocsPanel from "./DocsPanel.jsx";
 import ExamplesPanel from "./ExamplesPanel.jsx";
@@ -110,6 +110,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const [published, setPublished] = useState(() => new Set()); // chapter ids live on the server
   const [selId, setSelId] = useState(null);
   const [catalog, setCatalog] = useState({}); // manifest.sprites — for id/axes autocomplete
+  // The project's host-op declaration (content/ext-grammar.json): completion,
+  // hover, ghost AND the wasm validator all read it. The ref keeps compile()
+  // in sync without re-creating it; a late-arriving declaration recompiles.
+  const [extGrammar, setExtGrammar] = useState(null);
+  const extGrammarRef = useRef(null);
   const [bust, setBust] = useState(() => Date.now());
 
   const [src, setSrc] = useState("");
@@ -162,6 +167,8 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // ── chapters ──────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      try { setExtGrammar(await getExtGrammar()); }
+      catch (e) { notify("ext-grammar.json: " + ((e && e.message) || "не читается"), "err"); }
       let t = null;
       try {
         const m = await getManifest();
@@ -290,9 +297,18 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     compile(text);
   }
 
+  // A declaration that arrives after the first compile re-validates the open
+  // chapter, so `ext` warnings clear without a keystroke.
+  useEffect(() => {
+    extGrammarRef.current = extGrammar;
+    if (extGrammar && src) compile(src);
+    // compile/src are deliberately not deps — this only reacts to the grammar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extGrammar]);
+
   // ── compile (WASM) ────────────────────────────────────────────────────
   function compile(text) {
-    const r = compileLvns(text);
+    const r = compileLvns(text, extGrammarRef.current);
     setDiags(Array.isArray(r && r.diags) ? r.diags : []);
     if (!r || !r.ok) {
       const first = r && r.errors ? r.errors.split("\n")[0] : "Compilation error";
@@ -621,7 +637,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             <>
               <div className="ide-editor-row">
                 <section className="ide-pane">
-                  <MonacoEditor ref={editorRef} key={selId} src={src} onChange={onEdit} diags={diags} jump={jump} catalog={catalog} onCaret={setCaretPos} readOnly={imported} />
+                  <MonacoEditor ref={editorRef} key={selId} src={src} onChange={onEdit} diags={diags} jump={jump} catalog={catalog} extGrammar={extGrammar} onCaret={setCaretPos} readOnly={imported} />
                 </section>
                 {showPreview && (
                   <section className="ide-pane ide-preview">

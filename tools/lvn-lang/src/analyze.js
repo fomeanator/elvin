@@ -79,8 +79,11 @@ export function castNames(catalog, actorMap) {
 
 // ── completion ──────────────────────────────────────────────────────────────
 // Decide what to suggest, given the line text up to the caret + the catalog.
+// extGrammar is the project's optional host-op declaration (ext-grammar.json,
+// same contract as the validator's): it powers `ext <op>` name/field/enum
+// completion without ever widening the core grammar.
 // Returns { token, items:[{text, kind, label?, body?, quoted?, entity?}] } | null.
-export function completionAt(line, labels, catalog, actorMap) {
+export function completionAt(line, labels, catalog, actorMap, extGrammar) {
   let m = line.match(/^([a-zA-Z_]*)$/); // first word → op / directive / snippet / speaker
   if (m) {
     const tok = m[1];
@@ -109,6 +112,22 @@ export function completionAt(line, labels, catalog, actorMap) {
     return items.length ? { token: tok, items } : null;
   }
 
+  // `ext <partial>` → the declared host-op names
+  const extOps = extGrammar && extGrammar.ops;
+  if (extOps && (m = line.match(/^ext\s+([A-Za-z_]*)$/))) {
+    const tok = m[1];
+    const items = Object.keys(extOps).sort()
+      .filter((o) => o.startsWith(tok))
+      .map((o) => ({ text: o, kind: "op" }));
+    return items.length ? { token: tok, items } : null;
+  }
+  // Inside an `ext <op> …` line: the declaration's field set and enum values.
+  const em = line.match(/^ext\s+([A-Za-z_][A-Za-z0-9_]*)\s+/);
+  const extOp = em && extOps ? extOps[em[1]] : null;
+  const extFields = extOp
+    ? [...new Set([...(extOp.fields || []), ...(extOp.required || [])])]
+    : null;
+
   if ((m = line.match(/^([^:[\]]+?)\s*\[([A-Za-z0-9_]*)$/))) {
     const tok = m[2];
     const { ent } = speakerEntity(m[1].trim(), catalog, actorMap);
@@ -123,6 +142,10 @@ export function completionAt(line, labels, catalog, actorMap) {
   if ((m = line.match(/([a-z_]+)\s*=\s*("?)([A-Za-z0-9_-]*)$/))) {
     const key = m[1], quoted = m[2] === '"', tok = m[3];
     const wrap = (arr, kind, extra) => arr.filter((v) => v.startsWith(tok)).map((v) => ({ text: v, kind, quoted, ...(extra ? extra(v) : null) }));
+    if (extOp && extOp.enums && extOp.enums[key]) {
+      const items = wrap(extOp.enums[key], "value");
+      if (items.length) return { token: tok, items };
+    }
     if (key === "id" && catalog) {
       const items = wrap(Object.keys(catalog), "entity", (v) => ({ entity: v }));
       if (items.length) return { token: tok, items };
@@ -146,6 +169,16 @@ export function completionAt(line, labels, catalog, actorMap) {
     if (ATTR_VALUES[key]) {
       const items = wrap(ATTR_VALUES[key], "value");
       if (items.length) return { token: tok, items };
+    }
+  }
+
+  if (extFields && extFields.length && !/=\s*\S*$/.test(line)) {
+    const tail = line.match(/(?:^|\s)([a-zA-Z_]*)$/);
+    if (tail) {
+      const tok = tail[1];
+      if (!tok) return null; // ghost takes over right after the op name
+      const items = extFields.map((t) => ({ text: t, kind: "attr" })).filter((it) => it.text.startsWith(tok));
+      return items.length ? { token: tok, items } : null;
     }
   }
 
@@ -180,9 +213,21 @@ const ATTR_GHOST = {
 };
 
 export function predictGhost(line, ctx) {
-  const { catalog, actorMap } = ctx || {};
+  const { catalog, actorMap, extGrammar } = ctx || {};
   let m;
   if ((m = line.match(/^([a-z_]+)\s$/)) && OP_GHOST[m[1]]) return OP_GHOST[m[1]];
+  // `ext <op> ` → the declaration's snippet tail, else fields seeded from enums
+  if (extGrammar && extGrammar.ops && (m = line.match(/^ext\s+([A-Za-z_][A-Za-z0-9_]*)\s$/)) && extGrammar.ops[m[1]]) {
+    const o = extGrammar.ops[m[1]];
+    if (o.snippet) {
+      const tail = o.snippet.replace(new RegExp("^\\s*ext\\s+" + m[1] + "\\s*"), "");
+      if (tail) return tail;
+    }
+    const fields = [...new Set([...(o.required || []), ...(o.fields || [])])];
+    if (fields.length) {
+      return fields.map((f) => f + "=" + (o.enums && o.enums[f] ? '"' + o.enums[f][0] + '"' : '""')).join(" ");
+    }
+  }
   if ((m = line.match(/^actor\s+id="([A-Za-z0-9_-]+)"\s.*\s$/)) || (m = line.match(/^actor\s+id="([A-Za-z0-9_-]+)"\s$/))) {
     const ent = catalog && catalog[m[1]];
     if (ent && ent.axes) {
@@ -248,13 +293,21 @@ export function describeLine(lineText, col, ctx) {
 // What's under (line, col)? Returns { kind, ... } | null. kinds: op, entity,
 // emotion, label, var. (1-based line, 0-based col.)
 export function hoverAt(src, line, col, ctx) {
-  const { catalog = {}, actorMap = {} } = ctx || {};
+  const { catalog = {}, actorMap = {}, extGrammar } = ctx || {};
   const w = wordAt(src, line, col);
   if (!w) return null;
   const lineText = src.split("\n")[line - 1] || "";
   const labels = labelsIn(src);
 
   if (OP_DOCS[w]) return { kind: "op", word: w, sig: OP_DOCS[w][0], desc: OP_DOCS[w][1] };
+  if (extGrammar && extGrammar.ops && extGrammar.ops[w] && /^\s*ext\s/.test(lineText)) {
+    const o = extGrammar.ops[w];
+    return {
+      kind: "op", word: w,
+      sig: o.snippet || "ext " + w + " …",
+      desc: o.doc || "host-defined op (handled by the game via LvnOps.Register)",
+    };
+  }
 
   const sm = lineText.match(/^([^:[\]]+?)(?:\s*\[([^\]]*)\])?\s*:/);
   if (sm) {

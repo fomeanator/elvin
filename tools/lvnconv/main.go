@@ -67,13 +67,15 @@ func usage() {
 usage:
   lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy|adpd] [-dialogue <name>]
   lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
-  lvnconv validate <in.lvn> [-strict]
+  lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
 
 convert  compile a source script to a .lvn container (stdout if -o omitted)
 validate run structural checks on a .lvn (unknown op, dangling jumps, dup labels)
          -strict treats lint warnings (unused labels) as failures
+         -ext-grammar declares the project's host ops ("ext ..." lines) so
+         they validate like built-ins; default: ext-grammar.json beside the file
 probe    print a one-line summary of a .lvn (counts of ops, labels, choices)
 optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
          only get losslessly recompressed, never resized (frame-packed atlases
@@ -309,13 +311,30 @@ func writeCatalog(out, lang string, catalog map[string]string) {
 func cmdValidate(args []string) {
 	fs := newFlagSet("validate")
 	strict := fs.Bool("strict", false, "treat lint warnings as failures")
+	extPath := fs.String("ext-grammar", "", "host-op declaration (ext-grammar.json); default: auto-detect beside the file")
 	_ = fs.Parse(args)
 	if fs.NArg() != 1 {
 		die("validate: expected one <in.lvn>")
 	}
 	doc := loadLvn(fs.Arg(0))
 
-	issues := lvn.Validate(doc)
+	// Host-op declarations widen the known world per project: explicit flag
+	// first, else the conventional sidecar beside the file (or one level up).
+	var ext *lvn.ExtGrammar
+	if *extPath != "" {
+		g, err := lvn.LoadExtGrammar(*extPath)
+		if err != nil {
+			die("validate: " + err.Error())
+		}
+		ext = g
+	} else if g, found, err := lvn.FindExtGrammar(fs.Arg(0)); err != nil {
+		die("validate: " + err.Error())
+	} else if g != nil {
+		ext = g
+		fmt.Fprintf(os.Stderr, "ext-grammar: %s (%d host op(s))\n", found, len(g.Ops))
+	}
+
+	issues := lvn.ValidateExt(doc, ext)
 	var errs, warns int
 	for _, is := range issues {
 		warn := is.Sev != lvn.SevError
