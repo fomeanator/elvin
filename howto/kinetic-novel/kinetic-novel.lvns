@@ -27,7 +27,7 @@ anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine
 
 // Акцент: дрожь камеры на воспоминании + вспышка.
 camera action=shake amplitude=0.02 duration=0.4
-flash to="white" duration=0.3
+flash color="white" duration=0.3
 Голос из памяти: «Если опоздаешь — я не буду ждать».
 
 // Смена кадра: затемнили, сменили фон, проявили.
