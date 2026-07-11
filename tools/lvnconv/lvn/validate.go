@@ -131,7 +131,13 @@ func (i Issue) String() string {
 //   - a label defined but never targeted and not reachable by fall-through (dead);
 //   - unbalanced braces in say/who text (interpolation will misrender);
 //   - a choice option with neither a goto nor a body (silently falls through).
-func Validate(d *Doc) []Issue {
+func Validate(d *Doc) []Issue { return ValidateExt(d, nil) }
+
+// ValidateExt is Validate plus a project's ext-grammar: host ops declared
+// there validate like built-ins (closed fields, enums, required), while an
+// UNdeclared unknown op keeps the advisory warning. A nil grammar is exactly
+// Validate.
+func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 	var issues []Issue
 	addErr := func(i int, op, msg string) { issues = append(issues, Issue{i, op, msg, SevError}) }
 	addWarn := func(i int, op, msg string) { issues = append(issues, Issue{i, op, msg, SevWarning}) }
@@ -181,10 +187,21 @@ func Validate(d *Doc) []Issue {
 			return
 		}
 		if !KnownOps[op] {
-			// Not an engine op — either a typo or a HOST-DEFINED op (authored via
-			// `ext`, handled by the game's LvnOps.Register). The runtime ignores
-			// it when unhandled, so this is a warning, not an error.
-			addWarn(i, op, fmt.Sprintf("unknown op %q — a typo, or host-defined (needs LvnOps.Register in the game)", op))
+			// Not an engine op. Declared in the project's ext-grammar → a real
+			// host op: validate its fields like a built-in's. Undeclared →
+			// either a typo or a host op nobody declared; the runtime ignores
+			// it when unhandled, so it stays a warning, not an error.
+			if ext != nil {
+				if spec, ok := ext.Ops[op]; ok {
+					checkExtOp(i, c, op, spec, addErr, addWarn)
+					return
+				}
+			}
+			msg := fmt.Sprintf("unknown op %q — a typo, or host-defined (needs LvnOps.Register in the game; declare it in ext-grammar.json to validate its fields)", op)
+			if s := suggest(op, ext.OpNames()); s != "" {
+				msg = fmt.Sprintf("unknown op %q — did you mean the declared host op %q?", op, s)
+			}
+			addWarn(i, op, msg)
 			return
 		}
 		// Unknown-key check: a typo'd key (e.g. `fade too=`) compiles clean and
