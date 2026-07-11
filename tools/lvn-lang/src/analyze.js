@@ -3,7 +3,7 @@
 // Functions take plain text + a position + a context {catalog, actorMap}; the
 // catalog is the manifest's `sprites` map (id → {name, axes, defaults}).
 
-import { OPS, OP_FIELDS, ATTR_VALUES, OP_DOCS, SNIPPETS, DIRECTIVES } from "./grammar.js";
+import { OPS, OP_FIELDS, ATTR_VALUES, OP_DOCS, SNIPPETS, DIRECTIVES, SOURCE_OPS } from "./grammar.js";
 
 // ── label / variable facts ────────────────────────────────────────────────
 export function labelsIn(src) {
@@ -102,6 +102,7 @@ export function completionAt(line, labels, catalog, actorMap) {
     const kw = [
       ...SNIPPETS.map((s) => ({ text: s.trigger, label: s.label, body: s.body, kind: "snippet" })),
       ...OPS.map((t) => ({ text: t, kind: "op" })),
+      ...SOURCE_OPS.map((t) => ({ text: t, kind: "op" })),
       ...DIRECTIVES.map((t) => ({ text: t, kind: "directive" })),
     ].filter((it) => it.text.startsWith(tok));
     const items = [...names, ...kw];

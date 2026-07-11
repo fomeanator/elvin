@@ -27,6 +27,12 @@ namespace Lvn.UI
     /// </summary>
     public struct Placement
     {
+        // Standard VN framing defaults (screen fractions): a large figure, bottom-
+        // anchored (feet at the screen edge). ~1.5× the classic 0.46/0.62. A per-op
+        // width=/height= overrides; ui.stage.actor_scale multiplies these.
+        public const float DefaultWidth = 0.69f;
+        public const float DefaultHeight = 0.93f;
+
         public bool Show;
         /// <summary>Lock the box to this width/height ratio (from the entity's
         /// <c>aspect</c>): the placed Width/Height become maximums and the box
@@ -177,8 +183,11 @@ namespace Lvn.UI
                 }
             }
 
-            slot.style.width = Length.Percent((p.Width ?? 0.46f) * 100f);
-            slot.style.height = Length.Percent((p.Height ?? 0.62f) * 100f);
+            // Default actor size = the standard VN framing (Placement.Default*): a large,
+            // bottom-anchored figure. VnStage pre-fills Width/Height from the theme scale,
+            // so these ?? fallbacks only fire on a raw placement.
+            slot.style.width = Length.Percent((p.Width ?? Placement.DefaultWidth) * 100f);
+            slot.style.height = Length.Percent((p.Height ?? Placement.DefaultHeight) * 100f);
             slot.style.left = Length.Percent(p.X * 100f);
             slot.style.top = Length.Percent(p.Y * 100f);
             // Translate so the object's own anchor point lands on (X, Y); UITK

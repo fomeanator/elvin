@@ -726,9 +726,12 @@ $("export-html").addEventListener("click", async () => {
 });
 
 $("share").addEventListener("click", async () => {
-  const packed = btoa(String.fromCharCode(...new TextEncoder().encode(els.editor.value)));
+  const _b = new TextEncoder().encode(els.editor.value);
+  let _s = "";
+  for (let _i = 0; _i < _b.length; _i += 0x8000) _s += String.fromCharCode.apply(null, _b.subarray(_i, _i + 0x8000));
+  const packed = btoa(_s);
   const url = location.origin + location.pathname + "#s=" + packed;
-  history.replaceState(null, "", "#s=" + packed);
+  window.history.replaceState(null, "", "#s=" + packed);
   try {
     await navigator.clipboard.writeText(url);
     setStatus("ссылка скопирована — у открывшего сразу играет", "ok");
