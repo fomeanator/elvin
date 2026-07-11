@@ -50,6 +50,8 @@ func main() {
 		cmdValidate(os.Args[2:])
 	case "probe":
 		cmdProbe(os.Args[2:])
+	case "optimize":
+		cmdOptimize(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -67,11 +69,16 @@ usage:
   lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
   lvnconv validate <in.lvn> [-strict]
   lvnconv probe    <in.lvn>
+  lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
 
 convert  compile a source script to a .lvn container (stdout if -o omitted)
 validate run structural checks on a .lvn (unknown op, dangling jumps, dup labels)
          -strict treats lint warnings (unused labels) as failures
 probe    print a one-line summary of a .lvn (counts of ops, labels, choices)
+optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
+         only get losslessly recompressed, never resized (frame-packed atlases
+         bleed under any resample). Dry run by default; -apply writes; add
+         -rewrite-refs to fix manifest.json/.lvns after a png→jpg conversion.
 `)
 }
 
@@ -226,7 +233,7 @@ func cmdConvert(args []string) {
 			if err != nil {
 				die("adpd: " + err.Error())
 			}
-			importer.AutoStage(doc, cast)
+			importer.AutoStage(doc, cast, nil)
 		}
 		if *localize {
 			catalog := importer.Localize(doc)

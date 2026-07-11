@@ -13,6 +13,15 @@ namespace Lvn.UI
     /// This loader does not load assets itself — it only serves from its cache.
     /// Populate it by adding it after a loader that actually loads, or use
     /// <see cref="Seed"/> to pre-populate.
+    ///
+    /// <para>NON-OWNING by design: <see cref="Unload"/>/<see cref="UnloadAll"/>
+    /// only forget the reference, they never call <c>Object.Destroy</c>. This is
+    /// a lookaside in front of whichever loader actually owns the asset (e.g.
+    /// <see cref="ContentLoader"/> via <see cref="CachingAssets"/>, which DOES
+    /// destroy on unload) — if this cache destroyed a Sprite/Texture that the
+    /// owning loader still holds, the next lookup there would hand back a
+    /// destroyed Unity object. Only ever <see cref="Seed"/> this with assets
+    /// whose lifetime another cache in the chain is already managing.</para>
     /// </summary>
     public sealed class MemoryCache : ILvnAssets
     {

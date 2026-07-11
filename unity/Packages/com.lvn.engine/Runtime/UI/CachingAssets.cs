@@ -58,8 +58,13 @@ namespace Lvn.UI
         public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) =>
             Loader.DownloadSpriteAsync(url, ct);
 
+        // Disk-cached, version-folded (unlike scripts, which are always-fresh via
+        // DownloadScriptText): today's only LoadTextAsync callers are the Spine
+        // skeleton .json / .atlas.txt loads, and those are immutable content —
+        // refetching a 1 MB skeleton JSON on every cold show blocked the first
+        // render on the wire, and offline play lost Spine scenes entirely.
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
-            => Loader.DownloadScriptText(url, ct);
+            => Loader.DownloadScriptCached(url, ct);
 
         public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) =>
             Loader.DownloadAudioClipAsync(url, ct);

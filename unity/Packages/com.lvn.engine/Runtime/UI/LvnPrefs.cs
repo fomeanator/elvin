@@ -22,6 +22,7 @@ namespace Lvn.UI
         private static bool _loaded;
         private static float _textSpeed, _autoDelayScale, _volMusic, _volAmbient, _volSfx, _volVoice, _dialogOpacity;
         private static bool _autoAdvance, _reduceMotion, _skipReadOnly;
+        private static bool _soundOn = true;
 
         private static void EnsureLoaded()
         {
@@ -37,6 +38,7 @@ namespace Lvn.UI
             _reduceMotion = PlayerPrefs.GetInt(P + "reduce_motion", 0) == 1;
             _skipReadOnly = PlayerPrefs.GetInt(P + "skip_read_only", 0) == 1;
             _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
+            _soundOn = PlayerPrefs.GetInt(P + "sound_on", 1) == 1;
             _locale = PlayerPrefs.GetString(P + "locale", "");
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
@@ -131,6 +133,16 @@ namespace Lvn.UI
         {
             get { EnsureLoaded(); return _reduceMotion; }
             set { EnsureLoaded(); Set(ref _reduceMotion, "reduce_motion", value); }
+        }
+
+        /// <summary>Master sound switch. Off mutes every audio channel at the
+        /// output (the per-channel volumes are preserved, so turning it back on
+        /// restores them). <see cref="StageAudio"/> multiplies this into its
+        /// user-volume scale and reacts to <see cref="Changed"/>.</summary>
+        public static bool SoundOn
+        {
+            get { EnsureLoaded(); return _soundOn; }
+            set { EnsureLoaded(); Set(ref _soundOn, "sound_on", value); }
         }
 
         /// <summary>Dialogue window background opacity (0.2–1; text stays crisp —

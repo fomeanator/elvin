@@ -62,6 +62,17 @@ namespace Lvn
             if (vars != null && vars.TryGetValue(key, out var v))
                 return (v == null || v.Type == JTokenType.Null) ? "" : v.ToString();
 
+            // Dotted path into a nested object: `Wardrobe.mainCh_Clothes` /
+            // `global.rep`. The store nests these under the root key (SetVarPath), so a
+            // flat lookup above misses them and the expression engine has no dot member
+            // access — resolve by navigating the root object here.
+            if (vars != null && key.IndexOf('.') > 0)
+            {
+                var nested = ResolvePath(key, vars);
+                if (nested != null)
+                    return nested.Type == JTokenType.Null ? "" : nested.ToString();
+            }
+
             // not a known plain var — try it as an expression
             try
             {
@@ -74,6 +85,17 @@ namespace Lvn
             {
                 return "{" + key + "}"; // surface the bad/missing placeholder to the writer
             }
+        }
+
+        // Navigate a dotted path: the first segment is a root var, the remainder a
+        // JSON path into it (Wardrobe.mainCh_Clothes → vars["Wardrobe"] → .mainCh_Clothes).
+        // Null when any segment is missing.
+        private static JToken ResolvePath(string key, IReadOnlyDictionary<string, JToken> vars)
+        {
+            int dot = key.IndexOf('.');
+            var root = key.Substring(0, dot);
+            if (!vars.TryGetValue(root, out var tok) || tok == null) return null;
+            return tok.SelectToken(key.Substring(dot + 1));
         }
 
         private static bool IsPlainIdentifier(string s)

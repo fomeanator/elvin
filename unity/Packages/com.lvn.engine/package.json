@@ -37,6 +37,11 @@
       "displayName": "Hello Elvin",
       "description": "Press Play to see a game: add the ElvinVnStageSample component (story + theme bundled). Also includes HelloLvnRunner, a headless console host. See docs/unity-getting-started.md.",
       "path": "Samples~/HelloLvn"
+    },
+    {
+      "displayName": "Web view (gree adapter)",
+      "description": "External wiring that plugs gree/unity-webview into the LvnWebView seam for an in-app web view (store payment banner, ToS/Policy). Import gree/unity-webview first. The engine never links a web-view library.",
+      "path": "Samples~/WebView"
     }
   ]
 }
