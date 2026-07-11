@@ -577,18 +577,18 @@ if Remember.Take_cat == true -> n12_000000
 -> n13_000000
 :n12_000000
 Автор: Как только Люба уходит, неплотно закрыв за собой дверь, я слышу тихий скрип и вижу, как ко мне бесшумно забегает…
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мяу!
 actor exit="fade" id="Cat" show=false
 Главный герой: О, привет! Привет, красавица!
 Главный герой: Как ты оказалась здесь? Как же ты пробралась мимо Сталины Ильиничны?
 Автор: Кошка без малейшего зазрения совести запрыгивает на мою постель и начинает ластиться ко мне.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Главный герой: Ну ты не наглей! Этими лапками неизвестно по каким грязным местам бегала, а теперь ко мне в постель?
 Автор: Кошка послушно прыгает с кровати, а я встаю и наклоняюсь, чтобы погладить ее.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Главный герой: Ты как раз к завтраку прибежала, умница, сейчас что-нибудь дам тебе поесть.

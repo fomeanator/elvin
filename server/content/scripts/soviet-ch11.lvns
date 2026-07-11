@@ -646,19 +646,19 @@ if Remember.Take_cat == true -> n34_000000
 :n34_000000
 Автор: Когда открываю дверь, чувствую, как кто-то маленький и пушистый трется о мои ноги, затем быстро забегает, пока я не закрыла дверь.
 set key="Sound.Urring_cat" value=true
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мяу!
 actor exit="fade" id="Cat" show=false
 Главный герой: О, это снова ты!
 Главный герой: Привет, красавица…
 Автор: Я наклоняюсь, чтобы погладить кошку, провожу ладонью по ее голове и спинке, чешу за ушком.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Главный герой: Прости, красавица, я тороплюсь. А то так бы поиграла с тобой подольше.
 Главный герой: Но в следующий раз обязательно поиграю с тобой!
 Главный герой: Сейчас принесу тебе сосиску. Специально припасла для тебя!
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Автор: Покормив кошку, я решаю долго не копаться, а в своей комнате привести себя в порядок и обдумать, как мне искать родителей в этом времени.

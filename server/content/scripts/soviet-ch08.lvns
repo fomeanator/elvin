@@ -585,12 +585,12 @@ set key="Music.Adventure" value=true
 actor enter="fade" id="Stalina" position="right" show=true sprite_url="/content/art/Сталина.png"
 Stalina: Ах ты, блохастая! Пошла вон отсюда!
 actor exit="fade" id="Stalina" show=false
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мяу!
 actor exit="fade" id="Cat" show=false
 Автор: Бедное животное убегает от нашей вахтерши со всех своих лап, и, увидев меня, прячется за мной, дрожа от страха и прижимаясь к моим ногам.
 Автор: Пока Сталина Ильинична гонится за ней со шваброй.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мяу…
 actor exit="fade" id="Cat" show=false
 actor enter="fade" id="Timur" position="right" show=true sprite_url="/content/art/Тимур_Обычный.png"
@@ -614,7 +614,7 @@ actor exit="fade" id="Stalina" show=false
 Главный герой: Ну необязательно же ей здесь жить.
 Автор: Я наклоняюсь к кошке, которая трется об мои ноги, и начинаю гладить ее.
 Автор: Глажу по черной гладкой шерстке, чешу за ушком.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Главный герой: А ты такая красивая…
@@ -670,7 +670,7 @@ actor exit="fade" id="Stalina" show=false
 Главный герой: Я тогда сбегаю, принесу ей еды!
 Автор: Я наклоняюсь к кошке и глажу ее.
 Главный герой: Вот видишь: ты теперь можешь прибегать сюда поесть.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: М-р-р…
 actor exit="fade" id="Cat" show=false
 Автор: Я в спешке поднимаюсь по лестнице, чтобы принести кошке поесть.

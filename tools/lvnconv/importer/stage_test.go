@@ -52,7 +52,7 @@ func TestAutoStageScenesAndActors(t *testing.T) {
 	}}
 	cast := map[string]string{"Тимур": "Тимур_Обычный.png", "Игрок": "Игрок.png"}
 
-	AutoStage(doc, cast)
+	AutoStage(doc, cast, nil)
 	got := ops(doc.Script)
 	// show → (narrator) hide → show → (scene) hide → show
 	want := []string{"bg", "actor", "say", "actor", "say", "actor", "say", "actor", "bg", "actor", "say"}
@@ -116,7 +116,7 @@ func TestAutoStageSingleSpeakerSwap(t *testing.T) {
 		{"op": "say", "who": "Люба", "text": "b"},
 	}}
 	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
-	AutoStage(doc, cast)
+	AutoStage(doc, cast, nil)
 
 	// Люба's turn must first hide Тимур, then show Люба — never two up at once.
 	on := map[string]bool{}
@@ -151,7 +151,7 @@ func TestAutoStageProtagonistLeft(t *testing.T) {
 		{"op": "say", "who": "Тимур", "text": "он"},
 	}}
 	cast := map[string]string{"Главный герой": "hero.png", "Тимур": "t.png"}
-	AutoStage(doc, cast)
+	AutoStage(doc, cast, nil)
 
 	var pos []string
 	for _, c := range doc.Script {
@@ -239,7 +239,7 @@ func TestAutoStageThenLocalizeCompose(t *testing.T) {
 	}}
 	cast := map[string]string{"Тимур": "t.png"}
 
-	AutoStage(doc, cast)
+	AutoStage(doc, cast, nil)
 	if countOp(doc.Script, "bg") != 1 {
 		t.Fatalf("scene marker did not become a bg: %v", ops(doc.Script))
 	}
@@ -260,7 +260,7 @@ func TestAutoStageUnknownSpeakerNoActor(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Незнакомец", "text": "hi"},
 	}}
-	AutoStage(doc, map[string]string{})
+	AutoStage(doc, map[string]string{}, nil)
 	if countOp(doc.Script, "actor") != 0 {
 		t.Error("unknown speaker should not be staged")
 	}

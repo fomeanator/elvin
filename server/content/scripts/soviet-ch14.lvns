@@ -544,7 +544,7 @@ if Remember.Take_cat == true -> n10_000000
 :n10_000000
 actor exit="fade" id="Timur" show=false
 Автор: Пока ребята снова спорят, я отвожу взгляд в сторону и вижу, как ко мне бежит моя новая пушистая подруга.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мяу!
 actor exit="fade" id="Cat" show=false
 Главный герой: Привет! Привет, красавица!
@@ -734,7 +734,7 @@ if Remember.Take_cat == true -> n24_000000
 :n24_000000
 actor exit="fade" id="Praskovia" show=false
 Автор: Пока мы увлечены обсуждением планов на вечер, я не замечаю, как мимо нас пробегает черная кошка и устремляется к маме Андрея.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: …
 actor exit="fade" id="Cat" show=false
 actor enter="fade" id="Praskovia" position="right" show=true sprite_url="/content/art/Praskovia.jpg"
@@ -754,7 +754,7 @@ actor enter="fade" id="Praskovia" position="right" show=true sprite_url="/conten
 Praskovia: Как ее зовут?
 actor exit="fade" id="Praskovia" show=false
 Главный герой: Никак… То есть, я не давала кошке имя, решила, что справедливо будет, если ее новый хозяин и даст ей имя.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 actor enter="fade" id="Praskovia" position="right" show=true sprite_url="/content/art/Praskovia.jpg"
@@ -763,7 +763,7 @@ Praskovia: Пускай будет Клеопатрой.
 actor exit="fade" id="Praskovia" show=false
 Главный герой: Прекрасно ей подойдет!
 Автор: Я подхожу ближе к маме Андрея и глажу кошку по голове, чешу за ушком.
-actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.png"
+actor enter="fade" id="Cat" position="right" show=true sprite_url="/content/art/Cat.jpg"
 Cat: Мр-р-р…
 actor exit="fade" id="Cat" show=false
 Главный герой: Я буду по тебе скучать, но здесь тебе действительно будет лучше, чем на московских улицах и в подвалах.

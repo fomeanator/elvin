@@ -647,7 +647,7 @@ bg id="Woodpile" sprite_url="/content/bg/Woodpile.jpg"
 Автор: Он берет большие круглые чурки, ставит перед собой, крепко обхватывает топор.
 Автор: Размах! Удар, треск. Чурка расколота и разваливается на небольшие дрова.
 Автор: А я слежу не за тем, как быстро разваливаются чурки под сокрушительными ударами топором, я в это время глаз не могу отвести от Андрея.
-actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.png"
+actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.jpg"
 Andrey_Axe: …
 actor exit="fade" id="Andrey_Axe" show=false
 Автор: Он раскалывает чурки одну за другой, а я завороженно наблюдаю за тем, как напрягаются и перекатываются мышцы Андрея под кожей, которую беспощадно опаляет солнце.
@@ -655,13 +655,13 @@ actor exit="fade" id="Andrey_Axe" show=false
 Автор: Засмотревшись на него, я чуть не проливаю квас на землю, но вовремя замечаю, как опасно наклонила кружку.
 set key="Music.Native" value=true
 Автор: Я могла бы так долго наблюдать за ним, за его сильными руками, за тем, как капли пота стекают с его шеи, но вот Андрей поворачивается и видит меня.
-actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.png"
+actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.jpg"
 Andrey_Axe: Олеся?
 actor exit="fade" id="Andrey_Axe" show=false
 Главный герой: Андрей, я не хотела…
 Главный герой: Подсматривать за тобой... Кого я обманываю? Конечно же, хотела!
 Автор: Андрей, увидев мое смущение, усмехается.
-actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.png"
+actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.jpg"
 Andrey_Axe: Я рад, что ты пришла.
 Andrey_Axe: Только никогда нельзя стоять за спиной того, кто рубит дрова.
 Andrey_Axe: Я же не видел тебя, ты могла пораниться.
@@ -670,7 +670,7 @@ actor exit="fade" id="Andrey_Axe" show=false
 Главный герой: Вот подумала, что ты захочешь пить. Сегодня очень жарко.
 Автор: Он принимает кружку из моих рук, а я не могу перестать беззастенчиво разглядывать его.
 Автор: Его сильные руки, его плечи, торс, словно высеченные искусной рукой скульптора…
-actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.png"
+actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.jpg"
 Andrey_Axe: Спасибо, Олеся. Ты словно мои мысли прочитала. Я как раз хотел освежиться.
 actor exit="fade" id="Andrey_Axe" show=false
 Главный герой: Хорошо, что ты мои мысли не можешь прочитать, а то…
@@ -680,7 +680,7 @@ actor exit="fade" id="Andrey_Axe" show=false
 Главный герой: Ну как не смотреть на такого красивого мужчину? На моего мужчину…
 Автор: Андрей отдает мне кружку, и я замираю, утонув в синеве его глаз.
 Главный герой: Я… пойду, отнесу назад кружку.
-actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.png"
+actor enter="fade" id="Andrey_Axe" position="right" show=true sprite_url="/content/art/Andrey_Axe.jpg"
 Andrey_Axe: …
 :n24_000000
 actor exit="fade" id="Andrey_Axe" show=false

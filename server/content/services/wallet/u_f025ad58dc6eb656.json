@@ -1,0 +1,173 @@
+{
+  "__v": 19,
+  "balances": {
+    "crystals": 135,
+    "gold": 710
+  },
+  "inventory": {
+    "wardrobe:hero:armor:chain": 1,
+    "wardrobe:hill:decor:rose": 1,
+    "wardrobe:hill:face:north": 1,
+    "wardrobe:hill:hair:blond": 1,
+    "wardrobe:hill:hair:brunette": 1,
+    "wardrobe:hill:hair:red": 1,
+    "wardrobe:hill:hairstyle:orchid": 1,
+    "wardrobe:hill:outfit:medical": 1,
+    "wardrobe:hill:outfit:orchid": 1,
+    "wardrobe:hill:outfit:peignoir_wet": 1,
+    "wardrobe:hill:outfit:rose": 1
+  },
+  "history": [
+    {
+      "ts": "2026-07-06T15:17:34Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "gold_100",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:22:23Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 550,
+      "sku": "gold_550",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:22:25Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "gold_100",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T15:40:14Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 300,
+      "sku": "wardrobe:hero:armor:chain",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T16:27:13Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "wardrobe:hill:hair:brunette",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T16:27:24Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 150,
+      "sku": "wardrobe:hill:outfit:peignoir_wet",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T16:53:36Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 150,
+      "sku": "wardrobe:hill:outfit:medical",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T17:22:06Z",
+      "type": "iap",
+      "currency": "gold",
+      "amount": 1200,
+      "sku": "gold_1200",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T17:22:17Z",
+      "type": "iap",
+      "currency": "crystals",
+      "amount": 60,
+      "sku": "crystals_60",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T17:22:18Z",
+      "type": "iap",
+      "currency": "crystals",
+      "amount": 130,
+      "sku": "crystals_130",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T18:20:38Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "wardrobe:hill:hair:blond",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T18:50:21Z",
+      "type": "earn",
+      "currency": "gold",
+      "amount": 40,
+      "reason": "offline-quest"
+    },
+    {
+      "ts": "2026-07-06T18:50:21Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 80,
+      "sku": "wardrobe:hill:decor:rose",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:28Z",
+      "type": "iap",
+      "currency": "crystals",
+      "amount": 10,
+      "sku": "crystals_10",
+      "reason": "iap:dev"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 300,
+      "sku": "wardrobe:hill:outfit:rose",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "gold",
+      "amount": 100,
+      "sku": "wardrobe:hill:hair:red",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:10:54Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 20,
+      "sku": "wardrobe:hill:face:north",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-06T20:11:16Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 30,
+      "sku": "wardrobe:hill:outfit:orchid",
+      "reason": "wardrobe"
+    },
+    {
+      "ts": "2026-07-07T08:07:51Z",
+      "type": "spend",
+      "currency": "crystals",
+      "amount": 15,
+      "sku": "wardrobe:hill:hairstyle:orchid",
+      "reason": "wardrobe"
+    }
+  ]
+}
