@@ -55,6 +55,7 @@ func main() {
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
 	iapDev := flag.Bool("iap-dev", false, "accept any IAP receipt (test builds only — never production)")
+	walletEarn := flag.Bool("wallet-earn", true, "allow client-initiated POST /v1/wallet/earn (test-mode affordance; set to false before enabling real payments)")
 	authDev := flag.Bool("auth-dev", false, "accept the 'dev' auth provider (test builds only — never production)")
 	googleClientID := flag.String("google-client-id", "", "pin Google id_token audience for /v1/auth/link|login")
 	appleBundleID := flag.String("apple-bundle-id", "", "pin Apple identity-token audience for /v1/auth/link|login")
@@ -107,8 +108,12 @@ func main() {
 	}
 	walletSvc.AppleSharedSecret = *appleSharedSecret
 	walletSvc.AppleBundleID = *appleBundleID
+	walletSvc.EarnDisabled = !*walletEarn
 	// Production nudges: these pins are what stand between "verified" and
 	// "any token/receipt from any app" — silence here has bitten people.
+	if *walletEarn {
+		log.Printf("note: /v1/wallet/earn is OPEN — any signed-in device can credit itself (test mode). Set -wallet-earn=false before real IAP/ads payouts")
+	}
 	if *appleSharedSecret != "" && *appleBundleID == "" {
 		log.Printf("WARNING: -apple-shared-secret is set but -apple-bundle-id is empty — receipts from OTHER apps would validate; set the bundle id in production")
 	}
@@ -166,6 +171,11 @@ func main() {
 	mux.Handle("/panel/", http.StripPrefix("/panel/", site))
 	mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/panel/", http.StatusFound)
+	})
+	// The vanilla /admin/ page retired into the React app's "Админка" mode —
+	// keep bookmarked URLs working.
+	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/?admin=1", http.StatusFound)
 	})
 	mux.Handle("/", site)
 
@@ -684,7 +694,10 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 
 // atomicWrite writes via a temp file in the same directory then renames, so a
 // concurrent reader (e.g. computeVersions hashing for cache-busting) never sees
-// a half-written or zero-byte file. Rename is atomic on the same filesystem.
+// a half-written or zero-byte file. Rename is atomic on the same filesystem,
+// and the explicit fsyncs extend the guarantee from "survives a process crash"
+// to "survives a power cut": the data hits stable storage before the rename
+// publishes it, and the directory entry itself is flushed after.
 func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	tmp, err := os.CreateTemp(filepath.Dir(dst), ".tmp-*")
 	if err != nil {
@@ -692,6 +705,11 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(body); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
 		return err
@@ -707,6 +725,12 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 	if err := os.Rename(tmpName, dst); err != nil {
 		os.Remove(tmpName)
 		return err
+	}
+	// Flush the rename itself. Best-effort: not every filesystem supports
+	// fsync on a directory, and the write is already durable content-wise.
+	if d, err := os.Open(filepath.Dir(dst)); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }

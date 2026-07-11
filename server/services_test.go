@@ -796,3 +796,89 @@ func TestAdmin_FilesBrowserHidesInternals(t *testing.T) {
 		t.Fatalf("bg listing: %v", out)
 	}
 }
+
+// A failed wallet write must be a loud 500 with the on-disk balance intact —
+// never a cheerful response over money that silently didn't move.
+func TestWallet_PersistFailureIsA500AndMoneyDoesNotMove(t *testing.T) {
+	mux, dir := servicesMux(t, false)
+	_, tok := register(t, mux)
+	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
+		map[string]any{"currency": "gold", "amount": 50, "reason": "seed"}); rec.Code != 200 {
+		t.Fatalf("seed earn: %d", rec.Code)
+	}
+
+	walletDir := filepath.Join(dir, "wallet")
+	if err := os.Chmod(walletDir, 0o500); err != nil { // read-only: writes fail
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(walletDir, 0o755) })
+	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
+		map[string]any{"currency": "gold", "amount": 999, "reason": "quest"}); rec.Code != 500 {
+		t.Fatalf("earn with an unwritable store must 500, got %d", rec.Code)
+	}
+
+	_ = os.Chmod(walletDir, 0o755)
+	rec, out := call(t, mux, "GET", "/v1/wallet", tok, nil)
+	if rec.Code != 200 {
+		t.Fatalf("get after recovery: %d", rec.Code)
+	}
+	if bal := out["balances"].(map[string]any); bal["gold"].(float64) != 50 {
+		t.Fatalf("failed persist must not move money: %v", bal)
+	}
+}
+
+// A corrupt wallet file fails closed: 500 on read AND the file is never
+// overwritten — treating it as empty would zero a real balance on save.
+func TestWallet_CorruptFileFailsClosedNotEmpty(t *testing.T) {
+	mux, dir := servicesMux(t, false)
+	uid, tok := register(t, mux)
+	path := filepath.Join(dir, "wallet", uid+".json")
+	if err := os.WriteFile(path, []byte("{corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if rec, _ := call(t, mux, "GET", "/v1/wallet", tok, nil); rec.Code != 500 {
+		t.Fatalf("corrupt wallet read must 500, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
+		map[string]any{"currency": "gold", "amount": 10, "reason": "q"}); rec.Code != 500 {
+		t.Fatalf("mutating a corrupt wallet must 500, got %d", rec.Code)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "{corrupt" {
+		t.Fatal("a corrupt wallet must never be overwritten")
+	}
+}
+
+// -wallet-earn=false closes the client-initiated credit route while reads and
+// server-side grants (ads/daily/iap/admin) keep working.
+func TestWallet_EarnKillSwitch(t *testing.T) {
+	dir := t.TempDir()
+	auth, err := NewAuthService(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wallet.EarnDisabled = true
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	uid, tok := register(t, mux)
+
+	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
+		map[string]any{"currency": "gold", "amount": 10, "reason": "q"}); rec.Code != 403 {
+		t.Fatalf("earn with the kill switch must 403, got %d", rec.Code)
+	}
+	if err := wallet.Grant(uid, "gold", 30, "test:grant"); err != nil { // in-process path stays open
+		t.Fatalf("server-side grant must still work: %v", err)
+	}
+	rec, out := call(t, mux, "POST", "/v1/wallet/spend", tok,
+		map[string]any{"currency": "gold", "amount": 10, "reason": "shop"})
+	if rec.Code != 200 {
+		t.Fatalf("spend must still work: %d %s", rec.Code, rec.Body)
+	}
+	if bal := out["balances"].(map[string]any); bal["gold"].(float64) != 20 {
+		t.Fatalf("balance after grant+spend: %v", bal)
+	}
+}

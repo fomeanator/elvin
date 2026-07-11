@@ -105,10 +105,20 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 	if reward.DailyCap > 0 {
 		left = reward.DailyCap - doc.Counts[req.Placement]
 	}
-	s.saveUser(userID, doc)
+	// The watch is counted BEFORE the payout (same trade-off as the daily
+	// service): a failed grant loses one watch to support, a payout before a
+	// failed count would be replayable for free currency.
+	if err := s.saveUser(userID, doc); err != nil {
+		s.mu.Unlock()
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 	s.mu.Unlock()
 
-	s.wallet.Grant(userID, reward.Currency, reward.Amount, "ad:"+req.Placement)
+	if err := s.wallet.Grant(userID, reward.Currency, reward.Amount, "ad:"+req.Placement); err != nil {
+		http.Error(w, "grant failed", http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"granted": true, "currency": reward.Currency, "amount": reward.Amount, "left_today": left,
 	})
@@ -125,7 +135,7 @@ func (s *AdsService) loadUser(userID string) *adsUserDoc {
 	return doc
 }
 
-func (s *AdsService) saveUser(userID string, doc *adsUserDoc) {
+func (s *AdsService) saveUser(userID string, doc *adsUserDoc) error {
 	data, _ := json.Marshal(doc)
-	_ = atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
+	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
 }

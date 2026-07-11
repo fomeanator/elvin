@@ -15,6 +15,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -66,7 +67,11 @@ func NewAuthService(dir string) (*AuthService, error) {
 	}
 	s.verifyProvider = s.verifyProviderReal
 	if data, err := os.ReadFile(s.path); err == nil {
-		_ = json.Unmarshal(data, &s.users)
+		// A corrupt users.json must stop the server, not silently become an
+		// empty table the next persist would overwrite (losing every account).
+		if err := json.Unmarshal(data, &s.users); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", s.path, err)
+		}
 		for id, u := range s.users {
 			s.byDev[u.DeviceHash] = id
 			for p, sub := range u.Providers {
@@ -85,12 +90,13 @@ func (s *AuthService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/auth/login", s.handleLogin)
 }
 
-func (s *AuthService) persistLocked() {
+// persistLocked flushes the user table (caller holds s.mu). On failure the
+// in-memory state stays ahead of disk — callers surface a 500 so the client
+// retries, and the retry re-persists the same account (register/link/login
+// are idempotent on their identity), so nothing is silently lost.
+func (s *AuthService) persistLocked() error {
 	data, _ := json.MarshalIndent(s.users, "", "  ")
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err == nil {
-		_ = os.Rename(tmp, s.path)
-	}
+	return atomicWrite(s.path, data, 0o600)
 }
 
 func hashHex(v string) string {
@@ -174,7 +180,10 @@ func (s *AuthService) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// recovers its account).
 	secret := newSecret()
 	s.users[userID].TokenHash = hashHex(secret)
-	s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
@@ -251,7 +260,10 @@ func (s *AuthService) handleLink(w http.ResponseWriter, r *http.Request) {
 	}
 	u.Providers[req.Provider] = subject
 	s.byProv[key] = userID
-	s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "provider": req.Provider})
 }
@@ -293,7 +305,10 @@ func (s *AuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	secret := newSecret()
 	s.users[userID].TokenHash = hashHex(secret)
-	s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
@@ -328,8 +343,12 @@ func (s *AuthService) handleProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	s.users[userID].Name = name
-	s.persistLocked()
+	err := s.persistLocked()
 	s.mu.Unlock()
+	if err != nil {
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "name": name})
 }

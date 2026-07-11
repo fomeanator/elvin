@@ -143,7 +143,12 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
-	s.wallet.Grant(userID, reward.Currency, reward.Amount, "daily:day"+itoa(streak))
+	if err := s.wallet.Grant(userID, reward.Currency, reward.Amount, "daily:day"+itoa(streak)); err != nil {
+		// The claim is already on disk (a retry would 409), so this payout is
+		// lost to a support re-grant rather than double-paid — surface it.
+		http.Error(w, "grant failed", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
