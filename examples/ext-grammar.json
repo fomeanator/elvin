@@ -1,0 +1,18 @@
+{
+  "name": "example-host-ops",
+  "doc": "Example host-op declaration. Put a file like this beside your scripts (or one directory up, e.g. content/ext-grammar.json) — `lvnconv validate` auto-detects it, the panel's editor completes and documents the ops, and declared `ext` commands validate like built-ins instead of warning as unknown. The declaration never changes compilation: `ext` ops still need LvnOps.Register in the host game.",
+  "ops": {
+    "minigame": {
+      "doc": "Runs a host mini-game; the story pauses until the game calls Resume().",
+      "fields": ["difficulty", "timeout"],
+      "required": ["id"],
+      "enums": { "difficulty": ["easy", "normal", "hard"] },
+      "snippet": "ext minigame id=\"river\" difficulty=normal"
+    },
+    "vibrate": {
+      "doc": "Haptic pulse on devices that support it; a silent no-op elsewhere.",
+      "fields": ["ms"],
+      "snippet": "ext vibrate ms=80"
+    }
+  }
+}

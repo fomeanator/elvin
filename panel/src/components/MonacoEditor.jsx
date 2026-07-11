@@ -31,7 +31,7 @@ let registered = false;
 // remounts MonacoEditor (keyed by selId). So the live context must live at module
 // scope too — a per-instance ref would freeze the providers on the FIRST chapter's
 // catalog/actorMap. Each render writes the current values here.
-const sharedCtx = { catalog: {}, actorMap: {} };
+const sharedCtx = { catalog: {}, actorMap: {}, extGrammar: null };
 // Register the `lvns` language once: highlighting + all providers wired to the
 // shared lvn-lang core. getCtx() returns the live { catalog, actorMap }.
 function registerLvns(mo, getCtx) {
@@ -91,9 +91,9 @@ function registerLvns(mo, getCtx) {
   mo.languages.registerCompletionItemProvider("lvns", {
     triggerCharacters: [" ", '"', "[", "=", ">", "-"],
     provideCompletionItems(model, position) {
-      const { catalog, actorMap } = getCtx();
+      const { catalog, actorMap, extGrammar } = getCtx();
       const lineToCaret = model.getValueInRange({ startLineNumber: position.lineNumber, startColumn: 1, endLineNumber: position.lineNumber, endColumn: position.column });
-      const r = completionAt(lineToCaret, labelsIn(model.getValue()), catalog, actorMap);
+      const r = completionAt(lineToCaret, labelsIn(model.getValue()), catalog, actorMap, extGrammar);
       if (!r) return { suggestions: [] };
       const startCol = position.column - (r.token ? r.token.length : 0);
       const range = new mo.Range(position.lineNumber, startCol, position.lineNumber, position.column);
@@ -127,8 +127,8 @@ function registerLvns(mo, getCtx) {
 
   mo.languages.registerHoverProvider("lvns", {
     provideHover(model, position) {
-      const { catalog, actorMap } = getCtx();
-      const h = hoverAt(model.getValue(), position.lineNumber, position.column - 1, { catalog, actorMap });
+      const { catalog, actorMap, extGrammar } = getCtx();
+      const h = hoverAt(model.getValue(), position.lineNumber, position.column - 1, { catalog, actorMap, extGrammar });
       if (!h) return null;
       let md = "";
       if (h.kind === "op") md = "`" + h.sig + "`\n\n" + h.desc;
@@ -189,9 +189,9 @@ function registerLvns(mo, getCtx) {
   mo.languages.registerInlineCompletionsProvider("lvns", {
     provideInlineCompletions(model, position) {
       if (position.column !== model.getLineMaxColumn(position.lineNumber)) return { items: [] };
-      const { catalog, actorMap } = getCtx();
+      const { catalog, actorMap, extGrammar } = getCtx();
       const lineToCaret = model.getValueInRange({ startLineNumber: position.lineNumber, startColumn: 1, endLineNumber: position.lineNumber, endColumn: position.column });
-      const g = predictGhost(lineToCaret, { catalog, actorMap });
+      const g = predictGhost(lineToCaret, { catalog, actorMap, extGrammar });
       if (!g) return { items: [] };
       return { items: [{ insertText: g, range: new mo.Range(position.lineNumber, position.column, position.lineNumber, position.column) }] };
     },
@@ -199,7 +199,7 @@ function registerLvns(mo, getCtx) {
   });
 }
 
-const MonacoEditor = forwardRef(function MonacoEditor({ src, onChange, diags = [], jump, catalog = {}, onCaret, readOnly = false }, ref) {
+const MonacoEditor = forwardRef(function MonacoEditor({ src, onChange, diags = [], jump, catalog = {}, extGrammar = null, onCaret, readOnly = false }, ref) {
   const edRef = useRef(null);
   const moRef = useRef(null);
   // keep the shared (module-level) context current for the registered providers.
@@ -207,6 +207,7 @@ const MonacoEditor = forwardRef(function MonacoEditor({ src, onChange, diags = [
   // render is waste; throttle to ~3/s (completions tolerate a 300ms-stale map).
   const amCache = useRef({ src: null, map: {}, at: 0 });
   sharedCtx.catalog = catalog;
+  sharedCtx.extGrammar = extGrammar;
   if (amCache.current.src !== src) {
     const now = performance.now();
     if (now - amCache.current.at > 300) {

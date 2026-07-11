@@ -7,6 +7,16 @@ export async function getManifest() {
   return r.json();
 }
 
+// The project's optional host-op declaration (content/ext-grammar.json) — the
+// same file the validator's -ext-grammar auto-detects. Absent → null (the
+// closed core grammar applies); present-but-broken → throws, callers surface it.
+export async function getExtGrammar() {
+  const r = await fetch("/content/ext-grammar.json", { cache: "no-store" });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error("ext-grammar " + r.status);
+  return r.json();
+}
+
 // encodePath URL-encodes each segment of a content-relative path while keeping
 // the '/' separators — a filename with '#', '?' or '%' must not break the URL.
 const encodePath = (rel) => String(rel).split("/").map(encodeURIComponent).join("/");
