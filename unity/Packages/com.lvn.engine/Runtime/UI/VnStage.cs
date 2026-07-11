@@ -68,6 +68,9 @@ namespace Lvn.UI
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
         private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
+        private VisualElement _hintCard;   // top-center popup for the `hint` op
+        private Label _hintLabel;
+        private IVisualElementScheduledItem _hintHide; // auto-dismiss timer (duration>0)
         private FxLayer _fx;
         private StageAudio _audio;
         private StageMenu _menu;
@@ -111,7 +114,18 @@ namespace Lvn.UI
         // Start runs once per component lifetime — after a disable/enable cycle
         // it can't retry a Build whose panel wasn't ready yet, so keep a cheap
         // per-frame guard until the chrome exists.
-        private void Update() { if (!_built) Build(); }
+        private void Update()
+        {
+            if (!_built) Build();
+            // [lvn-perf] frame-hitch watchdog: any frame past 150 ms is a felt
+            // freeze — log it with the in-flight spine work so a hitch can be
+            // attributed (or ruled out) at a glance. Skips the very first frames
+            // after a scene load, which are always heavy and not interesting.
+            float dt = Time.unscaledDeltaTime;
+            if (dt > 0.15f && Time.frameCount > 10)
+                Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {Time.frameCount}"
+                          + (_spineLoading.Count > 0 ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : ""));
+        }
 
         private void Build()
         {
@@ -137,6 +151,7 @@ namespace Lvn.UI
                 var scene = new World.WorldStage(transform, sortingOrder: 0);
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);
+                _ = ApplyDefaultBackdropAsync(scene); // seamless tiled filler instead of flat black
             }
             else
             {
@@ -152,6 +167,7 @@ namespace Lvn.UI
 
             _particles = new ParticleField();
             ResolveFont();
+            _panelHost = null; // died with the previous panel root — recreate lazily
             _dialogue = new DialogueBox(Theme);
             _choices = new ChoiceList(Theme);
             _fx = new FxLayer();
@@ -185,6 +201,9 @@ namespace Lvn.UI
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             LvnPrefs.Changed -= OnPrefsChanged;
             LvnPrefs.Changed += OnPrefsChanged;
+            // Wardrobe equips re-apply the actor live if it's on screen.
+            LvnWardrobe.Changed -= OnWardrobeChanged;
+            LvnWardrobe.Changed += OnWardrobeChanged;
 
             root.pickingMode = PickingMode.Position;
             root.RegisterCallback<PointerDownEvent>(OnPointerDown);
@@ -237,6 +256,20 @@ namespace Lvn.UI
             _ = EnsureThemeImagesAsync();
         }
 
+        // The default backdrop behind the canvas scene: a seamless texture tiled
+        // as a fine grid, so letterboxed scenes (a width-fit Spine leaves bars)
+        // sit on a pattern instead of flat black. Overridden by any real `bg`.
+        private async System.Threading.Tasks.Task ApplyDefaultBackdropAsync(World.WorldStage scene)
+        {
+            if (Assets == null || scene == null) return;
+            try
+            {
+                var spr = await Assets.LoadSpriteAsync("/content/ui/tile-bg.jpg", _cts.Token);
+                if (spr != null && spr.texture != null) scene.Background.SetTile(spr.texture, 140f);
+            }
+            catch { }
+        }
+
         // Recreate the dialogue box and choice list from the current Theme, keeping
         // their z-order (…, dialogue, choices, fx). Used by ApplyTheme and after the
         // theme's background images finish loading.
@@ -247,6 +280,14 @@ namespace Lvn.UI
 
             if (_choices != null) { _choices.OnSelected -= OnChoiceSelected; _choices.RemoveFromHierarchy(); }
             if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
+            // The shared window wears the theme too — drop it so the next use
+            // rebuilds it with the fresh skin. NEVER while it's open: a live
+            // re-theme (content sync) during an in-story wardrobe would orphan
+            // the hosted content, its await would never resolve, and the held
+            // script would soft-lock. An open window just keeps the old skin
+            // until it closes.
+            if (_panelHost != null && !_panelHost.IsOpen)
+            { _panelHost.RemoveFromHierarchy(); _panelHost = null; }
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
@@ -332,6 +373,7 @@ namespace Lvn.UI
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
             if (_dialogue != null) _dialogue.RevealTicked -= OnRevealTicked;
             LvnPrefs.Changed -= OnPrefsChanged;
+            LvnWardrobe.Changed -= OnWardrobeChanged;
 
             // UIDocument tears its panel down on disable and brings up a FRESH
             // empty root on the next enable — everything Build() made is orphaned
@@ -347,6 +389,8 @@ namespace Lvn.UI
                 _uiRoot = null;
                 _menu = null;
                 _labelLayer = null;
+                _hintHide?.Pause(); _hintHide = null;
+                _hintCard = null; _hintLabel = null;
                 _labelEls.Clear();
                 _labelTmpl.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }
@@ -398,8 +442,15 @@ namespace Lvn.UI
         private int _lastSayLength;
 
         /// <summary>Extra gate a host/menu can close to hold auto-advance (and
-        /// tap handling) while an overlay is up.</summary>
-        public bool InputBlocked;
+        /// tap handling) while an overlay is up. An open shared panel
+        /// (<see cref="VnPanelHost"/>) blocks implicitly, so a wardrobe sheet or
+        /// in-script screen can't be tapped/auto-advanced through.</summary>
+        public bool InputBlocked
+        {
+            get => _inputBlockedFlag || (_panelHost != null && _panelHost.IsOpen);
+            set => _inputBlockedFlag = value;
+        }
+        private bool _inputBlockedFlag;
 
         /// <summary>Set when the player asks to leave the chapter (the quick
         /// menu's Exit). The host's play loop watches it and returns to the
@@ -431,20 +482,46 @@ namespace Lvn.UI
             if (_player == null || Assets == null) return;
             const int lookAhead = 25, maxSprites = 6, maxAudio = 2;
             List<string> sprites = null, audio = null;
+            bool spineKicked = false;
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 var op = (string)c["op"];
                 if (op == "bg" || op == "actor" || op == "obj")
                 {
                     var url = (string)c["sprite_url"];
-                    // A Spine actor carries no sprite_url — its (heavy) texture
-                    // lives in the catalog. Warm it here so the skeleton builds
-                    // from cache when shown, never streaming in the reveal frame.
+                    // A Spine actor carries no sprite_url — its (heavy) assets
+                    // live in the catalog. Warm the WHOLE scene (json + atlas +
+                    // every page + bg, 2K variants preferred): the un-prefetched
+                    // SECOND page of a multi-page atlas used to decode
+                    // synchronously in the reveal frame. Fire-and-forget,
+                    // deduped per actor id — and at most ONE new spine per pass:
+                    // each page decode is a main-thread hit, and kicking several
+                    // scenes at once stacked those hits into a visible stutter
+                    // right at chapter entry. Later beats warm the rest.
                     if (string.IsNullOrEmpty(url) && (op == "actor" || op == "obj"))
                     {
                         var sp = Catalog?.Get((string)c["id"]);
                         if (sp != null && sp.kind == "spine" && sp.spine != null)
-                            url = sp.spine.texture;
+                        {
+                            var spineId = (string)c["id"];
+                            // A skeleton that's already built (e.g. the scene
+                            // currently showing right after a resume, when
+                            // _prefetched starts empty) must not eat the
+                            // one-per-pass slot — otherwise the pause before
+                            // the NEXT scene warms nothing and its build lands
+                            // cold in the reveal frame.
+                            if (_spineActors.TryGetValue(spineId, out var builtGo) && builtGo != null)
+                            {
+                                _prefetched.Add("spine:" + spineId);
+                                continue;
+                            }
+                            if (!spineKicked && _prefetched.Add("spine:" + spineId))
+                            {
+                                spineKicked = true;
+                                _ = PrefetchSpineAsync(spineId, sp);
+                            }
+                            continue;
+                        }
                     }
                     if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
                     (sprites ??= new List<string>()).Add(url);
@@ -489,6 +566,9 @@ namespace Lvn.UI
         private void OnDestroy()
         {
             Assets?.UnloadAll();
+            // The spine integration's static cache holds SkeletonData/materials
+            // built around textures UnloadAll just destroyed — flush it with them.
+            LvnSpineBridge.ClearCache?.Invoke();
             if (_pendingThumb != null) Destroy(_pendingThumb);
         }
 
@@ -534,8 +614,12 @@ namespace Lvn.UI
         /// chapter to the next and across sessions.</summary>
         public Newtonsoft.Json.Linq.JObject SeedVars;
 
-        /// <summary>Parse and start playing a .lvn document.</summary>
-        public void Play(string lvnJson)
+        /// <summary>Parse and start playing a .lvn document.
+        /// <paramref name="warmIntroSpine"/>: pass false when a snapshot restore
+        /// follows immediately (resume/load) — the intro warmup would otherwise
+        /// build the CHAPTER-OPENING spine that the restore is about to discard,
+        /// doubling the entry wait with a scene the player isn't even on.</summary>
+        public void Play(string lvnJson, bool warmIntroSpine = true)
         {
             var doc = LvnDocument.Parse(lvnJson);
             LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0) + " cmds) ════");
@@ -547,7 +631,31 @@ namespace Lvn.UI
             if (SeedVars != null)      // carry stats in before the init defaults run
                 foreach (var p in SeedVars.Properties()) _player.Vars[p.Name] = p.Value;
             _player.OnSay += RecordSay;
-            _player.Advance();
+            ++_startGen;
+            // warmIntroSpine=false ⇒ a RestoreSnapshot follows immediately and
+            // advances via ContinueFrom. Running the intro here anyway (the old
+            // behaviour) kicked the chapter-opening spine's build just to have
+            // the restore reset it — the player watched the WRONG scene load
+            // before their saved one.
+            if (warmIntroSpine) StartWithSpineWarmup(_player, _startGen);
+        }
+
+        // Bumped by every fresh start AND every snapshot restore, so a pending
+        // intro warmup can tell its run was superseded. Pinning the player
+        // reference alone is not enough: a resume REUSES the player Play just
+        // created, and the stale warmup's Advance() would push the restored
+        // chapter one beat past its saved position.
+        private int _startGen;
+
+        // The staged opening: if a Spine scene is imminent, build it hidden
+        // BEFORE the intro advances — otherwise the typewriter starts and then
+        // freezes mid-sentence while the skeleton decodes and builds.
+        private async void StartWithSpineWarmup(LvnPlayer player, int gen)
+        {
+            try { await WarmUpcomingSpineAsync(12); }
+            catch (System.OperationCanceledException) { return; }
+            catch { /* warmup is best-effort; the show path reloads what it needs */ }
+            if (_player == player && _startGen == gen) player.Advance();
         }
 
         /// <summary>
@@ -556,8 +664,26 @@ namespace Lvn.UI
         /// chapter (or a live hot-reload) bleed into the new one — e.g. a character
         /// standing on the very first beat, before any <c>actor</c> command runs.
         /// </summary>
+        // Bumped on every stage reset (chapter change / load). An async content
+        // apply (bg, actor, spine, audio) captures it before its first await and
+        // bails if it changed — otherwise a slow load from the PREVIOUS chapter
+        // resolves after the reset and paints the new one (ghost actor, wrong bg,
+        // wrong music). The shared _cts only cancels on OnDisable, not here.
+        private int _stageEpoch;
+
+        /// <summary>True if <paramref name="epoch"/> is still the current stage
+        /// generation — a content apply calls this after each await and stops
+        /// touching the stage once it's stale.</summary>
+        private bool StageCurrent(int epoch) => _stageEpoch == epoch;
+
         private void ResetStage()
         {
+            _stageEpoch++; // supersede any in-flight content apply from the old scene
+            // Close the quick menu FIRST: it may be mid-open (IsOpen + InputBlocked
+            // set, its clean-frame screenshot coroutine pending). The StopAllCoroutines
+            // below would kill that coroutine before its OpenSheetChrome callback,
+            // stranding InputBlocked=true forever — a soft-lock. Close() resets both.
+            _menu?.Close();
             // Kill any in-flight `wait` coroutine — it reads the _player field, so
             // after Play() swaps in a new player it would otherwise fire Advance()
             // on the fresh chapter when its old timer elapses.
@@ -585,9 +711,11 @@ namespace Lvn.UI
             _audio?.StopVoice();
             _draggables.Clear();
             _placements.Clear();
+            _actorCmds.Clear();
             _dragId = null;
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
+            UnpinAllSpinePages(); // release page-texture pins so the LRU can reclaim them
             _spineActors.Clear();
             _spineLoading.Clear();
             _spinePendingPlay.Clear();
@@ -595,6 +723,8 @@ namespace Lvn.UI
             _labelLayer?.Clear();
             _labelEls.Clear();
             _labelTmpl.Clear();
+            _hintHide?.Pause(); _hintHide = null;
+            _hintCard = null; _hintLabel = null; // detached by the Clear above
         }
 
         private void RecordSay(string who, string text, string style)
@@ -707,6 +837,60 @@ namespace Lvn.UI
         /// <summary>Raised after any successful save (autosave, quick, slots) —
         /// the host's hook for cloud sync / analytics. Argument: the slot name.</summary>
         public event Action<string> Saved;
+
+        // ── the shared bottom window (VnPanelHost) ───────────────────────────
+        // One dialogue-skinned frame on the dialogue layer that hosts ANY
+        // content (wardrobe, shop, minigames): showing it fades the dialogue
+        // out and slides the frame up; new content cross-fades inside the same
+        // frame. Lazily created; dropped with the chrome on rebuild.
+        private VnPanelHost _panelHost;
+
+        /// <summary>The stage's shared content window (created on demand, on
+        /// the dialogue layer, wearing the dialogue's exact skin).</summary>
+        public VnPanelHost PanelHost
+        {
+            get
+            {
+                if (_panelHost == null)
+                {
+                    _panelHost = new VnPanelHost(Theme);
+                    var root = GetComponent<UIDocument>()?.rootVisualElement;
+                    if (root != null)
+                    {
+                        int fxIndex = _fx != null ? root.IndexOf(_fx) : -1;
+                        root.Insert(fxIndex < 0 ? root.childCount : fxIndex, _panelHost);
+                    }
+                }
+                return _panelHost;
+            }
+        }
+
+        /// <summary>Show host content in the shared window: the dialogue fades
+        /// out and the same-skinned frame takes its place (or cross-fades from
+        /// whatever it was already showing).</summary>
+        public async Task ShowPanelAsync(VisualElement content)
+        {
+            SetDialogueFaded(true);
+            await PanelHost.ShowAsync(content);
+        }
+
+        /// <summary>Dismiss the shared window and bring the dialogue back.</summary>
+        public async Task HidePanelAsync()
+        {
+            if (_panelHost != null) await _panelHost.HideAsync();
+            SetDialogueFaded(false);
+        }
+
+        /// <summary>Fade the dialogue box (and choices) out/in — the shared
+        /// window replaces it visually, so both never fight for the bottom.</summary>
+        public void SetDialogueFaded(bool faded)
+        {
+            float to = faded ? 0f : 1f;
+            if (_dialogue != null)
+                _ = Screens.ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+            if (_choices != null)
+                _ = Screens.ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+        }
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
@@ -915,10 +1099,13 @@ namespace Lvn.UI
         // `save [slot=name]` writes the player snapshot (cursor + vars + call stack)
         // to PlayerPrefs; `load [slot=name]` restores it, rebuilds the scene from the
         // saved point (ReplayVisuals) and resumes. Default slot is "quick".
-        private static string SaveKey(JObject cmd)
+        private string SaveKey(JObject cmd)
         {
             var slot = (string)cmd["slot"];
-            return "lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot);
+            // Namespaced by title id — two novels in one app (or the IDE preview
+            // next to a game) must not read each other's quick saves.
+            var ns = string.IsNullOrEmpty(_saveTitleId) ? "" : _saveTitleId + "_";
+            return "lvn_save_" + ns + (string.IsNullOrEmpty(slot) ? "quick" : slot);
         }
 
         private void SaveSlot(JObject cmd)
@@ -938,6 +1125,12 @@ namespace Lvn.UI
         {
             if (_player == null) return;
             var json = PlayerPrefs.GetString(SaveKey(cmd), "");
+            if (string.IsNullOrEmpty(json))
+            {
+                // Legacy fallback: saves written before keys were title-namespaced.
+                var slot = (string)cmd["slot"];
+                json = PlayerPrefs.GetString("lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot), "");
+            }
             LvnPlayer.LvnSnapshot snap = null;
             if (!string.IsNullOrEmpty(json))
                 try { snap = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnPlayer.LvnSnapshot>(json); }
@@ -956,15 +1149,68 @@ namespace Lvn.UI
         /// anchor), rebuild the scene's visuals/FX/audio up to that point, resume.
         /// The shared machinery behind the in-script `load` op, the save/load
         /// panel and the autosave resume.</summary>
-        public void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
+        public async void RestoreSnapshot(LvnPlayer.LvnSnapshot snap)
         {
-            if (_player == null || snap == null) return;
+            // async void: an escaped exception here would take down the frame with
+            // no caller to observe it — catch, log, and try to resume anyway.
+            try { await RestoreSnapshotAsync(snap); }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[lvn] restore failed: " + e);
+                try { _player?.Advance(); } catch { /* stage unusable; error already logged */ }
+            }
+        }
+
+        private async Task RestoreSnapshotAsync(LvnPlayer.LvnSnapshot snap)
+        {
+            if (_player == null) return;
+            if (snap == null) { _player.Advance(); return; } // no snapshot after all — play from the top (Play skipped its own advance expecting us)
+            var player = _player;               // pin: a re-entry mid-await must not resume a dead run
+            int gen = ++_startGen;              // supersede a pending intro warmup (see StartWithSpineWarmup)
             ResetStage();                       // clean slate
-            _player.Restore(snap);              // cursor (via label anchor) + vars + call stack
-            _player.ClearHistory();             // the rollback trail no longer describes the path here
-            int at = _player.Index;             // the anchor-relocated cursor, not the raw saved index
-            _player.ReplayVisuals(at);          // rebuild bg / actors / FX / audio up to the saved point
-            _player.ContinueFrom(at);           // resume → renders the saved beat
+            player.Restore(snap);               // cursor (via label anchor) + vars + call stack
+            player.ClearHistory();              // the rollback trail no longer describes the path here
+            int at = player.Index;              // the anchor-relocated cursor, not the raw saved index
+            at = player.ResumeRenderIndex(at);  // step back onto the say the player was reading (never skip a seen beat)
+            player.ReplayVisuals(at);           // rebuild bg / actors / FX / audio up to the saved point
+            // Veil the half-built stage: between ReplayVisuals and the settled
+            // builds only the bg is up — the player saw that as a white flash
+            // on resume. NOT alpha 0: the Canvas would cull the children's
+            // draw calls and defeat the spine warm pulse (PSO compile +
+            // texture upload need real draws); 1/255 is imperceptible but
+            // keeps the GPU warm. (Same trick as LvnSpineFader.WarmAlpha —
+            // that constant lives in the optional Spine assembly.)
+            const float veilWarmAlpha = 1f / 255f;
+            CanvasGroup veil = null;
+            if (_renderer is CanvasSceneRenderer veilCanvas && veilCanvas.Root != null)
+            {
+                veil = veilCanvas.Root.GetComponent<CanvasGroup>();
+                if (veil == null) veil = veilCanvas.Root.AddComponent<CanvasGroup>();
+                veil.alpha = veilWarmAlpha;
+            }
+            // The staged opening, resume flavour: ReplayVisuals fires its spine
+            // builds without awaiting them — rendering the saved beat now would
+            // typewrite over a still-building stage and freeze mid-sentence.
+            var t0 = Time.realtimeSinceStartup;
+            int inFlight = PendingSpineBuilds;
+            try { await SpineBuildsSettled(); } catch { }
+            if (inFlight > 0)
+                Debug.Log($"[lvn] resume warmed {inFlight} spine build(s) in {(Time.realtimeSinceStartup - t0):F2}s before rendering");
+            if (veil != null)
+            {
+                // Reveal the fully built scene with a short fade instead of a pop.
+                for (float a = veilWarmAlpha; a < 1f && _player == player && _startGen == gen; a += Time.unscaledDeltaTime / 0.15f)
+                {
+                    veil.alpha = a;
+                    await Task.Yield();
+                }
+                // Only finish the reveal if we're STILL the current restore — a
+                // newer one may have re-veiled this same canvas to warm-alpha, and
+                // slamming it to 1 here would flash its half-built stage.
+                if (_player == player && _startGen == gen) veil.alpha = 1f;
+            }
+            if (_player == player && _startGen == gen)
+                player.ContinueFrom(at); // resume → renders the saved beat
         }
 
         // ── persistent save slots (per title, survive restarts) ─────────────
@@ -992,12 +1238,12 @@ namespace Lvn.UI
             var snap = _player.Save();
             snap.ScriptUrl = _saveScriptUrl;
             var last = _backlog.Count > 0 ? _backlog[_backlog.Count - 1].text : "";
-            LvnSaveStore.Put(_saveTitleId, slot, new LvnSaveSlot
+            if (!LvnSaveStore.Put(_saveTitleId, slot, new LvnSaveSlot
             {
                 Snap = snap,
                 ChapterId = _saveChapterId,
                 Preview = last,
-            });
+            })) return false;
             // Manual slots get the scene screenshot captured when the menu
             // opened (null wipes a stale one). The rolling autosave doesn't —
             // its capture moment would be arbitrary.
@@ -1242,8 +1488,67 @@ namespace Lvn.UI
                 case "preload":
                     _ = PreloadAssetsAsync(command);
                     break;
-                // hint is a no-op; unknown-but-registered ops are simply not drawn.
+                case "hint": ApplyHint(command); break;
+                // unknown-but-registered ops are simply not drawn.
             }
+        }
+
+        // `hint text="…" show=true [duration=0]` — a small card that pops up
+        // top-center over the scene: a tutorial nudge, a stat unlock, a note tied
+        // to a specific beat. `show=false` (or empty text) dismisses it; a positive
+        // `duration` auto-dismisses after that many seconds. Text interpolates
+        // {vars} like dialogue. Lives on the HUD layer, ignores the pointer.
+        private void ApplyHint(JObject cmd)
+        {
+            if (_labelLayer == null) return;
+            var text = (string)cmd["text"] ?? "";
+            bool show = BoolOr(cmd["show"], true) && text.Length > 0;
+
+            _hintHide?.Pause();
+            _hintHide = null;
+
+            if (!show)
+            {
+                if (_hintCard != null) _hintCard.style.display = DisplayStyle.None;
+                return;
+            }
+
+            if (_hintCard == null)
+            {
+                _hintCard = new VisualElement { name = "vn-hint", pickingMode = PickingMode.Ignore };
+                _hintCard.style.position = Position.Absolute;
+                _hintCard.style.maxWidth = Length.Percent(72);
+                _hintCard.style.paddingLeft = 22; _hintCard.style.paddingRight = 22;
+                _hintCard.style.paddingTop = 12; _hintCard.style.paddingBottom = 12;
+                // top-center: anchor the card's own top-centre to (50%, 5%).
+                _hintCard.style.left = Length.Percent(50);
+                _hintCard.style.top = Length.Percent(5);
+                _hintCard.style.translate = new Translate(Length.Percent(-50), Length.Percent(0));
+                _hintLabel = new Label { name = "vn-hint-text", pickingMode = PickingMode.Ignore };
+                _hintLabel.style.whiteSpace = WhiteSpace.Normal;
+                _hintLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                _hintCard.Add(_hintLabel);
+                _labelLayer.Add(_hintCard);
+            }
+
+            var bg = Theme != null ? Theme.PanelColor : new Color(0.05f, 0.05f, 0.08f, 0.9f);
+            _hintCard.style.backgroundColor = bg;
+            float r = Theme != null ? Theme.PanelCornerRadius : 12f;
+            _hintCard.style.borderTopLeftRadius = r; _hintCard.style.borderTopRightRadius = r;
+            _hintCard.style.borderBottomLeftRadius = r; _hintCard.style.borderBottomRightRadius = r;
+
+            _hintLabel.style.color = Theme != null ? Theme.TextColor : Color.white;
+            _hintLabel.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
+            if (Theme != null && Theme.Font != null) _hintLabel.style.unityFont = new StyleFont(Theme.Font);
+            _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
+
+            _hintCard.style.display = DisplayStyle.Flex;
+
+            float dur = NumOr(cmd["duration"], 0f);
+            if (dur > 0f)
+                _hintHide = _labelLayer.schedule
+                    .Execute(() => { if (_hintCard != null) _hintCard.style.display = DisplayStyle.None; })
+                    .StartingIn((long)(dur * 1000f));
         }
 
         public void OnEnd()
@@ -1436,8 +1741,10 @@ namespace Lvn.UI
             // whether the sprite itself loads (a cache miss doesn't unsee the CG).
             UnlockGalleryFor(url);
             if (Assets == null) return;
+            int epoch = _stageEpoch;
             var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
             if (sprite == null) return;
+            if (!StageCurrent(epoch)) return; // a chapter change landed while this bg loaded
             _renderer?.SetBackground(sprite);
         }
 
@@ -1466,15 +1773,63 @@ namespace Lvn.UI
         internal static readonly HashSet<string> ReservedActorFields = new HashSet<string>
         {
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
-            "anchor", "anchor_x", "anchor_y", "z", "flip", "rotation", "opacity",
+            "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
             "transition", "transition_duration", "enter", "exit", "play",
         };
+
+        // The last actor command per id — RefreshActor replays it so a wardrobe
+        // change re-resolves the SAME pose/placement with the new equipment.
+        private readonly Dictionary<string, JObject> _actorCmds = new Dictionary<string, JObject>();
+
+        // Per-actor apply generation: rapid wardrobe browsing fires overlapping
+        // ApplyActorAsync calls whose sprite loads finish out of order — only
+        // the NEWEST may touch the renderer, or an older outfit "wins" by
+        // arriving late.
+        private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
+
+        /// <summary>Re-apply an on-screen actor from its last command (art
+        /// re-resolves against the current variables + wardrobe). No-op when
+        /// the actor isn't on stage.</summary>
+        public void RefreshActor(string id)
+        {
+            if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
+                _ = ApplyActorAsync(cmd);
+        }
+
+        /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
+        /// always has the active hero to dress, even when the beat left the stage empty
+        /// (imported novels open the wardrobe without staging anyone). Replays the
+        /// actor's last pose forcing it visible, or stages it fresh (centred) from its
+        /// catalog entity. No-op for an empty id.</summary>
+        public void EnsureActorShown(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            // Already on stage (the story/import staged her) → do NOTHING. Re-applying
+            // would reload the whole layered composite and lag the wardrobe open.
+            if (_placements.TryGetValue(id, out var pl) && pl.Show) return;
+            JObject cmd;
+            if (_actorCmds.TryGetValue(id, out var last) && (string)last["op"] == "actor")
+            {
+                cmd = (JObject)last.DeepClone();
+                cmd["show"] = true; // in case the last op hid her
+            }
+            else
+            {
+                cmd = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center" };
+            }
+            _ = ApplyActorAsync(cmd);
+        }
+
+        private void OnWardrobeChanged(string entity) => RefreshActor(entity);
 
         private async Task ApplyActorAsync(JObject cmd)
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
+            int epoch = _stageEpoch; // the scene this apply belongs to (see ResetStage)
+            int gen = (_actorGen.TryGetValue(id, out var g) ? g : 0) + 1;
+            _actorGen[id] = gen; // this call owns the actor until a newer one starts
 
             // Spine entities render through the optional spine-unity bridge —
             // a different pipeline entirely (runtime skeleton, own animations).
@@ -1566,8 +1921,29 @@ namespace Lvn.UI
                 }
             }
 
-            var placement = _placements.TryGetValue(id, out var prevPl)
-                ? PlacementFrom(cmd, prevPl) : PlacementFrom(cmd);
+            bool fresh = !_placements.TryGetValue(id, out var prevPl);
+            var placement = fresh ? PlacementFrom(cmd) : PlacementFrom(cmd, prevPl);
+            // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
+            // the op left it unset, so every novel gets the standard bottom-anchored
+            // pose — tunable from ui.stage without editing the script. A follow-up op
+            // inherits via the sticky merge above.
+            if (Theme != null)
+            {
+                // Size/baseline seed the FIRST show; a sticky update inherits them from
+                // the previous placement, so only apply on a fresh actor.
+                if (fresh)
+                {
+                    if (cmd["y"] == null) placement.Y = Theme.ActorBaselineY;
+                    if (cmd["width"] == null) placement.Width = Placement.DefaultWidth * Theme.ActorScale;
+                    if (cmd["height"] == null) placement.Height = Placement.DefaultHeight * Theme.ActorScale;
+                }
+                // Spread must re-apply on EVERY op that positions by slot: the autostage
+                // re-emits position= on each emotion change, so the sticky merge recomputes
+                // X from SlotX (0.25/0.75) and would snap the actor back to the un-spread
+                // column after the first line. Only when X came from position, not x=.
+                if (cmd["x"] == null && cmd["position"] != null && Theme.ActorSpread != 1f)
+                    placement.X = 0.5f + (placement.X - 0.5f) * Theme.ActorSpread;
+            }
             // Layered/boned entities declare the aspect their art was authored in —
             // the renderer locks the box to it so layers register pixel-exact.
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
@@ -1624,8 +2000,18 @@ namespace Lvn.UI
                 }
             }
 
+            // A chapter change landed while our sprites loaded — this actor
+            // belongs to a scene that no longer exists; never resurrect it on the
+            // clean stage (the ghost-actor bug: a per-id gen doesn't catch an id
+            // the new chapter never uses, so it's never superseded).
+            if (!StageCurrent(epoch)) return;
+            // A newer apply started while our sprites loaded — ITS art must win;
+            // this stale pass may not touch the renderer (late-arrival outfit bug).
+            if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
+
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
             _placements[id] = placement; // the sticky base for the next command
+            _actorCmds[id] = cmd;        // wardrobe changes replay this in place
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
@@ -1710,7 +2096,7 @@ namespace Lvn.UI
             if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
             if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
             if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
-            if (cmd["flip"] != null) p.Flip = BoolOr(cmd["flip"], false);
+            if (cmd["flip"] != null || cmd["mirror"] != null) p.Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false);
             if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
             if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
             if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);
@@ -1746,7 +2132,7 @@ namespace Lvn.UI
                 AnchorX = 0.5f,
                 AnchorY = 1f,
                 Z = IntOrNull(cmd["z"]),
-                Flip = BoolOr(cmd["flip"], false),
+                Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false), // `mirror` is an authoring alias for flip
                 Rotation = NumOr(cmd["rotation"], 0f),
                 Opacity = NumOr(cmd["opacity"], 1f),
                 HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
@@ -1783,14 +2169,26 @@ namespace Lvn.UI
         {
             var axes = AxesFrom(cmd);
             var vars = _player?.Vars;
+            // Axes whose raw value was a {var} template (e.g. the imported protagonist's
+            // outfit={Wardrobe.mainCh_Clothes}) are variable-DRIVEN, not story-forced
+            // literals — a live wardrobe preview may override those in realtime, while a
+            // literal costume the writer pinned stays put. Track them for MergeInto.
+            var templated = new HashSet<string>();
             foreach (var k in new List<string>(axes.Keys))
             {
                 var v = axes[k];
-                if (!string.IsNullOrEmpty(v) && v.IndexOf('{') >= 0 && vars != null)
-                    v = TextInterpolation.Apply(v, vars);
+                bool wasTemplate = !string.IsNullOrEmpty(v) && v.IndexOf('{') >= 0;
+                if (wasTemplate)
+                {
+                    templated.Add(k);
+                    if (vars != null) v = TextInterpolation.Apply(v, vars);
+                }
                 if (string.IsNullOrEmpty(v) || v.IndexOf('{') >= 0) axes.Remove(k); // no value → no layer
                 else axes[k] = v;
             }
+            // The player's wardrobe fills axes the script left unset — a story-forced
+            // literal still wins, but a preview overrides a variable-driven axis.
+            LvnWardrobe.MergeInto(axes, (string)cmd["id"], templated);
             return axes;
         }
 

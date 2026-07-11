@@ -1,0 +1,75 @@
+scene anna_gallery
+
+# ── Галерея всех Spine-сцен Анны. Каждый арт показывается по очереди,
+#    предыдущий скрывается. Фон (bg) у сцен — собственный фон спайна,
+#    задаётся в манифесте и едет вместе со скелетом.
+
+# Задник всей галереи — тёплый белый, чтобы арты не висели в черноте.
+bg sprite_url="/content/bg/anna_white.png"
+
+# 1 — Маскарадный зал
+actor id=masquerade show=true play="masquerade_static" loop=true
+1/13 — Маскарадный зал (masquerade)
+
+# 2 — Гостиная особняка
+actor id=masquerade show=false
+actor id=mansion_livingroom show=true play="Mansion_livingroom_static" loop=true
+2/13 — Гостиная особняка (mansion_livingroom)
+
+# 3 — Ванная особняка
+actor id=mansion_livingroom show=false
+actor id=bathroom show=true play="Bathroom_mansion_static" loop=true
+3/13 — Ванная особняка (bathroom)
+
+# 4 — Гардеробная
+actor id=bathroom show=false
+actor id=wardrobe show=true play="back_static" loop=true
+4/13 — Гардеробная (wardrobe)
+
+# 5 — Бальный танец вампиров
+actor id=wardrobe show=false
+actor id=ball_dance show=true play="Vampire_21_Ball_Dance_Anim_over_static" loop=true
+5/13 — Бальный танец (ball_dance)
+
+# 6 — Вампиры: Ада, Михаэль, Дориан
+actor id=ball_dance show=false
+actor id=vampires show=true play="static_midnight" loop=true
+6/13 — Вампиры: Ада, Михаэль, Дориан (vampires)
+
+# 7 — Дракон
+actor id=vampires show=false
+actor id=dragon show=true play="back_static_2" loop=true
+7/13 — Дракон (dragon)
+
+# 8 — Зимняя река
+actor id=dragon show=false
+actor id=river_winter show=true play="night_static" loop=true
+8/13 — Зимняя река (river_winter)
+
+# 9 — Певица
+actor id=river_winter show=false
+actor id=singer show=true play="Phymessh_kat_microphone_28_static" loop=true
+9/13 — Певица (singer)
+
+# 10 — Ноэль и Фантом
+actor id=singer show=false
+actor id=noel show=true play="static_Noel_Phantom" loop=true
+10/13 — Ноэль и Фантом (noel)
+
+# 11 — Смерть Люсьена на холме
+actor id=noel show=false
+actor id=hill_lucien show=true play="Hill_Death_of_Lucien_static" loop=true
+11/13 — Смерть Люсьена (hill_lucien)
+
+# 12 — Знахарь пашет
+actor id=hill_lucien show=false
+actor id=znahari_plowing show=true play="ZnahariPlowing_static" loop=true
+12/13 — Знахарь пашет (znahari_plowing)
+
+# 13 — Обережный ритуал знахаря
+actor id=znahari_plowing show=false
+actor id=znahari_ritual show=true play="Znahari_wardritual_static" loop=true
+13/13 — Обережный ритуал (znahari_ritual)
+
+Конец галереи. Все сцены Анны показаны.
+-> __end

@@ -1,0 +1,58 @@
+{
+  "scene": "noel_demo",
+  "script": [
+    {
+      "op": "bg",
+      "sprite_url": "/content/bg/noel_heroine.jpg"
+    },
+    {
+      "kind": "sprite",
+      "op": "preload",
+      "url": "/content/spine/noel/Hill_Noel_and_Phantom.png"
+    },
+    {
+      "draggable": true,
+      "height": 1.4,
+      "id": "noel",
+      "loop": true,
+      "op": "actor",
+      "play": "static_Noel_Phantom",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "say",
+      "text": "Ещё один Spine-скелет — на этот раз из свежего дропа."
+    },
+    {
+      "op": "say",
+      "text": "Noel и её Phantom. 49 костей, Spine 4.2.",
+      "who": "Знакомься"
+    },
+    {
+      "op": "say",
+      "text": "Видно её целиком? Скажи — подстрою размер."
+    },
+    {
+      "id": "hold",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Таскай пальцем. Надоест — «Занавес»."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "hold",
+          "text": "Ещё"
+        },
+        {
+          "goto": "__end",
+          "text": "Занавес"
+        }
+      ]
+    }
+  ]
+}

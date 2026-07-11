@@ -86,6 +86,20 @@ namespace Lvn
         /// a chapter-progress readout (e.g. the in-game HUD percent).</summary>
         public int Count => _script.Count;
 
+        // Furthest MAIN-LINE command reached this chapter. The raw cursor moves
+        // backward on any loop or hub revisit (a `while`, a choice that jumps to an
+        // earlier label) and dives into out-of-order labels during a `call`, so a
+        // percent built from Index alone visibly "resets and starts over" — the
+        // reported bug. Progress is the running max, and it's frozen while inside a
+        // call (callStack non-empty) so a subroutine whose label sits late in the
+        // file (e.g. `call levelup`) doesn't spike the bar to ~100% and back.
+        private int _progressMax;
+
+        /// <summary>Monotonic chapter progress index (0..<see cref="Count"/>) for
+        /// the HUD percent — never runs backward on a loop/hub jump. Pair with
+        /// <see cref="Count"/> exactly like <see cref="Index"/>.</summary>
+        public int ProgressIndex => System.Math.Min(_progressMax, _script.Count);
+
         public LvnPlayer(LvnDocument doc, ILvnStage stage)
         {
             _script = doc.Script;
@@ -105,6 +119,7 @@ namespace Lvn
         public void Restore(int index, IDictionary<string, JToken> vars, IEnumerable<int> callStack)
         {
             _ip = index;
+            _progressMax = index; // resume: the bar reflects where we land, then climbs
             Finished = false;
             Vars.Clear();
             if (vars != null)
@@ -128,11 +143,16 @@ namespace Lvn
         {
             if (_script == null) return;
             int end = System.Math.Min(upto, _script.Count);
-            // Two replay classes. Structural ops (bg/actor/obj/anim/text) accumulate,
+            // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
             // so they re-run in order. FX/audio are stateful overlays where only the
             // LAST setting matters — re-running every fade/tint/track of the chapter
             // would flash through all of them — so they collapse to the final value
-            // per state key and apply once at the end.
+            // per state key and apply once at the end. ACTORS collapse per id: every
+            // command for the same id MERGES into one (later fields win), replayed
+            // INLINE at that id's LAST occurrence — so relative order against bg/obj
+            // is preserved exactly as authored — and only if the merged result ends
+            // visible, so a chapter that showed & hid ten Spine scenes rebuilds just
+            // the one on screen, not all ten (each an expensive skeleton build).
             var fx = new Dictionary<string, JObject>();
             var fxOrder = new List<string>();
             void SetFx(string key, JObject cmd)
@@ -140,10 +160,39 @@ namespace Lvn
                 if (!fx.ContainsKey(key)) fxOrder.Add(key);
                 fx[key] = cmd;
             }
+
+            // Pass 1: merge every actor id's fields across all its occurrences, and
+            // note the LAST index it appears at — that's where the merged result
+            // replays in pass 2, keeping it in its natural position in the sequence.
+            var actorMerged = new Dictionary<string, JObject>();
+            var actorLastIndex = new Dictionary<string, int>();
+            for (int i = 0; i < end; i++)
+            {
+                if (!(_script[i] is JObject c) || (string)c["op"] != "actor") continue;
+                var aid = (string)c["id"];
+                if (string.IsNullOrEmpty(aid)) continue;
+                if (!actorMerged.TryGetValue(aid, out var m)) { m = new JObject(); actorMerged[aid] = m; }
+                foreach (var prop in c.Properties()) m[prop.Name] = prop.Value.DeepClone(); // later fields win
+                actorLastIndex[aid] = i;
+            }
+
+            // Pass 2: replay inline, in original order. An actor op fires exactly
+            // once — at its LAST index, with the fully-merged fields; earlier
+            // occurrences of the same id are silent (already folded into that one).
             for (int i = 0; i < end; i++)
             {
                 if (!(_script[i] is JObject c)) continue;
                 var op = (string)c["op"];
+                if (op == "actor")
+                {
+                    var aid = (string)c["id"];
+                    if (!string.IsNullOrEmpty(aid) && actorLastIndex.TryGetValue(aid, out var last) && last == i)
+                    {
+                        var m = actorMerged[aid];
+                        if (BoolOr(m["show"], true)) _stage.ApplyStage(m);
+                    }
+                    continue;
+                }
                 if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
                 switch (op)
                 {
@@ -249,6 +298,19 @@ namespace Lvn
             return cur;
         }
 
+        /// <summary>The index a resume should render from. A <c>say</c> pauses
+        /// with the cursor already PAST it (see its <c>_ip++</c>), so restoring
+        /// at the raw saved index silently skips the line the player was reading
+        /// — re-entry "jumped a beat forward". Stepping back onto the say
+        /// re-shows the last seen line and then naturally continues; a choice
+        /// pauses ON its own op, so it needs no correction.</summary>
+        public int ResumeRenderIndex(int at)
+        {
+            if (at > 0 && at <= _script.Count && _script[at - 1] is JObject p && (string)p["op"] == "say")
+                return at - 1;
+            return at;
+        }
+
         /// <summary>The next <paramref name="maxCommands"/> commands ahead of the
         /// cursor, in script order (a linear look-ahead — jumps are not followed).
         /// The stage uses it to warm the art/audio the scene is about to need, so
@@ -295,17 +357,29 @@ namespace Lvn
             /// falls back to <see cref="Index"/> when the label is gone.</summary>
             public string AnchorLabel;
             public int AnchorSteps;
+            /// <summary>Per-frame anchors for <see cref="CallStack"/> (same order,
+            /// top-first). Return addresses are raw indices too, so they need the
+            /// same label+offset relocation as the cursor; null on older saves.</summary>
+            public string[] CallAnchorLabels;
+            public int[] CallAnchorSteps;
         }
 
         /// <summary>Capture the current state for serialization.</summary>
         public LvnSnapshot Save()
         {
             var (aLabel, aSteps) = AnchorOf(_ip);
+            var frames = _callStack.ToArray();
+            var caLabels = new string[frames.Length];
+            var caSteps = new int[frames.Length];
+            for (int i = 0; i < frames.Length; i++)
+                (caLabels[i], caSteps[i]) = AnchorOf(frames[i]);
             return new LvnSnapshot
             {
                 Index = _ip,
                 Vars = new Dictionary<string, JToken>(Vars),
-                CallStack = _callStack.ToArray(),
+                CallStack = frames,
+                CallAnchorLabels = caLabels,
+                CallAnchorSteps = caSteps,
                 CommandCount = _script.Count,
                 Finished = Finished,
                 AnchorLabel = aLabel,
@@ -322,7 +396,22 @@ namespace Lvn
             int at = snapshot.AnchorLabel != null
                 ? Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index)
                 : snapshot.Index;
-            Restore(at, snapshot.Vars, snapshot.CallStack);
+            // Return addresses shift with the script just like the cursor does —
+            // relocate each frame by its own anchor, falling back to the raw index.
+            var stack = snapshot.CallStack;
+            if (stack != null && snapshot.CallAnchorLabels != null
+                && snapshot.CallAnchorLabels.Length == stack.Length
+                && snapshot.CallAnchorSteps != null
+                && snapshot.CallAnchorSteps.Length == stack.Length)
+            {
+                var relocated = new int[stack.Length];
+                for (int i = 0; i < stack.Length; i++)
+                    relocated[i] = snapshot.CallAnchorLabels[i] != null
+                        ? Relocate(snapshot.CallAnchorLabels[i], snapshot.CallAnchorSteps[i], stack[i])
+                        : stack[i];
+                stack = relocated;
+            }
+            Restore(at, snapshot.Vars, stack);
         }
 
         /// <summary>
@@ -367,8 +456,12 @@ namespace Lvn
             int oldCount = _script.Count;
 
             // Anchor the cursor BEFORE swapping, so we can restore the same beat even
-            // if the edit changed the command count and shifted every index.
+            // if the edit changed the command count and shifted every index. Call-stack
+            // return addresses are raw indices with the same problem — anchor each frame.
             var (aLabel, aSteps) = AnchorOf(_ip);
+            var frames = _callStack.ToArray(); // top-first
+            var frameAnchors = new (string label, int steps)[frames.Length];
+            for (int i = 0; i < frames.Length; i++) frameAnchors[i] = AnchorOf(frames[i]);
 
             // Index-aligned edit (same length + same op structure) → keep the cursor
             // exactly and re-issue only the visual ops that changed. The common "fix a
@@ -408,6 +501,12 @@ namespace Lvn
                 // Indices shifted — relocate the cursor to the same beat via its label
                 // anchor and rebuild the visible stage there. No restart, no jump.
                 _ip = Relocate(aLabel, aSteps, _ip);
+                if (frames.Length > 0)
+                {
+                    _callStack.Clear();
+                    for (int i = frames.Length - 1; i >= 0; i--)
+                        _callStack.Push(Relocate(frameAnchors[i].label, frameAnchors[i].steps, frames[i]));
+                }
                 ReplayVisuals(_ip);
             }
             return true;
@@ -416,7 +515,7 @@ namespace Lvn
         // Pure-visual staging ops safe to re-apply on a hot-swap (no side effects
         // on vars/flow/pauses). NOT set/inc (would double-count) nor say/choice/wait.
         private static bool IsReapplyable(string op) =>
-            op == "bg" || op == "actor" || op == "obj" || op == "anim" || op == "text";
+            op == "bg" || op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
 
         /// <summary>
         /// Re-issue the stage command for the beat currently on screen (the say
@@ -438,7 +537,10 @@ namespace Lvn
             {
                 CurrentVoiceUrl = (string)c["voice"];
                 var who = TextInterpolation.Apply((string)c["who"], Vars);
-                var text = TextAlternatives.Apply(Localized(c), Vars, j);
+                // mutate:false — a re-render shows the SAME variant, never advancing
+                // the {a|b|c} sequence or re-rolling {~shuffle} (that would silently
+                // change the visible line on every hot-reload / chrome rebuild).
+                var text = TextAlternatives.Apply(Localized(c), Vars, j, null, mutate: false);
                 text = TextInterpolation.Apply(text, Vars);
                 _stage.ShowSay(who, text, (string)c["style"]);
             }
@@ -453,9 +555,15 @@ namespace Lvn
             int budget = _script.Count + 100000;
             while (!Finished && _ip >= 0 && _ip < _script.Count)
             {
+                // Advance the monotonic progress high-water mark, but only on the
+                // main line — inside a call the cursor visits a subroutine's
+                // (possibly late) labels, which shouldn't move the chapter bar.
+                if (_callStack.Count == 0 && _ip > _progressMax) _progressMax = _ip;
                 if (--budget < 0)
                     throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
-                var c = (JObject)_script[_ip];
+                // Malformed content must never crash the runtime: a non-object
+                // command (bad export/hand-edited JSON) is skipped, not cast-thrown.
+                if (!(_script[_ip] is JObject c)) { _ip++; continue; }
                 var curOp = (string)c["op"];
                 if (Log != null) Log("#" + _ip + " " + curOp + DescribeCmd(c));
                 switch (curOp)
@@ -662,7 +770,7 @@ namespace Lvn
             {
                 foreach (var bt in body)
                 {
-                    var bc = (JObject)bt;
+                    if (!(bt is JObject bc)) continue; // malformed body element — skip, don't crash the choice
                     var bop = (string)bc["op"];
                     if (bop == "set" || bop == "inc") ApplyData(bc);
                     else if (bop == "goto") { Jump((string)bc["label"]); return; }
@@ -806,11 +914,11 @@ namespace Lvn
             // `default:true` = initialise-only. A global-variable default must not
             // overwrite a value carried in from an earlier chapter or a loaded save,
             // so skip it when the key already holds a value.
-            if (c["default"] != null && (bool)c["default"] && Vars.ContainsKey(key))
+            if (c["default"] != null && BoolOr(c["default"], false) && GetVarPath(key) != null)
                 return;
             if ((string)c["op"] == "inc")
             {
-                Vars[key] = new JValue(VarNum(key) + Num(c["by"], 1));
+                SetVarPath(key, new JValue(VarNum(key) + Num(c["by"], 1)));
                 return;
             }
             // set: a computed `expr` (mirrors `if expr`) takes priority over a
@@ -820,15 +928,71 @@ namespace Lvn
             {
                 // A malformed set-expression must not crash the novel; fall back to
                 // the literal value (or leave the variable untouched).
-                try { Vars[key] = LvnExpression.Evaluate((string)exprTok, Vars); }
-                catch (LvnException) { if (c["value"] != null) Vars[key] = c["value"]; }
+                try { SetVarPath(key, LvnExpression.Evaluate((string)exprTok, Vars)); }
+                catch (LvnException) { if (c["value"] != null) SetVarPath(key, c["value"]); }
             }
             else
-                Vars[key] = c["value"] ?? JValue.CreateNull();
+                SetVarPath(key, c["value"] ?? JValue.CreateNull());
         }
 
-        private double VarNum(string key) =>
-            key != null && Vars.TryGetValue(key, out var t) ? Num(t, 0) : 0;
+        private double VarNum(string key) => Num(GetVarPath(key), 0);
+
+        // Read a possibly-dotted variable path ("global.rep") — navigates nested
+        // JObjects, mirroring the expression evaluator's member access so `set`/
+        // `inc key="a.b"` and `if a.b` / `{a.b}` refer to the SAME value. A plain
+        // key is a direct Vars lookup; a missing segment reads as null.
+        private JToken GetVarPath(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            int dot = key.IndexOf('.');
+            if (dot < 0) return Vars.TryGetValue(key, out var flat) ? flat : null;
+            if (!Vars.TryGetValue(key.Substring(0, dot), out var rootTok) || !(rootTok is JObject node))
+                return null;
+            JToken cur = node;
+            foreach (var seg in key.Substring(dot + 1).Split('.'))
+            {
+                if (!(cur is JObject o)) return null;
+                cur = o[seg];
+                if (cur == null) return null;
+            }
+            return cur;
+        }
+
+        /// <summary>Set a story variable from host code exactly as the `set` op does
+        /// (dotted paths nest). Used by the in-story wardrobe to write the player's
+        /// pick back into the novel's state so downstream logic reads it.</summary>
+        public void SetVar(string key, JToken value) => SetVarPath(key, value);
+
+        // Write a possibly-dotted variable path, creating intermediate JObjects.
+        // A plain key writes Vars directly (unchanged behaviour); "a.b.c" nests
+        // under the root object `a`, so `global.*` all live in one `global` object
+        // the state store persists as a unit (per-player, cross-novel).
+        private void SetVarPath(string key, JToken value)
+        {
+            value ??= JValue.CreateNull();
+            int dot = key.IndexOf('.');
+            if (dot < 0) { Vars[key] = value; return; }
+            var root = key.Substring(0, dot);
+            var node = Vars.TryGetValue(root, out var t) && t is JObject o ? o : new JObject();
+            var segs = key.Substring(dot + 1).Split('.');
+            var cur = node;
+            for (int i = 0; i < segs.Length - 1; i++)
+            {
+                if (!(cur[segs[i]] is JObject next)) { next = new JObject(); cur[segs[i]] = next; }
+                cur = next;
+            }
+            cur[segs[segs.Length - 1]] = value;
+            Vars[root] = node;
+        }
+
+        // Tolerant boolean read: malformed content (a string "да", null) degrades to
+        // the default instead of throwing out of Advance and killing the chapter.
+        private static bool BoolOr(JToken t, bool def)
+        {
+            if (t == null) return def;
+            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
+            try { return t.Value<bool>(); } catch { return def; }
+        }
 
         private static double Num(JToken t, double def)
         {

@@ -14,16 +14,18 @@ namespace Lvn.UI
     [Serializable]
     public class VnTheme
     {
+        // Defaults derive from the "Полночь" design tokens (LvnTokens) so the whole
+        // app is one coherent look out of the box; any field is still overridable.
         [Header("Dialogue")]
-        public Color PanelColor = new Color(0.05f, 0.05f, 0.08f, 0.80f);
-        public Color TextColor = new Color(0.96f, 0.96f, 0.96f, 1f);
-        public Color SpeakerColor = new Color(1f, 0.82f, 0.40f, 1f);
+        public Color PanelColor = LvnTokens.PanelBg;
+        public Color TextColor = LvnTokens.Text;
+        public Color SpeakerColor = LvnTokens.Accent;
         public Font Font;
         [Tooltip("Optional Resources path to a Font for dialogue/choices text " +
                  "(e.g. \"Fonts/Serif\"); used when Font is unset.")]
         public string FontResourcePath = "";
-        public int BodyFontSize = 34;
-        public int SpeakerFontSize = 24;
+        public int BodyFontSize = 42;
+        public int SpeakerFontSize = 30;
         public float PanelCornerRadius = 12f;
 
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
@@ -67,6 +69,14 @@ namespace Lvn.UI
         public float EdgePadding = 24f;
         [Tooltip("Gap below the dialogue block to the screen bottom (px).")]
         public float BottomPadding = 28f;
+        [Tooltip("Lift the whole docked dialogue box up by this percent of screen " +
+                 "height (0 = flush to the bottom, 15 = a bit higher). Free-popup / NVL " +
+                 "modes ignore it.")]
+        public float BottomLiftPercent = 0f;
+        [Tooltip("Anchor the docked box by its TOP at this percent of screen height " +
+                 "so it GROWS DOWNWARD as the text lengthens (instead of upward). " +
+                 "<0 (default) = bottom-anchored (grows up, uses BottomLiftPercent).")]
+        public float DockTopPercent = -1f;
         [Tooltip("Body panel inner horizontal / vertical padding (px).")]
         public float PanelPaddingX = 22f;
         public float PanelPaddingY = 18f;
@@ -76,6 +86,20 @@ namespace Lvn.UI
         public float NamePaddingX = 14f;
         public float NamePaddingY = 4f;
 
+        [Header("Stage / actors")]
+        [Tooltip("Vertical baseline for a staged character: the screen fraction where " +
+                 "their bottom-anchored feet land. 1 = flush to the screen bottom; >1 " +
+                 "sinks them (feet off-screen, head lower — the usual portrait framing).")]
+        public float ActorBaselineY = 1f;
+        [Tooltip("Multiplier on the default actor size (standard VN framing is already " +
+                 "large). 1 = default; 1.2 = 20% bigger. Per-op width=/height= override.")]
+        public float ActorScale = 1f;
+        [Tooltip("Multiplier on a positioned actor's horizontal offset from centre. " +
+                 "1 = default (left=0.25/right=0.75); 0.6 pulls left/right in by 10% of " +
+                 "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +
+                 "sets an explicit x=.")]
+        public float ActorSpread = 1f;
+
         [Header("Reveal")]
         [Tooltip("Typewriter speed in characters per second.")]
         public float CharsPerSecond = 45f;
@@ -83,11 +107,11 @@ namespace Lvn.UI
         public float FadeWidth = 5f;
 
         [Header("Choices")]
-        public Color ChoiceColor = new Color(0.12f, 0.12f, 0.16f, 0.92f);
-        public Color ChoiceHoverColor = new Color(0.20f, 0.20f, 0.26f, 0.96f);
-        public Color ChoiceTextColor = new Color(0.96f, 0.96f, 0.96f, 1f);
-        public Color ChoiceCostColor = new Color(0.90f, 0.64f, 0.23f, 1f);
-        public int ChoiceFontSize = 28;
+        public Color ChoiceColor = LvnTokens.Surface;
+        public Color ChoiceHoverColor = LvnTokens.SurfaceHi;
+        public Color ChoiceTextColor = LvnTokens.Text;
+        public Color ChoiceCostColor = LvnTokens.Gold;
+        public int ChoiceFontSize = 36;
 
         [Header("Choices placement")]
         [Tooltip("Horizontal placement of the choice stack: \"center\" (default) | " +
@@ -147,17 +171,17 @@ namespace Lvn.UI
 
         [Header("Quick menu (StageMenu)")]
         [Tooltip("Sheet / panel background of the in-game quick menu.")]
-        public Color MenuBgColor = new Color(0.08f, 0.08f, 0.10f, 0.97f);
+        public Color MenuBgColor = LvnTokens.PanelBg;
         [Tooltip("Primary text of menu items, slots and settings labels.")]
-        public Color MenuTextColor = new Color(0.95f, 0.93f, 0.88f, 1f);
+        public Color MenuTextColor = LvnTokens.Text;
         [Tooltip("Secondary text (slot previews, narration in history).")]
-        public Color MenuDimTextColor = new Color(0.80f, 0.78f, 0.74f, 1f);
+        public Color MenuDimTextColor = LvnTokens.TextDim;
         [Tooltip("Floating-button (↩ / ☰) fill.")]
         public Color MenuFabColor = new Color(0f, 0f, 0f, 0.35f);
         [Tooltip("Fullscreen backdrop behind an open menu.")]
         public Color MenuScrimColor = new Color(0f, 0f, 0f, 0.55f);
         [Tooltip("Sheet / panel corner rounding (px).")]
-        public float MenuCornerRadius = 12f;
+        public float MenuCornerRadius = LvnTokens.RadiusSm;
         [Tooltip("Show the ↩ rollback floating button.")]
         public bool MenuShowRollback = true;
         [Tooltip("Show the ☰ quick-menu floating button (hiding it removes the whole menu).")]

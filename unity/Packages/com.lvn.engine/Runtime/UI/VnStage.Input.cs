@@ -92,7 +92,7 @@ namespace Lvn.UI
             {
                 var prompt = new Label(promptText);
                 prompt.style.color = Theme != null ? Theme.MenuTextColor : Color.white;
-                prompt.style.fontSize = 20;
+                prompt.style.fontSize = 22;
                 prompt.style.whiteSpace = WhiteSpace.Normal;
                 prompt.style.marginBottom = 12;
                 if (Theme?.Font != null) prompt.style.unityFont = new StyleFont(Theme.Font);
@@ -104,7 +104,7 @@ namespace Lvn.UI
             int max = 0;
             try { max = cmd["max"] != null ? (int)cmd["max"] : 0; } catch { }
             if (max > 0) field.maxLength = max;
-            field.style.fontSize = 20;
+            field.style.fontSize = 22;
             field.style.marginBottom = 14;
             panel.Add(field);
 
@@ -113,7 +113,7 @@ namespace Lvn.UI
                 ? v : "OK";
             var ok = new Button(() => ConfirmInput(field.value)) { text = okLabel };
             ok.style.height = 44;
-            ok.style.fontSize = 18;
+            ok.style.fontSize = 20;
             panel.Add(ok);
 
             field.RegisterCallback<KeyDownEvent>(e =>

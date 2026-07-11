@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/adpd"
 	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
@@ -36,6 +38,22 @@ type Options struct {
 	Max       int    // cap chapter at N nodes (0 = no cap)
 	AutoStage bool   // emit bg/actor staging (default on via Run)
 	Localize  bool   // extract text into a <script>.<lang>.json catalog (i18n)
+
+	// EmotionColors overrides/extends the fragment-colour → emotion table (a hex
+	// like "#00b050" or "00B050" → an emotion token). Entries merge over the built-in
+	// legend, so a caller can add colours or remap an existing one. See emotion.go.
+	EmotionColors map[string]string
+
+	// ExtraCast injects speaker→sprite-stem entries into the AutoStage cast (merged
+	// over the project's own cast). The bundle importer uses it to stage the
+	// protagonist ("Главный герой"), who has no articy avatar but is shown by default.
+	ExtraCast map[string]string
+
+	// Template carries the novel-authoring conventions this import keys off (role
+	// names, scene-marker pattern, wardrobe layout, audio cues, …). Nil selects the
+	// built-in DefaultTemplate() — so an ordinary import is unchanged; the bundle
+	// importer resolves a named/JSON template and threads it here. See template.go.
+	Template *Template
 }
 
 // ArtFile is one resolved asset and the content-relative path it must be written
@@ -114,6 +132,8 @@ type Title struct {
 	Name     string   `json:"name"`
 	Subtitle string   `json:"subtitle,omitempty"`
 	CoverURL string   `json:"cover_url,omitempty"`
+	Hero     string   `json:"hero,omitempty"` // main-heroine sprite id (bundle import)
+	Type     string   `json:"type,omitempty"` // "standalone" for a self-contained imported novel
 	Seasons  []Season `json:"seasons"`
 }
 
@@ -127,6 +147,18 @@ type Result struct {
 	Title     Title
 	Stats     map[string]int // op counts: say/choice/bg/actor/set/if…
 	MissingBg []string       // scene locations with no matching art file (rendered dark)
+
+	// Warnings surfaces genuinely-incomplete source data the import chose to work
+	// around rather than fail on (e.g. a rostered emotion whose art is missing, a
+	// wardrobe row curated with no art). Non-fatal; shown in the import report so a
+	// content gap is visible to the author/artist instead of silently dropped.
+	Warnings []string
+
+	// Colors is the fragment marker-colour probe: every distinct colour the import
+	// saw (across all chapters), with its occurrence count, the emotion it resolved
+	// to (empty when the colour is unmapped) and one sample line — so a UI can show
+	// and edit the colour→emotion mapping. See colorProbe.
+	Colors []ColorStat
 
 	// Linearize is the adpd linearizer's transparency report: which algorithm
 	// produced the script, why more faithful stages fell through, and how much
@@ -170,6 +202,16 @@ type ScriptFile struct {
 	Data []byte
 }
 
+// ColorStat is one distinct fragment marker colour the import saw: its hex
+// (#rrggbb), how many say lines carried it, the emotion it resolved to (empty when
+// unmapped) and one sample line ("Speaker: text").
+type ColorStat struct {
+	Hex     string
+	Count   int
+	Emotion string
+	Sample  string
+}
+
 // Run executes the whole pipeline against an extracted .adpd project directory.
 func Run(projectDir string, opt Options) (*Result, error) {
 	if opt.ID == "" {
@@ -181,6 +223,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	if opt.Start == 0 {
 		opt.Start = -1
 	}
+	tpl := opt.Template.resolve()
 
 	// Multi-chapter: a chaptered project (episodes = the Flow root's FlowFragment
 	// children) imports as one title with a chapter per episode. Skipped when the
@@ -214,12 +257,24 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		return nil, fmt.Errorf("articy convert: %w", err)
 	}
 
+	// Resolve fragment marker colours to emotions BEFORE staging (AutoStage copies
+	// the emotion onto the actor) and before localization (text is still inline for
+	// the probe samples).
+	probe := newColorProbe(mergeColors(tpl.EmotionColors, opt.EmotionColors))
+	probe.scan(doc)
+
 	if opt.AutoStage {
 		cast, err := adpd.Cast(projectDir)
 		if err != nil {
 			return nil, fmt.Errorf("adpd cast: %w", err)
 		}
-		AutoStage(doc, cast) // reads inline say text — must run before Localize
+		// Inject extra speaker→sprite entries (e.g. the bundle's protagonist, who has
+		// no articy avatar asset but IS shown by default — she's a first-class actor
+		// with her own layered entity) so AutoStage stages them like anyone else.
+		for who, spr := range opt.ExtraCast {
+			cast[who] = spr
+		}
+		AutoStage(doc, cast, tpl) // reads inline say text — must run before Localize
 	}
 
 	// Resolve art before localization swaps say text for keys (art reads sprite_url,
@@ -266,6 +321,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		Catalog:    catalog,
 		Lang:       lang,
 		CatalogRel: catalogRel,
+		Colors:     probe.stats(),
 	}
 	cover := firstBg // a real first-scene background beats a 404 placeholder
 	res.Title = Title{
@@ -287,6 +343,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 // runMultiChapter assembles one title from a chaptered project: each episode is a
 // chapter with its own .lvn (+ editable .lvns), sharing one merged cast and art set.
 func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (*Result, error) {
+	tpl := opt.Template.resolve()
 	var cast map[string]string
 	if opt.AutoStage {
 		c, err := adpd.Cast(projectDir)
@@ -294,12 +351,16 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 			return nil, fmt.Errorf("adpd cast: %w", err)
 		}
 		cast = c
+		for who, spr := range opt.ExtraCast { // inject the protagonist (staged by default)
+			cast[who] = spr
+		}
 	}
 
 	res := &Result{Sprites: map[string]any{}, Stats: map[string]int{}}
 	artSeen := map[string]bool{}
 	var chapters []Chapter
 	var cover string
+	probe := newColorProbe(mergeColors(tpl.EmotionColors, opt.EmotionColors)) // aggregates colours across every chapter
 
 	// Build the project's asset index ONCE, and share a matte/read cache across all
 	// chapters — a sprite used in many chapters is resolved (read + matted) a single
@@ -326,8 +387,9 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		if err != nil {
 			return nil, fmt.Errorf("chapter %d convert: %w", i+1, err)
 		}
+		probe.scan(doc) // resolve emotions before staging (and before localization)
 		if opt.AutoStage {
-			AutoStage(doc, cast)
+			AutoStage(doc, cast, tpl)
 		}
 		art, missing, firstBg := collectArt(index, doc, artCache)
 		sprites, extraArt := BuildCatalog(doc)
@@ -388,6 +450,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 	}
 
 	res.MissingBg = dedupe(res.MissingBg)
+	res.Colors = probe.stats()
 	res.Title = Title{
 		ID: opt.ID, Name: opt.Name, Subtitle: opt.Subtitle, CoverURL: cover,
 		Seasons: []Season{{Chapters: chapters}},
@@ -526,22 +589,61 @@ const (
 // art, and a content URL for the first background (the title cover).
 func collectArt(index map[string]string, doc *articy.Doc, cache map[string][]byte) (art []ArtFile, missingBg []string, firstBg string) {
 	seen := map[string]bool{} // per-chapter dedup of the returned set
-	// add resolves a file's bytes ONCE (read+matte / placeholder) and memoises them
-	// in `cache` by content path, so a sprite shared across chapters — or the whole
-	// asset index walk — is never re-processed. This turns the multi-chapter import
-	// from O(chapters × art) matting into O(art).
+	// add records a file to resolve. The heavy work (read + matte / placeholder)
+	// is DEFERRED and run in parallel below — matte decodes+re-encodes every sprite
+	// and dominated import time when done serially. Results are memoised in `cache`
+	// by content path so a sprite shared across chapters is processed a single time.
+	type artJob struct {
+		idx     int
+		rel     string
+		compute func() []byte
+	}
+	var jobs []artJob
 	add := func(rel string, compute func() []byte) {
 		if seen[rel] {
 			return
 		}
 		seen[rel] = true
-		data, ok := cache[rel]
-		if !ok {
-			data = compute()
-			cache[rel] = data
-		}
-		art = append(art, ArtFile{Rel: rel, Data: data})
+		idx := len(art)
+		art = append(art, ArtFile{Rel: rel}) // Data filled by the parallel resolve
+		jobs = append(jobs, artJob{idx: idx, rel: rel, compute: compute})
 	}
+	// resolve runs after the walk: fan the jobs across the CPUs, honouring the cache.
+	defer func() {
+		if len(jobs) == 0 {
+			return
+		}
+		var mu sync.Mutex // guards cache
+		workers := runtime.NumCPU()
+		if workers > len(jobs) {
+			workers = len(jobs)
+		}
+		ch := make(chan artJob)
+		var wg sync.WaitGroup
+		for w := 0; w < workers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := range ch {
+					mu.Lock()
+					data, ok := cache[j.rel]
+					mu.Unlock()
+					if !ok {
+						data = j.compute() // read + matte, off the hot path
+						mu.Lock()
+						cache[j.rel] = data
+						mu.Unlock()
+					}
+					art[j.idx].Data = data // distinct index per job — no lock needed
+				}
+			}()
+		}
+		for _, j := range jobs {
+			ch <- j
+		}
+		close(ch)
+		wg.Wait()
+	}()
 
 	for _, c := range doc.Script {
 		op, _ := c["op"].(string)

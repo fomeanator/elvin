@@ -1,0 +1,590 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Lvn.Content;
+using Lvn.Services;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Lvn.UI.Screens
+{
+    /// <summary>
+    /// The IN-STORY wardrobe: a bottom sheet over the running scene — the
+    /// genre-standard "dress up mid-chapter" moment. No preview pane: the LIVE
+    /// actor on stage is the mirror. Browsing writes try-on values into
+    /// <see cref="LvnWardrobe.Preview"/>, which the stage picks up instantly;
+    /// the confirm button buys whatever's previewed-but-unowned (wallet skus),
+    /// commits every previewed slot and closes; the collapse arrow cancels and
+    /// the actor snaps back. Layout mirrors the reference flow: icon tabs per
+    /// slot, a ◀ item name ▶ carousel, one big confirm with the total price.
+    /// Opened by <c>ext wardrobe_show char=id</c> (the story holds meanwhile).
+    /// </summary>
+    public sealed class WardrobeSheet : VisualElement
+    {
+        private readonly WardrobeConfig _cfg;
+        private readonly DialogueConfig _dlg;
+        private readonly ChoicesConfig _ch;
+        private readonly ILvnAssets _assets;
+        private readonly Color _text, _dim, _accent, _accentText;
+        private readonly float _radius;
+
+        private readonly Label _title;
+        private readonly VisualElement _tabs;
+        private readonly Label _itemName;
+        private readonly Button _confirm;
+        private readonly VisualElement _balances;
+
+        /// <summary>Host hook: open the currency store (the pills' "+" tap).
+        /// NovelShell wires this to its StoreScreen.</summary>
+        public System.Func<Task> OpenStore;
+        /// <summary>Fired on confirm, once per equipped axis that carries a story `var`
+        /// (entity, storyVar, value) — the host writes it back into the novel's state.
+        /// Not fired on cancel/collapse or for a skipped axis, so an unchanged slot
+        /// keeps its current value.</summary>
+        public System.Action<string, string, string> OnEquip;
+
+        private LvnManifest _manifest;
+        private string _entity;
+        private LvnSpriteEntity _def;
+        private string _tab;
+        private readonly Dictionary<string, int> _index = new Dictionary<string, int>(); // axis → carousel pos
+
+        private TaskCompletionSource<bool> _tcs;
+        private readonly bool _hosted;
+        private bool _open;
+        private bool _buying;
+
+        public WardrobeSheet(WardrobeConfig cfg, ILvnAssets assets)
+            : this(cfg, null, null, assets) { }
+
+        /// <summary>The NATIVE skin: the sheet dresses itself in the game's own
+        /// dialogue form (panel art/colours from <paramref name="dlg"/>) with
+        /// choice-styled buttons (<paramref name="ch"/>) — a themed title (the
+        /// gothic frame, the parchment box…) skins the wardrobe for free, like
+        /// every other piece of chrome. ui.wardrobe fields stay as overrides.
+        /// <paramref name="hosted"/>: the sheet is CONTENT for the stage's
+        /// shared window (<c>VnPanelHost</c>) — the frame, position and
+        /// show/hide transitions belong to the host, so the sheet draws no
+        /// panel of its own and its ShowAsync only runs the logic.</summary>
+        public WardrobeSheet(WardrobeConfig cfg, DialogueConfig dlg, ChoicesConfig ch, ILvnAssets assets,
+            bool hosted = false)
+        {
+            _cfg = cfg ?? new WardrobeConfig();
+            _dlg = dlg;
+            _ch = ch;
+            _assets = assets;
+            _hosted = hosted;
+            _text = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.95f, 0.93f, 0.88f));
+            _dim = UiColor.Parse(_cfg.dim_text_color, new Color(0.60f, 0.58f, 0.54f));
+            _accent = UiColor.Parse(_cfg.accent_color ?? _dlg?.speaker_color, new Color(0.78f, 0.63f, 0.31f));
+            _accentText = UiColor.Parse(_cfg.accent_text_color, new Color(0.08f, 0.08f, 0.10f));
+            _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? 12f;
+
+            if (!_hosted)
+            {
+                // standalone: the sheet is its own bottom-docked panel
+                style.position = Position.Absolute;
+                style.left = Length.Percent(4f);
+                style.right = Length.Percent(4f);
+                style.bottom = Length.Percent(2.5f);
+                style.backgroundColor = UiColor.Parse(_cfg.panel_color ?? _dlg?.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
+                Round(this, _radius + 6f);
+                // the game's dialogue-panel art (9-slice) IS the wardrobe's frame
+                if (!string.IsNullOrEmpty(_dlg?.panel_image))
+                    _ = ApplyNineSliceAsync(this, _dlg.panel_image, _dlg.panel_slice ?? 0);
+                style.paddingTop = 14;
+                style.paddingBottom = 16;
+                style.paddingLeft = 16;
+                style.paddingRight = 16;
+                style.opacity = 0f;
+                style.display = DisplayStyle.None;
+            }
+
+            // balance pills FLOAT above the sheet (the genre-standard "wallet
+            // over the wardrobe"), including zero balances for any currency the
+            // wardrobe charges in — so "not enough crystals" is never a mystery.
+            _balances = new VisualElement();
+            _balances.style.position = Position.Absolute;
+            _balances.style.left = 0;
+            _balances.style.bottom = Length.Percent(100f);
+            _balances.style.marginBottom = 10;
+            _balances.style.flexDirection = FlexDirection.Row;
+            _balances.style.alignItems = Align.Center;
+            Add(_balances);
+
+            var headRow = new VisualElement();
+            headRow.style.flexDirection = FlexDirection.Row;
+            headRow.style.alignItems = Align.Center;
+            headRow.style.justifyContent = Justify.Center;
+            Add(headRow);
+
+            _title = new Label(_cfg.title ?? "Wardrobe");
+            _title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
+            _title.style.fontSize = 28;
+            _title.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _title.style.paddingLeft = 24; _title.style.paddingRight = 24;
+            _title.style.paddingTop = 4; _title.style.paddingBottom = 4;
+            _title.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            Round(_title, _radius);
+            headRow.Add(_title);
+
+            var collapse = new Button(Cancel) { text = "▼" };
+            collapse.style.position = Position.Absolute;
+            collapse.style.right = 0;
+            collapse.style.fontSize = 22;
+            collapse.style.paddingLeft = 14; collapse.style.paddingRight = 14;
+            collapse.style.paddingTop = 6; collapse.style.paddingBottom = 6;
+            SkinButton(collapse, false);
+            headRow.Add(collapse);
+
+            _tabs = new VisualElement();
+            _tabs.style.flexDirection = FlexDirection.Row;
+            _tabs.style.justifyContent = Justify.Center;
+            _tabs.style.marginTop = 24; // breathing room under the title before the tabs
+            Add(_tabs);
+
+            // ◀ item name ▶
+            var carousel = new VisualElement();
+            carousel.style.flexDirection = FlexDirection.Row;
+            carousel.style.alignItems = Align.Center;
+            carousel.style.marginTop = 12;
+            Add(carousel);
+
+            var prev = new Button(() => Step(-1)) { text = "◀" };
+            var next = new Button(() => Step(+1)) { text = "▶" };
+            foreach (var b in new[] { prev, next })
+            {
+                b.style.fontSize = 24;
+                b.style.paddingLeft = 16; b.style.paddingRight = 16;
+                b.style.paddingTop = 10; b.style.paddingBottom = 10;
+                SkinButton(b, false);
+            }
+            carousel.Add(prev);
+
+            _itemName = new Label("");
+            _itemName.style.flexGrow = 1;
+            _itemName.style.color = _text;
+            _itemName.style.fontSize = 28;
+            _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            _itemName.style.marginLeft = 10; _itemName.style.marginRight = 10;
+            _itemName.style.paddingTop = 10; _itemName.style.paddingBottom = 10;
+            Round(_itemName, _radius);
+            carousel.Add(_itemName);
+            carousel.Add(next);
+
+            _confirm = new Button(() => _ = ConfirmAsync());
+            _confirm.style.fontSize = 28;
+            _confirm.style.marginTop = 12;
+            _confirm.style.paddingTop = 14;
+            _confirm.style.paddingBottom = 14;
+            SkinButton(_confirm, true);
+            Add(_confirm);
+        }
+
+        public void SetManifest(LvnManifest manifest) => _manifest = manifest;
+
+        /// <summary>Open the sheet for a character; resolves when the player
+        /// confirms or collapses it. The story op awaits this.</summary>
+        public async Task ShowAsync(string entityId, CancellationToken ct = default)
+        {
+            if (_open) return;
+            _open = true;
+            _confirm.SetEnabled(true); // never inherit a dead button from a past session
+            BuildFor(entityId);
+            RefreshBalances();
+            LvnWallet.Changed += OnWalletChanged;
+            _ = LvnWallet.RefreshAsync();
+            if (!_hosted)
+            {
+                style.display = DisplayStyle.Flex;
+                await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
+                // Hide() during the fade-in cancels the open (see StoreScreen).
+                if (!_open) { LvnWallet.Changed -= OnWalletChanged; return; }
+            }
+
+            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var reg = ct.Register(() => _tcs.TrySetResult(false));
+            try { await _tcs.Task; }
+            finally
+            {
+                LvnWallet.Changed -= OnWalletChanged;
+                LvnWardrobe.ClearPreview(_entity); // confirm already committed; cancel snaps back
+                if (!_hosted)
+                {
+                    await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
+                    style.display = DisplayStyle.None;
+                }
+                _open = false;
+            }
+        }
+
+        public void Hide()
+        {
+            LvnWallet.Changed -= OnWalletChanged;
+            if (!string.IsNullOrEmpty(_entity)) LvnWardrobe.ClearPreview(_entity);
+            if (!_hosted)
+            {
+                style.opacity = 0f;
+                style.display = DisplayStyle.None;
+            }
+            _open = false;
+            _tcs?.TrySetResult(false);
+        }
+
+        private void Cancel() => _tcs?.TrySetResult(false);
+        private void OnWalletChanged() { RefreshBalances(); RefreshConfirm(); }
+
+        // Every currency the wardrobe charges in + everything the player holds.
+        private void RefreshBalances()
+        {
+            _balances.Clear();
+            var currencies = new List<string>();
+            if (_def?.wardrobe != null)
+                foreach (var slot in _def.wardrobe.Values)
+                    if (slot?.items != null)
+                        foreach (var it in slot.items)
+                            if (it != null && it.price > 0 && !string.IsNullOrEmpty(it.currency)
+                                && !currencies.Contains(it.currency))
+                                currencies.Add(it.currency);
+            foreach (var kv in LvnWallet.Balances)
+                if (!currencies.Contains(kv.Key)) currencies.Add(kv.Key);
+
+            foreach (var cur in currencies)
+            {
+                LvnWallet.Balances.TryGetValue(cur, out var amount);
+                var pill = new VisualElement();
+                pill.style.flexDirection = FlexDirection.Row;
+                pill.style.alignItems = Align.Center;
+                pill.style.marginRight = 8;
+                pill.style.paddingLeft = 12; pill.style.paddingRight = 6;
+                pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
+                pill.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
+                Round(pill, 16f);
+
+                string iconUrl = _cfg.currency_icons != null
+                                 && _cfg.currency_icons.TryGetValue(cur, out var u) ? u : null;
+                if (!string.IsNullOrEmpty(iconUrl))
+                {
+                    var icon = new VisualElement { pickingMode = PickingMode.Ignore };
+                    icon.style.width = 26; icon.style.height = 26; icon.style.marginRight = 6;
+                    icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                    icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                    pill.Add(icon);
+                    _ = ScreenUi.AssignBgAsync(icon, iconUrl, _assets);
+                }
+                var label = new Label(amount.ToString("N0") + (iconUrl == null ? " " + cur : ""));
+                label.style.color = _text;
+                label.style.fontSize = 22;
+                pill.Add(label);
+
+                if (OpenStore != null)
+                {
+                    var plus = new Button(() => _ = OpenStore()) { text = "+" };
+                    plus.style.fontSize = 22;
+                    plus.style.marginLeft = 8;
+                    plus.style.paddingLeft = 10; plus.style.paddingRight = 10;
+                    plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
+                    plus.style.color = _accentText;
+                    plus.style.backgroundColor = _accent;
+                    Round(plus, 12f);
+                    pill.Add(plus);
+                }
+                _balances.Add(pill);
+            }
+        }
+
+        /// <summary>Build tabs/carousel for a character. Public for tests.</summary>
+        public void BuildFor(string entityId)
+        {
+            _entity = entityId;
+            if ((string.IsNullOrEmpty(_entity) || _manifest?.sprites == null
+                 || !_manifest.sprites.ContainsKey(_entity)) && _manifest?.sprites != null)
+            {
+                foreach (var kv in _manifest.sprites) // fallback: first with a wardrobe
+                    if (kv.Value?.wardrobe != null && kv.Value.wardrobe.Count > 0) { _entity = kv.Key; break; }
+            }
+            _def = _entity != null && _manifest?.sprites != null
+                   && _manifest.sprites.TryGetValue(_entity, out var d) ? d : null;
+            _index.Clear();
+            _tabs.Clear();
+            _tab = null;
+            _title.text = _cfg.title ?? "Wardrobe";
+
+            if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
+            {
+                _itemName.text = _cfg.empty_text ?? "The wardrobe is empty";
+                RefreshConfirm();
+                return;
+            }
+
+            foreach (var kv in _def.wardrobe)
+            {
+                var axis = kv.Key;
+                if (_tab == null) _tab = axis;
+                var slot = kv.Value;
+                var b = new Button(() => SelectTab(axis));
+                b.style.width = 92; b.style.height = 92;
+                b.style.marginLeft = 6; b.style.marginRight = 6;
+                Round(b, _radius);
+                b.userData = axis;
+                if (!string.IsNullOrEmpty(slot?.icon))
+                {
+                    b.text = "";
+                    b.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                    b.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                    _ = ScreenUi.AssignBgAsync(b, slot.icon, _assets);
+                }
+                else
+                {
+                    b.text = slot?.name ?? axis;
+                    b.style.fontSize = 20;
+                    b.style.whiteSpace = WhiteSpace.Normal;
+                }
+                _tabs.Add(b);
+            }
+            SelectTab(_tab);
+        }
+
+        private void SelectTab(string axis)
+        {
+            _tab = axis;
+            foreach (var c in _tabs.Children())
+            {
+                var b = c as Button;
+                if (b == null) continue;
+                bool active = (string)b.userData == _tab;
+                SkinButton(b, active);
+                Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+            }
+
+            var items = Items(_tab);
+            if (items.Count == 0) { _itemName.text = ""; RefreshConfirm(); return; }
+            if (!_index.ContainsKey(_tab))
+            {
+                // start the carousel on what's worn (previewed beats equipped)
+                LvnWardrobe.Previewed(_entity).TryGetValue(_tab, out var current);
+                if (current == null) LvnWardrobe.Equipped(_entity).TryGetValue(_tab, out current);
+                int at = 0;
+                for (int i = 0; i < items.Count; i++) if (items[i].value == current) { at = i; break; }
+                _index[_tab] = at;
+            }
+            ShowItem(); // also previews it, so the carousel and the actor agree
+        }
+
+        private void Step(int dir)
+        {
+            var items = Items(_tab);
+            if (items.Count == 0) return;
+            _index[_tab] = ((_index.TryGetValue(_tab, out var i) ? i : 0) + dir + items.Count) % items.Count;
+            ShowItem();
+        }
+
+        private void ShowItem()
+        {
+            var items = Items(_tab);
+            if (items.Count == 0) return;
+            var item = items[Mathf.Clamp(_index.TryGetValue(_tab, out var i) ? i : 0, 0, items.Count - 1)];
+            _itemName.text = item.name ?? item.value;
+            bool owned = item.price <= 0
+                || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
+            Debug.Log($"[lvn-wardrobe] sheet preview {_entity}.{_tab} = '{item.value}' " +
+                      $"(price={item.price} {item.currency ?? "-"}, owned={owned})");
+            LvnWardrobe.Preview(_entity, _tab, item.value); // the live actor is the mirror
+            RefreshConfirm();
+        }
+
+        // The confirm button carries the total price of everything previewed
+        // but not yet owned, per currency — free/owned try-ons confirm at 0.
+        private void RefreshConfirm()
+        {
+            // Self-healing: any refresh (browse, wallet change, reopen) revives
+            // the button unless a confirm is genuinely in flight — a missed
+            // delayed-enable can never leave it dead again.
+            if (!_buying) _confirm.SetEnabled(true);
+
+            var costs = UnownedPreviewCosts();
+            var text = _cfg.confirm_text ?? "Choose";
+            if (costs.Count > 0)
+            {
+                var parts = new List<string>();
+                foreach (var kv in costs) parts.Add($"{kv.Value:N0} {kv.Key}");
+                text += ":  " + string.Join(" + ", parts);
+                var have = new List<string>();
+                foreach (var kv in costs)
+                    have.Add($"{kv.Key}: need {kv.Value}, have {(LvnWallet.Balances.TryGetValue(kv.Key, out var b) ? b : 0)}");
+                Debug.Log($"[lvn-wardrobe] sheet confirm price → {string.Join("; ", have)}");
+            }
+            _confirm.text = text;
+        }
+
+        private Dictionary<string, long> UnownedPreviewCosts()
+        {
+            var costs = new Dictionary<string, long>();
+            if (_def?.wardrobe == null) return costs;
+            foreach (var kv in LvnWardrobe.Previewed(_entity))
+            {
+                var item = Find(kv.Key, kv.Value);
+                if (item == null || item.price <= 0) continue;
+                if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, kv.Key, item.value))) continue;
+                costs.TryGetValue(item.currency ?? "", out var sum);
+                costs[item.currency ?? ""] = sum + item.price;
+            }
+            return costs;
+        }
+
+        private async Task ConfirmAsync()
+        {
+            if (_buying) return;
+            _buying = true;
+            var label = _confirm.text;
+            _confirm.SetEnabled(false);
+            _confirm.text = "…";
+            try
+            {
+                // Re-sync the wallet FIRST: ownership decisions below must run
+                // against the server's inventory, not a stale mirror — otherwise
+                // an already-bought item could be charged twice.
+                await LvnWallet.RefreshAsync();
+
+                // buy everything previewed-but-unowned, then commit the lot
+                var previewed = new Dictionary<string, string>();
+                foreach (var kv in LvnWardrobe.Previewed(_entity)) previewed[kv.Key] = kv.Value;
+                Debug.Log($"[lvn-wardrobe] sheet CONFIRM: previewed [{string.Join(", ", ToPairs(previewed))}], " +
+                          $"balances [{string.Join(", ", ToPairs(LvnWallet.Balances))}], " +
+                          $"inventory [{string.Join(", ", LvnWallet.Inventory.Keys)}]");
+                // Per-slot commit: a failed buy rolls only ITS slot back to
+                // what's equipped and never blocks the rest of the look — the
+                // player keeps the free/owned pieces they picked.
+                var failed = new List<string>();
+                foreach (var kv in previewed)
+                {
+                    var item = Find(kv.Key, kv.Value);
+                    if (item == null)
+                    {
+                        Debug.LogWarning($"[lvn-wardrobe] previewed {kv.Key}='{kv.Value}' has NO catalog item — skipped");
+                        continue;
+                    }
+                    var sku = LvnWardrobe.Sku(_entity, kv.Key, item.value);
+                    if (item.price > 0 && !LvnWallet.Inventory.ContainsKey(sku))
+                    {
+                        Debug.Log($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
+                        bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+                        Debug.Log($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
+                                  $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
+                        LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
+                            ("entity", _entity), ("sku", sku));
+                        if (!ok)
+                        {
+                            failed.Add($"{item.price:N0} {item.currency}");
+                            LvnWardrobe.Preview(_entity, kv.Key, null); // snap this slot back
+                            continue;
+                        }
+                    }
+                    LvnWardrobe.Equip(_entity, kv.Key, kv.Value);
+                    // Write the pick back into the novel's story state (nested var) so
+                    // its downstream logic reads the choice — only for axes bound to one.
+                    string sv = _def?.wardrobe != null && _def.wardrobe.TryGetValue(kv.Key, out var slot)
+                        ? slot.storyVar : null;
+                    if (!string.IsNullOrEmpty(sv)) OnEquip?.Invoke(_entity, sv, kv.Value);
+                }
+                Debug.Log($"[lvn-wardrobe] sheet confirm DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]" +
+                          (failed.Count > 0 ? $", failed [{string.Join(", ", failed)}]" : ""));
+                if (failed.Count == 0)
+                {
+                    LvnWardrobe.ClearPreview(_entity); // equips now cover the look
+                    _tcs?.TrySetResult(true);
+                }
+                else
+                {
+                    // The affordable part is applied; say WHY the rest didn't
+                    // land and stay open so the player can rethink or top up.
+                    _confirm.text = (_cfg.insufficient_text ?? "Not enough") + ": " + string.Join(" + ", failed);
+                    _confirm.schedule.Execute(() =>
+                    {
+                        _confirm.SetEnabled(true);
+                        RefreshConfirm();
+                    }).ExecuteLater(1800);
+                }
+            }
+            finally
+            {
+                _buying = false;
+                if (_confirm.enabledSelf == false && _confirm.text == "…")
+                { _confirm.SetEnabled(true); _confirm.text = label; }
+            }
+        }
+
+        private static IEnumerable<string> ToPairs<T>(IReadOnlyDictionary<string, T> map)
+        {
+            foreach (var kv in map) yield return $"{kv.Key}={kv.Value}";
+        }
+
+        private List<LvnWardrobeItem> Items(string axis)
+        {
+            var list = new List<LvnWardrobeItem>();
+            if (axis != null && _def?.wardrobe != null
+                && _def.wardrobe.TryGetValue(axis, out var slot) && slot?.items != null)
+                foreach (var it in slot.items)
+                    if (it != null && !string.IsNullOrEmpty(it.value)) list.Add(it);
+            return list;
+        }
+
+        private LvnWardrobeItem Find(string axis, string value)
+        {
+            foreach (var it in Items(axis)) if (it.value == value) return it;
+            return null;
+        }
+
+        // Choice-button skin: the same fill/text/art the story's choices use,
+        // so the wardrobe's controls read as the game's own buttons.
+        private void SkinButton(Button b, bool accent)
+        {
+            b.style.color = accent ? _accentText : UiColor.Parse(_ch?.text_color, _text);
+            b.style.backgroundColor = accent
+                ? _accent
+                : UiColor.Parse(_ch?.color, new Color(1f, 1f, 1f, 0.07f));
+            Round(b, _ch?.corner_radius ?? _radius);
+            if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
+                _ = ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0);
+            else
+                b.style.backgroundImage = new StyleBackground(StyleKeyword.None); // an accent tab drops the art
+        }
+
+        private async Task ApplyNineSliceAsync(VisualElement el, string url, int slice)
+        {
+            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
+            try
+            {
+                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
+                if (sprite == null) return;
+                el.style.backgroundImage = new StyleBackground(sprite);
+                el.style.backgroundColor = Color.clear; // the art replaces the flat fill
+                if (slice > 0)
+                {
+                    el.style.unitySliceLeft = slice;
+                    el.style.unitySliceRight = slice;
+                    el.style.unitySliceTop = slice;
+                    el.style.unitySliceBottom = slice;
+                }
+            }
+            catch { /* missing art keeps the flat look */ }
+        }
+
+        private static void Round(VisualElement el, float r)
+        {
+            el.style.borderTopLeftRadius = r;
+            el.style.borderTopRightRadius = r;
+            el.style.borderBottomLeftRadius = r;
+            el.style.borderBottomRightRadius = r;
+        }
+
+        private static void Border(VisualElement el, Color c, float w)
+        {
+            el.style.borderTopColor = c; el.style.borderBottomColor = c;
+            el.style.borderLeftColor = c; el.style.borderRightColor = c;
+            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
+            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
+        }
+    }
+}

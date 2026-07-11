@@ -58,6 +58,23 @@ namespace Lvn.UI.Screens
         /// <summary>Null-safe label text setter.</summary>
         public static void SetText(Label l, string t) { if (l != null) l.text = t; }
 
+        /// <summary>The device safe-area insets (notch / home indicator) converted
+        /// to panel units for <paramref name="el"/>'s panel: x = top, y = bottom.
+        /// Zero before the element is attached (or on notchless screens) — call it
+        /// from a <see cref="GeometryChangedEvent"/> so it re-resolves once real.</summary>
+        public static Vector2 SafeVerticalInsets(VisualElement el)
+        {
+            var panel = el?.panel;
+            if (panel == null || Screen.height <= 0) return Vector2.zero;
+            float panelH = panel.visualTree.layout.height;
+            if (float.IsNaN(panelH) || panelH <= 0) return Vector2.zero;
+            float scale = panelH / Screen.height;
+            var safe = Screen.safeArea;
+            float topPx = Screen.height - safe.yMax;
+            float bottomPx = safe.yMin;
+            return new Vector2(Mathf.Max(0f, topPx * scale), Mathf.Max(0f, bottomPx * scale));
+        }
+
         /// <summary>Build a horizontal progress bar centred on (<paramref name="xFrac"/>,
         /// <paramref name="yFrac"/>) of its parent, sized <paramref name="wFrac"/>×
         /// <paramref name="hFrac"/>: a coloured <paramref name="track"/> under a

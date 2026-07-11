@@ -71,6 +71,51 @@ func conn(src, dst, srcPin uint32) []byte {
 	return obj(cidConnection, e)
 }
 
+// putColor writes a tag-0xee colour entry: articy stores the marker as R,G,B,A
+// bytes in ascending memory, which the little-endian reader packs into a u32.
+func putColor(b []byte, seq, pid uint16, r, g, bb, a byte) []byte {
+	b = binary.LittleEndian.AppendUint16(b, seq)
+	b = binary.LittleEndian.AppendUint16(b, pid)
+	b = append(b, 0xee)
+	return append(b, r, g, bb, a)
+}
+
+// dialogFrag builds the DialogFragment node object at ordinal self, carrying its
+// marker BackgroundColor (RGBA bytes).
+func dialogFrag(self uint32, r, g, bb, a byte) []byte {
+	var e []byte
+	e = putU32(e, 1, pSelf, self)
+	e = putColor(e, 1, pColor, r, g, bb, a)
+	return obj(cidDialogFrag, e)
+}
+
+// A DialogFragment's marker colour is decoded to #rrggbb, keyed by the fragment
+// ordinal (its self ordinal = the text object's parent), with articy's default
+// light-blue treated as "no marker".
+func TestDecodeFlowExtractsMarkerColor(t *testing.T) {
+	d := partition(
+		frag(1, "g-1", "Радость!"),
+		dialogFrag(1, 0x00, 0xb0, 0x50, 0xff), // #00b050 → joy
+		frag(2, "g-2", "Обычная реплика."),
+		dialogFrag(2, 0xc8, 0xe2, 0xe7, 0xff), // articy default → omitted
+		frag(3, "g-3", "Страх."),
+		dialogFrag(3, 0x0c, 0x0c, 0x0c, 0xff), // #0c0c0c → fear
+	)
+	fl := decodeFlow(d)
+	if fl.color[1] != "#00b050" {
+		t.Errorf("fragment 1 colour = %q, want #00b050", fl.color[1])
+	}
+	if fl.color[3] != "#0c0c0c" {
+		t.Errorf("fragment 3 colour = %q, want #0c0c0c", fl.color[3])
+	}
+	if c, ok := fl.color[2]; ok {
+		t.Errorf("fragment 2 is at the articy default and must be omitted, got %q", c)
+	}
+	if got := colorHex(binary.LittleEndian.Uint32([]byte{0xff, 0xff, 0x00, 0xff})); got != "#ffff00" {
+		t.Errorf("colorHex = %q, want #ffff00", got)
+	}
+}
+
 // A flat object stream decodes back into text, speakers, logic and edges.
 func TestDecodeFlowRecoversGraph(t *testing.T) {
 	d := partition(
