@@ -125,7 +125,7 @@ export function completionAt(line, labels, catalog, actorMap, extGrammar) {
   const em = line.match(/^ext\s+([A-Za-z_][A-Za-z0-9_]*)\s+/);
   const extOp = em && extOps ? extOps[em[1]] : null;
   const extFields = extOp
-    ? [...new Set([...(extOp.fields || []), ...(extOp.required || [])])]
+    ? [...new Set([...(extOp.fields || []), ...(extOp.required || []), ...(extOp.labels || [])])]
     : null;
 
   if ((m = line.match(/^([^:[\]]+?)\s*\[([A-Za-z0-9_]*)$/))) {
@@ -146,6 +146,8 @@ export function completionAt(line, labels, catalog, actorMap, extGrammar) {
       const items = wrap(extOp.enums[key], "value");
       if (items.length) return { token: tok, items };
     }
+    // a declared label-reference field ("the host jumps there") → label names
+    if (extOp && (extOp.labels || []).includes(key)) return labelComp(tok, labels);
     if (key === "id" && catalog) {
       const items = wrap(Object.keys(catalog), "entity", (v) => ({ entity: v }));
       if (items.length) return { token: tok, items };
@@ -223,7 +225,7 @@ export function predictGhost(line, ctx) {
       const tail = o.snippet.replace(new RegExp("^\\s*ext\\s+" + m[1] + "\\s*"), "");
       if (tail) return tail;
     }
-    const fields = [...new Set([...(o.required || []), ...(o.fields || [])])];
+    const fields = [...new Set([...(o.required || []), ...(o.fields || []), ...(o.labels || [])])];
     if (fields.length) {
       return fields.map((f) => f + "=" + (o.enums && o.enums[f] ? '"' + o.enums[f][0] + '"' : '""')).join(" ");
     }
