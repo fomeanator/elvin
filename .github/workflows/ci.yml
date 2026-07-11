@@ -73,6 +73,26 @@ jobs:
           go run . convert -i ../../examples/hello.ink -o /tmp/hello.lvn
           go run . validate /tmp/hello.lvn
           go run . probe /tmp/hello.lvn
+      # The howto quality gate the docs promise: every authored example
+      # compiles AND validates with zero warnings — examples can't rot.
+      - name: compile-gate every authored example (howto + examples)
+        working-directory: tools/lvnconv
+        run: |
+          go build -o /tmp/lvnconv .
+          fail=0
+          for f in ../../howto/*/*.lvns ../../examples/*.lvns; do
+            out="/tmp/gate-$(basename "${f%.lvns}").lvn"
+            if ! /tmp/lvnconv convert -i "$f" -o "$out"; then
+              echo "::error file=${f#../../}::convert failed"; fail=1; continue
+            fi
+            v=$(/tmp/lvnconv validate "$out")
+            echo "${f#../../}: $v"
+            case "$v" in
+              *" 0 warning(s)"*) ;;
+              *) echo "::error file=${f#../../}::validator warnings — the gate is 0 warnings"; fail=1;;
+            esac
+          done
+          exit $fail
 
   lang:
     name: LVNScript grammar contract
@@ -102,11 +122,13 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: panel/package-lock.json
-      - name: build
+      - name: build + lint + test
         working-directory: panel
         run: |
           npm ci
           npm run build
+          npm run lint
+          npm test
 
   # Runs on the self-hosted mac runner: Unity is installed and licensed there
   # (Unity discontinued .ulf activation for Personal licenses, so the docker
