@@ -37,6 +37,16 @@ the repo as a whole; the Unity package keeps its own detailed
 - **lvnconv miscompile guard** — a command-shaped line with an unknown op (or a
   known op with unparsable params) is a compile error with a "did you mean"
   hint, never silently swallowed into dialogue.
+- **Ext-grammar** — `ext-grammar.json` declares a project's host ops (fields,
+  required, enums, label-reference fields, docs/snippets): declared `ext` ops
+  validate like built-ins across the CLI (`validate -ext-grammar` +
+  auto-detected sidecar), the wasm playground, MCP `lvns_check` and the panel
+  editor (completion/hover/ghost + live diagnostics). Code generation is
+  untouched.
+- **Spine as a standalone package** — `com.lvn.engine.spine` (the driver
+  behind the core's `LvnSpineBridge` seam), the first-party example of the
+  plugin seams; plus the **Extension plugin (template)** sample in the engine
+  package.
 
 ## [0.7.0] — 2026-07-03
 
