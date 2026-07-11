@@ -18,6 +18,14 @@
         "com.unity.ugui": "1.0.0"
       }
     },
+    "com.lvn.engine.spine": {
+      "version": "file:../../Packages/com.lvn.engine.spine",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.lvn.engine": "0.7.0"
+      }
+    },
     "com.unity.ext.nunit": {
       "version": "2.0.5",
       "depth": 1,
