@@ -1,0 +1,21 @@
+{
+  "name": "Lvn.Engine.Shell",
+  "rootNamespace": "Lvn.UI.Screens",
+  "references": [
+    "Lvn.Engine",
+    "Lvn.Engine.Services",
+    "Lvn.Engine.Content",
+    "Lvn.Engine.UI",
+    "Unity.Nuget.Newtonsoft-Json",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
