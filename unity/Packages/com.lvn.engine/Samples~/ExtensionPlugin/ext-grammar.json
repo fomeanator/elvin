@@ -1,0 +1,19 @@
+{
+  "name": "minigame-plugin",
+  "doc": "Ops provided by the ExtensionPlugin sample (LvnMinigamePlugin.cs). Copy this file next to your scripts (or one directory up, e.g. content/ext-grammar.json) so `lvnconv validate`, the panel editor and the playground treat these ops like built-ins.",
+  "ops": {
+    "minigame": {
+      "doc": "Runs a host mini-game; the story pauses until it reports back. Writes `minigame_won` (bool); jumps to `on_lose` when set and lost.",
+      "fields": ["difficulty"],
+      "required": ["id"],
+      "enums": { "difficulty": ["easy", "normal", "hard"] },
+      "labels": ["on_lose"],
+      "snippet": "ext minigame id=\"river\" difficulty=normal on_lose=\"failed\""
+    },
+    "vibrate": {
+      "doc": "Haptic pulse on devices that support it; a logged no-op elsewhere. Fire-and-forget.",
+      "fields": ["ms"],
+      "snippet": "ext vibrate ms=80"
+    }
+  }
+}
