@@ -11,6 +11,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -115,6 +119,11 @@ type WalletService struct {
 	// verifyApple validates a receipt against Apple and returns the matching
 	// transaction id for a sku. Swappable in tests.
 	verifyApple func(receipt, sku, sharedSecret, bundleID string) (txID string, err error)
+
+	// EarnDisabled closes /v1/wallet/earn (the client-initiated credit route).
+	// The zero value keeps it open — the current test-mode behaviour; flip via
+	// -wallet-earn=false before wiring real payments.
+	EarnDisabled bool
 }
 
 var reUserFile = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -238,15 +247,16 @@ func (s *WalletService) writeDoc(w http.ResponseWriter, doc *walletDoc) {
 
 func (s *WalletService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/wallet", s.handleGet)
-	// SECURITY-TODO(monetization): /v1/wallet/earn is OPEN by design for now —
+	// SECURITY-TODO(monetization): /v1/wallet/earn is OPEN by default for now —
 	// any authenticated device can credit itself arbitrary currency. This is a
 	// DELIBERATE test-mode affordance while store payments aren't wired up yet
-	// (we still need SOME way to hand out currency). BEFORE shipping real IAP:
-	// gate this so client earns are server-defined (a reason→amount table +
-	// per-day cap, like ads.json/daily-rewards.json), or remove the route and
-	// grant only in-process via Grant() (daily/ads/iap). Until then the soft
-	// economy is not truly server-authoritative — do not enable real IAP/ads
-	// payouts against the same balances without closing this first.
+	// (we still need SOME way to hand out currency). The kill switch exists:
+	// run with -wallet-earn=false (EarnDisabled) and the route 403s while
+	// spend/iap/ads/daily keep working. BEFORE shipping real IAP either flip
+	// that flag, or replace the route with server-defined earns (a
+	// reason→amount table + per-day cap, like ads.json/daily-rewards.json).
+	// Until then the soft economy is not truly server-authoritative — do not
+	// enable real IAP/ads payouts against the same balances with earn open.
 	mux.HandleFunc("/v1/wallet/earn", s.mutate("earn"))
 	mux.HandleFunc("/v1/wallet/spend", s.mutate("spend"))
 	mux.HandleFunc("/v1/iap/verify", s.handleIAP)
@@ -279,17 +289,16 @@ func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"packs": packs})
 }
 
-func (s *WalletService) load(userID string) *walletDoc {
+// load reads a user's wallet. Only a MISSING file means "new wallet" — an
+// unreadable or corrupt one is an error, because treating it as empty would
+// let the next save overwrite someone's real balance with zeros.
+func (s *WalletService) load(userID string) (*walletDoc, error) {
 	doc := &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
-	if data, err := os.ReadFile(filepath.Join(s.dir, userID+".json")); err == nil {
-		_ = json.Unmarshal(data, doc)
-		if doc.Balances == nil {
-			doc.Balances = map[string]int64{}
+	data, err := os.ReadFile(filepath.Join(s.dir, userID+".json"))
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
 		}
-		if doc.Inventory == nil {
-			doc.Inventory = map[string]int64{}
-		}
-	} else {
 		// Brand-new wallet: seed every regen currency at its starting balance
 		// (e.g. 3 chapter energy). Non-regen currencies start at 0.
 		for cur, rule := range s.regen.Get() {
@@ -297,20 +306,27 @@ func (s *WalletService) load(userID string) *walletDoc {
 				doc.Balances[cur] = rule.Start
 			}
 		}
+		return doc, nil
 	}
-	return doc
+	if err := json.Unmarshal(data, doc); err != nil {
+		return nil, fmt.Errorf("wallet %s: %w", userID, err)
+	}
+	if doc.Balances == nil {
+		doc.Balances = map[string]int64{}
+	}
+	if doc.Inventory == nil {
+		doc.Inventory = map[string]int64{}
+	}
+	return doc, nil
 }
 
-func (s *WalletService) save(userID string, doc *walletDoc) {
+func (s *WalletService) save(userID string, doc *walletDoc) error {
 	doc.Version++
 	if len(doc.History) > 100 {
 		doc.History = doc.History[len(doc.History)-100:]
 	}
 	data, _ := json.MarshalIndent(doc, "", "  ")
-	tmp := filepath.Join(s.dir, userID+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err == nil {
-		_ = os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
-	}
+	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
 }
 
 func (s *WalletService) user(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -328,11 +344,21 @@ func (s *WalletService) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	doc := s.load(userID)
-	if s.accrue(doc, s.now()) { // persist any regen the client is now seeing
-		s.save(userID, doc)
+	doc, err := s.load(userID)
+	if err == nil && s.accrue(doc, s.now()) {
+		// Persist any regen the client is now seeing. Regen is derived from
+		// time anchors, so a failed write just re-accrues on the next request
+		// — log it and still serve the computed state.
+		if serr := s.save(userID, doc); serr != nil {
+			log.Printf("wallet: persist regen for %s: %v", userID, serr)
+		}
 	}
 	s.mu.Unlock()
+	if err != nil {
+		log.Printf("wallet: load %s: %v", userID, err)
+		http.Error(w, "wallet unavailable", http.StatusInternalServerError)
+		return
+	}
 	s.writeDoc(w, doc)
 }
 
@@ -340,6 +366,10 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		if kind == "earn" && s.EarnDisabled {
+			http.Error(w, "client-initiated earn is disabled on this server", http.StatusForbidden)
 			return
 		}
 		userID, ok := s.user(w, r)
@@ -360,7 +390,12 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		doc := s.load(userID)
+		doc, err := s.load(userID)
+		if err != nil {
+			log.Printf("wallet: load %s: %v", userID, err)
+			http.Error(w, "wallet unavailable", http.StatusInternalServerError)
+			return
+		}
 		s.accrue(doc, s.now()) // credit pending regen before checking the balance
 		if kind == "spend" {
 			if doc.Balances[req.Currency] < req.Amount {
@@ -383,19 +418,32 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			TS: time.Now().UTC().Format(time.RFC3339), Type: kind,
 			Currency: req.Currency, Amount: req.Amount, SKU: req.SKU, Reason: req.Reason,
 		})
-		s.save(userID, doc)
+		if err := s.save(userID, doc); err != nil {
+			// The write never reached the real file, so on-disk money is
+			// unchanged — fail loudly and do NOT echo the new balance.
+			log.Printf("wallet: persist %s for %s: %v", kind, userID, err)
+			http.Error(w, "persist failed", http.StatusInternalServerError)
+			return
+		}
 		s.writeDoc(w, doc)
 	}
 }
 
 // AdminLoad returns a read-only copy of a user's wallet for the admin views.
+// It never writes back, so an unreadable wallet degrades to an empty view
+// (logged) rather than failing the whole admin page.
 func (s *WalletService) AdminLoad(userID string) *walletDoc {
 	if !reUserFile.MatchString(userID) {
 		return &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.load(userID)
+	doc, err := s.load(userID)
+	if err != nil {
+		log.Printf("wallet: admin load %s: %v", userID, err)
+		return &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
+	}
+	return doc
 }
 
 // AllUserIDs lists every wallet on disk (the admin ledger walks these).
@@ -412,14 +460,17 @@ func (s *WalletService) AllUserIDs() []string {
 }
 
 // Clawback removes currency (support/ops corrections), flooring at zero —
-// audited like everything else.
-func (s *WalletService) Clawback(userID, currency string, amount int64, reason string) {
+// audited like everything else. A non-nil error means nothing was removed.
+func (s *WalletService) Clawback(userID, currency string, amount int64, reason string) error {
 	if !reUserFile.MatchString(userID) || amount <= 0 {
-		return
+		return fmt.Errorf("bad clawback: user %q amount %d", userID, amount)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	doc := s.load(userID)
+	doc, err := s.load(userID)
+	if err != nil {
+		return err
+	}
 	s.accrue(doc, s.now())
 	doc.Balances[currency] -= amount
 	if doc.Balances[currency] < 0 {
@@ -430,18 +481,23 @@ func (s *WalletService) Clawback(userID, currency string, amount int64, reason s
 		TS: time.Now().UTC().Format(time.RFC3339), Type: "spend",
 		Currency: currency, Amount: amount, Reason: reason,
 	})
-	s.save(userID, doc)
+	return s.save(userID, doc)
 }
 
 // Grant credits a user outside an HTTP request (the daily service etc.) —
-// same lock, same audit history as any earn.
-func (s *WalletService) Grant(userID, currency string, amount int64, reason string) {
+// same lock, same audit history as any earn. A non-nil error means nothing
+// was credited (the write goes through a temp file, so a failed save leaves
+// the previous balance intact).
+func (s *WalletService) Grant(userID, currency string, amount int64, reason string) error {
 	if !reUserFile.MatchString(userID) || amount <= 0 {
-		return
+		return fmt.Errorf("bad grant: user %q amount %d", userID, amount)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	doc := s.load(userID)
+	doc, err := s.load(userID)
+	if err != nil {
+		return err
+	}
 	s.accrue(doc, s.now())
 	doc.Balances[currency] += amount
 	s.accrue(doc, s.now())
@@ -449,7 +505,7 @@ func (s *WalletService) Grant(userID, currency string, amount int64, reason stri
 		TS: time.Now().UTC().Format(time.RFC3339), Type: "earn",
 		Currency: currency, Amount: amount, Reason: reason,
 	})
-	s.save(userID, doc)
+	return s.save(userID, doc)
 }
 
 func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
@@ -507,14 +563,22 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	doc := s.load(userID)
+	doc, err := s.load(userID)
+	if err != nil {
+		log.Printf("wallet: load %s: %v", userID, err)
+		http.Error(w, "wallet unavailable", http.StatusInternalServerError)
+		return
+	}
 	if txID != "" {
 		for _, t := range doc.Transactions {
 			if t == txID {
 				// Already granted — idempotent OK with the current state, so a
-				// client-side retry/restore never double-credits.
+				// client-side retry/restore never double-credits. A failed
+				// regen persist here is only lost time-derived accrual.
 				if s.accrue(doc, s.now()) {
-					s.save(userID, doc)
+					if serr := s.save(userID, doc); serr != nil {
+						log.Printf("wallet: persist regen for %s: %v", userID, serr)
+					}
 				}
 				s.writeDoc(w, doc)
 				return
@@ -541,6 +605,12 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	s.accrue(doc, s.now()) // a purchase past the cap parks the refill clock
-	s.save(userID, doc)
+	if err := s.save(userID, doc); err != nil {
+		// Neither the grant nor the txID replay-guard reached disk, so the
+		// client's retry of the same receipt credits cleanly exactly once.
+		log.Printf("wallet: persist iap for %s: %v", userID, err)
+		http.Error(w, "persist failed", http.StatusInternalServerError)
+		return
+	}
 	s.writeDoc(w, doc)
 }
