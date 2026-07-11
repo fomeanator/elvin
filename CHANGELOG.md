@@ -43,10 +43,15 @@ the repo as a whole; the Unity package keeps its own detailed
   auto-detected sidecar), the wasm playground, MCP `lvns_check` and the panel
   editor (completion/hover/ghost + live diagnostics). Code generation is
   untouched.
-- **Spine as a standalone package** — `com.lvn.engine.spine` (the driver
-  behind the core's `LvnSpineBridge` seam), the first-party example of the
-  plugin seams; plus the **Extension plugin (template)** sample in the engine
-  package.
+- **The Unity package split** — the engine core is now a thin narrative
+  runtime; the product layer ships as optional first-party packages:
+  `com.lvn.engine.shell` (the ready novel app: NovelApp + every product
+  screen), `com.lvn.engine.services` (offline-first wallet/IAP/ads/
+  analytics/leaderboards clients + `ext` economy ops), `com.lvn.engine.spine`
+  (the Spine driver behind the `LvnSpineBridge` seam) and
+  `com.lvn.engine.addressables` (bundle loading). File GUIDs kept, behaviour
+  unchanged; the **Extension plugin (template)** sample shows how to build
+  your own.
 
 ## [0.7.0] — 2026-07-03
 
