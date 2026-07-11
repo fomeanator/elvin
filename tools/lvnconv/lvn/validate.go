@@ -193,7 +193,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			// it when unhandled, so it stays a warning, not an error.
 			if ext != nil {
 				if spec, ok := ext.Ops[op]; ok {
-					checkExtOp(i, c, op, spec, addErr, addWarn)
+					checkExtOp(i, c, op, spec, addErr, addWarn, ref)
 					return
 				}
 			}
