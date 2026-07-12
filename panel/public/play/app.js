@@ -111,10 +111,22 @@ function escapeHtml(s) {
 }
 
 // ── sprite catalog (manifest) — layered actors render honestly ────────────
+// The manifest probe doubles as server detection: same-origin with the
+// content server, /content/... asset paths resolve as-is; on a static host
+// (GitHub Pages) the probe fails and absolute /content/ paths remap onto the
+// demo pack shipped beside the playground (./content/...), so example art
+// still renders without any server.
 let catalog = {};
-fetch("/v1/content/manifest").then((r) => r.json()).then((m) => {
+let contentBase = ""; // "" → same-origin /content/ works untouched
+const art = (u) =>
+  contentBase && typeof u === "string" && u.startsWith("/content/")
+    ? contentBase + u.slice("/content/".length) : u;
+fetch("/v1/content/manifest").then((r) => {
+  if (!r.ok) throw new Error("no content server");
+  return r.json();
+}).then((m) => {
   catalog = (m && m.sprites) || {};
-}).catch(() => {});
+}).catch(() => { contentBase = new URL("content/", location.href).href; });
 
 function resolveLayers(entity, cmd) {
   // Normalize the three catalog shapes: ["url"], [{url}], and full layer
@@ -408,7 +420,7 @@ function trackStage(cmd) {
 function applyStageDom(cmd, vars) {
   switch (cmd.op) {
     case "bg":
-      if (cmd.sprite_url) els.bg.style.backgroundImage = `url("${cmd.sprite_url}")`;
+      if (cmd.sprite_url) els.bg.style.backgroundImage = `url("${art(cmd.sprite_url)}")`;
       break;
     case "actor":
     case "obj": {
@@ -430,7 +442,7 @@ function applyStageDom(cmd, vars) {
         for (const l of resolveLayers(entity, cmd)) {
           const img = document.createElement("img");
           img.onerror = () => img.remove();
-          img.src = l.url;
+          img.src = art(l.url);
           if (typeof l.x === "number") {
             img.style.left = (l.x * 100) + "%";
             img.style.top = ((l.y ?? 0) * 100) + "%";
@@ -462,7 +474,7 @@ function applyStageDom(cmd, vars) {
         els.actors.appendChild(node);
       }
       if (!node) break;
-      if (url && node.tagName === "IMG") node.src = url;
+      if (url && node.tagName === "IMG") node.src = art(url);
       const x = typeof cmd.x === "number" ? cmd.x
         : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
       node.style.left = (x * 100) + "%";
