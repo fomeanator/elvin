@@ -312,15 +312,20 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 	return []byte(out)
 }
 
-// engineRepoURL is the public git repository the engine packages live in; an
-// exported project resolves each com.lvn.engine* package from it via a
-// ?path=/unity/Packages/<name> UPM reference (the sandbox template uses local
-// file: paths that only work inside this repo).
-const engineRepoURL = "https://github.com/fomeanator/unity-lvn-vn-engine.git"
+// mirrorRepoURL is the public read-only mirror repo for one engine package:
+// per-package repos hold just that package's history (a few-MB clone), where
+// the monorepo drags ~300 MB of demo content through every UPM resolve. The
+// mirrors are produced by the mirror-packages workflow on every release tag.
+// "com.lvn.engine" → …/lvn-engine.git, "com.lvn.engine.shell" →
+// …/lvn-engine-shell.git, and so on.
+func mirrorRepoURL(name string) string {
+	suffix := strings.TrimPrefix(name, "com.lvn.engine")
+	return "https://github.com/fomeanator/lvn-engine" + strings.ReplaceAll(suffix, ".", "-") + ".git"
+}
 
 // patchManifest swaps EVERY engine-family local file: dependency
 // (com.lvn.engine, .shell, .services, .spine, .addressables, …) for its
-// public git URL so a downloaded project resolves on open, and drops
+// public mirror git URL so a downloaded project resolves on open, and drops
 // repo-only dev tooling (the MCP editor bridge) that players' builds must
 // not depend on. A non-empty tag pins every URL to that release (#vX.Y.Z) —
 // the packages are versioned together, and mixing commits would duplicate
@@ -330,7 +335,7 @@ func patchManifest(raw []byte, tag string) []byte {
 	re := regexp.MustCompile(`"(com\.lvn\.engine(?:\.[a-z0-9-]+)?)"\s*:\s*"file:[^"]*"`)
 	out := re.ReplaceAllStringFunc(string(raw), func(dep string) string {
 		name := re.FindStringSubmatch(dep)[1]
-		url := engineRepoURL + "?path=/unity/Packages/" + name
+		url := mirrorRepoURL(name)
 		if tag != "" {
 			url += "#" + tag
 		}

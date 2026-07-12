@@ -7,10 +7,10 @@ keys, so story art ships in bundles (local or remote) instead of loose files.
 ## Install
 
 1. The engine:
-   `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine`
+   `https://github.com/fomeanator/lvn-engine.git`
 2. `com.unity.addressables` (Package Manager → Unity Registry).
 3. This package:
-   `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine.addressables`
+   `https://github.com/fomeanator/lvn-engine-addressables.git`
 
 The assembly compiles only when Addressables is present (a version define
 guards it), so install order never breaks a build.
