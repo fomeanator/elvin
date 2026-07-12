@@ -1,143 +1,143 @@
-# 🗺 Геймбук / CYOA
+# 🗺 Gamebook / CYOA
 
-Жанр «Выбери приключение»: дерево развилок, по которому игрок ведёт историю выбором, а собранные предметы открывают новые ветки.
+The "choose your own adventure" genre: a tree of forks the player steers through by making choices, with collected items unlocking new branches.
 
-## Что делает пример
+## What the example does
 
-`gamebook.lvns` — мини-приключение в пещере. От входа расходятся две ветки: налево (зал с факелом и тёмный туннель) и направо (подземное озеро с ключом). Факел открывает безопасный проход через тёмный туннель, ключ — финальную окованную дверь; без них приходится рисковать или возвращаться. У игрока есть инвентарь и очки здоровья (`hp`), а у истории — две концовки: победа в сокровищнице и гибель в темноте.
+`gamebook.lvns` is a mini-adventure in a cave. Two branches split off from the entrance: left (a hall with a torch and a dark tunnel) and right (an underground lake with a key). The torch unlocks a safe passage through the dark tunnel, the key opens the final iron-bound door; without them you have to take risks or turn back. The player has an inventory and health points (`hp`), and the story has two endings — victory in the treasure room and death in the dark.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Список-инвентарь** и его пополнение: `inv = []`, затем `inv = push(inv, "факел")`.
-- **Скрытый вариант выбора** через `expr=` с булевым фильтром: `- Освятить путь факелом -> bridge expr="has(inv, \"факел\")"` — вариант появляется в меню только когда условие истинно.
-- **Случайность и петля-fallback**: `if chance(0.5) -> grope_ok` с возвратом `-> grope`.
-- **Дерево развилок и возвраты по меткам**: `- Пойти налево (сквозняк) -> left`, узлы-`:метки`, узел-перенаправитель `:reset` → `-> left`.
-- **Очки здоровья и проигрыш**: `hp = hp - 1`, `if hp <= 0 -> dead`, интерполяция `(♥ {hp})`.
-- **Концовки**: `-> __end` и затемнение `fade to="black" duration=0.8` перед смертью.
+- **A list as inventory** and adding to it: `inv = []`, then `inv = push(inv, "torch")`.
+- **A hidden choice option** via `expr=` with a boolean filter: `- Light the way with the torch -> bridge expr="has(inv, \"torch\")"` — the option appears in the menu only when the condition is true.
+- **Randomness and a fallback loop**: `if chance(0.5) -> grope_ok` with a return via `-> grope`.
+- **A tree of forks and returns by label**: `- Go left (the draft) -> left`, `:label` nodes, a redirect node `:reset` → `-> left`.
+- **Health points and losing**: `hp = hp - 1`, `if hp <= 0 -> dead`, the `(♥ {hp})` interpolation.
+- **Endings**: `-> __end` and the `fade to="black" duration=0.8` blackout before death.
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-### 1. Состояние: инвентарь и здоровье
+### 1. State — inventory and health
 
-В начале сцены объявляем два носителя состояния:
+At the start of the scene we declare two state carriers:
 
 ```
 inv = []
 hp = 3
 ```
 
-`inv` — пустой список (см. §6 справочника), `hp` — счётчик. Любая необъявленная переменная читалась бы как `0`/`""`/`false`, но явная инициализация делает сценарий понятнее.
+`inv` is an empty list (see §6 of the reference), `hp` is a counter. Any undeclared variable would read as `0`/`""`/`false`, but explicit initialization makes the script clearer.
 
-Предметы кладутся в инвентарь функцией `push`, которая **возвращает новый список** — поэтому результат присваивается обратно:
+Items go into the inventory with the `push` function, which **returns a new list** — so the result is assigned back:
 
 ```
 :take_torch
-inv = push(inv, "факел")
-Факел теперь у тебя. Огонь разгоняет тьму.
+inv = push(inv, "torch")
+The torch is yours now. Fire drives back the darkness.
 -> dark
 ```
 
-Тот же приём для ключа в ветке озера (`inv = push(inv, "ключ")`).
+The same trick is used for the key in the lake branch (`inv = push(inv, "key")`).
 
-### 2. Скрытый вариант через `expr=`
+### 2. A hidden option via `expr=`
 
-Главная механика геймбука — варианты-гейты. В тёмном туннеле проход «по свету» виден только тем, у кого есть факел:
+The core gamebook mechanic is gated options. In the dark tunnel, the "by torchlight" passage is visible only to those who carry a torch:
 
 ```
 :dark
 bg /content/bg/dark_tunnel.jpg
-Туннель ныряет в кромешную темноту. Без света легко сорваться.
-- Освятить путь факелом -> bridge expr="has(inv, \"факел\")"
-- Идти на ощупь -> grope
+The tunnel plunges into pitch darkness. Without light it's easy to fall.
+- Light the way with the torch -> bridge expr="has(inv, \"torch\")"
+- Feel your way forward -> grope
 ```
 
-`expr=` — булев фильтр варианта: **когда выражение ложно, вариант скрыт** (§5). Текст в кавычках живёт внутри строки выбора, поэтому внутренние кавычки экранируются как `\"` — `has(inv, \"факел\")` проверяет наличие элемента в списке (§7). Тот же паттерн запирает финальную дверь на ключ:
+`expr=` is a boolean filter on the option: **when the expression is false, the option is hidden** (§5). The quoted text lives inside the choice line, so inner quotes are escaped as `\"` — `has(inv, \"torch\")` checks whether the list contains an element (§7). The same pattern locks the final door behind the key:
 
 ```
-- Открыть дверь ключом -> win expr="has(inv, \"ключ\")"
+- Open the door with the key -> win expr="has(inv, \"key\")"
 ```
 
-### 3. Fallback-петля на `chance(0.5)`
+### 3. A fallback loop on `chance(0.5)`
 
-Если факела нет, остаётся идти на ощупь — с риском. Узел `:grope` крутится сам на себя, пока попытка не удастся или здоровье не кончится:
+Without a torch, all that remains is to feel your way — at a risk. The `:grope` node loops back on itself until the attempt succeeds or health runs out:
 
 ```
 :grope
 if chance(0.5) -> grope_ok
 hp = hp - 1
-Ты оступился в темноте и больно упал. (♥ {hp})
+You stumble in the dark and take a painful fall. (♥ {hp})
 if hp <= 0 -> dead
 -> grope
 :grope_ok
-Чудом нащупав стену, ты добрался до моста.
+Groping along the wall, you somehow reach the bridge.
 -> bridge
 ```
 
-`chance(0.5)` истинно с вероятностью 50% (§7) — при удаче прыгаем на `grope_ok`. Иначе теряем `hp`, показываем счётчик через интерполяцию `{hp}`, проверяем смерть и **возвращаемся в начало узла** безусловным `-> grope`. Это и есть петля повторных попыток без циклов `while`.
+`chance(0.5)` is true with 50% probability (§7) — on success we jump to `grope_ok`. Otherwise we lose `hp`, show the counter via the `{hp}` interpolation, check for death, and **return to the top of the node** with an unconditional `-> grope`. That is the retry loop — no `while` needed.
 
-### 4. Дерево развилок и возврат по меткам
+### 4. The fork tree and returns by label
 
-Каждый «экран» — это фон, строка-пауза и меню выбора, ведущее на метки:
+Each "screen" is a background, a pause line, and a choice menu leading to labels:
 
 ```
 bg /content/bg/cave_mouth.jpg
-Развилка в пещере. Слева тянет сквозняком, справа капает вода.
-- Пойти налево (сквозняк) -> left
-- Пойти направо (капель) -> right
+A fork in the cave. A draft pulls from the left, water drips on the right.
+- Go left (the draft) -> left
+- Go right (the dripping) -> right
 ```
 
-Чтобы игрок мог сходить за ключом и вернуться на основной маршрут, используется узел-перенаправитель:
+To let the player fetch the key and come back to the main route, a redirect node is used:
 
 ```
 :reset
 -> left
 ```
 
-Ветки `take_key`, `stuck` и развилка озера все ведут `-> reset`, а `reset` отправляет на `left` — так граф остаётся связным без дублирования кода.
+The `take_key` and `stuck` branches and the lake fork all lead `-> reset`, and `reset` sends you to `left` — this keeps the graph connected without duplicating code.
 
-### 5. Концовки
+### 5. Endings
 
-Победа и гибель закрываются встроенной меткой `__end`:
+Victory and death close with the built-in `__end` label:
 
 ```
 :win
 bg /content/bg/treasure_room.jpg
-Ключ проворачивается. За дверью — сокровищница. Ты прошёл приключение!
+The key turns. Beyond the door lies the treasure room. You beat the adventure!
 -> __end
 
 :dead
 fade to="black" duration=0.8
-Тьма пещеры поглотила тебя. Приключение окончено.
+The darkness of the cave swallows you. The adventure is over.
 -> __end
 ```
 
-`fade to="black"` перед `dead` даёт смерти драматичное затемнение (§4).
+`fade to="black"` before `dead` gives the death a dramatic blackout (§4).
 
-## Запуск и проверка
+## Run and check
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/gamebook/gamebook.lvns -o /tmp/gb.lvn
 
-# структурная проверка: неизвестные op, висячие прыжки, дубли меток
+# structural check: unknown ops, dangling jumps, duplicate labels
 /tmp/lvnconv validate /tmp/gb.lvn
 ```
 
-Цель — **0 warning(s)**. Самый частый ворнинг «label … reached by fall-through» означает, что в метку-цель ещё и «проваливаются» сверху — поставь явный `-> метка` или `-> __end` перед ней.
+The goal is **0 warning(s)**. The most common warning, "label … reached by fall-through", means execution also "falls into" the target label from above — put an explicit `-> label` or `-> __end` before it.
 
-## Сделай своим
+## Make it yours
 
-- **Новые предметы-гейты.** Добавь `inv = push(inv, "верёвка")` в новой ветке и запри ею обрыв: `- Спуститься по верёвке -> ... expr="has(inv, \"верёвка\")"`. Строится на `push` + `expr=`.
-- **Новые развилки.** Любой новый `:узел` с `bg`, строкой-паузой и блоком `- ... -> метка` расширяет дерево; связывай его обратно через `:reset`-идиому.
-- **Очки риска вместо чистой случайности.** Замени `chance(0.5)` на проверку ресурса: накопил факелы/зелья — порог ниже. Строится на переменных и `if ... ->`.
-- **Развилка по здоровью.** Перед опасной веткой добавь `- Рискнуть -> trap expr="hp >= 2"`, чтобы раненый герой не мог лезть на рожон. Строится на `expr=` поверх `hp`.
-- **Альтернативный путь к победе.** Сделай вторую концовку: например, выход без сокровища, если ключ не найден, но факел есть — ещё одна `:метка` и `-> __end`.
+- **New gating items.** Add `inv = push(inv, "rope")` in a new branch and lock a cliff behind it: `- Climb down the rope -> ... expr="has(inv, \"rope\")"`. Built on `push` + `expr=`.
+- **New forks.** Any new `:node` with a `bg`, a pause line, and a `- ... -> label` block extends the tree; wire it back in via the `:reset` idiom.
+- **Risk points instead of pure chance.** Replace `chance(0.5)` with a resource check — collected torches/potions lower the threshold. Built on variables and `if ... ->`.
+- **A fork on health.** Before a dangerous branch, add `- Take the risk -> trap expr="hp >= 2"` so a wounded hero can't charge in recklessly. Built on `expr=` over `hp`.
+- **An alternative path to victory.** Make a second ending — for example, an exit without the treasure when the key wasn't found but the torch was: one more `:label` and `-> __end`.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md)
-- [Книга рецептов](../recipes.md)
-- [Все жанры](../README.md)
+- [Language reference](../LANGUAGE.md)
+- [Recipe book](../recipes.md)
+- [All genres](../README.md)

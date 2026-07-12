@@ -1,122 +1,125 @@
-# HOW TO — собери свою игру на движке Elvin
+# HOW TO — build your own game on the Elvin engine
 
-Это папка для разработчиков игр. Здесь — **грамотные пошаговые гайды по типам
-игр** и **большая база рабочих примеров**. Каждый пример написан на языке
-`.lvns`, скомпилирован и проверен транскодером `lvnconv` (0 ошибок, 0
-предупреждений). Бери жанр, ближайший к твоей идее, читай гайд, копируй пример —
-и переделывай под себя.
+This folder is for game developers. It contains **solid step-by-step guides by
+game type** and **a large base of working examples**. Every example is written in
+the `.lvns` language, compiled and checked by the `lvnconv` transcoder (0 errors,
+0 warnings). Pick the genre closest to your idea, read the guide, copy the
+example — and rework it into your own.
 
-> **Elvin** — движок нарративных игр для Unity: ты описываешь игру простым
-> текстом (`.lvns`), а движок проигрывает её как настоящую игру — фоны, персонажи
-> с эмоциями, диалоги, выбор, статы, анимация, сохранения, — **без кода диалоговой
-> системы**. Один и тот же движок тянет визуальные новеллы, квесты, RPG, кликеры,
-> point-and-click и почти любую игру, управляемую **выбором и состоянием**.
-> (Имя «Elvin» — это «LVN» вслух; играет формат `.lvn`.)
+> **Elvin** is a narrative-game engine for Unity: you describe your game in plain
+> text (`.lvns`), and the engine plays it as a real game — backgrounds, characters
+> with emotions, dialogue, choices, stats, animation, saves — **with no dialogue
+> system code**. The same engine drives visual novels, quests, RPGs, clickers,
+> point-and-click and almost any game driven by **choice and state**.
+> (The name "Elvin" is "LVN" said out loud; the playable format is `.lvn`.)
 
 ---
 
-## Туториал
+## Tutorial
 
-**[TUTORIAL.md](TUTORIAL.md) — первая игра за 15 минут**: сервер → IDE →
-сцена с вводом имени и выбором на время → играешь в Unity-песочнице с
-live-reload. Начни отсюда, если ты человек; ИИ-агенту — `AGENTS.md`.
+**[TUTORIAL.md](TUTORIAL.md) — your first game in 15 minutes**: server → IDE →
+a scene with name input and a timed choice → play it in the Unity sandbox with
+live-reload. Start here if you are a human; for an AI agent — `AGENTS.md`.
 
-## 60-секундный старт
+## 60-second start
 
 ```sh
-# 1. Собрать транскодер (нужен один раз)
+# 1. Build the transcoder (needed once)
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# 2. Скомпилировать любой пример .lvns → .lvn
+# 2. Compile any .lvns example → .lvn
 /tmp/lvnconv convert -i howto/visual-novel/visual-novel.lvns -o /tmp/out.lvn
 
-# 3. Проверить структуру (висячие прыжки, неизвестные команды и т.п.)
+# 3. Check the structure (dangling jumps, unknown commands, etc.)
 /tmp/lvnconv validate /tmp/out.lvn
 ```
 
-Чтобы **играть** скомпилированный `.lvn`, положи его (и манифест с ассетами) на
-контент-сервер и открой в Unity-плеере. Запуск локального сервера и сборка панели
-описаны в `server/README.md` и `panel/README.md`. Для первого знакомства хватает
-`convert` + `validate` — структуру игры видно сразу.
+To **play** a compiled `.lvn`, put it (along with a manifest and assets) on the
+content server and open it in the Unity player. Running a local server and
+building Studio are covered in `server/README.md` and `panel/README.md`. For a
+first look, `convert` + `validate` is enough — the game's structure is visible
+right away.
 
-> **Минимальный рабочий цикл автора:** правишь `.lvns` → `convert` → `validate`
-> → если `OK ... 0 warning(s)`, грузишь в плеер. Арт можно подставлять потом:
-> недостающий спрайт на сцене просто **не рисуется** (слой пропускается), а
-> сюжет, текст и логику видно и без графики. Серые заглушки-картинки при
-> необходимости генерируются тулзами на этапе импорта — см.
-> [`CAPABILITIES.md`](CAPABILITIES.md) §7.
-
----
-
-> 🤖 **ИИ-агенту:** начни с [`AGENTS.md`](AGENTS.md) — ментальная модель, рабочий
-> цикл и частые ошибки на одной странице. После неё ты сможешь собрать игру не
-> заглядывая в код движка.
-
-## С чего начать читать
-
-1. **`AGENTS.md`** — точка входа: четырёхслойная модель (`.lvns`→`lvnconv`→`.lvn`
-   →рантайм + манифест), рабочий цикл, карта доков, частые ошибки. Особенно для
-   ИИ-агента, начинающего «с холода».
-2. **`CHEATSHEET.md`** — весь синтаксис плотно на один экран.
-3. **`LANGUAGE.md`** — полный справочник языка `.lvns`: команды, выражения,
-   встроенные функции, управление потоком, каст, анимация.
-4. **`CAPABILITIES.md`** — **что движок умеет и чего НЕ умеет**: рантайм-поведение
-   каждой команды, каст/ассеты, и явный список жёстких ограничений.
-5. **Гайд по своему жанру** (таблица ниже) — разбор примера и идеи расширения.
-6. **`recipes.md`** — короткие переиспользуемые паттерны (счётчик, инвентарь,
-   лавка, бросок кости, метр отношений, кодовый замок, реактивный HUD).
+> **The author's minimal working loop:** edit `.lvns` → `convert` → `validate`
+> → if `OK ... 0 warning(s)`, load it into the player. Art can be plugged in
+> later: a missing sprite on a scene simply **isn't drawn** (the layer is
+> skipped), while the story, text and logic are visible even without graphics.
+> Gray placeholder images can be generated by the tooling at import time if
+> needed — see [`CAPABILITIES.md`](CAPABILITIES.md) §7.
 
 ---
 
-## Карта жанров
+> 🤖 **AI agent:** start with [`AGENTS.md`](AGENTS.md) — the mental model, the
+> working loop and common mistakes on a single page. After it you'll be able to
+> build a game without ever looking at the engine's code.
 
-| Жанр | Папка | Что показывает | Ключевые возможности |
+## Where to start reading
+
+1. **`AGENTS.md`** — the entry point: the four-layer model (`.lvns`→`lvnconv`→`.lvn`
+   →runtime + manifest), the working loop, a map of the docs, common mistakes.
+   Especially for an AI agent starting cold.
+2. **`CHEATSHEET.md`** — the entire syntax, dense, on one screen.
+3. **`LANGUAGE.md`** — the full `.lvns` language reference: commands, expressions,
+   built-in functions, flow control, cast, animation.
+4. **`CAPABILITIES.md`** — **what the engine can and can NOT do**: the runtime
+   behavior of every command, cast/assets, and an explicit list of hard limits.
+5. **The guide for your genre** (table below) — a walkthrough of the example and
+   ideas for extending it.
+6. **`recipes.md`** — short reusable patterns (counter, inventory, shop, dice
+   roll, relationship meter, combination lock, reactive HUD).
+
+---
+
+## Genre map
+
+| Genre | Folder | What it shows | Key features |
 |---|---|---|---|
-| 📖 Визуальная новелла | [`visual-novel/`](visual-novel/) | Ветвящийся диалог, эмоции, флаги, концовки | `actor_map`, эмоции каста, `choice`, `if`, флаги |
-| 🗺 Геймбук / CYOA | [`gamebook/`](gamebook/) | Дерево развилок + инвентарь, гейты по предметам | `choice expr=`, `push`/`has`, `chance` |
-| 🖱 Point-and-click | [`point-and-click/`](point-and-click/) | Комната-побег: хотспоты, состояние, экран-цикл | `obj on_click`, экран-пауза, `set`/`if` |
-| ⚔ RPG | [`rpg/`](rpg/) | Статы, бой-подпрограмма, лавка, уровни | `call`/`return`, `while`, `rand`, реактивный HUD |
-| 🍪 Кликер / idle | [`clicker/`](clicker/) | Реактивная панель, апгрейды, экономика | реактивный `text`, клик-цикл, `floor` |
-| 💕 Dating sim | [`dating-sim/`](dating-sim/) | Метры симпатии, дневной цикл, роуты | метры, `choice expr=`, дневной цикл |
-| ❓ Викторина | [`quiz/`](quiz/) | Вопросы, счёт, оценка по очкам | счёт, ветвление итога |
-| 🔍 Детектив | [`detective/`](detective/) | Сбор улик, хаб, обвинение по порогу | список улик, `len`, хаб-узел |
-| 🏪 Tycoon / менеджмент | [`tycoon/`](tycoon/) | Пошаговая экономика, события, win/lose | ходы-циклы, `rand`-события, баланс |
-| 🗡 Roguelike | [`roguelike/`](roguelike/) | Процедурные комнаты, забег, риск-награда | цикл-генератор, `rand`, смерть-конец |
-| 🎬 Кинетическая новелла | [`kinetic-novel/`](kinetic-novel/) | История без выбора, но с постановкой | `anim`/`move`, `fade`/`dim`, `camera`, `particles` |
-| 🧩 Головоломка | [`puzzle/`](puzzle/) | Логический замок из рычагов | состояние-головоломка, проверка-условие |
+| 📖 Visual novel | [`visual-novel/`](visual-novel/) | Branching dialogue, emotions, flags, endings | `actor_map`, cast emotions, `choice`, `if`, flags |
+| 🗺 Gamebook / CYOA | [`gamebook/`](gamebook/) | Branch tree + inventory, item gates | `choice expr=`, `push`/`has`, `chance` |
+| 🖱 Point-and-click | [`point-and-click/`](point-and-click/) | Escape room: hotspots, state, screen loop | `obj on_click`, screen pause, `set`/`if` |
+| ⚔ RPG | [`rpg/`](rpg/) | Stats, combat subroutine, shop, levels | `call`/`return`, `while`, `rand`, reactive HUD |
+| 🍪 Clicker / idle | [`clicker/`](clicker/) | Reactive panel, upgrades, economy | reactive `text`, click loop, `floor` |
+| 💕 Dating sim | [`dating-sim/`](dating-sim/) | Affection meters, day cycle, routes | meters, `choice expr=`, day cycle |
+| ❓ Quiz | [`quiz/`](quiz/) | Questions, scoring, grade by points | scoring, result branching |
+| 🔍 Detective | [`detective/`](detective/) | Clue collection, hub, threshold accusation | clue list, `len`, hub node |
+| 🏪 Tycoon / management | [`tycoon/`](tycoon/) | Turn-based economy, events, win/lose | turn loops, `rand` events, balance |
+| 🗡 Roguelike | [`roguelike/`](roguelike/) | Procedural rooms, runs, risk-reward | generator loop, `rand`, death ending |
+| 🎬 Kinetic novel | [`kinetic-novel/`](kinetic-novel/) | A story with no choices but full staging | `anim`/`move`, `fade`/`dim`, `camera`, `particles` |
+| 🧩 Puzzle | [`puzzle/`](puzzle/) | A logic lock made of levers | puzzle state, condition check |
 
-Жанры **смешиваются**: RPG с диалогами и роутами, кликер с сюжетными
-вставками, детектив с мини-играми. Все они — один движок и один язык; разница
-лишь в том, какие команды ты комбинируешь.
+Genres **mix**: an RPG with dialogue and routes, a clicker with story
+interludes, a detective with mini-games. They are all one engine and one
+language; the only difference is which commands you combine.
 
-Сверх 12 жанров — два **референс-каталога** (не жанры, а образцы устройства):
+Beyond the 12 genres there are two **reference catalogs** (not genres, but
+blueprints of how things are built):
 
-| Референс | Папка | Что показывает |
+| Reference | Folder | What it shows |
 |---|---|---|
-| 🧱 Ядро новеллы | [`novella-core/`](novella-core/) | «Пять кирпичей» современной сюжетной новеллы: гейт по статам, платный выбор, гардероб, таймер, глобальные статы |
-| 🏛 Хаб и коллекции | [`time-romance/`](time-romance/) | Хаб-компоновка библиотеки (`ui.browse.layout="hub"`): коллекции, типы тайтлов, `unlock`/`cost`, энергия глав |
+| 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" of a modern story novel: stat gates, paid choices, wardrobe, timer, global stats |
+| 🏛 Hub & collections | [`time-romance/`](time-romance/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
 
 ---
 
-## Большие реальные сценарии
+## Large real-world scripts
 
-Помимо учебных примеров в этой папке, в репозитории есть полноразмерные игры —
-смотри их, когда учебного мало:
+Besides the tutorial examples in this folder, the repository contains
+full-size games — look at them when the tutorials aren't enough:
 
-- `server/content/scripts/rpg-inv.lvns` — большая RPG «Тропа героя» (экипировка,
-  лавки, случайные бои, босс, переиспользуемый боевой движок).
-- `server/content/scripts/goblin-battle.lvns` — пошаговый бой.
-- `server/content/scripts/showcase.lvns` — point-and-click escape room.
-- `server/content/scripts/soviet-ch1.lvns` — большая визуальная новелла.
+- `server/content/scripts/rpg-inv.lvns` — a large RPG, "Hero's Trail" (equipment,
+  shops, random battles, a boss, a reusable combat engine).
+- `server/content/scripts/goblin-battle.lvns` — turn-based combat.
+- `server/content/scripts/showcase.lvns` — a point-and-click escape room.
+- `server/content/scripts/soviet-ch1.lvns` — a large visual novel.
 
 ---
 
-## Правила хорошего тона (чтобы передать игру дальше)
+## Good manners (so the game can be handed off)
 
-- **Пиши в `.lvns`, не в `.lvn`.** `.lvn` — машинный артефакт.
-- **Валидируй до нуля предупреждений.** `lvnconv validate -strict`.
-- **Метки — стабильные id.** Сохранения и аналитика завязаны на id меток/
-  концовок: переименовывать ТЕКСТ можно, id меток — нельзя.
-- **Ассеты — это данные.** Пути (`/content/...`) подставляются позже; логика
-  игры от конкретных картинок не зависит.
-- **Не трогай префикс `__`** в своих переменных — он служебный.
+- **Write in `.lvns`, not `.lvn`.** `.lvn` is a machine artifact.
+- **Validate down to zero warnings.** `lvnconv validate -strict`.
+- **Labels are stable ids.** Saves and analytics are tied to label/ending ids:
+  you may rename the TEXT, but never a label's id.
+- **Assets are data.** Paths (`/content/...`) are plugged in later; the game's
+  logic does not depend on specific images.
+- **Don't touch the `__` prefix** in your variables — it's reserved.

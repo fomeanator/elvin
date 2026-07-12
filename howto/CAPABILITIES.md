@@ -1,311 +1,311 @@
-# Возможности и ограничения движка Elvin
+# Elvin engine capabilities and limits
 
-Это **карта того, что движок умеет и чего НЕ умеет**, сверенная с исходниками
-(транскодер `tools/lvnconv/`, рантайм `unity/Packages/com.lvn.engine/Runtime/`).
-Цель — чтобы решение «можно ли сделать X» принималось по этому файлу, **без
-чтения кода**. Если фича помечена «❌ нет» — её нет в эталонном рантайме, и
-обходить это надо средствами языка (переменные, метки, циклы), а не надеяться,
-что «оно как-нибудь сработает».
+This is a **map of what the engine can and can NOT do**, verified against the sources
+(the `tools/lvnconv/` transcoder, the `unity/Packages/com.lvn.engine/Runtime/` runtime).
+The goal is that "can we do X" decisions get made from this file, **without
+reading the code**. If a feature is marked "❌ no" — it does not exist in the reference
+runtime, and you must work around it with language means (variables, labels, loops),
+not hope that "it will somehow work".
 
-Связанные доки: синтаксис — [`LANGUAGE.md`](LANGUAGE.md); ориентир для ИИ-агента
-— [`AGENTS.md`](AGENTS.md); шпаргалка — [`CHEATSHEET.md`](CHEATSHEET.md).
-
----
-
-## 0. Что вообще можно построить
-
-Движок — это исполнитель плоского списка команд (`.lvn`) с переменными, ветвле-
-нием, подпрограммами, реактивным HUD, постановкой (фон/актёры/эффекты/звук) и
-скрипт-анимацией. Этого достаточно для:
-
-> визуальных новелл, кинетических новелл, геймбуков/CYOA, point-and-click и
-> квестов, RPG (статы/бой/инвентарь/уровни), dating-sim, викторин, детективов,
-> tycoon/менеджмента, roguelike-забегов, головоломок, и почти любой игры,
-> управляемой **кнопками + состоянием**.
-
-Чего движок принципиально НЕ делает: это **не** физический/реалтайм-движок. Нет
-игрового цикла реального времени, доступного скрипту, нет произвольного ввода с
-клавиатуры/мыши кроме кликов по объектам и выбора в меню, нет аркадной механики
-на таймингах. Всё «время» отмеряется **ходами/действиями игрока**, а не часами.
+Related docs: syntax — [`LANGUAGE.md`](LANGUAGE.md); orientation for an AI agent
+— [`AGENTS.md`](AGENTS.md); cheatsheet — [`CHEATSHEET.md`](CHEATSHEET.md).
 
 ---
 
-## 1. Полный каталог команд (рантайм-поведение)
+## 0. What can be built at all
 
-Это все `op`, которые понимает рантайм (реестр — `validate.go` `KnownOps`).
-Любой другой `op` — ошибка сборки. В `.lvns` ты пишешь человекочитаемую форму
-(см. `LANGUAGE.md`), которая компилируется в эти команды.
+The engine is an executor of a flat command list (`.lvn`) with variables, branching,
+subroutines, a reactive HUD, staging (background/actors/effects/sound) and
+scripted animation. That is enough for:
 
-### Текст и выбор
-| op | Что делает в рантайме | Поля |
+> visual novels, kinetic novels, gamebooks/CYOA, point-and-click and
+> adventure games, RPGs (stats/combat/inventory/levels), dating sims, quizzes, detective
+> stories, tycoon/management, roguelike runs, puzzles, and almost any game
+> driven by **buttons + state**.
+
+What the engine fundamentally does NOT do: it is **not** a physics/realtime engine.
+There is no real-time game loop available to the script, no arbitrary
+keyboard/mouse input beyond clicking objects and picking menu options, no timing-based
+arcade mechanics. All "time" is measured in **turns/player actions**, not clock hours.
+
+---
+
+## 1. Full command catalog (runtime behavior)
+
+These are all the `op`s the runtime understands (registry — `validate.go` `KnownOps`).
+Any other `op` is a build error. In `.lvns` you write the human-readable form
+(see `LANGUAGE.md`), which compiles into these commands.
+
+### Text and choice
+| op | What it does at runtime | Fields |
 |---|---|---|
-| `say` | Показывает строку; интерполирует `{выражение}`; ждёт клика (кроме случая, когда следом идёт `choice`). Озвучка: поле `voice` (в `.lvns` — строка `voice "<url>"` перед репликой) — клип стартует с текстом, глушится следующей строкой/сбросом; громкость — слайдер «Озвучка» (ключ `voice`), тайп-блип под голосом молчит. | `text`, `who?`, `style?`, `voice?` |
-| `choice` | Меню выбора. Фильтрует варианты по `requires_stat`/`min` и `expr` (непрошедшие **скрываются**, не «серые»). Таймер: `timeout` (сек) + `timeout_goto` — полоса обратного отсчёта над кнопками, истечение уводит в ветку (в `.lvns`: строка `choice timeout=10 timeout_goto=late` перед блоком `- …`; меню/арт-вью замораживают часы). | `options[]`, `timeout?`, `timeout_goto?` |
-| `text` | Постоянная **реактивная** HUD-метка: шаблон пересчитывается **каждые 200 мс**. `hide=true` убирает. | `id`, `text`(шаблон), `x`,`y`,`anchor`,`size`,`color`,`font`,`hide` |
-| `text_pace` | Скорость печати текста (символов/сек; `0` — мгновенно). | `cps` |
+| `say` | Shows a line; interpolates `{expression}`; waits for a click (except when a `choice` follows). Voice-over: the `voice` field (in `.lvns` — a `voice "<url>"` line before the dialogue line) — the clip starts with the text and is muted by the next line/reset; volume — the "Voice" slider (key `voice`), the typing blip stays silent under voice. | `text`, `who?`, `style?`, `voice?` |
+| `choice` | Choice menu. Filters options by `requires_stat`/`min` and `expr` (options that fail are **hidden**, not "grayed out"). Timer: `timeout` (sec) + `timeout_goto` — a countdown bar above the buttons; expiry sends the flow to a branch (in `.lvns`: a `choice timeout=10 timeout_goto=late` line before the `- …` block; menus/art view freeze the clock). | `options[]`, `timeout?`, `timeout_goto?` |
+| `text` | Persistent **reactive** HUD label: the template is re-evaluated **every 200 ms**. `hide=true` removes it. | `id`, `text`(template), `x`,`y`,`anchor`,`size`,`color`,`font`,`hide` |
+| `text_pace` | Text typing speed (chars/sec; `0` — instant). | `cps` |
 
-### Поток управления
-| op | Что делает | Поля |
+### Control flow
+| op | What it does | Fields |
 |---|---|---|
-| `label` | Метка-цель прыжка (no-op в исполнении). | `id` |
-| `goto` | Прыжок на метку или `__end`. Неизвестная метка → предупреждение и переход в конец. | `label` |
-| `if` | Условный прыжок. Принимает **структурный** `cond` `{key,op,value}` (`eq/ne/lt/lte/gt/gte`) **или** строковый `expr` (если есть оба — `expr` главнее). | `cond`/`expr`, `then`, `else` |
-| `call` | Прыжок с запоминанием возврата (стек вызовов). | `label` |
-| `return` | Возврат к точке после `call`; при пустом стеке — в конец. | — |
+| `label` | Jump target label (a no-op when executed). | `id` |
+| `goto` | Jump to a label or `__end`. Unknown label → a warning and a jump to the end. | `label` |
+| `if` | Conditional jump. Accepts a **structural** `cond` `{key,op,value}` (`eq/ne/lt/lte/gt/gte`) **or** a string `expr` (if both are present, `expr` wins). | `cond`/`expr`, `then`, `else` |
+| `call` | Jump that remembers the return point (call stack). | `label` |
+| `return` | Return to the point after `call`; with an empty stack — to the end. | — |
 
-### Состояние
-| op | Что делает | Поля |
+### State
+| op | What it does | Fields |
 |---|---|---|
-| `set` | Присвоить переменную. `expr` (строка-выражение) главнее `value` (литерал). | `key`, `value`/`expr` |
-| `inc` | Прибавить число (по умолчанию `+1`). | `key`, `by?` |
+| `set` | Assign a variable. `expr` (expression string) wins over `value` (literal). | `key`, `value`/`expr` |
+| `inc` | Add a number (default `+1`). | `key`, `by?` |
 
-### Постановка: сцена
-| op | Что делает | Ключевые поля |
+### Staging: scene
+| op | What it does | Key fields |
 |---|---|---|
-| `bg` | Фон. Резолвит id каталога или прямой `sprite_url`. Грузится асинхронно. | `sprite_url`, `id?` |
-| `actor` | Поставить/обновить/спрятать персонажа. Резолвит слои из каста/каталога/прямых url; заводит idle/blink/lip-sync. | `id`, оси каста, `show`,`position`,`x`,`y`,`width`,`height`,`scale`,`anchor`,`z`,`flip`,`rotation`,`opacity`,`on_click`,`hover_opacity` |
-| `obj` | То же, что `actor` (один код), но семантически — «не персонаж» (не гаснет). | (как у `actor`) |
+| `bg` | Background. Resolves a catalog id or a direct `sprite_url`. Loads asynchronously. | `sprite_url`, `id?` |
+| `actor` | Place/update/hide a character. Resolves layers from the cast/catalog/direct urls; starts idle/blink/lip-sync. | `id`, cast axes, `show`,`position`,`x`,`y`,`width`,`height`,`scale`,`anchor`,`z`,`flip`,`rotation`,`opacity`,`on_click`,`hover_opacity` |
+| `obj` | Same as `actor` (same code), but semantically "not a character" (does not dim). | (same as `actor`) |
 
-### Постановка: эффекты, звук, тайминг
-| op | Что делает | Поля / умолчания |
+### Staging: effects, sound, timing
+| op | What it does | Fields / defaults |
 |---|---|---|
-| `fade` | Полноэкранное затемнение. | `to`=black/white/clear, `duration`≈0.5 |
-| `dim` | Притушить сцену (фокус). | `alpha`≈0.4, `duration`≈0.5 |
-| `flash` | Короткая вспышка. | `color`=white, `duration`≈0.2 |
-| `tint` | Цветной оверлей-вуаль. | `color`,`alpha`≈0.3,`duration` |
-| `blur` | Размытие экрана (`alpha`≤0 снимает). | `alpha`≈0.5,`duration` |
+| `fade` | Full-screen fade. | `to`=black/white/clear, `duration`≈0.5 |
+| `dim` | Dim the scene (focus). | `alpha`≈0.4, `duration`≈0.5 |
+| `flash` | Short flash. | `color`=white, `duration`≈0.2 |
+| `tint` | Colored overlay veil. | `color`,`alpha`≈0.3,`duration` |
+| `blur` | Screen blur (`alpha`≤0 removes it). | `alpha`≈0.5,`duration` |
 | `camera` | `shake`/`zoom`/`pan`/`reset`. | `action`,`amplitude`,`factor`,`x`,`y`,`duration` |
-| `particles` | Слой погоды. | `type`=rain/snow, `on`(bool) |
-| `audio` | Звук по каналу (асинхронно). | `channel`=music/sfx/ambient, `action`=play/stop, `url?` |
-| `wait` | Пауза скрипта на N мс (по умолчанию 1000). | `ms` |
-| `input` | Оверлей ввода текста; строка ложится в переменную, сюжет ждёт подтверждения. | `var` (обяз.), `prompt?`, `default?`, `max?` |
-| `anim` | Скрипт-твин на канале (в `.lvns` это `anim`/`move`). `mode=queue` ставит в очередь канала; `stop` чистит канал. | `id`,`anim`(payload),`channel?`,`mode?`,`stop?` |
-| `preload` | Асинхронно прогреть ассеты (не блокирует). | `assets[]` `{url,kind}` |
+| `particles` | Weather layer. | `type`=rain/snow, `on`(bool) |
+| `audio` | Sound on a channel (async). | `channel`=music/sfx/ambient, `action`=play/stop, `url?` |
+| `wait` | Pause the script for N ms (default 1000). | `ms` |
+| `input` | Text input overlay; the string goes into a variable, the story waits for confirmation. | `var` (required), `prompt?`, `default?`, `max?` |
+| `anim` | Scripted tween on a channel (in `.lvns` this is `anim`/`move`). `mode=queue` enqueues on the channel; `stop` clears the channel. | `id`,`anim`(payload),`channel?`,`mode?`,`stop?` |
+| `preload` | Warm up assets asynchronously (non-blocking). | `assets[]` `{url,kind}` |
 
-UI-звуки интерфейса (не команда, а манифест): `manifest.ui.sounds =
-{ click?, choice?, type?, volume? }` — короткие ваншоты на тап-по-диалогу,
-выбор опции и тик тайпрайтера (тротлится). Url-ы контентные, масштабируются
-пользовательской громкостью SFX; отсутствующее поле — тишина.
+UI interface sounds (a manifest, not a command): `manifest.ui.sounds =
+{ click?, choice?, type?, volume? }` — short one-shots on dialogue tap,
+option pick and the typewriter tick (throttled). Urls are content urls, scaled
+by the user's SFX volume; a missing field means silence.
 
-Трекинг прочитанного (автоматика, не команда): движок помнит каждую
-показанную реплику per-title (переживает удаление сейвов); в настройках
-тумблер «Скип: только прочитанное» (ключ метки `skip_read_only`) — быстрая
-перемотка останавливается на первой ещё не виденной строке.
+Read-text tracking (automatic, not a command): the engine remembers every
+line shown, per-title (survives save deletion); the settings have a
+"Skip: read only" toggle (label key `skip_read_only`) — fast-forward stops
+at the first line not yet seen.
 
-CG-галерея (манифест, per-title): `title.gallery = [{id, url, name?}, …]` —
-кураторский список разблокируемых артов. Арт открывается навсегда при первом
-показе `bg` с тем же url (переживает удаление сейвов и новые прохождения);
-в quick-меню появляется пункт «Галерея» (ключ метки `gallery`): сетка,
-закрытые — «?», тап по открытому — полноэкранный просмотр. `id` держи
-стабильным между релизами, иначе игроки потеряют разблокировки.
+CG gallery (manifest, per-title): `title.gallery = [{id, url, name?}, …]` —
+a curated list of unlockable art. An art piece unlocks forever on the first
+`bg` shown with the same url (survives save deletion and new playthroughs);
+a "Gallery" entry appears in the quick menu (label key `gallery`): a grid,
+locked pieces show "?", tapping an unlocked one opens full-screen view. Keep `id`
+stable between releases, otherwise players lose their unlocks.
 
-### Сохранение
-| op | Что делает | Поля |
+### Saving
+| op | What it does | Fields |
 |---|---|---|
-| `save` | Снимок состояния (см. §5). | `slot?` (по умолч. `quick`) |
-| `load` | Восстановить снимок и перерисовать сцену. | `slot?` |
+| `save` | Snapshot the state (see §5). | `slot?` (default `quick`) |
+| `load` | Restore a snapshot and redraw the scene. | `slot?` |
 
-### ⚠ Зарезервированные / неработающие
-| op | Статус |
+### ⚠ Reserved / non-working
+| op | Status |
 |---|---|
-| `hint` | ✅ Рисуется (`VnStage.cs`: `ApplyHint`). Всплывающее окно сверху по центру сцены; `show=false` убирает, `duration>0` — авто-скрытие. Текст интерполирует `{vars}`. |
+| `hint` | ✅ Rendered (`VnStage.cs`: `ApplyHint`). A popup at the top center of the scene; `show=false` removes it, `duration>0` — auto-hide. The text interpolates `{vars}`. |
 
 ---
 
-## 2. Реактивный `text` (HUD)
+## 2. Reactive `text` (HUD)
 
-- Пересчитывается **каждые 200 мс** автоматически — идеально для очков,
-  здоровья, ресурсов, прогресса.
-- Шаблон в `«…»` может содержать любые `{выражения}`: переменные, арифметику,
-  вызовы функций (`len`, `has`, `min`, …), индексацию.
-- Несколько HUD-меток сосуществуют (по разным `id`). Не сажай две метки в одну
-  точку `x/y/anchor` — перекроются.
-- Плохое/неизвестное выражение в шаблоне выводится буквально как `{key}` (не
-  падает) — это сигнал об опечатке.
-- Скрыть: `text hud hide`.
+- Re-evaluated **every 200 ms** automatically — perfect for points,
+  health, resources, progress.
+- The template in `«…»` may contain any `{expressions}`: variables, arithmetic,
+  function calls (`len`, `has`, `min`, …), indexing.
+- Multiple HUD labels coexist (under different `id`s). Do not put two labels at
+  the same `x/y/anchor` spot — they will overlap.
+- A bad/unknown expression in the template renders literally as `{key}` (does not
+  crash) — that is a typo signal.
+- Hide with `text hud hide`.
 
 ---
 
-## 3. Выбор (`choice`) — что реально работает
+## 3. Choice (`choice`) — what actually works
 
-| Поле варианта | Тип | Поведение |
+| Option field | Type | Behavior |
 |---|---|---|
-| `text` | дисплей | Текст варианта, интерполируется `{…}`. |
-| `cost` | дисплей | Подпись «цены» под вариантом, интерполируется. **Чисто визуально** — само ничего не списывает. |
-| `goto` | функц. | Прыжок при выборе. |
-| `body` | функц. | Встроенный список команд, выполняется при выборе (см. ограничение в §8). |
-| `requires_stat` + `min` | функц. | Гейт: вариант **скрыт**, если `переменная < min`. |
-| `expr` | функц. | Гейт булевым выражением: вариант **скрыт**, если ложно. |
-| `hint` | функц. | Всплывающее окно-подсказка сверху по центру (`duration>0` — авто-скрытие). |
+| `text` | display | Option text, interpolated with `{…}`. |
+| `cost` | display | The "price" caption under the option, interpolated. **Purely visual** — deducts nothing by itself. |
+| `goto` | functional | Jump on pick. |
+| `body` | functional | Inline command list, executed on pick (see the limit in §8). |
+| `requires_stat` + `min` | functional | Gate: the option is **hidden** if `variable < min`. |
+| `expr` | functional | Boolean expression gate: the option is **hidden** if false. |
+| `hint` | functional | A popup hint at the top center (`duration>0` — auto-hide). |
 
-Непрошедший гейт **прячет** вариант целиком (не показывает «серым»).
+A failed gate **hides** the option entirely (does not show it "grayed out").
 
 ---
 
-## 4. Переменные, условия, выражения
+## 4. Variables, conditions, expressions
 
-- **Типы значений:** число, строка, bool, `null`, список (`[]`), карта (`{}`).
-- **Незаданная переменная** читается как `0` / `""` / `false` (ink-стиль:
+- **Value types:** number, string, bool, `null`, list (`[]`), map (`{}`).
+- **An unset variable** reads as `0` / `""` / `false` (ink-style:
   `null == 0 == false == ""`).
-- **`if`** принимает структурный `cond` и строковый `expr` (последний главнее).
-- **`set`**: `value` (литерал любого типа) или `expr` (строка-выражение, главнее).
-  **`inc`**: `by` (по умолчанию 1, приводится к числу).
-- **Неймспейсинг:** точечные ключи (`ns.flag`) разрешены; префикс `__`
-  зарезервирован за движком/транскодером — **не используй его для своих переменных**.
-- Ошибка в выражении-условии деградирует мягко (трактуется как `false`), а не
-  роняет игру. Полный список встроенных функций — `LANGUAGE.md` §7. **`ceil` нет**
-  — используй `floor`/`round`.
+- **`if`** accepts a structural `cond` and a string `expr` (the latter wins).
+- **`set`**: `value` (a literal of any type) or `expr` (an expression string, which wins).
+  **`inc`**: `by` (default 1, coerced to a number).
+- **Namespacing:** dotted keys (`ns.flag`) are allowed; the `__` prefix is
+  reserved for the engine/transcoder — **do not use it for your own variables**.
+- An error in a condition expression degrades softly (treated as `false`) rather
+  than crashing the game. The full list of built-in functions is in `LANGUAGE.md` §7. **There is no `ceil`**
+  — use `floor`/`round`.
 
 ---
 
-## 5. Сохранение / загрузка
+## 5. Save / load
 
-- `save` сохраняет: **позицию курсора, словарь переменных, стек вызовов**.
-- `load` восстанавливает их, перерисовывает сцену (фон/актёров до точки снимка) и
-  продолжает исполнение с сохранённого места.
-- Хранилище: Unity `PlayerPrefs`, ключ `lvn_save_<slot>` (слот по умолчанию
-  `quick`). Слотов сколько угодно по имени; суммарный лимит PlayerPrefs ~1 МБ.
-- **Важно для дизайна:** save/load завязан на **стабильные id меток**.
-  Переименовывать ТЕКСТ можно, id меток/концовок — нельзя, иначе старые
-  сохранения ломаются.
+- `save` stores: **the cursor position, the variable dictionary, the call stack**.
+- `load` restores them, redraws the scene (background/actors as of the snapshot point) and
+  resumes execution from the saved spot.
+- Storage: Unity `PlayerPrefs`, key `lvn_save_<slot>` (default slot
+  `quick`). Any number of slots by name; the total PlayerPrefs limit is ~1 MB.
+- **Design-critical:** save/load is tied to **stable label ids**.
+  Renaming TEXT is fine; renaming label/ending ids is not, or old
+  saves break.
 
 ---
 
-## 6. Анимация — что включено, а что ещё нет
+## 6. Animation — what is in, what is not yet
 
-Подробная модель и формы записи — `LANGUAGE.md` §9 и `docs/animation-system.md`.
-Сверка с рантаймом:
+The detailed model and notation forms are in `LANGUAGE.md` §9 and `docs/animation-system.md`.
+Checked against the runtime:
 
-| Возможность | Статус |
+| Capability | Status |
 |---|---|
-| Свойства `x` `y` `screen_x` `screen_y` `scale` `scalex` `scaley` `rotation` `alpha` `frame` | ✅ есть |
-| Easing `linear` `inOutSine` `outCubic` `outBack` `inBack` | ✅ есть |
-| Loop `once` / `restart`(`true`) / `yoyo` | ✅ есть |
-| One-liner `to=` (твин от текущего значения) | ✅ есть |
-| `stop` / `stop=<канал>` | ✅ есть |
-| `mode=queue` (последовательность на канале) | ✅ есть |
-| Параллельность (несколько каналов = несколько строк) | ✅ есть |
-| `interp=spline` / `interp=step` | ✅ есть (Catmull-Rom через ключи / ступенька; опечатка в значении — ошибка компиляции) |
-| `orient=true` (поворот по касательной пути) | ✅ есть (для `move`; учитывает easing и spline) |
-| `defanim` / `play` (именованные переиспользуемые анимации) | ❌ нет (план) |
+| Properties `x` `y` `screen_x` `screen_y` `scale` `scalex` `scaley` `rotation` `alpha` `frame` | ✅ yes |
+| Easing `linear` `inOutSine` `outCubic` `outBack` `inBack` | ✅ yes |
+| Loop `once` / `restart`(`true`) / `yoyo` | ✅ yes |
+| One-liner `to=` (tween from the current value) | ✅ yes |
+| `stop` / `stop=<channel>` | ✅ yes |
+| `mode=queue` (sequence on a channel) | ✅ yes |
+| Parallelism (multiple channels = multiple lines) | ✅ yes |
+| `interp=spline` / `interp=step` | ✅ yes (Catmull-Rom through the keys / step; a typo in the value is a compile error) |
+| `orient=true` (rotate along the path tangent) | ✅ yes (for `move`; respects easing and spline) |
+| `defanim` / `play` (named reusable animations) | ❌ no (planned) |
 
-**Правило кавычек (частая ошибка):** значения со **пробелами** в кавычках
-(`keys="…"`, `path="…"`) требуют **legacy-формы** `id=`/`prop=`. Bracket-список
-`[…]` и one-liner `to=` работают и в терс-форме. Неверная форма `anim`/`move` —
-**ошибка компиляции** (а не молчаливый пропуск).
+**Quoting rule (a common mistake):** values with **spaces** in quotes
+(`keys="…"`, `path="…"`) require the **legacy form** `id=`/`prop=`. A bracket list
+`[…]` and the one-liner `to=` also work in terse form. A malformed `anim`/`move` is
+a **compile error** (not a silent skip).
 
 ---
 
-## 7. Каст и ассеты — как арт попадает на экран
+## 7. Cast and assets — how art gets on screen
 
-Это критично: **в `.lvns` НЕЛЬЗЯ определить персонажа** — там нет каст-директивы.
-`.lvns` только **ссылается** на каст по id (`actor mara ...`). Само определение
-живёт в **манифесте** или в `cast`-блоке `.lvn`.
+This is critical: **a character can NOT be defined in `.lvns`** — there is no cast
+directive there. `.lvns` only **references** the cast by id (`actor mara ...`). The
+definition itself lives in the **manifest** or in a `cast` block of the `.lvn`.
 
-### Где живёт каст
-- **`manifest.json` → `sprites`** (карта `id → сущность`) — **глобальный** каталог,
-  доступен всем главам. Основной способ.
-- **`cast`-блок в `.lvn`** — локальный для одной главы (опционально).
-- В `.lvns`-исходнике каста нет — он подмешивается рантаймом из манифеста.
+### Where the cast lives
+- **`manifest.json` → `sprites`** (an `id → entity` map) — the **global** catalog,
+  available to every chapter. The primary way.
+- **A `cast` block in `.lvn`** — local to one chapter (optional).
+- The `.lvns` source has no cast — it is mixed in by the runtime from the manifest.
 
-### Как `actor mara emotion=smile` превращается в картинку
-1. По `id` находится сущность в каталоге (манифест) или в `_cast` документа.
-2. Оси: `defaults` сущности перекрываются полями команды
+### How `actor mara emotion=smile` becomes a picture
+1. The entity is looked up by `id` in the catalog (manifest) or in the document's `_cast`.
+2. Axes: the entity's `defaults` are overridden by the command's fields
    (`emotion=smile`, `pose=…`, …).
-3. Для каждого шаблона-слоя (`/content/sprites/mara/face_{emotion}.png`)
-   подставляются все `{токены}`.
-4. Токен без значения → **слой пропускается** (необязательные части появляются
-   только по запросу). **K поз + M эмоций = K+M картинок, не K×M.**
+3. For every layer template (`/content/sprites/mara/face_{emotion}.png`)
+   all `{tokens}` are substituted.
+4. A token without a value → **the layer is skipped** (optional parts appear
+   only on request). **K poses + M emotions = K+M images, not K×M.**
 
-### Поля сущности каста (в манифесте)
-`name` (плашка имени), `color` (цвет имени), `layers` (список шаблонов url, снизу
-вверх; у слоя бывают `when`-условие, `id`, частичный прямоугольник `x/y/w/h`),
-`defaults` (значения осей по умолчанию), `axes` (допустимые значения осей —
-для редактора), `kind` (`static`(по умолч.)/`rigged`/…), `anim` (именованные
-анимации rigged-куклы: idle/blink/…).
+### Cast entity fields (in the manifest)
+`name` (name plate), `color` (name color), `layers` (url template list, bottom
+to top; a layer may have a `when` condition, an `id`, a partial rectangle `x/y/w/h`),
+`defaults` (default axis values), `axes` (allowed axis values —
+for the editor), `kind` (`static`(default)/`rigged`/…), `anim` (named
+animations of the rigged doll: idle/blink/…).
 
-### Как добавить арт
-- **Редактор каста в панели** (`panel`, вкладка Sprites): создаёшь сущность,
-  оси, грузишь картинки — панель пишет файлы на сервер (`PUT /v1/admin/assets/…`,
-  нужен admin-токен) и сохраняет сущность в `manifest.json`.
-- **Вручную:** правишь `manifest.json` (`sprites`) и кладёшь файлы по
-  конвенции путей. Сервер перечитывает манифест (`Cache-Control: no-store`).
+### How to add art
+- **The cast editor in Studio** (`panel`, Sprites tab): you create an entity,
+  axes, upload images — Studio writes files to the server (`PUT /v1/admin/assets/…`,
+  requires an admin token) and stores the entity in `manifest.json`.
+- **Manually:** edit `manifest.json` (`sprites`) and place files following the
+  path conventions. The server re-reads the manifest (`Cache-Control: no-store`).
 
-### Конвенции путей
+### Path conventions
 ```
-/content/sprites/<id>/<слой>_<ось>_<значение>.png   // персонажи
-/content/bg/<имя>.jpg                                // фоны
-/content/ui/<назначение>/<имя>.png                  // UI/хотспоты
-/content/scripts/<глава>.lvn                         // скомпилированные сценарии
+/content/sprites/<id>/<layer>_<axis>_<value>.png    // characters
+/content/bg/<name>.jpg                              // backgrounds
+/content/ui/<purpose>/<name>.png                    // UI/hotspots
+/content/scripts/<chapter>.lvn                      // compiled scripts
 ```
 
-### Отсутствующий арт (важно для порядка работы)
-- Если url ассета **не загрузился** (404) — этот **слой просто пропускается**,
-  остальное рисуется. **Автоматических серых болванок в рантайме нет.**
-- Серые заглушки-картинки генерируются **на этапе импорта** (тулза `lvnconv`),
-  то есть это реальные файлы-ассеты, а не рантайм-эффект.
-- «Греибокс» (запуск вообще без провайдера ассетов) даёт сплошные цветные фоны
-  без персонажей.
-- **Вывод:** логику, текст и структуру игры можно полностью написать и
-  провалидировать **до** появления арта; на живой сцене недостающий спрайт
-  просто не отображается — это не ошибка.
+### Missing art (important for workflow order)
+- If an asset url **fails to load** (404) — that **layer is simply skipped**,
+  the rest is drawn. **There are no automatic gray placeholders at runtime.**
+- Gray placeholder images are generated **at import time** (the `lvnconv` tool),
+  i.e. they are real asset files, not a runtime effect.
+- "Graybox" (running with no asset provider at all) yields solid colored backgrounds
+  with no characters.
+- **Takeaway:** the game's logic, text and structure can be fully written and
+  validated **before** the art exists; on the live stage a missing sprite is
+  simply not rendered — that is not an error.
 
-### Как сценарий попадает в игру
-- Манифест описывает оглавление: `titles → seasons → chapters`, у главы есть
-  стабильный `id`, `number`, **`script_url`** (тот самый `.lvn`), `bg_url`, набор
+### How a script gets into the game
+- The manifest describes the table of contents: `titles → seasons → chapters`; a chapter has
+  a stable `id`, `number`, a **`script_url`** (that `.lvn`), `bg_url`, a set of
   `assets`.
-- Хост (novel-shell) грузит манифест, показывает карусель/список глав; по выбору
-  качает `script_url` и проигрывает.
-- Директива `scene <имя>` в скрипте — **метаданные** (метка главы для логов/
-  сохранений). Она **не выбирает**, какой скрипт играть; выбор — через `script_url`
-  манифеста.
+- The host (novel-shell) loads the manifest and shows the carousel/chapter list; on pick it
+  downloads the `script_url` and plays it.
+- The `scene <name>` directive in the script is **metadata** (a chapter label for logs/
+  saves). It does **not select** which script plays; selection happens via the manifest's
+  `script_url`.
 
-Асс-резолвинг: абсолютные `/content/...` тянутся с сервера с версионным кэш-
-ключом (`/content/asset-versions.json` → sha); `file://`-бандл работает оффлайн.
-Подробности оффлайна — память проекта/`server/README.md`.
+Asset resolving: absolute `/content/...` urls are fetched from the server with a versioned
+cache key (`/content/asset-versions.json` → sha); a `file://` bundle works offline.
+Offline details — project memory/`server/README.md`.
 
 ---
 
-## 8. ЖЁСТКИЕ ОГРАНИЧЕНИЯ (читать обязательно)
+## 8. HARD LIMITS (mandatory reading)
 
-Это то, чего в эталонном рантайме **нет**. Не пытайся это эмулировать «как
-будто есть» — используй обходные пути из правой колонки.
+This is what the reference runtime does **not** have. Do not try to emulate it "as
+if it exists" — use the workarounds in the right column.
 
-| Ограничение | Обход |
+| Limit | Workaround |
 |---|---|
-| ❌ **Нет реалтайм-таймера** (`every`/`sleep`/тик по часам недоступны скрипту). `wait ms=` только фиксированная пауза, не условие. | Отмеряй время **ходами/днями** в цикле (`day = day + 1`), а «idle»-доход начисляй на каждом проходе цикла. |
-| ❌ **Нет ввода текста игроком** в скрипте (`prompt`/`input` нет; экран ввода имени — часть хоста, не команда скрипта). | Любой «ввод» — через `choice` (выбор из вариантов) или клики по `obj on_click`. |
-| ❌ **Нельзя привязать поток скрипта к завершению зацикленной анимации.** Циклящаяся анимация никогда не блокирует скрипт. | Для пауз используй `wait` или `say`; для последовательности на одном канале — `mode=queue`. |
-| ✅ **`hint` рисуется** — окно сверху по центру. | `hint text="…" duration=6`; `show=false` убирает вручную. Для постоянной HUD-метки по-прежнему есть реактивный `text`. |
-| ✅ **Кости + пружины (paper-doll).** | Слой каталога: `parent` (к какому слою крепится), `px`/`py` (сустав, доли своего ректа), `spring`/`damping` (волосы/хвост машутся сами от движения и поворота родителя, VRM-модель). Порядок отрисовки = порядок списка (задняя рука — ребёнок тела, но за ним). Оба рендерера. |
-| ✅ **`defanim`/`play` работают.** | `defanim shake prop=x keys="…"` + `play id=x anim=shake` (терс: `play x shake`); параметры play переопределяют дефиницию. Сплайновые пути идут с равной скоростью (arc-length). |
-| ❌ **`body` варианта `choice` ограничен**: внутри только `set`/`inc`/постановочные команды и `goto`. Никаких `if`/`choice`/`call` внутри body. | Сложную логику выноси на отдельную метку и веди туда `goto`. |
-| ❌ **`cost` у варианта — только подпись**, сам ресурс не списывает. | Списывай ресурсы явно (`set`/`inc`) на метке-обработчике варианта. |
-| ❌ **Отсутствующий ассет не заменяется болванкой в рантайме** — слой пропускается. | Это норма для греибокса; для заглушек генерируй их тулзой/клади файлы. |
-| ❌ **Нет `ceil`.** | `floor(x)` / `round(x)`. |
-| ❌ **Каст нельзя задать в `.lvns`.** | Определяй в `manifest.json` (`sprites`) или в `cast`-блоке `.lvn`; в скрипте только ссылайся по id. |
-| ❌ **Нет обработки ошибок/исключений в скрипте.** | Ошибочные выражения трактуются как `false`/`{key}`; проектируй условия так, чтобы безопасное значение было дефолтным. |
+| ❌ **No realtime timer** (`every`/`sleep`/clock ticks are unavailable to the script). `wait ms=` is only a fixed pause, not a condition. | Measure time in **turns/days** in a loop (`day = day + 1`), and grant "idle" income on every loop pass. |
+| ❌ **No player text input** in the script (there is no `prompt`/`input`; the name entry screen is part of the host, not a script command). | Any "input" goes through `choice` (picking from options) or clicks on `obj on_click`. |
+| ❌ **Script flow cannot be tied to a looping animation finishing.** A looping animation never blocks the script. | Use `wait` or `say` for pauses; use `mode=queue` for a sequence on one channel. |
+| ✅ **`hint` is rendered** — a window at the top center. | `hint text="…" duration=6`; `show=false` removes it manually. For a persistent HUD label there is still the reactive `text`. |
+| ✅ **Bones + springs (paper-doll).** | Catalog layer: `parent` (which layer it attaches to), `px`/`py` (the joint, fractions of its own rect), `spring`/`damping` (hair/tail swing on their own from the parent's movement and rotation, VRM model). Draw order = list order (the back arm is a child of the body, but behind it). Both renderers. |
+| ✅ **`defanim`/`play` work.** | `defanim shake prop=x keys="…"` + `play id=x anim=shake` (terse: `play x shake`); play parameters override the definition. Spline paths run at constant speed (arc-length). |
+| ❌ **A choice option's `body` is limited**: only `set`/`inc`/staging commands and `goto` inside. No `if`/`choice`/`call` inside a body. | Move complex logic to a separate label and lead there with `goto`. |
+| ❌ **An option's `cost` is a caption only**; it deducts no resource itself. | Deduct resources explicitly (`set`/`inc`) at the option's handler label. |
+| ❌ **A missing asset is not replaced by a placeholder at runtime** — the layer is skipped. | That is normal for graybox; for placeholders generate them with the tool/place the files. |
+| ❌ **No `ceil`.** | `floor(x)` / `round(x)`. |
+| ❌ **The cast cannot be defined in `.lvns`.** | Define it in `manifest.json` (`sprites`) or in a `cast` block of the `.lvn`; the script only references it by id. |
+| ❌ **No error/exception handling in the script.** | Faulty expressions are treated as `false`/`{key}`; design conditions so that the safe value is the default. |
 
 ---
 
-## 9. Как движок судит о «правильности» (валидация)
+## 9. How the engine judges "correctness" (validation)
 
-`lvnconv validate <file.lvn>` — структурная проверка (источник:
-`tools/lvnconv/lvn/validate.go`). Используй её как определение «корректной игры».
+`lvnconv validate <file.lvn>` is the structural check (source:
+`tools/lvnconv/lvn/validate.go`). Use it as the definition of a "correct game".
 
-**Ошибки (сборка не должна их пропускать):**
-- команда без `op` или `op` вне реестра (опечатка);
-- метка без `id` или дубликат `id`;
-- прыжок (`goto`/`if`/`choice`/`call`/`on_click`) на несуществующую метку.
+**Errors (the build must not let them through):**
+- a command without an `op`, or an `op` outside the registry (a typo);
+- a label without an `id`, or a duplicate `id`;
+- a jump (`goto`/`if`/`choice`/`call`/`on_click`) to a nonexistent label.
 
-**Предупреждения (вероятно непреднамеренно):**
-- метка-цель прыжка, в которую ещё и **проваливаются** сверху (классическая
-  «глава внезапно кончилась» — поставь `-> __end`/`-> метка` перед ней);
-- метка определена, но никуда не ведёт и недостижима (мёртвая);
-- несбалансированные `{`/`}` в тексте (интерполяция сломается; литеральные
-  скобки экранируй как `{{` и `}}`);
-- вариант `choice` без `goto` и без `body` (молчаливо проваливается);
-- нет заголовка `scene` (рекомендуется добавить `scene <имя>`).
+**Warnings (probably unintended):**
+- a jump-target label that is also **fallen into** from above (the classic
+  "the chapter suddenly ended" — put `-> __end`/`-> label` before it);
+- a label that is defined but leads nowhere and is unreachable (dead);
+- unbalanced `{`/`}` in text (interpolation will break; escape literal
+  braces as `{{` and `}}`);
+- a `choice` option with neither `goto` nor `body` (silently falls through);
+- no `scene` header (adding `scene <name>` is recommended).
 
-Цель здоровой главы — `OK ... 0 warning(s)` (а в CI — `validate -strict`, где
-предупреждения = ошибки).
+A healthy chapter's target is `OK ... 0 warning(s)` (and in CI — `validate -strict`, where
+warnings = errors).

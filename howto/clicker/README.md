@@ -1,46 +1,46 @@
-# 🍪 Кликер / idle
+# 🍪 Clicker / idle
 
-Инкрементальная игра на «голом» движке: реактивный HUD, клик-цикл и экономика на переменных — без единой строки кода рантайма.
+An incremental game on the bare engine: a reactive HUD, a click loop, and a variable-driven economy — without a single line of runtime code.
 
-## Что делает пример
+## What the example does
 
-Ты открываешь пекарню и печёшь печенье. Каждый клик «Печь печенье» добавляет ресурс, а на заработанное можно покупать печи (пассивный доход — каждая печь приносит печенье сама) и прокачивать руки (каждый клик весомее). Цена печей растёт после каждой покупки, так что приходится балансировать между кликом и инвестициями. Цель — накопить 50 печений и стать пекарем-магнатом.
+You open a bakery and bake cookies. Every "Bake a cookie" click adds a resource, and your earnings buy ovens (passive income — each oven bakes cookies on its own) and hand upgrades (each click counts for more). The oven price rises after every purchase, so you have to balance clicking against investing. The goal is to stockpile 50 cookies and become a baking tycoon.
 
-## Главное: реактивный HUD + клик-цикл
+## The core: reactive HUD + click loop
 
-Жанр держится на двух китах.
+The genre stands on two pillars.
 
-**1. Реактивная панель.** Одна строка `text` с интерполяцией `{…}` сама пересчитывается на тике (~200 мс) — значения обновляются без ручной перерисовки:
-
-```
-text hud x=4 y=8 size=44 color=#ffe9b0 «🍪 {cookies}   за клик: {per_click}   печей: {ovens}   цель: {goal}»
-```
-
-Ты меняешь переменные где угодно в сценарии — панель показывает свежие цифры сама. Это и есть ощущение «живого» счётчика.
-
-**2. Клик — это вариант выбора.** «Клик» в кликере — обычный пункт `choice`, который добавляет ресурс и возвращается в цикл через `-> loop`:
+**1. A reactive panel.** A single `text` line with `{…}` interpolation recomputes itself on the tick (~200 ms) — values update with no manual redraw:
 
 ```
-- 🍪 Печь печенье (+{per_click}) -> bake
+text hud x=4 y=8 size=44 color=#ffe9b0 «🍪 {cookies}   per click: {per_click}   ovens: {ovens}   goal: {goal}»
+```
+
+You change variables anywhere in the script — the panel shows fresh numbers by itself. That is what makes the counter feel alive.
+
+**2. A click is a choice option.** The "click" in a clicker is an ordinary `choice` item that adds a resource and returns to the loop via `-> loop`:
+
+```
+- 🍪 Bake a cookie (+{per_click}) -> bake
 
 :bake
 cookies = cookies + per_click
 -> loop
 ```
 
-Почему `-> loop` стоит **перед** меткой `:loop`? Поток в `.lvns` идёт сверху вниз, и если в метку-цель ещё и «проваливаются» сверху, `validate` ругается «label … reached by fall-through». Явный `-> loop` перед `:loop` обрывает проход сверху: в цикл попадают только по прыжку. Тот же приём закрывает все обработчики (`:bake`, `:do_oven`, …) — каждый заканчивается `-> loop`, замыкая петлю.
+Why does `-> loop` come **before** the `:loop` label? Flow in `.lvns` runs top to bottom, and if the target label can also be entered by falling through from above, `validate` complains "label … reached by fall-through". The explicit `-> loop` before `:loop` cuts off the top-down path, so the loop is only entered by a jump. The same trick closes every handler (`:bake`, `:do_oven`, …) — each one ends with `-> loop`, closing the cycle.
 
-## Возможности движка, которые тут задействованы
+## Engine features this example uses
 
-- **Реактивный `text`** — панель `text hud «🍪 {cookies}   за клик: {per_click}   печей: {ovens}   цель: {goal}»` пересчитывает все `{…}` сама на тике.
-- **Переменные-ресурсы** — обычные глобалки: `cookies = 0`, `per_click = 1`, `ovens = 0`, `oven_cost = 15`, `goal = 50`.
-- **Клик-цикл через `choice` + `goto`** — пункт `- 🍪 Печь печенье (+{per_click}) -> bake`, а `:bake` делает `cookies = cookies + per_click` и `-> loop`.
-- **Масштабирование цены** — после покупки печь дорожает: `oven_cost = floor(oven_cost * 1.6)` (`ceil` в движке нет — используем `floor`).
-- **Пассивный доход** — на каждом проходе цикла начисляется `cookies = cookies + ovens`.
+- **Reactive `text`** — the panel `text hud «🍪 {cookies}   per click: {per_click}   ovens: {ovens}   goal: {goal}»` recomputes all `{…}` on its own on the tick.
+- **Resource variables** — plain globals: `cookies = 0`, `per_click = 1`, `ovens = 0`, `oven_cost = 15`, `goal = 50`.
+- **Click loop via `choice` + `goto`** — the option `- 🍪 Bake a cookie (+{per_click}) -> bake`, where `:bake` does `cookies = cookies + per_click` and `-> loop`.
+- **Price scaling** — an oven gets more expensive after each purchase: `oven_cost = floor(oven_cost * 1.6)` (the engine has no `ceil` — use `floor`).
+- **Passive income** — each pass through the loop credits `cookies = cookies + ovens`.
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-**Ресурсы и цена.** В начале объявляем состояние. Необъявленная переменная читалась бы как `0`, но явная инициализация делает экономику читаемой:
+**Resources and price.** Declare the state up front. An undeclared variable would read as `0`, but explicit initialization keeps the economy readable:
 
 ```
 cookies = 0
@@ -50,85 +50,85 @@ oven_cost = 15
 goal = 50
 ```
 
-**Реактивная панель.** Одна строка `text hud …` с `{…}` — поставлена один раз, дальше обновляется сама.
+**The reactive panel.** One `text hud …` line with `{…}` — placed once, it updates itself from then on.
 
-**Цикл `:loop` — пассивный доход и проверка цели.** Каждый заход в цикл сначала начисляет доход от печей, потом проверяет победу, потом показывает варианты:
+**The `:loop` cycle — passive income and the goal check.** Every entry into the loop first credits oven income, then checks for the win, then shows the options:
 
 ```
 :loop
 cookies = cookies + ovens
 if cookies >= goal -> win
-- 🍪 Печь печенье (+{per_click}) -> bake
-- 🔥 Купить печь ({oven_cost}🍪, +1/такт) -> buy_oven
-- ⬆ Прокачать руки (20🍪, +1 за клик) -> buy_hands
+- 🍪 Bake a cookie (+{per_click}) -> bake
+- 🔥 Buy an oven ({oven_cost}🍪, +1/tick) -> buy_oven
+- ⬆ Upgrade hands (20🍪, +1 per click) -> buy_hands
 ```
 
-`if cookies >= goal -> win` — условный прыжок: истина уводит в концовку, иначе падаем на список выбора.
+`if cookies >= goal -> win` is a conditional jump — true goes to the ending, otherwise we fall into the choice list.
 
-**Обработчики покупок с проверкой средств.** Покупка — это две метки: «проверка» и «выполнение». Сначала проверяем, хватает ли печенья, и при нехватке возвращаемся в цикл с сообщением:
+**Purchase handlers with an affordability check.** A purchase is two labels — a "check" and an "execute". First verify there are enough cookies, and on a shortfall return to the loop with a message:
 
 ```
 :buy_oven
 if cookies >= oven_cost -> do_oven
-Не хватает печенья на печь.
+Not enough cookies for an oven.
 -> loop
 :do_oven
 cookies = cookies - oven_cost
 ovens = ovens + 1
 oven_cost = floor(oven_cost * 1.6)
-Новая печь гудит! Каждый такт приносит печенье само.
+A new oven hums to life! Every tick it bakes cookies on its own.
 -> loop
 ```
 
-Прокачка рук устроена так же, только с фиксированной ценой `20` и ростом `per_click`:
+The hand upgrade works the same way, just with a fixed price of `20` and a `per_click` bump:
 
 ```
 :buy_hands
 if cookies >= 20 -> do_hands
-Не хватает печенья на прокачку.
+Not enough cookies for the upgrade.
 -> loop
 :do_hands
 cookies = cookies - 20
 per_click = per_click + 1
-Ловкие руки! Теперь каждый клик весомее.
+Nimble hands! Every click counts for more now.
 -> loop
 ```
 
-**Концовка `win`.** Достигли цели — печатаем итог с интерполяцией и завершаем встроенной меткой `__end`:
+**The `win` ending.** Goal reached — print the result with interpolation and finish via the built-in `__end` label:
 
 ```
 :win
-Цель достигнута — {goal} печений! Ты пекарь-магнат. 🎉
+Goal reached — {goal} cookies! You are a baking tycoon. 🎉
 -> __end
 ```
 
-## Про «idle»-доход без таймера
+## About "idle" income without a timer
 
-Честно: отдельной команды-таймера реального времени в движке пока нет. Пассивный доход здесь начисляется не «по часам», а **на каждом проходе цикла** — строкой `cookies = cookies + ovens` в начале `:loop`. То есть доход капает «за действие/тик»: каждый твой выбор сначала прибавляет печенье от всех печей, а уже потом обрабатывает сам клик или покупку. Для пошагового кликера это нормальная и предсказуемая модель — игрок видит, как печи окупаются с каждым ходом. Если когда-нибудь захочется доход «в фоне», это будет надстройка над тем же `text`-тиком, а логика начисления останется той же.
+Honestly — the engine has no dedicated real-time timer command yet. Passive income here is credited not "by the clock" but **on every pass through the loop**, via the `cookies = cookies + ovens` line at the top of `:loop`. In other words, income drips "per action/tick" — every choice you make first adds cookies from all ovens and only then handles the click or purchase itself. For a turn-based clicker that is a perfectly sane and predictable model — the player sees ovens pay off with every move. If you ever want income "in the background", it will be a layer on top of the same `text` tick, and the crediting logic stays exactly the same.
 
-## Запуск и проверка
+## Run and check
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/clicker/clicker.lvns -o /tmp/clk.lvn
 
-# структурная проверка — цель «0 warning(s)»
+# structural check — aim for «0 warning(s)»
 /tmp/lvnconv validate /tmp/clk.lvn
 ```
 
-## Сделай своим
+## Make it yours
 
-- **Новые апгрейды.** Добавь ресурс (`workers = 0`) и пару меток по образцу `:buy_oven`/`:do_oven` — растущая цена через `floor(cost * k)`.
-- **Престиж / сброс.** По достижении порога обнули `cookies`/`ovens`, но запомни множитель в отдельной переменной (`prestige = prestige + 1`) и учитывай его в начислении дохода.
-- **Несколько ресурсов.** Заведи `flour`, `milk`; печь требует и печенья, и муки — расширь проверку `if` в обработчике покупки.
-- **Ачивки.** В начале `:loop` проверяй пороги: `if cookies >= 100 -> ach_100` — покажи поздравление через `say` или строку реактивного `text` и вернись `-> loop` (помни про флаг, чтобы не срабатывало повторно). Команда `hint` для этого не годится — в рантайме она no-op.
-- **Баланс под престиж.** Вынеси коэффициент роста цены в переменную и крути экономику, не трогая структуру цикла.
+- **New upgrades.** Add a resource (`workers = 0`) and a pair of labels modeled on `:buy_oven`/`:do_oven` — a rising price via `floor(cost * k)`.
+- **Prestige / reset.** On hitting a threshold, zero out `cookies`/`ovens` but remember the multiplier in a separate variable (`prestige = prestige + 1`) and factor it into income crediting.
+- **Multiple resources.** Introduce `flour`, `milk`; an oven costs both cookies and flour — extend the `if` check in the purchase handler.
+- **Achievements.** At the top of `:loop`, check thresholds — `if cookies >= 100 -> ach_100` — show a congratulation via `say` or a reactive `text` line and return with `-> loop` (remember a flag so it does not fire twice). The `hint` command is not suitable for this — at runtime it is a no-op.
+- **Balance for prestige.** Move the price growth factor into a variable and tune the economy without touching the loop structure.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md)
-- [Книга рецептов](../recipes.md)
-- [Все жанры](../README.md)
+- [Language reference](../LANGUAGE.md)
+- [Recipe book](../recipes.md)
+- [All genres](../README.md)
