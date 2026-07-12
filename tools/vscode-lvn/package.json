@@ -1,0 +1,39 @@
+{
+  "name": "elvin-lvns",
+  "displayName": "Elvin Script (.lvns)",
+  "description": "Language support for Elvin Script — the plain-text narrative-game language of the Elvin engine: syntax highlighting, completion, hover, go-to-label, outline, ghost suggestions and real compiler diagnostics (the same lvnconv compiler, in WASM).",
+  "version": "0.1.0",
+  "publisher": "fomeanator",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fomeanator/unity-lvn-vn-engine.git",
+    "directory": "tools/vscode-lvn"
+  },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages", "Linters"],
+  "keywords": ["visual novel", "narrative", "interactive fiction", "elvin", "lvn"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "lvns",
+        "aliases": ["Elvin Script", "lvns"],
+        "extensions": [".lvns"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lvns",
+        "scopeName": "source.lvns",
+        "path": "./syntaxes/lvns.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "package": "node build.mjs && npx --yes @vscode/vsce package --allow-missing-repository"
+  }
+}
