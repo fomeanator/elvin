@@ -177,3 +177,36 @@ select {
 .lb-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; color: #e8e4da; }
 .lb-me { margin-top: 8px; color: #8fd0a0; }
 .lb-hint { margin-top: 6px; color: #6d6962; font-size: 11px; }
+
+/* ── assets drawer ── */
+.assets-drawer {
+  background: #14141a; border-bottom: 1px solid #26262e;
+  padding: 10px 14px; max-height: 42vh; overflow-y: auto;
+}
+.assets-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.assets-hint { color: #8f8a80; font-size: 13px; }
+.assets-group { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; }
+.assets-label {
+  color: #8f8a80; font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
+  min-width: 44px; padding-top: 8px;
+}
+.assets-grid { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.asset-tile {
+  position: relative; width: 92px; background: #1b1b22; border: 1px solid #26262e;
+  border-radius: 8px; padding: 6px; cursor: pointer; color: #b7b2a8;
+  display: flex; flex-direction: column; gap: 4px; align-items: center;
+}
+.asset-tile:hover { border-color: #c8a050; color: #e8e4da; }
+.asset-tile img {
+  width: 100%; height: 56px; object-fit: contain;
+  background: repeating-conic-gradient(#20202a 0% 25%, #16161d 0% 50%) 0 0/14px 14px;
+  border-radius: 5px;
+}
+.asset-tile span { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-x {
+  position: absolute; top: 2px; right: 5px; font-size: 11px; color: #8f8a80;
+  padding: 2px;
+}
+.asset-x:hover { color: #e07a6a; }
+.assets-note { color: #8f8a80; font-size: 12px; margin: 8px 0 0; flex-basis: 100%; }
+.assets-note code { color: #b7b2a8; }
