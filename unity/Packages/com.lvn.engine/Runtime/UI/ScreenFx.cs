@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Lvn.UI.Screens
+namespace Lvn.UI
 {
     /// <summary>Small async helpers shared by the built-in screens — currently a
     /// smoothstep opacity fade driven off unscaled time.</summary>

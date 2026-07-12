@@ -887,9 +887,9 @@ namespace Lvn.UI
         {
             float to = faded ? 0f : 1f;
             if (_dialogue != null)
-                _ = Screens.ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+                _ = ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
             if (_choices != null)
-                _ = Screens.ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+                _ = ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
         }
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
@@ -1335,7 +1335,7 @@ namespace Lvn.UI
             el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
 
             // look: per-label font / size / colour, falling back to the theme
-            el.style.color = Lvn.UI.Screens.UiColor.Parse((string)cmd["color"], Theme.TextColor);
+            el.style.color = UiColor.Parse((string)cmd["color"], Theme.TextColor);
             el.style.fontSize = (int)NumOr(cmd["size"], Theme.BodyFontSize);
             var fontPath = (string)cmd["font"];
             Font font = !string.IsNullOrEmpty(fontPath) ? Resources.Load<Font>(fontPath) : Theme.Font;
