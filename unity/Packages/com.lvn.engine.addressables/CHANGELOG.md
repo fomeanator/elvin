@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] — 2026-07-12
+## [Unreleased]
 
 - Extracted from `com.lvn.engine` (`Runtime/UI/Addressables/`) into a
   standalone optional package. Same assembly name
