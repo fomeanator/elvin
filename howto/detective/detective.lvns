@@ -1,66 +1,66 @@
 scene detective
 
-// ═══════════════════ ДЕТЕКТИВ / РАССЛЕДОВАНИЕ ═══════════════════
-// Сбор улик (флаги/инвентарь), допросы, и финальное обвинение, которое
-// «выгорает» только при достаточном числе собранных улик. Узел-хаб с
-// возвратом — классическая нелинейная структура расследования.
+// ═══════════════════ DETECTIVE / INVESTIGATION ═══════════════════
+// Clue collection (flags/inventory), interrogations, and a final accusation
+// that only "lands" once enough clues are gathered. A hub node with
+// returns — the classic nonlinear investigation structure.
 
 clues = []
 bg /content/bg/manor_hall.jpg
-Особняк Грейсонов. Хозяина нашли мёртвым в кабинете. Ты — детектив.
+Grayson Manor. The master of the house was found dead in his study. You are the detective.
 -> hub
 
 :hub
-// len(clues) в реактивном тексте показывает прогресс расследования.
-text hud x=4 y=8 size=40 color=#e8e0c8 «Улик собрано: {len(clues)}/3»
-Гостиная. С чего начнёшь?
-- 🔍 Осмотреть кабинет -> study
-- 🍷 Допросить дворецкого -> butler
-- 💍 Поговорить с вдовой -> widow
-- ⚖ Назвать убийцу -> accuse
+// len(clues) in reactive text shows investigation progress.
+text hud x=4 y=8 size=40 color=#e8e0c8 «Clues collected: {len(clues)}/3»
+The parlor. Where do you start?
+- 🔍 Examine the study -> study
+- 🍷 Question the butler -> butler
+- 💍 Talk to the widow -> widow
+- ⚖ Name the killer -> accuse
 
 :study
 bg /content/bg/study_crime.jpg
-На ковре — осколки бокала и слабый запах горького миндаля.
-if has(clues, "яд") -> study_seen
-clues = push(clues, "яд")
-Улика: следы яда (горький миндаль). [записано]
+Shards of a wine glass on the carpet, and a faint smell of bitter almonds.
+if has(clues, "poison") -> study_seen
+clues = push(clues, "poison")
+Clue: traces of poison (bitter almond). [noted]
 -> hub
 :study_seen
-Здесь ты уже всё осмотрел.
+You have already examined everything here.
 -> hub
 
 :butler
 bg /content/bg/kitchen_dark.jpg
-Дворецкий: Я подавал вино в девять. Бокал был... один, для хозяина.
-if has(clues, "один бокал") -> butler_seen
-clues = push(clues, "один бокал")
-Улика: вино налили только хозяину. [записано]
+Butler: I served the wine at nine. There was... one glass, for the master.
+if has(clues, "one glass") -> butler_seen
+clues = push(clues, "one glass")
+Clue: wine was poured for the master only. [noted]
 -> hub
 :butler_seen
-Дворецкий нервно молчит — больше не скажет.
+The butler falls into a nervous silence — he will say no more.
 -> hub
 
 :widow
 bg /content/bg/parlor.jpg
-Вдова: Мы ужинали врозь. Я... готовила ему вино сама, как всегда.
-if has(clues, "вино от вдовы") -> widow_seen
-clues = push(clues, "вино от вдовы")
-Улика: вино готовила вдова лично. [записано]
+Widow: We dined apart. I... prepared his wine myself, as always.
+if has(clues, "widow's wine") -> widow_seen
+clues = push(clues, "widow's wine")
+Clue: the widow prepared the wine herself. [noted]
 -> hub
 :widow_seen
-Вдова отворачивается к окну.
+The widow turns away to the window.
 -> hub
 
 :accuse
-// Обвинение засчитывается только с полной картиной (3 улики).
+// The accusation only counts with the full picture (3 clues).
 if len(clues) >= 3 -> solved
-Улик мало, обвинение рассыплется в суде. Ищи ещё.
+Too few clues — the accusation would fall apart in court. Keep looking.
 -> hub
 
 :solved
 bg /content/bg/parlor.jpg
-Яд. Один бокал. Вино из рук вдовы. Цепочка сошлась.
-Детектив: Это вы, госпожа Грейсон. Вино для него готовили только вы.
-Вдова опускает глаза. Дело раскрыто.
+Poison. One glass. Wine from the widow's hands. The chain closes.
+Detective: It was you, Mrs. Grayson. You alone prepared his wine.
+The widow lowers her eyes. Case closed.
 -> __end

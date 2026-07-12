@@ -1,127 +1,131 @@
-# Elvin — как сделать игру (начни отсюда)
+# Elvin — how to make a game (start here)
 
-Точка входа для сборки игры на движке **Elvin**. После этого файла можно собрать
-игру любого поддерживаемого жанра, не читая исходники движка — всё нужное есть в
-`howto/` и `docs/`.
+Entry point for building a game on the **Elvin** engine. After this file you can
+build a game in any supported genre without reading the engine sources — everything
+you need is in `howto/` and `docs/`.
 
-## Ментальная модель
+## Mental model
 
 ```
-   исходник             Elvin                 Unity
-  ┌──────────┐  lvnconv ┌──────────┐  грузит ┌──────────┐ играет ┌──────────┐
-  │  .lvns   │ ───────► │  .lvn    │ ──────► │ рантайм  │ ─────► │  экран   │
-  │ (текст   │ convert  │ (JSON,   │         │(com.lvn. │        │          │
-  │  игры)   │          │ команды) │         │ engine)  │        │          │
+    source              Elvin                 Unity
+  ┌──────────┐  lvnconv ┌──────────┐  loads ┌──────────┐  plays ┌──────────┐
+  │  .lvns   │ ───────► │  .lvn    │ ──────► │ runtime  │ ─────► │  screen  │
+  │ (game    │ convert  │ (JSON,   │         │(com.lvn. │        │          │
+  │  text)   │          │ commands)│         │ engine)  │        │          │
   └──────────┘          └──────────┘         └──────────┘        └──────────┘
         ▲                                          ▲
-        │ человекочитаемый,                        │ КАСТ и АССЕТЫ — из manifest.json,
-        │ его и пишут                              │ НЕ из .lvns
+        │ human-readable,                          │ CAST and ASSETS come from manifest.json,
+        │ this is what you write                   │ NOT from .lvns
 ```
 
-- **`.lvns`** (Elvin Script) — человекочитаемый исходник игры. Пишут его.
-- **`.lvn`** — машинный JSON (плоский список команд). Генерируется, руками не правят.
-- **Рантайм** — Unity-пакет `com.lvn.engine`, исполняет `.lvn`.
-- **`manifest.json`** — отдельно держит каст (персонажей), ассеты и оглавление
-  глав. Персонажа в `.lvns` определить нельзя — на него только ссылаются по id
-  (`actor mara …`); определение каста живёт в манифесте (см. `CAPABILITIES.md` §7).
+- **`.lvns`** (Elvin Script) — the human-readable game source. This is what you write.
+- **`.lvn`** — machine JSON (a flat list of commands). Generated, never edited by hand.
+- **Runtime** — the Unity package `com.lvn.engine`, executes `.lvn`.
+- **`manifest.json`** — holds the cast (characters), assets, and the chapter table
+  of contents separately. A character cannot be defined in `.lvns` — it is only
+  referenced by id (`actor mara …`); the cast definition lives in the manifest
+  (see `CAPABILITIES.md` §7).
 
-Вся логика, ветвление, статы, бои, экономика описываются командами в `.lvns`;
-движок проигрывает их как настоящую игру в Unity, без кода диалоговой/ветвящейся
-системы.
+All logic, branching, stats, combat, and economy are described by commands in
+`.lvns`; the engine plays them as a real game in Unity, with no code for the
+dialogue/branching system.
 
-## Рабочий цикл
+## Workflow
 
-В Unity достаточно бросить `.lvns` в `Assets/` — ScriptedImporter скомпилирует его
-автоматически. Для CLI/CI/проверки:
+In Unity it is enough to drop a `.lvns` into `Assets/` — the ScriptedImporter
+compiles it automatically. For CLI/CI/checking:
 
 ```sh
-cd tools/lvnconv && go build -o /tmp/lvnconv .          # один раз
-/tmp/lvnconv convert -i путь/game.lvns -o /tmp/game.lvn # .lvns → .lvn
-/tmp/lvnconv validate /tmp/game.lvn                     # цель: OK ... 0 warning(s)
-/tmp/lvnconv probe    /tmp/game.lvn                     # краткая сводка
+cd tools/lvnconv && go build -o /tmp/lvnconv .          # once
+/tmp/lvnconv convert -i path/game.lvns -o /tmp/game.lvn # .lvns → .lvn
+/tmp/lvnconv validate /tmp/game.lvn                     # goal: OK ... 0 warning(s)
+/tmp/lvnconv probe    /tmp/game.lvn                     # brief summary
 ```
 
-После каждой правки — `convert` + `validate` до `0 warning(s)`. Валидатор ловит
-висячие прыжки, неизвестные команды, дубли меток и «глава кончилась раньше». Что
-он проверяет — `CAPABILITIES.md` §9. Этого достаточно, чтобы проверить
-корректность игры без запуска движка.
+After every edit — `convert` + `validate` until `0 warning(s)`. The validator
+catches dangling jumps, unknown commands, duplicate labels, and "chapter ended
+early". What it checks — `CAPABILITIES.md` §9. That is enough to verify game
+correctness without launching the engine.
 
-## Что можно построить (и чего нельзя)
+## What you can build (and what you can't)
 
-Любая игра, управляемая **выбором и состоянием**: визуальные/кинетические
-новеллы, геймбуки/CYOA, point-and-click и квесты, RPG, dating-sim, викторины,
-детективы, tycoon, roguelike, головоломки. Разобранные примеры — в папках жанров.
+Any game driven by **choice and state**: visual/kinetic novels, gamebooks/CYOA,
+point-and-click and adventure games, RPGs, dating sims, quizzes, detective
+stories, tycoons, roguelikes, puzzles. Worked examples live in the genre folders.
 
-Чего нет (полный список — `CAPABILITIES.md` §8): таймера реального времени, ввода
-текста игроком, аркадной механики на таймингах. Время мерится **ходами**, любой
-«ввод» — это `choice` или клик по `obj on_click`.
+What is missing (full list — `CAPABILITIES.md` §8): a real-time timer, free-text
+player input, timing-based arcade mechanics. Time is measured in **turns**, and
+any "input" is a `choice` or a click on an `obj on_click`.
 
-## Карта документации
+## Documentation map
 
-| Вопрос | Файл |
+| Question | File |
 |---|---|
-| Полный синтаксис `.lvns` | [`LANGUAGE.md`](LANGUAGE.md) |
-| Что движок умеет и чего НЕ умеет (рантайм + ограничения) | [`CAPABILITIES.md`](CAPABILITIES.md) |
-| Плотная шпаргалка на один экран | [`CHEATSHEET.md`](CHEATSHEET.md) |
-| Переиспользуемые паттерны | [`recipes.md`](recipes.md) |
-| Гайд + рабочий пример по жанру | `howto/<жанр>/` (см. [`README.md`](README.md)) |
-| Размещение объектов, хотспоты | `../docs/placement.md` |
-| Каст (параметрические персонажи) | `../docs/cast.md` |
-| Анимация (полная спека) | `../docs/animation-system.md` |
-| Контракт контейнера `.lvn` | `../docs/lvn-format.md` |
-| Большие реальные игры | `../server/content/scripts/*.lvns` |
+| Full `.lvns` syntax | [`LANGUAGE.md`](LANGUAGE.md) |
+| What the engine can and can NOT do (runtime + limits) | [`CAPABILITIES.md`](CAPABILITIES.md) |
+| Dense one-screen cheatsheet | [`CHEATSHEET.md`](CHEATSHEET.md) |
+| Reusable patterns | [`recipes.md`](recipes.md) |
+| Guide + working example per genre | `howto/<genre>/` (see [`README.md`](README.md)) |
+| Object placement, hotspots | `../docs/placement.md` |
+| Cast (parametric characters) | `../docs/cast.md` |
+| Animation (full spec) | `../docs/animation-system.md` |
+| `.lvn` container contract | `../docs/lvn-format.md` |
+| Large real games | `../server/content/scripts/*.lvns` |
 
-Порядок для новой задачи: этот файл → `CHEATSHEET.md` → пример ближайшего жанра →
-`LANGUAGE.md`/`CAPABILITIES.md` по мере надобности.
+Order for a new task: this file → `CHEATSHEET.md` → the nearest genre's example →
+`LANGUAGE.md`/`CAPABILITIES.md` as needed.
 
-## Минимальная игра целиком
+## A complete minimal game
 
 ```
 scene hello
 
 bg /content/bg/room.jpg
 gold = 0
-Незнакомец протягивает тебе монету.
-- Взять -> take
-- Отказаться -> refuse
+A stranger holds out a coin to you.
+- Take it -> take
+- Refuse -> refuse
 
 :take
 gold = gold + 1
-Теперь у тебя {gold} золота.
+You now have {gold} gold.
 -> __end
 
 :refuse
-Ты покачал головой и ушёл.
+You shook your head and walked away.
 -> __end
 ```
 
-Дальше наращивается: переменные → `if` → подпрограммы `call`/`return` →
-реактивный HUD `text` → постановка (`actor`/`anim`/`fade`). Каждый шаг — в
-примерах жанров.
+From here it grows: variables → `if` → `call`/`return` subroutines → a reactive
+HUD `text` → staging (`actor`/`anim`/`fade`). Each step is covered in the genre
+examples.
 
-## Частые ошибки
+## Common mistakes
 
-1. **Определять персонажа в `.lvns`.** Нельзя — каст в `manifest.json` (`sprites`)
-   или в `cast`-блоке `.lvn`; в скрипте только `actor <id> …`.
-2. **`anim`/`move` с пробелами в кавычках в терс-форме.** `keys="…"`/`path="…"`
-   требуют legacy-форму `id=`/`prop=`, иначе ошибка компиляции. Bracket `[…]` и
-   `to=` можно терс-формой (`CAPABILITIES.md` §6).
-3. **`hint`** рисует окно сверху по центру (`hint text="…" duration=6`); для
-   постоянной HUD-метки используй реактивный `text`, а не `hint`.
-4. **Ждать, что `cost`/`requires_stat` сами спишут ресурс.** Нет: `cost` — подпись,
-   гейты только показывают/скрывают вариант. Списывать явно `set`/`inc`.
-5. **Надеяться на таймер реального времени.** Его нет — мерить ходами.
-6. **Звать `ceil`.** Нет такой функции — `floor`/`round`.
-7. **Проваливание в метку-цель.** Если в метку, на которую есть прыжок, ещё и
-   «проваливаются» сверху — поставить `-> метка`/`-> __end` перед ней.
-8. **Переменные с префиксом `__`** — служебные, не использовать для своих.
-9. **Считать отсутствующий арт ошибкой.** Нет: слой просто пропускается, логику
-   видно и без графики.
+1. **Defining a character in `.lvns`.** Not possible — the cast lives in
+   `manifest.json` (`sprites`) or in the `.lvn` `cast` block; the script only has
+   `actor <id> …`.
+2. **`anim`/`move` with quoted spaces in terse form.** `keys="…"`/`path="…"`
+   require the legacy form `id=`/`prop=`, otherwise it is a compile error.
+   Bracket `[…]` and `to=` work in terse form (`CAPABILITIES.md` §6).
+3. **`hint`** draws a window at the top center (`hint text="…" duration=6`); for
+   a persistent HUD label use a reactive `text`, not `hint`.
+4. **Expecting `cost`/`requires_stat` to deduct the resource themselves.** They
+   don't: `cost` is a caption, gates only show/hide the option. Deduct explicitly
+   with `set`/`inc`.
+5. **Relying on a real-time timer.** There is none — measure in turns.
+6. **Calling `ceil`.** No such function — use `floor`/`round`.
+7. **Falling through into a jump target.** If a label that is jumped to can also
+   be "fallen into" from above — put `-> label`/`-> __end` before it.
+8. **Variables prefixed with `__`** are reserved; do not use them for your own.
+9. **Treating missing art as an error.** It isn't: the layer is simply skipped,
+   the logic is visible even without graphics.
 
-## Чеклист готовности
+## Readiness checklist
 
-- `.lvns` компилируется (`convert` без ошибок) и `validate` даёт `0 warning(s)`.
-- Все ветки `choice`/`if` ведут на существующие метки или `__end`.
-- Реактивный HUD (если есть) показывает актуальные переменные.
-- Каст из `actor <id>` определён в манифесте — либо это осознанный греибокс.
-- Стабильные id меток/концовок не меняются (важно для save/load).
+- The `.lvns` compiles (`convert` with no errors) and `validate` reports `0 warning(s)`.
+- All `choice`/`if` branches lead to existing labels or `__end`.
+- The reactive HUD (if any) shows up-to-date variables.
+- The cast referenced by `actor <id>` is defined in the manifest — or it is a
+  deliberate greybox.
+- Stable label/ending ids do not change (matters for save/load).
