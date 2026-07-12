@@ -7,7 +7,7 @@ export default function TopBar({ nav, status, creds }) {
     <header className="topbar">
       <div className="brand">
         <button className="brand-mark as-link" onClick={() => { nav.setMode("studio"); nav.goHome(); }} title="Library">
-          ELVIN <em>IDE</em>
+          ELVIN <em>Studio</em>
         </button>
 
         <div className="mode-switch" role="tablist">

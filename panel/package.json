@@ -1,9 +1,9 @@
 {
-  "name": "elvin-ide",
+  "name": "elvin-studio",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ELVIN IDE — the authoring IDE for the Elvin narrative-game engine",
+  "description": "Elvin Studio — the authoring workspace for the Elvin narrative-game engine",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
