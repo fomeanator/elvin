@@ -19,7 +19,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**"]
+    branches: [main, "feat/**", "fix/**", "chore/**"]
   pull_request:
 
 # Each Go module is built and tested standalone (GOWORK=off), the way a
