@@ -120,9 +120,21 @@ Aim for `OK … 0 warning(s)` — the build-correctness gate needs no engine.
 go run ./server -content ./server/content -addr :8077
 ```
 
-Live content updates, player saves, the docs site — and **`/play/`**, the
-playground from the screenshot, running on your own content. The game itself
-plays equally well fully offline.
+Live content updates and player saves for a shipped game — a pure API. Add
+`-studio` and the same binary also serves **Elvin Studio** (the authoring
+IDE + admin dashboard) and **`/play/`**, the playground from the screenshot,
+on your own content. The game itself plays equally well fully offline.
+
+---
+
+## The products (who needs what)
+
+| Product | What | Who needs it |
+|---|---|---|
+| **Language** — `.lvns` + [`lvnconv`](tools/lvnconv/) | the compiler, validator, Ink/articy importers, [MCP server](docs/mcp.md), [`llms.txt`](llms.txt) | everyone — this *is* the base, and an AI agent + a text editor is a complete authoring setup |
+| **Engine** — [`lvn-engine`](https://github.com/fomeanator/lvn-engine) (+4 optional packages) | plays `.lvn` in Unity; the in-Unity importer compiles `.lvns` on drop | Unity developers |
+| **Services** — [`server/`](server/) + [`lvn-engine-services`](https://github.com/fomeanator/lvn-engine-services) | content streaming, saves, wallet/IAP/ads/leaderboards — the LiveOps layer | games that ship as a live product |
+| **Studio** — [`panel/`](panel/) | the authoring workspace: Monaco IDE, visual cast editor, admin dashboard (served by the server's `-studio` flag) | teams that want a GUI; entirely optional |
 
 ---
 
