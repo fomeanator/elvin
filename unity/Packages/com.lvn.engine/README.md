@@ -64,11 +64,17 @@ a playable asset automatically (no external tool). For CI, Ink, or articy, the
 standalone `lvnconv` transcoder also produces `.lvn` and validates it. The full
 language and engine limits are documented in the repo `howto/` folder.
 
-## Scope (v0.4)
+## Scope
 
 A full runtime: interpreter (flow, vars, subroutines, expressions via
 `LvnExpression`, autosave), the cast/compositor (layered parametric sprites),
 the animation engine (channels, easing, yoyo, queue), effect modules
-(fade/dim/flash/tint/blur/camera/particles/audio), the reactive HUD, save/load,
-and the novel-shell — plus the in-Unity `.lvns` importer. See the repo root
-README and `howto/CAPABILITIES.md` for exactly what is and isn't supported.
+(fade/dim/flash/tint/blur/camera/particles/audio), the reactive HUD, save/load
+— plus the in-Unity `.lvns` importer. See the repo root README and
+`howto/CAPABILITIES.md` for exactly what is and isn't supported.
+
+The product layer ships as optional first-party packages beside this one:
+`com.lvn.engine.shell` (the ready novel app: boot, title browse, store/
+wardrobe/gallery/profile screens), `com.lvn.engine.services` (offline-first
+wallet/IAP/ads/analytics/leaderboards clients), `com.lvn.engine.spine`
+(skeletal characters), `com.lvn.engine.addressables` (bundle loading).

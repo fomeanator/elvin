@@ -71,7 +71,7 @@ stamps the user; the client never gets to claim one.
 | `POST /v1/analytics/events` | `[{name, ts?, props?}]` ×1..100 | `{accepted}` |
 | `GET /v1/analytics/summary?day=YYYY-MM-DD` | — (admin Bearer) | `{total, unique_users, by_name}` |
 
-## Unity clients (`Lvn.Services`, in the engine package)
+## Unity clients (`Lvn.Services`, the `com.lvn.engine.services` package)
 
 ```csharp
 LvnBackend.BaseUrl = "https://api.mygame.example";

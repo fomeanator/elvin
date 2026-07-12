@@ -1,0 +1,23 @@
+{
+  "name": "com.lvn.engine.shell",
+  "version": "0.7.0",
+  "displayName": "Elvin — Novel Shell",
+  "description": "The ready-made novel application over the Elvin engine: boot → title browse (carousel or hub/collections) → chapter play, plus every product screen — store, wardrobe, skin/pack shops, CG gallery, profile, leaderboards, daily rewards, settings, popups, auth, chapter-energy HUD. Drop NovelApp on a UIDocument and point it at a content server. Games embedding the engine with their own UI skip this package entirely — the core plays stories without it.",
+  "unity": "2022.3",
+  "license": "MIT",
+  "keywords": [
+    "visual-novel",
+    "shell",
+    "store",
+    "wardrobe",
+    "elvin",
+    "lvn"
+  ],
+  "dependencies": {
+    "com.lvn.engine": "0.7.0",
+    "com.lvn.engine.services": "0.7.0"
+  },
+  "author": {
+    "name": "Ominis"
+  }
+}

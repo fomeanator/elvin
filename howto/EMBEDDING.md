@@ -9,7 +9,8 @@
    диалоги чем угодно, движок ведёт сюжет/переменные/сейвы.
 2. **Сцена** — `VnStage` на своём GameObject: весь показ (тайпрайтер, выборы,
    актёры, кости, Spine, меню, сейвы). Свои ассеты — через `ILvnAssets`.
-3. **Весь шелл** — `NovelApp`: карусель, главы, резюм, настройки.
+3. **Весь шелл** — `NovelApp` (пакет `com.lvn.engine.shell`, тянет
+   `com.lvn.engine.services`): карусель/хаб, главы, резюм, магазины, настройки.
 
 ## «Движку не хватает X» — клапаны
 
@@ -66,8 +67,10 @@ LvnWebView.Opener = url => { web.LoadURL(url); web.SetVisibility(true); return t
 ### Опциональные модули
 
 Тяжёлые интеграции — отдельной сборкой с version define (образцы:
-`Lvn.Engine.Spine`, `Lvn.Engine.Addressables`): пакет есть — модуль
-компилируется, нет — движок чист.
+`com.lvn.engine.spine`, `com.lvn.engine.addressables`): свой пакет есть —
+модуль компилируется, нет — движок чист. Шелл и сервисы — тоже отдельные
+пакеты (`com.lvn.engine.shell`, `com.lvn.engine.services`): встраиваемой
+игре со своим UI они не нужны вовсе.
 
 ## Контракт
 
