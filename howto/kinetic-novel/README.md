@@ -1,88 +1,88 @@
-# 🎬 Кинетическая новелла
+# 🎬 Kinetic Novel
 
-Кинетическая новелла — это история без единого выбора: игрок только проматывает реплики, а всю драматургию несёт постановка, и здесь движок работает не как ветвление, а как режиссёр.
+A kinetic novel is a story without a single choice: the player only advances the lines, and all the drama is carried by the staging — here the engine works not as a branching machine but as a director.
 
-## Что делает пример
+## What the example does
 
-Ночной вокзал под дождём: с первого кадра играет музыка, льёт дождь, а сцена мягко проявляется из прозрачности. Слева въезжает актриса Эмбер, останавливается и «дышит» — еле заметно пульсирует. На воспоминании камера вздрагивает и бьёт вспышка. Затем кадр сменяется: затемнение, новый фон с рассветом, дождь и музыка выключаются, сцена проявляется обратно. В финале короткий «поп» масштабом ставит точку, и всё уходит в чёрный.
+A night railway station in the rain: music plays from the very first frame, rain pours, and the scene gently fades in from transparency. The actress Amber slides in from the left, stops, and "breathes" — pulsing almost imperceptibly. On a memory, the camera jolts and a flash fires. Then the frame changes: darken, a new dawn background, rain and music turn off, the scene fades back in. In the finale a short scale "pop" puts a period on the scene, and everything fades to black.
 
-## Движок как режиссёр
+## The engine as a director
 
-В кинетической новелле у тебя нет развилок — зато есть полный набор постановочных инструментов, и каждый из них задействован в примере:
+In a kinetic novel you have no branches — but you do have the full set of staging tools, and every one of them is used in the example:
 
-- **Фон** — `bg /content/bg/night_station.jpg` задаёт кадр, смена `bg` меняет «локацию».
-- **Переходы кадра** — `fade` (полноэкранное затемнение в `black`/`white`/`clear`), `dim` (притушить сцену для фокуса, `alpha=0` вернуть), `flash` (короткая вспышка).
-- **Камера** — `camera action=shake …` добавляет физический акцент.
-- **Частицы** — `particles type=rain on=true` кладёт слой дождя, `on=false` его снимает.
-- **Звук** — `audio channel=music action=play …` запускает музыку, `action=stop` глушит канал.
-- **Анимация актёра** — `anim` и `move` оживляют Эмбер: выход по экрану, «дыхание», покачивание, финальный акцент.
+- **Background** — `bg /content/bg/night_station.jpg` sets the frame; changing `bg` changes the "location".
+- **Frame transitions** — `fade` (full-screen fade to `black`/`white`/`clear`), `dim` (dim the scene for focus, `alpha=0` to restore), `flash` (a short flash).
+- **Camera** — `camera action=shake …` adds a physical accent.
+- **Particles** — `particles type=rain on=true` lays down a rain layer, `on=false` removes it.
+- **Sound** — `audio channel=music action=play …` starts music, `action=stop` silences the channel.
+- **Actor animation** — `anim` and `move` bring Amber to life: an entrance across the screen, "breathing", swaying, the final accent.
 
-## Анимация: одно правило и две формы записи
+## Animation: one rule and two notations
 
-Правило ровно одно: **разные каналы идут параллельно, а ключи внутри одного канала — по очереди.** «Дыхание» (канал `scale`) и покачивание (канал `rotation`) — это две разные `anim`-строки, и они играют одновременно поверх друг друга. А вот несколько ключей внутри `scale` отыгрываются последовательно.
+There is exactly one rule: **different channels run in parallel, while keys within one channel play in sequence.** "Breathing" (the `scale` channel) and swaying (the `rotation` channel) are two separate `anim` lines, and they play simultaneously on top of each other. But multiple keys within `scale` play back one after another.
 
-Записать анимацию можно тремя способами:
+You can write an animation three ways:
 
-1. **One-liner `to=`** — твин от текущего значения к цели одной строкой:
+1. **One-liner `to=`** — a tween from the current value to the target in one line:
    `anim amber scale to=1.08 dur=0.4 ease=outBack`
-2. **Bracket-список `[…]`** — набор значений, растянутый по длительности:
+2. **Bracket list `[…]`** — a set of values stretched across the duration:
    `anim amber scale [1 1.03 1] 3s yoyo`
-3. **Ключевые кадры `keys=`/`path=`** — пары «время:значение»:
+3. **Keyframes `keys=`/`path=`** — "time:value" pairs:
    `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
 
-**КРИТИЧЕСКИ важное правило кавычек** (самая частая ошибка): значения со **пробелами** внутри кавычек — `keys="…"` и `path="…"` — требуют **legacy-формы** с `id=`/`prop=`. Терс-форма ломается на пробелах. А вот bracket-список `[…]` и one-liner `to=` отлично работают и в терс-форме (`anim amber scale …`).
+**CRITICALLY important quoting rule** (the most common mistake): values with **spaces** inside quotes — `keys="…"` and `path="…"` — require the **legacy form** with `id=`/`prop=`. The terse form breaks on spaces. The bracket list `[…]` and the one-liner `to=`, however, work fine in the terse form (`anim amber scale …`).
 
-Сравни две реальные строки из примера. Покачивание головы — ключи с пробелами, поэтому legacy-форма:
+Compare two real lines from the example. The head sway uses keys with spaces, hence the legacy form:
 
 ```
 anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine
 ```
 
-А выход актрисы — путь с пробелами, тоже legacy `id=`/`path=`:
+And the actress's entrance is a path with spaces, also legacy `id=`/`path=`:
 
 ```
 move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic
 ```
 
-«Дыхание» же — bracket-список без пробелов в кавычках, поэтому терс-форма работает: `anim amber scale [1 1.03 1] 3s yoyo`.
+"Breathing", on the other hand, is a bracket list with no spaces inside quotes, so the terse form works: `anim amber scale [1 1.03 1] 3s yoyo`.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-Всё цитатами из `kinetic-novel.lvns`:
+All quoted from `kinetic-novel.lvns`:
 
-- **Звук:** `audio channel=music action=play url="/content/audio/rain_theme.ogg"` и `audio channel=music action=stop`
-- **Частицы:** `particles type=rain on=true` / `particles type=rain on=false`
-- **Проявление:** `fade to="clear" duration=1.2` и финальное `fade to="black" duration=1.5`
-- **Движение по экрану:** `move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic`
-- **«Дыхание» (bracket + yoyo):** `anim amber scale [1 1.03 1] 3s yoyo`
-- **Покачивание (legacy keys + rotation):** `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
-- **Тряска камеры:** `camera action=shake amplitude=0.02 duration=0.4`
-- **Вспышка:** `flash to="white" duration=0.3`
-- **Притушить/вернуть:** `dim alpha=0.6 duration=0.5` … `dim alpha=0 duration=0.8`
-- **Финальный «поп» (one-liner to= + outBack):** `anim amber scale to=1.08 dur=0.4 ease=outBack`
+- **Sound:** `audio channel=music action=play url="/content/audio/rain_theme.ogg"` and `audio channel=music action=stop`
+- **Particles:** `particles type=rain on=true` / `particles type=rain on=false`
+- **Fade-in:** `fade to="clear" duration=1.2` and the final `fade to="black" duration=1.5`
+- **Movement across the screen:** `move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic`
+- **"Breathing" (bracket + yoyo):** `anim amber scale [1 1.03 1] 3s yoyo`
+- **Swaying (legacy keys + rotation):** `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
+- **Camera shake:** `camera action=shake amplitude=0.02 duration=0.4`
+- **Flash:** `flash to="white" duration=0.3`
+- **Dim/restore:** `dim alpha=0.6 duration=0.5` … `dim alpha=0 duration=0.8`
+- **Final "pop" (one-liner to= + outBack):** `anim amber scale to=1.08 dur=0.4 ease=outBack`
 
-## Разбор по шагам
+## Step-by-step breakdown
 
-1. **Атмосфера.** Сразу ставим фон, музыку и дождь, а потом мягко проявляем кадр:
+1. **Atmosphere.** Set the background, music, and rain right away, then gently fade the frame in:
    ```
    bg /content/bg/night_station.jpg
    audio channel=music action=play url="/content/audio/rain_theme.ogg"
    particles type=rain on=true
    fade to="clear" duration=1.2
    ```
-2. **Выход актрисы + «дыхание».** Объявляем актёра, въезжаем им по экрану (`move`) и запускаем зацикленное дыхание (`anim scale … yoyo`) — это два параллельных канала:
+2. **The actress's entrance + "breathing".** Declare the actor, slide her across the screen (`move`), and start the looping breathing (`anim scale … yoyo`) — these are two parallel channels:
    ```
    actor amber left neutral
    move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic
    anim amber scale [1 1.03 1] 3s yoyo
    ```
-3. **Покачивание.** Добавляем третий канал — `rotation` через ключи. Он играет поверх «дыхания», не отменяя его: `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
-4. **Акцент памяти.** На реплике из прошлого встряхиваем камеру и бьём вспышкой:
+3. **Swaying.** Add a third channel — `rotation` via keys. It plays on top of the "breathing" without cancelling it: `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
+4. **Memory accent.** On the line from the past, shake the camera and fire a flash:
    ```
    camera action=shake amplitude=0.02 duration=0.4
    flash to="white" duration=0.3
    ```
-5. **Смена кадра.** Классическая связка «затемнили → поменяли → проявили»: притушили сцену, сменили фон, выключили дождь и музыку, вернули свет:
+5. **Frame change.** The classic "darken → change → reveal" combo: dim the scene, change the background, turn off the rain and music, bring the light back:
    ```
    dim alpha=0.6 duration=0.5
    bg /content/bg/empty_platform_dawn.jpg
@@ -90,7 +90,7 @@ move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic
    audio channel=music action=stop
    dim alpha=0 duration=0.8
    ```
-6. **Финальный «поп» и финал.** Короткое увеличение масштабом как точка в сцене, затем уход в чёрный:
+6. **Final "pop" and ending.** A short scale bump as the scene's closing beat, then a fade to black:
    ```
    actor amber center smile
    anim amber scale to=1.08 dur=0.4 ease=outBack
@@ -98,33 +98,33 @@ move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic
    -> __end
    ```
 
-## Запуск и проверка
+## Build and check
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/kinetic-novel/kinetic-novel.lvns -o /tmp/kn.lvn
 
-# структурная проверка
+# structural check
 /tmp/lvnconv validate /tmp/kn.lvn
 ```
 
-Цель — **0 warning(s)**. Важный момент: неверная форма `anim`/`move` (например, `keys=`/`path=` с пробелами без legacy `id=`/`prop=`) даёт ошибку компиляции, а не молчаливый пропуск. Это и есть защита — транскодер не пропустит сломанную постановку в контейнер.
+The goal is **0 warning(s)**. An important point: an invalid `anim`/`move` form (for example, `keys=`/`path=` with spaces without legacy `id=`/`prop=`) produces a compile error, not a silent skip. That is the safety net — the transcoder will not let broken staging into the container.
 
-## Сделай своим
+## Make it yours
 
-- Поиграй с easing и ключами: смени `ease=outBack` на `outCubic`, добавь больше ключей в `keys="…"` для сложного покачивания.
-- Запусти параллельные каналы: две `anim`-строки (например, `scale` и `alpha`) на одном актёре сыграют одновременно.
-- Собери цепочку кадров: несколько связок `dim → bg → dim alpha=0`, чтобы провести героя по локациям.
-- Подбери другие `particles` (`snow`) и движения `camera` (`zoom`/`pan`) под настроение сцены.
-- Добавь звуковые акценты через `audio channel=sfx action=play …` на ключевых репликах.
-- Полная озвучка: строка `voice "/content/voice/xxx.ogg"` перед каждой репликой — клип идёт с текстом, следующая строка его глушит (рецепт «Озвучка реплик» в recipes.md).
+- Play with easing and keys: swap `ease=outBack` for `outCubic`, add more keys in `keys="…"` for a more complex sway.
+- Run parallel channels: two `anim` lines (for example, `scale` and `alpha`) on one actor play simultaneously.
+- Build a chain of frames: several `dim → bg → dim alpha=0` combos to walk the hero through locations.
+- Pick other `particles` (`snow`) and `camera` moves (`zoom`/`pan`) to match the scene's mood.
+- Add sound accents via `audio channel=sfx action=play …` on key lines.
+- Full voice-over: a `voice "/content/voice/xxx.ogg"` line before each spoken line — the clip plays with the text, and the next line silences it (see the "Voicing lines" recipe in recipes.md).
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md)
-- [Система анимации](../../docs/animation-system.md)
-- [Книга рецептов](../recipes.md)
-- [Все жанры](../README.md)
+- [Language reference](../LANGUAGE.md)
+- [Animation system](../../docs/animation-system.md)
+- [Recipe book](../recipes.md)
+- [All genres](../README.md)

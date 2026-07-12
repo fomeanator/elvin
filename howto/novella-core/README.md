@@ -1,33 +1,33 @@
-# 🧱 Основа новеллы
+# 🧱 Novel Core
 
-Пять базовых кирпичей, из которых собирается любая новелла на движке. Этот пример — не сюжет, а **референс**: минимальный проход по каждому из пяти механизмов, чтобы их можно было скопировать в свою историю.
+The five basic building blocks every novel on this engine is made of. This example is not a story but a **reference**: a minimal pass over each of the five mechanisms so you can copy them into your own story.
 
-## Что делает пример
+## What the example does
 
-`novella-core.lvns` проводит игрока через короткое «первое дело»: слайд-вступление без персонажей, реплики ГГ и наставницы, один платный и два бесплатных выбора, начисление статов во всех четырёх комбинациях, а затем — развилка **без выбора**, которую движок проходит сам по накопленному стату `X`. Никакого арта не требуется: недостающие спрайты рисуются серыми болванками, а текст, статы и логика работают полностью.
+`novella-core.lvns` walks the player through a short "first case": a slide intro with no characters, lines from the protagonist and the mentor, one paid and two free choices, stat gains in all four combinations, and then a fork **without a choice**, which the engine resolves on its own from the accumulated stat `X`. No art is required: missing sprites are drawn as gray placeholders, while text, stats, and logic work in full.
 
-## Пять кирпичей
+## The five bricks
 
-**1. Слайд.** Три вида кадра:
-- без персонажей — просто текст на фоне (`bg …` + строка нарратива);
-- с ГГ — герой всегда **слева** (`actor hero left`);
-- с другим персонажем — прочие всегда **справа** (`actor nata right neutral`).
+**1. Slide.** Three kinds of frame:
+- no characters — just text over a background (`bg …` + a narration line);
+- with the protagonist — the hero is always on the **left** (`actor hero left`);
+- with another character — everyone else is always on the **right** (`actor nata right neutral`).
 
-**2. Выбор — платный и бесплатный.** Первая строка помечена `cost=` (подпись цены рядом с вариантом), остальные бесплатны. `cost` — только подпись: сам ресурс списывай явно на метке-обработчике.
+**2. Choice — paid and free.** The first line is marked with `cost=` (a price label next to the option); the rest are free. `cost` is only a label: deduct the resource explicitly in the handler label.
 
 ```
-- «Разобрать всё по учебнику.» -> book cost="1 час"
-- «Довериться чутью.» -> gut
-- «Спросить совета у Наты.» -> ask
+- Work through everything by the book. -> book cost="1 hour"
+- Trust your gut. -> gut
+- Ask Nata for advice. -> ask
 ```
 
-**3. Начисление стата за выбор** — все четыре комбинации:
-- **один стат — одна единица:** `inc key="опыт" by=1`
-- **один стат — несколько единиц:** `inc key="X" by=6`
-- **несколько статов — по единице:** `inc key="доверие" by=1` + `inc key="опыт" by=1`
-- **несколько статов — по несколько единиц:** `set key="X" expr="X+2"` + `set key="опыт" expr="опыт+2"`
+**3. Stat gain per choice** — all four combinations:
+- **one stat, one point:** `inc key="exp" by=1`
+- **one stat, several points:** `inc key="X" by=6`
+- **several stats, one point each:** `inc key="trust" by=1` + `inc key="exp" by=1`
+- **several stats, several points each:** `set key="X" expr="X+2"` + `set key="exp" expr="exp+2"`
 
-**4. Развилка без выбора, через статы.** Игрок доходит до слайда 100. Дальше выбирает не он, а стат `X`: `X > 5` ведёт на слайд 101 (быстрый путь), иначе — на слайд 110 (долгий путь), и обе ветки сходятся в слайде 120.
+**4. Fork without a choice, driven by stats.** The player reaches slide 100. From there it is not the player who chooses but the stat `X`: `X > 5` leads to slide 101 (the fast path), otherwise to slide 110 (the long path), and both branches converge at slide 120.
 
 ```
 :slide100
@@ -42,28 +42,28 @@ if X > 5 -> slide101
 ...
 -> slide120
 
-:slide120   // сюда сходятся обе ветки
+:slide120   // both branches converge here
 ```
 
-**5. Окно-подсказка.** `hint` всплывает окном **сверху по центру** сцены. `duration>0` — авто-скрытие через N секунд; `show=false` убирает вручную. Текст интерполирует `{vars}`.
+**5. Hint popup.** `hint` pops up as a window at the **top center** of the scene. `duration>0` — auto-hide after N seconds; `show=false` removes it manually. The text interpolates `{vars}`.
 
 ```
-hint text="Подсказка: выбор ниже меняет твои статы." duration=6
-hint text="Статы на финише — опыт: {опыт}, доверие: {доверие}, X: {X}." duration=8
+hint text="Hint: the choice below changes your stats." duration=6
+hint text="Stats at the finish — exp: {exp}, trust: {trust}, X: {X}." duration=8
 ```
 
-## Собрать и проверить
+## Build and check
 
 ```
 lvnconv convert  -i novella-core.lvns -o novella-core.lvn
 lvnconv validate novella-core.lvn        # OK: 61 command(s), 0 warning(s)
 ```
 
-## Задействованные возможности движка
+## Engine features used
 
-- Слайды: `bg …` (текст) / `actor hero left` (ГГ) / `actor nata right neutral` (прочие)
-- Платный/бесплатный выбор: `- текст -> метка cost="…"`
-- Начисление статов: `inc key="…" by=N`, `set key="…" expr="…"`
-- Развилка по стату без выбора: `if X > 5 -> метка` / `-> метка`
-- Всплывающая подсказка: `hint text="…" duration=6`
-- Интерполяция статов в тексте: `{опыт}`, `{X}`
+- Slides: `bg …` (text) / `actor hero left` (protagonist) / `actor nata right neutral` (others)
+- Paid/free choice: `- text -> label cost="…"`
+- Stat gains: `inc key="…" by=N`, `set key="…" expr="…"`
+- Stat-driven fork without a choice: `if X > 5 -> label` / `-> label`
+- Hint popup: `hint text="…" duration=6`
+- Stat interpolation in text: `{exp}`, `{X}`

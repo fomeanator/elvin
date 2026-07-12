@@ -1,110 +1,110 @@
 scene novella-core
 
-// ═══════════════════ ОСНОВА НОВЕЛЛЫ ═══════════════════
-// Пять базовых кирпичей, из которых собирается любая новелла на движке:
-//   1. Слайд          — ГГ слева, другие персонажи справа, либо просто текст.
-//   2. Выбор          — платный (cost=) и бесплатный.
-//   3. Начисление стата за выбор — 1×1, 1×N, N×1, N×N.
-//   4. Развилка без выбора, через статы — if <стат> -> метка.
-//   5. Окно-подсказка — hint, всплывает сверху по центру.
-// Всё остальное (фоны, музыка, эмоции, сейвы) — надстройка над этими пятью.
+// ═══════════════════ NOVEL CORE ═══════════════════
+// The five basic building blocks every novel on this engine is made of:
+//   1. Slide          — protagonist on the left, other characters on the right, or just text.
+//   2. Choice         — paid (cost=) and free.
+//   3. Stat gain per choice — 1×1, 1×N, N×1, N×N.
+//   4. Fork without a choice, driven by stats — if <stat> -> label.
+//   5. Hint popup     — hint, pops up at the top center.
+// Everything else (backgrounds, music, emotions, saves) builds on these five.
 
-// Имя в диалоге → id персонажа в касте. ГГ и наставник; болванки-плейсхолдеры
-// нарисуются автоматически, если арта ещё нет.
-actor_map Ты=hero Ната=nata
+// Dialogue name → character id in the cast. Protagonist and mentor; placeholder
+// dummies are drawn automatically if there is no art yet.
+actor_map You=hero Nata=nata
 
-// Статы истории. Любая необъявленная переменная читается как 0 — но явная
-// инициализация делает сюжет читаемым тому, кто его правит.
+// Story stats. Any undeclared variable reads as 0 — but explicit
+// initialization keeps the story readable for whoever edits it.
 X = 0
-доверие = 0
-опыт = 0
+trust = 0
+exp = 0
 
-// ─────────────────────── 1. СЛАЙД ───────────────────────
+// ─────────────────────── 1. SLIDE ───────────────────────
 
-// Слайд без персонажей — просто текст на фоне.
+// A slide with no characters — just text over a background.
 bg /content/bg/room.jpg
-Утро. Кабинет ещё пуст, но на столе уже лежит папка с твоим первым делом.
+Morning. The office is still empty, but a folder with your first case is already on the desk.
 
-// Слайд с ГГ — герой всегда слева.
+// A slide with the protagonist — the hero is always on the left.
 actor hero left
-Ты: Ну что ж. Посмотрим, во что я ввязался.
+You: Well then. Let's see what I've gotten myself into.
 
-// Слайд с другим персонажем — прочие всегда справа.
+// A slide with another character — everyone else is always on the right.
 actor nata right neutral
-Ната: Не спеши. Сначала реши, как будешь работать. Это важнее, чем кажется.
+Nata: Don't rush. First decide how you're going to work. It matters more than it seems.
 
-// ─── 5. ОКНО-ПОДСКАЗКА — всплывает сверху по центру ───
-// Появляется на нужном слайде; show=false убирает его, duration>0 — авто-скрытие.
-hint text="Подсказка: выбор ниже меняет твои статы — они решают развилку впереди." duration=6
+// ─── 5. HINT POPUP — pops up at the top center ───
+// Appears on the slide you need; show=false removes it, duration>0 auto-hides it.
+hint text="Hint: the choice below changes your stats — they decide the fork ahead." duration=6
 
-// ─── 2. ВЫБОР (платный / бесплатный) + 3. НАЧИСЛЕНИЕ СТАТА ───
-Ната: С чего начнёшь?
+// ─── 2. CHOICE (paid / free) + 3. STAT GAIN ───
+Nata: Where will you start?
 
-// Первая строка платная (cost=), остальные бесплатные.
-- «Разобрать всё по учебнику.» -> book cost="1 час"
-- «Довериться чутью.» -> gut
-- «Спросить совета у Наты.» -> ask
+// The first line is paid (cost=), the rest are free.
+- Work through everything by the book. -> book cost="1 hour"
+- Trust your gut. -> gut
+- Ask Nata for advice. -> ask
 
 :book
-// 3a. Один стат — одна единица.
-inc key="опыт" by=1
-Ты [neutral]: Методично. Пункт за пунктом.
+// 3a. One stat — one point.
+inc key="exp" by=1
+You [neutral]: Methodical. Point by point.
 -> hub
 
 :gut
-// 3b. Один стат — несколько единиц.
+// 3b. One stat — several points.
 inc key="X" by=6
-Ты [smile]: Иногда чутьё быстрее любого учебника.
+You [smile]: Sometimes a gut feeling is faster than any textbook.
 -> hub
 
 :ask
-// 3c. Несколько статов — по одной единице каждому.
-inc key="доверие" by=1
-inc key="опыт" by=1
-Ната [smile]: Правильный вопрос — уже половина ответа.
+// 3c. Several stats — one point each.
+inc key="trust" by=1
+inc key="exp" by=1
+Nata [smile]: The right question is already half the answer.
 -> hub
 
 :hub
-// 3d. Несколько статов — по несколько единиц (общий бонус за усердие).
+// 3d. Several stats — several points each (a shared diligence bonus).
 set key="X" expr="X+2"
-set key="опыт" expr="опыт+2"
-Ната: Хорошо. Теперь — по делу.
+set key="exp" expr="exp+2"
+Nata: Good. Now — down to business.
 
-// Условная подсказка через развилку без выбора (см. п.4): показываем разный
-// hint в зависимости от накопленного X, не спрашивая игрока.
+// A conditional hint via a fork without a choice (see #4): show a different
+// hint depending on the accumulated X, without asking the player.
 if X > 5 -> tip_high
-hint text="Твой ход осторожен. Иногда полезно рискнуть." duration=5
+hint text="You play it safe. Sometimes it pays to take a risk." duration=5
 -> slide100
 
 :tip_high
-hint text="Ты играешь смело — это открывает быстрые пути." duration=5
+hint text="You play boldly — that opens up the fast paths." duration=5
 -> slide100
 
-// ─── 4. РАЗВИЛКА БЕЗ ВЫБОРА, ЧЕРЕЗ СТАТЫ ───
-// Игрок доходит до слайда 100. Дальше движок сам выбирает ветку по стату X:
-//   X > 5  → слайд 101 (быстрый путь),
-//   иначе  → слайд 110 (долгий путь),
-// и обе ветки сходятся в слайде 120.
+// ─── 4. FORK WITHOUT A CHOICE, DRIVEN BY STATS ───
+// The player reaches slide 100. From there the engine picks the branch by stat X:
+//   X > 5  → slide 101 (the fast path),
+//   else   → slide 110 (the long path),
+// and both branches converge at slide 120.
 :slide100
 bg /content/bg/street.jpg
-Ты выходишь на улицу. Развилка — но выбирать будешь не ты, а всё, что успел набрать.
+You step outside. A fork — but it won't be you choosing, it will be everything you've managed to earn.
 if X > 5 -> slide101
 -> slide110
 
 :slide101
 actor hero left
-Ты [smile]: Решение приходит само — ты уже знаешь, куда идти.
+You [smile]: The decision comes on its own — you already know where to go.
 -> slide120
 
 :slide110
 actor hero left
-Ты [neutral]: Приходится идти длинным путём и собирать всё по крупицам.
+You [neutral]: You have to take the long way and piece it all together bit by bit.
 -> slide120
 
-// Обе ветки соединяются здесь.
+// Both branches join here.
 :slide120
 actor nata right smile
-Ната: Как бы ты ни дошёл — ты дошёл. Дело раскрыто.
-hint text="Статы на финише — опыт: {опыт}, доверие: {доверие}, X: {X}." duration=8
-КОНЦОВКА: «Первое дело закрыто».
+Nata: However you got here — you got here. Case solved.
+hint text="Stats at the finish — exp: {exp}, trust: {trust}, X: {X}." duration=8
+ENDING: «First case closed».
 -> __end

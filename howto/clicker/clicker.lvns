@@ -1,9 +1,10 @@
 scene clicker
 
-// ═══════════════════ КЛИКЕР / IDLE ═══════════════════
-// Ядро инкрементальной игры: реактивный HUD (text «{выражение}» сам обновляется
-// на тике ~200 мс), клик-цикл через выбор, апгрейды, экономика на переменных.
-// Каждый «клик» = выбор, который добавляет ресурс и возвращается в цикл.
+// ═══════════════════ CLICKER / IDLE ═══════════════════
+// Core of an incremental game: a reactive HUD (text «{expression}» refreshes
+// itself on the ~200 ms tick), a click loop driven by a choice, upgrades,
+// and an economy built on variables.
+// Every "click" = a choice option that adds a resource and jumps back into the loop.
 
 cookies = 0
 per_click = 1
@@ -11,20 +12,20 @@ ovens = 0
 oven_cost = 15
 goal = 50
 
-// Реактивная панель: значения в {…} пересчитываются автоматически.
-text hud x=4 y=8 size=44 color=#ffe9b0 «🍪 {cookies}   за клик: {per_click}   печей: {ovens}   цель: {goal}»
+// Reactive panel: the values in {…} recompute automatically.
+text hud x=4 y=8 size=44 color=#ffe9b0 «🍪 {cookies}   per click: {per_click}   ovens: {ovens}   goal: {goal}»
 
 bg /content/bg/bakery.jpg
-Пекарня открыта! Пеки печенье и расширяй производство.
+The bakery is open! Bake cookies and grow the business.
 -> loop
 
 :loop
-// Печи дают пассивный доход — начисляем его на каждом проходе цикла.
+// Ovens generate passive income — credit it on every pass through the loop.
 cookies = cookies + ovens
 if cookies >= goal -> win
-- 🍪 Печь печенье (+{per_click}) -> bake
-- 🔥 Купить печь ({oven_cost}🍪, +1/такт) -> buy_oven
-- ⬆ Прокачать руки (20🍪, +1 за клик) -> buy_hands
+- 🍪 Bake a cookie (+{per_click}) -> bake
+- 🔥 Buy an oven ({oven_cost}🍪, +1/tick) -> buy_oven
+- ⬆ Upgrade hands (20🍪, +1 per click) -> buy_hands
 
 :bake
 cookies = cookies + per_click
@@ -32,25 +33,25 @@ cookies = cookies + per_click
 
 :buy_oven
 if cookies >= oven_cost -> do_oven
-Не хватает печенья на печь.
+Not enough cookies for an oven.
 -> loop
 :do_oven
 cookies = cookies - oven_cost
 ovens = ovens + 1
 oven_cost = floor(oven_cost * 1.6)
-Новая печь гудит! Каждый такт приносит печенье само.
+A new oven hums to life! Every tick it bakes cookies on its own.
 -> loop
 
 :buy_hands
 if cookies >= 20 -> do_hands
-Не хватает печенья на прокачку.
+Not enough cookies for the upgrade.
 -> loop
 :do_hands
 cookies = cookies - 20
 per_click = per_click + 1
-Ловкие руки! Теперь каждый клик весомее.
+Nimble hands! Every click counts for more now.
 -> loop
 
 :win
-Цель достигнута — {goal} печений! Ты пекарь-магнат. 🎉
+Goal reached — {goal} cookies! You are a baking tycoon. 🎉
 -> __end

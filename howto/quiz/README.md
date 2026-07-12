@@ -1,45 +1,45 @@
-# ❓ Викторина / Quiz
+# ❓ Quiz
 
-Серия вопросов с вариантами ответа, подсчётом очков и финальной оценкой — классический quiz на голых средствах движка.
+A series of multiple-choice questions with score tracking and a final grade — a classic quiz built on the engine's bare primitives.
 
-## Что делает пример
+## What the example does
 
-`quiz.lvns` задаёт три вопроса, каждый — как выбор из трёх вариантов. За каждый верный ответ переменная `score` растёт на единицу, а текущий счёт всегда виден на экране через реактивную плашку. После последнего вопроса игра переходит к разбору итога и выдаёт оценку A/B/C/D в зависимости от набранных очков (от «🏆 Безупречно» до «😅 Реванш?»).
+`quiz.lvns` asks three questions, each posed as a choice between three options. Every correct answer bumps the `score` variable by one, and the running score is always visible on screen via a reactive badge. After the last question the game moves on to the wrap-up and hands out an A/B/C/D grade based on the points earned (from "🏆 Flawless" to "😅 Rematch?").
 
-## Паттерн вопроса
+## The question pattern
 
-Сердце жанра: каждый вариант ответа — это `choice`, который ведёт на свою метку. Верный вариант прыгает на «правильную» метку (`:r1`), где `score` увеличивается; неверные варианты ведут на «неправильную» метку (`:w1`). Обе ветки заканчиваются переходом к следующему вопросу `-> q2`, поэтому поток снова сходится в одну точку:
+The heart of the genre: each answer option is a `choice` that jumps to its own label. The correct option jumps to the "right" label (`:r1`), where `score` is incremented; wrong options lead to the "wrong" label (`:w1`). Both branches end with a jump to the next question, `-> q2`, so the flow converges back into a single point:
 
 ```
 :q1
-Вопрос 1. Сколько байт в килобайте (по двоичной системе)?
+Question 1. How many bytes are in a kilobyte (in binary)?
 - 1000 -> w1
 - 1024 -> r1
 - 512 -> w1
 :r1
 score = score + 1
-Верно! 1024 = 2¹⁰.
+Correct! 1024 = 2¹⁰.
 -> q2
 :w1
-Увы, правильный ответ — 1024.
+Sorry, the right answer is 1024.
 -> q2
 ```
 
-Все три варианта явно адресуют метку через `-> метка`, так что ни одна ветка не «проваливается» случайно — поток предсказуем.
+All three options address a label explicitly via `-> label`, so no branch "falls through" by accident — the flow is predictable.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Выбор (`choice`)** — варианты ответа: `- 1024 -> r1` (синтаксис «`- текст -> метка`»).
-- **Переменная-счётчик** — `score = 0` на старте и `score = score + 1` в каждой правильной ветке.
-- **Реактивный `text` на экране** — `text hud x=4 y=8 size=42 color=#bfe3ff «Счёт: {score}»`; интерполяция `{score}` обновляется по мере роста счёта.
-- **Ветвление итога** — каскад условных прыжков `if score == 3 -> grade_a`, `if score >= 2 -> grade_b`, `if score == 1 -> grade_c` с безусловным fallback `-> grade_d`.
+- **Choice (`choice`)** — the answer options: `- 1024 -> r1` (the "`- text -> label`" syntax).
+- **A counter variable** — `score = 0` at the start and `score = score + 1` in every correct branch.
+- **A reactive on-screen `text`** — `text hud x=4 y=8 size=42 color=#bfe3ff «Score: {score}»`; the `{score}` interpolation updates as the score grows.
+- **Final branching** — a cascade of conditional jumps `if score == 3 -> grade_a`, `if score >= 2 -> grade_b`, `if score == 1 -> grade_c` with an unconditional fallback `-> grade_d`.
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-1. **Инициализация.** `score = 0` объявляет счётчик. Сразу следом — постоянная плашка счёта: `text hud x=4 y=8 size=42 color=#bfe3ff «Счёт: {score}»`. Она реактивна: каждый раз, когда `score` меняется, текст перерисовывается.
-2. **Вступление.** `bg /content/bg/quiz_stage.jpg`, строка-нарратив с правилами и `-> q1` — старт первого вопроса.
-3. **Структура вопроса `q1 → r1/w1 → q2`.** Метка `:q1` показывает вопрос и три варианта; верный (`1024`) ведёт на `:r1` (там `score = score + 1` и переход `-> q2`), неверные — на `:w1` (без начисления, тоже `-> q2`). Вопросы 2 и 3 повторяют ровно тот же шаблон, меняются только тексты и метки (`q2→r2/w2`, `q3→r3/w3`). Последний `:r3`/`:w3` ведут уже на `-> result`.
-4. **Итог `:result`.** Меняем фон на `bg /content/bg/quiz_result.jpg`, показываем счёт `{score} из 3` и запускаем каскад:
+1. **Initialization.** `score = 0` declares the counter. Right after it comes the persistent score badge: `text hud x=4 y=8 size=42 color=#bfe3ff «Score: {score}»`. It is reactive: every time `score` changes, the text is redrawn.
+2. **Intro.** `bg /content/bg/quiz_stage.jpg`, a narration line with the rules, and `-> q1` — the first question begins.
+3. **The `q1 → r1/w1 → q2` question structure.** Label `:q1` shows the question and three options; the correct one (`1024`) leads to `:r1` (where `score = score + 1` and a jump `-> q2`), the wrong ones lead to `:w1` (no points, also `-> q2`). Questions 2 and 3 repeat exactly the same template — only the texts and labels change (`q2→r2/w2`, `q3→r3/w3`). The final `:r3`/`:w3` already jump to `-> result`.
+4. **The `:result` wrap-up.** Swap the background to `bg /content/bg/quiz_result.jpg`, show the score `{score} out of 3` and run the cascade:
 
 ```
 if score == 3 -> grade_a
@@ -48,38 +48,38 @@ if score == 1 -> grade_c
 -> grade_d
 ```
 
-Порядок важен: проверки идут сверху вниз, первое истинное условие срабатывает и прыгает. `score == 3` отлавливается раньше, чем `score >= 2`, поэтому каскад не перехлёстывается. Если ни одно условие не сработало (`score == 0`), безусловный `-> grade_d` ловит остаток как fallback.
+Order matters: the checks run top to bottom, and the first true condition fires and jumps. `score == 3` is caught before `score >= 2`, so the cascade never overlaps. If no condition fires (`score == 0`), the unconditional `-> grade_d` catches the remainder as a fallback.
 
-5. **Оценки.** Метки `:grade_a`…`:grade_d` выводят свой вердикт и каждая завершается `-> __end` — встроенной меткой конца сценария.
+5. **Grades.** Labels `:grade_a`…`:grade_d` print their verdict, each ending with `-> __end` — the built-in end-of-script label.
 
-## Запуск и проверка
+## Running and checking
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/quiz/quiz.lvns -o /tmp/quiz.lvn
 
-# структурная проверка: цель — 0 warning(s)
+# structural check: the goal is 0 warning(s)
 /tmp/lvnconv validate /tmp/quiz.lvn
 ```
 
-Если `validate` ругается на «label … reached by fall-through», значит в метку и прыгают, и «проваливаются» сверху — добавь явный `-> метка` перед ней.
+If `validate` complains about "label … reached by fall-through", it means a label is both jumped into and "fallen into" from above — add an explicit `-> label` before it.
 
-## Сделай своим
+## Make it your own
 
-- **Больше вопросов.** Шаблон `qN → rN/wN → q(N+1)` копируется как есть — наращивай цепочку и подправь пороги в каскаде итога.
-- **Штраф за неверный ответ.** В метках `:wN` добавь `score = score - 1` (или `score = max(score, 0)` через `max`, чтобы счёт не уходил в минус).
-- **Блиц-режим (реальный таймер).** Строка `choice timeout=5 timeout_goto=slow` перед вариантами даёт полосу обратного отсчёта — истёк, и сюжет уходит в ветку опоздания (в примере — вопрос 3). Меню и арт-вью честно замораживают часы.
-- **Ввод имени.** `input var=player_name prompt="Представься!"` — введённое живёт в `{player_name}` (пример начинается с него).
-- **Лимит попыток / «таймер» через ходы.** Когда нужен не реальный отсчёт, а игровой: `tries = tries + 1` на каждом ответе и `if tries >= 5 -> result`.
-- **Категории.** Группируй вопросы по темам и веди отдельные счётчики (`sci`, `geo`, …), а в итоге показывай разбивку через интерполяцию.
-- **Рандомизация порядка.** В точке входа разветвляйся через `if rand(2) == 0 -> q_alt`, чтобы тасовать вопросы или их варианты между прохождениями.
-- **Перепрохождение.** На любой `:grade_*` вместо `-> __end` поставь выбор «Сыграть ещё», который обнуляет `score = 0` и прыгает обратно на `-> q1`.
+- **More questions.** The `qN → rN/wN → q(N+1)` template copies as is — extend the chain and adjust the thresholds in the final cascade.
+- **Penalty for a wrong answer.** In the `:wN` labels add `score = score - 1` (or `score = max(score, 0)` via `max` so the score never goes negative).
+- **Blitz mode (a real timer).** The line `choice timeout=5 timeout_goto=slow` before the options shows a countdown bar — when it runs out, the story goes down the too-slow branch (question 3 in the example). The menu and art view honestly freeze the clock.
+- **Name input.** `input var=player_name prompt="Introduce yourself!"` — the input lives in `{player_name}` (the example opens with it).
+- **Attempt limit / a turn-based "timer".** When you need a game-turn count rather than real time: `tries = tries + 1` on every answer and `if tries >= 5 -> result`.
+- **Categories.** Group questions by topic and keep separate counters (`sci`, `geo`, …), then show the breakdown in the wrap-up via interpolation.
+- **Randomized order.** At the entry point branch via `if rand(2) == 0 -> q_alt` to shuffle questions or their options between playthroughs.
+- **Replay.** On any `:grade_*`, replace `-> __end` with a "Play again" choice that resets `score = 0` and jumps back to `-> q1`.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md)
-- [Книга рецептов](../recipes.md)
-- [Все жанры](../README.md)
+- [Language reference](../LANGUAGE.md)
+- [Recipe book](../recipes.md)
+- [All genres](../README.md)

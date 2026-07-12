@@ -1,106 +1,106 @@
-# 📖 Визуальная новелла
+# 📖 Visual novel
 
-Жанр диалогов, эмоций говорящих и ветвящегося выбора — родной для LVN, потому что весь сюжет здесь это данные (`.lvns`), а не код.
+The genre of dialogue, speaker emotions and branching choices is native to LVN, because here the whole story is data (`.lvns`), not code.
 
-## Что делает пример
+## What the example does
 
-`visual-novel.lvns` — короткая драма встречи под дождём. Игрок приходит к Маре, выбирает реплику в диалоге, а дальше попадает в вложенный выбор «сказать правду или соврать». По ходу копятся два флага (`warmth`, `told_truth`), и в финале они разводят сюжет на четыре разные концовки. Никакого арта не требуется — без графики недостающие спрайты просто не рисуются, а сюжет, текст и логика работают полностью.
+`visual-novel.lvns` is a short drama about a meeting in the rain. The player comes to Mara, picks a line in the dialogue, and then lands in a nested choice — tell the truth or lie. Along the way two flags accumulate (`warmth`, `told_truth`), and in the finale they split the story into four different endings. No art is required — without graphics the missing sprites simply are not drawn, while the story, text and logic work in full.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Маппинг актёра** — связывает имя в диалоге с id каста, чтобы эмоции переключались: `actor_map Мара=mara`
-- **Флаги-переменные** — состояние сюжета, читается как 0 даже без объявления: `warmth = 0`
-- **Фон сцены** — терс-форма, id выводится из имени файла: `bg /content/bg/porch.jpg`
-- **Нарратив** — строка без говорящего: `Дождь барабанил по навесу крыльца. Ты вернулся туда, где обещал не появляться.`
-- **Реплики с эмоцией** — переключает ось `emotion` каста: `Мара [smile]: Тогда заходи, не мокни.`
-- **Выход актёра** — позиция + эмоция: `actor mara left neutral`
-- **Меню выбора** — каждая строка «`- текст -> метка`»: `- «Я скучал.» -> warm`
-- **Метки и переходы** — точки прыжка и goto: `:kitchen` / `-> kitchen`
-- **Условные развилки** — прыжок по флагу или провал дальше: `if warmth >= 2 -> end_good`
-- **Арифметика над флагами**: `warmth = warmth + 1`
-- **Эффект затемнения** в концовке: `fade to="black" duration=0.8`
-- **Встроенный конец сценария**: `-> __end`
+- **Actor mapping** — links the name in dialogue to a cast id so emotions can switch: `actor_map Mara=mara`
+- **Flag variables** — story state, reads as 0 even without a declaration: `warmth = 0`
+- **Scene background** — terse form, the id is derived from the file name: `bg /content/bg/porch.jpg`
+- **Narration** — a line without a speaker: `Rain drummed on the porch awning. You came back to the place you promised never to return to.`
+- **Lines with an emotion** — switches the cast's `emotion` axis: `Mara [smile]: Then come in, don't stand in the rain.`
+- **Actor entrance** — position + emotion: `actor mara left neutral`
+- **Choice menu** — each line is "`- text -> label`": `- "I missed you." -> warm`
+- **Labels and jumps** — jump targets and gotos: `:kitchen` / `-> kitchen`
+- **Conditional forks** — jump on a flag or fall through: `if warmth >= 2 -> end_good`
+- **Arithmetic on flags**: `warmth = warmth + 1`
+- **Fade effect** in an ending: `fade to="black" duration=0.8`
+- **Built-in end of script**: `-> __end`
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-**1. Маппинг и инициализация флагов.** В начале связываем отображаемое имя с кастом и явно объявляем флаги. Необъявленная переменная всё равно читается как 0, но явная инициализация делает сюжет понятным правщику.
+**1. Mapping and flag initialization.** At the start we link the display name to the cast and declare the flags explicitly. An undeclared variable still reads as 0, but explicit initialization makes the story clearer to whoever edits it.
 
 ```
-actor_map Мара=mara
+actor_map Mara=mara
 
 warmth = 0
 told_truth = 0
 ```
 
-**2. Фон, нарратив, выход актёра и эмоция.** Ставим фон, даём строку повествования, выводим актёра на позицию `left` с эмоцией `neutral`, затем — реплика.
+**2. Background, narration, actor entrance and emotion.** We set the background, give a line of narration, bring the actor to the `left` position with the `neutral` emotion, then — a line of dialogue.
 
 ```
 bg /content/bg/porch.jpg
-Дождь барабанил по навесу крыльца. Ты вернулся туда, где обещал не появляться.
+Rain drummed on the porch awning. You came back to the place you promised never to return to.
 
 actor mara left neutral
-Мара: Ты пришёл. Я не была уверена, что придёшь.
+Mara: You came. I wasn't sure you would.
 ```
 
-**3. Меню выбора.** Каждая строка `- текст -> метка` — отдельный вариант, который прыгает на свою метку.
+**3. Choice menu.** Each `- text -> label` line is a separate option that jumps to its label.
 
 ```
-- «Я скучал.» -> warm
-- «Нам надо поговорить.» -> talk
-- «Зря я пришёл.» -> leave
+- "I missed you." -> warm
+- "We need to talk." -> talk
+- "I shouldn't have come." -> leave
 ```
 
-**4. Ветка с мутацией флага и эмоцией.** Под меткой меняем флаг, переключаем эмоцию через `[smile]` и уходим к общей точке `-> kitchen`.
+**4. A branch with a flag mutation and an emotion.** Under the label we change the flag, switch the emotion via `[smile]` and head to the shared point `-> kitchen`.
 
 ```
 :warm
 warmth = warmth + 1
-Мара [smile]: Тогда заходи, не мокни.
+Mara [smile]: Then come in, don't stand in the rain.
 -> kitchen
 ```
 
-**5. Вложенный выбор.** Внутри ветки `talk` — ещё одно меню. Правда поднимает `warmth` и ставит `told_truth = 1`; ложь оставляет флаги и даёт грустную эмоцию `[sad]`.
+**5. Nested choice.** Inside the `talk` branch there is another menu. The truth raises `warmth` and sets `told_truth = 1`; the lie leaves the flags alone and gives the sad `[sad]` emotion.
 
 ```
 :talk
-Мара [neutral]: Говори. Я слушаю.
-- Сказать правду -> truth
-- Соврать -> lie
+Mara [neutral]: Go on. I'm listening.
+- Tell the truth -> truth
+- Lie -> lie
 
 :truth
 told_truth = 1
 warmth = warmth + 1
-Ты рассказал всё как есть. Мара долго молчала.
-Мара [smile]: Спасибо, что не стал выдумывать.
+You told it like it was. Mara was silent for a long time.
+Mara [smile]: Thank you for not making things up.
 -> kitchen
 ```
 
-**6. Развилка концовок по флагам.** Все пути сходятся в `:kitchen`, где накопленные флаги решают финал. `if cond -> метка` прыгает при истине, иначе поток падает на следующую строку — последний безусловный `-> end_cold` ловит остаток.
+**6. Ending fork on the flags.** All paths converge at `:kitchen`, where the accumulated flags decide the finale. `if cond -> label` jumps when true, otherwise the flow falls to the next line — the final unconditional `-> end_cold` catches the rest.
 
 ```
 :kitchen
 bg /content/bg/kitchen.jpg
-Мара: Чайник ещё тёплый. Будешь?
+Mara: The kettle is still warm. Want some?
 
 if warmth >= 2 -> end_good
 if told_truth == 1 -> end_ok
 -> end_cold
 ```
 
-**7. Концовки и явные `-> __end`.** Каждая концовка завершается переходом на встроенную метку конца. Ветка `leave` дополнительно гасит свет через `fade`, прежде чем закончиться.
+**7. Endings and explicit `-> __end`.** Each ending finishes with a jump to the built-in end label. The `leave` branch additionally dims the lights with `fade` before it ends.
 
 ```
 :leave
 warmth = warmth - 1
-Мара [sad]: ...Я так и думала.
+Mara [sad]: ...I thought as much.
 fade to="black" duration=0.8
-КОНЦОВКА: «Закрытая дверь».
+ENDING — "Closed Door".
 -> __end
 ```
 
-Явный `-> __end` перед каждой меткой важен: он не даёт потоку «провалиться» в чужую концовку и убирает ворнинг про fall-through.
+The explicit `-> __end` before each label matters: it keeps the flow from falling through into someone else's ending and removes the fall-through warning.
 
-## Запуск и проверка
+## Run and check
 
 ```sh
 cd tools/lvnconv && go build -o /tmp/lvnconv .
@@ -108,19 +108,19 @@ cd tools/lvnconv && go build -o /tmp/lvnconv .
 /tmp/lvnconv validate /tmp/vn.lvn
 ```
 
-Цель — **0 warning(s)**. Самый частый ворнинг «label … reached by fall-through» означает, что в метку-цель прыжка ещё и проваливаются сверху: поставь явный `-> метка` или `-> __end` перед ней.
+The goal is **0 warning(s)**. The most common warning, "label … reached by fall-through", means the jump target is also being fallen into from above — put an explicit `-> label` or `-> __end` before it.
 
-## Сделай своим
+## Make it your own
 
-- **Добавь персонажа** — заведи `actor_map Игорь=igor`, выводи его на сцену `actor igor right neutral` и давай реплики `Игорь: …`. Строится на маппинге актёра и команде `actor`.
-- **Новая ветка выбора** — добавь строку `- «Промолчать» -> silent` в существующее меню и метку `:silent` с финалом. Строится на конструкции «`- текст -> метка`» и метках.
-- **Ещё один флаг и концовка** — заведи `trust = 0`, повышай его в нужных ветках и добавь развилку `if trust >= 1 -> end_trust`. Строится на переменных, арифметике и `if ... -> метка`.
-- **Сохранение прогресса** — вставь `save` после ключевого выбора и предложи `load` для отката. Строится на командах `save`/`load`.
-- **Больше эмоций и фонов** — расширь палитру реплик (`Мара [angry]: …`) и смену сцен через `bg /content/bg/...`. Строится на оси `emotion` каста и команде `bg`.
+- **Add a character** — set up `actor_map Igor=igor`, bring him on stage with `actor igor right neutral` and give him lines `Igor: …`. Built on actor mapping and the `actor` command.
+- **A new choice branch** — add a line `- "Say nothing" -> silent` to an existing menu and a `:silent` label with a finale. Built on the "`- text -> label`" construct and labels.
+- **Another flag and ending** — set up `trust = 0`, raise it in the right branches and add a fork `if trust >= 1 -> end_trust`. Built on variables, arithmetic and `if ... -> label`.
+- **Saving progress** — insert `save` after a key choice and offer `load` to roll back. Built on the `save`/`load` commands.
+- **More emotions and backgrounds** — expand the palette of lines (`Mara [angry]: …`) and scene changes via `bg /content/bg/...`. Built on the cast's `emotion` axis and the `bg` command.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md) — единственный источник синтаксиса.
-- [Книга рецептов](../recipes.md) — короткие переиспользуемые паттерны.
-- [Все жанры](../README.md) — карта типов игр и быстрый старт.
-- Большой реальный сценарий: `server/content/scripts/soviet-ch1.lvns` — полноразмерная новелла на тех же конструкциях.
+- [Language reference](../LANGUAGE.md) — the single source of truth for syntax.
+- [Recipe book](../recipes.md) — short reusable patterns.
+- [All genres](../README.md) — the map of game types and a quick start.
+- A large real script: `server/content/scripts/soviet-ch1.lvns` — a full-size novel built on the same constructs.

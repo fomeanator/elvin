@@ -1,54 +1,54 @@
 scene exp_victoria
 
-// ═══════════ ЭКСПЕДИЦИЯ (type=expedition) ═══════════
-// Партнёрский тест-флоу: ветвление (выбор ставит флаг), условие (флаг разводит
-// сцену), финал (ставит флаг завершения + разблокирует свидание и бит реальности).
-// Вход в неё — из хаба по карточке за 1 энергию (это данные тайтла в манифесте,
-// не скрипт: cost={currency:energy, amount:1}). Скрипт — обычная новелла.
+// ═══════════ EXPEDITION (type=expedition) ═══════════
+// Partner test flow: branching (a choice sets a flag), condition (the flag forks
+// the scene), finale (sets the completion flag + unlocks the date and the reality beat).
+// Entry point is a hub card that costs 1 energy (that's title data in the manifest,
+// not the script: cost={currency:energy, amount:1}). The script is a regular novel.
 
-actor_map Граф=graf
+actor_map Count=graf
 
-// Локальный флаг экспедиции (скоуп новеллы, между экспедициями не течёт).
-smelo = false
+// Local expedition flag (novel scope, does not leak between expeditions).
+daring = false
 
 bg /content/bg/ballroom.jpg
 actor graf right neutral
-Граф: Вы новенькая при дворе?
+Count: New at court, are you?
 
-// 1) Ветвление: выбор пишет флаг.
-- «Дерзко» -> derzko
-- «Мягко»  -> myagko
+// 1) Branching: the choice writes the flag.
+- «Boldly» -> pick_bold
+- «Gently»  -> pick_gentle
 
-:derzko
-set key="smelo" value=true
+:pick_bold
+set key="daring" value=true
 -> balcony
 
-:myagko
-set key="smelo" value=false
+:pick_gentle
+set key="daring" value=false
 -> balcony
 
 :balcony
-Граф провожает вас на балкон.
+The Count escorts you to the balcony.
 
-// 2) Условие без выбора: флаг разводит сцену.
-if smelo == true -> bold
+// 2) Condition without a choice: the flag forks the scene.
+if daring == true -> bold
 -> soft
 
 :bold
-Граф [smile]: А вы смелее, чем кажетесь…
+Count [smile]: You are bolder than you look…
 -> finale
 
 :soft
-Граф [neutral]: С вами спокойно…
+Count [neutral]: I feel at ease with you…
 -> finale
 
-// 3) Финал: кат-сцена, флаг завершения + разблокировки — ГЛОБАЛЬНЫЕ (global.*),
-// их видят другие новеллы (свидание/реальность гейтятся ими в манифесте).
+// 3) Finale: cutscene, completion flag + unlocks — GLOBAL (global.*),
+// other novels see them (the date/reality are gated by them in the manifest).
 :finale
 bg /content/cg/victoria_finale.jpg
-Между вами вспыхнуло что-то настоящее.
+Something real sparked between you.
 set key="global.exp_victoria_done" value=1
-set key="global.date_victoria" value=1      // → разблокирует Свидание с Викторией
-set key="global.reality_beat_2" value=1     // → разблокирует бит Сюжета Реальности
-Граф: Мы ещё увидимся. Обещаю.
+set key="global.date_victoria" value=1      // → unlocks the Date with Victoria
+set key="global.reality_beat_2" value=1     // → unlocks the Reality Storyline beat
+Count: We will meet again. I promise.
 -> __end

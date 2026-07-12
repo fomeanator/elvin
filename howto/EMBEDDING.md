@@ -1,78 +1,81 @@
-# Встраивание движка в свою игру
+# Embedding the engine in your own game
 
-Движок — библиотека (`com.lvn.engine`, UPM). Экспортируемый шаблон — просто
-самый тонкий хост. Полный справочник швов: `docs/embedding.md` (EN).
+The engine is a library (`com.lvn.engine`, UPM). The exported template is just
+the thinnest possible host. Full reference of the seams: `docs/embedding.md` (EN).
 
-## Три уровня входа
+## Three entry levels
 
-1. **Только сценарий** — `LvnPlayer` + свой `ILvnStage` (4 метода): рисуешь
-   диалоги чем угодно, движок ведёт сюжет/переменные/сейвы.
-2. **Сцена** — `VnStage` на своём GameObject: весь показ (тайпрайтер, выборы,
-   актёры, кости, Spine, меню, сейвы). Свои ассеты — через `ILvnAssets`.
-3. **Весь шелл** — `NovelApp` (пакет `com.lvn.engine.shell`, тянет
-   `com.lvn.engine.services`): карусель/хаб, главы, резюм, магазины, настройки.
+1. **Script only** — `LvnPlayer` + your own `ILvnStage` (4 methods): you draw
+   the dialogue however you like, the engine drives the story/variables/saves.
+2. **Scene** — `VnStage` on your own GameObject: the whole presentation
+   (typewriter, choices, actors, bones, Spine, menu, saves). Your own assets —
+   via `ILvnAssets`.
+3. **The whole shell** — `NovelApp` (package `com.lvn.engine.shell`, pulls in
+   `com.lvn.engine.services`): carousel/hub, chapters, resume, stores, settings.
 
-## «Движку не хватает X» — клапаны
+## "The engine lacks X" — the valves
 
-### Свои команды сценария — `LvnOps`
+### Your own script commands — `LvnOps`
 
 ```csharp
 LvnOps.Register("minigame", (cmd, ctx) => {
-    ctx.Hold();                              // сюжет ждёт
+    ctx.Hold();                              // the story waits
     MyMinigame.Run((string)cmd["kind"], won => {
-        ctx.Vars["won"] = won;               // тот же стор, что у set/if
+        ctx.Vars["won"] = won;               // same store as set/if
         if (!won) ctx.GoTo("failed");
-        ctx.Resume();                        // сюжет продолжается
+        ctx.Resume();                        // the story continues
     });
 });
 ```
 
-В `.lvns` автор пишет: `ext minigame kind="lockpick"`. Без `Hold()` —
-выстрелил-и-забыл. Валидатор на неизвестный оп даёт предупреждение (не
-ошибку): возможно, он твой.
+In `.lvns` the author writes: `ext minigame kind="lockpick"`. Without `Hold()`
+it is fire-and-forget. The validator emits a warning (not an error) for an
+unknown op — it might be yours.
 
-### Свои пункты меню
+### Your own menu items
 
 ```csharp
-StageMenu.AddMenuItem("Достижения", stage => MyAchievements.Show());
+StageMenu.AddMenuItem("Achievements", stage => MyAchievements.Show());
 ```
 
-### События
+### Events
 
-- `LvnPlayer.OnSay` — каждая реплика;
-- `VnStage.Saved` — после каждого сейва (клауд-синк, ачивки);
-- `NovelApp.ChapterStarted / ChapterFinished` — жизненный цикл глав;
+- `LvnPlayer.OnSay` — every line;
+- `VnStage.Saved` — after every save (cloud sync, achievements);
+- `NovelApp.ChapterStarted / ChapterFinished` — chapter lifecycle;
 - `VnStage.ExitRequested`, `ChromeHiddenChanged`.
 
-### Рисовать поверх
+### Drawing on top
 
-Свой `UIDocument` с большим `sortingOrder` — поверх движка; на время своего
-экрана ставь `stage.InputBlocked = true`.
+Your own `UIDocument` with a higher `sortingOrder` renders above the engine;
+while your screen is up, set `stage.InputBlocked = true`.
 
-### Веб-вью (in-app browser)
+### Web view (in-app browser)
 
-Движок **не линкует** веб-вью-либу — только шов `Lvn.Services.LvnWebView`:
-движок зовёт `LvnWebView.Open(url)` (баннер «как оплатить из РФ» в магазине,
-ToS/Policy), хост подключает реализацию через переменную-хук.
+The engine does **not** link a web-view library — only the `Lvn.Services.LvnWebView`
+seam: the engine calls `LvnWebView.Open(url)` (the "how to pay from Russia"
+banner in the store, ToS/Policy), and the host plugs in an implementation via a
+hook variable.
 
 ```csharp
 LvnWebView.Opener = url => { web.LoadURL(url); web.SetVisibility(true); return true; };
 ```
 
-Без хука `Open` открывает системный браузер (`Application.OpenURL`) — безопасный
-дефолт, ноль зависимостей. Готовая обвязка под gree/unity-webview — сэмпл
-**Web view (gree adapter)** (Package Manager ▸ LVN Engine ▸ Samples):
-ставишь плагин в `Assets/`, импортируешь сэмпл — он сам регистрирует шов.
+Without the hook, `Open` opens the system browser (`Application.OpenURL`) — a
+safe default with zero dependencies. Ready-made wiring for gree/unity-webview
+is the **Web view (gree adapter)** sample (Package Manager ▸ LVN Engine ▸ Samples):
+drop the plugin into `Assets/`, import the sample — it registers the seam itself.
 
-### Опциональные модули
+### Optional modules
 
-Тяжёлые интеграции — отдельной сборкой с version define (образцы:
-`com.lvn.engine.spine`, `com.lvn.engine.addressables`): свой пакет есть —
-модуль компилируется, нет — движок чист. Шелл и сервисы — тоже отдельные
-пакеты (`com.lvn.engine.shell`, `com.lvn.engine.services`): встраиваемой
-игре со своим UI они не нужны вовсе.
+Heavy integrations live in separate assemblies gated by a version define
+(examples: `com.lvn.engine.spine`, `com.lvn.engine.addressables`): if the
+third-party package is present, the module compiles; if not, the engine stays
+clean. The shell and services are separate packages too (`com.lvn.engine.shell`,
+`com.lvn.engine.services`): an embedding game with its own UI does not need
+them at all.
 
-## Контракт
+## The contract
 
-Всё перечисленное — поддерживаемая поверхность: внутри мажорной версии только
-растёт (см. `docs/releasing.md`). `internal` и неупомянутое — может меняться.
+Everything listed above is supported surface: within a major version it only
+grows (see `docs/releasing.md`). `internal` and anything unmentioned may change.
