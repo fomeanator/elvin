@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] — 2026-07-12
+## [Unreleased]
 
 - Extracted from `com.lvn.engine` (`Runtime/UI/Screens/`, 26 files) into a
   standalone package: the whole novel-shell — NovelApp/NovelShell,

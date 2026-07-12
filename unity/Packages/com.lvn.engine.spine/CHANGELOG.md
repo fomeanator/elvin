@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] — 2026-07-11
+## [Unreleased]
 
 - Extracted from `com.lvn.engine` (`Runtime/Spine/`) into a standalone
   optional package. Same assembly name (`Lvn.Engine.Spine`), same GUIDs, same

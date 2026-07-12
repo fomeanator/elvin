@@ -29,8 +29,14 @@ CHANGELOG.
 ## Release steps
 
 1. Move the `[Unreleased]` section of
-   `unity/Packages/com.lvn.engine/CHANGELOG.md` under the new version.
-2. Bump `version` in `unity/Packages/com.lvn.engine/package.json`.
+   `unity/Packages/com.lvn.engine/CHANGELOG.md` under the new version — and
+   of every sibling package's CHANGELOG (`com.lvn.engine.shell` /
+   `.services` / `.spine` / `.addressables`).
+2. Bump `version` in every `unity/Packages/*/package.json` and the
+   `com.lvn.engine` dependency pins inside the sibling packages: they live in
+   one repo and version together. Consumers install all of them from the
+   SAME tag/branch — mixing a pre-split engine tag with post-split packages
+   duplicates classes and GUIDs.
 3. Commit, merge to `main`, tag `vX.Y.Z`, push the tag
    (`git push origin vX.Y.Z`).
 4. CI must be green (Go, grammar parity, panel, Unity EditMode+PlayMode on
