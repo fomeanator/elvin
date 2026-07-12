@@ -131,11 +131,11 @@ func TestMapCharactersSheetDriven(t *testing.T) {
 func TestMappersRealData(t *testing.T) {
 	root := os.Getenv("LVN_COLDWORK")
 	if root == "" {
-		root = "/private/tmp/claude-501/-Users-fomean-ominis-unity-lvn-vn-engine/737487fc-56e4-4536-9525-4d9764956166/scratchpad/cold-work"
+		root = "/private/tmp/claude-501/-Users-fomean-ominis-elvin/737487fc-56e4-4536-9525-4d9764956166/scratchpad/cold-work"
 	}
 	xlsx := os.Getenv("LVN_COLDXLSX")
 	if xlsx == "" {
-		xlsx = "/Users/fomean/ominis/unity-lvn-vn-engine/content/cold/Переменные ХВП.xlsx"
+		xlsx = "/Users/fomean/ominis/elvin/content/cold/Переменные ХВП.xlsx"
 	}
 	if _, err := os.Stat(filepath.Join(root, "x-bg.done")); err != nil {
 		t.Skip("cold-work data absent; skipping real-data mapper test")

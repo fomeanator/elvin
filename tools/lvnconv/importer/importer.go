@@ -25,8 +25,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/adpd"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/adpd"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // Options controls a single import.

@@ -3,7 +3,7 @@ package importer
 import (
 	"testing"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // A say's marker colour resolves to an emotion (case/alpha tolerant), the probe
