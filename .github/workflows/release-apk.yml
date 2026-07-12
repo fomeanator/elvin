@@ -15,7 +15,7 @@ permissions:
 jobs:
   apk:
     name: build & attach APK
-    if: github.repository == 'fomeanator/unity-lvn-vn-engine'
+    if: github.repository == 'fomeanator/elvin'
     runs-on: [self-hosted, unity-mac]
     timeout-minutes: 60
     env:
