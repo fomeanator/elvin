@@ -50,9 +50,11 @@ CHANGELOG.
 4. CI must be green (Go, grammar parity, panel, Unity EditMode+PlayMode on
    the self-hosted runner).
 5. Pushing the tag also triggers the **Release APK** workflow: the runner
-   exports the demo novel offline, builds it with the tagged engine and
-   attaches `sovet-demo-vX.Y.Z.apk` to the GitHub Release (tags containing
-   `-` are marked pre-release).
+   fetches the demo content (`lvn-demo-content` repo — content lives outside
+   the code repo; `scripts/fetch-demo-content.sh`), exports the demo novel
+   offline, builds it with the tagged engine and attaches
+   `sovet-demo-vX.Y.Z.apk` to the GitHub Release (tags containing `-` are
+   marked pre-release).
 6. …and the **Mirror packages** workflow: each package's subdirectory history
    is `git subtree split` and force-pushed (with the tag) to its read-only
    mirror repo — that's what consumers and exports resolve from. Uses the
