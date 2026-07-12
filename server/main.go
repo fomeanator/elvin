@@ -63,6 +63,7 @@ func main() {
 	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
 	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
+	studio := flag.Bool("studio", false, "serve the Elvin Studio web app (authoring IDE + admin UI + playground) at /; without it the server is a pure game API (content, state, product services)")
 	flag.Parse()
 
 	if err := os.MkdirAll(*contentDir, 0o755); err != nil {
@@ -152,34 +153,46 @@ func main() {
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)
 	mux.HandleFunc("/v1/export", srv.handleExport)
 
-	// Serve the authoring panel (the lvns playground + reference + save-to-app)
-	// at /panel; also kept at / for convenience.
-	webDir := "./website"
-	if _, err := os.Stat(webDir); os.IsNotExist(err) {
-		webDir = "server/website"
-	}
-	rawSite := http.FileServer(http.Dir(webDir))
-	// The playground is hand-edited ES modules; the browser's module map plus
-	// heuristic caching otherwise keeps stale interpreters alive across
-	// deploys. no-cache = revalidate every load (304s keep it fast).
-	site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/play/") {
-			w.Header().Set("Cache-Control", "no-cache")
+	// The Studio surface (authoring IDE + admin UI + the playground) is
+	// opt-in: a game's production server is a pure API and has no reason to
+	// expose an authoring web app. -studio serves it at / (and /panel).
+	if *studio {
+		webDir := "./website"
+		if _, err := os.Stat(webDir); os.IsNotExist(err) {
+			webDir = "server/website"
 		}
-		rawSite.ServeHTTP(w, r)
-	})
-	mux.Handle("/panel/", http.StripPrefix("/panel/", site))
-	mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/panel/", http.StatusFound)
-	})
-	// The vanilla /admin/ page retired into the React app's "Админка" mode —
-	// keep bookmarked URLs working.
-	mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/?admin=1", http.StatusFound)
-	})
-	mux.Handle("/", site)
+		rawSite := http.FileServer(http.Dir(webDir))
+		// The playground is hand-edited ES modules; the browser's module map plus
+		// heuristic caching otherwise keeps stale interpreters alive across
+		// deploys. no-cache = revalidate every load (304s keep it fast).
+		site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/play/") {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
+			rawSite.ServeHTTP(w, r)
+		})
+		mux.Handle("/panel/", http.StripPrefix("/panel/", site))
+		mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/panel/", http.StatusFound)
+		})
+		// The vanilla /admin/ page retired into the React app's admin mode —
+		// keep bookmarked URLs working.
+		mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/?admin=1", http.StatusFound)
+		})
+		mux.Handle("/", site)
+	} else {
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			fmt.Fprintln(w, "Elvin content server (game API). Start with -studio to serve the authoring app.")
+		})
+	}
 
-	log.Printf("LVN server on %s, content=%s, admin=%v, state-auth=%v", *addr, *contentDir, *adminToken != "", *stateToken != "")
+	log.Printf("LVN server on %s, content=%s, admin=%v, state-auth=%v, studio=%v", *addr, *contentDir, *adminToken != "", *stateToken != "", *studio)
 	// Explicit timeouts so a slow/idle client (Slowloris) can't tie up a
 	// connection indefinitely. WriteTimeout is left unset because /v1/export
 	// streams a whole Unity project zip that can legitimately take minutes.
