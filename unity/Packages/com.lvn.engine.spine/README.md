@@ -12,11 +12,11 @@ with it (plus the official Spine runtime) skeleton entities come alive.
 ## Install
 
 1. The engine (if not already):
-   `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine`
+   `https://github.com/fomeanator/lvn-engine.git`
 2. The official spine-unity runtime (Esoteric Software), per their docs —
    e.g. the spine-unity UPM package for your Spine version.
 3. This package:
-   `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine.spine`
+   `https://github.com/fomeanator/lvn-engine-spine.git`
 
 The assembly compiles only when `com.esotericsoftware.spine.spine-unity` is
 present (a version define guards it), so install order never breaks a build.
