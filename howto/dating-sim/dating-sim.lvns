@@ -1,59 +1,59 @@
 scene dating-sim
 
-// ═══════════════════ DATING SIM / СИМУЛЯТОР ОТНОШЕНИЙ ═══════════════════
-// Метры симпатии на персонажа, дневной цикл (выбор «к кому пойти»), реплики,
-// поднимающие симпатию, и финал-«роут», который открывается по порогу. Скрытые
-// до порога варианты — через expr= на строке выбора.
+// ═══════════════════ DATING SIM ═══════════════════
+// Per-character affection meters, a daily loop (choose who to spend time with),
+// lines that raise affection, and a threshold-gated ending "route". Options
+// hidden until the threshold — via expr= on the choice line.
 
-actor_map Лия=lia
-actor_map Ким=kim
+actor_map Lia=lia
+actor_map Kim=kim
 
 lia = 0
 kim = 0
 day = 1
 days = 4
 
-text hud x=4 y=8 size=40 color=#ffd9e6 «День {day}/{days}   ❤Лия {lia}   ❤Ким {kim}»
+text hud x=4 y=8 size=40 color=#ffd9e6 «Day {day}/{days}   ❤Lia {lia}   ❤Kim {kim}»
 
 bg /content/bg/campus.jpg
-Новый семестр. У тебя есть {days} дня, чтобы сблизиться с кем-то.
+A new semester. You have {days} days to get close to someone.
 -> day_start
 
 :day_start
 if day > days -> finale
 bg /content/bg/campus.jpg
-День {day}. С кем проведёшь время?
-- ☕ Лия в кофейне -> see_lia
-- 📚 Ким в библиотеке -> see_kim
+Day {day}. Who will you spend time with?
+- ☕ Lia at the coffee shop -> see_lia
+- 📚 Kim at the library -> see_kim
 
 :see_lia
 bg /content/bg/cafe.jpg
 actor lia center smile
-Лия: О, ты пришёл! Бери латте, я угощаю.
-- Спросить о её музыке -> lia_music
-- Похвалить кофе -> lia_safe
+Lia: Oh, you came! Grab a latte, my treat.
+- Ask about her music -> lia_music
+- Compliment the coffee -> lia_safe
 :lia_music
 lia = lia + 2
-Лия [smile]: Ты первый, кто спросил! Дай покажу плейлист…
+Lia [smile]: You're the first person to ask! Here, let me show you my playlist…
 -> end_day
 :lia_safe
 lia = lia + 1
-Лия: Да, бариста тут старается.
+Lia: Yeah, the barista here really tries.
 -> end_day
 
 :see_kim
 bg /content/bg/library.jpg
 actor kim center neutral
-Ким: Тихо. ...Ладно, тебе можно. Садись.
-- Помочь с конспектом -> kim_help
-- Поболтать о пустяках -> kim_safe
+Kim: Quiet. ...Fine, you can stay. Sit down.
+- Help with her notes -> kim_help
+- Chat about nothing -> kim_safe
 :kim_help
 kim = kim + 2
-Ким [smile]: С тобой и зачёт не страшен. Спасибо.
+Kim [smile]: With you around, the exam doesn't scare me. Thanks.
 -> end_day
 :kim_safe
 kim = kim - 1
-Ким [sad]: Я вообще-то занимаюсь. Потом, ладно?
+Kim [sad]: I'm actually studying. Later, okay?
 -> end_day
 
 :end_day
@@ -62,20 +62,20 @@ day = day + 1
 
 :finale
 bg /content/bg/sunset_roof.jpg
-Семестр на исходе. Кого ты позовёшь на крышу под закат?
-// Роут открыт только при достаточной симпатии (expr-фильтр).
-- Позвать Лию -> route_lia expr="lia >= 4"
-- Позвать Ким -> route_kim expr="kim >= 4"
-- Уйти одному -> route_alone
+The semester is almost over. Who will you invite to the rooftop at sunset?
+// A route opens only with enough affection (expr filter).
+- Invite Lia -> route_lia expr="lia >= 4"
+- Invite Kim -> route_kim expr="kim >= 4"
+- Go alone -> route_alone
 
 :route_lia
 actor lia center smile
-Лия [smile]: Я надеялась, что это будешь ты. КОНЦОВКА: «Лия».
+Lia [smile]: I was hoping it would be you. ENDING: "Lia".
 -> __end
 :route_kim
 actor kim center smile
-Ким [smile]: Тссс. Просто смотри на закат. Со мной. КОНЦОВКА: «Ким».
+Kim [smile]: Shhh. Just watch the sunset. With me. ENDING: "Kim".
 -> __end
 :route_alone
-Ни с кем ты так и не сблизился. Закат ты встретил один. КОНЦОВКА: «В одиночку».
+You never got close to anyone. You met the sunset alone. ENDING — "Alone".
 -> __end
