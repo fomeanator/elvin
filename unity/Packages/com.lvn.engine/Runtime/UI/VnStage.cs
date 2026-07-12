@@ -1342,6 +1342,8 @@ namespace Lvn.UI
             if (font != null) el.style.unityFont = new StyleFont(font);
 
             var tmpl = (string)cmd["text"] ?? "";
+            if (tmpl.Length != 0 && _strings != null && _strings.TryGetValue(tmpl, out var trTmpl))
+                tmpl = trTmpl; // localization catalog, keyed by the source template
             _labelTmpl[id] = tmpl;
             el.text = TextInterpolation.Apply(tmpl, _player?.Vars); // immediate paint; tick keeps it live
         }
