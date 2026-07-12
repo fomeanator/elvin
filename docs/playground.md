@@ -17,7 +17,7 @@ anything hand-placed there dies — `public/` survives every deploy).
 
 ## Sharing
 
-- **🔗 Поделиться** packs the script into the URL hash (base64). Anyone
+- **🔗 Share** packs the script into the URL hash (base64). Anyone
   opening the link plays it immediately — no account, no server round-trip.
 - **⬇ HTML** exports ONE self-contained file: the compiled `.lvn`, the
   interpreter, a lean renderer — and **the art, inlined as data URLs**
@@ -30,7 +30,7 @@ anything hand-placed there dies — `public/` survives every deploy).
 
 Every pause autosaves `{player snapshot, staged bg/actors/HUD}` to
 `localStorage` (a key per scene name; the exported HTML uses its title).
-Reopening offers **Продолжить / Заново**; finishing the story clears the
+Reopening offers **Continue / Start over**; finishing the story clears the
 save. A shared link or exported file is playable across sittings.
 
 ## Services from the browser
