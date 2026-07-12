@@ -77,3 +77,14 @@ server/content/.history/
 # panel/public/play/content — the playground's tiny demo pack — stays tracked.)
 /server/content/
 /content/
+
+# OS noise and local build outputs
+.DS_Store
+/dist/
+
+# Deploy/build artifacts — regenerated, never hand-edited:
+# server/website is `npm run deploy` output of the Studio app;
+# lvns.wasm copies are built from tools/lvnconv/wasm (panel npm scripts / pages.yml).
+/server/website/
+panel/public/lvns.wasm
+panel/public/play/lvns.wasm
