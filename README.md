@@ -117,6 +117,7 @@ Aim for `OK … 0 warning(s)` — the build-correctness gate needs no engine.
 ### Serve content (optional)
 
 ```sh
+scripts/fetch-demo-content.sh   # demo novel + art (lives in its own repo)
 go run ./server -content ./server/content -addr :8077
 ```
 
