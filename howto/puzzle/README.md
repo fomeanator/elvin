@@ -1,16 +1,16 @@
-# 🧩 Головоломка / логический замок
+# 🧩 Puzzle / logic lock
 
-Игрок не вводит ответ текстом — он меняет **состояние в переменных** выбором, а движок проверяет решение обычным условием.
+The player never types an answer — they change **state stored in variables** through choices, and the engine checks the solution with an ordinary condition.
 
-## Что делает пример
+## What the example does
 
-Каменная дверь с тремя рычагами `A`/`B`/`C`, каждый из которых стоит в положении «вкл» (`1`) или «выкл» (`0`). На стене есть стёртые подсказки, которые игрок может прочитать. Цель — выставить комбинацию `A=вкл, B=выкл, C=вкл` и потянуть за кольцо двери. Любая попытка с неверной комбинацией возвращает к панели рычагов, а правильная — открывает дверь.
+A stone door with three levers `A`/`B`/`C`, each sitting in the "on" (`1`) or "off" (`0`) position. There are faded hints on the wall the player can read. The goal is to set the combination `A=on, B=off, C=on` and pull the door ring. Any attempt with a wrong combination returns to the lever panel; the right one opens the door.
 
-## Главная мысль: состояние вместо ввода
+## The core idea: state instead of input
 
-В языке `.lvns` **нет команды текстового ввода**. И это не ограничение, а способ мышления: головоломка — это не «угадай слово», а **состояние, которым игрок управляет**.
+The `.lvns` language has **no text-input command**. That is not a limitation but a way of thinking: a puzzle is not "guess the word" — it is **state the player manipulates**.
 
-- Состояние замка живёт в трёх обычных переменных:
+- The lock's state lives in three ordinary variables:
 
 ```
 a = 0
@@ -18,68 +18,68 @@ b = 0
 c = 0
 ```
 
-- Игрок меняет это состояние **выбором** — каждый вариант панели тоглит свой рычаг.
-- Реактивный HUD постоянно показывает текущее положение замка через интерполяцию `{…}`:
+- The player changes this state **via choices** — each panel option toggles its lever.
+- A reactive HUD constantly shows the lock's current position through `{…}` interpolation:
 
 ```
-text hud x=4 y=8 size=40 color=#cfe8d8 «Рычаги:  A:{a}  B:{b}  C:{c}»
+text hud x=4 y=8 size=40 color=#cfe8d8 «Levers:  A:{a}  B:{b}  C:{c}»
 ```
 
-- Решение проверяется **цепочкой условий** — никакого парсинга строк, только сравнения чисел.
+- The solution is checked by a **chain of conditions** — no string parsing, just number comparisons.
 
-Эта связка «переменные-состояние + выбор как мутация + условие как проверка» и есть универсальный каркас любой головоломки на движке.
+This combo of "state variables + choice as mutation + condition as check" is the universal skeleton of any puzzle on the engine.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Переменные-состояние** — `a = 0`, `b = 0`, `c = 0` хранят положение каждого рычага.
-- **Choice-панель** — список вариантов, каждый из которых ведёт на свою метку:
+- **State variables** — `a = 0`, `b = 0`, `c = 0` hold each lever's position.
+- **Choice panel** — a list of options, each leading to its own label:
 
 ```
 :panel
-- 🔺 Рычаг A (сейчас {a}) -> toggle_a
-- 🔺 Рычаг B (сейчас {b}) -> toggle_b
-- 🔺 Рычаг C (сейчас {c}) -> toggle_c
-- 📜 Прочитать подсказки -> hints
-- ⚙ Потянуть за кольцо двери -> check
+- 🔺 Lever A (now {a}) -> toggle_a
+- 🔺 Lever B (now {b}) -> toggle_b
+- 🔺 Lever C (now {c}) -> toggle_c
+- 📜 Read the hints -> hints
+- ⚙ Pull the door ring -> check
 ```
 
-- **Тогл через условие** — `if a == 0 -> a_on` разводит поток на «включить» и «выключить»:
+- **Toggle via condition** — `if a == 0 -> a_on` splits the flow into "turn on" and "turn off":
 
 ```
 :toggle_a
 if a == 0 -> a_on
 a = 0
-Рычаг A со скрипом опускается.
+Lever A creaks down.
 -> panel
 :a_on
 a = 1
-Рычаг A поднимается вверх.
+Lever A rises up.
 -> panel
 ```
 
-- **Реактивный HUD** — `text hud … «… A:{a} …»` обновляется сам, как только меняется переменная.
-- **Цепочка проверки** — последовательные `if … -> next`, ведущие к `solved` или `wrong`.
+- **Reactive HUD** — `text hud … «… A:{a} …»` updates itself as soon as the variable changes.
+- **Check chain** — sequential `if … -> next` links leading to `solved` or `wrong`.
 
-## Разбор по шагам
+## Step-by-step breakdown
 
-1. **Инициализация.** В начале сцены задаём состояние замка: `a = 0`, `b = 0`, `c = 0`. Тут же объявляем реактивный `text hud`, который будет отражать любые изменения этих переменных.
+1. **Initialization.** At the start of the scene we set the lock's state: `a = 0`, `b = 0`, `c = 0`. Right there we declare the reactive `text hud`, which will reflect any change to these variables.
 
-2. **Вход.** Ставим фон `bg /content/bg/ancient_door.jpg`, даём вводную строку повествования и прыгаем на панель: `-> panel`.
+2. **Entry.** We set the background `bg /content/bg/ancient_door.jpg`, give an opening line of narration, and jump to the panel: `-> panel`.
 
-3. **Панель `:panel`.** Это центр головоломки — choice со всеми действиями: три рычага, чтение подсказок и попытка открыть дверь. После любого действия поток снова возвращается сюда.
+3. **The `:panel` panel.** This is the puzzle's hub — a choice with all the actions: three levers, reading the hints, and an attempt to open the door. After any action the flow returns here.
 
-4. **Тогл рычага (две метки).** Каждый рычаг — это пара меток. `if a == 0 -> a_on` отправляет на ветку «включить» (метка `:a_on`, где `a = 1`), а если рычаг уже был включён — падаем дальше и выключаем его (`a = 0`). Обе ветки заканчиваются `-> panel`, так что HUD сразу показывает новое положение.
+4. **Toggling a lever (two labels).** Each lever is a pair of labels. `if a == 0 -> a_on` sends flow to the "turn on" branch (label `:a_on`, where `a = 1`); if the lever was already on, we fall through and turn it off (`a = 0`). Both branches end with `-> panel`, so the HUD immediately shows the new position.
 
-5. **Подсказки `:hints`.** Метка просто выводит текст-загадку и возвращает на панель:
+5. **Hints `:hints`.** The label simply prints the riddle text and returns to the panel:
 
 ```
 :hints
-«Крайние смотрят в небо, средний — в землю.»
-(То есть: A и C — подняты, B — опущен.)
+«The outer ones look to the sky, the middle one — to the earth.»
+(Meaning — A and C raised, B lowered.)
 -> panel
 ```
 
-6. **КЛЮЧЕВОЕ — каскад проверки.** Метка `:check` проверяет условия по одному. Каждое совпадение ведёт к следующей проверке, любое несовпадение — на `:wrong`:
+6. **THE KEY PART — the check cascade.** The `:check` label tests conditions one at a time. Each match leads to the next check; any mismatch goes to `:wrong`:
 
 ```
 :check
@@ -93,39 +93,39 @@ if c == 1 -> solved
 -> wrong
 ```
 
-7. **Неудача `:wrong`.** Сообщаем, что кольцо не поддаётся, и возвращаем игрока на `-> panel` крутить рычаги дальше.
+7. **Failure `:wrong`.** We report that the ring won't budge and send the player back via `-> panel` to keep working the levers.
 
-8. **Концовка `:solved`.** Меняем фон на `bg /content/bg/light_passage.jpg`, описываем открытие двери и завершаем сцену через `-> __end`.
+8. **Ending `:solved`.** We swap the background to `bg /content/bg/light_passage.jpg`, describe the door opening, and end the scene with `-> __end`.
 
-## Почему проверка — цепочка
+## Why the check is a chain
 
-Каскад `:check → ck2 → ck3 → solved` — это последовательная проверка условий по одному. Каждый `if … -> next` либо пропускает дальше при истине, либо «проваливается» на следующую строку `-> wrong`. Прошёл все звенья — попал на `solved`; споткнулся на любом — ушёл на `wrong` и вернулся к панели. Тот же приём годится для кодовых замков, последовательностей действий и рецептов крафта: меняются только условия, а структура остаётся.
+The cascade `:check → ck2 → ck3 → solved` is a sequential check of conditions, one at a time. Each `if … -> next` either passes flow onward when true or "falls through" to the next line, `-> wrong`. Pass every link — you land on `solved`; stumble on any — you go to `wrong` and back to the panel. The same trick works for code locks, action sequences, and crafting recipes: only the conditions change, the structure stays.
 
-## Запуск и проверка
+## Run and verify
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать пример .lvns → .lvn
+# compile the example .lvns → .lvn
 /tmp/lvnconv convert -i howto/puzzle/puzzle.lvns -o /tmp/pz.lvn
 
-# структурная проверка (неизвестный op, висячие прыжки, дубли меток)
+# structural check (unknown ops, dangling jumps, duplicate labels)
 /tmp/lvnconv validate /tmp/pz.lvn
 ```
 
-Цель — **0 warning(s)**.
+The goal is **0 warning(s)**.
 
-## Сделай своим
+## Make it your own
 
-- **Больше рычагов и состояний.** Добавь `d`, `e` и расширь HUD и каскад проверки — структура не меняется.
-- **Числовой кодовый замок.** Вместо тогла дай выбор цифр (`-> digit_up`, `-> digit_down`), а в `:check` сравни каждый разряд.
-- **Порядок действий.** Записывай нажатия в список через `push(seq, x)` и проверяй последовательность, а не только итоговое состояние.
-- **Комбинирование предметов.** Заведи инвентарь и используй `has(inv, "…")` в условии открытия — головоломка превратится в квестовую.
-- **Несколько связанных головоломок.** Открытие одной (`solved`) ставит флаг-переменную, который разблокирует следующую.
+- **More levers and states.** Add `d`, `e` and extend the HUD and the check cascade — the structure doesn't change.
+- **Numeric code lock.** Instead of a toggle, offer digit choices (`-> digit_up`, `-> digit_down`) and compare each digit in `:check`.
+- **Order of actions.** Record presses into a list with `push(seq, x)` and check the sequence, not just the final state.
+- **Combining items.** Keep an inventory and use `has(inv, "…")` in the opening condition — the puzzle turns into a quest one.
+- **Several linked puzzles.** Solving one (`solved`) sets a flag variable that unlocks the next.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md)
-- [Книга рецептов](../recipes.md)
-- [Все жанры](../README.md)
+- [Language reference](../LANGUAGE.md)
+- [Recipe book](../recipes.md)
+- [All genres](../README.md)

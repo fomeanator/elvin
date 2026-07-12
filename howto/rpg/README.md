@@ -1,33 +1,33 @@
 # ⚔ RPG
 
-Компактная ролевая игра: характеристики, городок-хаб, лавка, случайные бои и повышение уровня — всё на одном `.lvns`-файле без единой строки нативного кода.
+A compact role-playing game: stats, a hub town, a shop, random battles and leveling up — all in a single `.lvns` file without one line of native code.
 
-## Что делает пример
+## What the example does
 
-Герой приходит в Дубраву с базовыми статами (уровень, ♥hp, атака, золото, зелья) и
-свободно ходит по площади: к торговцу за зельями и мечом, в лес на случайный бой
-с волком или к вожаку стаи — боссу. Бои пошаговые: атака, зелье или попытка
-бегства, в ответ — удар врага. За победы капает золото и опыт, при наборе порога
-герой получает уровень (растут maxhp/атака). Концовок две: триумф над боссом или
-гибель в лесу.
+The hero arrives in Oakvale with base stats (level, ♥hp, attack, gold, potions) and
+roams the square freely: to the merchant for potions and a sword, into the forest for
+a random fight with a wolf, or to the pack leader — the boss. Battles are turn-based:
+attack, potion or an escape attempt, answered by an enemy strike. Victories bring gold
+and XP; once the threshold is reached the hero gains a level (maxhp/attack grow).
+There are two endings: triumph over the boss or death in the forest.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Реактивный `text hud`** — стат-бар обновляется сам по мере боя:
-  `text hud x=3 y=8 size=42 color=#f1e4c9 «Ур.{level}  ♥{hp}/{maxhp}  атк {atk}  💰{gold}  🧪{potions}»`
-- **Переменные-статы** как состояние игры: `level = 1`, `xp = 0`, `hp = 20`, `atk = 4`, `gold = 10`, `potions = 1`.
-- **Лавка на inline `if/else`** с проверкой кошелька:
-  `if gold >= 5 { gold = gold - 5  potions = potions + 1  Торговец: Береги на чёрный день. } else { Торговец: Не хватает. }`
-- **Бой как подпрограмма** — единая точка `call fight` / `return` вместо копипасты.
-- **`while` для повышения уровня** — может сработать несколько раз за один бой:
+- **Reactive `text hud`** — the stat bar updates itself as the fight goes on:
+  `text hud x=3 y=8 size=42 color=#f1e4c9 «Lv.{level}  ♥{hp}/{maxhp}  atk {atk}  💰{gold}  🧪{potions}»`
+- **Stat variables** as game state: `level = 1`, `xp = 0`, `hp = 20`, `atk = 4`, `gold = 10`, `potions = 1`.
+- **A shop on inline `if/else`** with a wallet check:
+  `if gold >= 5 { gold = gold - 5  potions = potions + 1  Merchant: Save it for a rainy day. } else { Merchant: Not enough coin. }`
+- **Combat as a subroutine** — a single `call fight` / `return` entry point instead of copy-paste.
+- **`while` for leveling up** — it may trigger several times in one fight:
   `while xp >= need {`
-- **Математика и случайность**: `dmg = max(1, atk + rand(0,3))`, `hp = min(maxhp, hp + 12)`,
+- **Math and randomness**: `dmg = max(1, atk + rand(0,3))`, `hp = min(maxhp, hp + 12)`,
   `if chance(0.5) -> fled`, `need = floor(need * 1.5)`.
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-**1. Стат-блок.** Игра начинается с инициализации переменных — это и есть «лист
-персонажа». Их явное объявление делает баланс читаемым:
+**1. The stat block.** The game starts by initializing variables — this is the
+character sheet. Declaring them explicitly keeps the balance readable:
 
 ```
 level = 1
@@ -40,33 +40,33 @@ gold = 10
 potions = 1
 ```
 
-**2. Реактивный HUD.** Одна строка `text hud` с интерполяцией `{...}` — и панель
-сама перерисовывается каждый раз, когда меняется любая из переменных. Отдельно её
-дёргать не нужно.
+**2. Reactive HUD.** One `text hud` line with `{...}` interpolation — and the panel
+redraws itself every time any of the variables changes. No need to poke it
+separately.
 
-**3. Городской хаб.** Метка `:town` — это перекрёсток выбора. Каждый вариант ведёт
-на свою метку и возвращается обратно в город:
+**3. The town hub.** The `:town` label is a choice crossroads. Each option leads
+to its own label and returns back to town:
 
 ```
 :town
-Площадь. Куда пойдёшь?
-- 🛒 К торговцу (зелья, меч) -> shop
-- 🌲 В лес (бой) -> forest
-- 🏆 Сразиться с вожаком стаи -> boss
+The square. Where to?
+- 🛒 Visit the merchant (potions, sword) -> shop
+- 🌲 Into the forest (fight) -> forest
+- 🏆 Face the pack leader -> boss
 ```
 
-**4. Лавка с проверкой денег.** Каждая покупка — `if` на наличие золота: хватает —
-списываем и выдаём товар, нет — отказ. Меч навсегда поднимает атаку
-(`atk = atk + 3`), зелья копятся в `potions`.
+**4. A shop with a money check.** Every purchase is an `if` on available gold: if
+there is enough — deduct it and hand over the goods, otherwise refuse. The sword
+raises attack permanently (`atk = atk + 3`), potions accumulate in `potions`.
 
-**5. Боевой движок как переиспользуемая подпрограмма — ключевое.** Перед боем
-сценарий просто заполняет «параметры врага» обычными переменными и зовёт общий код:
+**5. The combat engine as a reusable subroutine — the key part.** Before a fight
+the script simply fills in the "enemy parameters" with plain variables and calls the shared code:
 
 ```
 :forest
 bg /content/bg/forest.jpg
-Из кустов выскакивает волк!
-ename = "Волк"
+A wolf leaps out of the bushes!
+ename = "Wolf"
 ehp = 12
 eatk = 5
 goldw = 6
@@ -76,31 +76,31 @@ bg /content/bg/town.jpg
 -> town
 ```
 
-Внутри `:fight` — цикл хода. Игроку дают выбор атака / зелье / бегство:
+Inside `:fight` is the turn loop. The player gets a choice of attack / potion / flee:
 
-- **Атака** (`:f_atk`): `dmg = max(1, atk + rand(0,3))`, вычитаем из `ehp`, и если
-  `if ehp <= 0 -> f_win`, иначе переход к ответу врага `-> f_enemy`.
-- **Зелье** (`:f_pot`): сперва `if potions >= 1 -> do_pot`; в `:do_pot` тратим зелье
-  и лечимся с потолком `hp = min(maxhp, hp + 12)`.
-- **Бегство** (`:f_flee`): `if chance(0.5) -> fled` — удача отпускает с `return`, иначе
-  враг бьёт в ответ.
+- **Attack** (`:f_atk`): `dmg = max(1, atk + rand(0,3))`, subtract from `ehp`, and if
+  `if ehp <= 0 -> f_win`, otherwise pass to the enemy's response `-> f_enemy`.
+- **Potion** (`:f_pot`): first `if potions >= 1 -> do_pot`; in `:do_pot` spend a potion
+  and heal with a cap `hp = min(maxhp, hp + 12)`.
+- **Flee** (`:f_flee`): `if chance(0.5) -> fled` — luck lets you go with `return`, otherwise
+  the enemy strikes back.
 
-**Ответ врага** (`:f_enemy`): `edmg = max(1, eatk - rand(0,2))`, вычитаем из `hp`, и
-`if hp <= 0 -> dead`, иначе цикл боя продолжается `-> fight`.
+**Enemy response** (`:f_enemy`): `edmg = max(1, eatk - rand(0,2))`, subtract from `hp`, and
+`if hp <= 0 -> dead`, otherwise the battle loop continues `-> fight`.
 
-**Победа** (`:f_win`): начисляем награду из тех же параметров, прокачиваемся и выходим:
+**Victory** (`:f_win`): grant the reward from those same parameters, level up and exit:
 
 ```
 :f_win
-{ename} повержен! +{goldw}💰 +{xpw} опыта.
+{ename} is defeated! +{goldw}💰 +{xpw} XP.
 gold = gold + goldw
 xp = xp + xpw
 call levelup
 return
 ```
 
-**6. Повышение уровня через `while`.** Накопленного опыта может хватить сразу на
-несколько уровней — поэтому цикл, а не одиночный `if`:
+**6. Leveling up via `while`.** The accumulated XP may be enough for several
+levels at once — hence a loop, not a single `if`:
 
 ```
 :levelup
@@ -111,57 +111,57 @@ while xp >= need {
   hp = maxhp
   atk = atk + 1
   need = floor(need * 1.5)
-  ✨ Новый уровень — {level}!
+  ✨ New level — {level}!
 }
 return
 ```
 
-**7. Концовки.** `:victory` — лес свободен после босса; `:dead` — гибель с
-`fade to="black"`. Обе ведут в `-> __end`.
+**7. Endings.** `:victory` — the forest is free after the boss; `:dead` — death with
+`fade to="black"`. Both lead to `-> __end`.
 
-## Почему бой — подпрограмма
+## Why combat is a subroutine
 
-Один и тот же блок `:fight` обслуживает и волка, и босса. Разница между ними —
-только в значениях переменных `ename/ehp/eatk/goldw/xpw`, которые сценарий
-выставляет прямо перед `call fight`. Так вся механика боя (ходы, урон, зелья,
-бегство, ответ врага, награда, левел-ап) живёт в одном месте: чтобы добавить
-нового монстра, не нужно копировать логику — достаточно задать его параметры и
-позвать ту же подпрограмму. `return` возвращает поток ровно туда, откуда был
-`call`, поэтому после боя в лесу мы попадаем обратно в город, а после босса — в
-концовку.
+The same `:fight` block serves both the wolf and the boss. The only difference
+between them is the values of the `ename/ehp/eatk/goldw/xpw` variables, which the
+script sets right before `call fight`. This way the whole combat mechanic (turns,
+damage, potions, fleeing, the enemy's response, the reward, the level-up) lives in
+one place: to add a new monster you don't copy the logic — just set its parameters
+and call the same subroutine. `return` sends the flow exactly back to where the
+`call` was, so after a forest fight we land back in town, and after the boss — in
+the ending.
 
-## Запуск и проверка
+## Run and check
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/rpg/rpg.lvns -o /tmp/rpg.lvn
 
-# структурная проверка: цель — 0 warning(s)
+# structural check: the goal is 0 warning(s)
 /tmp/lvnconv validate /tmp/rpg.lvn
 ```
 
-## Сделай своим
+## Make it your own
 
-- **Новые враги.** Заведи метку (например `:cave`), задай свой набор
-  `ename/ehp/eatk/goldw/xpw` и вызови `call fight` — готовый монстр.
-- **Новое оружие и броня в лавке.** Добавь вариант в `:shop` и `if`-покупку по
-  образцу меча; броня может вводить переменную `def`, которую ты вычтешь из `edmg`.
-- **Классы и заклинания.** Храни класс и ману в переменных, добавь в `:fight`
-  ветку `- 🔥 Заклинание` с проверкой `if mana >= ...` и уроном по `ehp`.
-- **Инвентарь предметов.** Используй список (`inv = []`, `push`/`has`/`remove`) и
-  цикл `for it in inv` для экрана сумки.
-- **Несколько локаций.** Расширь `:town` ссылками на новые хабы (деревня, пещера,
-  замок), каждый со своими боями и торговцами.
+- **New enemies.** Create a label (say `:cave`), set your own
+  `ename/ehp/eatk/goldw/xpw` and call `call fight` — a ready-made monster.
+- **New weapons and armor in the shop.** Add an option to `:shop` and an `if` purchase
+  modeled on the sword; armor can introduce a `def` variable that you subtract from `edmg`.
+- **Classes and spells.** Keep the class and mana in variables, add a
+  `- 🔥 Spell` branch to `:fight` with an `if mana >= ...` check and damage to `ehp`.
+- **An item inventory.** Use a list (`inv = []`, `push`/`has`/`remove`) and a
+  `for it in inv` loop for the bag screen.
+- **Multiple locations.** Extend `:town` with links to new hubs (a village, a cave,
+  a castle), each with its own fights and merchants.
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md) — полный синтаксис `.lvns`.
-- [Книга рецептов](../recipes.md) — короткие переиспользуемые паттерны.
-- [Все жанры](../README.md) — карта жанров и быстрый старт.
+- [Language reference](../LANGUAGE.md) — the full `.lvns` syntax.
+- [Recipe book](../recipes.md) — short reusable patterns.
+- [All genres](../README.md) — the genre map and quick start.
 
-Когда захочешь масштаб побольше — посмотри полноразмерную RPG
-`server/content/scripts/rpg-inv.lvns` (характеристики + полноценный инвентарь) и
-отдельный боевой сценарий `server/content/scripts/goblin-battle.lvns`.
+When you want a bigger scale — look at the full-size RPG
+`server/content/scripts/rpg-inv.lvns` (stats + a proper inventory) and the
+standalone battle scenario `server/content/scripts/goblin-battle.lvns`.

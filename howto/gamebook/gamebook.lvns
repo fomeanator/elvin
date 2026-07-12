@@ -1,74 +1,74 @@
 scene gamebook
 
-// ═══════════════════ ГЕЙМБУК / CYOA ═══════════════════
-// «Выбери приключение»: чистое дерево развилок + предметы в инвентаре,
-// которые открывают новые варианты. Выбор-вариант можно скрыть условием
-// (expr=) — он появится в меню только когда условие истинно.
+// ═══════════════════ GAMEBOOK / CYOA ═══════════════════
+// "Choose your own adventure": a pure branching tree plus inventory items
+// that unlock new options. A choice option can be hidden behind a condition
+// (expr=) — it appears in the menu only when the condition is true.
 
 inv = []
 hp = 3
 
 bg /content/bg/cave_mouth.jpg
-Развилка в пещере. Слева тянет сквозняком, справа капает вода.
-- Пойти налево (сквозняк) -> left
-- Пойти направо (капель) -> right
+A fork in the cave. A draft pulls from the left, water drips on the right.
+- Go left (the draft) -> left
+- Go right (the dripping) -> right
 
 :left
 bg /content/bg/torch_hall.jpg
-На стене догорает факел. Можно снять.
-- Взять факел -> take_torch
-- Идти дальше во тьму -> dark
+A torch burns low on the wall. You could take it.
+- Take the torch -> take_torch
+- Walk on into the dark -> dark
 
 :take_torch
-inv = push(inv, "факел")
-Факел теперь у тебя. Огонь разгоняет тьму.
+inv = push(inv, "torch")
+The torch is yours now. Fire drives back the darkness.
 -> dark
 
 :dark
 bg /content/bg/dark_tunnel.jpg
-Туннель ныряет в кромешную темноту. Без света легко сорваться.
-// Вариант с факелом доступен только если он в инвентаре (expr-фильтр).
-- Освятить путь факелом -> bridge expr="has(inv, \"факел\")"
-- Идти на ощупь -> grope
+The tunnel plunges into pitch darkness. Without light it's easy to fall.
+// The torch option is available only if it's in the inventory (expr filter).
+- Light the way with the torch -> bridge expr="has(inv, \"torch\")"
+- Feel your way forward -> grope
 
 :grope
 if chance(0.5) -> grope_ok
 hp = hp - 1
-Ты оступился в темноте и больно упал. (♥ {hp})
+You stumble in the dark and take a painful fall. (♥ {hp})
 if hp <= 0 -> dead
 -> grope
 :grope_ok
-Чудом нащупав стену, ты добрался до моста.
+Groping along the wall, you somehow reach the bridge.
 -> bridge
 
 :right
 bg /content/bg/underground_lake.jpg
-Подземное озеро. У берега покачивается ключ на цепочке.
-- Достать ключ -> take_key
-- Вернуться к развилке -> reset
+An underground lake. A key on a chain sways near the shore.
+- Fish out the key -> take_key
+- Return to the fork -> reset
 :take_key
-inv = push(inv, "ключ")
-Холодный ключ лёг в ладонь.
+inv = push(inv, "key")
+The cold key settles into your palm.
 -> reset
 :reset
 -> left
 
 :bridge
 bg /content/bg/stone_bridge.jpg
-Каменный мост над пропастью ведёт к окованной двери.
-- Открыть дверь ключом -> win expr="has(inv, \"ключ\")"
-- Толкнуть дверь плечом -> stuck
+A stone bridge over a chasm leads to an iron-bound door.
+- Open the door with the key -> win expr="has(inv, \"key\")"
+- Shove the door with your shoulder -> stuck
 
 :stuck
-Дверь не поддаётся. Нужен ключ — он был у воды, справа от развилки.
-- Вернуться -> reset
+The door won't budge. You need the key — it was by the water, right of the fork.
+- Go back -> reset
 
 :win
 bg /content/bg/treasure_room.jpg
-Ключ проворачивается. За дверью — сокровищница. Ты прошёл приключение!
+The key turns. Beyond the door lies the treasure room. You beat the adventure!
 -> __end
 
 :dead
 fade to="black" duration=0.8
-Тьма пещеры поглотила тебя. Приключение окончено.
+The darkness of the cave swallows you. The adventure is over.
 -> __end

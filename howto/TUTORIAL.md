@@ -1,120 +1,123 @@
-# Первая игра за 15 минут
+# Your first game in 15 minutes
 
-От пустого файла до играющейся сцены с вводом имени, выбором на время и
-развилкой по состоянию. Ничего, кроме этого репозитория, Go и (для шага 4)
-Unity, не нужно. Каждый фрагмент здесь скомпилирован и проверен — копируй
-смело.
+From an empty file to a playable scene with name input, a timed choice and
+a state-driven branch. You need nothing but this repository, Go and (for
+step 4) Unity. Every snippet here is compiled and verified — copy with
+confidence.
 
 ---
 
-## Шаг 0. Попробуй без установки (30 секунд)
+## Step 0. Try it without installing (30 seconds)
 
-Если сервер уже где-то запущен — открой **`/play/`**: пишешь `.lvns` слева,
-справа сразу играет (включая таймеры и ввод). Кнопка «Поделиться» даёт
-ссылку, «⬇ HTML» — один файл, который играет с диска. Дальше — полный путь.
+If the server is already running somewhere, open **`/play/`**: you write
+`.lvns` on the left, it plays instantly on the right (timers and input
+included). The "Share" button gives you a link, "⬇ HTML" — a single file
+that plays from disk. Below is the full path.
 
-## Шаг 1. Запусти сервер и открой IDE (2 минуты)
+## Step 1. Start the server and open the IDE (2 minutes)
 
-Из корня репозитория:
+From the repository root:
 
 ```sh
-scripts/fetch-demo-content.sh   # демо-контент живёт в отдельной репе
+scripts/fetch-demo-content.sh   # demo content lives in a separate repo
 go run ./server -content ./server/content -addr :8077 -admin-token devtoken -studio
 ```
 
-Открой **http://localhost:8077/panel** — это Elvin Studio. Вверху справа вставь
-админ-токен `devtoken`. Ты увидишь библиотеку с демо-новеллами — их можно
-открывать и подсматривать, как что сделано.
+Open **http://localhost:8077/panel** — this is Elvin Studio. Paste the admin
+token `devtoken` in the top right. You will see a library of demo novels —
+open them and peek at how things are done.
 
-Нажми **«＋ New novel»**, назови её и открой. Во вкладке скрипта нажми
-**«+ Add the first chapter»** — откроется редактор главы.
+Click **"＋ New novel"**, name it and open it. In the script tab click
+**"+ Add the first chapter"** — the chapter editor opens.
 
-## Шаг 2. Напиши сцену (5 минут)
+## Step 2. Write a scene (5 minutes)
 
-Вставь в главу это (и нажми Save, чтобы опубликовать в приложение):
+Paste this into the chapter (and hit Save to publish it to the app):
 
 ```
 scene first_game
 
-Тёмная комната. Пахнет пылью и старыми книгами.
-input var=name prompt="Как тебя зовут?" default="Гость" max=20
-Голос: Наконец-то, {name}. Я ждал тебя.
-Голос: Дверь захлопнулась. У тебя пять секунд, чтобы решить.
+A dark room. It smells of dust and old books.
+input var=name prompt="What is your name?" default="Guest" max=20
+Voice: At last, {name}. I have been waiting for you.
+Voice: The door slammed shut. You have five seconds to decide.
 
 choice timeout=5 timeout_goto=frozen
-- Искать выключатель -> light
-- Бежать к двери -> door
+- Look for the light switch -> light
+- Run to the door -> door
 
 :light
 courage = 1
-Ты нашёл выключатель. Комната оказалась библиотекой.
+You found the switch. The room turned out to be a library.
 -> finale
 
 :door
 courage = 0
-Дверь не поддалась. Зато глаза привыкли к темноте.
+The door would not budge. But your eyes adjusted to the dark.
 -> finale
 
 :frozen
 courage = 0
-Ты замер. Иногда это тоже выбор.
+You froze. Sometimes that is a choice too.
 -> finale
 
 :finale
 if courage >= 1 -> brave_end
-Голос: Осторожность — не слабость, {name}.
+Voice: Caution is not weakness, {name}.
 -> __end
 :brave_end
-Голос: Смело, {name}. Мне это нравится.
+Voice: Bold, {name}. I like that.
 ```
 
-Что здесь есть — весь скелет жанра в 30 строках:
+What's in here — the whole skeleton of the genre in 30 lines:
 
-| Строка | Что делает |
+| Line | What it does |
 |---|---|
-| `Тёмная комната…` | Просто текст = наррация. `Голос: …` = реплика персонажа. |
-| `input var=name …` | Оверлей ввода: введённое живёт в `{name}` во всех репликах. |
-| `choice timeout=5 timeout_goto=frozen` | Таймер следующего меню: полоса отсчёта, не успел — ветка `frozen`. |
-| `- Вариант -> метка` | Пункты меню — строки с `- `. |
-| `courage = 1` | Переменная. Объявление = присваивание. |
-| `if courage >= 1 -> brave_end` | Развилка по состоянию. |
-| `:метка` / `-> метка` / `-> __end` | Цель прыжка / прыжок / конец главы. |
+| `A dark room…` | Plain text = narration. `Voice: …` = a character's line. |
+| `input var=name …` | Input overlay: what the player types lives in `{name}` in every line. |
+| `choice timeout=5 timeout_goto=frozen` | Timer for the next menu: a countdown bar; miss it and you go to the `frozen` branch. |
+| `- Option -> label` | Menu items — lines starting with `- `. |
+| `courage = 1` | A variable. Declaration = assignment. |
+| `if courage >= 1 -> brave_end` | A state-driven branch. |
+| `:label` / `-> label` / `-> __end` | Jump target / jump / end of chapter. |
 
-IDE проверяет скрипт на лету (тот же валидатор, что в компиляторе) — ошибки
-и предупреждения видны в панели Problems до всякого запуска.
+The IDE checks the script as you type (the same validator as in the
+compiler) — errors and warnings show up in the Problems panel before you
+ever run anything.
 
-## Шаг 3. Проверь компилятором (1 минута)
+## Step 3. Check with the compiler (1 minute)
 
-Тот же гейт качества, которым проверены все примеры в `howto/`:
+The same quality gate that every example in `howto/` has passed:
 
 ```sh
 cd tools/lvnconv && go build -o /tmp/lvnconv .
-/tmp/lvnconv convert -i моя-глава.lvns -o /tmp/out.lvn
-/tmp/lvnconv validate /tmp/out.lvn        # цель: OK … 0 warning(s)
+/tmp/lvnconv convert -i my-chapter.lvns -o /tmp/out.lvn
+/tmp/lvnconv validate /tmp/out.lvn        # target: OK … 0 warning(s)
 ```
 
-Висячие прыжки, опечатки в командах, недостижимые метки — всё ловится здесь,
-с подсказками, как починить.
+Dangling jumps, typos in commands, unreachable labels — all caught here,
+with hints on how to fix them.
 
-## Шаг 4. Сыграй (5 минут, нужен Unity)
+## Step 4. Play it (5 minutes, Unity required)
 
-1. Открой папку **`sandbox/`** в Unity Hub (движок подключится сам как
-   локальный пакет).
-2. Нажми **Play**. Песочница смотрит на `http://127.0.0.1:8077` — твоя
-   новелла уже в карусели.
-3. Оставь Unity в Play и правь скрипт в IDE: изменения подъезжают в
-   играющую сцену за ~2 секунды (живая перезагрузка), обычно прямо на той
-   же строке.
+1. Open the **`sandbox/`** folder in Unity Hub (the engine attaches itself
+   as a local package).
+2. Hit **Play**. The sandbox points at `http://127.0.0.1:8077` — your novel
+   is already in the carousel.
+3. Leave Unity in Play and edit the script in the IDE: changes land in the
+   running scene in ~2 seconds (live reload), usually right on the same
+   line.
 
-Без Unity тоже не тупик: структуру игры (весь сюжет, ветки, переменные)
-видно уже после шага 3 — арт и запуск можно отложить.
+No Unity is not a dead end either: the game's structure (the whole plot,
+branches, variables) is visible right after step 3 — art and launch can
+wait.
 
-## Куда дальше
+## Where to go next
 
-- Персонажи с эмоциями, фоны, анимация → [`CHEATSHEET.md`](CHEATSHEET.md)
-  (весь язык на страницу) и вкладка **Characters** в IDE.
-- Готовые паттерны — инвентарь, лавка, кубики, галерея, озвучка →
+- Characters with emotions, backgrounds, animation → [`CHEATSHEET.md`](CHEATSHEET.md)
+  (the whole language on one page) and the **Characters** tab in the IDE.
+- Ready-made patterns — inventory, shop, dice, gallery, voice-over →
   [`recipes.md`](recipes.md).
-- Твой жанр целиком (12 шаблонов с рабочими примерами) →
+- Your genre end to end (12 templates with working examples) →
   [`README.md`](README.md).
-- Отдать друзьям APK → кнопка Export в IDE (или `docs/releasing.md`).
+- Hand your friends an APK → the Export button in the IDE (or `docs/releasing.md`).

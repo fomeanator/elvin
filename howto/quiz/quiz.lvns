@@ -1,79 +1,79 @@
 scene quiz
 
-// ═══════════════════ ВИКТОРИНА / QUIZ ═══════════════════
-// Вопросы как выбор, счёт в переменной, ветвление итога по набранным очкам.
-// Паттерн правильного ответа: верный вариант ведёт на :rightN (там score+1),
-// остальные — на :wrongN. Оба сходятся к следующему вопросу.
+// ═══════════════════ QUIZ ═══════════════════
+// Questions as choices, the score in a variable, final branching on points earned.
+// Correct-answer pattern: the right option jumps to :rightN (score+1 there),
+// the rest go to :wrongN. Both converge on the next question.
 
 score = 0
 
-text hud x=4 y=8 size=42 color=#bfe3ff «Счёт: {score}»
+text hud x=4 y=8 size=42 color=#bfe3ff «Score: {score}»
 
 bg /content/bg/quiz_stage.jpg
-input var=player_name prompt="Представься, знаток!" default="Игрок" max=20
-Викторина «Знаток»! Три вопроса, {player_name}. Поехали.
+input var=player_name prompt="Introduce yourself, mastermind!" default="Player" max=20
+The Mastermind quiz! Three questions, {player_name}. Here we go.
 -> q1
 
 :q1
-Вопрос 1. Сколько байт в килобайте (по двоичной системе)?
+Question 1. How many bytes are in a kilobyte (in binary)?
 - 1000 -> w1
 - 1024 -> r1
 - 512 -> w1
 :r1
 score = score + 1
-Верно! 1024 = 2¹⁰.
+Correct! 1024 = 2¹⁰.
 -> q2
 :w1
-Увы, правильный ответ — 1024.
+Sorry, the right answer is 1024.
 -> q2
 
 :q2
-Вопрос 2. Какая планета — самая большая в Солнечной системе?
-- Сатурн -> w2
-- Юпитер -> r2
-- Земля -> w2
+Question 2. Which planet is the largest in the Solar System?
+- Saturn -> w2
+- Jupiter -> r2
+- Earth -> w2
 :r2
 score = score + 1
-Точно — Юпитер.
+Exactly — Jupiter.
 -> q3
 :w2
-Нет, это Юпитер.
+No, it's Jupiter.
 -> q3
 
 :q3
-Вопрос 3 — блиц! Пять секунд на ответ. В каком году человек впервые ступил на Луну?
+Question 3 — blitz! Five seconds to answer. In what year did a human first set foot on the Moon?
 choice timeout=5 timeout_goto=slow3
 - 1969 -> r3
 - 1959 -> w3
 - 1979 -> w3
 :r3
 score = score + 1
-Верно — 1969-й, «Аполлон-11».
+Correct — 1969, «Apollo 11».
 -> result
 :w3
-Правильно — 1969 год.
+The right answer is 1969.
 -> result
 :slow3
-Время вышло! Блиц есть блиц. Ответ — 1969-й.
+Time's up! A blitz is a blitz. The answer is 1969.
 -> result
 
 :result
 bg /content/bg/quiz_result.jpg
-Игра окончена. Твой счёт, {player_name}: {score} из 3.
+Game over. Your score, {player_name} — {score} out of 3.
 if score == 3 -> grade_a
 if score >= 2 -> grade_b
 if score == 1 -> grade_c
 -> grade_d
 
 :grade_a
-🏆 Безупречно! Ты настоящий знаток.
+🏆 Flawless! You are a true mastermind.
 -> __end
 :grade_b
-👍 Хороший результат, почти идеально.
+👍 Great result, almost perfect.
 -> __end
 :grade_c
-🙂 Неплохо для начала — попробуй ещё.
+🙂 Not bad for a start — try again.
 -> __end
 :grade_d
-😅 В этот раз не повезло. Реванш?
+😅 No luck this time. Rematch?
 -> __end

@@ -1,65 +1,66 @@
 scene puzzle
 
-// ═══════════════════ ГОЛОВОЛОМКА / ЛОГИЧЕСКИЙ ЗАМОК ═══════════════════
-// Без текстового ввода: состояние головоломки держим в переменных, игрок
-// меняет его выбором, а проверка решения — обычное условие. Здесь — замок
-// из трёх рычагов (вкл/выкл). Цель: A=вкл, B=выкл, C=вкл. Подсказки на стене.
+// ═══════════════════ PUZZLE / LOGIC LOCK ═══════════════════
+// No text input: the puzzle state lives in variables, the player
+// mutates it via choices, and the solution check is a plain condition.
+// Here — a lock of three levers (on/off). Goal: A=on, B=off, C=on.
+// Hints are on the wall.
 
 a = 0
 b = 0
 c = 0
 
-text hud x=4 y=8 size=40 color=#cfe8d8 «Рычаги:  A:{a}  B:{b}  C:{c}»
+text hud x=4 y=8 size=40 color=#cfe8d8 «Levers:  A:{a}  B:{b}  C:{c}»
 
 bg /content/bg/ancient_door.jpg
-Каменная дверь с тремя рычагами. На стене стёртые подсказки.
+A stone door with three levers. Faded hints on the wall.
 -> panel
 
 :panel
-// «1» = поднят, «0» = опущен. Тоггл рычага = выбор.
-- 🔺 Рычаг A (сейчас {a}) -> toggle_a
-- 🔺 Рычаг B (сейчас {b}) -> toggle_b
-- 🔺 Рычаг C (сейчас {c}) -> toggle_c
-- 📜 Прочитать подсказки -> hints
-- ⚙ Потянуть за кольцо двери -> check
+// «1» = raised, «0» = lowered. Toggling a lever = a choice.
+- 🔺 Lever A (now {a}) -> toggle_a
+- 🔺 Lever B (now {b}) -> toggle_b
+- 🔺 Lever C (now {c}) -> toggle_c
+- 📜 Read the hints -> hints
+- ⚙ Pull the door ring -> check
 
 :toggle_a
 if a == 0 -> a_on
 a = 0
-Рычаг A со скрипом опускается.
+Lever A creaks down.
 -> panel
 :a_on
 a = 1
-Рычаг A поднимается вверх.
+Lever A rises up.
 -> panel
 
 :toggle_b
 if b == 0 -> b_on
 b = 0
-Рычаг B опускается.
+Lever B goes down.
 -> panel
 :b_on
 b = 1
-Рычаг B поднимается.
+Lever B goes up.
 -> panel
 
 :toggle_c
 if c == 0 -> c_on
 c = 0
-Рычаг C опускается.
+Lever C goes down.
 -> panel
 :c_on
 c = 1
-Рычаг C поднимается.
+Lever C goes up.
 -> panel
 
 :hints
-«Крайние смотрят в небо, средний — в землю.»
-(То есть: A и C — подняты, B — опущен.)
+«The outer ones look to the sky, the middle one — to the earth.»
+(Meaning — A and C raised, B lowered.)
 -> panel
 
 :check
-// Решение: a=1, b=0, c=1.
+// Solution: a=1, b=0, c=1.
 if a == 1 -> ck2
 -> wrong
 :ck2
@@ -70,10 +71,10 @@ if c == 1 -> solved
 -> wrong
 
 :wrong
-Кольцо не поддаётся — комбинация рычагов неверна.
+The ring won't budge — the lever combination is wrong.
 -> panel
 
 :solved
 bg /content/bg/light_passage.jpg
-Механизм щёлкает, и дверь медленно отъезжает. За ней — свет. Головоломка решена!
+The mechanism clicks and the door slowly slides open. Beyond it — light. Puzzle solved!
 -> __end
