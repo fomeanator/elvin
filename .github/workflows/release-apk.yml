@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: fetch demo content
+        run: scripts/fetch-demo-content.sh
+
       - name: export offline project
         run: |
           go build -o /tmp/lvnserver-release ./server
