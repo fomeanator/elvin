@@ -18,8 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/lvn"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 const protocolVersion = "2024-11-05"

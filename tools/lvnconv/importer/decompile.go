@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // ToLvns decompiles a compiled .lvn document back into editable Elvin Script, so

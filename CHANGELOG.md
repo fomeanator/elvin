@@ -83,8 +83,8 @@ the repo as a whole; the Unity package keeps its own detailed
   camera/particles/audio), reactive HUD, save/load, and the novel-shell.
 - Server template (Go) + web authoring panel.
 
-[Unreleased]: https://github.com/fomeanator/unity-lvn-vn-engine/compare/v0.7.0...HEAD
-[0.7.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.7.0
-[0.6.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.6.0
-[0.5.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.5.0
-[0.4.0]: https://github.com/fomeanator/unity-lvn-vn-engine/releases/tag/v0.4.0
+[Unreleased]: https://github.com/fomeanator/elvin/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/fomeanator/elvin/releases/tag/v0.7.0
+[0.6.0]: https://github.com/fomeanator/elvin/releases/tag/v0.6.0
+[0.5.0]: https://github.com/fomeanator/elvin/releases/tag/v0.5.0
+[0.4.0]: https://github.com/fomeanator/elvin/releases/tag/v0.4.0

@@ -8,7 +8,7 @@ it that way are very welcome.
 You don't need Unity or Go for any of these:
 
 - **A recipe** — build a small `.lvns` pattern in the
-  [playground](https://fomeanator.github.io/unity-lvn-vn-engine/) (or `/play/`
+  [playground](https://fomeanator.github.io/elvin/) (or `/play/`
   locally), pass the gate below, add a section to `howto/recipes.md`.
 - **A genre example** — a folder under `howto/<genre>/` (README + validated
   `.lvns`; the 12 existing ones show the shape).

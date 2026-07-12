@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.repository == 'fomeanator/unity-lvn-vn-engine'
+    if: github.repository == 'fomeanator/elvin'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
