@@ -72,9 +72,12 @@ choices and clicks. The exact, code-verified list of what it can and can't do is
 - **Unity runtime** (`com.lvn.engine`) — plays a game from the script with no
   per-game code: a parametric **cast** system (a character is a few layers ×
   named axes, so *K poses + M emotions = K+M images, not K×M*), placement &
-  clickable hotspots, the reactive HUD, animation, effects, save/load, and a
-  ready **novel-shell** (boot screen, title carousel, chapter list, loading,
-  name input, save/load panel).
+  clickable hotspots, the reactive HUD, animation, effects, save/load.
+  Optional first-party packages extend it: **`com.lvn.engine.shell`** (the
+  ready novel app — boot, title browse, store/wardrobe/gallery/profile
+  screens), **`com.lvn.engine.services`** (offline-first wallet/IAP/ads/
+  analytics/leaderboards clients), **`com.lvn.engine.spine`** (Spine
+  skeletons), **`com.lvn.engine.addressables`** (bundle loading).
 - **In-Unity import** — drop a `.lvns` file into `Assets/` and Unity compiles it
   automatically (a ScriptedImporter); no external tool, no terminal.
 - **`lvnconv`** — a standalone transcoder (Go CLI + WASM) that also imports
@@ -97,6 +100,7 @@ choices and clicks. The exact, code-verified list of what it can and can't do is
 | `server/` | Go backend: content manifest, assets + admin upload, player state, docs website. |
 | `panel/` | Web authoring panel / IDE (visual cast editor, in-browser compile). |
 | `unity/Packages/com.lvn.engine/` | The Unity runtime + the `.lvns` importer, installable via Package Manager. |
+| `unity/Packages/com.lvn.engine.{shell,services,spine,addressables}/` | Optional first-party packages: the ready novel app, product-backend clients, Spine skeletons, Addressables loading. |
 | `examples/` | Minimal scripts in Ink, Elvin Script, and compiled `.lvn`. |
 
 ---
@@ -121,8 +125,10 @@ For the full 15-minute path to a real game, read
 2. Drop a `.lvns` file into `Assets/` — Unity compiles it automatically.
 3. Put a **`VnStage`** on a GameObject with a `UIDocument`, point it at the
    compiled asset, press **Play**. It renders and runs: background, characters,
-   typewriter dialogue, branching choices, the reactive HUD, animation, and the
-   novel-shell. Restyle from one `VnTheme`; load art via your own `ILvnAssets`.
+   typewriter dialogue, branching choices, the reactive HUD and animation.
+   Restyle from one `VnTheme`; load art via your own `ILvnAssets`. For the
+   full novel APP (boot, title browse, store/wardrobe screens) add the
+   `com.lvn.engine.shell` package and use `NovelApp` instead.
    See [`unity/Packages/com.lvn.engine/README.md`](unity/Packages/com.lvn.engine/README.md).
 
 ### B. From the command line (for CI / Ink / articy)
