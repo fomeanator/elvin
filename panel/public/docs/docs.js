@@ -42,9 +42,9 @@ async function fetchPage(p) {
   let text;
   try {
     const r = await fetch("content/" + p.file);
-    text = r.ok ? await r.text() : `# ${p.title}\n\n_Страница недоступна._`;
+    text = r.ok ? await r.text() : `# ${p.title}\n\n_Page unavailable._`;
   } catch {
-    text = `# ${p.title}\n\n_Не удалось загрузить._`;
+    text = `# ${p.title}\n\n_Failed to load._`;
   }
   cache.set(p.id, text);
   return text;
@@ -72,7 +72,7 @@ function buildToc(headings) {
   const items = headings.filter((h) => h.level <= 3);
   if (items.length < 3) { toc.innerHTML = ""; toc.style.display = "none"; return; }
   toc.style.display = "";
-  toc.innerHTML = "<div class='toc-title'>На странице</div>" +
+  toc.innerHTML = "<div class='toc-title'>On this page</div>" +
     items.map((h) => `<a class="toc-l${h.level}" href="#${location.hash.slice(1).split("::")[0]}::${h.id}">${h.text}</a>`).join("");
 }
 
