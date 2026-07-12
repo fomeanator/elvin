@@ -9,6 +9,7 @@ lvnconv import   <project-dir> -id <id> -name <name> [-content <dir>] [-localize
 lvnconv validate <in.lvn> [-strict]
 lvnconv probe    <in.lvn>
 lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
+lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
 ```
 
 ## Commands
@@ -28,6 +29,8 @@ lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-r
   warnings (labels never targeted).
 - **probe** — a one-line summary (op counts) of a `.lvn`.
 - **optimize** — the built-in image compressor (see **Asset optimization**).
+- **locale** — build/refresh the per-language string catalogs for
+  `.lvns`-authored novels (see **Localization**).
 
 ## Asset optimization
 
@@ -68,14 +71,37 @@ wrecks a soft glow/VFX gradient.
 
 ## Localization
 
-Every fragment carries a reimport-stable id (its articy GUID), stamped onto the
-`say`/option as `id`. `-localize` lifts each line's text out into a catalog
-(`text_id → string`) written as `<script>.<lang>.json` and leaves a `text_id`
-reference in the `.lvn`. The flow, choices and logic are language-independent, so
-translating a novel is just shipping more catalogs against the same keys. The
-runtime loads `<script>.<locale>.json` per locale; lines with no catalog entry
-fall back to their inline text. Staging (`-autostage`) runs first on the inline
-text, so scene markers still become backgrounds.
+Two keying schemes share one catalog format (`<script>.<lang>.json`, a flat
+`key → string` JSON object the runtime loads beside the script):
+
+- **articy imports** — every fragment carries a reimport-stable id (its articy
+  GUID), stamped onto the `say`/option as `id`. `-localize` lifts each line's
+  text out into a `text_id → string` catalog and leaves a `text_id` reference
+  in the `.lvn`. Staging (`-autostage`) runs first on the inline text, so
+  scene markers still become backgrounds.
+- **`.lvns`-authored novels** — no ids needed: inline lines key the catalog by
+  the source string itself, gettext-style. `lvnconv locale` builds and
+  refreshes the catalogs:
+
+  ```sh
+  lvnconv locale -lang en,de chapter1.lvns chapter2.lvns
+  ```
+
+  extracts say lines and speaker names, choice options, `input` prompts and
+  `text` labels (in script order, so a translator reads the file alongside the
+  story). Re-running after a script edit keeps existing translations, prefills
+  new lines with the source text and reports coverage; `-check` only reports
+  (exit 1 when a catalog is behind the script — CI-able), `-prune` drops keys
+  the script no longer contains. An edited source line intentionally orphans
+  its old translation: the reader sees the current (source) text, never a
+  stale translation.
+
+The flow, choices and logic are language-independent, so translating a novel
+is just shipping more catalogs against the same keys. The runtime loads
+`<script>.<locale>.json` per locale; lines with no catalog entry fall back to
+their inline text. List every shipped language in the content manifest's
+`languages` array — the player then shows a language picker (Settings and the
+quick menu) and swaps catalogs live, mid-story.
 
 ## Front-ends
 
