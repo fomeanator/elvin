@@ -1,46 +1,47 @@
 scene kinetic-novel
 
-// ═══════════════════ КИНЕТИЧЕСКАЯ НОВЕЛЛА ═══════════════════
-// История без выбора — но с ПОСТАНОВКОЙ: фоны, выход/уход актёров, эмоции,
-// анимация (anim/move), переходы (fade/dim), камера, частицы и звук. Здесь
-// движок работает как режиссёр. Правило анимации: разные каналы идут парал-
-// лельно, ключи внутри канала — по очереди. Подробно: docs/animation-system.md
+// ═══════════════════ KINETIC NOVEL ═══════════════════
+// A story with no choices — but with STAGING: backgrounds, actor entrances/
+// exits, emotions, animation (anim/move), transitions (fade/dim), camera,
+// particles and sound. Here the engine works as a director. Animation rule:
+// different channels run in parallel, keys within a channel play in sequence.
+// Details: docs/animation-system.md
 
-actor_map Эмбер=amber
+actor_map Amber=amber
 
-// Атмосфера: дождь и музыка с первого кадра.
+// Atmosphere: rain and music from the first frame.
 bg /content/bg/night_station.jpg
 audio channel=music action=play url="/content/audio/rain_theme.ogg"
 particles type=rain on=true
 fade to="clear" duration=1.2
-Перрон опустел. Последний поезд ушёл десять минут назад.
+The platform is empty. The last train left ten minutes ago.
 
-// Актриса въезжает слева за кадр (move по экрану) и «дышит» (idle-анимация).
+// The actress slides in from off-screen left (move across the screen) and "breathes" (idle animation).
 actor amber left neutral
 move id=amber path="-0.2,0.5 0.28,0.5" dur=1.2 ease=outCubic
 anim amber scale [1 1.03 1] 3s yoyo
-Эмбер [sad]: Я опоздала. Опять.
+Amber [sad]: I'm late. Again.
 
-// Лёгкое покачивание головы — отдельный канал, играет поверх «дыхания».
+// A slight head sway — a separate channel, plays on top of the "breathing".
 anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine
-Эмбер [neutral]: Хотя... может, так и надо. Может, я и не хотела успеть.
+Amber [neutral]: Although... maybe that's how it should be. Maybe I didn't want to make it.
 
-// Акцент: дрожь камеры на воспоминании + вспышка.
+// Accent: camera tremor on the memory + a flash.
 camera action=shake amplitude=0.02 duration=0.4
 flash color="white" duration=0.3
-Голос из памяти: «Если опоздаешь — я не буду ждать».
+Voice from memory: "If you're late — I won't wait."
 
-// Смена кадра: затемнили, сменили фон, проявили.
+// Frame change: darken, swap the background, reveal.
 dim alpha=0.6 duration=0.5
 bg /content/bg/empty_platform_dawn.jpg
 particles type=rain on=false
 audio channel=music action=stop
 dim alpha=0 duration=0.8
-Рассвет. Дождь кончился. Эмбер всё ещё стоит на перроне — но уже улыбается.
+Dawn. The rain has stopped. Amber still stands on the platform — but now she is smiling.
 
-// Финальный «поп» — короткое увеличение как точка в сцене.
+// Final "pop" — a short scale bump as the scene's closing beat.
 actor amber center smile
 anim amber scale to=1.08 dur=0.4 ease=outBack
-Эмбер [smile]: Ладно. Следующий поезд — мой.
+Amber [smile]: All right. The next train is mine.
 fade to="black" duration=1.5
 -> __end

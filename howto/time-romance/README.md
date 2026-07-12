@@ -1,79 +1,79 @@
-# 🕰️ Time Romance — хаб, сборники, три типа новелл
+# 🕰️ Time Romance — hub, collections, three novel types
 
-Демонстрирует **hub-компоновку** (вместо карусели) и то, как три «типа» контента
-— **Экспедиции / Свидания / Сюжет Реальности** — это НЕ три системы, а одна
-новелла + поле `type` + условия разблокировки на `global.*` флагах. Движок один;
-у каждой новеллы свой визуал и контент — всё данными в манифесте.
+Demonstrates the **hub layout** (instead of a carousel) and how three content
+"types" — **Expeditions / Dates / Reality Storyline** — are NOT three systems but one
+novel + a `type` field + unlock conditions on `global.*` flags. One engine;
+each novel has its own visuals and content — all driven by manifest data.
 
-## Цепочка целиком
+## The full chain
 
-1. **Хаб** (`ui.browse.layout = "hub"`) — тайтл игры + плитки сборников.
-2. Тап по сборнику → **список карточек**; тап по карточке → **деталь** (картинка +
-   текст + «Играть»).
-3. «Играть» на экспедиции **тратит 1 энергию** (`cost`) — не хватило → попап → магазин.
-4. Играется обычная новелла (`exp_victoria.lvns`) с ветвлением и условием.
-5. **Финал ставит `global.*` флаги** — `exp_victoria_done`, `date_victoria`,
+1. **Hub** (`ui.browse.layout = "hub"`) — game title + collection tiles.
+2. Tap a collection → **card list**; tap a card → **detail view** (image +
+   text + "Play").
+3. "Play" on an expedition **spends 1 energy** (`cost`) — not enough → popup → store.
+4. A regular novel plays (`exp_victoria.lvns`) with branching and a condition.
+5. **The finale sets `global.*` flags** — `exp_victoria_done`, `date_victoria`,
    `reality_beat_2`.
-6. Свидание и бит реальности в манифесте гейтятся этими флагами (`unlock`) — как
-   только флаг стоит, их карточки перестают быть заблокированными.
+6. The date and the reality beat are gated by these flags in the manifest (`unlock`) — as
+   soon as the flag is set, their cards stop being locked.
 
-Скрипт экспедиции — `exp_victoria.lvns` (компилируется, 0 warnings). Флаг внутри
-экспедиции (`smelo`) — локальный; финальные (`global.*`) — общие на игрока.
+The expedition script is `exp_victoria.lvns` (compiles, 0 warnings). The flag inside
+the expedition (`daring`) is local; the finale flags (`global.*`) are shared per player.
 
-## Манифест (фрагмент)
+## Manifest (excerpt)
 
 ```json
 {
-  "ui": { "browse": { "layout": "hub", "title": "Time Romance", "subtitle": "Выбери…" } },
+  "ui": { "browse": { "layout": "hub", "title": "Time Romance", "subtitle": "Choose…" } },
 
   "collections": [
-    { "id": "expeditions", "name": "Экспедиции", "type": "expedition",
-      "card": { "image": "/content/cards/exp.jpg", "desc": "Путешествия во времени" },
+    { "id": "expeditions", "name": "Expeditions", "type": "expedition",
+      "card": { "image": "/content/cards/exp.jpg", "desc": "Time travel" },
       "titles": ["exp_victoria"] },
-    { "id": "dates", "name": "Свидания", "type": "date",
-      "card": { "image": "/content/cards/dates.jpg", "desc": "Романтика" },
+    { "id": "dates", "name": "Dates", "type": "date",
+      "card": { "image": "/content/cards/dates.jpg", "desc": "Romance" },
       "titles": ["date_victoria"] },
-    { "id": "reality", "name": "Сюжет Реальности", "type": "reality",
-      "card": { "image": "/content/cards/reality.jpg", "desc": "Что происходит дома" },
+    { "id": "reality", "name": "Reality Storyline", "type": "reality",
+      "card": { "image": "/content/cards/reality.jpg", "desc": "What's happening back home" },
       "titles": ["reality_2"] }
   ],
 
   "titles": [
     { "id": "exp_victoria", "type": "expedition",
-      "card": { "image": "/content/cards/exp_victoria.jpg", "desc": "Бал при дворе Виктории." },
+      "card": { "image": "/content/cards/exp_victoria.jpg", "desc": "A ball at Victoria's court." },
       "cost": { "currency": "energy", "amount": 1 },
       "seasons": [ { "chapters": [ { "id": "exp_victoria", "script_url": "/content/scripts/exp_victoria.lvn" } ] } ] },
 
     { "id": "date_victoria", "type": "date",
       "unlock": "global.exp_victoria_done",
-      "locked_hint": "Пройди экспедицию с Викторией",
-      "card": { "image": "/content/cards/date_victoria.jpg", "desc": "Свидание с Викторией." },
+      "locked_hint": "Finish the expedition with Victoria",
+      "card": { "image": "/content/cards/date_victoria.jpg", "desc": "A date with Victoria." },
       "seasons": [ { "chapters": [ { "id": "date_victoria", "script_url": "/content/scripts/date_victoria.lvn" } ] } ] },
 
     { "id": "reality_2", "type": "reality",
       "unlock": "global.reality_beat_2",
-      "card": { "image": "/content/cards/reality_2.jpg", "desc": "Бит 2." },
+      "card": { "image": "/content/cards/reality_2.jpg", "desc": "Beat 2." },
       "seasons": [ { "chapters": [ { "id": "reality_2", "script_url": "/content/scripts/reality_2.lvn" } ] } ] }
   ]
 }
 ```
 
-## Что здесь — движок, а что — данные
+## What is engine here, and what is data
 
-| Движок (общий, одна прошивка) | Данные (у каждой игры свои) |
+| Engine (shared, one firmware) | Data (each game has its own) |
 |---|---|
-| хаб рисует **любые** `collections` | какие сборники, имена, арт |
-| `type` — свободный тег, движок его не читает | `expedition`/`date`/что угодно |
-| `unlock` — выражение над `global.*` | какой флаг гейтит карточку |
-| `cost` списывает кошелёк | 1 энергия / бесплатно |
-| финал ставит флаг через `set key="global.…"` | какие флаги, что открывают |
-| тема экранов из `ui.browse` | цвета, арт, тексты, форма |
+| the hub renders **any** `collections` | which collections, names, art |
+| `type` is a free-form tag, the engine never reads it | `expedition`/`date`/anything |
+| `unlock` is an expression over `global.*` | which flag gates the card |
+| `cost` charges the wallet | 1 energy / free |
+| the finale sets a flag via `set key="global.…"` | which flags, what they unlock |
+| screen theme from `ui.browse` | colors, art, texts, shape |
 
-Другая новелла = другой `collections`/`type`/`unlock`/`cost` + другой `ui.browse`
-→ другой визуал и контент, **та же прошивка**. Экспедиции/Свидания/Реальность —
-это данные Time Romance, не движок.
+A different novel = different `collections`/`type`/`unlock`/`cost` + a different `ui.browse`
+→ different visuals and content, **same firmware**. Expeditions/Dates/Reality
+are Time Romance data, not the engine.
 
-## Собрать и проверить
+## Build and check
 
 ```
 lvnconv convert  -i exp_victoria.lvns -o exp_victoria.lvn

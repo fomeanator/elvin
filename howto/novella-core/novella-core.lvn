@@ -8,12 +8,12 @@
     },
     {
       "expr": "0",
-      "key": "доверие",
+      "key": "trust",
       "op": "set"
     },
     {
       "expr": "0",
-      "key": "опыт",
+      "key": "exp",
       "op": "set"
     },
     {
@@ -23,7 +23,7 @@
     },
     {
       "op": "say",
-      "text": "Утро. Кабинет ещё пуст, но на столе уже лежит папка с твоим первым делом."
+      "text": "Morning. The office is still empty, but a folder with your first case is already on the desk."
     },
     {
       "id": "hero",
@@ -33,8 +33,8 @@
     },
     {
       "op": "say",
-      "text": "Ну что ж. Посмотрим, во что я ввязался.",
-      "who": "Ты"
+      "text": "Well then. Let's see what I've gotten myself into.",
+      "who": "You"
     },
     {
       "emotion": "neutral",
@@ -45,34 +45,34 @@
     },
     {
       "op": "say",
-      "text": "Не спеши. Сначала реши, как будешь работать. Это важнее, чем кажется.",
-      "who": "Ната"
+      "text": "Don't rush. First decide how you're going to work. It matters more than it seems.",
+      "who": "Nata"
     },
     {
       "duration": 6,
       "op": "hint",
-      "text": "Подсказка: выбор ниже меняет твои статы — они решают развилку впереди."
+      "text": "Hint: the choice below changes your stats — they decide the fork ahead."
     },
     {
       "op": "say",
-      "text": "С чего начнёшь?",
-      "who": "Ната"
+      "text": "Where will you start?",
+      "who": "Nata"
     },
     {
       "op": "choice",
       "options": [
         {
-          "cost": "1 час",
+          "cost": "1 hour",
           "goto": "book",
-          "text": "Разобрать всё по учебнику."
+          "text": "Work through everything by the book."
         },
         {
           "goto": "gut",
-          "text": "Довериться чутью."
+          "text": "Trust your gut."
         },
         {
           "goto": "ask",
-          "text": "Спросить совета у Наты."
+          "text": "Ask Nata for advice."
         }
       ]
     },
@@ -82,18 +82,18 @@
     },
     {
       "by": 1,
-      "key": "опыт",
+      "key": "exp",
       "op": "inc"
     },
     {
       "emotion": "neutral",
-      "id": "hero Ната=nata",
+      "id": "hero Nata=nata",
       "op": "actor"
     },
     {
       "op": "say",
-      "text": "Методично. Пункт за пунктом.",
-      "who": "Ты"
+      "text": "Methodical. Point by point.",
+      "who": "You"
     },
     {
       "label": "hub",
@@ -110,13 +110,13 @@
     },
     {
       "emotion": "smile",
-      "id": "hero Ната=nata",
+      "id": "hero Nata=nata",
       "op": "actor"
     },
     {
       "op": "say",
-      "text": "Иногда чутьё быстрее любого учебника.",
-      "who": "Ты"
+      "text": "Sometimes a gut feeling is faster than any textbook.",
+      "who": "You"
     },
     {
       "label": "hub",
@@ -128,23 +128,23 @@
     },
     {
       "by": 1,
-      "key": "доверие",
+      "key": "trust",
       "op": "inc"
     },
     {
       "by": 1,
-      "key": "опыт",
+      "key": "exp",
       "op": "inc"
     },
     {
       "emotion": "smile",
-      "id": "ната",
+      "id": "nata",
       "op": "actor"
     },
     {
       "op": "say",
-      "text": "Правильный вопрос — уже половина ответа.",
-      "who": "Ната"
+      "text": "The right question is already half the answer.",
+      "who": "Nata"
     },
     {
       "label": "hub",
@@ -160,14 +160,14 @@
       "op": "set"
     },
     {
-      "expr": "опыт+2",
-      "key": "опыт",
+      "expr": "exp+2",
+      "key": "exp",
       "op": "set"
     },
     {
       "op": "say",
-      "text": "Хорошо. Теперь — по делу.",
-      "who": "Ната"
+      "text": "Good. Now — down to business.",
+      "who": "Nata"
     },
     {
       "else": "__nf1",
@@ -182,7 +182,7 @@
     {
       "duration": 5,
       "op": "hint",
-      "text": "Твой ход осторожен. Иногда полезно рискнуть."
+      "text": "You play it safe. Sometimes it pays to take a risk."
     },
     {
       "label": "slide100",
@@ -195,7 +195,7 @@
     {
       "duration": 5,
       "op": "hint",
-      "text": "Ты играешь смело — это открывает быстрые пути."
+      "text": "You play boldly — that opens up the fast paths."
     },
     {
       "label": "slide100",
@@ -212,7 +212,7 @@
     },
     {
       "op": "say",
-      "text": "Ты выходишь на улицу. Развилка — но выбирать будешь не ты, а всё, что успел набрать."
+      "text": "You step outside. A fork — but it won't be you choosing, it will be everything you've managed to earn."
     },
     {
       "else": "__nf2",
@@ -240,13 +240,13 @@
     },
     {
       "emotion": "smile",
-      "id": "hero Ната=nata",
+      "id": "hero Nata=nata",
       "op": "actor"
     },
     {
       "op": "say",
-      "text": "Решение приходит само — ты уже знаешь, куда идти.",
-      "who": "Ты"
+      "text": "The decision comes on its own — you already know where to go.",
+      "who": "You"
     },
     {
       "label": "slide120",
@@ -264,13 +264,13 @@
     },
     {
       "emotion": "neutral",
-      "id": "hero Ната=nata",
+      "id": "hero Nata=nata",
       "op": "actor"
     },
     {
       "op": "say",
-      "text": "Приходится идти длинным путём и собирать всё по крупицам.",
-      "who": "Ты"
+      "text": "You have to take the long way and piece it all together bit by bit.",
+      "who": "You"
     },
     {
       "label": "slide120",
@@ -289,18 +289,18 @@
     },
     {
       "op": "say",
-      "text": "Как бы ты ни дошёл — ты дошёл. Дело раскрыто.",
-      "who": "Ната"
+      "text": "However you got here — you got here. Case solved.",
+      "who": "Nata"
     },
     {
       "duration": 8,
       "op": "hint",
-      "text": "Статы на финише — опыт: {опыт}, доверие: {доверие}, X: {X}."
+      "text": "Stats at the finish — exp: {exp}, trust: {trust}, X: {X}."
     },
     {
       "op": "say",
-      "text": "«Первое дело закрыто».",
-      "who": "КОНЦОВКА"
+      "text": "«First case closed».",
+      "who": "ENDING"
     },
     {
       "label": "__end",
