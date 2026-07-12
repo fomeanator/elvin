@@ -12,17 +12,27 @@ const sampleManifest = `{
   "dependencies": {
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.lvn.engine": "file:../../unity/Packages/com.lvn.engine",
+    "com.lvn.engine.shell": "file:../../unity/Packages/com.lvn.engine.shell",
     "com.unity.nuget.newtonsoft-json": "3.2.1"
   }
 }`
+
+func enginePkgURL(name string) string {
+	return engineRepoURL + "?path=/unity/Packages/" + name
+}
 
 // An exported manifest pins the engine to the release tag: updates are the
 // project owner's explicit choice, not a side effect of our next push.
 func TestPatchManifestPinsTheReleaseTag(t *testing.T) {
 	out := string(patchManifest([]byte(sampleManifest), "v0.5.0"))
-	want := `"com.lvn.engine": "` + engineGitURL + `#v0.5.0"`
+	want := `"com.lvn.engine": "` + enginePkgURL("com.lvn.engine") + `#v0.5.0"`
 	if !strings.Contains(out, want) {
 		t.Fatalf("engine not pinned:\n%s", out)
+	}
+	// every engine-family package rides the same repo + tag
+	wantShell := `"com.lvn.engine.shell": "` + enginePkgURL("com.lvn.engine.shell") + `#v0.5.0"`
+	if !strings.Contains(out, wantShell) {
+		t.Fatalf("shell package not pinned:\n%s", out)
 	}
 	if strings.Contains(out, "unity-mcp") {
 		t.Fatal("dev-only unity-mcp package must be stripped from exports")
@@ -33,7 +43,7 @@ func TestPatchManifestPinsTheReleaseTag(t *testing.T) {
 // valid JSON with the dev package stripped.
 func TestPatchManifestUnpinnedFallback(t *testing.T) {
 	out := string(patchManifest([]byte(sampleManifest), ""))
-	if !strings.Contains(out, `"com.lvn.engine": "`+engineGitURL+`"`) {
+	if !strings.Contains(out, `"com.lvn.engine": "`+enginePkgURL("com.lvn.engine")+`"`) {
 		t.Fatalf("unpinned URL malformed:\n%s", out)
 	}
 	if strings.Contains(out, "#") {
