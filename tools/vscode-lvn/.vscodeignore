@@ -1,0 +1,3 @@
+build.mjs
+test-node.mjs
+*.vsix

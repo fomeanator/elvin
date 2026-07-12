@@ -111,6 +111,14 @@ jobs:
           node scripts/gen.mjs
           git diff --exit-code src/grammar.js \
             || { echo "::error::grammar.js is stale — run 'npm run gen' in tools/lvn-lang and commit"; exit 1; }
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/lvnconv/go.mod
+      - name: VS Code extension assembles and answers
+        working-directory: tools/vscode-lvn
+        run: |
+          node build.mjs
+          node test-node.mjs
 
   panel:
     name: authoring panel builds
