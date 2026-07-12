@@ -1,12 +1,12 @@
 # Elvin — narrative games for Unity, written as plain text
 
-[![CI](https://github.com/fomeanator/unity-lvn-vn-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/fomeanator/unity-lvn-vn-engine/actions/workflows/ci.yml)
+[![CI](https://github.com/fomeanator/elvin/actions/workflows/ci.yml/badge.svg)](https://github.com/fomeanator/elvin/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **You write a story. Elvin plays it as a game.** No dialogue system to build,
 no branching engine, no save system — that *is* the engine.
 
-[![Write on the left — it plays on the right](docs/img/playground.png)](https://fomeanator.github.io/unity-lvn-vn-engine/)
+[![Write on the left — it plays on the right](docs/img/playground.png)](https://fomeanator.github.io/elvin/)
 
 The screenshot is the whole pipeline. Here is its entire source — this is
 **Elvin Script**, and yes, it really is the full game on the right:
@@ -39,11 +39,11 @@ text input, voice-over, **localization** — all from text a writer (or an AI)
 can author.
 
 > 🎮 **Try it in 10 seconds — no install:**
-> **[the browser playground](https://fomeanator.github.io/unity-lvn-vn-engine/)** —
+> **[the browser playground](https://fomeanator.github.io/elvin/)** —
 > write on the left, play on the right, share by link, export a single HTML file.
 >
 > 📚 **Docs:** the whole `howto/` + `docs/` as a searchable site —
-> **[fomeanator.github.io/unity-lvn-vn-engine/docs](https://fomeanator.github.io/unity-lvn-vn-engine/docs/)**.
+> **[fomeanator.github.io/elvin/docs](https://fomeanator.github.io/elvin/docs/)**.
 
 ## Who it's for
 

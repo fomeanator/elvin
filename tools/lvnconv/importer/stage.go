@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // Slug turns a display name into an id/filename token (spaces → underscores).
