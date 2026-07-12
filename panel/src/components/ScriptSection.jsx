@@ -209,7 +209,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const dirty = !imported && !!selId && src !== savedSrc.current;
 
   useEffect(() => {
-    document.title = (dirty ? "● " : "") + "ELVIN IDE";
+    document.title = (dirty ? "● " : "") + "Elvin Studio";
     if (!dirty) return;
     const h = (e) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", h);
