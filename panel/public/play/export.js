@@ -8,7 +8,7 @@
  * catalog layers for the actors it stages, across the axis values it uses),
  * fetch each and return {url → dataURL}. Unreachable art is skipped — the
  * exported story degrades to text instead of failing. */
-async function inlineAssets(doc, catalog) {
+async function inlineAssets(doc, catalog, extraAssets = {}, resolve = (u) => u) {
   const urls = new Set();
   const actorAxes = new Map(); // id → Set of "axis=value" combos seen
   for (const c of doc.script || []) {
@@ -41,8 +41,9 @@ async function inlineAssets(doc, catalog) {
   }
   const map = {};
   await Promise.all([...urls].map(async (u) => {
+    if (extraAssets[u]) { map[u] = extraAssets[u]; return; } // uploaded image — already a data URI
     try {
-      const r = await fetch(u);
+      const r = await fetch(resolve(u));
       if (!r.ok) return;
       const blob = await r.blob();
       if (blob.size > 4 * 1024 * 1024) return; // one oversized asset won't balloon the file
@@ -56,13 +57,13 @@ async function inlineAssets(doc, catalog) {
   return { assetMap: map, usedCatalog };
 }
 
-export async function exportHtml(title, lvnJson, catalog = {}) {
+export async function exportHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
   const [core, expr] = await Promise.all([
     fetch("core.js").then((r) => r.text()),
     fetch("expr.js").then((r) => r.text()),
   ]);
   const doc = JSON.parse(lvnJson);
-  const { assetMap, usedCatalog } = await inlineAssets(doc, catalog);
+  const { assetMap, usedCatalog } = await inlineAssets(doc, catalog, extraAssets, resolve);
   const strip = (s) => s
     .replace(/^import .*$/gm, "")
     .replace(/^export default /gm, "")
@@ -155,17 +156,17 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
   <div id="inputbox" class="inputbox" hidden>
     <div id="input-prompt"></div>
     <input id="input-field" type="text" />
-    <button id="input-ok">Готово</button>
+    <button id="input-ok">OK</button>
   </div>
   <div id="endcard" class="endcard" hidden>
-    <div>Конец</div>
-    <button id="restart">↻ Сначала</button>
+    <div>The End</div>
+    <button id="restart">↻ Restart</button>
   </div>
   <div id="titlecard" class="titlecard">
     <div class="tc-name">__TITLE__</div>
-    <button id="play-btn">▶ Играть</button>
+    <button id="play-btn">▶ Play</button>
   </div>
-  <button id="back" class="backbtn" title="Шаг назад">↩</button>
+  <button id="back" class="backbtn" title="Step back">↩</button>
   <span class="made">made with <a href="https://github.com/fomeanator/unity-lvn-vn-engine">LVN</a></span>
 </div>
 __DOC__
@@ -236,9 +237,9 @@ function start() {
   if (saved && saved.snap && saved.snap.ip > 0 && saved.snap.ip < doc.script.length) {
     const box = $id("choices"); box.innerHTML = ""; box.hidden = false;
     const note = document.createElement("div");
-    note.style.color = "#cfc8bd"; note.textContent = "Есть сохранение — продолжить?";
+    note.style.color = "#cfc8bd"; note.textContent = "A save exists — continue?";
     box.appendChild(note);
-    const go = document.createElement("button"); go.textContent = "▶ Продолжить";
+    const go = document.createElement("button"); go.textContent = "▶ Continue";
     go.addEventListener("click", () => {
       box.hidden = true;
       stagedState = saved.stage || stagedState;
@@ -248,7 +249,7 @@ function start() {
       render(player.restore(saved.snap));
     });
     box.appendChild(go);
-    const anew = document.createElement("button"); anew.textContent = "↻ Заново";
+    const anew = document.createElement("button"); anew.textContent = "↻ Start over";
     anew.addEventListener("click", () => { try { localStorage.removeItem(SAVE_KEY); } catch {}
       box.hidden = true; render(player.advance()); });
     box.appendChild(anew);
