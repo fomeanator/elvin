@@ -1,13 +1,13 @@
 {
   "name": "com.lvn.engine.addressables",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "displayName": "Elvin — Addressables Loader",
   "description": "An ILvnAssets implementation over Unity Addressables for the Elvin narrative-game engine: sprite/audio/text loads resolve through Addressables keys, so story art ships in bundles. Activates only when com.unity.addressables is installed (a version define guards the assembly). Plug it into VnStage.Assets directly or as one level of a ChainAssets fallback.",
   "unity": "2022.3",
   "license": "MIT",
   "keywords": ["addressables", "assets", "visual-novel", "elvin", "lvn"],
   "dependencies": {
-    "com.lvn.engine": "0.8.0"
+    "com.lvn.engine": "0.9.0"
   },
   "author": {
     "name": "Ominis"
