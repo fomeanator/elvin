@@ -104,7 +104,7 @@ keys, or an enum on an undeclared field are declaration errors — the same
 ### Menu items — `StageMenu.AddMenuItem`
 
 ```csharp
-StageMenu.AddMenuItem("Достижения", stage => MyAchievements.Show());
+StageMenu.AddMenuItem("Achievements", stage => MyAchievements.Show());
 ```
 
 Appears in the quick menu between Settings and Exit; label is yours (localize
