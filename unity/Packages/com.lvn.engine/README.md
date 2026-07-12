@@ -64,7 +64,7 @@ a playable asset automatically (no external tool). For CI, Ink, or articy, the
 standalone `lvnconv` transcoder also produces `.lvn` and validates it. The full
 language and engine limits are documented in the repo `howto/` folder.
 
-## Scope (v0.4)
+## Scope
 
 A full runtime: interpreter (flow, vars, subroutines, expressions via
 `LvnExpression`, autosave), the cast/compositor (layered parametric sprites),
