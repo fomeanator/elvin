@@ -57,7 +57,7 @@ ties go to the earlier claim. Top-N includes the caller's own rank.
 | `POST /v1/leaderboard/{board}` | `{score, name?}` (Bearer) | `{improved, rank}` — a worse re-submit never downgrades |
 | `GET /v1/leaderboard/{board}?n=10` | — (Bearer optional) | `{top, total, me?: {rank, score}}` |
 
-Unity: `await LvnLeaderboard.SubmitAsync("quiz_score", 420, "Фомин")` /
+Unity: `await LvnLeaderboard.SubmitAsync("quiz_score", 420, "Fomin")` /
 `await LvnLeaderboard.GetTopAsync("quiz_score")`.
 
 ## Analytics — append-only event log
