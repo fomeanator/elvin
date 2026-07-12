@@ -1,6 +1,6 @@
 {
   "name": "com.lvn.engine.services",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "displayName": "Elvin — Product Services",
   "description": "Offline-first product-backend clients for the Elvin engine: server-authoritative wallet with a kill-safe offline queue, IAP verify, rewarded ads, analytics, daily rewards, leaderboards, device + Google/Apple platform auth, and a web-view seam. LvnServiceOps registers the script-facing ext ops (wallet_earn/spend, leaderboard_submit, daily_claim, ad_reward, track) so stories drive the economy from plain text. Talks to the repo's Go content server; every service degrades gracefully offline.",
   "unity": "2022.3",
@@ -15,7 +15,7 @@
     "lvn"
   ],
   "dependencies": {
-    "com.lvn.engine": "0.7.0"
+    "com.lvn.engine": "0.8.0"
   },
   "author": {
     "name": "Ominis"
