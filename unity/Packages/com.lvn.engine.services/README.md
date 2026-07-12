@@ -24,6 +24,6 @@ the economy straight from `.lvns` via the `ext` ops (declare them in your
 
 ## Install
 
-`https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine.services`
+`https://github.com/fomeanator/lvn-engine-services.git`
 
 Server setup: `docs/services.md` in the repository root.

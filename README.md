@@ -120,7 +120,7 @@ For the full 15-minute path to a real game, read
 
 1. Add the package — **Package Manager → Add package from git URL**:
    ```
-   https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine
+   https://github.com/fomeanator/lvn-engine.git
    ```
 2. Drop a `.lvns` file into `Assets/` — Unity compiles it automatically.
 3. Put a **`VnStage`** on a GameObject with a `UIDocument`, point it at the

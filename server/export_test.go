@@ -18,7 +18,21 @@ const sampleManifest = `{
 }`
 
 func enginePkgURL(name string) string {
-	return engineRepoURL + "?path=/unity/Packages/" + name
+	return mirrorRepoURL(name)
+}
+
+// Each package resolves from its own read-only mirror repo, not the monorepo.
+func TestMirrorRepoURL(t *testing.T) {
+	cases := map[string]string{
+		"com.lvn.engine":              "https://github.com/fomeanator/lvn-engine.git",
+		"com.lvn.engine.shell":        "https://github.com/fomeanator/lvn-engine-shell.git",
+		"com.lvn.engine.addressables": "https://github.com/fomeanator/lvn-engine-addressables.git",
+	}
+	for name, want := range cases {
+		if got := mirrorRepoURL(name); got != want {
+			t.Fatalf("mirrorRepoURL(%s) = %s, want %s", name, got, want)
+		}
+	}
 }
 
 // An exported manifest pins the engine to the release tag: updates are the
