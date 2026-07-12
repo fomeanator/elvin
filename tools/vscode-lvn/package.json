@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fomeanator/unity-lvn-vn-engine.git",
+    "url": "https://github.com/fomeanator/elvin.git",
     "directory": "tools/vscode-lvn"
   },
   "engines": { "vscode": "^1.85.0" },
