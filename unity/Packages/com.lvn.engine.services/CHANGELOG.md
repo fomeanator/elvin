@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.8.0] — 2026-07-12
 
 - Extracted from `com.lvn.engine` (`Runtime/Services/`, 9 files) into a
   standalone package. New assembly `Lvn.Engine.Services` (the classes were
