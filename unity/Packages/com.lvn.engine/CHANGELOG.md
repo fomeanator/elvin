@@ -3,7 +3,7 @@
 All notable changes to the LVN Engine package are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
-## [Unreleased]
+## [0.8.0] — 2026-07-12
 
 ### Changed
 - **The package split** — the engine is now a thin narrative core with the
