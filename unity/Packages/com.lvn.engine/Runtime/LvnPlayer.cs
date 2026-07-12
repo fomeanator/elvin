@@ -54,6 +54,11 @@ namespace Lvn
             return Strings != null && Strings.TryGetValue(id, out var s) ? s : id;
         }
 
+        // Speaker display names resolve through the same catalog (keyed by the
+        // source name), so a translated cast renders without touching the script.
+        private string LocalizedWho(string who)
+            => who != null && Strings != null && Strings.TryGetValue(who, out var t) ? t : who;
+
         /// <summary>
         /// Optional override for string <c>expr</c> conditions (option filters
         /// and <c>if</c>). When unset, the built-in <see cref="LvnExpression"/>
@@ -536,7 +541,7 @@ namespace Lvn
             if (j >= 0 && j < _script.Count && _script[j] is JObject c && (string)c["op"] == "say")
             {
                 CurrentVoiceUrl = (string)c["voice"];
-                var who = TextInterpolation.Apply((string)c["who"], Vars);
+                var who = TextInterpolation.Apply(LocalizedWho((string)c["who"]), Vars);
                 // mutate:false — a re-render shows the SAME variant, never advancing
                 // the {a|b|c} sequence or re-rolling {~shuffle} (that would silently
                 // change the visible line on every hot-reload / chrome rebuild).
@@ -614,7 +619,7 @@ namespace Lvn
                         // Ink-style alternatives first (their counters key off the
                         // command index), then {var} interpolation — for both the
                         // line and the speaker name.
-                        var sayWho = TextInterpolation.Apply((string)c["who"], Vars);
+                        var sayWho = TextInterpolation.Apply(LocalizedWho((string)c["who"]), Vars);
                         var sayText = TextAlternatives.Apply(Localized(c), Vars, _ip);
                         sayText = TextInterpolation.Apply(sayText, Vars);
                         var sayStyle = (string)c["style"];
