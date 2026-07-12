@@ -18,6 +18,31 @@
         "com.unity.ugui": "1.0.0"
       }
     },
+    "com.lvn.engine.addressables": {
+      "version": "file:../../Packages/com.lvn.engine.addressables",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.lvn.engine": "0.7.0"
+      }
+    },
+    "com.lvn.engine.services": {
+      "version": "file:../../Packages/com.lvn.engine.services",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.lvn.engine": "0.7.0"
+      }
+    },
+    "com.lvn.engine.shell": {
+      "version": "file:../../Packages/com.lvn.engine.shell",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.lvn.engine": "0.7.0",
+        "com.lvn.engine.services": "0.7.0"
+      }
+    },
     "com.lvn.engine.spine": {
       "version": "file:../../Packages/com.lvn.engine.spine",
       "depth": 0,

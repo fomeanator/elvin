@@ -312,24 +312,30 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 	return []byte(out)
 }
 
-// engineGitURL is the public UPM git reference for the engine package, used in
-// exports so the project resolves on any machine (the sandbox uses a local
-// file: path that only works inside this repo).
-const engineGitURL = "https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine"
+// engineRepoURL is the public git repository the engine packages live in; an
+// exported project resolves each com.lvn.engine* package from it via a
+// ?path=/unity/Packages/<name> UPM reference (the sandbox template uses local
+// file: paths that only work inside this repo).
+const engineRepoURL = "https://github.com/fomeanator/unity-lvn-vn-engine.git"
 
-// patchManifest swaps the engine's local file: dependency for the public git
-// URL so a downloaded project resolves the package on open, and drops repo-only
-// dev tooling (the MCP editor bridge) that players' builds must not depend on.
-// A non-empty tag pins the URL to that release (#vX.Y.Z), so an exported
-// project keeps building identically until its OWNER bumps the tag — engine
-// releases can never break it behind its back.
+// patchManifest swaps EVERY engine-family local file: dependency
+// (com.lvn.engine, .shell, .services, .spine, .addressables, …) for its
+// public git URL so a downloaded project resolves on open, and drops
+// repo-only dev tooling (the MCP editor bridge) that players' builds must
+// not depend on. A non-empty tag pins every URL to that release (#vX.Y.Z) —
+// the packages are versioned together, and mixing commits would duplicate
+// classes a pre-split engine still carries. An exported project keeps
+// building identically until its OWNER bumps the tags.
 func patchManifest(raw []byte, tag string) []byte {
-	url := engineGitURL
-	if tag != "" {
-		url += "#" + tag
-	}
-	re := regexp.MustCompile(`"com\.lvn\.engine"\s*:\s*"[^"]*"`)
-	out := re.ReplaceAllString(string(raw), `"com.lvn.engine": "`+url+`"`)
+	re := regexp.MustCompile(`"(com\.lvn\.engine(?:\.[a-z0-9-]+)?)"\s*:\s*"file:[^"]*"`)
+	out := re.ReplaceAllStringFunc(string(raw), func(dep string) string {
+		name := re.FindStringSubmatch(dep)[1]
+		url := engineRepoURL + "?path=/unity/Packages/" + name
+		if tag != "" {
+			url += "#" + tag
+		}
+		return `"` + name + `": "` + url + `"`
+	})
 	dev := regexp.MustCompile(`\s*"com\.coplaydev\.unity-mcp"\s*:\s*"[^"]*",?`)
 	out = dev.ReplaceAllString(out, "")
 	return []byte(out)
