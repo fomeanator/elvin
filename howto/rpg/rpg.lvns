@@ -1,9 +1,9 @@
 scene rpg
 
-// ═══════════════════ RPG (мини) ═══════════════════
-// Характеристики, инвентарь, лавка, случайный бой как ПЕРЕИСПОЛЬЗУЕМАЯ
-// подпрограмма (call/return) и повышение уровня. Полную большую RPG см.
-// server/content/scripts/rpg-inv.lvns — здесь компактная обучающая версия.
+// ═══════════════════ RPG (mini) ═══════════════════
+// Stats, inventory, a shop, random combat as a REUSABLE
+// subroutine (call/return), and leveling up. For the full-size RPG see
+// server/content/scripts/rpg-inv.lvns — this is the compact teaching version.
 
 level = 1
 xp = 0
@@ -14,35 +14,35 @@ atk = 4
 gold = 10
 potions = 1
 
-// Реактивный стат-бар — сам обновляется по ходу боя.
-text hud x=3 y=8 size=42 color=#f1e4c9 «Ур.{level}  ♥{hp}/{maxhp}  атк {atk}  💰{gold}  🧪{potions}»
+// Reactive stat bar — updates itself as the fight goes on.
+text hud x=3 y=8 size=42 color=#f1e4c9 «Lv.{level}  ♥{hp}/{maxhp}  atk {atk}  💰{gold}  🧪{potions}»
 
 bg /content/bg/town.jpg
-Городок Дубрава. Староста просит очистить лес от волков.
+The town of Oakvale. The elder asks you to clear the forest of wolves.
 -> town
 
 :town
-Площадь. Куда пойдёшь?
-- 🛒 К торговцу (зелья, меч) -> shop
-- 🌲 В лес (бой) -> forest
-- 🏆 Сразиться с вожаком стаи -> boss
+The square. Where to?
+- 🛒 Visit the merchant (potions, sword) -> shop
+- 🌲 Into the forest (fight) -> forest
+- 🏆 Face the pack leader -> boss
 
 :shop
-Торговец: Звонкой монеты — звонкий товар.
-- Зелье лечения — 5💰 -> buy_pot
-- Стальной меч (+3 атк) — 12💰 -> buy_sword
-- Назад -> town
+Merchant: Good coin buys good wares.
+- Healing potion — 5💰 -> buy_pot
+- Steel sword (+3 atk) — 12💰 -> buy_sword
+- Back -> town
 :buy_pot
-if gold >= 5 { gold = gold - 5  potions = potions + 1  Торговец: Береги на чёрный день. } else { Торговец: Не хватает. }
+if gold >= 5 { gold = gold - 5  potions = potions + 1  Merchant: Save it for a rainy day. } else { Merchant: Not enough coin. }
 -> shop
 :buy_sword
-if gold >= 12 { gold = gold - 12  atk = atk + 3  Торговец: Добрый клинок. } else { Торговец: Не хватает. }
+if gold >= 12 { gold = gold - 12  atk = atk + 3  Merchant: A fine blade. } else { Merchant: Not enough coin. }
 -> shop
 
 :forest
 bg /content/bg/forest.jpg
-Из кустов выскакивает волк!
-ename = "Волк"
+A wolf leaps out of the bushes!
+ename = "Wolf"
 ehp = 12
 eatk = 5
 goldw = 6
@@ -53,8 +53,8 @@ bg /content/bg/town.jpg
 
 :boss
 bg /content/bg/forest.jpg
-Матёрый вожак стаи преграждает тропу!
-ename = "Вожак стаи"
+A grizzled pack leader blocks the trail!
+ename = "Pack Leader"
 ehp = 40
 eatk = 9
 goldw = 50
@@ -62,48 +62,48 @@ xpw = 30
 call fight
 -> victory
 
-// ── Боевой движок: подпрограмма. Вход: ename/ehp/eatk/goldw/xpw ──
+// ── Combat engine: a subroutine. Input: ename/ehp/eatk/goldw/xpw ──
 :fight
-{ename} перед тобой — ♥{ehp}. Твой ход.
-- ⚔ Атаковать -> f_atk
-- 🧪 Выпить зелье -> f_pot
-- 🏃 Бежать -> f_flee
+{ename} stands before you — ♥{ehp}. Your move.
+- ⚔ Attack -> f_atk
+- 🧪 Drink a potion -> f_pot
+- 🏃 Flee -> f_flee
 :f_atk
 dmg = max(1, atk + rand(0,3))
 ehp = ehp - dmg
-Ты бьёшь на {dmg}. ({ename}: ♥{ehp})
+You strike for {dmg}. ({ename} — ♥{ehp})
 if ehp <= 0 -> f_win
 -> f_enemy
 :f_pot
 if potions >= 1 -> do_pot
-Зелий нет!
+No potions left!
 -> fight
 :do_pot
 potions = potions - 1
 hp = min(maxhp, hp + 12)
-Зелье восстановило силы.
+The potion restores your strength.
 -> f_enemy
 :f_flee
 if chance(0.5) -> fled
-Сбежать не вышло!
+You fail to get away!
 -> f_enemy
 :fled
-Ты сбежал.
+You escaped.
 return
 :f_enemy
 edmg = max(1, eatk - rand(0,2))
 hp = hp - edmg
-{ename} бьёт на {edmg}. (♥{hp})
+{ename} hits for {edmg}. (♥{hp})
 if hp <= 0 -> dead
 -> fight
 :f_win
-{ename} повержен! +{goldw}💰 +{xpw} опыта.
+{ename} is defeated! +{goldw}💰 +{xpw} XP.
 gold = gold + goldw
 xp = xp + xpw
 call levelup
 return
 
-// Повышение уровня — может сработать несколько раз за бой.
+// Leveling up — may trigger several times per fight.
 :levelup
 while xp >= need {
   xp = xp - need
@@ -112,16 +112,16 @@ while xp >= need {
   hp = maxhp
   atk = atk + 1
   need = floor(need * 1.5)
-  ✨ Новый уровень — {level}!
+  ✨ New level — {level}!
 }
 return
 
 :victory
 bg /content/bg/town.jpg
-Вожак пал, лес свободен. Дубрава славит твоё имя! Ур.{level}, золота {gold}.
+The pack leader has fallen, the forest is free. Oakvale sings your name! Lv.{level}, {gold} gold.
 -> __end
 
 :dead
 fade to="black" duration=0.8
-Последний удар свалил тебя. Тропа героя обрывается.
+The last blow brings you down. The hero's trail ends here.
 -> __end

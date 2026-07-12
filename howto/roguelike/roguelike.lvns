@@ -1,9 +1,9 @@
 scene roguelike
 
-// ═══════════════════ ROGUELIKE / ЗАБЕГ ПО ПОДЗЕМЕЛЬЮ ═══════════════════
-// «Ещё один забег»: процедурные комнаты (rand), накопление глубины и золота,
-// риск-награда (идти глубже или выйти с добычей), смерть = конец забега.
-// Цикл :descend генерирует комнату за комнатой, пока герой жив.
+// ═══════════════════ ROGUELIKE / DUNGEON RUN ═══════════════════
+// "One more run": procedural rooms (rand), stacking up depth and gold,
+// risk-reward (go deeper or leave with the loot), death = end of the run.
+// The :descend loop generates room after room while the hero is alive.
 
 hp = 12
 maxhp = 12
@@ -11,15 +11,15 @@ gold = 0
 depth = 0
 potions = 0
 
-text hud x=3 y=8 size=42 color=#d8c9f0 «Глубина {depth}  ♥{hp}/{maxhp}  💰{gold}  🧪{potions}»
+text hud x=3 y=8 size=42 color=#d8c9f0 «Depth {depth}  ♥{hp}/{maxhp}  💰{gold}  🧪{potions}»
 
 bg /content/bg/dungeon_gate.jpg
-Врата подземелья. Спускайся, собирай золото — и попробуй выбраться живым.
+The dungeon gate. Descend, gather gold — and try to get out alive.
 -> descend
 
 :descend
 depth = depth + 1
-// Случайный тип комнаты.
+// Random room type.
 room = rand(1, 6)
 bg /content/bg/dungeon_room.jpg
 if room <= 2 -> r_monster
@@ -30,70 +30,70 @@ if room <= 5 -> r_trap
 
 :r_monster
 mhp = depth * 3 + rand(0, 4)
-Комната {depth}: на тебя бросается тварь (♥{mhp})!
-- ⚔ Драться -> fight
-- 🚪 Прошмыгнуть мимо -> sneak
+Room {depth} — a creature lunges at you (♥{mhp})!
+- ⚔ Fight -> fight
+- 🚪 Slip past -> sneak
 :fight
 hit = rand(2, 6)
 mhp = mhp - hit
-Ты бьёшь на {hit}.
+You strike for {hit}.
 if mhp <= 0 -> mon_dead
 bite = rand(1, 4)
 hp = hp - bite
-Тварь огрызается на {bite}. (♥{hp})
+The creature snaps back for {bite}. (♥{hp})
 if hp <= 0 -> dead
 -> fight
 :mon_dead
 drop = rand(3, 9)
 gold = gold + drop
-Тварь повержена! Добыча: +{drop}💰.
+The creature is slain! Loot — +{drop}💰.
 -> after_room
 :sneak
 if chance(0.5) -> sneak_ok
 bite = rand(1, 5)
 hp = hp - bite
-Не вышло — тварь успела цапнуть (-{bite}). (♥{hp})
+No luck — the creature got a bite in as you passed (-{bite}). (♥{hp})
 if hp <= 0 -> dead
 -> after_room
 :sneak_ok
-Ты бесшумно проскользнул мимо.
+You slip past without a sound.
 -> after_room
 
 :r_treasure
 loot = rand(8, 20)
 gold = gold + loot
-Комната {depth}: сундук с золотом! +{loot}💰.
+Room {depth} — a chest full of gold! +{loot}💰.
 -> after_room
 :r_potion
 potions = potions + 1
-Комната {depth}: на алтаре — склянка лечения. Взято.
+Room {depth} — a healing vial on an altar. Taken.
 -> after_room
 :r_trap
 dmg = rand(2, 5)
 hp = hp - dmg
-Комната {depth}: ловушка! Шипы бьют на {dmg}. (♥{hp})
+Room {depth} — a trap! Spikes hit for {dmg}. (♥{hp})
 if hp <= 0 -> dead
 -> after_room
 :r_empty
-Комната {depth}: пусто и тихо. Только эхо шагов.
+Room {depth} — empty and quiet. Only the echo of footsteps.
 -> after_room
 
 :after_room
-- ⬇ Спуститься глубже (риск) -> descend
-- 🧪 Выпить зелье -> drink expr="potions >= 1"
-- 🪜 Выйти с добычей -> escape
+- ⬇ Descend deeper (risky) -> descend
+- 🧪 Drink a potion -> drink expr="potions >= 1"
+- 🪜 Leave with the loot -> escape
 :drink
 potions = potions - 1
 hp = min(maxhp, hp + 6)
-Зелье возвращает силы.
+The potion restores your strength.
 -> after_room
 
 :escape
 bg /content/bg/dungeon_gate.jpg
-Ты выбрался на поверхность. Глубина {depth}, золота {gold}. Забег засчитан!
+You made it back to the surface. Depth {depth}, {gold} gold. The run counts!
 -> __end
 
 :dead
 fade to="black" duration=0.8
-Ты пал на глубине {depth} с {gold}💰 в кошеле. Подземелье забрало своё.
+You fell at depth {depth} with {gold}💰 in your purse. The dungeon takes its due.
 -> __end
