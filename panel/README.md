@@ -24,6 +24,7 @@ content. Start the server **with the studio surface enabled**, then the app:
 
 ```sh
 # 1. the server (from repo root) — -studio also serves the built app at /
+scripts/fetch-demo-content.sh   # demo content lives in its own repo
 go run ./server -content ./server/content -addr :8077 -admin-token devtoken -studio
 
 # 2. Studio, dev mode
