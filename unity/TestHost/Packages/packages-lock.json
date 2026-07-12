@@ -23,7 +23,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.lvn.engine": "0.8.0"
+        "com.lvn.engine": "0.9.0"
       }
     },
     "com.lvn.engine.services": {
@@ -31,7 +31,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.lvn.engine": "0.8.0"
+        "com.lvn.engine": "0.9.0"
       }
     },
     "com.lvn.engine.shell": {
@@ -39,8 +39,8 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.lvn.engine": "0.8.0",
-        "com.lvn.engine.services": "0.8.0"
+        "com.lvn.engine": "0.9.0",
+        "com.lvn.engine.services": "0.9.0"
       }
     },
     "com.lvn.engine.spine": {
@@ -48,7 +48,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.lvn.engine": "0.8.0"
+        "com.lvn.engine": "0.9.0"
       }
     },
     "com.unity.ext.nunit": {

@@ -87,6 +87,8 @@ namespace Lvn.UI
             _inputScrim.Add(panel);
 
             var promptText = (string)cmd["prompt"];
+            if (!string.IsNullOrEmpty(promptText) && _strings != null && _strings.TryGetValue(promptText, out var trPrompt))
+                promptText = trPrompt; // localization catalog, keyed by the source prompt
             if (_player != null) promptText = TextInterpolation.Apply(promptText, _player.Vars);
             if (!string.IsNullOrEmpty(promptText))
             {
