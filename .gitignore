@@ -71,3 +71,9 @@ server/content/sprites/hill/
 # bundle import sources (licensed art, ~1GB) and runtime version history
 content/cold/
 server/content/.history/
+
+# Demo content lives in its own repo (lvn-demo-content); fetch with
+# scripts/fetch-demo-content.sh. The engine repo is code only. (Anchored:
+# panel/public/play/content — the playground's tiny demo pack — stays tracked.)
+/server/content/
+/content/
