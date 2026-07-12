@@ -8,7 +8,7 @@ import (
 
 // realVarsXlsx is the actual game spreadsheet. Tests that need it skip when it
 // is absent so the suite stays green in checkouts without the content tree.
-const realVarsXlsx = "/Users/fomean/ominis/unity-lvn-vn-engine/content/cold/Переменные ХВП.xlsx"
+const realVarsXlsx = "/Users/fomean/ominis/elvin/content/cold/Переменные ХВП.xlsx"
 
 func TestParseVarsXlsx_Real(t *testing.T) {
 	if _, err := os.Stat(realVarsXlsx); err != nil {

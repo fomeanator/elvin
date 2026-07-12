@@ -1,7 +1,7 @@
 # Elvin Script for VS Code
 
 Language support for **`.lvns`** — the plain-text narrative-game language of
-the [Elvin engine](https://github.com/fomeanator/unity-lvn-vn-engine). This is
+the [Elvin engine](https://github.com/fomeanator/elvin). This is
 the same language core the web Studio uses, in your editor — which is where
 AI-assisted authoring actually happens.
 

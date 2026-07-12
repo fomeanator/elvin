@@ -13,8 +13,8 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/lvn"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 var reQuoted = regexp.MustCompile(`"([^"]+)"`)

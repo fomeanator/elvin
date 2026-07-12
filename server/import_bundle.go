@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/importer"
+	"github.com/fomeanator/elvin/tools/lvnconv/importer"
 )
 
 // bundleFields maps a multipart field name → where its path lands in BundleInputs.
