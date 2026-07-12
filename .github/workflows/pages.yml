@@ -34,10 +34,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/lvnconv/go.mod
       - name: Assemble the site
         run: |
           mkdir -p _site
           cp -r panel/public/play/* _site/          # playground at the root
+          # the compiler wasm is a build artifact, never committed — build it fresh
+          (cd tools/lvnconv && GOOS=js GOARCH=wasm go build -o "$GITHUB_WORKSPACE/_site/lvns.wasm" ./wasm)
           mkdir -p _site/docs
           cp panel/public/docs/*.html panel/public/docs/*.css panel/public/docs/*.js _site/docs/
           bash panel/public/docs/build-content.sh . _site/docs/content

@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Elvin Studio — the authoring workspace for the Elvin narrative-game engine",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "wasm": "cd ../tools/lvnconv && GOOS=js GOARCH=wasm go build -o ../../panel/public/lvns.wasm ./wasm && cp ../../panel/public/lvns.wasm ../../panel/public/play/lvns.wasm",
+    "dev": "npm run wasm && vite",
+    "build": "npm run wasm && vite build",
     "preview": "vite preview",
-    "deploy": "vite build && rm -rf ../server/website && mkdir -p ../server/website && cp -r dist/* ../server/website/",
+    "deploy": "npm run build && rm -rf ../server/website && mkdir -p ../server/website && cp -r dist/* ../server/website/",
     "lint": "eslint .",
     "test": "vitest run"
   },
