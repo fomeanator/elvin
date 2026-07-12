@@ -25,10 +25,10 @@ let wasmReady = false;
     const res = await WebAssembly.instantiateStreaming(fetch("lvns.wasm"), go.importObject); // relative: works at / and under GitHub Pages subpaths
     go.run(res.instance);
     wasmReady = true;
-    setStatus("готов", "ok");
+    setStatus("ready", "ok");
     boot();
   } catch (e) {
-    setStatus("компилятор не загрузился: " + e.message, "err");
+    setStatus("compiler failed to load: " + e.message, "err");
   }
 })();
 
@@ -78,7 +78,7 @@ async function svcOp(cmd, vars) {
         body: JSON.stringify(payload) });
       if (r.ok) {
         const { rank } = await r.json();
-        setStatus(`счёт отправлен в «${cmd.board}» — ранг ${rank}`, "ok");
+        setStatus(`score submitted to "${cmd.board}" — rank ${rank}`, "ok");
         void showBoard(cmd.board, tok);
       }
     }
@@ -100,9 +100,9 @@ async function showBoard(board, tok) {
       box.addEventListener("click", () => box.remove());
     }
     const rows = (d.top || []).map((e, i) =>
-      `<div class="lb-row"><span>${i + 1}. ${escapeHtml(e.name || "Аноним")}</span><b>${e.score}</b></div>`).join("");
-    const me = d.me ? `<div class="lb-me">Ты — ранг ${d.me.rank} (${d.me.score})</div>` : "";
-    box.innerHTML = `<div class="lb-title">🏆 ${escapeHtml(board)}</div>${rows}${me}<div class="lb-hint">тап — закрыть</div>`;
+      `<div class="lb-row"><span>${i + 1}. ${escapeHtml(e.name || "Anonymous")}</span><b>${e.score}</b></div>`).join("");
+    const me = d.me ? `<div class="lb-me">You — rank ${d.me.rank} (${d.me.score})</div>` : "";
+    box.innerHTML = `<div class="lb-title">🏆 ${escapeHtml(board)}</div>${rows}${me}<div class="lb-hint">tap to close</div>`;
   } catch { }
 }
 
@@ -118,15 +118,30 @@ function escapeHtml(s) {
 // still renders without any server.
 let catalog = {};
 let contentBase = ""; // "" → same-origin /content/ works untouched
-const art = (u) =>
-  contentBase && typeof u === "string" && u.startsWith("/content/")
+const art = (u) => {
+  if (typeof u !== "string") return u;
+  if (userAssets[u]) return userAssets[u]; // an uploaded image, by file name
+  return contentBase && u.startsWith("/content/")
     ? contentBase + u.slice("/content/".length) : u;
+};
 fetch("/v1/content/manifest").then((r) => {
   if (!r.ok) throw new Error("no content server");
   return r.json();
 }).then((m) => {
   catalog = (m && m.sprites) || {};
 }).catch(() => { contentBase = new URL("content/", location.href).href; });
+
+// ── user images — test your own visuals without any server ────────────────
+// Uploads become data URIs keyed by file name: `bg sprite_url="my_bg.png"`
+// just works, persists in this browser (best-effort — quota may say no) and
+// rides along into the single-file HTML export.
+const USER_ASSETS_KEY = "lvn-user-assets";
+let userAssets = {};
+try { userAssets = JSON.parse(localStorage.getItem(USER_ASSETS_KEY)) || {}; } catch { /* fresh start */ }
+function saveUserAssets() {
+  try { localStorage.setItem(USER_ASSETS_KEY, JSON.stringify(userAssets)); }
+  catch { setStatus("image kept for this tab only (browser storage is full)", ""); }
+}
 
 function resolveLayers(entity, cmd) {
   // Normalize the three catalog shapes: ["url"], [{url}], and full layer
@@ -147,167 +162,167 @@ function resolveLayers(entity, cmd) {
 
 // ── examples ───────────────────────────────────────────────────────────────
 const EXAMPLES = {
-  "Первая сцена": `scene playground
+  "First scene": `scene playground
 
-Тёмная комната. Пахнет пылью и старыми книгами.
-input var=name prompt="Как тебя зовут?" default="Гость" max=20
-Голос: Наконец-то, {name}. Я ждал тебя.
-Голос: У тебя пять секунд, чтобы решить.
+A dark room. It smells of dust and old books.
+input var=name prompt="What's your name?" default="Guest" max=20
+Voice: At last, {name}. I've been waiting.
+Voice: You have five seconds to decide.
 
 choice timeout=5 timeout_goto=frozen
-- Искать выключатель -> light
-- Бежать к двери -> door
+- Look for the light switch -> light
+- Run for the door -> door
 
 :light
 courage = 1
-Ты нашёл выключатель. Комната оказалась библиотекой.
+You found the switch. The room turns out to be a library.
 -> finale
 
 :door
 courage = 0
-Дверь не поддалась. Зато глаза привыкли к темноте.
+The door wouldn't budge. But your eyes got used to the dark.
 -> finale
 
 :frozen
 courage = 0
-Ты замер. Иногда это тоже выбор.
+You froze. Sometimes that's a choice too.
 -> finale
 
 :finale
 if courage >= 1 -> brave
-Голос: Осторожность — не слабость, {name}.
+Voice: Caution is not weakness, {name}.
 -> __end
 :brave
-Голос: Смело, {name}. Мне это нравится.`,
+Voice: Bold, {name}. I like it.`,
 
-  "Лавка и инвентарь": `scene shop
+  "Shop & inventory": `scene shop
 
 gold = 12
 inv = []
 text hud x=4 y=6 size=20 color=#ffd166 «💰 {gold}  🎒 {inv}»
 
-Торговец: Что берём? Меч — 10, яблоко — 3.
+Merchant: What'll it be? The sword is 10, the apple is 3.
 :menu
-- Меч (10 золота) -> sword expr="gold >= 10"
-- Яблоко (3) -> apple expr="gold >= 3"
-- Показать карманы -> pockets
-- Уйти -> bye
+- Sword (10 gold) -> sword expr="gold >= 10"
+- Apple (3) -> apple expr="gold >= 3"
+- Turn out your pockets -> pockets
+- Leave -> bye
 
 :sword
 gold = gold - 10
-inv = inv + ["меч"]
-Торговец: Отличная сталь!
+inv = inv + ["sword"]
+Merchant: Fine steel!
 -> menu
 :apple
 gold = gold - 3
-inv = inv + ["яблоко"]
-Торговец: Свежее!
+inv = inv + ["apple"]
+Merchant: Fresh!
 -> menu
 :pockets
-Ты выворачиваешь карманы — {inv}.
+You turn out your pockets — {inv}.
 -> menu
 :bye
-if has(inv, "меч") -> armed
-Торговец: Заходи ещё.
+if has(inv, "sword") -> armed
+Merchant: Come again.
 -> __end
 :armed
-Торговец: С мечом-то оно спокойнее, да?`,
+Merchant: Feels safer with a sword, doesn't it?`,
 
-  "Сцена с артом": `scene art_demo
+  "Scene with art": `scene art_demo
 
 bg sprite_url="/content/sprites/doll/bg.png"
 obj id=apple sprite_url="/content/sprites/doll/apple.png" x=0.3 width=0.1
 obj id=bag sprite_url="/content/sprites/doll/bag.png" x=0.75 width=0.18
 
-Комната куклы. На полу — яблоко и сумка.
-- Убрать яблоко в сумку -> tidy
-- Оставить как есть -> leave
+The doll's room. An apple and a bag on the floor.
+- Put the apple in the bag -> tidy
+- Leave it be -> leave
 
 :tidy
 obj id=apple show=false
 fade to=black
-Порядок! Яблоко в сумке.
+Tidy! The apple is in the bag.
 -> __end
 
 :leave
 dim alpha=0.35
-Пусть лежит. Живописно же.`,
+Let it lie. It's picturesque.`,
 
-  "Кукла (слои из каталога)": `scene doll_pg
+  "Paper doll (catalog layers)": `scene doll_pg
 
 bg sprite_url="/content/sprites/doll/bg.png"
 actor doll x=0.5 height=0.85
-Кукла из четырёх слоёв — тело, рука, голова, волосы — с пер-слойной геометрией из каталога.
-В Unity-рантайме она ещё и дышит, кивает и качает волосами на пружинах.
-- Понятно -> fin
+A doll built from four layers — body, arm, head, hair — with per-layer geometry from the catalog.
+In the Unity runtime she also breathes, nods and sways her hair on spring bones.
+- Got it -> fin
 :fin
-Загляни в Unity-песочницу за полной версией!`,
+Check out the Unity sandbox for the full version!`,
 
-  "Codel: эмоции из каталога": `scene codel_demo
+  "Codel: emotions from the catalog": `scene codel_demo
 
 actor codel x=0.5 height=0.85
-Codel: Привет! Я — персонаж из каталога манифеста.
+Codel: Hi! I'm a character from the manifest catalog.
 actor codel emotion=happy
-Codel: Одно слово в скрипте — и у меня другая эмоция.
+Codel: One word in the script — and my emotion changes.
 actor codel emotion=annoyed
-Codel: emotion=annoyed. Заметно, да?
+Codel: emotion=annoyed. Noticeable, right?
 actor codel emotion=shy
-Codel: А это shy... не смотри так.
-- Улыбнись! -> smile
-- Хватит -> bye
+Codel: And this is shy... don't stare.
+- Smile! -> smile
+- Enough -> bye
 :smile
 actor codel emotion=happy
-Codel: Ну вот, совсем другое дело!
+Codel: There we go, much better!
 -> __end
 :bye
 actor codel emotion=sad
-Codel: Эх. Ну пока.`,
+Codel: Aw. Bye then.`,
 
-  "Викторина-блиц": `scene quiz
+  "Quiz blitz": `scene quiz
 
 score = 0
-input var=player_name prompt="Как записать тебя в таблицу рекордов?" default="Аноним" max=20
-Викторина! Два вопроса, времени мало.
+input var=player_name prompt="Your name for the leaderboard?" default="Anonymous" max=20
+A quiz! Two questions, very little time.
 
-Вопрос 1. Сколько байт в килобайте?
+Question 1. How many bytes in a kilobyte?
 choice timeout=6 timeout_goto=miss1
 - 1000 -> w1
 - 1024 -> r1
 :r1
 score = score + 1
-Верно!
+Correct!
 -> q2
 :w1
-Нет — 1024.
+Nope — 1024.
 -> q2
 :miss1
-Время! Правильный ответ — 1024.
+Time! The answer is 1024.
 -> q2
 
 :q2
-Вопрос 2. Самая большая планета?
+Question 2. The largest planet?
 choice timeout=6 timeout_goto=miss2
-- Юпитер -> r2
-- Сатурн -> w2
+- Jupiter -> r2
+- Saturn -> w2
 :r2
 score = score + 1
-Точно.
+Exactly.
 -> res
 :w2
-Это Юпитер.
+It's Jupiter.
 -> res
 :miss2
-Поздно! Юпитер.
+Too late! Jupiter.
 -> res
 
 :res
 ext leaderboard_submit board=playground_quiz score_var=score name_var=player_name
-Твой счёт — {score} из 2. Он уже в общей таблице рекордов!
+Your score is {score} out of 2 — already on the shared leaderboard!
 if score >= 2 -> ace
-Неплохо. Реванш?
+Not bad. Rematch?
 -> __end
 :ace
-Безупречно!`,
+Flawless!`,
 };
 
 // ── compile & run ──────────────────────────────────────────────────────────
@@ -322,12 +337,12 @@ function compileAndRun() {
   const src = els.editor.value;
   const out = window.lvnsCompile(src);
   if (!out.ok) {
-    showProblems("Ошибка компиляции:\n" + out.errors);
-    setStatus("ошибка компиляции", "err");
+    showProblems("Compile error:\n" + out.errors);
+    setStatus("compile error", "err");
     return;
   }
-  showProblems(out.warnings ? "Предупреждения:\n" + out.warnings : "");
-  setStatus(out.warnings ? "запущено (есть предупреждения)" : "запущено ✓", out.warnings ? "" : "ok");
+  showProblems(out.warnings ? "Warnings:\n" + out.warnings : "");
+  setStatus(out.warnings ? "running (with warnings)" : "running ✓", out.warnings ? "" : "ok");
 
   const doc = JSON.parse(out.json);
   const sceneName = (/^\s*scene\s+(\S+)/m.exec(src) || [])[1] || "scene";
@@ -352,10 +367,10 @@ function showResume(saved) {
   els.choices.hidden = false;
   const note = document.createElement("div");
   note.style.color = "#cfc8bd";
-  note.textContent = "Есть сохранение — продолжить?";
+  note.textContent = "A save exists — continue?";
   els.choices.appendChild(note);
   const btnGo = document.createElement("button");
-  btnGo.textContent = "▶ Продолжить";
+  btnGo.textContent = "▶ Continue";
   btnGo.addEventListener("click", () => {
     els.choices.hidden = true;
     stagedState = saved.stage || stagedState;
@@ -366,7 +381,7 @@ function showResume(saved) {
   });
   els.choices.appendChild(btnGo);
   const btnNew = document.createElement("button");
-  btnNew.textContent = "↻ Заново";
+  btnNew.textContent = "↻ Start over";
   btnNew.addEventListener("click", () => {
     try { localStorage.removeItem(saveKey); } catch {}
     els.choices.hidden = true;
@@ -716,7 +731,7 @@ document.addEventListener("keydown", (e) => {
 $("download").addEventListener("click", () => {
   if (!wasmReady) return;
   const out = window.lvnsCompile(els.editor.value);
-  if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
+  if (!out.ok) { showProblems("Compile error:\n" + out.errors); setStatus("compile error", "err"); return; }
   const blob = new Blob([out.json], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -728,13 +743,13 @@ $("download").addEventListener("click", () => {
 $("export-html").addEventListener("click", async () => {
   if (!wasmReady) return;
   const out = window.lvnsCompile(els.editor.value);
-  if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка компиляции", "err"); return; }
+  if (!out.ok) { showProblems("Compile error:\n" + out.errors); setStatus("compile error", "err"); return; }
   const m = /^\s*scene\s+(\S+)/m.exec(els.editor.value);
   // scene ids are snake_case tech names; the card deserves a human title.
   const raw = m ? m[1] : "game";
   const pretty = raw.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
-  await exportHtml(pretty, out.json, catalog);
-  setStatus("HTML сохранён — файл играет сам по себе", "ok");
+  await exportHtml(pretty, out.json, catalog, userAssets, art);
+  setStatus("HTML saved — the file plays on its own", "ok");
 });
 
 $("share").addEventListener("click", async () => {
@@ -746,9 +761,9 @@ $("share").addEventListener("click", async () => {
   window.history.replaceState(null, "", "#s=" + packed);
   try {
     await navigator.clipboard.writeText(url);
-    setStatus("ссылка скопирована — у открывшего сразу играет", "ok");
+    setStatus("link copied — it plays right away for whoever opens it", "ok");
   } catch {
-    setStatus("ссылка в адресной строке", "ok");
+    setStatus("the link is in the address bar", "ok");
   }
 });
 
@@ -773,8 +788,8 @@ els.editor.addEventListener("input", () => {
   lintTimer = setTimeout(() => {
     if (!wasmReady) return;
     const out = window.lvnsCompile(els.editor.value);
-    if (!out.ok) { showProblems("Ошибка компиляции:\n" + out.errors); setStatus("ошибка — исправь и ▶", "err"); }
-    else { showProblems(out.warnings ? "Предупреждения:\n" + out.warnings : ""); setStatus("скомпилируется ✓ (▶ чтобы перезапустить)", "ok"); }
+    if (!out.ok) { showProblems("Compile error:\n" + out.errors); setStatus("error — fix and press ▶", "err"); }
+    else { showProblems(out.warnings ? "Warnings:\n" + out.warnings : ""); setStatus("compiles ✓ (▶ to rerun)", "ok"); }
   }, 400);
 });
 const repaint = attachHighlight(els.editor, document.getElementById("backdrop"));
@@ -786,13 +801,97 @@ function boot() {
       const bytes = Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0));
       els.editor.value = new TextDecoder().decode(bytes);
     } catch {
-      els.editor.value = EXAMPLES["Первая сцена"];
+      els.editor.value = EXAMPLES["First scene"];
     }
   } else {
     let draft = null;
     try { draft = localStorage.getItem("lvn-play-draft"); } catch {}
-    els.editor.value = draft || EXAMPLES["Первая сцена"];
+    els.editor.value = draft || EXAMPLES["First scene"];
   }
   repaint();
   compileAndRun();
 }
+
+// ── assets drawer — see the demo art, add your own ─────────────────────────
+// The demo list mirrors what ships beside the playground (and what the
+// content server serves); user uploads land in `userAssets` above.
+const DEMO_ASSETS = [
+  "/content/bg/Autumn_street.jpg",
+  "/content/sprites/doll/bg.png",
+  "/content/sprites/doll/apple.png",
+  "/content/sprites/doll/bag.png",
+  "/content/sprites/doll/body.png",
+  "/content/sprites/doll/arm.png",
+  "/content/sprites/doll/head.png",
+  "/content/sprites/doll/hair.png",
+];
+
+function insertAtCursor(text) {
+  const ta = els.editor;
+  const a = ta.selectionStart ?? ta.value.length;
+  const b = ta.selectionEnd ?? ta.value.length;
+  ta.value = ta.value.slice(0, a) + text + ta.value.slice(b);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = a + text.length;
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function assetTile(ref, src, onRemove) {
+  const tile = document.createElement("button");
+  tile.className = "asset-tile";
+  tile.title = `insert ${ref}`;
+  const img = document.createElement("img");
+  img.src = src;
+  img.loading = "lazy";
+  const cap = document.createElement("span");
+  cap.textContent = ref.split("/").pop();
+  tile.append(img, cap);
+  tile.addEventListener("click", () => insertAtCursor(ref));
+  if (onRemove) {
+    const x = document.createElement("span");
+    x.className = "asset-x";
+    x.textContent = "✕";
+    x.title = "remove";
+    x.addEventListener("click", (e) => { e.stopPropagation(); onRemove(); });
+    tile.appendChild(x);
+  }
+  return tile;
+}
+
+function renderAssets() {
+  const demo = $("assets-demo");
+  demo.innerHTML = "";
+  for (const u of DEMO_ASSETS) demo.appendChild(assetTile(u, art(u)));
+  const mine = $("assets-user");
+  mine.innerHTML = "";
+  for (const name of Object.keys(userAssets).sort()) {
+    mine.appendChild(assetTile(name, userAssets[name], () => {
+      delete userAssets[name];
+      saveUserAssets();
+      renderAssets();
+    }));
+  }
+}
+
+$("assets").addEventListener("click", () => {
+  const d = $("assets-drawer");
+  d.hidden = !d.hidden;
+  if (!d.hidden) renderAssets();
+});
+$("assets-close").addEventListener("click", () => { $("assets-drawer").hidden = true; });
+
+$("assets-upload").addEventListener("change", async (e) => {
+  for (const file of e.target.files) {
+    const dataUri = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
+    userAssets[file.name] = dataUri;
+  }
+  e.target.value = "";
+  saveUserAssets();
+  renderAssets();
+  setStatus("image(s) added — reference by file name", "ok");
+});
