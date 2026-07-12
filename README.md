@@ -1,15 +1,18 @@
-# Elvin — narrative games for Unity, written as plain text
+# Elvin
+
+**You write a story. Elvin plays it as a game.**
 
 [![CI](https://github.com/fomeanator/elvin/actions/workflows/ci.yml/badge.svg)](https://github.com/fomeanator/elvin/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+&nbsp; **[▶ Playground](https://fomeanator.github.io/elvin/)** ·
+[Docs](https://fomeanator.github.io/elvin/docs/) ·
+[Try it](#try-it) ·
+[Products](#the-products)
 
-**You write a story. Elvin plays it as a game.** No dialogue system to build,
-no branching engine, no save system — that *is* the engine.
+[![Write on the left — it plays on the right. Click to open this exact scene, editable.](docs/img/playground.png)](https://fomeanator.github.io/elvin/#s=c2NlbmUgYXV0dW1uX2xldHRlcgoKYmcgL2NvbnRlbnQvYmcvQXV0dW1uX3N0cmVldC5qcGcKCmNvdXJhZ2UgPSAyCnRleHQgaHVkIHg9MyB5PTUgc2l6ZT0zNCBjb2xvcj0jZmZkNzZhIMKr4pyoIGNvdXJhZ2Uge2NvdXJhZ2V9wrsKCk1hcmE6IFlvdSBhY3R1YWxseSBjYW1lLiBJIHdhc24ndCBzdXJlIHlvdSB3b3VsZC4KTWFyYTogVGhlIGxldHRlciBzYWlkIG1pZG5pZ2h0LiBJdCdzIGJhcmVseSBzaXguCgotIEFzayBhYm91dCB0aGUgbGV0dGVyIC0+IGxldHRlcgotIFRha2UgaGVyIGhhbmQgLT4gaGFuZAotIFNheSBub3RoaW5nIC0+IHF1aWV0Cgo6bGV0dGVyCk1hcmE6IE5vdCBoZXJlLiBXYWxrIHdpdGggbWUgZmlyc3QuCi0+IF9fZW5kCgo6aGFuZApjb3VyYWdlID0gY291cmFnZSArIDEKTWFyYTogLi4ub2guIFdlbGwuIFRoYXQncyBvbmUgd2F5IHRvIGFuc3dlci4KLT4gX19lbmQKCjpxdWlldApNYXJhOiBNeXN0ZXJpb3VzLiBJIGNhbiB3b3JrIHdpdGggbXlzdGVyaW91cy4KLT4gX19lbmQ=)
 
-[![Write on the left — it plays on the right](docs/img/playground.png)](https://fomeanator.github.io/elvin/)
-
-The screenshot is the whole pipeline. Here is its entire source — this is
-**Elvin Script**, and yes, it really is the full game on the right:
+**↑ Click the screenshot** — that exact scene opens in the playground,
+editable. Its entire source fits on one screen of **Elvin Script**:
 
 ```lvns
 scene autumn_letter
@@ -32,43 +35,38 @@ Mara: ...oh. Well. That's one way to answer.
 -> __end
 ```
 
-Dialogue, characters with emotions, branching with conditions and costs,
-variables and expressions, a reactive HUD, staging (backgrounds, fades,
-camera, particles, audio), script-driven animation, save/load, timed choices,
-text input, voice-over, **localization** — all from text a writer (or an AI)
-can author.
+No dialogue system to build. No branching engine. No save system. **That *is*
+the engine.** Think Ren'Py's authoring comfort plus Ink's plain-text
+portability — living inside Unity, with a product layer when you need one.
 
-> 🎮 **Try it in 10 seconds — no install:**
-> **[the browser playground](https://fomeanator.github.io/elvin/)** —
-> write on the left, play on the right, share by link, export a single HTML file.
->
-> 📚 **Docs:** the whole `howto/` + `docs/` as a searchable site —
-> **[fomeanator.github.io/elvin/docs](https://fomeanator.github.io/elvin/docs/)**.
+## Why Elvin
 
-## Who it's for
+- **The whole game is a text file.** Screenplay-readable, git-diffable — and
+  simple enough that **an LLM writes a complete game in one shot**. Point
+  your agent at [`llms.txt`](llms.txt), wire the toolchain in over the
+  [MCP server](docs/mcp.md), or install the
+  [VS Code extension](tools/vscode-lvn/) — the real compiler behind every
+  keystroke.
+- **A real compiler, honest errors.** Dangling jumps, unknown ops, dead
+  labels — caught at build time, not in a player's hands. The 0-warnings
+  gate runs in CI. Stable ids mean saves, analytics and **translations
+  survive content edits** — the player can switch language mid-story.
+- **Batteries included.** A parametric cast (*K poses + M emotions = K+M
+  images, not K×M*), bones with spring physics, optional Spine skeletons,
+  timed choices, text input, voice-over, a CG gallery, saves with
+  thumbnails and migration, a reactive HUD, camera/particles/fades.
+- **It comes apart.** Use just the language, just the Unity runtime, or the
+  full stack with a content server and a ready novel-app shell. Custom game
+  logic is a [plugin](docs/embedding.md) — an `ext` op with flow control —
+  not a fork.
+- **Honest limits.** Not a realtime or physics engine: time is turns, input
+  is choices and clicks. The code-verified capability list lives in
+  [`howto/CAPABILITIES.md`](howto/CAPABILITIES.md).
 
-- **Programmers** — stop rebuilding the visual-novel / dialogue / branching /
-  stats / save stack for every project. Drop Elvin in, feed it a script, ship.
-  The whole game is **data**, not code.
-- **Writers & designers** — author the entire game in readable text (it looks
-  like a screenplay with choices) and watch it run as a real game, no engineer
-  in the loop.
-- **AI-first teams** — the language is simple and unambiguous enough that an
-  **LLM writes an entire game in one go**. Point your agent at
-  [`llms.txt`](llms.txt), or plug the toolchain straight in via the
-  **[MCP server](docs/mcp.md)** (`lvns_check` / `lvns_convert` / `lvn_doc`).
-  Onboarding: [`howto/AGENTS.md`](howto/AGENTS.md).
+## What people build with it
 
-> The name: **Elvin** is just how you say **LVN** — the `.lvn` format it
-> plays. You write **Elvin Script** (`.lvns`); it compiles to the `.lvn`
-> container; the Unity runtime plays it.
-
----
-
-## What you can build
-
-Anything driven by **choices + state**. Each genre ships with a working,
-validated example under [`howto/`](howto/):
+Every genre below ships as a working, compile-gated example in
+[`howto/`](howto/):
 
 | | | | |
 |---|---|---|---|
@@ -76,149 +74,89 @@ validated example under [`howto/`](howto/):
 | ⚔ RPG | 🍪 Clicker / idle | 💕 Dating sim | ❓ Quiz |
 | 🔍 Detective | 🏪 Tycoon | 🗡 Roguelike | 🧩 Puzzle |
 
-It is **not** a real-time/physics engine — time is measured in turns, input is
-choices and clicks. The exact, code-verified list of what it can and can't do
-is [`howto/CAPABILITIES.md`](howto/CAPABILITIES.md).
+## Try it
 
----
+**In the browser — 10 seconds.** Open the
+[playground](https://fomeanator.github.io/elvin/): write on the left, it
+plays on the right. **Share** packs your game into a link; **⬇ HTML**
+exports a single file that plays anywhere, saves included.
 
-## Quickstart
+**In Unity — 2 minutes.**
 
-### In Unity (the common path)
-
-1. **Package Manager → Add package from git URL:**
+1. Package Manager → *Add package from git URL*:
    ```
    https://github.com/fomeanator/lvn-engine.git
    ```
-2. Drop a `.lvns` file into `Assets/` — Unity compiles it automatically
-   (a ScriptedImporter; no external tool, no terminal).
-3. Put a **`VnStage`** on a GameObject with a `UIDocument`, point it at the
-   compiled asset, press **Play**. Background, characters, typewriter
-   dialogue, branching choices, the HUD, animation — running.
+2. Drop a `.lvns` file into `Assets/` — Unity compiles it on import.
+3. Put a `VnStage` on a GameObject with a `UIDocument`, point it at the
+   asset, press **Play**.
 
-Building a stand-alone novel **app** instead of embedding? Add
-[`lvn-engine-shell`](https://github.com/fomeanator/lvn-engine-shell)
-(boot → title browse → store/wardrobe/gallery/profile screens) and use
-`NovelApp` — you write content, not UI code. Details:
-[`unity/Packages/com.lvn.engine/README.md`](unity/Packages/com.lvn.engine/README.md).
+Building a stand-alone novel **app**? Add
+[`lvn-engine-shell`](https://github.com/fomeanator/lvn-engine-shell) and use
+`NovelApp` — boot, title browse, store/wardrobe/gallery screens: you write
+content, not UI code. The 15-minute path:
+[`howto/TUTORIAL.md`](howto/TUTORIAL.md).
 
-### From the command line (CI / Ink / articy)
+**From the command line** — for CI, or to import **Ink** and **articy:draft**
+(including raw binary `.adpd` projects):
 
 ```sh
 cd tools/lvnconv
-go run . convert  -i ../../examples/hello.lvns -o /tmp/hello.lvn   # Elvin Script → .lvn
-go run . convert  -i ../../examples/hello.ink  -o /tmp/hello.lvn   # Ink → .lvn
-go run . validate /tmp/hello.lvn   # dangling jumps, unknown ops, dup labels
-go run . locale   -lang en /tmp/hello.lvn   # translation catalog, gettext-style
+go run . convert  -i ../../examples/hello.lvns -o /tmp/hello.lvn
+go run . validate /tmp/hello.lvn            # the 0-warnings gate
+go run . locale   -lang de /tmp/hello.lvn   # translation catalog, gettext-style
 ```
 
-Aim for `OK … 0 warning(s)` — the build-correctness gate needs no engine.
+## The products
 
-### Serve content (optional)
+One repo, four products — take only what you need:
 
-```sh
-scripts/fetch-demo-content.sh   # demo novel + art (lives in its own repo)
-go run ./server -content ./server/content -addr :8077
-```
-
-Live content updates and player saves for a shipped game — a pure API. Add
-`-studio` and the same binary also serves **Elvin Studio** (the authoring
-IDE + admin dashboard) and **`/play/`**, the playground from the screenshot,
-on your own content. The game itself plays equally well fully offline.
-
----
-
-## The products (who needs what)
-
-| Product | What | Who needs it |
+| | What | Who it's for |
 |---|---|---|
-| **Language** — `.lvns` + [`lvnconv`](tools/lvnconv/) | the compiler, validator, Ink/articy importers, [MCP server](docs/mcp.md), [`llms.txt`](llms.txt), a [VS Code extension](tools/vscode-lvn/) | everyone — this *is* the base, and an AI agent + a text editor is a complete authoring setup |
-| **Engine** — [`lvn-engine`](https://github.com/fomeanator/lvn-engine) (+4 optional packages) | plays `.lvn` in Unity; the in-Unity importer compiles `.lvns` on drop | Unity developers |
-| **Services** — [`server/`](server/) + [`lvn-engine-services`](https://github.com/fomeanator/lvn-engine-services) | content streaming, saves, wallet/IAP/ads/leaderboards — the LiveOps layer | games that ship as a live product |
-| **Studio** — [`panel/`](panel/) | the authoring workspace: Monaco IDE, visual cast editor, admin dashboard (served by the server's `-studio` flag) | teams that want a GUI; entirely optional |
+| **Language** | `.lvns` + [`lvnconv`](tools/lvnconv/): compiler, validator, Ink/articy importers, [MCP](docs/mcp.md), [llms.txt](llms.txt), [VS Code](tools/vscode-lvn/) | everyone — an AI agent plus a text editor is a complete authoring setup |
+| **Engine** | [`lvn-engine`](https://github.com/fomeanator/lvn-engine) + optional [shell](https://github.com/fomeanator/lvn-engine-shell) / [services](https://github.com/fomeanator/lvn-engine-services) / [Spine](https://github.com/fomeanator/lvn-engine-spine) / [Addressables](https://github.com/fomeanator/lvn-engine-addressables) | Unity developers |
+| **Services** | the Go [server](server/): content streaming, saves, wallet/IAP/ads/leaderboards, one-click APK export | games shipping as a live product |
+| **Studio** | the [authoring workspace](panel/): Monaco IDE, visual cast editor, admin dashboard (the server's `-studio` flag) | teams that want a GUI — entirely optional |
 
----
+## Principles
 
-## What's in the box
-
-- **Elvin Script (`.lvns`)** — a tiny authoring language: dialogue with
-  emotions, choices (with conditions/costs/timeouts), variables and an
-  expression engine (~25 built-ins), `if`/`for`/`while`/functions, a reactive
-  HUD, full staging, script-driven animation, save/load, text input,
-  voice-over, translation catalogs.
-- **Unity runtime** ([`lvn-engine`](https://github.com/fomeanator/lvn-engine))
-  — plays a game from the script with no per-game code: a parametric **cast**
-  (a character is layers × named axes, so *K poses + M emotions = K+M images,
-  not K×M*), bones + spring physics, placement & clickable hotspots, effects,
-  save/load with migration.
-- **First-party packages**, each optional, each its own repo:
-  [`lvn-engine-shell`](https://github.com/fomeanator/lvn-engine-shell) (the
-  ready novel app),
-  [`lvn-engine-services`](https://github.com/fomeanator/lvn-engine-services)
-  (offline-first wallet/IAP/ads/analytics/leaderboards),
-  [`lvn-engine-spine`](https://github.com/fomeanator/lvn-engine-spine)
-  (Spine skeletons),
-  [`lvn-engine-addressables`](https://github.com/fomeanator/lvn-engine-addressables)
-  (bundle loading).
-- **`lvnconv`** — a standalone transcoder (Go CLI + WASM) that also imports
-  **Ink** and **articy:draft** (XML export *and* the binary `.adpd` project)
-  into the same `.lvn`; plus `validate`, `probe`, `locale`.
-- **Content server** (Go, optional) — manifest/scripts/assets, live updates,
-  player saves, the docs site, one-click APK export.
-- **Web panel** (optional) — a visual cast editor and in-browser script IDE.
-
-Under the hood, `.lvn` is a neutral container any authoring tool can target
-and any runtime can play — producers and players evolve independently. (If
-you know media codecs: it's the container, and `lvnconv` is the transcoder.)
-
----
-
-## Extending it
-
-Custom game logic lives in **plugins**, not forks: register an op from C#
-(`LvnOps.Register`) and author it from the script as `ext my_op …` — with
-flow control (pause the story for a mini-game, resume, jump). Declare your
-ops in an [`ext-grammar.json`](docs/embedding.md) and the validator and the
-IDE treat them like built-ins. The complete plugin anatomy ships as a sample
-(`Samples~/ExtensionPlugin`), and the Spine package is the first-party proof.
-Embedding levels (`LvnPlayer` + your stage / `VnStage` / `NovelApp`):
-[`docs/embedding.md`](docs/embedding.md).
-
-## Design rules
-
-- **Unknown is an error, never a silent skip.** Content bugs surface at
-  compile time, not in a player's hands.
-- **Stable ids.** Labels, choices and endings survive reimports — saves,
-  analytics and translations stay valid across content edits.
-- **Offline-first.** The game and its assets play without a network.
-- **The whole game is data.** The engine hardcodes no scene — swap the
+- **Unknown is an error, never a silent skip** — content bugs surface at
+  compile time.
+- **The whole game is data** — the engine hardcodes no scene; swap the
   content, keep the engine.
+- **Offline-first** — a game and its assets play with no network at all.
+- **`.lvn` is a neutral container** — any tool can produce it, any runtime
+  can play it. If you know media codecs: it's the container, `lvnconv` is
+  the transcoder. That's the whole architecture.
 
-## Repository layout
+<details>
+<summary><b>Repository map</b></summary>
 
 | Path | What |
 |---|---|
-| `howto/` | **Build-a-game kit + AI-agent onboarding**: language reference, capabilities, cheatsheet, recipes, 12 genre guides with validated examples. Start at `howto/AGENTS.md`. |
-| `tools/lvnconv/` | The transcoder CLI (Go): `convert` / `validate` / `probe` / `locale`, WASM build, articy/Ink importers. |
-| `tools/lvn-lang/` | Language tooling for `.lvns` (grammar + static analysis). |
-| `docs/` | Format & system specs: `lvn-format.md`, `staging-tags.md`, `cast.md`, `placement.md`, `animation-system.md`, `embedding.md`, `releasing.md`. |
-| `server/` | Go backend: content manifest, assets + admin upload, player state, docs website, APK export. |
-| `panel/` | Web authoring panel / IDE (visual cast editor, in-browser compile). |
-| `unity/Packages/` | The Unity packages (development home; consumers install the [mirror repos](docs/releasing.md)). |
-| `examples/` | Minimal scripts in Ink, Elvin Script, and compiled `.lvn`. |
+| `howto/` | the build-a-game kit: tutorial, language reference, cheatsheet, recipes, 12 genre guides with validated examples; AI onboarding at `howto/AGENTS.md` |
+| `tools/lvnconv/` | the transcoder CLI (Go) + its WASM build |
+| `tools/lvn-lang/` | the language core: grammar + analysis shared by Studio and the VS Code extension |
+| `tools/vscode-lvn/` | the VS Code extension |
+| `docs/` | specs: `lvn-format.md`, `cast.md`, `placement.md`, `staging-tags.md`, `animation-system.md`, `embedding.md`, `releasing.md` |
+| `server/` | the Go backend: content, state, product services, APK export |
+| `panel/` | Elvin Studio (React) + the playground and docs-site sources in `panel/public/` |
+| `unity/Packages/` | the Unity packages — the development home; consumers install the mirrors |
+| `examples/` | the minimal sources the README and CI point at |
 
-## Status
+Demo content (the Sovet demo's art/audio) lives in
+[`lvn-demo-content`](https://github.com/fomeanator/lvn-demo-content);
+`scripts/fetch-demo-content.sh` pulls it in for dev servers and releases.
 
-`v0.9` — a full, working narrative-game engine for Unity: the language and
-container spec, the runtime with cast/physics/Spine/drag-and-drop, CG gallery
-and read-tracking, save/load with thumbnails and migration, localization with
-live language switching, the transcoder with Ink/articy front-ends and an MCP
-server, the web IDE + playground, and a release pipeline that ships a
-playable APK from every tag. Extension seams are under a
-[compatibility contract](docs/releasing.md).
+</details>
 
-See the package [CHANGELOG](unity/Packages/com.lvn.engine/CHANGELOG.md) for
-the full story.
+**Status:** `v0.9` — a complete, working narrative-game engine. Every release
+tags all packages together, ships a playable demo APK and re-splits the
+package mirrors. History: the
+[CHANGELOG](unity/Packages/com.lvn.engine/CHANGELOG.md).
+
+> *The name: Elvin is how you say LVN — the `.lvn` container it plays. You
+> write Elvin Script (`.lvns`), `lvnconv` compiles it, runtimes play it.*
 
 ## License
 
