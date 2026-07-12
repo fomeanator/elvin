@@ -16,8 +16,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/lvn"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 func cmdLocale(args []string) {

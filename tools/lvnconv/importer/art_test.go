@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 func writeFile(t *testing.T, dir, rel string, data []byte) {
