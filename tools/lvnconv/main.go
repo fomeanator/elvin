@@ -52,6 +52,8 @@ func main() {
 		cmdProbe(os.Args[2:])
 	case "optimize":
 		cmdOptimize(os.Args[2:])
+	case "locale":
+		cmdLocale(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -70,6 +72,7 @@ usage:
   lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
+  lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
 
 convert  compile a source script to a .lvn container (stdout if -o omitted)
 validate run structural checks on a .lvn (unknown op, dangling jumps, dup labels)
@@ -81,6 +84,12 @@ optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
          only get losslessly recompressed, never resized (frame-packed atlases
          bleed under any resample). Dry run by default; -apply writes; add
          -rewrite-refs to fix manifest.json/.lvns after a png→jpg conversion.
+locale   build/refresh the per-language string catalogs the runtime loads
+         beside a script (<script>.<lang>.json): say lines and speaker names,
+         choice options, input prompts, "text" labels. Existing translations
+         are kept, new lines are prefilled with the source text; -check only
+         reports coverage (exit 1 on missing keys), -prune drops stale keys.
+         List every language in manifest.json "languages" to show the picker.
 `)
 }
 
