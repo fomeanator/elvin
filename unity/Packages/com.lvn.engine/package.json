@@ -39,11 +39,6 @@
       "path": "Samples~/HelloLvn"
     },
     {
-      "displayName": "Web view (gree adapter)",
-      "description": "External wiring that plugs gree/unity-webview into the LvnWebView seam for an in-app web view (store payment banner, ToS/Policy). Import gree/unity-webview first. The engine never links a web-view library.",
-      "path": "Samples~/WebView"
-    },
-    {
       "displayName": "Extension plugin (template)",
       "description": "The complete anatomy of an Elvin plugin: a custom `ext` op with Hold/Resume flow control (LvnOps.Register), a quick-menu item, the ext-grammar.json declaration that makes the validator and IDE treat your ops like built-ins, a playable demo scene, and a README on shipping it as your own UPM package.",
       "path": "Samples~/ExtensionPlugin"

@@ -11,7 +11,7 @@ layer:
   energy with a live refill HUD, popups/paywall seams.
 - **Meta** — wardrobe (axes + wallet SKUs, live preview), CG gallery,
   profile, leaderboards, daily rewards, settings, auth (device +
-  Google/Apple via the engine's services).
+  Google/Apple via the `com.lvn.engine.services` clients).
 - **Flow events** — `ChapterStarted` / `ChapterFinished`, save/resume,
   cross-chapter loads.
 
@@ -28,9 +28,15 @@ same build renders any novel the server ships.
 
 ## Install
 
+Add the three git URLs in order (UPM cannot fetch git dependencies
+transitively, so the services package must be added explicitly; install all
+of them from the same branch/tag — they version together):
+
 1. The engine:
    `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine`
-2. This package:
+2. The product services (this package's hard dependency):
+   `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine.services`
+3. This package:
    `https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine.shell`
 
 Server-side features (wallet, IAP, ads, daily, leaderboards) degrade
