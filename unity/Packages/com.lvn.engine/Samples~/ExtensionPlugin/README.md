@@ -43,7 +43,7 @@ com.yourstudio.elvin.minigames/
   "version": "1.0.0",
   "displayName": "My Elvin Mini-games",
   "unity": "2022.3",
-  "dependencies": { "com.lvn.engine": "0.8.0" }
+  "dependencies": { "com.lvn.engine": "0.9.0" }
 }
 ```
 

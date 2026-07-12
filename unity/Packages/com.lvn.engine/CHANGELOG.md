@@ -3,6 +3,20 @@
 All notable changes to the LVN Engine package are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/); versions are SemVer.
 
+## [0.9.0] — 2026-07-12
+
+### Added
+- **Localization for `.lvns`-authored novels** — the string catalog now also
+  resolves speaker names, `input` prompts and floating `text` labels (keyed
+  by the source string, gettext-style — no ids to manage). Catalogs are
+  built and refreshed by the new `lvnconv locale` command; declare
+  `manifest.languages` and the player shows a live language picker.
+
+### Fixed
+- **Sandbox template compiles again** — `Lvn.Sandbox.asmdef` gained the
+  `Lvn.Engine.Shell` reference the package split moved `NovelApp` into; the
+  exported-project APK build (Release APK workflow) was failing on it.
+
 ## [0.8.0] — 2026-07-12
 
 ### Changed
