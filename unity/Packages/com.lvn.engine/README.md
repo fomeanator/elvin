@@ -13,7 +13,7 @@ the `.lvn` format it plays.)
 **Package Manager → Add package from git URL:**
 
 ```
-https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine
+https://github.com/fomeanator/lvn-engine.git
 ```
 
 Requires `com.unity.nuget.newtonsoft-json` (declared as a dependency; Package
