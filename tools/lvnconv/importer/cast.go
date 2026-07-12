@@ -3,7 +3,7 @@ package importer
 import (
 	"sort"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // BuildCatalog derives a manifest `sprites` catalog from the compiled script so an

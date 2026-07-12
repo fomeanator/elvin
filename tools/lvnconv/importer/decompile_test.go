@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
 )
 
 func sayTexts(s []lvns.Cmd) []string {

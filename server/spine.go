@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/importer"
+	"github.com/fomeanator/elvin/tools/lvnconv/importer"
 )
 
 // POST /v1/admin/spine — register a Spine character from its editor export:

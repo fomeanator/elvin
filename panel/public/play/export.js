@@ -167,7 +167,7 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
     <button id="play-btn">▶ Play</button>
   </div>
   <button id="back" class="backbtn" title="Step back">↩</button>
-  <span class="made">made with <a href="https://github.com/fomeanator/unity-lvn-vn-engine">LVN</a></span>
+  <span class="made">made with <a href="https://github.com/fomeanator/elvin">LVN</a></span>
 </div>
 __DOC__
 <script>

@@ -21,12 +21,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/importer"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/adpd"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/ink"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/lvns"
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/lvn"
+	"github.com/fomeanator/elvin/tools/lvnconv/importer"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/adpd"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/ink"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // newFlagSet builds a subcommand flag set that prints usage to stderr.
