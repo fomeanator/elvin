@@ -1,45 +1,45 @@
-# 🖱 Point-and-click / комната-побег
+# 🖱 Point-and-click / escape room
 
-Жанр про осмотр сцены: вокруг паузы-«экрана» расставлены кликабельные объекты, а вся логика держится на метках, переходах и переменных-состоянии.
+A genre built around examining a scene: clickable objects are arranged around a paused "screen", and all the logic rests on labels, jumps and state variables.
 
-## Что делает пример
+## What the example does
 
-Игрок заперт в кабинете и должен выбраться. На фоне `study_room.jpg` расставлены четыре хотспота — стол, картина, сейф и дверь. В столе прячется латунный ключ, за картиной нацарапан код сейфа `1962`, сейф открывается этим кодом, а дверь — найденным ключом. Когда ключ в кармане, клик по двери даёт концовку: фон меняется на `corridor.jpg` и сценарий завершается.
+The player is locked in a study and has to get out. Four hotspots are placed over the `study_room.jpg` background — a desk, a painting, a safe and a door. A brass key hides in the desk, the safe code `1962` is scratched behind the painting, the safe opens with that code, and the door opens with the found key. Once the key is in your pocket, clicking the door triggers the ending: the background switches to `corridor.jpg` and the script finishes.
 
-## Главная идея: экран-цикл
+## The core idea: the screen loop
 
-Ключевой паттерн — это «экран», который опрашивает игрока, не проматываясь. Объект с `on_click="метка"` становится хотспотом: клик прыгает на метку и **гасит тап**, поэтому диалог не перелистывается. Сам «экран» — это пауза: строка-нарратив, которая держит расставленные вокруг хотспоты до клика.
+The key pattern is a "screen" that polls the player without advancing. An object with `on_click="label"` becomes a hotspot: a click jumps to the label and **swallows the tap**, so the dialogue does not advance. The "screen" itself is a pause: a narration line that holds the hotspots arranged around it until a click.
 
 ```
 :room
 obj id=desk     sprite_url="/content/ui/hotspot/desk.png"     x=0.22 y=0.70 width=0.18 height=0.16 anchor="0.5,0.5" on_click="desk"
 ...
-Кабинет заперт. Осмотрись: стол, картина, сейф, дверь.
+The study is locked. Look around — desk, painting, safe, door.
 -> room
 ```
 
-Каждая метка-обработчик в конце возвращает `-> room`, и круг замыкается. Обрати внимание на `-> room` **перед** самой меткой `:room` в шапке файла: без него поток после инициализации «провалился» бы в `:room` сверху, а сам блок `:room` ещё и достижим прыжками снизу — транскодер выдал бы ворнинг «label … reached by fall-through». Явный прыжок перед меткой убирает fall-through.
+Every handler label ends with `-> room`, closing the loop. Note the `-> room` **before** the `:room` label itself at the top of the file: without it, the flow after initialization would "fall through" into `:room` from above, while the `:room` block is also reachable by jumps from below — the transcoder would emit a "label … reached by fall-through" warning. The explicit jump before the label removes the fall-through.
 
-## Возможности движка, которые тут задействованы
+## Engine features used here
 
-- **Хотспот `obj … on_click`** — кликабельный объект, который прыгает на метку и гасит тап:
+- **Hotspot `obj … on_click`** — a clickable object that jumps to a label and swallows the tap:
   `obj id=door … on_click="door"`
-- **Поля размещения** в долях экрана: `x`/`y` — точка привязки, `width`/`height` — размер, `anchor="0.5,0.5"` центрирует объект на `x,y`:
+- **Placement fields** in screen fractions: `x`/`y` — the anchor point, `width`/`height` — the size, `anchor="0.5,0.5"` centers the object on `x,y`:
   `obj id=safe … x=0.74 y=0.55 width=0.14 height=0.16 anchor="0.5,0.5" on_click="safe"`
-- **Состояние в переменных** — флаги собранного и узнанного:
+- **State in variables** — flags for what's collected and what's known:
   `has_key = 0` · `knows_code = 0` · `safe_open = 0`
-- **Ветвление `if cond -> метка`** — однострочная развилка с проваливанием дальше, если ложь:
+- **Branching `if cond -> label`** — a one-line fork that falls through if false:
   `if has_key == 1 -> escaped`
-- **Смена фона `bg`** для концовки:
+- **Background change `bg`** for the ending:
   `bg /content/bg/corridor.jpg`
-- **Встроенная метка `__end`** — конец сценария:
+- **Built-in label `__end`** — end of script:
   `-> __end`
 
-Пути к ассетам — это просто данные. Если арта нет, недостающий спрайт на сцене просто не рисуется (слой пропускается), а логика кликов и состояние работают полностью — прототип кликается ещё до того, как нарисованы стол и сейф.
+Asset paths are just data. If the art is missing, the absent sprite simply isn't drawn (the layer is skipped), while the click logic and state work in full — the prototype is clickable before the desk and the safe are ever drawn.
 
-## Разбор по шагам
+## Step-by-step walkthrough
 
-**1. Инициализация состояния.** Сразу после `bg` объявляем флаги и прыгаем на экран:
+**1. State initialization.** Right after `bg`, declare the flags and jump to the screen:
 
 ```
 bg /content/bg/study_room.jpg
@@ -49,7 +49,7 @@ safe_open = 0
 -> room
 ```
 
-**2. Расстановка хотспотов.** В блоке `:room` каждый объект получает координаты и `on_click`. Завершает экран строка-нарратив (пауза) и возврат `-> room`:
+**2. Placing the hotspots.** In the `:room` block every object gets coordinates and `on_click`. The screen ends with a narration line (the pause) and a `-> room` return:
 
 ```
 :room
@@ -57,81 +57,81 @@ obj id=desk     … on_click="desk"
 obj id=painting … on_click="painting"
 obj id=safe     … on_click="safe"
 obj id=door     … on_click="door"
-Кабинет заперт. Осмотрись: стол, картина, сейф, дверь.
+The study is locked. Look around — desk, painting, safe, door.
 -> room
 ```
 
-**3. Обработчики предметов с защитой от повторного срабатывания.** Перед тем как выдать предмет, проверяем флаг через `if`, чтобы стол не отдавал ключ дважды:
+**3. Item handlers guarded against re-triggering.** Before handing out an item, check the flag with `if` so the desk doesn't give away the key twice:
 
 ```
 :desk
 if has_key == 1 -> desk_empty
-Ты обыскал стол. В нижнем ящике — латунный ключ.
+You search the desk. In the bottom drawer — a brass key.
 has_key = 1
 -> room
 :desk_empty
-В столе больше ничего нет.
+There is nothing else in the desk.
 -> room
 ```
 
-Картина проще — она лишь выставляет `knows_code = 1` и возвращает на экран.
+The painting is simpler — it only sets `knows_code = 1` and returns to the screen.
 
-**4. Проверка кода и ключа.** Сейф читает два флага по порядку: уже открыт → пусто; код известен → открываем; иначе — заперт:
+**4. Checking the code and the key.** The safe reads two flags in order: already open → empty; code known → open it; otherwise — locked:
 
 ```
 :safe
 if safe_open == 1 -> safe_done
 if knows_code == 1 -> safe_unlock
-Сейф заперт на код. Цифр ты пока не знаешь.
+The safe is locked with a code. You don't know the digits yet.
 -> room
 ```
 
-Дверь — это «замок» побега: открыта только при наличии ключа:
+The door is the escape "lock": it opens only if you have the key:
 
 ```
 :door
 if has_key == 1 -> escaped
-Дверь заперта. Нужен ключ.
+The door is locked. You need a key.
 -> room
 ```
 
-**5. Концовка.** Метка `:escaped` меняет фон и уходит в `__end`:
+**5. The ending.** The `:escaped` label changes the background and goes to `__end`:
 
 ```
 :escaped
 bg /content/bg/corridor.jpg
-Ключ поворачивается, дверь открыта. Ты выбрался из кабинета. Победа!
+The key turns, the door opens. You have escaped the study. Victory!
 -> __end
 ```
 
-## Запуск и проверка
+## Running and checking
 
 ```sh
-# собрать транскодер
+# build the transcoder
 cd tools/lvnconv && go build -o /tmp/lvnconv .
 
-# скомпилировать .lvns → .lvn
+# compile .lvns → .lvn
 /tmp/lvnconv convert -i howto/point-and-click/point-and-click.lvns -o /tmp/pnc.lvn
 
-# структурная проверка: неизвестный op, висячие прыжки, fall-through
+# structural check: unknown ops, dangling jumps, fall-through
 /tmp/lvnconv validate /tmp/pnc.lvn
 ```
 
-Цель — **0 warning(s)**. Если всплывает «label … reached by fall-through», значит в метку и проваливаются сверху, и прыгают снизу — поставь явный `-> метка` (или `-> __end`) перед ней, как сделано перед `:room`.
+The goal is **0 warning(s)**. If "label … reached by fall-through" pops up, the label is both fallen into from above and jumped to from below — put an explicit `-> label` (or `-> __end`) before it, as done before `:room`.
 
-## Сделай своим
+## Make it yours
 
-- **Новые хотспоты.** Добавь ещё один `obj … on_click="окно"` и парную метку `:окно` — осматриваемых точек может быть сколько угодно.
-- **Комбинация предметов через переменные.** Заведи флаги (`has_screwdriver`, `has_battery`) и открой следующий шаг только когда оба равны 1 — через вложенные `if`.
-- **Многокомнатная сцена.** Сделай отдельные экраны-метки `:room1`, `:room2` со своим `bg` и хотспотом-переходом между ними — комната-побег вырастает в анфиладу.
-- **Меню/инвентарь.** Тот же приём `on_click` собирает стартовое меню или панель предметов; для перечисления собранного пригодятся списки (`inv = push(inv, "ключ")`) и `for it in inv`.
-- **Подсказки и атмосфера.** Подмешай `dim`, `audio` для звука замка, а подсказку покажи через `say` или реактивный `text` (команда `hint` в рантайме не рисуется — это no-op).
+- **New hotspots.** Add another `obj … on_click="window"` with a matching `:window` label — you can have as many inspectable points as you like.
+- **Item combinations via variables.** Introduce flags (`has_screwdriver`, `has_battery`) and unlock the next step only when both equal 1 — via nested `if`.
+- **Multi-room scene.** Make separate screen labels `:room1`, `:room2`, each with its own `bg` and a transition hotspot between them — the escape room grows into a suite.
+- **Menu/inventory.** The same `on_click` trick builds a start menu or an item panel; to list what's collected, use lists (`inv = push(inv, "key")`) and `for it in inv`.
+- **Hints and atmosphere.** Mix in `dim`, `audio` for the lock sound, and show a hint via `say` or a reactive `text` (the `hint` command does not render at runtime — it's a no-op).
 
-## Дальше
+## Next
 
-- [Справочник языка](../LANGUAGE.md) — полный синтаксис `.lvns`.
-- [Размещение объектов](../../docs/placement.md) — поля размещения и раздел про `on_click`.
-- [Книга рецептов](../recipes.md) — короткие переиспользуемые паттерны.
-- [Все жанры](../README.md) — карта жанров и быстрый старт.
+- [Language reference](../LANGUAGE.md) — full `.lvns` syntax.
+- [Object placement](../../docs/placement.md) — placement fields and the `on_click` section.
+- [Recipe book](../recipes.md) — short reusable patterns.
+- [All genres](../README.md) — the genre map and quick start.
 
-Когда захочется увидеть приёмы point-and-click в большом сценарии вместе с остальными возможностями движка, загляни в `server/content/scripts/showcase.lvns`.
+When you want to see point-and-click techniques in a large script alongside the rest of the engine's features, check `server/content/scripts/showcase.lvns`.

@@ -1,105 +1,105 @@
-# Книга рецептов `.lvns`
+# `.lvns` recipe book
 
-Короткие переиспользуемые куски, из которых собирается почти любая механика.
-Все паттерны взяты из проверенных примеров в этой папке — копируй и подгоняй.
-Справочник по любому элементу — [`LANGUAGE.md`](LANGUAGE.md).
+Short reusable snippets that combine into almost any mechanic.
+Every pattern comes from the verified examples in this folder — copy and adapt.
+For a reference on any element, see [`LANGUAGE.md`](LANGUAGE.md).
 
 ---
 
-## Счётчик / накопление
+## Counter / accumulation
 
 ```
 score = 0
-score = score + 1          // прибавить
-score = score - 1          // убавить
-hp = min(maxhp, hp + 10)   // прибавить, но не выше потолка
-gold = max(0, gold - 5)    // убавить, но не ниже нуля
+score = score + 1          // increment
+score = score - 1          // decrement
+hp = min(maxhp, hp + 10)   // add, but cap at a ceiling
+gold = max(0, gold - 5)    // subtract, but never below zero
 ```
 
-## Реактивная панель (HUD)
+## Reactive HUD panel
 
-`text` с шаблоном в `«…»` пересчитывается сам (~5 раз в секунду) — идеально для
-очков, здоровья, ресурсов.
-
-```
-text hud x=4 y=8 size=42 color=#f1e4c9 «♥{hp}/{maxhp}   💰{gold}   ур.{level}»
-text hud hide              // спрятать панель
-```
-
-## Развилка по условию
+A `text` with a template in `«…»` re-evaluates itself (~5 times per second) — perfect for
+score, health, resources.
 
 ```
-if gold >= 100 -> rich      // истина → прыжок; иначе падаем дальше
+text hud x=4 y=8 size=42 color=#f1e4c9 «♥{hp}/{maxhp}   💰{gold}   lv.{level}»
+text hud hide              // hide the panel
+```
+
+## Conditional branch
+
+```
+if gold >= 100 -> rich      // true → jump; otherwise fall through
 if hp <= 0 -> dead
--> normal                   // ветка «по умолчанию»
+-> normal                   // the "default" branch
 ```
 
-## Блок if / else
+## if / else block
 
 ```
-if has(inv, "ключ") {
-  Дверь открывается ключом.
+if has(inv, "key") {
+  The door opens with the key.
   -> next_room
 } else {
-  Заперто. Нужен ключ.
+  Locked. You need a key.
 }
 ```
 
-## Меню выбора
+## Choice menu
 
 ```
-- Сражаться -> fight
-- Бежать -> flee
-- Поговорить -> talk cost="потратишь ход"
+- Fight -> fight
+- Run -> flee
+- Talk -> talk cost="costs a turn"
 ```
 
-## Скрытый/заблокированный вариант
+## Hidden/locked option
 
-Вариант появляется в меню только когда `expr` истинно.
-
-```
-- Применить заклинание -> cast expr="mana >= 10"
-- Открыть дверь ключом -> open expr="has(inv, \"ключ\")"
-```
-> Кавычки внутри `expr=` экранируй как `\"`.
-
-## Инвентарь (список)
+The option appears in the menu only while `expr` is true.
 
 ```
-inv = []                            // создать
-inv = push(inv, "зелье")            // добавить
-if has(inv, "зелье") -> use_potion  // проверить наличие
-inv = removeat(inv, indexof(inv, "зелье"))   // выбросить одну штуку
-Предметов в сумке: {len(inv)}.      // счётчик
-for it in inv {                      // перебрать
+- Cast a spell -> cast expr="mana >= 10"
+- Open the door with the key -> open expr="has(inv, \"key\")"
+```
+> Escape quotes inside `expr=` as `\"`.
+
+## Inventory (list)
+
+```
+inv = []                            // create
+inv = push(inv, "potion")           // add
+if has(inv, "potion") -> use_potion // check presence
+inv = removeat(inv, indexof(inv, "potion"))   // drop one item
+Items in the bag — {len(inv)}.      // counter
+for it in inv {                      // iterate
   - {it}
 }
 ```
 
-## Лавка (покупка с проверкой денег)
+## Shop (purchase with a money check)
 
 ```
 :buy_sword
 if gold >= 12 {
   gold = gold - 12
   atk = atk + 3
-  Куплен меч (+3 к атаке).
+  Bought a sword (+3 attack).
 } else {
-  Не хватает золота.
+  Not enough gold.
 }
 -> shop
 ```
 
-## Бросок кости / случайность
+## Dice roll / randomness
 
 ```
-r = rand(1, 6)              // целое 1..6 включительно
-if chance(0.7) -> success   // 70% шанс
-crit = rand(0, 3)           // 0..3 (разброс урона)
+r = rand(1, 6)              // integer 1..6 inclusive
+if chance(0.7) -> success   // 70% chance
+crit = rand(0, 3)           // 0..3 (damage spread)
 loot = rand(8, 20)
 ```
 
-## Случайное событие (взвешенный выбор ветки)
+## Random event (weighted branch pick)
 
 ```
 roll = rand(1, 10)
@@ -109,79 +109,80 @@ if roll <= 9 -> rare        // 20%
 -> jackpot                  // 10%
 ```
 
-## Метр отношений / репутации
+## Relationship / reputation meter
 
 ```
 affection = 0
-affection = affection + 2          // удачная реплика
-affection = affection - 1          // промах
+affection = affection + 2          // good line
+affection = affection - 1          // misstep
 text hud «❤ {affection}»
-// финальный роут открывается по порогу:
-- Признаться -> confession expr="affection >= 5"
+// the final route unlocks past a threshold:
+- Confess -> confession expr="affection >= 5"
 ```
 
-## Цикл-сцена (опрашиваемый экран)
+## Loop scene (a screen you keep returning to)
 
-Хаб, куда возвращаешься после каждого действия. Ставь `-> hub` перед меткой,
-чтобы не было предупреждения о fall-through.
+A hub you come back to after every action. Put `-> hub` before the label
+to avoid the fall-through warning.
 
 ```
 -> hub
 :hub
-Что будешь делать?
-- Осмотреться -> look
-- Идти дальше -> leave
+What will you do?
+- Look around -> look
+- Move on -> leave
 :look
-Ты осматриваешься...
+You look around...
 -> hub
 ```
 
-## Кликабельная комната (point-and-click)
+## Clickable room (point-and-click)
 
 ```
 :room
 obj id=door sprite_url="/ui/door.png" x=0.8 y=0.5 anchor="0.5,0.5" on_click="door"
 obj id=key  sprite_url="/ui/key.png"  x=0.2 y=0.7 anchor="0.5,0.5" on_click="take_key"
-Осмотри комнату.
--> room                     // пауза-экран держит хотспоты
+Examine the room.
+-> room                     // the pause screen keeps hotspots alive
 :take_key
 has_key = 1
-Ты подобрал ключ.
+You picked up the key.
 -> room
 ```
 
-## Перетаскивание предмета (drag & drop)
+## Dragging an item (drag & drop)
 
-`draggable=true` + карта `on_drop="цель:метка"` (пары через пробел/запятую);
-`on_drop_miss` — ветка промаха (без неё предмет просто остаётся, где бросили).
-Короткое нажатие остаётся кликом — `on_click` работает параллельно.
+`draggable=true` + an `on_drop="target:label"` map (pairs separated by space/comma);
+`on_drop_miss` is the miss branch (without it the item just stays where dropped).
+A short press is still a click — `on_click` keeps working alongside.
 
 ```
 :scene
 obj id=apple sprite_url="/obj/apple.png" x=0.3 y=0.6 width=0.12 draggable=true on_drop="bag:in_bag" on_drop_miss=missed
 obj id=bag sprite_url="/obj/bag.png" x=0.8 y=0.7 width=0.2
-Перетащи яблоко в сумку.
+Drag the apple into the bag.
 -> scene
 :in_bag
 obj id=apple show=false
 inventory_apples = 1
-Яблоко в сумке!
+The apple is in the bag!
 -> __end
 :missed
-Мимо. Попробуй ещё раз.
+Missed. Try again.
 -> scene
 ```
 
-`drag_bounds="none"` снимает ограничение экраном (по умолчанию `screen`).
+`drag_bounds="none"` removes the screen constraint (default is `screen`).
 
-## CG-галерея и звуки интерфейса (манифест, не скрипт)
+## CG gallery and UI sounds (manifest, not script)
 
-Не команды — блоки в `manifest.json`. Галерея: арт открывается навсегда при
-первом показе `bg` с тем же url; в quick-меню появляется пункт «Галерея».
+These are not commands — they are blocks in `manifest.json`. Gallery: an art piece
+unlocks forever on the first `bg` shown with the same url; a "Gallery" item appears
+in the quick menu.
 
 ```json
 "titles": [{ "id": "my-novel", "gallery": [
-    { "id": "cg-beach", "url": "/content/bg/beach.png", "name": "Пляж" }
+    { "id": "cg-beach", "url": "/content/bg/beach.png", "name": "Beach" }
 ] }],
 "ui": { "sounds": {
     "click": "/content/ui/sounds/click.wav",
@@ -191,12 +192,12 @@ inventory_apples = 1
 } }
 ```
 
-`id` арта держи стабильным между релизами — разблокировки хранятся по нему.
-Отсутствующий звук = тишина; всё масштабируется пользовательской громкостью SFX.
+Keep the art `id` stable between releases — unlocks are stored by it.
+A missing sound is just silence; everything scales with the user's SFX volume.
 
-## Кодовый/логический замок (без ввода текста)
+## Code/logic lock (no text input)
 
-Состояние держим в переменных, проверяем условием.
+Keep the state in variables, check it with conditions.
 
 ```
 :check
@@ -209,83 +210,83 @@ if b == 0 -> ck3
 if c == 1 -> solved
 -> wrong
 :wrong
-Комбинация неверна.
+Wrong combination.
 -> panel
 ```
 
-## Выбор на время (реальный таймер)
+## Timed choice (real-time timer)
 
-Строка `choice timeout=…` прямо перед блоком вариантов: над кнопками полоса
-обратного отсчёта, истечение уводит в `timeout_goto`. Открытое меню и арт-вью
-замораживают часы — таймер честный только против игрока.
+A `choice timeout=…` line right before the option block: a countdown bar appears
+above the buttons, and expiry jumps to `timeout_goto`. An open menu or art view
+freezes the clock — the timer is only honest against the player.
 
 ```
-Стража за дверью! Что делаешь?
+Guards at the door! What do you do?
 choice timeout=5 timeout_goto=caught
-- Спрятаться под кровать -> hide
-- Выпрыгнуть в окно -> jump
+- Hide under the bed -> hide
+- Jump out the window -> jump
 :caught
-Ты замешкался — тебя схватили.
+You hesitated — they grabbed you.
 -> __end
 ```
 
-## Озвучка реплик
+## Voiced lines
 
-Строка `voice "<url>"` перед репликой: клип стартует вместе с текстом,
-следующая строка (или выход из сцены) глушит его, голос не наслаивается.
-Громкость — слайдер «Озвучка» в настройках; тайп-блип под голосом молчит.
-Файлы без озвучки просто молчат — смешивать озвученные и немые строки можно.
+A `voice "<url>"` line before a dialogue line: the clip starts with the text,
+the next line (or leaving the scene) silences it, so voices never stack.
+Volume is the "Voice" slider in settings; the typing blip stays quiet under a voice.
+Lines without voice files simply play silent — mixing voiced and mute lines is fine.
 
 ```
 voice "/content/voice/mara_001.ogg"
-Мара: Наконец-то ты пришёл.
+Mara: You finally came.
 voice "/content/voice/mara_002.ogg"
-Мара: Я уже начала волноваться.
-Наррация без озвучки между репликами — нормально.
+Mara: I was starting to worry.
+Unvoiced narration between lines is fine.
 ```
 
-## Ввод текста (имя героя и не только)
+## Text input (hero name and beyond)
 
-`input` останавливает сюжет оверлеем с полем ввода; введённое ложится в
-переменную и работает в интерполяции.
+`input` pauses the story with an input-field overlay; what the player types goes
+into a variable and works in interpolation.
 
 ```
-input var=name prompt="Как тебя зовут?" default="Гость" max=24
-Привет, {name}!
-if name == "Гэндальф" -> wizard
+input var=name prompt="What is your name?" default="Guest" max=24
+Hello, {name}!
+if name == "Gandalf" -> wizard
 ```
 
-## «Таймер» через ходы (без реального времени)
+## A "timer" measured in turns (no real time)
 
-Когда нужен не реальный отсчёт, а игровое время — отмеряй **ходами/днями** в цикле.
+When you need game time rather than a real countdown, measure it in **turns/days** in a loop.
 
 ```
 day = 1
 days = 5
 :turn
-if day > days -> finale     // время вышло
-// ... действия дня ...
+if day > days -> finale     // time is up
+// ... the day's actions ...
 day = day + 1
 -> turn
 ```
 
-## Подпрограмма (один код для многих вызовов)
+## Subroutine (one piece of code, many call sites)
 
 ```
-// вызов из разных мест:
-ename = "Волк"  ehp = 12  eatk = 5
+// called from different places:
+ename = "Wolf"  ehp = 12  eatk = 5
 call fight
 // ...
-ename = "Орк"   ehp = 40  eatk = 9
+ename = "Orc"   ehp = 40  eatk = 9
 call fight
 
-:fight                      // общий боевой движок
-{ename} нападает!
+:fight                      // shared combat engine
+{ename} attacks!
 // ...
-return                      // вернётся туда, откуда позвали
+return                      // returns to wherever it was called from
 ```
 
-## Функция с возвратом
+## Function with a return value
 
 ```
 func roll_dmg(base) {
@@ -294,7 +295,7 @@ func roll_dmg(base) {
 dmg = roll_dmg(atk)
 ```
 
-## Повышение уровня (срабатывает сколько нужно раз)
+## Level-up (fires as many times as needed)
 
 ```
 :levelup
@@ -302,15 +303,15 @@ while xp >= need {
   xp = xp - need
   level = level + 1
   need = floor(need * 1.5)
-  ✨ Уровень {level}!
+  ✨ Level {level}!
 }
 return
 ```
 
-## Онлайн-сервисы из скрипта (кошелёк, лидерборд, аналитика)
+## Online services from the script (wallet, leaderboard, analytics)
 
-Когда игра ходит с бэкендом LVN (NovelApp подключает его сам), сценаристу
-доступны готовые `ext`-опы — всё fire-and-forget и офлайн-безопасно:
+When the game runs with the LVN backend (NovelApp wires it up automatically),
+the writer gets ready-made `ext` ops — all fire-and-forget and offline-safe:
 
 ```
 ext wallet_earn currency=gold amount=10 reason="quest_done"
@@ -320,41 +321,41 @@ ext daily_claim
 ext track name=secret_ending_found
 ```
 
-`*_var`-поля читают переменную истории — «отправь то, что игрок набрал».
-Валидатор пометит эти опы предупреждением «host-defined» — это норма.
-Кастомный хост включает их одной строкой: `LvnServiceOps.RegisterAll()`.
+The `*_var` fields read a story variable — "submit whatever the player entered".
+The validator flags these ops with a "host-defined" warning — that is expected.
+A custom host enables them with one line: `LvnServiceOps.RegisterAll()`.
 
-## Сохранение и загрузка
+## Save and load
 
 ```
-- Сохранить -> dosave
-- Загрузить -> doload
+- Save -> dosave
+- Load -> doload
 :dosave
 save
-Путь записан.
+Your progress is recorded.
 -> menu
 :doload
 load
 ```
 
-## Несколько концовок
+## Multiple endings
 
 ```
 if score == 3 -> end_perfect
 if score >= 1 -> end_ok
 -> end_fail
 :end_perfect
-🏆 Идеально!
+🏆 Perfect!
 -> __end
 :end_ok
-Неплохо.
+Not bad.
 -> __end
 :end_fail
-В другой раз.
+Another time.
 -> __end
 ```
 
-## Постановка кадра (атмосфера)
+## Staging a shot (atmosphere)
 
 ```
 bg /content/bg/night.jpg
@@ -362,32 +363,32 @@ audio channel=music action=play url="/content/audio/theme.ogg"
 particles type=rain on=true
 fade to="clear" duration=1.2
 actor mara left sad
-anim mara scale [1 1.03 1] 3s yoyo     // лёгкое «дыхание»
+anim mara scale [1 1.03 1] 3s yoyo     // a gentle "breathing"
 camera action=shake amplitude=0.02 duration=0.4
 flash to="white" duration=0.3
 ```
 
-## Перевод новеллы на другие языки
+## Translating a novel into other languages
 
-Ничего не меняется в скрипте: переводы живут в каталогах-сайдкарах
-`<глава>.<язык>.json` рядом со скриптом (ключ — исходная строка, значение —
-перевод). Каталог собирает и обновляет `lvnconv`:
+Nothing changes in the script: translations live in sidecar catalogs
+`<chapter>.<lang>.json` next to the script (key — the source string, value —
+the translation). `lvnconv` builds and updates the catalog:
 
 ```sh
-lvnconv locale -lang en глава1.lvns   # создаст глава1.en.json со всеми строками
+lvnconv locale -lang en chapter1.lvns   # creates chapter1.en.json with all strings
 ```
 
-В каталог попадают реплики и имена говорящих, варианты выбора, `input`-промпты
-и `text`-панели — в порядке сюжета. Переводчик заполняет значения; после правки
-скрипта повторный запуск сохранит готовые переводы и допишет новые строки
-(`-check` — только отчёт покрытия, `-prune` — убрать устаревшие ключи).
+The catalog collects dialogue lines and speaker names, choice options, `input`
+prompts and `text` panels — in story order. The translator fills in the values;
+after editing the script, a re-run preserves finished translations and appends new
+strings (`-check` — coverage report only, `-prune` — drop stale keys).
 
-Объяви языки в `manifest.json` — появится переключатель в настройках и
-quick-меню, язык меняется на лету посреди истории:
+Declare the languages in `manifest.json` — a switcher appears in settings and the
+quick menu, and the language changes on the fly mid-story:
 
 ```json
 { "languages": ["ru", "en"] }
 ```
 
-Строка без перевода показывается как в оригинале — каталог можно доводить
-постепенно.
+A string without a translation shows as the original — the catalog can be filled
+in gradually.
