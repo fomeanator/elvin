@@ -1,0 +1,84 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Elvin Script",
+  "scopeName": "source.lvns",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#label" },
+    { "include": "#goto" },
+    { "include": "#choiceOption" },
+    { "include": "#control" },
+    { "include": "#directive" },
+    { "include": "#op" },
+    { "include": "#assignment" },
+    { "include": "#dialogue" },
+    { "include": "#inline" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.lvns"
+    },
+    "label": {
+      "match": "^\\s*(:[\\w\\p{Cyrillic}_]+)\\s*$",
+      "captures": { "1": { "name": "entity.name.function.label.lvns" } }
+    },
+    "goto": {
+      "match": "(->)\\s*([\\w\\p{Cyrillic}_]+)?",
+      "captures": {
+        "1": { "name": "keyword.control.goto.lvns" },
+        "2": { "name": "entity.name.function.label.lvns" }
+      }
+    },
+    "choiceOption": {
+      "begin": "^\\s*(-)\\s",
+      "beginCaptures": { "1": { "name": "keyword.control.choice.lvns" } },
+      "end": "$",
+      "name": "markup.list.option.lvns",
+      "patterns": [{ "include": "#goto" }, { "include": "#attribute" }, { "include": "#inline" }]
+    },
+    "control": {
+      "match": "^\\s*(if|for|while|func|return|call|goto|else)\\b",
+      "captures": { "1": { "name": "keyword.control.lvns" } }
+    },
+    "directive": {
+      "match": "^\\s*(scene|actor_map)\\b",
+      "captures": { "1": { "name": "keyword.other.directive.lvns" } }
+    },
+    "op": {
+      "begin": "^\\s*(bg|actor|obj|say|choice|input|voice|wait|audio|fade|dim|flash|tint|blur|camera|particles|text|text_pace|anim|move|play|defanim|preload|save|load|set|inc|ext|hint)(?=\\s|$)",
+      "beginCaptures": { "1": { "name": "support.function.op.lvns" } },
+      "end": "$",
+      "patterns": [{ "include": "#attribute" }, { "include": "#goto" }, { "include": "#inline" }]
+    },
+    "assignment": {
+      "match": "^\\s*([\\w\\p{Cyrillic}_]+(?:\\.[\\w\\p{Cyrillic}_]+)*)\\s*(=)",
+      "captures": {
+        "1": { "name": "variable.other.lvns" },
+        "2": { "name": "keyword.operator.assignment.lvns" }
+      }
+    },
+    "dialogue": {
+      "match": "^\\s*([^:\\n]{1,60}?)\\s*(\\[[^\\]]*\\])?\\s*(:)\\s",
+      "captures": {
+        "1": { "name": "entity.name.tag.speaker.lvns" },
+        "2": { "name": "constant.language.emotion.lvns" },
+        "3": { "name": "punctuation.separator.speaker.lvns" }
+      }
+    },
+    "attribute": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(=)",
+      "captures": {
+        "1": { "name": "entity.other.attribute-name.lvns" },
+        "2": { "name": "keyword.operator.assignment.lvns" }
+      }
+    },
+    "inline": {
+      "patterns": [
+        { "match": "\"[^\"]*\"", "name": "string.quoted.double.lvns" },
+        { "match": "«[^»]*»", "name": "string.quoted.other.lvns" },
+        { "match": "\\{[^{}]+\\}", "name": "variable.interpolation.lvns" }
+      ]
+    }
+  }
+}
