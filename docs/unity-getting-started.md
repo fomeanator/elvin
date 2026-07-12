@@ -14,7 +14,7 @@ tests and was run end-to-end in the editor.
 **Package Manager → Add package from git URL:**
 
 ```
-https://github.com/fomeanator/unity-lvn-vn-engine.git?path=/unity/Packages/com.lvn.engine
+https://github.com/fomeanator/lvn-engine.git
 ```
 
 It pulls its one dependency (`com.unity.nuget.newtonsoft-json`) automatically.
