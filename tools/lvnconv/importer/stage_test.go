@@ -3,7 +3,7 @@ package importer
 import (
 	"testing"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 func ops(s []articy.Cmd) []string {

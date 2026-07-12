@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // defaultEmotionColors maps a dialogue fragment's articy marker colour (#rrggbb)

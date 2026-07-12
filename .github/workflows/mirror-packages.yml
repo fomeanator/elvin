@@ -16,7 +16,7 @@ on:
 jobs:
   mirror:
     name: split & push mirrors
-    if: github.repository == 'fomeanator/unity-lvn-vn-engine'
+    if: github.repository == 'fomeanator/elvin'
     runs-on: [self-hosted, unity-mac]
     timeout-minutes: 20
     steps:
