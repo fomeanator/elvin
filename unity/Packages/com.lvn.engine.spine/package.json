@@ -1,13 +1,13 @@
 {
   "name": "com.lvn.engine.spine",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "displayName": "Elvin — Spine Integration",
   "description": "Spine skeletal animation for the Elvin narrative-game engine: kind:\"spine\" catalog entities render as live skeletons (runtime-loaded json/atlas/pages, MRU cache, warm builds, fade in/out, screen fit). This package is the driver behind the engine's LvnSpineBridge seam; it activates only when the official spine-unity runtime is also installed. Spine runtimes require a Spine editor license in production — the engine core stays license-free.",
   "unity": "2022.3",
   "license": "MIT",
   "keywords": ["spine", "skeletal-animation", "visual-novel", "elvin", "lvn"],
   "dependencies": {
-    "com.lvn.engine": "0.8.0"
+    "com.lvn.engine": "0.9.0"
   },
   "author": {
     "name": "Ominis"
