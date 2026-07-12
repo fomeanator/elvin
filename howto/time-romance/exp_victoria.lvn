@@ -3,7 +3,7 @@
   "script": [
     {
       "expr": "false",
-      "key": "smelo",
+      "key": "daring",
       "op": "set"
     },
     {
@@ -20,28 +20,28 @@
     },
     {
       "op": "say",
-      "text": "Вы новенькая при дворе?",
-      "who": "Граф"
+      "text": "New at court, are you?",
+      "who": "Count"
     },
     {
       "op": "choice",
       "options": [
         {
-          "goto": "derzko",
-          "text": "Дерзко"
+          "goto": "pick_bold",
+          "text": "Boldly"
         },
         {
-          "goto": "myagko",
-          "text": "Мягко"
+          "goto": "pick_gentle",
+          "text": "Gently"
         }
       ]
     },
     {
-      "id": "derzko",
+      "id": "pick_bold",
       "op": "label"
     },
     {
-      "key": "smelo",
+      "key": "daring",
       "op": "set",
       "value": true
     },
@@ -50,11 +50,11 @@
       "op": "goto"
     },
     {
-      "id": "myagko",
+      "id": "pick_gentle",
       "op": "label"
     },
     {
-      "key": "smelo",
+      "key": "daring",
       "op": "set",
       "value": false
     },
@@ -68,11 +68,11 @@
     },
     {
       "op": "say",
-      "text": "Граф провожает вас на балкон."
+      "text": "The Count escorts you to the balcony."
     },
     {
       "else": "__nf1",
-      "expr": "smelo == true",
+      "expr": "daring == true",
       "op": "if",
       "then": "bold"
     },
@@ -95,8 +95,8 @@
     },
     {
       "op": "say",
-      "text": "А вы смелее, чем кажетесь…",
-      "who": "Граф"
+      "text": "You are bolder than you look…",
+      "who": "Count"
     },
     {
       "label": "finale",
@@ -113,8 +113,8 @@
     },
     {
       "op": "say",
-      "text": "С вами спокойно…",
-      "who": "Граф"
+      "text": "I feel at ease with you…",
+      "who": "Count"
     },
     {
       "label": "finale",
@@ -131,7 +131,7 @@
     },
     {
       "op": "say",
-      "text": "Между вами вспыхнуло что-то настоящее."
+      "text": "Something real sparked between you."
     },
     {
       "key": "global.exp_victoria_done",
@@ -150,8 +150,8 @@
     },
     {
       "op": "say",
-      "text": "Мы ещё увидимся. Обещаю.",
-      "who": "Граф"
+      "text": "We will meet again. I promise.",
+      "who": "Count"
     },
     {
       "label": "__end",
