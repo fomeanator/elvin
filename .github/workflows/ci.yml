@@ -144,7 +144,7 @@ jobs:
   # must never execute on our hardware.
   unity:
     name: engine tests (EditMode + PlayMode)
-    if: github.event_name == 'push' && github.repository == 'fomeanator/unity-lvn-vn-engine'
+    if: github.event_name == 'push' && github.repository == 'fomeanator/elvin'
     runs-on: [self-hosted, unity-mac]
     timeout-minutes: 40
     env:

@@ -59,12 +59,6 @@ export const SECTIONS = [
       { id: "releasing", title: "Releases & compatibility", file: "docs-releasing.md" },
     ],
   },
-  {
-    title: "About",
-    pages: [
-      { id: "strategy", title: "Language strategy (RU)", file: "docs-language-strategy.ru.md" },
-    ],
-  },
 ];
 
 export const PAGES = SECTIONS.flatMap((s) => s.pages);

@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/fomeanator/unity-lvn-vn-engine/tools/lvnconv/internal/optimize"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/optimize"
 )
 
 // cmdOptimize is the built-in image compressor: shrinks oversized
