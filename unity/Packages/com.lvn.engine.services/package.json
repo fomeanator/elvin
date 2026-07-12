@@ -5,11 +5,26 @@
   "description": "Offline-first product-backend clients for the Elvin engine: server-authoritative wallet with a kill-safe offline queue, IAP verify, rewarded ads, analytics, daily rewards, leaderboards, device + Google/Apple platform auth, and a web-view seam. LvnServiceOps registers the script-facing ext ops (wallet_earn/spend, leaderboard_submit, daily_claim, ad_reward, track) so stories drive the economy from plain text. Talks to the repo's Go content server; every service degrades gracefully offline.",
   "unity": "2022.3",
   "license": "MIT",
-  "keywords": ["wallet", "iap", "analytics", "leaderboards", "backend", "elvin", "lvn"],
+  "keywords": [
+    "wallet",
+    "iap",
+    "analytics",
+    "leaderboards",
+    "backend",
+    "elvin",
+    "lvn"
+  ],
   "dependencies": {
     "com.lvn.engine": "0.7.0"
   },
   "author": {
     "name": "Ominis"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Web view (gree adapter)",
+      "description": "External wiring that plugs gree/unity-webview into the LvnWebView seam for an in-app web view (store payment banner, ToS/Policy). Import gree/unity-webview first. The engine never links a web-view library.",
+      "path": "Samples~/WebView"
+    }
+  ]
 }

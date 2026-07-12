@@ -48,8 +48,9 @@ namespace Lvn.EditorTools
                 EditorApplication.Exit(1); // make CI/scripts fail loudly
         }
 
-        // The engine self-boots (NovelApp is created from code before the first
-        // scene loads), so the build just needs SOME scene. Reuse one if the
+        // Exported projects self-boot (the template's Boot.cs creates the
+        // shell package's NovelApp before the first scene loads), so the
+        // build just needs SOME scene. Reuse one if the
         // project has it; otherwise create an empty one.
         private static string EnsureBootScene()
         {
