@@ -1,0 +1,55 @@
+# Mirror packages: on every version tag (v*), split each UPM package's
+# subdirectory history and push it to its read-only mirror repo. Consumers
+# install from the mirrors (a few-MB clone) instead of this monorepo (~300 MB
+# of demo content — UPM clones the WHOLE repo before applying ?path=).
+# The monorepo stays the only place development happens; mirrors are outputs.
+#
+# MIRROR_TOKEN is a PAT with repo scope that can push to the fomeanator/lvn-*
+# mirror repositories.
+name: Mirror packages
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    name: split & push mirrors
+    if: github.repository == 'fomeanator/unity-lvn-vn-engine'
+    runs-on: [self-hosted, unity-mac]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # subtree split needs the full history
+
+      - name: split each package and push to its mirror
+        env:
+          TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          fail=0
+          for pair in \
+            "com.lvn.engine:lvn-engine" \
+            "com.lvn.engine.shell:lvn-engine-shell" \
+            "com.lvn.engine.services:lvn-engine-services" \
+            "com.lvn.engine.spine:lvn-engine-spine" \
+            "com.lvn.engine.addressables:lvn-engine-addressables"; do
+            pkg="${pair%%:*}"; repo="${pair##*:}"
+            head=$(git subtree split -P "unity/Packages/$pkg")
+            echo "$pkg → $repo @ $head"
+            url="https://x-access-token:${TOKEN}@github.com/fomeanator/${repo}.git"
+            ok=""
+            # the runner's DNS flaps — retry each push a few times
+            for i in 1 2 3 4 5; do
+              if git -c http.version=HTTP/1.1 push --force "$url" \
+                   "${head}:refs/heads/main" "${head}:refs/tags/${TAG}"; then
+                ok=1; break
+              fi
+              echo "  push to $repo failed (attempt $i), retrying…"; sleep 15
+            done
+            [ -n "$ok" ] || { echo "::error::mirror push failed: $repo"; fail=1; }
+          done
+          exit $fail
