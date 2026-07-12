@@ -1,7 +1,0 @@
-{
-  "energy": {
-    "cap": 3,
-    "interval_seconds": 7200,
-    "start": 3
-  }
-}
