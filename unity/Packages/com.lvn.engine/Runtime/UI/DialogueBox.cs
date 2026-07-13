@@ -150,6 +150,7 @@ namespace Lvn.UI
             // Nameplate (hidden for narration).
             _plate = new VisualElement { name = "vn-plate" };
             _plate.style.alignSelf = Align.FlexStart;
+            _plate.style.flexShrink = 0; // never squeezed out of the column when space is tight
             _plate.style.backgroundColor = _theme.PanelColor;
             _plate.style.paddingLeft = _theme.NamePaddingX;
             _plate.style.paddingRight = _theme.NamePaddingX;
@@ -162,7 +163,7 @@ namespace Lvn.UI
             _speaker.style.color = _theme.SpeakerColor;
             _speaker.style.fontSize = _theme.SpeakerFontSize;
             _speaker.style.unityFontStyleAndWeight = FontStyle.Bold;
-            if (_theme.Font != null) _speaker.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(_speaker, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             _plate.Add(_speaker);
             _box.Add(_plate);
 
@@ -181,7 +182,7 @@ namespace Lvn.UI
             _body.style.color = _theme.TextColor;
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.whiteSpace = WhiteSpace.Normal;
-            if (_theme.Font != null) _body.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(_body, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             _panel.Add(_body);
 
             // The genre's "line finished — tap" marker: a small pulsing ▼ in the
@@ -194,7 +195,7 @@ namespace Lvn.UI
             _advanceHint.style.fontSize = Mathf.RoundToInt(_theme.BodyFontSize * 0.55f);
             _advanceHint.style.color = _theme.SpeakerColor;
             _advanceHint.style.display = DisplayStyle.None;
-            if (_theme.Font != null) _advanceHint.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(_advanceHint, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             _panel.Add(_advanceHint);
 
             _box.Add(_panel);

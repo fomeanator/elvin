@@ -50,10 +50,12 @@ namespace Lvn.UI.World
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = sortingOrder;
             var scaler = _canvasGo.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = _reference;
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0f; // width-first, like the production app
+            // Registered with LvnPanel so the stage canvas scales EXACTLY like the
+            // UITK chrome panel above it (same reference, same orientation match) —
+            // a mismatch here made sprites and dialogue scale apart on non-reference
+            // screens.
+            LvnPanel.RegisterScaler(scaler);
+            scaler.referenceResolution = _reference; // honour a custom reference if one was passed
             // No GraphicRaycaster: the scene is purely visual here; tap-to-advance
             // and choices live on the UITK panel above, so we never steal input.
 
@@ -147,18 +149,37 @@ namespace Lvn.UI.World
 
             a.gameObject.SetActive(p.Show);
             if (!p.Show) a.StopAll();
+            // An emotion/outfit swap rebuilt the layer Images (default white) — re-tint
+            // so a dimmed actor doesn't pop back to full brightness mid-line.
+            if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
+                SetFocus(id, fg, focus);
             return a;
         }
 
-        /// <summary>Full opacity for the speaker, dim everyone else (null = undim).</summary>
+        // Focus dim as a COLOR, not alpha: a CanvasGroup fade applies per-graphic,
+        // so a layered actor's translucent clothes reveal the body layer beneath
+        // (an accidental x-ray). Tinting every Graphic toward black darkens the
+        // composite while its alpha stays intact. Alpha stays owned by placement
+        // and animation tracks (they read-modify-write only the .a channel, so
+        // the RGB dim survives them).
+        private readonly Dictionary<string, float> _focusK = new Dictionary<string, float>();
+
+        private void SetFocus(string id, CanvasGroup slot, float k)
+        {
+            _focusK[id] = k;
+            if (slot == null) return;
+            foreach (var gfx in slot.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+            {
+                var c = gfx.color;
+                gfx.color = new Color(k, k, k, c.a);
+            }
+        }
+
+        /// <summary>Full brightness for the speaker, dim everyone else (null = undim).</summary>
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slotGroups)
-            {
-                if (kv.Value == null) continue;
-                float baseOp = _baseOpacity.TryGetValue(kv.Key, out var b) ? b : 1f;
-                kv.Value.alpha = (id == null || kv.Key == id) ? baseOp : baseOp * 0.55f;
-            }
+                SetFocus(kv.Key, kv.Value, (id == null || kv.Key == id) ? 1f : 0.55f);
         }
 
         // Loose name key (lower-case, letters/digits only) so a slot id and a say's
@@ -184,11 +205,7 @@ namespace Lvn.UI.World
                 if (kv.Value != null && NameKey(kv.Key) == target) { present = true; break; }
             if (!present) return;
             foreach (var kv in _slotGroups)
-            {
-                if (kv.Value == null) continue;
-                float baseOp = _baseOpacity.TryGetValue(kv.Key, out var b) ? b : 1f;
-                kv.Value.alpha = NameKey(kv.Key) == target ? baseOp : baseOp * 0.55f;
-            }
+                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.55f);
         }
 
         public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;
@@ -211,6 +228,7 @@ namespace Lvn.UI.World
             _actors.Clear();
             _slotGroups.Clear();
             _baseOpacity.Clear();
+            _focusK.Clear();
             _nextSibling = 0;
             _bg.SetColor(Color.clear);
         }
