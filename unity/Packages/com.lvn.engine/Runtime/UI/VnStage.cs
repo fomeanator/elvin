@@ -64,6 +64,9 @@ namespace Lvn.UI
         private ISceneRenderer _renderer;  // bg + actors + camera, renderer-agnostic
         private ParticleField _particles;
         private DialogueBox _dialogue;
+        // Safe-area hosts: dialogue/choices/labels and the quick menu are inset to
+        // Screen.safeArea; scene, weather and FX veils stay full-bleed (see Build).
+        private SafeAreaElement _chromeSafe, _menuSafe;
         private ChoiceList _choices;
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
         private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
@@ -169,6 +172,7 @@ namespace Lvn.UI
             ResolveFont();
             _panelHost = null; // died with the previous panel root — recreate lazily
             _dialogue = new DialogueBox(Theme);
+            SetSayVisible(_sayUp); // the empty skinned frame must not sit on a bare stage
             _choices = new ChoiceList(Theme);
             _fx = new FxLayer();
 
@@ -178,12 +182,19 @@ namespace Lvn.UI
 
             if (_world != null) root.Add(_world);
             root.Add(_particles);   // weather sits over the scene, under the UI
-            root.Add(_dialogue);
-            root.Add(_choices);
-            root.Add(_labelLayer);  // HUD/stat labels above dialogue/choices
+            // Chrome lives inside the device SAFE AREA (never under a notch /
+            // home indicator); the scene, weather and the FX veil stay full-bleed
+            // so art and fades cover the physical screen edge to edge.
+            _chromeSafe = new SafeAreaElement();
+            _chromeSafe.Add(_dialogue);
+            _chromeSafe.Add(_choices);
+            _chromeSafe.Add(_labelLayer); // HUD/stat labels above dialogue/choices
+            root.Add(_chromeSafe);
             root.Add(_fx);          // top: fades/dim veil everything below
             _menu = new StageMenu(this, Theme);
-            root.Add(_menu);        // quick menu above even the FX veil — always reachable
+            _menuSafe = new SafeAreaElement();
+            _menuSafe.Add(_menu);   // quick menu above even the FX veil — always reachable
+            root.Add(_menuSafe);
             _choices.OnSelected += OnChoiceSelected;
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
@@ -293,11 +304,15 @@ namespace Lvn.UI
             _dialogue = new DialogueBox(Theme);
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             _dialogue.RevealTicked += OnRevealTicked;
+            SetSayVisible(_sayUp); // a re-theme between lines must not reveal the empty frame
             _choices = new ChoiceList(Theme);
-            int fxIndex = root.IndexOf(_fx); // keep z-order: …, dialogue, choices, fx
-            if (fxIndex < 0) fxIndex = root.childCount;
-            root.Insert(fxIndex, _dialogue);
-            root.Insert(fxIndex + 1, _choices);
+            // Rebuilt chrome goes back into the safe-area container, before the
+            // label layer — keeps z-order: dialogue, choices, labels (fx above).
+            var chromeHost = (VisualElement)_chromeSafe ?? root;
+            int labelIndex = _labelLayer != null ? chromeHost.IndexOf(_labelLayer) : -1;
+            if (labelIndex < 0) labelIndex = chromeHost.childCount;
+            chromeHost.Insert(labelIndex, _dialogue);
+            chromeHost.Insert(labelIndex + 1, _choices);
             _choices.OnSelected += OnChoiceSelected;
 
             // The quick menu is themeable too (manifest.ui.menu) — rebuild it with
@@ -305,7 +320,7 @@ namespace Lvn.UI
             _menu?.Close();
             _menu?.RemoveFromHierarchy();
             _menu = new StageMenu(this, Theme);
-            root.Add(_menu);
+            ((VisualElement)_menuSafe ?? root).Add(_menu);
 
             // Restore the visible beat onto the fresh chrome so a live theme change
             // never blanks the line/choices the player is mid-reading (the text is
@@ -358,12 +373,67 @@ namespace Lvn.UI
             if (_sndType == null) await Clip(Theme.TypeSoundUrl, c => _sndType = c);
         }
 
-        // Load a Font named by Theme.FontResourcePath (from a Resources folder)
-        // when no explicit Font is assigned — lets a manifest pick the typeface.
+        // Resolve the theme's typeface (manifest ui.dialogue.font) when no
+        // explicit Font is assigned. Two forms:
+        //   "MyFont"              — a font baked into the build (Resources);
+        //   "/content/fonts/x.ttf" — a CUSTOM font served with the content —
+        // downloaded into the disk cache (offline-safe like every other asset),
+        // loaded from the file, applied via a chrome rebuild, and warmed with
+        // the current chapter's glyph corpus so the late arrival doesn't hitch.
+        private string _fontUrlLoading; // content url already being fetched (dedup)
+
         private void ResolveFont()
         {
-            if (Theme != null && Theme.Font == null && !string.IsNullOrEmpty(Theme.FontResourcePath))
-                Theme.Font = Resources.Load<Font>(Theme.FontResourcePath);
+            if (Theme == null || Theme.Font != null || string.IsNullOrEmpty(Theme.FontResourcePath)) return;
+            var src = Theme.FontResourcePath;
+            if (src.StartsWith("/"))
+            {
+                if (_fontUrlLoading == src) return; // fetch already in flight / done
+                _fontUrlLoading = src;
+                _ = LoadContentFontAsync(src);
+                return;
+            }
+            Theme.Font = Resources.Load<Font>(src);
+        }
+
+        private async Task LoadContentFontAsync(string url)
+        {
+            try
+            {
+                var ca = Assets as CachingAssets;
+                if (ca == null) return;
+                var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
+                var font = LvnFonts.FromFile(path);
+                // The theme may have been swapped while the font downloaded —
+                // only apply if it still asks for this exact url.
+                if (font == null || Theme == null || Theme.FontResourcePath != url) return;
+                Theme.Font = font;
+                LvnFonts.Prewarm(font, _prewarmCorpus); // chapter may already be playing
+                RebuildChrome(); // dialogue/choices re-skin with the new face
+            }
+            catch { /* best-effort: the panel default font keeps rendering */ }
+            // Release the dedup guard: per-chapter theme rebuilds null out
+            // Theme.Font, and the NEXT ResolveFont must be able to re-apply —
+            // by then it's a cache hit (file on disk + LvnFonts path cache).
+            finally { _fontUrlLoading = null; }
+        }
+
+        // A content-served font for ONE element (`text … font="/content/…"`):
+        // fetched into the cache, applied when ready. A cached font lands the
+        // same frame; a cold one swaps the face a moment after the label shows.
+        private async Task ApplyContentFontAsync(VisualElement el, string url)
+        {
+            try
+            {
+                var ca = Assets as CachingAssets;
+                if (ca == null) return;
+                var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
+                var font = LvnFonts.FromFile(path);
+                if (font == null || el == null || el.panel == null) return;
+                LvnFonts.Apply(el, font);
+                LvnFonts.Prewarm(font, _prewarmCorpus);
+            }
+            catch { /* label keeps the theme face */ }
         }
 
         private void OnDisable()
@@ -523,6 +593,34 @@ namespace Lvn.UI
                             continue;
                         }
                     }
+                    // A LAYERED catalog character (id-based, no sprite_url) was a
+                    // prefetch blind spot — its five layers all fetched cold in
+                    // the reveal frame. Resolve the layers it will show and warm
+                    // their bytes like any direct url.
+                    if (string.IsNullOrEmpty(url) && Catalog != null)
+                    {
+                        var cid = (string)c["id"];
+                        if (!string.IsNullOrEmpty(cid) && Catalog.Has(cid))
+                        {
+                            try
+                            {
+                                if (op == "bg")
+                                {
+                                    foreach (var u in Catalog.Resolve(cid, AxesFrom(c), CatalogCond()))
+                                        if (!string.IsNullOrEmpty(u) && _prefetched.Add(u))
+                                            (sprites ??= new List<string>()).Add(u);
+                                }
+                                else
+                                {
+                                    foreach (var rl in Catalog.ResolveLayers(cid, AxesOf(c), CatalogCond()))
+                                        if (!string.IsNullOrEmpty(rl.Url) && _prefetched.Add(rl.Url))
+                                            (sprites ??= new List<string>()).Add(rl.Url);
+                                }
+                            }
+                            catch { /* a bad catalog entry must not kill the prefetch */ }
+                        }
+                        continue;
+                    }
                     if (string.IsNullOrEmpty(url) || !_prefetched.Add(url)) continue;
                     (sprites ??= new List<string>()).Add(url);
                 }
@@ -540,11 +638,61 @@ namespace Lvn.UI
             if (audio != null) _ = Assets.PreloadAsync(audio, "audio", _cts.Token);
         }
 
+        // Chapter-entry warmup for PLAIN art — the sibling of WarmUpcomingSpineAsync.
+        // The loading screen stages the BYTES onto disk; this DECODES the first
+        // beats' background and character layers into the sprite cache behind the
+        // entry fade, so the opening beats never pay a decode in the reveal frame.
+        // Spine entities are skipped (their own warmup builds the full skeleton).
+        internal async Task WarmUpcomingArtAsync(int lookAhead, int maxSprites = 12)
+        {
+            if (_player == null || Assets == null) return;
+            var urls = new List<string>();
+            var seen = new HashSet<string>();
+            void Take(string u)
+            {
+                if (!string.IsNullOrEmpty(u) && seen.Add(u) && urls.Count < maxSprites) urls.Add(u);
+            }
+            foreach (var c in _player.PeekForward(lookAhead))
+            {
+                var op = (string)c["op"];
+                if (op != "bg" && op != "actor" && op != "obj") continue;
+                Take((string)c["sprite_url"]);
+                var id = (string)c["id"];
+                if (!string.IsNullOrEmpty(id) && Catalog != null && Catalog.Has(id))
+                {
+                    var e = Catalog.Get(id);
+                    if (e == null || e.kind != "spine")
+                    {
+                        try
+                        {
+                            if (op == "bg")
+                                foreach (var u in Catalog.Resolve(id, AxesFrom(c), CatalogCond())) Take(u);
+                            else
+                                foreach (var rl in Catalog.ResolveLayers(id, AxesOf(c), CatalogCond())) Take(rl.Url);
+                        }
+                        catch { /* a bad catalog entry must not kill the warmup */ }
+                    }
+                }
+                if (urls.Count >= maxSprites) break;
+            }
+            if (urls.Count == 0) return;
+            var loads = new List<Task>(urls.Count);
+            foreach (var u in urls) loads.Add(WarmOneAsync(u));
+            await Task.WhenAll(loads);
+
+            async Task WarmOneAsync(string u)
+            {
+                try { await Assets.LoadSpriteAsync(u, _cts.Token); }
+                catch { /* warmup is best-effort */ }
+            }
+        }
+
         private void AutoAdvanceTick()
         {
             if (!LvnPrefs.AutoAdvance || InputBlocked || _chromeHidden
                 || _player == null || _player.Finished || _player.AtChoice
                 || !_awaitingTap || _awaitingWait || _awaitingInput
+                || EntryGatePending
                 || _dialogue == null || _dialogue.IsRevealing)
             {
                 _autoRevealDoneAt = -1f;
@@ -607,6 +755,16 @@ namespace Lvn.UI
             _dialogue?.SetText(string.Empty);
         }
 
+        // The dialogue frame is chrome for a LINE — between chapters (and while
+        // the next chapter's script/art loads) there is no line, and the empty
+        // skinned box floating over a bare stage read as a glitch. Hidden on
+        // every stage reset, shown again by the first ShowSay.
+        private void SetSayVisible(bool on)
+        {
+            if (_dialogue != null)
+                _dialogue.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
         /// <summary>Persistent variables to preload into the next chapter BEFORE it
         /// runs (set by the host from its state store). With the imported global
         /// defaults marked `default:true`, these carried-in values survive the
@@ -624,7 +782,9 @@ namespace Lvn.UI
             var doc = LvnDocument.Parse(lvnJson);
             LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0) + " cmds) ════");
             ExitRequested = false; // a fresh chapter is a fresh run
+            _entryGateArmed = true; // the first say defers to the entry choreography
             _cast = SpriteComposer.ParseCast(doc.Cast);
+            PrewarmGlyphs(doc); // rasterize the chapter's glyphs NOW, not mid-typewriter
             ResetStage();
             _player = new LvnPlayer(doc, this);
             _player.Strings = Strings; // localization catalog (text_id → string), if any
@@ -640,6 +800,32 @@ namespace Lvn.UI
             if (warmIntroSpine) StartWithSpineWarmup(_player, _startGen);
         }
 
+        // The dialogue font is a DYNAMIC SDF asset — a glyph seen for the first
+        // time rasterizes into the atlas on the render thread, a visible hitch in
+        // the middle of a typewriter reveal. The chapter's full text corpus is
+        // known here (script + localization catalog), so bake every distinct
+        // character into the atlas up-front, behind the loading screen.
+        private string _prewarmCorpus = ""; // kept so a late-arriving theme font warms too
+
+        private void PrewarmGlyphs(LvnDocument doc)
+        {
+            var sb = new System.Text.StringBuilder(8192);
+            if (doc?.Script != null)
+                foreach (var c in doc.Script)
+                {
+                    if (!(c is JObject o)) continue;
+                    sb.Append((string)o["text"]).Append((string)o["who"]);
+                    if (o["options"] is JArray opts)
+                        foreach (var opt in opts)
+                            sb.Append((string)opt["text"]).Append((string)opt["cost"]);
+                }
+            if (Strings != null)
+                foreach (var v in Strings.Values) sb.Append(v);
+            _prewarmCorpus = sb.ToString();
+            if (Theme != null && Theme.Font != null) // else: warms when the font arrives
+                LvnFonts.Prewarm(Theme.Font, _prewarmCorpus);
+        }
+
         // Bumped by every fresh start AND every snapshot restore, so a pending
         // intro warmup can tell its run was superseded. Pinning the player
         // reference alone is not enough: a resume REUSES the player Play just
@@ -647,11 +833,21 @@ namespace Lvn.UI
         // chapter one beat past its saved position.
         private int _startGen;
 
-        // The staged opening: if a Spine scene is imminent, build it hidden
-        // BEFORE the intro advances — otherwise the typewriter starts and then
-        // freezes mid-sentence while the skeleton decodes and builds.
+        // The staged opening: everything the first beats show is built hidden
+        // BEFORE the intro advances — the first Spine scene (skeleton build) AND
+        // the plain art (background + character layers, decoded into the sprite
+        // cache) warm in parallel behind the entry fade. Otherwise the
+        // typewriter starts and then freezes mid-sentence while art decodes.
+        // Capped: a dead network can't hold the intro hostage — whatever missed
+        // the window loads on-demand exactly as before.
         private async void StartWithSpineWarmup(LvnPlayer player, int gen)
         {
+            // Plain art warms in the BACKGROUND — it races the reader, never the
+            // intro (holding the first beat hostage to 12 decodes read as a
+            // multi-second black screen). Only an imminent Spine scene gates the
+            // start: its skeleton build is the one cost that visibly freezes the
+            // typewriter mid-line if it lands cold.
+            _ = WarmUpcomingArtAsync(12);
             try { await WarmUpcomingSpineAsync(12); }
             catch (System.OperationCanceledException) { return; }
             catch { /* warmup is best-effort; the show path reloads what it needs */ }
@@ -689,6 +885,7 @@ namespace Lvn.UI
             // on the fresh chapter when its old timer elapses.
             StopAllCoroutines();
             _hotspots.Clear();
+            HasBackdrop = false;
             _renderer?.RemoveAll();
             _renderer?.ResetCamera(0f);
             _talkAnims.Clear();
@@ -704,6 +901,7 @@ namespace Lvn.UI
             _awaitingTap = false;
             _awaitingWait = false;
             _sayUp = false;
+            SetSayVisible(false);
             _curChoices = null;
             StopChoiceTimer();
             CloseInput();
@@ -972,6 +1170,7 @@ namespace Lvn.UI
         private void HandleTap(Vector2 pos)
         {
             if (InputBlocked) return;
+            if (EntryGatePending) return; // the chapter-title card owns the screen
             if (_player == null || _player.Finished) return;
             if (_awaitingWait || _awaitingInput) return;
 
@@ -1056,8 +1255,37 @@ namespace Lvn.UI
 
         // ── ILvnStage ─────────────────────────────────────────────────────────
 
+        /// <summary>Entry choreography gate, set by the host per chapter entry:
+        /// the loader reveal + chapter-title card play OVER the dressed stage,
+        /// and the FIRST line must not start typing under them. ShowSay defers
+        /// its first reveal until this completes; taps and auto-advance hold
+        /// too. Null = no hold (resume, cross-chapter load).</summary>
+        public Task EntryGate;
+        private bool _entryGateArmed; // only the first say of a run defers
+
+        private bool EntryGatePending => EntryGate != null && !EntryGate.IsCompleted;
+
+        private async Task DeferredFirstSayAsync(Task gate, string who, string text, string style)
+        {
+            int epoch = _stageEpoch;
+            try { await gate; } catch { /* choreography failures never eat the line */ }
+            if (!StageCurrent(epoch)) return; // chapter changed while the title played
+            ShowSay(who, text, style);        // _entryGateArmed already consumed
+        }
+
         public void ShowSay(string who, string text, string style)
         {
+            if (_entryGateArmed)
+            {
+                _entryGateArmed = false;
+                var gate = EntryGate;
+                if (gate != null && !gate.IsCompleted)
+                {
+                    _ = DeferredFirstSayAsync(gate, who, text, style);
+                    return; // the dressed stage waits under the title card
+                }
+            }
+            SetSayVisible(true);
             _dialogue.SetSpeaker(who);
             _dialogue.ApplyStyle(style);
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
@@ -1073,12 +1301,14 @@ namespace Lvn.UI
             _curChoices = null;
             PrefetchAhead(); // warm the next beats' art/audio while the player reads
 
-            // Classic VN focus: the speaker is at full opacity, everyone else present
-            // dims — so a two-shot reads as "this one is talking" instead of a flat row.
-            SceneHighlightSpeaker(who);
+            // Classic VN focus: the speaker is at full brightness, everyone else
+            // present dims — so a two-shot reads as "this one is talking" instead of
+            // a flat row. actor_map'd speakers carry their true actor id (who_id);
+            // without it the loose name↔slot key match applies.
+            SceneHighlightSpeaker(_player?.CurrentSpeakerId ?? who);
 
             // Lip-sync: only the speaking actor's mouth moves while the line is up.
-            var spId = ResolveSpeakerId(who);
+            var spId = _player?.CurrentSpeakerId ?? ResolveSpeakerId(who);
             foreach (var kv in _talkAnims) SceneTalk(kv.Key, kv.Value, kv.Key == spId);
         }
 
@@ -1318,7 +1548,8 @@ namespace Lvn.UI
                 return;
             }
 
-            if (!_labelEls.TryGetValue(id, out var el))
+            bool fresh = !_labelEls.TryGetValue(id, out var el);
+            if (fresh)
             {
                 el = new Label { name = "lbl-" + id, pickingMode = PickingMode.Ignore };
                 el.style.position = Position.Absolute;
@@ -1327,25 +1558,57 @@ namespace Lvn.UI
                 _labelEls[id] = el;
             }
 
+            // A repeat `text <id>` MERGES into the live label — omitted fields keep
+            // their current values (actor-op semantics: later fields win). So a
+            // label is styled ONCE and then driven with bare `text code «…»`
+            // updates, instead of re-stating x/y/size/color on every beat.
+            // Save/load is safe: ReplayVisuals re-runs text ops in order, so the
+            // styled declaration always lands before its bare updates.
+
             // placement: x/y are screen percents; anchor picks the label's reference point
-            float x = NumOr(cmd["x"], 3f), y = NumOr(cmd["y"], 3f);
-            el.style.left = Length.Percent(Mathf.Clamp(x, 0f, 100f));
-            el.style.top = Length.Percent(Mathf.Clamp(y, 0f, 100f));
-            var (tx, ty) = LabelAnchor((string)cmd["anchor"]);
-            el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
+            var xN = NumOrNull(cmd["x"]);
+            if (fresh || xN != null) el.style.left = Length.Percent(Mathf.Clamp(xN ?? 3f, 0f, 100f));
+            var yN = NumOrNull(cmd["y"]);
+            if (fresh || yN != null) el.style.top = Length.Percent(Mathf.Clamp(yN ?? 3f, 0f, 100f));
+            // width: explicit `w` (screen %), else capped at the right screen edge —
+            // an absolute label otherwise grows past the screen instead of wrapping.
+            var wN = NumOrNull(cmd["w"]);
+            if (fresh || wN != null || xN != null)
+                el.style.maxWidth = Length.Percent(Mathf.Clamp(wN ?? (97f - (xN ?? 3f)), 1f, 100f));
+            if (fresh || cmd["anchor"] != null)
+            {
+                var (tx, ty) = LabelAnchor((string)cmd["anchor"]);
+                el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
+            }
 
             // look: per-label font / size / colour, falling back to the theme
-            el.style.color = UiColor.Parse((string)cmd["color"], Theme.TextColor);
-            el.style.fontSize = (int)NumOr(cmd["size"], Theme.BodyFontSize);
+            if (fresh || cmd["color"] != null)
+                el.style.color = UiColor.Parse((string)cmd["color"], Theme.TextColor);
+            if (fresh || cmd["size"] != null)
+                el.style.fontSize = (int)NumOr(cmd["size"], Theme.BodyFontSize);
             var fontPath = (string)cmd["font"];
-            Font font = !string.IsNullOrEmpty(fontPath) ? Resources.Load<Font>(fontPath) : Theme.Font;
-            if (font != null) el.style.unityFont = new StyleFont(font);
+            if (fresh || !string.IsNullOrEmpty(fontPath))
+            {
+                // Same dual form as the theme font: "/content/…" = a font served
+                // with the content (fetched into the cache, applied when ready);
+                // anything else = a Resources name baked into the build.
+                if (!string.IsNullOrEmpty(fontPath) && fontPath.StartsWith("/"))
+                    _ = ApplyContentFontAsync(el, fontPath);
+                else
+                {
+                    Font font = !string.IsNullOrEmpty(fontPath) ? Resources.Load<Font>(fontPath) : Theme.Font;
+                    LvnFonts.Apply(el, font); // SDF path; no-op when null (theme default)
+                }
+            }
 
-            var tmpl = (string)cmd["text"] ?? "";
-            if (tmpl.Length != 0 && _strings != null && _strings.TryGetValue(tmpl, out var trTmpl))
-                tmpl = trTmpl; // localization catalog, keyed by the source template
-            _labelTmpl[id] = tmpl;
-            el.text = TextInterpolation.Apply(tmpl, _player?.Vars); // immediate paint; tick keeps it live
+            if (fresh || cmd["text"] != null)
+            {
+                var tmpl = (string)cmd["text"] ?? "";
+                if (tmpl.Length != 0 && _strings != null && _strings.TryGetValue(tmpl, out var trTmpl))
+                    tmpl = trTmpl; // localization catalog, keyed by the source template
+                _labelTmpl[id] = tmpl;
+                el.text = TextInterpolation.Apply(tmpl, _player?.Vars); // immediate paint; tick keeps it live
+            }
         }
 
         // Re-evaluate every live label's template against the current variables.
@@ -1522,9 +1785,10 @@ namespace Lvn.UI
                 _hintCard.style.maxWidth = Length.Percent(72);
                 _hintCard.style.paddingLeft = 22; _hintCard.style.paddingRight = 22;
                 _hintCard.style.paddingTop = 12; _hintCard.style.paddingBottom = 12;
-                // top-center: anchor the card's own top-centre to (50%, 5%).
+                // top-center pill at 12% — clear of the shell HUD strip (the
+                // old 5% sat underneath it), per the mobile-VN standard.
                 _hintCard.style.left = Length.Percent(50);
-                _hintCard.style.top = Length.Percent(5);
+                _hintCard.style.top = Length.Percent(12);
                 _hintCard.style.translate = new Translate(Length.Percent(-50), Length.Percent(0));
                 _hintLabel = new Label { name = "vn-hint-text", pickingMode = PickingMode.Ignore };
                 _hintLabel.style.whiteSpace = WhiteSpace.Normal;
@@ -1541,7 +1805,7 @@ namespace Lvn.UI
 
             _hintLabel.style.color = Theme != null ? Theme.TextColor : Color.white;
             _hintLabel.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
-            if (Theme != null && Theme.Font != null) _hintLabel.style.unityFont = new StyleFont(Theme.Font);
+            if (Theme != null) LvnFonts.Apply(_hintLabel, Theme.Font);
             _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
 
             _hintCard.style.display = DisplayStyle.Flex;
@@ -1748,7 +2012,13 @@ namespace Lvn.UI
             if (sprite == null) return;
             if (!StageCurrent(epoch)) return; // a chapter change landed while this bg loaded
             _renderer?.SetBackground(sprite);
+            HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
+
+        /// <summary>True once the CURRENT scene has an applied background — the
+        /// host holds its opaque chapter loader until this flips, so the fade
+        /// always reveals a dressed stage, never a black frame.</summary>
+        public bool HasBackdrop { get; private set; }
 
         /// <summary>The title's curated CG list (manifest title.gallery), set by the
         /// host per chapter entry. Non-empty ⇒ the quick menu shows a Gallery item;
@@ -1987,11 +2257,17 @@ namespace Lvn.UI
                 layerIds = urlIds != null ? new List<string>(urls.Count) : null;
                 layerRects = urlRects != null ? new List<Vector4>(urls.Count) : null;
                 layerDefs = urlDefs != null ? new List<SpriteCatalog.ResolvedLayer>(urls.Count) : null;
+                // Layers load IN PARALLEL — a five-layer character used to pay
+                // five sequential fetch+decode round-trips on a cold cache; the
+                // loader dedups in-flight urls and decodes on workers, so the
+                // wall time is now the slowest layer, not the sum. Order is
+                // preserved by index (z-order = author order).
+                var loads = new Task<Sprite>[urls.Count];
+                for (int i = 0; i < urls.Count; i++)
+                    loads[i] = LoadLayerAsync(urls[i]);
                 for (int i = 0; i < urls.Count; i++)
                 {
-                    Sprite s = null;
-                    try { s = await Assets.LoadSpriteAsync(urls[i], _cts.Token); }
-                    catch { }
+                    var s = await loads[i];
                     if (s != null)
                     {
                         layers.Add(s);
@@ -2007,6 +2283,12 @@ namespace Lvn.UI
             // clean stage (the ghost-actor bug: a per-id gen doesn't catch an id
             // the new chapter never uses, so it's never superseded).
             if (!StageCurrent(epoch)) return;
+
+            async Task<Sprite> LoadLayerAsync(string u)
+            {
+                try { return await Assets.LoadSpriteAsync(u, _cts.Token); }
+                catch { return null; }
+            }
             // A newer apply started while our sprites loaded — ITS art must win;
             // this stale pass may not touch the renderer (late-arrival outfit bug).
             if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;

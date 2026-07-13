@@ -541,6 +541,7 @@ namespace Lvn
             if (j >= 0 && j < _script.Count && _script[j] is JObject c && (string)c["op"] == "say")
             {
                 CurrentVoiceUrl = (string)c["voice"];
+                CurrentSpeakerId = (string)c["who_id"];
                 var who = TextInterpolation.Apply(LocalizedWho((string)c["who"]), Vars);
                 // mutate:false — a re-render shows the SAME variant, never advancing
                 // the {a|b|c} sequence or re-rolling {~shuffle} (that would silently
@@ -616,6 +617,7 @@ namespace Lvn
                     case "say":
                         PushHistory();
                         CurrentVoiceUrl = (string)c["voice"]; // the stage picks it up in ShowSay
+                        CurrentSpeakerId = (string)c["who_id"]; // actor id behind the display name (actor_map)
                         // Ink-style alternatives first (their counters key off the
                         // command index), then {var} interpolation — for both the
                         // line and the speaker name.
@@ -723,6 +725,12 @@ namespace Lvn
         /// silent line) — set just before <see cref="ILvnStage.ShowSay"/> fires, so
         /// the stage can start the clip with the text.</summary>
         public string CurrentVoiceUrl { get; private set; }
+
+        /// <summary>The speaking character's ACTOR id for the line on screen, when
+        /// the script mapped its display name to a different sprite id
+        /// (<c>actor_map Ash=hill</c> → say carries <c>who_id:"hill"</c>). Null for
+        /// unmapped speakers — the stage then matches by the loose name key.</summary>
+        public string CurrentSpeakerId { get; private set; }
 
         /// <summary>Seconds the current choice gives the player before its
         /// timeout branch fires — 0 means untimed. Valid while <see cref="AtChoice"/>;

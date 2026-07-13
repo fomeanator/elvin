@@ -17,16 +17,16 @@ namespace Lvn.UI
         // Defaults derive from the "Полночь" design tokens (LvnTokens) so the whole
         // app is one coherent look out of the box; any field is still overridable.
         [Header("Dialogue")]
-        public Color PanelColor = LvnTokens.PanelBg;
+        public Color PanelColor = new Color(0.086f, 0.063f, 0.094f, 0.86f); // PanelBg tone, translucent (market norm 75-90%)
         public Color TextColor = LvnTokens.Text;
         public Color SpeakerColor = LvnTokens.Accent;
         public Font Font;
         [Tooltip("Optional Resources path to a Font for dialogue/choices text " +
                  "(e.g. \"Fonts/Serif\"); used when Font is unset.")]
         public string FontResourcePath = "";
-        public int BodyFontSize = 42;
-        public int SpeakerFontSize = 30;
-        public float PanelCornerRadius = 12f;
+        public int BodyFontSize = 46;
+        public int SpeakerFontSize = 34;
+        public float PanelCornerRadius = 28f;
 
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
                  "instead of the bottom ADV dialogue strip.")]
@@ -40,7 +40,7 @@ namespace Lvn.UI
                  "\"right\". Non-stretch gives the box a FIXED width (see " +
                  "BoxWidthPercent/BoxMaxWidthPercent) and lets its HEIGHT grow with " +
                  "the text — the Liminal-style centred box.")]
-        public string BoxAlign = "stretch";
+        public string BoxAlign = "center"; // market median: inset box, not a full-bleed bar
         [Tooltip("Box width as a percent of the screen when BoxAlign isn't " +
                  "\"stretch\" and BoxWidthPercent is unset. The box is exactly this " +
                  "wide (it does NOT shrink to the text). 0 = default 80%.")]
@@ -48,10 +48,10 @@ namespace Lvn.UI
         [Tooltip("Fixed box width as a percent of the screen (overrides " +
                  "BoxMaxWidthPercent). The box never shrinks to the text; the height " +
                  "grows instead. 0 = use BoxMaxWidthPercent / default.")]
-        public float BoxWidthPercent = 0f;
+        public float BoxWidthPercent = 92f; // 4% side insets (mobile-VN median)
         [Tooltip("Max box height as a percent of the screen — caps the vertical " +
                  "growth (0 = unbounded, the box grows as tall as the text needs).")]
-        public float BoxMaxHeightPercent = 0f;
+        public float BoxMaxHeightPercent = 0f; // 0 = no cap (a hard cap squeezed the plate/marker out of the box)
 
         [Header("Dialogue as free popup")]
         [Tooltip("Free-popup horizontal position as a screen percent (0=left … " +
@@ -72,7 +72,7 @@ namespace Lvn.UI
         [Tooltip("Lift the whole docked dialogue box up by this percent of screen " +
                  "height (0 = flush to the bottom, 15 = a bit higher). Free-popup / NVL " +
                  "modes ignore it.")]
-        public float BottomLiftPercent = 0f;
+        public float BottomLiftPercent = 4f; // the box floats off the bottom edge
         [Tooltip("Anchor the docked box by its TOP at this percent of screen height " +
                  "so it GROWS DOWNWARD as the text lengthens (instead of upward). " +
                  "<0 (default) = bottom-anchored (grows up, uses BottomLiftPercent).")]
@@ -126,10 +126,14 @@ namespace Lvn.UI
 
         [Header("Choices layout")]
         [Tooltip("Button width as a percent of the screen (min / max).")]
-        public float ChoiceMinWidthPercent = 58f;
-        public float ChoiceMaxWidthPercent = 86f;
+        public float ChoiceMinWidthPercent = 82f;
+        public float ChoiceMaxWidthPercent = 82f; // fixed width — the market norm
         [Tooltip("Vertical gap between stacked choice buttons (px).")]
-        public float ChoiceSpacing = 10f;
+        public float ChoiceSpacing = 38f; // ~2% of reference height
+
+        /// <summary>Minimum height of one choice button (reference px). The
+        /// market norm is ~6.5% of screen height — a comfortable thumb target.</summary>
+        public float ChoiceMinHeight = 125f;
         [Tooltip("Choice button inner horizontal / vertical padding (px).")]
         public float ChoicePaddingX = 20f;
         public float ChoicePaddingY = 12f;

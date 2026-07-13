@@ -12,6 +12,17 @@ namespace Lvn.UI
     {
         private VisualElement _blurOverlay;
 
+        // The one live veil tween. Every veil effect must kill the previous
+        // tween before starting (or setting the colour instantly): two tweens
+        // lerping the same backgroundColor race, and the LOSER's target shows —
+        // a chapter-end fade-to-black could keep repainting over the next
+        // chapter's instant Clear(0) and leave the stage veiled black.
+        private ValueAnimation<float> _veilAnim;
+        private ValueAnimation<float> _blurAnim;
+
+        private void StopVeil() { _veilAnim?.Stop(); _veilAnim = null; }
+        private void StopBlur() { _blurAnim?.Stop(); _blurAnim = null; }
+
         public FxLayer()
         {
             style.position = Position.Absolute;
@@ -27,6 +38,7 @@ namespace Lvn.UI
         /// <paramref name="seconds"/> (0 = instant).</summary>
         public void FadeTo(Color target, float seconds)
         {
+            StopVeil();
             var from = resolvedStyle.backgroundColor;
             if (seconds <= 0f)
             {
@@ -34,9 +46,10 @@ namespace Lvn.UI
                 return;
             }
             int ms = Mathf.Max(1, Mathf.RoundToInt(seconds * 1000f));
-            experimental.animation
+            _veilAnim = experimental.animation
                 .Start(0f, 1f, ms, (e, t) => e.style.backgroundColor = Color.Lerp(from, target, t))
-                .Ease(Easing.InOutSine);
+                .Ease(Easing.InOutSine)
+                .KeepAlive(); // pooled otherwise — a recycled handle could Stop() someone else's tween
         }
 
         /// <summary>Fade to an opaque colour (default black). Common before a
@@ -54,16 +67,18 @@ namespace Lvn.UI
         /// Common for lightning, impacts, camera flashes.</summary>
         public void Flash(Color colour, float duration)
         {
+            StopVeil();
             var from = new Color(colour.r, colour.g, colour.b, 0.8f);
             style.backgroundColor = from;
             int ms = Mathf.Max(1, Mathf.RoundToInt(duration * 1000f));
-            experimental.animation
+            _veilAnim = experimental.animation
                 .Start(0f, 1f, ms, (e, t) =>
                 {
                     float a = Mathf.Lerp(0.8f, 0f, t);
                     e.style.backgroundColor = new Color(from.r, from.g, from.b, a);
                 })
-                .Ease(Easing.OutCubic);
+                .Ease(Easing.OutCubic)
+                .KeepAlive();
         }
 
         /// <summary>Coloured tint wash over the screen (cold/warm/sepia).
@@ -91,6 +106,7 @@ namespace Lvn.UI
                 _blurOverlay.pickingMode = PickingMode.Ignore;
                 Add(_blurOverlay);
             }
+            StopBlur();
             var target = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
             var from = _blurOverlay.resolvedStyle.backgroundColor;
             if (seconds <= 0f)
@@ -99,15 +115,17 @@ namespace Lvn.UI
                 return;
             }
             int ms = Mathf.Max(1, Mathf.RoundToInt(seconds * 1000f));
-            _blurOverlay.experimental.animation
+            _blurAnim = _blurOverlay.experimental.animation
                 .Start(0f, 1f, ms, (e, t) => e.style.backgroundColor = Color.Lerp(from, target, t))
-                .Ease(Easing.InOutSine);
+                .Ease(Easing.InOutSine)
+                .KeepAlive();
         }
 
         /// <summary>Clear the blur overlay.</summary>
         public void ClearBlur(float seconds)
         {
             if (_blurOverlay == null) return;
+            StopBlur();
             var from = _blurOverlay.resolvedStyle.backgroundColor;
             if (seconds <= 0f)
             {
@@ -115,9 +133,10 @@ namespace Lvn.UI
                 return;
             }
             int ms = Mathf.Max(1, Mathf.RoundToInt(seconds * 1000f));
-            _blurOverlay.experimental.animation
+            _blurAnim = _blurOverlay.experimental.animation
                 .Start(0f, 1f, ms, (e, t) => e.style.backgroundColor = Color.Lerp(from, Color.clear, t))
-                .Ease(Easing.InOutSine);
+                .Ease(Easing.InOutSine)
+                .KeepAlive();
         }
     }
 }

@@ -215,6 +215,11 @@ namespace Lvn.UI
                 _z[slot] = p.Z.Value;
                 Sort((a, b) => ZOf(a).CompareTo(ZOf(b)));
             }
+
+            // An emotion/outfit swap rebuilt the layer images — re-tint them so a
+            // dimmed actor doesn't pop back to full brightness mid-line.
+            if (_focusK.TryGetValue(id, out var focus) && focus < 1f)
+                SetFocus(id, slot, focus);
         }
 
         // The animation wrapper between the slot (placement/anchor/flip) and the
@@ -348,15 +353,25 @@ namespace Lvn.UI
             if (_animators.TryGetValue(id, out var a)) a.StopAll();
         }
 
-        /// <summary>Full opacity for the speaker, dim for everyone else (null = undim all).</summary>
+        // Focus dim as a COLOR, not opacity: fading a layered actor per-layer lets
+        // a translucent clothes layer reveal the body layer underneath (an
+        // accidental x-ray). Tinting every layer toward black dims the composite
+        // while its alpha stays intact. Remembered per id so a re-Apply (an
+        // emotion/outfit swap rebuilds the layer images) keeps the current focus.
+        private readonly Dictionary<string, float> _focusK = new Dictionary<string, float>();
+
+        private void SetFocus(string id, VisualElement slot, float k)
+        {
+            _focusK[id] = k;
+            var tint = new Color(k, k, k, 1f);
+            slot.Query<Image>().ForEach(img => img.tintColor = tint);
+        }
+
+        /// <summary>Full brightness for the speaker, dim for everyone else (null = undim all).</summary>
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slots)
-            {
-                float target = id == null || kv.Key == id ? 1f : 0.55f;
-                kv.Value.style.opacity = target;
-                _baseOpacity[kv.Key] = target;
-            }
+                SetFocus(kv.Key, kv.Value, id == null || kv.Key == id ? 1f : 0.55f);
         }
 
         // Loose name key for speaker↔slot matching: lower-case, letters/digits only.
@@ -385,11 +400,7 @@ namespace Lvn.UI
                 if (NameKey(kv.Key) == target) { present = true; break; }
             if (!present) return; // speaker has no sprite — keep the current focus
             foreach (var kv in _slots)
-            {
-                float op = NameKey(kv.Key) == target ? 1f : 0.55f;
-                kv.Value.style.opacity = op;
-                _baseOpacity[kv.Key] = op;
-            }
+                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.55f);
         }
 
         public void RemoveAll()
@@ -403,6 +414,7 @@ namespace Lvn.UI
             _onClick.Clear();
             _hoverOpacity.Clear();
             _baseOpacity.Clear();
+            _focusK.Clear();
             _nextZ = 0;
         }
 
