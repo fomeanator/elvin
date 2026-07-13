@@ -371,7 +371,7 @@ namespace Lvn.UI
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slots)
-                SetFocus(kv.Key, kv.Value, id == null || kv.Key == id ? 1f : 0.55f);
+                SetFocus(kv.Key, kv.Value, id == null || kv.Key == id ? 1f : 0.7f);
         }
 
         // Loose name key for speaker↔slot matching: lower-case, letters/digits only.
@@ -400,7 +400,7 @@ namespace Lvn.UI
                 if (NameKey(kv.Key) == target) { present = true; break; }
             if (!present) return; // speaker has no sprite — keep the current focus
             foreach (var kv in _slots)
-                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.55f);
+                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.7f);
         }
 
         public void RemoveAll()
