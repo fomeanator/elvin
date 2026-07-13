@@ -58,5 +58,12 @@ Chapters, My Story. Full research in session notes; medians below.
       equal the viewport on non-reference aspect ratios → feet float above
       the screen bottom ("герои начинаются не снизу"). Anchor the content
       rect bottom to the viewport bottom.
-- [ ] Verify actor perceived size: catalog `aspect` shrink + transparent art
-      margins make defaults look smaller than 0.93 H — audit per-entity.
+- [x] Verify actor perceived size: audited alpha bboxes per entity (2026-07-13).
+      Main cast is tight vertically — codel 97.6% content height (0 bottom
+      margin), hill 96.1% (0 bottom), doll 96% — so 0.93 H defaults read as
+      designed and feet meet the viewport bottom. hill's catalog `aspect`
+      0.78125 equals its file aspect (no shrink). The only padded family is
+      pixel frame-grids (LPC hero: content 38% of the 128px cell, margins on
+      all sides) — inherent to sprite-sheet cells; authors compensate with
+      per-line `h=`, and a catalog `content_rect`/auto-trim is the future fix
+      if a pixel title needs standard sizing.
