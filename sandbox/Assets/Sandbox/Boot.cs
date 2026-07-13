@@ -14,14 +14,14 @@ namespace Lvn.Sandbox
     /// </summary>
     public static class Boot
     {
-        public const string ServerUrl = "http://127.0.0.1:8077";
+        public const string ServerUrl = "http://127.0.0.1:8078"; // TEMP: readme shots against the Sovet content
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Run()
         {
-            if (Object.FindFirstObjectByType<NovelApp>() != null) return; // already booted
+            if (Object.FindAnyObjectByType<NovelApp>() != null) return; // already booted
 
-            if (Object.FindFirstObjectByType<Camera>() == null)
+            if (Object.FindAnyObjectByType<Camera>() == null)
             {
                 var camGo = new GameObject("Main Camera");
                 var cam = camGo.AddComponent<Camera>();
@@ -32,7 +32,7 @@ namespace Lvn.Sandbox
             }
 
             // UI Toolkit pointer events (tap-to-advance, choices) need an EventSystem.
-            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 Object.DontDestroyOnLoad(es);
