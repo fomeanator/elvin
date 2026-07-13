@@ -82,6 +82,7 @@ namespace Lvn.UI
                 if (c.y_percent.HasValue) t.ChoiceYPercent = c.y_percent.Value;
 
                 if (c.font_size.HasValue) t.ChoiceFontSize = Mathf.RoundToInt(c.font_size.Value);
+                if (c.min_height.HasValue) t.ChoiceMinHeight = c.min_height.Value;
                 if (c.min_width_percent.HasValue) t.ChoiceMinWidthPercent = c.min_width_percent.Value;
                 if (c.max_width_percent.HasValue) t.ChoiceMaxWidthPercent = c.max_width_percent.Value;
                 if (c.spacing.HasValue) t.ChoiceSpacing = c.spacing.Value;
