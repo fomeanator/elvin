@@ -88,7 +88,8 @@ func main() {
 	// the exact path wins.
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
-	mux.Handle("/content/", srv.withASTC(srv.withDownscale(srv.contentHandler(*contentDir))))
+	ds := newDownscaler() // shared: withDownscale + withKTX2 (@2k source materialization)
+	mux.Handle("/content/", srv.withKTX2(ds, srv.withASTC(srv.withDownscale(ds, srv.contentHandler(*contentDir)))))
 	mux.HandleFunc("/v1/state", srv.handleState)
 
 	// Product services — auth, wallet/IAP, analytics. Modular by design: each
@@ -337,7 +338,7 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		// (multi-second freeze + the story jumping a beat forward off the
 		// autosave). The source images they derive from are versioned already.
 		base := filepath.Base(rel)
-		if strings.HasSuffix(base, ".astc") || strings.Contains(base, downscaleSuffix+".") {
+		if strings.HasSuffix(base, ".astc") || strings.HasSuffix(base, ".ktx2") || strings.Contains(base, downscaleSuffix+".") {
 			return nil
 		}
 		// Runtime state (player saves under state/, analytics/wallets under
