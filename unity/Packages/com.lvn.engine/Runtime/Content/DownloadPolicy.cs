@@ -71,6 +71,26 @@ namespace Lvn.Content
         public static string Kind(string url) =>
             IsImage(url) ? "sprite" : IsAudio(url) ? "audio" : "bin";
 
+        /// <summary>The "@2k" downscale-variant url for large story art, or null
+        /// when the url must load as-is (pixel art, UI skins, already a variant,
+        /// non-raster extensions). Every phase that fetches sprites (display,
+        /// preload, chapter scheduler) must agree on this mapping so they all
+        /// warm/read the SAME cached file.</summary>
+        public static string DownscaleVariant(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@2k")) return null;
+            // /spine/ pages are here because the SPINE display path also renders
+            // from @2k (VnStage.Spine LoadSpineImageAsync) — warming the original
+            // would download+decode a full-size page the renderer never samples.
+            if (!(url.Contains("/bg/") || url.Contains("/art/") || url.Contains("/sprites/") || url.Contains("/spine/"))) return null;
+            int dot = url.LastIndexOf('.');
+            if (dot < 0) return null;
+            var ext = url.Substring(dot).ToLowerInvariant();
+            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
+            return url.Substring(0, dot) + "@2k" + url.Substring(dot);
+        }
+
         /// <summary>Classify by path segment. Order matters: script and audio win
         /// over the image buckets; among images, the path folder decides.</summary>
         public static AssetClass Classify(string url)
