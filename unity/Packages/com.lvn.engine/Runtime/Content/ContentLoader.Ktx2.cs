@@ -77,7 +77,10 @@ namespace Lvn.Content
 
                 var tex = result.texture;
                 tex.wrapMode = TextureWrapMode.Clamp;
-                tex.filterMode = FilterMode.Bilinear;
+                // The server bakes a mip chain into every encode (basisu -mipmap);
+                // trilinear blends between mips so minified art (shrunk actors,
+                // zoom-outs) doesn't shimmer. Bilinear when a chain is absent.
+                tex.filterMode = tex.mipmapCount > 1 ? FilterMode.Trilinear : FilterMode.Bilinear;
                 var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
                 if (sw.ElapsedMilliseconds > 30)
