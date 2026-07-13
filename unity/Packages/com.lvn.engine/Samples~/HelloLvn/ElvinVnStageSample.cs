@@ -31,7 +31,7 @@ namespace Lvn.Samples
 
         private void Awake()
         {
-            if (FindFirstObjectByType<Camera>() == null)
+            if (FindAnyObjectByType<Camera>() == null)
             {
                 var camGo = new GameObject("Main Camera");
                 var cam = camGo.AddComponent<Camera>();
@@ -41,7 +41,7 @@ namespace Lvn.Samples
             }
 
             // UI Toolkit pointer events (tap-to-advance, choices) need an EventSystem.
-            if (FindFirstObjectByType<EventSystem>() == null)
+            if (FindAnyObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
             var script = Resources.Load<TextAsset>(scriptResourcePath);
