@@ -41,6 +41,12 @@ type Template struct {
 	// Merged over the built-in legend (emotion.go) and under Options.EmotionColors.
 	EmotionColors map[string]string `json:"emotion_colors,omitempty"`
 
+	// SpeakerNames maps an articy/roster speaker label to the DISPLAY name the
+	// nameplate shows ("Bandit" → "Бандит"). Applied to say `who` (the actor id
+	// keeps riding who_id, so highlighting is unaffected) and to the matching
+	// entity's display name. Empty → labels pass through as authored.
+	SpeakerNames map[string]string `json:"speaker_names,omitempty"`
+
 	// Derived (built by compile()); never serialized.
 	sceneMarker    *regexp.Regexp
 	narratorSet    map[string]bool

@@ -66,6 +66,7 @@ func PostProcessBundle(res *Result, xd XlsxData, contentDir string, tpl *Templat
 	stampProtagonistMirror(res, xd, tpl) // …and mirror, i.e. shows the live look in the sheet
 	buildWardrobes(res, xd, tpl)
 	renameProtagonistSpeaker(res, xd, tpl) // show the player-entered name, not the articy label
+	applySpeakerNames(res, tpl)            // template speaker_names: latin roster labels → display names
 	prefetchLayeredArt(res)                // preload every layered-cast art of each chapter (no pop-in)
 
 	bgidx := indexBackgrounds(contentDir, xd.Locations, tpl)
@@ -405,6 +406,81 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 	}
 	if b, err := json.Marshal(rewrap(out)); err == nil {
 		sf.Data = b
+	}
+}
+
+// applySpeakerNames rewrites say `who` labels (and matching entity display
+// names) through the template's speaker_names map — the partner's articy
+// entities and roster are latin ("Bandit", "Mother"); the nameplate should
+// speak the novel's language without waiting on a source-data fix. who_id
+// (the staged actor id) is untouched, so speaker highlighting keeps working.
+func applySpeakerNames(res *Result, tpl *Template) {
+	names := tpl.resolve().SpeakerNames
+	if res == nil || len(names) == 0 {
+		return
+	}
+	for i := range res.Scripts {
+		sf := &res.Scripts[i]
+		ops, rewrap, ok := decodeScriptOps(sf.Data)
+		if !ok {
+			continue
+		}
+		changed := false
+		for _, op := range ops {
+			if op == nil {
+				continue
+			}
+			if n, _ := op["op"].(string); n != "say" {
+				continue
+			}
+			who, _ := op["who"].(string)
+			if who == "" || strings.HasPrefix(who, "{") {
+				continue // narration / already the player template
+			}
+			if display := displayNameFor(names, who); display != "" && display != who {
+				op["who"] = display
+				changed = true
+			}
+		}
+		if changed {
+			if b, err := json.Marshal(rewrap(ops)); err == nil {
+				sf.Data = b
+			}
+		}
+	}
+	// Entity display names (cast cards, wardrobe headers) follow the same map.
+	for id, ent := range res.Sprites {
+		m, ok := ent.(map[string]any)
+		if !ok {
+			continue
+		}
+		cur, _ := m["name"].(string)
+		key := cur
+		if key == "" {
+			key = id
+		}
+		if display := displayNameFor(names, key); display != "" {
+			m["name"] = display
+		}
+	}
+}
+
+// displayNameFor resolves a speaker label through the names map, falling back
+// through VARIANT suffixes: "Matvey_neardeath_blood" → "Matvey_neardeath" →
+// "Matvey" → «Матвей». State-variant sprites (X_black silhouettes, X_dead,
+// X_flashback…) speak under their variant label but ARE the base character —
+// the nameplate should say the character's name.
+func displayNameFor(names map[string]string, who string) string {
+	key := who
+	for {
+		if d, ok := names[key]; ok {
+			return d
+		}
+		i := strings.LastIndex(key, "_")
+		if i <= 0 {
+			return ""
+		}
+		key = key[:i]
 	}
 }
 
