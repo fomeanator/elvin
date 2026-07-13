@@ -26,9 +26,14 @@ log() { echo "[lvn-setup] $*"; }
 
 # ── base system ─────────────────────────────────────────────────────────────
 log "packages"
+# non-free carries the reference unrar — Debian's unar 1.10.8 corrupts some
+# RAR5 members and the 7zip build has no RAR codec; partner bundles are .rar.
+if grep -q "trixie main non-free-firmware" /etc/apt/sources.list 2>/dev/null; then
+  sed -i "s|trixie main non-free-firmware|trixie main contrib non-free non-free-firmware|g" /etc/apt/sources.list
+fi
 apt-get update -qq
 apt-get install -y -qq nginx certbot rsync ufw fail2ban unattended-upgrades \
-  git build-essential cmake curl unar >/dev/null
+  git build-essential cmake curl unar unrar >/dev/null
 
 timedatectl set-timezone "${TZ_NAME:-Europe/Moscow}" || true
 
@@ -101,6 +106,11 @@ if [ ! -e "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
 server {
     listen 80;
     server_name $DOMAIN;
+    # The bootstrap site is fully functional (imports included) until the
+    # certificate lands — same body/timeout budget as the TLS site.
+    client_max_body_size 2g;
+    proxy_read_timeout 1800s;
+    proxy_send_timeout 1800s;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
     location / {
         proxy_pass http://127.0.0.1:$PORT;
