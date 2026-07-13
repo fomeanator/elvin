@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // BundleInputs are the five source files the admin selects. Any of the four
@@ -125,6 +127,27 @@ func RunBundle(in BundleInputs, contentDir, stageDir string, opt Options) (*Resu
 	// each character's wardrobe block, rewrite backgrounds, and turn Music/Sound
 	// cues into audio ops.
 	PostProcessBundle(res, xd, contentDir, tpl)
+	// STRUCTURAL INVARIANT: meta passes (template wiring, wardrobe swaps,
+	// speaker renames) must never break a script the base converter produced
+	// valid — live-hit when the wardrobe swap dropped labels that tail branch
+	// bodies still jumped to. Validate every script after the LAST rewrite and
+	// surface errors as import warnings (the author sees them in the report
+	// instead of the runtime refusing the chapter later).
+	for _, sf := range res.Scripts {
+		if !strings.HasSuffix(sf.Rel, ".lvn") {
+			continue
+		}
+		vdoc, verr := lvn.Parse(sf.Data)
+		if verr != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: post-import parse failed: %v", sf.Rel, verr))
+			continue
+		}
+		for _, is := range lvn.Validate(vdoc) {
+			if is.Sev == lvn.SevError {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s: post-import validation: %v", sf.Rel, is))
+			}
+		}
+	}
 	// Seed the game's declared variables (wardrobe indices, stats) as defaults at
 	// the top of the first chapter, so the novel opens with the right state.
 	if len(res.Scripts) > 0 && len(xd.Vars) > 0 {
