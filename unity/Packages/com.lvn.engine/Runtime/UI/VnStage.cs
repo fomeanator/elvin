@@ -1244,14 +1244,53 @@ namespace Lvn.UI
         }
 
 
+        /// <summary>Host hook clearing a REAL (wallet-priced) option: spend
+        /// <c>amount</c> of <c>currency</c>, true on success. Null → priced
+        /// options pick through for free (engine-only setups stay playable).</summary>
+        public Func<string, long, Task<bool>> ChoiceSpend;
+
         private void OnChoiceSelected(int index)
+        {
+            LvnOption picked = default;
+            bool found = false;
+            if (_curChoices != null)
+                foreach (var o in _curChoices)
+                    if (o.Index == index) { picked = o; found = true; break; }
+
+            // A wallet-priced option must clear the spend BEFORE it consumes the
+            // choice — a refused spend leaves the menu up (nothing advanced).
+            if (found && !string.IsNullOrEmpty(picked.WalletCurrency)
+                && picked.WalletAmount > 0 && ChoiceSpend != null)
+            {
+                _ = SpendThenChooseAsync(index, picked);
+                return;
+            }
+            CommitChoice(index, found ? picked.Text : null);
+        }
+
+        private async Task SpendThenChooseAsync(int index, LvnOption picked)
+        {
+            int epoch = _stageEpoch;
+            bool paid = false;
+            try { paid = await ChoiceSpend(picked.WalletCurrency, picked.WalletAmount); }
+            catch { /* a wallet failure must never crash the choice UI */ }
+            if (!StageCurrent(epoch) || _player == null || !_player.AtChoice) return;
+            if (!paid)
+            {
+                ApplyHint(new JObject
+                {
+                    ["text"] = $"Не хватает {picked.WalletAmount} {picked.WalletCurrency}",
+                    ["duration"] = 3
+                });
+                return; // menu stays up; the player picks something else
+            }
+            CommitChoice(index, picked.Text);
+        }
+
+        private void CommitChoice(int index, string pickedText)
         {
             StopChoiceTimer(); // the pick beat the clock
             PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
-            string picked = null;
-            if (_curChoices != null)
-                foreach (var o in _curChoices)
-                    if (o.Index == index) { picked = o.Text; break; }
             _choices.Dismiss();
             _curChoices = null;
             _awaitingTap = false;
@@ -1259,7 +1298,7 @@ namespace Lvn.UI
             // and these options no longer apply) instead of throwing.
             if (_player == null || !_player.AtChoice) return;
             // History: record which branch was taken (rendered as a marked line).
-            if (!string.IsNullOrEmpty(picked)) _backlog.Add((null, picked, "choice"));
+            if (!string.IsNullOrEmpty(pickedText)) _backlog.Add((null, pickedText, "choice"));
             _player.Choose(index);
             _player.Advance();
             // A picked branch is exactly what a crash must not lose — autosave here.

@@ -530,6 +530,13 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 			}
 		}
 		delete(opt, "__once")
+		// [premium] survives as a neutral marker; the IMPORTER (which knows the
+		// project template's premium currency/price) turns it into a display
+		// cost + wallet_cost. Direct articy converts without a template keep
+		// the option playable and free — the historical behaviour.
+		if opt["__premium"] == true {
+			opt["premium"] = true
+		}
 		delete(opt, "__premium")
 		opts = append(opts, opt)
 	}
