@@ -32,6 +32,10 @@ namespace Lvn.UI.Screens
         /// <summary>ui.hud.mode == "choices": the HUD hides during plain reading
         /// and only surfaces while a choice is up (the host wires the stage event).</summary>
         public bool HudChoicesOnly { get; private set; }
+
+        /// <summary>The between-chapters screen — null unless ui.chapter_end is
+        /// configured (the chapter loop checks before pausing on it).</summary>
+        public ChapterEndScreen ChapterEnd { get; private set; }
         /// <summary>The boot auth screen; null unless manifest ui.auth enables it.</summary>
         public AuthScreen Auth { get; private set; }
         /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
@@ -116,6 +120,9 @@ namespace Lvn.UI.Screens
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
             HudChoicesOnly = string.Equals(ui.hud?.mode, "choices", System.StringComparison.OrdinalIgnoreCase);
+            // Between-chapters screen: opt-in via manifest ui.chapter_end (absent
+            // → chapters flow seamlessly, the historical behaviour).
+            if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
             Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
@@ -289,7 +296,12 @@ namespace Lvn.UI.Screens
                     title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
                         ? _manifest.titles[idx] : null;
                 }
-                var chapter = FirstChapter(title);
+                // "Играть" continues from the furthest STARTED chapter (started
+                // ch2 → the button opens ch2); a fresh/finished title starts at
+                // chapter one. PlayChapterAsync applies the same resume rule —
+                // resolving it HERE too makes the loading screen show the right
+                // chapter's backdrop and preload the right asset plan.
+                var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
 
                 // ── name input (once) ──
                 if (askName && string.IsNullOrEmpty(_playerName) && (_manifest.ui?.name_input != null))
