@@ -1,11 +1,14 @@
 package main
 
-// ktx2.go — on-demand KTX2 (Basis Universal / UASTC) transcoding for the
+// ktx2.go — background KTX2 (Basis Universal / UASTC) encoding for the
 // content server: a client whose runtime can transcode KTX2 (Unity's
 // com.unity.cloud.ktx) requests "<path>.ktx2" instead of "<path>.png"/".jpg".
-// Missing files are encoded once via the basisu CLI (nothing vendored —
-// "basisu" just needs to be on PATH, e.g. `brew install basis_universal`)
-// and cached to disk forever — the same pattern astc.go and downscale.go use.
+// Cached files serve statically; a cold miss 404s IMMEDIATELY (client falls
+// back to PNG/JPG) and queues a one-at-a-time background encode via the
+// basisu CLI (nothing vendored — `brew install basis_universal`), cached to
+// disk forever. Unlike downscale.go/astc.go the request never waits: UASTC
+// runs seconds per file at full-machine load, and blocking a chapter-entry
+// burst on that stalled scenes in practice.
 //
 // Why KTX2 over the raw-.astc path (astc.go, currently kill-switched in the
 // client): Basis UASTC is encoded ONCE and transcoded on-device to whatever
@@ -40,25 +43,79 @@ import (
 // @2k variant) stays well under a minute.
 const ktx2EncodeTimeout = 120 * time.Second
 
-// ktx2Transcoder serializes concurrent encodes of the SAME output path while
-// letting different files encode in parallel — the astcTranscoder shape.
+// ktx2Transcoder encodes MISSES IN THE BACKGROUND, one at a time. Unlike the
+// downscale/astc middlewares, a cold .ktx2 request does NOT wait for the
+// encoder: UASTC runs seconds per file and saturates every core, so a chapter
+// entry that bursts a dozen cold requests would stall the scene AND slow the
+// PNG fallbacks it races against (live-observed: 2s "decodes" of a 600×900
+// cover while basisu owned the machine). Instead the handler answers 404
+// immediately — the client falls back to the PNG path it always had — and a
+// single worker goroutine grinds the queue so the NEXT session hits the disk
+// cache. First visit costs nothing extra; every visit after is compressed.
 type ktx2Transcoder struct {
-	mu       sync.Mutex
-	inFlight map[string]*sync.Mutex
+	mu      sync.Mutex
+	pending map[string]bool // queued or encoding — dedupes enqueues
+	queue   chan string     // ktx2 output paths awaiting encode
+
+	d *downscaler // materializes missing @2k sources (shared with withDownscale)
 
 	binOnce sync.Once
 	binPath string // "" if basisu isn't on PATH — every request then 404s straight through
 }
 
-func (t *ktx2Transcoder) lockFor(path string) *sync.Mutex {
+func newKtx2Transcoder(d *downscaler) *ktx2Transcoder {
+	t := &ktx2Transcoder{
+		pending: map[string]bool{},
+		queue:   make(chan string, 1024),
+		d:       d,
+	}
+	go t.worker()
+	return t
+}
+
+// enqueue schedules a background encode for ktx2Path (deduped). Returns false
+// when the queue is full — the request just 404s and a later one retries.
+func (t *ktx2Transcoder) enqueue(ktx2Path string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	m, ok := t.inFlight[path]
-	if !ok {
-		m = &sync.Mutex{}
-		t.inFlight[path] = m
+	if t.pending[ktx2Path] {
+		return true
 	}
-	return m
+	select {
+	case t.queue <- ktx2Path:
+		t.pending[ktx2Path] = true
+		return true
+	default:
+		return false
+	}
+}
+
+// worker drains the queue strictly one encode at a time — basisu is already
+// multithreaded, so a single job uses the machine well without starving the
+// game/server the way three concurrent encodes did.
+func (t *ktx2Transcoder) worker() {
+	for ktx2Path := range t.queue {
+		func() {
+			defer func() {
+				t.mu.Lock()
+				delete(t.pending, ktx2Path)
+				t.mu.Unlock()
+			}()
+			if fileExists(ktx2Path) {
+				return
+			}
+			src := ensureKtx2Source(t.d, ktx2Path)
+			if src == "" {
+				return
+			}
+			start := time.Now()
+			if err := t.transcode(src, ktx2Path); err != nil {
+				log.Printf("ktx2: %v", err)
+				return
+			}
+			log.Printf("ktx2: encoded %s in %.1fs", filepath.Base(ktx2Path), time.Since(start).Seconds())
+		}()
+	}
 }
 
 func (t *ktx2Transcoder) bin() string {
@@ -137,14 +194,29 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	return os.Rename(tmp, ktx2Path)
 }
 
-// withKTX2 wraps the content handler: a ".ktx2" request that isn't already
-// cached on disk gets encoded on demand, then falls through to the normal
-// static-file handler. Every failure mode (basisu missing, no source image,
-// encode error) 404s — the client's loader treats that as "no KTX2 variant
-// available" and falls back to its PNG/JPG path, so a server without basisu
-// behaves identically to one that never heard of KTX2.
+// hasKtx2Source is the HANDLER-side eligibility check — fast fileExists probes
+// only, no image work: a sibling source on disk, or a variant name whose
+// original exists (the worker materializes the @2k itself, later).
+func hasKtx2Source(ktx2Path string) bool {
+	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
+	for _, ext := range sourceExts {
+		if fileExists(base + ext) {
+			return true
+		}
+		if src := variantSource(base + ext); src != "" && fileExists(src) {
+			return true
+		}
+	}
+	return false
+}
+
+// withKTX2 wraps the content handler: a ".ktx2" request whose encode is
+// already cached serves as a plain file; a cold miss answers 404 IMMEDIATELY
+// (the client's loader falls back to its PNG/JPG path, exactly as fast as a
+// server that never heard of KTX2) while the encode is queued in the
+// background for future sessions. basisu missing / no source → plain 404.
 func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
-	t := &ktx2Transcoder{inFlight: map[string]*sync.Mutex{}}
+	t := newKtx2Transcoder(d)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(strings.ToLower(r.URL.Path), ".ktx2") {
 			next.ServeHTTP(w, r)
@@ -161,29 +233,9 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r) // already encoded — plain file-serve hit
 			return
 		}
-		if t.bin() == "" {
-			http.NotFound(w, r) // basisu not installed on this server
-			return
+		if t.bin() != "" && hasKtx2Source(ktx2Path) {
+			t.enqueue(ktx2Path) // warm for the future; never block this request
 		}
-		srcPath := ensureKtx2Source(d, ktx2Path)
-		if srcPath == "" {
-			http.NotFound(w, r) // nothing to encode from
-			return
-		}
-
-		lock := t.lockFor(ktx2Path)
-		lock.Lock()
-		defer lock.Unlock()
-		if !fileExists(ktx2Path) { // re-check: a queued sibling request may have just finished it
-			heavyGen <- struct{}{}
-			err := t.transcode(srcPath, ktx2Path)
-			<-heavyGen
-			if err != nil {
-				log.Printf("ktx2: %v", err)
-				http.NotFound(w, r)
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
+		http.NotFound(w, r)
 	})
 }
