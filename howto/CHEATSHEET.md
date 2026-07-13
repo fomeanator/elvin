@@ -58,6 +58,8 @@ func add(a,b){ return a + b }   // function (sugar over call/return)
 s = add(2,3)                    // call with a return value
 save                            // snapshot (default slot)
 load
+def enter actor mara left smile x=.24   // preset: names a line prefix…
+enter armor=chain               // …usage expands it (extra k=v appends)
 ```
 
 ## Staging

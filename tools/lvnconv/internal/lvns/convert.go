@@ -140,8 +140,49 @@ func Convert(src string) (*Doc, error) {
 		doc.SrcLine = append(doc.SrcLine, line)
 	}
 
+	defs := make(map[string]string) // def <name> <template…> → line-prefix macros
+
 	for i := 0; i < len(lines); {
 		line := lines[i]
+
+		// 0. Presets: `def <name> <op …>` names a line prefix; a later line
+		// starting with <name> expands to "<template> <rest>" and reparses.
+		// Pure compile-time text — the runtime never sees a def. The tour's
+		// `text code x=… y=… size=… color=…` boilerplate becomes one word.
+		if strings.HasPrefix(line, "def ") {
+			rest := strings.TrimSpace(line[4:])
+			sp := strings.IndexAny(rest, " \t")
+			if sp <= 0 {
+				return nil, fmt.Errorf("line %d: def: usage: def <name> <op …>", srcNo[i])
+			}
+			name := rest[:sp]
+			if !isIdentWord(name) {
+				return nil, fmt.Errorf("line %d: def: %q is not a valid preset name", srcNo[i], name)
+			}
+			if KnownOps[name] {
+				return nil, fmt.Errorf("line %d: def: %q shadows a built-in op", srcNo[i], name)
+			}
+			defs[name] = strings.TrimSpace(rest[sp:])
+			i++
+			continue
+		}
+		if len(defs) > 0 {
+			hops := 0
+			for {
+				w := firstField(line)
+				tmpl, ok := defs[w]
+				if !ok {
+					break
+				}
+				line = strings.TrimSpace(tmpl + " " + strings.TrimSpace(line[len(w):]))
+				if hops++; hops > 16 {
+					return nil, fmt.Errorf("line %d: def: expansion loop via %q", srcNo[i], w)
+				}
+			}
+			if hops > 0 {
+				lines[i] = line
+			}
+		}
 
 		// 1. Directives: scene
 		if strings.HasPrefix(line, "scene ") {
@@ -1343,6 +1384,31 @@ func nextWord(s string) (word, rest string) {
 
 // scalarVal types a bare value: a number stays numeric, anything else is a
 // (quote-stripped) string. Used by the terse positional actor/anim forms.
+// firstField is the first whitespace-delimited token of a line ("" if none).
+func firstField(line string) string {
+	for i := 0; i < len(line); i++ {
+		if line[i] == ' ' || line[i] == '\t' {
+			return line[:i]
+		}
+	}
+	return line
+}
+
+// isIdentWord reports whether s is a plain identifier ([A-Za-z_][A-Za-z0-9_]*).
+func isIdentWord(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		alpha := c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+		if !alpha && (i == 0 || c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
+}
+
 func scalarVal(v string) any {
 	v = strings.TrimSpace(v)
 	if n, err := strconv.ParseFloat(v, 64); err == nil {
