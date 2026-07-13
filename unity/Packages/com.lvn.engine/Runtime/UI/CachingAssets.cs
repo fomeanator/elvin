@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,8 +56,42 @@ namespace Lvn.UI
         public Task WarmVersionsAsync(CancellationToken ct = default) =>
             Loader.LoadAssetVersionsAsync(ct);
 
-        public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) =>
-            Loader.DownloadSpriteAsync(url, ct);
+        public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+        {
+            // Large story art prefers the server's @2k variant (same trick the
+            // Spine pages use): the Go server resizes on demand to fit 2048² —
+            // a fraction of the bytes and decode time of a 4K original, and the
+            // industry ceiling for runtime textures anyway. Pixel art and UI
+            // skins are exempt (resampling would wreck them). A miss (already
+            // ≤2048 → server 404s; or a plain static host) falls back to the
+            // original — and the loader's session 404-cache makes every repeat
+            // miss free, so there is no global kill-switch to mis-trip.
+            var variant = DownscaleVariant(url);
+            if (variant != null)
+            {
+                Sprite s = null;
+                try { s = await Loader.DownloadSpriteAsync(variant, ct); }
+                catch (OperationCanceledException) { throw; }
+                catch { }
+                if (s != null) return s;
+            }
+            return await Loader.DownloadSpriteAsync(url, ct);
+        }
+
+        /// <summary>The "@2k" downscale-variant url for large story art, or null
+        /// when the url must load as-is (pixel art, UI skins, already a variant,
+        /// non-raster extensions).</summary>
+        internal static string DownscaleVariant(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@2k")) return null;
+            if (!(url.Contains("/bg/") || url.Contains("/art/") || url.Contains("/sprites/"))) return null;
+            int dot = url.LastIndexOf('.');
+            if (dot < 0) return null;
+            var ext = url.Substring(dot).ToLowerInvariant();
+            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
+            return url.Substring(0, dot) + "@2k" + url.Substring(dot);
+        }
 
         // Disk-cached, version-folded (unlike scripts, which are always-fresh via
         // DownloadScriptText): today's only LoadTextAsync callers are the Spine
@@ -90,10 +125,21 @@ namespace Lvn.UI
             var items = new List<PreloadItem>(urls.Count);
             foreach (var url in urls)
                 if (!string.IsNullOrEmpty(url))
-                    items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url) });
+                {
+                    // Warm the SAME file the display path will fetch — the @2k
+                    // variant for large story art (see LoadSpriteAsync).
+                    var warmUrl = DownscaleVariant(url) ?? url;
+                    items.Add(new PreloadItem { Url = warmUrl, Kind = DownloadPolicy.Kind(url) });
+                }
             await Loader.StartPreloadBatch(items, ct);
             await Loader.WaitForAll(null, ct);
         }
+
+        /// <summary>The url's bytes as a plain local FILE (downloaded/copied into
+        /// the cache when needed) — for consumers that need a real path, e.g.
+        /// runtime fonts. Null when unavailable (offline and not cached).</summary>
+        public Task<string> EnsureCachedFileAsync(string url, CancellationToken ct = default)
+            => Loader.EnsureCachedFile(url, ct);
 
         public void Unload(string url) => Loader.Unload(url);
 

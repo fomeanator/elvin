@@ -63,6 +63,28 @@ namespace Lvn.Content
         // backstop for when the flag is stale (e.g. wifi dropped mid-session).
         private const int RequestTimeoutSeconds = 10;
 
+        // Await a UnityWebRequest via its `completed` callback instead of polling
+        // isDone once per frame. Polling quantizes every await to frame
+        // boundaries — and on a busy main thread it inflated the PERCEIVED cost
+        // of every concurrent decode at once (each "finished" only when the next
+        // frame ran the poll). `completed` fires the same frame the native op
+        // ends. Cancellation aborts the request, which completes the op; the
+        // OperationCanceledException follows. NOT used by the download loops
+        // that publish per-frame byte progress — those need the poll.
+        private static async Task AwaitRequest(UnityWebRequest req, UnityWebRequestAsyncOperation op, CancellationToken ct)
+        {
+            if (!op.isDone)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                op.completed += _ => tcs.TrySetResult(true);
+                using (ct.CanBeCanceled
+                           ? ct.Register(() => { try { req.Abort(); } catch { } })
+                           : default)
+                    await tcs.Task;
+            }
+            ct.ThrowIfCancellationRequested();
+        }
+
         // Fast-fail when we already know we're offline: skip the wire entirely so
         // callers fall straight back to the on-disk cache. Code "network" →
         // callers/retry-loops treat it as a connectivity miss.
@@ -70,7 +92,15 @@ namespace Lvn.Content
         {
             if (_local) return; // local bundle is always available
             if (LvnNetworkStatus.IsOffline)
+            {
+                // Whoever pinned the flag may not have started the recovery probe
+                // (the host's boot healthz calls MarkOffline directly). Without
+                // this re-arm the app is wedged: every fetch fast-fails HERE,
+                // before the wire, so the fetch-failure path that normally starts
+                // the probe never runs — offline becomes permanent for the session.
+                EnsureRecoveryLoop();
                 throw new LvnFetchException(0, "network", "offline (global status)");
+            }
         }
 
         // MarkOffline only when reading from a real network origin; a missing
@@ -127,6 +157,56 @@ namespace Lvn.Content
                 }
             }
             finally { Interlocked.Exchange(ref _recovering, 0); }
+        }
+
+        // A backoff sleep that wakes EARLY the moment the global status flips
+        // back online — so a retry loop parked on the offline flag resumes the
+        // instant the recovery probe finds the server, instead of idling out
+        // its full delay. Cancellation of `ct` still propagates as usual.
+        private static async Task DelayOrOnlineAsync(float seconds, CancellationToken ct)
+        {
+            using var wake = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            Action<bool> onChange = online => { if (online) { try { wake.Cancel(); } catch { } } };
+            LvnNetworkStatus.Changed += onChange;
+            try { await Task.Delay(Math.Max(1, (int)(seconds * 1000f)), wake.Token); }
+            catch (OperationCanceledException) { ct.ThrowIfCancellationRequested(); }
+            finally { LvnNetworkStatus.Changed -= onChange; }
+        }
+
+        /// <summary>Ensure the url's bytes exist as a plain local FILE and return
+        /// its path — for consumers that need a real file rather than decoded
+        /// content (runtime fonts: <c>new Font(path)</c> has no bytes overload).
+        /// Server origin → the versioned disk cache; local file:// bundle → the
+        /// file itself; Android jar bundle → copied out to the cache once.</summary>
+        public async Task<string> EnsureCachedFile(string url, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            if (_local)
+            {
+                var resolved = ResolveUrl(url);
+                if (resolved.StartsWith("file://"))
+                {
+                    var direct = resolved.Substring("file://".Length);
+                    return File.Exists(direct) ? direct : null;
+                }
+                // jar:file:// (StreamingAssets inside the APK) has no plain path —
+                // read through UnityWebRequest and stage a cache copy once.
+                var staged = CachePath(_assetCacheDir, url, ".bin");
+                if (!File.Exists(staged))
+                {
+                    var data = await DownloadAssetBytes(url, ct);
+                    if (data == null || data.Length == 0) return null;
+                    AtomicWriteAllBytes(staged, data);
+                }
+                return staged;
+            }
+            var path = CachePath(_assetCacheDir, url, ".bin");
+            if (!File.Exists(path))
+            {
+                var bytes = await DownloadBytes(url, _assetCacheDir, ct); // writes the cache file
+                if (bytes == null || bytes.Length == 0) return null;
+            }
+            return File.Exists(path) ? path : null;
         }
 
         // Dedup tracker for in-flight fetches. Key = url, value = the running
@@ -275,12 +355,8 @@ namespace Lvn.Content
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
-                var op = req.SendWebRequest();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); return false; }
-                    await Task.Yield();
-                }
+                try { await AwaitRequest(req, req.SendWebRequest(), ct); }
+                catch (OperationCanceledException) { return false; }
                 bool ok = req.result is not (UnityWebRequest.Result.ConnectionError
                                           or UnityWebRequest.Result.DataProcessingError)
                           && req.responseCode is >= 200 and < 300;
@@ -617,17 +693,26 @@ namespace Lvn.Content
             catch (OperationCanceledException) { throw; }
             catch { return null; }
 
-            using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
-            var op = req.SendWebRequest();
-            while (!op.isDone)
+            // Bound concurrent native decodes: a burst (boot warm, chapter warm)
+            // otherwise completes many textures in the same frame and their GPU
+            // uploads stack into one visible hitch. Three in flight keeps the
+            // pipeline busy while spreading uploads across frames.
+            await _textureDecodes.WaitAsync(ct);
+            try
             {
-                if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                await Task.Yield();
+                using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
+                await AwaitRequest(req, req.SendWebRequest(), ct);
+                if (req.result != UnityWebRequest.Result.Success) return null;
+                try { return DownloadHandlerTexture.GetContent(req); }
+                catch { return null; }
             }
-            if (req.result != UnityWebRequest.Result.Success) return null;
-            try { return DownloadHandlerTexture.GetContent(req); }
-            catch { return null; }
+            finally { _textureDecodes.Release(); }
         }
+
+        // See DecodeTextureOffThreadAsync: bounds concurrent UWR texture decodes
+        // so completion (and the GPU upload inside GetContent) spreads over
+        // frames instead of landing as one burst.
+        private static readonly SemaphoreSlim _textureDecodes = new(3, 3);
 
         private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
         {
@@ -884,16 +969,7 @@ namespace Lvn.Content
             var type = GuessAudioType(url);
             using var req = UnityWebRequestMultimedia.GetAudioClip(fileUrl, type);
 
-            var op = req.SendWebRequest();
-            while (!op.isDone)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    req.Abort();
-                    throw new OperationCanceledException(ct);
-                }
-                await Task.Yield();
-            }
+            await AwaitRequest(req, req.SendWebRequest(), ct);
             if (req.result is UnityWebRequest.Result.ConnectionError or UnityWebRequest.Result.DataProcessingError)
                 return null;
             return DownloadHandlerAudioClip.GetContent(req);
@@ -1074,7 +1150,18 @@ namespace Lvn.Content
                         }
                         var backoff = LvnBackoff.DelaySeconds(attempt);
                         Debug.LogWarning($"[content] preload {asset.Url} attempt {attempt}, retry in {backoff:F1}s: {ex.Message}");
-                        try { await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct); }
+                        // While the global flag says offline a timed retry is
+                        // pointless — the fetch fast-fails on the SAME flag without
+                        // touching the wire. Sleep on the status change instead
+                        // (the recovery probe flips it back), capped at the same
+                        // backoff so a dead server still exhausts retries normally.
+                        try
+                        {
+                            if (!_local && LvnNetworkStatus.IsOffline)
+                                await DelayOrOnlineAsync(backoff, ct);
+                            else
+                                await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct);
+                        }
                         catch (OperationCanceledException) { throw; }
                     }
                 }
@@ -1121,12 +1208,7 @@ namespace Lvn.Content
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
-                var op = req.SendWebRequest();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    await Task.Yield();
-                }
+                await AwaitRequest(req, req.SendWebRequest(), ct);
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
@@ -1291,6 +1373,13 @@ namespace Lvn.Content
             return missing;
         }
 
+        // Session-long negative cache: a url the server answered 4xx for will
+        // 4xx again — refetching it on every screen build spams the log and the
+        // wire. Warn ONCE, then fast-fail silently for the rest of the session
+        // (a content re-deploy bumps versions, which changes the cache key path,
+        // so a fixed asset is picked up on the next launch anyway).
+        private readonly HashSet<string> _notFound = new();
+
         private async Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
         {
             var path     = CachePath(dir, url, ".bin");
@@ -1298,6 +1387,10 @@ namespace Lvn.Content
 
             if (File.Exists(path))
                 return await ReadAllBytesAsync(path, ct);
+
+            lock (_notFound)
+                if (_notFound.Contains(url))
+                    throw new LvnFetchException(404, "http_404", url + " (cached 404)");
 
             return await TrackedFetch(url, async () =>
             {
@@ -1340,7 +1433,9 @@ namespace Lvn.Content
                     }
                     catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
                     {
-                        Debug.LogWarning($"[content] {url} permanent {ex.Status}");
+                        bool first;
+                        lock (_notFound) first = _notFound.Add(url);
+                        if (first) Debug.LogWarning($"[content] {url} permanent {ex.Status} (silenced for this session)");
                         throw;
                     }
                     catch (Exception ex)

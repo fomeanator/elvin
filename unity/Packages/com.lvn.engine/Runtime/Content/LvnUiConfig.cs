@@ -33,6 +33,19 @@ namespace Lvn.Content
         public PopupConfig popup;
         public SettingsConfig settings;
         public WardrobeConfig wardrobe;
+        public TransitionsConfig transitions;
+    }
+
+    /// <summary>Between-screen choreography: how the shell's surfaces hand off
+    /// to each other (chapter loader → live scene, entry pacing). One manifest
+    /// block tunes the whole app's cinematic pacing; the title card's own
+    /// fade/hold live in <see cref="TitleCardConfig"/>, the loading floor for a
+    /// real download in <see cref="LoadingScreenConfig.min_seconds"/>.</summary>
+    public sealed class TransitionsConfig
+    {
+        public float? screen_fade;    // loader → live-scene crossfade, seconds; default 0.35
+        public float? loading_floor;  // min loader hold when everything is cached; default 0.25
+        public float? backdrop_grace; // max wait for the first bg before revealing anyway; default 2.0
     }
 
     /// <summary>The wardrobe overlay: a live layered preview of the character
@@ -338,6 +351,7 @@ namespace Lvn.Content
         public string align;             // horizontal placement: "center" (default) | "left" | "right"
         public string valign;            // vertical placement: "center" (default) | "top" | "bottom"
         public float? y_percent;         // free vertical: top of the stack at this screen % (overrides valign)
+        public float? min_height;        // one button's min height, reference px; default 125 (~6.5% H)
 
         public float? font_size;         // px; default 28
         public float? min_width_percent; // default 58
