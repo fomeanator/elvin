@@ -817,11 +817,14 @@ namespace Lvn.UI.Screens
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
             Stage.Gallery = title?.gallery;
-            // The first line holds until the entry choreography (loader reveal +
-            // chapter-title card) finishes — the stage dresses itself silently
-            // underneath. A resume skips the hold (the player is mid-scene).
+            // The first line holds until the entry choreography (loader reveal,
+            // plus the chapter-title card on fresh entries) finishes — the stage
+            // dresses itself silently underneath. A RESUME holds too (it skips
+            // only the title card): without the gate the first line typed — with
+            // its keystroke sound — under the still-opaque loader, and the reveal
+            // faded into a scene already mid-sentence.
             var entryDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            Stage.EntryGate = resuming ? null : entryDone.Task;
+            Stage.EntryGate = entryDone.Task;
             Stage.Play(json, warmIntroSpine: !resuming); // resume restores below — don't run/warm the intro
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
