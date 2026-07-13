@@ -209,6 +209,19 @@ save                     // snapshot the state
 load                     // restore the snapshot
 ```
 
+### Presets — `def`
+```
+def code text code x=3 y=12.5 size=50 color=#9fe8a8   // name a line prefix
+def enter actor hill left idle x=.24 y=.92 h=1.3
+
+code «actor hill hair=red»     // → text code x=3 y=12.5 … «actor hill hair=red»
+enter                          // → actor hill left idle x=.24 y=.92 h=1.3
+enter hair=red                 // usage args append — later k=v wins
+```
+A pure compile-time text macro: the runtime never sees a `def`. Define before
+use; a preset may expand to another preset (recursion depth is capped). A def
+cannot shadow a built-in op.
+
 ---
 
 ## 6. Variables and state
