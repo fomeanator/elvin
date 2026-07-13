@@ -239,10 +239,22 @@ func extractArchive(src, dst string) (string, error) {
 	case ".zip":
 		return dst, unzipTo(src, dst)
 	case ".rar":
-		// No stdlib RAR; shell out. `unar` ships on the import host (brew/apt).
+		// No stdlib RAR; shell out, preferring the REFERENCE unrar: Debian's
+		// unar 1.10.8 corrupts some RAR5 members ("Attempted to read more data
+		// than was available" — live-hit on a partner's articy backup that both
+		// macOS unar and real unrar extract fine), and Debian's 7z build ships
+		// without the RAR codec. Chain: unrar → unar → clear error.
+		if unrar, err := exec.LookPath("unrar"); err == nil {
+			cmd := exec.Command(unrar, "x", "-y", "-inul", src, dst+string(filepath.Separator))
+			if out, uerr := cmd.CombinedOutput(); uerr == nil {
+				return dst, nil
+			} else if _, ferr := exec.LookPath("unar"); ferr != nil {
+				return "", fmt.Errorf("unrar %s: %v: %s", filepath.Base(src), uerr, out)
+			}
+		}
 		unar, err := exec.LookPath("unar")
 		if err != nil {
-			return "", fmt.Errorf("unar not found (needed for .rar): %w", err)
+			return "", fmt.Errorf("no rar extractor found (need unrar or unar): %w", err)
 		}
 		cmd := exec.Command(unar, "-quiet", "-force-overwrite", "-output-directory", dst, src)
 		if out, err := cmd.CombinedOutput(); err != nil {

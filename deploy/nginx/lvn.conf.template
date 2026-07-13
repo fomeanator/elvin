@@ -35,8 +35,8 @@ server {
     # Bundle imports upload the whole novel (articy + art archives) in one
     # multipart request — allow big bodies and give the encoder time.
     client_max_body_size 2g;
-    proxy_read_timeout 600s;
-    proxy_send_timeout 600s;
+    proxy_read_timeout 1800s;
+    proxy_send_timeout 1800s;
 
     # Admin API (imports, grants, state inspection): strict rate limit.
     # For a hard gate, allowlist your office/VPN egress IPs:
