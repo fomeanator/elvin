@@ -15,6 +15,10 @@ type Cmd map[string]any
 type Doc struct {
 	Scene  string `json:"scene,omitempty"`
 	Script []Cmd  `json:"script"`
+
+	// Non-fatal repairs the generator performed (surfaced to the import
+	// report so an author can fix the source flow instead of shipping them).
+	Warnings []string `json:"-"`
 }
 
 // ── articy JSON export shapes ───────────────────────────────────────────────
@@ -70,6 +74,12 @@ type gen struct {
 	dlgID    string
 	endUsed  bool
 	autoSeq  int
+
+	// Label bookkeeping for the post-walk repair pass (see repairLabels):
+	// where each node's emission starts, and which reserved labels actually
+	// made it into the script as a label command.
+	nodePos      map[string]int
+	labelPrinted map[string]bool
 }
 
 // Convert parses an articy JSON export and emits the .lvn for one Dialogue.
@@ -80,12 +90,14 @@ func Convert(src []byte, dialogue string) (*Doc, error) {
 	}
 
 	g := &gen{
-		doc:      &Doc{Script: []Cmd{}},
-		nodes:    map[string]*node{},
-		entities: map[string]string{},
-		labels:   map[string]bool{},
-		nodeLbl:  map[string]string{},
-		emitted:  map[string]bool{},
+		doc:          &Doc{Script: []Cmd{}},
+		nodes:        map[string]*node{},
+		entities:     map[string]string{},
+		labels:       map[string]bool{},
+		nodeLbl:      map[string]string{},
+		emitted:      map[string]bool{},
+		nodePos:      map[string]int{},
+		labelPrinted: map[string]bool{},
 	}
 
 	var dialogues []model
@@ -131,10 +143,94 @@ func Convert(src []byte, dialogue string) (*Doc, error) {
 	if err := g.walk(start); err != nil {
 		return nil, err
 	}
+	g.repairLabels()
 	if g.endUsed {
 		g.emit(Cmd{"op": "label", "id": "__end"})
 	}
 	return g.doc, nil
+}
+
+// repairLabels closes the two ways a reserved label can dangle after the walk
+// (live-hit by the Cold wardrobe sub-flows — a node emitted BEFORE anything
+// referenced it prints no label line, and a later merge-goto then points at a
+// name that was never written):
+//  1. label reserved for an EMITTED node but never printed → splice the label
+//     command in at the node's recorded position;
+//  2. label reserved for a node that was never emitted at all → retarget every
+//     reference to "__end" (chapter end) and surface a warning, so a broken
+//     source flow degrades to "scene ends" instead of a validator error the
+//     runtime would refuse.
+func (g *gen) repairLabels() {
+	// Pass 1 — splice missing label lines, descending so positions stay valid.
+	type splice struct {
+		pos int
+		lbl string
+	}
+	var inserts []splice
+	for nodeID, lbl := range g.nodeLbl {
+		if g.labelPrinted[lbl] || !g.emitted[nodeID] {
+			continue
+		}
+		if pos, ok := g.nodePos[nodeID]; ok {
+			inserts = append(inserts, splice{pos, lbl})
+			g.labelPrinted[lbl] = true
+		}
+	}
+	sort.Slice(inserts, func(i, j int) bool { return inserts[i].pos > inserts[j].pos })
+	for _, in := range inserts {
+		g.doc.Script = append(g.doc.Script, nil)
+		copy(g.doc.Script[in.pos+1:], g.doc.Script[in.pos:])
+		g.doc.Script[in.pos] = Cmd{"op": "label", "id": in.lbl}
+	}
+
+	// Pass 2 — retarget references to labels that still don't exist.
+	dangling := map[string]bool{}
+	for _, lbl := range g.nodeLbl {
+		if !g.labelPrinted[lbl] {
+			dangling[lbl] = true
+		}
+	}
+	if len(dangling) == 0 {
+		return
+	}
+	retarget := func(c Cmd, key string) {
+		if l, _ := c[key].(string); l != "" && dangling[l] {
+			c[key] = "__end"
+			g.endUsed = true
+			g.doc.Warnings = append(g.doc.Warnings,
+				fmt.Sprintf("%s: jump to never-emitted node label %q retargeted to chapter end — check the source flow", g.doc.Scene, l))
+		}
+	}
+	var fixOptions func(opts []any)
+	fixOptions = func(opts []any) {
+		for _, o := range opts {
+			opt, ok := o.(Cmd)
+			if !ok {
+				continue
+			}
+			retarget(opt, "goto")
+			if body, ok := opt["body"].([]any); ok {
+				for _, b := range body {
+					if bc, ok := b.(Cmd); ok {
+						retarget(bc, "label")
+					}
+				}
+			}
+		}
+	}
+	for _, c := range g.doc.Script {
+		switch c["op"] {
+		case "goto":
+			retarget(c, "label")
+		case "if":
+			retarget(c, "then")
+			retarget(c, "else")
+		case "choice":
+			if opts, ok := c["options"].([]any); ok {
+				fixOptions(opts)
+			}
+		}
+	}
 }
 
 func (g *gen) addNode(m model) {
@@ -243,8 +339,11 @@ func (g *gen) walk(id string) error {
 			g.emit(Cmd{"op": "goto", "label": g.labelFor(n)})
 			return nil
 		}
+		g.nodePos[n.id] = len(g.doc.Script) // where a late-referenced label can be spliced in
 		if g.needsLabel(n) {
-			g.emit(Cmd{"op": "label", "id": g.labelFor(n)})
+			l := g.labelFor(n)
+			g.emit(Cmd{"op": "label", "id": l})
+			g.labelPrinted[l] = true
 		}
 		g.emitted[n.id] = true
 
