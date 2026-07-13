@@ -1,0 +1,45 @@
+# systemd unit for the LVN content server. Rendered by setup.sh with:
+#   ${PORT}       — loopback port nginx proxies to
+#   ${LVN_HOME}   — install root (binary, content, env)
+#
+# Design: bare binary under systemd, no container. On a small VPS the whole
+# point is giving the Go process the machine — docker's daemons would eat
+# ~10% of RAM for isolation systemd already provides natively (the resource
+# controls below ARE cgroups, the same mechanism containers use).
+[Unit]
+Description=LVN content server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lvn
+Group=lvn
+WorkingDirectory=${LVN_HOME}
+EnvironmentFile=${LVN_HOME}/lvn.env
+ExecStart=${LVN_HOME}/lvn-server -content ${LVN_HOME}/content -addr 127.0.0.1:${PORT} -admin-token ${ADMIN_TOKEN_REF}
+
+# Crash resilience: always restart, fast; back off only on a crash loop.
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+# Resource fences (cgroups): the Go process may use most of the box but must
+# never OOM-starve sshd/nginx. MemoryHigh throttles first; MemoryMax kills
+# LVN (systemd restarts it) rather than letting the kernel pick a victim.
+MemoryHigh=1200M
+MemoryMax=1500M
+TasksMax=512
+LimitNOFILE=65536
+
+# Filesystem fence: the server only writes under its own home
+# (imports, state, ktx2 cache).
+ProtectSystem=strict
+ReadWritePaths=${LVN_HOME}
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
