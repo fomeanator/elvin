@@ -365,7 +365,7 @@ fade to="clear" duration=1.2
 actor mara left sad
 anim mara scale [1 1.03 1] 3s yoyo     // a gentle "breathing"
 camera action=shake amplitude=0.02 duration=0.4
-flash to="white" duration=0.3
+flash color="white" duration=0.3
 ```
 
 ## Translating a novel into other languages
