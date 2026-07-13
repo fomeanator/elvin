@@ -1,0 +1,54 @@
+# Deploy the LVN content server: every push to main that touches server code
+# (or the deploy stack) cross-builds the linux binary and rolls it onto the
+# production host over SSH — provisioning included, since setup.sh is
+# idempotent. Manual dispatch redeploys unconditionally.
+#
+# Secrets:
+#   DEPLOY_SSH_KEY   private key authorized on the host (root or a sudoer)
+# Variables (Settings → Variables → Actions):
+#   DEPLOY_HOST      e.g. root@149.33.41.201
+#   DEPLOY_DOMAIN    e.g. timeromance.ru
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "tools/lvnconv/**" # the server links the importer
+      - "deploy/**"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'fomeanator/elvin'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: tests
+        run: |
+          cd server && go test ./...
+          cd ../tools/lvnconv && go test ./...
+
+      - name: ssh key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          echo -e "Host target\n  HostName ${DEPLOY_HOST#*@}\n  User ${DEPLOY_HOST%%@*}\n  IdentityFile ~/.ssh/deploy\n  StrictHostKeyChecking accept-new" >> ~/.ssh/config
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+
+      - name: provision + deploy
+        run: HOST=target DOMAIN="${{ vars.DEPLOY_DOMAIN }}" ./deploy/provision.sh
