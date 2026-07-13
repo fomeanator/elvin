@@ -738,6 +738,12 @@ namespace Lvn.Content
                     return CacheSprite(url, astcSprite, astcBytes);
                 }
 
+                // KTX2/BasisU (see ContentLoader.Ktx2.cs) — the raw-ASTC path's
+                // successor: same VRAM win, official transcoder, every platform.
+                var (ktx2Sprite, ktx2Bytes) = await TryDecodeKtx2Async(url, ct);
+                if (ktx2Sprite != null)
+                    return CacheSprite(url, ktx2Sprite, ktx2Bytes);
+
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 var (tex, decodeQueueMs) = await DecodeTextureOffThreadAsync(url, ct);
                 bool offThread = tex != null;
