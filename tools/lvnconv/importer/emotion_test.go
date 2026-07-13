@@ -22,7 +22,7 @@ func TestEmotionThreading(t *testing.T) {
 	probe.scan(doc)
 
 	// emotions stamped on the says (transient color removed)
-	wantEmo := []string{"joy", "sadness", "fear", ""}
+	wantEmo := []string{"happy", "sad", "fear", ""}
 	for i, c := range doc.Script {
 		if _, ok := c["color"]; ok {
 			t.Errorf("say %d still carries transient color", i)
@@ -41,7 +41,7 @@ func TestEmotionThreading(t *testing.T) {
 	for _, s := range stats {
 		byHex[s.Hex] = s
 	}
-	if s := byHex["#00b050"]; s.Emotion != "joy" || s.Count != 1 || s.Sample == "" {
+	if s := byHex["#00b050"]; s.Emotion != "happy" || s.Count != 1 || s.Sample == "" {
 		t.Errorf("#00b050 stat = %+v", s)
 	}
 	if s := byHex["#0f243e"]; s.Emotion != "" || s.Count != 1 {
@@ -73,7 +73,7 @@ func TestEmotionColorsOverride(t *testing.T) {
 	if table["00b050"] != "delight" {
 		t.Errorf("override not applied: %q", table["00b050"])
 	}
-	if table["7030a0"] != "sadness" {
+	if table["7030a0"] != "sad" {
 		t.Errorf("default legend lost: %q", table["7030a0"])
 	}
 }
