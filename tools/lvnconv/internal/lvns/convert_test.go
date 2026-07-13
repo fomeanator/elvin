@@ -44,9 +44,9 @@ return
 		{"op": "bg", "sprite_url": "/content/bg/room.jpg"},
 		{"op": "label", "id": "start"},
 		{"op": "say", "text": "Rain ticked on the porch roof."},
-		{"op": "say", "who": "Mara", "text": "You came back."},
+		{"op": "say", "who": "Mara", "who_id": "mara_custom", "text": "You came back."},
 		{"op": "actor", "id": "mara_custom", "emotion": "smile"},
-		{"op": "say", "who": "Mara", "text": "Then come in out of the rain."},
+		{"op": "say", "who": "Mara", "who_id": "mara_custom", "text": "Then come in out of the rain."},
 		{
 			"op": "choice",
 			"options": []any{
