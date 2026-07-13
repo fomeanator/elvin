@@ -227,6 +227,17 @@ namespace Lvn.Content
                     await _loader.DownloadAudioClipAsync(item.Url, ct);
                     break;
                 default:
+                    // Warm the SAME file the display path will fetch: large story
+                    // art renders from its @2k variant (CachingAssets.LoadSpriteAsync),
+                    // so warming the original would gate Play on bytes the game
+                    // never draws — and then still download the variant mid-scene.
+                    var variant = DownloadPolicy.DownscaleVariant(item.Url);
+                    if (variant != null)
+                    {
+                        try { await _loader.DownloadSpriteAsync(variant, ct); break; }
+                        catch (OperationCanceledException) { throw; }
+                        catch { /* no variant (≤2048 original / static host) — original */ }
+                    }
                     await _loader.DownloadSpriteAsync(item.Url, ct);
                     break;
             }
