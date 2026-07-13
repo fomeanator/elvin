@@ -18,6 +18,11 @@ namespace Lvn.UI
         /// <summary>Fires with the chosen option's <see cref="LvnOption.Index"/>.</summary>
         public event Action<int> OnSelected;
 
+        /// <summary>Fires when the options appear (true) / are dismissed (false).
+        /// The shell listens to surface reading-mode chrome (e.g. a HUD that hides
+        /// during plain reading but must be visible while a priced choice is up).</summary>
+        public event Action<bool> VisibleChanged;
+
         public ChoiceList(VnTheme theme)
         {
             _theme = theme ?? new VnTheme();
@@ -67,6 +72,7 @@ namespace Lvn.UI
                     Add(BuildOption(o));
             }
             style.display = DisplayStyle.Flex;
+            VisibleChanged?.Invoke(true);
         }
 
         /// <summary>Hide and clear the options.</summary>
@@ -75,6 +81,7 @@ namespace Lvn.UI
             _timerFill = null;
             Clear();
             style.display = DisplayStyle.None;
+            VisibleChanged?.Invoke(false);
         }
 
         // ── countdown bar (timed choices) ────────────────────────────────────
