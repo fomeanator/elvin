@@ -321,6 +321,7 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 	}
 	out := make([]map[string]any, 0, len(ops))
 	changed := false
+	dropped := map[string]bool{} // labels removed with the manual picker flow
 	for i := 0; i < len(ops); i++ {
 		op := ops[i]
 		if !isWardrobeFlag(op, true, tpl) {
@@ -344,16 +345,66 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 		for k := i + 1; k < j; k++ {
 			if keepInWardrobeBlock(ops[k], tpl) {
 				out = append(out, ops[k])
+			} else if n, _ := ops[k]["op"].(string); n == "label" {
+				if id, _ := ops[k]["id"].(string); id != "" {
+					dropped[id] = true
+				}
 			}
 		}
 		out = append(out, ops[j])
 		i = j
 		changed = true
 	}
-	if changed {
-		if b, err := json.Marshal(rewrap(out)); err == nil {
-			sf.Data = b
+	if !changed {
+		return
+	}
+	// The manual pickers' BRANCH BODIES live OUTSIDE the flag block (the
+	// linearizer appends choice branches at the script tail), so they survive
+	// the swap as dead code whose merge-gotos point at labels dropped WITH the
+	// block. Retarget any reference to a dropped label to __end: those bodies
+	// are unreachable (their choice was removed), this only keeps the script
+	// valid — the runtime never walks them.
+	if len(dropped) > 0 {
+		retarget := func(m map[string]any, key string) {
+			if l, _ := m[key].(string); l != "" && dropped[l] {
+				m[key] = "__end"
+			}
 		}
+		hasEnd := false
+		for _, op := range out {
+			switch n, _ := op["op"].(string); n {
+			case "goto":
+				retarget(op, "label")
+			case "if":
+				retarget(op, "then")
+				retarget(op, "else")
+			case "choice":
+				if opts, ok := op["options"].([]any); ok {
+					for _, o := range opts {
+						if oc, ok := o.(map[string]any); ok {
+							retarget(oc, "goto")
+							if body, ok := oc["body"].([]any); ok {
+								for _, b := range body {
+									if bc, ok := b.(map[string]any); ok {
+										retarget(bc, "label")
+									}
+								}
+							}
+						}
+					}
+				}
+			case "label":
+				if id, _ := op["id"].(string); id == "__end" {
+					hasEnd = true
+				}
+			}
+		}
+		if !hasEnd {
+			out = append(out, map[string]any{"op": "label", "id": "__end"})
+		}
+	}
+	if b, err := json.Marshal(rewrap(out)); err == nil {
+		sf.Data = b
 	}
 }
 
