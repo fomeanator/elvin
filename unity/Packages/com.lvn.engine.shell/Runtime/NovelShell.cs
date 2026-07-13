@@ -79,17 +79,15 @@ namespace Lvn.UI.Screens
 
         private void InitDocument(int sortingOrder, ThemeStyleSheet theme = null)
         {
-            var ps = ScriptableObject.CreateInstance<PanelSettings>();
-            ps.name = "NovelShellPanel";
-            ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            ps.referenceResolution = new Vector2Int(1080, 1920);
-            ps.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
-            ps.match = 0.5f;
-            ps.sortingOrder = sortingOrder;
-            if (theme != null) ps.themeStyleSheet = theme;
+            // ONE shared PanelSettings across the whole app (stage + shell): a
+            // single panel keeps focus/navigation working across documents and
+            // shares one dynamic atlas. Layering within the panel is per-document
+            // sortingOrder; the panel itself sits above the world-stage canvas.
+            LvnPanel.SetTheme(theme);
             _doc = gameObject.GetComponent<UIDocument>();
             if (_doc == null) _doc = gameObject.AddComponent<UIDocument>();
-            _doc.panelSettings = ps;
+            _doc.panelSettings = LvnPanel.Shared;
+            _doc.sortingOrder = sortingOrder;
         }
 
         /// <summary>Build the screen tree from the manifest. Idempotent.</summary>
@@ -98,6 +96,7 @@ namespace Lvn.UI.Screens
             _manifest = manifest ?? new LvnManifest();
             _assets = assets;
             var ui = _manifest.ui ?? new LvnUiConfig();
+            Transitions = ui.transitions;
 
             if (_doc == null) InitDocument(30);
             _root = _doc.rootVisualElement;
@@ -234,7 +233,8 @@ namespace Lvn.UI.Screens
             Func<LvnChapter, Func<float>> chapterProgress = null,
             Func<LvnTitle, LvnChapter, string, Task> playChapter = null,
             bool askName = true,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            Func<float> bootProgress = null)
         {
             if (_root == null) throw new InvalidOperationException("Call Build() before RunAsync().");
 
@@ -242,7 +242,7 @@ namespace Lvn.UI.Screens
             ShowOnly(); // hide all
             // ── boot splash ──
             Show(Boot);
-            await Boot.RunAsync(bootReady ?? (() => true), null, ct);
+            await Boot.RunAsync(bootReady ?? (() => true), bootProgress, ct);
             Hide(Boot);
 
             // ── auth screen (once, when the manifest enables it) ──
@@ -293,22 +293,20 @@ namespace Lvn.UI.Screens
                     catch (OperationCanceledException) { return; }
                 }
 
-                // ── chapter loading ──
+                // ── chapter loading (Liminal-style entry) ──
+                // The loader stays OPAQUE while the chapter boots BEHIND it —
+                // the host fades it out via RevealFromLoadingAsync() once the
+                // scene has its first background, then floats the chapter title
+                // over the LIVE scene (ShowChapterTitleAsync). No frame of raw
+                // stage ever shows between screens.
                 Show(Loading);
                 var ready = chapterReady?.Invoke(chapter) ?? (() => true);
                 var prog = chapterProgress?.Invoke(chapter);
-                await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url);
-                await Loading.FadeOutAsync(0.3f, ct);
-                Loading.Hide();
-
-                // ── chapter title card ──
-                if (chapter != null)
-                {
-                    Title.Set(ChapterLine(chapter), title?.name);
-                    Show(Title);
-                    await Title.RevealAsync(ct);
-                    Title.Hide();
-                }
+                bool cached = ready();
+                await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
+                    minSecondsOverride: cached
+                        ? (Transitions?.loading_floor ?? 0.25f)
+                        : (float?)null);
 
                 // ── play ──
                 if (playChapter != null && chapter != null)
@@ -320,7 +318,39 @@ namespace Lvn.UI.Screens
                     catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
                     Hide(Hud);
                 }
+                // Safety: if play bailed before revealing (charge refused, script
+                // fetch failed), don't strand an opaque loader over the menu.
+                Loading.Hide();
+                Title.Hide();
             }
+        }
+
+        /// <summary>Fade the (still opaque) chapter loader into whatever is on
+        /// stage now. The host calls this once the scene is dressed — the swap
+        /// reads as a single crossfade into the LIVE scene. Safe to call when
+        /// the loader is already hidden (seamless chapter 2+).</summary>
+        /// <summary>Manifest <c>ui.transitions</c> — between-screen pacing knobs
+        /// (loader crossfade, cached floor, backdrop grace). Null = defaults.</summary>
+        public TransitionsConfig Transitions { get; private set; }
+
+        public async Task RevealFromLoadingAsync(CancellationToken ct = default)
+        {
+            bool visible = Loading != null && Loading.resolvedStyle.display != DisplayStyle.None;
+            Debug.Log($"[shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
+            if (!visible) return;
+            await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);
+            Loading.Hide();
+        }
+
+        /// <summary>Float the chapter-title card over the live scene (fade in,
+        /// hold, fade out) — the Liminal entry: loader → live backdrop → name.</summary>
+        public async Task ShowChapterTitleAsync(LvnChapter chapter, LvnTitle title, CancellationToken ct = default)
+        {
+            if (Title == null || chapter == null) return;
+            Title.Set(ChapterLine(chapter), title?.name);
+            Show(Title);
+            await Title.RevealAsync(ct);
+            Title.Hide();
         }
 
         /// <summary>Auto-start a title by id without racing the boot splash — the

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
 using UnityEngine;
@@ -282,10 +283,59 @@ namespace Lvn.UI.Screens
 
             await _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
-                chapterReady: ch => () => true,
-                chapterProgress: null,
+                chapterReady: BeginChapterLoading,
+                chapterProgress: ch => ChapterLoadProgress,
                 playChapter: PlayChapterAsync,
-                askName: AskName);
+                askName: AskName,
+                // Cold boot (fresh install / dropped cache) downloads the whole
+                // boot set — show the loader's real batch progress instead of a
+                // silent black splash.
+                bootProgress: () =>
+                {
+                    var l = _assets.Loader;
+                    if (l.BatchTotal > 0) return Mathf.Clamp01((float)l.BatchDone / l.BatchTotal);
+                    return prefetch.IsCompleted ? 1f : 0f;
+                });
+        }
+
+        // ── chapter loading gate ────────────────────────────────────────────────
+        // The shell's loading screen used to be decorative (ready = always true):
+        // the script fetch, the state load and the first bg decode all happened
+        // AFTER it faded — the player entered a black stage while the chapter
+        // actually loaded. Now the screen kicks the real work and gates on it:
+        // the script download plus the chapter's critical (required) assets via
+        // the prioritized AssetScheduler; deferred assets keep streaming during
+        // play. Offline every fetch fast-fails into the disk cache, so the gate
+        // still completes — OfflinePolicy in PlayOneChapterAsync then decides
+        // whether the chapter can actually play.
+        private AssetScheduler _chapterSched;
+        private Task _chapterScript = Task.CompletedTask;
+        private LvnChapter _preparedChapter;
+
+        private Func<bool> BeginChapterLoading(LvnChapter ch)
+        {
+            if (ch == null || _downloads == null) return () => true;
+            _chapterScript = string.IsNullOrEmpty(ch.script_url)
+                ? Task.CompletedTask
+                : _assets.Loader.DownloadScriptCached(ch.script_url);
+            _chapterSched = _downloads.BeginChapter(ch, destroyCancellationToken);
+            _preparedChapter = ch;
+            var script = _chapterScript;
+            var sched = _chapterSched;
+            // A faulted script task still completes the gate — PlayOneChapterAsync
+            // owns the error path (cache fallback / "unavailable offline").
+            return () => script.IsCompleted && sched.RequiredReady;
+        }
+
+        // Progress for the loading bar: bytes when the manifest reports asset
+        // sizes, else the required-count fraction (an empty/finished plan is 1).
+        private float ChapterLoadProgress()
+        {
+            var s = _chapterSched;
+            if (s == null || s.RequiredReady) return 1f;
+            var p = s.Progress;
+            if (p > 0f) return p;
+            return s.RequiredTotal > 0 ? (float)s.RequiredDone / s.RequiredTotal : 0f;
         }
 
         // Charge a title's hub-entry cost (typically 1 energy for an expedition)
@@ -416,15 +466,11 @@ namespace Lvn.UI.Screens
             // default and pick the wrong scene renderer.
             go.SetActive(false);
             var doc = go.AddComponent<UIDocument>();
-            var ps = ScriptableObject.CreateInstance<PanelSettings>();
-            ps.name = "VnStagePanel";
-            ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            ps.referenceResolution = new Vector2Int(1080, 1920);
-            ps.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
-            ps.match = 0.5f;
-            ps.sortingOrder = 10;
-            if (ShellTheme != null) ps.themeStyleSheet = ShellTheme;
-            doc.panelSettings = ps;
+            // Shared panel (see NovelShell.InitDocument) — the stage document
+            // layers below the shell (10 < 30) inside the same panel.
+            LvnPanel.SetTheme(ShellTheme);
+            doc.panelSettings = LvnPanel.Shared;
+            doc.sortingOrder = 10;
             var stage = go.AddComponent<VnStage>();
             // Render the scene (bg + actors + camera) on a uGUI Canvas below this
             // UITK panel — the 60fps / Spine path. Dialogue & choices stay on UITK
@@ -536,6 +582,13 @@ namespace Lvn.UI.Screens
                 if (!alreadyEntered && !await ChargeChapterEntryAsync(chapter))
                     break; // couldn't/wouldn't pay the entry cost → back to the carousel
                 alreadyEntered = false;
+                // Stream this chapter's asset plan. The FIRST chapter's plan was
+                // started under the loading screen (BeginChapterLoading); a resume
+                // into a later chapter, or a seamless next chapter, starts its own
+                // here — critical assets first, deferred during play.
+                if (_downloads != null && !ReferenceEquals(chapter, _preparedChapter))
+                    _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
+                _preparedChapter = null;
                 LvnProgress.SetCurrent(title, chapter);
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
@@ -557,6 +610,20 @@ namespace Lvn.UI.Screens
                 }
                 chapter = next;
             }
+            // Back to the menu — stop the chapter scheduler so its deferred
+            // downloads don't keep competing with the menu's own refresh.
+            _downloads?.EndChapter();
+            _chapterSched = null;
+            // A chapter's worth of remote sprites fragments the panel's dynamic
+            // atlas (freed regions rarely fit the next tenant); rebuild it clean
+            // at this natural boundary.
+            try
+            {
+                var panel = Stage != null
+                    ? Stage.GetComponent<UIDocument>()?.rootVisualElement?.panel : null;
+                if (panel != null) RuntimePanelUtils.ResetDynamicAtlas(panel);
+            }
+            catch { /* atlas reset is an optimization, never a failure */ }
         }
 
         // Charge the chapter-entry currency (typically the regenerating "energy")
@@ -701,6 +768,11 @@ namespace Lvn.UI.Screens
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
             Stage.Gallery = title?.gallery;
+            // The first line holds until the entry choreography (loader reveal +
+            // chapter-title card) finishes — the stage dresses itself silently
+            // underneath. A resume skips the hold (the player is mid-scene).
+            var entryDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Stage.EntryGate = resuming ? null : entryDone.Task;
             Stage.Play(json, warmIntroSpine: !resuming); // resume restores below — don't run/warm the intro
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
@@ -712,6 +784,28 @@ namespace Lvn.UI.Screens
                 if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                     Stage.Player.Vars["player"] = playerName;
             }
+
+            // Liminal-style entry: the chapter has been booting BEHIND the opaque
+            // loader; once the first background lands (or a short grace passes —
+            // some scenes are text-only), fade the loader into the LIVE scene and
+            // float the chapter title over it. A resume skips the title card (the
+            // player is mid-scene, not at the opening). Chapter 2+ in a seamless
+            // chain: the loader is already hidden (no-op), the title still shows.
+            float revealStart = Time.realtimeSinceStartup;
+            float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
+            while (Stage != null && !Stage.HasBackdrop && Time.realtimeSinceStartup < revealDeadline)
+                await Task.Yield();
+            Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
+                      $"waited={(Time.realtimeSinceStartup - revealStart) * 1000f:F0}ms resuming={resuming}");
+            try
+            {
+                if (_shell != null)
+                {
+                    await _shell.RevealFromLoadingAsync();
+                    if (!resuming) await _shell.ShowChapterTitleAsync(chapter, title);
+                }
+            }
+            finally { entryDone.TrySetResult(true); } // release the first line NO MATTER WHAT
 
             // Drive the HUD percent until the chapter ends — or the player asks
             // out (the quick menu's Exit; position already autosaved, so the
@@ -737,10 +831,48 @@ namespace Lvn.UI.Screens
             _currentChapter = null;
             _currentTitle = null;
             // Free the finished chapter's decoded art (a chapter can hold dozens of
-            // full-res RGBA sprites). UI art — covers, theme skins under ui/ — stays
-            // warm; the disk cache is intact so the next entry re-decodes quickly.
-            _assets.Loader.UnloadWhere(u => u.Contains("/art/") || u.Contains("/bg/"));
+            // full-res RGBA sprites). Anything the MENU still shows is pinned:
+            // covers and loading backdrops often reuse in-chapter bg files, and
+            // destroying a sprite the carousel still references leaves white
+            // cards. The disk cache is intact so the next entry re-decodes fast.
+            var pinned = MenuArtUrls();
+            _assets.Loader.UnloadWhere(u =>
+                (u.Contains("/art/") || u.Contains("/bg/"))
+                && !pinned.Contains(u.Replace("@2k", ""))); // pins hold ORIGINAL urls; cache may hold @2k variants
             return finished ? played : null;
+        }
+
+        // Every image url the MENU surfaces reference (covers, chapter loading
+        // backdrops, collection art) — the chapter-end unload must never destroy
+        // these while the carousel/hub still draw them. Rebuilt lazily per
+        // manifest (content live-reload swaps the manifest object).
+        private HashSet<string> _menuArt;
+        private LvnManifest _menuArtFor;
+
+        private HashSet<string> MenuArtUrls()
+        {
+            if (_menuArt != null && ReferenceEquals(_menuArtFor, _manifest)) return _menuArt;
+            var set = new HashSet<string>();
+            void Take(string u) { if (!string.IsNullOrEmpty(u)) set.Add(u); }
+            if (_manifest?.titles != null)
+                foreach (var t in _manifest.titles)
+                {
+                    if (t == null) continue;
+                    Take(t.cover_url);
+                    Take(t.card?.image); // detail-screen hero art
+                    if (t.seasons == null) continue;
+                    foreach (var s in t.seasons)
+                    {
+                        if (s?.chapters == null) continue;
+                        foreach (var c in s.chapters) Take(c?.bg_url);
+                    }
+                }
+            if (_manifest?.collections != null)
+                foreach (var col in _manifest.collections)
+                    Take(col?.card?.image);
+            _menuArt = set;
+            _menuArtFor = _manifest;
+            return set;
         }
 
         // Cross-chapter save routing: a slot taken in another chapter resolves to
@@ -768,6 +900,7 @@ namespace Lvn.UI.Screens
             Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
             Stage.SetSaveContext(title?.id, chapter.id, url);
             Stage.Gallery = title?.gallery;
+            Stage.EntryGate = null; // a save-load lands mid-scene — no entry choreography
             Stage.Play(json, warmIntroSpine: false); // the restore below advances
             if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                 Stage.Player.Vars["player"] = _playerName;
