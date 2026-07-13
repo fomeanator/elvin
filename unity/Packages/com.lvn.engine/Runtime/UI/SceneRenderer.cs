@@ -57,6 +57,11 @@ namespace Lvn.UI
         void Pan(float x, float y, float seconds);
         void ResetCamera(float seconds);
 
+        /// <summary>Real gaussian blur of the scene frame, when this renderer
+        /// can do one (Canvas path + built-in pipeline + a camera). Returns
+        /// false → the stage falls back to the FxLayer veil imitation.</summary>
+        bool TryBlur(float strength01, float seconds);
+
         /// <summary>Destroy engine-side objects that OUTLIVE the UI panel (the
         /// Canvas scene's GameObjects). UITK elements die with their panel, so
         /// that path is a no-op. Called on stage disable before a rebuild.</summary>
@@ -107,6 +112,8 @@ namespace Lvn.UI
         public void Pan(float x, float y, float seconds) => _camera.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _camera.Reset(seconds);
 
+        public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
+
         public void Teardown() { /* UITK elements die with the panel root */ }
     }
 
@@ -156,10 +163,18 @@ namespace Lvn.UI
             float sw = Screen.width, sh = Screen.height;
             if (sw <= 0f || sh <= 0f) return null;
             var c = new Vector3[4];
-            a.Slot.GetWorldCorners(c); // ScreenSpaceOverlay → screen pixels (y-up)
+            a.Slot.GetWorldCorners(c);
+            // Overlay canvas → corners already ARE screen pixels; camera canvas
+            // (the real-blur path) → corners are world-space points on the
+            // canvas plane and must be projected. Getting this wrong silently
+            // kills every obj hotspot, so resolve it per-canvas, not globally.
+            var cam = a.Slot.GetComponentInParent<Canvas>()?.worldCamera;
+            if (cam != null)
+                for (int i = 0; i < 4; i++)
+                    c[i] = cam.WorldToScreenPoint(c[i]);
             float left = Mathf.Min(c[0].x, c[2].x) / sw, right = Mathf.Max(c[0].x, c[2].x) / sw;
             float top = 1f - Mathf.Max(c[0].y, c[2].y) / sh, bot = 1f - Mathf.Min(c[0].y, c[2].y) / sh;
-            return Rect.MinMaxRect(left, top, right, bot); // normalized, top-left origin
+            return Rect.MinMaxRect(left, top, right, bot); // normalized, top-left origin (y-up source)
         }
 
         public void RemoveAll() => _scene.RemoveAll();
@@ -178,6 +193,13 @@ namespace Lvn.UI
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
         public void Pan(float x, float y, float seconds) => _scene.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _scene.ResetCamera(seconds);
+
+        public bool TryBlur(float strength01, float seconds)
+        {
+            if (_scene.Blur == null) return false;
+            _scene.Blur.FadeTo(strength01, seconds);
+            return true;
+        }
 
         public void Teardown() => _scene.Dispose(); // the canvas GO survives the panel — destroy it
     }

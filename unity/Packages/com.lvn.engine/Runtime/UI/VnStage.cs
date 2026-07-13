@@ -1925,6 +1925,14 @@ namespace Lvn.UI
         {
             float alpha = NumOr(cmd["alpha"], 0.5f);
             float dur = NumOr(cmd["duration"], 0.5f);
+            // Real gaussian of the scene frame when the renderer can (canvas
+            // path + built-in pipeline); the FxLayer white veil is the fallback
+            // for platforms without a camera hook. Never both.
+            if (_renderer != null && _renderer.TryBlur(Mathf.Clamp01(alpha), dur))
+            {
+                _fx.ClearBlur(0f);
+                return;
+            }
             if (alpha <= 0f) _fx.ClearBlur(dur);
             else _fx.Blur(alpha, dur);
         }
