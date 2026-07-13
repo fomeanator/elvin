@@ -671,9 +671,9 @@ namespace Lvn.Content
         // policy unchanged); the request then reads them back via file://.
         // Returns null wherever the trick can't work — WebGL has no file://,
         // and any request failure just falls back to the synchronous decode.
-        private async Task<Texture2D> DecodeTextureOffThreadAsync(string url, CancellationToken ct)
+        private async Task<(Texture2D tex, long queueMs)> DecodeTextureOffThreadAsync(string url, CancellationToken ct)
         {
-            if (Application.platform == RuntimePlatform.WebGLPlayer) return null;
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return (null, 0);
             string reqUrl;
             try
             {
@@ -684,27 +684,31 @@ namespace Lvn.Content
                     if (!File.Exists(path))
                     {
                         var bytes = await DownloadBytes(url, _assetCacheDir, ct); // writes the cache file
-                        if (bytes == null || bytes.Length == 0) return null;
+                        if (bytes == null || bytes.Length == 0) return (null, 0);
                     }
-                    if (!File.Exists(path)) return null;
+                    if (!File.Exists(path)) return (null, 0);
                     reqUrl = "file://" + path;
                 }
             }
             catch (OperationCanceledException) { throw; }
-            catch { return null; }
+            catch { return (null, 0); }
 
             // Bound concurrent native decodes: a burst (boot warm, chapter warm)
             // otherwise completes many textures in the same frame and their GPU
             // uploads stack into one visible hitch. Three in flight keeps the
             // pipeline busy while spreading uploads across frames.
+            // The wait is timed separately: in a burst the queue dominates, and a
+            // perf log that folds it into "decode" reads as a decoder regression.
+            var queueSw = System.Diagnostics.Stopwatch.StartNew();
             await _textureDecodes.WaitAsync(ct);
+            long queueMs = queueSw.ElapsedMilliseconds;
             try
             {
                 using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
                 await AwaitRequest(req, req.SendWebRequest(), ct);
-                if (req.result != UnityWebRequest.Result.Success) return null;
-                try { return DownloadHandlerTexture.GetContent(req); }
-                catch { return null; }
+                if (req.result != UnityWebRequest.Result.Success) return (null, queueMs);
+                try { return (DownloadHandlerTexture.GetContent(req), queueMs); }
+                catch { return (null, queueMs); }
             }
             finally { _textureDecodes.Release(); }
         }
@@ -735,7 +739,7 @@ namespace Lvn.Content
                 }
 
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                var tex = await DecodeTextureOffThreadAsync(url, ct);
+                var (tex, decodeQueueMs) = await DecodeTextureOffThreadAsync(url, ct);
                 bool offThread = tex != null;
                 if (!offThread)
                 {
@@ -775,7 +779,10 @@ namespace Lvn.Content
                 // fallback is a true main-thread stall. Only meaningful ones —
                 // the console stays quiet for icons and thumbnails.
                 if (sw.ElapsedMilliseconds > 30)
-                    Debug.Log($"[lvn-perf] sprite decode {url}: decode={decodeMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height})");
+                {
+                    long queueMs = offThread ? decodeQueueMs : 0;
+                    Debug.Log($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height})");
+                }
                 return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
             }
             finally
