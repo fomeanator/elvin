@@ -28,6 +28,10 @@ namespace Lvn.UI.Screens
         public LoadingScreen Loading { get; private set; }
         public TitleCard Title { get; private set; }
         public GameHud Hud { get; private set; }
+
+        /// <summary>ui.hud.mode == "choices": the HUD hides during plain reading
+        /// and only surfaces while a choice is up (the host wires the stage event).</summary>
+        public bool HudChoicesOnly { get; private set; }
         /// <summary>The boot auth screen; null unless manifest ui.auth enables it.</summary>
         public AuthScreen Auth { get; private set; }
         /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
@@ -111,6 +115,7 @@ namespace Lvn.UI.Screens
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
+            HudChoicesOnly = string.Equals(ui.hud?.mode, "choices", System.StringComparison.OrdinalIgnoreCase);
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
             Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
@@ -312,7 +317,7 @@ namespace Lvn.UI.Screens
                 if (playChapter != null && chapter != null)
                 {
                     _ = Lvn.Services.LvnWallet.RefreshAsync(); // fresh pills for the HUD
-                    Show(Hud);
+                    if (!HudChoicesOnly) Show(Hud); // "choices" mode: the stage event shows it
                     try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }
                     catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
