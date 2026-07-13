@@ -183,6 +183,12 @@ namespace Lvn.UI
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.whiteSpace = WhiteSpace.Normal;
             LvnFonts.Apply(_body, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
+            // Typewriter = vertex post-processing: the FULL line is set once (so
+            // word-wrap and box height are final from frame 0) and each repaint
+            // ramps per-glyph tint alpha up to the reveal head. No per-tick string
+            // rebuilds, no rich-text <alpha> hacks, no re-layout — the tick only
+            // moves a float and calls MarkDirtyRepaint.
+            _body.PostProcessTextVertices += OnPostProcessGlyphs;
             _panel.Add(_body);
 
             // The genre's "line finished — tap" marker: a small pulsing ▼ in the
@@ -237,22 +243,21 @@ namespace Lvn.UI
 
             IsRevealing = _tw.VisibleCount > 0;
             RefreshAdvanceHint(); // hidden while revealing
+            _revealProgress = 0f;
+            _body.text = _tw.Full();
             if (IsRevealing)
             {
-                // Fixed layout from frame 0: the whole line is present (hidden),
-                // so word-wrap and box height never shift during the reveal.
-                _body.text = _tw.SliceFadedFixed(0f, _theme.FadeWidth);
+                _body.MarkDirtyRepaint(); // same text as the last line? still restart at 0
                 _tick = schedule.Execute(Tick).Every(16);
             }
-            else _body.text = _tw.Full();
         }
 
         /// <summary>Snap to the full line immediately (e.g. on the first tap).</summary>
         public void Complete()
         {
             _tick?.Pause();
-            _body.text = _tw.Full();
             IsRevealing = false;
+            _body.MarkDirtyRepaint(); // repaint with the reveal ramp inactive
             RefreshAdvanceHint();
         }
 
@@ -263,6 +268,7 @@ namespace Lvn.UI
             _tw.SetText(text ?? "");
             _body.text = _tw.Full();
             IsRevealing = false;
+            _body.MarkDirtyRepaint();
             RefreshAdvanceHint();
         }
 
@@ -326,9 +332,13 @@ namespace Lvn.UI
             ApplyPanelBackground();
         }
 
-        // Progress quantum of the last rebuild — rebuilding the rich-text string
-        // (and regenerating the text mesh) every 16ms tick is pure GC churn when
-        // the reveal head barely moved. Eighth-glyph steps look identical.
+        // Reveal head in visible CHARS (fractional; the clock's unit). The glyph
+        // callback rescales it to rendered glyphs — spaces produce no glyph, so
+        // the two counts differ.
+        private float _revealProgress;
+
+        // Progress quantum of the last RevealTicked — the tick sound wants
+        // eighth-glyph steps, not a 60Hz machine gun.
         private int _lastQuantum = -1;
 
         private void Tick()
@@ -341,11 +351,47 @@ namespace Lvn.UI
                 Complete();
                 return;
             }
+            _revealProgress = p;
+            _body.MarkDirtyRepaint(); // vertex-tint pass only — no layout, no strings
             int q = (int)(p * 8f);
-            if (q == _lastQuantum) return; // head hasn't visibly moved — skip the rebuild
+            if (q == _lastQuantum) return;
             _lastQuantum = q;
-            _body.text = _tw.SliceFadedFixed(p, _theme.FadeWidth);
             RevealTicked?.Invoke();
+        }
+
+        // Per-glyph alpha ramp before the text mesh renders. Vertices are
+        // regenerated fresh for every repaint, so this only ever writes the
+        // CURRENT frame's fade — nothing accumulates. Inactive (IsRevealing
+        // false) it leaves the mesh untouched: the full line renders as-is.
+        private void OnPostProcessGlyphs(TextElement.GlyphsEnumerable glyphs)
+        {
+            if (!IsRevealing) return;
+            int count = glyphs.Count;
+            if (count <= 0) return;
+
+            // The clock paces CHARS (steps include spaces); glyphs are only the
+            // rendered quads. Rescale so the head crosses both ranges together.
+            int chars = _tw.VisibleCount;
+            float head = chars > 0 ? _revealProgress * count / chars : count;
+            float fade = Mathf.Max(0.01f, _theme.FadeWidth);
+
+            int i = 0;
+            foreach (TextElement.Glyph glyph in glyphs)
+            {
+                float a = (head - i) / fade;
+                i++;
+                if (a >= 1f) continue;             // fully revealed — leave as-is
+                byte b = a <= 0f ? (byte)0 : (byte)(a * 255f + 0.5f);
+                var verts = glyph.vertices;
+                for (int v = 0; v < verts.Length; v++)
+                {
+                    var vert = verts[v];
+                    var tint = vert.tint;
+                    tint.a = b == 0 ? (byte)0 : (byte)(tint.a * b / 255);
+                    vert.tint = tint;
+                    verts[v] = vert;
+                }
+            }
         }
 
         private static void SetCorner(VisualElement el, float r, bool top, bool bottom)
