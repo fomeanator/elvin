@@ -76,6 +76,10 @@ chmod 600 "$LVN_HOME/lvn.env"
 # Keep the Go runtime inside the unit's memory fence: GOMEMLIMIT makes the GC
 # tighten up near the limit instead of tripping MemoryMax.
 grep -q '^GOMEMLIMIT=' "$LVN_HOME/lvn.env" || echo "GOMEMLIMIT=1100MiB" >> "$LVN_HOME/lvn.env"
+# Bundle staging must live on DISK: /tmp is tmpfs (≈half of RAM) on modern
+# Debian, and a novel bundle stages gigabytes — os.MkdirTemp honours TMPDIR.
+mkdir -p "$LVN_HOME/tmp"
+grep -q '^TMPDIR=' "$LVN_HOME/lvn.env" || echo "TMPDIR=$LVN_HOME/tmp" >> "$LVN_HOME/lvn.env"
 if [ -n "$ADMIN_TOKEN" ]; then
   grep -q '^ADMIN_TOKEN=' "$LVN_HOME/lvn.env" \
     && sed -i "s|^ADMIN_TOKEN=.*|ADMIN_TOKEN=$ADMIN_TOKEN|" "$LVN_HOME/lvn.env" \
