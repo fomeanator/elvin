@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func newKtx2TestServer(t *testing.T) (http.Handler, string) {
@@ -37,14 +38,31 @@ func requireBasisu(t *testing.T) {
 	}
 }
 
-// A .ktx2 request for an image that exists encodes it on demand, caches the
-// artifact, and serves a well-formed KTX2 stream.
-func TestKtx2EncodesOnDemand(t *testing.T) {
+// awaitFile polls for a background-encoded artifact (the worker runs async).
+func awaitFile(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(60 * time.Second)
+	for !fileExists(path) {
+		if time.Now().After(deadline) {
+			t.Fatalf("background encode never produced %s", path)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// A cold .ktx2 request 404s immediately (client falls back to PNG), queues a
+// background encode, and a LATER request serves the well-formed KTX2 stream.
+func TestKtx2EncodesInBackground(t *testing.T) {
 	requireBasisu(t)
 	h, dir := newKtx2TestServer(t)
 	// 37×53: deliberately NOT a multiple of the 4×4 UASTC block — the exact
 	// shape that broke the raw-.astc path.
 	writeTestPNG(t, mkParent(t, filepath.Join(dir, "bg", "scene.png")), 37, 53)
+
+	if rec := get(t, h, "/content/bg/scene.ktx2"); rec.Code != http.StatusNotFound {
+		t.Fatalf("cold miss must 404 instantly, got %d", rec.Code)
+	}
+	awaitFile(t, filepath.Join(dir, "bg", "scene.ktx2"))
 
 	rec := get(t, h, "/content/bg/scene.ktx2")
 	if rec.Code != http.StatusOK {
@@ -67,17 +85,20 @@ func TestKtx2EncodesOnDemand(t *testing.T) {
 	if hh := binary.LittleEndian.Uint32(body[24:]); hh != 53 {
 		t.Fatalf("pixelHeight = %d, want 53", hh)
 	}
-	if !fileExists(filepath.Join(dir, "bg", "scene.ktx2")) {
-		t.Fatal("encoded artifact was not cached to disk")
-	}
 }
 
 // A @2k.ktx2 request whose @2k PNG doesn't exist yet materializes the
-// downscale first; a source already inside the box encodes from the original.
+// downscale in the worker; a source already inside the box encodes from the
+// original (and no @2k png is minted for it).
 func TestKtx2MaterializesDownscaleVariant(t *testing.T) {
 	requireBasisu(t)
 	h, dir := newKtx2TestServer(t)
 	writeTestPNG(t, mkParent(t, filepath.Join(dir, "bg", "small.png")), 64, 48)
+
+	if rec := get(t, h, "/content/bg/small@2k.ktx2"); rec.Code != http.StatusNotFound {
+		t.Fatalf("cold miss must 404 instantly, got %d", rec.Code)
+	}
+	awaitFile(t, filepath.Join(dir, "bg", "small@2k.ktx2"))
 
 	rec := get(t, h, "/content/bg/small@2k.ktx2")
 	if rec.Code != http.StatusOK {
