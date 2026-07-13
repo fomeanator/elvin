@@ -184,8 +184,11 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	// -y_flip bakes Unity's bottom-up texture orientation into the encode —
 	// GPU-compressed pixels can't be flipped client-side, and the sprite path
 	// has no per-draw UV flip (the KTX docs themselves recommend baking it).
+	// -mipmap ships the full chain: minified draws (actors scaled down, zoomed
+	// scenes) sample a proper mip instead of shimmering over a 2K level 0.
+	// ~+33% bytes on art the compression just shrank 4-8× — a good trade.
 	cmd := exec.CommandContext(ctx, t.bin(),
-		"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip",
+		"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap",
 		srcPath, "-output_file", tmp)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
