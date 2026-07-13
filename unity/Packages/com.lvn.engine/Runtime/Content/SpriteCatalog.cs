@@ -164,6 +164,7 @@ namespace Lvn.Content
             var outl = new List<ResolvedLayer>();
             var e = Get(id);
             if (e?.layers == null) return outl;
+            axes = Sanitize(e, axes);
             foreach (var layer in e.layers)
             {
                 if (layer == null || string.IsNullOrEmpty(layer.url)) continue;
@@ -184,7 +185,38 @@ namespace Lvn.Content
         public string FillFor(string id, string template, IReadOnlyDictionary<string, string> axes)
         {
             var e = Get(id);
-            return Fill(template, axes, e?.defaults);
+            return Fill(template, Sanitize(e, axes), e?.defaults);
+        }
+
+        /// <summary>A command value OUTSIDE the entity's declared axis falls back
+        /// to that axis's default instead of silently skipping the layer — a face
+        /// is not an optional decoration (live-hit: an imported emotion label
+        /// "sadness" against a roster axis "sad" rendered a faceless heroine).
+        /// Only DECLARED axes police their values; undeclared tokens (free-form
+        /// wardrobe ids etc.) pass through untouched.</summary>
+        private static IReadOnlyDictionary<string, string> Sanitize(
+            LvnSpriteEntity e, IReadOnlyDictionary<string, string> axes)
+        {
+            if (e?.axes == null || axes == null || axes.Count == 0) return axes;
+            Dictionary<string, string> patched = null;
+            foreach (var kv in axes)
+            {
+                if (string.IsNullOrEmpty(kv.Value)) continue;
+                if (kv.Value.IndexOf('{') >= 0) continue; // unresolved template — not ours to judge
+                if (!e.axes.TryGetValue(kv.Key, out var allowed) || allowed == null || allowed.Count == 0)
+                    continue;
+                if (allowed.Contains(kv.Value)) continue;
+                if (patched == null)
+                {
+                    patched = new Dictionary<string, string>(axes.Count);
+                    foreach (var a in axes) patched[a.Key] = a.Value;
+                }
+                if (e.defaults != null && e.defaults.TryGetValue(kv.Key, out var dflt) && !string.IsNullOrEmpty(dflt))
+                    patched[kv.Key] = dflt;
+                else
+                    patched.Remove(kv.Key);
+            }
+            return patched ?? axes;
         }
 
         private static string Fill(string template,
