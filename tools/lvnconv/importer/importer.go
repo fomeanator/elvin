@@ -387,6 +387,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		if err != nil {
 			return nil, fmt.Errorf("chapter %d convert: %w", i+1, err)
 		}
+		res.Warnings = append(res.Warnings, doc.Warnings...)
 		probe.scan(doc) // resolve emotions before staging (and before localization)
 		if opt.AutoStage {
 			AutoStage(doc, cast, tpl)
