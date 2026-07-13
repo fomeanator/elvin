@@ -109,6 +109,8 @@ namespace Lvn.UI
             btn.style.backgroundColor = _theme.ChoiceColor;
             btn.style.minWidth = Length.Percent(_theme.ChoiceMinWidthPercent);
             btn.style.maxWidth = Length.Percent(_theme.ChoiceMaxWidthPercent);
+            btn.style.minHeight = _theme.ChoiceMinHeight; // thumb-sized (market norm ~6.5% H)
+            btn.style.justifyContent = Justify.Center;
             btn.style.marginBottom = _theme.ChoiceSpacing;
             btn.style.paddingTop = _theme.ChoicePaddingY;
             btn.style.paddingBottom = _theme.ChoicePaddingY;
@@ -126,7 +128,7 @@ namespace Lvn.UI
             caption.style.fontSize = _theme.ChoiceFontSize;
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.unityTextAlign = TextAnchor.MiddleCenter;
-            if (_theme.Font != null) caption.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(caption, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             btn.Add(caption);
 
             if (!string.IsNullOrEmpty(option.Cost))
