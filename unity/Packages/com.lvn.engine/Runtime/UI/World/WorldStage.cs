@@ -37,6 +37,10 @@ namespace Lvn.UI.World
         public GameObject Root => _canvasGo;
         public WorldBackground Background => _bg;
 
+        /// <summary>The real camera-frame blur, when this platform supports it
+        /// (built-in pipeline + a scene camera). Null → caller uses its veil.</summary>
+        public LvnBlurEffect Blur { get; }
+
         /// <param name="parent">Where to park the canvas GameObject (e.g. the VnStage's transform).</param>
         /// <param name="sortingOrder">Canvas sort order — keep below the UITK panel's so chrome draws on top.</param>
         /// <param name="reference">Reference resolution (canvas units); default 1080×1920 portrait.</param>
@@ -49,6 +53,23 @@ namespace Lvn.UI.World
             var canvas = _canvasGo.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = sortingOrder;
+
+            // Render THROUGH a camera when one exists — visually identical to
+            // overlay (same scaler; the UITK chrome panel always draws after
+            // cameras) but the frame now passes OnRenderImage, so the `blur` op
+            // can be a real gaussian instead of the white-veil imitation.
+            // Built-in pipeline only: URP/HDRP never call OnRenderImage, so
+            // there the canvas stays overlay and blur falls back to the veil.
+            var cam = Camera.main;
+            if (cam == null) cam = Object.FindAnyObjectByType<Camera>();
+            if (cam != null && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null)
+            {
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = cam;
+                canvas.planeDistance = 1f;
+                Blur = LvnBlurEffect.Ensure(cam);
+            }
+
             var scaler = _canvasGo.GetComponent<CanvasScaler>();
             // Registered with LvnPanel so the stage canvas scales EXACTLY like the
             // UITK chrome panel above it (same reference, same orientation match) —
@@ -236,6 +257,9 @@ namespace Lvn.UI.World
         /// <summary>Tear the whole canvas down (chapter teardown / disable).</summary>
         public void Dispose()
         {
+            // The blur lives on the CAMERA, which outlives this canvas — a
+            // chapter that ended mid-`blur` must not haunt the next one.
+            Blur?.FadeTo(0f, 0f);
             if (_canvasGo != null) Object.Destroy(_canvasGo);
         }
 
