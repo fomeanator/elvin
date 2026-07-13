@@ -34,6 +34,7 @@ namespace Lvn.Content
         public SettingsConfig settings;
         public WardrobeConfig wardrobe;
         public TransitionsConfig transitions;
+        public ChapterEndConfig chapter_end;
     }
 
     /// <summary>Between-screen choreography: how the shell's surfaces hand off
@@ -444,6 +445,25 @@ namespace Lvn.Content
         public string play_bg_color;     // default #3a3a44
         public string dot_color;         // page-dot inactive; default #ffffff55
         public string dot_active_color;  // default #f4ecd8
+    }
+
+    /// <summary>The between-chapters screen (manifest <c>ui.chapter_end</c>).
+    /// Present → the chapter loop pauses on "Конец главы" with continue/menu
+    /// buttons; absent → chapters flow seamlessly (historical behaviour).</summary>
+    public sealed class ChapterEndConfig
+    {
+        public string title;                  // default "Конец главы"
+        public string continue_label;         // default "Продолжить" (hidden on the last chapter)
+        public string menu_label;             // default "В меню"
+        public string bg_color;               // scrim; default #0A080Deb
+        public string title_color;            // default #f5eed9
+        public float? title_size;             // default 64
+        public string subtitle_color;         // chapter name; default #ccb88f
+        public float? subtitle_size;          // default 34
+        public string button_color;           // primary (continue); default #8c3659
+        public string button_secondary_color; // menu; default #ffffff1a
+        public string button_text_color;      // default #f7f3e6
+        public float? button_radius;          // default 26
     }
 
     /// <summary>The in-game top HUD: chapter progress + currency pills.</summary>
