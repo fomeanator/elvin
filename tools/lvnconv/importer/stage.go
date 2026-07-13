@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -91,6 +92,41 @@ func StripStableIds(doc *articy.Doc) {
 // narrate, which is the protagonist (staged on which side), and how a scene
 // marker reads all come from the Template (nil → DefaultTemplate). The result is
 // regular .lvn ops the author can refine in the editor.
+
+// PricePremiumChoices turns the converter's neutral "premium" option marker
+// into a REAL price from the project template: a display cost line plus a
+// wallet_cost the runtime spends through the host wallet before the pick goes
+// through. Without a configured premium price the marker is dropped and the
+// option stays free — direct converts keep their historical behaviour.
+func PricePremiumChoices(doc *articy.Doc, tpl *Template) {
+	p := tpl.resolve().Wardrobe.Premium
+	for _, c := range doc.Script {
+		if c["op"] != "choice" {
+			continue
+		}
+		opts, _ := c["options"].([]any)
+		for _, o := range opts {
+			opt, ok := o.(articy.Cmd)
+			if !ok {
+				if m, ok2 := o.(map[string]any); ok2 {
+					opt = m
+				} else {
+					continue
+				}
+			}
+			if opt["premium"] != true {
+				continue
+			}
+			delete(opt, "premium")
+			if p.Currency == "" || p.Price <= 0 {
+				continue
+			}
+			opt["cost"] = fmt.Sprintf("%d %s", p.Price, p.Currency)
+			opt["wallet_cost"] = map[string]any{"currency": p.Currency, "amount": p.Price}
+		}
+	}
+}
+
 func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
 	tpl = tpl.resolve()
 	bgExt := tpl.Staging.BgExt

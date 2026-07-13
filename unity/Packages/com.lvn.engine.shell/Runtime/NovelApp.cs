@@ -220,6 +220,23 @@ namespace Lvn.UI.Screens
             var settingsCfg = manifest.ui?.settings;
             if (settingsCfg != null && (settingsCfg.show_menu_item ?? false))
                 StageMenu.AddMenuItem(settingsCfg.menu_label ?? "Settings", stage => _ = _shell.OpenSettingsAsync());
+
+            // Wallet-priced choices (imported "[premium]" options carry
+            // wallet_cost): route the spend through the product wallet. A failed
+            // spend keeps the menu up — the stage shows a "not enough" hint.
+            Stage.ChoiceSpend = (currency, amount) =>
+                Lvn.Services.LvnWallet.SpendAsync(currency, amount, "choice");
+
+            // Test-build currency faucet (economy.debug_grant): a quick-menu item
+            // that credits the wallet on tap — the partner's "получить 100" button
+            // for exercising paid choices and the wardrobe without a store.
+            var faucet = manifest.economy?.debug_grant;
+            if (faucet != null && !string.IsNullOrEmpty(faucet.currency))
+            {
+                int amount = faucet.amount ?? 100;
+                string label = faucet.label ?? $"Получить {amount}";
+                StageMenu.AddMenuItem(label, stage => _ = GrantFaucetAsync(faucet.currency, amount));
+            }
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -622,10 +639,15 @@ namespace Lvn.UI.Screens
                 if (owner != null) title = owner;
                 var next = NextChapterOf(title, finished);
                 if (next == null)
-                {
                     LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
-                    break;
+                // Between-chapters screen (ui.chapter_end): "Конец главы" with
+                // continue/menu. Without it chapters flow seamlessly, as before.
+                if (_shell?.ChapterEnd != null)
+                {
+                    bool goNext = await _shell.ChapterEnd.ShowAsync(finished.name, hasNext: next != null);
+                    if (!goNext || next == null) break;
                 }
+                else if (next == null) break;
                 chapter = next;
             }
             // Back to the menu — stop the chapter scheduler so its deferred
@@ -642,6 +664,15 @@ namespace Lvn.UI.Screens
                 if (panel != null) RuntimePanelUtils.ResetDynamicAtlas(panel);
             }
             catch { /* atlas reset is an optimization, never a failure */ }
+        }
+
+        // The debug faucet's grant: credit the wallet (EarnAsync fires
+        // LvnWallet.Changed — the shell's HUD pill updates itself) and
+        // reconcile with the server so the balance survives restarts.
+        private async Task GrantFaucetAsync(string currency, int amount)
+        {
+            await Lvn.Services.LvnWallet.EarnAsync(currency, amount, "debug_faucet");
+            await Lvn.Services.LvnWallet.RefreshAsync();
         }
 
         // Charge the chapter-entry currency (typically the regenerating "energy")

@@ -276,6 +276,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		}
 		AutoStage(doc, cast, tpl) // reads inline say text — must run before Localize
 	}
+	PricePremiumChoices(doc, tpl) // "[premium]" markers → template-priced wallet costs
 
 	// Resolve art before localization swaps say text for keys (art reads sprite_url,
 	// not text, but keep the ordering intent explicit).
@@ -392,6 +393,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		if opt.AutoStage {
 			AutoStage(doc, cast, tpl)
 		}
+		PricePremiumChoices(doc, tpl) // "[premium]" markers → template-priced wallet costs
 		art, missing, firstBg := collectArt(index, doc, artCache)
 		sprites, extraArt := BuildCatalog(doc)
 		art = append(art, extraArt...)
