@@ -28,7 +28,7 @@ log() { echo "[lvn-setup] $*"; }
 log "packages"
 apt-get update -qq
 apt-get install -y -qq nginx certbot rsync ufw fail2ban unattended-upgrades \
-  git build-essential cmake curl >/dev/null
+  git build-essential cmake curl unar >/dev/null
 
 timedatectl set-timezone "${TZ_NAME:-Europe/Moscow}" || true
 
