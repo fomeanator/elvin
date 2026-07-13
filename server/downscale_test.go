@@ -59,7 +59,7 @@ func newDownscaleTestServer(t *testing.T) (*server, http.Handler, string) {
 	t.Helper()
 	dir := t.TempDir()
 	s := &server{content: dir}
-	h := s.withDownscale(s.contentHandler(dir))
+	h := s.withDownscale(newDownscaler(), s.contentHandler(dir))
 	return s, h, dir
 }
 
