@@ -75,7 +75,7 @@ Fields: `w`(width) `h`(height) `x` `y` `scale` `anchor="ax,ay"` `z` `flip` `rota
 
 ## Effects / sound / timing
 ```
-fade to="black" duration=0.8     dim alpha=0.6 duration=0.5     flash to="white" duration=0.3
+fade to="black" duration=0.8     dim alpha=0.6 duration=0.5     flash color="white" duration=0.3
 tint ...    blur ...
 camera action=shake amplitude=0.02 duration=0.4      // shake/zoom/pan/reset
 particles type=rain on=true                          // rain/snow
