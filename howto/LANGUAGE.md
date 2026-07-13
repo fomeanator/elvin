@@ -123,7 +123,7 @@ validator checks the inner `goto` like a regular jump target).
 |---|---|---|
 | `fade` | `fade to="black" duration=0.8` | Full-screen fade (`black`/`white`/`clear`). |
 | `dim` | `dim alpha=0.6 duration=0.5` | Dim the scene (focus). `alpha=0` restores. |
-| `flash` | `flash to="white" duration=0.3` | Flash. |
+| `flash` | `flash color="white" duration=0.3` | Flash. |
 | `tint` / `blur` | `tint …` `blur …` | Color filter / blur. |
 | `camera` | `camera action=shake amplitude=0.02 duration=0.4` | `shake`/`zoom`/`pan`. |
 | `particles` | `particles type=rain on=true` | Particle layer (`rain`/`snow`/…), `on=false` turns it off. |

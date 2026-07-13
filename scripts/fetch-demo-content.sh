@@ -11,13 +11,13 @@ DEST=server/content
 REPO=https://github.com/fomeanator/lvn-demo-content.git
 
 if [ -d "$DEST/.git" ]; then
-  echo "updating $DEST…"
+  echo "updating ${DEST}..."
   git -C "$DEST" pull --ff-only
 elif [ -e "$DEST/manifest.json" ]; then
   # A pre-split working copy (or a hand-managed content dir): leave it alone.
   echo "$DEST already has content (no .git) — leaving it untouched."
 else
-  echo "cloning demo content into $DEST…"
+  echo "cloning demo content into ${DEST}..."
   rm -rf "$DEST"
   git clone --depth 1 "$REPO" "$DEST"
 fi

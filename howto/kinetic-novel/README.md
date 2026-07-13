@@ -57,7 +57,7 @@ All quoted from `kinetic-novel.lvns`:
 - **"Breathing" (bracket + yoyo):** `anim amber scale [1 1.03 1] 3s yoyo`
 - **Swaying (legacy keys + rotation):** `anim id=amber prop=rotation keys="0:0 1:3 2:-3 3:0" loop=yoyo ease=inOutSine`
 - **Camera shake:** `camera action=shake amplitude=0.02 duration=0.4`
-- **Flash:** `flash to="white" duration=0.3`
+- **Flash:** `flash color="white" duration=0.3`
 - **Dim/restore:** `dim alpha=0.6 duration=0.5` … `dim alpha=0 duration=0.8`
 - **Final "pop" (one-liner to= + outBack):** `anim amber scale to=1.08 dur=0.4 ease=outBack`
 
@@ -80,7 +80,7 @@ All quoted from `kinetic-novel.lvns`:
 4. **Memory accent.** On the line from the past, shake the camera and fire a flash:
    ```
    camera action=shake amplitude=0.02 duration=0.4
-   flash to="white" duration=0.3
+   flash color="white" duration=0.3
    ```
 5. **Frame change.** The classic "darken → change → reveal" combo: dim the scene, change the background, turn off the rain and music, bring the light back:
    ```
