@@ -187,9 +187,17 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	// -mipmap ships the full chain: minified draws (actors scaled down, zoomed
 	// scenes) sample a proper mip instead of shimmering over a 2K level 0.
 	// ~+33% bytes on art the compression just shrank 4-8× — a good trade.
-	cmd := exec.CommandContext(ctx, t.bin(),
-		"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap",
-		srcPath, "-output_file", tmp)
+	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap",
+		srcPath, "-output_file", tmp}
+	var cmd *exec.Cmd
+	// The encoder is a BACKGROUND filler that saturates every core it gets —
+	// on a small host it must always lose the CPU to live player traffic.
+	// nice 19 keeps the queue draining on idle cycles only.
+	if nicePath, err := exec.LookPath("nice"); err == nil {
+		cmd = exec.CommandContext(ctx, nicePath, append([]string{"-n", "19", t.bin()}, args...)...)
+	} else {
+		cmd = exec.CommandContext(ctx, t.bin(), args...)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return &transcodeError{srcPath, string(out), err}
