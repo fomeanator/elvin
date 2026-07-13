@@ -499,12 +499,30 @@ func (g *gen) emitChoice(from *node, targets []string) error {
 		if !ok {
 			return fmt.Errorf("choice from %s: connection to unknown node %s", from.id, t)
 		}
+		// The branch fragment's own TEXT may open with option tags ("[premium]
+		// Поддержать его.") — the partner convention puts them there even when a
+		// clean MenuText exists. Consume them off the spoken line (they must not
+		// show in the dialogue, and a paid option must actually charge) and fold
+		// them into this option.
+		textTags := stripLeadingTags(tn)
 		menu := strings.TrimSpace(prop(tn.props, "MenuText"))
 		if menu == "" {
-			menu = firstNonEmpty(strings.TrimSpace(prop(tn.props, "DisplayName")), "Дальше")
+			// No MenuText → the branch's first spoken line IS the caption (the
+			// partner authors choices as player-line fragments). DisplayName and
+			// the generic "Дальше" remain as the last resorts.
+			menu = firstNonEmpty(captionFromText(g, tn),
+				strings.TrimSpace(prop(tn.props, "DisplayName")), "Дальше")
 		}
 		opt := Cmd{"goto": g.labelFor(tn)} // reserves the label → branch gets it on emission
 		parseOptionTails(opt, menu)
+		for _, tag := range textTags {
+			switch tag {
+			case "onetime", "once":
+				opt["__once"] = true
+			case "premium", "paid":
+				opt["__premium"] = true
+			}
+		}
 		if sid := prop(tn.props, "StableId"); sid != "" {
 			opt["id"] = sid // reimport-stable option id (localization/analytics key)
 		}
@@ -738,6 +756,63 @@ func parseOptionTails(opt Cmd, menu string) {
 		menu = strings.TrimSpace(menu[:m[0]])
 	}
 	opt["text"] = menu
+}
+
+// stripLeadingTags consumes leading "[tag]" markers off a node's Text prop
+// (mutating it, so the spoken line renders clean) and returns the tags,
+// lowercased. The partner writes option tags in the branch fragment's text.
+func stripLeadingTags(n *node) []string {
+	text, _ := n.props["Text"].(string)
+	trimmed := strings.TrimSpace(text)
+	var tags []string
+	for {
+		m := reOptTag.FindStringSubmatch(trimmed)
+		if m == nil {
+			break
+		}
+		tags = append(tags, strings.ToLower(strings.TrimSpace(m[1])))
+		trimmed = trimmed[len(m[0]):]
+	}
+	if len(tags) > 0 {
+		n.props["Text"] = trimmed
+	}
+	return tags
+}
+
+// captionFromText derives an option caption from the branch's first spoken
+// line: the target's own Text, or — for a silent connector node — one hop
+// down its single continuation. Long narration is clipped on a word.
+func captionFromText(g *gen, tn *node) string {
+	text := strings.TrimSpace(prop(tn.props, "Text"))
+	// Silent connector fragments (empty Text, one continuation) are common at
+	// branch heads — follow the single-out chain a few hops to the first line
+	// that can carry the caption.
+	cur := tn
+	for hops := 0; text == "" && hops < 4; hops++ {
+		next := g.single(cur)
+		if next == "" {
+			break
+		}
+		nn, ok := g.nodes[next]
+		if !ok {
+			break
+		}
+		stripLeadingTags(nn) // clean the spoken line; pricing stays with its own choice
+		text = strings.TrimSpace(prop(nn.props, "Text"))
+		cur = nn
+	}
+	if nl := strings.IndexAny(text, "\r\n"); nl >= 0 {
+		text = strings.TrimSpace(text[:nl])
+	}
+	const max = 90
+	if len([]rune(text)) > max {
+		r := []rune(text)[:max]
+		if sp := strings.LastIndexByte(string(r), ' '); sp > 40 {
+			r = []rune(string(r)[:sp])
+		}
+		text = string(r) + "…"
+	}
+	return text
 }
 
 func firstNonEmpty(ss ...string) string {
