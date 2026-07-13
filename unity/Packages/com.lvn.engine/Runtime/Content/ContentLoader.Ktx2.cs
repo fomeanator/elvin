@@ -2,6 +2,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+#if LVN_KTX2
+using KtxUnity; // also brings the TextureOrientation extension methods into scope
+using Unity.Collections;
+#endif
 
 namespace Lvn.Content
 {
@@ -66,8 +70,8 @@ namespace Lvn.Content
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                using var data = new Unity.Collections.NativeArray<byte>(bytes, Unity.Collections.Allocator.Persistent);
-                var ktx = new KtxUnity.KtxTexture();
+                using var data = new NativeArray<byte>(bytes, Allocator.Persistent);
+                var ktx = new KtxTexture();
                 var result = await ktx.LoadFromBytes(data, linear: false);
                 if (result?.texture == null) return (null, 0);
 
