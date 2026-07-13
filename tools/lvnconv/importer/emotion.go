@@ -12,12 +12,12 @@ import (
 // this is the "Советское воспитание"/Cold legend. Overridable/extendable per
 // import via Options.EmotionColors.
 var defaultEmotionColors = map[string]string{
-	"ffff00": "surprise",
-	"00b050": "joy",
+	"ffff00": "surprised",
+	"00b050": "happy",
 	"d6006e": "flirt",
 	"0c0c0c": "fear",
-	"7030a0": "sadness",
-	"0070c0": "pensive",
+	"7030a0": "sad",
+	"0070c0": "thoughtfulness",
 }
 
 // mergeColors overlays colour maps left-to-right (later wins), so a caller can

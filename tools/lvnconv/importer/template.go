@@ -163,12 +163,12 @@ func DefaultTemplate() *Template {
 		// self-describing and overridable per project. Identical to emotion.go's
 		// built-in default legend (which remains the base emotionTable overlays).
 		EmotionColors: map[string]string{
-			"ffff00": "surprise",
-			"00b050": "joy",
+			"ffff00": "surprised",
+			"00b050": "happy",
 			"d6006e": "flirt",
 			"0c0c0c": "fear",
-			"7030a0": "sadness",
-			"0070c0": "pensive",
+			"7030a0": "sad",
+			"0070c0": "thoughtfulness",
 		},
 	}
 	_ = t.compile()
@@ -282,18 +282,26 @@ func LoadTemplate(path string) (*Template, error) {
 // templates without any per-novel code.
 func ResolveTemplate(nameOrPath, dir string) (*Template, error) {
 	s := strings.TrimSpace(nameOrPath)
-	if s == "" || s == "default" || s == "cold" {
-		return DefaultTemplate(), nil
+	if s == "" || s == "default" {
+		s = "cold" // the built-in default's name
 	}
 	// An explicit path (has a separator or a .json suffix and exists) loads directly.
 	if strings.HasSuffix(s, ".json") || strings.ContainsAny(s, `/\`) {
 		return LoadTemplate(s)
 	}
+	// THE AUTHOR'S FILE ALWAYS WINS: a <name>.json under the templates dir
+	// overrides a built-in of the same name. The code's DefaultTemplate is only
+	// the fallback when no file exists — author conventions are content, not
+	// code (live-hit: editing cold.json's emotion legend silently did nothing
+	// because "cold" short-circuited to the built-in without reading the file).
 	if dir != "" {
 		p := filepath.Join(dir, s+".json")
 		if _, err := os.Stat(p); err == nil {
 			return LoadTemplate(p)
 		}
+	}
+	if s == "cold" {
+		return DefaultTemplate(), nil
 	}
 	return nil, fmt.Errorf("unknown import template %q (no built-in and no %s.json under templates dir)", s, s)
 }
