@@ -54,10 +54,16 @@ var downscaleExts = map[string]bool{".png": true, ".jpg": true, ".jpeg": true}
 
 // downscaler serializes concurrent generations of the SAME variant path
 // while letting different files resize in parallel — same single-flight
-// shape as astcTranscoder.
+// shape as astcTranscoder. ONE instance is shared by withDownscale and
+// withKTX2 (which materializes missing @2k sources before encoding), so the
+// same variant path locks the same mutex no matter which door it enters by.
 type downscaler struct {
 	mu       sync.Mutex
 	inFlight map[string]*sync.Mutex
+}
+
+func newDownscaler() *downscaler {
+	return &downscaler{inFlight: map[string]*sync.Mutex{}}
 }
 
 func (d *downscaler) lockFor(path string) *sync.Mutex {
@@ -239,8 +245,7 @@ func isPMAPage(srcPath string) bool {
 // written for it). Every failure mode 404s — the client's loader treats that
 // as "no variant available" and falls back to the original URL, so a server
 // without this middleware (or a local-directory install) behaves identically.
-func (s *server) withDownscale(next http.Handler) http.Handler {
-	d := &downscaler{inFlight: map[string]*sync.Mutex{}}
+func (s *server) withDownscale(d *downscaler, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/content/")
 		variantPath, ok := s.contentPath(rel)

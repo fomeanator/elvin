@@ -65,6 +65,9 @@ server/content/.cache/
 *@2k.jpg
 *@2k.jpeg
 
+# On-demand KTX2/BasisU encodes (server/ktx2.go) — same regenerable-sidecar rule.
+*.ktx2
+
 # Licensed heroine art pack — LOCAL TESTING ONLY, never publish (dist/Перс.rar)
 server/content/sprites/hill/
 
