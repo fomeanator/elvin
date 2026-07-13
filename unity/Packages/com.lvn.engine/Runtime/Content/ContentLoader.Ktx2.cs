@@ -72,7 +72,7 @@ namespace Lvn.Content
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 using var data = new NativeArray<byte>(bytes, Allocator.Persistent);
                 var ktx = new KtxTexture();
-                var result = await ktx.LoadFromBytes(data, linear: false);
+                var result = await ktx.LoadFromBytes(data.AsReadOnly(), linear: false);
                 if (result?.texture == null) return (null, 0);
 
                 var tex = result.texture;
