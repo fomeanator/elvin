@@ -196,6 +196,7 @@ namespace Lvn.UI
             _menuSafe.Add(_menu);   // quick menu above even the FX veil — always reachable
             root.Add(_menuSafe);
             _choices.OnSelected += OnChoiceSelected;
+            _choices.VisibleChanged += OnChoicesVisibleChanged;
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
             // current variables so on-screen stats track changes (incl. background ones).
@@ -289,7 +290,12 @@ namespace Lvn.UI
             var root = GetComponent<UIDocument>()?.rootVisualElement;
             if (root == null || _fx == null) return;
 
-            if (_choices != null) { _choices.OnSelected -= OnChoiceSelected; _choices.RemoveFromHierarchy(); }
+            if (_choices != null)
+            {
+                _choices.OnSelected -= OnChoiceSelected;
+                _choices.VisibleChanged -= OnChoicesVisibleChanged;
+                _choices.RemoveFromHierarchy();
+            }
             if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
             // The shared window wears the theme too — drop it so the next use
             // rebuilds it with the fresh skin. NEVER while it's open: a live
@@ -314,6 +320,7 @@ namespace Lvn.UI
             chromeHost.Insert(labelIndex, _dialogue);
             chromeHost.Insert(labelIndex + 1, _choices);
             _choices.OnSelected += OnChoiceSelected;
+            _choices.VisibleChanged += OnChoicesVisibleChanged;
 
             // The quick menu is themeable too (manifest.ui.menu) — rebuild it with
             // the fresh theme, keeping it the topmost layer.
@@ -1093,6 +1100,12 @@ namespace Lvn.UI
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
         public event Action<bool> ChromeHiddenChanged;
+
+        /// <summary>Fires when the choice list appears/disappears — the shell's
+        /// reading-mode HUD listens (visible while a priced choice is up).</summary>
+        public event Action<bool> ChoicesVisibleChanged;
+
+        private void OnChoicesVisibleChanged(bool visible) => ChoicesVisibleChanged?.Invoke(visible);
 
         private void SetChromeHidden(bool hidden)
         {

@@ -455,6 +455,12 @@ namespace Lvn.Content
         public string progress_color;    // default #f4ecd8
         public bool? show_progress;      // default true
 
+        /// <summary>"always" (default) keeps the bar up through the chapter;
+        /// "choices" hides it during plain reading and shows it only while a
+        /// choice is on screen (where costs/balances matter) — the corner-minimal
+        /// reading surface the genre leaders use.</summary>
+        public string mode;
+
         public string pill_bg_color;     // default #00000066
         public string pill_text_color;   // default #f4ecd8
         public string default_currency_icon_url; // fallback pill icon
