@@ -82,6 +82,18 @@ namespace Lvn.Content
         public string gate_buy;      // confirm button → store; default "Store"
         public string gate_cancel;   // cancel button; default "Not now"
         public string gate_denied;   // shown when still short after the store; default gate_title
+
+        /// <summary>Test-build faucet: a quick-menu item that grants currency on
+        /// tap (partner/demo builds — "получить 100"). Absent → no button.</summary>
+        public LvnDebugGrantConfig debug_grant;
+    }
+
+    /// <summary>The debug currency faucet (<c>economy.debug_grant</c>).</summary>
+    public sealed class LvnDebugGrantConfig
+    {
+        public string currency; // e.g. "crystals"
+        public int? amount;     // default 100
+        public string label;    // menu item text; default "Получить {amount}"
     }
 
     /// <summary>
