@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -148,20 +147,31 @@ func TestAudioCueFromTemplate(t *testing.T) {
 
 // cold.json in server content mirrors the built-in DefaultTemplate exactly, so the
 // shipped reference file and the code can't drift apart silently.
-func TestColdJSONMatchesDefault(t *testing.T) {
-	path := filepath.FromSlash("../../../server/content/import-templates/cold.json")
-	if _, err := os.Stat(path); err != nil {
+// The contract INVERTED (ResolveTemplate: the author's file always wins, the
+// code built-in is only the no-file fallback): cold.json is now authoritative
+// and legitimately diverges from DefaultTemplate (emotion legend, speaker
+// names). Assert the new contract instead of the old byte-for-byte sync.
+func TestColdJSONFileWins(t *testing.T) {
+	dir := filepath.FromSlash("../../../server/content/import-templates")
+	if _, err := os.Stat(filepath.Join(dir, "cold.json")); err != nil {
 		t.Skipf("cold.json not present: %v", err)
 	}
-	loaded, err := LoadTemplate(path)
+	tpl, err := ResolveTemplate("cold", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	def := DefaultTemplate()
-	// Compare the serializable projection (derived fields are unexported).
-	a, _ := json.Marshal(loaded)
-	b, _ := json.Marshal(def)
-	if string(a) != string(b) {
-		t.Fatalf("cold.json drifted from DefaultTemplate:\n cold.json: %s\n default:   %s", a, b)
+	r := tpl.resolve()
+	// A field only the FILE carries proves the file was actually loaded.
+	if len(r.SpeakerNames) == 0 {
+		t.Fatal("ResolveTemplate(\"cold\") returned the built-in — the file must win when present")
+	}
+	// Core conventions must still resolve (overlay-by-presence keeps defaults).
+	if r.Wardrobe.FlagKey == "" || r.Staging.ProtagonistLabel == "" {
+		t.Fatalf("file template lost built-in defaults: %+v", r)
+	}
+	// And with NO directory the built-in fallback still works.
+	fb, err := ResolveTemplate("cold", t.TempDir())
+	if err != nil || fb == nil {
+		t.Fatalf("built-in fallback broken: %v", err)
 	}
 }
