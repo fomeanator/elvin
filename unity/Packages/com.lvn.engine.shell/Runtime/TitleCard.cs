@@ -42,7 +42,7 @@ namespace Lvn.UI.Screens
             _card.style.position = Position.Absolute;
             _card.style.left = 0;
             _card.style.right = 0;
-            _card.style.top = Length.Percent(34f);
+            _card.style.top = Length.Percent(38f); // title block at 36-40% (visual standard)
             _card.style.alignItems = Align.Center;
             _card.style.justifyContent = Justify.Center;
             _card.style.paddingTop = 40;

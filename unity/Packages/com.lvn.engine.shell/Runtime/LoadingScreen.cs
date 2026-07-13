@@ -30,6 +30,8 @@ namespace Lvn.UI.Screens
         private readonly Label _percent;
         private readonly Label _file;
         private readonly Label _hint;
+        private readonly Label _chapterTitle;
+        private readonly Label _chapterSubtitle;
 
         private readonly LoadingProgressModel _model;
         private readonly ProgressRenderGate _gate = new ProgressRenderGate();
@@ -87,6 +89,17 @@ namespace Lvn.UI.Screens
             _percent.style.display = (_cfg.show_percent ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_percent);
 
+            // Chapter-title reveal, Liminal-style: the name lives ON the loading
+            // screen (over the chapter's backdrop) instead of being a separate
+            // screen after it — one entry surface, no flash between stages.
+            _chapterTitle = ScreenUi.CenterLabel(0.34f, UiColor.Parse(_cfg.percent_color, new Color(0.96f, 0.93f, 0.85f)), 64);
+            _chapterTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _chapterTitle.style.opacity = 0f;
+            Add(_chapterTitle);
+            _chapterSubtitle = ScreenUi.CenterLabel(0.40f, UiColor.Parse(_cfg.hint_color, new Color(0.80f, 0.72f, 0.56f)), 34);
+            _chapterSubtitle.style.opacity = 0f;
+            Add(_chapterSubtitle);
+
             _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, new Color(0.60f, 0.58f, 0.54f)), 18);
             _file.style.display = (_cfg.show_file ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_file);
@@ -110,7 +123,11 @@ namespace Lvn.UI.Screens
             Func<float> progress = null,
             CancellationToken ct = default,
             string bgUrl = null,
-            Func<string> fileLabel = null)
+            Func<string> fileLabel = null,
+            string chapterTitle = null,
+            string subtitle = null,
+            float titleHoldSeconds = 0f,
+            float? minSecondsOverride = null)
         {
             _model.Reset();
             _gate.Reset();
@@ -121,12 +138,24 @@ namespace Lvn.UI.Screens
             ScreenUi.SetText(_hint, "");
             SetFill(0f);
 
+            // Chapter-title reveal on the loader itself (fade in over the first
+            // half-second, hold for titleHoldSeconds after the work is done).
+            bool hasTitle = !string.IsNullOrEmpty(chapterTitle) || !string.IsNullOrEmpty(subtitle);
+            ScreenUi.SetText(_chapterTitle, chapterTitle ?? "");
+            ScreenUi.SetText(_chapterSubtitle, subtitle ?? "");
+            _chapterTitle.style.display = string.IsNullOrEmpty(chapterTitle) ? DisplayStyle.None : DisplayStyle.Flex;
+            _chapterSubtitle.style.display = string.IsNullOrEmpty(subtitle) ? DisplayStyle.None : DisplayStyle.Flex;
+            _chapterTitle.style.opacity = 0f;
+            _chapterSubtitle.style.opacity = 0f;
+
             if (!string.IsNullOrEmpty(bgUrl)) _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
 
             var tips = _cfg.tips;
-            float minSeconds = _cfg.min_seconds ?? 0f;
+            float minSeconds = minSecondsOverride ?? _cfg.min_seconds ?? 0f;
+            float hold = hasTitle ? Mathf.Max(0f, titleHoldSeconds) : 0f;
             float start = Time.unscaledTime;
             float lastTip = -999f;
+            float doneAt = -1f; // when work + floor completed — the title hold runs from here
             int tipIdx = 0;
 
             while (true)
@@ -135,6 +164,15 @@ namespace Lvn.UI.Screens
                 float now = Time.unscaledTime;
                 float elapsed = now - start;
                 bool done = isDone == null || isDone();
+                bool floorDone = done && elapsed >= minSeconds;
+                if (floorDone && doneAt < 0f) doneAt = now;
+
+                if (hasTitle)
+                {
+                    float a = Mathf.Clamp01(elapsed / 0.5f);
+                    _chapterTitle.style.opacity = a;
+                    _chapterSubtitle.style.opacity = a;
+                }
 
                 // rotate tips
                 if (tips != null && tips.Length > 0 && now - lastTip >= 3.5f)
@@ -148,12 +186,12 @@ namespace Lvn.UI.Screens
                     ? Mathf.Clamp01(progress())
                     : (minSeconds > 0f ? Mathf.Clamp01(elapsed / minSeconds) : 1f);
 
-                if (done && elapsed >= minSeconds) _model.SnapToFull();
+                if (floorDone) _model.SnapToFull();
                 else _model.TickToward(Mathf.Min(target, 0.97f), Time.unscaledDeltaTime);
 
                 SetFill(_model.FillPercent);
                 if (_percent != null && _gate.PercentMoved(_model.Percent))
-                    ScreenUi.SetText(_percent, ((done && elapsed >= minSeconds) ? 100 : _model.Percent) + "%");
+                    ScreenUi.SetText(_percent, (floorDone ? 100 : _model.Percent) + "%");
 
                 if (_file != null && fileLabel != null)
                 {
@@ -161,7 +199,7 @@ namespace Lvn.UI.Screens
                     if (_gate.LabelChanged(text)) ScreenUi.SetText(_file, text);
                 }
 
-                if (done && elapsed >= minSeconds) { SetFill(_fillSpan); break; }
+                if (floorDone && now - doneAt >= hold) { SetFill(_fillSpan); break; }
 
                 try { await Task.Yield(); }
                 catch (OperationCanceledException) { break; }
