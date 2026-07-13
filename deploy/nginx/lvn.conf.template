@@ -1,0 +1,83 @@
+# LVN content server — nginx front. Rendered by setup.sh with:
+#   ${DOMAIN}  — the site hostname (certbot issues its certificate)
+#   ${PORT}    — the LVN server's loopback port (default 8078)
+#
+# Shape: 80 serves the ACME challenge and redirects to 443; 443 terminates
+# TLS and proxies everything to the LVN server on loopback. The admin
+# surface gets a strict rate limit — the token is strong, but brute-force
+# protection belongs in front (see the allowlist comment to hard-gate it).
+
+limit_req_zone $binary_remote_addr zone=lvn_admin:10m rate=5r/s;
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Bundle imports upload the whole novel (articy + art archives) in one
+    # multipart request — allow big bodies and give the encoder time.
+    client_max_body_size 2g;
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+
+    # Admin API (imports, grants, state inspection): strict rate limit.
+    # For a hard gate, allowlist your office/VPN egress IPs:
+    #   allow 1.2.3.4; deny all;
+    location ~ ^/(v1/admin|admin) {
+        limit_req zone=lvn_admin burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Static content (art, scripts, audio): micro-cached in nginx (see
+    # tuning.conf) so player bursts never stack on the Go process; 5m TTL +
+    # background revalidation keeps partner re-imports propagating fast.
+    location /content/ {
+        proxy_cache lvn_content;
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 30s;
+        proxy_cache_use_stale updating error timeout;
+        proxy_cache_background_update on;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status;
+        expires 1h;
+        add_header Cache-Control "public";
+
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Game API (state, wallet, version polling): live, never cached.
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
