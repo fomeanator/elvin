@@ -200,7 +200,7 @@ namespace Lvn.UI.World
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slotGroups)
-                SetFocus(kv.Key, kv.Value, (id == null || kv.Key == id) ? 1f : 0.55f);
+                SetFocus(kv.Key, kv.Value, (id == null || kv.Key == id) ? 1f : 0.7f);
         }
 
         // Loose name key (lower-case, letters/digits only) so a slot id and a say's
@@ -226,7 +226,7 @@ namespace Lvn.UI.World
                 if (kv.Value != null && NameKey(kv.Key) == target) { present = true; break; }
             if (!present) return;
             foreach (var kv in _slotGroups)
-                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.55f);
+                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.7f);
         }
 
         public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;

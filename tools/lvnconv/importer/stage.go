@@ -162,6 +162,11 @@ func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
 				continue // a scene marker is a background, not a spoken line
 			}
 			if spr, ok := cast[who]; ok && !tpl.isNarrator(who) {
+				// The say carries its actor id EXPLICITLY: the runtime highlights
+				// (undims) the speaker by who_id, not by matching the display name.
+				// Without it the protagonist never lit back up — her `who` becomes
+				// "{player}" (the entered name) and can't match the staged id.
+				c["who_id"] = Slug(who)
 				// a character with a sprite speaks → show ONLY them: the protagonist on
 				// their side, everyone else on the other (the usual mobile framing). The
 				// fragment's marker emotion rides onto the actor; a re-show is also
