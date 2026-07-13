@@ -78,20 +78,11 @@ namespace Lvn.UI
             return await Loader.DownloadSpriteAsync(url, ct);
         }
 
-        /// <summary>The "@2k" downscale-variant url for large story art, or null
-        /// when the url must load as-is (pixel art, UI skins, already a variant,
-        /// non-raster extensions).</summary>
-        internal static string DownscaleVariant(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@2k")) return null;
-            if (!(url.Contains("/bg/") || url.Contains("/art/") || url.Contains("/sprites/"))) return null;
-            int dot = url.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = url.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + "@2k" + url.Substring(dot);
-        }
+        /// <summary>The "@2k" downscale-variant url for large story art (see
+        /// <see cref="DownloadPolicy.DownscaleVariant"/> — shared with the chapter
+        /// scheduler so every phase warms the SAME file).</summary>
+        internal static string DownscaleVariant(string url) =>
+            DownloadPolicy.DownscaleVariant(url);
 
         // Disk-cached, version-folded (unlike scripts, which are always-fresh via
         // DownloadScriptText): today's only LoadTextAsync callers are the Spine
