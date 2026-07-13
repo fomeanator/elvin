@@ -561,6 +561,13 @@ func Convert(src string) (*Doc, error) {
 			}
 
 			sc := Cmd{"op": "say", "who": speaker, "text": text}
+			// An explicit actor_map means the display name and the actor id
+			// disagree ("Ash" speaking through the "hill" sprite) — carry the
+			// id so the stage can highlight/lip-sync the right slot. Unmapped
+			// speakers keep the loose name↔id match and need no extra field.
+			if actorID, ok := actorMaps[speaker]; ok {
+				sc["who_id"] = actorID
+			}
 			if pendingVoice != "" {
 				sc["voice"] = pendingVoice
 				pendingVoice = ""
