@@ -28,6 +28,8 @@ namespace Lvn.UI.Screens
         private sealed class Pill { public VisualElement Root; public Label Label; public Label Timer; }
         private readonly Dictionary<string, Pill> _pills = new Dictionary<string, Pill>();
         private float _nextRegenRefresh; // throttle the auto-refresh when a timer hits 0
+        private float _baseHeight;       // designed bar height (reference px)
+        private float _safeTop = -1f;    // applied top inset, to write styles only on change
 
         public GameHud(HudConfig cfg, ILvnAssets assets)
         {
@@ -36,10 +38,18 @@ namespace Lvn.UI.Screens
             _pillBg = UiColor.Parse(_cfg.pill_bg_color, new Color(0f, 0f, 0f, 0.4f));
             _pillText = UiColor.Parse(_cfg.pill_text_color, LvnTokens.Text);
 
-            float h = _cfg.height ?? 0.07f;
+            // Designed bar height in REFERENCE pixels (panel units track the
+            // 1080×1920 reference, so this is device-independent). The bar bleeds
+            // under a notch/Dynamic Island — it's just a dark strip — but the
+            // content row is padded below the safe-area inset and the bar grows
+            // by the same amount, keeping the content strip its designed height.
+            _baseHeight = Mathf.Round((_cfg.height ?? 0.07f) * LvnPanel.ReferenceHeight);
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0;
-            style.height = Length.Percent(h * 100f);
+            style.height = _baseHeight;
+            RegisterCallback<AttachToPanelEvent>(_ => FitSafeArea());
+            RegisterCallback<GeometryChangedEvent>(_ => FitSafeArea());
+            schedule.Execute(FitSafeArea).Every(500); // rotation raises no UITK event
             style.flexDirection = FlexDirection.Row;
             style.alignItems = Align.Center;
             style.justifyContent = Justify.SpaceBetween;
@@ -76,6 +86,19 @@ namespace Lvn.UI.Screens
             Add(_pillsRow);
 
             _ = ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets);
+
+            // (see the height comment in the constructor)
+            void FitSafeArea()
+            {
+                if (panel == null) return;
+                float topPx = Screen.height - Screen.safeArea.yMax; // screen px above the safe area
+                float inset = Mathf.Max(0f, RuntimePanelUtils.ScreenToPanel(
+                    panel, new Vector2(0f, topPx)).y);
+                if (Mathf.Approximately(inset, _safeTop)) return;
+                _safeTop = inset;
+                style.paddingTop = inset;
+                style.height = _baseHeight + inset;
+            }
 
             // Tick the energy/lives refill countdowns once a second (activates
             // when the HUD attaches to its panel).
