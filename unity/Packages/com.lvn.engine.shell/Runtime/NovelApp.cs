@@ -231,6 +231,19 @@ namespace Lvn.UI.Screens
                         : UnityEngine.UIElements.Visibility.Visible;
             };
 
+            // ui.hud.mode == "choices": corner-minimal reading — the HUD stays off
+            // the reading surface and surfaces exactly while a choice is up (the
+            // one moment costs and balances matter). Chapter end hides it again
+            // via the shell's normal Hide(Hud).
+            if (_shell.HudChoicesOnly)
+                Stage.ChoicesVisibleChanged += visible =>
+                {
+                    if (_shell?.Hud != null)
+                        _shell.Hud.style.display = visible
+                            ? UnityEngine.UIElements.DisplayStyle.Flex
+                            : UnityEngine.UIElements.DisplayStyle.None;
+                };
+
             // Live content sync — poll the version endpoint; reload on change.
             if (SyncInterval > 0f)
             {
