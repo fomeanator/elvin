@@ -343,6 +343,29 @@ namespace Lvn.UI.Screens
                 }
                 _tabs.Add(b);
             }
+
+            // The hero must OPEN the sheet already dressed from THIS sheet: an
+            // axis whose worn value isn't among the scene's items previews its
+            // FIRST item right away, for every axis — not just the active tab.
+            // Otherwise she stands in last chapter's (possibly retired) outfit
+            // until the player taps that tab, and the swap lands as a jump.
+            foreach (var kv in _def.wardrobe)
+            {
+                var axis = kv.Key;
+                var items = Items(axis);
+                if (items.Count == 0) continue;
+                LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var worn);
+                if (worn == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out worn);
+                bool inList = false;
+                foreach (var it in items)
+                    if (it.value == worn) { inList = true; break; }
+                if (!inList)
+                {
+                    _index[axis] = 0;
+                    LvnWardrobe.Preview(_entity, axis, items[0].value);
+                }
+            }
+
             SelectTab(_tab);
         }
 
