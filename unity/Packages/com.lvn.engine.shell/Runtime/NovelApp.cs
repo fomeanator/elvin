@@ -86,6 +86,11 @@ namespace Lvn.UI.Screens
 
         private async void Start()
         {
+            // PSO precook: warms last session's traced pipeline states behind
+            // the boot screen (first launch traces instead) — kills the
+            // first-show shader-compile hitches. Fire-and-forget, self-paced.
+            LvnPsoWarmup.Boot();
+
             if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
                 ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
 
