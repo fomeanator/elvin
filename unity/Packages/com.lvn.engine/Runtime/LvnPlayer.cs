@@ -865,7 +865,15 @@ namespace Lvn
                 // (e.g. "Атаковать ({wname})", "Купить (-{price} зол)").
                 var optText = TextInterpolation.Apply(Localized(o), Vars);
                 var optCost = TextInterpolation.Apply((string)o["cost"], Vars);
-                result.Add(new LvnOption(i, optText, optCost));
+                // A REAL price (imported "[premium]" choices): the host must
+                // clear a wallet spend before the pick goes through.
+                string wCur = null; long wAmt = 0;
+                if (o["wallet_cost"] is JObject w)
+                {
+                    wCur = (string)w["currency"];
+                    wAmt = (long?)w["amount"] ?? 0;
+                }
+                result.Add(new LvnOption(i, optText, optCost, wCur, wAmt));
             }
             return result;
         }
