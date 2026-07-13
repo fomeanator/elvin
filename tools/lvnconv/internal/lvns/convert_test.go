@@ -285,3 +285,41 @@ voice "/content/voice/a1.ogg"
 		t.Errorf("voice leaked onto the next line: %v", doc.Script[1])
 	}
 }
+
+// `def <name> <op …>` is a compile-time line-prefix macro: usage lines expand
+// to "<template> <rest>" (later k=v args win) and the runtime never sees it.
+func TestConvertDefPresetExpansion(t *testing.T) {
+	doc, err := Convert(`
+scene t
+def code text code x=3 y=12.5 size=50 color=#9fe8a8
+def enter actor hill left idle x=.24
+code «actor hill left idle»
+enter
+enter hair=red
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if len(doc.Script) != 3 {
+		t.Fatalf("want 3 commands (def emits none), got %d", len(doc.Script))
+	}
+	if doc.Script[0]["op"] != "text" || doc.Script[0]["id"] != "code" || doc.Script[0]["text"] != "actor hill left idle" {
+		t.Fatalf("label expansion wrong: %v", doc.Script[0])
+	}
+	if doc.Script[1]["op"] != "actor" || doc.Script[1]["id"] != "hill" || doc.Script[1]["x"] != 0.24 {
+		t.Fatalf("actor expansion wrong: %v", doc.Script[1])
+	}
+	if doc.Script[2]["hair"] != "red" {
+		t.Fatalf("usage args must extend the template: %v", doc.Script[2])
+	}
+}
+
+// A def may not shadow a built-in op, and runaway recursion is an error.
+func TestConvertDefPresetGuards(t *testing.T) {
+	if _, err := Convert("scene t\ndef actor actor hill left\n"); err == nil || !strings.Contains(err.Error(), "shadows") {
+		t.Fatalf("expected shadow error, got %v", err)
+	}
+	if _, err := Convert("scene t\ndef a b 1\ndef b a 1\na\n"); err == nil || !strings.Contains(err.Error(), "expansion loop") {
+		t.Fatalf("expected expansion-loop error, got %v", err)
+	}
+}
