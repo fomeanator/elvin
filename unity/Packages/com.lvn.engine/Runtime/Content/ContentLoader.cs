@@ -1448,7 +1448,11 @@ namespace Lvn.Content
                     {
                         bool first;
                         lock (_notFound) first = _notFound.Add(url);
-                        if (first) Debug.LogWarning($"[content] {url} permanent {ex.Status} (silenced for this session)");
+                        // Info, not warning: a 4xx here is usually the EXPECTED
+                        // steady state of an optional probe (.ktx2/.astc/@2k
+                        // variants, demo-stub art) — a yellow triangle per asset
+                        // per session reads like breakage and drowns real ones.
+                        if (first) Debug.Log($"[content] {url} permanent {ex.Status} (silenced for this session)");
                         throw;
                     }
                     catch (Exception ex)
