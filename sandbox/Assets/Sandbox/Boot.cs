@@ -14,7 +14,12 @@ namespace Lvn.Sandbox
     /// </summary>
     public static class Boot
     {
-        public const string ServerUrl = "http://127.0.0.1:8078"; // TEMP: readme shots against the Sovet content
+        public const string ServerUrl =
+#if UNITY_EDITOR
+            "http://127.0.0.1:8078"; // dev: the local content server
+#else
+            "https://timeromance.ru"; // device builds stream from production
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Run()
