@@ -21,6 +21,8 @@ package importer
 
 import (
 	"fmt"
+	"image"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -62,6 +64,12 @@ func copyFile(src, dst string) error {
 // MapBackgrounds copies every `*.png` under srcDir into <contentDir>/bg/ and
 // returns id→url, e.g. "Cold_camp" → "/content/bg/Cold_camp.png". The id is the
 // filename without extension; the `NEW/` prefix is stripped.
+//
+// Big fully-opaque PNGs transcode to JPEG on the way in: partners export
+// photographic scene art as 5-8 MB PNGs, which made a chapter's warm ~70 MB
+// and lose to mobile networks (live Cold case). A background gains nothing
+// from PNG's losslessness; q85 JPEG is ~×10 smaller. Real transparency (a
+// stylized vignette) keeps the PNG untouched.
 func MapBackgrounds(srcDir, contentDir string) (map[string]string, error) {
 	root := resolveSrc(srcDir)
 	out := map[string]string{}
@@ -73,6 +81,10 @@ func MapBackgrounds(srcDir, contentDir string) (map[string]string, error) {
 			return nil
 		}
 		id := stem(d.Name())
+		if url, ok := transcodeBgJpeg(path, filepath.Join(contentDir, "bg"), id); ok {
+			out[id] = url
+			return nil
+		}
 		dst := filepath.Join(contentDir, "bg", id+".png")
 		if err := copyFile(path, dst); err != nil {
 			return err
@@ -84,6 +96,72 @@ func MapBackgrounds(srcDir, contentDir string) (map[string]string, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// A PNG background smaller than this ships as-is — the JPEG win isn't worth a
+// recompress (and tiny files are usually placeholders or UI plates anyway).
+const bgJpegThreshold = 500 << 10
+
+// transcodeBgJpeg converts a big, fully-opaque PNG background to a q85 JPEG
+// next to where the PNG would have landed. Returns ("", false) on any reason
+// to keep the PNG (small file, transparency, decode/encode trouble) — the
+// caller then falls through to the plain copy.
+func transcodeBgJpeg(src, bgDir, id string) (string, bool) {
+	st, err := os.Stat(src)
+	if err != nil || st.Size() < bgJpegThreshold {
+		return "", false
+	}
+	dst := filepath.Join(bgDir, id+".jpg")
+	url := "/content/bg/" + id + ".jpg"
+	if fi, err := os.Stat(dst); err == nil && fi.Size() > 0 {
+		return url, true // idempotent re-import: already transcoded
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		return "", false
+	}
+	defer f.Close()
+	img, err := png.Decode(f)
+	if err != nil {
+		return "", false
+	}
+	if hasMeaningfulAlpha(img) {
+		return "", false
+	}
+	if err := os.MkdirAll(bgDir, 0o755); err != nil {
+		return "", false
+	}
+	w, err := os.Create(dst)
+	if err != nil {
+		return "", false
+	}
+	defer w.Close()
+	if err := jpeg.Encode(w, img, &jpeg.Options{Quality: 85}); err != nil {
+		os.Remove(dst)
+		return "", false
+	}
+	return url, true
+}
+
+// hasMeaningfulAlpha samples a coarse grid (a full scan of a 4K PNG is waste)
+// and reports whether any sampled pixel is meaningfully transparent.
+func hasMeaningfulAlpha(img image.Image) bool {
+	b := img.Bounds()
+	stepX, stepY := b.Dx()/64, b.Dy()/64
+	if stepX < 1 {
+		stepX = 1
+	}
+	if stepY < 1 {
+		stepY = 1
+	}
+	for y := b.Min.Y; y < b.Max.Y; y += stepY {
+		for x := b.Min.X; x < b.Max.X; x += stepX {
+			if _, _, _, a := img.At(x, y).RGBA(); a < 0xf000 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // nameFromFolder is a display-name fallback: the folder/stem minus its leading

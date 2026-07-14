@@ -136,8 +136,12 @@ func indexBackgrounds(contentDir string, locs map[string]string, tpl *Template) 
 		if entries, err := os.ReadDir(filepath.Join(contentDir, "bg")); err == nil {
 			for _, e := range entries {
 				n := e.Name()
-				if !strings.HasSuffix(strings.ToLower(n), ".png") {
-					continue // фоны ship as .png; the .jpg entries are articy assets / placeholders
+				ln := strings.ToLower(n)
+				// HD фоны land as .png from the drop or as .jpg when the import
+				// transcoded them (transcodeBgJpeg); tiny .jpg articy assets /
+				// placeholders are filtered by the size floor below either way.
+				if !strings.HasSuffix(ln, ".png") && !strings.HasSuffix(ln, ".jpg") {
+					continue
 				}
 				if info, err := e.Info(); err == nil && info.Size() < minSize {
 					continue // a small file is an autostage placeholder, not real art
