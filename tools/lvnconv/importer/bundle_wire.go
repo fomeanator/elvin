@@ -668,12 +668,22 @@ func addLayeredChapterAssets(ch *Chapter, scriptData []byte, sprites map[string]
 	if ch.Assets == nil {
 		ch.Assets = map[string]AssetMeta{}
 	}
+	// Critical gates the Play button — it must cover the OPENING scene only.
+	// Marking the whole chapter's cast critical made the gate download every
+	// outfit/emotion of every character up front (live case: 72 files,
+	// 69 seconds on a slow link before the first line). Later scenes' art
+	// streams as deferred while the player reads; the stage self-heals any
+	// miss.
+	bgCount := 0
 	done := map[string]bool{} // entity ids already expanded
 	for _, op := range ops {
 		if op == nil {
 			continue
 		}
-		if n, _ := op["op"].(string); n != "actor" {
+		if n, _ := op["op"].(string); n == "bg" {
+			bgCount++
+			continue
+		} else if n != "actor" {
 			continue
 		}
 		id, _ := op["id"].(string)
@@ -685,12 +695,67 @@ func addLayeredChapterAssets(ch *Chapter, scriptData []byte, sprites map[string]
 		if !ok {
 			continue
 		}
+		firstScene := bgCount <= 1
+		crit := map[string]bool{}
+		if firstScene {
+			// The gate needs the actor's OPENING look, live: body, every
+			// emotion (they swap per line), the DEFAULT outfit/hair. The
+			// rest of the wardrobe streams deferred like everything else.
+			for _, u := range resolveEntityCriticalURLs(ent) {
+				crit[u] = true
+			}
+		}
 		for _, url := range resolveEntityArtURLs(ent) {
 			if _, exists := ch.Assets[url]; !exists {
-				ch.Assets[url] = AssetMeta{Kind: "sprite", Scope: "chapter", Critical: true}
+				ch.Assets[url] = AssetMeta{Kind: "sprite", Scope: "chapter", Critical: crit[url]}
 			}
 		}
 	}
+}
+
+// resolveEntityCriticalURLs is resolveEntityArtURLs trimmed to the entity's
+// opening look: static layers, every EMOTION value (emotions change per line
+// of dialogue) and only the DEFAULT value of every other axis (outfits/hair
+// swap rarely and can stream).
+func resolveEntityCriticalURLs(ent map[string]any) []string {
+	layers, _ := ent["layers"].([]any)
+	axes, _ := ent["axes"].(map[string]any)
+	defaults, _ := ent["defaults"].(map[string]any)
+	var out []string
+	for _, l := range layers {
+		lm, ok := l.(map[string]any)
+		if !ok {
+			continue
+		}
+		url, _ := lm["url"].(string)
+		if url == "" {
+			continue
+		}
+		m := axisTokenRe.FindStringSubmatch(url)
+		if m == nil {
+			out = append(out, url)
+			continue
+		}
+		axis := m[1]
+		if axis == "emotion" {
+			if vals, ok := axes[axis].([]any); ok {
+				for _, v := range vals {
+					out = append(out, strings.Replace(url, "{"+axis+"}", fmt.Sprint(v), 1))
+				}
+			}
+			continue
+		}
+		def := defaults[axis]
+		if def == nil {
+			if vals, ok := axes[axis].([]any); ok && len(vals) > 0 {
+				def = vals[0]
+			}
+		}
+		if def != nil {
+			out = append(out, strings.Replace(url, "{"+axis+"}", fmt.Sprint(def), 1))
+		}
+	}
+	return out
 }
 
 // resolveEntityArtURLs expands every layer of a catalog entity over ALL its axis
