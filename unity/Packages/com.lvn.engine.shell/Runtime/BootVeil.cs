@@ -21,6 +21,16 @@ namespace Lvn.UI.Screens
         public static void Show()
         {
             if (_go != null) return;
+            // The empty boot scene's camera clears to the DEFAULT SKYBOX — a
+            // grey-blue wash that shows for every frame the UI hasn't covered
+            // yet. Pin it to the veil's own dark so the first pixels on screen
+            // are already the right colour.
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.063f, 0.063f, 0.082f); // #101015
+            }
             _go = new GameObject("LvnBootVeil");
             var doc = _go.AddComponent<UIDocument>();
             doc.panelSettings = LvnPanel.Shared;
@@ -43,6 +53,38 @@ namespace Lvn.UI.Screens
             _status.style.marginTop = 6;
             _status.style.color = new Color(0.60f, 0.58f, 0.54f); // #9a948a
             root.Add(_status);
+
+            // The engine's default splash brand: a steel ELVIN wordmark pinned
+            // to the bottom with the engine version dimmed under it. This is
+            // the pre-manifest surface, so it carries the ENGINE's identity —
+            // a game's own branding takes over with the themed shell screens.
+            var brand = new VisualElement();
+            brand.style.position = Position.Absolute;
+            brand.style.left = 0; brand.style.right = 0; brand.style.bottom = 46;
+            brand.style.alignItems = Align.Center;
+            brand.pickingMode = PickingMode.Ignore;
+
+            var word = new Label(Lvn.LvnEngine.Name);
+            word.style.fontSize = 30;
+            word.style.unityFontStyleAndWeight = FontStyle.Bold;
+            word.style.letterSpacing = 9;
+            word.style.color = new Color(0.83f, 0.87f, 0.91f); // полированная сталь
+            word.style.textShadow = new TextShadow
+            {
+                offset = new Vector2(0f, 2f),
+                blurRadius = 5f,
+                color = new Color(0f, 0f, 0f, 0.85f),
+            };
+            brand.Add(word);
+
+            var ver = new Label("v" + Lvn.LvnEngine.Version);
+            ver.style.fontSize = 12;
+            ver.style.marginTop = 3;
+            ver.style.letterSpacing = 3;
+            ver.style.color = new Color(0.38f, 0.40f, 0.43f); // блёклый серый
+            brand.Add(ver);
+
+            root.Add(brand);
         }
 
         /// <summary>Advance the milestone readout ("30%", "подключение…").</summary>

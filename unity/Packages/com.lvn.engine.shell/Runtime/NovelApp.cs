@@ -96,6 +96,11 @@ namespace Lvn.UI.Screens
             // device never sits on a raw black screen while boot works.
             BootVeil.Show();
             Mark("veil up (first paint)");
+            // Let the veil actually REACH the screen before any heavier boot
+            // work (PSO load, probes): on slow devices frame 1's render was
+            // getting starved and the first visible percent was already 30.
+            await Task.Yield();
+            await Task.Yield();
 
             // PSO precook: warms last session's traced pipeline states behind
             // the boot screen (first launch traces instead) — kills the
