@@ -86,6 +86,17 @@ namespace Lvn.UI.Screens
 
         private async void Start()
         {
+            // Boot telemetry: one stopwatch, a mark per phase — `adb logcat -s
+            // Unity | grep lvn-boot` (or the editor console) reads as a boot
+            // profile. Anything that grows here is a regression to hunt.
+            var bootClock = System.Diagnostics.Stopwatch.StartNew();
+            void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
+
+            // First paint THIS frame — before any network round-trip — so the
+            // device never sits on a raw black screen while boot works.
+            BootVeil.Show();
+            Mark("veil up (first paint)");
+
             // PSO precook: warms last session's traced pipeline states behind
             // the boot screen (first launch traces instead) — kills the
             // first-show shader-compile hitches. Fire-and-forget, self-paced.
@@ -98,6 +109,10 @@ namespace Lvn.UI.Screens
             // Product services ride the same host; registration is idempotent
             // and a no-op offline — a pure-offline game just never signs in.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            // Field diagnostics from the first frame: errors, exceptions and the
+            // [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
+            // device's crash is readable via /v1/admin/client-logs, no adb.
+            Lvn.Services.LvnLogShip.Boot();
 #if UNITY_EDITOR
             // Editor test doubles: the 'dev' auth provider (server -auth-dev)
             // and an instantly-"watched" rewarded ad — the full sign-in and
@@ -132,18 +147,31 @@ namespace Lvn.UI.Screens
             // path instead of hanging on a stuck socket. A local/bundled origin is
             // always reachable. The probe pins the global offline flag so every later
             // fetch fast-fails into the disk cache.
-            bool online = _assets.Loader.IsLocal || await ProbeOnlineAsync();
-            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
-            Debug.Log($"[novelapp] connectivity → {(online ? "online" : "offline")}");
+            //
+            // All three boot round-trips fly TOGETHER — healthz, the version
+            // index and the manifest are independent GETs, and running them
+            // serially was the single biggest boot cost on device (3 × mobile
+            // RTT; the old worst case even ate the probe's full 3s deadline
+            // before the first byte of manifest moved).
+            var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
+            var versionsTask = _assets.WarmVersionsAsync();
+            var manifestTask = FetchManifestAsync();
+            BootVeil.Progress(10, "подключение…");
 
-            try { await _assets.WarmVersionsAsync(); } catch { /* offline: last-known index */ }
+            bool online = await probeTask;
+            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
+            Mark($"connectivity → {(online ? "online" : "offline")}");
+            BootVeil.Progress(30);
+
+            try { await versionsTask; } catch { /* offline: last-known index */ }
+            Mark("version index");
 
             // Manifest: fresh from the server when online (cached for next time), else
             // the last cached copy — so a previously-online install still plays offline.
             LvnManifest manifest = null;
             if (online)
             {
-                try { manifest = await FetchManifestAsync(); CacheManifest(manifest); }
+                try { manifest = await manifestTask; CacheManifest(manifest); }
                 catch (Exception ex)
                 {
                     Debug.LogWarning($"[novelapp] manifest fetch failed: {ex.Message} — falling back to cache");
@@ -151,11 +179,19 @@ namespace Lvn.UI.Screens
                     LvnNetworkStatus.MarkOffline("manifest fetch failed");
                 }
             }
+            else
+                // The in-flight fetch will fail on its own timeline; observe the
+                // fault so it can't surface as an unobserved-exception warning.
+                _ = manifestTask.ContinueWith(t => _ = t.Exception,
+                    TaskContinuationOptions.OnlyOnFaulted);
             if (manifest == null) manifest = LoadCachedManifest();
+            Mark("manifest");
+            BootVeil.Progress(60);
             if (manifest == null)
             {
                 Debug.LogError("[novelapp] offline and no cached manifest — launch once online " +
                                "(or ship an offline bundle) to cache the novel for offline play");
+                BootVeil.Progress(0, "нет соединения с сервером");
                 return;
             }
             Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
@@ -180,11 +216,17 @@ namespace Lvn.UI.Screens
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             LvnPrefs.Changed += OnPrefsMaybeLocale;
 
+            Mark("stage + theme ready");
             _downloads = new DownloadManager(_assets.Loader);
             var prefetch = SafeBootPrefetch(manifest, online);
+            _ = prefetch.ContinueWith(_ => Debug.Log(
+                $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
+                TaskScheduler.FromCurrentSynchronizationContext());
 
             _shell = NovelShell.Create(transform, 30, ShellTheme);
             _shell.Build(manifest, _assets);
+            Mark("shell built");
+            BootVeil.Progress(90);
 
             // The currency store: a quick-menu entry when the manifest opts in
             // (ui.store present), and the `ext store_show` op for scripts —
@@ -316,7 +358,9 @@ namespace Lvn.UI.Screens
                 };
             }
 
-            await _shell.RunAsync(
+            // RunAsync paints the shell's own boot screen synchronously before
+            // its first await — the veil hands off without a black frame.
+            var run = _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
                 chapterReady: BeginChapterLoading,
                 chapterProgress: ch => ChapterLoadProgress,
@@ -331,6 +375,9 @@ namespace Lvn.UI.Screens
                     if (l.BatchTotal > 0) return Mathf.Clamp01((float)l.BatchDone / l.BatchTotal);
                     return prefetch.IsCompleted ? 1f : 0f;
                 });
+            BootVeil.Hide();
+            Mark("shell on screen — boot done");
+            await run;
         }
 
         // ── chapter loading gate ────────────────────────────────────────────────
@@ -357,9 +404,23 @@ namespace Lvn.UI.Screens
             _preparedChapter = ch;
             var script = _chapterScript;
             var sched = _chapterSched;
+            _ = WatchChapterWarmAsync(ch, script, sched);
             // A faulted script task still completes the gate — PlayOneChapterAsync
             // owns the error path (cache fallback / "unavailable offline").
             return () => script.IsCompleted && sched.RequiredReady;
+        }
+
+        // Timing telemetry for the loading gate: how long the script fetch and
+        // the required-asset warm ACTUALLY took (per-asset costs are the
+        // [lvn-perf] lines) — the number to shrink when "loading feels long".
+        private static async Task WatchChapterWarmAsync(LvnChapter ch, Task script, AssetScheduler sched)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try { await script; } catch { /* the gate's error path reports it */ }
+            Debug.Log($"[lvn-boot] warm {ch.id}: script +{sw.ElapsedMilliseconds}ms");
+            while (!sched.RequiredReady && sw.ElapsedMilliseconds < 120_000)
+                await Task.Delay(100);
+            Debug.Log($"[lvn-boot] warm {ch.id}: required assets {sched.RequiredDone}/{sched.RequiredTotal} +{sw.ElapsedMilliseconds}ms");
         }
 
         // Progress for the loading bar: bytes when the manifest reports asset
