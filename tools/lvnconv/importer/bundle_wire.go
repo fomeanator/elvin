@@ -67,11 +67,56 @@ func PostProcessBundle(res *Result, xd XlsxData, contentDir string, tpl *Templat
 	buildWardrobes(res, xd, tpl)
 	renameProtagonistSpeaker(res, xd, tpl) // show the player-entered name, not the articy label
 	applySpeakerNames(res, tpl)            // template speaker_names: latin roster labels → display names
-	prefetchLayeredArt(res)                // preload every layered-cast art of each chapter (no pop-in)
 
 	bgidx := indexBackgrounds(contentDir, xd.Locations, tpl)
 	for i := range res.Scripts {
 		rewriteScriptOps(&res.Scripts[i], bgidx, tpl)
+	}
+
+	// The release plans MUST be derived from the scripts as they will ship —
+	// the base import collected them before the rewrites above swapped bg urls
+	// to the real HD фоны. Live bug this ordering caught: the loading screen
+	// proudly warmed 72/72 stale urls while the chapter's actual 5 MB
+	// backgrounds cold-loaded mid-scene and lost to the network.
+	reconcileChapterAssets(res)
+	prefetchLayeredArt(res) // then the layered-cast art on top (no pop-in)
+}
+
+// reconcileChapterAssets rebuilds every chapter's FLAT sprite release set from
+// its FINAL compiled script. Non-sprite entries (audio) survive; layered cast
+// art is re-added by prefetchLayeredArt, which must run after this pass.
+func reconcileChapterAssets(res *Result) {
+	byCid := map[string][]byte{}
+	for _, sf := range res.Scripts {
+		if strings.HasSuffix(sf.Rel, ".lvns") || !strings.HasSuffix(sf.Rel, ".lvn") {
+			continue
+		}
+		byCid[strings.TrimSuffix(strings.TrimPrefix(sf.Rel, "scripts/"), ".lvn")] = sf.Data
+	}
+	for si := range res.Title.Seasons {
+		for ci := range res.Title.Seasons[si].Chapters {
+			ch := &res.Title.Seasons[si].Chapters[ci]
+			data := byCid[ch.ID]
+			if data == nil {
+				continue
+			}
+			ops, _, ok := decodeScriptOps(data)
+			if !ok {
+				continue
+			}
+			fresh := collectAssetsFromOps(ops)
+			if ch.Assets == nil {
+				ch.Assets = map[string]AssetMeta{}
+			}
+			for url, m := range ch.Assets {
+				if m.Kind == "sprite" {
+					delete(ch.Assets, url)
+				}
+			}
+			for url, m := range fresh {
+				ch.Assets[url] = m
+			}
+		}
 	}
 }
 
