@@ -1,0 +1,373 @@
+openapi: 3.0.3
+info:
+  title: LVN Content Server API
+  version: "1.0"
+  description: |
+    The LVN engine's content + product server. Three surfaces:
+
+    * **Content** — the manifest, chapter scripts and art the game streams
+      (`/content/...` also serves on-demand `@2k` downscale and `.ktx2`
+      GPU-texture variants: request `<name>@2k.png` / `<name>@2k.ktx2`;
+      a 404 means "use the original").
+    * **Game API** — device auth, cross-device state, wallet/IAP, daily
+      rewards, rewarded ads, leaderboards, analytics.
+    * **Admin API** — novel imports (the five-file articy bundle), manifest
+      editing/publishing, grants and user inspection. `Authorization:
+      Bearer <admin token>` (the token from the server's `lvn.env`).
+
+    Game-API auth: the client generates a random `device_id` once, calls
+    `/v1/auth/register`, and sends the returned session token as
+    `Authorization: Bearer <token>` on wallet/auth calls. Save-state uses
+    its own `X-State-Key` claim header instead.
+servers:
+  - url: https://timeromance.ru
+  - url: http://localhost:8078
+tags:
+  - {name: content, description: Manifest, scripts and art}
+  - {name: auth, description: Device sessions and platform sign-in}
+  - {name: state, description: Cross-device save/stat sync}
+  - {name: economy, description: Wallet, IAP, daily rewards, rewarded ads}
+  - {name: social, description: Leaderboards, analytics}
+  - {name: admin, description: Imports and operations (Bearer admin token)}
+
+paths:
+  /healthz:
+    get:
+      tags: [content]
+      summary: Liveness probe (also the client's online/offline beacon)
+      responses: {"200": {description: OK}}
+
+  /v1/content/manifest:
+    get:
+      tags: [content]
+      summary: The full content manifest (titles, chapters, cast, ui theme)
+      responses: {"200": {description: manifest JSON}}
+  /v1/content/version:
+    get:
+      tags: [content]
+      summary: Content version hash — clients poll it to hot-reload
+      responses:
+        "200":
+          description: version envelope
+          content:
+            application/json:
+              schema: {type: object, properties: {version: {type: string}}}
+  /content/asset-versions.json:
+    get:
+      tags: [content]
+      summary: Per-asset sha256 index (cache-busting; derived variants excluded)
+      responses: {"200": {description: "path → sha256 map"}}
+  /content/{path}:
+    get:
+      tags: [content]
+      summary: Static content (art, scripts, audio, catalogs)
+      description: |
+        Variant conventions: `X@2k.png|jpg` — server-side downscale to fit
+        2048² (404 → source already fits, use the original); `X@2k.ktx2` —
+        GPU-compressed BasisU texture (cold miss answers 404 instantly and
+        encodes in the background — retry next session).
+      parameters:
+        - {name: path, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {description: file bytes}
+        "404": {description: not present (also the "no variant" signal)}
+
+  /v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register/refresh a device session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id]
+              properties:
+                device_id: {type: string, minLength: 16, description: client-generated random secret, stable per install}
+      responses:
+        "200": {description: "{user, token} — send token as Authorization: Bearer"}
+  /v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Sign in with a platform identity (google | apple | dev)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider: {type: string, enum: [google, apple, dev]}
+                token: {type: string, description: platform ID token}
+      responses: {"200": {description: session for the linked account}}
+  /v1/auth/link:
+    post:
+      tags: [auth]
+      summary: Link a platform identity to the current device account
+      security: [{bearer: []}]
+      responses: {"200": {description: linked}}
+  /v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Current session's user info
+      security: [{bearer: []}]
+      responses: {"200": {description: user record}}
+  /v1/auth/profile:
+    post:
+      tags: [auth]
+      summary: Update display name
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {name: {type: string}}}
+      responses: {"200": {description: updated}}
+
+  /v1/state:
+    get:
+      tags: [state]
+      summary: Load a user's persisted vars/saves blob
+      parameters:
+        - {name: user, in: query, required: true, schema: {type: string}}
+        - {name: X-State-Key, in: header, schema: {type: string}, description: first-writer claim key for this user id}
+      responses:
+        "200": {description: state JSON}
+        "404": {description: no state yet}
+    put:
+      tags: [state]
+      summary: Store the blob (durable, last-write-wins per scope)
+      parameters:
+        - {name: user, in: query, required: true, schema: {type: string}}
+        - {name: X-State-Key, in: header, required: true, schema: {type: string}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object}}}}
+      responses: {"200": {description: stored}}
+
+  /v1/wallet:
+    get:
+      tags: [economy]
+      summary: Balances, inventory and refill timers
+      security: [{bearer: []}]
+      responses:
+        "200":
+          description: wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balances: {type: object, additionalProperties: {type: integer}}
+                  inventory: {type: object, additionalProperties: {type: integer}}
+                  regen:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        balance: {type: integer}
+                        cap: {type: integer}
+                        interval_seconds: {type: integer}
+                        next_refill_unix: {type: integer}
+  /v1/wallet/earn:
+    post:
+      tags: [economy]
+      summary: Credit currency (TEST MODE — disable with -wallet-earn=false before real IAP)
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currency: {type: string}
+                amount: {type: integer}
+                reason: {type: string}
+      responses: {"200": {description: new wallet state}, "403": {description: earn disabled}}
+  /v1/wallet/spend:
+    post:
+      tags: [economy]
+      summary: Spend currency / buy a wardrobe sku
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currency: {type: string}
+                amount: {type: integer}
+                reason: {type: string}
+                sku: {type: string, description: optional inventory item this spend purchases}
+      responses: {"200": {description: new wallet state}, "402": {description: insufficient funds}}
+  /v1/iap/catalog:
+    get:
+      tags: [economy]
+      summary: Purchasable packs for the store screen (public)
+      responses: {"200": {description: "sku → {currency, amount, title, price, icon, section, grants}"}}
+  /v1/iap/verify:
+    post:
+      tags: [economy]
+      summary: Verify a store receipt and grant the pack (Apple wired; Google 501 until configured)
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platform: {type: string, enum: [appstore, googleplay, dev]}
+                sku: {type: string}
+                receipt: {type: string}
+      responses: {"200": {description: granted}, "501": {description: platform not configured}}
+  /v1/daily:
+    get:
+      tags: [economy]
+      summary: Daily-reward calendar and streak state
+      security: [{bearer: []}]
+      responses: {"200": {description: "{streak, last_claim, rewards[]}"}}
+  /v1/daily/claim:
+    post:
+      tags: [economy]
+      summary: Claim today's reward
+      security: [{bearer: []}]
+      responses: {"200": {description: granted}, "409": {description: already claimed today}}
+  /v1/ads/catalog:
+    get:
+      tags: [economy]
+      summary: Rewarded-ad placements (currency, amount, daily cap)
+      responses: {"200": {description: placements}}
+  /v1/ads/reward:
+    post:
+      tags: [economy]
+      summary: Grant a placement's reward after a watched ad
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {placement: {type: string}}}
+      responses: {"200": {description: granted}, "429": {description: daily cap reached}}
+
+  /v1/leaderboard/{board}:
+    get:
+      tags: [social]
+      summary: Top entries (n ≤ 100) plus the caller's rank
+      parameters:
+        - {name: board, in: path, required: true, schema: {type: string}}
+        - {name: n, in: query, schema: {type: integer, maximum: 100}}
+      responses: {"200": {description: entries}}
+    post:
+      tags: [social]
+      summary: Submit a score
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {score: {type: integer}, name: {type: string}}}
+      responses: {"200": {description: accepted}}
+  /v1/analytics/events:
+    post:
+      tags: [social]
+      summary: Batched client analytics events (fire-and-forget)
+      requestBody: {content: {application/json: {schema: {type: object}}}}
+      responses: {"200": {description: accepted}}
+
+  /v1/admin/import-bundle:
+    post:
+      tags: [admin]
+      summary: Import a whole novel from the five-file articy bundle
+      description: |
+        Multipart file parts `articy` (.rar/.zip project), `backgrounds`,
+        `heroine`, `characters` (.zip), `vars` (.xlsx) plus text fields
+        `id`, `name`, `subtitle`, `template`. Alternatively JSON
+        `{Articy, Backgrounds, Heroine, Characters, Vars, ID, Name,
+        Template}` with host-local paths (requires `-import-root`).
+        Takes minutes; the response reports chapters, sprites, art and
+        author-actionable warnings.
+      security: [{bearer: []}]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                articy: {type: string, format: binary}
+                backgrounds: {type: string, format: binary}
+                heroine: {type: string, format: binary}
+                characters: {type: string, format: binary}
+                vars: {type: string, format: binary}
+                id: {type: string}
+                name: {type: string}
+                template: {type: string, description: import-templates/<name>.json; empty = built-in default}
+      responses:
+        "200":
+          description: import report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: string}
+                  name: {type: string}
+                  chapters: {type: integer}
+                  sprites: {type: integer}
+                  art_files: {type: integer}
+                  warnings: {type: array, items: {type: string}}
+        "422": {description: import failed (extraction/convert error)}
+  /v1/admin/import-articy:
+    post:
+      tags: [admin]
+      summary: Import a bare articy project (no art bundle)
+      security: [{bearer: []}]
+      responses: {"200": {description: import report}}
+  /v1/admin/manifest:
+    get:
+      tags: [admin]
+      summary: Read the manifest for editing
+      security: [{bearer: []}]
+      responses: {"200": {description: manifest}}
+    put:
+      tags: [admin]
+      summary: Stage manifest changes
+      security: [{bearer: []}]
+      responses: {"200": {description: staged}}
+  /v1/admin/manifest/publish:
+    post:
+      tags: [admin]
+      summary: Publish the staged manifest (deploy moment)
+      security: [{bearer: []}]
+      responses: {"200": {description: published}}
+  /v1/admin/grant:
+    post:
+      tags: [admin]
+      summary: Grant currency/items to a user
+      security: [{bearer: []}]
+      responses: {"200": {description: granted}}
+  /v1/admin/users:
+    get: {tags: [admin], summary: List users, security: [{bearer: []}], responses: {"200": {description: users}}}
+  /v1/admin/users/{id}:
+    get: {tags: [admin], summary: One user's record, security: [{bearer: []}],
+          parameters: [{name: id, in: path, required: true, schema: {type: string}}],
+          responses: {"200": {description: user}}}
+  /v1/admin/saves:
+    get: {tags: [admin], summary: List save blobs, security: [{bearer: []}], responses: {"200": {description: saves}}}
+  /v1/admin/orders:
+    get: {tags: [admin], summary: IAP order log, security: [{bearer: []}], responses: {"200": {description: orders}}}
+  /v1/admin/history:
+    get: {tags: [admin], summary: Manifest edit history, security: [{bearer: []}], responses: {"200": {description: history}}}
+  /v1/admin/rollback:
+    post: {tags: [admin], summary: Roll the manifest back to a history entry, security: [{bearer: []}], responses: {"200": {description: rolled back}}}
+  /v1/admin/files:
+    get: {tags: [admin], summary: Content file listing, security: [{bearer: []}], responses: {"200": {description: files}}}
+  /v1/analytics/summary:
+    get: {tags: [admin], summary: Aggregated analytics, security: [{bearer: []}], responses: {"200": {description: summary}}}
+  /v1/export:
+    post:
+      tags: [admin]
+      summary: Export a title as a self-contained offline Unity project (APK pipeline)
+      security: [{bearer: []}]
+      responses: {"200": {description: export archive}}
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Game API — device-session token from /v1/auth/register; Admin API — the server's admin token.
