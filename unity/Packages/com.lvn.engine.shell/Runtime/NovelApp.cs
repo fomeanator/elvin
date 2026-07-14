@@ -233,7 +233,6 @@ namespace Lvn.UI.Screens
             _shell = NovelShell.Create(transform, 30, ShellTheme);
             _shell.Build(manifest, _assets);
             Mark("shell built");
-            BootVeil.Progress(90);
 
             // The currency store: a quick-menu entry when the manifest opts in
             // (ui.store present), and the `ext store_show` op for scripts —
@@ -365,8 +364,13 @@ namespace Lvn.UI.Screens
                 };
             }
 
-            // RunAsync paints the shell's own boot screen synchronously before
-            // its first await — the veil hands off without a black frame.
+            // The veil OWNS the whole app boot — one continuous surface from
+            // the first frame to the first interactive screen. It stays up
+            // OVER the shell's boot splash and walks 60→100% with the real
+            // boot-prefetch progress; only then does it hand off, so the user
+            // never sees a second loading bar start over.
+            _ = DriveBootVeilAsync(prefetch, bootClock);
+
             var run = _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
                 chapterReady: BeginChapterLoading,
@@ -382,9 +386,26 @@ namespace Lvn.UI.Screens
                     if (l.BatchTotal > 0) return Mathf.Clamp01((float)l.BatchDone / l.BatchTotal);
                     return prefetch.IsCompleted ? 1f : 0f;
                 });
-            BootVeil.Hide();
-            Mark("shell on screen — boot done");
             await run;
+        }
+
+        // Walks the boot veil's last stretch (60→100%) with the real boot
+        // prefetch, then fades the veil into the first interactive screen.
+        private async Task DriveBootVeilAsync(Task prefetch, System.Diagnostics.Stopwatch bootClock)
+        {
+            var l = _assets?.Loader;
+            while (!prefetch.IsCompleted && this != null)
+            {
+                float p = l != null && l.BatchTotal > 0
+                    ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
+                BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f));
+                await Task.Yield();
+            }
+            BootVeil.Progress(100);
+            await Task.Yield();
+            await Task.Yield();
+            BootVeil.Hide();
+            Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
         }
 
         // ── chapter loading gate ────────────────────────────────────────────────
