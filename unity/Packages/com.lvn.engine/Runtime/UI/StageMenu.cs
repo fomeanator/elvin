@@ -71,7 +71,7 @@ namespace Lvn.UI
             _fabRow.Add(_modeBadge);
 
             if (_theme.MenuShowRollback) _fabRow.Add(Fab("↩", () => _stage.RollbackStep()));
-            if (_theme.MenuShowMenu) _fabRow.Add(Fab("☰", OpenSheet));
+            if (_theme.MenuShowMenu) _fabRow.Add(BurgerFab(OpenSheet));
             Add(_fabRow);
 
             // Cheap poll keeps the badge honest across every way a mode can flip
@@ -103,6 +103,26 @@ namespace Lvn.UI
             // A press on the chrome must never bubble into tap-to-advance.
             b.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            return b;
+        }
+
+        // The menu button draws its hamburger as three bars instead of the "☰"
+        // glyph — Android's default runtime font lacks it (tofu on device;
+        // desktop fonts happen to cover it, so the editor never showed the bug).
+        private VisualElement BurgerFab(Action onClick)
+        {
+            var b = (Button)Fab("", onClick);
+            b.style.alignItems = Align.Center;
+            b.style.justifyContent = Justify.Center;
+            for (int i = 0; i < 3; i++)
+            {
+                var bar = new VisualElement();
+                bar.pickingMode = PickingMode.Ignore;
+                bar.style.width = 18; bar.style.height = 2;
+                bar.style.marginTop = i == 0 ? 0 : 3;
+                bar.style.backgroundColor = _theme.MenuTextColor;
+                b.Add(bar);
+            }
             return b;
         }
 

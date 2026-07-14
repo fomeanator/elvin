@@ -142,6 +142,11 @@ func main() {
 		log.Fatalf("ads service: %v", err)
 	}
 	adminSvc := NewAdminService(*contentDir, *adminToken, authSvc, walletSvc)
+	clientLogSvc, err := NewClientLogService(filepath.Join(servicesDir, "client-logs"), *adminToken)
+	if err != nil {
+		log.Fatalf("client log service: %v", err)
+	}
+	clientLogSvc.Routes(mux)
 	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
