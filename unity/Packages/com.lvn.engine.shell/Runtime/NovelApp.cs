@@ -92,6 +92,12 @@ namespace Lvn.UI.Screens
             var bootClock = System.Diagnostics.Stopwatch.StartNew();
             void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
 
+            // Field diagnostics BEFORE the first mark: errors, exceptions and
+            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
+            // device's crash is readable via /v1/admin/client-logs, no adb.
+            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            Lvn.Services.LvnLogShip.Boot();
+
             // First paint THIS frame — before any network round-trip — so the
             // device never sits on a raw black screen while boot works.
             BootVeil.Show();
@@ -110,14 +116,10 @@ namespace Lvn.UI.Screens
             if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
                 ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
 
+            // Product services ride the same host (BaseUrl set above, before the
+            // log shipper); registration is idempotent and a no-op offline — a
+            // pure-offline game just never signs in.
             var contentBase = ServerUrl;
-            // Product services ride the same host; registration is idempotent
-            // and a no-op offline — a pure-offline game just never signs in.
-            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
-            // Field diagnostics from the first frame: errors, exceptions and the
-            // [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
-            // device's crash is readable via /v1/admin/client-logs, no adb.
-            Lvn.Services.LvnLogShip.Boot();
 #if UNITY_EDITOR
             // Editor test doubles: the 'dev' auth provider (server -auth-dev)
             // and an instantly-"watched" rewarded ad — the full sign-in and

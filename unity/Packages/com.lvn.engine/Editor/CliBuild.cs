@@ -32,6 +32,14 @@ namespace Lvn.EditorTools
                 outPath = Path.Combine("Builds", defaultName);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath)) ?? ".");
 
+            // Stamp the build moment into the app version: it rides every
+            // device-log batch (LvnLogShip's device header), so "which build is
+            // this install actually running?" is answerable from the server —
+            // emulators are known to silently skip reinstalls.
+            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmm");
+            PlayerSettings.bundleVersion = stamp;
+            Debug.Log($"[lvn-build] version stamp {stamp}");
+
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { EnsureBootScene() },
