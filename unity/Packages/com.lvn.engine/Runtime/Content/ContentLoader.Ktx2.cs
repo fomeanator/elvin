@@ -42,6 +42,54 @@ namespace Lvn.Content
         // for the rest of the session. A fresh ContentLoader tries again.
         private bool _ktx2Unavailable;
 
+#if LVN_KTX2
+        // GPU honesty probe, once per session: SystemInfo happily CLAIMS
+        // ASTC/ETC2 support on GPUs that then sample the texture as black —
+        // live-hit on BlueStacks (every ktx2-transcoded texture rendered as a
+        // black cutout while raw RGBA art was fine). A tiny solid-red KTX2
+        // ships in Resources; transcode it, draw it into a RenderTexture, read
+        // the pixel back — not red means the whole path lies on this GPU and
+        // the session falls back to PNG/JPG.
+        private static bool? _gpuHonest;
+
+        private static async Task<bool> GpuRendersKtx2Async()
+        {
+            if (_gpuHonest.HasValue) return _gpuHonest.Value;
+            try
+            {
+                var probe = Resources.Load<TextAsset>("LvnKtxProbe");
+                if (probe == null) return (_gpuHonest = true).Value; // no probe shipped — trust the GPU
+                using var data = new NativeArray<byte>(probe.bytes, Allocator.Persistent);
+                var ktx = new KtxTexture();
+                var result = await ktx.LoadFromBytes(data.AsReadOnly(), linear: false);
+                if (result?.texture == null) return (_gpuHonest = false).Value;
+
+                var rt = RenderTexture.GetTemporary(4, 4, 0, RenderTextureFormat.ARGB32);
+                var prev = RenderTexture.active;
+                Graphics.Blit(result.texture, rt);
+                RenderTexture.active = rt;
+                var read = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+                read.ReadPixels(new Rect(0, 0, 4, 4), 0, 0);
+                read.Apply();
+                RenderTexture.active = prev;
+                RenderTexture.ReleaseTemporary(rt);
+                var c = read.GetPixel(2, 2);
+                UnityEngine.Object.Destroy(read);
+                UnityEngine.Object.Destroy(result.texture);
+                bool honest = c.r > 0.5f && c.g < 0.3f && c.b < 0.3f; // the probe is solid red
+                if (!honest)
+                    Debug.LogWarning($"[content] ktx2 disabled for this session: GPU claims support but sampled the probe as {c} (emulator?) — falling back to PNG/JPG");
+                _gpuHonest = honest;
+                return honest;
+            }
+            catch
+            {
+                _gpuHonest = false; // a probe that can't even run is a no
+                return false;
+            }
+        }
+#endif
+
         // Attempts the KTX2 path for `url`. Returns (null, 0) on ANY failure —
         // the caller (DecodeSpriteAsync) then runs the ordinary decode exactly
         // as if this method didn't exist.
@@ -53,6 +101,7 @@ namespace Lvn.Content
             if (_ktx2Unavailable) return (null, 0);
             var ktx2Url = Ktx2UrlFor(url);
             if (ktx2Url == null) return (null, 0);
+            if (!await GpuRendersKtx2Async()) { _ktx2Unavailable = true; return (null, 0); }
 
             byte[] bytes;
             try
