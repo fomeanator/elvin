@@ -63,6 +63,29 @@ namespace Lvn.Content
         // backstop for when the flag is stale (e.g. wifi dropped mid-session).
         private const int RequestTimeoutSeconds = 10;
 
+        // Asset transfers use a STALL deadline instead of a total-time one: a
+        // 5 MB background on a slow cell link legitimately takes >10s, and
+        // killing it mid-body (then pinning the offline flag) turned one slow
+        // file into a session-wide offline flap storm (live BlueStacks case:
+        // "Request timeout" every few seconds all session). A transfer stays
+        // alive for as long as its byte counter keeps moving; only a counter
+        // FROZEN this long is a dead socket.
+        private const int StallTimeoutSeconds = 15;
+
+        // Classify a failed request: only a connect-level failure (no bytes,
+        // not a timeout/abort) means THE NETWORK is gone and pins the global
+        // offline flag. A transfer that died mid-body or timed out is
+        // congestion — this fetch failed, the network may be fine; the caller's
+        // retry layer handles it without dragging the whole app offline.
+        private void NoteFetchFailure(UnityWebRequest req)
+        {
+            var err = req.error ?? "";
+            bool transient = req.downloadedBytes > 0
+                || err.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0
+                || err.IndexOf("abort", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!transient) MarkOfflineUnlessLocal("content fetch network error");
+        }
+
         // Await a UnityWebRequest via its `completed` callback instead of polling
         // isDone once per frame. Polling quantizes every await to frame
         // boundaries — and on a busy main thread it inflated the PERCEIVED cost
@@ -1217,15 +1240,24 @@ namespace Lvn.Content
                 var full = ResolveUrl(url);
                 using var req = UnityWebRequest.Get(full);
                 req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = RequestTimeoutSeconds;
+                req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
-                await AwaitRequest(req, req.SendWebRequest(), ct);
+                var op = req.SendWebRequest();
+                ulong seen = 0;
+                var stall = System.Diagnostics.Stopwatch.StartNew();
+                while (!op.isDone)
+                {
+                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
+                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
+                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
+                    await Task.Yield();
+                }
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    MarkOfflineUnlessLocal("content fetch network error");
+                    NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -1248,14 +1280,18 @@ namespace Lvn.Content
 
                 using var req = UnityWebRequest.Get(full);
                 req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = RequestTimeoutSeconds;
+                req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
+                ulong seen = 0;
+                var stall = System.Diagnostics.Stopwatch.StartNew();
                 while (!op.isDone)
                 {
                     if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
+                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
+                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
                     lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
                     if (_bytesExpected.GetValueOrDefault(url) == 0)
                     {
@@ -1269,7 +1305,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    MarkOfflineUnlessLocal("content fetch network error");
+                    NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -1489,14 +1525,18 @@ namespace Lvn.Content
                 if (resumeFrom > 0)
                     req.SetRequestHeader("Range", $"bytes={resumeFrom}-");
                 req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = RequestTimeoutSeconds;
+                req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
+                ulong seen = 0;
+                var stall = System.Diagnostics.Stopwatch.StartNew();
                 while (!op.isDone)
                 {
                     if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
+                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
+                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
                     lock (_inflight) _bytesReceived[url] = resumeFrom + (long)req.downloadedBytes;
                     if (_bytesExpected.GetValueOrDefault(url) <= resumeFrom)
                     {
@@ -1510,7 +1550,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    MarkOfflineUnlessLocal("content fetch network error");
+                    NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
@@ -1635,14 +1675,18 @@ namespace Lvn.Content
 
                 using var req = UnityWebRequest.Get(full);
                 req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = RequestTimeoutSeconds;
+                req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
+                ulong seen = 0;
+                var stall = System.Diagnostics.Stopwatch.StartNew();
                 while (!op.isDone)
                 {
                     if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
+                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
+                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
                     lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
                     await Task.Yield();
                 }
@@ -1650,7 +1694,7 @@ namespace Lvn.Content
                 if (req.result is UnityWebRequest.Result.ConnectionError
                                or UnityWebRequest.Result.DataProcessingError)
                 {
-                    MarkOfflineUnlessLocal("content fetch network error");
+                    NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
                 }
                 if (req.responseCode is < 200 or >= 300)
