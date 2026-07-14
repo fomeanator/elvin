@@ -2049,6 +2049,64 @@ namespace Lvn.UI
         }
 
 
+        // ── scene-critical sprite acquisition ────────────────────────────────
+        // A backdrop or actor layer is not an optional decoration: if its fetch
+        // hits a bad moment (mobile networks flap for seconds at a time — live
+        // field case: a mid-warm connection reset pinned the offline flag for
+        // 2s and the chapter played on a black stage forever), the element must
+        // keep trying and dress itself the moment the world allows. Exponential
+        // backoff, an instant wake on the offline→online transition, and a
+        // stillWanted predicate so a superseded element never zombie-applies.
+        private async Task<Sprite> LoadSceneSpriteAsync(string url, string what, Func<bool> stillWanted)
+        {
+            const int MaxAttempts = 8; // backoff sums to ~2 min — a real outage, not a flap
+            string lastErr = null;
+            for (int attempt = 1; attempt <= MaxAttempts; attempt++)
+            {
+                if (Assets == null || _cts == null || _cts.IsCancellationRequested || !stillWanted()) return null;
+                try
+                {
+                    var s = await Assets.LoadSpriteAsync(url, _cts.Token);
+                    if (s != null)
+                    {
+                        if (attempt > 1) Debug.Log($"[stage] {what} {url} recovered (attempt {attempt})");
+                        return s;
+                    }
+                    lastErr = "no data (404 or decode failed)";
+                }
+                catch (OperationCanceledException) { return null; }
+                catch (Exception ex) { lastErr = ex.Message; }
+                if (attempt == MaxAttempts) break;
+                float delay = Lvn.Content.LvnBackoff.DelaySeconds(attempt + 1);
+                Debug.LogWarning($"[stage] {what} {url} unavailable (attempt {attempt}): {lastErr} — retry in {delay:F0}s or on reconnect");
+                await WaitRetryWindowAsync(delay);
+            }
+            Debug.LogWarning($"[stage] {what} {url} gave up after {MaxAttempts} attempts: {lastErr}");
+            return null;
+        }
+
+        // The backoff delay, cut short the instant connectivity returns — the
+        // scene re-dresses within a frame of the network healing instead of
+        // sitting out the rest of a 30s backoff window.
+        private async Task WaitRetryWindowAsync(float seconds)
+        {
+            var wake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Action<bool> onChange = online => { if (online) wake.TrySetResult(true); };
+            Lvn.Content.LvnNetworkStatus.Changed += onChange;
+            try
+            {
+                await Task.WhenAny(
+                    Task.Delay(TimeSpan.FromSeconds(Math.Max(0.5f, seconds)), _cts.Token),
+                    wake.Task);
+            }
+            catch (OperationCanceledException) { }
+            finally { Lvn.Content.LvnNetworkStatus.Changed -= onChange; }
+        }
+
+        // Monotonic backdrop generation: a retrying older bg must never paint
+        // over a newer one that already landed (or is in flight).
+        private int _bgGen;
+
         private async Task ApplyBgAsync(JObject cmd)
         {
             var url = (string)cmd["sprite_url"];
@@ -2068,9 +2126,11 @@ namespace Lvn.UI
             UnlockGalleryFor(url);
             if (Assets == null) return;
             int epoch = _stageEpoch;
-            var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
+            int gen = ++_bgGen;
+            var sprite = await LoadSceneSpriteAsync(url, "bg",
+                () => StageCurrent(epoch) && _bgGen == gen);
             if (sprite == null) return;
-            if (!StageCurrent(epoch)) return; // a chapter change landed while this bg loaded
+            if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
             _renderer?.SetBackground(sprite);
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
@@ -2344,11 +2404,12 @@ namespace Lvn.UI
             // the new chapter never uses, so it's never superseded).
             if (!StageCurrent(epoch)) return;
 
-            async Task<Sprite> LoadLayerAsync(string u)
-            {
-                try { return await Assets.LoadSpriteAsync(u, _cts.Token); }
-                catch { return null; }
-            }
+            // Same self-healing acquisition as the backdrop: a layer that hits a
+            // network flap keeps retrying (and wakes on reconnect) for as long as
+            // THIS apply is still the actor's newest — a faceless/bodyless actor
+            // must not survive a 2-second connectivity blip.
+            Task<Sprite> LoadLayerAsync(string u) => LoadSceneSpriteAsync(u, "actor layer",
+                () => StageCurrent(epoch) && (!_actorGen.TryGetValue(id, out var curGen) || curGen == gen));
             // A newer apply started while our sprites loaded — ITS art must win;
             // this stale pass may not touch the renderer (late-arrival outfit bug).
             if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
