@@ -92,10 +92,21 @@ type AssetMeta struct {
 // are `critical` (warmed before Play so the start never pops in); everything after
 // is deferred, ordered by first appearance so it streams in just ahead of use.
 func collectChapterAssets(doc *articy.Doc) map[string]AssetMeta {
+	ops := make([]map[string]any, len(doc.Script))
+	for i, c := range doc.Script {
+		ops[i] = c
+	}
+	return collectAssetsFromOps(ops)
+}
+
+// collectAssetsFromOps is the op-level core of collectChapterAssets, shared
+// with the bundle post-pass (reconcileChapterAssets) that re-derives the plan
+// from the FINAL compiled script bytes after every url rewrite.
+func collectAssetsFromOps(ops []map[string]any) map[string]AssetMeta {
 	assets := map[string]AssetMeta{}
 	bgCount := 0 // scene boundaries: the first scene is bgCount<=1
 	visuals := 0
-	for _, c := range doc.Script {
+	for _, c := range ops {
 		op, _ := c["op"].(string)
 		if op != "bg" && op != "actor" && op != "obj" {
 			continue
