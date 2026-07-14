@@ -269,6 +269,18 @@ paths:
       requestBody: {content: {application/json: {schema: {type: object}}}}
       responses: {"200": {description: accepted}}
 
+  /v1/log/client:
+    post:
+      tags: [social]
+      summary: Batched device diagnostics (errors, exceptions, timing marks)
+      description: |
+        `{device: {id, session, model, os, app}, lines: [{ts, level, msg,
+        stack?, n?}]}` — levels `exception|error|warning|info`. Anonymous,
+        rate-limited, appended to a per-day JSONL. The Unity client ships
+        these automatically (LvnLogShip).
+      requestBody: {content: {application/json: {schema: {type: object}}}}
+      responses: {"200": {description: accepted}}
+
   /v1/admin/import-bundle:
     post:
       tags: [admin]
@@ -358,6 +370,17 @@ paths:
     get: {tags: [admin], summary: Content file listing, security: [{bearer: []}], responses: {"200": {description: files}}}
   /v1/analytics/summary:
     get: {tags: [admin], summary: Aggregated analytics, security: [{bearer: []}], responses: {"200": {description: summary}}}
+  /v1/admin/client-logs:
+    get:
+      tags: [admin]
+      summary: Tail device diagnostics (day/device/level filters)
+      security: [{bearer: []}]
+      parameters:
+        - {name: day, in: query, schema: {type: string, example: "2026-07-14"}}
+        - {name: device, in: query, schema: {type: string}, description: device id prefix}
+        - {name: level, in: query, schema: {type: string, enum: [exception, error, warning, info, device]}}
+        - {name: n, in: query, schema: {type: integer, default: 200}}
+      responses: {"200": {description: matching lines, newest last}}
   /v1/export:
     post:
       tags: [admin]
