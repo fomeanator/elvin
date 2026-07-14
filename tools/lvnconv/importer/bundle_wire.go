@@ -80,6 +80,31 @@ func PostProcessBundle(res *Result, xd XlsxData, contentDir string, tpl *Templat
 	// backgrounds cold-loaded mid-scene and lost to the network.
 	reconcileChapterAssets(res)
 	prefetchLayeredArt(res) // then the layered-cast art on top (no pop-in)
+	stampAssetSizes(res, contentDir)
+}
+
+// stampAssetSizes writes every release-plan entry's on-disk byte size into the
+// manifest, so the client's loading bar progresses by bytes instead of file
+// count (count-based bars lurch to 100% when the big files finish last).
+func stampAssetSizes(res *Result, contentDir string) {
+	if res == nil || contentDir == "" {
+		return
+	}
+	for si := range res.Title.Seasons {
+		for ci := range res.Title.Seasons[si].Chapters {
+			ch := &res.Title.Seasons[si].Chapters[ci]
+			for url, m := range ch.Assets {
+				rel := strings.TrimPrefix(url, "/content/")
+				if rel == url {
+					continue // not a content-absolute url
+				}
+				if st, err := os.Stat(filepath.Join(contentDir, filepath.FromSlash(rel))); err == nil {
+					m.Size = st.Size()
+					ch.Assets[url] = m
+				}
+			}
+		}
+	}
 }
 
 // reconcileChapterAssets rebuilds every chapter's FLAT sprite release set from

@@ -85,6 +85,10 @@ type AssetMeta struct {
 	Scope    string `json:"scope,omitempty"`
 	Critical bool   `json:"critical,omitempty"`
 	ETAms    int    `json:"eta_ms,omitempty"`
+	// File size in bytes (stamped from disk by the bundle post-pass). With
+	// sizes present the client's loading bar is byte-accurate; without them
+	// it falls back to a count fraction that lurches when big files finish.
+	Size int64 `json:"size,omitempty"`
 }
 
 // collectChapterAssets scans a compiled chapter for the sprites it shows (bg /
