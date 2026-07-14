@@ -40,6 +40,10 @@ Thumbs.db
 !/sandbox/Assets/Sandbox.meta
 !/sandbox/Assets/Resources/
 !/sandbox/Assets/Resources.meta
+!/sandbox/Assets/Icon/
+!/sandbox/Assets/Icon.meta
+!/sandbox/Assets/Editor/
+!/sandbox/Assets/Editor.meta
 
 # Stray screenshots
 Screenshot*.png
