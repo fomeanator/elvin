@@ -82,6 +82,7 @@ func main() {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
+	srv.routesDocs(mux) // /docs (Swagger UI) + /openapi.yaml, embedded in the binary
 	mux.HandleFunc("/v1/content/manifest", srv.handleManifest)
 	// Content-version index (path -> sha256), computed live so cache-busting
 	// works the moment a file changes. Registered before the static prefix so
