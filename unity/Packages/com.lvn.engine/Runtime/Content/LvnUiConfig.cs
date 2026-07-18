@@ -275,6 +275,14 @@ namespace Lvn.Content
         public bool? show_menu;       // the ☰ button; default true
         public bool? stats;           // the Stats item (live story variables); default true
         public bool? stats_edit;      // let the Stats panel EDIT variables (debug/QA); default false
+        // What the Stats panel shows. An articy import carries hundreds of
+        // technical variables (name tables, music/sound toggles, cutscene
+        // flags) that would drown the player's actual stats, so a title
+        // curates: stats_show — when non-empty, ONLY these roots/prefixes
+        // appear (e.g. ["Relationships", "Way"]); stats_hide — these are
+        // dropped (applied after). A prefix matches itself and its subtree.
+        public List<string> stats_show;
+        public List<string> stats_hide;
 
         /// <summary>Text overrides for every chrome string, keyed by a stable id —
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,

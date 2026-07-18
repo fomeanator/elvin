@@ -108,6 +108,8 @@ namespace Lvn.UI
                 if (m.show_menu.HasValue) t.MenuShowMenu = m.show_menu.Value;
                 if (m.stats.HasValue) t.MenuShowStats = m.stats.Value;
                 if (m.stats_edit.HasValue) t.MenuStatsEdit = m.stats_edit.Value;
+                if (m.stats_show != null && m.stats_show.Count > 0) t.MenuStatsShow = m.stats_show;
+                if (m.stats_hide != null && m.stats_hide.Count > 0) t.MenuStatsHide = m.stats_hide;
                 if (m.labels != null && m.labels.Count > 0) t.MenuLabels = m.labels;
             }
 
