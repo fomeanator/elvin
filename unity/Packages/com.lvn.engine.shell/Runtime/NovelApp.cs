@@ -1158,6 +1158,27 @@ namespace Lvn.UI.Screens
                             && autosave.Snap.ScriptUrl == chapter.script_url
                             && !autosave.Snap.Finished;
 
+            // Device-side wardrobe equips (the hub sheet has no live Player to
+            // write through) land in the story vars HERE: every wardrobe slot
+            // bound to a story var seeds the equipped value on a fresh entry, so
+            // template-driven axes ({Wardrobe.mainCh_Clothes}) show the outfit
+            // the player picked between sessions. Resumes keep the snapshot's
+            // own state — the story's mid-chapter forces stay authoritative.
+            if (!resuming && _manifest?.sprites != null && Stage.SeedVars != null)
+            {
+                foreach (var kv in _manifest.sprites)
+                {
+                    var wb = kv.Value?.wardrobe;
+                    if (wb == null) continue;
+                    var worn = Lvn.UI.LvnWardrobe.Equipped(kv.Key);
+                    if (worn.Count == 0) continue;
+                    foreach (var slot in wb)
+                        if (!string.IsNullOrEmpty(slot.Value?.storyVar)
+                            && worn.TryGetValue(slot.Key, out var val) && !string.IsNullOrEmpty(val))
+                            SetVarPath(Stage.SeedVars, slot.Value.storyVar, val);
+                }
+            }
+
             // A FRESH entry (chapter transition, picker restart, first launch) is
             // the moment the entry checkpoint captures; a mid-chapter resume must
             // NOT overwrite it — and neither may a REPLAY: the checkpoint is the
@@ -1190,12 +1211,14 @@ namespace Lvn.UI.Screens
             if (resuming)
             {
                 Debug.Log($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
+                // The snapshot carries the GLOBAL stats as they were at save time —
+                // another novel may have moved them since. Load the live ones FIRST:
+                // the overlay below then runs before any of the restore's async
+                // continuations, so the resumed beat's conditions read fresh stats.
+                var freshGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
                 Stage.RestoreSnapshot(autosave.Snap);
                 if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                     Stage.Player.Vars["player"] = playerName;
-                // The snapshot carries the GLOBAL stats as they were at save time —
-                // another novel may have moved them since. The live store wins.
-                var freshGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
                 if (freshGlobal != null && freshGlobal.Count > 0 && Stage.Player != null)
                     Stage.Player.Vars[GlobalVar] = freshGlobal;
             }
@@ -1349,6 +1372,31 @@ namespace Lvn.UI.Screens
             try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
             Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
+        }
+
+        // Write a dotted path ("Wardrobe.mainCh_Clothes") into a seed JObject,
+        // creating intermediate objects — mirrors the player's SetVar nesting.
+        // Numeric strings store as numbers so conditions compare numerically.
+        private static void SetVarPath(Newtonsoft.Json.Linq.JObject vars, string key, string value)
+        {
+            Newtonsoft.Json.Linq.JToken jv =
+                long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
+                : double.TryParse(value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var d)
+                    ? new Newtonsoft.Json.Linq.JValue(d)
+                    : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
+            var parts = key.Split('.');
+            var cur = vars;
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                if (!(cur[parts[i]] is Newtonsoft.Json.Linq.JObject next))
+                {
+                    next = new Newtonsoft.Json.Linq.JObject();
+                    cur[parts[i]] = next;
+                }
+                cur = next;
+            }
+            cur[parts[parts.Length - 1]] = jv;
         }
 
         private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)
