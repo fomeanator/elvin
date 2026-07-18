@@ -293,7 +293,7 @@ namespace Lvn.UI.Screens
             // hero dressed against the current background, the same experience
             // as a story wardrobe moment, but always reachable.
             var wardrobeCfg = manifest.ui?.wardrobe;
-            if ((wardrobeCfg != null || _shell.Wardrobe.Entities().Count > 0)
+            if ((wardrobeCfg != null || AnyWardrobeEntity())
                 && (wardrobeCfg?.show_menu_item ?? true))
                 StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
                     stage => _ = OpenWardrobeFromMenuAsync(stage));
@@ -382,8 +382,7 @@ namespace Lvn.UI.Screens
                 // shared LvnWallet.Inventory, so it stays in sync with the in-story
                 // wardrobe. (The prettier SkinShop screen gets wired to this same
                 // data next.)
-                string heroId = _manifest?.hero;
-                _shell.Hub.OnWardrobe = () => _shell.OpenWardrobeAsync(heroId);
+                _shell.Hub.OnWardrobe = () => OpenWardrobeFromHubAsync();
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
                 _shell.Hub.OnProfile = () => _shell.OpenProfileAsync();
                 _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
@@ -592,9 +591,11 @@ namespace Lvn.UI.Screens
         {
             try
             {
-                if (full) { await _shell.OpenWardrobeAsync(entity); return; }
-                // The author's beat: the full catalog for this moment.
+                // ONE wardrobe, one shell: mode=full historically opened a
+                // separate fullscreen screen — it's gone; every path is the
+                // sheet over the stage canvas now.
                 await ShowStorySheetAsync(entity, onlySeen: false);
+                _ = full; // accepted and ignored — deprecated authoring flag
             }
             finally { ctx.Resume(); }
         }
@@ -606,7 +607,7 @@ namespace Lvn.UI.Screens
         private async Task OpenWardrobeFromMenuAsync(VnStage stage)
         {
             var entity = ResolveMenuWardrobeEntity(stage);
-            if (string.IsNullOrEmpty(entity)) { await _shell.OpenWardrobeAsync(); return; }
+            if (string.IsNullOrEmpty(entity)) return; // no dressable cast — nothing to open
             stage.CloseQuickMenu();
             bool wasOnStage = stage.ActorsOnStage().Contains(entity);
             // The story holds only because nothing advances it — block taps for
@@ -622,6 +623,52 @@ namespace Lvn.UI.Screens
                 stage.InputBlocked = false;
                 // She was staged just for the fitting — give the scene back.
                 if (!wasOnStage) stage.HideActor(entity);
+            }
+        }
+
+        private bool AnyWardrobeEntity()
+        {
+            var sprites = _manifest?.sprites;
+            if (sprites == null) return false;
+            foreach (var kv in sprites)
+                if (kv.Value?.wardrobe != null && kv.Value.wardrobe.Count > 0) return true;
+            return false;
+        }
+
+        // The HUB wardrobe: same sheet, same canvas — the hub cross-fades away,
+        // the stage dresses itself with the last scene the player saw (or the
+        // engine's dark), the hero steps on, the sheet slides up. Closing plays
+        // it all back. ONE wardrobe everywhere; the old fullscreen screen died.
+        private async Task OpenWardrobeFromHubAsync()
+        {
+            var stage = Stage;
+            if (stage == null) return;
+            var entity = ResolveMenuWardrobeEntity(stage);
+            if (string.IsNullOrEmpty(entity)) return;
+            var hub = _shell?.Hub;
+            if (hub != null)
+            {
+                await ScreenFx.FadeAsync(hub, 1f, 0f, 0.25f, destroyCancellationToken);
+                hub.style.display = DisplayStyle.None;
+            }
+            try
+            {
+                var bg = Lvn.UI.VnStage.LastSceneBgUrl;
+                if (!string.IsNullOrEmpty(bg))
+                    stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                    { ["op"] = "bg", ["sprite_url"] = bg });
+                stage.EnsureActorShown(entity);
+                await ShowStorySheetAsync(entity,
+                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true);
+            }
+            finally
+            {
+                stage.HideActor(entity); // the hub owns the screen again
+                if (hub != null)
+                {
+                    hub.style.display = DisplayStyle.Flex;
+                    _ = ScreenFx.FadeAsync(hub, 0f, 1f, 0.25f, destroyCancellationToken);
+                }
             }
         }
 

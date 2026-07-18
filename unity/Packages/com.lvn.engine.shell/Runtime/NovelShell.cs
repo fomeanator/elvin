@@ -56,10 +56,6 @@ namespace Lvn.UI.Screens
         public PackShopScreen PackShop { get; private set; }
         /// <summary>The universal modal popup (alerts/confirms), topmost overlay.</summary>
         public PopupScreen Popup { get; private set; }
-        /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).
-        /// The in-story bottom sheet is NOT here — the host builds it hosted
-        /// inside the stage's shared window (see NovelApp's story sheet).</summary>
-        public WardrobeScreen Wardrobe { get; private set; }
 
         private UIDocument _doc;
         private VisualElement _root;
@@ -124,8 +120,6 @@ namespace Lvn.UI.Screens
             if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
-            Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
-            Wardrobe.Hide(); Add(Wardrobe);
             Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
             Settings = new SettingsScreen(ui.settings, assets);
             // "Sign in" closes settings and shows the boot auth screen (which sits
@@ -204,11 +198,6 @@ namespace Lvn.UI.Screens
                                        string cancel = null, CancellationToken ct = default)
             => Popup != null ? Popup.ConfirmAsync(title, message, confirm, cancel, ct) : Task.FromResult(false);
 
-        /// <summary>Open the wardrobe overlay for a character (null → the
-        /// configured/first one); completes when the player closes it.</summary>
-        public Task OpenWardrobeAsync(string entityId = null, CancellationToken ct = default)
-            => Wardrobe != null ? Wardrobe.ShowAsync(entityId, ct) : Task.CompletedTask;
-
         /// <summary>Apply a live content update — swap in a freshly-fetched
         /// manifest and re-render the data-driven screens (the carousel rebuilds
         /// its deck, keeping the selected title). Cheap and safe to call any time;
@@ -219,7 +208,6 @@ namespace Lvn.UI.Screens
             _manifest = manifest;
             Carousel?.SetTitles(manifest.titles);
             Hub?.SetData(manifest.collections, manifest.titles);
-            Wardrobe?.SetManifest(manifest);
         }
 
         /// <summary>Run the whole loop. <paramref name="bootReady"/> gates the boot
@@ -436,7 +424,6 @@ namespace Lvn.UI.Screens
             Settings?.Hide();
             Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
             SkinShop?.Hide(); PackShop?.Hide();
-            Wardrobe?.Hide();
         }
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }
