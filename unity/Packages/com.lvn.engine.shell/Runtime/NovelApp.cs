@@ -910,10 +910,15 @@ namespace Lvn.UI.Screens
         private async Task PlayChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
         {
             var resume = LvnProgress.Current(title);
-            // Resuming a chapter the player already paid to enter must not charge
-            // again; only fresh entries (this fresh start and every `next`) do.
-            bool alreadyEntered = resume != null;
             if (resume != null) chapter = resume;
+            // Resuming a chapter the player already paid to enter must not charge
+            // again. "Already entered" = ITS autosave exists (written at entry) —
+            // the progress marker alone isn't enough: finishing a chapter moves
+            // the marker to the NEXT one, and that entry hasn't been paid yet.
+            var entrySlot = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
+            bool alreadyEntered = resume != null && entrySlot?.Snap != null
+                && entrySlot.Snap.ScriptUrl == resume.script_url
+                && !entrySlot.Snap.Finished;
             while (chapter != null)
             {
                 if (!alreadyEntered && !await ChargeChapterEntryAsync(chapter))
@@ -940,7 +945,12 @@ namespace Lvn.UI.Screens
                 var (owner, _) = FindChapterByScriptUrl(finished.script_url);
                 if (owner != null) title = owner;
                 var next = NextChapterOf(title, finished);
-                if (next == null)
+                // The FINISH is what advances progress — not the «Дальше» tap.
+                // Leaving via the chapter-end menu used to strand the marker on
+                // the finished chapter, and «Играть» replayed it from the top.
+                if (next != null)
+                    LvnProgress.SetCurrent(title, next);
+                else
                     LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
                 // Between-chapters screen (ui.chapter_end): "Конец главы" with
                 // continue/menu. Without it chapters flow seamlessly, as before.
