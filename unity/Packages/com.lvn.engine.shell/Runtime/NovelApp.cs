@@ -782,6 +782,9 @@ namespace Lvn.UI.Screens
             }
             _storySheet.OnlySeen = onlySeen; // shared instance — set on EVERY open
             _storySheet.SetRoster(roster);
+            // Platform back while the sheet is up = the sheet's own cancel.
+            var st0 = Stage;
+            if (st0 != null) st0.PanelCancelRequested = () => _storySheet?.Hide();
             var st = Stage;
             // Who stood on stage BEFORE the fitting — everyone staged purely to
             // be dressed (the opener, every pill switch) leaves again at close.
