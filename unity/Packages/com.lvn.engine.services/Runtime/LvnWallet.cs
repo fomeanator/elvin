@@ -92,7 +92,10 @@ namespace Lvn.Services
         {
             EnsureLoaded();
             await FlushAsync(); // FIFO holds even mid-chapter: queued ops go first
-            var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason };
+            // op_id is born WITH the operation and rides every retry/replay of
+            // it — the server applies exactly once even when a response is lost.
+            var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
+                ["op_id"] = System.Guid.NewGuid().ToString("N") };
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/earn", payload.ToString());
             if (code == 200) return Apply(body);
             if (code != 0) return false; // the server SAW it and refused — not an offline case
@@ -109,7 +112,8 @@ namespace Lvn.Services
         {
             EnsureLoaded();
             await FlushAsync(); // offline earnings must land before this spend is judged
-            var payload = new JObject { ["op"] = "spend", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason };
+            var payload = new JObject { ["op"] = "spend", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
+                ["op_id"] = System.Guid.NewGuid().ToString("N") };
             if (!string.IsNullOrEmpty(sku)) payload["sku"] = sku;
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/spend", payload.ToString());
             if (code == 200) return Apply(body);
