@@ -386,11 +386,11 @@ namespace Lvn.UI.Screens
             {
                 ["crystals"] = new List<Pack>
                 {
-                    new Pack { Amount = 80,   Unit = "кристаллов", Price = "$0.99",  Bonus = 0,    Glyph = "💎", Tint = gem, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 250,  Unit = "кристаллов", Price = "$2.99",  Bonus = 20,   Glyph = "💎", Tint = gem, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 550,  Unit = "кристаллов", Price = "$4.99",  Bonus = 60,   Badge = Ribbon.Popular, Glyph = "💎", Tint = gem, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 1200, Unit = "кристаллов", Price = "$9.99",  Bonus = 200,  Glyph = "💎", Tint = gem, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 2800, Unit = "кристаллов", Price = "$19.99", Bonus = 700,  Badge = Ribbon.Value, Best = true, Glyph = "💎", Tint = gem, Card = "/content/cards/card5.png" },
+                    new Pack { Amount = 80,   Unit = "кристаллов", Price = "$0.99",  Bonus = 0,    Glyph = "◆", Tint = gem, Card = "/content/cards/card1.png" },
+                    new Pack { Amount = 250,  Unit = "кристаллов", Price = "$2.99",  Bonus = 20,   Glyph = "◆", Tint = gem, Card = "/content/cards/card2.png" },
+                    new Pack { Amount = 550,  Unit = "кристаллов", Price = "$4.99",  Bonus = 60,   Badge = Ribbon.Popular, Glyph = "◆", Tint = gem, Card = "/content/cards/card3.png" },
+                    new Pack { Amount = 1200, Unit = "кристаллов", Price = "$9.99",  Bonus = 200,  Glyph = "◆", Tint = gem, Card = "/content/cards/card4.png" },
+                    new Pack { Amount = 2800, Unit = "кристаллов", Price = "$19.99", Bonus = 700,  Badge = Ribbon.Value, Best = true, Glyph = "◆", Tint = gem, Card = "/content/cards/card5.png" },
                 },
                 ["gold"] = new List<Pack>
                 {

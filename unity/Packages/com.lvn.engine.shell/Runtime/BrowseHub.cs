@@ -513,9 +513,11 @@ namespace Lvn.UI.Screens
             // this is built, so capturing the field value here would capture null.
             nav.Add(NavTab("♥", _cfg.nav_home ?? "Главная", true, null));
             nav.Add(NavTab("◆", _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
-            nav.Add(NavTab("✦", _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
+            nav.Add(NavTab("★", _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
             nav.Add(NavTab("❖", _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
-            nav.Add(NavTab("☰", _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
+            // NB: glyph coverage — Android's default font lacks ✦/☰/💎 (tofu);
+            // every icon here must come from the safe set (◆★❖●♥⚡).
+            nav.Add(NavTab("●", _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
             return nav;
         }
 
