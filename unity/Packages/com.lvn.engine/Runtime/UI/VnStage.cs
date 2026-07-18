@@ -2121,6 +2121,9 @@ namespace Lvn.UI
                 }
             }
             if (string.IsNullOrEmpty(url)) return;
+            // Remember the latest scene backdrop across scenes/sessions — the
+            // hub wardrobe reopens "where the player last was" on this canvas.
+            PlayerPrefs.SetString(LastBgKey, url);
             // The script reached this bg — that's the unlock moment, independent of
             // whether the sprite itself loads (a cache miss doesn't unsee the CG).
             UnlockGalleryFor(url);
@@ -2134,6 +2137,13 @@ namespace Lvn.UI
             _renderer?.SetBackground(sprite);
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
+
+        private const string LastBgKey = "lvn_last_bg";
+
+        /// <summary>The most recent scene backdrop url shown on ANY stage —
+        /// persisted, so a hub-opened wardrobe can dress its canvas with the
+        /// scene the player last saw. Empty when nothing has been staged yet.</summary>
+        public static string LastSceneBgUrl => PlayerPrefs.GetString(LastBgKey, "");
 
         /// <summary>True once the CURRENT scene has an applied background — the
         /// host holds its opaque chapter loader until this flips, so the fade
