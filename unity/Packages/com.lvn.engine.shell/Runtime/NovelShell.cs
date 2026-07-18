@@ -56,11 +56,10 @@ namespace Lvn.UI.Screens
         public PackShopScreen PackShop { get; private set; }
         /// <summary>The universal modal popup (alerts/confirms), topmost overlay.</summary>
         public PopupScreen Popup { get; private set; }
-        /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).</summary>
+        /// <summary>The wardrobe overlay (open via <see cref="OpenWardrobeAsync"/>).
+        /// The in-story bottom sheet is NOT here — the host builds it hosted
+        /// inside the stage's shared window (see NovelApp's story sheet).</summary>
         public WardrobeScreen Wardrobe { get; private set; }
-        /// <summary>The in-story wardrobe bottom sheet — dresses the live actor
-        /// (open via <see cref="OpenWardrobeSheetAsync"/>).</summary>
-        public WardrobeSheet WardrobeStory { get; private set; }
 
         private UIDocument _doc;
         private VisualElement _root;
@@ -127,11 +126,6 @@ namespace Lvn.UI.Screens
             if (Auth != null) Add(Auth);
             Wardrobe = new WardrobeScreen(ui.wardrobe, assets); Wardrobe.SetManifest(_manifest);
             Wardrobe.Hide(); Add(Wardrobe);
-            // Native skin: the sheet wears the game's dialogue panel + choice buttons.
-            WardrobeStory = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, assets);
-            WardrobeStory.SetManifest(_manifest);
-            WardrobeStory.OpenStore = () => OpenStoreAsync(); // the balance pills' "+"
-            WardrobeStory.Hide(); _root.Add(WardrobeStory); // bottom sheet — keeps its own docked layout
             Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
             Settings = new SettingsScreen(ui.settings, assets);
             // "Sign in" closes settings and shows the boot auth screen (which sits
@@ -215,12 +209,6 @@ namespace Lvn.UI.Screens
         public Task OpenWardrobeAsync(string entityId = null, CancellationToken ct = default)
             => Wardrobe != null ? Wardrobe.ShowAsync(entityId, ct) : Task.CompletedTask;
 
-        /// <summary>Open the in-story wardrobe sheet over the running scene —
-        /// the actor on stage previews the browsing live. Completes on
-        /// confirm/collapse; the wardrobe_show op awaits this.</summary>
-        public Task OpenWardrobeSheetAsync(string entityId = null, CancellationToken ct = default)
-            => WardrobeStory != null ? WardrobeStory.ShowAsync(entityId, ct) : Task.CompletedTask;
-
         /// <summary>Apply a live content update — swap in a freshly-fetched
         /// manifest and re-render the data-driven screens (the carousel rebuilds
         /// its deck, keeping the selected title). Cheap and safe to call any time;
@@ -232,7 +220,6 @@ namespace Lvn.UI.Screens
             Carousel?.SetTitles(manifest.titles);
             Hub?.SetData(manifest.collections, manifest.titles);
             Wardrobe?.SetManifest(manifest);
-            WardrobeStory?.SetManifest(manifest);
         }
 
         /// <summary>Run the whole loop. <paramref name="bootReady"/> gates the boot
@@ -450,7 +437,6 @@ namespace Lvn.UI.Screens
             Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
             SkinShop?.Hide(); PackShop?.Hide();
             Wardrobe?.Hide();
-            WardrobeStory?.Hide();
         }
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }
