@@ -21,9 +21,11 @@ namespace Lvn.Tests
 
             var (required, deferred) = AssetScheduler.OrderForDownload(set);
 
-            Assert.AreEqual(2, required.Count);
-            Assert.AreEqual(1, deferred.Count);
-            Assert.AreEqual("/b.png", deferred[0].Key);
+            // The full-preload rule: EVERYTHING gates the loading screen —
+            // critical only orders the queue (opening look first).
+            Assert.AreEqual(3, required.Count);
+            Assert.AreEqual(0, deferred.Count);
+            Assert.AreEqual("/b.png", required[2].Key, "non-critical sorts after the criticals");
         }
 
         [Test]
@@ -60,20 +62,21 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public void Deferred_SortedByEtaThenSize()
+        public void NonCriticals_QueueAfterCriticals_EtaOrdersEqualSizes()
         {
             var set = new Dictionary<string, LvnAssetMeta>
             {
                 ["/late.png"] = Meta(10, critical: false, eta: 9000),
                 ["/early.png"] = Meta(10, critical: false, eta: 100),
-                ["/mid.png"] = Meta(10, critical: false, eta: 3000),
+                ["/opening.png"] = Meta(10, critical: true, eta: 9999),
             };
 
-            var (_, deferred) = AssetScheduler.OrderForDownload(set);
+            var (required, deferred) = AssetScheduler.OrderForDownload(set);
 
-            Assert.AreEqual("/early.png", deferred[0].Key);
-            Assert.AreEqual("/mid.png", deferred[1].Key);
-            Assert.AreEqual("/late.png", deferred[2].Key);
+            Assert.AreEqual(0, deferred.Count);
+            Assert.AreEqual("/opening.png", required[0].Key, "critical leads regardless of eta");
+            Assert.AreEqual("/early.png", required[1].Key);
+            Assert.AreEqual("/late.png", required[2].Key);
         }
 
         [Test]
@@ -106,8 +109,8 @@ namespace Lvn.Tests
 
             var (required, deferred) = AssetScheduler.OrderForDownload(set);
 
-            Assert.AreEqual(0, required.Count);
-            Assert.AreEqual(1, deferred.Count);
+            Assert.AreEqual(1, required.Count, "the empty key is dropped, the real one gates");
+            Assert.AreEqual(0, deferred.Count);
         }
 
         [Test]

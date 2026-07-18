@@ -284,13 +284,24 @@ namespace Lvn.Content
                 foreach (var kv in assets)
                 {
                     if (string.IsNullOrEmpty(kv.Key) || IsScript(kv.Key)) continue;
-                    var critical = kv.Value?.critical ?? false;
-                    (critical ? required : deferred).Add(kv);
+                    // The KR rule: NOTHING trickles in on camera — the loading
+                    // screen holds until the WHOLE chapter is on disk. Critical
+                    // now only orders the queue (the opening look lands first,
+                    // so the reveal always has its scene).
+                    required.Add(kv);
                 }
             }
-            required.Sort(CompareSizeFirst);
-            deferred.Sort(ComparePriority);
+            required.Sort(CriticalThenSizeFirst);
             return (required, deferred);
+        }
+
+        // opening-look criticals first, then the small-first burst.
+        private static int CriticalThenSizeFirst(KeyValuePair<string, LvnAssetMeta> a,
+                                                 KeyValuePair<string, LvnAssetMeta> b)
+        {
+            bool ac = a.Value?.critical ?? false, bc = b.Value?.critical ?? false;
+            if (ac != bc) return ac ? -1 : 1;
+            return CompareSizeFirst(a, b);
         }
 
         // smallest file first (mini burst), then earliest eta, then path (stable).
