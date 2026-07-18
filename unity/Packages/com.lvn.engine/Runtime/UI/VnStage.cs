@@ -2268,6 +2268,21 @@ namespace Lvn.UI
                 return;
             }
 
+            // A HIDE needs no art — apply it immediately. Routing it through
+            // the show pipeline made the exit WAIT for the very layer fetches
+            // it was about to fade out; on a busy/stalled network the actor
+            // lingered on stage for whole beats past her dismissal.
+            if (!BoolOr(cmd["show"], true))
+            {
+                bool freshHide = !_placements.TryGetValue(id, out var prevHide);
+                var hidePl = freshHide ? PlacementFrom(cmd) : PlacementFrom(cmd, prevHide);
+                if (!freshHide) _renderer?.ApplyActor(id, null, hidePl, null, null, null);
+                _placements[id] = hidePl;
+                _actorCmds[id] = cmd;
+                _hotspots.RemoveAll(h => h.id == id);
+                return;
+            }
+
             // Resolve the layer urls, in priority order:
             //   1. catalog id (manifest.sprites) — layered, with conditional `when`;
             //   2. per-doc cast block — layered by the command's axes;
