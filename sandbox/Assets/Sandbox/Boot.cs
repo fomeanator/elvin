@@ -46,7 +46,9 @@ namespace Lvn.Sandbox
             var go = new GameObject("NovelApp");
             var app = go.AddComponent<NovelApp>();
             app.ServerUrl = ServerUrl;
-            app.AskName = false;
+            // AskName stays at its default (true): the NOVEL asks the name at a
+            // fresh start when the manifest ships ui.name_input — the old
+            // hard-off here predates that flow and silently killed the prompt.
             app.SyncInterval = 2f; // live-reload chapters edited in the panel
             app.ThemeResourcePath = "UI/AppLoading/UnityDefaultRuntimeTheme";
             Object.DontDestroyOnLoad(go);
