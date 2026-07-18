@@ -147,17 +147,41 @@ namespace Lvn
         public void ReplayVisuals(int upto)
         {
             if (_script == null) return;
-            int end = System.Math.Min(upto, _script.Count);
+            // The truthful path: the ops the player ACTUALLY executed (recorded
+            // by Advance, restored from the snapshot). Old saves / edited
+            // scripts fall back to the linear prefix — branch-blind, but the
+            // corrected merge semantics below still apply.
+            IReadOnlyList<int> path;
+            if (_trace != null && _trace.Count > 0) path = _trace;
+            else
+            {
+                int end = System.Math.Min(upto, _script.Count);
+                var lin = new List<int>(end);
+                for (int i = 0; i < end; i++) lin.Add(i);
+                path = lin;
+            }
+            ReplayPath(path);
+        }
+
+        // Placement fields are STICKY live (the sticky merge in VnStage keeps an
+        // actor where the last positioning op put her) — so a rebuild accumulates
+        // them across the path. Everything else (axes, transitions, gestures) is
+        // per-op live and must come from the LAST op only.
+        private static readonly HashSet<string> StickyActorFields = new HashSet<string>
+        {
+            "position", "x", "y", "width", "height", "scale", "z",
+            "flip", "mirror", "anchor", "opacity", "hover_opacity",
+        };
+
+        private void ReplayPath(IReadOnlyList<int> path)
+        {
             // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
-            // so they re-run in order. FX/audio are stateful overlays where only the
-            // LAST setting matters — re-running every fade/tint/track of the chapter
-            // would flash through all of them — so they collapse to the final value
-            // per state key and apply once at the end. ACTORS collapse per id: every
-            // command for the same id MERGES into one (later fields win), replayed
-            // INLINE at that id's LAST occurrence — so relative order against bg/obj
-            // is preserved exactly as authored — and only if the merged result ends
-            // visible, so a chapter that showed & hid ten Spine scenes rebuilds just
-            // the one on screen, not all ten (each an expensive skeleton build).
+            // so they re-run in path order. FX/audio are stateful overlays where
+            // only the LAST setting matters — they collapse to the final value per
+            // state key and apply once at the end. ACTORS rebuild to their LIVE
+            // final state: the LAST op's own fields (show semantics mirror the
+            // stage: an op without `show` shows), sticky placement accumulated
+            // across the path, transitions stripped (a rebuild snaps into place).
             var fx = new Dictionary<string, JObject>();
             var fxOrder = new List<string>();
             void SetFx(string key, JObject cmd)
@@ -166,36 +190,44 @@ namespace Lvn
                 fx[key] = cmd;
             }
 
-            // Pass 1: merge every actor id's fields across all its occurrences, and
-            // note the LAST index it appears at — that's where the merged result
-            // replays in pass 2, keeping it in its natural position in the sequence.
-            var actorMerged = new Dictionary<string, JObject>();
-            var actorLastIndex = new Dictionary<string, int>();
-            for (int i = 0; i < end; i++)
+            // Pass 1: per actor — sticky placement accumulation + last position in path.
+            var actorSticky = new Dictionary<string, JObject>();
+            var actorLastPos = new Dictionary<string, int>();
+            for (int pi = 0; pi < path.Count; pi++)
             {
+                int i = path[pi];
+                if (i < 0 || i >= _script.Count) continue;
                 if (!(_script[i] is JObject c) || (string)c["op"] != "actor") continue;
                 var aid = (string)c["id"];
                 if (string.IsNullOrEmpty(aid)) continue;
-                if (!actorMerged.TryGetValue(aid, out var m)) { m = new JObject(); actorMerged[aid] = m; }
-                foreach (var prop in c.Properties()) m[prop.Name] = prop.Value.DeepClone(); // later fields win
-                actorLastIndex[aid] = i;
+                if (!actorSticky.TryGetValue(aid, out var st)) { st = new JObject(); actorSticky[aid] = st; }
+                foreach (var prop in c.Properties())
+                    if (StickyActorFields.Contains(prop.Name))
+                        st[prop.Name] = prop.Value.DeepClone();
+                actorLastPos[aid] = pi;
             }
 
-            // Pass 2: replay inline, in original order. An actor op fires exactly
-            // once — at its LAST index, with the fully-merged fields; earlier
-            // occurrences of the same id are silent (already folded into that one).
-            for (int i = 0; i < end; i++)
+            // Pass 2: replay inline, in path order. An actor fires exactly once —
+            // at its LAST occurrence — and only if it ends VISIBLE by the live
+            // rule (`show` absent = show; a re-issue after a hide shows again).
+            for (int pi = 0; pi < path.Count; pi++)
             {
+                int i = path[pi];
+                if (i < 0 || i >= _script.Count) continue;
                 if (!(_script[i] is JObject c)) continue;
                 var op = (string)c["op"];
                 if (op == "actor")
                 {
                     var aid = (string)c["id"];
-                    if (!string.IsNullOrEmpty(aid) && actorLastIndex.TryGetValue(aid, out var last) && last == i)
-                    {
-                        var m = actorMerged[aid];
-                        if (BoolOr(m["show"], true)) _stage.ApplyStage(m);
-                    }
+                    if (string.IsNullOrEmpty(aid) || actorLastPos[aid] != pi) continue;
+                    if (!BoolOr(c["show"], true)) continue; // ends hidden — skip entirely
+                    var m = (JObject)c.DeepClone();
+                    m["show"] = true;
+                    m.Remove("enter"); m.Remove("exit"); m.Remove("play"); // no transitions on a rebuild
+                    foreach (var prop in actorSticky[aid].Properties())
+                        if (m[prop.Name] == null)
+                            m[prop.Name] = prop.Value.DeepClone();
+                    _stage.ApplyStage(m);
                     continue;
                 }
                 if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
@@ -231,6 +263,15 @@ namespace Lvn
                     _stage.ApplyStage(cmd);
         }
 
+        // Record an executed visual op into the replay path. Capped: a looping
+        // script must not grow the trace (and every snapshot's copy) unbounded —
+        // dropping the oldest half keeps the recent scene truthful.
+        private void RecordTrace(int index)
+        {
+            _trace.Add(index);
+            if (_trace.Count > 20000) _trace.RemoveRange(0, 10000);
+        }
+
         /// <summary>Set the cursor and run forward to the next pause — the resume
         /// step after a load (the scene is rebuilt by <see cref="ReplayVisuals"/>).</summary>
         public void ContinueFrom(int index)
@@ -252,6 +293,12 @@ namespace Lvn
         public const int MaxHistory = 100;
 
         private readonly List<LvnSnapshot> _history = new List<LvnSnapshot>();
+
+        // The actually-EXECUTED visual/audio command indices, in execution order —
+        // the truthful path for ReplayVisuals. A linear script prefix lies the
+        // moment the chapter branches: ops from never-taken branches would leak
+        // into the rebuilt scene (wrong bg, resurrected/hidden actors).
+        private List<int> _trace = new List<int>();
 
         /// <summary>True when there is a previous beat to roll back to.</summary>
         public bool CanRollback => _history.Count >= 2;
@@ -367,6 +414,10 @@ namespace Lvn
             /// same label+offset relocation as the cursor; null on older saves.</summary>
             public string[] CallAnchorLabels;
             public int[] CallAnchorSteps;
+            /// <summary>Executed visual-op indices up to <see cref="Index"/> —
+            /// the truthful replay path. Null on older saves (legacy linear
+            /// replay) and discarded when the script's command count changed.</summary>
+            public int[] Trace;
         }
 
         /// <summary>Capture the current state for serialization.</summary>
@@ -389,6 +440,7 @@ namespace Lvn
                 Finished = Finished,
                 AnchorLabel = aLabel,
                 AnchorSteps = aSteps,
+                Trace = _trace.ToArray(),
             };
         }
 
@@ -401,6 +453,16 @@ namespace Lvn
             int at = snapshot.AnchorLabel != null
                 ? Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index)
                 : snapshot.Index;
+            // A shortened script must not resume PAST its end — that would
+            // instantly Finish() the chapter and silently mark it completed.
+            // Landing on the last beat keeps the progress and the player's seat.
+            if (_script != null && _script.Count > 0 && at >= _script.Count)
+                at = _script.Count - 1;
+            // The replay path is only truthful against the EXACT script it was
+            // recorded on — an edited/re-imported script falls back to legacy.
+            _trace = snapshot.Trace != null && snapshot.CommandCount == _script.Count
+                ? new List<int>(snapshot.Trace)
+                : new List<int>();
             // Return addresses shift with the script just like the cursor does —
             // relocate each frame by its own anchor, falling back to the raw index.
             var stack = snapshot.CallStack;
@@ -675,6 +737,7 @@ namespace Lvn
                             if (octx.Held) { octx.Armed = true; return; }
                             break;
                         }
+                        RecordTrace(_ip);
                         _stage.ApplyStage(c);
                         _ip++;
                         break;

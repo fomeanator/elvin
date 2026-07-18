@@ -235,15 +235,21 @@ namespace Lvn.UI
 
             _cts ??= new CancellationTokenSource(); // OnEnable usually made it; safety for a direct Build()
 
+            // A disable/enable cycle rebuilt the chrome: an open quick menu died
+            // with the old panel WITHOUT running Close() — its input block must
+            // not orphan (the panel-host block re-derives from IsOpen anyway).
+            _inputBlockedFlag = false;
+
             if (_player != null)
             {
                 // The chrome was rebuilt under a LIVE player (a disable/enable
                 // cycle — see OnDisable): re-render the scene and the current
                 // beat on the new panel, the same recipe rollback uses.
+                _player.OnSay -= RecordSay; // OnDisable unhooked it; twice would double-log
+                _player.OnSay += RecordSay; // resubscribe even before the first say exists
                 var snap = _player.PopCurrent();
                 if (snap != null)
                 {
-                    _player.OnSay += RecordSay; // OnDisable unhooked it
                     _player.Restore(snap);
                     _suppressDupSay = true; // the re-run beat is already in the backlog
                     int at = _player.Index;
@@ -893,6 +899,16 @@ namespace Lvn.UI
             StopAllCoroutines();
             _hotspots.Clear();
             HasBackdrop = false;
+            // A resume veil (1/255 alpha) left by an aborted restore must not
+            // black out the NEXT chapter — reset it at every scene boundary.
+            if (_renderer is CanvasSceneRenderer resetCanvas && resetCanvas.Root != null)
+            {
+                var g = resetCanvas.Root.GetComponent<CanvasGroup>();
+                if (g != null) g.alpha = 1f;
+            }
+            // A story panel (wardrobe sheet…) left open across a chapter change
+            // would float over the new scene — dismiss it with the old one.
+            if (_panelHost != null) _ = _panelHost.HideAsync();
             _renderer?.RemoveAll();
             _renderer?.ResetCamera(0f);
             _talkAnims.Clear();
@@ -1449,6 +1465,7 @@ namespace Lvn.UI
             if (snap == null) { _player.Advance(); return; } // no snapshot after all — play from the top (Play skipped its own advance expecting us)
             var player = _player;               // pin: a re-entry mid-await must not resume a dead run
             int gen = ++_startGen;              // supersede a pending intro warmup (see StartWithSpineWarmup)
+            int epoch = _stageEpoch;            // an Exit/chapter change mid-restore must not repaint the cleared stage
             ResetStage();                       // clean slate
             player.Restore(snap);               // cursor (via label anchor) + vars + call stack
             player.ClearHistory();              // the rollback trail no longer describes the path here
@@ -1481,7 +1498,7 @@ namespace Lvn.UI
             if (veil != null)
             {
                 // Reveal the fully built scene with a short fade instead of a pop.
-                for (float a = veilWarmAlpha; a < 1f && _player == player && _startGen == gen; a += Time.unscaledDeltaTime / 0.15f)
+                for (float a = veilWarmAlpha; a < 1f && _player == player && _startGen == gen && StageCurrent(epoch); a += Time.unscaledDeltaTime / 0.15f)
                 {
                     veil.alpha = a;
                     await Task.Yield();
@@ -1489,9 +1506,9 @@ namespace Lvn.UI
                 // Only finish the reveal if we're STILL the current restore — a
                 // newer one may have re-veiled this same canvas to warm-alpha, and
                 // slamming it to 1 here would flash its half-built stage.
-                if (_player == player && _startGen == gen) veil.alpha = 1f;
+                if (_player == player && _startGen == gen && StageCurrent(epoch)) veil.alpha = 1f;
             }
-            if (_player == player && _startGen == gen)
+            if (_player == player && _startGen == gen && StageCurrent(epoch))
                 player.ContinueFrom(at); // resume → renders the saved beat
         }
 
@@ -2276,10 +2293,18 @@ namespace Lvn.UI
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
                 var hidePl = freshHide ? PlacementFrom(cmd) : PlacementFrom(cmd, prevHide);
-                if (!freshHide) _renderer?.ApplyActor(id, null, hidePl, null, null, null);
+                if (!freshHide)
+                {
+                    // Both renderer paths: the Canvas renderer hides via
+                    // PlaceActor (its ApplyActor ignores null layers), the
+                    // UITK one via ApplyActor (its PlaceActor is a no-op).
+                    _renderer?.PlaceActor(id, hidePl);
+                    _renderer?.ApplyActor(id, null, hidePl, null, null, null);
+                }
                 _placements[id] = hidePl;
                 _actorCmds[id] = cmd;
                 _hotspots.RemoveAll(h => h.id == id);
+                _draggables.Remove(id); // a hidden object must not be draggable
                 return;
             }
 
@@ -2483,6 +2508,10 @@ namespace Lvn.UI
             if (animEntity != null && animEntity.anim != null && animEntity.anim.Count > 0)
             {
                 await PreloadFramesAsync(id, animEntity);
+                // The frame preload awaited network — a chapter change or a newer
+                // apply may own the actor now; stale anim state must not leak in.
+                if (!StageCurrent(epoch)) return;
+                if (_actorGen.TryGetValue(id, out var animGen) && animGen != gen) return;
 
                 LvnAnim idle = null, blink = null, talk = null;
                 foreach (var kv in animEntity.anim)
