@@ -517,6 +517,9 @@ namespace Lvn.UI.Screens
         {
             var cost = title?.cost;
             if (cost == null || string.IsNullOrEmpty(cost.currency) || cost.amount <= 0) return true;
+            // The entry was paid when the title was FIRST started — «Продолжить»
+            // (or menu-exit + Play) must not charge the same entry again.
+            if (LvnProgress.Reached(title) > 0) return true;
 
             string reason = "title:" + title.id;
             if (await Lvn.Services.LvnWallet.SpendAsync(cost.currency, cost.amount, reason)) return true;
@@ -911,6 +914,12 @@ namespace Lvn.UI.Screens
         {
             var resume = LvnProgress.Current(title);
             if (resume != null) chapter = resume;
+            // A COMPLETED novel replays clean: Current is cleared on the finale
+            // but the title-scope vars still hold the whole playthrough — route
+            // the fresh entry through the restart machinery so chapter one seeds
+            // from its pristine entry checkpoint, not from endgame stats.
+            if (resume == null && LvnProgress.Reached(title) > 0 && chapter != null)
+                LvnProgress.RequestRestart(title?.id, chapter.id);
             // Resuming a chapter the player already paid to enter must not charge
             // again. "Already entered" = ITS autosave exists (written at entry) —
             // the progress marker alone isn't enough: finishing a chapter moves
@@ -921,6 +930,16 @@ namespace Lvn.UI.Screens
                 && !entrySlot.Snap.Finished;
             while (chapter != null)
             {
+                // The script must be REACHABLE before anything is charged — an
+                // offline entry used to burn the energy and silently bounce to
+                // the menu (and charge AGAIN on the retry).
+                if (!await EnsureChapterScriptAsync(chapter))
+                {
+                    var eco = _manifest?.economy;
+                    await _shell.AlertAsync(eco?.gate_title ?? "Нет соединения",
+                        "Глава недоступна без сети. Проверь подключение и попробуй ещё раз.");
+                    break;
+                }
                 if (!alreadyEntered && !await ChargeChapterEntryAsync(chapter))
                     break; // couldn't/wouldn't pay the entry cost → back to the carousel
                 alreadyEntered = false;
@@ -976,6 +995,22 @@ namespace Lvn.UI.Screens
                 if (panel != null) RuntimePanelUtils.ResetDynamicAtlas(panel);
             }
             catch { /* atlas reset is an optimization, never a failure */ }
+        }
+
+        // Preflight: make the chapter's script locally available (cache hit or
+        // a live fetch) BEFORE the entry charge — money never burns on a
+        // chapter that can't start. The later fetch inside PlayOneChapterAsync
+        // then hits the cache.
+        private async Task<bool> EnsureChapterScriptAsync(LvnChapter chapter)
+        {
+            if (chapter == null || string.IsNullOrEmpty(chapter.script_url)) return false;
+            if (_assets.Loader.IsScriptCached(chapter.script_url)) return true;
+            try
+            {
+                var json = await _assets.Loader.DownloadScriptCached(chapter.script_url);
+                return !string.IsNullOrEmpty(json);
+            }
+            catch { return false; }
         }
 
         // The debug faucet's grant: credit the wallet (EarnAsync fires
@@ -1105,10 +1140,12 @@ namespace Lvn.UI.Screens
                                  ?? new Newtonsoft.Json.Linq.JObject();
                 // Global (cross-novel) stats must NOT roll back with a per-chapter
                 // restart — overlay the CURRENT global stats over the checkpoint.
+                // Local first: a kill during the network sync must not leave the
+                // old autosave alive with the restart flag already consumed.
+                LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
                 var curGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
                 if (curGlobal != null && curGlobal.Count > 0) Stage.SeedVars[GlobalVar] = curGlobal;
                 await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
-                LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
                 Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
             }
 
@@ -1123,8 +1160,10 @@ namespace Lvn.UI.Screens
 
             // A FRESH entry (chapter transition, picker restart, first launch) is
             // the moment the entry checkpoint captures; a mid-chapter resume must
-            // NOT overwrite it with mid-chapter stats.
-            if (!resuming)
+            // NOT overwrite it — and neither may a REPLAY: the checkpoint is the
+            // vars of the FIRST entry ever, the restart anchor. Overwriting it
+            // with a later playthrough's stats would corrupt restarts forever.
+            if (!resuming && LvnProgress.Checkpoint(title?.id, chapter.id) == null)
                 LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
 
             Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
@@ -1141,12 +1180,24 @@ namespace Lvn.UI.Screens
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
 
+            if (!resuming)
+            {
+                // The entry IS the purchase receipt: write the autosave NOW, so a
+                // crash in the first lines never re-charges this chapter (and the
+                // player lands back at its top, not at the carousel).
+                Stage.AutosaveNow();
+            }
             if (resuming)
             {
                 Debug.Log($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
                 Stage.RestoreSnapshot(autosave.Snap);
                 if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                     Stage.Player.Vars["player"] = playerName;
+                // The snapshot carries the GLOBAL stats as they were at save time —
+                // another novel may have moved them since. The live store wins.
+                var freshGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
+                if (freshGlobal != null && freshGlobal.Count > 0 && Stage.Player != null)
+                    Stage.Player.Vars[GlobalVar] = freshGlobal;
             }
 
             // Liminal-style entry: the chapter has been booting BEHIND the opaque
@@ -1188,7 +1239,10 @@ namespace Lvn.UI.Screens
             // Persist the chapter's ending state so the next chapter (and the next
             // session) resume with the same stats — whether it finished or the player
             // left mid-chapter (the loop also breaks on cancellation).
-            if (Stage.Player != null) await SaveScopedVarsAsync(title?.id, VarsToJObject(Stage.Player.Vars));
+            // The owner may have CHANGED under us (a cross-title save load) —
+            // the finished chapter's vars belong to the title actually playing.
+            var ownerId = _currentTitle?.id ?? title?.id;
+            if (Stage.Player != null) await SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars));
             _shell.Hud.SetProgress(1, 1);
             // The chapter that actually played to the end — a cross-chapter save
             // load may have switched the stage away from the requested one.
@@ -1287,11 +1341,13 @@ namespace Lvn.UI.Screens
         private async Task ResetTitleProgressAsync(LvnTitle title)
         {
             if (title == null) return;
-            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
+            // LOCAL state first — a kill mid-network-await must not leave a
+            // "continue" that resumes the middle of the novel with zeroed stats.
             foreach (var slot in new System.Collections.Generic.List<string>(LvnSaveStore.Slots(title.id).Keys))
                 LvnSaveStore.Delete(title.id, slot);
             LvnProgress.ResetTitle(title.id);
+            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
             Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
         }
 
@@ -1373,6 +1429,10 @@ namespace Lvn.UI.Screens
         // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
         // Fire-and-forget — the store writes its LOCAL cache synchronously before the
         // first await, so stats are safe even if the process is suspended immediately.
+        // Desktop/editor: closing the window must save exactly like a mobile
+        // background — otherwise the last lines and unsynced vars are lost.
+        private void OnApplicationQuit() => OnApplicationPause(true);
+
         private void OnApplicationPause(bool paused)
         {
             if (paused && _state != null && Stage?.Player != null && _currentTitle != null)

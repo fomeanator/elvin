@@ -416,15 +416,10 @@ namespace Lvn.UI.Screens
                 : LvnTokens.TextDim;
             row.Add(stateLbl);
 
-            if (!locked)
-            {
-                row.RegisterCallback<ClickEvent>(evt => Play());
-                row.style.opacity = 1f;
-            }
-            else
-            {
-                row.style.opacity = 0.6f;
-            }
+            // Demo placeholder rows: NOT clickable — a tap here used to launch
+            // (and charge) the CURRENT chapter regardless of the row's label.
+            // Real chapter navigation arrives with the manifest-driven list.
+            row.style.opacity = locked ? 0.6f : 1f;
 
             return row;
         }
@@ -486,7 +481,8 @@ namespace Lvn.UI.Screens
             col.Add(whereLbl);
             row.Add(col);
 
-            var load = new Button(Play) { text = "Загрузить" };
+            var load = new Button { text = "Загрузить" }; // demo slot — inert (see ChapterRow)
+            load.SetEnabled(false);
             load.style.flexShrink = 0;
             load.style.marginLeft = 12;
             load.style.fontSize = 22;
