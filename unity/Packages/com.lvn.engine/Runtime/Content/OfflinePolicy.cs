@@ -154,10 +154,11 @@ namespace Lvn.Content
                     var url = kv.Key;
                     if (string.IsNullOrEmpty(url) || IsScriptUrl(url)) continue;
                     var meta = kv.Value;
-                    bool critical = meta != null && meta.critical;
+                    // Everything is REQUIRED now (the full-preload rule): a
+                    // chapter is playable only когда она целиком на диске.
                     bool cached = isAssetCached != null && isAssetCached(url);
-                    if (critical) { rt++; if (cached) rc++; }
-                    else { dt++; if (cached) dc++; }
+                    rt++; if (cached) rc++;
+                    _ = meta;
                 }
             }
             return new ChapterReadiness(scriptCached, rt, rc, dt, dc);
