@@ -224,7 +224,8 @@ namespace Lvn.Tests
             var labels = screen.Query<Label>().ToList();
             Assert.IsTrue(labels.Exists(l => l.text == "Добро пожаловать"));
             Assert.IsTrue(labels.Exists(l => l.text == "tagline"));
-            Assert.IsNotNull(screen.Q<TextField>(), "nickname field is on by default");
+            Assert.IsNull(screen.Q<TextField>(),
+                "the app never asks the name by default — the novel does");
             var buttons = screen.Query<Button>().ToList();
             Assert.IsTrue(buttons.Exists(b => b.text == "Начать"));
         }
@@ -232,11 +233,11 @@ namespace Lvn.Tests
         [Test]
         public void AuthScreen_NicknameFieldCanBeDisabled_AndNullConfigIsSafe()
         {
-            var noNick = new AuthScreen(new AuthConfig { ask_nickname = false }, new NoAssets());
-            Assert.IsNull(noNick.Q<TextField>());
+            var withNick = new AuthScreen(new AuthConfig { ask_nickname = true }, new NoAssets());
+            Assert.IsNotNull(withNick.Q<TextField>(), "a title can opt the field back in");
 
             var defaults = new AuthScreen(null, new NoAssets());
-            Assert.IsNotNull(defaults.Q<TextField>());
+            Assert.IsNull(defaults.Q<TextField>(), "null config: no nickname field either");
             var buttons = defaults.Query<Button>().ToList();
             Assert.IsTrue(buttons.Exists(b => b.text == "Start"));
         }

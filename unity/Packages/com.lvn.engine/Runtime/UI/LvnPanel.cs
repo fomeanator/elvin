@@ -83,7 +83,9 @@ namespace Lvn.UI
         {
             if (_watcher != null) return;
             var go = new GameObject("LvnPanelWatcher") { hideFlags = HideFlags.HideAndDontSave };
-            Object.DontDestroyOnLoad(go);
+            // DontDestroyOnLoad is play-mode-only — an editor test building the
+            // shell must not throw here (HideAndDontSave already keeps it).
+            if (Application.isPlaying) Object.DontDestroyOnLoad(go);
             _watcher = go.AddComponent<LvnPanelWatcher>();
         }
 
