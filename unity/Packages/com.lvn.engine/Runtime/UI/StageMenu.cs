@@ -552,13 +552,37 @@ namespace Lvn.UI
             var vars = _stage.Player?.Vars;
             if (vars == null || vars.Count == 0)
             {
-                scroll.Add(Text(L("empty", "— empty —"), 15, FontStyle.Italic, dim: true));
+                scroll.Add(Text(L("empty", "— empty —"), 24, FontStyle.Italic, dim: true));
                 return;
             }
             var flat = new List<(string key, JToken val)>();
             foreach (var kv in vars) FlattenVar(kv.Key, kv.Value, flat);
+            // Curation: the PLAYER's stats, not the import's plumbing. With a
+            // whitelist only its subtrees survive; the blacklist prunes after.
+            if (_theme.MenuStatsShow != null && _theme.MenuStatsShow.Count > 0)
+                flat.RemoveAll(e => !MatchesAny(e.key, _theme.MenuStatsShow));
+            if (_theme.MenuStatsHide != null && _theme.MenuStatsHide.Count > 0)
+                flat.RemoveAll(e => MatchesAny(e.key, _theme.MenuStatsHide));
             flat.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
+            if (flat.Count == 0)
+            {
+                scroll.Add(Text(L("empty", "— empty —"), 24, FontStyle.Italic, dim: true));
+                return;
+            }
             foreach (var (key, val) in flat) scroll.Add(StatRow(key, val));
+        }
+
+        // "Way" matches the root itself and everything under it (Way.Moral),
+        // never a lookalike sibling (Wayward).
+        private static bool MatchesAny(string key, List<string> prefixes)
+        {
+            foreach (var p in prefixes)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
+                if (key == p || (key.Length > p.Length && key[p.Length] == '.' && key.StartsWith(p, StringComparison.Ordinal)))
+                    return true;
+            }
+            return false;
         }
 
         // Leaves become rows; JObject nodes recurse into "parent.child" keys —
@@ -577,10 +601,10 @@ namespace Lvn.UI
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.height = 46;
-            row.style.marginBottom = 4;
+            row.style.height = 66;
+            row.style.marginBottom = 6;
 
-            var name = Text(key, 19, FontStyle.Normal);
+            var name = Text(key, 28, FontStyle.Normal);
             name.style.flexGrow = 1;
             name.style.flexShrink = 1;
             name.style.overflow = Overflow.Hidden;
@@ -596,7 +620,7 @@ namespace Lvn.UI
                     t.RegisterValueChangedCallback(e => _stage.Player.SetVar(key, new JValue(e.newValue)));
                     row.Add(t);
                 }
-                else row.Add(Text(val.Value<bool>() ? "true" : "false", 19, FontStyle.Bold));
+                else row.Add(Text(val.Value<bool>() ? "true" : "false", 28, FontStyle.Bold));
             }
             else if (type == JTokenType.Integer || type == JTokenType.Float)
             {
@@ -605,7 +629,7 @@ namespace Lvn.UI
                 {
                     // − [value] + : steppers for the common nudge, the field for
                     // an exact number. Garbage input just doesn't commit.
-                    var field = StatField(FormatNum(d), 86);
+                    var field = StatField(FormatNum(d), 130);
                     field.RegisterCallback<FocusOutEvent>(_ =>
                     {
                         if (double.TryParse(field.value.Replace(',', '.'),
@@ -618,18 +642,18 @@ namespace Lvn.UI
                     row.Add(field);
                     row.Add(StatStep("+", () => Nudge(key, field, +1)));
                 }
-                else row.Add(Text(FormatNum(d), 19, FontStyle.Bold));
+                else row.Add(Text(FormatNum(d), 28, FontStyle.Bold));
             }
             else if (type == JTokenType.String)
             {
                 if (edit)
                 {
-                    var field = StatField((string)val, 150);
+                    var field = StatField((string)val, 230);
                     field.RegisterCallback<FocusOutEvent>(_ =>
                         _stage.Player.SetVar(key, new JValue(field.value ?? "")));
                     row.Add(field);
                 }
-                else row.Add(Text("«" + Trunc((string)val ?? "", 24) + "»", 19, FontStyle.Bold));
+                else row.Add(Text("«" + Trunc((string)val ?? "", 20) + "»", 28, FontStyle.Bold));
             }
             else
             {
@@ -637,7 +661,7 @@ namespace Lvn.UI
                 // in a way a stepper could sensibly write.
                 var s = val == null || type == JTokenType.Null ? "null"
                     : Trunc(val.ToString(Newtonsoft.Json.Formatting.None), 24);
-                row.Add(Text(s, 17, FontStyle.Normal, dim: true));
+                row.Add(Text(s, 24, FontStyle.Normal, dim: true));
             }
             return row;
         }
@@ -671,7 +695,7 @@ namespace Lvn.UI
         {
             var f = new TextField { value = value };
             f.style.width = width;
-            f.style.height = 38;
+            f.style.height = 56;
             f.style.marginLeft = 6; f.style.marginRight = 6;
             var input = f.Q("unity-text-input");
             if (input != null)
@@ -680,7 +704,7 @@ namespace Lvn.UI
                 input.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
                 input.style.color = _theme.MenuTextColor;
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
-                input.style.fontSize = 18;
+                input.style.fontSize = 27;
                 ClearBorder(input);
                 Round(input, 6f);
             }
@@ -691,8 +715,8 @@ namespace Lvn.UI
         private Button StatStep(string glyph, Action onClick)
         {
             var b = new Button(onClick) { text = glyph };
-            b.style.width = 42; b.style.height = 38;
-            b.style.fontSize = 22;
+            b.style.width = 60; b.style.height = 56;
+            b.style.fontSize = 32;
             b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
             b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);

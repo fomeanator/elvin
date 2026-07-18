@@ -195,6 +195,12 @@ namespace Lvn.UI
         [Tooltip("Allow EDITING variables from the Stats panel — a debug/QA switch, not for players.")]
         public bool MenuStatsEdit = false;
 
+        /// <summary>Stats-panel curation (manifest ui.menu.stats_show / stats_hide):
+        /// whitelist (when non-empty, only these roots/prefixes) and blacklist of
+        /// variable paths — keeps imported technical tables out of the panel.</summary>
+        [HideInInspector] public System.Collections.Generic.List<string> MenuStatsShow;
+        [HideInInspector] public System.Collections.Generic.List<string> MenuStatsHide;
+
         /// <summary>Chrome text overrides by stable key (manifest ui.menu.labels) —
         /// how a Russian novel gets «Сохранить» instead of "Save". Null/missing
         /// keys fall back to the engine's English defaults.</summary>
