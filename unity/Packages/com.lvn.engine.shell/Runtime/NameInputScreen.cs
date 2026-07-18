@@ -135,8 +135,19 @@ namespace Lvn.UI.Screens
         /// — with the KNOWN name prefilled (a replaying player may want to
         /// change it, or just confirm). Nulls fall back to ui.name_input.</summary>
         public async Task<string> AskAsync(string bgUrl, string prefill, CancellationToken ct = default)
+            => await AskAsync(bgUrl, prefill, overlay: false, ct);
+
+        /// <summary>Overlay mode: the LIVE scene is the backdrop — the screen
+        /// goes transparent and only the dialogue-skinned bottom panel shows.
+        /// The chapter-entry ask (after the title card) uses this.</summary>
+        public async Task<string> AskAsync(string bgUrl, string prefill, bool overlay, CancellationToken ct = default)
         {
-            if (!string.IsNullOrEmpty(bgUrl))
+            style.backgroundColor = overlay
+                ? Color.clear
+                : UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
+            _bg.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
+            _hero.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
+            if (!overlay && !string.IsNullOrEmpty(bgUrl))
                 _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
             _prefill = prefill;
             style.display = DisplayStyle.Flex;

@@ -300,32 +300,8 @@ namespace Lvn.UI.Screens
                 // chapter's backdrop and preload the right asset plan.
                 var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
 
-                // ── name input: the NOVEL asks, at its start ──
-                // Every FRESH start of a title asks (a replayer may want a new
-                // name — the known one sits prefilled); resuming mid-progress
-                // never re-asks. The answer persists across launches.
-                bool freshStart = LvnProgress.Current(title) == null;
-                // An explicit "restart from chapter one" IS a fresh start of the
-                // novel — it re-asks too (the picker set Current, hiding it from
-                // the null-check above).
-                var firstCh = FirstChapter(title);
-                bool restartTop = firstCh != null
-                    && LvnProgress.PendingRestart(title?.id) == firstCh.id;
-                if (askName && (_manifest.ui?.name_input != null)
-                    && (freshStart || restartTop || string.IsNullOrEmpty(_playerName)))
-                {
-                    try
-                    {
-                        // над фоном первой главы — как первый кадр истории
-                        var entered = await NameInput.AskAsync(chapter?.bg_url, _playerName, ct);
-                        if (!string.IsNullOrEmpty(entered))
-                        {
-                            _playerName = entered;
-                            Lvn.UI.LvnPrefs.PlayerName = entered;
-                        }
-                    }
-                    catch (OperationCanceledException) { return; }
-                }
+                // The name ask lives INSIDE the chapter entry now (after the
+                // title card, over the live scene) — the host owns it.
 
                 // ── chapter loading (Liminal-style entry) ──
                 // The loader stays OPAQUE while the chapter boots BEHIND it —

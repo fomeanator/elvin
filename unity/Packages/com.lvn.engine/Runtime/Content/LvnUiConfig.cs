@@ -554,6 +554,7 @@ namespace Lvn.Content
     /// <summary>The character name-input screen.</summary>
     public sealed class NameInputConfig
     {
+        public bool? enabled;            // the manifest switch; default true when the section exists
         public string bg_url;            // full-screen backdrop
         public string hero_url;          // optional character art
         public string field_url;         // optional text-field background art
