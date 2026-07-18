@@ -271,6 +271,23 @@ namespace Lvn.UI.Screens
                 $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
                 TaskScheduler.FromCurrentSynchronizationContext());
 
+            // Progress vault: a VIRGIN install (corrupted prefs, a reinstall
+            // under the same identity) gets the player's progress re-planted —
+            // file home first (instant, offline), then the server backup —
+            // BEFORE the hub renders, so «Продолжить» is right from frame one.
+            try
+            {
+                if (ProgressVault.IsVirgin(manifest))
+                {
+                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
+                    if (ProgressVault.IsVirgin(manifest) && _state != null)
+                        ProgressVault.Apply(
+                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                            manifest);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+
             _shell = NovelShell.Create(transform, 30, ShellTheme);
             _shell.Build(manifest, _assets);
             Mark("shell built");
@@ -951,6 +968,7 @@ namespace Lvn.UI.Screens
                     _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
                 _preparedChapter = null;
                 LvnProgress.SetCurrent(title, chapter);
+                SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
                     ("title", title?.id), ("chapter", chapter.id));
@@ -971,6 +989,7 @@ namespace Lvn.UI.Screens
                     LvnProgress.SetCurrent(title, next);
                 else
                     LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
+                SyncProgressVault();
                 // Between-chapters screen (ui.chapter_end): "Конец главы" with
                 // continue/menu. Without it chapters flow seamlessly, as before.
                 if (_shell?.ChapterEnd != null)
@@ -1372,6 +1391,7 @@ namespace Lvn.UI.Screens
             try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
             Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
+            SyncProgressVault(); // the wipe is progress too — all homes agree
         }
 
         // Write a dotted path ("Wardrobe.mainCh_Clothes") into a seed JObject,
@@ -1421,13 +1441,20 @@ namespace Lvn.UI.Screens
         private string ResolveUserId()
         {
             if (!string.IsNullOrEmpty(UserId)) return UserId;
+            // Double-homed identity: PlayerPrefs AND a plain file. The id is the
+            // key to every server-side possession (wallet, stats, progress
+            // backup) — a corrupted prefs blob must never orphan them.
+            var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
             var id = PlayerPrefs.GetString("lvn_user", "");
             if (string.IsNullOrEmpty(id))
             {
-                id = System.Guid.NewGuid().ToString("N");
-                PlayerPrefs.SetString("lvn_user", id);
-                PlayerPrefs.Save();
+                try { if (System.IO.File.Exists(idFile)) id = System.IO.File.ReadAllText(idFile).Trim(); }
+                catch { /* unreadable second home — fall through */ }
             }
+            if (string.IsNullOrEmpty(id)) id = System.Guid.NewGuid().ToString("N");
+            PlayerPrefs.SetString("lvn_user", id);
+            PlayerPrefs.Save();
+            try { System.IO.File.WriteAllText(idFile, id); } catch { /* prefs copy still holds */ }
             return id;
         }
 
@@ -1481,10 +1508,25 @@ namespace Lvn.UI.Screens
         // background — otherwise the last lines and unsynced vars are lost.
         private void OnApplicationQuit() => OnApplicationPause(true);
 
+        // The vault sync: collect the bundle, write the atomic file home and
+        // push the server backup (offline-first store queues it when offline).
+        private void SyncProgressVault()
+        {
+            if (_manifest == null) return;
+            try
+            {
+                var bundle = ProgressVault.Collect(_manifest);
+                ProgressVault.WriteLocal(bundle);
+                if (_state != null) _ = _state.SaveVarsAsync(ProgressVault.Scope, bundle, default);
+            }
+            catch (Exception e) { Debug.LogWarning("[vault] sync failed: " + e.Message); }
+        }
+
         private void OnApplicationPause(bool paused)
         {
             if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
                 _ = SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars));
+            if (paused) SyncProgressVault();
             // Position too, not just stats — so a suspended app resumes on the same
             // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
             if (paused) Stage?.AutosaveNow();
