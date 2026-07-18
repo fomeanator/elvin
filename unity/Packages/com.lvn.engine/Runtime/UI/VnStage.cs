@@ -2213,6 +2213,32 @@ namespace Lvn.UI
             _ = ApplyActorAsync(cmd);
         }
 
+        /// <summary>Ids of actors currently VISIBLE on stage — hosts use it to
+        /// pick who an always-open wardrobe should dress.</summary>
+        public List<string> ActorsOnStage()
+        {
+            var list = new List<string>();
+            foreach (var kv in _placements)
+                if (kv.Value.Show) list.Add(kv.Key);
+            return list;
+        }
+
+        /// <summary>Take an actor off stage (fade) — the counterpart of
+        /// <see cref="EnsureActorShown"/> for a host that staged someone
+        /// temporarily (the menu wardrobe) and wants the scene back as it was.</summary>
+        public void HideActor(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            _ = ApplyActorAsync(new JObject
+            {
+                ["op"] = "actor", ["id"] = id, ["show"] = false, ["exit"] = "fade",
+            });
+        }
+
+        /// <summary>Close the quick menu if it's open (host screens that take
+        /// over from a menu tap call this so the scrim doesn't linger).</summary>
+        public void CloseQuickMenu() => _menu?.Close();
+
         private void OnWardrobeChanged(string entity) => RefreshActor(entity);
 
         private async Task ApplyActorAsync(JObject cmd)
@@ -2242,7 +2268,12 @@ namespace Lvn.UI
             List<SpriteCatalog.ResolvedLayer> urlDefs = null; // parallel full defs (bones: parent/pivot/spring)
             if (Catalog != null && Catalog.Has(id))
             {
-                var rls = Catalog.ResolveLayers(id, AxesOf(cmd), CatalogCond());
+                var axes = AxesOf(cmd);
+                // An actual staging (not the preload scan, which never comes
+                // through here) is the outfit "crossing the player's path" —
+                // the always-open wardrobe's collection grows from these.
+                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
+                var rls = Catalog.ResolveLayers(id, axes, CatalogCond());
                 urls = new List<string>(rls.Count);
                 urlIds = new List<string>(rls.Count);
                 urlRects = new List<Vector4>(rls.Count);
@@ -2251,7 +2282,9 @@ namespace Lvn.UI
             }
             else if (_cast != null && _cast.TryGetValue(id, out var entity))
             {
-                urls = SpriteComposer.Resolve(entity, AxesFrom(cmd));
+                var axes = AxesFrom(cmd);
+                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
+                urls = SpriteComposer.Resolve(entity, axes);
             }
             else
             {
