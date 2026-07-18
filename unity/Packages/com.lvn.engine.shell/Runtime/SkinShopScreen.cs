@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// grid where each tile reads its state at a glance — equipped, owned or on sale.
     ///
     /// This build ships with hardcoded demo data so the screen looks complete now;
-    /// the real catalog + wallet wiring lands later (see <see cref="WardrobeScreen"/>
+    /// the real catalog + wallet wiring lands later (see the wardrobe sheet
     /// for the live, manifest-driven equivalent).
     /// </summary>
     public sealed class SkinShopScreen : VisualElement
