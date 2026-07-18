@@ -19,6 +19,7 @@ namespace Lvn.UI.Screens
     public static class LvnProgress
     {
         private static string CurKey(string titleId) => "lvn_chapter_" + (titleId ?? "");
+        private static string CurNumKey(string titleId) => "lvn_chapter_num_" + (titleId ?? "");
         private static string ReachedKey(string titleId) => "lvn_reached_" + (titleId ?? "");
 
         /// <summary>Record that the player is (now) in this chapter. Bumps
@@ -27,6 +28,9 @@ namespace Lvn.UI.Screens
         {
             if (title == null || chapter == null) return;
             PlayerPrefs.SetString(CurKey(title.id), chapter.id);
+            // The NUMBER rides along: a re-import that renames chapter ids must
+            // not orphan the marker — position is the player's, ids are ours.
+            PlayerPrefs.SetInt(CurNumKey(title.id), chapter.number);
             if (chapter.number > Reached(title))
                 PlayerPrefs.SetInt(ReachedKey(title.id), chapter.number);
             PlayerPrefs.Save();
@@ -43,7 +47,20 @@ namespace Lvn.UI.Screens
                     foreach (var c in s.chapters)
                         if (c != null && c.id == id)
                             return c;
-            return null; // the chapter vanished from the manifest — start over
+            // The id vanished (a re-import renamed chapters) — recover by the
+            // stored NUMBER and heal the marker. Losing a whole playthrough to
+            // an id rename is exactly the progress loss this store must forbid.
+            int num = PlayerPrefs.GetInt(CurNumKey(title.id), 0);
+            if (num > 0)
+                foreach (var s in title.seasons)
+                    if (s?.chapters != null)
+                        foreach (var c in s.chapters)
+                            if (c != null && c.number == num)
+                            {
+                                SetCurrent(title, c);
+                                return c;
+                            }
+            return null; // nothing to recover — genuinely fresh
         }
 
         /// <summary>The furthest chapter number ever started (0 = nothing yet).</summary>
@@ -56,6 +73,22 @@ namespace Lvn.UI.Screens
         {
             if (title == null) return;
             PlayerPrefs.DeleteKey(CurKey(title.id));
+            PlayerPrefs.DeleteKey(CurNumKey(title.id));
+        }
+
+        /// <summary>Vault restore: re-plant a marker recovered from the progress
+        /// backup (id resolved against the live manifest by the caller).</summary>
+        public static void RestoreMarker(string titleId, string chapterId, int number, int reached)
+        {
+            if (string.IsNullOrEmpty(titleId)) return;
+            if (!string.IsNullOrEmpty(chapterId))
+            {
+                PlayerPrefs.SetString(CurKey(titleId), chapterId);
+                PlayerPrefs.SetInt(CurNumKey(titleId), number);
+            }
+            if (reached > PlayerPrefs.GetInt(ReachedKey(titleId), 0))
+                PlayerPrefs.SetInt(ReachedKey(titleId), reached);
+            PlayerPrefs.Save();
         }
 
         // ── chapter-entry checkpoints ────────────────────────────────────────
@@ -140,6 +173,7 @@ namespace Lvn.UI.Screens
         public static void ResetTitle(string titleId)
         {
             PlayerPrefs.DeleteKey(CurKey(titleId));
+            PlayerPrefs.DeleteKey(CurNumKey(titleId));
             PlayerPrefs.DeleteKey(ReachedKey(titleId));
             PlayerPrefs.DeleteKey(EntryKey(titleId));
             PlayerPrefs.DeleteKey(RestartKey(titleId));
