@@ -129,6 +129,16 @@ namespace Lvn.UI
             PersistSeen(entity, map);
         }
 
+        /// <summary>Everything this entity has encountered, axis → values —
+        /// the progress vault serialises it for the server-side backup.</summary>
+        public static Dictionary<string, List<string>> SeenDump(string entity)
+        {
+            var outp = new Dictionary<string, List<string>>();
+            foreach (var kv in LoadSeen(entity))
+                outp[kv.Key] = new List<string>(kv.Value);
+            return outp;
+        }
+
         /// <summary>Has this outfit value crossed the player's path?</summary>
         public static bool IsSeen(string entity, string axis, string value)
             => !string.IsNullOrEmpty(entity) && !string.IsNullOrEmpty(axis) && !string.IsNullOrEmpty(value)
