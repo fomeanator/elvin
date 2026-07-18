@@ -43,6 +43,15 @@ namespace Lvn.UI.Screens
         /// keeps its current value.</summary>
         public System.Action<string, string, string> OnEquip;
 
+        /// <summary>Fired when the player switches the character pill
+        /// (fromEntity, toEntity) — the host swaps who stands on the canvas.
+        /// The sheet clears the outgoing character's previews itself.</summary>
+        public System.Action<string, string> OnCharacterPicked;
+
+        /// <summary>The character currently being dressed (BuildFor target) —
+        /// hosts read it on close to strike the right actor from the stage.</summary>
+        public string CurrentEntity => _entity;
+
         /// <summary>The always-open (quick-menu) mode: list ONLY outfits that
         /// crossed the player's path — worn by an actor, offered by a story
         /// wardrobe moment, or already owned. A story-opened sheet (false)
@@ -121,6 +130,17 @@ namespace Lvn.UI.Screens
             SkinButton(collapse, false);
             headRow.Add(collapse);
 
+            // Character pills — ONLY the always-open wardrobe shows them, and
+            // only when several dressable characters have a collection. A story
+            // moment dresses exactly who the author says.
+            _rosterRow = new VisualElement();
+            _rosterRow.style.flexDirection = FlexDirection.Row;
+            _rosterRow.style.flexWrap = Wrap.Wrap;
+            _rosterRow.style.justifyContent = Justify.Center;
+            _rosterRow.style.marginTop = 14;
+            _rosterRow.style.display = DisplayStyle.None;
+            Add(_rosterRow);
+
             _tabs = new VisualElement();
             _tabs.style.flexDirection = FlexDirection.Row;
             _tabs.style.justifyContent = Justify.Center;
@@ -167,6 +187,64 @@ namespace Lvn.UI.Screens
         }
 
         public void SetManifest(LvnManifest manifest) => _manifest = manifest;
+
+        private VisualElement _rosterRow;
+        private List<(string id, string name)> _roster;
+
+        /// <summary>Give the sheet a character roster (menu/hub mode). Null or a
+        /// single entry hides the pills. Call before ShowAsync — cleared state
+        /// persists on the shared instance otherwise.</summary>
+        public void SetRoster(List<(string id, string name)> roster) => _roster = roster;
+
+        private void RebuildRoster()
+        {
+            if (_rosterRow == null) return;
+            _rosterRow.Clear();
+            int shown = 0;
+            if (_roster != null && _roster.Count > 1)
+            {
+                foreach (var (id, name) in _roster)
+                {
+                    if (OnlySeen && id != _entity && !HasAnyCollected(id)) continue;
+                    var pid = id;
+                    var b = new Button(() => SwitchTo(pid)) { text = name };
+                    b.style.height = 44;
+                    b.style.marginLeft = 4; b.style.marginRight = 4; b.style.marginBottom = 6;
+                    b.style.paddingLeft = 16; b.style.paddingRight = 16;
+                    b.style.fontSize = 20;
+                    bool active = pid == _entity;
+                    SkinButton(b, active);
+                    Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                    _rosterRow.Add(b);
+                    shown++;
+                }
+            }
+            _rosterRow.style.display = shown > 1 ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void SwitchTo(string id)
+        {
+            if (string.IsNullOrEmpty(id) || id == _entity) return;
+            var from = _entity;
+            LvnWardrobe.ClearPreview(from); // the outgoing look snaps back
+            OnCharacterPicked?.Invoke(from, id);
+            BuildFor(id);
+            RefreshBalances();
+        }
+
+        // Does this entity have anything to show in collection mode? Mirrors
+        // Items()' Encountered rule without switching the sheet to it.
+        private bool HasAnyCollected(string id)
+        {
+            if (_manifest?.sprites == null || !_manifest.sprites.TryGetValue(id, out var d)
+                || d?.wardrobe == null) return false;
+            foreach (var kv in d.wardrobe)
+                if (kv.Value?.items != null)
+                    foreach (var it in kv.Value.items)
+                        if (it != null && !string.IsNullOrEmpty(it.value) && Encountered(id, kv.Key, it.value))
+                            return true;
+            return false;
+        }
 
         /// <summary>Open the sheet for a character; resolves when the player
         /// confirms or collapses it. The story op awaits this.</summary>
@@ -286,6 +364,7 @@ namespace Lvn.UI.Screens
             _tab = null;
             _title.text = _cfg.title ?? "Wardrobe";
 
+            RebuildRoster();
             if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
             {
                 _itemName.text = _cfg.empty_text ?? "The wardrobe is empty";
@@ -532,12 +611,14 @@ namespace Lvn.UI.Screens
         }
 
         // Part of the player's collection: seen along the way, bought (the
-        // wallet remembers across reinstalls), or what she's wearing right now.
-        private bool Encountered(string axis, string value)
+        // wallet remembers across reinstalls), or what they're wearing right now.
+        private bool Encountered(string axis, string value) => Encountered(_entity, axis, value);
+
+        private static bool Encountered(string entity, string axis, string value)
         {
-            if (LvnWardrobe.IsSeen(_entity, axis, value)) return true;
-            if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, value))) return true;
-            return LvnWardrobe.Equipped(_entity).TryGetValue(axis, out var worn) && worn == value;
+            if (LvnWardrobe.IsSeen(entity, axis, value)) return true;
+            if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(entity, axis, value))) return true;
+            return LvnWardrobe.Equipped(entity).TryGetValue(axis, out var worn) && worn == value;
         }
 
         private LvnWardrobeItem Find(string axis, string value)
