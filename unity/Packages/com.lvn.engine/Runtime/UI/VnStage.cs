@@ -2229,7 +2229,11 @@ namespace Lvn.UI
             float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 0.5625f;
             const float reference = 9f / 16f;
             if (aspect <= reference + 0.01f) return x; // portrait phones: untouched
-            float k = reference / aspect;              // portrait-frame width, as a screen fraction
+            // SOFT compression (sqrt): a full portrait-frame inset pressed
+            // actors flush against the edge — halfway (in ratio terms) keeps
+            // the comfortable margin of the approved tablet framing, and on
+            // portrait (k=1) it's exactly the authored slot.
+            float k = Mathf.Sqrt(reference / aspect);
             float anchored = x < 0.5f ? x * k
                 : x > 0.5f ? 1f - (1f - x) * k
                 : 0.5f;
