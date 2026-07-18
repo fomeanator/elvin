@@ -141,6 +141,8 @@ namespace Lvn.UI.Screens
             _open = true;
             style.display = DisplayStyle.Flex;
             RefreshBalances();
+            Lvn.Services.LvnWallet.Changed += RefreshBalances; // live pills while open
+            _ = Lvn.Services.LvnWallet.RefreshAsync();         // server truth on entry
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
             // A Hide() during the fade-in must cancel the open, not leave this
             // await parked on a _tcs nobody will ever resolve.
@@ -151,6 +153,7 @@ namespace Lvn.UI.Screens
             try { await _tcs.Task; }
             finally
             {
+                Lvn.Services.LvnWallet.Changed -= RefreshBalances;
                 await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
                 style.display = DisplayStyle.None;
                 _open = false;
@@ -292,7 +295,7 @@ namespace Lvn.UI.Screens
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
             Round(buy, LvnTokens.RadiusSm);
             ClearBorder(buy);
-            buy.clicked += () => Buy(buy);
+            buy.clicked += () => Buy(buy, pack);
             card.Add(buy);
 
             // Ribbon badge (top-left), for popular / best-value packs.
@@ -319,15 +322,28 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        private void Buy(Button b)
+        private async void Buy(Button b, Pack pack)
         {
             if (_buying) return;
             _buying = true;
             var label = b.text;
             b.SetEnabled(false);
             b.text = "…";
-            // Demo purchase: no real billing. A host can swap this for the
-            // StoreScreen VerifyPurchaseAsync flow.
+            // TEST-mode purchase: no store billing yet, but the CREDIT is real —
+            // it lands in the server wallet (idempotent op), so bought crystals
+            // exist everywhere: the wardrobe, the HUD pills, the next session.
+            // Real IAP swaps only this call for the receipt flow.
+            long total = pack.Amount + pack.Bonus;
+            bool ok = await Lvn.Services.LvnWallet.EarnAsync(
+                CurrencyOf(pack), total, "packshop_test:" + pack.Amount + pack.Unit);
+            RefreshBalances();
+            if (!ok)
+            {
+                b.text = label;
+                b.SetEnabled(true);
+                _buying = false;
+                return;
+            }
             b.schedule.Execute(() =>
             {
                 b.text = "✓";
@@ -340,12 +356,25 @@ namespace Lvn.UI.Screens
             }).ExecuteLater(650);
         }
 
-        // ── Balances (fallback demo numbers) ──────────────────────────────────
+        // The wallet currency a pack credits — from its display unit.
+        private static string CurrencyOf(Pack p)
+        {
+            var u = (p.Unit ?? "").ToLowerInvariant();
+            if (u.Contains("крист")) return "crystals";
+            if (u.Contains("энерг")) return "energy";
+            if (u.Contains("золот")) return "gold";
+            return "crystals";
+        }
+
+        // ── Balances: the REAL wallet ────────────────────────────────────────
         private void RefreshBalances()
         {
             _balances.Clear();
-            _balances.Add(BalancePill("◆", "2 450", LvnTokens.Gold));
-            _balances.Add(BalancePill("⚡", "120", LvnTokens.Accent));
+            var bal = Lvn.Services.LvnWallet.Balances;
+            long crystals = bal.TryGetValue("crystals", out var c) ? c : 0;
+            long energy = bal.TryGetValue("energy", out var e) ? e : 0;
+            _balances.Add(BalancePill("◆", crystals.ToString("N0"), LvnTokens.Gold));
+            _balances.Add(BalancePill("⚡", energy.ToString("N0"), LvnTokens.Accent));
         }
 
         private static VisualElement BalancePill(string glyph, string value, Color glyphColor)
