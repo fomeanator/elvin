@@ -15,7 +15,7 @@ func TestEmotionThreading(t *testing.T) {
 		{"op": "say", "who": "Тимур", "text": "Дом, милый дом.", "color": "#00b050"},
 		{"op": "say", "who": "Тимур", "text": "Но почему…", "color": "#7030A0"},      // upper-case
 		{"op": "say", "who": "Тимур", "text": "Страшно.", "color": "#ff0c0c0c"},      // leading ff alpha
-		{"op": "say", "who": "Люба", "text": "Что это за цвет?", "color": "#0f243e"}, // unmapped
+		{"op": "say", "who": "Люба", "text": "Что это за цвет?", "color": "#123456"}, // unmapped
 	}}
 
 	probe := newColorProbe(nil)
@@ -44,8 +44,8 @@ func TestEmotionThreading(t *testing.T) {
 	if s := byHex["#00b050"]; s.Emotion != "happy" || s.Count != 1 || s.Sample == "" {
 		t.Errorf("#00b050 stat = %+v", s)
 	}
-	if s := byHex["#0f243e"]; s.Emotion != "" || s.Count != 1 {
-		t.Errorf("unmapped #0f243e stat = %+v (want empty emotion)", s)
+	if s := byHex["#123456"]; s.Emotion != "" || s.Count != 1 {
+		t.Errorf("unmapped #123456 stat = %+v (want empty emotion)", s)
 	}
 
 	// AutoStage copies each emotion onto the actor show cmd (re-showing Тимур as his
