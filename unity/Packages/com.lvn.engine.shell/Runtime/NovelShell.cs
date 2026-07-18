@@ -246,15 +246,23 @@ namespace Lvn.UI.Screens
                 if (ct.IsCancellationRequested) return;
             }
 
-            // ── auth screen (once, when the manifest enables it) ──
-            // Its nickname doubles as the player name, so the name-input screen
-            // is skipped when one was entered here.
-            if (Auth != null)
+            // The player's name persists across launches — nobody re-asks it.
+            _playerName = Lvn.UI.LvnPrefs.PlayerName;
+
+            // ── welcome/auth screen: the FIRST launch only ──
+            // Later launches go straight in; the device sign-in runs silently
+            // either way. A nickname entered here seeds the player name.
+            if (Auth != null && !Lvn.UI.LvnPrefs.SeenWelcome)
             {
                 try
                 {
                     var nick = await Auth.AskAsync(ct);
-                    if (!string.IsNullOrEmpty(nick)) _playerName = nick;
+                    Lvn.UI.LvnPrefs.SeenWelcome = true;
+                    if (!string.IsNullOrEmpty(nick))
+                    {
+                        _playerName = nick;
+                        Lvn.UI.LvnPrefs.PlayerName = nick;
+                    }
                 }
                 catch (OperationCanceledException) { return; }
             }
@@ -292,10 +300,17 @@ namespace Lvn.UI.Screens
                 // chapter's backdrop and preload the right asset plan.
                 var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
 
-                // ── name input (once) ──
+                // ── name input: the NOVEL asks, at its start, once ever ──
+                // Shown before the first chapter when no name is known yet;
+                // the answer persists — no launch ever re-asks it.
                 if (askName && string.IsNullOrEmpty(_playerName) && (_manifest.ui?.name_input != null))
                 {
-                    try { _playerName = await NameInput.AskAsync(ct); }
+                    try
+                    {
+                        _playerName = await NameInput.AskAsync(ct);
+                        if (!string.IsNullOrEmpty(_playerName))
+                            Lvn.UI.LvnPrefs.PlayerName = _playerName;
+                    }
                     catch (OperationCanceledException) { return; }
                 }
 

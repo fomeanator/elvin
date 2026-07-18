@@ -63,6 +63,22 @@ namespace Lvn.UI
 
         /// <summary>Typewriter speed multiplier (0.25×–3×; 1 = author's pace).
         /// Pushed into <see cref="TypewriterClock.UserSpeedMultiplier"/>.</summary>
+        /// <summary>The player's chosen display name — asked ONCE (at a novel's
+        /// start), persisted forever. Empty until entered.</summary>
+        public static string PlayerName
+        {
+            get => PlayerPrefs.GetString(P + "player_name", "");
+            set { PlayerPrefs.SetString(P + "player_name", value ?? ""); PlayerPrefs.Save(); Changed?.Invoke(); }
+        }
+
+        /// <summary>Has the boot welcome/auth screen been shown already? It
+        /// greets the player exactly once — never again on later launches.</summary>
+        public static bool SeenWelcome
+        {
+            get => PlayerPrefs.GetInt(P + "seen_welcome", 0) == 1;
+            set { PlayerPrefs.SetInt(P + "seen_welcome", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
         public static float TextSpeed
         {
             get { EnsureLoaded(); return _textSpeed; }

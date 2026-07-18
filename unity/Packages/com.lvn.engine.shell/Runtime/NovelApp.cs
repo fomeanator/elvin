@@ -645,6 +645,10 @@ namespace Lvn.UI.Screens
             }
             TryAdd(primary);
             foreach (var id in sprites.Keys) TryAdd(id);
+            // The protagonist's pill wears the name the PLAYER chose, not the
+            // import's internal label (Katya/cold_main/Главный_герой are all her).
+            if (list.Count > 0 && list[0].id == primary && !string.IsNullOrEmpty(_playerName))
+                list[0] = (list[0].id, _playerName);
             return list;
         }
 
