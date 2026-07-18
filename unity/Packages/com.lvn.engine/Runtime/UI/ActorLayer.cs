@@ -204,6 +204,10 @@ namespace Lvn.UI
             bool exitWithAnim = !p.Show && p.ExitTransition != TransitionType.None;
             if (!exitWithAnim)
                 slot.style.display = p.Show ? DisplayStyle.Flex : DisplayStyle.None;
+            // A re-show races a still-running exit fade: invalidate the pending
+            // exit's right to hide, or its OnCompleted would blank the actor the
+            // moment the fade ends — shown in state, invisible on screen.
+            if (p.Show) InvalidateExit(slot);
 
             if (p.Show && p.EnterTransition != TransitionType.None)
                 PlayTransition(slot, p.EnterTransition, p.TransitionDuration, p, exiting: false);
@@ -471,10 +475,26 @@ namespace Lvn.UI
         }
 
         // On an exit animation, hide the slot once it finishes so a faded-out
-        // character actually leaves the screen.
-        private static void Finish(ValueAnimation<float> anim, bool exiting, VisualElement slot)
+        // character actually leaves the screen — unless a newer show reclaimed
+        // the slot while the animation ran (the token invalidates the hide).
+        private readonly Dictionary<VisualElement, int> _exitToken = new Dictionary<VisualElement, int>();
+
+        private void InvalidateExit(VisualElement slot)
         {
-            if (exiting) anim.OnCompleted(() => slot.style.display = DisplayStyle.None);
+            _exitToken.TryGetValue(slot, out var t);
+            _exitToken[slot] = t + 1;
+        }
+
+        private void Finish(ValueAnimation<float> anim, bool exiting, VisualElement slot)
+        {
+            if (!exiting) return;
+            _exitToken.TryGetValue(slot, out var t);
+            int token = t; // the exit owns the slot only while no show supersedes it
+            anim.OnCompleted(() =>
+            {
+                if (_exitToken.TryGetValue(slot, out var cur) && cur != token) return;
+                slot.style.display = DisplayStyle.None;
+            });
         }
 
         /// <summary>Named horizontal placement presets — the common VN slots from
