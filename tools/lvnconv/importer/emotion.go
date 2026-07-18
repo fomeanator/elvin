@@ -8,16 +8,39 @@ import (
 )
 
 // defaultEmotionColors maps a dialogue fragment's articy marker colour (#rrggbb)
-// to an emotion token. articy authors tint fragments to cue the speaker's mood;
-// this is the "Советское воспитание"/Cold legend. Overridable/extendable per
-// import via Options.EmotionColors.
+// to an emotion token. articy authors tint fragments to cue the speaker's mood.
+// This is the studio's OFFICIAL palette (partner docs «Все эмоции и цвета» /
+// variables table) — the six colours we reverse-engineered from Cold all
+// matched it exactly; the rest fill out the registry. Overridable/extendable
+// per import via Options.EmotionColors.
 var defaultEmotionColors = map[string]string{
-	"ffff00": "surprised",
+	"c8e2e7": "idle", // the palette's default tint
 	"00b050": "happy",
-	"d6006e": "flirt",
-	"0c0c0c": "fear",
 	"7030a0": "sad",
+	"ffff00": "surprised",
+	"ff0000": "anger",
+	"ffffff": "bed_idle",
+	"92d050": "bed_happy",
+	"0c0c0c": "fear",
+	"00ff00": "inspiration",
+	"899a00": "interest",
+	"d99694": "embarrassment",
+	"d6006e": "flirt",
+	"e36c09": "sarcasm",
+	"ffc000": "trolling",
+	"00b0f0": "delight",
 	"0070c0": "thoughtfulness",
+	"c00000": "vampire_grin",
+	"ccc1d9": "offence",
+	"002060": "determination",
+	"0000ff": "cunning",
+	"00ffff": "dreamy",
+	"da3ef0": "false",
+	"c0504d": "mask",
+	"0f243e": "tears",
+	"4f6128": "disgust",
+	"999999": "drunk",
+	"ff00ff": "tired",
 }
 
 // mergeColors overlays colour maps left-to-right (later wins), so a caller can
