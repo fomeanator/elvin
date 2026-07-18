@@ -571,6 +571,7 @@ namespace Lvn.Content
         public string prompt_color;      // default #cbb98f
         public string text_color;        // default #f4ecd8
         public string field_color;       // default #1c1c22 (used when no field art)
-        public string button_color;      // default #3a3a44 (used when no button art)
+        public string button_color;      // accent fill; default: the dialogue speaker colour
+        public string button_text_color; // default #14141a (dark on the accent)
     }
 }
