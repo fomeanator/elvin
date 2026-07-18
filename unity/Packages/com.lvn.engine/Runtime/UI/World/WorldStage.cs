@@ -44,6 +44,14 @@ namespace Lvn.UI.World
         /// <param name="parent">Where to park the canvas GameObject (e.g. the VnStage's transform).</param>
         /// <param name="sortingOrder">Canvas sort order — keep below the UITK panel's so chrome draws on top.</param>
         /// <param name="reference">Reference resolution (canvas units); default 1080×1920 portrait.</param>
+        /// <summary>The canvas' real logical width in units: the scaler matches
+        /// WIDTH on portrait (= reference.x) and HEIGHT on landscape (width
+        /// grows with the aspect) — same orientation rule as LvnPanel.</summary>
+        private float LogicalWidth()
+            => Screen.width > Screen.height && Screen.height > 0
+                ? _reference.y * Screen.width / Screen.height
+                : _reference.x;
+
         public WorldStage(Transform parent, int sortingOrder = 0, Vector2? reference = null)
         {
             _reference = reference ?? new Vector2(1080f, 1920f);
@@ -158,6 +166,26 @@ namespace Lvn.UI.World
             {
                 var pos = a.Slot.anchoredPosition;
                 pos.y = -p.Y * content.y;
+                a.Slot.anchoredPosition = pos;
+            }
+            // WIDE screens: X was mapped against the 1080-unit portrait column
+            // anchored at the canvas LEFT — on a landscape canvas (~2× wider)
+            // the whole cast huddled in the left third ("right" ended at 22% of
+            // the screen). Remap across the REAL logical width with soft edge
+            // anchoring: left-half slots keep their inset from the LEFT edge,
+            // right-half from the RIGHT (portrait-frame ratios, sqrt-softened),
+            // clamped by the slot's own half-width so nothing is ever cut.
+            float lw = LogicalWidth();
+            if (lw > _reference.x + 0.5f)
+            {
+                float k = Mathf.Sqrt(_reference.x / lw);
+                float x01 = p.X < 0.5f ? p.X * k
+                    : p.X > 0.5f ? 1f - (1f - p.X) * k
+                    : 0.5f;
+                float halfW = a.Slot.sizeDelta.x * 0.5f / lw;
+                x01 = Mathf.Clamp(x01, halfW + 0.01f, 1f - halfW - 0.01f);
+                var pos = a.Slot.anchoredPosition;
+                pos.x = x01 * lw;
                 a.Slot.anchoredPosition = pos;
             }
             a.ContentSize = new Vector2(_reference.x, content.y);
