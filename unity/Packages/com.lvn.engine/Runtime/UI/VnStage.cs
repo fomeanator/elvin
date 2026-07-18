@@ -1465,8 +1465,10 @@ namespace Lvn.UI
             if (snap == null) { _player.Advance(); return; } // no snapshot after all — play from the top (Play skipped its own advance expecting us)
             var player = _player;               // pin: a re-entry mid-await must not resume a dead run
             int gen = ++_startGen;              // supersede a pending intro warmup (see StartWithSpineWarmup)
-            int epoch = _stageEpoch;            // an Exit/chapter change mid-restore must not repaint the cleared stage
             ResetStage();                       // clean slate
+            // Capture AFTER ResetStage — it bumps the epoch; capturing before it
+            // made this guard always-false and silently swallowed every resume.
+            int epoch = _stageEpoch;            // an Exit/chapter change mid-restore must not repaint the cleared stage
             player.Restore(snap);               // cursor (via label anchor) + vars + call stack
             player.ClearHistory();              // the rollback trail no longer describes the path here
             int at = player.Index;              // the anchor-relocated cursor, not the raw saved index
