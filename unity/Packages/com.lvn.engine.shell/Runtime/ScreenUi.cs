@@ -39,6 +39,28 @@ namespace Lvn.UI.Screens
             catch { /* missing art is non-fatal */ }
         }
 
+        /// <summary>Load a sprite and apply it as the element's 9-sliced frame —
+        /// the art replaces the flat fill. Missing art keeps the flat look.</summary>
+        public static async Task AssignNineSliceAsync(VisualElement el, string url, int slice, ILvnAssets assets)
+        {
+            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
+            try
+            {
+                var sprite = await assets.LoadSpriteAsync(url, CancellationToken.None);
+                if (sprite == null) return;
+                el.style.backgroundImage = new StyleBackground(sprite);
+                el.style.backgroundColor = Color.clear;
+                if (slice > 0)
+                {
+                    el.style.unitySliceLeft = slice;
+                    el.style.unitySliceRight = slice;
+                    el.style.unitySliceTop = slice;
+                    el.style.unitySliceBottom = slice;
+                }
+            }
+            catch { /* missing art is non-fatal */ }
+        }
+
         /// <summary>A full-width, centre-aligned absolute label placed at a vertical
         /// fraction of its parent. Ignores pointer input (overlay text).</summary>
         public static Label CenterLabel(float topFraction, Color color, float size)
