@@ -289,11 +289,14 @@ namespace Lvn.UI.Screens
 
             // The wardrobe: a quick-menu entry when any character has one (or
             // ui.wardrobe opts in explicitly), and `ext wardrobe_show char=id`.
+            // The menu entry opens the IN-STORY sheet over the live scene — the
+            // hero dressed against the current background, the same experience
+            // as a story wardrobe moment, but always reachable.
             var wardrobeCfg = manifest.ui?.wardrobe;
             if ((wardrobeCfg != null || _shell.Wardrobe.Entities().Count > 0)
                 && (wardrobeCfg?.show_menu_item ?? true))
                 StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
-                    stage => _ = _shell.OpenWardrobeAsync());
+                    stage => _ = OpenWardrobeFromMenuAsync(stage));
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -590,38 +593,98 @@ namespace Lvn.UI.Screens
             try
             {
                 if (full) { await _shell.OpenWardrobeAsync(entity); return; }
-                if (_storySheet == null)
-                {
-                    var ui = _manifest?.ui ?? new LvnUiConfig();
-                    _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
-                    _storySheet.SetManifest(_manifest);
-                    _storySheet.OpenStore = () => _shell.OpenStoreAsync();
-                    // Write the player's wardrobe pick back into the novel's story state
-                    // (nested, like the script's own `set`), then re-dress the actor
-                    // against the new value. Order matters: SetVar BEFORE RefreshActor so
-                    // the {Wardrobe.*} axes re-interpolate against the fresh var.
-                    _storySheet.OnEquip = (ent, storyVar, value) =>
-                    {
-                        var p = Stage?.Player;
-                        if (p == null || string.IsNullOrEmpty(storyVar)) return;
-                        Newtonsoft.Json.Linq.JToken jv =
-                            long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
-                            : double.TryParse(value, out var d) ? new Newtonsoft.Json.Linq.JValue(d)
-                            : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
-                        p.SetVar(storyVar, jv);
-                        Stage.RefreshActor(ent);
-                    };
-                }
-                // The sheet mirrors the LIVE actor — make sure the active hero is on
-                // stage so the wardrobe always shows who you're dressing, even when the
-                // story beat opened it on an empty stage.
-                Stage?.EnsureActorShown(entity);
-                var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
-                await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
-                try { await done; }
-                finally { await Stage.HidePanelAsync(); }   // frame slides away, dialogue returns
+                // The author's beat: the full catalog for this moment.
+                await ShowStorySheetAsync(entity, onlySeen: false);
             }
             finally { ctx.Resume(); }
+        }
+
+        // The ALWAYS-OPEN wardrobe (quick-menu «Гардероб»): the exact story-
+        // moment experience — the hero on the current scene's background, the
+        // same sheet — but the items are the player's COLLECTION: outfits the
+        // story staged or offered along the way, plus everything bought.
+        private async Task OpenWardrobeFromMenuAsync(VnStage stage)
+        {
+            var entity = ResolveMenuWardrobeEntity(stage);
+            if (string.IsNullOrEmpty(entity)) { await _shell.OpenWardrobeAsync(); return; }
+            stage.CloseQuickMenu();
+            bool wasOnStage = stage.ActorsOnStage().Contains(entity);
+            // The story holds only because nothing advances it — block taps for
+            // the sheet's whole life (a story-opened sheet gets this from Hold()).
+            stage.InputBlocked = true;
+            try
+            {
+                await ShowStorySheetAsync(entity,
+                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true);
+            }
+            finally
+            {
+                stage.InputBlocked = false;
+                // She was staged just for the fitting — give the scene back.
+                if (!wasOnStage) stage.HideActor(entity);
+            }
+        }
+
+        // Who the menu wardrobe dresses: the configured hero, else the one on
+        // stage whose wardrobe writes story vars (the imported protagonist),
+        // else anyone sensible with a wardrobe.
+        private string ResolveMenuWardrobeEntity(VnStage stage)
+        {
+            var sprites = _manifest?.sprites;
+            if (sprites == null || sprites.Count == 0) return null;
+            bool HasWardrobe(string id) => !string.IsNullOrEmpty(id)
+                && sprites.TryGetValue(id, out var d) && d?.wardrobe != null && d.wardrobe.Count > 0;
+            bool WritesStory(string id)
+            {
+                if (!sprites.TryGetValue(id, out var d) || d?.wardrobe == null) return false;
+                foreach (var slot in d.wardrobe.Values)
+                    if (!string.IsNullOrEmpty(slot?.storyVar)) return true;
+                return false;
+            }
+
+            var cfg = _manifest?.ui?.wardrobe;
+            if (HasWardrobe(cfg?.entity)) return cfg.entity;
+            var onStage = stage != null ? stage.ActorsOnStage() : new List<string>();
+            foreach (var id in onStage) if (HasWardrobe(id) && WritesStory(id)) return id;
+            foreach (var id in sprites.Keys) if (HasWardrobe(id) && WritesStory(id)) return id;
+            foreach (var id in onStage) if (HasWardrobe(id)) return id;
+            foreach (var id in sprites.Keys) if (HasWardrobe(id)) return id;
+            return null;
+        }
+
+        private async Task ShowStorySheetAsync(string entity, bool onlySeen)
+        {
+            if (_storySheet == null)
+            {
+                var ui = _manifest?.ui ?? new LvnUiConfig();
+                _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
+                _storySheet.SetManifest(_manifest);
+                _storySheet.OpenStore = () => _shell.OpenStoreAsync();
+                // Write the player's wardrobe pick back into the novel's story state
+                // (nested, like the script's own `set`), then re-dress the actor
+                // against the new value. Order matters: SetVar BEFORE RefreshActor so
+                // the {Wardrobe.*} axes re-interpolate against the fresh var.
+                _storySheet.OnEquip = (ent, storyVar, value) =>
+                {
+                    var p = Stage?.Player;
+                    if (p == null || string.IsNullOrEmpty(storyVar)) return;
+                    Newtonsoft.Json.Linq.JToken jv =
+                        long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
+                        : double.TryParse(value, out var d) ? new Newtonsoft.Json.Linq.JValue(d)
+                        : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
+                    p.SetVar(storyVar, jv);
+                    Stage.RefreshActor(ent);
+                };
+            }
+            _storySheet.OnlySeen = onlySeen; // shared instance — set on EVERY open
+            // The sheet mirrors the LIVE actor — make sure the active hero is on
+            // stage so the wardrobe always shows who you're dressing, even when the
+            // story beat opened it on an empty stage.
+            Stage?.EnsureActorShown(entity);
+            var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
+            await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
+            try { await done; }
+            finally { await Stage.HidePanelAsync(); }   // frame slides away, dialogue returns
         }
 
         // Builds a VnStage on a child GameObject with its own UIDocument + panel

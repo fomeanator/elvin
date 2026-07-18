@@ -108,12 +108,77 @@ namespace Lvn.UI
                     axes[kv.Key] = kv.Value;
         }
 
+        // ── encountered along the way ────────────────────────────────────────
+        // The always-open wardrobe shows what the story has ACTUALLY put in the
+        // player's path: every axis value an actor has been staged with, plus
+        // everything an in-story wardrobe moment offered. Device-persisted like
+        // the equips — progression through outfits survives restarts.
+        private static readonly Dictionary<string, Dictionary<string, HashSet<string>>> _seen
+            = new Dictionary<string, Dictionary<string, HashSet<string>>>();
+        private const string PSeen = "lvn_wardrobe_seen_";
+
+        /// <summary>Record that an outfit value crossed the player's path
+        /// (an actor wore it, or a story wardrobe offered it).</summary>
+        public static void MarkSeen(string entity, string axis, string value)
+        {
+            if (string.IsNullOrEmpty(entity) || string.IsNullOrEmpty(axis) || string.IsNullOrEmpty(value))
+                return;
+            var map = LoadSeen(entity);
+            if (!map.TryGetValue(axis, out var set)) map[axis] = set = new HashSet<string>();
+            if (!set.Add(value)) return; // known — no prefs churn
+            PersistSeen(entity, map);
+        }
+
+        /// <summary>Has this outfit value crossed the player's path?</summary>
+        public static bool IsSeen(string entity, string axis, string value)
+            => !string.IsNullOrEmpty(entity) && !string.IsNullOrEmpty(axis) && !string.IsNullOrEmpty(value)
+               && LoadSeen(entity).TryGetValue(axis, out var set) && set.Contains(value);
+
+        private static Dictionary<string, HashSet<string>> LoadSeen(string entity)
+        {
+            if (_seen.TryGetValue(entity, out var map)) return map;
+            map = new Dictionary<string, HashSet<string>>();
+            var json = PlayerPrefs.GetString(PSeen + entity, "");
+            if (!string.IsNullOrEmpty(json))
+            {
+                try
+                {
+                    var doc = Newtonsoft.Json.Linq.JObject.Parse(json);
+                    foreach (var p in doc.Properties())
+                    {
+                        var set = new HashSet<string>();
+                        if (p.Value is Newtonsoft.Json.Linq.JArray arr)
+                            foreach (var v in arr) { var s = (string)v; if (!string.IsNullOrEmpty(s)) set.Add(s); }
+                        if (set.Count > 0) map[p.Name] = set;
+                    }
+                }
+                catch { /* corrupt prefs → start empty */ }
+            }
+            _seen[entity] = map;
+            return map;
+        }
+
+        private static void PersistSeen(string entity, Dictionary<string, HashSet<string>> map)
+        {
+            var doc = new Newtonsoft.Json.Linq.JObject();
+            foreach (var kv in map)
+            {
+                var arr = new Newtonsoft.Json.Linq.JArray();
+                foreach (var v in kv.Value) arr.Add(v);
+                doc[kv.Key] = arr;
+            }
+            PlayerPrefs.SetString(PSeen + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
+            PlayerPrefs.Save();
+        }
+
         /// <summary>Forget an entity's equipment (tests / profile reset).</summary>
         public static void Clear(string entity)
         {
             if (string.IsNullOrEmpty(entity)) return;
             _cache.Remove(entity);
+            _seen.Remove(entity);
             PlayerPrefs.DeleteKey(P + entity);
+            PlayerPrefs.DeleteKey(PSeen + entity);
             PlayerPrefs.Save();
             Changed?.Invoke(entity);
         }
