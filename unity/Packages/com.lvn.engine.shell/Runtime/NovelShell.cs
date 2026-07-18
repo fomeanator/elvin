@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
             Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
             Hide(Hub); Add(Hub);
-            NameInput = new NameInputScreen(ui.name_input, assets); Add(NameInput);
+            NameInput = new NameInputScreen(ui.name_input, ui.dialogue, assets); Add(NameInput);
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
@@ -307,7 +307,8 @@ namespace Lvn.UI.Screens
                 {
                     try
                     {
-                        _playerName = await NameInput.AskAsync(ct);
+                        // над фоном первой главы — как первый кадр истории
+                        _playerName = await NameInput.AskAsync(chapter?.bg_url, ct);
                         if (!string.IsNullOrEmpty(_playerName))
                             Lvn.UI.LvnPrefs.PlayerName = _playerName;
                     }
