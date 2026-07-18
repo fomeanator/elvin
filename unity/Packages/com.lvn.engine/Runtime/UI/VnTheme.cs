@@ -190,6 +190,10 @@ namespace Lvn.UI
         public bool MenuShowRollback = true;
         [Tooltip("Show the ☰ quick-menu floating button (hiding it removes the whole menu).")]
         public bool MenuShowMenu = true;
+        [Tooltip("Show the Stats menu item (live story variables; hidden anyway when there are none).")]
+        public bool MenuShowStats = true;
+        [Tooltip("Allow EDITING variables from the Stats panel — a debug/QA switch, not for players.")]
+        public bool MenuStatsEdit = false;
 
         /// <summary>Chrome text overrides by stable key (manifest ui.menu.labels) —
         /// how a Russian novel gets «Сохранить» instead of "Save". Null/missing

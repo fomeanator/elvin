@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -240,6 +241,10 @@ namespace Lvn.UI
                 _stage.StartSkip(); // fast-forward until a choice or a tap
             }));
             sheet.Add(Item(L("settings", "Settings"), ShowSettings));
+            // Live story variables — the player's stats. Only when the running
+            // story actually has some, so stat-less novels never show a dead entry.
+            if (_theme.MenuShowStats && _stage.Player != null && _stage.Player.Vars.Count > 0)
+                sheet.Add(Item(L("stats", "Stats"), ShowStats));
             // The CG gallery — only when the title curates one (manifest
             // title.gallery), so novels without CGs never show a dead entry.
             if (_stage.Gallery != null && _stage.Gallery.Count > 0)
@@ -528,6 +533,172 @@ namespace Lvn.UI
                 if (sprite != null && img.panel != null) img.sprite = sprite;
             }
             catch { /* a missing CG just leaves the dark frame */ }
+        }
+
+        // ── stats (live story variables) ─────────────────────────────────────
+
+        // One panel answers "are my stats actually accruing?": every variable of
+        // the RUNNING story, nested objects (global.*) flattened to dotted keys.
+        // With ui.menu.stats_edit the rows become writable — the QA loop for a
+        // stat-driven novel (nudge courage, reopen, watch the gate) without
+        // replaying a chapter.
+        private void ShowStats()
+        {
+            var p = Panel(L("stats", "Stats"));
+            var scroll = new ScrollView();
+            scroll.style.flexGrow = 1;
+            p.Add(scroll);
+
+            var vars = _stage.Player?.Vars;
+            if (vars == null || vars.Count == 0)
+            {
+                scroll.Add(Text(L("empty", "— empty —"), 15, FontStyle.Italic, dim: true));
+                return;
+            }
+            var flat = new List<(string key, JToken val)>();
+            foreach (var kv in vars) FlattenVar(kv.Key, kv.Value, flat);
+            flat.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
+            foreach (var (key, val) in flat) scroll.Add(StatRow(key, val));
+        }
+
+        // Leaves become rows; JObject nodes recurse into "parent.child" keys —
+        // the exact dotted paths SetVar/GetVar/expressions read, so a row's key
+        // is also its write address.
+        private static void FlattenVar(string key, JToken val, List<(string, JToken)> into)
+        {
+            if (val is JObject o && o.Count > 0)
+                foreach (var prop in o.Properties()) FlattenVar(key + "." + prop.Name, prop.Value, into);
+            else into.Add((key, val));
+        }
+
+        private VisualElement StatRow(string key, JToken val)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.height = 34;
+            row.style.marginBottom = 2;
+
+            var name = Text(key, 15, FontStyle.Normal);
+            name.style.flexGrow = 1;
+            name.style.flexShrink = 1;
+            name.style.overflow = Overflow.Hidden;
+            row.Add(name);
+
+            bool edit = _theme.MenuStatsEdit;
+            var type = val?.Type ?? JTokenType.Null;
+            if (type == JTokenType.Boolean)
+            {
+                if (edit)
+                {
+                    var t = new Toggle { value = val.Value<bool>() };
+                    t.RegisterValueChangedCallback(e => _stage.Player.SetVar(key, new JValue(e.newValue)));
+                    row.Add(t);
+                }
+                else row.Add(Text(val.Value<bool>() ? "true" : "false", 15, FontStyle.Bold));
+            }
+            else if (type == JTokenType.Integer || type == JTokenType.Float)
+            {
+                double d = val.Value<double>();
+                if (edit)
+                {
+                    // − [value] + : steppers for the common nudge, the field for
+                    // an exact number. Garbage input just doesn't commit.
+                    var field = StatField(FormatNum(d), 64);
+                    field.RegisterCallback<FocusOutEvent>(_ =>
+                    {
+                        if (double.TryParse(field.value.Replace(',', '.'),
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out var v))
+                            _stage.Player.SetVar(key, new JValue(v % 1 == 0 ? (long)v : v));
+                        else field.value = FormatNum(ReadNum(key, d));
+                    });
+                    row.Add(StatStep("−", () => Nudge(key, field, -1)));
+                    row.Add(field);
+                    row.Add(StatStep("+", () => Nudge(key, field, +1)));
+                }
+                else row.Add(Text(FormatNum(d), 15, FontStyle.Bold));
+            }
+            else if (type == JTokenType.String)
+            {
+                if (edit)
+                {
+                    var field = StatField((string)val, 120);
+                    field.RegisterCallback<FocusOutEvent>(_ =>
+                        _stage.Player.SetVar(key, new JValue(field.value ?? "")));
+                    row.Add(field);
+                }
+                else row.Add(Text("«" + Trunc((string)val ?? "", 24) + "»", 15, FontStyle.Bold));
+            }
+            else
+            {
+                // null / arrays: show, don't edit — nothing in a story reads them
+                // in a way a stepper could sensibly write.
+                var s = val == null || type == JTokenType.Null ? "null"
+                    : Trunc(val.ToString(Newtonsoft.Json.Formatting.None), 24);
+                row.Add(Text(s, 14, FontStyle.Normal, dim: true));
+            }
+            return row;
+        }
+
+        private void Nudge(string key, TextField field, double by)
+        {
+            double v = ReadNum(key, 0) + by;
+            _stage.Player.SetVar(key, new JValue(v % 1 == 0 ? (long)v : v));
+            field.value = FormatNum(v);
+        }
+
+        // Re-read through the player so a stale row (story code changed the value
+        // underneath an open panel) nudges the REAL current number, not the text.
+        private double ReadNum(string key, double fallback)
+        {
+            if (_stage.Player == null) return fallback;
+            try
+            {
+                var t = Lvn.LvnExpression.Evaluate(key, _stage.Player.Vars);
+                return t != null && (t.Type == JTokenType.Integer || t.Type == JTokenType.Float)
+                    ? t.Value<double>() : fallback;
+            }
+            catch { return fallback; }
+        }
+
+        private static string FormatNum(double d) => d % 1 == 0
+            ? ((long)d).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : d.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+        private TextField StatField(string value, int width)
+        {
+            var f = new TextField { value = value };
+            f.style.width = width;
+            f.style.height = 28;
+            f.style.marginLeft = 6; f.style.marginRight = 6;
+            var input = f.Q("unity-text-input");
+            if (input != null)
+            {
+                var tint = _theme.MenuTextColor;
+                input.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+                input.style.color = _theme.MenuTextColor;
+                input.style.unityTextAlign = TextAnchor.MiddleCenter;
+                ClearBorder(input);
+                Round(input, 6f);
+            }
+            if (_theme.Font != null) f.style.unityFont = new StyleFont(_theme.Font);
+            return f;
+        }
+
+        private Button StatStep(string glyph, Action onClick)
+        {
+            var b = new Button(onClick) { text = glyph };
+            b.style.width = 30; b.style.height = 28;
+            b.style.fontSize = 18;
+            b.style.color = _theme.MenuTextColor;
+            var tint = _theme.MenuTextColor;
+            b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+            ClearBorder(b);
+            Round(b, 6f);
+            if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            return b;
         }
 
         // ── settings ─────────────────────────────────────────────────────────

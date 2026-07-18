@@ -273,10 +273,12 @@ namespace Lvn.Content
         public float? corner_radius;  // sheet/panel rounding; default 12
         public bool? show_rollback;   // the ↩ button; default true
         public bool? show_menu;       // the ☰ button; default true
+        public bool? stats;           // the Stats item (live story variables); default true
+        public bool? stats_edit;      // let the Stats panel EDIT variables (debug/QA); default false
 
         /// <summary>Text overrides for every chrome string, keyed by a stable id —
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,
-        /// quick_save, history, auto, skip, settings, gallery, exit, close, autosave, slot,
+        /// quick_save, history, auto, skip, settings, gallery, stats, exit, close, autosave, slot,
         /// empty, quick_slot, overwrite_q ({0} = the slot label), overwrite, cancel,
         /// text_speed, auto_advance, auto_delay, music, ambient, sfx, voice, language,
         /// language_original,
