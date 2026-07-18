@@ -72,11 +72,10 @@ namespace Lvn.Tests
         public void HostedSheet_DrawsNoPanelOfItsOwn()
         {
             var hosted = new Lvn.UI.Screens.WardrobeSheet(null, null, null, null);
-            // the frame (position/background) belongs to VnPanelHost — a hosted
-            // sheet must not absolute-dock itself like the standalone one does
+            // the frame (position/background) belongs to VnPanelHost — the sheet
+            // is ALWAYS hosted content now (the standalone dock died with the
+            // one-wardrobe unification) and must not absolute-dock itself
             Assert.AreNotEqual(Position.Absolute, hosted.style.position.value);
-            var standalone = new Lvn.UI.Screens.WardrobeSheet(null, null, null, null);
-            Assert.AreEqual(Position.Absolute, standalone.style.position.value);
         }
     }
 }
