@@ -246,16 +246,30 @@ namespace Lvn.UI.Screens
             Func<LvnTitle, LvnChapter, string, Task> playChapter = null,
             bool askName = true,
             CancellationToken ct = default,
-            Func<float> bootProgress = null)
+            Func<float> bootProgress = null,
+            bool bootSplash = true)
         {
             if (_root == null) throw new InvalidOperationException("Call Build() before RunAsync().");
 
             Boot.Hide();
             ShowOnly(); // hide all
             // ── boot splash ──
-            Show(Boot);
-            await Boot.RunAsync(bootReady ?? (() => true), bootProgress, ct);
-            Hide(Boot);
+            // bootSplash=false: the host's own boot surface (NovelApp's engine
+            // veil) already covers this wait — showing a SECOND loading screen
+            // under it would flash a second bar at the hand-off. Wait silently.
+            if (bootSplash)
+            {
+                Show(Boot);
+                await Boot.RunAsync(bootReady ?? (() => true), bootProgress, ct);
+                Hide(Boot);
+            }
+            else
+            {
+                var ready = bootReady ?? (() => true);
+                while (!ready() && !ct.IsCancellationRequested)
+                    await Task.Yield();
+                if (ct.IsCancellationRequested) return;
+            }
 
             // ── auth screen (once, when the manifest enables it) ──
             // Its nickname doubles as the player name, so the name-input screen
