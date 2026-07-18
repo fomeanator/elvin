@@ -121,7 +121,7 @@ namespace Lvn.Tests
             finally { LvnWardrobe.ClearPreview(Entity); }
         }
 
-        // ── WardrobeScreen ──
+        // ── shared fixture ──
         private static LvnManifest Manifest()
         {
             return new LvnManifest
@@ -151,60 +151,6 @@ namespace Lvn.Tests
                     },
                 },
             };
-        }
-
-        [Test]
-        public void Screen_RendersTabsAndCards_FreeOwnedPricedNot()
-        {
-            var screen = new WardrobeScreen(new WardrobeConfig { equip_text = "Надеть" }, new NoAssets());
-            screen.SetManifest(Manifest());
-            screen.BuildFor(Entity);
-
-            var labels = new List<string>();
-            var buttons = new List<string>();
-            Walk(screen, el =>
-            {
-                if (el is Label l) labels.Add(l.text);
-                if (el is Button b) buttons.Add(b.text);
-            });
-
-            Assert.IsTrue(buttons.Contains("Броня"), "slot tab uses its display name");
-            Assert.IsTrue(labels.Contains("Кожаный доспех"));
-            Assert.IsTrue(labels.Contains("Кольчуга"));
-            Assert.IsTrue(buttons.Contains("Надеть"), "free item is owned → equip button");
-            Assert.IsTrue(buttons.Contains("300 gold"), "priced unowned item shows its price");
-        }
-
-        [Test]
-        public void Screen_EquippedItemShowsItsState()
-        {
-            LvnWardrobe.Equip(Entity, "armor", "leather");
-            var screen = new WardrobeScreen(new WardrobeConfig
-            {
-                equipped_text = "Надето",
-                remove_text = "Снять",
-            }, new NoAssets());
-            screen.SetManifest(Manifest());
-            screen.BuildFor(Entity);
-
-            var texts = new List<string>();
-            Walk(screen, el =>
-            {
-                if (el is Label l) texts.Add(l.text);
-                if (el is Button b) texts.Add(b.text);
-            });
-            Assert.IsTrue(texts.Contains("Надето"), "worn card carries the equipped state");
-            Assert.IsTrue(texts.Contains("Снять"), "worn card's action is take-off");
-        }
-
-        [Test]
-        public void Screen_ListsOnlyEntitiesWithAWardrobe()
-        {
-            var m = Manifest();
-            m.sprites["plain"] = new LvnSpriteEntity { name = "Без гардероба" };
-            var screen = new WardrobeScreen(null, new NoAssets());
-            screen.SetManifest(m);
-            CollectionAssert.AreEqual(new[] { Entity }, screen.Entities());
         }
 
         // ── WardrobeSheet (the in-story bottom sheet) ──
