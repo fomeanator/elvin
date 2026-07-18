@@ -2294,6 +2294,10 @@ namespace Lvn.UI
         /// over from a menu tap call this so the scrim doesn't linger).</summary>
         public void CloseQuickMenu() => _menu?.Close();
 
+        /// <summary>True while the shared story panel (wardrobe…) is up — the
+        /// quick-menu chrome polls this and keeps itself off the screen.</summary>
+        public bool PanelOpen => _panelHost != null && _panelHost.IsOpen;
+
         private void OnWardrobeChanged(string entity) => RefreshActor(entity);
 
         private async Task ApplyActorAsync(JObject cmd)
