@@ -17,6 +17,7 @@ namespace Lvn.UI.Screens
     public sealed class NameInputScreen : VisualElement
     {
         private readonly NameInputConfig _cfg;
+        private readonly DialogueConfig _dlg;
         private readonly ILvnAssets _assets;
         private readonly VisualElement _bg;
         private readonly VisualElement _hero;
@@ -28,8 +29,16 @@ namespace Lvn.UI.Screens
         private TaskCompletionSource<string> _tcs;
 
         public NameInputScreen(NameInputConfig cfg, ILvnAssets assets)
+            : this(cfg, null, assets) { }
+
+        /// <summary>The NATIVE skin: the prompt panel dresses itself in the
+        /// game's own dialogue form (panel colour/art/text from
+        /// <paramref name="dlg"/>) — the ask reads as the story's first line,
+        /// not as a form. ui.name_input fields stay as point overrides.</summary>
+        public NameInputScreen(NameInputConfig cfg, DialogueConfig dlg, ILvnAssets assets)
         {
             _cfg = cfg ?? new NameInputConfig();
+            _dlg = dlg;
             _assets = assets;
             _maxLength = _cfg.max_length ?? PlayerNameInput.MaxLength;
 
@@ -64,15 +73,19 @@ namespace Lvn.UI.Screens
             panel.style.paddingBottom = 24;
             panel.style.paddingLeft = 24;
             panel.style.paddingRight = 24;
-            panel.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
-            panel.style.borderTopLeftRadius = 14;
-            panel.style.borderTopRightRadius = 14;
-            panel.style.borderBottomLeftRadius = 14;
-            panel.style.borderBottomRightRadius = 14;
+            panel.style.backgroundColor = UiColor.Parse(_dlg?.panel_color, new Color(0f, 0f, 0f, 0.55f));
+            float radius = _dlg?.corner_radius ?? 14f;
+            panel.style.borderTopLeftRadius = radius;
+            panel.style.borderTopRightRadius = radius;
+            panel.style.borderBottomLeftRadius = radius;
+            panel.style.borderBottomRightRadius = radius;
             Add(panel);
+            // the game's dialogue-panel art (9-slice) IS the ask's frame
+            if (!string.IsNullOrEmpty(_dlg?.panel_image))
+                _ = ScreenUi.AssignNineSliceAsync(panel, _dlg.panel_image, _dlg.panel_slice ?? 0, _assets);
 
             _prompt = new Label(_cfg.prompt ?? "Enter your name");
-            _prompt.style.color = UiColor.Parse(_cfg.prompt_color, new Color(0.80f, 0.72f, 0.56f));
+            _prompt.style.color = UiColor.Parse(_cfg.prompt_color ?? _dlg?.speaker_color, new Color(0.80f, 0.72f, 0.56f));
             _prompt.style.fontSize = 30;
             _prompt.style.marginBottom = 14;
             panel.Add(_prompt);
@@ -87,7 +100,7 @@ namespace Lvn.UI.Screens
             _field.style.fontSize = 32;
             _field.style.marginRight = 16;
             var fieldColor = UiColor.Parse(_cfg.field_color, new Color(0.11f, 0.11f, 0.13f));
-            var textColor = UiColor.Parse(_cfg.text_color, new Color(0.96f, 0.93f, 0.85f));
+            var textColor = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.96f, 0.93f, 0.85f));
             StyleField(_field, fieldColor, textColor);
             _field.value = _cfg.default_name ?? "";
             _field.RegisterCallback<KeyDownEvent>(OnKey);
@@ -114,7 +127,15 @@ namespace Lvn.UI.Screens
         /// once they confirm a non-empty value. Cancelling the token abandons the
         /// prompt (the task cancels).</summary>
         public async Task<string> AskAsync(CancellationToken ct = default)
+            => await AskAsync(null, ct);
+
+        /// <summary>Ask over a specific backdrop — the shell passes the opening
+        /// chapter's background so the moment reads as the story's first frame.
+        /// Null falls back to ui.name_input.bg_url / the flat colour.</summary>
+        public async Task<string> AskAsync(string bgUrl, CancellationToken ct = default)
         {
+            if (!string.IsNullOrEmpty(bgUrl))
+                _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
             style.display = DisplayStyle.Flex;
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.3f, ct);
 
