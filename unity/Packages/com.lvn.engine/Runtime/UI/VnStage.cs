@@ -234,9 +234,12 @@ namespace Lvn.UI
             root.RegisterCallback<PointerCancelEvent>(_ => OnPointerCancelled());
             root.RegisterCallback<PointerCaptureOutEvent>(_ => OnPointerCancelled());
             // Desktop convenience (the Ren'Py convention): wheel-up steps back one beat.
+            // Follows the theme's rollback switch — a title that cut the feature
+            // (ui.menu.show_rollback:false) cuts the gesture with it.
             root.RegisterCallback<WheelEvent>(evt =>
             {
                 if (InputBlocked) return;
+                if (Theme != null && !Theme.MenuShowRollback) return;
                 if (evt.delta.y < 0f && RollbackStep()) evt.StopPropagation();
             });
 

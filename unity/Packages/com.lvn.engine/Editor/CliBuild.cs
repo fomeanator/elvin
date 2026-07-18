@@ -36,7 +36,9 @@ namespace Lvn.EditorTools
             // device-log batch (LvnLogShip's device header), so "which build is
             // this install actually running?" is answerable from the server —
             // emulators are known to silently skip reinstalls.
-            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmm");
+            // Digits-and-dots only: iOS rejects any other bundle version shape
+            // (Android takes anything, so one format serves both).
+            var stamp = DateTime.Now.ToString("yyyyMMdd.HHmm");
             PlayerSettings.bundleVersion = stamp;
             Debug.Log($"[lvn-build] version stamp {stamp}");
 
