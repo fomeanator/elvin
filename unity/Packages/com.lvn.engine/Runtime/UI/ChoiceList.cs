@@ -116,6 +116,10 @@ namespace Lvn.UI
             btn.style.backgroundColor = _theme.ChoiceColor;
             btn.style.minWidth = Length.Percent(_theme.ChoiceMinWidthPercent);
             btn.style.maxWidth = Length.Percent(_theme.ChoiceMaxWidthPercent);
+            // Readable on tablets: percent widths of a landscape viewport are
+            // enormous — cap to the portrait story frame and centre.
+            btn.style.maxWidth = new StyleLength(new Length(900, LengthUnit.Pixel));
+            btn.style.alignSelf = Align.Center;
             btn.style.minHeight = _theme.ChoiceMinHeight; // thumb-sized (market norm ~6.5% H)
             btn.style.justifyContent = Justify.Center;
             btn.style.marginBottom = _theme.ChoiceSpacing;
