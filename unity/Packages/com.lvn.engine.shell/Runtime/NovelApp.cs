@@ -98,6 +98,14 @@ namespace Lvn.UI.Screens
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
             Lvn.Services.LvnLogShip.Boot();
 
+            // The theme must land on the shared panel BEFORE the veil: a panel
+            // without a ThemeStyleSheet has no default font, so every veil
+            // label renders as NOTHING — the "black screen with no text" class
+            // of bug. (The shell used to set it only after the manifest.)
+            if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
+                ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
+            LvnPanel.SetTheme(ShellTheme);
+
             // First paint THIS frame — before any network round-trip — so the
             // device never sits on a raw black screen while boot works.
             BootVeil.Show();
@@ -112,9 +120,6 @@ namespace Lvn.UI.Screens
             // the boot screen (first launch traces instead) — kills the
             // first-show shader-compile hitches. Fire-and-forget, self-paced.
             LvnPsoWarmup.Boot();
-
-            if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
-                ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
 
             // Product services ride the same host (BaseUrl set above, before the
             // log shipper); registration is idempotent and a no-op offline — a
@@ -168,7 +173,7 @@ namespace Lvn.UI.Screens
             bool online = await probeTask;
             if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
             Mark($"connectivity → {(online ? "online" : "offline")}");
-            BootVeil.Progress(30);
+            BootVeil.Progress(30, "загрузка данных…");
 
             try { await versionsTask; } catch { /* offline: last-known index */ }
             Mark("version index");
@@ -196,11 +201,47 @@ namespace Lvn.UI.Screens
             BootVeil.Progress(60);
             if (manifest == null)
             {
-                Debug.LogError("[novelapp] offline and no cached manifest — launch once online " +
-                               "(or ship an offline bundle) to cache the novel for offline play");
-                BootVeil.Progress(0, "нет соединения с сервером");
-                return;
+                // The probe may have lied (its 3s deadline lost to a slow first
+                // launch) while the manifest fetch itself was about to succeed —
+                // give the in-flight task its chance before slow retries.
+                try
+                {
+                    manifest = await manifestTask;
+                    CacheManifest(manifest);
+                    online = true;
+                    LvnNetworkStatus.MarkOnline("boot manifest arrived despite failed probe");
+                }
+                catch { /* genuinely unreachable — recovery loop below */ }
             }
+            if (manifest == null)
+            {
+                // A fresh install that can't reach the server is NOT a dead end:
+                // hold on the veil and keep retrying — the moment the network
+                // appears the app boots itself, no restart needed.
+                Debug.LogWarning("[novelapp] no manifest and no cache — holding boot for connectivity");
+                for (int attempt = 1; manifest == null; attempt++)
+                {
+                    BootVeil.Status($"нет соединения с сервером — переподключение… ({attempt})");
+                    try { await Task.Delay(5000, destroyCancellationToken); }
+                    catch (OperationCanceledException) { return; }
+                    try
+                    {
+                        manifest = await FetchManifestAsync();
+                        CacheManifest(manifest);
+                        online = true;
+                        LvnNetworkStatus.MarkOnline("boot manifest retry succeeded");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Log($"[novelapp] manifest retry {attempt}: {ex.Message}");
+                    }
+                }
+                Mark("manifest (recovered)");
+                BootVeil.Progress(60, "");
+            }
+            // The awaits above outlive a destroyed host (scene switch, embedder
+            // teardown) — never keep booting on a dead component.
+            if (destroyCancellationToken.IsCancellationRequested) return;
             Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
 
             if (Stage == null) Stage = CreateStage();
@@ -365,10 +406,11 @@ namespace Lvn.UI.Screens
             }
 
             // The veil OWNS the whole app boot — one continuous surface from
-            // the first frame to the first interactive screen. It stays up
-            // OVER the shell's boot splash and walks 60→100% with the real
-            // boot-prefetch progress; only then does it hand off, so the user
-            // never sees a second loading bar start over.
+            // the first frame to the first interactive screen. The shell's own
+            // boot splash is suppressed (bootSplash: false): a second loading
+            // screen under the veil would flash a second bar at the hand-off.
+            // The veil walks 60→100% with the real boot-prefetch progress and
+            // cross-fades into the menu.
             _ = DriveBootVeilAsync(prefetch, bootClock);
 
             var run = _shell.RunAsync(
@@ -377,35 +419,39 @@ namespace Lvn.UI.Screens
                 chapterProgress: ch => ChapterLoadProgress,
                 playChapter: PlayChapterAsync,
                 askName: AskName,
-                // Cold boot (fresh install / dropped cache) downloads the whole
-                // boot set — show the loader's real batch progress instead of a
-                // silent black splash.
-                bootProgress: () =>
-                {
-                    var l = _assets.Loader;
-                    if (l.BatchTotal > 0) return Mathf.Clamp01((float)l.BatchDone / l.BatchTotal);
-                    return prefetch.IsCompleted ? 1f : 0f;
-                });
+                ct: destroyCancellationToken,
+                bootSplash: false);
             await run;
         }
 
         // Walks the boot veil's last stretch (60→100%) with the real boot
-        // prefetch, then fades the veil into the first interactive screen.
+        // prefetch, then cross-fades the veil into the first interactive screen.
+        // Catch-all by design: this is fire-and-forget, and an exception here
+        // would otherwise leave an opaque veil over the app forever.
         private async Task DriveBootVeilAsync(Task prefetch, System.Diagnostics.Stopwatch bootClock)
         {
-            var l = _assets?.Loader;
-            while (!prefetch.IsCompleted && this != null)
+            try
             {
-                float p = l != null && l.BatchTotal > 0
-                    ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
-                BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f));
-                await Task.Yield();
+                var l = _assets?.Loader;
+                var ct = destroyCancellationToken;
+                while (!prefetch.IsCompleted && !ct.IsCancellationRequested)
+                {
+                    float p = l != null && l.BatchTotal > 0
+                        ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
+                    BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
+                        LvnNetworkStatus.IsOffline ? "нет сети — переподключение…" : "загрузка…");
+                    await Task.Yield();
+                }
+                if (ct.IsCancellationRequested) return;
+                BootVeil.Status("");
+                await BootVeil.FadeOutAsync(0.4f);
+                Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
             }
-            BootVeil.Progress(100);
-            await Task.Yield();
-            await Task.Yield();
-            BootVeil.Hide();
-            Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                BootVeil.Hide();
+            }
         }
 
         // ── chapter loading gate ────────────────────────────────────────────────
@@ -634,8 +680,23 @@ namespace Lvn.UI.Screens
 
         private async Task<LvnManifest> FetchManifestAsync()
         {
-            var json = await _assets.Loader.DownloadScriptText("/v1/content/manifest", default, singleAttempt: true);
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json) ?? new LvnManifest();
+            // The manifest is the boot's single point of truth — a fresh install
+            // has nothing without it. One transient failure (flaky emulator NAT,
+            // a mid-handshake reset) must not fall through to "no manifest":
+            // three quick attempts before the caller's slower recovery paths.
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    var json = await _assets.Loader.DownloadScriptText("/v1/content/manifest", default, singleAttempt: true);
+                    return Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json) ?? new LvnManifest();
+                }
+                catch (Exception ex) when (attempt < 3)
+                {
+                    Debug.LogWarning($"[novelapp] manifest fetch attempt {attempt} failed: {ex.Message} — retrying");
+                    await Task.Delay(700 * attempt);
+                }
+            }
         }
 
         private async Task SafeBootPrefetch(LvnManifest manifest, bool online)
@@ -951,11 +1012,13 @@ namespace Lvn.UI.Screens
             // Drive the HUD percent until the chapter ends — or the player asks
             // out (the quick menu's Exit; position already autosaved, so the
             // carousel's Continue leads straight back to this line).
-            while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested)
+            // Task.Yield can't throw — the real exit-on-teardown is the token
+            // check (a destroyed host must not keep a zombie progress loop).
+            while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
+                   && !destroyCancellationToken.IsCancellationRequested)
             {
                 _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.Count);
-                try { await Task.Yield(); }
-                catch (OperationCanceledException) { break; }
+                await Task.Yield();
             }
             bool exited = Stage.ExitRequested;
             Stage.ClearExitRequest();
@@ -1236,6 +1299,10 @@ namespace Lvn.UI.Screens
         {
             _sync?.Stop();
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
+            // The veil is a root GameObject (it outlives this component by
+            // design during boot) — a host tearing NovelApp down mid-boot must
+            // not be left with an opaque, input-eating veil over its own UI.
+            BootVeil.Hide();
         }
 
         // The Settings language row writes LvnPrefs.Locale; pick the change up
