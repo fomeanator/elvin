@@ -478,11 +478,21 @@ namespace Lvn.UI
         // character actually leaves the screen — unless a newer show reclaimed
         // the slot while the animation ran (the token invalidates the hide).
         private readonly Dictionary<VisualElement, int> _exitToken = new Dictionary<VisualElement, int>();
+        private readonly Dictionary<VisualElement, ValueAnimation<float>> _exitAnim
+            = new Dictionary<VisualElement, ValueAnimation<float>>();
 
         private void InvalidateExit(VisualElement slot)
         {
             _exitToken.TryGetValue(slot, out var t);
             _exitToken[slot] = t + 1;
+            // Stop the exit animation OUTRIGHT: guarding only its completion
+            // still let its remaining ticks drag opacity/position toward the
+            // exit pose — a re-shown actor froze near-invisible mid-fade.
+            if (_exitAnim.TryGetValue(slot, out var anim))
+            {
+                _exitAnim.Remove(slot);
+                try { anim.Stop(); } catch { /* already finished */ }
+            }
         }
 
         private void Finish(ValueAnimation<float> anim, bool exiting, VisualElement slot)
@@ -490,9 +500,11 @@ namespace Lvn.UI
             if (!exiting) return;
             _exitToken.TryGetValue(slot, out var t);
             int token = t; // the exit owns the slot only while no show supersedes it
+            _exitAnim[slot] = anim;
             anim.OnCompleted(() =>
             {
                 if (_exitToken.TryGetValue(slot, out var cur) && cur != token) return;
+                _exitAnim.Remove(slot);
                 slot.style.display = DisplayStyle.None;
             });
         }
