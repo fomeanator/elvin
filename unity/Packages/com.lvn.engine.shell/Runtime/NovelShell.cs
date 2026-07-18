@@ -38,8 +38,6 @@ namespace Lvn.UI.Screens
         public ChapterEndScreen ChapterEnd { get; private set; }
         /// <summary>The boot auth screen; null unless manifest ui.auth enables it.</summary>
         public AuthScreen Auth { get; private set; }
-        /// <summary>The currency store overlay (open via <see cref="OpenStoreAsync"/>).</summary>
-        public StoreScreen Store { get; private set; }
         /// <summary>The app-level settings overlay (open via <see cref="OpenSettingsAsync"/>).</summary>
         public SettingsScreen Settings { get; private set; }
         /// <summary>The rich title-detail page (chapters, saves, stats, play).</summary>
@@ -120,7 +118,6 @@ namespace Lvn.UI.Screens
             if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
-            Store = new StoreScreen(ui.store, assets); Store.Hide(); Add(Store); // topmost overlay
             Settings = new SettingsScreen(ui.settings, assets);
             // "Sign in" closes settings and shows the boot auth screen (which sits
             // below settings in z-order, so we must hide settings first).
@@ -160,11 +157,10 @@ namespace Lvn.UI.Screens
 
         private void OnDestroy() => Lvn.Services.LvnWallet.Changed -= OnWalletChanged;
 
-        /// <summary>Open the currency store overlay; completes when the player
-        /// closes it. Safe from anywhere on the main thread (quick-menu item,
-        /// HUD tap, a script's <c>ext store_show</c>).</summary>
+        /// <summary>ONE store: every entry (quick menu, wallet "+", scripts'
+        /// <c>ext store_show</c>, the hub) opens the pack shop.</summary>
         public Task OpenStoreAsync(CancellationToken ct = default)
-            => Store != null ? Store.ShowAsync(ct) : Task.CompletedTask;
+            => OpenPackShopAsync(ct);
 
         /// <summary>Open the app-level settings overlay (sound, language, account,
         /// version, socials, legal). Completes when the player closes it.</summary>
@@ -424,7 +420,6 @@ namespace Lvn.UI.Screens
             Hide(Boot); Hide(Carousel); Hide(Hub); Hide(Loading); Hide(Title); Hide(Hud);
             NameInput.Hide();
             Auth?.Hide();
-            Store?.Hide();
             Settings?.Hide();
             Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
             SkinShop?.Hide(); PackShop?.Hide();
