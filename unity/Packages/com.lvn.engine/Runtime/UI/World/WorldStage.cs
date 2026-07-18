@@ -160,12 +160,22 @@ namespace Lvn.UI.World
             // full-bleed to that rect, so without this actors stop at the 1920 reference
             // bottom (≈82% on a tall phone) and float; remapping Y grounds Y=1 on the
             // actual screen bottom — the figure just slides down, unchanged in size.
-            WorldPlacement.Apply(a.Slot, p, _reference);
-            var content = ContentSize();
-            if (content.y > _reference.y + 0.5f)
+            // The REAL logical canvas (the scaler matches width on portrait,
+            // height on landscape). Wider-than-9:16 viewports have LESS height
+            // than the 1920 reference — an actor sized to the reference would
+            // overflow the screen sideways (the "левую часть обрезает" bug), so
+            // the sizing frame caps at the visible height. Tall phones keep the
+            // fixed-reference size exactly as before.
+            float lw = LogicalWidth();
+            float lh = Screen.width > Screen.height && Screen.height > 0
+                ? _reference.y
+                : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
+            var sizeFit = new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
+            WorldPlacement.Apply(a.Slot, p, sizeFit);
+            if (lh > _reference.y + 0.5f)
             {
                 var pos = a.Slot.anchoredPosition;
-                pos.y = -p.Y * content.y;
+                pos.y = -p.Y * lh;
                 a.Slot.anchoredPosition = pos;
             }
             // WIDE screens: X was mapped against the 1080-unit portrait column
@@ -175,7 +185,6 @@ namespace Lvn.UI.World
             // anchoring: left-half slots keep their inset from the LEFT edge,
             // right-half from the RIGHT (portrait-frame ratios, sqrt-softened),
             // clamped by the slot's own half-width so nothing is ever cut.
-            float lw = LogicalWidth();
             if (lw > _reference.x + 0.5f)
             {
                 float k = Mathf.Sqrt(_reference.x / lw);
@@ -188,7 +197,7 @@ namespace Lvn.UI.World
                 pos.x = x01 * lw;
                 a.Slot.anchoredPosition = pos;
             }
-            a.ContentSize = new Vector2(_reference.x, content.y);
+            a.ContentSize = new Vector2(_reference.x, lh);
             a.SetSlotBase(a.Slot.anchoredPosition);
 
             if (p.Z.HasValue) { a.transform.SetSiblingIndex(Mathf.Max(0, p.Z.Value)); }
