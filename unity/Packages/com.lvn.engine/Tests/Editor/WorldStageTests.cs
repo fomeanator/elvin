@@ -60,7 +60,12 @@ namespace Lvn.Tests
 
             var canvas = stage.Root.GetComponent<Canvas>();
             Assert.IsNotNull(canvas, "canvas built");
-            Assert.AreEqual(RenderMode.ScreenSpaceOverlay, canvas.renderMode);
+            // Overlay without a camera; through-camera when one exists (real
+            // gaussian blur path) — visually identical, so both are correct.
+            if (canvas.renderMode == RenderMode.ScreenSpaceCamera)
+                Assert.IsNotNull(canvas.worldCamera, "camera mode must carry its camera");
+            else
+                Assert.AreEqual(RenderMode.ScreenSpaceOverlay, canvas.renderMode);
             Assert.AreEqual(4, canvas.sortingOrder, "sorts below the UITK chrome");
             Assert.IsNotNull(stage.Root.GetComponent<CanvasScaler>(), "scaler built");
             Assert.IsNotNull(stage.Root.GetComponent<WorldCameraRig>(), "camera rig on canvas");
@@ -76,8 +81,9 @@ namespace Lvn.Tests
             // speaker-dim: the non-speaker drops below its base opacity.
             stage.ApplyActor("guest", new List<Sprite> { NewSprite() }, Placement.Standing(0.75f));
             stage.SetSpeaker("mara");
-            var guestGroup = stage.ActorFor("guest").GetComponent<CanvasGroup>();
-            Assert.Less(guestGroup.alpha, 1f, "non-speaker dimmed");
+            // dimming is a COLOUR tint (alpha stays free for transitions)
+            var guestGfx = stage.ActorFor("guest").GetComponentInChildren<UnityEngine.UI.Graphic>();
+            Assert.Less(guestGfx.color.r, 1f, "non-speaker dimmed (colour tint)");
 
             Object.DestroyImmediate(host);
         }
