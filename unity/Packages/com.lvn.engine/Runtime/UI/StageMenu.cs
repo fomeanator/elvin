@@ -577,10 +577,10 @@ namespace Lvn.UI
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.height = 34;
-            row.style.marginBottom = 2;
+            row.style.height = 46;
+            row.style.marginBottom = 4;
 
-            var name = Text(key, 15, FontStyle.Normal);
+            var name = Text(key, 19, FontStyle.Normal);
             name.style.flexGrow = 1;
             name.style.flexShrink = 1;
             name.style.overflow = Overflow.Hidden;
@@ -596,7 +596,7 @@ namespace Lvn.UI
                     t.RegisterValueChangedCallback(e => _stage.Player.SetVar(key, new JValue(e.newValue)));
                     row.Add(t);
                 }
-                else row.Add(Text(val.Value<bool>() ? "true" : "false", 15, FontStyle.Bold));
+                else row.Add(Text(val.Value<bool>() ? "true" : "false", 19, FontStyle.Bold));
             }
             else if (type == JTokenType.Integer || type == JTokenType.Float)
             {
@@ -605,7 +605,7 @@ namespace Lvn.UI
                 {
                     // − [value] + : steppers for the common nudge, the field for
                     // an exact number. Garbage input just doesn't commit.
-                    var field = StatField(FormatNum(d), 64);
+                    var field = StatField(FormatNum(d), 86);
                     field.RegisterCallback<FocusOutEvent>(_ =>
                     {
                         if (double.TryParse(field.value.Replace(',', '.'),
@@ -618,18 +618,18 @@ namespace Lvn.UI
                     row.Add(field);
                     row.Add(StatStep("+", () => Nudge(key, field, +1)));
                 }
-                else row.Add(Text(FormatNum(d), 15, FontStyle.Bold));
+                else row.Add(Text(FormatNum(d), 19, FontStyle.Bold));
             }
             else if (type == JTokenType.String)
             {
                 if (edit)
                 {
-                    var field = StatField((string)val, 120);
+                    var field = StatField((string)val, 150);
                     field.RegisterCallback<FocusOutEvent>(_ =>
                         _stage.Player.SetVar(key, new JValue(field.value ?? "")));
                     row.Add(field);
                 }
-                else row.Add(Text("«" + Trunc((string)val ?? "", 24) + "»", 15, FontStyle.Bold));
+                else row.Add(Text("«" + Trunc((string)val ?? "", 24) + "»", 19, FontStyle.Bold));
             }
             else
             {
@@ -637,7 +637,7 @@ namespace Lvn.UI
                 // in a way a stepper could sensibly write.
                 var s = val == null || type == JTokenType.Null ? "null"
                     : Trunc(val.ToString(Newtonsoft.Json.Formatting.None), 24);
-                row.Add(Text(s, 14, FontStyle.Normal, dim: true));
+                row.Add(Text(s, 17, FontStyle.Normal, dim: true));
             }
             return row;
         }
@@ -671,7 +671,7 @@ namespace Lvn.UI
         {
             var f = new TextField { value = value };
             f.style.width = width;
-            f.style.height = 28;
+            f.style.height = 38;
             f.style.marginLeft = 6; f.style.marginRight = 6;
             var input = f.Q("unity-text-input");
             if (input != null)
@@ -680,6 +680,7 @@ namespace Lvn.UI
                 input.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
                 input.style.color = _theme.MenuTextColor;
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
+                input.style.fontSize = 18;
                 ClearBorder(input);
                 Round(input, 6f);
             }
@@ -690,8 +691,8 @@ namespace Lvn.UI
         private Button StatStep(string glyph, Action onClick)
         {
             var b = new Button(onClick) { text = glyph };
-            b.style.width = 30; b.style.height = 28;
-            b.style.fontSize = 18;
+            b.style.width = 42; b.style.height = 38;
+            b.style.fontSize = 22;
             b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
             b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
