@@ -305,8 +305,14 @@ namespace Lvn.UI.Screens
                 // name — the known one sits prefilled); resuming mid-progress
                 // never re-asks. The answer persists across launches.
                 bool freshStart = LvnProgress.Current(title) == null;
+                // An explicit "restart from chapter one" IS a fresh start of the
+                // novel — it re-asks too (the picker set Current, hiding it from
+                // the null-check above).
+                var firstCh = FirstChapter(title);
+                bool restartTop = firstCh != null
+                    && LvnProgress.PendingRestart(title?.id) == firstCh.id;
                 if (askName && (_manifest.ui?.name_input != null)
-                    && (freshStart || string.IsNullOrEmpty(_playerName)))
+                    && (freshStart || restartTop || string.IsNullOrEmpty(_playerName)))
                 {
                     try
                     {
