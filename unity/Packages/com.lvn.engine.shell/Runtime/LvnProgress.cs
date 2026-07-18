@@ -109,6 +109,12 @@ namespace Lvn.UI.Screens
             PlayerPrefs.Save();
         }
 
+        /// <summary>Peek the pending restart target without consuming it — the
+        /// shell checks whether the incoming play is an explicit from-the-top
+        /// restart (which re-asks the player's name like any fresh start).</summary>
+        public static string PendingRestart(string titleId) =>
+            PlayerPrefs.GetString(RestartKey(titleId), "");
+
         /// <summary>Withdraw a pending restart request — the player chose to
         /// continue their held position instead.</summary>
         public static void ClearRestart(string titleId) =>
