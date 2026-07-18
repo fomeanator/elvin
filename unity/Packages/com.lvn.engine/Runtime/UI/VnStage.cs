@@ -2217,18 +2217,28 @@ namespace Lvn.UI
             catch { return false; }
         };
 
-        /// <summary>Portrait-framed composition on ANY screen: novels are
-        /// authored against a 9:16 stage, so on a tablet/landscape viewport the
-        /// horizontal slots compress toward the centre — an actor placed
-        /// "left" stands at the left of the STORY frame, never clipped by the
-        /// physical screen edge (the "рука отгрызана" bug).</summary>
-        internal static float CompressForWideScreen(float x)
+        /// <summary>Edge-anchored composition on wide screens: novels are
+        /// authored against a 9:16 stage, so on a tablet/landscape viewport a
+        /// LEFT-half slot keeps its authored inset measured from the LEFT edge
+        /// (in portrait-frame units) and a right-half slot from the RIGHT edge
+        /// — actors hug their sides, the centre stays free for the dialogue.
+        /// A clamp by the actor's own half-width guarantees nothing is ever
+        /// cut by the physical edge (the "рука отгрызана" bug).</summary>
+        internal static float CompressForWideScreen(float x, float? heightFrac, float? boxAspect)
         {
             float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 0.5625f;
             const float reference = 9f / 16f;
             if (aspect <= reference + 0.01f) return x; // portrait phones: untouched
-            float k = reference / aspect;
-            return 0.5f + (x - 0.5f) * k;
+            float k = reference / aspect;              // portrait-frame width, as a screen fraction
+            float anchored = x < 0.5f ? x * k
+                : x > 0.5f ? 1f - (1f - x) * k
+                : 0.5f;
+            // Never clip: the slot is a CENTRE — keep at least half the actor
+            // (his screen-width fraction derives from height × art aspect).
+            float halfW = 0.06f;
+            if (heightFrac.HasValue && boxAspect.HasValue && boxAspect.Value > 0f)
+                halfW = Mathf.Max(halfW, heightFrac.Value * boxAspect.Value / aspect * 0.5f);
+            return Mathf.Clamp(anchored, halfW + 0.01f, 1f - halfW - 0.01f);
         }
 
         internal static readonly HashSet<string> ReservedActorFields = new HashSet<string>
@@ -2340,7 +2350,7 @@ namespace Lvn.UI
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
                 var hidePl = freshHide ? PlacementFrom(cmd) : PlacementFrom(cmd, prevHide);
                 if (cmd["x"] != null || cmd["position"] != null)
-                    hidePl.X = CompressForWideScreen(hidePl.X);
+                    hidePl.X = CompressForWideScreen(hidePl.X, hidePl.Height, hidePl.BoxAspect);
                 if (!freshHide)
                 {
                     // Both renderer paths: the Canvas renderer hides via
@@ -2472,10 +2482,10 @@ namespace Lvn.UI
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
             if (aspectEntity != null && aspectEntity.aspect > 0f)
                 placement.BoxAspect = aspectEntity.aspect;
-            // Only when THIS op positioned her (sticky X is already compressed
-            // — re-compressing every op would drift actors to the centre).
+            // Only when THIS op positioned her (sticky X is already anchored
+            // — re-anchoring every op would drift actors outward).
             if (cmd["x"] != null || cmd["position"] != null)
-                placement.X = CompressForWideScreen(placement.X);
+                placement.X = CompressForWideScreen(placement.X, placement.Height, placement.BoxAspect);
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
             _renderer?.PlaceActor(id, placement);
