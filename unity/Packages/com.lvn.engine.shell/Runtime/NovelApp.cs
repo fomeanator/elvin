@@ -424,6 +424,13 @@ namespace Lvn.UI.Screens
                 };
             }
 
+            // The FULL library warms in the background from here on: every
+            // chapter of every title lands on disk while the player browses or
+            // reads — the next chapter's loading screen is then near-instant,
+            // and nothing EVER trickles in on camera. Yields to an active
+            // chapter gate so it never steals that bandwidth.
+            _ = WarmLibraryAsync(manifest, destroyCancellationToken);
+
             // The veil OWNS the whole app boot — one continuous surface from
             // the first frame to the first interactive screen. The shell's own
             // boot splash is suppressed (bootSplash: false): a second loading
@@ -1049,6 +1056,50 @@ namespace Lvn.UI.Screens
                 return !string.IsNullOrEmpty(json);
             }
             catch { return false; }
+        }
+
+        // Background full-library warm: чей-то экран загрузки всегда важнее —
+        // the loop parks while a chapter scheduler is actively gating.
+        private async Task WarmLibraryAsync(LvnManifest manifest, System.Threading.CancellationToken ct)
+        {
+            try
+            {
+                await Task.Delay(3000, ct); // let the boot/menu settle first
+                int warmed = 0, skipped = 0;
+                if (manifest?.titles != null)
+                    foreach (var t in manifest.titles)
+                    {
+                        if (t?.seasons == null) continue;
+                        foreach (var se in t.seasons)
+                        {
+                            if (se?.chapters == null) continue;
+                            foreach (var ch in se.chapters)
+                            {
+                                if (ch == null) continue;
+                                if (!string.IsNullOrEmpty(ch.script_url) && !_assets.Loader.IsScriptCached(ch.script_url))
+                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { }
+                                if (ch.assets == null) continue;
+                                foreach (var kv in ch.assets)
+                                {
+                                    if (ct.IsCancellationRequested) return;
+                                    var url = kv.Key;
+                                    if (string.IsNullOrEmpty(url)) continue;
+                                    // an active chapter gate owns the bandwidth
+                                    while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
+                                        await Task.Delay(500, ct);
+                                    if (Lvn.Content.LvnNetworkStatus.IsOffline)
+                                    { await Task.Delay(3000, ct); continue; }
+                                    if (_assets.Loader.IsAssetCached(url)) { skipped++; continue; }
+                                    try { await _assets.Loader.DownloadAssetBytes(url, ct); warmed++; }
+                                    catch (System.OperationCanceledException) { return; }
+                                    catch { /* self-heal covers per-file failures */ }
+                                }
+                            }
+                        }
+                    }
+                Debug.Log($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
+            }
+            catch (System.OperationCanceledException) { /* teardown */ }
         }
 
         // The debug faucet's grant: credit the wallet (EarnAsync fires
