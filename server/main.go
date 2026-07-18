@@ -309,7 +309,11 @@ func (s *server) contentHandler(dir string) http.Handler {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".lvn") {
+		// The manifest is the LIVE index of the whole game — a stale copy
+		// keeps every player on yesterday's config. Scripts (.lvn) are live
+		// for the same reason. Everything else is versioned (?v=) and safe
+		// to cache forever.
+		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".lvn") || rel == "manifest.json" {
 			w.Header().Set("Cache-Control", "no-store")
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
