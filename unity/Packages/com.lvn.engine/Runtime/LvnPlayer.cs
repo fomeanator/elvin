@@ -100,8 +100,21 @@ namespace Lvn
         // file (e.g. `call levelup`) doesn't spike the bar to ~100% and back.
         private int _progressMax;
 
-        /// <summary>Monotonic chapter progress index (0..<see cref="Count"/>) for
-        /// the HUD percent — never runs backward on a loop/hub jump. Pair with
+        // Linearized imports append choice BODIES at the file tail (a pick jumps
+        // ~to the end, plays the branch, jumps back to the spine). Position there
+        // says nothing about story progress, so a far forward jump marks the
+        // cursor DISPLACED (bar frozen at the spine mark) until the matching far
+        // return. The far return also clamps the mark down to its landing —
+        // healing a snapshot that was restored INSIDE a body (its index latched
+        // the mark at ~99%).
+        private int _displaced;
+        private int FarJump => System.Math.Max(64, _script.Count / 10);
+
+        /// <summary>Chapter progress index (0..<see cref="Count"/>) for the HUD
+        /// percent: the high-water mark of the cursor along the MAIN line. Climbs
+        /// while flow is linear, holds through calls and far-displaced choice
+        /// bodies, and a far return jump may clamp it down to its landing (that's
+        /// the heal for a save restored inside a linearized tail body). Pair with
         /// <see cref="Count"/> exactly like <see cref="Index"/>.</summary>
         public int ProgressIndex => System.Math.Min(_progressMax, _script.Count);
 
@@ -125,6 +138,7 @@ namespace Lvn
         {
             _ip = index;
             _progressMax = index; // resume: the bar reflects where we land, then climbs
+            _displaced = 0;       // (a body-resumed index self-heals on its far return)
             Finished = false;
             Vars.Clear();
             if (vars != null)
@@ -625,8 +639,9 @@ namespace Lvn
             {
                 // Advance the monotonic progress high-water mark, but only on the
                 // main line — inside a call the cursor visits a subroutine's
-                // (possibly late) labels, which shouldn't move the chapter bar.
-                if (_callStack.Count == 0 && _ip > _progressMax) _progressMax = _ip;
+                // (possibly late) labels, and inside a far-displaced choice body
+                // it sits at the linearized tail; neither should move the bar.
+                if (_callStack.Count == 0 && _displaced == 0 && _ip > _progressMax) _progressMax = _ip;
                 if (--budget < 0)
                     throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
                 // Malformed content must never crash the runtime: a non-object
@@ -895,7 +910,20 @@ namespace Lvn
                 Finish();
                 return;
             }
-            if (_labels.TryGetValue(label, out var i)) { _ip = i; }
+            if (_labels.TryGetValue(label, out var i))
+            {
+                // Displacement bookkeeping for the progress bar (see _displaced):
+                // hops WITHIN the tail are small, so one far-forward marks the
+                // excursion and one far-back closes it.
+                int delta = i - _ip;
+                if (delta > FarJump) _displaced++;
+                else if (delta < -FarJump)
+                {
+                    if (_displaced > 0) _displaced--;
+                    if (i < _progressMax) _progressMax = i; // heal a body-latched mark
+                }
+                _ip = i;
+            }
             else { Log?.Invoke("  !! unknown label :" + label + " → end"); Finish(); } // validator catches these pre-ship
         }
 
