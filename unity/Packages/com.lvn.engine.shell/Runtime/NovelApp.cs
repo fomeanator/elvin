@@ -297,7 +297,7 @@ namespace Lvn.UI.Screens
             // the story holds while the shop is open, then rolls on.
             var storeCfg = manifest.ui?.store;
             if (storeCfg != null && (storeCfg.show_menu_item ?? true))
-                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => _ = _shell.OpenStoreAsync());
+                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => _ = _shell.OpenPackShopAsync());
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -592,7 +592,7 @@ namespace Lvn.UI.Screens
 
         private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
         {
-            try { await _shell.OpenStoreAsync(); }
+            try { await _shell.OpenPackShopAsync(); } // ONE store everywhere (the KR rule)
             finally { ctx.Resume(); }
         }
 
@@ -763,7 +763,7 @@ namespace Lvn.UI.Screens
                 var ui = _manifest?.ui ?? new LvnUiConfig();
                 _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
                 _storySheet.SetManifest(_manifest);
-                _storySheet.OpenStore = () => _shell.OpenStoreAsync();
+                _storySheet.OpenStore = () => _shell.OpenPackShopAsync();
                 // Write the player's wardrobe pick back into the novel's story state
                 // (nested, like the script's own `set`), then re-dress the actor
                 // against the new value. Order matters: SetVar BEFORE RefreshActor so
