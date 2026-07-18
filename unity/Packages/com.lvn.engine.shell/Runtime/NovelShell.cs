@@ -300,17 +300,23 @@ namespace Lvn.UI.Screens
                 // chapter's backdrop and preload the right asset plan.
                 var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
 
-                // ── name input: the NOVEL asks, at its start, once ever ──
-                // Shown before the first chapter when no name is known yet;
-                // the answer persists — no launch ever re-asks it.
-                if (askName && string.IsNullOrEmpty(_playerName) && (_manifest.ui?.name_input != null))
+                // ── name input: the NOVEL asks, at its start ──
+                // Every FRESH start of a title asks (a replayer may want a new
+                // name — the known one sits prefilled); resuming mid-progress
+                // never re-asks. The answer persists across launches.
+                bool freshStart = LvnProgress.Current(title) == null;
+                if (askName && (_manifest.ui?.name_input != null)
+                    && (freshStart || string.IsNullOrEmpty(_playerName)))
                 {
                     try
                     {
                         // над фоном первой главы — как первый кадр истории
-                        _playerName = await NameInput.AskAsync(chapter?.bg_url, ct);
-                        if (!string.IsNullOrEmpty(_playerName))
-                            Lvn.UI.LvnPrefs.PlayerName = _playerName;
+                        var entered = await NameInput.AskAsync(chapter?.bg_url, _playerName, ct);
+                        if (!string.IsNullOrEmpty(entered))
+                        {
+                            _playerName = entered;
+                            Lvn.UI.LvnPrefs.PlayerName = entered;
+                        }
                     }
                     catch (OperationCanceledException) { return; }
                 }
