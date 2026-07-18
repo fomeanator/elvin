@@ -1087,6 +1087,12 @@ namespace Lvn.UI.Screens
                                     // an active chapter gate owns the bandwidth
                                     while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
                                         await Task.Delay(500, ct);
+                                    // …and so does anything a LIVE surface is
+                                    // waiting to draw right now: an actor
+                                    // mid-scene must never queue behind next
+                                    // week's chapters.
+                                    while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
+                                        await Task.Delay(150, ct);
                                     if (Lvn.Content.LvnNetworkStatus.IsOffline)
                                     { await Task.Delay(3000, ct); continue; }
                                     if (_assets.Loader.IsAssetCached(url)) { skipped++; continue; }

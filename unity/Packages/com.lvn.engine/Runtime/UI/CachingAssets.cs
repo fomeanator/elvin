@@ -56,26 +56,39 @@ namespace Lvn.UI
         public Task WarmVersionsAsync(CancellationToken ct = default) =>
             Loader.LoadAssetVersionsAsync(ct);
 
+        /// <summary>Interactive loads in flight right now (sprites/audio a LIVE
+        /// surface is waiting to draw). Background warmers poll this and yield
+        /// the pipe — a viewer staring at a missing actor outranks a prefetch
+        /// of next week's chapters. Batch preloads don't count: the chapter
+        /// gate has its own bandwidth contract.</summary>
+        public int LivePressure => _livePressure;
+        private int _livePressure;
+
         public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
         {
-            // Large story art prefers the server's @2k variant (same trick the
-            // Spine pages use): the Go server resizes on demand to fit 2048² —
-            // a fraction of the bytes and decode time of a 4K original, and the
-            // industry ceiling for runtime textures anyway. Pixel art and UI
-            // skins are exempt (resampling would wreck them). A miss (already
-            // ≤2048 → server 404s; or a plain static host) falls back to the
-            // original — and the loader's session 404-cache makes every repeat
-            // miss free, so there is no global kill-switch to mis-trip.
-            var variant = DownscaleVariant(url);
-            if (variant != null)
+            System.Threading.Interlocked.Increment(ref _livePressure);
+            try
             {
-                Sprite s = null;
-                try { s = await Loader.DownloadSpriteAsync(variant, ct); }
-                catch (OperationCanceledException) { throw; }
-                catch { }
-                if (s != null) return s;
+                // Large story art prefers the server's @2k variant (same trick the
+                // Spine pages use): the Go server resizes on demand to fit 2048² —
+                // a fraction of the bytes and decode time of a 4K original, and the
+                // industry ceiling for runtime textures anyway. Pixel art and UI
+                // skins are exempt (resampling would wreck them). A miss (already
+                // ≤2048 → server 404s; or a plain static host) falls back to the
+                // original — and the loader's session 404-cache makes every repeat
+                // miss free, so there is no global kill-switch to mis-trip.
+                var variant = DownscaleVariant(url);
+                if (variant != null)
+                {
+                    Sprite s = null;
+                    try { s = await Loader.DownloadSpriteAsync(variant, ct); }
+                    catch (OperationCanceledException) { throw; }
+                    catch { }
+                    if (s != null) return s;
+                }
+                return await Loader.DownloadSpriteAsync(url, ct);
             }
-            return await Loader.DownloadSpriteAsync(url, ct);
+            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
         }
 
         /// <summary>The "@2k" downscale-variant url for large story art (see
@@ -92,8 +105,12 @@ namespace Lvn.UI
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
             => Loader.DownloadScriptCached(url, ct);
 
-        public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) =>
-            Loader.DownloadAudioClipAsync(url, ct);
+        public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+        {
+            System.Threading.Interlocked.Increment(ref _livePressure);
+            try { return await Loader.DownloadAudioClipAsync(url, ct); }
+            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
+        }
 
         /// <summary>Batch-warm a set of urls. Sprite-kind urls go through the
         /// pipelined preload batch (overlapping each disk write with the next

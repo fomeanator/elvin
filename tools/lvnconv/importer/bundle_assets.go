@@ -464,15 +464,6 @@ func buildRosterChar(contentDir, folderPath, tech, story string, c CharMap, xd X
 			layers = append(layers, map[string]any{"id": "clothes", "url": artURL(tech + "_" + wt.OutfitInfix + "_{outfit}.png")})
 			axes["outfit"] = toAnyStrings(vals)
 			defaults["outfit"] = floorDefault(varDefault[grpKey], vals)
-			// The body now sits UNDER outfits whose silhouette may differ —
-			// where its rim light leaks past the clothes' contour it must go.
-			if firstErr == nil && len(layers) > 1 && layers[0].(map[string]any)["id"] == "body" {
-				var cps []string
-				for _, v := range vals {
-					cps = append(cps, filepath.Join(contentDir, "art", tech+"_"+wt.OutfitInfix+"_"+v+".png"))
-				}
-				firstErr = cleanBodyUnderClothes(filepath.Join(contentDir, "art", tech+"_body.png"), cps)
-			}
 		}
 	}
 
@@ -627,13 +618,6 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 		layers = append(layers, map[string]any{"id": "clothes", "url": artURL(folder + "_clothes_{outfit}.png")})
 		axes["outfit"] = toAnyStrings(vals)
 		defaults["outfit"] = vals[0]
-		if firstErr == nil && bodySrc != "" {
-			var cps []string
-			for _, v := range vals {
-				cps = append(cps, filepath.Join(contentDir, "art", folder+"_clothes_"+v+".png"))
-			}
-			firstErr = cleanBodyUnderClothes(filepath.Join(contentDir, "art", folder+"_body.png"), cps)
-		}
 	}
 	if len(emo) > 0 {
 		vals := make([]string, 0, len(emo))
