@@ -2217,6 +2217,20 @@ namespace Lvn.UI
             catch { return false; }
         };
 
+        /// <summary>Portrait-framed composition on ANY screen: novels are
+        /// authored against a 9:16 stage, so on a tablet/landscape viewport the
+        /// horizontal slots compress toward the centre — an actor placed
+        /// "left" stands at the left of the STORY frame, never clipped by the
+        /// physical screen edge (the "рука отгрызана" bug).</summary>
+        internal static float CompressForWideScreen(float x)
+        {
+            float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 0.5625f;
+            const float reference = 9f / 16f;
+            if (aspect <= reference + 0.01f) return x; // portrait phones: untouched
+            float k = reference / aspect;
+            return 0.5f + (x - 0.5f) * k;
+        }
+
         internal static readonly HashSet<string> ReservedActorFields = new HashSet<string>
         {
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
@@ -2325,6 +2339,8 @@ namespace Lvn.UI
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
                 var hidePl = freshHide ? PlacementFrom(cmd) : PlacementFrom(cmd, prevHide);
+                if (cmd["x"] != null || cmd["position"] != null)
+                    hidePl.X = CompressForWideScreen(hidePl.X);
                 if (!freshHide)
                 {
                     // Both renderer paths: the Canvas renderer hides via
@@ -2456,6 +2472,10 @@ namespace Lvn.UI
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
             if (aspectEntity != null && aspectEntity.aspect > 0f)
                 placement.BoxAspect = aspectEntity.aspect;
+            // Only when THIS op positioned her (sticky X is already compressed
+            // — re-compressing every op would drift actors to the centre).
+            if (cmd["x"] != null || cmd["position"] != null)
+                placement.X = CompressForWideScreen(placement.X);
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
             _renderer?.PlaceActor(id, placement);
