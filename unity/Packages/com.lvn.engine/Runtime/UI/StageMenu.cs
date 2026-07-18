@@ -84,6 +84,11 @@ namespace Lvn.UI
 
         private void RefreshModeBadge()
         {
+            // The story panel owns the screen: whatever path raised it, the
+            // burger/rollback chrome stays away while it's up (self-healing —
+            // this poll runs anyway).
+            _fabRow.style.display = _stage.PanelOpen ? DisplayStyle.None : DisplayStyle.Flex;
+            if (_stage.PanelOpen) return;
             string label = _stage.Skipping ? L("skip", "Skip").ToUpperInvariant() + " ▶▶"
                 : LvnPrefs.AutoAdvance ? L("auto", "Auto").ToUpperInvariant() + " ▷"
                 : null;
