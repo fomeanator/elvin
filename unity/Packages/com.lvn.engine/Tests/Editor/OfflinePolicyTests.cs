@@ -40,11 +40,12 @@ namespace Lvn.Tests
                 scriptCached: true, releaseSet: set,
                 isAssetCached: Cached("/content/bg/a.png"));
 
-            Assert.AreEqual(2, r.RequiredTotal);
+            // The full-preload rule: everything is required — the critical
+            // flag no longer buys entry, only queue priority.
+            Assert.AreEqual(3, r.RequiredTotal);
             Assert.AreEqual(1, r.RequiredCached);
-            Assert.AreEqual(1, r.DeferredTotal);
-            Assert.AreEqual(0, r.DeferredCached);
-            Assert.AreEqual(1, r.RequiredMissing);
+            Assert.AreEqual(0, r.DeferredTotal);
+            Assert.AreEqual(2, r.RequiredMissing);
             Assert.IsFalse(r.RequiredComplete);
             Assert.IsFalse(r.FullyCached);
         }
@@ -79,8 +80,9 @@ namespace Lvn.Tests
                 ("/content/bg/late.png", false));
             var r = OfflinePolicy.ComputeReadiness(true, set, Cached("/content/bg/a.png"));
 
-            Assert.IsTrue(r.RequiredComplete);
-            Assert.IsFalse(r.FullyCached, "a deferred asset is still missing");
+            // Under full preload the missing non-critical BLOCKS completeness.
+            Assert.IsFalse(r.RequiredComplete);
+            Assert.IsFalse(r.FullyCached);
         }
 
         [Test]
@@ -193,8 +195,8 @@ namespace Lvn.Tests
             var p = ChapterEntryPlan.From(online: true, in r);
 
             Assert.AreEqual(ChapterEntryMode.OnlineDownload, p.Mode);
-            Assert.IsTrue(r.RequiredComplete);
-            Assert.IsTrue(p.RunScheduler, "deferred still needs fetching in the background");
+            Assert.IsFalse(r.RequiredComplete, "the not-yet-cached file gates entry now");
+            Assert.IsTrue(p.RunScheduler, "the gate scheduler fetches the remainder");
         }
 
         [Test]
