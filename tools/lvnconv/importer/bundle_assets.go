@@ -446,14 +446,22 @@ func buildRosterChar(contentDir, folderPath, tech, story string, c CharMap, xd X
 				continue // assignment-only base state / true content gap
 			}
 			src, ok := fi.resolve(t)
-			if !ok {
+			dst := tech + "_" + wt.OutfitInfix + "_" + it.Value + ".png"
+			if ok {
+				cp(src, dst)
+			} else if parts := fi.resolveParts(t); len(parts) > 0 {
+				// multi-part outfit (t_1 + t_2 + …) → bake into the one
+				// file the axis references, first part at the bottom
+				if firstErr == nil {
+					firstErr = compositeParts(parts, filepath.Join(contentDir, "art", dst))
+				}
+				src = parts[0]
+			} else {
 				warnings = append(warnings, fmt.Sprintf(
 					"%s (%s value %s): outfit art %q not found in %s — omitted from axis",
 					story, grpKey, it.Value, t, filepath.Base(folderPath)))
 				continue
 			}
-			dst := tech + "_" + wt.OutfitInfix + "_" + it.Value + ".png"
-			cp(src, dst)
 			vals = append(vals, it.Value)
 			if aspectSrc == "" {
 				aspectSrc = src
@@ -557,8 +565,9 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 		return nil, err
 	}
 	var bodySrc, hairSrc string
-	clothes := map[string]string{} // value → src
-	emo := map[string]string{}     // token → src
+	clothes := map[string]string{}         // value → src
+	clothesParts := map[string][]partFile{} // value → ordered parts (multi-file outfits)
+	emo := map[string]string{}             // token → src
 	for _, f := range entries {
 		if f.IsDir() || !strings.EqualFold(filepath.Ext(f.Name()), ".png") {
 			continue
@@ -578,6 +587,12 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 				n = "1"
 			}
 			clothes[n] = src
+			// a "13_1"-shaped name is PART 1 of outfit 13, not outfit "13_1"
+			// — collect under the base value; parts merge after the scan
+			if base, idx, ok := splitPartSuffix(n); ok {
+				clothesParts[base] = append(clothesParts[base], partFile{idx, src})
+				delete(clothes, n)
+			}
 		default:
 			tok := patchEmotionTypos(stripTrailingNum(rem))
 			if tok == "" {
@@ -605,13 +620,30 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 		layers = append(layers, map[string]any{"id": "body", "url": artURL(dst)})
 		aspectSrc = bodySrc
 	}
-	if len(clothes) > 0 {
-		vals := make([]string, 0, len(clothes))
+	if len(clothes) > 0 || len(clothesParts) > 0 {
+		vals := make([]string, 0, len(clothes)+len(clothesParts))
 		for n, src := range clothes {
 			vals = append(vals, n)
 			cp(src, folder+"_clothes_"+n+".png")
 			if aspectSrc == "" {
 				aspectSrc = src
+			}
+		}
+		for n, parts := range clothesParts {
+			if _, exists := clothes[n]; exists {
+				continue // an explicit single file wins over its parts
+			}
+			sort.Slice(parts, func(i, j int) bool { return parts[i].idx < parts[j].idx })
+			paths := make([]string, len(parts))
+			for i, p := range parts {
+				paths[i] = p.src
+			}
+			if firstErr == nil {
+				firstErr = compositeParts(paths, filepath.Join(contentDir, "art", folder+"_clothes_"+n+".png"))
+			}
+			vals = append(vals, n)
+			if aspectSrc == "" {
+				aspectSrc = paths[0]
 			}
 		}
 		sortNumeric(vals)
