@@ -36,6 +36,9 @@ type walletDoc struct {
 	// Absent/zero for a currency means the clock is NOT running (its balance is
 	// at or above the free cap). See accrue.
 	Regen map[string]int64 `json:"regen_anchors,omitempty"`
+	// AppliedOps: recent client op_ids (LRU) — a retried mutation whose
+	// RESPONSE was lost must not apply twice. Money survives flaky links.
+	AppliedOps []string `json:"applied_ops,omitempty"`
 }
 
 // regenRule configures a lives/energy-style regenerating currency (from
@@ -381,6 +384,9 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			Amount   int64  `json:"amount"`
 			SKU      string `json:"sku"`
 			Reason   string `json:"reason"`
+			// Client-generated idempotency key: the same op replayed (offline
+			// queue, lost response) applies EXACTLY once.
+			OpID string `json:"op_id"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil ||
 			req.Currency == "" || req.Amount <= 0 || req.Reason == "" {
@@ -397,6 +403,16 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			return
 		}
 		s.accrue(doc, s.now()) // credit pending regen before checking the balance
+		if req.OpID != "" {
+			for _, id := range doc.AppliedOps {
+				if id == req.OpID {
+					// Replay of an op that already landed: idempotent OK with
+					// the CURRENT state — never a second apply, never a 409.
+					s.writeDoc(w, doc)
+					return
+				}
+			}
+		}
 		if kind == "spend" {
 			if doc.Balances[req.Currency] < req.Amount {
 				w.Header().Set("Content-Type", "application/json")
@@ -418,6 +434,12 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			TS: time.Now().UTC().Format(time.RFC3339), Type: kind,
 			Currency: req.Currency, Amount: req.Amount, SKU: req.SKU, Reason: req.Reason,
 		})
+		if req.OpID != "" {
+			doc.AppliedOps = append(doc.AppliedOps, req.OpID)
+			if len(doc.AppliedOps) > 200 {
+				doc.AppliedOps = doc.AppliedOps[len(doc.AppliedOps)-200:]
+			}
+		}
 		if err := s.save(userID, doc); err != nil {
 			// The write never reached the real file, so on-disk money is
 			// unchanged — fail loudly and do NOT echo the new balance.
