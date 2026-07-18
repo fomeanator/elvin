@@ -51,6 +51,16 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # The manifest is the game's LIVE index — it must bypass the content
+    # cache entirely, or every config change sits invisible for the TTL.
+    location = /content/manifest.json {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Static content (art, scripts, audio): micro-cached in nginx (see
     # tuning.conf) so player bursts never stack on the Go process; 5m TTL +
     # background revalidation keeps partner re-imports propagating fast.
