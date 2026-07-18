@@ -120,6 +120,16 @@ namespace Lvn.UI
         private void Update()
         {
             if (!_built) Build();
+            // The platform BACK (Android back = Escape in Unity): close the
+            // TOPMOST surface — the story panel (wardrobe…) first, then the
+            // quick menu. The reader itself never exits on back.
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (_panelHost != null && _panelHost.IsOpen)
+                    PanelCancelRequested?.Invoke();
+                else if (_menu != null && _menu.IsOpen)
+                    _menu.Close();
+            }
             // [lvn-perf] frame-hitch watchdog: any frame past 150 ms is a felt
             // freeze — log it with the in-flight spine work so a hitch can be
             // attributed (or ruled out) at a glance. Skips the very first frames
@@ -1111,7 +1121,20 @@ namespace Lvn.UI
                 _ = ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
             if (_choices != null)
                 _ = ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+            // The story panel OWNS the screen while it's up (the genre rule):
+            // the quick-menu chrome hides with the dialogue — no burger over
+            // the wardrobe, no half-working Exit under a held story.
+            if (_menu != null)
+            {
+                if (faded) _menu.Close();
+                _menu.style.visibility = faded ? Visibility.Hidden : Visibility.Visible;
+            }
         }
+
+        /// <summary>The platform back pressed while the shared story panel is
+        /// open — the panel's OWNER dismisses its content (the wardrobe sheet's
+        /// cancel). The stage can't: it only hosts the frame.</summary>
+        public Action PanelCancelRequested;
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
