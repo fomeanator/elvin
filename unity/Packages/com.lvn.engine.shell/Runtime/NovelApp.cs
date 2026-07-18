@@ -672,6 +672,17 @@ namespace Lvn.UI.Screens
             return list;
         }
 
+        private static bool IsFirstChapter(LvnTitle title, LvnChapter chapter)
+        {
+            if (title?.seasons == null || chapter == null) return false;
+            foreach (var se in title.seasons)
+                if (se?.chapters != null)
+                    foreach (var c in se.chapters)
+                        if (c != null)
+                            return c.id == chapter.id; // the manifest's first listed chapter
+            return false;
+        }
+
         private bool AnyWardrobeEntity()
         {
             var sprites = _manifest?.sprites;
@@ -930,6 +941,10 @@ namespace Lvn.UI.Screens
         private async Task PlayChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
         {
             var resume = LvnProgress.Current(title);
+            // Computed BEFORE any SetCurrent: a novel-fresh start (first ever
+            // play, or a post-finale replay) re-asks the player's name inside
+            // the first chapter's entry.
+            bool novelFreshStart = resume == null;
             if (resume != null) chapter = resume;
             // A COMPLETED novel replays clean: Current is cleared on the finale
             // but the title-scope vars still hold the whole playthrough — route
@@ -972,7 +987,8 @@ namespace Lvn.UI.Screens
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
                     ("title", title?.id), ("chapter", chapter.id));
-                var finished = await PlayOneChapterAsync(title, chapter, playerName);
+                var finished = await PlayOneChapterAsync(title, chapter, playerName, novelFreshStart);
+                novelFreshStart = false; // only the entry chapter of this run counts
                 if (finished == null) break; // left mid-chapter (cancel/error) → carousel
                 ChapterFinished?.Invoke(title, finished);
                 Lvn.Services.LvnAnalytics.Track("chapter_finish",
@@ -1095,7 +1111,7 @@ namespace Lvn.UI.Screens
         // HUD until it ends. Returns the chapter that actually FINISHED (it can
         // differ from the requested one — a cross-chapter save load switches the
         // stage mid-play), or null when the player left mid-chapter.
-        private async Task<LvnChapter> PlayOneChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
+        private async Task<LvnChapter> PlayOneChapterAsync(LvnTitle title, LvnChapter chapter, string playerName, bool novelFreshStart = false)
         {
             if (Stage == null || chapter == null || string.IsNullOrEmpty(chapter.script_url))
             {
@@ -1260,6 +1276,30 @@ namespace Lvn.UI.Screens
                 {
                     await _shell.RevealFromLoadingAsync();
                     if (!resuming) await _shell.ShowChapterTitleAsync(chapter, title);
+                    // The NOVEL asks the name here — after the title card, the
+                    // live scene as the backdrop, just the panel at the bottom.
+                    // Manifest switch ui.name_input.enabled; fresh starts of the
+                    // first chapter only (restart or first-ever), prefilled.
+                    var ni = _manifest?.ui?.name_input;
+                    bool firstChapter = IsFirstChapter(title, chapter);
+                    if (AskName && ni != null && (ni.enabled ?? true)
+                        && !resuming && firstChapter
+                        && (restart || novelFreshStart || string.IsNullOrEmpty(_playerName))
+                        && _shell.NameInput != null)
+                    {
+                        try
+                        {
+                            var entered = await _shell.NameInput.AskAsync(
+                                null, _playerName, overlay: true, destroyCancellationToken);
+                            if (!string.IsNullOrEmpty(entered))
+                            {
+                                _playerName = entered;
+                                Lvn.UI.LvnPrefs.PlayerName = entered;
+                                if (Stage.Player != null) Stage.Player.Vars["player"] = entered;
+                            }
+                        }
+                        catch (OperationCanceledException) { /* teardown mid-ask */ }
+                    }
                 }
             }
             finally { entryDone.TrySetResult(true); } // release the first line NO MATTER WHAT
