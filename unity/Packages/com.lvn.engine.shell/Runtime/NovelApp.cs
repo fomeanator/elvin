@@ -657,7 +657,7 @@ namespace Lvn.UI.Screens
             if (_storySheet == null)
             {
                 var ui = _manifest?.ui ?? new LvnUiConfig();
-                _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets, hosted: true);
+                _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
                 _storySheet.SetManifest(_manifest);
                 _storySheet.OpenStore = () => _shell.OpenStoreAsync();
                 // Write the player's wardrobe pick back into the novel's story state
