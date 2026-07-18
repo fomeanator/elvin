@@ -103,7 +103,7 @@ namespace Lvn.Content
         public float? logo_y;         // logo centre y, screen fraction; default 0.28
         public string title;          // default "Welcome"
         public string subtitle;       // extra line under the title; default hidden
-        public bool? ask_nickname;    // show the nickname field; default true
+        public bool? ask_nickname;    // show the nickname field; default FALSE — the novel asks the name, not the app
         public string name_prompt;    // field label; default "Your name"
         public string default_name;   // pre-filled value (a previously saved name wins)
         public int? max_length;       // default 24
