@@ -142,6 +142,10 @@ namespace Lvn.UI
                         : _theme.BoxMaxWidthPercent > 0f ? _theme.BoxMaxWidthPercent
                         : 80f;
                 _box.style.width = Length.Percent(Mathf.Clamp(w, 5f, 100f));
+                // Tablets/landscape: the box caps at a readable line length and
+                // centres — a 1900px-wide dialogue is a teleprompter, not a novel.
+                _box.style.maxWidth = 1000;
+                _box.style.alignSelf = Align.Center;
                 if (_theme.BoxMaxHeightPercent > 0f)
                     _box.style.maxHeight = Length.Percent(Mathf.Clamp(_theme.BoxMaxHeightPercent, 5f, 100f));
             }
