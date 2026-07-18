@@ -92,7 +92,10 @@ namespace Lvn.UI.Screens
             }
 
             var textColor = UiColor.Parse(_cfg.text_color, new Color(0.96f, 0.93f, 0.85f));
-            if (_cfg.ask_nickname ?? true)
+            // The app NEVER asks the player's name — the novel does, at its
+            // start (the Liminal pattern). A title can still opt the nickname
+            // field in explicitly (ui.auth.ask_nickname: true).
+            if (_cfg.ask_nickname ?? false)
             {
                 var prompt = new Label(_cfg.name_prompt ?? "Your name");
                 prompt.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
