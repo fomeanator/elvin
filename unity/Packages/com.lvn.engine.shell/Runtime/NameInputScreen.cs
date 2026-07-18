@@ -85,38 +85,44 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(_dlg?.panel_image))
                 _ = ScreenUi.AssignNineSliceAsync(panel, _dlg.panel_image, _dlg.panel_slice ?? 0, _assets);
 
+            // The KR/Liminal shape: a centred column — prompt, a BIG full-width
+            // field, a BIG full-width accent button. The ask is a hero moment,
+            // not a settings form.
             _prompt = new Label(_cfg.prompt ?? "Enter your name");
             _prompt.style.color = UiColor.Parse(_cfg.prompt_color ?? _dlg?.speaker_color, new Color(0.80f, 0.72f, 0.56f));
-            _prompt.style.fontSize = 30;
-            _prompt.style.marginBottom = 14;
+            _prompt.style.fontSize = 34;
+            _prompt.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _prompt.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _prompt.style.marginBottom = 22;
             panel.Add(_prompt);
 
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            panel.Add(row);
-
-            _field = new TextField { maxLength = _maxLength };
-            _field.style.flexGrow = 1;
-            _field.style.fontSize = 32;
-            _field.style.marginRight = 16;
             var fieldColor = UiColor.Parse(_cfg.field_color, new Color(0.11f, 0.11f, 0.13f));
             var textColor = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.96f, 0.93f, 0.85f));
+
+            _field = new TextField { maxLength = _maxLength };
+            _field.style.height = 104;
+            _field.style.fontSize = 40;
+            _field.style.marginBottom = 20;
             StyleField(_field, fieldColor, textColor);
+            var input = _field.Q("unity-text-input");
+            if (input != null) input.style.unityTextAlign = TextAnchor.MiddleCenter;
             _field.value = _cfg.default_name ?? "";
             _field.RegisterCallback<KeyDownEvent>(OnKey);
-            row.Add(_field);
+            panel.Add(_field);
 
+            var accent = UiColor.Parse(_cfg.button_color ?? _dlg?.speaker_color, new Color(0.78f, 0.63f, 0.31f));
             _confirm = new Button { text = _cfg.confirm_text ?? "Confirm" };
-            _confirm.style.fontSize = 28;
-            _confirm.style.paddingLeft = 28;
-            _confirm.style.paddingRight = 28;
-            _confirm.style.paddingTop = 12;
-            _confirm.style.paddingBottom = 12;
-            _confirm.style.color = textColor;
-            _confirm.style.backgroundColor = UiColor.Parse(_cfg.button_color, new Color(0.23f, 0.23f, 0.27f));
+            _confirm.style.height = 96;
+            _confirm.style.fontSize = 32;
+            _confirm.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _confirm.style.color = UiColor.Parse(_cfg.button_text_color, new Color(0.08f, 0.08f, 0.10f));
+            _confirm.style.backgroundColor = accent;
+            _confirm.style.borderTopLeftRadius = 14; _confirm.style.borderTopRightRadius = 14;
+            _confirm.style.borderBottomLeftRadius = 14; _confirm.style.borderBottomRightRadius = 14;
+            _confirm.style.borderTopWidth = 0; _confirm.style.borderBottomWidth = 0;
+            _confirm.style.borderLeftWidth = 0; _confirm.style.borderRightWidth = 0;
             _confirm.clicked += TryConfirm;
-            row.Add(_confirm);
+            panel.Add(_confirm);
 
             _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
             _ = ScreenUi.AssignBgAsync(_hero, _cfg.hero_url, _assets);
