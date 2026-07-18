@@ -245,6 +245,7 @@ namespace Lvn.UI.Screens
             foreach (var kv in _def.wardrobe)
             {
                 var axis = kv.Key;
+                if (CollectionOnly && CollectedCount(axis, kv.Value) == 0) continue;
                 if (_tab == null) _tab = axis;
                 var b = new Button(() => { _tab = axis; StyleTabs(); RebuildTab(); })
                 { text = kv.Value?.name ?? axis };
@@ -285,8 +286,32 @@ namespace Lvn.UI.Screens
             foreach (var item in slot.items)
             {
                 if (item == null || string.IsNullOrEmpty(item.value)) continue;
+                if (CollectionOnly && !Encountered(_tab, item.value)) continue;
                 _list.Add(Card(slot, item, worn == item.value));
             }
+        }
+
+        // ── the player's collection (ui.wardrobe.collection_only) ────────────
+        // The menu wardrobe holds what the player has ACCUMULATED: outfits the
+        // story staged or offered (LvnWardrobe seen-tracking) plus everything
+        // bought (the wallet inventory survives reinstalls). Off (default), the
+        // screen is a full catalog/shop — the hub-store use.
+        private bool CollectionOnly => _cfg.collection_only ?? false;
+
+        private bool Encountered(string axis, string value)
+        {
+            if (LvnWardrobe.IsSeen(_entity, axis, value)) return true;
+            if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, value))) return true;
+            return LvnWardrobe.Equipped(_entity).TryGetValue(axis, out var worn) && worn == value;
+        }
+
+        private int CollectedCount(string axis, LvnWardrobeSlot slot)
+        {
+            int n = 0;
+            if (slot?.items != null)
+                foreach (var it in slot.items)
+                    if (it != null && !string.IsNullOrEmpty(it.value) && Encountered(axis, it.value)) n++;
+            return n;
         }
 
         private VisualElement Card(LvnWardrobeSlot slot, LvnWardrobeItem item, bool isWorn)
