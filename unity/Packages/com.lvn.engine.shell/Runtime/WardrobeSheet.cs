@@ -43,6 +43,13 @@ namespace Lvn.UI.Screens
         /// keeps its current value.</summary>
         public System.Action<string, string, string> OnEquip;
 
+        /// <summary>The always-open (quick-menu) mode: list ONLY outfits that
+        /// crossed the player's path — worn by an actor, offered by a story
+        /// wardrobe moment, or already owned. A story-opened sheet (false)
+        /// shows the author's full catalog for the beat and MARKS it seen.
+        /// Set before every ShowAsync — the instance is shared between paths.</summary>
+        public bool OnlySeen;
+
         private LvnManifest _manifest;
         private string _entity;
         private LvnSpriteEntity _def;
@@ -50,7 +57,6 @@ namespace Lvn.UI.Screens
         private readonly Dictionary<string, int> _index = new Dictionary<string, int>(); // axis → carousel pos
 
         private TaskCompletionSource<bool> _tcs;
-        private readonly bool _hosted;
         private bool _open;
         private bool _buying;
 
@@ -62,43 +68,21 @@ namespace Lvn.UI.Screens
         /// choice-styled buttons (<paramref name="ch"/>) — a themed title (the
         /// gothic frame, the parchment box…) skins the wardrobe for free, like
         /// every other piece of chrome. ui.wardrobe fields stay as overrides.
-        /// <paramref name="hosted"/>: the sheet is CONTENT for the stage's
-        /// shared window (<c>VnPanelHost</c>) — the frame, position and
-        /// show/hide transitions belong to the host, so the sheet draws no
-        /// panel of its own and its ShowAsync only runs the logic.</summary>
-        public WardrobeSheet(WardrobeConfig cfg, DialogueConfig dlg, ChoicesConfig ch, ILvnAssets assets,
-            bool hosted = false)
+        /// The sheet is CONTENT for the stage's shared window
+        /// (<c>VnPanelHost</c>) — the frame, position and show/hide transitions
+        /// belong to the host, so the sheet draws no panel of its own and its
+        /// ShowAsync only runs the logic.</summary>
+        public WardrobeSheet(WardrobeConfig cfg, DialogueConfig dlg, ChoicesConfig ch, ILvnAssets assets)
         {
             _cfg = cfg ?? new WardrobeConfig();
             _dlg = dlg;
             _ch = ch;
             _assets = assets;
-            _hosted = hosted;
             _text = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.95f, 0.93f, 0.88f));
             _dim = UiColor.Parse(_cfg.dim_text_color, new Color(0.60f, 0.58f, 0.54f));
             _accent = UiColor.Parse(_cfg.accent_color ?? _dlg?.speaker_color, new Color(0.78f, 0.63f, 0.31f));
             _accentText = UiColor.Parse(_cfg.accent_text_color, new Color(0.08f, 0.08f, 0.10f));
             _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? 12f;
-
-            if (!_hosted)
-            {
-                // standalone: the sheet is its own bottom-docked panel
-                style.position = Position.Absolute;
-                style.left = Length.Percent(4f);
-                style.right = Length.Percent(4f);
-                style.bottom = Length.Percent(2.5f);
-                style.backgroundColor = UiColor.Parse(_cfg.panel_color ?? _dlg?.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
-                Round(this, _radius + 6f);
-                // the game's dialogue-panel art (9-slice) IS the wardrobe's frame
-                if (!string.IsNullOrEmpty(_dlg?.panel_image))
-                    _ = ApplyNineSliceAsync(this, _dlg.panel_image, _dlg.panel_slice ?? 0);
-                style.paddingTop = 14;
-                style.paddingBottom = 16;
-                style.paddingLeft = 16;
-                style.paddingRight = 16;
-                style.opacity = 0f;
-                style.display = DisplayStyle.None;
-            }
 
             // balance pills FLOAT above the sheet (the genre-standard "wallet
             // over the wardrobe"), including zero balances for any currency the
@@ -192,16 +176,17 @@ namespace Lvn.UI.Screens
             _open = true;
             _confirm.SetEnabled(true); // never inherit a dead button from a past session
             BuildFor(entityId);
+            // A story wardrobe moment IS the outfits crossing the player's path —
+            // everything it offers joins the always-open wardrobe's collection.
+            if (!OnlySeen && _def?.wardrobe != null)
+                foreach (var kv in _def.wardrobe)
+                    if (kv.Value?.items != null)
+                        foreach (var it in kv.Value.items)
+                            if (it != null && !string.IsNullOrEmpty(it.value))
+                                LvnWardrobe.MarkSeen(_entity, kv.Key, it.value);
             RefreshBalances();
             LvnWallet.Changed += OnWalletChanged;
             _ = LvnWallet.RefreshAsync();
-            if (!_hosted)
-            {
-                style.display = DisplayStyle.Flex;
-                await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-                // Hide() during the fade-in cancels the open (see StoreScreen).
-                if (!_open) { LvnWallet.Changed -= OnWalletChanged; return; }
-            }
 
             _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var reg = ct.Register(() => _tcs.TrySetResult(false));
@@ -210,11 +195,6 @@ namespace Lvn.UI.Screens
             {
                 LvnWallet.Changed -= OnWalletChanged;
                 LvnWardrobe.ClearPreview(_entity); // confirm already committed; cancel snaps back
-                if (!_hosted)
-                {
-                    await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                    style.display = DisplayStyle.None;
-                }
                 _open = false;
             }
         }
@@ -223,11 +203,6 @@ namespace Lvn.UI.Screens
         {
             LvnWallet.Changed -= OnWalletChanged;
             if (!string.IsNullOrEmpty(_entity)) LvnWardrobe.ClearPreview(_entity);
-            if (!_hosted)
-            {
-                style.opacity = 0f;
-                style.display = DisplayStyle.None;
-            }
             _open = false;
             _tcs?.TrySetResult(false);
         }
@@ -321,6 +296,7 @@ namespace Lvn.UI.Screens
             foreach (var kv in _def.wardrobe)
             {
                 var axis = kv.Key;
+                if (Items(axis).Count == 0) continue; // nothing collected here yet
                 if (_tab == null) _tab = axis;
                 var slot = kv.Value;
                 var b = new Button(() => SelectTab(axis));
@@ -549,8 +525,19 @@ namespace Lvn.UI.Screens
             if (axis != null && _def?.wardrobe != null
                 && _def.wardrobe.TryGetValue(axis, out var slot) && slot?.items != null)
                 foreach (var it in slot.items)
-                    if (it != null && !string.IsNullOrEmpty(it.value)) list.Add(it);
+                    if (it != null && !string.IsNullOrEmpty(it.value)
+                        && (!OnlySeen || Encountered(axis, it.value)))
+                        list.Add(it);
             return list;
+        }
+
+        // Part of the player's collection: seen along the way, bought (the
+        // wallet remembers across reinstalls), or what she's wearing right now.
+        private bool Encountered(string axis, string value)
+        {
+            if (LvnWardrobe.IsSeen(_entity, axis, value)) return true;
+            if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, value))) return true;
+            return LvnWardrobe.Equipped(_entity).TryGetValue(axis, out var worn) && worn == value;
         }
 
         private LvnWardrobeItem Find(string axis, string value)

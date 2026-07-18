@@ -78,6 +78,11 @@ namespace Lvn.Content
         public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
         public string menu_label;     // quick-menu entry; default "Wardrobe"
         public bool? show_menu_item;  // default true
+        // The player's COLLECTION view: every wardrobe surface lists only
+        // outfits accumulated along the way (staged/offered by the story) or
+        // bought — not the full catalog. Story wardrobe moments always show
+        // the author's full set for the beat. Default false (catalog/shop).
+        public bool? collection_only;
 
         public Dictionary<string, string> rarity_colors; // rarity key → hex (card ring tint)
         public Dictionary<string, string> currency_icons; // currency → content url (balance pills)
