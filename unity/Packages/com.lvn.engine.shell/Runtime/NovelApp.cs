@@ -609,21 +609,43 @@ namespace Lvn.UI.Screens
             var entity = ResolveMenuWardrobeEntity(stage);
             if (string.IsNullOrEmpty(entity)) return; // no dressable cast — nothing to open
             stage.CloseQuickMenu();
-            bool wasOnStage = stage.ActorsOnStage().Contains(entity);
             // The story holds only because nothing advances it — block taps for
             // the sheet's whole life (a story-opened sheet gets this from Hold()).
             stage.InputBlocked = true;
             try
             {
                 await ShowStorySheetAsync(entity,
-                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true);
+                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true,
+                    roster: BuildWardrobeRoster(entity));
             }
-            finally
+            finally { stage.InputBlocked = false; }
+        }
+
+        // The character pills of the always-open wardrobe: every dressable
+        // entity, alias entities of the SAME character collapsed (they share
+        // the exact set of story vars — Katya/cold_main/Главный_герой are one
+        // heroine). The primary (resolved) character leads.
+        private List<(string id, string name)> BuildWardrobeRoster(string primary)
+        {
+            var sprites = _manifest?.sprites;
+            if (sprites == null) return null;
+            var list = new List<(string id, string name)>();
+            var sigs = new HashSet<string>();
+            void TryAdd(string id)
             {
-                stage.InputBlocked = false;
-                // She was staged just for the fitting — give the scene back.
-                if (!wasOnStage) stage.HideActor(entity);
+                if (string.IsNullOrEmpty(id) || !sprites.TryGetValue(id, out var d)
+                    || d?.wardrobe == null || d.wardrobe.Count == 0) return;
+                var vars = new List<string>();
+                foreach (var kv in d.wardrobe)
+                    if (!string.IsNullOrEmpty(kv.Value?.storyVar)) vars.Add(kv.Value.storyVar);
+                vars.Sort();
+                var sig = vars.Count > 0 ? string.Join("|", vars) : "id:" + id;
+                if (!sigs.Add(sig)) return; // same character under another entity id
+                list.Add((id, string.IsNullOrEmpty(d.name) ? id : d.name));
             }
+            TryAdd(primary);
+            foreach (var id in sprites.Keys) TryAdd(id);
+            return list;
         }
 
         private bool AnyWardrobeEntity()
@@ -657,13 +679,12 @@ namespace Lvn.UI.Screens
                 if (!string.IsNullOrEmpty(bg))
                     stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
                     { ["op"] = "bg", ["sprite_url"] = bg });
-                stage.EnsureActorShown(entity);
                 await ShowStorySheetAsync(entity,
-                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true);
+                    onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true,
+                    roster: BuildWardrobeRoster(entity));
             }
             finally
             {
-                stage.HideActor(entity); // the hub owns the screen again
                 if (hub != null)
                 {
                     hub.style.display = DisplayStyle.Flex;
@@ -699,7 +720,8 @@ namespace Lvn.UI.Screens
             return null;
         }
 
-        private async Task ShowStorySheetAsync(string entity, bool onlySeen)
+        private async Task ShowStorySheetAsync(string entity, bool onlySeen,
+            List<(string id, string name)> roster = null)
         {
             if (_storySheet == null)
             {
@@ -724,14 +746,30 @@ namespace Lvn.UI.Screens
                 };
             }
             _storySheet.OnlySeen = onlySeen; // shared instance — set on EVERY open
+            _storySheet.SetRoster(roster);
+            var st = Stage;
+            // Who stood on stage BEFORE the fitting — everyone staged purely to
+            // be dressed (the opener, every pill switch) leaves again at close.
+            var wasOn = new HashSet<string>(st != null ? st.ActorsOnStage() : new List<string>());
+            _storySheet.OnCharacterPicked = (from, to) =>
+            {
+                if (st == null) return;
+                if (!wasOn.Contains(from)) st.HideActor(from);
+                st.EnsureActorShown(to);
+            };
             // The sheet mirrors the LIVE actor — make sure the active hero is on
             // stage so the wardrobe always shows who you're dressing, even when the
             // story beat opened it on an empty stage.
-            Stage?.EnsureActorShown(entity);
+            st?.EnsureActorShown(entity);
             var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
-            await Stage.ShowPanelAsync(_storySheet);    // dialogue fades, frame slides up
+            await st.ShowPanelAsync(_storySheet);       // dialogue fades, frame slides up
             try { await done; }
-            finally { await Stage.HidePanelAsync(); }   // frame slides away, dialogue returns
+            finally
+            {
+                await st.HidePanelAsync();              // frame slides away, dialogue returns
+                var cur = _storySheet.CurrentEntity ?? entity;
+                if (!wasOn.Contains(cur)) st.HideActor(cur);
+            }
         }
 
         // Builds a VnStage on a child GameObject with its own UIDocument + panel
