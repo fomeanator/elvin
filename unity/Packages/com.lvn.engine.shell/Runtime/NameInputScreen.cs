@@ -27,6 +27,7 @@ namespace Lvn.UI.Screens
         private readonly int _maxLength;
 
         private TaskCompletionSource<string> _tcs;
+        private string _prefill;
 
         public NameInputScreen(NameInputConfig cfg, ILvnAssets assets)
             : this(cfg, null, assets) { }
@@ -127,19 +128,21 @@ namespace Lvn.UI.Screens
         /// once they confirm a non-empty value. Cancelling the token abandons the
         /// prompt (the task cancels).</summary>
         public async Task<string> AskAsync(CancellationToken ct = default)
-            => await AskAsync(null, ct);
+            => await AskAsync(null, null, ct);
 
         /// <summary>Ask over a specific backdrop — the shell passes the opening
-        /// chapter's background so the moment reads as the story's first frame.
-        /// Null falls back to ui.name_input.bg_url / the flat colour.</summary>
-        public async Task<string> AskAsync(string bgUrl, CancellationToken ct = default)
+        /// chapter's background so the moment reads as the story's first frame
+        /// — with the KNOWN name prefilled (a replaying player may want to
+        /// change it, or just confirm). Nulls fall back to ui.name_input.</summary>
+        public async Task<string> AskAsync(string bgUrl, string prefill, CancellationToken ct = default)
         {
             if (!string.IsNullOrEmpty(bgUrl))
                 _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
+            _prefill = prefill;
             style.display = DisplayStyle.Flex;
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.3f, ct);
 
-            _field.value = _cfg.default_name ?? "";
+            _field.value = !string.IsNullOrEmpty(_prefill) ? _prefill : (_cfg.default_name ?? "");
             _field.schedule.Execute(() => { _field.Focus(); _field.SelectAll(); }).ExecuteLater(16);
 
             _tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
