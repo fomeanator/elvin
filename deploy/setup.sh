@@ -129,6 +129,20 @@ BOOT
   certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
     --non-interactive --agree-tos --register-unsafely-without-email
 fi
+# Studio IDE basic-auth: the nginx site gates /panel with lvn.htpasswd. Create
+# it BEFORE reloading nginx, or the first request to /panel 500s on a missing
+# password file. Idempotent: generated once, left alone on re-runs. Pass
+# STUDIO_USER/STUDIO_PASS to pin credentials; otherwise a random pass is minted
+# and logged (like ADMIN_TOKEN). Change later: htpasswd /etc/nginx/lvn.htpasswd <user>
+if [ ! -e /etc/nginx/lvn.htpasswd ]; then
+  STUDIO_USER="${STUDIO_USER:-elvin}"
+  STUDIO_PASS="${STUDIO_PASS:-$(head -c 18 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 20)}"
+  printf '%s:%s\n' "$STUDIO_USER" "$(openssl passwd -apr1 "$STUDIO_PASS")" > /etc/nginx/lvn.htpasswd
+  chown root:www-data /etc/nginx/lvn.htpasswd
+  chmod 640 /etc/nginx/lvn.htpasswd
+  log "Studio basic-auth → user=$STUDIO_USER pass=$STUDIO_PASS  (при /panel)"
+fi
+
 sed -e "s|\${DOMAIN}|$DOMAIN|g" -e "s|\${PORT}|$PORT|g" \
     "$HERE/nginx/lvn.conf.template" > /etc/nginx/sites-available/lvn.conf
 ln -sf /etc/nginx/sites-available/lvn.conf /etc/nginx/sites-enabled/lvn.conf
