@@ -90,7 +90,7 @@ export default function SpritesView({ creds, notify, titleId }) {
   const [rosterView, setRosterView] = useState(() => localStorage.getItem("lvn_roster_view") || "grid");
   useEffect(() => localStorage.setItem("lvn_roster_view", rosterView), [rosterView]);
   const [rosterQuery, setRosterQuery] = useState("");
-  const [rosterPage, setRosterPage] = useState(0);
+  const [rosterCount, setRosterCount] = useState(48); // infinite scroll: how many tiles are mounted
 
   useEffect(() => {
     (async () => {
@@ -406,9 +406,21 @@ export default function SpritesView({ creds, notify, titleId }) {
       return Math.min(byId ?? Infinity, byName ?? Infinity);
     };
     const cmp = (a, b) => ord(a) - ord(b) || a.localeCompare(b, "ru");
+    // Look-variants share one display name (Матвей / Matvey_bloody /
+    // Matvey_bandage…) — the roster shows ONE tile per character, variants
+    // fold inside it. Grouping is by display name within each tier.
+    const grouped = (list) => {
+      const by = new Map();
+      for (const id of list.sort(cmp)) {
+        const name = String(catalog[id]?.name || id);
+        if (!by.has(name)) by.set(name, []);
+        by.get(name).push(id);
+      }
+      return [...by.entries()].map(([name, gids]) => ({ name, ids: gids }));
+    };
     return {
-      characters: ids.filter(isChar).sort(cmp),
-      objects: ids.filter((id) => !isChar(id)).sort(cmp),
+      characters: grouped(ids.filter(isChar)),
+      objects: grouped(ids.filter((id) => !isChar(id))),
     };
   }, [catalog, scriptOrder]);
 
@@ -431,50 +443,48 @@ export default function SpritesView({ creds, notify, titleId }) {
           className="field roster-search"
           placeholder="Поиск по касту…"
           value={rosterQuery}
-          onChange={(e) => { setRosterQuery(e.target.value); setRosterPage(0); }}
+          onChange={(e) => { setRosterQuery(e.target.value); setRosterCount(48); }}
         />
         {(() => {
           const q = rosterQuery.trim().toLowerCase();
-          const match = (id) => !q || id.toLowerCase().includes(q)
-            || String(catalog[id]?.name || "").toLowerCase().includes(q);
-          const chars = roster.characters.filter(match);
-          const objs = roster.objects.filter(match);
+          const gmatch = (g) => !q || g.name.toLowerCase().includes(q)
+            || g.ids.some((id) => id.toLowerCase().includes(q));
+          const chars = roster.characters.filter(gmatch);
+          const objs = roster.objects.filter(gmatch);
           const flat = [...chars, ...objs];
-          const PAGE = rosterView === "grid" ? 48 : 80;
-          const pages = Math.max(1, Math.ceil(flat.length / PAGE));
-          const page = Math.min(rosterPage, pages - 1);
-          const slice = flat.slice(page * PAGE, page * PAGE + PAGE);
+          const slice = flat.slice(0, rosterCount);
           const firstObj = objs.length ? objs[0] : null;
           const Item = rosterView === "grid" ? RosterCard : RosterItem;
           return (
             <>
-              <div className={rosterView === "grid" ? "roster-grid" : "roster-list"}>
+              <div
+                className={rosterView === "grid" ? "roster-grid" : "roster-list"}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  if (el.scrollTop + el.clientHeight > el.scrollHeight - 420 && slice.length < flat.length)
+                    setRosterCount((c) => c + 48);
+                }}
+              >
                 {flat.length === 0 && (
                   <div className="roster-empty">{q ? "Ничего не найдено." : <>Nobody yet.<br />Add someone →</>}</div>
                 )}
-                {slice.map((id) => (
-                  <span key={id} style={{ display: "contents" }}>
-                    {id === firstObj && chars.length > 0 && (
+                {slice.map((g) => (
+                  <span key={g.name + g.ids[0]} style={{ display: "contents" }}>
+                    {g === firstObj && chars.length > 0 && (
                       <div className="roster-divider">Objects & variants</div>
                     )}
                     <Item
-                      id={id}
-                      entity={catalog[id]}
+                      group={g}
+                      catalog={catalog}
                       bust={bust}
-                      active={id === currentId}
-                      onClick={() => selectEntity(id)}
+                      activeId={currentId}
+                      onPick={selectEntity}
                     />
                   </span>
                 ))}
               </div>
-              {pages > 1 && (
-                <div className="roster-pager">
-                  <button className="btn-ghost sm" disabled={page === 0}
-                    onClick={() => setRosterPage(page - 1)}>‹</button>
-                  <span>{page + 1} / {pages}</span>
-                  <button className="btn-ghost sm" disabled={page >= pages - 1}
-                    onClick={() => setRosterPage(page + 1)}>›</button>
-                </div>
+              {slice.length < flat.length && (
+                <div className="roster-more">показано {slice.length} из {flat.length} — прокрути ниже…</div>
               )}
             </>
           );
@@ -624,50 +634,114 @@ export default function SpritesView({ creds, notify, titleId }) {
 
 /* ── pieces ──────────────────────────────────────────────────────────────── */
 
-function entityThumb(entity, bust) {
+// Every default-resolved layer of the entity, in stage order — the roster
+// tile stacks them so the preview is the ASSEMBLED character (body + clothes
+// + face + hair), not whichever single layer resolved first.
+function entityLayers(entity, bust) {
   const e = entity || {};
   const def = e.defaults || {};
+  const out = [];
   for (const l of e.layers || []) {
     let u = typeof l === "string" ? l : l.url;
     if (!u) continue;
     u = u.replace(/\{([^}]+)\}/g, (_, k) => def[k] || "");
-    if (!u.includes("{")) return u + "?v=" + bust;
+    if (!u.includes("{")) out.push(u + "?v=" + bust);
   }
-  return null;
+  return out;
 }
 
-function RosterItem({ id, entity, bust, active, onClick }) {
-  const thumb = entityThumb(entity, bust);
-  const cast = (entity?.layers || []).some((l) => (typeof l === "string" ? l : l.url || "").includes("{"));
-  const [ok, setOk] = useState(true);
+// The stacked-layers thumbnail; falls back to the first letter when nothing
+// resolves. Layers that 404 hide themselves and never break the stack.
+function AssembledThumb({ entity, bust, letter, className }) {
+  const urls = entityLayers(entity, bust);
+  if (!urls.length) return <span className="roster-card-letter">{letter}</span>;
   return (
-    <button className={"roster-item" + (active ? " active" : "")} onClick={onClick}>
-      <span className="roster-portrait" style={entity?.color ? { "--tint": entity.color } : undefined}>
-        {thumb && ok ? <img src={thumb} alt="" onError={() => setOk(false)} /> : <span>{(entity?.name || id)[0]?.toUpperCase()}</span>}
-      </span>
-      <span className="roster-meta">
-        <span className="roster-name">{entity?.name || id}</span>
-        <span className="roster-kind">{cast ? "character" : "object"}</span>
-      </span>
-    </button>
+    <span className={className || "thumb-stack"}>
+      {urls.map((u) => (
+        <img key={u} src={u} alt="" loading="lazy"
+          onError={(e) => { e.currentTarget.style.display = "none"; }} />
+      ))}
+    </span>
+  );
+}
+
+// A group = one display name (a character) and every catalog id behind it:
+// the main entity first, story-state variants (dead / bloody / …) after.
+function RosterItem({ group, catalog, bust, activeId, onPick }) {
+  const activeInGroup = group.ids.includes(activeId);
+  const shownId = activeInGroup ? activeId : group.ids[0];
+  const entity = catalog[shownId];
+  const cast = (entity?.layers || []).some((l) => (typeof l === "string" ? l : l.url || "").includes("{"));
+  return (
+    <>
+      <button className={"roster-item" + (activeInGroup ? " active" : "")} onClick={() => onPick(shownId)}>
+        <span className="roster-portrait thumb-stack" style={entity?.color ? { "--tint": entity.color } : undefined}>
+          <AssembledThumb entity={entity} bust={bust} letter={group.name[0]?.toUpperCase()} className="" />
+        </span>
+        <span className="roster-meta">
+          <span className="roster-name">{group.name}{group.ids.length > 1 ? ` ×${group.ids.length}` : ""}</span>
+          <span className="roster-kind">{cast ? "character" : "object"}</span>
+        </span>
+      </button>
+      {activeInGroup && group.ids.length > 1 && (
+        <div className="roster-variants list">
+          {group.ids.map((vid) => (
+            <button key={vid} className={"roster-variant" + (vid === activeId ? " active" : "")}
+              title={vid} onClick={() => onPick(vid)}>{variantLabel(vid, group)}</button>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
 // The grid tile — art as a "file": a big portrait with the name underneath,
 // like a file manager, so a 300-entity partner cast is scannable by eye.
-function RosterCard({ id, entity, bust, active, onClick }) {
-  const thumb = entityThumb(entity, bust);
-  const [ok, setOk] = useState(true);
+// Variants of the active character unfold as a chip row inside the tile.
+function RosterCard({ group, catalog, bust, activeId, onPick }) {
+  const activeInGroup = group.ids.includes(activeId);
+  const shownId = activeInGroup ? activeId : group.ids[0];
+  const entity = catalog[shownId];
   return (
-    <button className={"roster-card" + (active ? " active" : "")} onClick={onClick} title={id}>
-      <span className="roster-card-art" style={entity?.color ? { "--tint": entity.color } : undefined}>
-        {thumb && ok
-          ? <img src={thumb} alt="" loading="lazy" onError={() => setOk(false)} />
-          : <span className="roster-card-letter">{(entity?.name || id)[0]?.toUpperCase()}</span>}
+    <div className={"roster-card" + (activeInGroup ? " active" : "")} title={shownId}
+      role="button" tabIndex={0} onClick={() => onPick(shownId)}
+      onKeyDown={(e) => e.key === "Enter" && onPick(shownId)}>
+      <span className="roster-card-art thumb-stack" style={entity?.color ? { "--tint": entity.color } : undefined}>
+        <AssembledThumb entity={entity} bust={bust} letter={group.name[0]?.toUpperCase()} className="" />
+        {group.ids.length > 1 && <span className="roster-card-badge">×{group.ids.length}</span>}
       </span>
-      <span className="roster-card-name">{entity?.name || id}</span>
-    </button>
+      <span className="roster-card-name">{group.name}</span>
+      {activeInGroup && group.ids.length > 1 && (
+        <div className="roster-variants">
+          {group.ids.map((vid) => (
+            <button key={vid} className={"roster-variant" + (vid === activeId ? " active" : "")}
+              title={vid} onClick={(e) => { e.stopPropagation(); onPick(vid); }}>
+              {variantLabel(vid, group)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
+}
+
+// Chip label for a variant id: strip the segments every variant of the group
+// shares (project prefix + the character: Cold_Matvey_mechanic → "mechanic");
+// the main entity shows as «основной».
+function variantLabel(vid, group) {
+  if (vid === group.ids[0]) return "основной";
+  const others = group.ids.filter((x) => x !== group.ids[0]).map((x) => x.split("_"));
+  let common = 0;
+  if (others.length > 1) {
+    const first = others[0];
+    while (common < first.length - 1 &&
+      others.every((seg) => seg[common]?.toLowerCase() === first[common].toLowerCase())) common++;
+  } else {
+    // single variant: drop segments that also occur in the main id
+    const main = new Set(group.ids[0].toLowerCase().split("_"));
+    return vid.split("_").filter((s) => !main.has(s.toLowerCase())).join(" ") || vid;
+  }
+  return vid.split("_").slice(common).join(" ") || vid;
 }
 
 function Stage({ parts, picked, bust }) {
