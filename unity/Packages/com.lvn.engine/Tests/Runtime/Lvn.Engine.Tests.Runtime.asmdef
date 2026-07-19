@@ -5,6 +5,8 @@
     "Lvn.Engine",
     "Lvn.Engine.UI",
     "Lvn.Engine.Content",
+    "Lvn.Engine.Shell",
+    "Lvn.Engine.Services",
     "Unity.Nuget.Newtonsoft-Json",
     "UnityEngine.TestRunner",
     "UnityEngine.UI"
