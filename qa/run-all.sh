@@ -33,6 +33,29 @@ if pgrep -x Unity >/dev/null 2>&1; then
   echo "FAIL: редактор Unity открыт — batchmode-прогон невозможен"; exit 1
 fi
 
+# ── 0. Go-сервер для PlayMode-смоука (BootSmokeTests поднимает его сам) ─────
+mkdir -p "$REPO_ROOT/qa/bin"
+if command -v go >/dev/null 2>&1; then
+  go build -o "$REPO_ROOT/qa/bin/lvnserver-test" "$REPO_ROOT/server" \
+    || { log "WARN: go build сервера не удался — PlayMode-смоук скипнется"; }
+fi
+
+report_platform() { # $1 = имя, $2 = xml
+python3 - "$2" "$1" <<'PY'
+import sys, xml.etree.ElementTree as ET
+try:
+    r = ET.parse(sys.argv[1]).getroot()
+except Exception as e:
+    print(f"  {sys.argv[2]}: нет результатов ({e})"); sys.exit(1)
+total, passed, failed = r.get('total'), r.get('passed'), r.get('failed')
+print(f"  {sys.argv[2]}: {passed}/{total} passed, {failed} failed")
+for tc in r.iter('test-case'):
+    if tc.get('result') not in (None, 'Passed', 'Skipped'):
+        print("   ", tc.get('result'), tc.get('fullname'))
+sys.exit(0 if failed == '0' else 1)
+PY
+}
+
 # ── 1. EditMode: вся пирамида (юнит + контракт + соук) ──────────────────────
 log "EditMode-прогон…"
 args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
@@ -40,19 +63,16 @@ args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
       -testResults "$OUT/editmode.xml" -logFile "$OUT/editmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
 "$UNITY" "${args[@]}" >/dev/null 2>&1
-python3 - "$OUT/editmode.xml" <<'PY' || fail=1
-import sys, xml.etree.ElementTree as ET
-try:
-    r = ET.parse(sys.argv[1]).getroot()
-except Exception as e:
-    print(f"  editmode: нет результатов ({e})"); sys.exit(1)
-total, passed, failed = r.get('total'), r.get('passed'), r.get('failed')
-print(f"  editmode: {passed}/{total} passed, {failed} failed")
-for tc in r.iter('test-case'):
-    if tc.get('result') not in (None, 'Passed', 'Skipped'):
-        print("   ", tc.get('result'), tc.get('fullname'))
-sys.exit(0 if failed == '0' else 1)
-PY
+report_platform editmode "$OUT/editmode.xml" || fail=1
+
+# ── 1b. PlayMode: интеграция (бут NovelApp против живого локального сервера) ─
+log "PlayMode-прогон…"
+args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
+      -runTests -testPlatform PlayMode
+      -testResults "$OUT/playmode.xml" -logFile "$OUT/playmode.log")
+[ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
+"$UNITY" "${args[@]}" >/dev/null 2>&1
+report_platform playmode "$OUT/playmode.xml" || fail=1
 
 # ── 2. Девайс-смоук (опционально) ───────────────────────────────────────────
 if [ "$DEVICE" = 1 ]; then
