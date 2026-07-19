@@ -217,11 +217,20 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// res.Scripts holds BOTH files of every chapter (.lvn + .lvns) — count
+	// actual chapters, or the response reads "50" for a 25-chapter novel
+	// (a live half-hour of debugging chased that phantom doubling).
+	chapters := 0
+	for _, s := range res.Scripts {
+		if strings.HasSuffix(s.Rel, ".lvn") {
+			chapters++
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":         res.Title.ID,
 		"name":       res.Title.Name,
 		"script_url": "/content/" + res.ScriptRel,
-		"chapters":   len(res.Scripts),
+		"chapters":   chapters,
 		"sprites":    len(res.Sprites),
 		"art_files":  len(res.Art),
 		"bg_missing": len(res.MissingBg),
