@@ -491,9 +491,15 @@ export default function SpritesView({ creds, notify, titleId }) {
             onChange={(e) => setName(e.target.value)}
           />
           <div className="studio-top-actions">
-            <button className={"btn-ghost" + (advanced ? " on" : "")} onClick={() => setAdvanced((a) => !a)}>
-              ⚙ Advanced
-            </button>
+            {isCharacter && (
+              <button className="btn-ghost sm" onClick={addAnim} title="Анимации: idle-луп на показе, остальные из скрипта (actor id play=name)">
+                + Анимация
+              </button>
+            )}
+            <button className={"btn-ghost sm" + (advanced ? " on" : "")} title="Advanced: id, цвет, условные слои"
+              onClick={() => setAdvanced((a) => !a)}>⚙</button>
+            <button className="btn-ghost sm" onClick={deleteEntity}>Delete</button>
+            <button className="btn btn-primary" onClick={save}>Save — put in game ▸</button>
           </div>
         </div>
 
@@ -567,11 +573,10 @@ export default function SpritesView({ creds, notify, titleId }) {
           </div>
         </div>
 
-        {isCharacter && (
+        {isCharacter && (ed.anim || []).length > 0 && (
           <AnimEditor
             ed={ed}
             preview={preview}
-            onAdd={addAnim}
             onRemove={removeAnim}
             onUpdate={updateAnim}
             onAddTrack={addTrack}
@@ -595,10 +600,6 @@ export default function SpritesView({ creds, notify, titleId }) {
           />
         )}
 
-        <div className="studio-bar">
-          <button className="btn btn-primary" onClick={save}>Save — put in game ▸</button>
-          <button className="btn-ghost" onClick={deleteEntity}>Delete</button>
-        </div>
       </main>
 
       {chooser && <Chooser onPick={newEntity} onCancel={() => setChooser(false)} />}
@@ -878,20 +879,15 @@ function Advanced({ ed, setId, setColor, onPartWhen, onAddBlush }) {
 /* ── animation editor ──────────────────────────────────────────────────────── */
 
 function AnimEditor(props) {
-  const { ed, preview, onAdd, onRemove, onUpdate, onAddTrack, onRemoveTrack, onUpdateTrack, onSyncFrames, onPreview } = props;
+  const { ed, preview, onRemove, onUpdate, onAddTrack, onRemoveTrack, onUpdateTrack, onSyncFrames, onPreview } = props;
   const layers = [...new Set(ed.parts.map((p) => p.layerId).filter(Boolean))];
   const axes = Object.keys(ed.axes || {}).filter((a) => (ed.axes[a] || []).length);
   const anims = ed.anim || [];
   return (
     <div className="anim-editor enter">
-      <div className="anim-head">
-        <span className="look-label">Animations</span>
-        <span className="look-hint">idle loops on show · others play from the script via <code>actor id play=name</code></span>
-        <button className="btn-ghost sm" onClick={onAdd}>+ Add animation</button>
-      </div>
-      {anims.length === 0 && (
-        <div className="adv-note">None yet. Add one to make a rigged character move (frame-swap or a scale/rotate tween).</div>
-      )}
+      {/* The section header + empty state moved into the studio top bar
+          ("+ Анимация" next to the name) — this editor only appears once an
+          animation exists, so it needs no banner of its own. */}
       {anims.map((a) => {
         const playing = preview === a.key;
         return (
