@@ -2324,7 +2324,7 @@ namespace Lvn.UI
             if (!BoolOr(cmd["show"], true))
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
-                var hidePl = freshHide ? PlacementFrom(cmd) : PlacementFrom(cmd, prevHide);
+                var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
 
                 if (!freshHide)
                 {
@@ -2430,7 +2430,7 @@ namespace Lvn.UI
             }
 
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
-            var placement = fresh ? PlacementFrom(cmd) : PlacementFrom(cmd, prevPl);
+            var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
             // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
             // the op left it unset, so every novel gets the standard bottom-anchored
             // pose — tunable from ui.stage without editing the script. A follow-up op
@@ -2457,6 +2457,18 @@ namespace Lvn.UI
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
             if (aspectEntity != null && aspectEntity.aspect > 0f)
                 placement.BoxAspect = aspectEntity.aspect;
+
+            // Smart slots: never draw two actors standing inside each other.
+            if (placement.Show)
+            {
+                var arbX = ArbitrateSlotX(placement.X, id, cmd["x"] != null,
+                    _placements, SlotsOf(id), out var slotOwner);
+                if (slotOwner != null && !Mathf.Approximately(arbX, placement.X))
+                {
+                    Debug.Log($"[lvn-slot] '{id}' → {placement.X:0.00} занято '{slotOwner}' — авто-сдвиг в {arbX:0.00}");
+                    placement.X = arbX;
+                }
+            }
 
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
@@ -2612,12 +2624,76 @@ namespace Lvn.UI
         /// change, so <c>actor id=knight play="Jump"</c> keeps the position a
         /// drag, a move-follow-up or an earlier command left him at.
         /// Transitions are one-shot and always come from the command.</summary>
-        internal static Placement PlacementFrom(JObject cmd, Placement prev)
+        /// <summary>A named slot's x for an entity: the catalog def's per-entity
+        /// override wins over the global table (see LvnSpriteEntity.slots).</summary>
+        internal static float SlotXFor(string position, IReadOnlyDictionary<string, float> slots)
+            => position != null && slots != null && slots.TryGetValue(position, out var v)
+                ? v : ActorLayer.SlotX(position);
+
+        // ── smart slots ──────────────────────────────────────────────────────
+        // A VISIBLE actor owns its X until it hides or moves. Branch-merged
+        // content routinely loses a hide on the way into a shared tail (the
+        // partner's "two characters standing inside each other" screenshot:
+        // choice branch re-shows Matvey right, jumps to the tail, the tail
+        // shows Miron right — 673 such flow-order collisions across the cold
+        // chapters). The stage must never DRAW that: a claimant resolved into
+        // an occupied slot slides to the nearest free slot instead. An explicit
+        // numeric x is authorial composition (embraces, crowds) — never touched.
+
+        internal const float SlotClaimRadius = 0.08f;
+        private static readonly float[] StandardSlotXs = { 0.12f, 0.25f, 0.38f, 0.50f, 0.62f, 0.75f, 0.88f };
+
+        /// <summary>Resolve where a shown actor may actually stand. Returns the
+        /// desired X when the spot is free (or the claim is an explicit x);
+        /// otherwise the nearest free slot X, ties broken away from centre so
+        /// crowds spread outward. <paramref name="ownerId"/> reports who held
+        /// the contested spot (null = no contest).</summary>
+        internal static float ArbitrateSlotX(float desired, string id, bool hasExplicitX,
+            IEnumerable<KeyValuePair<string, Placement>> visible,
+            IReadOnlyDictionary<string, float> entitySlots, out string ownerId)
+        {
+            ownerId = null;
+            if (hasExplicitX) return desired;
+            var taken = new List<float>();
+            foreach (var kv in visible)
+            {
+                if (kv.Key == id || !kv.Value.Show) continue;
+                taken.Add(kv.Value.X);
+                if (ownerId == null && Mathf.Abs(kv.Value.X - desired) < SlotClaimRadius)
+                    ownerId = kv.Key;
+            }
+            if (ownerId == null) return desired;
+
+            var cands = new List<float>(StandardSlotXs);
+            if (entitySlots != null) foreach (var v in entitySlots.Values) cands.Add(v);
+            cands.Sort((a, b) =>
+            {
+                int byDist = Mathf.Abs(a - desired).CompareTo(Mathf.Abs(b - desired));
+                if (byDist != 0) return byDist;
+                return Mathf.Abs(b - 0.5f).CompareTo(Mathf.Abs(a - 0.5f)); // tie → outward
+            });
+            foreach (var c in cands)
+            {
+                var free = true;
+                foreach (var t in taken)
+                    if (Mathf.Abs(t - c) < SlotClaimRadius) { free = false; break; }
+                if (free) return c;
+            }
+            // Every slot taken (crowd): slide just clear of the desired point.
+            var shifted = desired + (desired <= 0.5f ? SlotClaimRadius * 1.6f : -SlotClaimRadius * 1.6f);
+            return Mathf.Clamp(shifted, 0.05f, 0.95f);
+        }
+
+        // The catalog's slot overrides for an actor id (null-safe at every hop).
+        private IReadOnlyDictionary<string, float> SlotsOf(string id) => Catalog?.Get(id)?.slots;
+
+        internal static Placement PlacementFrom(JObject cmd, Placement prev,
+            IReadOnlyDictionary<string, float> slots = null)
         {
             var p = prev;
             p.Show = BoolOr(cmd["show"], true); // re-issuing an actor shows it (existing semantics)
             if (cmd["x"] != null || cmd["position"] != null)
-                p.X = NumOrNull(cmd["x"]) ?? ActorLayer.SlotX((string)cmd["position"]);
+                p.X = NumOrNull(cmd["x"]) ?? SlotXFor((string)cmd["position"], slots);
             if (cmd["y"] != null) p.Y = NumOr(cmd["y"], p.Y);
             if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
             if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
@@ -2646,12 +2722,13 @@ namespace Lvn.UI
             return p;
         }
 
-        internal static Placement PlacementFrom(JObject cmd)
+        internal static Placement PlacementFrom(JObject cmd,
+            IReadOnlyDictionary<string, float> slots = null)
         {
             var p = new Placement
             {
                 Show = BoolOr(cmd["show"], true),
-                X = NumOrNull(cmd["x"]) ?? ActorLayer.SlotX((string)cmd["position"]),
+                X = NumOrNull(cmd["x"]) ?? SlotXFor((string)cmd["position"], slots),
                 Y = NumOr(cmd["y"], 1f),
                 Width = NumOrNull(cmd["width"]),
                 Height = NumOrNull(cmd["height"]),
