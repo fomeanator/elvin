@@ -33,8 +33,8 @@ func TestCompositeParts_StacksInOrder(t *testing.T) {
 	dir := t.TempDir()
 	base := filepath.Join(dir, "p1.png")
 	top := filepath.Join(dir, "p2.png")
-	writePng(t, base, 4, 4, color.NRGBA{R: 255, A: 255})              // opaque red base
-	writePng(t, top, 4, 4, color.NRGBA{G: 255, A: 0})                 // fully transparent top
+	writePng(t, base, 4, 4, color.NRGBA{R: 255, A: 255}) // opaque red base
+	writePng(t, top, 4, 4, color.NRGBA{G: 255, A: 0})    // fully transparent top
 	dst := filepath.Join(dir, "out", "combined.png")
 	if err := compositeParts([]string{base, top}, dst); err != nil {
 		t.Fatal(err)
