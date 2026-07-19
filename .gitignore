@@ -95,3 +95,6 @@ server/content/.history/
 /server/website/
 panel/public/lvns.wasm
 panel/public/play/lvns.wasm
+
+# qa/monkey.sh: прогоны APK-смоука (скриншоты, logcat)
+/qa/reports/
