@@ -16,6 +16,11 @@ const lvnLang = path.resolve(repoRoot, "tools/lvn-lang/src");
 
 export default defineConfig({
   plugins: [react()],
+  // Deploys behind a slow origin can push the heavy chunks (JS ~4MB, wasm
+  // ~4MB) onto a pull-CDN: LVN_CDN_BASE=https://cdn.example.com/ makes the
+  // built index.html load its assets from there while the app itself and the
+  // API stay on the origin. Unset → same-origin (default, dev unchanged).
+  base: process.env.LVN_CDN_BASE || "/",
   resolve: {
     alias: { "lvn-lang": lvnLang },
   },
