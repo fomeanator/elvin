@@ -98,3 +98,5 @@ panel/public/play/lvns.wasm
 
 # qa/monkey.sh: прогоны APK-смоука (скриншоты, logcat)
 /qa/reports/
+# qa/run-all.sh: собранный для PlayMode-смоука Go-сервер
+/qa/bin/

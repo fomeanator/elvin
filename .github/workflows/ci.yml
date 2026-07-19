@@ -21,6 +21,10 @@ on:
   push:
     branches: [main, "feat/**", "fix/**", "chore/**"]
   pull_request:
+  schedule:
+    # Ночной прогон стабильности (qa/stability.sh на self-hosted раннере):
+    # 02:30 UTC — mac свободен, ловим флейки «раз на 10 отваливается».
+    - cron: "30 2 * * *"
 
 # Each Go module is built and tested standalone (GOWORK=off), the way a
 # consumer would `go install` it — the repo's go.work is a local convenience,
@@ -173,9 +177,13 @@ jobs:
           bad = 0
           for f in sorted(glob.glob('test-results/*.xml')):
               r = ET.parse(f).getroot()
-              print(f"{f}: total={r.get('total')} passed={r.get('passed')} failed={r.get('failed')}")
+              print(f"{f}: total={r.get('total')} passed={r.get('passed')} "
+                    f"failed={r.get('failed')} skipped={r.get('skipped')}")
               for tc in r.iter('test-case'):
-                  if tc.get('result') != 'Passed':
+                  # Skipped is legitimate on this runner's clean checkout: the
+                  # soak bot ignores itself without partner content, the boot
+                  # smoke without qa/bin/lvnserver-test. Only real reds gate.
+                  if tc.get('result') not in ('Passed', 'Skipped'):
                       bad += 1
                       print('  FAIL:', tc.get('fullname'))
           sys.exit(1 if bad else 0)
@@ -189,3 +197,22 @@ jobs:
         with:
           name: unity-test-results
           path: test-results
+
+  # E2 лестницы автоматизации: ночной прогон стабильности. Гоняет полный
+  # EditMode-набор 5 раз с РАЗНЫМИ сидами соука (LVN_SOAK_SEED_BASE=1000*i)
+  # и сводит «тест → падений из N»: падает всегда = баг, иногда = ФЛЕЙК.
+  # Только по расписанию и только на нашем железе.
+  nightly-stability:
+    if: github.event_name == 'schedule' && github.repository == 'fomeanator/elvin'
+    runs-on: [self-hosted, unity-mac]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: stability x5
+        run: ./qa/stability.sh 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
+        with:
+          name: nightly-stability-reports
+          path: qa/reports
