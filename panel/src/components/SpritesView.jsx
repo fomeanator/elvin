@@ -73,7 +73,7 @@ async function sheetToFrames(file) {
 const AXIS_LABEL = { pose: "Poses", emotion: "Moods" };
 const MOOD_ICON = { neutral: "😐", happy: "😊", smile: "🙂", sad: "😢", angry: "😠", blush: "☺️" };
 
-export default function SpritesView({ creds, notify }) {
+export default function SpritesView({ creds, notify, titleId }) {
   const [catalog, setCatalog] = useState({});
   const [currentId, setCurrentId] = useState(null);
   const [ed, setEd] = useState(BLANK);
@@ -82,6 +82,9 @@ export default function SpritesView({ creds, notify }) {
   const [spineDlg, setSpineDlg] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [preview, setPreview] = useState(null); // anim key being played on stage
+  // id → index of first appearance across the novel's chapters (see below) —
+  // the roster orders characters the way the STORY introduces them.
+  const [scriptOrder, setScriptOrder] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -93,6 +96,37 @@ export default function SpritesView({ creds, notify }) {
       setEd(first ? toEditor(sprites[first], first) : BLANK);
     })();
   }, []);
+
+  // Script order: walk the open novel's chapters once and record where each
+  // actor id (or spoken who/who_id) first appears. Characters then sort by
+  // the story, not by the accident of catalog-object key order.
+  useEffect(() => {
+    if (!titleId) { setScriptOrder(null); return; }
+    let dead = false;
+    (async () => {
+      try {
+        const m = await getManifest();
+        const t = (m.titles || []).find((x) => x.id === titleId);
+        const urls = [];
+        (t?.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => c.script_url && urls.push(c.script_url)));
+        const order = new Map();
+        let n = 0;
+        const note = (key) => { if (key && !order.has(key)) order.set(key, n++); };
+        for (const u of urls) {
+          try {
+            const doc = await (await fetch(u)).json();
+            for (const c of doc.script || []) {
+              if (!c || typeof c !== "object") continue;
+              if (c.op === "actor" || c.op === "obj") note(c.id);
+              else if (c.op === "say") { note(c.who_id); note(c.who); }
+            }
+          } catch { /* глава может быть ещё не скомпилирована — пропускаем */ }
+        }
+        if (!dead) setScriptOrder(order);
+      } catch { if (!dead) setScriptOrder(null); }
+    })();
+    return () => { dead = true; };
+  }, [titleId]);
 
   // Preview player: cycle a frame track's axis values on the stage over the anim's
   // duration (only re-renders when the visible frame changes).
@@ -350,6 +384,28 @@ export default function SpritesView({ creds, notify }) {
   const basePart = ed.parts.find((p) => !p.axis && p.when == null);
   const isCharacter = axisNames.length > 0;
 
+  // Roster in two tiers: CHARACTERS (layered entities — the heroes) first, in
+  // the order the story introduces them; then everything else (plain objects,
+  // imported look-variants) below, same story order, alphabetical tail for
+  // ids the script never mentions.
+  const roster = useMemo(() => {
+    const ids = Object.keys(catalog);
+    const isChar = (id) =>
+      (catalog[id]?.layers || []).some((l) => (typeof l === "string" ? l : l.url || "").includes("{"));
+    const ord = (id) => {
+      if (!scriptOrder) return Infinity;
+      const e = catalog[id] || {};
+      const byId = scriptOrder.get(id);
+      const byName = e.name != null ? scriptOrder.get(e.name) : undefined;
+      return Math.min(byId ?? Infinity, byName ?? Infinity);
+    };
+    const cmp = (a, b) => ord(a) - ord(b) || a.localeCompare(b, "ru");
+    return {
+      characters: ids.filter(isChar).sort(cmp),
+      objects: ids.filter((id) => !isChar(id)).sort(cmp),
+    };
+  }, [catalog, scriptOrder]);
+
   return (
     <div className="cast">
       {/* roster */}
@@ -360,7 +416,20 @@ export default function SpritesView({ creds, notify }) {
         </div>
         <div className="roster-list">
           {Object.keys(catalog).length === 0 && <div className="roster-empty">Nobody yet.<br />Add someone →</div>}
-          {Object.keys(catalog).map((id) => (
+          {roster.characters.map((id) => (
+            <RosterItem
+              key={id}
+              id={id}
+              entity={catalog[id]}
+              bust={bust}
+              active={id === currentId}
+              onClick={() => selectEntity(id)}
+            />
+          ))}
+          {roster.characters.length > 0 && roster.objects.length > 0 && (
+            <div className="roster-divider">Objects & variants</div>
+          )}
+          {roster.objects.map((id) => (
             <RosterItem
               key={id}
               id={id}

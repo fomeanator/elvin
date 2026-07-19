@@ -713,6 +713,11 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .ide-preview { position: relative; flex: none; width: 460px; }
 .ide-pane-head { padding: 9px 16px; border-bottom: 1px solid var(--line-soft); font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
 .ide-blank { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 100%; color: var(--paper-dim); }
+.ide-spinner { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--line-soft); border-top-color: var(--accent, #d48ab6); animation: ideSpin 0.8s linear infinite; }
+@keyframes ideSpin { to { transform: rotate(360deg); } }
+
+/* roster tiers: heroes above, objects/variants below */
+.roster-divider { margin: 12px 6px 4px; padding-top: 10px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; }
 
 /* editor + gutter */
 .editor-wrap { flex: 1; min-height: 0; display: flex; }
