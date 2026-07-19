@@ -270,6 +270,13 @@ namespace Lvn.Content
         public string subtitle;
         /// <summary>Cover art for the menu carousel.</summary>
         public string cover_url;
+        /// <summary>Optional URL of the title's variable declarations —
+        /// <c>{"game":{key:value…},"chapter":{key:value…}}</c>. ONE declaration
+        /// for the whole game instead of a per-chapter boilerplate: "game" keys
+        /// are defaults that persist across chapters (applied only when unset),
+        /// "chapter" keys are chapter-local — reset to their default on every
+        /// fresh chapter entry (a mid-chapter resume keeps the snapshot's own).</summary>
+        public string vars_url;
         public List<LvnSeason> seasons;
         /// <summary>Optional per-title UI theme override — layered over the global
         /// manifest.ui when this title's chapters play, so each game can have its

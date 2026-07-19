@@ -890,6 +890,62 @@ namespace Lvn
             SeekTo(label);
         }
 
+        /// <summary>
+        /// Apply a title-level variable declaration block: each key is set ONLY
+        /// when still unset (the `set default=true` semantics), so a player's
+        /// progress and a resumed snapshot always win over the declaration.
+        /// This replaces the per-chapter boilerplate of hundreds of default
+        /// sets — declare once per game, apply on every chapter entry.
+        /// </summary>
+        public void ApplyDefaults(JObject defaults)
+        {
+            if (defaults == null) return;
+            foreach (var p in defaults.Properties())
+                if (!HasVarPath(p.Name))
+                    SetVarPath(p.Name, p.Value.DeepClone());
+        }
+
+        /// <summary>Forget chapter-scoped variables (a fresh chapter entry):
+        /// the keys reset to their declared defaults via <see cref="ApplyDefaults"/>
+        /// right after — chapter-local state never leaks across chapters.</summary>
+        public void ResetScope(IEnumerable<string> keys)
+        {
+            if (keys == null) return;
+            foreach (var k in keys) RemoveVarPath(k);
+        }
+
+        // Dotted keys are NESTED paths (Way.Moral → Vars["Way"]["Moral"]) — the
+        // declaration must probe and remove the same way SetVarPath writes, or
+        // a default would stomp nested progress on every chapter entry.
+        private bool HasVarPath(string key)
+        {
+            int dot = key.IndexOf('.');
+            if (dot < 0) return Vars.ContainsKey(key);
+            if (!Vars.TryGetValue(key.Substring(0, dot), out var t) || !(t is JObject cur))
+                return false;
+            var segs = key.Substring(dot + 1).Split('.');
+            for (int i = 0; i < segs.Length - 1; i++)
+            {
+                if (!(cur[segs[i]] is JObject next)) return false;
+                cur = next;
+            }
+            return cur[segs[segs.Length - 1]] != null;
+        }
+
+        private void RemoveVarPath(string key)
+        {
+            int dot = key.IndexOf('.');
+            if (dot < 0) { Vars.Remove(key); return; }
+            if (!Vars.TryGetValue(key.Substring(0, dot), out var t) || !(t is JObject cur)) return;
+            var segs = key.Substring(dot + 1).Split('.');
+            for (int i = 0; i < segs.Length - 1; i++)
+            {
+                if (!(cur[segs[i]] is JObject next)) return;
+                cur = next;
+            }
+            cur.Remove(segs[segs.Length - 1]);
+        }
+
         // ── internals ────────────────────────────────────────────────────────
 
         // A short human suffix for the per-command trace (id/label/key).
