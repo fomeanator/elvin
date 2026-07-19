@@ -16,6 +16,7 @@ on:
     paths:
       - "server/**"
       - "tools/lvnconv/**" # the server links the importer
+      - "panel/**" # the Studio web app shipped to the server for -studio
       - "deploy/**"
       - ".github/workflows/deploy-server.yml"
   workflow_dispatch:
@@ -36,6 +37,15 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+
+      # The Studio web app (panel/) is built during provision and shipped as
+      # website/ — the -studio server serves it. Node here so provision's
+      # `npm run deploy` has a toolchain (Go above covers the wasm step).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
 
       - name: tests
         run: |
