@@ -107,6 +107,10 @@ goto __end
 // .lvns, "Save to app" writes both the .lvns source and the compiled .lvn back.
 export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const [title, setTitle] = useState(null);
+  // The manifest fetch takes a beat — until it lands we genuinely don't know
+  // whether the novel has chapters, so the blank "no chapters yet" screen must
+  // not flash. booting=true → loader instead.
+  const [booting, setBooting] = useState(true);
   const [published, setPublished] = useState(() => new Set()); // chapter ids live on the server
   const [selId, setSelId] = useState(null);
   const [catalog, setCatalog] = useState({}); // manifest.sprites — for id/axes autocomplete
@@ -167,24 +171,29 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // ── chapters ──────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      try { setExtGrammar(await getExtGrammar()); }
-      catch (e) { notify("ext-grammar.json: " + ((e && e.message) || "не читается"), "err"); }
-      let t = null;
+      setBooting(true);
       try {
-        const m = await getManifest();
-        setCatalog(m.sprites || {});
-        t = (m.titles || []).find((x) => x.id === titleId) || null;
-      } catch {}
-      if (!t) t = { id: titleId, seasons: [{ chapters: [] }] };
-      if (!t.seasons || t.seasons.length === 0) t.seasons = [{ chapters: [] }];
-      setTitle(t);
-      // everything that came from the manifest is already live
-      const ids = [];
-      (t.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => ids.push(c.id)));
-      setPublished(new Set(ids));
-      const first = (t.seasons[0].chapters || [])[0];
-      await ensureWasm().then(() => (wasmReady.current = true)).catch(() => {});
-      if (first) openChapter(first); else { setSrc(""); compile(""); }
+        try { setExtGrammar(await getExtGrammar()); }
+        catch (e) { notify("ext-grammar.json: " + ((e && e.message) || "не читается"), "err"); }
+        let t = null;
+        try {
+          const m = await getManifest();
+          setCatalog(m.sprites || {});
+          t = (m.titles || []).find((x) => x.id === titleId) || null;
+        } catch {}
+        if (!t) t = { id: titleId, seasons: [{ chapters: [] }] };
+        if (!t.seasons || t.seasons.length === 0) t.seasons = [{ chapters: [] }];
+        setTitle(t);
+        // everything that came from the manifest is already live
+        const ids = [];
+        (t.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => ids.push(c.id)));
+        setPublished(new Set(ids));
+        const first = (t.seasons[0].chapters || [])[0];
+        await ensureWasm().then(() => (wasmReady.current = true)).catch(() => {});
+        if (first) openChapter(first); else { setSrc(""); compile(""); }
+      } finally {
+        setBooting(false);
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titleId]);
@@ -651,6 +660,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
                 <ProblemsDock diags={diags} onJump={goLine} onClose={() => setShowProblems(false)} />
               )}
             </>
+          ) : booting ? (
+            <div className="ide-blank">
+              <span className="ide-spinner" aria-label="Загрузка" />
+              <p>Загружаю главы…</p>
+            </div>
           ) : (
             <div className="ide-blank">
               <p>This novel has no chapters yet.</p>
