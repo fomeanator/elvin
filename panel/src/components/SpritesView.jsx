@@ -77,7 +77,10 @@ export default function SpritesView({ creds, notify, titleId }) {
   const [catalog, setCatalog] = useState({});
   const [currentId, setCurrentId] = useState(null);
   const [ed, setEd] = useState(BLANK);
-  const [bust, setBust] = useState(() => Date.now());
+  // Cache-buster: EMPTY until an upload actually changes art — a Date.now()
+  // per mount forced every roster thumb to redownload on every visit (the
+  // "no cache in the admin" complaint). Uploads bump it to show fresh art.
+  const [bust, setBust] = useState(0);
   const [chooser, setChooser] = useState(false);
   const [spineDlg, setSpineDlg] = useState(false);
   const [advanced, setAdvanced] = useState(false);
@@ -661,7 +664,7 @@ function entityLayers(entity, bust) {
     let u = typeof l === "string" ? l : l.url;
     if (!u) continue;
     u = u.replace(/\{([^}]+)\}/g, (_, k) => def[k] || "");
-    if (!u.includes("{")) out.push(u + "?v=" + bust);
+    if (!u.includes("{")) out.push(bust ? u + "?v=" + bust : u);
   }
   return out;
 }
@@ -777,7 +780,7 @@ function Stage({ parts, picked, bust }) {
           <img
             key={l.url}
             className="stage-layer"
-            src={l.url + "?v=" + bust}
+            src={bust ? l.url + "?v=" + bust : l.url}
             style={l.when ? { opacity: 0.65 } : undefined}
             alt=""
             onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
@@ -815,7 +818,7 @@ function OptionCard({ label, icon, url, bust, selected, onSelect, onUpload, onRe
   return (
     <div className={"opt" + (selected ? " selected" : "") + (empty ? " empty" : "")}>
       <button className="opt-face" onClick={empty ? onUpload : onSelect} title={empty ? "add a picture" : "show on stage"}>
-        {url && <img src={url + "?v=" + bust} alt="" style={empty ? { display: "none" } : undefined} onLoad={() => setEmpty(false)} onError={() => setEmpty(true)} />}
+        {url && <img src={bust ? url + "?v=" + bust : url} alt="" style={empty ? { display: "none" } : undefined} onLoad={() => setEmpty(false)} onError={() => setEmpty(true)} />}
         {empty && <span className="opt-add">{icon || "＋"}<em>add art</em></span>}
       </button>
       <div className="opt-foot">
