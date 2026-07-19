@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -148,10 +149,25 @@ func RunBundle(in BundleInputs, contentDir, stageDir string, opt Options) (*Resu
 			}
 		}
 	}
-	// Seed the game's declared variables (wardrobe indices, stats) as defaults at
-	// the top of the first chapter, so the novel opens with the right state.
-	if len(res.Scripts) > 0 && len(xd.Vars) > 0 {
-		prependVarDefaults(&res.Scripts[0], xd.Vars)
+	// The game's variables live as ONE title-level declaration (vars_url with
+	// "game"/"chapter" scopes) instead of a ~250-op boilerplate at the top of
+	// every chapter: the runtime applies "game" keys when unset and resets
+	// "chapter" keys (Temp.* by template convention) on each fresh entry.
+	// The partner's inline copies of those declarations are stripped from both
+	// the compiled .lvn and the .lvns source, so chapters carry story, not setup.
+	if len(res.Scripts) > 0 {
+		decl, typed := buildVarsDeclaration(res.Scripts, xd.Vars, tpl)
+		rel := "scripts/" + opt.ID + "-vars.json"
+		res.Scripts = append(res.Scripts, ScriptFile{Rel: rel, Data: decl})
+		res.Title.VarsURL = "/content/" + rel
+		for i := range res.Scripts {
+			switch {
+			case strings.HasSuffix(res.Scripts[i].Rel, ".lvn"):
+				stripDeclaredDefaults(&res.Scripts[i], typed)
+			case strings.HasSuffix(res.Scripts[i].Rel, ".lvns"):
+				stripDeclaredDefaultLines(&res.Scripts[i], typed)
+			}
+		}
 	}
 	// A bundle-imported novel is SELF-CONTAINED — its own protagonist, cast and
 	// wardrobe, NOT our shared heroine. Mark it standalone and name its own hero so
@@ -163,38 +179,176 @@ func RunBundle(in BundleInputs, contentDir, stageDir string, opt Options) (*Resu
 	return res, nil
 }
 
-// prependVarDefaults inserts a `set default` op for each declared variable at the
-// front of a chapter's op list — the engine only applies a default when the var
-// is still unset, so this is safe over the script's own logic.
-func prependVarDefaults(sf *ScriptFile, vars []VarDecl) {
+// buildVarsDeclaration renders the title's variable declaration JSON —
+// {"game":{...},"chapter":{...}} — splitting keys by the template's
+// chapter-scope prefixes. Returns the JSON plus key→typed-default for the
+// inline-boilerplate strip below.
+func buildVarsDeclaration(scripts []ScriptFile, vars []VarDecl, tpl *Template) ([]byte, map[string]any) {
+	tpl = tpl.resolve()
+	// Registry = the spreadsheet's declarations ∪ the partner's own inline
+	// `set default=true` boilerplate found in the chapters (articy authors
+	// declare most variables there, not in the sheet). A key whose inline
+	// copies DISAGREE across chapters keeps its inline sets — only unanimous
+	// declarations centralize.
+	typed := map[string]any{}
+	conflicted := map[string]bool{}
+	for _, v := range vars {
+		if v.Key != "" {
+			if _, dup := typed[v.Key]; !dup {
+				typed[v.Key] = typedDefault(v.Default)
+			}
+		}
+	}
+	for i := range scripts {
+		if !strings.HasSuffix(scripts[i].Rel, ".lvn") {
+			continue
+		}
+		ops, _, ok := decodeScriptOps(scripts[i].Data)
+		if !ok {
+			continue
+		}
+		for _, op := range ops {
+			if op["op"] != "set" {
+				continue
+			}
+			if d, _ := op["default"].(bool); !d {
+				continue
+			}
+			key, _ := op["key"].(string)
+			if key == "" {
+				continue
+			}
+			if have, seen := typed[key]; seen {
+				if !defaultsEqual(have, op["value"]) {
+					conflicted[key] = true
+				}
+			} else {
+				typed[key] = op["value"]
+			}
+		}
+	}
+	for k := range conflicted {
+		delete(typed, k)
+	}
+	game := map[string]any{}
+	chapter := map[string]any{}
+	isChapter := func(key string) bool {
+		for _, p := range tpl.VarChapterPrefixes {
+			if p != "" && strings.HasPrefix(key, p) {
+				return true
+			}
+		}
+		return false
+	}
+	for k, v := range typed {
+		if isChapter(k) {
+			chapter[k] = v
+		} else {
+			game[k] = v
+		}
+	}
+	b, _ := json.MarshalIndent(map[string]any{"game": game, "chapter": chapter}, "", "  ")
+	return b, typed
+}
+
+// typedDefault converts a spreadsheet default (always a string) to the value
+// type the engine expects: number, bool, or string.
+func typedDefault(raw string) any {
+	if f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64); err == nil {
+		return f
+	}
+	if raw == "true" || raw == "false" {
+		return raw == "true"
+	}
+	return raw
+}
+
+// stripDeclaredDefaults removes `set default=true` ops whose key AND value
+// match the title declaration — the partner's per-chapter boilerplate. A
+// default with a DIFFERENT value is an intentional override and stays.
+func stripDeclaredDefaults(sf *ScriptFile, typed map[string]any) {
 	ops, rewrap, ok := decodeScriptOps(sf.Data)
 	if !ok {
 		return
 	}
-	seed := make([]map[string]any, 0, len(vars))
-	seen := map[string]bool{}
-	for _, v := range vars {
-		if v.Key == "" || seen[v.Key] {
+	kept := ops[:0]
+	for _, op := range ops {
+		if isDeclaredDefault(op, typed) {
 			continue
 		}
-		seen[v.Key] = true
-		op := map[string]any{"op": "set", "default": true, "key": v.Key}
-		if f, err := strconv.ParseFloat(strings.TrimSpace(v.Default), 64); err == nil {
-			op["value"] = f
-		} else if v.Default == "true" || v.Default == "false" {
-			op["value"] = v.Default == "true"
-		} else {
-			op["value"] = v.Default
-		}
-		seed = append(seed, op)
+		kept = append(kept, op)
 	}
-	if len(seed) == 0 {
-		return
-	}
-	ops = append(seed, ops...)
-	if b, err := json.Marshal(rewrap(ops)); err == nil {
+	if b, err := json.Marshal(rewrap(kept)); err == nil {
 		sf.Data = b
 	}
+}
+
+func isDeclaredDefault(op map[string]any, typed map[string]any) bool {
+	if op["op"] != "set" {
+		return false
+	}
+	if d, _ := op["default"].(bool); !d {
+		return false
+	}
+	key, _ := op["key"].(string)
+	want, ok := typed[key]
+	if !ok {
+		return false
+	}
+	return defaultsEqual(op["value"], want)
+}
+
+func defaultsEqual(a, b any) bool {
+	af, aok := asFloat(a)
+	bf, bok := asFloat(b)
+	if aok && bok {
+		return af == bf
+	}
+	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+}
+
+func asFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case int:
+		return float64(x), true
+	case json.Number:
+		f, err := x.Float64()
+		return f, err == nil
+	}
+	return 0, false
+}
+
+// stripDeclaredDefaultLines is the .lvns-source twin of stripDeclaredDefaults:
+// the canonical line form is `set default=true key="K" value=V`.
+func stripDeclaredDefaultLines(sf *ScriptFile, typed map[string]any) {
+	lines := strings.Split(string(sf.Data), "\n")
+	kept := lines[:0]
+	for _, ln := range lines {
+		if m := lvnsDefaultRe.FindStringSubmatch(strings.TrimSpace(ln)); m != nil {
+			key := m[1]
+			if want, ok := typed[key]; ok && defaultsEqual(parseLvnsValue(m[2]), want) {
+				continue
+			}
+		}
+		kept = append(kept, ln)
+	}
+	sf.Data = []byte(strings.Join(kept, "\n"))
+}
+
+var lvnsDefaultRe = regexp.MustCompile(`^set\s+default=true\s+key="((?:[^"\\]|\\.)*)"\s+value=(.+?)\s*$`)
+
+func parseLvnsValue(raw string) any {
+	raw = strings.TrimSpace(raw)
+	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
+		var out string
+		if err := json.Unmarshal([]byte(raw), &out); err == nil {
+			return out
+		}
+		return strings.Trim(raw, `"`)
+	}
+	return typedDefault(raw)
 }
 
 // copyFileOnce copies src→dst unless dst already exists with the same size.

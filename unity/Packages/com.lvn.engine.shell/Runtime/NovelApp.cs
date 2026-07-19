@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Lvn.Content;
 using UnityEngine;
@@ -80,6 +81,41 @@ namespace Lvn.UI.Screens
         private string _playerName;
         private LvnUiConfig _globalUi; // manifest.ui — the base for per-title theming
         private LvnManifest _manifest; // the live manifest (cross-chapter save routing)
+
+        // Title-level variable declarations (title.vars_url), cached per title:
+        // "game" keys persist across chapters, "chapter" keys reset on every
+        // fresh chapter entry. Replaces the per-chapter default-set boilerplate.
+        private sealed class TitleVars
+        {
+            public Newtonsoft.Json.Linq.JObject game;
+            public Newtonsoft.Json.Linq.JObject chapter;
+        }
+        private readonly Dictionary<string, TitleVars> _titleVarsCache = new Dictionary<string, TitleVars>();
+
+        private async Task<TitleVars> LoadTitleVarsAsync(LvnTitle title)
+        {
+            if (string.IsNullOrEmpty(title?.vars_url)) return null;
+            if (_titleVarsCache.TryGetValue(title.id, out var hit)) return hit;
+            TitleVars tv = null;
+            try
+            {
+                var json = await _assets.Loader.DownloadScriptText(title.vars_url, destroyCancellationToken);
+                var root = Newtonsoft.Json.Linq.JObject.Parse(json);
+                tv = new TitleVars
+                {
+                    game = root["game"] as Newtonsoft.Json.Linq.JObject,
+                    chapter = root["chapter"] as Newtonsoft.Json.Linq.JObject,
+                };
+            }
+            catch (Exception e)
+            {
+                // Declarations are an optimization, never a gate: chapters keep
+                // playing on their own (older content carries inline defaults).
+                Debug.LogWarning($"[novelapp] vars_url '{title.vars_url}' failed: {e.Message}");
+            }
+            _titleVarsCache[title.id] = tv; // cache the miss too — no refetch storm
+            return tv;
+        }
 
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
@@ -1308,6 +1344,19 @@ namespace Lvn.UI.Screens
             if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                 Stage.Player.Vars["player"] = playerName;
 
+            // Title-level variable declarations (title.vars_url): ONE block per
+            // game instead of a 250-op boilerplate at the top of every chapter.
+            // Fresh entry: chapter-scoped keys reset to their defaults; then both
+            // scopes fill only what is still unset (progress always wins).
+            var titleVars = await LoadTitleVarsAsync(title);
+            if (titleVars != null && Stage.Player != null && !resuming)
+            {
+                Stage.Player.ResetScope((titleVars.chapter ?? new Newtonsoft.Json.Linq.JObject())
+                    .Properties().Select(p => p.Name).ToList());
+                Stage.Player.ApplyDefaults(titleVars.game);
+                Stage.Player.ApplyDefaults(titleVars.chapter);
+            }
+
             if (!resuming)
             {
                 // The entry IS the purchase receipt: write the autosave NOW, so a
@@ -1328,6 +1377,14 @@ namespace Lvn.UI.Screens
                     Stage.Player.Vars["player"] = playerName;
                 if (freshGlobal != null && freshGlobal.Count > 0 && Stage.Player != null)
                     Stage.Player.Vars[GlobalVar] = freshGlobal;
+                // A resume keeps the snapshot's own state; the declaration only
+                // fills keys the snapshot never had (e.g. vars added after the
+                // save was written) — never resets chapter scope mid-chapter.
+                if (titleVars != null && Stage.Player != null)
+                {
+                    Stage.Player.ApplyDefaults(titleVars.game);
+                    Stage.Player.ApplyDefaults(titleVars.chapter);
+                }
             }
 
             // Liminal-style entry: the chapter has been booting BEHIND the opaque

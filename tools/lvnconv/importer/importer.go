@@ -147,8 +147,9 @@ type Title struct {
 	Name     string   `json:"name"`
 	Subtitle string   `json:"subtitle,omitempty"`
 	CoverURL string   `json:"cover_url,omitempty"`
-	Hero     string   `json:"hero,omitempty"` // main-heroine sprite id (bundle import)
-	Type     string   `json:"type,omitempty"` // "standalone" for a self-contained imported novel
+	Hero     string   `json:"hero,omitempty"`     // main-heroine sprite id (bundle import)
+	VarsURL  string   `json:"vars_url,omitempty"` // title variable declarations (game/chapter scopes)
+	Type     string   `json:"type,omitempty"`     // "standalone" for a self-contained imported novel
 	Seasons  []Season `json:"seasons"`
 }
 
