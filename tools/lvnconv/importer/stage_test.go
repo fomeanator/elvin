@@ -265,3 +265,66 @@ func TestAutoStageUnknownSpeakerNoActor(t *testing.T) {
 		t.Error("unknown speaker should not be staged")
 	}
 }
+
+// The control-flow collision fix (the partner's "two characters in one slot"
+// screenshot): a choice branch re-shows an actor and gotos into a shared tail
+// whose PHYSICAL predecessor left the stage empty — so AutoStage's linear scan
+// saw nothing to hide and emitted no hide, yet at runtime the goto path arrives
+// with that actor still up. normalizeStageVisibility must inject a defensive
+// hide before the tail's show.
+func TestAutoStageBranchGotoCollisionGetsDefensiveHide(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Matvey", "text": "m1"},    // show Matvey
+		{"op": "say", "who": "Рассказчик", "text": "…"}, // clear stage
+		{"op": "choice", "options": []any{
+			articy.Cmd{"goto": "E"}, articy.Cmd{"goto": "R"},
+		}},
+		{"op": "label", "id": "E"}, // empty branch: physically precedes TAIL
+		{"op": "label", "id": "TAIL"},
+		{"op": "say", "who": "Miron", "text": "tail"}, // TAIL shows Miron
+		{"op": "goto", "label": "END"},
+		{"op": "label", "id": "R"},                  // reshow branch
+		{"op": "say", "who": "Matvey", "text": "r"}, // shows Matvey, still up…
+		{"op": "goto", "label": "TAIL"},             // …then jumps into TAIL
+		{"op": "label", "id": "END"},
+	}}
+	cast := map[string]string{"Matvey": "matvey.png", "Miron": "miron.png"}
+	AutoStage(doc, cast, nil)
+
+	// The Miron show must be immediately preceded by a defensive hide of Matvey.
+	mironShow := -1
+	for i, c := range doc.Script {
+		if c["op"] == "actor" && c["show"] == true && c["id"] == "Miron" {
+			mironShow = i
+			break
+		}
+	}
+	if mironShow < 1 {
+		t.Fatalf("no Miron show emitted; script=%v", doc.Script)
+	}
+	prev := doc.Script[mironShow-1]
+	if !(prev["op"] == "actor" && prev["id"] == "Matvey" && prev["show"] == false) {
+		t.Fatalf("expected defensive hide of Matvey before Miron show, got %v", prev)
+	}
+}
+
+// The clean linear swap must NOT gain spurious defensive hides — the fix only
+// fires where control flow genuinely merges.
+func TestNormalizeAddsNoHidesOnCleanLinearFlow(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Тимур", "text": "a"},
+		{"op": "say", "who": "Люба", "text": "b"},
+	}}
+	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
+	AutoStage(doc, cast, nil)
+
+	hides := 0
+	for _, c := range doc.Script {
+		if c["op"] == "actor" && c["show"] == false && c["exit"] == "none" {
+			hides++
+		}
+	}
+	if hides != 0 {
+		t.Fatalf("clean linear swap gained %d spurious defensive hide(s)", hides)
+	}
+}
