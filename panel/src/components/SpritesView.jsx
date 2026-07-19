@@ -424,11 +424,26 @@ export default function SpritesView({ creds, notify, titleId }) {
         if (!by.has(name)) by.set(name, []);
         by.get(name).push(id);
       }
-      return [...by.entries()].map(([name, gids]) => ({ name, ids: gids }));
+      // The tile face prefers REAL art: a layered entity (or the one with the
+      // most layers) beats a legacy flat placeholder file (Оля/Липов case).
+      const richness = (id) => {
+        const e = catalog[id] || {};
+        const n = (e.layers || []).length;
+        return (e.kind === "layered" ? 100 : 0) + n;
+      };
+      return [...by.entries()].map(([name, gids]) => {
+        const best = [...gids].sort((a, b) => richness(b) - richness(a))[0];
+        const ids = [best, ...gids.filter((x) => x !== best)];
+        return { name, ids };
+      });
     };
+    // Group by NAME across both tiers first — a character whose story-state
+    // variants are flat images (Роман + Roman_wounded…) must be ONE tile, not
+    // one per tier. The group's tier is decided by its best representative.
+    const all = grouped(ids);
     return {
-      characters: grouped(ids.filter(isChar)),
-      objects: grouped(ids.filter((id) => !isChar(id))),
+      characters: all.filter((g) => isChar(g.ids[0])),
+      objects: all.filter((g) => !isChar(g.ids[0])),
     };
   }, [catalog, scriptOrder]);
 
@@ -814,7 +829,10 @@ function LookGroup({ label, hint, onRemove, onImport, children }) {
 }
 
 function OptionCard({ label, icon, url, bust, selected, onSelect, onUpload, onRemove }) {
-  const [empty, setEmpty] = useState(true);
+  // "still loading" must NOT read as "empty": a slow network made a click on
+  // an existing option open the add-art picker. Empty only after a real 404.
+  const [empty, setEmpty] = useState(false);
+  useEffect(() => { setEmpty(false); }, [url]);
   return (
     <div className={"opt" + (selected ? " selected" : "") + (empty ? " empty" : "")}>
       <button className="opt-face" onClick={empty ? onUpload : onSelect} title={empty ? "add a picture" : "show on stage"}>
