@@ -15,7 +15,8 @@
   ],
   "dependencies": {
     "com.lvn.engine": "0.9.0",
-    "com.lvn.engine.services": "0.9.0"
+    "com.lvn.engine.services": "0.9.0",
+    "com.unity.modules.androidjni": "1.0.0"
   },
   "author": {
     "name": "Ominis"

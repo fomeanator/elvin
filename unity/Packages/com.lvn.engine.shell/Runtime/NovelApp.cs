@@ -92,6 +92,18 @@ namespace Lvn.UI.Screens
             var bootClock = System.Diagnostics.Stopwatch.StartNew();
             void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
 
+            // Test-lane server override (Development builds only): device
+            // automation points this install at a throwaway server via
+            // `am start … -e lvn_server <url>` (or LVN_SERVER for CI players)
+            // instead of re-exporting. Must land before ANYTHING derives from
+            // ServerUrl — the log shipper, content base and state store all do.
+            var serverOverride = LvnLaunchOverrides.ServerUrl();
+            if (serverOverride != null)
+            {
+                ServerUrl = serverOverride;
+                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
+            }
+
             // Field diagnostics BEFORE the first mark: errors, exceptions and
             // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
             // device's crash is readable via /v1/admin/client-logs, no adb.

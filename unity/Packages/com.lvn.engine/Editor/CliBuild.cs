@@ -42,12 +42,18 @@ namespace Lvn.EditorTools
             PlayerSettings.bundleVersion = stamp;
             Debug.Log($"[lvn-build] version stamp {stamp}");
 
+            // LVN_BUILD_DEV=1 → Development player: Debug.isDebugBuild turns on,
+            // which arms the test-lane launch overrides (lvn_server intent extra /
+            // LVN_SERVER env) — the QA smoke builds use this to hit a local server.
+            var dev = Environment.GetEnvironmentVariable("LVN_BUILD_DEV") == "1";
+            if (dev) Debug.Log("[lvn-build] development build (test overrides armed)");
+
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { EnsureBootScene() },
                 locationPathName = outPath,
                 target = target,
-                options = BuildOptions.None,
+                options = dev ? BuildOptions.Development : BuildOptions.None,
             };
 
             var report = BuildPipeline.BuildPlayer(options);
