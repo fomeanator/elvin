@@ -18,7 +18,11 @@ namespace Lvn.Sandbox
 #if UNITY_EDITOR
             "http://127.0.0.1:8078"; // dev: the local content server
 #else
-            "https://timeromance.ru"; // device builds stream from production
+            // Device builds of the SANDBOX reach the dev server through
+            // adb reverse (see qa/monkey.sh --server). A product fork bakes
+            // its own production URL here — or ships a Development build and
+            // steers it with the `lvn_server` intent extra (LvnLaunchOverrides).
+            "http://127.0.0.1:8078";
 #endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]

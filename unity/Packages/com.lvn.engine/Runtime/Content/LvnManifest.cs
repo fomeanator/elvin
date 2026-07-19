@@ -28,7 +28,7 @@ namespace Lvn.Content
         public List<LvnCollection> collections;
 
         /// <summary>The game's default MAIN HEROINE — a sprite catalog entity id.
-        /// The concept a single-heroine game (e.g. Time Romance) leans on: her
+        /// The concept a single-heroine game leans on: her
         /// wardrobe fronts the skin shop and her portrait can front the profile.
         /// A title may override it with <see cref="LvnTitle.hero"/>. The skin shop
         /// itself still holds outfits for EVERY actor across all novels — this is
@@ -116,6 +116,12 @@ namespace Lvn.Content
         public List<LvnLayer> layers;
         /// <summary>Default axis values (axis → value), overridden per-command.</summary>
         public Dictionary<string, string> defaults;
+        /// <summary>Per-entity overrides for NAMED stage slots (label → x
+        /// fraction): <c>{"left": 0.40}</c> re-tunes where THIS character stands
+        /// when the script says <c>position=left</c> — without touching the
+        /// global slot table, other characters, or the script. An explicit
+        /// <c>x</c> in the command still wins.</summary>
+        public Dictionary<string, float> slots;
         /// <summary>Allowed values per axis (axis → values) — drives the authoring
         /// dropdowns and validation; optional (free-form when absent).</summary>
         public Dictionary<string, List<string>> axes;

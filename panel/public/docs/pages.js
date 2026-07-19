@@ -7,7 +7,7 @@ export const SECTIONS = [
     pages: [
       { id: "tutorial", title: "Quickstart (15 min)", file: "howto-TUTORIAL.md" },
       { id: "novella-core", title: "Novel core (5 bricks)", file: "howto-novella-core-README.md" },
-      { id: "time-romance", title: "Hub, collections, novel types", file: "howto-time-romance-README.md" },
+      { id: "hub-collections", title: "Hub, collections, novel types", file: "howto-hub-collections-README.md" },
       { id: "agents", title: "For an AI agent", file: "howto-AGENTS.md" },
       { id: "capabilities", title: "Capabilities & limits", file: "howto-CAPABILITIES.md" },
     ],

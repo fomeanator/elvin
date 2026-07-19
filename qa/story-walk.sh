@@ -13,13 +13,13 @@ set -u -o pipefail
 SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
 ADB="$SDK/platform-tools/adb"
 EMU="$SDK/emulator/emulator"
-PKG="com.ominis.timeromance"
-ACTIVITY="com.unity3d.player.UnityPlayerGameActivity"
 PORT=5560
 SERIAL="emulator-$PORT"
 AVD="Pixel_3a_API_34_extension_level_7_arm64-v8a"
 
-APK="$HOME/ominis/builds/timeromance-qa-dev.apk"
+# Продукто-агностично: APK аргументом или LVN_QA_APK; package/activity — из
+# самого APK (aapt), как в monkey.sh.
+APK="${LVN_QA_APK:-}"
 TAPS=30
 SERVER_OVERRIDE=""
 KEEP_EMU=0
@@ -32,7 +32,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+[ -n "$APK" ] || { echo "FAIL: укажи APK аргументом или LVN_QA_APK=…"; exit 1; }
 [ -f "$APK" ] || { echo "FAIL: APK не найден: $APK"; exit 1; }
+AAPT="$(ls -d "$SDK"/build-tools/*/aapt 2>/dev/null | tail -1)"
+[ -x "$AAPT" ] || { echo "FAIL: aapt не найден в $SDK/build-tools"; exit 1; }
+PKG="$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+ACTIVITY="$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p")"
+[ -n "$PKG" ] && [ -n "$ACTIVITY" ] || { echo "FAIL: не смог прочитать package/activity из $APK"; exit 1; }
 STAMP="$(date +%Y%m%d-%H%M%S)"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$REPO_ROOT/qa/reports/$STAMP-storywalk"

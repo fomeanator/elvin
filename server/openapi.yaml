@@ -20,8 +20,8 @@ info:
     `Authorization: Bearer <token>` on wallet/auth calls. Save-state uses
     its own `X-State-Key` claim header instead.
 servers:
-  - url: https://timeromance.ru
   - url: http://localhost:8078
+  - url: https://your-server.example
 tags:
   - {name: content, description: Manifest, scripts and art}
   - {name: auth, description: Device sessions and platform sign-in}
