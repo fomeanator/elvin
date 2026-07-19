@@ -1,0 +1,54 @@
+scene exp_victoria
+
+// ═══════════ EXPEDITION (type=expedition) ═══════════
+// Partner test flow: branching (a choice sets a flag), condition (the flag forks
+// the scene), finale (sets the completion flag + unlocks the date and the reality beat).
+// Entry point is a hub card that costs 1 energy (that's title data in the manifest,
+// not the script: cost={currency:energy, amount:1}). The script is a regular novel.
+
+actor_map Count=graf
+
+// Local expedition flag (novel scope, does not leak between expeditions).
+daring = false
+
+bg /content/bg/ballroom.jpg
+actor graf right neutral
+Count: New at court, are you?
+
+// 1) Branching: the choice writes the flag.
+- «Boldly» -> pick_bold
+- «Gently»  -> pick_gentle
+
+:pick_bold
+set key="daring" value=true
+-> balcony
+
+:pick_gentle
+set key="daring" value=false
+-> balcony
+
+:balcony
+The Count escorts you to the balcony.
+
+// 2) Condition without a choice: the flag forks the scene.
+if daring == true -> bold
+-> soft
+
+:bold
+Count [smile]: You are bolder than you look…
+-> finale
+
+:soft
+Count [neutral]: I feel at ease with you…
+-> finale
+
+// 3) Finale: cutscene, completion flag + unlocks — GLOBAL (global.*),
+// other novels see them (the date/reality are gated by them in the manifest).
+:finale
+bg /content/cg/victoria_finale.jpg
+Something real sparked between you.
+set key="global.exp_victoria_done" value=1
+set key="global.date_victoria" value=1      // → unlocks the Date with Victoria
+set key="global.reality_beat_2" value=1     // → unlocks the Reality Storyline beat
+Count: We will meet again. I promise.
+-> __end
