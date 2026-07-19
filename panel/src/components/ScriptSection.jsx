@@ -318,7 +318,14 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // ── compile (WASM) ────────────────────────────────────────────────────
   function compile(text) {
     const r = compileLvns(text, extGrammarRef.current);
-    setDiags(Array.isArray(r && r.diags) ? r.diags : []);
+    let ds = Array.isArray(r && r.diags) ? r.diags : [];
+    // Imported chapters: articy linearization merges branches by design, so
+    // machine labels (n12_000000) legitimately mix jump-targets with
+    // fall-through — 17 identical warnings per chapter drown real problems.
+    // Hand-written labels keep the hint.
+    ds = ds.filter((d) => !(String(d.msg || "").includes("fall-through")
+      && /label "n\d+_\d+"/.test(String(d.msg || ""))));
+    setDiags(ds);
     if (!r || !r.ok) {
       const first = r && r.errors ? r.errors.split("\n")[0] : "Compilation error";
       setOutput(r && r.errors ? r.errors : "Compilation error");
