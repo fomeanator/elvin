@@ -183,15 +183,26 @@ func indexBackgrounds(contentDir string, locs map[string]string, tpl *Template) 
 			}
 		}
 	}
-	// Sheet fallback (used when the file scan is unavailable, e.g. in unit tests).
+	// Sheet fallback (used when the file scan is unavailable, e.g. in unit
+	// tests). When we CAN see the disk, only map to files that exist — the
+	// sheet routinely lists art that never shipped, and an unchecked entry
+	// rewrote scenes onto dead /content/bg/Cold_*.png URLs (21 broken
+	// backgrounds on the live import).
 	for articy, tech := range locs {
 		k := normBg(strings.TrimSpace(articy))
 		if k == "" || tech == "" {
 			continue
 		}
-		if _, ok := idx[k]; !ok {
-			idx[k] = "/content/bg/" + strings.TrimSpace(tech) + ".png"
+		if _, ok := idx[k]; ok {
+			continue
 		}
+		name := strings.TrimSpace(tech) + ".png"
+		if contentDir != "" {
+			if _, err := os.Stat(filepath.Join(contentDir, "bg", name)); err != nil {
+				continue
+			}
+		}
+		idx[k] = "/content/bg/" + name
 	}
 	return idx
 }
