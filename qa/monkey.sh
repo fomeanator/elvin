@@ -6,7 +6,7 @@
 # Использование:
 #   qa/monkey.sh [путь/к/apk] [--events N] [--avd NAME] [--keep-emulator] [--no-monkey]
 #                [--server URL]
-# По умолчанию: свежий APK из ~/ominis/builds/timeromance-demo.apk, 500 событий.
+# APK обязателен (аргумент или LVN_QA_APK); по умолчанию 500 monkey-событий.
 # --server: передать dev-сборке intent-extra lvn_server (тестовый бэкенд вместо
 # зашитого; работает ТОЛЬКО с LVN_BUILD_DEV=1 сборкой). Для localhost-адресов
 # скрипт сам ставит `adb reverse` — порт устройства пробрасывается на хост,
@@ -17,12 +17,12 @@ set -u -o pipefail
 SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
 ADB="$SDK/platform-tools/adb"
 EMU="$SDK/emulator/emulator"
-PKG="com.ominis.timeromance"
-ACTIVITY="com.unity3d.player.UnityPlayerGameActivity"
 PORT=5560
 SERIAL="emulator-$PORT"
 
-APK="$HOME/ominis/builds/timeromance-demo.apk"
+# Продукто-агностично: APK задаётся аргументом или LVN_QA_APK; package и
+# activity вычитываются из самого APK (aapt dump badging) ниже.
+APK="${LVN_QA_APK:-}"
 AVD="Pixel_3a_API_34_extension_level_7_arm64-v8a"
 EVENTS=500
 SEED=20260719
@@ -43,8 +43,15 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+[ -n "$APK" ] || { echo "FAIL: укажи APK аргументом или LVN_QA_APK=…"; exit 1; }
 [ -f "$APK" ] || { echo "FAIL: APK не найден: $APK"; exit 1; }
 [ -x "$ADB" ] || { echo "FAIL: adb не найден: $ADB"; exit 1; }
+
+AAPT="$(ls -d "$SDK"/build-tools/*/aapt 2>/dev/null | tail -1)"
+[ -x "$AAPT" ] || { echo "FAIL: aapt не найден в $SDK/build-tools"; exit 1; }
+PKG="$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+ACTIVITY="$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p")"
+[ -n "$PKG" ] && [ -n "$ACTIVITY" ] || { echo "FAIL: не смог прочитать package/activity из $APK"; exit 1; }
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

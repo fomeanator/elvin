@@ -1,4 +1,4 @@
-# 🕰️ Time Romance — hub, collections, three novel types
+# 🏛 Hub & collections — hub layout, three novel types
 
 Demonstrates the **hub layout** (instead of a carousel) and how three content
 "types" — **Expeditions / Dates / Reality Storyline** — are NOT three systems but one
@@ -24,7 +24,7 @@ the expedition (`daring`) is local; the finale flags (`global.*`) are shared per
 
 ```json
 {
-  "ui": { "browse": { "layout": "hub", "title": "Time Romance", "subtitle": "Choose…" } },
+  "ui": { "browse": { "layout": "hub", "title": "My Story Hub", "subtitle": "Choose…" } },
 
   "collections": [
     { "id": "expeditions", "name": "Expeditions", "type": "expedition",
@@ -71,7 +71,7 @@ the expedition (`daring`) is local; the finale flags (`global.*`) are shared per
 
 A different novel = different `collections`/`type`/`unlock`/`cost` + a different `ui.browse`
 → different visuals and content, **same firmware**. Expeditions/Dates/Reality
-are Time Romance data, not the engine.
+are product data, not the engine.
 
 ## Build and check
 

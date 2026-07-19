@@ -97,7 +97,7 @@ blueprints of how things are built):
 | Reference | Folder | What it shows |
 |---|---|---|
 | 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" of a modern story novel: stat gates, paid choices, wardrobe, timer, global stats |
-| 🏛 Hub & collections | [`time-romance/`](time-romance/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
+| 🏛 Hub & collections | [`hub-collections/`](hub-collections/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
 
 ---
 
