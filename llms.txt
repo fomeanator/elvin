@@ -42,7 +42,7 @@ The quality gate for every generated script:
   kinetic-novel, puzzle.
 - Reference builds beyond the genres: [novella-core](howto/novella-core/)
   (the five bricks of a modern story novel: stat gates, paid choices,
-  wardrobe, timers, global stats) and [time-romance](howto/time-romance/)
+  wardrobe, timers, global stats) and [hub-collections](howto/hub-collections/)
   (hub/collections library layout, title unlock/cost, chapter energy).
 
 ## MCP server (agents: prefer this over raw CLI)

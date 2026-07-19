@@ -1,0 +1,161 @@
+{
+  "scene": "exp_victoria",
+  "script": [
+    {
+      "expr": "false",
+      "key": "daring",
+      "op": "set"
+    },
+    {
+      "id": "ballroom",
+      "op": "bg",
+      "sprite_url": "/content/bg/ballroom.jpg"
+    },
+    {
+      "emotion": "neutral",
+      "id": "graf",
+      "op": "actor",
+      "position": "right",
+      "show": true
+    },
+    {
+      "op": "say",
+      "text": "New at court, are you?",
+      "who": "Count"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "pick_bold",
+          "text": "Boldly"
+        },
+        {
+          "goto": "pick_gentle",
+          "text": "Gently"
+        }
+      ]
+    },
+    {
+      "id": "pick_bold",
+      "op": "label"
+    },
+    {
+      "key": "daring",
+      "op": "set",
+      "value": true
+    },
+    {
+      "label": "balcony",
+      "op": "goto"
+    },
+    {
+      "id": "pick_gentle",
+      "op": "label"
+    },
+    {
+      "key": "daring",
+      "op": "set",
+      "value": false
+    },
+    {
+      "label": "balcony",
+      "op": "goto"
+    },
+    {
+      "id": "balcony",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "The Count escorts you to the balcony."
+    },
+    {
+      "else": "__nf1",
+      "expr": "daring == true",
+      "op": "if",
+      "then": "bold"
+    },
+    {
+      "id": "__nf1",
+      "op": "label"
+    },
+    {
+      "label": "soft",
+      "op": "goto"
+    },
+    {
+      "id": "bold",
+      "op": "label"
+    },
+    {
+      "emotion": "smile",
+      "id": "graf",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "You are bolder than you look…",
+      "who": "Count"
+    },
+    {
+      "label": "finale",
+      "op": "goto"
+    },
+    {
+      "id": "soft",
+      "op": "label"
+    },
+    {
+      "emotion": "neutral",
+      "id": "graf",
+      "op": "actor"
+    },
+    {
+      "op": "say",
+      "text": "I feel at ease with you…",
+      "who": "Count"
+    },
+    {
+      "label": "finale",
+      "op": "goto"
+    },
+    {
+      "id": "finale",
+      "op": "label"
+    },
+    {
+      "id": "victoria_finale",
+      "op": "bg",
+      "sprite_url": "/content/cg/victoria_finale.jpg"
+    },
+    {
+      "op": "say",
+      "text": "Something real sparked between you."
+    },
+    {
+      "key": "global.exp_victoria_done",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "key": "global.date_victoria",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "key": "global.reality_beat_2",
+      "op": "set",
+      "value": 1
+    },
+    {
+      "op": "say",
+      "text": "We will meet again. I promise.",
+      "who": "Count"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}
