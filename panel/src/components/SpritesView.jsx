@@ -90,6 +90,11 @@ export default function SpritesView({ creds, notify, titleId }) {
   const [rosterView, setRosterView] = useState(() => localStorage.getItem("lvn_roster_view") || "grid");
   useEffect(() => localStorage.setItem("lvn_roster_view", rosterView), [rosterView]);
   const [rosterQuery, setRosterQuery] = useState("");
+  // Only entities the OPEN novel's chapters actually reference (via
+  // scriptOrder). The catalog is app-wide — a dev server carries every demo's
+  // cast; a partner working on one title must not wade through the rest.
+  const [onlyTitle, setOnlyTitle] = useState(() => (localStorage.getItem("lvn_roster_only_title") ?? "1") === "1");
+  useEffect(() => localStorage.setItem("lvn_roster_only_title", onlyTitle ? "1" : "0"), [onlyTitle]);
   const [rosterCount, setRosterCount] = useState(48); // infinite scroll: how many tiles are mounted
 
   useEffect(() => {
@@ -445,10 +450,21 @@ export default function SpritesView({ creds, notify, titleId }) {
           value={rosterQuery}
           onChange={(e) => { setRosterQuery(e.target.value); setRosterCount(48); }}
         />
+        {titleId && (
+          <div className="roster-scope">
+            <button className={"roster-scope-chip" + (onlyTitle ? " active" : "")}
+              onClick={() => { setOnlyTitle(true); setRosterCount(48); }}>эта новелла</button>
+            <button className={"roster-scope-chip" + (!onlyTitle ? " active" : "")}
+              onClick={() => { setOnlyTitle(false); setRosterCount(48); }}>все ассеты</button>
+          </div>
+        )}
         {(() => {
           const q = rosterQuery.trim().toLowerCase();
-          const gmatch = (g) => !q || g.name.toLowerCase().includes(q)
-            || g.ids.some((id) => id.toLowerCase().includes(q));
+          const inTitle = (g) => !onlyTitle || !scriptOrder || !titleId
+            || scriptOrder.has(g.name)
+            || g.ids.some((id) => scriptOrder.has(id));
+          const gmatch = (g) => inTitle(g) && (!q || g.name.toLowerCase().includes(q)
+            || g.ids.some((id) => id.toLowerCase().includes(q)));
           const chars = roster.characters.filter(gmatch);
           const objs = roster.objects.filter(gmatch);
           const flat = [...chars, ...objs];
