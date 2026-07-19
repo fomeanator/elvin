@@ -365,7 +365,9 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .stage-figure { position: absolute; inset: 4% 0 13% 0; display: flex; align-items: flex-end; justify-content: center; }
 .stage-layer {
   position: absolute; bottom: 0; max-height: 100%; max-width: 64%; object-fit: contain;
-  filter: drop-shadow(0 26px 34px rgba(0, 0, 0, 0.6));
+  /* No per-layer drop-shadow: a jacket's shadow was darkening the body's
+     hands underneath. The game composites layers flat — the editor must
+     look exactly like the game. */
   animation: figIn 0.45s var(--ease);
 }
 @keyframes figIn { from { opacity: 0; transform: translateY(10px) scale(0.99); } }
