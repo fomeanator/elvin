@@ -61,4 +61,7 @@ jobs:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
 
       - name: provision + deploy
-        run: HOST=target DOMAIN="${{ vars.DEPLOY_DOMAIN }}" ./deploy/provision.sh
+        # DEPLOY_DOMAIN repo variable is optional: this workflow is guarded to
+        # fomeanator/elvin, whose production host IS timeromance.ru, so fall back
+        # to it when the variable is unset (provision.sh hard-requires DOMAIN).
+        run: HOST=target DOMAIN="${{ vars.DEPLOY_DOMAIN || 'timeromance.ru' }}" ./deploy/provision.sh
