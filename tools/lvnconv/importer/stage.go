@@ -3,6 +3,7 @@ package importer
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
@@ -195,7 +196,181 @@ func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
 		}
 		out = append(out, c)
 	}
-	doc.Script = out
+	doc.Script = normalizeStageVisibility(out)
+}
+
+// normalizeStageVisibility makes the single-speaker staging robust to CONTROL
+// FLOW. AutoStage balances shows/hides in physical array order, but a choice
+// branch that re-shows an actor and then `goto`s into a shared tail leaves that
+// actor on screen when the tail shows a DIFFERENT one — the "two characters
+// standing inside each other" bug (the importer drops the branch's exit hide on
+// the merge). A forward data-flow over the real edges (goto / if.then/else /
+// choice option gotos, plus fall-through) computes the set of actors that may
+// be visible entering each command; before every `actor show:true id=Y` it
+// injects an instant `show:false` for any OTHER possibly-visible actor. On the
+// path where that actor is up it hides (fixing the collision); on the path
+// where it isn't, hiding a not-shown actor is a runtime no-op — so the fix costs
+// nothing on the clean paths and only fires exactly where branches merge.
+func normalizeStageVisibility(script []articy.Cmd) []articy.Cmd {
+	n := len(script)
+	if n == 0 {
+		return script
+	}
+	labelAt := map[string]int{}
+	for i, c := range script {
+		if c["op"] == "label" {
+			if id, _ := c["id"].(string); id != "" {
+				labelAt[id] = i
+			}
+		}
+	}
+	target := func(lbl string) (int, bool) { j, ok := labelAt[lbl]; return j, ok }
+
+	// Successor edges. goto/if/choice reroute (no fall-through); everything
+	// else falls through to i+1.
+	succ := make([][]int, n)
+	for i, c := range script {
+		switch c["op"] {
+		case "goto":
+			if j, ok := target(str(c["label"])); ok {
+				succ[i] = []int{j}
+			}
+		case "if":
+			for _, k := range []string{"then", "else"} {
+				if j, ok := target(str(c[k])); ok {
+					succ[i] = append(succ[i], j)
+				}
+			}
+		case "choice":
+			if opts, ok := c["options"].([]any); ok {
+				for _, o := range opts {
+					if j, ok := target(gotoOf(o)); ok {
+						succ[i] = append(succ[i], j)
+					}
+				}
+			}
+		default:
+			if i+1 < n {
+				succ[i] = []int{i + 1}
+			}
+		}
+	}
+	preds := make([][]int, n)
+	for i := range succ {
+		for _, s := range succ[i] {
+			preds[s] = append(preds[s], i)
+		}
+	}
+
+	// Forward data-flow to a fixpoint: in[i] = ∪ out[preds]; out[i] =
+	// transfer(in[i], cmd). Union merge + deterministic transfer converges.
+	in := make([]map[string]bool, n)
+	out := make([]map[string]bool, n)
+	for i := range in {
+		in[i] = map[string]bool{}
+		out[i] = map[string]bool{}
+	}
+	// Transfer under the single-speaker invariant AutoStage targets: a show
+	// makes that actor the ONLY one on stage, a scene bg clears it, a hide
+	// drops the named actor. Modelling show as {id} (not an accumulating union)
+	// keeps the possibly-visible set to "the last actor shown on each incoming
+	// path", so the defensive hides injected at a merge are exactly the branch
+	// tails that differ — not every actor ever shown upstream.
+	transfer := func(vis map[string]bool, c articy.Cmd) map[string]bool {
+		switch c["op"] {
+		case "actor":
+			id := str(c["id"])
+			if id == "" {
+				break
+			}
+			if c["show"] == true {
+				return map[string]bool{id: true} // sole occupant
+			}
+			r := map[string]bool{}
+			for k := range vis {
+				if k != id {
+					r[k] = true
+				}
+			}
+			return r
+		case "bg":
+			return map[string]bool{} // scene change clears the stage
+		}
+		r := map[string]bool{}
+		for k := range vis {
+			r[k] = true
+		}
+		return r
+	}
+	for pass := 0; pass < n+2; pass++ {
+		changed := false
+		for i := 0; i < n; i++ {
+			merged := map[string]bool{}
+			for _, p := range preds[i] {
+				for k := range out[p] {
+					merged[k] = true
+				}
+			}
+			no := transfer(merged, script[i])
+			if !sameSet(no, out[i]) {
+				in[i], out[i] = merged, no
+				changed = true
+			} else {
+				in[i] = merged
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+
+	// Inject the defensive hides before each show.
+	result := make([]articy.Cmd, 0, n)
+	for i, c := range script {
+		if c["op"] == "actor" && c["show"] == true {
+			shown := str(c["id"])
+			for _, other := range sortedSetKeys(in[i]) {
+				if other != shown {
+					result = append(result, articy.Cmd{
+						"op": "actor", "id": other, "show": false, "exit": "none",
+					})
+				}
+			}
+		}
+		result = append(result, c)
+	}
+	return result
+}
+
+func gotoOf(o any) string {
+	switch m := o.(type) {
+	case articy.Cmd:
+		return str(m["goto"])
+	case map[string]any:
+		return str(m["goto"])
+	}
+	return ""
+}
+
+func sameSet(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !b[k] {
+			return false
+		}
+	}
+	return true
+}
+
+func sortedSetKeys(m map[string]bool) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
 }
 
 // ── filename matching (disk ↔ .lvn) ──────────────────────────────────────────
