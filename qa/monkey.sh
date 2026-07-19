@@ -5,7 +5,13 @@
 #
 # Использование:
 #   qa/monkey.sh [путь/к/apk] [--events N] [--avd NAME] [--keep-emulator] [--no-monkey]
+#                [--server URL]
 # По умолчанию: свежий APK из ~/ominis/builds/timeromance-demo.apk, 500 событий.
+# --server: передать dev-сборке intent-extra lvn_server (тестовый бэкенд вместо
+# зашитого; работает ТОЛЬКО с LVN_BUILD_DEV=1 сборкой). Для localhost-адресов
+# скрипт сам ставит `adb reverse` — порт устройства пробрасывается на хост,
+# это работает и на эмуляторе, и на физическом телефоне (10.0.2.2 НЕ нужен:
+# гейтвей-алиас не добивал до хоста в наших прогонах).
 set -u -o pipefail
 
 SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
@@ -22,6 +28,7 @@ EVENTS=500
 SEED=20260719
 KEEP_EMU=0
 RUN_MONKEY=1
+SERVER_OVERRIDE=""
 BOOT_TIMEOUT=240   # сек на холодный бут эмулятора
 READY_TIMEOUT=120  # сек на готовность приложения (маркер в logcat)
 
@@ -31,6 +38,7 @@ while [ $# -gt 0 ]; do
     --avd) AVD="$2"; shift 2 ;;
     --keep-emulator) KEEP_EMU=1; shift ;;
     --no-monkey) RUN_MONKEY=0; shift ;;
+    --server) SERVER_OVERRIDE="$2"; shift 2 ;;
     *) APK="$1"; shift ;;
   esac
 done
@@ -95,8 +103,22 @@ fi
 
 "$ADB" -s "$SERIAL" logcat -c 2>/dev/null || true
 "$ADB" -s "$SERIAL" logcat -c -b crash 2>/dev/null || true
-log "Запускаю ${PKG}..."
-"$ADB" -s "$SERIAL" shell am start -n "$PKG/$ACTIVITY" >>"$REPORT" 2>&1
+if [ -n "$SERVER_OVERRIDE" ]; then
+  # localhost-сервер достижим с устройства только через adb reverse
+  case "$SERVER_OVERRIDE" in
+    *127.0.0.1*|*localhost*)
+      port="$(echo "$SERVER_OVERRIDE" | sed -E 's|.*:([0-9]+).*|\1|')"
+      "$ADB" -s "$SERIAL" reverse "tcp:$port" "tcp:$port" >/dev/null 2>&1 \
+        && log "adb reverse tcp:$port → хост" \
+        || fail "adb reverse tcp:$port не встал"
+      ;;
+  esac
+  log "Запускаю ${PKG} → сервер $SERVER_OVERRIDE (dev override)..."
+  "$ADB" -s "$SERIAL" shell am start -n "$PKG/$ACTIVITY" -e lvn_server "$SERVER_OVERRIDE" >>"$REPORT" 2>&1
+else
+  log "Запускаю ${PKG}..."
+  "$ADB" -s "$SERIAL" shell am start -n "$PKG/$ACTIVITY" >>"$REPORT" 2>&1
+fi
 
 # ── 3. Ожидание готовности по logcat-маркеру ────────────────────────────────
 # Готовность = NovelApp снял бут-вуаль (NovelApp.cs: "veil handed off — app boot done").
@@ -130,6 +152,24 @@ elif [ "$FAIL_COUNT" -eq 0 ]; then
     log "…но бут шёл, последние фазы:"; echo "$progress" | tee -a "$REPORT"
   else
     log "…Unity-логов нет вообще (движок не стартовал)"
+  fi
+fi
+
+# Если просили тестовый сервер — он ОБЯЗАН был примениться И быть достижимым:
+# release-сборка игнорирует override намеренно, а недостижимый сервер тихо
+# уводит приложение в оффлайн-кэш — обе ситуации маскируют, что тестировался
+# не тот бэкенд.
+if [ -n "$SERVER_OVERRIDE" ]; then
+  ulog="$("$ADB" -s "$SERIAL" logcat -d -s Unity 2>/dev/null)"
+  if echo "$ulog" | grep -q "server override (dev): $SERVER_OVERRIDE"; then
+    log "Server override подтверждён логом"
+  else
+    fail "override не применился (не dev-сборка?) — прогон шёл бы на зашитый сервер"
+  fi
+  if echo "$ulog" | grep -q "online=True"; then
+    log "Тестовый сервер достижим (online=True)"
+  else
+    fail "манифест не пришёл с тестового сервера (online=False — оффлайн-кэш)"
   fi
 fi
 
