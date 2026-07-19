@@ -37,6 +37,11 @@ type Template struct {
 	Audio       []AudioCueTemplate `json:"audio"`
 	Backgrounds BackgroundTemplate `json:"backgrounds"`
 
+	// VarChapterPrefixes marks variable-name prefixes as CHAPTER-scoped: they
+	// land in the declaration's "chapter" block and reset on every fresh
+	// chapter entry (Temp.* by convention). Everything else is game-scoped.
+	VarChapterPrefixes []string `json:"var_chapter_prefixes,omitempty"`
+
 	// EmotionColors overlays the marker-colour → emotion legend (#rrggbb → token).
 	// Merged over the built-in legend (emotion.go) and under Options.EmotionColors.
 	EmotionColors map[string]string `json:"emotion_colors,omitempty"`
@@ -148,6 +153,7 @@ func DefaultTemplate() *Template {
 			PlayerTemplate:           "{player}",
 			ProtagonistMirror:        true,
 		},
+		VarChapterPrefixes: []string{"Temp."},
 		Wardrobe: WardrobeTemplate{
 			FlagKey:               "Open.Wardrobe",
 			VarPrefix:             "Wardrobe.",
