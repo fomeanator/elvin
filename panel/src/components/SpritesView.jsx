@@ -85,6 +85,12 @@ export default function SpritesView({ creds, notify, titleId }) {
   // id → index of first appearance across the novel's chapters (see below) —
   // the roster orders characters the way the STORY introduces them.
   const [scriptOrder, setScriptOrder] = useState(null);
+  // Roster browsing: a photo GRID (art as "files") or the compact list, with
+  // search and pagination — a partner novel lands with hundreds of entities.
+  const [rosterView, setRosterView] = useState(() => localStorage.getItem("lvn_roster_view") || "grid");
+  useEffect(() => localStorage.setItem("lvn_roster_view", rosterView), [rosterView]);
+  const [rosterQuery, setRosterQuery] = useState("");
+  const [rosterPage, setRosterPage] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -409,37 +415,70 @@ export default function SpritesView({ creds, notify, titleId }) {
   return (
     <div className="cast">
       {/* roster */}
-      <aside className="roster enter">
+      <aside className={"roster enter" + (rosterView === "grid" ? " wide" : "")}>
         <div className="roster-head">
           <span className="section-label">Cast</span>
-          <button className="btn-ghost sm" onClick={() => setChooser(true)}>+ New</button>
+          <div className="roster-tools">
+            <button
+              className={"btn-ghost sm" + (rosterView === "grid" ? " on" : "")}
+              title={rosterView === "grid" ? "Списком" : "Плиткой (арт как файлы)"}
+              onClick={() => setRosterView(rosterView === "grid" ? "list" : "grid")}
+            >{rosterView === "grid" ? "☰" : "▦"}</button>
+            <button className="btn-ghost sm" onClick={() => setChooser(true)}>+ New</button>
+          </div>
         </div>
-        <div className="roster-list">
-          {Object.keys(catalog).length === 0 && <div className="roster-empty">Nobody yet.<br />Add someone →</div>}
-          {roster.characters.map((id) => (
-            <RosterItem
-              key={id}
-              id={id}
-              entity={catalog[id]}
-              bust={bust}
-              active={id === currentId}
-              onClick={() => selectEntity(id)}
-            />
-          ))}
-          {roster.characters.length > 0 && roster.objects.length > 0 && (
-            <div className="roster-divider">Objects & variants</div>
-          )}
-          {roster.objects.map((id) => (
-            <RosterItem
-              key={id}
-              id={id}
-              entity={catalog[id]}
-              bust={bust}
-              active={id === currentId}
-              onClick={() => selectEntity(id)}
-            />
-          ))}
-        </div>
+        <input
+          className="field roster-search"
+          placeholder="Поиск по касту…"
+          value={rosterQuery}
+          onChange={(e) => { setRosterQuery(e.target.value); setRosterPage(0); }}
+        />
+        {(() => {
+          const q = rosterQuery.trim().toLowerCase();
+          const match = (id) => !q || id.toLowerCase().includes(q)
+            || String(catalog[id]?.name || "").toLowerCase().includes(q);
+          const chars = roster.characters.filter(match);
+          const objs = roster.objects.filter(match);
+          const flat = [...chars, ...objs];
+          const PAGE = rosterView === "grid" ? 48 : 80;
+          const pages = Math.max(1, Math.ceil(flat.length / PAGE));
+          const page = Math.min(rosterPage, pages - 1);
+          const slice = flat.slice(page * PAGE, page * PAGE + PAGE);
+          const firstObj = objs.length ? objs[0] : null;
+          const Item = rosterView === "grid" ? RosterCard : RosterItem;
+          return (
+            <>
+              <div className={rosterView === "grid" ? "roster-grid" : "roster-list"}>
+                {flat.length === 0 && (
+                  <div className="roster-empty">{q ? "Ничего не найдено." : <>Nobody yet.<br />Add someone →</>}</div>
+                )}
+                {slice.map((id) => (
+                  <span key={id} style={{ display: "contents" }}>
+                    {id === firstObj && chars.length > 0 && (
+                      <div className="roster-divider">Objects & variants</div>
+                    )}
+                    <Item
+                      id={id}
+                      entity={catalog[id]}
+                      bust={bust}
+                      active={id === currentId}
+                      onClick={() => selectEntity(id)}
+                    />
+                  </span>
+                ))}
+              </div>
+              {pages > 1 && (
+                <div className="roster-pager">
+                  <button className="btn-ghost sm" disabled={page === 0}
+                    onClick={() => setRosterPage(page - 1)}>‹</button>
+                  <span>{page + 1} / {pages}</span>
+                  <button className="btn-ghost sm" disabled={page >= pages - 1}
+                    onClick={() => setRosterPage(page + 1)}>›</button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </aside>
 
       {/* stage + wardrobe */}
@@ -609,6 +648,23 @@ function RosterItem({ id, entity, bust, active, onClick }) {
         <span className="roster-name">{entity?.name || id}</span>
         <span className="roster-kind">{cast ? "character" : "object"}</span>
       </span>
+    </button>
+  );
+}
+
+// The grid tile — art as a "file": a big portrait with the name underneath,
+// like a file manager, so a 300-entity partner cast is scannable by eye.
+function RosterCard({ id, entity, bust, active, onClick }) {
+  const thumb = entityThumb(entity, bust);
+  const [ok, setOk] = useState(true);
+  return (
+    <button className={"roster-card" + (active ? " active" : "")} onClick={onClick} title={id}>
+      <span className="roster-card-art" style={entity?.color ? { "--tint": entity.color } : undefined}>
+        {thumb && ok
+          ? <img src={thumb} alt="" loading="lazy" onError={() => setOk(false)} />
+          : <span className="roster-card-letter">{(entity?.name || id)[0]?.toUpperCase()}</span>}
+      </span>
+      <span className="roster-card-name">{entity?.name || id}</span>
     </button>
   );
 }
