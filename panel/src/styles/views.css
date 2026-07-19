@@ -745,7 +745,7 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 
 /* assembled thumbnails: the entity's resolved layers stacked like the stage */
 .thumb-stack { position: relative; }
-.thumb-stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.thumb-stack img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; padding: 4px; box-sizing: border-box; }
 .thumb-stack img:first-child { position: relative; }
 .roster-more { padding: 10px 0 14px; text-align: center; color: var(--muted); font-size: 11.5px; }
 
