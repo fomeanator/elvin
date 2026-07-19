@@ -76,7 +76,7 @@ report_platform playmode "$OUT/playmode.xml" || fail=1
 
 # ── 2. Девайс-смоук (опционально) ───────────────────────────────────────────
 if [ "$DEVICE" = 1 ]; then
-  APK="$HOME/ominis/builds/timeromance-qa-dev.apk"
+  APK="${LVN_QA_APK:-$REPO_ROOT/qa/bin/sandbox-qa-dev.apk}"
   if [ ! -f "$APK" ]; then
     log "Собираю dev-APK (LVN_BUILD_DEV=1)…"
     LVN_BUILD_OUT="$APK" LVN_BUILD_DEV=1 \
