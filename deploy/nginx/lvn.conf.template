@@ -38,12 +38,34 @@ server {
     proxy_read_timeout 1800s;
     proxy_send_timeout 1800s;
 
-    # Admin API (imports, grants, state inspection): strict rate limit.
-    # For a hard gate, allowlist your office/VPN egress IPs:
-    #   allow 1.2.3.4; deny all;
-    location ~ ^/(v1/admin|admin) {
+    # Admin API (imports, grants, state inspection): token-gated in the Go
+    # server (Authorization: Bearer <admin-token>) + a strict rate limit here.
+    # NO basic-auth on this path: the panel sends a Bearer header and a request
+    # carries only one Authorization, so a Basic challenge here would break it.
+    # For a hard gate, allowlist your office/VPN egress IPs: allow 1.2.3.4; deny all;
+    location /v1/admin {
         limit_req zone=lvn_admin burst=10 nodelay;
         limit_req_status 429;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Elvin Studio IDE frontend (-studio). Basic-auth so the authoring app is
+    # not open to the world; create the password file once on the server:
+    #   printf 'USER:' | sudo tee /etc/nginx/lvn.htpasswd
+    #   sudo sh -c "openssl passwd -apr1 >> /etc/nginx/lvn.htpasswd"   # prompts
+    #   sudo nginx -s reload
+    # NOTE: -studio also mounts the app at root /, and its JS/CSS load from /
+    # (public, static, no secrets — every sensitive op is token-gated at
+    # /v1/admin). Gating /panel hides the primary IDE entry; for a fully
+    # private IDE, serve Studio only under /panel (vite base=/panel/) — a
+    # follow-up if you want root / to stop serving the app shell at all.
+    location /panel {
+        auth_basic "Elvin Studio";
+        auth_basic_user_file /etc/nginx/lvn.htpasswd;
         proxy_pass http://127.0.0.1:${PORT};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

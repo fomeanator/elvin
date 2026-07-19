@@ -37,6 +37,22 @@ log "4/5 ship binary + restart"
 rsync -az /tmp/lvn-server-linux "$HOST:$LVN_HOME/lvn-server.new"
 ssh "$HOST" "install -m 755 -o lvn -g lvn $LVN_HOME/lvn-server.new $LVN_HOME/lvn-server && rm $LVN_HOME/lvn-server.new && systemctl restart lvn"
 
+# Studio web app (authoring IDE + admin UI + playground) for -studio. Built
+# from panel/ (npm run deploy → server/website) and shipped to $LVN_HOME/website
+# (the server's WorkingDirectory), where the -studio handler serves ./website.
+# NON-FATAL: a Studio build hiccup must never take the game API deploy down —
+# a missing website only 404s the IDE, the API keeps serving. Set STUDIO=0 to
+# skip building it on an API-only box.
+if [ "${STUDIO:-1}" = "1" ]; then
+  log "4.5/5 build + ship Studio web app (website/)"
+  if (cd "$REPO/panel" && npm ci && npm run deploy); then
+    rsync -az --delete "$REPO/server/website/" "$HOST:$LVN_HOME/website/"
+    ssh "$HOST" "chown -R lvn:lvn $LVN_HOME/website && systemctl restart lvn"
+  else
+    log "WARN: Studio build failed — API deployed, IDE will 404 until fixed"
+  fi
+fi
+
 if [ -n "${CONTENT_DIR:-}" ]; then
   log "4.5/5 sync content from $CONTENT_DIR"
   rsync -az --delete \
