@@ -565,9 +565,9 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 		return nil, err
 	}
 	var bodySrc, hairSrc string
-	clothes := map[string]string{}         // value → src
+	clothes := map[string]string{}          // value → src
 	clothesParts := map[string][]partFile{} // value → ordered parts (multi-file outfits)
-	emo := map[string]string{}             // token → src
+	emo := map[string]string{}              // token → src
 	for _, f := range entries {
 		if f.IsDir() || !strings.EqualFold(filepath.Ext(f.Name()), ".png") {
 			continue
