@@ -17,7 +17,11 @@ User=lvn
 Group=lvn
 WorkingDirectory=${LVN_HOME}
 EnvironmentFile=${LVN_HOME}/lvn.env
-ExecStart=${LVN_HOME}/lvn-server -content ${LVN_HOME}/content -addr 127.0.0.1:${PORT} -admin-token ${ADMIN_TOKEN_REF}
+# -studio serves the Elvin Studio web app (authoring IDE + admin UI +
+# playground) at / and /panel/. The IDE frontend is gated by basic-auth in
+# nginx (/panel); every admin WRITE stays token-gated (-admin-token) at the
+# Go layer regardless. provision.sh builds+ships website/ next to the binary.
+ExecStart=${LVN_HOME}/lvn-server -content ${LVN_HOME}/content -addr 127.0.0.1:${PORT} -admin-token ${ADMIN_TOKEN_REF} -studio
 
 # Crash resilience: always restart, fast; back off only on a crash loop.
 Restart=always
