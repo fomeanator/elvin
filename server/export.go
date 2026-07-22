@@ -285,7 +285,7 @@ namespace Game
             app.ServerUrl = ServerUrl;
             app.OfflineBundled = ` + offline + `;
             app.AskName = ` + ask + `;
-            app.SyncInterval = 30f;
+            app.SyncInterval = 5f;
             app.ThemeResourcePath = "UI/AppLoading/UnityDefaultRuntimeTheme";
             Object.DontDestroyOnLoad(go);
         }
