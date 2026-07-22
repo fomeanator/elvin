@@ -34,7 +34,12 @@ server {
 
     # Bundle imports upload the whole novel (articy + art archives) in one
     # multipart request — allow big bodies and give the encoder time.
+    # client_body_timeout (not just proxy_*): the default 60s applies to gaps
+    # between successive reads of the CLIENT's request body — on a slow/flaky
+    # uplink a multi-hundred-MB upload can stall past that and nginx 408s the
+    # connection mid-transfer even though the upstream timeouts are generous.
     client_max_body_size 2g;
+    client_body_timeout 1800s;
     proxy_read_timeout 1800s;
     proxy_send_timeout 1800s;
 
