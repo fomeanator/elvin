@@ -109,7 +109,12 @@ func stampAssetSizes(res *Result, contentDir string) {
 
 // reconcileChapterAssets rebuilds every chapter's FLAT sprite release set from
 // its FINAL compiled script. Non-sprite entries (audio) survive; layered cast
-// art is re-added by prefetchLayeredArt, which must run after this pass.
+// art is re-added by prefetchLayeredArt, which must run after this pass. It
+// also refreshes Chapter.BgURL / Title.CoverURL from that same final script:
+// collectArt captured firstBg before this rewrite pass swapped placeholder /
+// pre-HD background urls for the real files, so the cover/thumbnail must be
+// re-derived here rather than trusted as final (else the title card and
+// chapter-1 thumbnail point at a stale, often-broken background).
 func reconcileChapterAssets(res *Result) {
 	byCid := map[string][]byte{}
 	for _, sf := range res.Scripts {
@@ -141,8 +146,31 @@ func reconcileChapterAssets(res *Result) {
 			for url, m := range fresh {
 				ch.Assets[url] = m
 			}
+			if u := firstBgURL(ops); u != "" {
+				ch.BgURL = u
+				if si == 0 && ci == 0 {
+					res.Title.CoverURL = u
+				}
+			}
 		}
 	}
+}
+
+// firstBgURL returns the sprite_url of the first "bg" op — the real, final
+// (post-indexBackgrounds) background — used to refresh Chapter.BgURL /
+// Title.CoverURL after the rewrite pass.
+func firstBgURL(ops []map[string]any) string {
+	for _, op := range ops {
+		if op == nil {
+			continue
+		}
+		if name, _ := op["op"].(string); name == "bg" {
+			if u, _ := op["sprite_url"].(string); u != "" {
+				return u
+			}
+		}
+	}
+	return ""
 }
 
 // indexBackgrounds builds a fuzzy lookup normalized-name → served-url for the real
