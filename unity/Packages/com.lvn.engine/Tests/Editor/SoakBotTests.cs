@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -71,6 +72,19 @@ namespace Lvn.Tests
             "cold-ch21.lvn", "cold-ch23.lvn", "cold-ch24.lvn",
         };
 
+        // The real client applies the title declaration (vars_url: game +
+        // chapter defaults) before every chapter, and imported chapters are
+        // STRIPPED of the default-set boilerplate — soaking without the
+        // declaration would walk branches no player can ever reach.
+        private static JObject LoadDeclaration(string path)
+        {
+            var name = Path.GetFileName(path);
+            int cut = name.LastIndexOf("-ch", System.StringComparison.Ordinal);
+            if (cut <= 0) return null;
+            var vars = Path.Combine(Path.GetDirectoryName(path), name.Substring(0, cut) + "-vars.json");
+            return File.Exists(vars) ? JObject.Parse(File.ReadAllText(vars)) : null;
+        }
+
         [TestCaseSource(nameof(AllScripts))]
         public void RandomPlaythroughIsCleanAndResumable(string path)
         {
@@ -78,11 +92,12 @@ namespace Lvn.Tests
                 Assert.Ignore("server/content/scripts отсутствует на этой машине — соук пропущен");
             var json = File.ReadAllText(path);
             var name = Path.GetFileName(path);
+            var decl = LoadDeclaration(path);
             var known = KnownContentLoops.Contains(name);
             try
             {
                 foreach (var seed in Seeds)
-                    SoakOne(json, seed, name);
+                    SoakOne(json, seed, name, decl);
             }
             catch (LvnException e) when (known && e.Message.Contains("infinite loop"))
             {
@@ -92,7 +107,7 @@ namespace Lvn.Tests
                 Assert.Fail(name + " прошёл соук — импортёр починен? Убери главу из KnownContentLoops.");
         }
 
-        private static void SoakOne(string json, int seed, string name)
+        private static void SoakOne(string json, int seed, string name, JObject decl)
         {
             // ONE parse per run: LvnDocument is immutable and players only
             // read the script array, so live and resumed players share it —
@@ -100,6 +115,11 @@ namespace Lvn.Tests
             var doc = LvnDocument.Parse(json);
             var live = new SceneModel();
             var player = new LvnPlayer(doc, live);
+            if (decl != null)
+            {
+                player.ApplyDefaults(decl["game"] as JObject);
+                player.ApplyDefaults(decl["chapter"] as JObject);
+            }
             var rng = new System.Random(seed);
             int pauses = 0;
 
@@ -113,6 +133,13 @@ namespace Lvn.Tests
                     var replayed = new SceneModel();
                     var resumed = new LvnPlayer(doc, replayed);
                     resumed.Restore(snap);
+                    // Production resume re-applies defaults after the restore
+                    // (fill-if-unset — must be a no-op on a complete snapshot).
+                    if (decl != null)
+                    {
+                        resumed.ApplyDefaults(decl["game"] as JObject);
+                        resumed.ApplyDefaults(decl["chapter"] as JObject);
+                    }
                     resumed.ReplayVisuals(resumed.Index);
                     SceneModel.AssertSameScene(live, replayed, $"{name} seed {seed} @index {snap.Index}");
                 }
