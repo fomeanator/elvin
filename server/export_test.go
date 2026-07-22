@@ -103,3 +103,10 @@ func TestEngineReleaseTagFromSandboxTemplate(t *testing.T) {
 		t.Fatalf("engineReleaseTag(../sandbox) = %q, want vX.Y.Z", tag)
 	}
 }
+
+func TestExportedBootUsesFiveSecondLiveSync(t *testing.T) {
+	src := bootSource(exportConfig{ServerURL: "https://example.test"})
+	if !strings.Contains(src, "app.SyncInterval = 5f;") {
+		t.Fatalf("online export must poll content within five seconds:\n%s", src)
+	}
+}
