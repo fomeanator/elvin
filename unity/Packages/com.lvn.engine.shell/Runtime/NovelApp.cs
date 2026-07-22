@@ -426,7 +426,14 @@ namespace Lvn.UI.Screens
             // Live content sync — poll the version endpoint; reload on change.
             if (SyncInterval > 0f)
             {
-                _sync = new ContentSync(_assets.Loader) { IntervalSeconds = SyncInterval };
+                _sync = new ContentSync(_assets.Loader)
+                {
+                    IntervalSeconds = SyncInterval,
+                    // Reconcile once immediately after the long boot. Without this,
+                    // an edit made after the chapter fetch but before ContentSync
+                    // starts becomes the first baseline and is never hot-reloaded.
+                    NotifyOnFirstPoll = true,
+                };
                 _sync.OnChanged += OnContentChanged;
                 _sync.Start();
             }
