@@ -40,7 +40,8 @@
       "source": "local",
       "dependencies": {
         "com.lvn.engine": "0.9.0",
-        "com.lvn.engine.services": "0.9.0"
+        "com.lvn.engine.services": "0.9.0",
+        "com.unity.modules.androidjni": "1.0.0"
       }
     },
     "com.lvn.engine.spine": {
@@ -82,6 +83,12 @@
         "com.unity.modules.ui": "1.0.0",
         "com.unity.modules.imgui": "1.0.0"
       }
+    },
+    "com.unity.modules.androidjni": {
+      "version": "1.0.0",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {}
     },
     "com.unity.modules.audio": {
       "version": "1.0.0",
