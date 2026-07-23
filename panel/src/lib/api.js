@@ -37,39 +37,6 @@ export async function putAsset(path, body, token, contentType) {
   return r.json();
 }
 
-// One-click articy:draft import: upload every file of an extracted .adpd project
-// (a browser folder pick) and let the server compile → auto-stage → matte art →
-// add a manifest title. `files` is a FileList/array (each carries webkitRelativePath
-// so the server can rebuild the tree). Returns the server's import summary.
-export function importArticy(files, meta, token, onProgress) {
-  return new Promise((resolve, reject) => {
-    const fd = new FormData();
-    // A single .zip/.rar goes as the "zip"/"rar" part (the server unpacks it); a
-    // picked folder goes as many "f" parts carrying their relative paths so the
-    // tree rebuilds.
-    for (const f of files) {
-      const part = /\.zip$/i.test(f.name) ? "zip" : /\.rar$/i.test(f.name) ? "rar" : "f";
-      fd.append(part, f, f.webkitRelativePath || f.name);
-    }
-    const q = new URLSearchParams({
-      id: meta.id || "", name: meta.name || "", subtitle: meta.subtitle || "",
-    });
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/v1/admin/import-articy?" + q.toString());
-    xhr.setRequestHeader("Authorization", "Bearer " + (token || ""));
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({}); }
-      } else reject(new Error(xhr.status + ": " + (xhr.responseText || "").trim()));
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.send(fd);
-  });
-}
-
 // uploadStaged PUTs a File to the server in chunks, resuming from wherever the
 // server says it left off — a dropped connection re-queries the offset and
 // continues instead of restarting the whole (possibly multi-hundred-MB)
