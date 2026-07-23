@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getManifest, putAsset, importArticy, importBundle } from "../lib/api.js";
+import { getManifest, putAsset, importArticy, uploadStagedWithRetry, importBundleFromPaths } from "../lib/api.js";
 import { slug } from "../lib/sprites.js";
 
 const chapterCount = (t) => (t.seasons || []).reduce((n, s) => n + (s.chapters || []).length, 0);
@@ -73,17 +73,42 @@ export default function LibraryHome({ creds, notify, onOpen }) {
     setBundle({ name: "", files: { articy: null, backgrounds: null, heroine: null, characters: null, vars: null } });
   }
 
+  // Uploads each of the (up to 5) files separately via resumable staged
+  // upload — a dropped/slow connection resumes from the last acked byte
+  // instead of restarting the whole multi-hundred-MB request — then runs the
+  // import as a second, near-instant step once everything is on disk. The
+  // staging id is derived from the title id + file size, so re-opening the
+  // dialog and re-picking the SAME files (e.g. after a reload) resumes rather
+  // than reuploading.
   async function runBundleImport(files, name, template) {
     let id = slug(name) || "imported";
     let base = id, i = 1;
     while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
     setBundle((s) => ({ ...(s || {}), busy: true }));
+
+    const entries = Object.entries(files).filter(([, f]) => f);
+    const totalBytes = entries.reduce((n, [, f]) => n + f.size, 0) || 1;
+    const uploadedBytes = {};
+    const reportProgress = () => {
+      const done = entries.reduce((n, [k]) => n + (uploadedBytes[k] || 0), 0);
+      setImporting({ pct: Math.min(done / totalBytes, 0.99), phase: "Загрузка файлов…" });
+    };
     setImporting({ pct: 0, phase: "Загрузка файлов…" });
+
     try {
-      const r = await importBundle(
-        files, { id, name, subtitle: "", template }, creds.token,
-        (p) => setImporting((s) => ({ ...s, pct: p < 0.99 ? p : 0.99, phase: "Загрузка… " })),
-      );
+      const paths = {};
+      for (const [key, f] of entries) {
+        // Keep the original extension: the server picks its archive extractor
+        // (.zip vs .rar) off the staged filename's suffix.
+        const ext = (f.name.match(/\.[^.]+$/) || [""])[0];
+        const stageId = `${id}-${key}-${f.size}${ext}`;
+        paths[key] = await uploadStagedWithRetry(f, stageId, creds.token, (frac) => {
+          uploadedBytes[key] = frac * f.size;
+          reportProgress();
+        });
+      }
+      setImporting({ pct: 0.99, phase: "Импорт на сервере…" });
+      const r = await importBundleFromPaths(paths, { id, name, subtitle: "", template }, creds.token);
       setImporting({ pct: 1, phase: "Готово" });
       const says = (r.ops && r.ops.say) || 0;
       notify(`✓ «${r.name || name}»: ${says} реплик, ${r.art_files || 0} артов`, "ok");
@@ -95,7 +120,7 @@ export default function LibraryHome({ creds, notify, onOpen }) {
     } catch (e) {
       setImporting(null);
       setBundle((s) => ({ ...(s || {}), busy: false }));
-      notify("✗ " + e.message, "err");
+      notify("✗ " + e.message + " — прогресс загрузки сохранён, можно повторить.", "err");
     }
   }
 

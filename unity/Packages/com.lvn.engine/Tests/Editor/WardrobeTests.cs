@@ -178,23 +178,63 @@ namespace Lvn.Tests
             finally { LvnWardrobe.ClearPreview(Entity); }
         }
 
+        // BUY and CHOOSE are separate acts (partner's ask): an unowned priced
+        // item offers its OWN price; buying keeps the sheet open (so hair and
+        // jacket buy back-to-back), and only "choose" commits — never charging.
         [Test]
-        public void Sheet_ConfirmPriceSumsUnownedPreviews()
+        public void Sheet_UnownedItemOffersBuy_NotChoose()
         {
-            var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать" }, new NoAssets());
+            var sheet = new WardrobeSheet(new WardrobeConfig
+            { confirm_text = "Выбрать", buy_text = "Купить", currency_label = "◆" }, new NoAssets());
             sheet.SetManifest(Manifest());
             try
             {
                 sheet.BuildFor(Entity);
-                LvnWardrobe.Preview(Entity, "armor", "chain"); // priced, unowned
-                // rebuild the button text through the same path the arrows use
-                sheet.BuildFor(Entity);
+                sheet.Step(+1); // leather (free) → chain (300 gold, unowned)
 
-                string confirm = null;
-                Walk(sheet, el => { if (el is Button b && b.text.StartsWith("Выбрать")) confirm = b.text; });
-                StringAssert.Contains("300 gold", confirm, "the confirm button carries the unowned total");
+                string cta = null;
+                Walk(sheet, el => { if (el is Button b && (b.text.StartsWith("Купить") || b.text.StartsWith("Выбрать"))) cta = b.text; });
+                StringAssert.StartsWith("Купить", cta, "an unowned item offers a purchase, not a choose");
+                StringAssert.Contains("300", cta, "the buy button carries THIS item's price");
+                StringAssert.Contains("◆", cta, "currency_label replaces the raw currency id");
             }
             finally { LvnWardrobe.ClearPreview(Entity); }
+        }
+
+        [Test]
+        public async Task Sheet_BuyKeepsShoppingOpen_ChooseCommits()
+        {
+            var prevUrl = Lvn.Services.LvnBackend.BaseUrl;
+            Lvn.Services.LvnBackend.BaseUrl = ""; // offline wallet: pure local mirror
+            Lvn.Services.LvnWallet.ResetLocal();
+            var sheet = new WardrobeSheet(new WardrobeConfig
+            { confirm_text = "Выбрать", buy_text = "Купить" }, new NoAssets());
+            sheet.SetManifest(Manifest());
+            try
+            {
+                await Lvn.Services.LvnWallet.EarnAsync("gold", 400, "test");
+                sheet.BuildFor(Entity);
+                sheet.Step(+1); // chain: 300 gold, unowned
+
+                await sheet.ConfirmAsync(); // = BUY
+                Assert.IsTrue(Lvn.Services.LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(Entity, "armor", "chain")),
+                    "buying lands the sku");
+                Assert.IsFalse(LvnWardrobe.Equipped(Entity).ContainsKey("armor"),
+                    "buying must NOT equip — choosing is a separate act");
+                Assert.AreEqual("chain", LvnWardrobe.Previewed(Entity)["armor"],
+                    "the sheet stays open on the same item after a buy");
+
+                await sheet.ConfirmAsync(); // = CHOOSE (item now owned)
+                Assert.AreEqual("chain", LvnWardrobe.Equipped(Entity)["armor"],
+                    "choose commits the owned piece");
+            }
+            finally
+            {
+                LvnWardrobe.ClearPreview(Entity);
+                LvnWardrobe.Clear(Entity);
+                Lvn.Services.LvnWallet.ResetLocal();
+                Lvn.Services.LvnBackend.BaseUrl = prevUrl;
+            }
         }
 
         private static void Walk(VisualElement root, System.Action<VisualElement> visit)
