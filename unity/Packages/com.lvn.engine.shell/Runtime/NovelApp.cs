@@ -819,6 +819,8 @@ namespace Lvn.UI.Screens
                 _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
                 _storySheet.SetManifest(_manifest);
                 _storySheet.OpenStore = () => _shell.OpenPackShopAsync();
+                _storySheet.ConfirmTopUp = (title, msg) => _shell.ConfirmAsync(title, msg, "Store", "Not now");
+                _storySheet.Alert = (title, msg) => _shell.AlertAsync(title, msg);
                 // Write the player's wardrobe pick back into the novel's story state
                 // (nested, like the script's own `set`), then re-dress the actor
                 // against the new value. Order matters: SetVar BEFORE RefreshActor so
