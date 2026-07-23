@@ -144,6 +144,41 @@ func TestPostProcessBundle(t *testing.T) {
 	}
 }
 
+// TestPostProcessBundleRefreshesCoverURL is a regression test for a live bug:
+// collectArt captures Title.CoverURL / Chapter.BgURL from the FIRST bg op's
+// sprite_url before indexBackgrounds/rewriteScriptOps swap placeholder-era
+// urls for the real HD фон files. Left unrefreshed, the title card and
+// chapter-1 thumbnail point at a stale (often missing/corrupt) file even
+// though the script itself plays the correct background — exactly the "no
+// first background" symptom reported against a live Cold import.
+func TestPostProcessBundleRefreshesCoverURL(t *testing.T) {
+	scriptOps := []map[string]any{
+		{"op": "bg", "id": "Двор", "sprite_url": "/content/bg/STALE_PLACEHOLDER.png"},
+		{"op": "say", "who": "Matvey", "text": "Hi"},
+	}
+	sb, _ := json.Marshal(scriptOps)
+	res := &Result{
+		Sprites: map[string]any{},
+		Scripts: []ScriptFile{{Rel: "scripts/ch1.lvn", Data: sb}},
+		Title: Title{
+			Seasons: []Season{{Chapters: []Chapter{{
+				ID: "ch1", BgURL: "/content/bg/STALE_PLACEHOLDER.png",
+			}}}},
+		},
+	}
+	xd := XlsxData{Locations: map[string]string{"Двор": "Cold_yard"}}
+
+	PostProcessBundle(res, xd, "", nil) // "" = rewrite bg unconditionally (no on-disk фон gate)
+
+	const want = "/content/bg/Cold_yard.png"
+	if got := res.Title.CoverURL; got != want {
+		t.Errorf("Title.CoverURL = %q, want %q (stale pre-rewrite url leaked through)", got, want)
+	}
+	if got := res.Title.Seasons[0].Chapters[0].BgURL; got != want {
+		t.Errorf("Chapter.BgURL = %q, want %q (stale pre-rewrite url leaked through)", got, want)
+	}
+}
+
 func TestPostProcessBundleDocShapeAndSound(t *testing.T) {
 	// The .lvn document object shape ({scene, script:[...]}) with a Sound cue.
 	doc := map[string]any{
