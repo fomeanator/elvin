@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getManifest, putAsset, uploadStagedWithRetry, importBundleFromPaths } from "../lib/api.js";
 import { slug } from "../lib/sprites.js";
 
@@ -8,8 +8,10 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   const [titles, setTitles] = useState([]);
   const [bust, setBust] = useState(() => Date.now());
   const [modal, setModal] = useState(null); // {mode, draft, originalId}
-  const [bundle, setBundle] = useState(null); // import modal: {name, files:{...}, busy}
-  const [importing, setImporting] = useState(null); // {pct, phase}
+  // Import modal: {name, template, files:{key:File}, uploads:{key:{pct,path,err}}, busy}
+  const [bundle, setBundle] = useState(null);
+  const [importing, setImporting] = useState(null); // {pct, phase} — final "run the import" step only
+  const uploadPromises = useRef({}); // key -> in-flight/settled upload promise, awaited by "Импортировать"
 
   useEffect(() => {
     (async () => {
@@ -36,42 +38,60 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   // modal covers both "just play the story" and "the full novel with real art".
   function openBundle() {
     if (!creds.token) { notify("Set the admin token first (top bar).", "err"); return; }
-    setBundle({ name: "", files: { articy: null, backgrounds: null, heroine: null, characters: null, vars: null } });
+    uploadPromises.current = {};
+    setBundle({ name: "", template: "", files: {}, uploads: {} });
   }
 
-  // Uploads each of the (up to 5) files separately via resumable staged
-  // upload — a dropped/slow connection resumes from the last acked byte
-  // instead of restarting the whole multi-hundred-MB request — then runs the
-  // import as a second, near-instant step once everything is on disk. The
-  // staging id is derived from the title id + file size, so re-opening the
-  // dialog and re-picking the SAME files (e.g. after a reload) resumes rather
-  // than reuploading.
-  async function runBundleImport(files, name, template) {
+  // A picked file starts uploading IMMEDIATELY (resumable, chunked) — the
+  // author shouldn't have to fill in every slot and hit "Импортировать"
+  // before bytes start moving. The staging id keys off the file's own name +
+  // size (not the title id, which may not exist yet), so re-picking the same
+  // file later — even for a different title name — resumes rather than
+  // reuploading. The in-flight promise is kept in uploadPromises so
+  // "Импортировать" can await it instead of racing the upload.
+  function pickBundleFile(key, file) {
+    setBundle((s) => ({
+      ...s,
+      files: { ...s.files, [key]: file || null },
+      name: (s.name && s.name.trim()) || (key === "articy" && file ? file.name.replace(/\.(zip|rar)$/i, "") : s.name),
+      uploads: { ...s.uploads, [key]: file ? { pct: 0, path: null, err: null } : undefined },
+    }));
+    if (!file) { delete uploadPromises.current[key]; return; }
+
+    const ext = (file.name.match(/\.[^.]+$/) || [""])[0];
+    const stageId = `${key}-${slug(file.name) || "file"}-${file.size}${ext}`;
+    const p = uploadStagedWithRetry(file, stageId, creds.token, (frac) => {
+      setBundle((s) => (s && s.uploads[key] ? { ...s, uploads: { ...s.uploads, [key]: { ...s.uploads[key], pct: frac } } } : s));
+    }).then((path) => {
+      setBundle((s) => (s && s.uploads[key] ? { ...s, uploads: { ...s.uploads, [key]: { pct: 1, path, err: null } } } : s));
+      return path;
+    }).catch((e) => {
+      setBundle((s) => (s && s.uploads[key] ? { ...s, uploads: { ...s.uploads, [key]: { pct: 0, path: null, err: e.message } } } : s));
+      throw e;
+    });
+    uploadPromises.current[key] = p;
+    p.catch(() => {}); // swallow here — startImport (or a re-pick) surfaces the real error
+  }
+
+  // "Импортировать": wait for every picked file's staged upload to actually
+  // finish (they've been uploading in the background since they were picked),
+  // then run the import as a fast, separate JSON {dir} step.
+  async function startImport() {
+    const name = (bundle.name || "").trim();
+    if (!bundle.files.articy) { notify("Выбери articy-проект (.rar / .zip).", "err"); return; }
+    if (!name) { notify("Назови новеллу.", "err"); return; }
     let id = slug(name) || "imported";
     let base = id, i = 1;
     while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
+    const template = (bundle.template || "").trim();
+
     setBundle((s) => ({ ...(s || {}), busy: true }));
-
-    const entries = Object.entries(files).filter(([, f]) => f);
-    const totalBytes = entries.reduce((n, [, f]) => n + f.size, 0) || 1;
-    const uploadedBytes = {};
-    const reportProgress = () => {
-      const done = entries.reduce((n, [k]) => n + (uploadedBytes[k] || 0), 0);
-      setImporting({ pct: Math.min(done / totalBytes, 0.99), phase: "Загрузка файлов…" });
-    };
-    setImporting({ pct: 0, phase: "Загрузка файлов…" });
-
+    setImporting({ pct: 0.99, phase: "Ждём загрузку файлов…" });
     try {
       const paths = {};
-      for (const [key, f] of entries) {
-        // Keep the original extension: the server picks its archive extractor
-        // (.zip vs .rar) off the staged filename's suffix.
-        const ext = (f.name.match(/\.[^.]+$/) || [""])[0];
-        const stageId = `${id}-${key}-${f.size}${ext}`;
-        paths[key] = await uploadStagedWithRetry(f, stageId, creds.token, (frac) => {
-          uploadedBytes[key] = frac * f.size;
-          reportProgress();
-        });
+      for (const key of Object.keys(bundle.files)) {
+        if (!bundle.files[key]) continue;
+        paths[key] = await uploadPromises.current[key];
       }
       setImporting({ pct: 0.99, phase: "Импорт на сервере…" });
       const r = await importBundleFromPaths(paths, { id, name, subtitle: "", template }, creds.token);
@@ -86,7 +106,7 @@ export default function LibraryHome({ creds, notify, onOpen }) {
     } catch (e) {
       setImporting(null);
       setBundle((s) => ({ ...(s || {}), busy: false }));
-      notify("✗ " + e.message + " — прогресс загрузки сохранён, можно повторить.", "err");
+      notify("✗ " + e.message + " — загрузка не потеряна, можно повторить.", "err");
     }
   }
 
@@ -182,7 +202,8 @@ export default function LibraryHome({ creds, notify, onOpen }) {
         <BundleModal
           bundle={bundle}
           setBundle={setBundle}
-          onImport={runBundleImport}
+          onPickFile={pickBundleFile}
+          onImport={startImport}
           onCancel={() => setBundle(null)}
           notify={notify}
         />
@@ -261,21 +282,18 @@ const BUNDLE_FIELDS = [
   { key: "vars", label: "Переменные", hint: ".xlsx", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
 ];
 
-function BundleModal({ bundle, setBundle, onImport, onCancel, notify }) {
-  const setFile = (key, file) =>
-    setBundle((s) => ({
-      ...s,
-      files: { ...s.files, [key]: file || null },
-      name: (s.name && s.name.trim()) || (key === "articy" && file ? file.name.replace(/\.(zip|rar)$/i, "") : s.name),
-    }));
-
+function BundleModal({ bundle, setBundle, onPickFile, onImport, onCancel, notify }) {
   const name = (bundle.name || "").trim();
-  const ready = !!(bundle.files.articy && name);
+  // "Ready" means articy is fully STAGED (not just picked) — the upload
+  // started the instant it was picked, so by the time the author has named
+  // the novel it's often already done.
+  const articyUpload = bundle.uploads.articy;
+  const ready = !!(bundle.files.articy && articyUpload && articyUpload.path && name);
 
   function go() {
     if (!bundle.files.articy) { notify("Выбери articy-проект (.rar / .zip).", "err"); return; }
     if (!name) { notify("Назови новеллу.", "err"); return; }
-    onImport(bundle.files, name, (bundle.template || "").trim());
+    onImport();
   }
 
   return (
@@ -284,13 +302,22 @@ function BundleModal({ bundle, setBundle, onImport, onCancel, notify }) {
         <h3>Импорт новеллы</h3>
         {BUNDLE_FIELDS.map((f) => {
           const picked = bundle.files[f.key];
+          const up = bundle.uploads[f.key];
+          const state = !picked ? "empty" : up && up.err ? "err" : up && up.path ? "done" : "uploading";
           return (
-            <label key={f.key} className={"import-drop" + (picked ? " over" : "")}>
+            <label key={f.key} className={"import-drop" + (state !== "empty" ? " over" : "")}>
               <input type="file" accept={f.accept} style={{ display: "none" }}
-                     onChange={(e) => setFile(f.key, e.target.files && e.target.files[0])} />
-              {picked
-                ? <b>✓ {picked.name}</b>
-                : <><b>«{f.label}»{f.required ? " *" : ""}</b><span>{f.hint}</span></>}
+                     onChange={(e) => onPickFile(f.key, e.target.files && e.target.files[0])} />
+              {state === "empty" && <><b>«{f.label}»{f.required ? " *" : ""}</b><span>{f.hint}</span></>}
+              {state === "uploading" && (
+                <>
+                  <b>{picked.name}</b>
+                  <div className="import-bar"><div className="import-bar-fill" style={{ width: Math.round((up.pct || 0) * 100) + "%" }} /></div>
+                  <span>Загрузка… {Math.round((up.pct || 0) * 100)}%</span>
+                </>
+              )}
+              {state === "done" && <b>✓ {picked.name}</b>}
+              {state === "err" && <><b>✗ {picked.name}</b><span>{up.err} — выбери файл заново, чтобы повторить</span></>}
             </label>
           );
         })}
