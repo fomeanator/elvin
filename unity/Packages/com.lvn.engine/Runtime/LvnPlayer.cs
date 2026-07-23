@@ -1131,6 +1131,13 @@ namespace Lvn
         /// pick back into the novel's state so downstream logic reads it.</summary>
         public void SetVar(string key, JToken value) => SetVarPath(key, value);
 
+        /// <summary>Read a story variable exactly as `{key}` interpolation / `if key`
+        /// would (dotted paths navigate nested objects). The counterpart to
+        /// <see cref="SetVar"/> — used by the in-story wardrobe to seed its "what's
+        /// worn right now" check from the story's OWN current value, not just its
+        /// own separate equip registry.</summary>
+        public JToken GetVar(string key) => GetVarPath(key);
+
         // Write a possibly-dotted variable path, creating intermediate JObjects.
         // A plain key writes Vars directly (unchanged behaviour); "a.b.c" nests
         // under the root object `a`, so `global.*` all live in one `global` object
