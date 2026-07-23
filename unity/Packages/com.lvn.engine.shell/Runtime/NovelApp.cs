@@ -856,6 +856,7 @@ namespace Lvn.UI.Screens
             // stage so the wardrobe always shows who you're dressing, even when the
             // story beat opened it on an empty stage.
             st?.EnsureActorShown(entity);
+            SeedWardrobeFromStoryVars(entity);
             var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
             await st.ShowPanelAsync(_storySheet);       // dialogue fades, frame slides up
             try { await done; }
@@ -864,6 +865,31 @@ namespace Lvn.UI.Screens
                 await st.HidePanelAsync();              // frame slides away, dialogue returns
                 var cur = _storySheet.CurrentEntity ?? entity;
                 if (!wasOn.Contains(cur)) st.HideActor(cur);
+            }
+        }
+
+        // The in-story sheet decides "what's worn" from LvnWardrobe's OWN equip
+        // registry (session state / restored save) — it has no idea the story's
+        // {Wardrobe.*} var might already hold a different value (the chapter's
+        // own default `set`, or a scene-forced costume change). Left unsynced,
+        // BuildFor sees no match for that axis and jumps the preview to the
+        // list's first item — a visible flash to a random outfit right as the
+        // sheet opens. Sync every axis with a storyVar from the CURRENT var
+        // value first, so the sheet's own initial pick already matches the
+        // actor standing on stage.
+        private void SeedWardrobeFromStoryVars(string entity)
+        {
+            var p = Stage?.Player;
+            var wardrobe = _manifest?.sprites != null && _manifest.sprites.TryGetValue(entity, out var def)
+                ? def?.wardrobe : null;
+            if (p == null || wardrobe == null) return;
+            foreach (var kv in wardrobe)
+            {
+                var storyVar = kv.Value?.storyVar;
+                if (string.IsNullOrEmpty(storyVar)) continue;
+                var v = p.GetVar(storyVar);
+                if (v == null) continue;
+                Lvn.UI.LvnWardrobe.Equip(entity, kv.Key, v.ToString());
             }
         }
 
