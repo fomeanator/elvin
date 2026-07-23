@@ -450,7 +450,7 @@ namespace Lvn.UI.Screens
             ShowItem(); // also previews it, so the carousel and the actor agree
         }
 
-        private void Step(int dir)
+        internal void Step(int dir)
         {
             var items = Items(_tab);
             if (items.Count == 0) return;
@@ -472,8 +472,22 @@ namespace Lvn.UI.Screens
             RefreshConfirm();
         }
 
-        // The confirm button carries the total price of everything previewed
-        // but not yet owned, per currency — free/owned try-ons confirm at 0.
+        // The item the carousel is showing on the active tab — the button's
+        // subject. BUY and CHOOSE are separate acts (partner's ask): browsing
+        // an unowned priced item offers to buy JUST IT (the sheet stays open,
+        // so a hairstyle and a jacket buy back-to-back); once owned, the same
+        // button turns into the plain "choose" that commits the look.
+        private LvnWardrobeItem CurrentItem()
+        {
+            var items = Items(_tab);
+            if (items.Count == 0) return null;
+            return items[Mathf.Clamp(_index.TryGetValue(_tab, out var i) ? i : 0, 0, items.Count - 1)];
+        }
+
+        private bool IsOwned(LvnWardrobeItem item) =>
+            item == null || item.price <= 0
+            || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
+
         private void RefreshConfirm()
         {
             // Self-healing: any refresh (browse, wallet change, reopen) revives
@@ -481,37 +495,18 @@ namespace Lvn.UI.Screens
             // delayed-enable can never leave it dead again.
             if (!_buying) _confirm.SetEnabled(true);
 
-            var costs = UnownedPreviewCosts();
-            var text = _cfg.confirm_text ?? "Choose";
-            if (costs.Count > 0)
+            var item = CurrentItem();
+            if (item != null && !IsOwned(item))
             {
-                var parts = new List<string>();
-                foreach (var kv in costs) parts.Add($"{kv.Value:N0} {kv.Key}");
-                text += ":  " + string.Join(" + ", parts);
-                var have = new List<string>();
-                foreach (var kv in costs)
-                    have.Add($"{kv.Key}: need {kv.Value}, have {(LvnWallet.Balances.TryGetValue(kv.Key, out var b) ? b : 0)}");
-                Debug.Log($"[lvn-wardrobe] sheet confirm price → {string.Join("; ", have)}");
+                var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
+                _confirm.text = $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {cur}";
+                Debug.Log($"[lvn-wardrobe] sheet buy offer {_entity}.{_tab}='{item.value}' " +
+                          $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
-            _confirm.text = text;
+            else _confirm.text = _cfg.confirm_text ?? "Choose";
         }
 
-        private Dictionary<string, long> UnownedPreviewCosts()
-        {
-            var costs = new Dictionary<string, long>();
-            if (_def?.wardrobe == null) return costs;
-            foreach (var kv in LvnWardrobe.Previewed(_entity))
-            {
-                var item = Find(kv.Key, kv.Value);
-                if (item == null || item.price <= 0) continue;
-                if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, kv.Key, item.value))) continue;
-                costs.TryGetValue(item.currency ?? "", out var sum);
-                costs[item.currency ?? ""] = sum + item.price;
-            }
-            return costs;
-        }
-
-        private async Task ConfirmAsync()
+        internal async Task ConfirmAsync()
         {
             if (_buying) return;
             _buying = true;
@@ -525,16 +520,20 @@ namespace Lvn.UI.Screens
                 // an already-bought item could be charged twice.
                 await LvnWallet.RefreshAsync();
 
-                // buy everything previewed-but-unowned, then commit the lot
+                var current = CurrentItem();
+                if (current != null && !IsOwned(current))
+                {
+                    await BuyCurrentAsync(current);
+                    return; // the sheet stays open — buying is not choosing
+                }
+
+                // CHOOSE: commit every previewed piece the player owns (or that
+                // is free). An unowned priced piece browsed on another tab was
+                // never bought — snap it back rather than silently charging.
                 var previewed = new Dictionary<string, string>();
                 foreach (var kv in LvnWardrobe.Previewed(_entity)) previewed[kv.Key] = kv.Value;
-                Debug.Log($"[lvn-wardrobe] sheet CONFIRM: previewed [{string.Join(", ", ToPairs(previewed))}], " +
-                          $"balances [{string.Join(", ", ToPairs(LvnWallet.Balances))}], " +
+                Debug.Log($"[lvn-wardrobe] sheet CHOOSE: previewed [{string.Join(", ", ToPairs(previewed))}], " +
                           $"inventory [{string.Join(", ", LvnWallet.Inventory.Keys)}]");
-                // Per-slot commit: a failed buy rolls only ITS slot back to
-                // what's equipped and never blocks the rest of the look — the
-                // player keeps the free/owned pieces they picked.
-                var failed = new List<string>();
                 foreach (var kv in previewed)
                 {
                     var item = Find(kv.Key, kv.Value);
@@ -543,21 +542,12 @@ namespace Lvn.UI.Screens
                         Debug.LogWarning($"[lvn-wardrobe] previewed {kv.Key}='{kv.Value}' has NO catalog item — skipped");
                         continue;
                     }
-                    var sku = LvnWardrobe.Sku(_entity, kv.Key, item.value);
-                    if (item.price > 0 && !LvnWallet.Inventory.ContainsKey(sku))
+                    bool owned = item.price <= 0
+                        || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, kv.Key, item.value));
+                    if (!owned)
                     {
-                        Debug.Log($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
-                        bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
-                        Debug.Log($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
-                                  $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
-                        LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
-                            ("entity", _entity), ("sku", sku));
-                        if (!ok)
-                        {
-                            failed.Add($"{item.price:N0} {item.currency}");
-                            LvnWardrobe.Preview(_entity, kv.Key, null); // snap this slot back
-                            continue;
-                        }
+                        LvnWardrobe.Preview(_entity, kv.Key, null); // browsed, not bought
+                        continue;
                     }
                     LvnWardrobe.Equip(_entity, kv.Key, kv.Value);
                     // Write the pick back into the novel's story state (nested var) so
@@ -566,24 +556,9 @@ namespace Lvn.UI.Screens
                         ? slot.storyVar : null;
                     if (!string.IsNullOrEmpty(sv)) OnEquip?.Invoke(_entity, sv, kv.Value);
                 }
-                Debug.Log($"[lvn-wardrobe] sheet confirm DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]" +
-                          (failed.Count > 0 ? $", failed [{string.Join(", ", failed)}]" : ""));
-                if (failed.Count == 0)
-                {
-                    LvnWardrobe.ClearPreview(_entity); // equips now cover the look
-                    _tcs?.TrySetResult(true);
-                }
-                else
-                {
-                    // The affordable part is applied; say WHY the rest didn't
-                    // land and stay open so the player can rethink or top up.
-                    _confirm.text = (_cfg.insufficient_text ?? "Not enough") + ": " + string.Join(" + ", failed);
-                    _confirm.schedule.Execute(() =>
-                    {
-                        _confirm.SetEnabled(true);
-                        RefreshConfirm();
-                    }).ExecuteLater(1800);
-                }
+                Debug.Log($"[lvn-wardrobe] sheet choose DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]");
+                LvnWardrobe.ClearPreview(_entity); // equips now cover the look
+                _tcs?.TrySetResult(true);
             }
             finally
             {
@@ -591,6 +566,33 @@ namespace Lvn.UI.Screens
                 if (_confirm.enabledSelf == false && _confirm.text == "…")
                 { _confirm.SetEnabled(true); _confirm.text = label; }
             }
+        }
+
+        // Buy exactly the browsed item; on success the button flips to the
+        // plain "choose" (RefreshConfirm sees it owned) and the player keeps
+        // shopping — the next tab's piece is one more press away.
+        private async Task BuyCurrentAsync(LvnWardrobeItem item)
+        {
+            var sku = LvnWardrobe.Sku(_entity, _tab, item.value);
+            Debug.Log($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
+            bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+            Debug.Log($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
+                      $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
+            LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
+                ("entity", _entity), ("sku", sku));
+            if (ok)
+            {
+                _buying = false;
+                RefreshConfirm();
+                return;
+            }
+            // Say WHY it didn't land and stay open so the player can top up.
+            _confirm.text = (_cfg.insufficient_text ?? "Not enough") + ": " + $"{item.price:N0} {item.currency}";
+            _confirm.schedule.Execute(() =>
+            {
+                _confirm.SetEnabled(true);
+                RefreshConfirm();
+            }).ExecuteLater(1800);
         }
 
         private static IEnumerable<string> ToPairs<T>(IReadOnlyDictionary<string, T> map)

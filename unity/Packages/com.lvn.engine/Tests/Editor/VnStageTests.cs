@@ -38,6 +38,24 @@ namespace Lvn.Tests
             Assert.AreEqual(0.25f, p.X, 0.001f);
         }
 
+        // Per-entity slot overrides (LvnSpriteEntity.slots): the partner tunes
+        // where ONE character stands on a named slot — the global table, other
+        // characters and explicit x are untouched.
+        [Test]
+        public void PlacementFrom_EntitySlotOverrideRetunesNamedPosition()
+        {
+            var slots = new System.Collections.Generic.Dictionary<string, float> { ["left"] = 0.40f };
+            var named = new JObject { ["op"] = "actor", ["id"] = "x", ["position"] = "left" };
+            Assert.AreEqual(0.40f, VnStage.PlacementFrom(named, slots).X, 0.001f,
+                "the entity's slot override wins over the global table");
+            Assert.AreEqual(0.75f, VnStage.PlacementFrom(
+                new JObject { ["op"] = "actor", ["position"] = "right" }, slots).X, 0.001f,
+                "labels the entity doesn't override keep the global value");
+            var explicitX = new JObject { ["op"] = "actor", ["position"] = "left", ["x"] = 0.9 };
+            Assert.AreEqual(0.9f, VnStage.PlacementFrom(explicitX, slots).X, 0.001f,
+                "an explicit x in the command still beats every table");
+        }
+
         [Test]
         public void PlacementFromExplicitXY()
         {
