@@ -46,16 +46,22 @@ export async function putAsset(path, body, token, contentType) {
 // import-bundle's JSON {dir} fields — see importBundleFromPaths below).
 export async function uploadStaged(file, id, token, onProgress, chunkSize = 8 * 1024 * 1024) {
   const headers = { Authorization: "Bearer " + (token || "") };
-  let offset = 0;
+  const url = "/v1/admin/staged-upload/" + encodeURIComponent(id);
+  let offset = 0, path = null;
   {
-    const r = await fetch("/v1/admin/staged-upload/" + encodeURIComponent(id), { headers });
-    if (r.ok) offset = (await r.json()).offset || 0;
+    const r = await fetch(url, { headers });
+    if (r.ok) {
+      const b = await r.json();
+      offset = b.offset || 0;
+      path = b.path || null; // already-staged from an earlier run — no PUT needed at all
+    }
   }
-  if (offset > file.size) offset = 0; // stale/mismatched staged file — start over
+  if (offset > file.size) { offset = 0; path = null; } // stale/mismatched staged file — start over
+  if (offset === file.size && path) { if (onProgress) onProgress(1); return path; }
   while (offset < file.size) {
     const end = Math.min(offset + chunkSize, file.size);
     const chunk = file.slice(offset, end);
-    const r = await fetch("/v1/admin/staged-upload/" + encodeURIComponent(id), {
+    const r = await fetch(url, {
       method: "PUT",
       headers: { ...headers, "Content-Range": `bytes ${offset}-${end - 1}/${file.size}` },
       body: chunk,
@@ -67,11 +73,11 @@ export async function uploadStaged(file, id, token, onProgress, chunkSize = 8 * 
     }
     if (!r.ok) throw new Error(r.status + ": server rejected chunk at " + offset);
     offset = body.offset;
+    path = body.path;
     if (onProgress) onProgress(offset / file.size);
   }
-  const r = await fetch("/v1/admin/staged-upload/" + encodeURIComponent(id), { headers });
-  const body = await r.json();
-  return body.path;
+  if (!path) throw new Error("server didn't confirm the staged path"); // defensive — should be unreachable
+  return path;
 }
 
 // uploadStagedWithRetry wraps uploadStaged with resume-on-failure: a network
