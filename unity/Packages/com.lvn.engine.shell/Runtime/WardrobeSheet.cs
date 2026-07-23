@@ -37,6 +37,15 @@ namespace Lvn.UI.Screens
         /// <summary>Host hook: open the currency store (the pills' "+" tap).
         /// NovelShell wires this to its StoreScreen.</summary>
         public System.Func<Task> OpenStore;
+        /// <summary>Host hook: "not enough X — go to the store?" (title, message) →
+        /// true to open the store and retry the purchase once. Same "ONE store
+        /// everywhere" pattern as the chapter/title entry gates
+        /// (NovelApp.ChargeChapterEntryAsync) — NovelShell wires this to its
+        /// universal ConfirmAsync popup.</summary>
+        public System.Func<string, string, Task<bool>> ConfirmTopUp;
+        /// <summary>Host hook: a final "still not enough" notice after the
+        /// store-and-retry above still failed.</summary>
+        public System.Func<string, string, Task> Alert;
         /// <summary>Fired on confirm, once per equipped axis that carries a story `var`
         /// (entity, storyVar, value) — the host writes it back into the novel's state.
         /// Not fired on cancel/collapse or for a skipped axis, so an unchanged slot
@@ -586,8 +595,31 @@ namespace Lvn.UI.Screens
                 RefreshConfirm();
                 return;
             }
-            // Say WHY it didn't land and stay open so the player can top up.
-            _confirm.text = (_cfg.insufficient_text ?? "Not enough") + ": " + $"{item.price:N0} {item.currency}";
+
+            var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
+            string title = _cfg.insufficient_text ?? "Not enough";
+            string msg = $"{title}: {item.price:N0} {cur}";
+
+            // Offer the store and retry once — same pattern as the chapter/title
+            // entry gates. Falls back to just flashing the reason on the button
+            // if the host hasn't wired the popup hooks (older shells).
+            if (ConfirmTopUp != null && OpenStore != null)
+            {
+                bool toStore = await ConfirmTopUp(title, msg);
+                if (toStore)
+                {
+                    await OpenStore();
+                    await LvnWallet.RefreshAsync();
+                    ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+                    if (!ok && Alert != null) await Alert(title, msg);
+                }
+                _buying = false;
+                RefreshConfirm();
+                return;
+            }
+
+            // No popup hooks wired — fall back to flashing the reason on the button.
+            _confirm.text = msg;
             _confirm.schedule.Execute(() =>
             {
                 _confirm.SetEnabled(true);
