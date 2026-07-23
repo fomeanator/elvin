@@ -48,6 +48,21 @@ namespace Lvn.EditorTools
             var dev = Environment.GetEnvironmentVariable("LVN_BUILD_DEV") == "1";
             if (dev) Debug.Log("[lvn-build] development build (test overrides armed)");
 
+            // Android defaults to Auto graphics APIs (Vulkan first, GLES3
+            // fallback) — but Unity 6's Vulkan path is already known to hang
+            // the Google AVD before the first log line (qa/monkey.sh pins
+            // -feature -Vulkan for exactly this reason). A real device/host
+            // emulator (BlueStacks etc.) has no such escape hatch: it just
+            // tries Vulkan and the process dies within a second of the
+            // activity displaying. Pin GLES3-only so every Android build gets
+            // the path that's actually proven stable, not just the AVD tests.
+            if (target == BuildTarget.Android)
+            {
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android,
+                    new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
+                Debug.Log("[lvn-build] Android graphics API pinned to OpenGLES3 (Vulkan disabled)");
+            }
+
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { EnsureBootScene() },
