@@ -51,6 +51,18 @@ func decodeOffset(t *testing.T, w *httptest.ResponseRecorder) int64 {
 	return body.Offset
 }
 
+func decodeOffsetAndPath(t *testing.T, w *httptest.ResponseRecorder) (int64, string) {
+	t.Helper()
+	var body struct {
+		Offset int64  `json:"offset"`
+		Path   string `json:"path"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response %q: %v", w.Body.String(), err)
+	}
+	return body.Offset, body.Path
+}
+
 func TestStagedUploadRejectsWithoutToken(t *testing.T) {
 	s := newStagedUploadTestServer(t)
 	req := httptest.NewRequest(http.MethodPut, "/v1/admin/staged-upload/x", strings.NewReader("hi"))
@@ -80,9 +92,18 @@ func TestStagedUploadFullPutThenGet(t *testing.T) {
 		t.Errorf("offset after full PUT = %d, want %d", got, len(data))
 	}
 
+	// Regression: the client resolves the staged path from THIS GET when a
+	// file was already fully uploaded in an earlier run (or finished on an
+	// earlier chunk) — a GET that reports the right offset but omits path
+	// leaves the client waiting forever with no error and no progress.
 	g := stagedGet(s, "file-1")
-	if got := decodeOffset(t, g); got != int64(len(data)) {
-		t.Errorf("GET offset = %d, want %d", got, len(data))
+	gotOffset, gotPath := decodeOffsetAndPath(t, g)
+	if gotOffset != int64(len(data)) {
+		t.Errorf("GET offset = %d, want %d", gotOffset, len(data))
+	}
+	wantPath := filepath.Join(s.stagingDir(), "file-1")
+	if gotPath != wantPath {
+		t.Errorf("GET path = %q, want %q", gotPath, wantPath)
 	}
 
 	on, err := os.ReadFile(filepath.Join(s.stagingDir(), "file-1"))
