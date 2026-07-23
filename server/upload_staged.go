@@ -60,7 +60,11 @@ func (s *server) handleStagedUpload(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{"offset": 0})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"offset": info.Size()})
+		// path included so a client whose upload finished on an earlier chunk
+		// (or was already fully staged from a prior run) can pick it up
+		// straight from this GET without a further PUT — mirrors the PUT
+		// response shape.
+		writeJSON(w, http.StatusOK, map[string]any{"offset": info.Size(), "path": path})
 
 	case http.MethodPut:
 		start := int64(0)
