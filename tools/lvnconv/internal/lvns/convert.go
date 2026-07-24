@@ -41,6 +41,12 @@ var KnownOps = map[string]bool{
 	// `ext <op> k=v …` compiles a HOST-DEFINED op ({op:"<op>", …}) — the game's
 	// C# handles it via LvnOps.Register (see the embedding guide).
 	"ext": true,
+	// wardrobe_show opens the in-story wardrobe for `char` — emitted by the
+	// bundle importer's wardrobe-scene substitution (bundle_wire.go), handled
+	// by NovelApp/WardrobeSheet at runtime. Round-trip needs it recognized
+	// here too, or a decompiled chapter that opens the wardrobe fails to
+	// recompile ("unknown command") the moment an author re-saves it.
+	"wardrobe_show": true,
 }
 
 var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*(.*)$`)
@@ -1118,8 +1124,41 @@ func parseChoiceOption(line string) (map[string]any, error) {
 			opt[k] = v
 		}
 	}
+	// wallet_cost="20 crystals" is the REAL price LvnPlayer.Choose charges
+	// (distinct from the narrative `cost` caption) — reconstruct the
+	// {amount,currency} shape the runtime expects, the same as ToLvns wrote it.
+	if wc, ok := opt["wallet_cost"].(string); ok {
+		if m := reWalletCost.FindStringSubmatch(wc); m != nil {
+			amt, _ := strconv.ParseFloat(m[1], 64)
+			opt["wallet_cost"] = map[string]any{"amount": amt, "currency": m[2]}
+		}
+	}
+	// effects="Матвей:+2,Мирон:+1" is the cosmetic "+2 Матвей" choice-preview
+	// hint (AnnotateChoiceEffects) — reconstruct the [{label,delta}] shape.
+	if es, ok := opt["effects"].(string); ok {
+		var effects []any
+		for _, part := range strings.Split(es, ",") {
+			m := reEffect.FindStringSubmatch(strings.TrimSpace(part))
+			if m == nil {
+				continue
+			}
+			delta, err := strconv.Atoi(m[2])
+			if err != nil {
+				continue
+			}
+			effects = append(effects, map[string]any{"label": m[1], "delta": delta})
+		}
+		if len(effects) > 0 {
+			opt["effects"] = effects
+		} else {
+			delete(opt, "effects")
+		}
+	}
 	return opt, nil
 }
+
+var reWalletCost = regexp.MustCompile(`^([0-9]+(?:\.[0-9]+)?)\s+(\S+)$`)
+var reEffect = regexp.MustCompile(`^(.+):([+-][0-9]+)$`)
 
 func parseKeyValue(s string) (map[string]any, error) {
 	res := make(map[string]any)
