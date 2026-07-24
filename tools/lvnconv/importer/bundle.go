@@ -169,6 +169,24 @@ func RunBundle(in BundleInputs, contentDir, stageDir string, opt Options) (*Resu
 			}
 		}
 	}
+	// EVERY rewrite from PostProcessBundle onward (wardrobe wiring, speaker
+	// renaming, outfit/hair/mirror stamping, bg/audio rewriting, and the
+	// declared-default strip just above) mutates only the .lvn — each pass
+	// reads decodeScriptOps, which explicitly no-ops on a .lvns sidecar. The
+	// .lvns was decompiled once, back in Run()/runMultiChapter(), from the
+	// PRE-rewrite doc: left alone, it silently drifts from the .lvn it's
+	// supposed to be the editable source of — missing the protagonist's
+	// outfit/hair/mirror, showing the articy label instead of the template's
+	// display name, pointing at a placeholder bg path instead of the real HD
+	// asset, with no audio cues at all. The Studio panel's "Save to app"
+	// recompiles exactly this stale .lvns, so an author editing an imported
+	// chapter would silently bake all of that loss into the shipped .lvn.
+	// Re-decompile from the FINAL script, now that every rewrite (INCLUDING
+	// the default-strip above) is done — so the regenerated .lvns never
+	// re-introduces the declared-default boilerplate stripDeclaredDefaultLines
+	// just removed (that pass only recognizes its own genericOp text shape,
+	// not ToLvns's short "key = value" form for a simple/non-namespaced key).
+	regenerateLvnsSidecars(res)
 	// A bundle-imported novel is SELF-CONTAINED — its own protagonist, cast and
 	// wardrobe, NOT our shared heroine. Mark it standalone and name its own hero so
 	// the app resolves title.hero (not manifest.hero) for it.
