@@ -79,6 +79,25 @@ namespace Lvn.UI
             set { PlayerPrefs.SetInt(P + "seen_welcome", value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
+        /// <summary>Player opted into picking the content server manually at
+        /// boot (a CS 1.6-style server browser) instead of auto-connecting to
+        /// the first known server that answers /healthz. Off by default — the
+        /// picker only appears once the player has asked for it once.</summary>
+        public static bool ManualServerSelect
+        {
+            get => PlayerPrefs.GetInt(P + "manual_server_select", 0) == 1;
+            set { PlayerPrefs.SetInt(P + "manual_server_select", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>The last server URL the player picked or typed in the boot
+        /// server browser — "" means "use the build's default". Persists so a
+        /// self-hoster doesn't retype their URL on every launch.</summary>
+        public static string ServerUrlOverride
+        {
+            get => PlayerPrefs.GetString(P + "server_url_override", "");
+            set { PlayerPrefs.SetString(P + "server_url_override", value ?? ""); PlayerPrefs.Save(); }
+        }
+
         public static float TextSpeed
         {
             get { EnsureLoaded(); return _textSpeed; }
