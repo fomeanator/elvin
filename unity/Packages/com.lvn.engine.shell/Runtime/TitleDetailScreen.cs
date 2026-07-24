@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -19,8 +20,9 @@ namespace Lvn.UI.Screens
     /// <see cref="TaskCompletionSource{TResult}"/> resolved by Close/back, then fades
     /// out. Content is built by <see cref="Rebuild"/> so tests and hosts can render
     /// it without driving the fade. Every colour comes from <see cref="LvnTokens"/>
-    /// (the "Полночь" palette); the fields below are HARDCODED demo fallbacks so the
-    /// screen reads as complete before the real data plumbing lands.
+    /// (the "Полночь" palette). Stats/chapters/saves are all read from the real
+    /// <see cref="Title"/> + <see cref="StatVars"/> the host seeds before Rebuild —
+    /// no section renders placeholder data; an unconfigured one just stays hidden.
     ///
     /// LAYOUT RULES (learned the hard way):
     ///  - every child of the ScrollView content gets flex-shrink 0, or Yoga
@@ -56,38 +58,20 @@ namespace Lvn.UI.Screens
         /// <see cref="LvnProgress.ResetTitle"/>). Null → progress-only reset.</summary>
         public System.Func<LvnTitle, Task> OnResetProgress;
 
-        // ── Hardcoded demo data (real wiring comes later) ────────────────────
+        // Fallback text for a title the host hasn't seeded yet — real values
+        // (TitleName/HeroImageUrl/Synopsis) are overwritten by NovelApp from
+        // the actual LvnTitle before every Rebuild().
         public string HeroImageUrl = "/content/cards/card0.png";
         public int EnergyCost = 1;
-        public string TitleName = "Полночь в Вентспилсе";
-        public string Chips = "Романтика · 18+ · 3 главы";
-        public string Synopsis =
-            "Ты приезжаешь в приморский город на последнее лето перед взрослой жизнью. " +
-            "Старый маяк, чужие тайны и человек, которого ты не должна была встретить — " +
-            "каждый твой выбор перепишет эту историю. Кому ты доверишься, когда стемнеет?";
+        public string TitleName = "";
+        public string Chips = "";
+        public string Synopsis = "";
 
-        private static readonly (string Name, int Value, int Max)[] DemoStats =
-        {
-            ("Репутация", 7, 10),
-            ("Доверие", 4, 10),
-            ("Смелость", 9, 10),
-        };
-
-        // state: 0 = пройдено, 1 = текущая, 2 = закрыто
-        private static readonly (int No, string Name, int State)[] DemoChapters =
-        {
-            (1, "Прибытие", 0),
-            (2, "Огни маяка", 1),
-            (3, "Шёпот прилива", 2),
-            (4, "Буря", 2),
-            (5, "Рассвет", 2),
-        };
-
-        private static readonly (string Slot, string Where)[] DemoSaves =
-        {
-            ("Автосохранение", "Глава 2 · 45%"),
-            ("Слот 1", "Глава 1 · 100%"),
-        };
+        /// <summary>The player's live vars for THIS title (title-scope + a nested
+        /// "global" for cross-title stats), as loaded by the host from the state
+        /// store. Null/empty → every stat reads as its zero value. Set before
+        /// <see cref="Rebuild"/>.</summary>
+        public JObject StatVars;
 
         public TitleDetailScreen(ILvnAssets assets)
         {
@@ -170,8 +154,10 @@ namespace Lvn.UI.Screens
 
             body.Add(BuildTitleBlock());
             body.Add(BuildSynopsis());
-            body.Add(BuildStatsSection());
-            body.Add(BuildChaptersSection());
+            var stats = BuildStatsSection();
+            if (stats != null) body.Add(stats);
+            var chapters = BuildChaptersSection();
+            if (chapters != null) body.Add(chapters);
             body.Add(BuildSavesSection());
 
             BuildActionBar(_actionBar);
@@ -296,73 +282,49 @@ namespace Lvn.UI.Screens
             return p;
         }
 
-        // ── 4. accumulated stats — labelled bar meters ───────────────────────
+        // ── 4. player stats — trait pairs (proportional bar, no fixed max) plus
+        // per-character relationship meters (0..max bar), driven entirely by
+        // Title.stats + StatVars. A title with no stats configured renders no
+        // section at all — never placeholder numbers.
         private VisualElement BuildStatsSection()
         {
+            if (Title?.stats == null || Title.stats.Count == 0) return null;
+
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 34;
             section.Add(SectionHeader("Твои статы"));
 
-            foreach (var s in DemoStats)
-            {
-                var row = new VisualElement();
-                row.style.flexShrink = 0;
-                row.style.flexDirection = FlexDirection.Column;
-                row.style.marginTop = 20;
-
-                var head = new VisualElement();
-                head.style.flexShrink = 0;
-                head.style.flexDirection = FlexDirection.Row;
-                head.style.justifyContent = Justify.SpaceBetween;
-                head.style.alignItems = Align.Center;
-                head.style.marginBottom = 10;
-
-                var name = new Label(s.Name);
-                name.style.color = LvnTokens.Text;
-                name.style.fontSize = 24;
-                head.Add(name);
-
-                var value = new Label($"{s.Value}/{s.Max}");
-                value.style.color = LvnTokens.Accent;
-                value.style.fontSize = 22;
-                value.style.unityFontStyleAndWeight = FontStyle.Bold;
-                head.Add(value);
-                row.Add(head);
-
-                // meter: a track with an Accent-filled portion (its own line, below the head)
-                var track = new VisualElement();
-                track.style.height = 12;
-                track.style.flexShrink = 0;
-                track.style.backgroundColor = LvnTokens.SurfaceHi;
-                Round(track, 6f);
-                track.style.overflow = Overflow.Hidden;
-
-                var fill = new VisualElement();
-                fill.style.height = Length.Percent(100f);
-                float pct = s.Max > 0 ? Mathf.Clamp01((float)s.Value / s.Max) : 0f;
-                fill.style.width = Length.Percent(pct * 100f);
-                fill.style.backgroundColor = LvnTokens.Accent;
-                Round(fill, 6f);
-                track.Add(fill);
-                row.Add(track);
-
-                section.Add(row);
-            }
+            foreach (var s in Title.stats)
+                if (s != null)
+                    section.Add(StatRows.Row(s, key => StatVars?.SelectToken(key)));
 
             return section;
         }
 
-        // ── 5. chapters list ─────────────────────────────────────────────────
+        // ── 5. chapters list — real chapters + real reading progress ─────────
         private VisualElement BuildChaptersSection()
         {
+            var chapterList = ChaptersOf(Title);
+            if (chapterList.Count == 0) return null;
+
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 36;
             section.Add(SectionHeader("Главы"));
 
-            foreach (var ch in DemoChapters)
-                section.Add(ChapterRow(ch.No, ch.Name, ch.State));
+            int reached = LvnProgress.Reached(Title);
+            var current = LvnProgress.Current(Title);
+            foreach (var ch in chapterList)
+            {
+                // state: 1 = the continue point; 0 = at/before the furthest chapter
+                // reached (covers "novel finished" too — Current clears then, so
+                // every reached chapter reads as passed); 2 = never started.
+                int state = current != null && ch.id == current.id ? 1
+                    : ch.number <= reached ? 0
+                    : 2;
+                section.Add(ChapterRow(ch.number, ChapterLabel(ch), state));
+            }
 
             return section;
         }
@@ -424,7 +386,13 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        // ── 6. saves — continue button + save-slot rows ──────────────────────
+        // ── 6. saves — continue button + the real autosave row ───────────────
+        // Only the autosave is shown: it's the one slot the normal Play/Continue
+        // flow restores to its exact cursor (PlayOneChapterAsync calls
+        // Stage.RestoreSnapshot on it) — a named manual slot from the in-game
+        // save menu would need its own precise cross-slot entry point, which
+        // doesn't exist yet, so showing one here would just mislabel where
+        // "Загрузить" actually lands.
         private VisualElement BuildSavesSection()
         {
             var section = new VisualElement();
@@ -432,26 +400,58 @@ namespace Lvn.UI.Screens
             section.style.marginTop = 36;
             section.Add(SectionHeader("Сохранения"));
 
-            var cont = new Button(Play) { text = "Продолжить" };
-            cont.style.flexShrink = 0;
-            cont.style.marginTop = 14;
-            cont.style.fontSize = 28;
-            cont.style.paddingTop = 18;
-            cont.style.paddingBottom = 18;
-            cont.style.unityFontStyleAndWeight = FontStyle.Bold;
-            cont.style.color = LvnTokens.OnAccent;
-            cont.style.backgroundColor = LvnTokens.Accent;
-            ClearBorder(cont);
-            Round(cont, LvnTokens.RadiusSm);
-            section.Add(cont);
+            bool hasProgress = Title != null
+                && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0);
+            if (hasProgress)
+            {
+                var cont = new Button(Play) { text = "Продолжить" };
+                cont.style.flexShrink = 0;
+                cont.style.marginTop = 14;
+                cont.style.fontSize = 28;
+                cont.style.paddingTop = 18;
+                cont.style.paddingBottom = 18;
+                cont.style.unityFontStyleAndWeight = FontStyle.Bold;
+                cont.style.color = LvnTokens.OnAccent;
+                cont.style.backgroundColor = LvnTokens.Accent;
+                ClearBorder(cont);
+                Round(cont, LvnTokens.RadiusSm);
+                section.Add(cont);
+            }
 
-            foreach (var save in DemoSaves)
-                section.Add(SaveRow(save.Slot, save.Where));
+            var auto = Title != null ? LvnSaveStore.Get(Title.id, LvnSaveStore.AutoSlot) : null;
+            if (auto?.Snap != null)
+                section.Add(SaveRow("Автосохранение", DescribeSave(Title, auto), Play));
+            else if (!hasProgress)
+            {
+                var empty = new Label("Пока нет сохранений — начните читать.");
+                empty.style.color = LvnTokens.TextDim;
+                empty.style.fontSize = 20;
+                empty.style.marginTop = 10;
+                empty.style.whiteSpace = WhiteSpace.Normal;
+                section.Add(empty);
+            }
 
             return section;
         }
 
-        private VisualElement SaveRow(string slot, string where)
+        private static string DescribeSave(LvnTitle t, LvnSaveSlot slot)
+        {
+            var chapter = ChaptersOf(t).Find(c => c.id == slot.ChapterId);
+            string label = chapter != null ? ChapterLabel(chapter) : slot.ChapterId ?? "";
+            return $"{label} · {RelativeTime(slot.SavedAtUnixMs)}";
+        }
+
+        private static string RelativeTime(long unixMs)
+        {
+            if (unixMs <= 0) return "";
+            var span = System.DateTimeOffset.UtcNow - System.DateTimeOffset.FromUnixTimeMilliseconds(unixMs);
+            if (span.TotalMinutes < 1) return "только что";
+            if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} мин назад";
+            if (span.TotalHours < 24) return $"{(int)span.TotalHours} ч назад";
+            return $"{(int)span.TotalDays} дн назад";
+        }
+
+        private VisualElement SaveRow(string slot, string where, System.Action onLoad)
         {
             var row = new VisualElement();
             row.style.flexShrink = 0;
@@ -481,8 +481,8 @@ namespace Lvn.UI.Screens
             col.Add(whereLbl);
             row.Add(col);
 
-            var load = new Button { text = "Загрузить" }; // demo slot — inert (see ChapterRow)
-            load.SetEnabled(false);
+            var load = new Button(onLoad) { text = "Загрузить" };
+            load.SetEnabled(onLoad != null);
             load.style.flexShrink = 0;
             load.style.marginLeft = 12;
             load.style.fontSize = 22;

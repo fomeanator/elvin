@@ -151,6 +151,28 @@ namespace Lvn.UI
                 btn.Add(cost);
             }
 
+            // Stat award preview ("+2 Матвей") — the importer's best-effort read
+            // of what picking this option actually does, never executed here.
+            if (option.Effects != null && option.Effects.Count > 0)
+            {
+                var effRow = new VisualElement();
+                effRow.style.flexDirection = FlexDirection.Row;
+                effRow.style.flexWrap = Wrap.Wrap;
+                effRow.style.justifyContent = Justify.Center;
+                effRow.style.marginTop = 4;
+                foreach (var eff in option.Effects)
+                {
+                    var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}");
+                    chip.style.color = _theme.ChoiceCostColor;
+                    chip.style.fontSize = Mathf.RoundToInt(_theme.ChoiceFontSize * 0.6f);
+                    chip.style.marginLeft = 6;
+                    chip.style.marginRight = 6;
+                    chip.style.opacity = 0.85f;
+                    effRow.Add(chip);
+                }
+                btn.Add(effRow);
+            }
+
             if (_theme.ChoiceSprite != null)
             {
                 UiStyle.ApplyBackground(btn, _theme.ChoiceSprite, _theme.ChoiceSlice);
