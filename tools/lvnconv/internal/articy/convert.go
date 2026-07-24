@@ -19,6 +19,19 @@ type Doc struct {
 	// Non-fatal repairs the generator performed (surfaced to the import
 	// report so an author can fix the source flow instead of shipping them).
 	Warnings []string `json:"-"`
+
+	// GlobalVars is every variable this project's GlobalVariables export
+	// declares (namespace, name, articy type) — exposed so the importer can
+	// auto-discover a whole namespace (e.g. "Relationships.<Character>") for
+	// the title's player-stat list without a hand-maintained roster.
+	GlobalVars []GlobalVarInfo `json:"-"`
+}
+
+// GlobalVarInfo is one declared articy global variable.
+type GlobalVarInfo struct {
+	Namespace string
+	Variable  string
+	Type      string // "Boolean" / "Integer" / …
 }
 
 // ── articy JSON export shapes ───────────────────────────────────────────────
@@ -132,6 +145,7 @@ func Convert(src []byte, dialogue string) (*Doc, error) {
 	for _, ns := range ex.GlobalVariables {
 		for _, v := range ns.Variables {
 			g.emit(Cmd{"op": "set", "key": ns.Namespace + "." + v.Variable, "value": varValue(v.Type, v.Value), "default": true})
+			g.doc.GlobalVars = append(g.doc.GlobalVars, GlobalVarInfo{Namespace: ns.Namespace, Variable: v.Variable, Type: v.Type})
 		}
 	}
 

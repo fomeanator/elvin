@@ -1001,7 +1001,9 @@ namespace Lvn
                 if (o == null) continue;
 
                 var requires = (string)o["requires_stat"];
-                if (requires != null && VarNum(requires) < Num(o["min"], 0))
+                // The importer writes "requires_min" (see parseOptionTails); "min"
+                // is accepted too for hand-authored .lvn that used the shorter name.
+                if (requires != null && VarNum(requires) < Num(o["requires_min"] ?? o["min"], 0))
                     continue;
 
                 var expr = (string)o["expr"];
@@ -1020,7 +1022,19 @@ namespace Lvn
                     wCur = (string)w["currency"];
                     wAmt = (long?)w["amount"] ?? 0;
                 }
-                result.Add(new LvnOption(i, optText, optCost, wCur, wAmt));
+                List<LvnOptionEffect> effects = null;
+                if (o["effects"] is JArray effArr)
+                {
+                    foreach (var e in effArr)
+                    {
+                        if (e is not JObject eo) continue;
+                        var label = (string)eo["label"];
+                        int delta = (int?)eo["delta"] ?? 0;
+                        if (string.IsNullOrEmpty(label) || delta == 0) continue;
+                        (effects ??= new List<LvnOptionEffect>()).Add(new LvnOptionEffect(label, delta));
+                    }
+                }
+                result.Add(new LvnOption(i, optText, optCost, wCur, wAmt, effects));
             }
             return result;
         }
