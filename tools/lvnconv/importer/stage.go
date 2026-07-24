@@ -271,30 +271,37 @@ func normalizeStageVisibility(script []articy.Cmd) []articy.Cmd {
 		out[i] = map[string]bool{}
 	}
 	// Transfer under the single-speaker invariant AutoStage targets: a show
-	// makes that actor the ONLY one on stage, a scene bg clears it, a hide
-	// drops the named actor. Modelling show as {id} (not an accumulating union)
-	// keeps the possibly-visible set to "the last actor shown on each incoming
-	// path", so the defensive hides injected at a merge are exactly the branch
+	// makes that actor the ONLY one on stage, a hide drops the named actor.
+	// Modelling show as {id} (not an accumulating union) keeps the
+	// possibly-visible set to "the last actor shown on each incoming path",
+	// so the defensive hides injected at a merge are exactly the branch
 	// tails that differ — not every actor ever shown upstream.
+	//
+	// bg does NOT clear the visible set — it never did at runtime (VnStage's
+	// bg handler only swaps the background sprite; actors are a fully
+	// independent system, see VnStage.Commands.cs). Treating it as a stage
+	// wipe here was a MODEL bug, not a runtime fact: it made this analysis
+	// believe "nothing to hide" right after a scene change, so a branch that
+	// left an actor up (e.g. the protagonist, shown on the OTHER incoming
+	// path into a choice's merge point) never got a defensive hide before
+	// the next show — that actor then sat on screen through the whole new
+	// scene (the "heroine doesn't disappear on a bg change" bug). bg now
+	// passes the set through unchanged, like any other non-actor command.
 	transfer := func(vis map[string]bool, c articy.Cmd) map[string]bool {
-		switch c["op"] {
-		case "actor":
+		if c["op"] == "actor" {
 			id := str(c["id"])
-			if id == "" {
-				break
-			}
-			if c["show"] == true {
-				return map[string]bool{id: true} // sole occupant
-			}
-			r := map[string]bool{}
-			for k := range vis {
-				if k != id {
-					r[k] = true
+			if id != "" {
+				if c["show"] == true {
+					return map[string]bool{id: true} // sole occupant
 				}
+				r := map[string]bool{}
+				for k := range vis {
+					if k != id {
+						r[k] = true
+					}
+				}
+				return r
 			}
-			return r
-		case "bg":
-			return map[string]bool{} // scene change clears the stage
 		}
 		r := map[string]bool{}
 		for k := range vis {
