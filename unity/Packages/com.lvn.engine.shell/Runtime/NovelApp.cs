@@ -32,6 +32,13 @@ namespace Lvn.UI.Screens
         [Tooltip("Content origin — the LVN server (manifest + scripts + assets).")]
         public string ServerUrl = "http://127.0.0.1:8000";
 
+        /// <summary>Baked-in alternate servers offered by the boot server-select
+        /// screen (display name, base URL up to but not including /api) — e.g. a
+        /// partner's self-hosted mirror. Set from the product's Boot.cs, same as
+        /// <see cref="ServerUrl"/>. The player can always type ANY custom URL
+        /// regardless of this list; empty just means no presets besides "default".</summary>
+        public (string Name, string Url)[] KnownServers = Array.Empty<(string, string)>();
+
         [Tooltip("Offline build: load the novel from content bundled in StreamingAssets " +
                  "instead of a server. The exporter writes the manifest, scripts and assets " +
                  "under StreamingAssets/<BundleSubdir>, mirroring the server's URL paths.")]
@@ -134,17 +141,6 @@ namespace Lvn.UI.Screens
             // instead of re-exporting. Must land before ANYTHING derives from
             // ServerUrl — the log shipper, content base and state store all do.
             var serverOverride = LvnLaunchOverrides.ServerUrl();
-            if (serverOverride != null)
-            {
-                ServerUrl = serverOverride;
-                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
-            }
-
-            // Field diagnostics BEFORE the first mark: errors, exceptions and
-            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
-            // device's crash is readable via /v1/admin/client-logs, no adb.
-            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
-            Lvn.Services.LvnLogShip.Boot();
 
             // The theme must land on the shared panel BEFORE the veil: a panel
             // without a ThemeStyleSheet has no default font, so every veil
@@ -163,6 +159,31 @@ namespace Lvn.UI.Screens
             // getting starved and the first visible percent was already 30.
             await Task.Yield();
             await Task.Yield();
+
+            if (serverOverride != null)
+            {
+                // Test-lane override always wins — it exists so device automation
+                // can point an install at a throwaway server without re-exporting.
+                ServerUrl = serverOverride;
+                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
+            }
+            else
+            {
+                // CS-1.6-style server pick, over the veil: unchecked (default),
+                // the known servers race a /healthz ping and the first live one
+                // wins — invisible unless nothing answers in time. Checked
+                // (persisted), a small browser lists them plus a free-text field
+                // for the player's own host, and waits for an explicit Connect.
+                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, destroyCancellationToken);
+                Debug.Log($"[novelapp] server resolved: {ServerUrl}");
+            }
+            Mark("server resolved");
+
+            // Field diagnostics BEFORE the first mark: errors, exceptions and
+            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
+            // device's crash is readable via /v1/admin/client-logs, no adb.
+            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            Lvn.Services.LvnLogShip.Boot();
 
             // PSO precook: warms last session's traced pipeline states behind
             // the boot screen (first launch traces instead) — kills the
