@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
 using Lvn.Services;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -21,9 +22,12 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly VisualElement _progressIcon;
         private readonly Label _progressLabel;
+        private readonly Label _statsBtn;
         private readonly VisualElement _pillsRow;
         private readonly Color _pillBg;
         private readonly Color _pillText;
+        private List<LvnStatDef> _stats;
+        private System.Func<string, JToken> _getVar;
 
         private sealed class Pill { public VisualElement Root; public Label Label; public Label Timer; }
         private readonly Dictionary<string, Pill> _pills = new Dictionary<string, Pill>();
@@ -79,6 +83,20 @@ namespace Lvn.UI.Screens
             _progressLabel.style.fontSize = 24;
             left.Add(_progressLabel);
 
+            // Tap to see the title's live stats (trait pairs + relationships) —
+            // hidden until SetStats hands over a non-empty list (an unconfigured
+            // title never grows this button).
+            _statsBtn = new Label("📊") { pickingMode = PickingMode.Position };
+            _statsBtn.style.fontSize = 26;
+            _statsBtn.style.marginLeft = 16;
+            _statsBtn.style.display = DisplayStyle.None;
+            _statsBtn.RegisterCallback<PointerDownEvent>(e =>
+            {
+                e.StopPropagation();
+                if (_stats != null) StatsPanel.Show(_stats, _getVar);
+            });
+            left.Add(_statsBtn);
+
             // right: currency pills
             _pillsRow = new VisualElement { pickingMode = PickingMode.Ignore };
             _pillsRow.style.flexDirection = FlexDirection.Row;
@@ -109,6 +127,20 @@ namespace Lvn.UI.Screens
         public void SetProgress(int currentIndex, int totalCommands)
         {
             if (_progressLabel != null) _progressLabel.text = Percent.Text(currentIndex, totalCommands);
+        }
+
+        /// <summary>Arm (or disarm) the stats button for the chapter now playing.
+        /// <paramref name="getVar"/> resolves a dotted var path against the LIVE
+        /// player — the panel always reads fresh values at the moment it's
+        /// opened, never a stale snapshot from when the chapter started. Null/empty
+        /// stats hides the button and closes an already-open panel (the chapter
+        /// that owned it just ended).</summary>
+        public void SetStats(List<LvnStatDef> stats, System.Func<string, JToken> getVar)
+        {
+            _stats = (stats != null && stats.Count > 0) ? stats : null;
+            _getVar = getVar;
+            if (_statsBtn != null) _statsBtn.style.display = _stats != null ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_stats == null) StatsPanel.Hide();
         }
 
         public void SetBalances(IDictionary<string, long> balances)

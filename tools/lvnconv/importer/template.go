@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // Template captures every novel-authoring convention the articy importer keys
@@ -36,6 +38,7 @@ type Template struct {
 	Wardrobe    WardrobeTemplate   `json:"wardrobe"`
 	Audio       []AudioCueTemplate `json:"audio"`
 	Backgrounds BackgroundTemplate `json:"backgrounds"`
+	Stats       StatsTemplate      `json:"stats"`
 
 	// VarChapterPrefixes marks variable-name prefixes as CHAPTER-scoped: they
 	// land in the declaration's "chapter" block and reset on every fresh
@@ -128,6 +131,86 @@ type AudioCueTemplate struct {
 type BackgroundTemplate struct {
 	// MinFileSize skips small files as autostage placeholders, not real art.
 	MinFileSize int64 `json:"min_file_size"` // 200000
+}
+
+// StatsTemplate declares which global variables surface as player-facing
+// stats on the title detail page (and the in-game stats panel): bipolar trait
+// pairs (one proportional bar each, no fixed max — it fills by pos/(pos+neg))
+// and a per-character relationship namespace (one bar per declared Integer
+// variable, auto-discovered from this project's own GlobalVariables export —
+// no roster to hand-maintain when a character is added or renamed).
+type StatsTemplate struct {
+	Pairs []StatPairTemplate `json:"pairs,omitempty"`
+
+	// RelationshipNamespace is the GlobalVariables Set name whose Integer
+	// member variables each become one stat ("Relationships" → one bar per
+	// character). Empty disables relationship stats entirely.
+	RelationshipNamespace string `json:"relationship_namespace,omitempty"`
+	// RelationshipMax is the display ceiling for the relationship bars —
+	// cosmetic only, never clamps or gates the underlying value.
+	RelationshipMax int `json:"relationship_max,omitempty"`
+}
+
+// StatPairTemplate is one bipolar trait axis ("Спокойствие" ↔ "Ярость"):
+// two counters whose relative weight renders as one bar.
+type StatPairTemplate struct {
+	PosKey   string `json:"pos_key"`
+	PosLabel string `json:"pos_label"`
+	NegKey   string `json:"neg_key"`
+	NegLabel string `json:"neg_label"`
+}
+
+// TitleStat is one entry of the manifest's title.stats (Title.PlayerStats) —
+// either a bipolar pair or a single 0..Max meter.
+type TitleStat struct {
+	Kind         string `json:"kind"` // "pair" | "single"
+	Key          string `json:"key,omitempty"`
+	Label        string `json:"label,omitempty"`
+	Max          int    `json:"max,omitempty"`
+	Relationship bool   `json:"relationship,omitempty"`
+	PosKey       string `json:"pos_key,omitempty"`
+	PosLabel     string `json:"pos_label,omitempty"`
+	NegKey       string `json:"neg_key,omitempty"`
+	NegLabel     string `json:"neg_label,omitempty"`
+}
+
+// TitleStats flattens Stats into the manifest's title.stats list: the
+// declared trait pairs, then one relationship stat per Integer variable this
+// project actually declares under RelationshipNamespace — so a character
+// added or renamed in articy shows up (or disappears) without touching the
+// template. The label comes from SpeakerNames (falls back to the raw
+// variable name when the roster has no display name for it).
+func (t *Template) TitleStats(globalVars []articy.GlobalVarInfo) []TitleStat {
+	t = t.resolve()
+	var out []TitleStat
+	for _, p := range t.Stats.Pairs {
+		if p.PosKey == "" || p.NegKey == "" {
+			continue
+		}
+		out = append(out, TitleStat{
+			Kind: "pair", PosKey: p.PosKey, PosLabel: p.PosLabel, NegKey: p.NegKey, NegLabel: p.NegLabel,
+		})
+	}
+	if t.Stats.RelationshipNamespace != "" {
+		max := t.Stats.RelationshipMax
+		if max <= 0 {
+			max = 20
+		}
+		for _, gv := range globalVars {
+			if gv.Namespace != t.Stats.RelationshipNamespace || gv.Type != "Integer" {
+				continue
+			}
+			label := t.SpeakerNames[gv.Variable]
+			if label == "" {
+				label = gv.Variable
+			}
+			out = append(out, TitleStat{
+				Kind: "single", Key: gv.Namespace + "." + gv.Variable, Label: label,
+				Max: max, Relationship: true,
+			})
+		}
+	}
+	return out
 }
 
 // DefaultTemplate returns the built-in "cold" template — the authoring
