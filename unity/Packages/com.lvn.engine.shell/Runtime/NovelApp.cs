@@ -474,23 +474,7 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
                 _shell.Hub.PlayerName = _playerName;
                 // Tapping a card opens the rich detail page seeded with this title.
-                _shell.Hub.OnOpenDetail = t =>
-                {
-                    if (_shell.Detail != null)
-                    {
-                        _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
-                        var img = t?.card?.image ?? t?.cover_url;
-                        if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
-                        if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
-                        _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
-                        // Real title behind the page → the Restart menu lists its
-                        // actual chapters and reads/clears this title's progress.
-                        _shell.Detail.Title = t;
-                        _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
-                        _shell.Detail.Rebuild();
-                    }
-                    return _shell.OpenDetailAsync();
-                };
+                _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
 
             // The FULL library warms in the background from here on: every
@@ -1487,6 +1471,7 @@ namespace Lvn.UI.Screens
             // carousel's Continue leads straight back to this line).
             // Task.Yield can't throw — the real exit-on-teardown is the token
             // check (a destroyed host must not keep a zombie progress loop).
+            _shell.Hud.SetStats(title?.stats, key => Stage.Player?.GetVar(key));
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
                    && !destroyCancellationToken.IsCancellationRequested)
             {
@@ -1504,6 +1489,7 @@ namespace Lvn.UI.Screens
             var ownerId = _currentTitle?.id ?? title?.id;
             if (Stage.Player != null) await SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars));
             _shell.Hud.SetProgress(1, 1);
+            _shell.Hud.SetStats(null, null);
             // The chapter that actually played to the end — a cross-chapter save
             // load may have switched the stage away from the requested one.
             bool finished = Stage.Player != null && Stage.Player.Finished;
@@ -1683,6 +1669,36 @@ namespace Lvn.UI.Screens
         // scoped to their title.
         private const string GlobalVar = "global";
         private const string GlobalScopeId = "__global";
+
+        // Seed the rich detail page with the real title (name/art/synopsis/cost),
+        // then its player-facing stat vars, before showing it — so "Твои статы"
+        // reads live numbers instead of the placeholder the screen falls back to
+        // when nothing has seeded it. The stats fetch never blocks the open on a
+        // slow/offline state store — it's best-effort, empty vars just read as 0.
+        private async Task<bool> OpenDetailWithStatsAsync(LvnTitle t)
+        {
+            if (_shell.Detail != null)
+            {
+                _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
+                var img = t?.card?.image ?? t?.cover_url;
+                if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
+                if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
+                _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
+                // Real title behind the page → the Restart menu lists its
+                // actual chapters and reads/clears this title's progress.
+                _shell.Detail.Title = t;
+                _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
+                Newtonsoft.Json.Linq.JObject vars = null;
+                if (t?.id != null)
+                {
+                    try { vars = await LoadScopedVarsAsync(t.id); }
+                    catch (Exception e) { Debug.LogWarning($"[novelapp] stat vars load failed: {e.Message}"); }
+                }
+                _shell.Detail.StatVars = vars ?? new Newtonsoft.Json.Linq.JObject();
+                _shell.Detail.Rebuild();
+            }
+            return await _shell.OpenDetailAsync();
+        }
 
         // Load a title's stats plus the player's global stats, merged into one seed
         // (global stats land under the `global` var). Two blobs, one per scope.

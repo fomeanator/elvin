@@ -151,6 +151,11 @@ type Title struct {
 	VarsURL  string   `json:"vars_url,omitempty"` // title variable declarations (game/chapter scopes)
 	Type     string   `json:"type,omitempty"`     // "standalone" for a self-contained imported novel
 	Seasons  []Season `json:"seasons"`
+
+	// PlayerStats are the template's declared player-facing stats (trait
+	// pairs + auto-discovered relationship meters) — read by the client's
+	// title detail page and in-game stats panel. Empty → that UI stays hidden.
+	PlayerStats []TitleStat `json:"stats,omitempty"`
 }
 
 // Result is everything an import produced. ScriptRel is the content-relative path
@@ -292,7 +297,8 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		}
 		AutoStage(doc, cast, tpl) // reads inline say text — must run before Localize
 	}
-	PricePremiumChoices(doc, tpl) // "[premium]" markers → template-priced wallet costs
+	PricePremiumChoices(doc, tpl)  // "[premium]" markers → template-priced wallet costs
+	AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
 
 	// Resolve art before localization swaps say text for keys (art reads sprite_url,
 	// not text, but keep the ordering intent explicit).
@@ -342,10 +348,11 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	}
 	cover := firstBg // a real first-scene background beats a 404 placeholder
 	res.Title = Title{
-		ID:       opt.ID,
-		Name:     opt.Name,
-		Subtitle: opt.Subtitle,
-		CoverURL: cover,
+		ID:          opt.ID,
+		Name:        opt.Name,
+		Subtitle:    opt.Subtitle,
+		CoverURL:    cover,
+		PlayerStats: tpl.TitleStats(doc.GlobalVars),
 		Seasons: []Season{{Chapters: []Chapter{{
 			ID:        opt.ID + "-ch1",
 			Number:    1,
@@ -377,6 +384,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 	artSeen := map[string]bool{}
 	var chapters []Chapter
 	var cover string
+	var globalVars []articy.GlobalVarInfo // same across chapters — captured once
 	probe := newColorProbe(mergeColors(tpl.EmotionColors, opt.EmotionColors)) // aggregates colours across every chapter
 
 	// Build the project's asset index ONCE, and share a matte/read cache across all
@@ -404,12 +412,16 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		if err != nil {
 			return nil, fmt.Errorf("chapter %d convert: %w", i+1, err)
 		}
+		if i == 0 {
+			globalVars = doc.GlobalVars
+		}
 		res.Warnings = append(res.Warnings, doc.Warnings...)
 		probe.scan(doc) // resolve emotions before staging (and before localization)
 		if opt.AutoStage {
 			AutoStage(doc, cast, tpl)
 		}
-		PricePremiumChoices(doc, tpl) // "[premium]" markers → template-priced wallet costs
+		PricePremiumChoices(doc, tpl)  // "[premium]" markers → template-priced wallet costs
+		AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
 		art, missing, firstBg := collectArt(index, doc, artCache)
 		sprites, extraArt := BuildCatalog(doc)
 		art = append(art, extraArt...)
@@ -472,7 +484,8 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 	res.Colors = probe.stats()
 	res.Title = Title{
 		ID: opt.ID, Name: opt.Name, Subtitle: opt.Subtitle, CoverURL: cover,
-		Seasons: []Season{{Chapters: chapters}},
+		PlayerStats: tpl.TitleStats(globalVars),
+		Seasons:     []Season{{Chapters: chapters}},
 	}
 	return res, nil
 }

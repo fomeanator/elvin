@@ -313,6 +313,36 @@ namespace Lvn.Content
         /// and her portrait can front the profile. Falls back to
         /// <see cref="LvnManifest.hero"/>.</summary>
         public string hero;
+        /// <summary>Player-facing stats for the detail page and in-game stats
+        /// panel — trait pairs plus one relationship meter per character,
+        /// declared by the importer's template (<c>stats</c> in the import
+        /// template JSON) and read live from the player's own vars. Empty/null
+        /// → the stats section stays hidden (no fake placeholder data).</summary>
+        public List<LvnStatDef> stats;
+    }
+
+    /// <summary>One entry of <see cref="LvnTitle.stats"/>: either a bipolar trait
+    /// pair (two counters shown as one bar, filled by relative weight — no fixed
+    /// max) or a single 0..max meter (used for per-character relationships).</summary>
+    public sealed class LvnStatDef
+    {
+        /// <summary>"pair" or "single".</summary>
+        public string kind;
+        /// <summary>Single: the player-var key (dotted path, e.g. "Relationships.Matvey").</summary>
+        public string key;
+        /// <summary>Single: the display label.</summary>
+        public string label;
+        /// <summary>Single: the display ceiling — cosmetic only.</summary>
+        public int max;
+        /// <summary>Single: this is a per-character relationship meter (vs. a
+        /// generic single stat) — informational, doesn't change rendering.</summary>
+        public bool relationship;
+        /// <summary>Pair: the "positive" counter's key and label.</summary>
+        public string pos_key;
+        public string pos_label;
+        /// <summary>Pair: the "negative"/opposite counter's key and label.</summary>
+        public string neg_key;
+        public string neg_label;
     }
 
     /// <summary>A named group of titles shown as one hub tile (an "expeditions",

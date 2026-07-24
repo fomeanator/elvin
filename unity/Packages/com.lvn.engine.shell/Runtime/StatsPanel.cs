@@ -1,0 +1,84 @@
+using Lvn.Content;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Lvn.UI.Screens
+{
+    /// <summary>
+    /// The in-game "Твои статы" overlay, opened from <see cref="GameHud"/>'s
+    /// stats button. A standalone UIDocument (like <see cref="BootVeil"/>/
+    /// <see cref="ServerSelectScreen"/>) so it draws over the dialogue/choice UI
+    /// regardless of the shell's own panel depth, and reads LIVE values every
+    /// time it opens rather than a snapshot from chapter start.
+    /// </summary>
+    internal static class StatsPanel
+    {
+        private static GameObject _go;
+
+        public static void Show(System.Collections.Generic.List<LvnStatDef> stats, System.Func<string, JToken> getVar)
+        {
+            Hide();
+            if (stats == null || stats.Count == 0) return;
+
+            _go = new GameObject("LvnStatsPanel");
+            var doc = _go.AddComponent<UIDocument>();
+            doc.panelSettings = LvnPanel.Shared;
+            doc.sortingOrder = 50; // above the shell (30), below boot-time overlays
+            var root = doc.rootVisualElement;
+            root.style.flexGrow = 1;
+            root.style.backgroundColor = LvnTokens.Scrim;
+            root.pickingMode = PickingMode.Position;
+            root.RegisterCallback<PointerDownEvent>(e => { if (e.target == root) Hide(); });
+
+            var panel = new VisualElement();
+            panel.style.position = Position.Absolute;
+            panel.style.left = Length.Percent(8f);
+            panel.style.right = Length.Percent(8f);
+            panel.style.top = Length.Percent(14f);
+            panel.style.maxHeight = Length.Percent(72f);
+            panel.style.backgroundColor = LvnTokens.PanelBg;
+            panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
+            panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
+            panel.style.borderTopLeftRadius = LvnTokens.RadiusSm + 4f;
+            panel.style.borderTopRightRadius = LvnTokens.RadiusSm + 4f;
+            panel.style.borderBottomLeftRadius = LvnTokens.RadiusSm + 4f;
+            panel.style.borderBottomRightRadius = LvnTokens.RadiusSm + 4f;
+            panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            root.Add(panel);
+
+            var title = new Label("Твои статы");
+            title.style.color = LvnTokens.Text;
+            title.style.fontSize = 30;
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.marginBottom = 8;
+            panel.Add(title);
+
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexShrink = 1;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
+            panel.Add(scroll);
+            foreach (var s in stats)
+                if (s != null)
+                    scroll.Add(StatRows.Row(s, getVar));
+
+            var close = new Button(Hide) { text = "Закрыть" };
+            close.style.marginTop = 16;
+            close.style.fontSize = 22;
+            close.style.paddingTop = 12; close.style.paddingBottom = 12;
+            close.style.color = LvnTokens.Text;
+            close.style.backgroundColor = LvnTokens.Faint;
+            close.style.borderTopLeftRadius = LvnTokens.RadiusSm; close.style.borderTopRightRadius = LvnTokens.RadiusSm;
+            close.style.borderBottomLeftRadius = LvnTokens.RadiusSm; close.style.borderBottomRightRadius = LvnTokens.RadiusSm;
+            close.style.borderTopWidth = 0; close.style.borderRightWidth = 0;
+            close.style.borderBottomWidth = 0; close.style.borderLeftWidth = 0;
+            panel.Add(close);
+        }
+
+        public static void Hide()
+        {
+            if (_go != null) Object.Destroy(_go);
+            _go = null;
+        }
+    }
+}
