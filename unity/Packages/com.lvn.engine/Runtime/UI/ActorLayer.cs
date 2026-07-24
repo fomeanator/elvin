@@ -65,6 +65,16 @@ namespace Lvn.UI
     public sealed class ActorLayer : VisualElement
     {
         private readonly Dictionary<string, VisualElement> _slots = new Dictionary<string, VisualElement>();
+        // A slot is NEVER removed from _slots (only RemoveAll, on a full stage
+        // reset, clears it) — a hidden actor's element just sits there at
+        // display:None. HighlightSpeaker/SetSpeaker used to dim EVERY slot ever
+        // shown this chapter regardless of that, including ones whose exit fade
+        // stalled (a stuck animation, a mid-fade re-entrancy) — the actor never
+        // reached display:None, so the "everyone but the speaker dims" pass kept
+        // re-tinting her darker on every following line: visible forever, never
+        // gone, exactly the "doesn't hide, just darkens" bug. Tracked independent
+        // of the fade's own completion so a stuck animation can't undo a hide.
+        private readonly HashSet<string> _hidden = new HashSet<string>();
         private readonly Dictionary<string, VisualElement> _rigs = new Dictionary<string, VisualElement>(); // animation wrapper per slot
         private readonly Dictionary<string, ActorAnimator> _animators = new Dictionary<string, ActorAnimator>();
         private readonly Dictionary<VisualElement, int> _z = new Dictionary<VisualElement, int>();
@@ -196,6 +206,11 @@ namespace Lvn.UI
             slot.style.scale = new Scale(new Vector2(p.Flip ? -1f : 1f, 1f));
             slot.style.rotate = new Rotate(new Angle(p.Rotation, AngleUnit.Degree));
             slot.style.opacity = p.Opacity;
+
+            // Logical visibility, tracked independent of the exit fade's own
+            // timing/completion (see _hidden) — a hide is final the instant it's
+            // requested, whatever the fade animation does with the pixels.
+            if (p.Show) _hidden.Remove(id); else _hidden.Add(id);
 
             // A departing object with an exit animation stays visible until the
             // animation finishes (which then hides it). Without an exit animation,
@@ -371,11 +386,16 @@ namespace Lvn.UI
             slot.Query<Image>().ForEach(img => img.tintColor = tint);
         }
 
-        /// <summary>Full brightness for the speaker, dim for everyone else (null = undim all).</summary>
+        /// <summary>Full brightness for the speaker, dim for everyone else (null = undim all).
+        /// A hidden actor is skipped outright — she has nothing on screen to dim,
+        /// and touching her tint must never be what makes her reappear.</summary>
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slots)
+            {
+                if (_hidden.Contains(kv.Key)) continue;
                 SetFocus(kv.Key, kv.Value, id == null || kv.Key == id ? 1f : 0.7f);
+            }
         }
 
         // Loose name key for speaker↔slot matching: lower-case, letters/digits only.
@@ -401,10 +421,13 @@ namespace Lvn.UI
             if (target == "") return;
             bool present = false;
             foreach (var kv in _slots)
-                if (NameKey(kv.Key) == target) { present = true; break; }
-            if (!present) return; // speaker has no sprite — keep the current focus
+                if (!_hidden.Contains(kv.Key) && NameKey(kv.Key) == target) { present = true; break; }
+            if (!present) return; // speaker has no sprite on stage — keep the current focus
             foreach (var kv in _slots)
+            {
+                if (_hidden.Contains(kv.Key)) continue; // nothing on screen to dim
                 SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.7f);
+            }
         }
 
         public void RemoveAll()
@@ -414,6 +437,7 @@ namespace Lvn.UI
             _rigs.Clear();
             Clear();
             _slots.Clear();
+            _hidden.Clear();
             _z.Clear();
             _onClick.Clear();
             _hoverOpacity.Clear();
