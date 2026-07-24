@@ -29,6 +29,24 @@ func ToLvns(doc *articy.Doc) []byte {
 	}
 	line := func(str string) { b.WriteString(str); b.WriteByte('\n') }
 
+	// actor_map declarations: a say's who_id (the stage-highlight/lip-sync
+	// key — see stage.go, "without it the protagonist never lit back up")
+	// has nowhere else to live in the terse "Who: text" dialogue form. The
+	// parser already reconstructs who_id from an `actor_map Who=id` directive
+	// (convert.go) — without emitting one here, EVERY say whose who_id isn't
+	// exactly the naive slug of who (which is every renamed protagonist line,
+	// and any NPC the template's speaker_names gave a display name that
+	// differs from its articy label) silently lost who_id on a decompile →
+	// recompile round-trip: no crash, just a speaker who never highlights.
+	curActorMap := map[string]string{}
+	if ids := actorMapDecls(s); len(ids) > 0 {
+		for _, who := range ids {
+			line("actor_map " + who.name + "=" + who.id)
+			curActorMap[who.name] = who.id
+		}
+		b.WriteByte('\n')
+	}
+
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		op, _ := c["op"].(string)
@@ -94,6 +112,19 @@ func ToLvns(doc *articy.Doc) []byte {
 				line(genericOp("inc", c))
 			}
 		case "say":
+			who, _ := c["who"].(string)
+			whoID, _ := c["who_id"].(string)
+			// The same display name can front more than one who_id over the
+			// course of a script (a flashback double of a live character,
+			// two unnamed extras both captioned "Мужчина"). The upfront
+			// actor_map block only covers each name's FIRST id — redeclare
+			// inline the moment a later say's id for that name changes, so
+			// the terse "Name: text" form the parser reattaches who_id
+			// through never drifts onto the wrong actor mid-script.
+			if who != "" && whoID != "" && curActorMap[who] != whoID {
+				line("actor_map " + who + "=" + whoID)
+				curActorMap[who] = whoID
+			}
 			line(sayLine(c))
 		case "choice":
 			for _, o := range asList(c["options"]) {
@@ -106,6 +137,30 @@ func ToLvns(doc *articy.Doc) []byte {
 		}
 	}
 	return []byte(b.String())
+}
+
+type actorMapping struct{ name, id string }
+
+// actorMapDecls collects every distinct (who, who_id) pair a say makes, in
+// first-seen order — the actor_map lines ToLvns must emit so the parser can
+// reconstruct who_id later: it has no fallback derivation for it at all, an
+// unmapped speaker's say simply carries no who_id.
+func actorMapDecls(s []articy.Cmd) []actorMapping {
+	seen := map[string]bool{}
+	var out []actorMapping
+	for _, c := range s {
+		if c["op"] != "say" {
+			continue
+		}
+		who, _ := c["who"].(string)
+		id, _ := c["who_id"].(string)
+		if who == "" || id == "" || seen[who] {
+			continue
+		}
+		seen[who] = true
+		out = append(out, actorMapping{who, id})
+	}
+	return out
 }
 
 // referencedLabels collects every label that some command jumps to, so unreferenced
@@ -172,6 +227,13 @@ func sayLine(c articy.Cmd) string {
 	if who != "" {
 		out += " who=" + quote(who)
 	}
+	// The terse "Name: text" form gets who_id from an actor_map declaration
+	// the caller keeps current; this explicit command form bypasses that
+	// entirely (the parser only consults actor_map inside the dialogue-line
+	// regex), so who_id has to ride along on the line itself or it's lost.
+	if whoID := str(c["who_id"]); whoID != "" {
+		out += " who_id=" + quote(whoID)
+	}
 	out += " text=" + quote(text)
 	if style != "" {
 		out += " style=" + quote(style)
@@ -214,8 +276,53 @@ func choiceOption(o map[string]any) string {
 	} else if cs := str(o["cost"]); cs != "" {
 		line += " cost=" + quote(cs)
 	}
+	// wallet_cost is a REAL price the runtime charges before the pick goes
+	// through (LvnPlayer.Choose spends it) — distinct from `cost`, which is
+	// only the narrative display line. Without this, an imported "[premium]"
+	// choice silently turns free the moment its chapter round-trips through
+	// the panel's decompile→recompile (the option keeps its "20 crystals"
+	// caption but never actually charges anything).
+	if wc, ok := o["wallet_cost"].(map[string]any); ok {
+		cur := str(wc["currency"])
+		if cur == "" {
+			cur = str(wc["var"])
+		}
+		if cur != "" && wc["amount"] != nil {
+			line += " wallet_cost=" + quote(literal(wc["amount"])+" "+cur)
+		}
+	}
 	if e := str(o["expr"]); e != "" {
 		line += " expr=" + quote(e)
+	}
+	// effects is the "+2 Матвей" choice-preview hint (AnnotateChoiceEffects) —
+	// cosmetic only, never executed, but worth round-tripping so an author who
+	// re-saves a chapter through the panel doesn't lose the preview until the
+	// next full articy re-import regenerates it.
+	if effs := asList(o["effects"]); len(effs) > 0 {
+		var parts []string
+		for _, e := range effs {
+			m, ok := toMap(e)
+			if !ok {
+				continue
+			}
+			label := str(m["label"])
+			delta := 0
+			switch d := m["delta"].(type) {
+			case float64:
+				delta = int(d)
+			case int:
+				delta = d
+			case int64:
+				delta = int(d)
+			}
+			if label == "" || delta == 0 {
+				continue
+			}
+			parts = append(parts, fmt.Sprintf("%s:%+d", label, delta))
+		}
+		if len(parts) > 0 {
+			line += " effects=" + quote(strings.Join(parts, ","))
+		}
 	}
 	return line
 }

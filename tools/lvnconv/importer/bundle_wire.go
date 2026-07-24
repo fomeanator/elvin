@@ -32,6 +32,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
 // PostProcessBundle wires the spreadsheet mappings into a compiled bundle import
@@ -72,6 +74,10 @@ func PostProcessBundle(res *Result, xd XlsxData, contentDir string, tpl *Templat
 	for i := range res.Scripts {
 		rewriteScriptOps(&res.Scripts[i], bgidx, tpl)
 	}
+	// The .lvns sidecar is re-decompiled from the final .lvn once the caller
+	// (RunBundle) has ALSO stripped the declared-default boilerplate below —
+	// see regenerateLvnsSidecars's call site in bundle.go for why the order
+	// matters.
 
 	// The release plans MUST be derived from the scripts as they will ship —
 	// the base import collected them before the rewrites above swapped bg urls
@@ -1108,6 +1114,38 @@ func truthyValue(v any) bool {
 		return t.String() == "1"
 	}
 	return false
+}
+
+// regenerateLvnsSidecars re-decompiles every .lvn's FINAL script back into its
+// .lvns sidecar, once all the rewrites above have run — see the call site's
+// comment for why this matters (the sidecar otherwise drifts silently stale).
+// A chapter with no matching sidecar, or a .lvn that fails to parse (should
+// never happen — it's this same process's own JSON), is left untouched rather
+// than aborting the whole import over a cosmetic source-view file.
+func regenerateLvnsSidecars(res *Result) {
+	if res == nil {
+		return
+	}
+	lvnsIndex := map[string]int{}
+	for i, sf := range res.Scripts {
+		if strings.HasSuffix(sf.Rel, ".lvns") {
+			lvnsIndex[strings.TrimSuffix(sf.Rel, ".lvns")] = i
+		}
+	}
+	for i := range res.Scripts {
+		if !strings.HasSuffix(res.Scripts[i].Rel, ".lvn") {
+			continue
+		}
+		j, ok := lvnsIndex[strings.TrimSuffix(res.Scripts[i].Rel, ".lvn")]
+		if !ok {
+			continue
+		}
+		var doc articy.Doc
+		if err := json.Unmarshal(res.Scripts[i].Data, &doc); err != nil {
+			continue
+		}
+		res.Scripts[j].Data = ToLvns(&doc)
+	}
 }
 
 // decodeScriptOps parses a compiled script's Data into a flat op slice and
