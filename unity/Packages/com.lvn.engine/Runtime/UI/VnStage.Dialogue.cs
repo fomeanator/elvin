@@ -94,6 +94,10 @@ namespace Lvn.UI
             _player.Advance();
             // A picked branch is exactly what a crash must not lose — autosave here.
             AutosaveNow();
+            // Skip was gearing down FOR this exact choice (not a manual stop) —
+            // she just picked it consciously, so resume the re-read gear right
+            // away instead of forcing a re-arm at every single decision.
+            if (_resumeSkipAfterChoice) { _resumeSkipAfterChoice = false; StartSkip(); }
         }
 
         // ── ILvnStage ─────────────────────────────────────────────────────────

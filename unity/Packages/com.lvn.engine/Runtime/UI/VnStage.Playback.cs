@@ -26,6 +26,14 @@ namespace Lvn.UI
         /// <summary>True while fast-forward is running.</summary>
         public bool Skipping { get; private set; }
 
+        // A choice always gears skip down — the player must SEE and pick it,
+        // never blow past a decision blind. But once she's consciously tapped
+        // an option, there's no more danger: re-engage skip right after
+        // CommitChoice instead of making a re-read stop and re-arm skip at
+        // every single choice (miserable for QA replaying old chapters, and
+        // no safer for a real player who just made the pick herself).
+        private bool _resumeSkipAfterChoice;
+
         /// <summary>Fast-forward lines until a choice, a tap, or the chapter ends.</summary>
         public void StartSkip()
         {
@@ -33,13 +41,15 @@ namespace Lvn.UI
             Skipping = true;
         }
 
-        public void StopSkip() => Skipping = false;
+        public void StopSkip() { Skipping = false; _resumeSkipAfterChoice = false; }
 
         private void SkipTick()
         {
             if (!Skipping) return;
             if (_player == null || _player.Finished || _player.AtChoice)
             {
+                if (Skipping && _player != null && !_player.Finished && _player.AtChoice)
+                    _resumeSkipAfterChoice = true; // gearing down FOR a choice, not a stop/finish
                 Skipping = false; // something needs the player — gear down
                 return;
             }
