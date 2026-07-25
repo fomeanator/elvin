@@ -266,6 +266,114 @@ func TestAutoStageUnknownSpeakerNoActor(t *testing.T) {
 	}
 }
 
+// DEFAULT behaviour (Staging.PlaceholderProtagonist unset/false): a
+// protagonist with no art stays invisible, exactly like before
+// ensureProtagonistCast existed — a spriteless protagonist is frequently a
+// DELIBERATE first-person/self-insert design (the player is never drawn),
+// which is structurally indistinguishable from "the roster is just missing
+// her portrait". Forcing a placeholder onto her by default would be a
+// visible regression for that (common) case, so the safe default preserves
+// the original silence; DetectRoles surfaces it as a warning instead of the
+// runtime silently deciding for the author.
+func TestAutoStageProtagonistWithoutArtStaysInvisibleByDefault(t *testing.T) {
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Главный герой", "text": "я здесь"},
+	}}
+	cast := map[string]string{}
+	ensureProtagonistCast(doc, cast, nil) // nil → DefaultTemplate(), PlaceholderProtagonist=false
+	AutoStage(doc, cast, nil)
+
+	if countOp(doc.Script, "actor") != 0 {
+		t.Fatalf("protagonist without art must stay invisible by default: %v", ops(doc.Script))
+	}
+	say := doc.Script[len(doc.Script)-1]
+	if _, has := say["who_id"]; has {
+		t.Errorf("an invisible protagonist has nothing to highlight — who_id should stay unset: %v", say)
+	}
+}
+
+// OPT-IN behaviour: an author who turns on staging.placeholder_protagonist
+// (after confirming via the detect-roles warning that it's really a missing
+// portrait, not a first-person design) gets a labelled placeholder instead.
+func TestAutoStageProtagonistWithoutArtGetsPlaceholderWhenEnabled(t *testing.T) {
+	tpl := &Template{Staging: StagingTemplate{
+		ProtagonistRoles:       []string{"Главный герой"},
+		PlaceholderProtagonist: true,
+	}}
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Главный герой", "text": "я здесь"},
+	}}
+	cast := map[string]string{} // no art for anyone
+	ensureProtagonistCast(doc, cast, tpl)
+	AutoStage(doc, cast, tpl)
+
+	if countOp(doc.Script, "actor") != 1 {
+		t.Fatalf("protagonist without art should be staged once the flag is on: %v", ops(doc.Script))
+	}
+	var actor articy.Cmd
+	for _, c := range doc.Script {
+		if c["op"] == "actor" {
+			actor = c
+		}
+	}
+	if actor["show"] != true || actor["id"] != "Главный_герой" {
+		t.Errorf("unexpected placeholder actor op: %v", actor)
+	}
+	if _, hasURL := actor["sprite_url"]; hasURL {
+		t.Errorf("placeholder actor should carry no sprite_url (BuildCatalog fills it in): %v", actor)
+	}
+	say := doc.Script[len(doc.Script)-1]
+	if say["who_id"] != "Главный_герой" {
+		t.Errorf("say should still get who_id for highlighting: %v", say)
+	}
+}
+
+// ensureProtagonistCast never invents a cast entry for a protagonist ROLE the
+// script doesn't actually use as a say `who` — it only reacts to real usage
+// (tested with the flag ON, so an empty result actually proves the
+// phantom-role guard, not just the opt-in gate being off).
+func TestEnsureProtagonistCastOnlyPhantomFreeRoles(t *testing.T) {
+	tpl := &Template{Staging: StagingTemplate{
+		ProtagonistRoles:       []string{"Главный герой", "ГГ"},
+		PlaceholderProtagonist: true,
+	}}
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Тимур", "text": "hi"},
+	}}
+	cast := map[string]string{}
+	ensureProtagonistCast(doc, cast, tpl)
+	if len(cast) != 0 {
+		t.Errorf("no protagonist line in this script — cast should stay empty, got %v", cast)
+	}
+}
+
+// applySpeakerAliasesToCast resolves an alias to its canonical target's art —
+// the Soviet novel's "ГГ" roster nickname vs "Главный герой" dialogue label —
+// but never overwrites an alias that already has its own real cast entry.
+func TestApplySpeakerAliasesToCast(t *testing.T) {
+	tpl := &Template{SpeakerAliases: map[string]string{
+		"Главный герой": "ГГ",
+		"Alias2":        "NoSuchCanon", // canonical target has no art → no-op
+		"Existing":      "Canon",
+	}}
+	cast := map[string]string{
+		"ГГ":       "Olesya.png",
+		"Canon":    "canon.png",
+		"Existing": "existing-own-art.png", // alias already has its OWN entry
+	}
+	applySpeakerAliasesToCast(cast, tpl)
+
+	if cast["Главный герой"] != "Olesya.png" {
+		t.Errorf("alias should resolve to canonical's art, got %q", cast["Главный герой"])
+	}
+	if _, ok := cast["Alias2"]; ok {
+		t.Errorf("alias whose canonical target has no art should stay unresolved, got %v", cast["Alias2"])
+	}
+	if cast["Existing"] != "existing-own-art.png" {
+		t.Errorf("an alias with its own art must not be overwritten, got %q", cast["Existing"])
+	}
+}
+
 // The control-flow collision fix (the partner's "two characters in one slot"
 // screenshot): a choice branch re-shows an actor and gotos into a shared tail
 // whose PHYSICAL predecessor left the stage empty — so AutoStage's linear scan
