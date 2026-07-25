@@ -11,7 +11,13 @@ export function ensureWasm() {
     try {
       if (typeof window.Go !== "function") throw new Error("wasm_exec.js not loaded");
       const go = new window.Go();
-      const res = await WebAssembly.instantiateStreaming(fetch("/lvns.wasm"), go.importObject);
+      // Cache-bust per app build: nginx serves /lvns.wasm with a 1-day
+      // expiry, and a browser holding yesterday's wasm keeps yesterday's
+      // COMPILER — an author saw "unknown command wardrobe_show" a full day
+      // after the fix shipped. The vite build hash changes whenever the app
+      // is redeployed, which is exactly when a fresh wasm ships alongside.
+      const buildTag = (import.meta && import.meta.env && import.meta.env.VITE_BUILD_ID) || document.querySelector('script[src*="assets/index-"]')?.src.match(/index-([\w-]+)\.js/)?.[1] || Date.now();
+      const res = await WebAssembly.instantiateStreaming(fetch("/lvns.wasm?v=" + buildTag), go.importObject);
       go.run(res.instance);
       ready = true;
       return true;
