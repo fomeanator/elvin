@@ -48,15 +48,15 @@ func loadAllDocs(projectDir string) ([]*articy.Doc, int, error) {
 	return []*articy.Doc{doc}, 1, nil
 }
 
-// SpeakerDetect is one distinct say `who` this project uses (narrator-role
-// speakers are excluded — they're reported in the SceneMarker aggregates
-// instead, not per-speaker).
+// SpeakerDetect is one distinct say `who` this project uses. Narrator-role
+// speakers are INCLUDED (role:"narrator") so the mapper can reclassify them
+// back — they additionally feed the SceneMarker aggregates.
 type SpeakerDetect struct {
 	Who         string   `json:"who"`
 	LineCount   int      `json:"line_count"`
 	HasArt      bool     `json:"has_art"`
 	ArtStem     string   `json:"art_stem,omitempty"`
-	Role        string   `json:"role"` // "protagonist" | "npc"
+	Role        string   `json:"role"` // "narrator" | "protagonist" | "npc"
 	SampleLines []string `json:"sample_lines,omitempty"`
 }
 
@@ -80,9 +80,9 @@ type DetectReport struct {
 	Chapters     int             `json:"chapters"`
 	Speakers     []SpeakerDetect `json:"speakers"`
 
-	SceneMarkerCandidates int      `json:"scene_marker_candidates"` // narrator-role say lines
-	SceneMarkerMatches    int      `json:"scene_marker_matches"`
-	SceneMarkerHitRate    float64  `json:"scene_marker_hit_rate"`
+	SceneMarkerCandidates int     `json:"scene_marker_candidates"` // narrator-role say lines
+	SceneMarkerMatches    int     `json:"scene_marker_matches"`
+	SceneMarkerHitRate    float64 `json:"scene_marker_hit_rate"`
 	// SceneMarkerMisses is a handful of REAL narrator lines that did NOT match
 	// the current scene_marker_regex — raw material for the mapper's example-
 	// based pattern builder (an author picks the location substring out of a
@@ -147,7 +147,10 @@ func DetectRoles(projectDir string, tpl *Template) (*DetectReport, error) {
 				} else if len(sceneMisses) < 8 && text != "" {
 					sceneMisses = append(sceneMisses, text)
 				}
-				continue
+				// NO continue: narrator speakers still get a Speakers row.
+				// Excluding them made the mapper's "Рассказчик" role a
+				// one-way trap — assign it, hit "Пересчитать", and the row
+				// vanished with no UI way back.
 			}
 			a, ok := speakers[who]
 			if !ok {
@@ -191,12 +194,18 @@ func DetectRoles(projectDir string, tpl *Template) (*DetectReport, error) {
 		}
 	}
 
+	// Never nil: the mapper iterates report.speakers, and a project whose
+	// every speaker is narrator-classified used to marshal `"speakers":null`.
+	rep.Speakers = []SpeakerDetect{}
 	for _, who := range order {
 		a := speakers[who]
 		spr, ok := cast[who]
 		hasArt := ok && spr != "" && spr != sentinelNoArt
 		role := "npc"
-		if tpl.isProtagonist(who) {
+		switch {
+		case tpl.isNarrator(who):
+			role = "narrator"
+		case tpl.isProtagonist(who):
 			role = "protagonist"
 		}
 		sd := SpeakerDetect{Who: who, LineCount: a.lines, HasArt: hasArt, Role: role, SampleLines: a.samples}
@@ -275,8 +284,8 @@ func detectAliasCollisions(speakers []SpeakerDetect, cast map[string]string) []A
 		}
 	}
 	for _, s := range speakers {
-		if s.HasArt {
-			continue // already resolved — nothing to suggest
+		if s.HasArt || s.Role == "narrator" {
+			continue // resolved, or a narrator (aliases are meaningless there)
 		}
 		for name := range artNames {
 			add(s.Who, name, s.HasArt, true)

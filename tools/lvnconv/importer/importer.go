@@ -319,8 +319,11 @@ func Run(projectDir string, opt Options) (*Result, error) {
 	art = append(art, extraArt...)
 
 	// Decompile to editable .lvns BEFORE localization swaps inline text for keys,
-	// so the source reads with the real lines.
+	// so the source reads with the real lines. Verify it recompiles into the
+	// same story — a drifting sidecar corrupts the .lvn on the panel's next
+	// "Save to app", and that must be a visible import warning, not a landmine.
 	lvns := ToLvns(doc)
+	lvnsWarnings := VerifyLvnsRoundTrip(doc.Script, lvns)
 
 	var catalog map[string]string
 	var lang, catalogRel string
@@ -353,6 +356,9 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		Lang:       lang,
 		CatalogRel: catalogRel,
 		Colors:     probe.stats(),
+	}
+	for _, w := range lvnsWarnings {
+		res.Warnings = append(res.Warnings, res.LvnsRel+": "+w)
 	}
 	applySpeakerNameOverridesToSprites(res.Sprites, tpl)
 	cover := firstBg // a real first-scene background beats a 404 placeholder
@@ -444,6 +450,9 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		art = append(art, extraArt...)
 		lvns := ToLvns(doc)                          // decompile before localization swaps text for keys
 		cid := fmt.Sprintf("%s-ch%02d", opt.ID, i+1) // zero-padded → files sort in order
+		for _, w := range VerifyLvnsRoundTrip(doc.Script, lvns) {
+			res.Warnings = append(res.Warnings, cid+".lvns: "+w)
+		}
 
 		if opt.Localize {
 			catalog := Localize(doc)
