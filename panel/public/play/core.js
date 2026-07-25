@@ -7,7 +7,7 @@
 // Pure and DOM-free: advance()/choose()/submitInput() return a pause event
 // ({type: say|choice|input|wait|end, …}); the UI renders it and calls back.
 
-import { evalExpr, evalBool, interpolate, truthy, getVarPath, setVarPath } from "./expr.js";
+import { evalExpr, evalBool, interpolate, getVarPath, setVarPath } from "./expr.js";
 
 export class Player {
   constructor(doc, { onStage } = {}) {
