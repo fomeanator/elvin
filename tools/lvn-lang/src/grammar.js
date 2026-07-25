@@ -36,7 +36,8 @@ export const OPS = [
   "call",
   "return",
   "save",
-  "load"
+  "load",
+  "wardrobe_show"
 ];
 
 // Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
@@ -215,6 +216,9 @@ export const OP_FIELDS = {
     "prompt",
     "default",
     "max"
+  ],
+  "wardrobe_show": [
+    "char"
   ]
 };
 
@@ -415,6 +419,10 @@ export const OP_DOCS = {
   "play": [
     "play <id> <animName> [overrides]  ·  play id= anim=",
     "Play a previously defined `defanim` on an actor."
+  ],
+  "wardrobe_show": [
+    "wardrobe_show char=\"hill\"",
+    "Open the in-story wardrobe for a character."
   ]
 };
 
@@ -585,6 +593,10 @@ export const GROUPS = [
       [
         "hint",
         "text, show, duration"
+      ],
+      [
+        "wardrobe_show",
+        "char"
       ]
     ]
   }
