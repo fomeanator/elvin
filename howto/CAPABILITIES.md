@@ -3,12 +3,27 @@
 This is a **map of what the engine can and can NOT do**, verified against the sources
 (the `tools/lvnconv/` transcoder, the `unity/Packages/com.lvn.engine/Runtime/` runtime).
 The goal is that "can we do X" decisions get made from this file, **without
-reading the code**. If a feature is marked "❌ no" — it does not exist in the reference
-runtime, and you must work around it with language means (variables, labels, loops),
-not hope that "it will somehow work".
+reading the code**.
+
+Read the markers literally:
+
+- **✅** — it exists in the reference runtime **and** some example under `howto/`
+  compiles it (CI proves both).
+- **❌** — it does not exist; work around it with language means (variables,
+  labels, loops) instead of hoping "it will somehow work".
+- **⚠** — it exists, but not for the case you probably mean (a host package owns
+  it, or it is only reachable from the manifest / raw `.lvn`). Read the row.
+
+This file is a contract, not prose: `tools/lvnconv/lvn/docs_contract_test.go`
+fails the build if the §1 catalog drifts from the validator's op registry, if the
+file both claims and denies the same construct, or if something marked ✅ has no
+example that compiles it. If you find yourself editing a claim here, edit the
+example too.
 
 Related docs: syntax — [`LANGUAGE.md`](LANGUAGE.md); orientation for an AI agent
-— [`AGENTS.md`](AGENTS.md); cheatsheet — [`CHEATSHEET.md`](CHEATSHEET.md).
+— [`AGENTS.md`](AGENTS.md); cheatsheet — [`CHEATSHEET.md`](CHEATSHEET.md);
+the witness example for the rarer commands —
+[`every-command/`](every-command/).
 
 ---
 
@@ -25,16 +40,21 @@ scripted animation. That is enough for:
 
 What the engine fundamentally does NOT do: it is **not** a physics/realtime engine.
 There is no real-time game loop available to the script, no arbitrary
-keyboard/mouse input beyond clicking objects and picking menu options, no timing-based
-arcade mechanics. All "time" is measured in **turns/player actions**, not clock hours.
+keyboard/mouse input beyond clicking objects, picking menu options and the `input`
+overlay, no timing-based arcade mechanics. The script sees the clock only in
+fixed doses — `wait ms=` and a `choice timeout=` countdown; everything else is
+measured in **turns/player actions**, not clock hours.
 
 ---
 
 ## 1. Full command catalog (runtime behavior)
 
-These are all the `op`s the runtime understands (registry — `validate.go` `KnownOps`).
-Any other `op` is a build error. In `.lvns` you write the human-readable form
-(see `LANGUAGE.md`), which compiles into these commands.
+These are all the `op`s the runtime understands (registry — `validate.go` `KnownOps`;
+this catalog is pinned to it by a test, so it can not drift). Any other `op` is a
+build error — the one escape hatch is `ext <op> k=v …`, which compiles a
+**host-defined** op that the game's own C# handles via `LvnOps.Register` (see
+`docs/embedding.md`). In `.lvns` you write the human-readable form (see
+`LANGUAGE.md`), which compiles into these commands.
 
 ### Text and choice
 | op | What it does at runtime | Fields |
@@ -78,6 +98,7 @@ Any other `op` is a build error. In `.lvns` you write the human-readable form
 | `particles` | Weather layer. | `type`=rain/snow, `on`(bool) |
 | `audio` | Sound on a channel (async). | `channel`=music/sfx/ambient, `action`=play/stop, `url?` |
 | `wait` | Pause the script for N ms (default 1000). | `ms` |
+| `hint` | Popup card at the top center of the scene (`VnStage.cs`: `ApplyHint`); `show=false` removes it, `duration>0` auto-hides. The text interpolates `{vars}`. | `text`, `show?`, `duration?` |
 | `input` | Text input overlay; the string goes into a variable, the story waits for confirmation. | `var` (required), `prompt?`, `default?`, `max?` |
 | `anim` | Scripted tween on a channel (in `.lvns` this is `anim`/`move`). `mode=queue` enqueues on the channel; `stop` clears the channel. | `id`,`anim`(payload),`channel?`,`mode?`,`stop?` |
 | `preload` | Warm up assets asynchronously (non-blocking). | `assets[]` `{url,kind}` |
@@ -105,10 +126,10 @@ stable between releases, otherwise players lose their unlocks.
 | `save` | Snapshot the state (see §5). | `slot?` (default `quick`) |
 | `load` | Restore a snapshot and redraw the scene. | `slot?` |
 
-### ⚠ Reserved / non-working
-| op | Status |
-|---|---|
-| `hint` | ✅ Rendered (`VnStage.cs`: `ApplyHint`). A popup at the top center of the scene; `show=false` removes it, `duration>0` — auto-hide. The text interpolates `{vars}`. |
+### Host-provided ops (⚠ not in the bare engine)
+| op | What it does at runtime | Fields |
+|---|---|---|
+| `wardrobe_show` | Opens the in-story wardrobe for a character and holds the story until it closes. Implemented by the **novel-shell** package (`com.lvn.engine.shell`: `NovelApp` registers it, `WardrobeSheet` draws it) — a host that installed only `com.lvn.engine` gets a **silent no-op**. Emitted by the bundle importer; valid to write by hand only if you ship the shell. | `char` |
 
 ---
 
@@ -133,10 +154,10 @@ stable between releases, otherwise players lose their unlocks.
 | `text` | display | Option text, interpolated with `{…}`. |
 | `cost` | display | The "price" caption under the option, interpolated. **Purely visual** — deducts nothing by itself. |
 | `goto` | functional | Jump on pick. |
-| `body` | functional | Inline command list, executed on pick (see the limit in §8). |
+| `body` | functional (`.lvn` only) | Inline command list, executed on pick (see the limit in §8). There is no `.lvns` form for it — the importer and hand-written `.lvn` produce it; from `.lvns` you use `goto` and a label. |
 | `requires_stat` + `min` | functional | Gate: the option is **hidden** if `variable < min`. |
 | `expr` | functional | Boolean expression gate: the option is **hidden** if false. |
-| `hint` | functional | A popup hint at the top center (`duration>0` — auto-hide). |
+| `hint` | ignored | Compiles and validates, but **no runtime reads it** — neither `LvnPlayer.BuildOptions` nor the web player. Use the `hint` **command** before the choice (or inside the option's `body`) instead. |
 
 A failed gate **hides** the option entirely (does not show it "grayed out").
 
@@ -163,22 +184,25 @@ A failed gate **hides** the option entirely (does not show it "grayed out").
 - `save` stores: **the cursor position, the variable dictionary, the call stack**.
 - `load` restores them, redraws the scene (background/actors as of the snapshot point) and
   resumes execution from the saved spot.
-- Storage: Unity `PlayerPrefs`, key `lvn_save_<slot>` (default slot
-  `quick`). Any number of slots by name; the total PlayerPrefs limit is ~1 MB.
+- Storage: Unity `PlayerPrefs`, key `lvn_save_<title id>_<slot>` (default slot
+  `quick`; the title prefix keeps two novels in one app from reading each other's
+  quick save — `VnStage.SaveLoad.cs`, `SaveKey`. Loading falls back to the old
+  un-prefixed key). Any number of slots by name; the total PlayerPrefs limit is ~1 MB.
 - **Design-critical:** save/load is tied to **stable label ids**.
   Renaming TEXT is fine; renaming label/ending ids is not, or old
   saves break.
 
 ---
 
-## 6. Animation — what is in, what is not yet
+## 6. Animation — every notation, checked against the runtime
 
 The detailed model and notation forms are in `LANGUAGE.md` §9 and `docs/animation-system.md`.
 Checked against the runtime:
 
 | Capability | Status |
 |---|---|
-| Properties `x` `y` `screen_x` `screen_y` `scale` `scalex` `scaley` `rotation` `alpha` `frame` | ✅ yes |
+| Script-animatable properties `x` `y` `screen_x` `screen_y` `scale` `scalex` `scaley` `rotation` `alpha` | ✅ yes |
+| Layer sprite swap (`prop=frame`) | ⚠ **in practice manifest-only.** A `frame` track holds an **axis value** — a string (`ActorAnimator.SampleFrame`) — while `.lvns` `keys=` parses numbers only (`convert.go`, `parseKeys`), so from a script you could address only axis values literally named `0`, `1`, … Blink/lip-sync frame tracks come from the cast entity's `anim` in the manifest. |
 | Easing `linear` `inOutSine` `outCubic` `outBack` `inBack` | ✅ yes |
 | Loop `once` / `restart`(`true`) / `yoyo` | ✅ yes |
 | One-liner `to=` (tween from the current value) | ✅ yes |
@@ -187,7 +211,7 @@ Checked against the runtime:
 | Parallelism (multiple channels = multiple lines) | ✅ yes |
 | `interp=spline` / `interp=step` | ✅ yes (Catmull-Rom through the keys / step; a typo in the value is a compile error) |
 | `orient=true` (rotate along the path tangent) | ✅ yes (for `move`; respects easing and spline) |
-| `defanim` / `play` (named reusable animations) | ❌ no (planned) |
+| `defanim` / `play` (named reusable animations) | ✅ yes (pure compile-time expansion: `defanim` emits nothing, `play` stamps the stored parameters into a normal `anim` — the runtime only ever sees `anim`) |
 
 **Quoting rule (a common mistake):** values with **spaces** in quotes
 (`keys="…"`, `path="…"`) require the **legacy form** `id=`/`prop=`. A bracket list
@@ -268,15 +292,17 @@ Offline details — project memory/`server/README.md`.
 
 ## 8. HARD LIMITS (mandatory reading)
 
-This is what the reference runtime does **not** have. Do not try to emulate it "as
-if it exists" — use the workarounds in the right column.
+Mostly what the reference runtime does **not** have: do not try to emulate it "as
+if it exists" — use the workarounds in the right column. The ✅ rows are here on
+purpose, because they are the things authors most often assume are missing.
 
-| Limit | Workaround |
+| Limit / assumed limit | Workaround / how it really works |
 |---|---|
-| ❌ **No realtime timer** (`every`/`sleep`/clock ticks are unavailable to the script). `wait ms=` is only a fixed pause, not a condition. | Measure time in **turns/days** in a loop (`day = day + 1`), and grant "idle" income on every loop pass. |
-| ❌ **No player text input** in the script (there is no `prompt`/`input`; the name entry screen is part of the host, not a script command). | Any "input" goes through `choice` (picking from options) or clicks on `obj on_click`. |
+| ❌ **No realtime timer** (`every`/`sleep`/clock ticks are unavailable to the script). The only clock the script gets is a fixed `wait ms=` pause and a `choice timeout=` countdown — neither is a condition you can poll. | Measure time in **turns/days** in a loop (`day = day + 1`), and grant "idle" income on every loop pass. |
+| ✅ **Player text input exists** — the `input` op (`case "input"` in `LvnPlayer` and in the web player): an overlay, the typed string lands in a variable, the story waits for confirmation. | `input var=name prompt="Who are you?" default="Guest" max=24`, then `{name}` anywhere. |
+| ❌ **No other keyboard input**: no hotkeys, no free typing outside the `input` overlay, no key-down events for the script. | Everything else is taps: `choice` options and `obj on_click` hotspots. |
 | ❌ **Script flow cannot be tied to a looping animation finishing.** A looping animation never blocks the script. | Use `wait` or `say` for pauses; use `mode=queue` for a sequence on one channel. |
-| ✅ **`hint` is rendered** — a window at the top center. | `hint text="…" duration=6`; `show=false` removes it manually. For a persistent HUD label there is still the reactive `text`. |
+| ✅ **`hint` is rendered** — a window at the top center. | `hint text="…" duration=6`; `show=false` removes it manually. For a persistent HUD label there is still the reactive `text`. Mind the namesake: a `hint=` **field on a choice option** is ignored (§3) — the command is the real thing. |
 | ✅ **Bones + springs (paper-doll).** | Catalog layer: `parent` (which layer it attaches to), `px`/`py` (the joint, fractions of its own rect), `spring`/`damping` (hair/tail swing on their own from the parent's movement and rotation, VRM model). Draw order = list order (the back arm is a child of the body, but behind it). Both renderers. |
 | ✅ **`defanim`/`play` work.** | `defanim shake prop=x keys="…"` + `play id=x anim=shake` (terse: `play x shake`); play parameters override the definition. Spline paths run at constant speed (arc-length). |
 | ❌ **A choice option's `body` is limited**: only `set`/`inc`/staging commands and `goto` inside. No `if`/`choice`/`call` inside a body. | Move complex logic to a separate label and lead there with `goto`. |
