@@ -119,6 +119,25 @@ const FUNCS = {
   del: (m, k) => { const o = asMap(m); delete o[String(k)]; return o; },
 };
 
+// The structured condition form {key, op, value} the articy importer emits.
+// eq/ne compare BY VALUE (strings and bools too, with ink "unset == 0 == '' ==
+// false" semantics); the orderings coerce to number. Mirrors LvnPlayer.EvalCond
+// — an unknown op there falls back to "left is non-zero", so it does here too.
+export function evalStructuredCond(cond, vars) {
+  if (!cond) return false;
+  const left = getVarPath(vars, cond.key);
+  const right = cond.value === undefined ? null : cond.value;
+  switch (cond.op) {
+    case "eq": return eq(left, right);
+    case "ne": return !eq(left, right);
+    case "lt": return num(left) < num(right);
+    case "lte": return num(left) <= num(right);
+    case "gt": return num(left) > num(right);
+    case "gte": return num(left) >= num(right);
+    default: return num(left) !== 0;
+  }
+}
+
 function num(v) {
   if (typeof v === "number") return v;
   if (typeof v === "boolean") return v ? 1 : 0;
@@ -316,6 +335,14 @@ export function interpolate(template, vars) {
   return String(template)
     .replace(/\{\{/g, "\u0001").replace(/\}\}/g, "\u0002")
     .replace(/\{([^{}]+)\}/g, (_, e) => {
+      // A bare name that is not set renders as the literal "{key}" so missing
+      // data is VISIBLE — that is the typo signal the engine documents. Only
+      // interpolation does this: in a condition an unset var stays 0/""/false.
+      const bare = e.trim();
+      if (/^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё_0-9]*(\.[A-Za-zА-Яа-яЁё_0-9]+)*$/.test(bare)
+          && getVarPath(vars, bare) === null) {
+        return "{" + e + "}";
+      }
       try { return fmt(evalExpr(e, vars)); } catch { return "{" + e + "}"; }
     })
     // Deliberate control-char sentinels: `{{`/`}}` are parked on U+0001/U+0002

@@ -323,6 +323,18 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 		case "if":
 			ref(i, op, c.Str("then"))
 			ref(i, op, c.Str("else"))
+		case "inc":
+			// `by` is coerced as a NUMBER by both runtimes (a string falls back
+			// to 1), so an expression here is silently wrong rather than
+			// computed — exactly the shape that used to differ between the app
+			// and the browser player. Say so instead of stepping by one.
+			if by, ok := c["by"]; ok {
+				switch by.(type) {
+				case float64, int, bool, nil:
+				default:
+					addWarn(i, op, fmt.Sprintf("by=%v is not a number — it is not evaluated, the step falls back to 1; compute the value into a variable with `set` first", by))
+				}
+			}
 		case "say":
 			if msg := braceIssue(c.Str("text")); msg != "" {
 				addWarn(i, op, msg)

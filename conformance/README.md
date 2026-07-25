@@ -159,18 +159,19 @@ Two consequences the Go guard enforces, so a case can't be written into a trap:
 
 ## Known runtime divergences
 
-Facts, not aspirations — each is why some case above is single-runtime. Fixing any
-of them is a product decision, not a test change.
+None outstanding in behaviour. Every entry this table once carried is now closed
+and pinned by a case that runs in BOTH runtimes, so none of them can reopen
+quietly. What the table held, and where it went:
 
-| Behaviour | C# engine | JS playground |
+| Was | Resolution | Pinned by |
 |---|---|---|
-| `if cond={key,op,value}` (structured) | evaluated | always false → always takes `else` |
-| `set default=true` | initialise-only | plain overwrite |
-| `requires_stat` with no `min` | threshold 0 (option shown) | threshold 1 |
-| `requires_min` (the importer's field name) | honoured | ignored (`min` only) |
-| `if` with no `else` and a false condition | ends the chapter | falls through to the next command |
-| `{unset_var}` in text | renders literal `{unset_var}` | renders `0` |
-| `inc by="<expression>"` | not evaluated → steps by 1 | evaluated |
+| `if cond={key,op,value}` (structured) ignored in JS → always took `else` | JS evaluates it, mirroring `LvnPlayer.EvalCond`. The importer emits this form, so every imported condition used to play differently in the browser. | case 17 |
+| `set default=true` overwrote in JS | initialise-only in both — a chapter-entry default must not stomp progress carried in from an earlier chapter or a save. | case 18 |
+| `requires_stat` with no `min`: threshold 0 (C#) vs 1 (JS) | 0 in both. | case 21 |
+| `requires_min` (the name the importer writes) ignored by JS | honoured in both. | case 21 |
+| `if` false with no `else`: C# ENDED THE CHAPTER, JS fell through | falls through in both, as the cheatsheet and language reference promise. The compiler always emits `else`, so this only ever reached hand-written `.lvn` — but `.lvn` is advertised as a container any tool may write. | case 22 |
+| `{unset_var}`: literal `{key}` (C#) vs `0` (JS) | literal in both — missing data has to be visible. Ink defaults still hold inside conditions, and the case asserts both halves so one cannot be fixed by breaking the other. | case 23 |
+| `inc by="<expr>"`: stepped by 1 (C#) vs evaluated (JS) | `by` is a number in both, per the documented contract; a non-numeric `by` is no longer silently wrong — the validator warns and tells the author to compute it with `set` first. | validator |
 
 ### Closed since this table was written
 
