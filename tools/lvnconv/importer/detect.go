@@ -220,14 +220,11 @@ func DetectRoles(projectDir string, tpl *Template) (*DetectReport, error) {
 
 	rep.AliasCollisions = detectAliasCollisions(rep.Speakers, cast)
 	if len(rep.ProtagonistWithoutArt) > 0 {
-		// Ambiguous by design, not a defect: a spriteless protagonist could be
-		// a genuine art gap (fix with an alias, or turn on
-		// staging.placeholder_protagonist for a placeholder box) OR a
-		// deliberate first-person/self-insert novel where she's meant to
-		// stay invisible — nothing in the script distinguishes the two, so
-		// this is only ever a heads-up, never an auto-applied fix.
+		// A content hole to fix, not a style: per the partner, novels
+		// without a drawn protagonist don't exist — the import will stage a
+		// labelled grey placeholder (default ON) so the gap is visible.
 		rep.Warnings = append(rep.Warnings, fmt.Sprintf(
-			"protagonist role(s) with no roster art: %s — she'll stay invisible on stage (may be intentional for a first-person novel); if this is really a missing portrait, add a speaker_alias to real art or set staging.placeholder_protagonist=true for a labelled placeholder",
+			"protagonist role(s) with no roster art: %s — will be staged as a labelled placeholder; fix by adding a speaker_alias to the real roster art (or ship the missing portrait)",
 			strings.Join(rep.ProtagonistWithoutArt, ", ")))
 	}
 	if sceneCandidates > 0 && rep.SceneMarkerHitRate < 0.5 {
