@@ -273,3 +273,22 @@ func TestApplyVarAliases(t *testing.T) {
 		t.Fatalf("say text must be untouched: %v", ops[3])
 	}
 }
+
+// The wardrobe swap must leave a STRAIGHT LINE from the opening flag to the
+// closing one: a surviving picker-branch `goto` used to cut the path to the
+// closing op and everything after it (a third of Cold ch24 was unreachable
+// on prod). keepInWardrobeBlock must drop picker control flow.
+func TestWardrobeSwapKeepsPathToClosing(t *testing.T) {
+	tpl := DefaultTemplate()
+	for _, op := range []string{"goto", "if", "return", "call"} {
+		if keepInWardrobeBlock(map[string]any{"op": op, "label": "x"}, tpl) {
+			t.Errorf("picker %s must NOT survive the wardrobe swap", op)
+		}
+	}
+	if !keepInWardrobeBlock(map[string]any{"op": "audio", "channel": "music"}, tpl) {
+		t.Error("audio inside the block must survive")
+	}
+	if !keepInWardrobeBlock(map[string]any{"op": "set", "key": "Open.ReOpenWardrobe", "value": true}, tpl) {
+		t.Error("non-clothes sets must survive")
+	}
+}
