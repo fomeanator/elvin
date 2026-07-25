@@ -1,0 +1,25 @@
+{
+  "id": "input",
+  "title": "input pauses the story, hands its prompt to the host and writes the typed text into a var",
+  "why": "The only op where the PLAYER writes state. The stop must carry prompt/default/max (there is no other way to draw the overlay), the variable must hold the submitted string, and the story must resume after it — not before.",
+  "runtimes": ["csharp", "js"],
+  "inputs": ["Аня"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "say", "text": "Как тебя зовут?" },
+      { "op": "input", "var": "player_name", "prompt": "Введи имя", "default": "Гость", "max": 12 },
+      { "op": "say", "text": "Привет, {player_name}!" }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Как тебя зовут?" },
+      { "input": { "prompt": "Введи имя", "default": "Гость", "max": 12 } },
+      { "say": "Привет, Аня!" },
+      { "end": true }
+    ],
+    "vars": { "player_name": "Аня" },
+    "expr_true": ["player_name == \"Аня\""]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "choice-expr-gate",
+  "title": "An option whose expr gate is false is HIDDEN, not disabled",
+  "why": "The once-only hub — the single most common structure in real content. The gated option must be absent from the presented list on the second visit, and option indices handed back to the runtime must still address the right branch.",
+  "runtimes": ["csharp", "js"],
+  "picks": [0, 0],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "label", "id": "hub" },
+      { "op": "say", "text": "Что дальше?" },
+      { "op": "choice", "options": [
+        { "text": "Осмотреться", "expr": "seen == 0", "goto": "look" },
+        { "text": "Уйти", "goto": "leave" }
+      ] },
+      { "op": "label", "id": "look" },
+      { "op": "set", "key": "seen", "value": 1 },
+      { "op": "say", "text": "Ты осмотрелся." },
+      { "op": "goto", "label": "hub" },
+      { "op": "label", "id": "leave" },
+      { "op": "say", "text": "Ты ушёл." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Что дальше?" },
+      { "choice": ["Осмотреться", "Уйти"] },
+      { "say": "Ты осмотрелся." },
+      { "say": "Что дальше?" },
+      { "choice": ["Уйти"] },
+      { "say": "Ты ушёл." },
+      { "end": true }
+    ],
+    "vars": { "seen": 1 }
+  }
+}
