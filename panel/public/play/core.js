@@ -7,7 +7,7 @@
 // Pure and DOM-free: advance()/choose()/submitInput() return a pause event
 // ({type: say|choice|input|wait|end, …}); the UI renders it and calls back.
 
-import { evalExpr, evalBool, interpolate, truthy } from "./expr.js";
+import { evalExpr, evalBool, interpolate, truthy, getVarPath, setVarPath } from "./expr.js";
 
 export class Player {
   constructor(doc, { onStage } = {}) {
@@ -50,7 +50,7 @@ export class Player {
           let v;
           if (c.expr !== undefined) { try { v = evalExpr(c.expr, this.vars); } catch { v = 0; } }
           else v = c.value;
-          if (c.key) this.vars[c.key] = v;
+          if (c.key) setVarPath(this.vars, c.key, v);
           this.ip++;
           break;
         }
@@ -59,8 +59,8 @@ export class Player {
           if (c.by !== undefined) {
             try { by = typeof c.by === "number" ? c.by : evalExpr(c.by, this.vars); } catch { by = 0; }
           }
-          const cur = this.vars[c.key];
-          this.vars[c.key] = (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by;
+          const cur = getVarPath(this.vars, c.key);
+          setVarPath(this.vars, c.key, (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by);
           this.ip++;
           break;
         }
@@ -130,7 +130,7 @@ export class Player {
         try { if (!evalBool(o.expr, this.vars)) return; } catch { return; }
       }
       if (o.requires_stat) {
-        const v = this.vars[o.requires_stat];
+        const v = getVarPath(this.vars, o.requires_stat);
         const n = typeof v === "number" ? v : parseFloat(v) || 0;
         if (n < (o.min ?? 1)) return;
       }
@@ -158,11 +158,11 @@ export class Player {
           this.ip = -1; // guard: run the data op inline without moving
           if (b.op === "set") {
             let v; try { v = b.expr !== undefined ? evalExpr(b.expr, this.vars) : b.value; } catch { v = 0; }
-            if (b.key) this.vars[b.key] = v;
+            if (b.key) setVarPath(this.vars, b.key, v);
           } else {
-            const cur = this.vars[b.key];
+            const cur = getVarPath(this.vars, b.key);
             let by = 1; try { by = b.by !== undefined ? (typeof b.by === "number" ? b.by : evalExpr(b.by, this.vars)) : 1; } catch {}
-            this.vars[b.key] = (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by;
+            setVarPath(this.vars, b.key, (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by);
           }
           this.ip = saveIp;
         } else if (b.op === "goto") {
@@ -213,7 +213,7 @@ export class Player {
   submitInput(text) {
     const c = this._awaitInput;
     this._awaitInput = null;
-    if (c && c.var) this.vars[c.var] = String(text ?? "");
+    if (c && c.var) setVarPath(this.vars, c.var, String(text ?? ""));
     return this.advance();
   }
 }
