@@ -55,6 +55,16 @@ type Template struct {
 	// entity's display name. Empty → labels pass through as authored.
 	SpeakerNames map[string]string `json:"speaker_names,omitempty"`
 
+	// VarAliases maps a variable-name PREFIX to its canonical spelling —
+	// the content-typo rescue. Live case: Cold's chapters 1-2/5-6 write
+	// `Relationship.Matvey` (singular) while the declared namespace, the
+	// stat bars, and every later chapter use `Relationships.` — so early
+	// relationship points vanished into an undeclared variable and the
+	// partner's bars sat at 0 through chapter 1. Applied to set/inc keys
+	// and expressions at import; the articy source still deserves the real
+	// fix, this keeps every REIMPORT correct meanwhile.
+	VarAliases map[string]string `json:"var_aliases,omitempty"`
+
 	// SpeakerAliases maps an ALIAS articy speaker label to the CANONICAL
 	// roster label whose art it should resolve through — the manual "these N
 	// labels are the same person" declaration a name-normalizing heuristic can

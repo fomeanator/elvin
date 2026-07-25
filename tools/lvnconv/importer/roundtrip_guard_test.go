@@ -244,3 +244,32 @@ func TestRemoveUnreachableOpsDropsWardrobeTails(t *testing.T) {
 		}
 	}
 }
+
+// var_aliases: the content-typo rescue — a singular-namespace key is
+// rewritten to the canonical plural, and the longer correct form is never
+// double-hit ("Relationships." must not become "Relationshipss.").
+func TestApplyVarAliases(t *testing.T) {
+	tpl := &Template{VarAliases: map[string]string{"Relationship.": "Relationships."}}
+	ops := []map[string]any{
+		{"op": "set", "key": "Relationship.Matvey", "expr": "Relationships.Matvey +1"},
+		{"op": "if", "expr": "Relationship.Roman > 2"},
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "x", "goto": "l", "expr": "Relationship.Ainan >= 1"},
+		}},
+		{"op": "say", "who": "A", "text": "Relationship. как слово в тексте"},
+	}
+	applyVarAliases(ops, tpl)
+	if ops[0]["key"] != "Relationships.Matvey" || ops[0]["expr"] != "Relationships.Matvey +1" {
+		t.Fatalf("set not fixed: %v", ops[0])
+	}
+	if ops[1]["expr"] != "Relationships.Roman > 2" {
+		t.Fatalf("if not fixed: %v", ops[1])
+	}
+	opt := ops[2]["options"].([]any)[0].(map[string]any)
+	if opt["expr"] != "Relationships.Ainan >= 1" {
+		t.Fatalf("choice expr not fixed: %v", opt)
+	}
+	if ops[3]["text"] != "Relationship. как слово в тексте" {
+		t.Fatalf("say text must be untouched: %v", ops[3])
+	}
+}
