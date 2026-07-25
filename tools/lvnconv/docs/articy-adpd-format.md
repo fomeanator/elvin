@@ -168,8 +168,38 @@ entries. Once you read it as such, the branching falls out.
   `0xfa 0xfb 0xfc 0xfd 0xfe` uint32 (4 bytes), `0xee` packed colour (4 bytes).
 
 Bytes that don't form a plausible entry are object/array framing — skip them one
-at a time; the entries themselves are unambiguous, so a resync scanner recovers
-the whole stream without needing the (unshipped) object schema.
+at a time.
+
+> **A resync scanner is NOT safe on its own.** This doc used to claim the entries
+> are unambiguous, so byte-by-byte resync recovers everything. That is false, and
+> it cost real story: while resyncing, the scanner can land mid-entry on bytes that
+> happen to parse as a *valid* entry and thereby swallow the real entry behind it.
+>
+> Measured on five live partner projects (Cold / Lastaut / Inaweb / Soviet /
+> Mechlove): ~22% of body bytes fall into resync, and in 11–15 connections per
+> project the swallowed entry was the connection's **first** ref — its `source`.
+> A connection with three refs looks malformed and gets dropped, so the flow is
+> cut at that point. One such cut left Cold's Эпизод 11 with 14 reachable beats
+> out of 739; four projects out of five sat at 79–91% reachable instead of 100%.
+>
+> The fix is not a smarter resync but **knowing the widths**. Every tag actually
+> observed in the wild, with its value width (measured as the resync run length to
+> the next successfully parsed entry — one dominant value in ≥99% of cases):
+>
+> | tag | width | where it appears |
+> |----|------|------------------|
+> | `0x03` | 1 byte (bool) | `propid 0x002` on every connection; `0x07f` on Condition/Outcome |
+> | `0x06` | 6 bytes | `propid 0x06d` on every container (Dialog/FlowFragment) |
+> | `0x09` | 4 bytes | `propid 0x007` on every container |
+> | `0x0a` | 4 bytes | `propid 0x009` on **every connection**, immediately BEFORE its refs |
+> | `0x0e` | 8 bytes | `propid 0x027` on every DialogFragment |
+> | `0x00` | variable | GUID/blob payloads; not decodable by width alone |
+>
+> Only `0x0a`/`propid 0x009` is decoded today, deliberately: it is the one that
+> stood before the connection refs, and a blanket "any propid with tag 0x0a" rule
+> measured *worse* — it swallowed a container's `0x39` self ordinal and dropped a
+> whole chapter from Cold (25 → 24). Widen this table one propid at a time, and
+> re-measure `TestConnectivityOnRealProjects` after each step.
 
 ### 6.2 The propids that matter
 
@@ -252,6 +282,16 @@ fragments, **24,387 (99.86%) transfer**; the only 35 that don't are *disconnecte
 author notes* (team comments, scene-category labels, testing TODOs) with no
 in-flow connections — not story. (This project has **no `Jump` nodes** — the
 pockets are sub-scenes reached through container nesting, surfaced by the hub.)
+
+**`Jump` nodes (classId 78) do exist in other projects** — Cold has 10, Inaweb 12,
+Mechlove 9 — and they are NOT wired with connections. A Jump's own output pin is
+always empty; its destination is a ref under `propid 0x02a` pointing at the
+**target's pin** (the sibling ref there is a `ModelDependency` wrapper — tell them
+apart by which ordinal is a known pin). Treat the Jump as transparent routing:
+enter the target node through that pin. Until this was decoded the flow simply
+ENDED at every Jump — in Cold that killed the death/retry branch ("Вас убили!
+Попробуйте ещё раз" → Jump back to a checkpoint Outcome), so a death was a dead
+end instead of a rewind.
 
 Verified end-to-end on the test project — `lvnconv validate` → *OK, 534 commands*;
 the decoded chapter contains 67 lines and 12 choices including
