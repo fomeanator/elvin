@@ -266,29 +266,44 @@ func TestAutoStageUnknownSpeakerNoActor(t *testing.T) {
 	}
 }
 
-// DEFAULT behaviour (Staging.PlaceholderProtagonist unset/false): a
-// protagonist with no art stays invisible, exactly like before
-// ensureProtagonistCast existed — a spriteless protagonist is frequently a
-// DELIBERATE first-person/self-insert design (the player is never drawn),
-// which is structurally indistinguishable from "the roster is just missing
-// her portrait". Forcing a placeholder onto her by default would be a
-// visible regression for that (common) case, so the safe default preserves
-// the original silence; DetectRoles surfaces it as a warning instead of the
-// runtime silently deciding for the author.
-func TestAutoStageProtagonistWithoutArtStaysInvisibleByDefault(t *testing.T) {
+// DEFAULT behaviour (Staging.PlaceholderProtagonist unset): the placeholder
+// is ON — per the partner, "новелл без героев не бывает": a spriteless
+// protagonist is always a hole in the delivered files, and the labelled
+// placeholder makes it visible at first glance. Explicit false opts out.
+func boolPtr(b bool) *bool { return &b }
+
+func TestAutoStageProtagonistWithoutArtGetsPlaceholderByDefault(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Главный герой", "text": "я здесь"},
 	}}
 	cast := map[string]string{}
-	ensureProtagonistCast(doc, cast, nil) // nil → DefaultTemplate(), PlaceholderProtagonist=false
+	ensureProtagonistCast(doc, cast, nil) // nil → DefaultTemplate(): placeholder ON
 	AutoStage(doc, cast, nil)
 
-	if countOp(doc.Script, "actor") != 0 {
-		t.Fatalf("protagonist without art must stay invisible by default: %v", ops(doc.Script))
+	if countOp(doc.Script, "actor") != 1 {
+		t.Fatalf("protagonist without art must be staged as a placeholder by default: %v", ops(doc.Script))
 	}
 	say := doc.Script[len(doc.Script)-1]
-	if _, has := say["who_id"]; has {
-		t.Errorf("an invisible protagonist has nothing to highlight — who_id should stay unset: %v", say)
+	if say["who_id"] != "Главный_герой" {
+		t.Errorf("say should get who_id for highlighting: %v", say)
+	}
+}
+
+// Explicit opt-out: placeholder_protagonist=false keeps her invisible.
+func TestAutoStageProtagonistOptOutStaysInvisible(t *testing.T) {
+	off := false
+	tpl := &Template{Staging: StagingTemplate{
+		ProtagonistRoles:       []string{"Главный герой"},
+		PlaceholderProtagonist: &off,
+	}}
+	doc := &articy.Doc{Script: []articy.Cmd{
+		{"op": "say", "who": "Главный герой", "text": "я здесь"},
+	}}
+	cast := map[string]string{}
+	ensureProtagonistCast(doc, cast, tpl)
+	AutoStage(doc, cast, tpl)
+	if countOp(doc.Script, "actor") != 0 {
+		t.Fatalf("opted-out protagonist must stay invisible: %v", ops(doc.Script))
 	}
 }
 
@@ -298,7 +313,7 @@ func TestAutoStageProtagonistWithoutArtStaysInvisibleByDefault(t *testing.T) {
 func TestAutoStageProtagonistWithoutArtGetsPlaceholderWhenEnabled(t *testing.T) {
 	tpl := &Template{Staging: StagingTemplate{
 		ProtagonistRoles:       []string{"Главный герой"},
-		PlaceholderProtagonist: true,
+		PlaceholderProtagonist: boolPtr(true),
 	}}
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Главный герой", "text": "я здесь"},
@@ -335,7 +350,7 @@ func TestAutoStageProtagonistWithoutArtGetsPlaceholderWhenEnabled(t *testing.T) 
 func TestEnsureProtagonistCastOnlyPhantomFreeRoles(t *testing.T) {
 	tpl := &Template{Staging: StagingTemplate{
 		ProtagonistRoles:       []string{"Главный герой", "ГГ"},
-		PlaceholderProtagonist: true,
+		PlaceholderProtagonist: boolPtr(true),
 	}}
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Тимур", "text": "hi"},

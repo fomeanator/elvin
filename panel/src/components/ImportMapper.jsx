@@ -251,14 +251,18 @@ function MapperWarnings({ report, draft, onSceneMarkerChange, onEmotionChange, o
   const showSceneWarning = report.scene_marker_candidates > 0 && hitRate < 0.5;
   const misses = report.emotion_color_misses || [];
   if (!showSceneWarning && !misses.length && !(report.protagonist_without_art || []).length) return null;
-  const placeholderOn = !!(draft.staging && draft.staging.placeholder_protagonist);
+  // unset (undefined/null) = ON: per the partner, a spriteless protagonist
+  // is always a hole in the files, never a design — the placeholder makes
+  // the hole visible. Explicit false opts a project out.
+  const pp = draft.staging && draft.staging.placeholder_protagonist;
+  const placeholderOn = pp !== false;
   return (
     <div className="mapper-warnings">
       {(report.protagonist_without_art || []).length > 0 && (
         <div className="mapper-warn">
-          ⚠ Без арта: {report.protagonist_without_art.join(", ")} — по умолчанию останется невидимым
-          на сцене (это норма для истории от первого лица). Если это просто нехватка арта — найди
-          алиас на реального персонажа в таблице ниже, либо включи плейсхолдер:
+          ⚠ Без арта: {report.protagonist_without_art.join(", ")} — будет показан серым плейсхолдером
+          (дыра в файлах видна сразу). Правильный фикс — алиас на реального персонажа в таблице ниже
+          или дослать портрет.
           <label className="mapper-checkbox-row">
             <input type="checkbox" checked={placeholderOn}
                    onChange={(e) => onPlaceholderProtagonistChange(e.target.checked)} />
