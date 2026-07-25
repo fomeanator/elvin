@@ -33,6 +33,12 @@ const (
 	pColor   = 0x01  // DialogFragment marker BackgroundColor (tag 0xee = packed RGBA)
 	pCaption = 0x100 // speaker caption (string) / colour (non-string)
 	pText    = 0x200 // line text (HTML)
+
+	// pConnHash — 4-байтовое свойство (тег 0x0a), которое articy пишет у каждой
+	// связи ПЕРЕД её ref'ами [src,dst,srcPin,dstPin]. Само значение нам не нужно,
+	// но его ширину знать обязательно: без этого entries() уходит в побайтовый
+	// resync и иногда съедает src (см. комментарий у entries).
+	pConnHash = 0x009
 )
 
 // articyDefaultColor is articy:draft's default DialogFragment marker colour (a
@@ -104,6 +110,18 @@ func header(d []byte, o, idx int) (uint32, uint16, byte, byte, bool) {
 }
 
 // entries parses [a,b) as a flat run of property entries.
+//
+// Unknown tag → byte-by-byte resync, and THAT is where the format bites: the
+// resync can land mid-entry on bytes that happen to parse as a valid entry and
+// swallow the real one behind it. Поймано на живом Cold: у 11 связей
+// (`Connection`, 4 ref'а [src,dst,srcPin,dstPin]) съедался ПЕРВЫЙ ref — src —
+// потому что перед ним стоит свойство с тегом 0x0a, которого парсер не знал.
+// Связь с 3 ref'ами молча отбрасывается (`len(r) >= 4`), поток рвётся, и в
+// одной главе Cold (Эпизод 11) из 739 реплик оставалось достижимо 14. Отсюда
+// правило: каждый встреченный в реальных проектах тег должен иметь ЯВНУЮ
+// ширину — тогда resync не запускается вовсе. Ширины измерены на 5 живых
+// проектах (Cold/Lastaut/Inaweb/Soviet/Mechlove): длина «пробега» resync'а до
+// следующего успешно разобранного свойства ≥99% случаев одна и та же.
 func entries(d []byte, a, b int) []entry {
 	var out []entry
 	o := a
@@ -114,6 +132,15 @@ func entries(d []byte, a, b int) []entry {
 		v := o + 5
 		ok := false
 		switch {
+		case tag == 0x0a && pid == pConnHash && seq < 0x600 && v+4 <= b:
+			// 4-байтовое значение. Правило намеренно сужено до pid 0x009 — это
+			// свойство есть у КАЖДОЙ связи и стоит ПЕРЕД её ref'ами, поэтому именно
+			// оно ломало src. Широкое правило «любой pid с тегом 0x0a» проверялось
+			// и оказалось хуже: на Cold оно съедало pSelf одного контейнера, и из
+			// экспорта пропадала целая глава (25 → 24). Резать по живому pid'у.
+			out = append(out, entry{pid, prop{tag: tag, u: binary.LittleEndian.Uint32(d[v:])}})
+			o = v + 4
+			ok = true
 		case tag == 0x12 && pid < 0x400 && seq < 0x600 && v+4 <= b:
 			ln := int(binary.LittleEndian.Uint32(d[v:]))
 			if ln >= 0 && ln < 200000 && v+4+ln <= b {
@@ -204,6 +231,68 @@ func (o object) refs(pid uint16) []uint32 {
 		}
 	}
 	return r
+}
+
+// selfOrdinals returns each object's self ordinal (pSelf) and whether it is
+// known, both parallel to objs, and RESTORES the ordinal for containers whose
+// pSelf entry didn't survive the entry scanner.
+//
+// Зачем: контейнер без ordinal'а не регистрируется вообще — его дети остаются без
+// родителя, не попадают ни в одну главу и молча исчезают из экспорта. Поймано на
+// партнёрском проекте Inaweb: ровно ОДИН объект из 129813 (Dialog со сценой)
+// потерял pSelf, и вместе с ним из новеллы выпали 7 реплик допроса.
+//
+// Восстанавливаем по детям: у них pParent разбирается нормально и указывает на
+// ordinal контейнера, а сам контейнер перечисляет их в pChild. Большинство
+// голосов детей и есть его ordinal. Не перезаписываем ordinal, уже занятый
+// объектом с честным pSelf.
+//
+// ВАЖНО: ordinal 0 — законный (в Cold это первая глава), поэтому «известность»
+// возвращается отдельным флагом, а не сравнением с нулём. Проверка `self != 0`
+// стоила ровно одной главы из 25 — тихо, без единого предупреждения.
+func selfOrdinals(objs []object) ([]uint32, []bool) {
+	self := make([]uint32, len(objs))
+	known := make([]bool, len(objs))
+	parentOf := map[uint32]uint32{}
+	hasParent := map[uint32]bool{}
+	claimed := map[uint32]bool{}
+	for i, o := range objs {
+		if s, ok := o.u32(pSelf); ok {
+			self[i], known[i] = s, true
+			claimed[s] = true
+			if p, ok := o.u32(pParent); ok {
+				parentOf[s], hasParent[s] = p, true
+			}
+		}
+	}
+	for i, o := range objs {
+		if known[i] {
+			continue
+		}
+		switch o.classId {
+		case cidDialog, cidFlowFrag, cidStoryFolder:
+		default:
+			continue
+		}
+		votes := map[uint32]int{}
+		for _, ch := range o.refs(pChild) {
+			if p := parentOf[ch]; hasParent[ch] && !claimed[p] {
+				votes[p]++
+			}
+		}
+		best, bestN := uint32(0), 0
+		for c, v := range votes {
+			if v > bestN || (v == bestN && c < best) {
+				best, bestN = c, v
+			}
+		}
+		// Один голос — это домысел; требуем ≥2 согласных детей.
+		if bestN >= 2 {
+			self[i], known[i] = best, true
+			claimed[best] = true
+		}
+	}
+	return self, known
 }
 
 // walkObjects returns every length-prefixed object in the body.
