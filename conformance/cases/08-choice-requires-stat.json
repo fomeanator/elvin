@@ -1,0 +1,35 @@
+{
+  "id": "choice-requires-stat",
+  "title": "requires_stat + min hides an option below the threshold and keeps one exactly at it",
+  "why": "The stat-gate is the importer's own output shape. `min` is inclusive: strength 3 must PASS min 3 and FAIL min 5 — an off-by-one here silently rewrites which branches a player can ever see.",
+  "runtimes": ["csharp", "js"],
+  "picks": [0],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "strength", "value": 3 },
+      { "op": "say", "text": "Запертая дверь." },
+      { "op": "choice", "options": [
+        { "text": "Выломать", "requires_stat": "strength", "min": 5, "goto": "force" },
+        { "text": "Постучать", "requires_stat": "strength", "min": 3, "goto": "knock" },
+        { "text": "Уйти", "goto": "leave" }
+      ] },
+      { "op": "label", "id": "force" },
+      { "op": "say", "text": "Дверь вылетает." },
+      { "op": "goto", "label": "__end" },
+      { "op": "label", "id": "knock" },
+      { "op": "say", "text": "Ты стучишь." },
+      { "op": "goto", "label": "__end" },
+      { "op": "label", "id": "leave" },
+      { "op": "say", "text": "Ты уходишь." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Запертая дверь." },
+      { "choice": ["Постучать", "Уйти"] },
+      { "say": "Ты стучишь." },
+      { "end": true }
+    ]
+  }
+}

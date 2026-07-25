@@ -1,0 +1,31 @@
+{
+  "id": "state-ink-defaults",
+  "title": "An unset variable reads as 0 == \"\" == false",
+  "why": "Every once-only gate and first-visit check in real content rests on this. A runtime that throws, or that treats an unset name as an error, silently closes gates that must be open on the first pass.",
+  "runtimes": ["csharp", "js"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "say", "text": "Проверка дефолтов." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Проверка дефолтов." },
+      { "end": true }
+    ],
+    "expr_true": [
+      "unseen == 0",
+      "unseen == \"\"",
+      "unseen == false",
+      "!unseen",
+      "unseen + 1 == 1",
+      "unseen < 1"
+    ],
+    "expr_false": [
+      "unseen",
+      "unseen == 1",
+      "unseen > 0"
+    ]
+  }
+}

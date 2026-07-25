@@ -1,0 +1,38 @@
+{
+  "id": "flow-label-trace",
+  "title": "Every jump lands on the label it names — in order, twice for a re-entered subroutine",
+  "why": "The stops of a script can look right while the cursor took a wrong road (e.g. a return that fell through instead of popping). Pinning the visited labels asserts the ROUTE, not just the destination.",
+  "runtimes": ["csharp"],
+  "picks": [1],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "n", "value": 0 },
+      { "op": "call", "label": "step" },
+      { "op": "call", "label": "step" },
+      { "op": "say", "text": "Куда?" },
+      { "op": "choice", "options": [
+        { "text": "Налево", "goto": "left" },
+        { "text": "Направо", "goto": "right" }
+      ] },
+      { "op": "label", "id": "step" },
+      { "op": "inc", "key": "n" },
+      { "op": "return" },
+      { "op": "label", "id": "left" },
+      { "op": "say", "text": "Налево." },
+      { "op": "goto", "label": "__end" },
+      { "op": "label", "id": "right" },
+      { "op": "say", "text": "Направо." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Куда?" },
+      { "choice": ["Налево", "Направо"] },
+      { "say": "Направо." },
+      { "end": true }
+    ],
+    "labels": ["step", "step", "right"],
+    "vars": { "n": 2 }
+  }
+}

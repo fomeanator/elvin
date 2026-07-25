@@ -1,0 +1,32 @@
+{
+  "id": "stage-forwarding",
+  "title": "bg / actor / fade reach the presentation layer verbatim, in script order",
+  "why": "Staging is the half of the language the interpreter must NOT interpret. Every field the author wrote has to arrive at the renderer unchanged — a dropped `position` or a swallowed `show=false` is exactly the silent no-op class this corpus exists to catch.",
+  "runtimes": ["csharp", "js"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "bg", "id": "hall", "sprite_url": "bg/hall.png" },
+      { "op": "actor", "id": "hill", "emotion": "happy", "position": "left" },
+      { "op": "fade", "to": "black", "duration": 0.5 },
+      { "op": "say", "text": "Темнота." },
+      { "op": "fade", "to": "clear", "duration": 0.5 },
+      { "op": "actor", "id": "hill", "show": false },
+      { "op": "say", "text": "Пусто." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Темнота." },
+      { "say": "Пусто." },
+      { "end": true }
+    ],
+    "stage": [
+      { "op": "bg", "id": "hall", "sprite_url": "bg/hall.png" },
+      { "op": "actor", "id": "hill", "emotion": "happy", "position": "left" },
+      { "op": "fade", "to": "black", "duration": 0.5 },
+      { "op": "fade", "to": "clear", "duration": 0.5 },
+      { "op": "actor", "id": "hill", "show": false }
+    ]
+  }
+}

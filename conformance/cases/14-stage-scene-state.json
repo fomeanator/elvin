@@ -1,0 +1,33 @@
+{
+  "id": "stage-scene-state",
+  "title": "The scene a player sees: latest backdrop, visible cast, sticky placement",
+  "why": "Staging ops accumulate rather than replace. A re-issued actor keeps its last placement (sticky) but takes the new command's emotion; show=false removes her from the scene rather than dimming her. This is the reduction every renderer must agree on.",
+  "runtimes": ["csharp"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "bg", "id": "hall", "sprite_url": "bg/hall.png" },
+      { "op": "actor", "id": "hill", "emotion": "happy", "position": "left" },
+      { "op": "actor", "id": "cat", "emotion": "calm", "position": "right" },
+      { "op": "say", "text": "Их двое." },
+      { "op": "actor", "id": "cat", "show": false },
+      { "op": "bg", "id": "street", "sprite_url": "bg/street.png" },
+      { "op": "actor", "id": "hill", "emotion": "sad" },
+      { "op": "say", "text": "Она одна." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Их двое." },
+      { "say": "Она одна." },
+      { "end": true }
+    ],
+    "scene": {
+      "bg": "bg/street.png",
+      "visible": ["hill"],
+      "actors": {
+        "hill": { "emotion": "sad", "position": "left" }
+      }
+    }
+  }
+}
