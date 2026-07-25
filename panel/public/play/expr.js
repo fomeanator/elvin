@@ -318,6 +318,10 @@ export function interpolate(template, vars) {
     .replace(/\{([^{}]+)\}/g, (_, e) => {
       try { return fmt(evalExpr(e, vars)); } catch { return "{" + e + "}"; }
     })
+    // Deliberate control-char sentinels: `{{`/`}}` are parked on U+0001/U+0002
+    // above so the interpolation pass cannot mistake them for a template, then
+    // restored here. Author text never contains these bytes.
+    // eslint-disable-next-line no-control-regex
     .replace(/\u0001/g, "{").replace(/\u0002/g, "}");
 }
 
