@@ -393,3 +393,67 @@ func TestValidate_TimedChoicePairing(t *testing.T) {
 		t.Fatal("expected timeout-without-goto warning")
 	}
 }
+
+// A call to a function no evaluator implements is the failure the runtime hides:
+// the expression throws, the variable reads 0, nothing on screen says so. The
+// validator has to be the one that speaks up — this is the check that would have
+// caught `func` being a phantom feature years earlier.
+func TestValidate_UnknownExprFunction(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+		{"op":"set","key":"x","expr":"add(2,3)"},
+		{"op":"if","expr":"flor(x) > 1","then":"a","else":"a"},
+		{"op":"say","text":"you have {tally(x)} left"},
+		{"op":"label","id":"a"}
+	]}`)
+	is := Validate(d)
+	if !hasWarn(is, "unknown function add()") {
+		t.Fatalf("expected a warning for add() in a set expr: %v", is)
+	}
+	if !hasWarn(is, "did you mean floor()") {
+		t.Fatalf("expected a spelling suggestion for flor(): %v", is)
+	}
+	if !hasWarn(is, "unknown function tally()") {
+		t.Fatalf("expected a warning for a call in an interpolation: %v", is)
+	}
+}
+
+// Every built-in, a bare variable, a nested built-in call and an ink-style text
+// alternative must stay silent — a false positive here would break the 0-warning
+// gate on real content.
+func TestValidate_KnownExprFunctionsAreSilent(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+		{"op":"set","key":"x","expr":"floor(sum(list(1,2,3)) / max(1, len(inv)))"},
+		{"op":"set","key":"y","expr":"get(m, \"put(x)\", 0)"},
+		{"op":"if","expr":"has(inv, \"key\") and chance(0.5)","then":"a","else":"a"},
+		{"op":"say","text":"{keys(m)} and {mood: good|bad} and {a|b|c}"},
+		{"op":"label","id":"a"}
+	]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "unknown function") {
+			t.Fatalf("false positive: %s", is.String())
+		}
+	}
+}
+
+// Two statements sharing one line inside a block leave the second one INSIDE the
+// first expression, where the evaluator throws and `set` swallows the throw — the
+// variable keeps its old value and nothing on screen says so (the howto/rpg shop
+// shipped like this and still gated at 0 warnings).
+func TestValidate_StrayAssignInExpr(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+		{"op":"set","key":"gold","expr":"gold - 5  potions = potions + 1"}
+	]}`)
+	if !hasWarn(Validate(d), "stray `=`") {
+		t.Fatalf("expected a stray-assignment warning: %v", Validate(d))
+	}
+	clean := parse(t, `{"scene":"t","script":[
+		{"op":"set","key":"a","expr":"gold >= 5 and hp != 0 and flag == 1"},
+		{"op":"set","key":"b","expr":"get(m, \"k=v\", 0)"},
+		{"op":"set","key":"c","expr":"put(m, \"k\", x <= 2)"}
+	]}`)
+	for _, is := range Validate(clean) {
+		if contains(is.Msg, "stray") {
+			t.Fatalf("false positive: %s", is.String())
+		}
+	}
+}

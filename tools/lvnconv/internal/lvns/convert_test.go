@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 func TestConvert(t *testing.T) {
@@ -321,5 +323,201 @@ func TestConvertDefPresetGuards(t *testing.T) {
 	}
 	if _, err := Convert("scene t\ndef a b 1\ndef b a 1\na\n"); err == nil || !strings.Contains(err.Error(), "expansion loop") {
 		t.Fatalf("expected expansion-loop error, got %v", err)
+	}
+}
+
+// An expression function (`func f(a) { return <expr> }`) leaves NO commands
+// behind: every call site is inlined into the expression itself, in all three
+// places a runtime evaluates one — a `set`, an `if` and a {…} interpolation —
+// plus a choice option's filter. Before this, the definition lowered to
+// call/return and the CALL stayed an expression no evaluator knew, so the
+// variable silently read 0.
+func TestConvertExprFuncInlining(t *testing.T) {
+	doc, err := Convert(`
+scene t
+func add(a, b) { return a + b }
+func scaled(n) {
+  return floor(n * 3 / 2)
+}
+func both(x) { return add(x, scaled(x)) }
+gold = 1
+gold = gold + add(2, 3)
+big = scaled(gold + 1)
+chain = both(4)
+Total {add(gold, 1)}.
+if add(gold, 0) > 3 -> ok
+:ok
+- pick -> ok2 expr="scaled(gold) > 1"
+- skip -> ok2
+:ok2
+end
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	for i, c := range doc.Script {
+		if c["op"] == "call" || c["op"] == "return" {
+			t.Fatalf("expression function must emit no call/return, got %v at %d", c, i)
+		}
+		if id, _ := c["id"].(string); strings.HasPrefix(id, "__fn_") {
+			t.Fatalf("expression function must emit no body label, got %v at %d", c, i)
+		}
+	}
+	want := map[int]string{
+		1: "gold + (2 + 3)",              // nested in a bigger expression
+		2: "(floor((gold + 1) * 3 / 2))", // a non-atomic argument keeps its brackets
+		3: "(4 + (floor(4 * 3 / 2)))",    // func calling funcs: whole chain inlined
+	}
+	for i, expr := range want {
+		if got := doc.Script[i]["expr"]; got != expr {
+			t.Fatalf("script[%d] expr = %q, want %q", i, got, expr)
+		}
+	}
+	if got := doc.Script[4]["text"]; got != "Total {(gold + 1)}." {
+		t.Fatalf("interpolation not inlined: %q", got)
+	}
+	if got := doc.Script[5]["expr"]; got != "(gold + 0) > 3" {
+		t.Fatalf("if-condition not inlined: %q", got)
+	}
+	opts := doc.Script[8]["options"].([]any)
+	if got := opts[0].(map[string]any)["expr"]; got != "(floor(gold * 3 / 2)) > 1" {
+		t.Fatalf("choice option filter not inlined: %q", got)
+	}
+}
+
+// A procedure (`func p() { <commands> }`) keeps the call/return lowering and is
+// invoked as a statement. The body's own trailing `return` must not be doubled by
+// the safety return the closing brace adds.
+func TestConvertProcedureLowering(t *testing.T) {
+	doc, err := Convert(`
+scene t
+func greet(who) {
+  Hello, {who}.
+}
+func early(flag) {
+  if flag > 0 { return }
+  Not skipped.
+  return
+}
+greet("Mara")
+early(1)
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	var ops []string
+	for _, c := range doc.Script {
+		ops = append(ops, fmt.Sprint(c["op"]))
+	}
+	joined := strings.Join(ops, ",")
+	if strings.Contains(joined, "return,return") {
+		t.Fatalf("duplicated safety return in %v", joined)
+	}
+	calls := 0
+	for _, c := range doc.Script {
+		if c["op"] == "call" {
+			calls++
+			if !strings.HasPrefix(c["label"].(string), "__fn_") {
+				t.Fatalf("call must target the func body label: %v", c)
+			}
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("want 2 procedure calls, got %d (%v)", calls, joined)
+	}
+	// Each argument binds to a plain variable right before its jump.
+	n := len(doc.Script)
+	if doc.Script[n-4]["key"] != "who" || doc.Script[n-2]["key"] != "flag" {
+		t.Fatalf("procedure arguments not bound: %v", doc.Script[n-4:])
+	}
+}
+
+// Every way of getting `func` wrong is a compile error with a sentence that says
+// what to do — never a silent 0 at runtime.
+func TestConvertFuncErrors(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{"recursion", "scene t\nfunc f(n) { return f(n - 1) }\nx = f(3)\n", "recursive"},
+		{"mutual recursion", "scene t\nfunc a(n) { return b(n) }\nfunc b(n) { return a(n) }\nx = a(1)\n", "recursive"},
+		{"too few args", "scene t\nfunc add(a, b) { return a + b }\nx = add(1)\n", "takes 2 argument(s), got 1"},
+		{"too many args", "scene t\nfunc inc1(a) { return a + 1 }\nx = inc1(1, 2)\n", "takes 1 argument(s), got 2"},
+		{"procedure args", "scene t\nfunc p(a) {\n  Hi {a}.\n}\np()\n", "takes 1 argument(s), got 0"},
+		{"procedure in expression", "scene t\nfunc p(a) {\n  Hi {a}.\n}\nx = p(1) + 1\n", "is a procedure"},
+		{"expression func as statement", "scene t\nfunc add(a, b) { return a + b }\nadd(1, 2)\n", "returns a value"},
+		{"duplicate declaration", "scene t\nfunc f(a) { return a }\nfunc f(b) { return b }\nx = f(1)\n", "already declared"},
+		{"unclosed body", "scene t\nfunc f(a) {\n  return a\n", "missing closing"},
+	}
+	for _, c := range cases {
+		_, err := Convert(c.src)
+		if err == nil {
+			t.Fatalf("%s: expected an error", c.name)
+		}
+		if !strings.Contains(err.Error(), c.want) {
+			t.Fatalf("%s: error %q must mention %q", c.name, err, c.want)
+		}
+	}
+}
+
+// A func name mentioned in prose (outside a {…} span) is text, not a call — the
+// inliner only rewrites expressions and interpolations.
+func TestConvertFuncLeavesProseAlone(t *testing.T) {
+	doc, err := Convert(`
+scene t
+func offer(base) { return base * 2 }
+price = offer(10)
+The trader will offer(a hand) if you ask.
+«A long line — offer(nothing) is still prose, but {offer(price)} is not.»
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if got := doc.Script[1]["text"]; got != "The trader will offer(a hand) if you ask." {
+		t.Fatalf("prose was rewritten: %q", got)
+	}
+	if got := doc.Script[2]["text"]; got != "A long line — offer(nothing) is still prose, but {(price * 2)} is not." {
+		t.Fatalf("chevron line wrong: %q", got)
+	}
+}
+
+// Ink-style text alternatives (mostly an ink-import artefact) share the {…}
+// syntax but their branches are prose, not expressions — only the condition head
+// before `:` may be inlined, and a bare sequence is left completely alone.
+func TestConvertFuncInTextAlternatives(t *testing.T) {
+	doc, err := Convert(`
+scene t
+func rich(g) { return g > 10 }
+gold = 12
+Keeper: The purse is {rich(gold): heavy|light}, the mood {calm|tense|calm}.
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	want := "The purse is {(gold > 10): heavy|light}, the mood {calm|tense|calm}."
+	if got := doc.Script[1]["text"]; got != want {
+		t.Fatalf("alternatives handling wrong:\n got %q\nwant %q", got, want)
+	}
+}
+
+// The compiler's "don't shadow a built-in" list and the validator's "these are the
+// only functions" list are the same set, in two packages that don't share code.
+// Bind them, or the next built-in added on one side becomes a silent gap on the
+// other (the T2 drift pattern: one dictionary, several implementations).
+func TestExprBuiltinsMatchValidator(t *testing.T) {
+	for name := range lvn.ExprFuncs {
+		if !exprBuiltins[name] {
+			t.Errorf("lvn.ExprFuncs has %q, lvns.exprBuiltins does not", name)
+		}
+	}
+	for name := range exprBuiltins {
+		if !lvn.ExprFuncs[name] {
+			t.Errorf("lvns.exprBuiltins has %q, lvn.ExprFuncs does not", name)
+		}
+	}
+}
+
+// Shadowing a built-in would quietly re-point every existing call in the file.
+func TestConvertFuncCannotShadowBuiltin(t *testing.T) {
+	_, err := Convert("scene t\nfunc floor(x) { return x }\ny = floor(1.5)\n")
+	if err == nil || !strings.Contains(err.Error(), "built-in expression function") {
+		t.Fatalf("expected a shadowing error, got %v", err)
 	}
 }

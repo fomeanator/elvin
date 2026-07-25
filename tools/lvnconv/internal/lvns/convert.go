@@ -3,6 +3,7 @@ package lvns
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -54,15 +55,30 @@ var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*
 // Convert parses lvns source and returns the .lvn document.
 func Convert(src string) (*Doc, error) {
 	// Lower the sugar before the line parser runs (core language stays tiny):
-	//  1. collect func signatures (so calls can bind params positionally),
-	//  2. expandLoops: split inline blocks + lower for/while/if/func to label/goto,
-	//  3. expandCalls: rewrite call sites + `return <expr>` once they're own-lines.
-	funcs := collectFuncs(src)
-	expanded, err := expandLoops(src)
+	//  1. flattenInline: put every control-flow `{`/`}` on its own line,
+	//  2. collectFuncs: read the func signatures AND classify each one (expression
+	//     function vs procedure) — classification needs the flattened BODY, which
+	//     is why it runs after step 1 and not on the raw source,
+	//  3. expression-function definitions leave no ops at all (their calls are
+	//     inlined in step 6), so blank them out here,
+	//  4. expandLoops: lower for/while/if and procedure bodies to label/goto,
+	//  5. expandCalls: rewrite procedure call sites + `return <expr>`,
+	//  6. inlineFuncs (after the doc is built): substitute expression-function
+	//     calls into every expression the runtime will evaluate.
+	flat := flattenInline(src)
+	funcs, err := collectFuncs(flat)
 	if err != nil {
 		return nil, err
 	}
-	src = expandCalls(expanded, funcs)
+	blankExprFuncDefs(flat, funcs)
+	expanded, err := expandLoops(flat)
+	if err != nil {
+		return nil, err
+	}
+	src, err = expandCalls(expanded, funcs)
+	if err != nil {
+		return nil, err
+	}
 
 	doc := &Doc{Script: []Cmd{}}
 	actorMaps := make(map[string]string)
@@ -622,7 +638,33 @@ func Convert(src string) (*Doc, error) {
 		i++
 	}
 
+	// Expression functions are inlined here, on the finished document: this pass
+	// sees EVERY expression the runtime will evaluate (`expr` fields plus the {…}
+	// interpolations inside any string), including the ones a `def` preset or a
+	// block lowering produced, and it never touches prose outside {…}.
+	if err := inlineFuncs(doc, funcs); err != nil {
+		return nil, err
+	}
+
 	return doc, nil
+}
+
+// flattenInline puts every control-flow brace on its own line (`if c { … }`,
+// `} else { … }`, `for/while/func c { … }`), the form the macro passes expect.
+// Lines inside a multi-line «…» pass through verbatim — their `{`/`}` are prose
+// or interpolation, not control flow.
+func flattenInline(src string) []string {
+	var out []string
+	depth := 0
+	for _, raw := range strings.Split(src, "\n") {
+		if depth > 0 || chevRun(0, raw) > 0 {
+			out = append(out, raw)
+			depth = chevRun(depth, raw)
+			continue
+		}
+		out = append(out, splitInline(raw)...)
+	}
+	return out
 }
 
 // splitInline turns a one-line control block into the own-line brace form, so
@@ -783,19 +825,66 @@ func stripLineComment(s string) string {
 var reFuncDef = regexp.MustCompile(`^\s*func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{\s*$`)
 var reCall = regexp.MustCompile(`^\s*(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*)\s*\((.*)\)\s*$`)
 
-// collectFuncs records each `func name(p1, p2) { … }` signature so call sites can
-// bind arguments to the parameter names positionally.
-func collectFuncs(src string) map[string][]string {
-	m := map[string][]string{}
+var reReturnExpr = regexp.MustCompile(`^return\s+(.+)$`)
+
+// exprBuiltins are the evaluator's own functions, which a `func` may not shadow:
+// the redefinition would silently change the meaning of every existing call in the
+// file. Mirrors lvn.ExprFuncs — TestExprBuiltinsMatchValidator keeps the two
+// lists from drifting.
+var exprBuiltins = map[string]bool{
+	"rand": true, "chance": true, "min": true, "max": true, "abs": true,
+	"floor": true, "round": true,
+	"len": true, "has": true, "get": true, "indexof": true, "count": true,
+	"sum": true, "first": true, "last": true, "keys": true, "vals": true,
+	"list": true, "push": true, "pop": true, "removeat": true, "remove": true,
+	"slice": true, "concat": true, "put": true, "del": true,
+}
+
+// funcDef is one `func …` declaration. The same syntax carries TWO different
+// things, told apart by the body — and they lower in completely different ways:
+//
+//	expression function — the body is a single `return <expr>`. The declaration
+//	    emits NO commands; every call site is replaced by the expression itself
+//	    at compile time, so it works wherever an expression works (`x = add(2,3)`,
+//	    `{add(2,3)}` in a line, an if-condition) and every runtime gets it for
+//	    free without learning a new op or a user-function table. Recursion is
+//	    impossible by construction and is reported as an error.
+//	procedure — the body is commands. Lowered to `label __fn_<name>` + `call` +
+//	    `return`, and called as a STATEMENT (`show_hero()`); parameters are bound
+//	    to plain variables before the call (no frames, so no recursion).
+type funcDef struct {
+	name   string
+	params []string
+	expr   string // expression function: the returned expression (empty ⇒ procedure)
+	line   int    // 1-based line of the declaration, for diagnostics
+	from   int    // index of the `func …{` line in the flattened source
+	to     int    // index of its closing `}`
+}
+
+// collectFuncs records each `func name(p1, p2) { … }` declaration and classifies
+// it. Takes the FLATTENED lines (see flattenInline) because the classification
+// looks at the body, and an author's one-liner `func f(x){ return x+1 }` only has
+// a separable body after flattening — reading the raw source instead is exactly
+// how the one-liner form used to be missed entirely (its call sites then survived
+// as unknown expression functions, i.e. a silent 0 at runtime).
+func collectFuncs(lines []string) (map[string]*funcDef, error) {
+	funcs := map[string]*funcDef{}
 	depth := 0
-	for _, line := range strings.Split(src, "\n") {
-		if depth > 0 || chevRun(0, line) > 0 { // a `func …` line inside «…» is prose
-			depth = chevRun(depth, line)
+	for i := 0; i < len(lines); i++ {
+		if depth > 0 || chevRun(0, lines[i]) > 0 { // a `func …` line inside «…» is prose
+			depth = chevRun(depth, lines[i])
 			continue
 		}
-		mm := reFuncDef.FindStringSubmatch(line)
+		mm := reFuncDef.FindStringSubmatch(lines[i])
 		if mm == nil {
 			continue
+		}
+		name := mm[1]
+		if prev, dup := funcs[name]; dup {
+			return nil, fmt.Errorf("line %d: func %s: already declared on line %d", i+1, name, prev.line)
+		}
+		if exprBuiltins[name] {
+			return nil, fmt.Errorf("line %d: func %s: %s() is a built-in expression function — pick another name", i+1, name, name)
 		}
 		var ps []string
 		for _, p := range strings.Split(mm[2], ",") {
@@ -803,9 +892,115 @@ func collectFuncs(src string) map[string][]string {
 				ps = append(ps, p)
 			}
 		}
-		m[mm[1]] = ps
+		body, end, err := funcBody(lines, i)
+		if err != nil {
+			return nil, err
+		}
+		d := &funcDef{name: name, params: ps, line: i + 1, from: i, to: end}
+		// A single `return <expr>` body is an expression function; anything else
+		// (commands, several statements, a bare `return`) is a procedure.
+		if len(body) == 1 {
+			if rm := reReturnExpr.FindStringSubmatch(body[0]); rm != nil {
+				d.expr = strings.TrimSpace(rm[1])
+			}
+		}
+		funcs[name] = d
 	}
-	return m
+	if err := resolveFuncBodies(funcs); err != nil {
+		return nil, err
+	}
+	return funcs, nil
+}
+
+// funcBody returns the meaningful body statements of the declaration opening at
+// lines[open] (blank and comment-only lines dropped, «…» prose kept verbatim) plus
+// the index of its closing `}`.
+func funcBody(lines []string, open int) ([]string, int, error) {
+	var body []string
+	depth, chev := 1, 0
+	for j := open + 1; j < len(lines); j++ {
+		if chev > 0 || chevRun(0, lines[j]) > 0 {
+			chev = chevRun(chev, lines[j])
+			body = append(body, strings.TrimSpace(lines[j]))
+			continue
+		}
+		t := strings.TrimSpace(stripLineComment(lines[j]))
+		switch {
+		case t == "":
+			continue
+		case strings.HasPrefix(t, "}") && strings.HasSuffix(t, "{"): // `} else {`
+		case t == "}":
+			if depth--; depth == 0 {
+				return body, j, nil
+			}
+		case strings.HasSuffix(t, "{"):
+			depth++
+		}
+		body = append(body, t)
+	}
+	return nil, 0, fmt.Errorf("line %d: func: missing closing '}'", open+1)
+}
+
+// resolveFuncBodies inlines expression-function calls that appear inside other
+// expression-function bodies, so a call site only ever needs one substitution.
+// A cycle here IS recursion, which compile-time inlining cannot express — it is
+// reported instead of silently expanding forever.
+func resolveFuncBodies(funcs map[string]*funcDef) error {
+	const (
+		busy = 1
+		done = 2
+	)
+	state := map[string]int{}
+	names := make([]string, 0, len(funcs))
+	for n := range funcs {
+		names = append(names, n)
+	}
+	sort.Strings(names) // stable error reporting
+	var visit func(name string) error
+	visit = func(name string) error {
+		d := funcs[name]
+		switch state[name] {
+		case done:
+			return nil
+		case busy:
+			return fmt.Errorf("line %d: func %s: recursive functions are not supported — a `func` that returns an expression is inlined at compile time; rewrite it as a `while` loop, or use `call`/`return`", d.line, name)
+		}
+		state[name] = busy
+		if d.expr != "" {
+			for _, dep := range calledFuncs(d.expr, funcs) {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+			expr, err := inlineExpr(d.expr, funcs, d.line)
+			if err != nil {
+				return err
+			}
+			d.expr = expr
+		}
+		state[name] = done
+		return nil
+	}
+	for _, n := range names {
+		if err := visit(n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// blankExprFuncDefs erases expression-function declarations from the flattened
+// source: they contribute no commands at all. Lines are blanked rather than
+// removed so every later line keeps its number (diagnostics stay honest).
+func blankExprFuncDefs(lines []string, funcs map[string]*funcDef) {
+	for _, d := range funcs {
+		if d.expr == "" {
+			continue
+		}
+		for i := d.from; i <= d.to && i < len(lines); i++ {
+			lines[i] = ""
+		}
+	}
 }
 
 // chevRun advances a running «…» nesting depth across one physical line.
@@ -823,15 +1018,16 @@ func chevRun(depth int, s string) int {
 	return depth
 }
 
-// expandCalls rewrites call statements and `return <expr>` into core primitives,
-// once blocks have been flattened to own-lines. A call `name(a, b)` becomes
-// `<param1> = a` / `<param2> = b` / `call __fn_name`; `r = name(a)` adds
-// `r = __ret`. Only registered func names are touched, so built-in expression
-// calls (push/rand/…) and ordinary text pass through untouched.
-func expandCalls(src string, funcs map[string][]string) string {
+// expandCalls rewrites PROCEDURE call statements and `return <expr>` into core
+// primitives, once blocks have been flattened to own-lines. A call `name(a, b)`
+// becomes `<param1> = a` / `<param2> = b` / `call __fn_name`; `r = name(a)` adds
+// `r = __ret`. Expression functions never reach this pass as calls — they are
+// inlined into the expression itself (see inlineFuncs) — so the two kinds of
+// `func` stay strictly apart: a statement call here, an expression there.
+func expandCalls(src string, funcs map[string]*funcDef) (string, error) {
 	var out []string
 	depth := 0
-	for _, line := range strings.Split(src, "\n") {
+	for n, line := range strings.Split(src, "\n") {
 		// Inside (or opening) a multi-line «…»: pass the line through untouched
 		// so prose like `return home, she thought.` never becomes a `return` op.
 		if depth > 0 || chevRun(0, line) > 0 {
@@ -849,14 +1045,26 @@ func expandCalls(src string, funcs map[string][]string) string {
 			}
 		}
 
-		if mm := reCall.FindStringSubmatch(t); mm != nil {
+		if mm := reCall.FindStringSubmatch(stripLineComment(t)); mm != nil {
 			lhs, fname, argstr := mm[1], mm[2], mm[3]
-			if params, ok := funcs[fname]; ok {
-				args := splitArgs(argstr)
-				for i, p := range params {
-					if i < len(args) {
-						out = append(out, p+" = "+args[i]) // bind param (assignment sugar)
+			if d, ok := funcs[fname]; ok {
+				// An expression function has no body to jump into. `x = add(1,2)` is
+				// left for the assignment parser (inlineFuncs expands it afterwards);
+				// alone on a line its value would just be dropped — and before this
+				// check that line fell through and became on-screen TEXT.
+				if d.expr != "" {
+					if lhs == "" {
+						return "", fmt.Errorf("line %d: %s() returns a value — use it inside an expression (`x = %s(…)`, `{%s(…)}`), not as a statement", n+1, fname, fname, fname)
 					}
+					out = append(out, line)
+					continue
+				}
+				args := splitArgs(argstr)
+				if len(args) != len(d.params) {
+					return "", fmt.Errorf("line %d: %s() takes %d argument(s), got %d", n+1, fname, len(d.params), len(args))
+				}
+				for i, p := range d.params {
+					out = append(out, p+" = "+args[i]) // bind param (assignment sugar)
 				}
 				out = append(out, "call __fn_"+fname)
 				if lhs != "" {
@@ -867,7 +1075,7 @@ func expandCalls(src string, funcs map[string][]string) string {
 		}
 		out = append(out, line)
 	}
-	return strings.Join(out, "\n")
+	return strings.Join(out, "\n"), nil
 }
 
 // splitArgs splits a call's argument list on top-level commas, respecting
@@ -910,6 +1118,358 @@ func splitArgs(s string) []string {
 	return args
 }
 
+// ── expression functions: compile-time inlining ─────────────────────────────
+//
+// An expression function is sugar with no runtime footprint: `x = add(2,3)`
+// compiles to `set key=x expr="((2) + (3))"`. Every runtime (C#, JS, and any
+// future one) therefore supports `func` without knowing it exists, and the op
+// dictionary does not grow. The price is that recursion is impossible — reported
+// as an error in resolveFuncBodies rather than silently mis-expanded.
+
+// inlineFuncs substitutes expression-function calls throughout the finished
+// document: `expr` fields whole (that is the one field name every runtime hands
+// to the evaluator — `if`, `set`, choice options) and the {…} interpolations
+// inside every other string.
+func inlineFuncs(doc *Doc, funcs map[string]*funcDef) error {
+	if len(funcs) == 0 {
+		return nil
+	}
+	for i, c := range doc.Script {
+		line := 0
+		if i < len(doc.SrcLine) {
+			line = doc.SrcLine[i]
+		}
+		if err := inlineInMap(c, funcs, line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func inlineInMap(m map[string]any, funcs map[string]*funcDef, line int) error {
+	for k, v := range m {
+		switch tv := v.(type) {
+		case string:
+			var s string
+			var err error
+			if k == "expr" {
+				s, err = inlineExpr(tv, funcs, line)
+			} else {
+				s, err = inlineInterp(tv, funcs, line)
+			}
+			if err != nil {
+				return err
+			}
+			if s != tv {
+				m[k] = s
+			}
+		case Cmd:
+			if err := inlineInMap(tv, funcs, line); err != nil {
+				return err
+			}
+		case map[string]any:
+			if err := inlineInMap(tv, funcs, line); err != nil {
+				return err
+			}
+		case []any:
+			for _, e := range tv {
+				switch te := e.(type) {
+				case Cmd:
+					if err := inlineInMap(te, funcs, line); err != nil {
+						return err
+					}
+				case map[string]any:
+					if err := inlineInMap(te, funcs, line); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// inlineExpr expands every declared-function call in one expression. Built-in
+// calls (floor/get/rand/…) and names nobody declared pass through untouched —
+// the validator is what flags an unknown function.
+func inlineExpr(s string, funcs map[string]*funcDef, line int) (string, error) {
+	if !strings.Contains(s, "(") {
+		return s, nil
+	}
+	for round := 0; ; round++ {
+		if round > 64 {
+			return "", fmt.Errorf("line %d: func: call expansion does not settle — nested calls too deep", line)
+		}
+		rs := []rune(s)
+		name, at := "", -1
+		var d *funcDef
+		for _, t := range scanIdents(rs) {
+			if !t.call || t.member {
+				continue
+			}
+			if def, ok := funcs[string(rs[t.start:t.end])]; ok {
+				name, at, d = string(rs[t.start:t.end]), t.start, def
+				break
+			}
+		}
+		if at < 0 {
+			return collapseParens(s), nil
+		}
+		// A procedure has no value to substitute: its body is commands, and it can
+		// only be called as a statement. Saying so here is the difference between a
+		// clear compile error and a variable that silently reads 0 at runtime.
+		if d.expr == "" {
+			return "", fmt.Errorf("line %d: %s() is a procedure (its body runs commands) — it cannot be used inside an expression; call it on its own line, or make its body a single `return <expr>`", line, name)
+		}
+		open := at + len([]rune(name))
+		for open < len(rs) && rs[open] != '(' {
+			open++
+		}
+		end := matchParen(rs, open)
+		if end < 0 {
+			return "", fmt.Errorf("line %d: %s(: unbalanced parentheses in %q", line, name, s)
+		}
+		args := splitArgs(string(rs[open+1 : end]))
+		if len(args) != len(d.params) {
+			return "", fmt.Errorf("line %d: %s() takes %d argument(s), got %d", line, name, len(d.params), len(args))
+		}
+		s = string(rs[:at]) + "(" + substituteParams(d.expr, d.params, args) + ")" + string(rs[end+1:])
+	}
+}
+
+// inlineInterp expands calls inside the {…} spans of a text field only, so a call
+// in «you earn {offer(base,rep)} coins» is inlined while prose that merely looks
+// like a call is left alone. `{{`/`}}` are literal braces. A span containing `|`
+// is an Ink-style alternative ({a|b|c}, {cond: yes|no}) whose branches are TEXT —
+// only the condition head before `:` is an expression there.
+func inlineInterp(s string, funcs map[string]*funcDef, line int) (string, error) {
+	if !strings.Contains(s, "{") {
+		return s, nil
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if i+1 < len(s) && (s[i] == '{' && s[i+1] == '{' || s[i] == '}' && s[i+1] == '}') {
+			b.WriteString(s[i : i+2])
+			i++
+			continue
+		}
+		if s[i] != '{' {
+			b.WriteByte(s[i])
+			continue
+		}
+		end := strings.IndexByte(s[i+1:], '}')
+		if end < 0 {
+			b.WriteString(s[i:]) // unterminated span: the runtime prints it verbatim
+			break
+		}
+		end += i + 1
+		span, err := inlineSpan(s[i+1:end], funcs, line)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("{" + span + "}")
+		i = end
+	}
+	return b.String(), nil
+}
+
+func inlineSpan(span string, funcs map[string]*funcDef, line int) (string, error) {
+	bar := strings.IndexByte(span, '|')
+	if bar < 0 {
+		return inlineExpr(span, funcs, line)
+	}
+	if colon := strings.IndexByte(span, ':'); colon > 0 && colon < bar {
+		head, err := inlineExpr(span[:colon], funcs, line)
+		if err != nil {
+			return "", err
+		}
+		return head + span[colon:], nil
+	}
+	return span, nil // pure sequence/cycle/shuffle alternative — all branches are text
+}
+
+// substituteParams replaces the parameter identifiers in a function body with the
+// argument expressions, each parenthesized so the caller's precedence survives
+// (`upkeep(d+1)` with body `d/3` must not become `d+1/3`). Names inside string
+// literals, member suffixes (`a.b`) and call names are left alone.
+func substituteParams(expr string, params, args []string) string {
+	if len(params) == 0 {
+		return expr
+	}
+	pos := make(map[string]int, len(params))
+	for i, p := range params {
+		pos[p] = i
+	}
+	rs := []rune(expr)
+	var b strings.Builder
+	prev := 0
+	for _, t := range scanIdents(rs) {
+		if t.call || t.member {
+			continue
+		}
+		i, ok := pos[string(rs[t.start:t.end])]
+		if !ok {
+			continue
+		}
+		b.WriteString(string(rs[prev:t.start]))
+		if reAtomicArg.MatchString(args[i]) {
+			b.WriteString(args[i]) // a bare name/number/string needs no bracket
+		} else {
+			b.WriteString("(" + args[i] + ")")
+		}
+		prev = t.end
+	}
+	b.WriteString(string(rs[prev:]))
+	return b.String()
+}
+
+// An argument that cannot bind tighter than what surrounds it: a variable (dotted
+// paths included), an unsigned number, a quoted string. Everything else is
+// bracketed so the caller's precedence survives.
+var reAtomicArg = regexp.MustCompile(`^(?:[\p{L}_][\p{L}\p{N}_.]*|[0-9]+(?:\.[0-9]+)?|"[^"]*"|'[^']*')$`)
+
+// collapseParens drops doubled brackets — `((x))` → `(x)` — that inlining a chain
+// of functions piles up. Cosmetic, but the .lvn is read by people (the IDE, the
+// decompiler), so the sugar should compile to what a human would have written. A
+// bracket that belongs to a CALL (`floor(…)`) is never touched.
+func collapseParens(s string) string {
+	for {
+		rs := []rune(s)
+		cut := -1
+		for i := 0; i+1 < len(rs); i++ {
+			if rs[i] != '(' || rs[i+1] != '(' {
+				continue
+			}
+			if i > 0 && (rs[i-1] == '_' || rs[i-1] == '.' || unicode.IsLetter(rs[i-1]) || unicode.IsDigit(rs[i-1])) {
+				continue // `floor(` — the bracket is part of the call
+			}
+			if inner, outer := matchParen(rs, i+1), matchParen(rs, i); inner > 0 && inner+1 == outer {
+				cut = i
+				break
+			}
+		}
+		if cut < 0 {
+			return s
+		}
+		outer := matchParen(rs, cut)
+		out := make([]rune, 0, len(rs)-2)
+		out = append(out, rs[:cut]...)
+		out = append(out, rs[cut+1:outer]...)
+		out = append(out, rs[outer+1:]...)
+		s = string(out)
+	}
+}
+
+// calledFuncs lists the declared functions an expression calls (in source order).
+func calledFuncs(expr string, funcs map[string]*funcDef) []string {
+	var out []string
+	rs := []rune(expr)
+	for _, t := range scanIdents(rs) {
+		if !t.call || t.member {
+			continue
+		}
+		if n := string(rs[t.start:t.end]); funcs[n] != nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// identTok is one identifier of an expression: its rune span, whether a '(' follows
+// (a call) and whether a '.' precedes it (a member of a dotted path like global.rep).
+type identTok struct {
+	start, end   int
+	call, member bool
+}
+
+// scanIdents walks an expression's identifiers, skipping the insides of string
+// literals and «…» so a name mentioned in a literal is never rewritten.
+func scanIdents(rs []rune) []identTok {
+	var out []identTok
+	var inStr rune
+	chev := 0
+	for i := 0; i < len(rs); i++ {
+		c := rs[i]
+		if inStr != 0 {
+			if c == inStr {
+				inStr = 0
+			}
+			continue
+		}
+		if chev > 0 {
+			if c == '«' {
+				chev++
+			} else if c == '»' {
+				chev--
+			}
+			continue
+		}
+		switch {
+		case c == '"' || c == '\'':
+			inStr = c
+			continue
+		case c == '«':
+			chev++
+			continue
+		}
+		if !(c == '_' || unicode.IsLetter(c)) {
+			continue
+		}
+		j := i + 1
+		for j < len(rs) && (rs[j] == '_' || unicode.IsLetter(rs[j]) || unicode.IsDigit(rs[j])) {
+			j++
+		}
+		k := j
+		for k < len(rs) && (rs[k] == ' ' || rs[k] == '\t') {
+			k++
+		}
+		out = append(out, identTok{
+			start:  i,
+			end:    j,
+			call:   k < len(rs) && rs[k] == '(',
+			member: i > 0 && rs[i-1] == '.',
+		})
+		i = j - 1
+	}
+	return out
+}
+
+// matchParen returns the index of the ')' closing the '(' at open, string- and
+// «…»-aware (the brace-matching twin of matchBrace).
+func matchParen(rs []rune, open int) int {
+	var inStr rune
+	chev, depth := 0, 0
+	for i := open; i < len(rs); i++ {
+		c := rs[i]
+		if inStr != 0 {
+			if c == inStr {
+				inStr = 0
+			}
+			continue
+		}
+		switch {
+		case c == '«':
+			chev++
+		case c == '»':
+			if chev > 0 {
+				chev--
+			}
+		case chev > 0:
+			// inside chevrons
+		case c == '"' || c == '\'':
+			inStr = c
+		case c == '(':
+			depth++
+		case c == ')':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
 // expandLoops rewrites block iteration into the flat primitives the line parser
 // already understands. Two forms (the brace must end the opening line; `}` stands
 // alone):
@@ -918,10 +1478,11 @@ func splitArgs(s string) []string {
 //
 // A `for` desugars to: stash the collection, walk an index with len()+[], bind
 // <var> each pass. A `while` desugars to a guarded label loop. Labels are unique
-// per loop and nest via a stack, so loops can contain loops.
-func expandLoops(src string) (string, error) {
+// per loop and nest via a stack, so loops can contain loops. Input is the
+// flattened line list (see flattenInline).
+func expandLoops(srcLines []string) (string, error) {
 	type frame struct {
-		kind            string // "for" | "while" | "if"
+		kind            string // "for" | "while" | "if" | "func"
 		loopLbl, endLbl string
 		idxVar          string // for-only
 		elseLbl         string // if-only
@@ -930,21 +1491,7 @@ func expandLoops(src string) (string, error) {
 	var stack []frame
 	var out []string
 	ctr := 0
-
-	// Flatten inline blocks (`if c { … }`, `} else { … }`, `for/while c { … }`)
-	// into the own-line brace form the loop below expects. Lines inside a
-	// multi-line «…» are passed through verbatim — their `{`/`}` are prose or
-	// interpolation, not control-flow braces.
-	var srcLines []string
-	fdepth := 0
-	for _, raw := range strings.Split(src, "\n") {
-		if fdepth > 0 || chevRun(0, raw) > 0 {
-			srcLines = append(srcLines, raw)
-			fdepth = chevRun(fdepth, raw)
-			continue
-		}
-		srcLines = append(srcLines, splitInline(raw)...)
-	}
+	lastStmt := "" // last plain statement emitted, for the trailing-`return` check
 
 	cdepth := 0
 	for _, raw := range srcLines {
@@ -952,6 +1499,7 @@ func expandLoops(src string) (string, error) {
 		if cdepth > 0 || chevRun(0, raw) > 0 {
 			out = append(out, raw)
 			cdepth = chevRun(cdepth, raw)
+			lastStmt = "" // prose, never a control statement
 			continue
 		}
 		det := strings.TrimSpace(raw)
@@ -1014,7 +1562,9 @@ func expandLoops(src string) (string, error) {
 			}
 			ctr++
 			skip := fmt.Sprintf("__fnskip%d", ctr)
-			// jump over the definition in linear flow; body is a `call`-only routine
+			// A PROCEDURE definition (expression functions are blanked out before
+			// this pass): jump over the body in linear flow; the body is a
+			// `call`-only routine.
 			out = append(out, "goto "+skip, ":__fn_"+name)
 			stack = append(stack, frame{kind: "func", endLbl: skip})
 
@@ -1053,7 +1603,13 @@ func expandLoops(src string) (string, error) {
 			case "while":
 				out = append(out, "goto "+f.loopLbl, ":"+f.endLbl)
 			case "func":
-				out = append(out, "return", ":"+f.endLbl) // safety return + skip-over label
+				// Safety return only when the body does not already end in one —
+				// otherwise the lowering emitted `return` twice (harmless at runtime,
+				// but the second one is unreachable code the validator then reports).
+				if lastStmt != "return" && !strings.HasPrefix(lastStmt, "return ") {
+					out = append(out, "return")
+				}
+				out = append(out, ":"+f.endLbl) // skip-over label
 			case "if":
 				if f.sawElse {
 					out = append(out, ":"+f.endLbl) // else-branch falls into end
@@ -1064,7 +1620,12 @@ func expandLoops(src string) (string, error) {
 
 		default:
 			out = append(out, raw)
+			if det != "" { // blank/comment-only lines are not statements
+				lastStmt = det
+			}
+			continue
 		}
+		lastStmt = "" // a control-flow line; what got emitted is a label or a goto
 	}
 
 	if len(stack) > 0 {
