@@ -457,3 +457,31 @@ func TestValidate_StrayAssignInExpr(t *testing.T) {
 		}
 	}
 }
+
+// The op-typo lint: a mistyped command must not reach the player as dialogue.
+// Shapes prose never has (`=`, `->`, a /path argument) are flagged; a
+// positional-only slip is knowingly left alone — see commandLike.
+func TestMistypedCommandLint(t *testing.T) {
+	flagged := func(text string) bool {
+		doc := &Doc{Script: []Cmd{{"op": "say", "text": text}, {"op": "goto", "label": "__end"}}}
+		return hasWarn(Validate(doc), "mistyped command") || hasWarn(Validate(doc), "didn't parse")
+	}
+	for _, tc := range []struct {
+		text string
+		want bool
+		why  string
+	}{
+		{"sett gold = 1", true, "key=value slip"},
+		{"iff gold > 1 -> rich", true, "swallows a whole branch, and no if op is left for the dangling-target check to see"},
+		{"bbg /content/bg/x.jpg", true, "content url as an argument"},
+		{"actro id=hill", true, "near-miss with key=value"},
+		{"shwo mara", false, "positional-only: indistinguishable from prose, deliberately not flagged"},
+		{"Она открыла дверь.", false, "ordinary narration"},
+		{"wave after wave of them", false, "prose whose first word is one edit from an op"},
+		{"Мы дошли до развилки — налево или направо?", false, "prose with a dash"},
+	} {
+		if got := flagged(tc.text); got != tc.want {
+			t.Errorf("%q: flagged=%v, want %v (%s)", tc.text, got, tc.want, tc.why)
+		}
+	}
+}
