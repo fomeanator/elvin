@@ -552,6 +552,10 @@ func injectSceneMarkers(fl flow, allowed map[uint32]bool, entry uint32) uint32 {
 		return ""
 	}
 	// scene of a node = its nearest Dialog ancestor that carries a scene name.
+	// Латентная неточность: 0 здесь означает «сцены нет», хотя ordinal 0 законен
+	// (в Cold это первая глава). Сцена с ordinal 0 останется без bg-маркера —
+	// косметика, сюжет не теряется, ни в одном из 5 живых проектов не встречается.
+	// Тот же класс, что баг «self != 0», который стоил целой главы (см. selfOrdinals).
 	sceneOf := func(n uint32) uint32 {
 		cur := n
 		for i := 0; i < 1<<16; i++ {
