@@ -117,15 +117,13 @@ type StagingTemplate struct {
 
 	// PlaceholderProtagonist stages a labelled grey placeholder for a
 	// protagonist role that has no roster art, instead of leaving her
-	// invisible. OFF by default: a protagonist with no portrait is a common,
-	// deliberate first-person/self-insert design (the player never sees
-	// "themselves") — forcing a placeholder box onto her would be a visible
-	// regression for exactly those novels, not a fix. detect-roles/the
-	// import-mapper surface "protagonist with no art" as a WARNING either
-	// way; this flag only decides what AutoStage actually does about it, and
-	// an author who confirms it's really a missing-art gap (not a deliberate
-	// invisible narrator) turns it on for that project's Template.
-	PlaceholderProtagonist bool `json:"placeholder_protagonist,omitempty"`
+	// invisible. ON by default — per the partner (who has shipped these
+	// novels commercially): "новелл без героев не бывает, это дыры в
+	// файлах" — a spriteless protagonist is a content gap to surface, not a
+	// first-person design to respect. The placeholder makes the hole
+	// visible in one glance; an author who truly wants an invisible
+	// protagonist sets placeholder_protagonist=false in the template.
+	PlaceholderProtagonist *bool `json:"placeholder_protagonist,omitempty"`
 }
 
 // WardrobeTemplate governs the wardrobe substitution: which story flag opens the
