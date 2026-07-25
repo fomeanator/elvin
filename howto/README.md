@@ -98,6 +98,8 @@ blueprints of how things are built):
 |---|---|---|
 | 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" of a modern story novel: stat gates, paid choices, wardrobe, timer, global stats |
 | 🏛 Hub & collections | [`hub-collections/`](hub-collections/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
+| 🧾 Every command, once | [`every-command/`](every-command/) | The commands the genre examples never reach for — `save`/`load`, `preload`, `text_pace`, `tint`/`blur`, `wait`, named animations (`defanim`/`play`), splines, queued lanes, stat-gated options. It is the **witness** that keeps [`CAPABILITIES.md`](CAPABILITIES.md) from documenting features nothing compiles |
+| 🧮 Functions | [`functions/`](functions/) | The two kinds of `func`: inlined expression functions and call/return procedures |
 
 ---
 

@@ -39,7 +39,8 @@ input var=name prompt="Who are you?" default="Guest" max=24   // text input → 
 ```
 gold = 12                       // assign (declaration = mutation)
 gold = gold - 6
-name = "Mara"   inv = []        // string, empty list
+name = "Mara"                   // ONE statement per line (a second `x = …` on
+inv = []                        //   the same line lands inside the first expr)
 if gold >= 10 -> rich           // true → jump; otherwise fall through
 if has(inv,"key") {             // if/else block
   ...
@@ -50,12 +51,22 @@ if has(inv,"key") {             // if/else block
 
 ## Loops, subroutines, functions
 ```
-for it in inv { Item: {it}. }
-while xp >= need { xp = xp - need  level = level + 1 }
+for it in inv { Item — {it}. }
+while xp >= need {              // one statement per line inside a block
+  xp = xp - need
+  level = level + 1
+}
 call fight                      // jump with return
 return                          // come back after call
-func add(a,b){ return a + b }   // function (sugar over call/return)
-s = add(2,3)                    // call with a return value
+
+func add(a,b){ return a + b }   // EXPRESSION function: a single `return <expr>`,
+s = add(2,3) * add(1,1)         //   INLINED at compile time → usable in any
+Total {add(gold,tax)}.          //   expression, {interpolation}, if, choice expr=
+func show_hero() {              // PROCEDURE: commands, so it's a STATEMENT
+  actor hero left armor={arm}
+}
+show_hero()                     // call it on its own line
+                                // no recursion in either kind (compile error)
 save                            // snapshot (default slot)
 load
 def enter actor mara left smile x=.24   // preset: names a line prefix…
@@ -97,11 +108,17 @@ props: `x y screen_x screen_y scale scalex scaley rotation alpha frame` · ease:
 
 ## Built-in functions (expressions)
 ```
-rand() rand(n) rand(a,b)  chance(p)  min(a,b) max(a,b)  abs floor round   // NO ceil
+rand() 0..1 float · rand(n) 0..n · rand(a,b) a..b   // both ends INCLUSIVE
+chance(p)  // p is a FRACTION, not percent: chance(0.35), never chance(35)
+min(a,b) max(a,b)   // first two arguments only — extra ones are ignored
+abs floor round     // NO ceil
 len(x) has(coll,x) get(coll,k[,def]) indexof(arr,x) count(arr,x) sum(arr) first(arr) last(arr) keys(o) vals(o)
 list(...) push(arr,x) pop(arr) removeat(arr,i) remove(arr,x) slice(arr,s[,e]) concat(...) put(m,k,v) del(m,k)
 ```
 Operators: `+ - * /` · `== != > >= < <=` · `&& || !`. An unset variable = `0`/`""`/`false`.
+The list above is **closed** — there are no other functions. Your own go in a
+`func` (see above), which the compiler inlines; a call to anything else is a
+validator warning, because at runtime it would evaluate to nothing.
 
 ## Build / validate
 ```
@@ -115,4 +132,9 @@ cd tools/lvnconv && go build -o /tmp/lvnconv .
 - `keys=`/`path=` with spaces → use the `id=`/`prop=` form (compile error otherwise).
 - `hint text="…" duration=6` — a popup at the top center; `show=false` removes it, `duration>0` auto-hides. `cost`/`requires_stat` do **not** deduct resources themselves — deduct explicitly via `set`/`inc`.
 - No `ceil` (round with arithmetic). A timer and text input DO exist: `choice timeout=` and `input var=`.
+- **One statement per line.** `gold = gold - 5  potions = potions + 1` on a single
+  line puts the second half inside the first expression, where it evaluates to
+  nothing (the validator warns about the stray `=`).
+- **`func` has no recursion** — an expression `func` is inlined, a procedure has no
+  frames. Both report it as a compile error instead of guessing.
 - Before a jump-target label that can be «fallen into» from above, put `-> __end`/`-> label`.
