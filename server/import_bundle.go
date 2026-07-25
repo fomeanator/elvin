@@ -240,6 +240,12 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		"bg_missing": len(res.MissingBg),
 		"ops":        res.Stats,
 		"warnings":   res.Warnings, // genuinely-incomplete source data (missing art, etc.)
+		// Connectivity/linearizer transparency (reachable, stitched, orphans,
+		// jumps resolved). The single-file /import has reported it for a while,
+		// but the BUNDLE path — the one the panel and production actually use —
+		// dropped it, so the whole "a silent loss can no longer happen quietly"
+		// guarantee was invisible exactly where imports really run.
+		"linearizer": res.Linearize,
 	})
 }
 
