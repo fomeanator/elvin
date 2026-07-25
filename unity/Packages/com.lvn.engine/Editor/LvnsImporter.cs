@@ -38,6 +38,23 @@ namespace Lvn.Editor
                 json = "{\"script\":[]}";
             }
 
+            // Compiling only proves the SYNTAX parsed. A script where every line
+            // is well-formed can still jump into nothing — and that is the bug
+            // that reaches players as "the chapter just ended". The CLI has
+            // caught it for a long time (`lvnconv validate`); the Unity path,
+            // which the README advertises as the two-minute way in, did not.
+            try
+            {
+                var script = Newtonsoft.Json.Linq.JObject.Parse(json)["script"]
+                    as Newtonsoft.Json.Linq.JArray;
+                foreach (var problem in LvnsStructureCheck.Run(script))
+                    ctx.LogImportError($"LVNScript in {Path.GetFileName(ctx.assetPath)}: {problem}");
+            }
+            catch (System.Exception e)
+            {
+                ctx.LogImportError($"LVNScript structure check failed in {Path.GetFileName(ctx.assetPath)}: {e.Message}");
+            }
+
             var lvn = new TextAsset(json)
             {
                 name = Path.GetFileNameWithoutExtension(ctx.assetPath),
