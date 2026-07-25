@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Сборка деплой-артефактов Time Romance НА ДЕВ-МАШИНЕ и раскладка их в
-# деплой-репо (timeromance-api). Прод-бокс слаб (go build уводит его в
-# своп-шторм, npm тем более — выяснено опытным путём), поэтому конвейер
-# такой: этот скрипт собирает всё здесь → артефакты коммитятся в api-репо →
-# push в main → gitlab-runner НА боксе раскладывает готовое (deploy-local.sh).
+# Сборка деплой-артефактов НА ДЕВ-МАШИНЕ и раскладка их в деплой-репо
+# продукта. Слабый прод-бокс не выдерживает сборки (go build уводит его в
+# своп-шторм, npm тем более — выяснено опытным путём), поэтому конвейер такой:
+# этот скрипт собирает всё здесь → артефакты коммитятся в деплой-репо → push
+# в main → раннер НА боксе раскладывает готовое (его deploy-local.sh).
 #
-#   deploy/build-artifacts.sh                      # → ../timeromance/api
-#   deploy/build-artifacts.sh /path/to/api-repo
-#   COMMIT=1 deploy/build-artifacts.sh             # + git commit в api-репо
+#   deploy/build-artifacts.sh /path/to/deploy-repo
+#   LVN_DEPLOY_REPO=/path/to/deploy-repo deploy/build-artifacts.sh
+#   COMMIT=1 deploy/build-artifacts.sh /path/…      # + git commit в деплой-репо
+#
+# Путь к деплой-репо задаётся аргументом или LVN_DEPLOY_REPO: он относится к
+# конкретному продукту, а движок публичный и о продуктах не знает.
 #
 # Кладёт: bin/lvn-server-linux-amd64, bin/lvnconv-linux-amd64 (нужен на
 # проде для resync-lvns/детект-инструментов), website/ (Studio-панель,
@@ -15,11 +18,14 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"   # корень движка
-API_REPO="${1:-$HERE/../timeromance/api}"
-API_REPO="$(cd "$API_REPO" && pwd)"
+API_REPO="${1:-${LVN_DEPLOY_REPO:-}}"
 log() { echo "[build-artifacts] $*"; }
 
-[ -f "$API_REPO/deploy-local.sh" ] || { echo "не похоже на api-репо: $API_REPO"; exit 1; }
+[ -n "$API_REPO" ] || {
+  echo "укажи деплой-репо: deploy/build-artifacts.sh /path/to/deploy-repo"
+  echo "(или задай LVN_DEPLOY_REPO)"; exit 1; }
+API_REPO="$(cd "$API_REPO" && pwd)"
+[ -f "$API_REPO/deploy-local.sh" ] || { echo "не похоже на деплой-репо: $API_REPO"; exit 1; }
 
 ENGINE_SHA="$(git -C "$HERE" rev-parse --short HEAD)"
 if [ -n "$(git -C "$HERE" status --porcelain -- tools server panel 2>/dev/null)" ]; then
