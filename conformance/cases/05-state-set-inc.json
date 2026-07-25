@@ -1,0 +1,28 @@
+{
+  "id": "state-set-inc",
+  "title": "set writes literals and expressions; inc adds (default +1, negative allowed)",
+  "why": "The whole state surface of the language in one script. `set expr=` must win over `value=`, and `inc` without `by` must step by exactly 1.",
+  "runtimes": ["csharp", "js"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "score", "value": 0 },
+      { "op": "inc", "key": "score", "by": 3 },
+      { "op": "inc", "key": "score" },
+      { "op": "inc", "key": "score", "by": -2 },
+      { "op": "set", "key": "hero", "value": "Аня" },
+      { "op": "set", "key": "flag", "value": true },
+      { "op": "set", "key": "total", "expr": "score * 10" },
+      { "op": "say", "text": "Итого {total}." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Итого 20." },
+      { "end": true }
+    ],
+    "vars": { "score": 2, "hero": "Аня", "flag": true, "total": 20 },
+    "expr_true": ["score == 2", "hero == \"Аня\"", "flag", "total == 20"],
+    "expr_false": ["score == 3", "hero == \"Оля\""]
+  }
+}

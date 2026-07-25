@@ -1,0 +1,64 @@
+{
+  "id": "expr-builtins-collections",
+  "title": "The closed built-in set behaves identically on lists and maps",
+  "why": "The built-in table is documented as closed and shared, but each runtime carries its OWN evaluator — the browser one held 8 of the 26 and threw on the rest, so every list/map recipe worked in the app and died in the playground. These assertions are the parity contract: a runtime missing a function, or returning a mutated collection instead of a fresh one, fails here rather than in somebody's content. Note there is no map literal in either evaluator — a map is grown with put() from an unset name.",
+  "runtimes": ["csharp", "js"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "l", "expr": "list(2, 2, 3)" },
+      { "op": "set", "key": "m", "expr": "put(no_such_map, \"a\", 1)" },
+      { "op": "set", "key": "m", "expr": "put(m, \"b\", 2)" },
+      { "op": "say", "text": "Список из {len(l)}, ключей {len(m)}." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Список из 3, ключей 2." },
+      { "end": true }
+    ],
+    "expr_true": [
+      "len(l) == 3",
+      "sum(l) == 7",
+      "first(l) == 2",
+      "last(l) == 3",
+      "count(l, 2) == 2",
+      "indexof(l, 3) == 2",
+      "indexof(l, 9) == -1",
+      "has(l, 3)",
+      "get(l, 1) == 2",
+      "len(push(l, 4)) == 4",
+      "last(push(l, 4)) == 4",
+      "len(pop(l)) == 2",
+      "len(remove(l, 2)) == 2",
+      "len(removeat(l, 0)) == 2",
+      "len(slice(l, 1, 3)) == 2",
+      "first(slice(l, 1, 3)) == 2",
+      "len(concat(l, l)) == 6",
+      "len(l) == 3",
+      "get(m, \"a\") == 1",
+      "get(m, \"zz\", 9) == 9",
+      "has(m, \"b\")",
+      "len(keys(m)) == 2",
+      "sum(vals(m)) == 3",
+      "get(put(m, \"c\", 3), \"c\") == 3",
+      "len(del(m, \"a\")) == 1",
+      "len(m) == 2",
+      "min(5, 2) == 2",
+      "max(5, 2) == 5",
+      "abs(0 - 4) == 4",
+      "floor(7 / 2) == 3",
+      "round(7 / 3) == 2",
+      "chance(1)",
+      "rand(2, 2) == 2",
+      "rand(0, 3) >= 0",
+      "rand(0, 3) <= 3"
+    ],
+    "expr_false": [
+      "has(l, 9)",
+      "has(m, \"zz\")",
+      "has(del(m, \"a\"), \"a\")",
+      "chance(0)"
+    ]
+  }
+}
