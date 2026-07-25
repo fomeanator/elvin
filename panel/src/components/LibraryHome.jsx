@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { getManifest, putAsset, uploadStagedWithRetry, importBundleFromPaths } from "../lib/api.js";
+import { getManifest, putAsset, uploadStagedWithRetry, importBundleFromPaths, listImportTemplates, stageExtractArticy } from "../lib/api.js";
 import { slug } from "../lib/sprites.js";
+import ImportMapper from "./ImportMapper.jsx";
 
 const chapterCount = (t) => (t.seasons || []).reduce((n, s) => n + (s.chapters || []).length, 0);
 
@@ -12,6 +13,9 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   const [bundle, setBundle] = useState(null);
   const [importing, setImporting] = useState(null); // {pct, phase} — final "run the import" step only
   const uploadPromises = useRef({}); // key -> in-flight/settled upload promise, awaited by "Импортировать"
+  const [templateList, setTemplateList] = useState([]); // known import-template names, for the picker
+  const [mapperDir, setMapperDir] = useState(null); // extracted articy project dir once staged — opens ImportMapper
+  const [mapperBusy, setMapperBusy] = useState(false); // extracting the archive before the mapper can open
 
   useEffect(() => {
     (async () => {
@@ -40,6 +44,26 @@ export default function LibraryHome({ creds, notify, onOpen }) {
     if (!creds.token) { notify("Set the admin token first (top bar).", "err"); return; }
     uploadPromises.current = {};
     setBundle({ name: "", template: "", files: {}, uploads: {} });
+    listImportTemplates(creds.token).then(setTemplateList).catch(() => setTemplateList([]));
+  }
+
+  // "Настроить роли ▸": extract the staged articy archive ONCE (a no-op if
+  // detectRoles already has a dir from an earlier click this session) so the
+  // mapper can preview speakers before the real import runs.
+  async function openMapper() {
+    if (!bundle || !bundle.uploads.articy || !bundle.uploads.articy.path) {
+      notify("Дождись загрузки articy-проекта.", "err");
+      return;
+    }
+    setMapperBusy(true);
+    try {
+      const { dir } = await stageExtractArticy(bundle.uploads.articy.path, creds.token);
+      setMapperDir(dir);
+    } catch (e) {
+      notify("✗ " + e.message, "err");
+    } finally {
+      setMapperBusy(false);
+    }
   }
 
   // A picked file starts uploading IMMEDIATELY (resumable, chunked) — the
@@ -198,14 +222,32 @@ export default function LibraryHome({ creds, notify, onOpen }) {
         </button>
       </div>
 
-      {bundle && !importing && (
+      {bundle && !importing && !mapperDir && (
         <BundleModal
           bundle={bundle}
           setBundle={setBundle}
+          templateList={templateList}
           onPickFile={pickBundleFile}
           onImport={startImport}
+          onOpenMapper={openMapper}
+          mapperBusy={mapperBusy}
           onCancel={() => setBundle(null)}
           notify={notify}
+        />
+      )}
+
+      {mapperDir && (
+        <ImportMapper
+          dir={mapperDir}
+          initialTemplateName={bundle && bundle.template}
+          creds={creds}
+          notify={notify}
+          onSaved={(name) => {
+            setBundle((s) => (s ? { ...s, template: name } : s));
+            setTemplateList((l) => (l.includes(name) ? l : [...l, name].sort()));
+            setMapperDir(null);
+          }}
+          onCancel={() => setMapperDir(null)}
         />
       )}
 
@@ -282,13 +324,14 @@ const BUNDLE_FIELDS = [
   { key: "vars", label: "Переменные", hint: ".xlsx", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
 ];
 
-function BundleModal({ bundle, setBundle, onPickFile, onImport, onCancel, notify }) {
+function BundleModal({ bundle, setBundle, templateList, onPickFile, onImport, onOpenMapper, mapperBusy, onCancel, notify }) {
   const name = (bundle.name || "").trim();
   // "Ready" means articy is fully STAGED (not just picked) — the upload
   // started the instant it was picked, so by the time the author has named
   // the novel it's often already done.
   const articyUpload = bundle.uploads.articy;
   const ready = !!(bundle.files.articy && articyUpload && articyUpload.path && name);
+  const staged = !!(articyUpload && articyUpload.path);
 
   function go() {
     if (!bundle.files.articy) { notify("Выбери articy-проект (.rar / .zip).", "err"); return; }
@@ -328,8 +371,16 @@ function BundleModal({ bundle, setBundle, onPickFile, onImport, onCancel, notify
         </label>
         <label className="adv-field">
           <span>Шаблон импорта</span>
-          <input className="field wide" placeholder="cold (по умолчанию)" value={bundle.template || ""}
-                 onChange={(e) => setBundle((s) => ({ ...s, template: e.target.value }))} />
+          <div className="bundle-template-row">
+            <select className="field wide" value={bundle.template || ""}
+                    onChange={(e) => setBundle((s) => ({ ...s, template: e.target.value }))}>
+              <option value="">— по умолчанию (cold) —</option>
+              {templateList.filter((n) => n !== "cold").map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button className="btn-ghost" onClick={onOpenMapper} disabled={!staged || mapperBusy}>
+              {mapperBusy ? "Распаковка…" : "Настроить роли ▸"}
+            </button>
+          </div>
         </label>
         <div className="novel-modal-actions">
           <div className="grow" />

@@ -544,44 +544,14 @@ func applySpeakerNames(res *Result, tpl *Template) {
 		if !ok {
 			continue
 		}
-		changed := false
-		for _, op := range ops {
-			if op == nil {
-				continue
-			}
-			if n, _ := op["op"].(string); n != "say" {
-				continue
-			}
-			who, _ := op["who"].(string)
-			if who == "" || strings.HasPrefix(who, "{") {
-				continue // narration / already the player template
-			}
-			if display := displayNameFor(names, who); display != "" && display != who {
-				op["who"] = display
-				changed = true
-			}
-		}
-		if changed {
+		if applySpeakerNameOverrides(ops, tpl) {
 			if b, err := json.Marshal(rewrap(ops)); err == nil {
 				sf.Data = b
 			}
 		}
 	}
 	// Entity display names (cast cards, wardrobe headers) follow the same map.
-	for id, ent := range res.Sprites {
-		m, ok := ent.(map[string]any)
-		if !ok {
-			continue
-		}
-		cur, _ := m["name"].(string)
-		key := cur
-		if key == "" {
-			key = id
-		}
-		if display := displayNameFor(names, key); display != "" {
-			m["name"] = display
-		}
-	}
+	applySpeakerNameOverridesToSprites(res.Sprites, tpl)
 }
 
 // displayNameFor resolves a speaker label through the names map, falling back
@@ -636,25 +606,12 @@ func renameProtagonistSpeaker(res *Result, xd XlsxData, tpl *Template) {
 	}
 }
 
-func renameSpeakerInScript(sf *ScriptFile, tpl *Template, playerTmpl string) {
+func renameSpeakerInScript(sf *ScriptFile, tpl *Template, _ string) {
 	ops, rewrap, ok := decodeScriptOps(sf.Data)
 	if !ok {
 		return
 	}
-	changed := false
-	for _, op := range ops {
-		if op == nil {
-			continue
-		}
-		if n, _ := op["op"].(string); n != "say" {
-			continue
-		}
-		if who, _ := op["who"].(string); tpl.isProtagSpeaker(who) {
-			op["who"] = playerTmpl
-			changed = true
-		}
-	}
-	if changed {
+	if applyProtagonistSpeakerRename(ops, tpl) {
 		if b, err := json.Marshal(rewrap(ops)); err == nil {
 			sf.Data = b
 		}
