@@ -123,7 +123,6 @@ func findCachedProject(scratch string) (string, error) {
 	return importer.ExtractArticyProject(scratch, scratch) // dir passthrough + project lookup
 }
 
-
 func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
 	if s.adminToken == "" {
 		http.Error(w, "admin disabled", http.StatusForbidden)

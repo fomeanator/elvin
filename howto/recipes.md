@@ -273,11 +273,17 @@ day = day + 1
 ## Subroutine (one piece of code, many call sites)
 
 ```
-// called from different places:
-ename = "Wolf"  ehp = 12  eatk = 5
+// called from different places — one statement per line (two assignments on
+// one line silently break: everything after the first `=` is swallowed into
+// the expression, and the validator now warns about the stray `=`).
+ename = "Wolf"
+ehp = 12
+eatk = 5
 call fight
 // ...
-ename = "Orc"   ehp = 40  eatk = 9
+ename = "Orc"
+ehp = 40
+eatk = 9
 call fight
 
 :fight                      // shared combat engine

@@ -171,26 +171,56 @@ func main() {
 		if _, err := os.Stat(webDir); os.IsNotExist(err) {
 			webDir = "server/website"
 		}
-		rawSite := http.FileServer(http.Dir(webDir))
-		// The playground is hand-edited ES modules; the browser's module map plus
-		// heuristic caching otherwise keeps stale interpreters alive across
-		// deploys. no-cache = revalidate every load (304s keep it fast).
-		site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/play/") {
-				w.Header().Set("Cache-Control", "no-cache")
-			}
-			rawSite.ServeHTTP(w, r)
-		})
-		mux.Handle("/panel/", http.StripPrefix("/panel/", site))
-		mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/panel/", http.StatusFound)
-		})
+		// The built app is a build artifact, not a tracked file (`server/website`
+		// is gitignored), so a fresh clone has -studio on and nothing to serve.
+		// Silence here cost real onboarding: the log said `studio=true`, and the
+		// tutorial's very first step — open /panel — answered a bare 404 with no
+		// hint that a build was missing. Say it in the log AND in the browser.
+		studioBuilt := true
+		if _, err := os.Stat(filepath.Join(webDir, "index.html")); err != nil {
+			studioBuilt = false
+			const remedy = "cd panel && npm ci && npm run deploy"
+			log.Printf("WARNING: -studio is on but no built app at %s — /panel, /play/ and /docs/ will not work. Build it: %s", webDir, remedy)
+			studioMissing := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				fmt.Fprintf(w, `<!doctype html><meta charset=utf-8>
+<title>Elvin Studio is not built</title>
+<body style="font:16px/1.6 system-ui;max-width:42em;margin:12vh auto;padding:0 1em">
+<h1>Elvin Studio is not built yet</h1>
+<p>The server is running with <code>-studio</code>, but there is no built app at
+<code>%s</code> — it is a build artifact and is not committed to the repo.</p>
+<p>Build it from the repository root, then reload:</p>
+<pre style="background:#f4f4f4;padding:.8em;border-radius:6px">%s</pre>
+<p>The game API (<code>/v1/*</code>, <code>/content/*</code>) works regardless.</p>
+`, webDir, remedy)
+			})
+			mux.Handle("/panel/", studioMissing)
+			mux.Handle("/panel", studioMissing)
+			mux.Handle("/", studioMissing)
+		}
+		if studioBuilt {
+			rawSite := http.FileServer(http.Dir(webDir))
+			// The playground is hand-edited ES modules; the browser's module map plus
+			// heuristic caching otherwise keeps stale interpreters alive across
+			// deploys. no-cache = revalidate every load (304s keep it fast).
+			site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/play/") {
+					w.Header().Set("Cache-Control", "no-cache")
+				}
+				rawSite.ServeHTTP(w, r)
+			})
+			mux.Handle("/panel/", http.StripPrefix("/panel/", site))
+			mux.HandleFunc("/panel", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "/panel/", http.StatusFound)
+			})
+			mux.Handle("/", site)
+		}
 		// The vanilla /admin/ page retired into the React app's admin mode —
 		// keep bookmarked URLs working.
 		mux.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/?admin=1", http.StatusFound)
 		})
-		mux.Handle("/", site)
 	} else {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
