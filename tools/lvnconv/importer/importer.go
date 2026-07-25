@@ -304,6 +304,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		ops := cmdsAsOps(doc.Script)
 		applyProtagonistSpeakerRename(ops, tpl)
 		applySpeakerNameOverrides(ops, tpl)
+		applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
 	}
 	PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 	AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
@@ -442,6 +443,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 			ops := cmdsAsOps(doc.Script)
 			applyProtagonistSpeakerRename(ops, tpl)
 			applySpeakerNameOverrides(ops, tpl)
+			applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
 		}
 		PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 		AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
