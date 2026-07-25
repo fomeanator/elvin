@@ -22,7 +22,9 @@ The quality gate for every generated script:
   converter → runtime → manifest; where everything lives.
 - [Cheatsheet](howto/CHEATSHEET.md): the whole language on one page.
 - [Capabilities & limits](howto/CAPABILITIES.md): every op with fields,
-  verified engine limits (what does NOT work).
+  verified engine limits (what does NOT work). Pinned by CI: the op catalog
+  must match the validator's registry, the file may not contradict itself,
+  and anything marked ✅ must be compiled by some example under howto/.
 
 ## Reference
 
@@ -42,8 +44,11 @@ The quality gate for every generated script:
   kinetic-novel, puzzle.
 - Reference builds beyond the genres: [novella-core](howto/novella-core/)
   (the five bricks of a modern story novel: stat gates, paid choices,
-  wardrobe, timers, global stats) and [hub-collections](howto/hub-collections/)
-  (hub/collections library layout, title unlock/cost, chapter energy).
+  wardrobe, timers, global stats), [hub-collections](howto/hub-collections/)
+  (hub/collections library layout, title unlock/cost, chapter energy) and
+  [every-command](howto/every-command/) (the witness scene for the rarer
+  commands: save/load, preload, text_pace, tint/blur, named animations,
+  splines, queued lanes — it is what keeps CAPABILITIES.md honest).
 
 ## MCP server (agents: prefer this over raw CLI)
 

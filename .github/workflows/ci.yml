@@ -2,6 +2,9 @@
 # push/PR instead of on somebody's machine.
 #
 #   go     — server + lvnconv (importer/validator/adpd) tests, vet, gofmt.
+#            Includes the docs contract (lvn/docs_contract_test.go): CAPABILITIES.md
+#            §1 == KnownOps, no self-contradiction, and nothing marked ✅ without an
+#            example the smoke job below compiles.
 #            The importer e2e over real articy projects is env-gated
 #            (ARTICY_PROJECTS) and self-skips here — those projects are private.
 #   smoke  — lvnconv end-to-end on the committed example (convert → validate).

@@ -1,0 +1,89 @@
+scene every-command
+
+// ═══════════════════ EVERY COMMAND, ONCE ═══════════════════
+// A witness example, not a genre guide. The twelve genre examples cover the
+// commands a story reaches for daily; this one exercises what they never touch
+// (save/load, wait, tint/blur, preload, text_pace, named animations, splines,
+// queued lanes, stat-gated options) so that CAPABILITIES.md can not document a
+// construct nothing compiles. The doc gate (tools/lvnconv/lvn/
+// docs_contract_test.go) fails when a documented construct has no witness in
+// howto/ or examples/ — this file is where the leftovers get their witness.
+//
+// It is still a real scene: a projectionist threads reel three and the machine
+// argues back.
+
+actor_map Ida=ida
+
+// ─── Typing speed for the whole scene (chars/sec; 0 = instant) ───
+text_pace cps=45
+
+// ─── Warm the assets the scene is about to need (non-blocking) ───
+preload url="/content/bg/projection.jpg" kind=sprite
+preload url="/content/sfx/projector.ogg" kind=audio
+
+bg /content/bg/projection.jpg
+actor ida left neutral scale=1 rotation=0
+Ida: Reel three. Let's see if the lamp holds this time.
+
+// ─── Snapshot: the "watch it again" option below rewinds to exactly here ───
+save slot="booth"
+
+// ─── A warm veil plus a blur = the beam coming up ───
+tint color="#f0c070" alpha=0.25 duration=0.6
+blur alpha=0.35 duration=0.5
+wait ms=400
+The beam catches the dust in the air.
+blur alpha=0 duration=0.4
+
+// ─── Animation: one property per lane, so these three play at once ───
+anim id=ida prop=rotation keys="0:-3 1:3 2:-3" loop=yoyo ease=inOutSine
+anim ida scale to=1.04 dur=0.6 ease=outBack
+anim ida alpha to=0.85 dur=0.4 ease=linear   // the house lights drop on her
+
+// ─── A named animation: defined once (emits nothing), stamped on anybody ───
+defanim rattle prop=x keys="0:0 0.05:-0.02 0.1:0.02 0.15:0" loop=restart
+play id=ida anim=rattle
+Ida: Hear that? The film gate is rattling again.
+anim ida stop
+
+// ─── One lane, in order: mode=queue waits for the step before it ───
+anim id=ida channel=pace prop=screen_x to=0.34 dur=0.8 ease=outCubic
+anim id=ida channel=pace prop=screen_x to=0.20 dur=0.8 ease=inBack mode=queue
+
+// ─── A path: spline through the waypoints, nose along the tangent ───
+move id=ida path="0.20,0.62 0.50,0.55 0.78,0.62" dur=1.6 interp=spline orient=true ease=outCubic
+wait ms=200
+
+// ─── Squash and stretch: two axes, one of them stepped (values snap) ───
+anim id=ida prop=scalex keys="0:1 0.2:1.06 0.4:1" ease=inOutSine loop=once
+anim id=ida prop=scaley keys="0:1 0.2:0.94 0.4:1" interp=step loop=once
+Ida: There. Threaded.
+
+// ─── A stat gate on an option: too low, and the option is HIDDEN ───
+// (`requires_stat` + `min` hide it — they do not grey it out.)
+lamp = 2
+Ida: The lamp is at {lamp} of 3. What do we do?
+
+- Push the lamp to full -> forced requires_stat=lamp min=3
+- Thread it by hand and run it soft -> soft
+- Rewind and watch the reel again -> again
+
+:forced
+// Unreachable while lamp < 3 — that is the point of the gate.
+Ida: Full power. Bold.
+-> reel
+
+:soft
+Ida: Soft it is. The audience will never know.
+-> reel
+
+:again
+// `load` restores the snapshot and redraws the scene from that point.
+load slot="booth"
+-> reel
+
+:reel
+tint color="#f0c070" alpha=0 duration=0.5
+wait ms=300
+The reel runs out. The house lights come up.
+-> __end
