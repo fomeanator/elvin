@@ -1,0 +1,63 @@
+{
+  "$schema_note": "The op-ownership table. One row per op in the reference dictionary (lvn.KnownOps). See README.md for the meaning of every column and for what goes red when a row is missing or wrong.",
+
+  "owners": {
+    "engine": "Packages/com.lvn.engine — the standalone UPM package from the README's install path. An op owned here MUST work for a host that installed nothing else.",
+    "shell": "Packages/com.lvn.engine.shell — the opinionated novel app (NovelApp/screens). An op owned here is a SILENT NO-OP for a bare com.lvn.engine consumer. That is a deliberate, documented gap, not a bug — but it must be declared, never discovered."
+  },
+
+  "csharp_dispatch": {
+    "player": "handled inside the LvnPlayer.Advance switch (flow/state); never forwarded to ILvnStage",
+    "stage": "reaches ILvnStage.ApplyStage via the Advance default: branch and is handled in the VnStage.ApplyStage switch",
+    "player+stage": "both: LvnPlayer has an explicit case (it pauses or bails out) AND forwards the command to the stage",
+    "shell-op": "registered as a host op with LvnOps.Register inside com.lvn.engine.shell"
+  },
+
+  "js_dispatch": {
+    "player": "handled inside the core.js advance() switch",
+    "renderer": "forwarded by core.js's default branch and drawn by the playground renderer (app.js applyStage)",
+    "none": "nothing in the playground consumes it — the web player is partial BY DESIGN (see README §Partial runtimes)"
+  },
+
+  "ops": {
+    "say":       { "owner": "engine", "csharp": "player",       "js": "player" },
+    "choice":    { "owner": "engine", "csharp": "player",       "js": "player" },
+    "label":     { "owner": "engine", "csharp": "player",       "js": "player" },
+    "goto":      { "owner": "engine", "csharp": "player",       "js": "player" },
+    "if":        { "owner": "engine", "csharp": "player",       "js": "player" },
+    "call":      { "owner": "engine", "csharp": "player",       "js": "player" },
+    "return":    { "owner": "engine", "csharp": "player",       "js": "player" },
+    "set":       { "owner": "engine", "csharp": "player",       "js": "player" },
+    "inc":       { "owner": "engine", "csharp": "player",       "js": "player" },
+
+    "wait":      { "owner": "engine", "csharp": "player+stage", "js": "player" },
+    "input":     { "owner": "engine", "csharp": "player+stage", "js": "player" },
+    "preload":   { "owner": "engine", "csharp": "player+stage", "js": "none" },
+    "load":      { "owner": "engine", "csharp": "player+stage", "js": "none" },
+
+    "bg":        { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "actor":     { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "obj":       { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "text":      { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "audio":     { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "fade":      { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "dim":       { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "tint":      { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+
+    "flash":     { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "blur":      { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "camera":    { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "particles": { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "anim":      { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "text_pace": { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "hint":      { "owner": "engine", "csharp": "stage",        "js": "none" },
+    "save":      { "owner": "engine", "csharp": "stage",        "js": "none" },
+
+    "wardrobe_show": {
+      "owner": "shell",
+      "csharp": "shell-op",
+      "js": "none",
+      "note": "The living proof this table exists for. Emitted by the bundle importer, declared in KnownOps and grammar.json, implemented by NovelApp/WardrobeSheet — in com.lvn.engine.shell. A bare com.lvn.engine host gets a silent no-op. Declared here so that stays a known gap instead of a support ticket."
+    }
+  }
+}

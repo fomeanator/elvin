@@ -1,0 +1,29 @@
+{
+  "id": "flow-call-return",
+  "title": "call runs a subroutine and return resumes at the command after the call",
+  "why": "Two calls to the same label must both come back — a single shared return address (or a lost frame) would end the chapter on the first return.",
+  "runtimes": ["csharp", "js"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "gold", "value": 0 },
+      { "op": "call", "label": "bonus" },
+      { "op": "say", "text": "Первый заход." },
+      { "op": "call", "label": "bonus" },
+      { "op": "say", "text": "Второй заход." },
+      { "op": "goto", "label": "__end" },
+      { "op": "label", "id": "bonus" },
+      { "op": "inc", "key": "gold", "by": 5 },
+      { "op": "return" }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Первый заход." },
+      { "say": "Второй заход." },
+      { "end": true }
+    ],
+    "vars": { "gold": 10 },
+    "expr_true": ["gold == 10"]
+  }
+}
