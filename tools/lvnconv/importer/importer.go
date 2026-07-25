@@ -295,9 +295,17 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		for who, spr := range opt.ExtraCast {
 			cast[who] = spr
 		}
-		AutoStage(doc, cast, tpl) // reads inline say text — must run before Localize
+		applySpeakerAliasesToCast(cast, tpl)  // author-declared "these labels are one person"
+		ensureProtagonistCast(doc, cast, tpl) // a spriteless protagonist still gets staged
+		AutoStage(doc, cast, tpl)             // reads inline say text — must run before Localize
+		// "{player}" rescoping + display-name overrides are Template-only (no
+		// bundle/xlsx data needed) — a plain single-project import gets the
+		// same protagonist naming a bundle import gets via PostProcessBundle.
+		ops := cmdsAsOps(doc.Script)
+		applyProtagonistSpeakerRename(ops, tpl)
+		applySpeakerNameOverrides(ops, tpl)
 	}
-	PricePremiumChoices(doc, tpl)  // "[premium]" markers → template-priced wallet costs
+	PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 	AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
 
 	// Resolve art before localization swaps say text for keys (art reads sprite_url,
@@ -346,6 +354,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		CatalogRel: catalogRel,
 		Colors:     probe.stats(),
 	}
+	applySpeakerNameOverridesToSprites(res.Sprites, tpl)
 	cover := firstBg // a real first-scene background beats a 404 placeholder
 	res.Title = Title{
 		ID:          opt.ID,
@@ -378,13 +387,14 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		for who, spr := range opt.ExtraCast { // inject the protagonist (staged by default)
 			cast[who] = spr
 		}
+		applySpeakerAliasesToCast(cast, tpl) // author-declared "these labels are one person"
 	}
 
 	res := &Result{Sprites: map[string]any{}, Stats: map[string]int{}}
 	artSeen := map[string]bool{}
 	var chapters []Chapter
 	var cover string
-	var globalVars []articy.GlobalVarInfo // same across chapters — captured once
+	var globalVars []articy.GlobalVarInfo                                     // same across chapters — captured once
 	probe := newColorProbe(mergeColors(tpl.EmotionColors, opt.EmotionColors)) // aggregates colours across every chapter
 
 	// Build the project's asset index ONCE, and share a matte/read cache across all
@@ -418,9 +428,16 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		res.Warnings = append(res.Warnings, doc.Warnings...)
 		probe.scan(doc) // resolve emotions before staging (and before localization)
 		if opt.AutoStage {
+			ensureProtagonistCast(doc, cast, tpl) // a spriteless protagonist still gets staged
 			AutoStage(doc, cast, tpl)
+			// "{player}" rescoping + display-name overrides are Template-only —
+			// a plain single-project import gets the same protagonist naming a
+			// bundle import gets via PostProcessBundle.
+			ops := cmdsAsOps(doc.Script)
+			applyProtagonistSpeakerRename(ops, tpl)
+			applySpeakerNameOverrides(ops, tpl)
 		}
-		PricePremiumChoices(doc, tpl)  // "[premium]" markers → template-priced wallet costs
+		PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 		AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
 		art, missing, firstBg := collectArt(index, doc, artCache)
 		sprites, extraArt := BuildCatalog(doc)
@@ -482,6 +499,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 
 	res.MissingBg = dedupe(res.MissingBg)
 	res.Colors = probe.stats()
+	applySpeakerNameOverridesToSprites(res.Sprites, tpl)
 	res.Title = Title{
 		ID: opt.ID, Name: opt.Name, Subtitle: opt.Subtitle, CoverURL: cover,
 		PlayerStats: tpl.TitleStats(globalVars),

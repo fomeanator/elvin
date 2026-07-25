@@ -723,6 +723,88 @@ func TestAdmin_ConfigWhitelistRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAdmin_ImportTemplatesCRUD(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	_ = os.MkdirAll(content, 0o755)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	admin := NewAdminService(content, "admintok", auth, wallet)
+	mux := http.NewServeMux()
+	admin.Routes(mux)
+
+	// The built-in default is always listed, even with no file on disk yet.
+	if _, out := call(t, mux, "GET", "/v1/admin/import-templates", "admintok", nil); out["templates"] == nil {
+		t.Fatalf("list: %v", out)
+	} else {
+		found := false
+		for _, n := range out["templates"].([]any) {
+			if n == "cold" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("built-in 'cold' must always be listed: %v", out["templates"])
+		}
+	}
+	// GET on the built-in default with no file → the serialized DefaultTemplate().
+	if rec, out := call(t, mux, "GET", "/v1/admin/import-templates/cold", "admintok", nil); rec.Code != 200 || out["name"] != "cold" {
+		t.Fatalf("default template get: %d %v", rec.Code, out)
+	}
+
+	// PUT a valid partial template, GET returns the SAME raw body (not a
+	// resolved/inflated copy — overlay-by-presence must survive a round-trip).
+	rec, _ := call(t, mux, "PUT", "/v1/admin/import-templates/soviet", "admintok",
+		map[string]any{"speaker_aliases": map[string]any{"Главный герой": "ГГ"}})
+	if rec.Code != 200 {
+		t.Fatalf("template put: %d %s", rec.Code, rec.Body)
+	}
+	if rec, out := call(t, mux, "GET", "/v1/admin/import-templates/soviet", "admintok", nil); rec.Code != 200 {
+		t.Fatalf("template get after put: %d %v", rec.Code, out)
+	} else if aliases, _ := out["speaker_aliases"].(map[string]any); aliases["Главный герой"] != "ГГ" {
+		t.Fatalf("saved template must round-trip its raw body: %v", out)
+	} else if out["wardrobe"] != nil {
+		t.Fatalf("PUT must persist the RAW partial body, not the resolved/inflated template: %v", out)
+	}
+	// The new name now shows up in the list too.
+	if _, out := call(t, mux, "GET", "/v1/admin/import-templates", "admintok", nil); out["templates"] != nil {
+		found := false
+		for _, n := range out["templates"].([]any) {
+			if n == "soviet" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("saved template must appear in the list: %v", out["templates"])
+		}
+	}
+
+	// PUT with a broken scene_marker_regex must be rejected (and not written).
+	if rec, _ := call(t, mux, "PUT", "/v1/admin/import-templates/broken", "admintok",
+		map[string]any{"staging": map[string]any{"scene_marker_regex": "(unclosed"}}); rec.Code != 400 {
+		t.Fatalf("invalid template must 400, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "GET", "/v1/admin/import-templates/broken", "admintok", nil); rec.Code != 404 {
+		t.Fatalf("a rejected PUT must not have written anything, got %d", rec.Code)
+	}
+
+	// DELETE on the built-in default is refused; DELETE on a real one works.
+	if rec, _ := call(t, mux, "DELETE", "/v1/admin/import-templates/cold", "admintok", nil); rec.Code != 400 {
+		t.Fatalf("deleting the built-in default must 400, got %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "DELETE", "/v1/admin/import-templates/soviet", "admintok", nil); rec.Code != 200 {
+		t.Fatalf("template delete: %d", rec.Code)
+	}
+	if rec, _ := call(t, mux, "GET", "/v1/admin/import-templates/soviet", "admintok", nil); rec.Code != 404 {
+		t.Fatalf("deleted template must 404, got %d", rec.Code)
+	}
+
+	// No token → unauthorized, same as every other admin route.
+	if rec, _ := call(t, mux, "GET", "/v1/admin/import-templates", "", nil); rec.Code != 401 {
+		t.Fatalf("no token must 401, got %d", rec.Code)
+	}
+}
+
 func TestAdmin_DraftPublishAndHistoryRollback(t *testing.T) {
 	dir := t.TempDir()
 	content := filepath.Join(dir, "content")
