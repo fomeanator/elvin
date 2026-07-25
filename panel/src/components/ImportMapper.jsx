@@ -31,11 +31,16 @@ function withoutFrom(list, who) {
   return (list || []).filter((x) => x !== who);
 }
 
-function setRole(draft, who, role) {
+function setRole(draft, who, role, defaults) {
   const st = { ...(draft.staging || {}) };
-  st.narrator_roles = withoutFrom(st.narrator_roles, who);
-  st.protagonist_roles = withoutFrom(st.protagonist_roles, who);
-  st.protagonist_speaker_labels = withoutFrom(st.protagonist_speaker_labels, who);
+  // Templates are overlay-by-presence: writing `narrator_roles: []` REPLACES
+  // the default's 9 narrator roles with nothing, silently turning «Автор»
+  // into a staged NPC. When a partial template doesn't declare a list, seed
+  // it from the built-in default before touching it — never from undefined.
+  const seed = (cur, key) => (cur !== undefined ? cur : (defaults && defaults[key]) || []);
+  st.narrator_roles = withoutFrom(seed(st.narrator_roles, "narrator_roles"), who);
+  st.protagonist_roles = withoutFrom(seed(st.protagonist_roles, "protagonist_roles"), who);
+  st.protagonist_speaker_labels = withoutFrom(seed(st.protagonist_speaker_labels, "protagonist_speaker_labels"), who);
   if (role === "narrator") st.narrator_roles = [...st.narrator_roles, who];
   if (role === "protagonist") {
     st.protagonist_roles = [...st.protagonist_roles, who];
@@ -76,6 +81,12 @@ function buildSceneMarkerRegex(example, location) {
   let after = text.slice(idx + loc.length);
   let trailingDot = "";
   if (after.endsWith(".")) { trailingDot = "\\.?"; after = after.slice(0, -1); }
+  // No literal anchor left = a pattern that matches EVERY line. The natural
+  // hasty input — pasting the whole line into the "location" field — produced
+  // exactly that, the preview cheerfully showed 100% (it only tests against
+  // scene-marker MISSES), and AutoStage then deleted the entire narration,
+  // turning every prose line into a 404 background. Refuse to build it.
+  if (!before && !esc(after)) return "";
   return "^\\s*" + before + "(.+?)" + esc(after) + trailingDot + "\\s*$";
 }
 
@@ -105,6 +116,7 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
   const [templateName, setTemplateName] = useState(initialTemplateName || "");
   const [draft, setDraft] = useState(null);
   const [report, setReport] = useState(null);
+  const [roleDefaults, setRoleDefaults] = useState(null); // built-in staging lists, for partial-template seeding
   const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -116,13 +128,19 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
       setLoading(true);
       setError(null);
       try {
-        const [tpl, rep] = await Promise.all([
+        const wantDefault = !initialTemplateName || initialTemplateName === "cold";
+        const [tpl, rep, base] = await Promise.all([
           getImportTemplate(initialTemplateName || "cold", creds.token),
           detectRoles(dir, { template: initialTemplateName }, creds.token),
+          // A PARTIAL template inherits the built-in staging lists; editing a
+          // role must seed from those, not from undefined (which would save
+          // `narrator_roles: []` and wipe all 9 default narrator roles).
+          wantDefault ? null : getImportTemplate("cold", creds.token).catch(() => null),
         ]);
         if (cancelled) return;
         setDraft(tpl);
         setReport(rep);
+        setRoleDefaults(((base || tpl) || {}).staging || null);
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -188,7 +206,7 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
                     </tr>
                   </thead>
                   <tbody>
-                    {report.speakers.map((s) => (
+                    {(report.speakers || []).map((s) => (
                       <SpeakerRow
                         key={s.who}
                         s={s}
@@ -196,7 +214,7 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
                         alias={(draft.speaker_aliases || {})[s.who] || ""}
                         aliasSuggestion={collisionFor(report, s.who)}
                         displayName={(draft.speaker_names || {})[s.who] || ""}
-                        onRole={(role) => mutate((d) => setRole(d, s.who, role))}
+                        onRole={(role) => mutate((d) => setRole(d, s.who, role, roleDefaults))}
                         onAlias={(canon) => mutate((d) => setAlias(d, s.who, canon))}
                         onDisplayName={(name) => mutate((d) => setDisplayName(d, s.who, name))}
                       />

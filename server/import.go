@@ -111,6 +111,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "import: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
+	s.guardSpriteCollisions(res)
 	if err := importer.WriteToContentDir(s.content, res); err != nil {
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
