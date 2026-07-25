@@ -140,18 +140,18 @@ const sentinelNoArt = "\x00noart"
 // sentinel entry, so AutoStage stages her (as a placeholder) instead of
 // falling into the narrator else-branch.
 //
-// Gated by Staging.PlaceholderProtagonist (OFF by default): a spriteless
-// protagonist is frequently a DELIBERATE first-person/self-insert design
-// (the player is never drawn), which looks structurally identical to "the
-// roster is just missing her portrait" — nothing in the script can tell the
-// two apart. Forcing a placeholder onto an intentionally-invisible
-// protagonist would be a visible regression, not a fix, so this only acts
-// once an author has confirmed (via the detect-roles warning) that it's
-// really a gap. Driven by actual `who` usage in doc.Script either way —
-// never invents an actor for a role this project doesn't use as a say `who`.
+// ON by default (Staging.PlaceholderProtagonist=false opts out): per the
+// partner's field experience, "новелл без героев не бывает" — a spriteless
+// protagonist is a hole in the delivered files, and a labelled placeholder
+// makes the hole visible at first glance instead of silently hiding her.
+// Driven by actual `who` usage in doc.Script either way — never invents an
+// actor for a role this project doesn't use as a say `who`.
 func ensureProtagonistCast(doc *articy.Doc, cast map[string]string, tpl *Template) {
 	tpl = tpl.resolve()
-	if !tpl.Staging.PlaceholderProtagonist {
+	// nil (unset in the template) means ON: per the partner, a spriteless
+	// protagonist is always a content hole, never a design choice — the
+	// placeholder surfaces it. Explicit false opts a project out.
+	if pp := tpl.Staging.PlaceholderProtagonist; pp != nil && !*pp {
 		return
 	}
 	for _, c := range doc.Script {
