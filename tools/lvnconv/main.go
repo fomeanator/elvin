@@ -46,6 +46,8 @@ func main() {
 		cmdConvert(os.Args[2:])
 	case "import":
 		cmdImport(os.Args[2:])
+	case "detect":
+		cmdDetect(os.Args[2:])
 	case "validate":
 		cmdValidate(os.Args[2:])
 	case "probe":
@@ -69,6 +71,7 @@ func usage() {
 usage:
   lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy|adpd] [-dialogue <name>]
   lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
+  lvnconv detect   <articy-project-dir> [-template <name>] [-template-dir <dir>]
   lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
@@ -79,6 +82,10 @@ validate run structural checks on a .lvn (unknown op, dangling jumps, dup labels
          -strict treats lint warnings (unused labels) as failures
          -ext-grammar declares the project's host ops ("ext ..." lines) so
          they validate like built-ins; default: ext-grammar.json beside the file
+detect   preview a Template's classification against a project WITHOUT
+         importing: every speaker's role/art/line-count, scene-marker and
+         emotion-legend hit rates, heuristic alias-collision suggestions —
+         prints a DetectReport as JSON on stdout
 probe    print a one-line summary of a .lvn (counts of ops, labels, choices)
 optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
          only get losslessly recompressed, never resized (frame-packed atlases
@@ -160,6 +167,40 @@ func cmdImport(args []string) {
 	if *localize {
 		fmt.Fprintf(os.Stderr, "i18n: %d strings → %s (lang=%s)\n", len(res.Catalog), res.CatalogRel, res.Lang)
 	}
+}
+
+// cmdDetect previews the import Template's classification against a project
+// WITHOUT importing: every speaker's role/art/line-count, scene-marker and
+// emotion-legend hit rates, alias-collision suggestions — the tool an author
+// runs (or the panel's mapper screen calls over HTTP) before deciding how to
+// author a Template for a novel the built-in default doesn't already fit.
+//
+//	lvnconv detect <project-dir> [-template <name>] [-template-dir <dir>]
+func cmdDetect(args []string) {
+	var lead string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		lead, args = args[0], args[1:]
+	}
+	fs := newFlagSet("detect")
+	template := fs.String("template", "", "import template name/path (default: built-in)")
+	templateDir := fs.String("template-dir", "", "directory to resolve a bare -template name against")
+	_ = fs.Parse(args)
+	dir := lead
+	if dir == "" && fs.NArg() == 1 {
+		dir = fs.Arg(0)
+	}
+	if dir == "" {
+		die("detect: <project-dir> is required")
+	}
+	tpl, err := importer.ResolveTemplate(*template, *templateDir)
+	if err != nil {
+		die("detect: " + err.Error())
+	}
+	rep, err := importer.DetectRoles(dir, tpl)
+	if err != nil {
+		die("detect: " + err.Error())
+	}
+	os.Stdout.Write(mustJSON(rep))
 }
 
 // printLinearizeReport surfaces the adpd cascade's choice on stderr: silent

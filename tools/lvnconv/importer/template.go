@@ -55,6 +55,19 @@ type Template struct {
 	// entity's display name. Empty → labels pass through as authored.
 	SpeakerNames map[string]string `json:"speaker_names,omitempty"`
 
+	// SpeakerAliases maps an ALIAS articy speaker label to the CANONICAL
+	// roster label whose art it should resolve through — the manual "these N
+	// labels are the same person" declaration a name-normalizing heuristic can
+	// only SUGGEST, never safely apply on its own (a project can legitimately
+	// author the protagonist's art under a short roster nickname — "ГГ" —
+	// while every dialogue line uses the full "Главный герой" label; nothing
+	// short of an author saying so can tell that apart from two distinct
+	// characters who happen to share an abbreviation). Only affects cast (art)
+	// lookups — role classification (narrator/protagonist/npc) still comes
+	// from narrator_roles/protagonist_roles/protagonist_speaker_labels as
+	// today, so list every observed label there too.
+	SpeakerAliases map[string]string `json:"speaker_aliases,omitempty"`
+
 	// Derived (built by compile()); never serialized.
 	sceneMarker    *regexp.Regexp
 	narratorSet    map[string]bool
@@ -91,6 +104,18 @@ type StagingTemplate struct {
 	// ProtagonistMirror faces the protagonist into the scene (her exported art
 	// faces the opposite way to her staging side).
 	ProtagonistMirror bool `json:"protagonist_mirror"`
+
+	// PlaceholderProtagonist stages a labelled grey placeholder for a
+	// protagonist role that has no roster art, instead of leaving her
+	// invisible. OFF by default: a protagonist with no portrait is a common,
+	// deliberate first-person/self-insert design (the player never sees
+	// "themselves") — forcing a placeholder box onto her would be a visible
+	// regression for exactly those novels, not a fix. detect-roles/the
+	// import-mapper surface "protagonist with no art" as a WARNING either
+	// way; this flag only decides what AutoStage actually does about it, and
+	// an author who confirms it's really a missing-art gap (not a deliberate
+	// invisible narrator) turns it on for that project's Template.
+	PlaceholderProtagonist bool `json:"placeholder_protagonist,omitempty"`
 }
 
 // WardrobeTemplate governs the wardrobe substitution: which story flag opens the
@@ -349,6 +374,21 @@ func (t *Template) protagonistActorIDs(storyName string) []string {
 
 // ── loading & registry ───────────────────────────────────────────────────────
 
+// ParseTemplateJSON overlays raw JSON onto DefaultTemplate() and compiles it —
+// the byte-oriented twin of LoadTemplate, for callers that already hold the
+// template body in memory (the admin CRUD PUT validator, a detect-roles
+// unsaved-draft preview) instead of a file path.
+func ParseTemplateJSON(data []byte) (*Template, error) {
+	t := DefaultTemplate()
+	if err := json.Unmarshal(data, t); err != nil {
+		return nil, fmt.Errorf("template: %w", err)
+	}
+	if err := t.compile(); err != nil {
+		return nil, fmt.Errorf("template: %w", err)
+	}
+	return t, nil
+}
+
 // LoadTemplate reads a JSON template file and overlays it onto DefaultTemplate()
 // (overlay-by-presence: only fields the file states override the defaults), then
 // compiles it. So a partial template file is valid and inherits the rest.
@@ -357,11 +397,8 @@ func LoadTemplate(path string) (*Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := DefaultTemplate()
-	if err := json.Unmarshal(b, t); err != nil {
-		return nil, fmt.Errorf("template %s: %w", filepath.Base(path), err)
-	}
-	if err := t.compile(); err != nil {
+	t, err := ParseTemplateJSON(b)
+	if err != nil {
 		return nil, fmt.Errorf("template %s: %w", filepath.Base(path), err)
 	}
 	return t, nil

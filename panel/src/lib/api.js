@@ -239,3 +239,54 @@ export const adminDiscardDraft = (token) =>
 // GET /v1/analytics/summary?day=YYYY-MM-DD → { total, unique_users, by_name }.
 export const adminAnalytics = (day, token) =>
   adminFetch("/v1/analytics/summary?day=" + encodeURIComponent(day), token);
+
+// ── Import mapper: Template CRUD + pre-import detect preview ────────────────
+// See tools/lvnconv/importer/template.go (Template) and detect.go
+// (DetectRoles) — the panel's import-mapper screen (ImportMapper.jsx) is the
+// UI for both.
+
+// GET /v1/admin/import-templates → { templates: [name, …] } — "cold" (the
+// built-in default) is always included even with no file on disk.
+export const listImportTemplates = (token) =>
+  adminFetch("/v1/admin/import-templates", token).then((d) => d.templates || []);
+
+// GET /v1/admin/import-templates/<name> → the raw Template JSON (overlay-by-
+// presence — a partial file stays partial, it is NOT inflated to the full
+// resolved template).
+export const getImportTemplate = (name, token) =>
+  adminFetch("/v1/admin/import-templates/" + encodeURIComponent(name), token);
+
+// PUT /v1/admin/import-templates/<name> — validates server-side (rejects e.g.
+// a broken scene_marker_regex) before writing; versioned through the same
+// editorial history as manifest.json.
+export const putImportTemplate = (name, doc, token) =>
+  adminFetch("/v1/admin/import-templates/" + encodeURIComponent(name), token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(doc),
+  });
+
+// DELETE /v1/admin/import-templates/<name> — refused for "cold"/"default".
+export const deleteImportTemplate = (name, token) =>
+  adminFetch("/v1/admin/import-templates/" + encodeURIComponent(name), token, { method: "DELETE" });
+
+// POST /v1/admin/stage-extract {path} → { dir } — unpacks a staged articy
+// archive ONCE (a no-op if it's already a directory) so detectRoles can read
+// it; the same `path` (still the archive) is what import-bundle takes later.
+export const stageExtractArticy = (path, token) =>
+  adminFetch("/v1/admin/stage-extract", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+
+// POST /v1/admin/detect-roles {dir, template?, draft?} → a DetectReport:
+// every speaker's role/art/line-count, scene-marker + emotion hit rates,
+// alias-collision suggestions. Pass `draft` (an unsaved Template object) to
+// preview edits before saving them with putImportTemplate.
+export const detectRoles = (dir, opt, token) =>
+  adminFetch("/v1/admin/detect-roles", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dir, template: (opt && opt.template) || "", draft: (opt && opt.draft) || undefined }),
+  });

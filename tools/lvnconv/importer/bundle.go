@@ -438,6 +438,19 @@ func extractArchive(src, dst string) (string, error) {
 	}
 }
 
+// ExtractArticyProject extracts an articy archive (.rar/.zip) or passes an
+// already-extracted directory through unchanged, then locates the project
+// root (the dir holding Partitions/'Flow'-*.adpd). Exported for callers that
+// need the extracted project dir WITHOUT running a full import — the panel's
+// pre-import detect/mapper preview (server's stage-extract endpoint).
+func ExtractArticyProject(src, scratchDir string) (string, error) {
+	root, err := extractArchive(src, scratchDir)
+	if err != nil {
+		return "", err
+	}
+	return findArticyProject(root)
+}
+
 // unzipTo extracts a .zip into dst, guarding against Zip-Slip.
 func unzipTo(src, dst string) error {
 	zr, err := zip.OpenReader(src)
