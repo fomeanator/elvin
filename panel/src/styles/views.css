@@ -589,6 +589,39 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .novel-modal-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
 .novel-modal-actions .grow { flex: 1; }
 
+.bundle-template-row { display: flex; gap: 8px; align-items: center; }
+.bundle-template-row select.field { flex: 1; }
+
+/* import mapper (ImportMapper.jsx) */
+.mapper-modal { width: 880px; max-width: calc(100vw - 48px); max-height: 86vh; overflow-y: auto; }
+.mapper-tablewrap { max-height: 46vh; overflow-y: auto; margin: 10px 0; }
+.mapper-warnings { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.mapper-warn {
+  background: rgba(220, 160, 60, 0.1); border: 1px solid rgba(220, 160, 60, 0.35);
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 12.5px; color: var(--paper-dim);
+}
+.mapper-inline-field, .mapper-name-field { margin-top: 6px; }
+.mapper-checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; }
+.mapper-checkbox-row input { margin: 0; }
+.mapper-color-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.mapper-color-row { display: flex; align-items: center; gap: 8px; }
+.mapper-color-row .field { max-width: 160px; }
+.mapper-color-count { color: var(--muted); font-size: 11px; }
+.mapper-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line-soft); flex: none; }
+.mapper-noart { color: var(--muted); }
+.mapper-suggest-btn { margin-top: 4px; font-size: 11px; padding: 2px 8px; }
+.adm-table .field { width: 100%; }
+.adm-table select.field { min-width: 120px; }
+.mapper-scenebuilder { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(220, 160, 60, 0.35); }
+.mapper-scenebuilder-preview { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.mapper-scenebuilder-preview code {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--paper-dim);
+  background: rgba(0, 0, 0, 0.25); padding: 3px 6px; border-radius: 4px; word-break: break-all;
+}
+.mapper-advanced-toggle { margin: 10px 0; font-size: 12px; }
+.mapper-advanced { margin: 10px 0; border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: 10px; }
+.mapper-advanced-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; color: var(--paper-dim); }
+
 /* ============================================================================
    SCRIPT — chapters rail + the .lvns editor.
    ========================================================================= */

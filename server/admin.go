@@ -45,6 +45,8 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/history", s.handleHistory)
 	mux.HandleFunc("/v1/admin/rollback", s.handleRollback)
 	mux.HandleFunc("/v1/admin/files", s.handleFiles)
+	mux.HandleFunc("/v1/admin/import-templates", s.handleImportTemplates)
+	mux.HandleFunc("/v1/admin/import-templates/", s.handleImportTemplateDetail)
 }
 
 // ── editorial history: every panel write snapshots the previous version ────
@@ -58,6 +60,9 @@ func historyEligible(rel string) bool {
 		return false
 	}
 	if rel == "manifest.json" || adminConfigs[rel] {
+		return true
+	}
+	if strings.HasPrefix(rel, "import-templates/") && strings.HasSuffix(rel, ".json") {
 		return true
 	}
 	return strings.HasPrefix(rel, "scripts/") &&
