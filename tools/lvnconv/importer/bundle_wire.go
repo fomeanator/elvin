@@ -523,9 +523,103 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 			out = append(out, map[string]any{"op": "label", "id": "__end"})
 		}
 	}
+	// The removed pickers' branch bodies are now DEAD CODE at the script tail
+	// ({player}: Хвостик. / set Wardrobe.mainCh_Hair=12 / -> __end, ×N) —
+	// runtime never walks them, but they dominated the visible end of every
+	// chapter's source and read as "broken wardrobe choices" to an author
+	// (live partner complaint). Since this pass already made them
+	// unreachable, drop everything a control-flow walk can't reach.
+	out = removeUnreachableOps(out)
 	if b, err := json.Marshal(rewrap(out)); err == nil {
 		sf.Data = b
 	}
+}
+
+// removeUnreachableOps walks the control-flow graph from the script's entry
+// (op 0) across fall-through, goto, if then/else, call, and choice option
+// edges, and drops every op no path reaches. Conservative by construction:
+// any op type it doesn't model keeps its fall-through edge, and an
+// unterminated/odd graph errs on the side of keeping ops.
+func removeUnreachableOps(ops []map[string]any) []map[string]any {
+	n := len(ops)
+	if n == 0 {
+		return ops
+	}
+	labelAt := map[string]int{}
+	for i, op := range ops {
+		if op["op"] == "label" {
+			if id, _ := op["id"].(string); id != "" {
+				labelAt[id] = i
+			}
+		}
+	}
+	reached := make([]bool, n)
+	var visit func(int)
+	visit = func(i int) {
+		for i >= 0 && i < n && !reached[i] {
+			reached[i] = true
+			op := ops[i]
+			jump := func(label string) {
+				if j, ok := labelAt[label]; ok {
+					visit(j)
+				}
+			}
+			switch op["op"] {
+			case "goto":
+				if l, _ := op["label"].(string); l != "" {
+					jump(l)
+				}
+				return // unconditional — no fall-through
+			case "return":
+				return
+			case "if":
+				if l, _ := op["then"].(string); l != "" {
+					jump(l)
+				}
+				if l, _ := op["else"].(string); l != "" {
+					jump(l)
+					return // both arms explicit — no fall-through
+				}
+				// no else → false path falls through
+			case "call":
+				if l, _ := op["label"].(string); l != "" {
+					jump(l)
+				}
+				// call returns → fall-through continues
+			case "choice":
+				if opts, ok := op["options"].([]any); ok {
+					for _, o := range opts {
+						oc, ok := o.(map[string]any)
+						if !ok {
+							continue
+						}
+						if l, _ := oc["goto"].(string); l != "" {
+							jump(l)
+						}
+						if body, ok := oc["body"].([]any); ok {
+							for _, b := range body {
+								if bc, ok := b.(map[string]any); ok {
+									if l, _ := bc["label"].(string); bc["op"] == "goto" && l != "" {
+										jump(l)
+									}
+								}
+							}
+						}
+					}
+				}
+				return // control transfers to a picked option — no fall-through
+			}
+			i++
+		}
+	}
+	visit(0)
+	kept := make([]map[string]any, 0, n)
+	for i, op := range ops {
+		if reached[i] {
+			kept = append(kept, op)
+		}
+	}
+	return kept
 }
 
 // applySpeakerNames rewrites say `who` labels (and matching entity display
@@ -1083,6 +1177,22 @@ func regenerateLvnsSidecars(res *Result) {
 	if res == nil {
 		return
 	}
+	// regen decompiles one final .lvn into fresh .lvns bytes AND verifies the
+	// result recompiles into the same story (VerifyLvnsRoundTrip) — a sidecar
+	// that would corrupt the .lvn on the panel's next "Save to app" must be
+	// loud in the import report, never a silent landmine.
+	regen := func(rel string, lvnData []byte) ([]byte, bool) {
+		var doc articy.Doc
+		if err := json.Unmarshal(lvnData, &doc); err != nil {
+			return nil, false
+		}
+		out := ToLvns(&doc)
+		for _, w := range VerifyLvnsRoundTrip(doc.Script, out) {
+			res.Warnings = append(res.Warnings, rel+": "+w)
+		}
+		return out, true
+	}
+
 	lvnsIndex := map[string]int{}
 	for i, sf := range res.Scripts {
 		if strings.HasSuffix(sf.Rel, ".lvns") {
@@ -1097,11 +1207,18 @@ func regenerateLvnsSidecars(res *Result) {
 		if !ok {
 			continue
 		}
-		var doc articy.Doc
-		if err := json.Unmarshal(res.Scripts[i].Data, &doc); err != nil {
-			continue
+		if out, ok := regen(res.Scripts[i].Rel, res.Scripts[i].Data); ok {
+			res.Scripts[j].Data = out
 		}
-		res.Scripts[j].Data = ToLvns(&doc)
+	}
+	// Single-chapter form: Run() puts the script in ScriptRel/Lvn and the
+	// sidecar in LvnsRel/Lvns — res.Scripts stays empty, and skipping this
+	// branch left the ORIGINAL stale-sidecar bug alive for every one-chapter
+	// project (and for multi-chapter projects that fell back to one).
+	if res.LvnsRel != "" && len(res.Lvn) > 0 {
+		if out, ok := regen(res.ScriptRel, res.Lvn); ok {
+			res.Lvns = out
+		}
 	}
 }
 

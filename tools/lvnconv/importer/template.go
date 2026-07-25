@@ -323,6 +323,28 @@ func (t *Template) compile() error {
 	t.narratorSet = toSet(t.Staging.NarratorRoles)
 	t.protagSet = toSet(t.Staging.ProtagonistRoles)
 	t.protagSpeakSet = toSet(t.Staging.ProtagonistSpeakerLabels)
+	// Resolve SpeakerNames chains (A→B, B→C) to their fixed point once, so
+	// applying the map any number of times gives the same answer. The rename
+	// passes legitimately run twice on a bundle import (Run on doc.Script,
+	// PostProcessBundle on the compiled .lvn) — without this a chained config
+	// produced A→B on the first pass and B→C on the second, i.e. the result
+	// depended on which import path you took. Cycles stop at len(map) hops.
+	if len(t.SpeakerNames) > 0 {
+		resolved := make(map[string]string, len(t.SpeakerNames))
+		for k, v := range t.SpeakerNames {
+			seen := 0
+			for {
+				next, ok := t.SpeakerNames[v]
+				if !ok || next == v || seen >= len(t.SpeakerNames) {
+					break
+				}
+				v = next
+				seen++
+			}
+			resolved[k] = v
+		}
+		t.SpeakerNames = resolved
+	}
 	return nil
 }
 

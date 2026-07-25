@@ -25,6 +25,11 @@ var KnownOps = map[string]bool{
 	"set": true, "inc": true, "hint": true,
 	"call": true, "return": true,
 	"anim": true, // script-driven tween (lvns `anim`/`move` compile to this)
+	// wardrobe_show opens the in-story wardrobe for `char` — emitted by the
+	// bundle importer's wardrobe-scene substitution, handled by NovelApp/
+	// WardrobeSheet at runtime. Missing here, the validator (and the IDE's
+	// Problems strip riding on it) red-flagged every bundle-imported chapter.
+	"wardrobe_show": true,
 }
 
 // OpFields is the set of accepted top-level field keys per op, used to catch
@@ -33,31 +38,32 @@ var KnownOps = map[string]bool{
 // carry open-ended keys (catalog-defined emotion axes, a large placement
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
-	"bg":        {"id", "sprite_url"},
-	"fade":      {"to", "duration"},
-	"dim":       {"alpha", "duration"},
-	"flash":     {"color", "duration"},
-	"tint":      {"color", "alpha", "duration"},
-	"blur":      {"alpha", "duration"},
-	"camera":    {"action", "amplitude", "factor", "x", "y", "duration", "mode"},
-	"particles": {"type", "on"},
-	"audio":     {"channel", "url", "action", "fade", "volume", "loop"},
-	"wait":      {"ms"},
-	"input":     {"var", "prompt", "default", "max"},
-	"preload":   {"assets", "url", "kind"},
-	"text_pace": {"cps"},
-	"goto":      {"label"},
-	"if":        {"expr", "then", "else", "cond"},
-	"set":       {"key", "value", "expr", "default"},
-	"inc":       {"key", "by"},
-	"hint":      {"text", "show", "duration"},
-	"call":      {"label"},
-	"return":    {},
-	"label":     {"id"},
-	"save":      {"slot"},
-	"load":      {"slot"},
-	"text":      {"id", "text", "hide", "x", "y", "anchor", "size", "color", "font"},
-	"anim":      {"id", "anim", "stop", "channel", "mode"},
+	"bg":            {"id", "sprite_url"},
+	"fade":          {"to", "duration"},
+	"dim":           {"alpha", "duration"},
+	"flash":         {"color", "duration"},
+	"tint":          {"color", "alpha", "duration"},
+	"blur":          {"alpha", "duration"},
+	"camera":        {"action", "amplitude", "factor", "x", "y", "duration", "mode"},
+	"particles":     {"type", "on"},
+	"audio":         {"channel", "url", "action", "fade", "volume", "loop"},
+	"wait":          {"ms"},
+	"wardrobe_show": {"char"},
+	"input":         {"var", "prompt", "default", "max"},
+	"preload":       {"assets", "url", "kind"},
+	"text_pace":     {"cps"},
+	"goto":          {"label"},
+	"if":            {"expr", "then", "else", "cond"},
+	"set":           {"key", "value", "expr", "default"},
+	"inc":           {"key", "by"},
+	"hint":          {"text", "show", "duration"},
+	"call":          {"label"},
+	"return":        {},
+	"label":         {"id"},
+	"save":          {"slot"},
+	"load":          {"slot"},
+	"text":          {"id", "text", "hide", "x", "y", "anchor", "size", "color", "font"},
+	"anim":          {"id", "anim", "stop", "channel", "mode"},
 }
 
 // EnumValues lists the CLOSED value sets per (op, field). A value outside the set

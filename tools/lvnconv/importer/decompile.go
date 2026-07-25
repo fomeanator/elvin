@@ -7,7 +7,38 @@ import (
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
 )
+
+// directiveWords are the words the .lvns parser treats as statement PREFIXES
+// before it ever considers dialogue — a variable named `def` decompiled as
+// `def = 0` re-parses as a broken preset, and worst of all `return = 0`
+// re-parses as an INJECTED `return` op that exits the chapter (live-hit:
+// rpg-inv/goblin-battle's `def` armor stat). Any key/speaker hitting this
+// set must take the quoted generic form instead.
+var directiveWords = map[string]bool{
+	"def": true, "scene": true, "actor_map": true, "return": true,
+	"call": true, "choice": true, "if": true, "voice": true,
+	"for": true, "while": true, "func": true, "ext": true,
+}
+
+// hasFieldsBeyond reports whether the op carries any key besides the listed
+// ones — the "this op has attributes the short form can't encode" test.
+func hasFieldsBeyond(c articy.Cmd, allowed ...string) bool {
+	for k := range c {
+		ok := false
+		for _, a := range allowed {
+			if k == a {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return true
+		}
+	}
+	return false
+}
 
 // ToLvns decompiles a compiled .lvn document back into editable Elvin Script, so
 // an imported novel can be reworked in the panel as source (not raw JSON). It is
@@ -90,8 +121,21 @@ func ToLvns(doc *articy.Doc) []byte {
 			e, hasExpr := c["expr"].(string)
 			// A dotted/namespaced key (Music.House) isn't a bare identifier, so the
 			// `k = v` assignment form won't parse — fall back to the generic op form,
-			// which quotes the key.
-			if simpleKeyRe.MatchString(key) {
+			// which quotes the key. Same fallback when the op carries ANY field
+			// beyond op/key/value/expr — the short form can't encode them, and
+			// silently dropping `default:true` would turn a declared default into
+			// an unconditional assignment that resets the player's progress on
+			// every chapter entry. And when the key IS a directive word (`def`,
+			// `return`, `scene`…): `return = 0` round-trips as an INJECTED
+			// `return` op that exits the chapter (live-hit: rpg-inv's `def`).
+			simple := simpleKeyRe.MatchString(key) && !directiveWords[key]
+			for k := range c {
+				if k != "op" && k != "key" && k != "value" && k != "expr" {
+					simple = false
+					break
+				}
+			}
+			if simple {
 				if hasExpr && e != "" {
 					line(key + " = " + e)
 				} else {
@@ -106,7 +150,7 @@ func ToLvns(doc *articy.Doc) []byte {
 			if by == nil {
 				by = 1
 			}
-			if simpleKeyRe.MatchString(key) {
+			if simpleKeyRe.MatchString(key) && !directiveWords[key] {
 				line(key + " = " + key + " + " + literal(by))
 			} else {
 				line(genericOp("inc", c))
@@ -127,13 +171,30 @@ func ToLvns(doc *articy.Doc) []byte {
 			}
 			line(sayLine(c))
 		case "choice":
+			// Attributes that live on the choice op ITSELF (timeout,
+			// timeout_goto, …) get their own `choice k=v` line before the
+			// options — the parser's pendingChoice already understands it.
+			// Without this they silently vanished on every re-save
+			// (live-hit: tour-ch02's 3 timed choices lost their timers).
+			if hasFieldsBeyond(c, "op", "options") {
+				line(genericOp("choice", c))
+			}
 			for _, o := range asList(c["options"]) {
 				if opt, ok := toMap(o); ok {
 					line(choiceOption(opt))
 				}
 			}
 		default:
-			line(genericOp(op, c))
+			// A host-defined op (LvnOps.Register / `ext` in the language) is
+			// NOT in the parser's KnownOps — printing it bare (`leaderboard_submit
+			// board="quiz"`) produced a line the recompile rejects as an unknown
+			// command, breaking round-trip for every embedding game. The `ext`
+			// prefix is the documented spelling for exactly this.
+			if !lvns.KnownOps[op] {
+				line("ext " + genericOp(op, c))
+			} else {
+				line(genericOp(op, c))
+			}
 		}
 	}
 	return []byte(b.String())
@@ -215,7 +276,21 @@ func sayLine(c articy.Cmd) string {
 	who := str(c["who"])
 	text := oneLine(str(c["text"]))
 	style := str(c["style"])
-	if style == "" && text != "" && !strings.Contains(text, "\"") {
+	// The terse form is only safe when the text can't be mistaken for syntax:
+	//   - unbalanced «/» (a verse split across lines opens a « it never
+	//     closes) would make the parser swallow the REST OF THE FILE into one
+	//     multi-line string — live-hit: soviet's «Союз нерушимый…» either
+	//     hard-failed recompile or silently glued 4 lines into one;
+	//   - a full «…» wrap would be stripped as quoting by stripQuotes (the
+	//     author's guillemets around a quote/verse are prose, not syntax);
+	//   - a leading "-"/"->"/":"/"#" reads as an option/goto/label/comment;
+	//   - a who that is itself a directive word would parse as a command.
+	chevBalanced := strings.Count(text, "«") == strings.Count(text, "»")
+	chevWrapped := strings.HasPrefix(text, "«") && strings.HasSuffix(text, "»")
+	terseSafe := chevBalanced && !chevWrapped &&
+		!strings.HasPrefix(text, "-") && !strings.HasPrefix(text, ":") && !strings.HasPrefix(text, "#") &&
+		!directiveWords[who] && !strings.HasPrefix(who, "-")
+	if style == "" && text != "" && !strings.Contains(text, "\"") && terseSafe {
 		if who != "" && !strings.ContainsAny(who, ":\"") {
 			return who + ": " + text
 		}
