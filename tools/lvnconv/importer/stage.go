@@ -128,6 +128,47 @@ func PricePremiumChoices(doc *articy.Doc, tpl *Template) {
 	}
 }
 
+// sentinelNoArt marks a cast entry "stage this speaker, but she has no real
+// articy avatar" — AutoStage emits her `actor` op without a sprite_url, so
+// BuildCatalog's placeholder pass (cast.go) draws her a labelled grey dummy
+// instead of the else-branch silently treating her as a narrator.
+const sentinelNoArt = "\x00noart"
+
+// ensureProtagonistCast guarantees every protagonist label this script
+// ACTUALLY speaks under resolves to some cast entry: a template-declared
+// protagonist role (Staging.ProtagonistRoles) with no real art gets a
+// sentinel entry, so AutoStage stages her (as a placeholder) instead of
+// falling into the narrator else-branch.
+//
+// Gated by Staging.PlaceholderProtagonist (OFF by default): a spriteless
+// protagonist is frequently a DELIBERATE first-person/self-insert design
+// (the player is never drawn), which looks structurally identical to "the
+// roster is just missing her portrait" — nothing in the script can tell the
+// two apart. Forcing a placeholder onto an intentionally-invisible
+// protagonist would be a visible regression, not a fix, so this only acts
+// once an author has confirmed (via the detect-roles warning) that it's
+// really a gap. Driven by actual `who` usage in doc.Script either way —
+// never invents an actor for a role this project doesn't use as a say `who`.
+func ensureProtagonistCast(doc *articy.Doc, cast map[string]string, tpl *Template) {
+	tpl = tpl.resolve()
+	if !tpl.Staging.PlaceholderProtagonist {
+		return
+	}
+	for _, c := range doc.Script {
+		if c["op"] != "say" {
+			continue
+		}
+		who, _ := c["who"].(string)
+		if who == "" || !tpl.isProtagonist(who) {
+			continue
+		}
+		if _, ok := cast[who]; ok {
+			continue
+		}
+		cast[who] = sentinelNoArt
+	}
+}
+
 func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
 	tpl = tpl.resolve()
 	bgExt := tpl.Staging.BgExt
@@ -183,7 +224,10 @@ func AutoStage(doc *articy.Doc, cast map[string]string, tpl *Template) {
 						hide() // swap out whoever was there
 					}
 					actor := articy.Cmd{"op": "actor", "id": Slug(who), "show": true,
-						"position": side, "sprite_url": "/content/art/" + spr, "enter": "fade"}
+						"position": side, "enter": "fade"}
+					if spr != "" && spr != sentinelNoArt {
+						actor["sprite_url"] = "/content/art/" + spr
+					}
 					if emo != "" {
 						actor["emotion"] = emo
 					}

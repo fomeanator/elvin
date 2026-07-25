@@ -66,6 +66,33 @@ func TestLoadTemplateOverlay(t *testing.T) {
 	}
 }
 
+// ParseTemplateJSON is LoadTemplate's byte-oriented twin — same overlay-onto-
+// DefaultTemplate()+compile behaviour, for callers that hold the body in
+// memory (the Template CRUD validator, a detect-roles draft preview) instead
+// of a file path.
+func TestParseTemplateJSONOverlaysAndCompiles(t *testing.T) {
+	tpl, err := ParseTemplateJSON([]byte(`{"speaker_aliases":{"Главный герой":"ГГ"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tpl.SpeakerAliases["Главный герой"] != "ГГ" {
+		t.Fatalf("speaker_aliases not parsed: %v", tpl.SpeakerAliases)
+	}
+	// Inherited-from-default field, same as LoadTemplate's overlay contract.
+	if tpl.Wardrobe.FlagKey != "Open.Wardrobe" {
+		t.Fatalf("wardrobe.flag_key not inherited: %q", tpl.Wardrobe.FlagKey)
+	}
+	if tpl.sceneMarker == nil {
+		t.Fatal("template not compiled — sceneMarker regex is nil")
+	}
+}
+
+func TestParseTemplateJSONRejectsBadRegex(t *testing.T) {
+	if _, err := ParseTemplateJSON([]byte(`{"staging":{"scene_marker_regex":"(unclosed"}}`)); err == nil {
+		t.Fatal("expected an error for an invalid scene_marker_regex")
+	}
+}
+
 // ResolveTemplate: built-in names, a <name>.json in the dir, an explicit path, and
 // the unknown-name error.
 func TestResolveTemplate(t *testing.T) {
