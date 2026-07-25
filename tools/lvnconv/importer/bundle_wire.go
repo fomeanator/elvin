@@ -909,11 +909,21 @@ func keepInWardrobeBlock(op map[string]any, tpl *Template) bool {
 	switch n, _ := op["op"].(string); n {
 	case "say", "choice", "label":
 		return false
+	case "goto", "if", "return", "call":
+		// The manual picker's CONTROL FLOW must not survive the swap: the
+		// runtime wardrobe (wardrobe_show) replaces the whole try-on loop,
+		// and a kept re-open branch tail (`goto n44`) sat as the last op
+		// before the closing Open.Wardrobe=false — an unconditional jump
+		// that CUT the path to the closing marker and everything after it.
+		// Live-hit: a third of Cold ch24 (the Victor/Philipp scene, 1190
+		// unique lines) plus chunks of ch14/17/18/21-23 were unreachable on
+		// prod. The block must stay a straight line into its closing op.
+		return false
 	case "set":
 		k, _ := op["key"].(string)
 		return k != wt.ProtagonistClothesVar && k != wt.ProtagonistHairVar
 	default:
-		return true // audio, bg, actor, obj, goto, if, …
+		return true // audio, bg, actor, obj, …
 	}
 }
 
