@@ -7,7 +7,7 @@
 // Pure and DOM-free: advance()/choose()/submitInput() return a pause event
 // ({type: say|choice|input|wait|end, …}); the UI renders it and calls back.
 
-import { evalExpr, evalBool, interpolate, getVarPath, setVarPath } from "./expr.js";
+import { evalExpr, evalBool, interpolate, getVarPath, setVarPath, evalStructuredCond } from "./expr.js";
 
 export class Player {
   constructor(doc, { onStage } = {}) {
@@ -50,15 +50,20 @@ export class Player {
           let v;
           if (c.expr !== undefined) { try { v = evalExpr(c.expr, this.vars); } catch { v = 0; } }
           else v = c.value;
-          if (c.key) setVarPath(this.vars, c.key, v);
+          // `default: true` means INITIALISE-ONLY: a chapter-entry default must
+          // not stomp a value carried in from an earlier chapter or a save.
+          if (c.key && !(c.default === true && getVarPath(this.vars, c.key) !== null))
+            setVarPath(this.vars, c.key, v);
           this.ip++;
           break;
         }
         case "inc": {
-          let by = 1;
-          if (c.by !== undefined) {
-            try { by = typeof c.by === "number" ? c.by : evalExpr(c.by, this.vars); } catch { by = 0; }
-          }
+          // `by` is a NUMBER, not an expression: LvnPlayer coerces only
+          // numeric/boolean and falls back to 1 otherwise, so evaluating a
+          // string here made the same script step differently in the two
+          // runtimes. The validator warns about a non-numeric `by`.
+          const by = typeof c.by === "number" ? c.by
+            : typeof c.by === "boolean" ? (c.by ? 1 : 0) : 1;
           const cur = getVarPath(this.vars, c.key);
           setVarPath(this.vars, c.key, (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by);
           this.ip++;
@@ -75,8 +80,15 @@ export class Player {
           this.ip = this.callStack.length ? this.callStack.pop() : this.script.length;
           break;
         case "if": {
+          // `expr` wins; the STRUCTURED form {key,op,value} is what the articy
+          // importer emits, and this player used to ignore it entirely — every
+          // imported condition silently took the else branch here while working
+          // in the app. Mirrors LvnPlayer.EvalCond.
           let cond = false;
-          try { cond = evalBool(c.expr, this.vars); } catch { cond = false; }
+          try {
+            if (c.expr !== undefined && c.expr !== null) cond = evalBool(c.expr, this.vars);
+            else if (c.cond) cond = evalStructuredCond(c.cond, this.vars);
+          } catch { cond = false; }
           const branch = cond ? c.then : c.else;
           if (branch) this.jump(branch);
           else this.ip++;
@@ -132,7 +144,12 @@ export class Player {
       if (o.requires_stat) {
         const v = getVarPath(this.vars, o.requires_stat);
         const n = typeof v === "number" ? v : parseFloat(v) || 0;
-        if (n < (o.min ?? 1)) return;
+        // The importer writes `requires_min`; `min` is the hand-authored spelling.
+        // Absent threshold is 0, not 1 — with 1 this player hid options the app
+        // showed. Mirrors LvnPlayer.BuildOptions.
+        const need = o.requires_min ?? o.min ?? 0;
+        const needN = typeof need === "number" ? need : parseFloat(need) || 0;
+        if (n < needN) return;
       }
       options.push({ index: i, text: interpolate(o.text, this.vars), cost: o.cost });
     });
@@ -161,7 +178,8 @@ export class Player {
             if (b.key) setVarPath(this.vars, b.key, v);
           } else {
             const cur = getVarPath(this.vars, b.key);
-            let by = 1; try { by = b.by !== undefined ? (typeof b.by === "number" ? b.by : evalExpr(b.by, this.vars)) : 1; } catch {}
+            const by = typeof b.by === "number" ? b.by
+              : typeof b.by === "boolean" ? (b.by ? 1 : 0) : 1;
             setVarPath(this.vars, b.key, (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by);
           }
           this.ip = saveIp;

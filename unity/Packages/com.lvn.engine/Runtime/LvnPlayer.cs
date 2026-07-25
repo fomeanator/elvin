@@ -679,6 +679,20 @@ namespace Lvn
                         bool cond = EvalCond(c);
                         var branch = cond ? (string)c["then"] : (string)c["else"];
                         Log?.Invoke("    if \"" + (string)c["expr"] + "\" → " + cond + " → :" + branch);
+                        // A MISSING branch falls through to the next command, as
+                        // both the language reference and the cheatsheet promise
+                        // ("if true — jump, otherwise fall through"). It used to go
+                        // through SeekTo, where an empty label means __end — so a
+                        // false `if` with no `else` silently ENDED THE CHAPTER.
+                        // Our own compiler always emits `else`, which is why this
+                        // never bit: it only reaches hand-written .lvn and other
+                        // producers, and `.lvn` is advertised as a container any
+                        // tool may write. The browser player already fell through.
+                        if (string.IsNullOrEmpty(branch))
+                        {
+                            _ip++;
+                            break;
+                        }
                         SeekTo(branch);
                         break;
 
