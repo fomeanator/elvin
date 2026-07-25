@@ -1,0 +1,84 @@
+scene functions
+
+// ═══════════════════ FUNCTIONS & PROCEDURES ═══════════════════
+// The witness for `func` — both of the things that word means, in one scene.
+//
+//   func f(a, b) { return <expr> }    EXPRESSION function. The call is INLINED
+//                                     into the expression at compile time, so
+//                                     it works anywhere an expression works:
+//                                     an assignment, an {interpolation}, an
+//                                     `if`, a choice `expr=`. No recursion.
+//   func p(a) { <commands> }          PROCEDURE. Lowered to call/return and
+//                                     invoked as a statement on its own line.
+//
+// A lighthouse keeper does the evening arithmetic. Every number on screen comes
+// out of a `func`, so if the lowering ever breaks again this scene shows zeros
+// and the compile gate goes red.
+
+// ─── Expression functions ───────────────────────────────────────────────
+// One-liner form: the body is a single `return <expr>`.
+func fuel_cost(hours) { return 3 * hours + 2 }
+
+// Multi-line form, same meaning.
+func bonus(nights, rate) {
+  return floor(nights * rate / 10)
+}
+
+// They may call each other — the compiler inlines the whole chain.
+func payout(nights, rate, hours) { return bonus(nights, rate) - fuel_cost(hours) }
+
+// ─── A procedure ────────────────────────────────────────────────────────
+// The body is COMMANDS, so it runs as a statement. Arguments bind to ordinary
+// variables just before the jump (no frames — so no recursion here either).
+func log_entry(what, amount) {
+  Keeper: {what} — {amount} shillings.
+}
+
+nights = 6
+rate = 25
+hours = 4
+purse = 0
+
+bg /content/bg/lighthouse.jpg
+text hud x=4 y=6 size=38 color=#cfe8ff «💰{purse}  🌙{nights}  ⛽{fuel_cost(hours)}»
+
+The lamp is trimmed. The ledger is not.
+
+// A call inside an assignment …
+purse = purse + payout(nights, rate, hours)
+// … inside an interpolation …
+Keeper: {nights} nights at {rate}, minus {fuel_cost(hours)} for the oil.
+// … and inside a condition.
+if payout(nights, rate, hours) > 0 -> solvent
+-> short
+
+:solvent
+log_entry("Ledger", purse)
+The keeper signs the page.
+-> ledger
+
+:short
+log_entry("Debt", purse)
+The keeper leaves the page unsigned.
+-> ledger
+
+:ledger
+- 🔢 Count one more night -> recount
+- 💰 Bank the bonus ({bonus(nights, rate)}) -> bank expr="bonus(nights, rate) > 5"
+- 📕 Close the book -> done
+
+:recount
+// Arguments are expressions in their own right.
+extra = bonus(nights + 1, rate)
+Keeper: One more night would add {extra}.
+-> done
+
+:bank
+purse = purse + bonus(nights, rate)
+log_entry("Bonus", purse)
+-> done
+
+:done
+text hud hide
+The lamp turns, and the coast keeps its distance.
+goto __end
