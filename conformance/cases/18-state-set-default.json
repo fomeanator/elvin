@@ -1,0 +1,22 @@
+{
+  "id": "state-set-default",
+  "title": "set default=true initialises only — it never overwrites a value already there",
+  "why": "This is how a title declares its variables once and every chapter re-applies the block without stomping carried-in progress or a loaded save. A runtime that treats default= as a plain set resets the player's story on every chapter entry. Declared csharp-only because the playground ignores default= today (see README §Partial runtimes).",
+  "runtimes": ["csharp"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "rep", "value": 5 },
+      { "op": "set", "key": "rep", "value": 0, "default": true },
+      { "op": "set", "key": "fresh", "value": 3, "default": true },
+      { "op": "say", "text": "Репутация {rep}, свежесть {fresh}." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Репутация 5, свежесть 3." },
+      { "end": true }
+    ],
+    "vars": { "rep": 5, "fresh": 3 }
+  }
+}
