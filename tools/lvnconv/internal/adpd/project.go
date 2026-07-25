@@ -84,16 +84,23 @@ func buildModel(fl flow, proj string, start, maxN int) (export, LinearizeReport)
 	// True articy linearizer: anchor the forward pin-flow to the real container
 	// hierarchy so the whole novel is ONE continuous, chapter-ordered spine (no
 	// island-menu). Tried first whenever the project has a hierarchy root.
-	if kids := completeChildren(fl); len(kids) == 0 {
+	kids := completeChildren(fl)
+	root, hasRoot := uint32(0), false
+	if len(kids) == 0 {
 		rep.Fallbacks = append(rep.Fallbacks, "anchored: project has no container hierarchy")
-	} else if root, ok := hierarchyRoot(fl, kids); !ok {
+	} else if root, hasRoot = hierarchyRoot(fl, kids); !hasRoot {
 		rep.Fallbacks = append(rep.Fallbacks, "anchored: no Flow root with ≥2 chapter fragments")
-	} else if entries, ok := linearizeAnchored(fl, root, nil); ok {
-		rep.Algorithm = "anchored"
-		gvars := globalVars(proj, flowExprs(fl))
-		reach, seen := bfs(fl, entries, math.MaxInt32)
-		return emitModels(fl, reach, seen, entries, gvars), rep
-	} else {
+	}
+	if hasRoot {
+		// Связность — до линеаризации: она перезаписывает fl.succ синтетическими
+		// рёбрами, после чего достижимо всё по построению.
+		rep.connectivity(fl, []scopeDef{{name: "весь роман", root: root}})
+		if entries, ok := linearizeAnchored(fl, root, nil); ok {
+			rep.Algorithm = "anchored"
+			gvars := globalVars(proj, flowExprs(fl))
+			reach, seen := bfs(fl, entries, math.MaxInt32)
+			return emitModels(fl, reach, seen, entries, gvars), rep
+		}
 		rep.Fallbacks = append(rep.Fallbacks, "anchored: hierarchy-anchored linearization failed")
 	}
 	for k := range fl.succ { // anchored mutated succ — reset before the fallbacks
