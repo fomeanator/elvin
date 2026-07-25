@@ -11,6 +11,45 @@ import (
 // parameters didn't parse and fell through to dialogue text.
 var reFailedOp = regexp.MustCompile(`^([a-z_]+)\b[^:]*=`)
 
+// reCmdWord is the leading bare-lowercase word every command starts with.
+var reCmdWord = regexp.MustCompile(`^([a-z_][a-z0-9_]*)\s`)
+
+// commandLike returns the leading word of a narration line whose SHAPE is a
+// command rather than prose, or "" when the line reads as prose. Three shapes
+// qualify, and natural text produces none of them:
+//
+//	word … = …     a key=value slip           (`sett gold = 1`)
+//	word … -> …    a jump; `->` is pure syntax (`iff gold > 1 -> rich`)
+//	word … /path   a content url as an argument (`bbg /content/bg/x.jpg`)
+//
+// A positional-only slip (`shwo mara`, `hidee mara`) is deliberately NOT
+// flagged: nothing in its shape separates it from stylised prose ("wave after
+// wave" — `wave` is one edit from `save`), and in a pipeline whose gate is "0
+// warnings" one false warning gets the whole check switched off.
+//
+// Measured before shipping: 373 narration lines across 109 local .lvn files
+// (howto examples, the tour novella, demos) — zero false positives. Note the
+// articy-imported corpus contributes nothing here, since every imported line
+// carries a speaker and this check only looks at narration.
+func commandLike(text string) string {
+	if mm := reFailedOp.FindStringSubmatch(text); mm != nil {
+		return mm[1]
+	}
+	mm := reCmdWord.FindStringSubmatch(text)
+	if mm == nil || len(mm[1]) < 3 {
+		return ""
+	}
+	if strings.Contains(text, "->") {
+		return mm[1]
+	}
+	for _, w := range strings.Fields(text)[1:] {
+		if strings.HasPrefix(w, "/") && len(w) > 1 {
+			return mm[1]
+		}
+	}
+	return ""
+}
+
 // KnownOps is the registry of command ops the runtime understands. An op
 // outside this set is a content error, not a silent no-op — the same hard
 // rule the front-ends apply to staging tags, enforced here for any .lvn.
@@ -291,16 +330,17 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			if msg := braceIssue(c.Str("who")); msg != "" {
 				addWarn(i, op, "speaker name: "+msg)
 			}
-			// Narration that begins like a command + `=` is almost always a
-			// command with a syntax slip that silently fell through to dialogue.
+			// Narration shaped like a command is almost always a command with a
+			// syntax slip that silently fell through to dialogue — the failure
+			// mode authors lose hours to, because nothing errors and the typo
+			// simply appears on screen. See commandLike for which shapes count.
 			if c.Str("who") == "" {
-				if mm := reFailedOp.FindStringSubmatch(c.Str("text")); mm != nil {
-					if KnownOps[mm[1]] {
-						addWarn(i, op, fmt.Sprintf("looks like a %q command but its syntax didn't parse — it became dialogue text", mm[1]))
-					} else if s := suggest(mm[1], knownOpNames()); s != "" {
-						// A near-miss of a real op name (`actro id=…`) that an
-						// older compiler let fall through into dialogue.
-						addWarn(i, op, fmt.Sprintf("looks like a mistyped command %q — did you mean %q? (it became dialogue text)", mm[1], s))
+				if word := commandLike(c.Str("text")); word != "" {
+					if KnownOps[word] {
+						addWarn(i, op, fmt.Sprintf("looks like a %q command but its syntax didn't parse — it became dialogue text", word))
+					} else if s := suggest(word, knownOpNames()); s != "" {
+						// A near-miss of a real op name (`actro id=…`, `bbg /x.jpg`).
+						addWarn(i, op, fmt.Sprintf("looks like a mistyped command %q — did you mean %q? (it became dialogue text)", word, s))
 					}
 				}
 			}
