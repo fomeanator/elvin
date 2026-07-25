@@ -188,20 +188,61 @@ call fight               // jump that remembers the return point
 return                   // return after the matching call
 ```
 
-### Functions (sugar over call/return)
+### Functions
+
+`func` writes two different things, and the **body** decides which one you get.
+Arguments bind to parameters **positionally** in both.
+
+**1. An expression function** — the body is a single `return <expression>`:
+
+```
+func add(a, b) { return a + b }
+func upkeep(day) {
+  return 2 + floor(day / 3)
+}
+```
+
+The compiler **inlines** it: `tax = upkeep(day)` compiles to
+`set key=tax expr="(2 + floor(day / 3))"`. The declaration emits no commands at
+all, and because the result is an ordinary expression it works in every place an
+expression is evaluated:
+
+```
+gold = gold - upkeep(day)                    // assignment
+The stop cost {upkeep(day)} coins.           // {interpolation}
+text hud … «⛽{upkeep(day)}»                  // reactive HUD
+if upkeep(day) > 5 -> lean_week              // condition
+- Pay up -> pay expr="gold >= upkeep(day)"    // choice filter
+```
+
+Expression functions may call each other and the built-ins; the whole chain is
+inlined. An argument that is not a bare name or number is bracketed, so
+`upkeep(day + 1)` keeps its arithmetic. A name in the body that is *not* a
+parameter is an ordinary variable, read at the call site. A `func` may not take a
+built-in's name. **Recursion is a compile error** — a function inlined into
+itself has no end; use a `while` loop.
+
+**2. A procedure** — the body is commands:
+
 ```
 func show_hero() {
   actor hero left armor={arm} weapon={wpn}
 }
-func add(a, b) {
-  return a + b
-}
 
-show_hero()              // call
-sum = add(2, 3)          // call with a return value
+show_hero()              // called as a STATEMENT, on its own line
 ```
-Arguments bind to parameters **positionally**. Return a value with
-`return <expression>`.
+
+This is the `call`/`return` sugar: it lowers to a `label __fn_show_hero` routine
+plus a `call`, and arguments are bound to ordinary variables just before the
+jump — so there are no frames and no recursion here either. A procedure has no
+value, so it **cannot appear inside an expression** (`x = show_hero() + 1` is a
+compile error). If a procedure does `return <expression>`, the value is available
+in the statement form `x = the_procedure(…)`.
+
+Every mismatch is a compile error rather than a silent zero: wrong number of
+arguments, a procedure used as a value, an expression function used as a bare
+statement, a duplicate declaration, recursion. A worked example lives in
+[`functions/`](functions/).
 
 ### Save/load
 ```
@@ -236,6 +277,10 @@ flags = {}               // empty map (via builder, see below)
 
 - Any **undeclared variable reads as `0`/`""`/`false`** — but explicit
   initialization makes the script clearer.
+- **One statement per line**, inside a block too. `gold = gold - 5  potions =
+  potions + 1` on one line makes the second half part of the FIRST expression,
+  which then evaluates to nothing at all (the validator warns about the stray
+  `=`, but the honest fix is a line break).
 - **The `__` prefix is reserved** for auto-variables of the transcoder/runtime
   (`__ret`, `__seen_*`, `__i1` …). Do not name your variables like that.
 - Dotted names are allowed: `ns.flag` accesses an object field (`set/inc key="ns.flag"`
@@ -272,7 +317,7 @@ parentheses. String literals are quoted. Inside `«…»` text escape quotes as 
 | `rand()` | float 0..1 |
 | `rand(n)` | integer 0..n inclusive |
 | `rand(a, b)` | integer a..b inclusive |
-| `chance(p)` | `true` with probability p (default 0.5) |
+| `chance(p)` | `true` with probability p, a **fraction** 0..1 (default 0.5). `chance(35)` is not "35 %" — it is always true. |
 | `min(a,b)` `max(a,b)` | minimum / maximum |
 | `abs(x)` `floor(x)` `round(x)` | absolute / floor / rounding |
 
@@ -302,6 +347,12 @@ parentheses. String literals are quoted. Inside `«…»` text escape quotes as 
 | `del(map, key)` | map without the key |
 
 > Note: there is no `ceil` — use `floor(x)` or `round(x)`.
+
+**This table is the complete set.** The evaluator has no user-defined functions:
+your own live in a `func` (§5), which the compiler inlines before the runtime ever
+sees the expression. A call to any other name is a validator warning, because a
+failed expression degrades softly at runtime — the variable keeps its old value
+and a `{span}` prints verbatim, with nothing to tell the player something broke.
 
 ---
 

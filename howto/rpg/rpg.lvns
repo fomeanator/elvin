@@ -33,10 +33,24 @@ Merchant: Good coin buys good wares.
 - Steel sword (+3 atk) — 12💰 -> buy_sword
 - Back -> town
 :buy_pot
-if gold >= 5 { gold = gold - 5  potions = potions + 1  Merchant: Save it for a rainy day. } else { Merchant: Not enough coin. }
+// One statement per line inside a block: a second `x = …` sharing the line ends
+// up inside the FIRST expression, where it evaluates to nothing at all.
+if gold >= 5 {
+  gold = gold - 5
+  potions = potions + 1
+  Merchant: Save it for a rainy day.
+} else {
+  Merchant: Not enough coin.
+}
 -> shop
 :buy_sword
-if gold >= 12 { gold = gold - 12  atk = atk + 3  Merchant: A fine blade. } else { Merchant: Not enough coin. }
+if gold >= 12 {
+  gold = gold - 12
+  atk = atk + 3
+  Merchant: A fine blade.
+} else {
+  Merchant: Not enough coin.
+}
 -> shop
 
 :forest
