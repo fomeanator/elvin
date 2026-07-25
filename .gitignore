@@ -106,3 +106,9 @@ panel/public/play/lvns.wasm
 # уезжают в открытый доступ — держать их в приватном месте.
 /AUDIT-*.md
 /ADOPTION-*.md
+
+# Мусор batch-прогонов Unity (-runTests создаёт сцену на каждый запуск,
+# краш-дампы падают в корень проекта) — копится и лезет в git status.
+/unity/TestHost/Assets/InitTestScene*.unity
+/unity/TestHost/Assets/InitTestScene*.unity.meta
+/unity/TestHost/mono_crash.*.json
