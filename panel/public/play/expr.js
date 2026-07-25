@@ -18,16 +18,105 @@ export function truthy(v) {
   return !!v && v !== 0;
 }
 
+// Dotted keys are NESTED paths, not flat names with a dot in them: `set
+// key="Way.Moral"` writes vars.Way.Moral, and the expression `Way.Moral` reads
+// it back through member access. Both halves must agree — mirrors
+// LvnPlayer.GetVarPath/SetVarPath and LvnExpression's postfix `.name`. A missing
+// segment reads as null (which compares equal to 0/""/false, ink-style).
+export function getVarPath(vars, key) {
+  if (!key) return null;
+  const segs = String(key).split(".");
+  let cur = vars;
+  for (const s of segs) {
+    if (cur === null || cur === undefined || typeof cur !== "object") return null;
+    cur = Array.isArray(cur) ? cur[Math.trunc(num(s))] : cur[s];
+    if (cur === undefined) return null;
+  }
+  return cur === undefined ? null : cur;
+}
+
+// Writes the path, creating intermediate maps. A non-map segment in the way is
+// replaced, exactly as SetVarPath does — the alternative is a silent no-op.
+export function setVarPath(vars, key, value) {
+  if (!key) return;
+  const segs = String(key).split(".");
+  let cur = vars;
+  for (let i = 0; i < segs.length - 1; i++) {
+    const s = segs[i];
+    if (cur[s] === null || cur[s] === undefined || typeof cur[s] !== "object" || Array.isArray(cur[s])) cur[s] = {};
+    cur = cur[s];
+  }
+  cur[segs[segs.length - 1]] = value;
+}
+
+// The built-in set is CLOSED and must match LvnExpression.cs case-for-case:
+// an author who tests a scene here and ships it to Unity has to get the same
+// numbers. Divergence here is worse than a missing feature — it is a bug that
+// only appears after the content leaves the playground. (This file used to
+// carry 8 of the 26 and silently threw on the rest, so every list/map recipe
+// worked in the app and died in the browser.)
+const isMap = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const asArr = (v) => (Array.isArray(v) ? v.slice() : []);
+const asMap = (v) => (isMap(v) ? { ...v } : {});
+const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1)); // inclusive
+
 const FUNCS = {
-  has: (list, x) => Array.isArray(list) && list.some((e) => eq(e, x)),
-  rand: (n) => Math.floor(Math.random() * Math.max(1, Math.trunc(num(n)))),
-  min: (...a) => Math.min(...a.map(num)),
-  max: (...a) => Math.max(...a.map(num)),
+  // numbers
+  rand: (...a) => {
+    if (a.length === 0) return Math.random();
+    if (a.length === 1) { const n = Math.round(num(a[0])); return randInt(0, n < 0 ? 0 : n); }
+    let lo = Math.round(num(a[0])), hi = Math.round(num(a[1]));
+    if (lo > hi) { const t = lo; lo = hi; hi = t; }
+    return randInt(lo, hi);
+  },
+  chance: (...a) => Math.random() < (a.length > 0 ? num(a[0]) : 0.5),
+  // min/max read only their first two arguments — mirrors LvnExpression, which
+  // ignores the rest. Extra args are silently dropped in BOTH runtimes.
+  min: (...a) => (a.length === 0 ? 0 : a.length === 1 ? num(a[0]) : Math.min(num(a[0]), num(a[1]))),
+  max: (...a) => (a.length === 0 ? 0 : a.length === 1 ? num(a[0]) : Math.max(num(a[0]), num(a[1]))),
   abs: (a) => Math.abs(num(a)),
   floor: (a) => Math.floor(num(a)),
   round: (a) => Math.round(num(a)),
-  int: (a) => Math.trunc(num(a)),
-  len: (a) => (Array.isArray(a) || typeof a === "string" ? a.length : 0),
+
+  // reads — work on lists, maps and (for has) strings
+  len: (a) => (Array.isArray(a) || typeof a === "string" ? a.length : isMap(a) ? Object.keys(a).length : 0),
+  has: (coll, x) => {
+    if (Array.isArray(coll)) return coll.some((e) => eq(e, x));
+    if (isMap(coll)) return Object.prototype.hasOwnProperty.call(coll, String(x));
+    if (typeof coll === "string") return coll.includes(String(x));
+    return false;
+  },
+  get: (coll, key, ...def) => {
+    const fallback = def.length > 0 ? def[0] : null;
+    let r = null;
+    if (Array.isArray(coll)) { const i = Math.trunc(num(key)); r = i >= 0 && i < coll.length ? coll[i] : null; }
+    else if (isMap(coll)) r = Object.prototype.hasOwnProperty.call(coll, String(key)) ? coll[String(key)] : null;
+    return r === null || r === undefined ? fallback : r;
+  },
+  indexof: (arr, x) => (Array.isArray(arr) ? arr.findIndex((e) => eq(e, x)) : -1),
+  count: (arr, x) => (Array.isArray(arr) ? arr.filter((e) => eq(e, x)).length : 0),
+  sum: (arr) => (Array.isArray(arr) ? arr.reduce((s, e) => s + num(e), 0) : 0),
+  first: (arr) => (Array.isArray(arr) && arr.length > 0 ? arr[0] : null),
+  last: (arr) => (Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : null),
+  keys: (m) => (isMap(m) ? Object.keys(m) : []),
+  vals: (m) => (isMap(m) ? Object.values(m) : []),
+
+  // builders — all PURE: they return a new collection, never mutate in place
+  list: (...a) => a,
+  push: (arr, x) => { const o = asArr(arr); o.push(x); return o; },
+  pop: (arr) => { const o = asArr(arr); o.pop(); return o; }, // the list WITHOUT its last item
+  removeat: (arr, i) => { const o = asArr(arr); const k = Math.trunc(num(i)); if (k >= 0 && k < o.length) o.splice(k, 1); return o; },
+  remove: (arr, x) => { const o = asArr(arr); const k = o.findIndex((e) => eq(e, x)); if (k >= 0) o.splice(k, 1); return o; },
+  slice: (arr, s, ...e) => {
+    const src = Array.isArray(arr) ? arr : [];
+    let from = Math.trunc(num(s)), to = e.length > 0 ? Math.trunc(num(e[0])) : src.length;
+    if (from < 0) from = 0;
+    if (to > src.length) to = src.length;
+    return from < to ? src.slice(from, to) : [];
+  },
+  concat: (...a) => { const o = []; for (const v of a) { if (Array.isArray(v)) o.push(...v); else o.push(v); } return o; },
+  put: (m, k, v) => { const o = asMap(m); o[String(k)] = v; return o; },
+  del: (m, k) => { const o = asMap(m); delete o[String(k)]; return o; },
 };
 
 function num(v) {
@@ -40,6 +129,15 @@ function num(v) {
 function eq(a, b) {
   if (typeof a === "number" || typeof b === "number") return num(a) === num(b);
   return String(a) === String(b);
+}
+
+// One element out of a list (numeric), a map (string key) or a string
+// (character) — out of range / missing reads as null. Mirrors LvnExpression.Index.
+function index(v, key) {
+  if (Array.isArray(v)) { const i = Math.trunc(num(key)); return i >= 0 && i < v.length ? v[i] : null; }
+  if (isMap(v)) { const r = v[String(key)]; return r === undefined ? null : r; }
+  if (typeof v === "string") { const i = Math.trunc(num(key)); return i >= 0 && i < v.length ? v[i] : null; }
+  return null;
 }
 
 class Parser {
@@ -111,12 +209,34 @@ class Parser {
   peekMinusBinary() { return this.peek("-") && !this.peek("->"); }
 
   mul() {
+    let v = this.postfix();
+    for (;;) {
+      if (this.eat("*")) v = num(v) * num(this.postfix());
+      else if (this.eat("/")) { const r = num(this.postfix()); v = r === 0 ? 0 : num(v) / r; }
+      else if (this.eat("%")) { const r = num(this.postfix()); v = r === 0 ? 0 : num(v) % r; }
+      else return v;
+    }
+  }
+
+  // Postfix chain on a value: `.name` member access and `[expr]` indexing, the
+  // same pair LvnExpression applies. `Way.Moral` is therefore read as "the var
+  // Way, indexed by Moral" — which is how `set key="Way.Moral"` stored it. The
+  // articy importer emits hundreds of such stats, and without this they were a
+  // hard parse error in the browser while working in Unity.
+  postfix() {
     let v = this.atom();
     for (;;) {
-      if (this.eat("*")) v = num(v) * num(this.atom());
-      else if (this.eat("/")) { const r = num(this.atom()); v = r === 0 ? 0 : num(v) / r; }
-      else if (this.eat("%")) { const r = num(this.atom()); v = r === 0 ? 0 : num(v) % r; }
-      else return v;
+      if (this.peek(".") && /[A-Za-zА-Яа-яЁё_]/.test(this.src[this.pos + 1] || "")) {
+        this.pos++;
+        const m = /^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё_0-9]*/.exec(this.src.slice(this.pos));
+        this.pos += m[0].length;
+        v = index(v, m[0]);
+      } else if (this.peek("[")) {
+        this.eat("[");
+        const k = this.or();
+        if (!this.eat("]")) throw new Error("missing ] in index");
+        v = index(v, k);
+      } else return v;
     }
   }
 
