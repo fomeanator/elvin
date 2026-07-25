@@ -80,6 +80,29 @@ var EnumValues = map[string]map[string][]string{
 // Builtin labels are resolved by the runtime and need no definition.
 var builtinLabels = map[string]bool{"__end": true}
 
+// ExprFuncs is the CLOSED set of functions the expression evaluator implements
+// (LvnExpression.CallFunc in C#, FUNCS in the web player). The language has no
+// user-defined expression functions at runtime: `func f(a){ return … }` in .lvns
+// is inlined by the compiler, so a call to anything outside this set can only
+// evaluate to nothing. Keep in sync with docs/CHEATSHEET's function table.
+var ExprFuncs = map[string]bool{
+	"rand": true, "chance": true, "min": true, "max": true, "abs": true,
+	"floor": true, "round": true,
+	"len": true, "has": true, "get": true, "indexof": true, "count": true,
+	"sum": true, "first": true, "last": true, "keys": true, "vals": true,
+	"list": true, "push": true, "pop": true, "removeat": true, "remove": true,
+	"slice": true, "concat": true, "put": true, "del": true,
+}
+
+var exprFuncNames = func() []string {
+	out := make([]string, 0, len(ExprFuncs))
+	for k := range ExprFuncs {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}()
+
 // fallThroughTerminators are ops after which control never slides into the
 // following command: they transfer the cursor elsewhere (goto/return/if) or
 // pause for a deliberate branch (choice). Any OTHER op "falls through" into the
@@ -406,6 +429,54 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 		addWarn(-1, "label", fmt.Sprintf("label %q is never targeted (dead, or fall-through only)", id))
 	}
 
+	// Pass 4b: calls to functions no evaluator has. The expression language has a
+	// CLOSED set of built-ins (ExprFuncs) and no user-defined ones: a `func` in
+	// .lvns is either inlined at compile time or lowered to call/return, so any
+	// call left in an expression here resolves to nothing. The runtime degrades a
+	// bad expression softly (the variable reads 0, the {span} prints verbatim), so
+	// without this check the failure is invisible — which is exactly how `func`
+	// stayed a phantom feature for so long.
+	for i, c := range d.Script {
+		var exprs []string
+		switch c.Op() {
+		case "if":
+			exprs = append(exprs, c.Str("expr"))
+		case "set":
+			exprs = append(exprs, c.Str("expr"))
+			// The expression language has no assignment operator, so a bare `=`
+			// inside one means the line carried a SECOND statement that got
+			// swallowed (`{ gold = gold - 5  potions = potions + 1 }` on one line)
+			// or a comparison was mistyped. The evaluator throws, `set` swallows
+			// the throw, and the variable silently keeps its old value.
+			if at := strayAssign(c.Str("expr")); at >= 0 {
+				addWarn(i, "set", fmt.Sprintf("expression %q contains a stray `=` — an expression cannot assign; put each statement on its own line, or use `==` to compare", c.Str("expr")))
+			}
+		case "say", "text":
+			exprs = append(exprs, interpolationExprs(c.Str("text"))...)
+		case "choice":
+			if opts, ok := c["options"].([]any); ok {
+				for _, o := range opts {
+					if om, ok := o.(map[string]any); ok {
+						exprs = append(exprs, Cmd(om).Str("expr"))
+						exprs = append(exprs, interpolationExprs(Cmd(om).Str("text"))...)
+					}
+				}
+			}
+		}
+		for _, e := range exprs {
+			for _, fn := range exprCalls(e) {
+				if ExprFuncs[fn] {
+					continue
+				}
+				if s := suggest(fn, exprFuncNames); s != "" {
+					addWarn(i, c.Op(), fmt.Sprintf("unknown function %s() in expression — did you mean %s()?", fn, s))
+					continue
+				}
+				addWarn(i, c.Op(), fmt.Sprintf("unknown function %s() in expression — expressions know only the built-ins; declare it as `func %s(…) { return … }` in .lvns, or fix the spelling", fn, fn))
+			}
+		}
+	}
+
 	// Pass 5: likely-typo variable reads. A variable read in an expression or a
 	// {interpolation} that is never set — AND is a near-miss of a variable that IS
 	// set — is almost always a typo (`if expr="scoore>=1"` when `score` is set).
@@ -533,6 +604,72 @@ func exprIdents(expr string) []string {
 			continue
 		}
 		out = append(out, id)
+	}
+	return out
+}
+
+// strayAssign returns the index of a top-level `=` that is not part of a
+// comparison operator (`==`, `!=`, `>=`, `<=`), or -1. Quoted literals, brackets
+// and «…» are skipped, so `get(m, "a=b", 0)` is clean.
+func strayAssign(expr string) int {
+	var inStr rune
+	chev, depth := 0, 0
+	rs := []rune(expr)
+	for i := 0; i < len(rs); i++ {
+		c := rs[i]
+		if inStr != 0 {
+			if c == inStr {
+				inStr = 0
+			}
+			continue
+		}
+		switch {
+		case c == '«':
+			chev++
+		case c == '»':
+			if chev > 0 {
+				chev--
+			}
+		case chev > 0:
+		case c == '"' || c == '\'':
+			inStr = c
+		case c == '(' || c == '[' || c == '{':
+			depth++
+		case c == ')' || c == ']' || c == '}':
+			depth--
+		case c == '=' && depth == 0:
+			if i+1 < len(rs) && rs[i+1] == '=' {
+				i++ // `==`
+				continue
+			}
+			if i > 0 && strings.ContainsRune("=!<>", rs[i-1]) {
+				continue // the tail of `!=` / `>=` / `<=`
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// exprCalls pulls the called function names out of an expression — the mirror of
+// exprIdents, which drops them. String literals are blanked first so a name
+// inside a quoted string is never taken for a call. A span carrying `|` is an
+// Ink-style text alternative ({a|b|c}, {cond: yes|no}) whose branches are prose,
+// not expressions, so it yields nothing.
+func exprCalls(expr string) []string {
+	if expr == "" || !strings.Contains(expr, "(") || strings.Contains(expr, "|") {
+		return nil
+	}
+	expr = strLitRe.ReplaceAllString(expr, " ")
+	var out []string
+	for _, m := range identRe.FindAllStringIndex(expr, -1) {
+		j := m[1]
+		for j < len(expr) && (expr[j] == ' ' || expr[j] == '\t') {
+			j++
+		}
+		if j < len(expr) && expr[j] == '(' {
+			out = append(out, expr[m[0]:m[1]])
+		}
 	}
 	return out
 }
