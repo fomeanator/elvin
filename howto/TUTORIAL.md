@@ -20,8 +20,14 @@ From the repository root:
 
 ```sh
 scripts/fetch-demo-content.sh   # demo content lives in a separate repo
+cd panel && npm ci && npm run deploy && cd ..   # build Studio (once)
 go run ./server -content ./server/content -addr :8077 -admin-token devtoken -studio
 ```
+
+The `npm run deploy` line is not optional on a fresh clone: Studio is a build
+artifact and is not committed, so without it `-studio` has nothing to serve and
+`/panel` answers 503 (the page tells you this, and so does the server log).
+Re-run it whenever you change `panel/`.
 
 Open **http://localhost:8077/panel** — this is Elvin Studio. Paste the admin
 token `devtoken` in the top right. You will see a library of demo novels —
