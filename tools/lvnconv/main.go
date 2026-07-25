@@ -295,9 +295,22 @@ func printLinearizeReport(rep *adpd.LinearizeReport) {
 		line += fmt.Sprintf("; pin-flow: %d emittable, %d trapped (%.1f%%)",
 			rep.Emittable, rep.Trapped, 100*float64(rep.Trapped)/float64(rep.Emittable))
 	}
+	if n := rep.Reachable + rep.Stitched; n > 0 {
+		line += fmt.Sprintf("; connectivity: %d/%d read from articy (%.1f%%), %d stitched",
+			rep.Reachable, n, 100*float64(rep.Reachable)/float64(n), rep.Stitched)
+	}
+	if rep.Jumps > 0 {
+		line += fmt.Sprintf("; jumps: %d/%d resolved", rep.JumpsResolved, rep.Jumps)
+	}
 	fmt.Fprintln(os.Stderr, line)
 	for _, f := range rep.Fallbacks {
 		fmt.Fprintln(os.Stderr, "  fallback: "+f)
+	}
+	// Предупреждения — про сюжет, который импорт дотянул наугад или потерял.
+	// Тихая потеря здесь дороже всего: именно так треть главы Cold была
+	// недостижима на проде и заметили это случайно.
+	for _, w := range rep.Warnings {
+		fmt.Fprintln(os.Stderr, "  warning: "+w)
 	}
 }
 

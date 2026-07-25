@@ -160,6 +160,14 @@ func BuildChaptersJSONReport(path string) ([]ChapterExport, LinearizeReport, err
 	gvars := globalVars(proj, flowExprs(fl0))
 	kids := completeChildren(fl0) // read-only across chapters — hoist out of the loop
 
+	// Связность считаем ДО линеаризации: она перезаписывает fl.succ вместе с
+	// синтетическими рёбрами, после чего «достижимо всё» по построению.
+	scopes := make([]scopeDef, 0, len(chs))
+	for _, ch := range chs {
+		scopes = append(scopes, scopeDef{name: ch.name, root: ch.root, allowed: subtree(kids, ch.root)})
+	}
+	rep.connectivity(fl0, scopes)
+
 	var out []ChapterExport
 	for _, ch := range chs {
 		// Reuse the decoded flow; reset only the per-chapter MUTABLE state (succ/nodes

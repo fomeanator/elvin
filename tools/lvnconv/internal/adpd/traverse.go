@@ -18,19 +18,37 @@ type pinGraph struct {
 	pins   map[uint32][]uint32  // node → its pin ids (in file order)
 	outPin map[uint32][]pinEdge // pin id → connections leaving it
 	hasOut map[uint32]bool      // pin has any outgoing connection
+
+	// jumpTo — цель узла Jump. Jump НЕ соединён связью: его выходной пин всегда
+	// пуст, а место перехода лежит ссылкой pJumpTarget на ПИН узла-цели. Пока это
+	// не раскодировано, поток на каждом Jump молча кончался. Поймано на Cold,
+	// Сцена 3: реплика «Вас убили! Попробуйте ещё раз» ведёт в Jump на чекпойнт —
+	// то есть вся ветка смерти обрывалась насмерть вместо возврата.
+	jumpTo map[uint32]pinEdge
 }
 
-func buildPinGraph(objs []object) *pinGraph {
+// pJumpTarget — ссылки узла Jump (0x2a): среди них ModelDependency-обёртка и
+// ПИН узла-цели. Отличаем цель по тому, что её id есть в pinOf.
+const pJumpTarget = 0x02a
+
+// buildPinGraph строит граф пинов/связей. selfOf — ordinal'ы объектов из
+// selfOrdinals (у контейнеров он может быть восстановлен, а не прочитан).
+func buildPinGraph(objs []object, selfOf []uint32, selfKnown []bool) *pinGraph {
 	g := &pinGraph{
 		class: map[uint32]uint16{}, pinOf: map[uint32]uint32{},
 		pins: map[uint32][]uint32{}, outPin: map[uint32][]pinEdge{}, hasOut: map[uint32]bool{},
+		jumpTo: map[uint32]pinEdge{},
 	}
-	for _, o := range objs {
-		self, hasSelf := o.u32(pSelf)
+	jumpRefs := map[uint32][]uint32{}
+	for i, o := range objs {
+		self, hasSelf := selfOf[i], selfKnown[i]
 		switch o.classId {
 		case cidDialogFrag, cidDialog, cidFlowFrag, cidStoryFolder, cidCondition, cidOutcome, cidHub, cidJump:
 			if hasSelf {
 				g.class[self] = o.classId
+				if o.classId == cidJump {
+					jumpRefs[self] = o.refs(pJumpTarget)
+				}
 			}
 		case cidPin:
 			if par, ok := o.u32(pParent); ok && hasSelf {
@@ -45,7 +63,33 @@ func buildPinGraph(objs []object) *pinGraph {
 			}
 		}
 	}
+	// Второй проход: пины могут лежать в файле ПОСЛЕ своего Jump'а, поэтому цели
+	// разрешаем, когда pinOf уже собран целиком.
+	for j, refs := range jumpRefs {
+		for _, r := range refs {
+			if owner, ok := g.pinOf[r]; ok {
+				g.jumpTo[j] = pinEdge{dst: owner, dstPin: r}
+				break
+			}
+		}
+	}
 	return g
+}
+
+// jumpStats считает узлы Jump и сколько из них удалось раскодировать. Ноль
+// раскодированных при непустом счётчике = поток рвётся на каждом переходе, и это
+// должно быть видно в отчёте, а не выясняться на плейтесте.
+func (g *pinGraph) jumpStats() (total, resolved int) {
+	for n, c := range g.class {
+		if c != cidJump {
+			continue
+		}
+		total++
+		if _, ok := g.jumpTo[n]; ok {
+			resolved++
+		}
+	}
+	return total, resolved
 }
 
 func (g *pinGraph) isStop(n uint32) bool { return g.class[n] == cidDialogFrag }
@@ -110,6 +154,10 @@ func (g *pinGraph) reachFromPin(pin uint32, allowed map[uint32]bool) []uint32 {
 			for _, e := range g.outPin[via] {
 				visit(e.dst, e.dstPin, depth+1)
 			}
+			return
+		}
+		if e, ok := g.jumpTo[node]; ok { // Jump: переход по ссылке, а не по связи
+			visit(e.dst, e.dstPin, depth+1)
 			return
 		}
 		for _, p := range g.outPins(node) { // hub / other: transparent
@@ -177,6 +225,10 @@ func (g *pinGraph) nextStops(n uint32) []uint32 {
 		case g.isContainer(node):
 			resolveEdges(g.outPin[viaPin], depth+1) // descend through the entered pin
 		default: // condition / instruction / hub / jump → pass through every output pin
+			if e, ok := g.jumpTo[node]; ok { // Jump ходит по ссылке на пин цели
+				visit(e.dst, e.dstPin, depth+1)
+				return
+			}
 			for _, p := range g.pins[node] {
 				resolveEdges(g.outPin[p], depth+1)
 			}
