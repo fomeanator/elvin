@@ -12,61 +12,61 @@ The quality gate for every generated script:
 
 ## Start here (AI agents)
 
-- [Browser playground](docs/playground.md): write .lvns on the left, it
+- [Browser playground](https://github.com/fomeanator/elvin/blob/main/docs/playground.md): write .lvns on the left, it
   plays on the right (real wasm compiler, story core incl. timers/input);
   share via URL hash or export ONE self-contained HTML file that plays
   from disk. Served at /play/; sources in panel/public/play/.
-- [Human tutorial](howto/TUTORIAL.md): zero to a playing scene in 15
+- [Human tutorial](https://github.com/fomeanator/elvin/blob/main/howto/TUTORIAL.md): zero to a playing scene in 15
   minutes (server → IDE → scene → Unity sandbox live-reload).
-- [Agent onboarding](howto/AGENTS.md): the mental model — language →
+- [Agent onboarding](https://github.com/fomeanator/elvin/blob/main/howto/AGENTS.md): the mental model — language →
   converter → runtime → manifest; where everything lives.
-- [Cheatsheet](howto/CHEATSHEET.md): the whole language on one page.
-- [Capabilities & limits](howto/CAPABILITIES.md): every op with fields,
+- [Cheatsheet](https://github.com/fomeanator/elvin/blob/main/howto/CHEATSHEET.md): the whole language on one page.
+- [Capabilities & limits](https://github.com/fomeanator/elvin/blob/main/howto/CAPABILITIES.md): every op with fields,
   verified engine limits (what does NOT work). Pinned by CI: the op catalog
   must match the validator's registry, the file may not contradict itself,
   and anything marked ✅ must be compiled by some example under howto/.
 
 ## Reference
 
-- [Language reference](howto/LANGUAGE.md): full .lvns syntax.
-- [.lvn container format](docs/lvn-format.md): the compiled JSON contract.
-- [Recipe book](howto/recipes.md): 25+ validated patterns — inventory,
+- [Language reference](https://github.com/fomeanator/elvin/blob/main/howto/LANGUAGE.md): full .lvns syntax.
+- [.lvn container format](https://github.com/fomeanator/elvin/blob/main/docs/lvn-format.md): the compiled JSON contract.
+- [Recipe book](https://github.com/fomeanator/elvin/blob/main/howto/recipes.md): 25+ validated patterns — inventory,
   shops, timers, text input, drag & drop, CG gallery, voice-over, dice.
-- [Animation system](docs/animation-system.md): tweens, splines, bones,
+- [Animation system](https://github.com/fomeanator/elvin/blob/main/docs/animation-system.md): tweens, splines, bones,
   spring physics, Spine integration.
-- [Placement](docs/placement.md) and [staging tags](docs/staging-tags.md).
-- [Cast & characters](docs/cast.md): layered art, emotion axes, catalog.
+- [Placement](https://github.com/fomeanator/elvin/blob/main/docs/placement.md) and [staging tags](https://github.com/fomeanator/elvin/blob/main/docs/staging-tags.md).
+- [Cast & characters](https://github.com/fomeanator/elvin/blob/main/docs/cast.md): layered art, emotion axes, catalog.
 
 ## Genre templates (each ships a validated .lvns example)
 
-- [All 12 genres](howto/README.md): visual-novel, gamebook, point-and-click,
+- [All 12 genres](https://github.com/fomeanator/elvin/blob/main/howto/README.md): visual-novel, gamebook, point-and-click,
   rpg, clicker, dating-sim, quiz, detective, tycoon, roguelike,
   kinetic-novel, puzzle.
-- Reference builds beyond the genres: [novella-core](howto/novella-core/)
+- Reference builds beyond the genres: [novella-core](https://github.com/fomeanator/elvin/tree/main/howto/novella-core/)
   (the five bricks of a modern story novel: stat gates, paid choices,
-  wardrobe, timers, global stats), [hub-collections](howto/hub-collections/)
+  wardrobe, timers, global stats), [hub-collections](https://github.com/fomeanator/elvin/tree/main/howto/hub-collections/)
   (hub/collections library layout, title unlock/cost, chapter energy) and
-  [every-command](howto/every-command/) (the witness scene for the rarer
+  [every-command](https://github.com/fomeanator/elvin/tree/main/howto/every-command/) (the witness scene for the rarer
   commands: save/load, preload, text_pace, tint/blur, named animations,
   splines, queued lanes — it is what keeps CAPABILITIES.md honest).
 
 ## MCP server (agents: prefer this over raw CLI)
 
-- [lvn-mcp](docs/mcp.md): the toolchain as an MCP server — `lvns_check`
+- [lvn-mcp](https://github.com/fomeanator/elvin/blob/main/docs/mcp.md): the toolchain as an MCP server — `lvns_check`
   (compile+validate quality gate), `lvns_convert`, `lvn_doc`. Build:
   `go build ./tools/lvnconv/cmd/lvn-mcp`.
 
 ## Product services (optional backend)
 
-- [Services](docs/services.md): anonymous device auth, server-authoritative
+- [Services](https://github.com/fomeanator/elvin/blob/main/docs/services.md): anonymous device auth, server-authoritative
   wallet + IAP verify, append-only analytics — modular Go services in the
   content server, Unity clients in `Lvn.Services` (LvnBackend / LvnWallet /
   LvnAnalytics). Fully optional; games play offline without them.
 
 ## Embedding & operations
 
-- [Embedding the engine](docs/embedding.md): three entry levels, custom ops
+- [Embedding the engine](https://github.com/fomeanator/elvin/blob/main/docs/embedding.md): three entry levels, custom ops
   (LvnOps/ext), menu items, events, meta-progress stores.
-- [Unity quickstart](docs/unity-getting-started.md).
-- [Releasing & compatibility contract](docs/releasing.md): formats only
+- [Unity quickstart](https://github.com/fomeanator/elvin/blob/main/docs/unity-getting-started.md).
+- [Releasing & compatibility contract](https://github.com/fomeanator/elvin/blob/main/docs/releasing.md): formats only
   grow within a major version; saves migrate.

@@ -13,6 +13,7 @@ on:
       - "panel/public/**"
       - "howto/**"
       - "docs/**"
+      - "llms.txt"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -46,6 +47,10 @@ jobs:
           mkdir -p _site/docs
           cp panel/public/docs/*.html panel/public/docs/*.css panel/public/docs/*.js _site/docs/
           bash panel/public/docs/build-content.sh . _site/docs/content
+          # The AI-agent entry point the whole strategy points at ("point your
+          # agent at llms.txt"). It was never copied, so the canonical URL
+          # answered 404 while the docs beside it were live.
+          cp llms.txt _site/llms.txt
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
