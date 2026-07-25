@@ -53,9 +53,16 @@ Any game driven by **choice and state**: visual/kinetic novels, gamebooks/CYOA,
 point-and-click and adventure games, RPGs, dating sims, quizzes, detective
 stories, tycoons, roguelikes, puzzles. Worked examples live in the genre folders.
 
-What is missing (full list — `CAPABILITIES.md` §8): a real-time timer, free-text
-player input, timing-based arcade mechanics. Time is measured in **turns**, and
-any "input" is a `choice` or a click on an `obj on_click`.
+You **do** get two doses of real clock and real typing: `choice timeout=10
+timeout_goto=late` (a countdown bar over the menu) and `input var=name
+prompt="…"` (a text-entry overlay that blocks the story until confirmed) —
+the playground's own default scene uses both.
+
+What is missing (full list — `CAPABILITIES.md` §8): a script-visible game loop
+(no `every`/`sleep`/clock ticks — `wait ms=` is a fixed pause, not a
+condition), keyboard input beyond that `input` overlay (no hotkeys, no
+key-down), and timing-based arcade mechanics. Otherwise time is measured in
+**turns**, and interaction is a `choice` or a click on an `obj on_click`.
 
 ## Documentation map
 
