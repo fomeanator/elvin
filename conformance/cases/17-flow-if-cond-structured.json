@@ -1,24 +1,59 @@
 {
   "id": "flow-if-cond-structured",
   "title": "if also accepts the structured cond form {key, op, value}",
-  "why": "The importer emits `cond` rather than a string `expr` for machine-generated gates, so a runtime that only understands `expr` takes the else branch on every imported condition. Declared csharp-only because the playground does exactly that today (see README §Partial runtimes).",
-  "runtimes": ["csharp"],
+  "why": "The importer emits `cond` rather than a string `expr` for machine-generated gates, so a runtime that only understands `expr` takes the else branch on every imported condition. Declared csharp-only because the playground does exactly that today (see README §Partial runtimes). The browser player ignored `cond` entirely and always took the else branch — every imported condition played differently there. Fixed and now pinned in BOTH runtimes.",
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "set", "key": "trust", "value": 2 },
-      { "op": "if", "cond": { "key": "trust", "op": "gte", "value": 2 }, "then": "high", "else": "low" },
-      { "op": "label", "id": "low" },
-      { "op": "say", "text": "Доверия мало." },
-      { "op": "goto", "label": "__end" },
-      { "op": "label", "id": "high" },
-      { "op": "say", "text": "Тебе доверяют." }
+      {
+        "op": "set",
+        "key": "trust",
+        "value": 2
+      },
+      {
+        "op": "if",
+        "cond": {
+          "key": "trust",
+          "op": "gte",
+          "value": 2
+        },
+        "then": "high",
+        "else": "low"
+      },
+      {
+        "op": "label",
+        "id": "low"
+      },
+      {
+        "op": "say",
+        "text": "Доверия мало."
+      },
+      {
+        "op": "goto",
+        "label": "__end"
+      },
+      {
+        "op": "label",
+        "id": "high"
+      },
+      {
+        "op": "say",
+        "text": "Тебе доверяют."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Тебе доверяют." },
-      { "end": true }
+      {
+        "say": "Тебе доверяют."
+      },
+      {
+        "end": true
+      }
     ]
   }
 }
