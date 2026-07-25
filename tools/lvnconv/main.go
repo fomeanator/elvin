@@ -48,6 +48,8 @@ func main() {
 		cmdImport(os.Args[2:])
 	case "detect":
 		cmdDetect(os.Args[2:])
+	case "resync-lvns":
+		cmdResyncLvns(os.Args[2:])
 	case "validate":
 		cmdValidate(os.Args[2:])
 	case "probe":
@@ -201,6 +203,81 @@ func cmdDetect(args []string) {
 		die("detect: " + err.Error())
 	}
 	os.Stdout.Write(mustJSON(rep))
+}
+
+// cmdResyncLvns regenerates every .lvns sidecar in a content dir from its
+// compiled .lvn — the one-shot repair for sidecars generated BEFORE the
+// round-trip fixes (the panel's "Save to app" compiles the SIDECAR, so a
+// stale one silently strips audio/wardrobe/wallet_cost from the .lvn on the
+// author's next save). A sidecar is only replaced when the regenerated
+// source passes VerifyLvnsRoundTrip; drifting ones are reported and left
+// untouched (better a stale-but-known file than a fresh lie).
+//
+//	lvnconv resync-lvns <content-dir> [-apply]
+func cmdResyncLvns(args []string) {
+	var lead string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		lead, args = args[0], args[1:]
+	}
+	fs := newFlagSet("resync-lvns")
+	apply := fs.Bool("apply", false, "write regenerated sidecars (default: dry-run report)")
+	_ = fs.Parse(args)
+	dir := lead
+	if dir == "" && fs.NArg() == 1 {
+		dir = fs.Arg(0)
+	}
+	if dir == "" {
+		die("resync-lvns: <content-dir> is required")
+	}
+	scripts := filepath.Join(dir, "scripts")
+	entries, err := os.ReadDir(scripts)
+	if err != nil {
+		die("resync-lvns: " + err.Error())
+	}
+	clean, dirty, skipped := 0, 0, 0
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".lvn") {
+			continue
+		}
+		lvnsPath := filepath.Join(scripts, strings.TrimSuffix(name, ".lvn")+".lvns")
+		if _, err := os.Stat(lvnsPath); err != nil {
+			skipped++ // no sidecar — hand-authored .lvn or non-sidecar content
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(scripts, name))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %-32s read error: %v\n", name, err)
+			continue
+		}
+		var doc articy.Doc
+		if err := json.Unmarshal(data, &doc); err != nil {
+			fmt.Fprintf(os.Stderr, "  %-32s parse error: %v\n", name, err)
+			continue
+		}
+		out := importer.ToLvns(&doc)
+		warnings := importer.VerifyLvnsRoundTrip(doc.Script, out)
+		if len(warnings) > 0 {
+			dirty++
+			fmt.Fprintf(os.Stderr, "  %-32s DRIFT (left untouched):\n", name)
+			for _, w := range warnings {
+				fmt.Fprintf(os.Stderr, "      %s\n", w)
+			}
+			continue
+		}
+		clean++
+		if *apply {
+			if err := os.WriteFile(lvnsPath, out, 0o644); err != nil {
+				die("resync-lvns: write " + lvnsPath + ": " + err.Error())
+			}
+		}
+	}
+	mode := "dry-run"
+	if *apply {
+		mode = "applied"
+	}
+	fmt.Fprintf(os.Stderr, "resync-lvns (%s): %d clean sidecars regenerated, %d drifting (untouched), %d without sidecar\n",
+		mode, clean, dirty, skipped)
 }
 
 // printLinearizeReport surfaces the adpd cascade's choice on stderr: silent

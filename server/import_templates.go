@@ -88,6 +88,13 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		_, _ = w.Write(data)
 
 	case http.MethodPut:
+		// "default" is a resolver alias for "cold" (ResolveTemplate rewrites
+		// it before ever touching the disk) — a default.json would save fine,
+		// list fine, and NEVER be read. Reject rather than gaslight the author.
+		if name == "default" {
+			http.Error(w, `"default" is reserved (an alias of "cold") — pick another name`, http.StatusBadRequest)
+			return
+		}
 		var doc json.RawMessage
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&doc); err != nil {
 			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
@@ -122,7 +129,18 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 			http.Error(w, "the built-in default isn't file-backed", http.StatusBadRequest)
 			return
 		}
-		_ = os.Remove(path)
+		// Same rollback safety net as PUT: snapshot the CURRENT content into
+		// .history before removing, under the same write lock — otherwise the
+		// last saved version of a deleted template was simply gone (history
+		// only ever captured the version BEFORE the final save).
+		s.writeMu.Lock()
+		snapshotHistory(s.content, rel)
+		err := os.Remove(path)
+		s.writeMu.Unlock()
+		if err != nil && !os.IsNotExist(err) {
+			http.Error(w, "delete failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
 
 	default:

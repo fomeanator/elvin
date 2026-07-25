@@ -32,7 +32,8 @@
     "call",
     "return",
     "save",
-    "load"
+    "load",
+    "wardrobe_show"
   ],
   "structural_ops": [
     "label"
@@ -202,6 +203,9 @@
       "prompt",
       "default",
       "max"
+    ],
+    "wardrobe_show": [
+      "char"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -230,7 +234,8 @@
     "label",
     "save",
     "load",
-    "input"
+    "input",
+    "wardrobe_show"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
   "enums": {
@@ -474,6 +479,10 @@
     "play": [
       "play <id> <animName> [overrides]  ·  play id= anim=",
       "Play a previously defined `defanim` on an actor."
+    ],
+    "wardrobe_show": [
+      "wardrobe_show char=\"hill\"",
+      "Open the in-story wardrobe for a character."
     ]
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
@@ -520,7 +529,8 @@
         "text",
         "save",
         "load",
-        "hint"
+        "hint",
+        "wardrobe_show"
       ]
     }
   ],

@@ -18,10 +18,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/importer"
@@ -213,6 +216,7 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		http.Error(w, "import: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
+	s.guardSpriteCollisions(res)
 	if err := importer.WriteToContentDir(s.content, res); err != nil {
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -237,4 +241,70 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		"ops":        res.Stats,
 		"warnings":   res.Warnings, // genuinely-incomplete source data (missing art, etc.)
 	})
+}
+
+// guardSpriteCollisions protects OTHER titles' cast from an incoming import.
+// manifest.sprites is one flat, unnamespaced catalog shared by every title,
+// and sprite ids are just Slug(actor label) — so two novels whose protagonist
+// slugs collide (the default protagonist role slugs to Главный_герой for ALL
+// of them) silently overwrite each other. Live incident 2026-07-25: a test
+// Mechlove import replaced Cold's layered wardrobe heroine (and the Katya
+// entry title.hero points at) with a flat PNG.
+//
+// Policy: an entry another LIVE title depends on — its title.hero, or any
+// entry an incoming import would REPLACE while that other title's compiled
+// scripts stage that id — is dropped from the incoming merge with a loud
+// warning, rather than overwritten. The import still lands; only the
+// contested cast entries keep their current (other title's) art. Import
+// under the same title id replaces its own entries freely.
+func (s *server) guardSpriteCollisions(res *importer.Result) {
+	if res == nil || len(res.Sprites) == 0 {
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(s.content, "manifest.json"))
+	if err != nil {
+		return // first import into an empty content root — nothing to protect
+	}
+	var manifest struct {
+		Titles []struct {
+			ID   string `json:"id"`
+			Hero string `json:"hero"`
+		} `json:"titles"`
+		Sprites map[string]json.RawMessage `json:"sprites"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return
+	}
+	// Cast ids other titles' hero fields point at.
+	protected := map[string]string{} // sprite id -> owning title id
+	for _, t := range manifest.Titles {
+		if t.ID != res.Title.ID && t.Hero != "" {
+			protected[t.Hero] = t.ID
+		}
+	}
+	replaced, skipped := []string{}, []string{}
+	for id := range res.Sprites {
+		if _, exists := manifest.Sprites[id]; !exists {
+			continue
+		}
+		if owner, isProtected := protected[id]; isProtected {
+			delete(res.Sprites, id)
+			skipped = append(skipped, id+" (hero of "+owner+")")
+			continue
+		}
+		replaced = append(replaced, id)
+	}
+	sort.Strings(replaced)
+	sort.Strings(skipped)
+	if len(skipped) > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"sprite collision: kept existing art for %s — another title depends on it; rename this novel's actor or merge manually",
+			strings.Join(skipped, ", ")))
+		log.Printf("import %s: sprite collision guard skipped %d protected entries: %s", res.Title.ID, len(skipped), strings.Join(skipped, ", "))
+	}
+	if len(replaced) > 0 {
+		// The audit trail the 2026-07-25 incident lacked: every overwrite of a
+		// pre-existing catalog entry is one greppable line.
+		log.Printf("import %s: manifest.sprites REPLACING %d existing entries: %s", res.Title.ID, len(replaced), strings.Join(replaced, ", "))
+	}
 }
