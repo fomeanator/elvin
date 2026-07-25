@@ -86,14 +86,9 @@ func Convert(src string) (*Doc, error) {
 			// no blank-skip) and join with a real newline, until the » closes it.
 			cbuf.WriteString("\n")
 			cbuf.WriteString(raw)
-			for _, r := range raw {
-				if r == '«' {
-					chevDepth++
-				} else if r == '»' && chevDepth > 0 {
-					chevDepth--
-				}
-			}
-			if chevDepth == 0 {
+			chevDepth += chevronDelta(raw)
+			if chevDepth <= 0 {
+				chevDepth = 0
 				lines = append(lines, strings.TrimSpace(cbuf.String()))
 				srcNo = append(srcNo, cbufSrc)
 				cbuf.Reset()
@@ -114,14 +109,7 @@ func Convert(src string) (*Doc, error) {
 
 		// Does this line OPEN an unclosed «…»? If so, start buffering continuation
 		// lines so a multi-line label/say/choice text stays one logical line.
-		d := 0
-		for _, r := range line {
-			if r == '«' {
-				d++
-			} else if r == '»' && d > 0 {
-				d--
-			}
-		}
+		d := chevronDelta(line)
 		if d > 0 {
 			chevDepth = d
 			cbuf.Reset()
@@ -1312,6 +1300,34 @@ func min3(a, b, c int) int {
 		a = c
 	}
 	return a
+}
+
+// chevronDelta counts the net «/» balance of a line, IGNORING guillemets that
+// sit inside a "…" double-quoted string — a generic-form command like
+// `say text="«Не уходи"` carries an author's unbalanced guillemet as DATA,
+// and treating it as syntax made the scanner swallow the rest of the file
+// into one giant multi-line string (live-hit: soviet.lvn's «Союз нерушимый…»
+// verse split across lines either hard-failed the whole chapter's recompile
+// or silently glued 4 lines into one say). The count can go negative (a bare
+// » before any «) — callers clamp as needed.
+func chevronDelta(s string) int {
+	d := 0
+	inQuote := false
+	prev := rune(0)
+	for _, r := range s {
+		switch {
+		case r == '"' && prev != '\\':
+			inQuote = !inQuote
+		case inQuote:
+			// data, not syntax
+		case r == '«':
+			d++
+		case r == '»':
+			d--
+		}
+		prev = r
+	}
+	return d
 }
 
 func stripQuotes(s string) string {
