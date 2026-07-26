@@ -32,9 +32,21 @@ export function ensureWasm() {
 // Returns { ok, json, errors, warnings }. extGrammar is the project's optional
 // host-op declaration (an object); the wasm side takes it as a JSON string and
 // then validates declared `ext` ops like built-ins.
-export function compileLvns(src, extGrammar) {
+//
+// files/selfName are what make `include` work in the browser. The compiler here
+// has no filesystem, and an include path resolves against the INCLUDING FILE —
+// so without the novel's other sources every chapter that shared its mechanics
+// failed with "подключение работает только при компиляции файла", even though
+// the very same file compiled fine through the CLI. selfName lets a cycle that
+// runs through the open file itself be reported as a cycle.
+export function compileLvns(src, extGrammar, files, selfName) {
   if (typeof window.lvnsCompile !== "function") {
     return { ok: false, errors: "compiler not ready" };
   }
-  return window.lvnsCompile(src, extGrammar ? JSON.stringify(extGrammar) : "");
+  return window.lvnsCompile(
+    src,
+    extGrammar ? JSON.stringify(extGrammar) : "",
+    files || {},
+    selfName || "",
+  );
 }
