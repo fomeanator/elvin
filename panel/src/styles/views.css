@@ -1569,3 +1569,16 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 @media (max-width: 900px) {
   .adm-main { grid-column: 1 / -1; }
 }
+
+/* Заголовок группы в списке файлов IDE: главы отделены от общих файлов,
+   которые они подключают через include. Без этого общий файл читался бы как
+   ещё одна глава — а он не глава: у него нет номера и записи в манифесте. */
+.ide-files-group {
+  padding: 10px 12px 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+}
