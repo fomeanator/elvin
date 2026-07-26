@@ -339,7 +339,7 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .roster-kind { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
 /* studio */
-.studio { min-height: 0; display: grid; grid-template-rows: auto 1fr auto auto; }
+.studio { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto 1fr auto auto; }
 .studio-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 26px 12px; }
 .char-name {
   flex: 1; background: transparent; border: 0; color: var(--paper);
@@ -349,7 +349,23 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .char-name::placeholder { color: var(--faint); }
 .char-name:focus { outline: none; border-bottom-color: var(--rose-deep); }
 
-.studio-body { min-height: 0; display: grid; grid-template-columns: 1fr 400px; gap: 22px; padding: 0 26px; }
+.studio-body {
+  min-height: 0; min-width: 0; display: grid; gap: 22px; padding: 0 26px;
+  /* Правая колонка была жёсткие 400px, а левая 1fr. Вместе с отступами это
+     давало минимум под 500px, и в узком окне (панель делит экран с терминалом)
+     сцена уезжала ЗА КРАЙ: персонаж наполовину за границей, а прокрутки нет.
+     minmax(0, …) — обязателен: grid-элемент не сжимается ниже ширины своего
+     содержимого, пока ему это явно не разрешат. */
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 400px);
+}
+.studio-body > * { min-width: 0; }
+
+/* Совсем узко — панель нарядов уходит ПОД сцену, а не режет её сбоку.
+   Персонаж важнее списка: без него страница персонажей бессмысленна. */
+@media (max-width: 1100px) {
+  .studio-body { grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(0, auto); overflow: auto; }
+  .studio-body > :first-child { min-height: 46vh; }
+}
 
 /* the stage */
 .stage {
@@ -1730,3 +1746,30 @@ body.col-resizing { cursor: col-resize; user-select: none; }
   border-bottom: 1px solid var(--line);
 }
 .ide-conflict span { flex: 1; min-width: 220px; }
+
+/* Фоны в разделе «Ассеты». Раньше их в студии было не увидеть вовсе — только
+   через Админку как файлы в каталоге, — хотя меняют их не реже каста.
+   Плитка это <label> с файловым input внутри: нажал на фон — выбрал новый,
+   без отдельной кнопки «заменить» и без диалогов. */
+.bg-section { flex: none; border-top: 1px solid var(--line-soft); }
+.bg-section.open { display: flex; flex-direction: column; min-height: 0; max-height: 52%; }
+.bg-section-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: transparent; border: 0; cursor: pointer; padding: 9px 12px;
+  text-align: left; color: var(--muted);
+}
+.bg-section-head:hover { background: var(--ink-800); color: var(--paper-dim); }
+.bg-section-head .section-label { padding: 0; }
+.bg-caret { width: 10px; flex: none; font-size: 9px; color: var(--faint); }
+.bg-count { margin-left: auto; font-size: 10px; color: var(--faint); background: var(--ink-900); border-radius: 8px; padding: 1px 6px; }
+.bg-grid { overflow: auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 0 12px 14px; }
+.bg-tile {
+  position: relative; display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--ink-900);
+}
+.bg-tile:hover { border-color: var(--rose-deep); }
+.bg-tile img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.bg-tile-name {
+  font-size: 10.5px; color: var(--muted); padding: 0 6px 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
