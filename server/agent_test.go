@@ -328,3 +328,81 @@ func TestSharedPathCannotEscapeScripts(t *testing.T) {
 		}
 	}
 }
+
+// Правка общего файла обязана пересобрать главы, которые его подключают.
+// Иначе студия говорит «сохранено», а на телефоне прежняя игра: играется
+// СКОМПИЛИРОВАННЫЙ .lvn, и он остался вчерашним.
+func TestSavingASharedFileRebuildsTheChaptersThatIncludeIt(t *testing.T) {
+	s := publishSrv(t)
+	if _, err := publishRaw(t, s, "", 0, ""); err == nil {
+		_ = err // publishRaw не годится для общего файла — публикуем напрямую
+	}
+	if code, _ := publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "сила = 1\n"}); code != 200 {
+		t.Fatal("общий файл не опубликовался")
+	}
+	if code, _ := publish(t, s, map[string]any{"id": "g", "chapter": 1,
+		"lvns": "scene g\ninclude \"mech.lvns\"\nСила {сила}.\n-> __end\n"}); code != 200 {
+		t.Fatal("глава не опубликовалась")
+	}
+	before, _ := os.ReadFile(filepath.Join(s.content, "scripts", "g-ch01.lvn"))
+	if !strings.Contains(string(before), "1") {
+		t.Fatalf("в скомпилированной главе нет значения из механик: %s", before)
+	}
+
+	// Меняем ОБЩИЙ файл — глава должна пересобраться сама.
+	code, out := publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "сила = 42\n"})
+	if code != 200 {
+		t.Fatalf("повторная публикация общего файла: %d %v", code, out)
+	}
+	rebuilt, _ := out["rebuilt"].([]any)
+	if len(rebuilt) != 1 || rebuilt[0] != "scripts/g-ch01.lvn" {
+		t.Errorf("пересобрано %v, ожидалась ровно глава g-ch01", out["rebuilt"])
+	}
+	after, _ := os.ReadFile(filepath.Join(s.content, "scripts", "g-ch01.lvn"))
+	if !strings.Contains(string(after), "42") {
+		t.Errorf("глава осталась на старом значении — правка механик не доехала до игры:\n%s", after)
+	}
+}
+
+// Цепочка: глава → механики → таблицы. Пересборка «только прямых зависимостей»
+// тихо оставила бы главу на старом коде.
+func TestRebuildFollowsTheIncludeChain(t *testing.T) {
+	s := publishSrv(t)
+	publish(t, s, map[string]any{"path": "tables.lvns", "lvns": "базовая = 5\n"})
+	publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "include \"tables.lvns\"\nсила = базовая\n"})
+	publish(t, s, map[string]any{"id": "g", "chapter": 1,
+		"lvns": "scene g\ninclude \"mech.lvns\"\nСила {сила}.\n-> __end\n"})
+
+	code, out := publish(t, s, map[string]any{"path": "tables.lvns", "lvns": "базовая = 99\n"})
+	if code != 200 {
+		t.Fatalf("%d %v", code, out)
+	}
+	rebuilt, _ := out["rebuilt"].([]any)
+	if len(rebuilt) != 1 || rebuilt[0] != "scripts/g-ch01.lvn" {
+		t.Errorf("через цепочку пересобрано %v, ожидалась глава g-ch01", out["rebuilt"])
+	}
+	after, _ := os.ReadFile(filepath.Join(s.content, "scripts", "g-ch01.lvn"))
+	if !strings.Contains(string(after), "99") {
+		t.Errorf("глава не увидела правку через цепочку:\n%s", after)
+	}
+}
+
+// Опечатка в общем файле НЕ должна обрушить уже работающие главы: на диске
+// остаётся последняя рабочая версия, а имя и ошибка приходят в ответе.
+func TestABrokenSharedFileLeavesWorkingChaptersOnDisk(t *testing.T) {
+	s := publishSrv(t)
+	publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "сила = 1\n"})
+	publish(t, s, map[string]any{"id": "g", "chapter": 1,
+		"lvns": "scene g\ninclude \"mech.lvns\"\nСила {сила}.\n-> __end\n"})
+	good, _ := os.ReadFile(filepath.Join(s.content, "scripts", "g-ch01.lvn"))
+
+	_, out := publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "- опция без цели\n"})
+	failed, _ := out["failed"].(map[string]any)
+	if len(failed) == 0 {
+		t.Errorf("битый общий файл не дал ни одной ошибки: %v", out)
+	}
+	now, _ := os.ReadFile(filepath.Join(s.content, "scripts", "g-ch01.lvn"))
+	if string(now) != string(good) {
+		t.Errorf("рабочая глава перезаписана из-за опечатки в общем файле")
+	}
+}
