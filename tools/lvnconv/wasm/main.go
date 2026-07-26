@@ -46,10 +46,18 @@ func resolveDocLine(src string, op, msg string) int {
 	return 0
 }
 
-// lvnsCompile(src[, extGrammarJSON]) -> { ok, json, errors, warnings }
-// The optional second argument is the project's ext-grammar.json content:
-// declared host ops then validate like built-ins (same contract as the CLI's
-// -ext-grammar). A broken declaration is itself a compile error.
+// lvnsCompile(src[, extGrammarJSON][, files][, selfName]) -> { ok, json, errors, warnings }
+//
+// Второй аргумент — содержимое ext-grammar.json проекта: объявленные хост-опы
+// после этого валидируются как встроенные (тот же контракт, что у CLI-флага
+// -ext-grammar). Битое объявление само является ошибкой компиляции.
+//
+// Третий — ОСТАЛЬНЫЕ ОТКРЫТЫЕ ФАЙЛЫ новеллы, объект {"имя.lvns": "текст"}, и
+// четвёртый — имя компилируемого файла. Без них `include` в студии не работал
+// вовсе: браузер отдаёт компилятору текст, а путь в include резолвится
+// относительно файла. Именно эта ошибка висела в IDE на строке с include, хотя
+// та же глава прекрасно собиралась через CLI. Имя своего файла нужно, чтобы
+// цикл, идущий через него самого, опознавался как цикл.
 func compile(this js.Value, args []js.Value) any {
 	src := ""
 	if len(args) > 0 {
@@ -64,7 +72,29 @@ func compile(this js.Value, args []js.Value) any {
 		ext = g
 	}
 
-	doc, err := lvns.Convert(src)
+	files := map[string]string{}
+	if len(args) > 2 && args[2].Type() == js.TypeObject {
+		if keys := js.Global().Get("Object").Call("keys", args[2]); keys.Type() == js.TypeObject {
+			for i := 0; i < keys.Length(); i++ {
+				k := keys.Index(i).String()
+				if v := args[2].Get(k); v.Type() == js.TypeString {
+					files[k] = v.String()
+				}
+			}
+		}
+	}
+	self := ""
+	if len(args) > 3 && args[3].Type() == js.TypeString {
+		self = args[3].String()
+	}
+
+	var doc *lvns.Doc
+	var err error
+	if len(files) > 0 || self != "" {
+		doc, err = lvns.ConvertFiles(src, self, files)
+	} else {
+		doc, err = lvns.Convert(src)
+	}
 	if err != nil {
 		return map[string]any{"ok": false, "json": "", "errors": err.Error(), "warnings": ""}
 	}

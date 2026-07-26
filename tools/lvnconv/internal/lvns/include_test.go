@@ -200,3 +200,79 @@ func TestErrorAfterAnIncludeKeepsTheRootFileLineNumber(t *testing.T) {
 		t.Errorf("ошибка = %q, ожидалось «line 3» — настоящая строка главы, а не строка склейки", err)
 	}
 }
+
+// ── include в браузере: файлов на диске нет, буферы редактора есть ──────────
+//
+// Веб-IDE компилирует через wasm, где файловой системы нет вовсе. Пока
+// компилятор умел только диск, любая глава с include давала в студии
+// «подключение работает только при компиляции файла» — то есть многофайловую
+// игру в редакторе было не написать, хотя язык это умеет.
+
+func TestConvertFilesResolvesIncludeFromEditorBuffers(t *testing.T) {
+	doc, err := ConvertFiles("scene ch\ninclude \"mech.lvns\"\nЕсть {золото}.\n-> __end\n", "ch.lvns",
+		map[string]string{"mech.lvns": "золото = 5\n"})
+	if err != nil {
+		t.Fatalf("не скомпилировалось: %v", err)
+	}
+	sets := 0
+	for _, c := range doc.Script {
+		if c["op"] == "set" {
+			sets++
+		}
+	}
+	if sets != 1 {
+		t.Fatalf("подключённый файл не вклеился: %v", ops(doc))
+	}
+}
+
+// Отсутствующий файл должен подсказывать, ЧТО есть рядом: в браузере автор не
+// может «посмотреть каталог», и путь на диске ему ни о чём не скажет.
+func TestConvertFilesMissingIncludeListsWhatIsAvailable(t *testing.T) {
+	_, err := ConvertFiles("scene ch\ninclude \"нет.lvns\"\n-> __end\n", "ch.lvns",
+		map[string]string{"mech.lvns": "x = 1\n", "voices.lvns": "y = 2\n"})
+	if err == nil {
+		t.Fatal("отсутствующий файл скомпилировался")
+	}
+	for _, want := range []string{"нет.lvns", "mech.lvns", "voices.lvns"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("в ошибке нет %q: %v", want, err)
+		}
+	}
+}
+
+func TestConvertFilesKeepsCycleAndIdempotenceRules(t *testing.T) {
+	// Цикл через САМ открытый файл: глава подключает механики, механики —
+	// главу. Без имени корня это разворачивалось второй копией молча.
+	if _, err := ConvertFiles("scene a\ninclude \"b.lvns\"\n-> __end\n", "a.lvns",
+		map[string]string{"b.lvns": "include \"a.lvns\"\n", "a.lvns": "scene a\n"}); err == nil {
+		t.Error("цикл через открытый файл не поймали")
+	}
+	// Ромб: два файла подключают одну механику — дубля меток быть не должно.
+	doc, err := ConvertFiles("scene d\ninclude \"x.lvns\"\ninclude \"y.lvns\"\n-> __end\n", "d.lvns",
+		map[string]string{"x.lvns": "include \"z.lvns\"\n", "y.lvns": "include \"z.lvns\"\n", "z.lvns": "флаг = 1\n"})
+	if err != nil {
+		t.Fatalf("ромб не собрался: %v", err)
+	}
+	sets := 0
+	for _, c := range doc.Script {
+		if c["op"] == "set" {
+			sets++
+		}
+	}
+	if sets != 1 {
+		t.Errorf("общий файл вклеился %d раз, ожидался 1", sets)
+	}
+}
+
+// Номер строки обязан указывать в НАСТОЯЩИЙ файл: автор видит в редакторе
+// именно его, а не склейку.
+func TestConvertFilesErrorPointsAtTheRealFileAndLine(t *testing.T) {
+	_, err := ConvertFiles("scene ch\ninclude \"mech.lvns\"\n-> __end\n", "ch.lvns",
+		map[string]string{"mech.lvns": "// ok\n// ok\ndef = 1\n"})
+	if err == nil {
+		t.Fatal("битый подключённый файл скомпилировался")
+	}
+	if !strings.Contains(err.Error(), "mech.lvns:3") {
+		t.Errorf("ошибка = %q, ожидалось mech.lvns:3", err)
+	}
+}

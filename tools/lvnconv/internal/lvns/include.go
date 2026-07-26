@@ -26,8 +26,10 @@ package lvns
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -42,9 +44,62 @@ type srcRef struct {
 	Line int    // номер строки в ЭТОМ файле, начиная с 1
 }
 
+// incLoader — откуда берутся подключаемые файлы. Их ДВА источника, и оба
+// настоящие: диск (CLI, сервер) и набор открытых в редакторе буферов (веб-IDE и
+// плейграунд компилируются в браузере, там файловой системы нет вовсе). Без
+// второго include в студии просто не работает: редактор передаёт компилятору
+// текст, а текст не знает, относительно чего резолвить путь — ровно эта ошибка
+// и висела в IDE на строке с include.
+type incLoader interface {
+	// load отдаёт содержимое подключаемого файла, его КЛЮЧ (по нему считаются
+	// повторы и циклы) и «каталог» для вложенных подключений.
+	load(dir, rel string) (key, content, nextDir string, err error)
+	// where — как назвать место поиска в сообщении об ошибке.
+	where(dir, rel string) string
+}
+
+// diskLoader — обычные файлы.
+type diskLoader struct{}
+
+func (diskLoader) load(dir, rel string) (string, string, string, error) {
+	abs := filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+	data, err := os.ReadFile(abs)
+	return abs, string(data), filepath.Dir(abs), err
+}
+
+func (diskLoader) where(dir, rel string) string {
+	return filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+}
+
+// memLoader — открытые буферы редактора, ключ это ИМЯ файла. Каталогов нет:
+// в студии все скрипты новеллы лежат рядом, и подкаталоги пришлось бы
+// выдумывать на стороне UI.
+type memLoader struct{ files map[string]string }
+
+func (m memLoader) load(dir, rel string) (string, string, string, error) {
+	name := path.Base(rel)
+	c, ok := m.files[name]
+	if !ok {
+		return name, "", "", fmt.Errorf("нет такого файла")
+	}
+	return name, c, "", nil
+}
+
+func (m memLoader) where(dir, rel string) string {
+	names := make([]string, 0, len(m.files))
+	for n := range m.files {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return "в новелле нет других файлов"
+	}
+	return "есть: " + strings.Join(names, ", ")
+}
+
 // expandIncludes раскрывает директивы и возвращает склеенный источник вместе с
 // картой происхождения каждой строки.
-func expandIncludes(src, dir, display, rootAbs string) (string, []srcRef, error) {
+func expandIncludes(src, dir, display, rootAbs string, ld incLoader) (string, []srcRef, error) {
 	var out []string
 	var refs []srcRef
 	seen := map[string]bool{}
@@ -55,13 +110,13 @@ func expandIncludes(src, dir, display, rootAbs string) (string, []srcRef, error)
 		chain = append(chain, rootAbs)
 		seen[rootAbs] = true
 	}
-	if err := expandInto(&out, &refs, src, dir, display, seen, chain); err != nil {
+	if err := expandInto(&out, &refs, src, dir, display, seen, chain, ld); err != nil {
 		return "", nil, err
 	}
 	return strings.Join(out, "\n"), refs, nil
 }
 
-func expandInto(out *[]string, refs *[]srcRef, src, dir, display string, seen map[string]bool, chain []string) error {
+func expandInto(out *[]string, refs *[]srcRef, src, dir, display string, seen map[string]bool, chain []string, ld incLoader) error {
 	for i, line := range strings.Split(src, "\n") {
 		m := reInclude.FindStringSubmatch(line)
 		if m == nil {
@@ -70,29 +125,27 @@ func expandInto(out *[]string, refs *[]srcRef, src, dir, display string, seen ma
 			continue
 		}
 		rel := m[1]
-		abs := filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+		key, data, nextDir, lerr := ld.load(dir, rel)
 
 		for _, c := range chain {
-			if c == abs {
+			if c == key {
 				return fmt.Errorf("%s: include cycle: %s",
-					at(display, i+1), strings.Join(shortChain(append(chain, abs)), " -> "))
+					at(display, i+1), strings.Join(shortChain(append(chain, key)), " -> "))
 			}
 		}
-		if seen[abs] {
+		if seen[key] {
 			// Уже подключён выше. Молча пропускаем — это не ошибка автора, а
 			// нормальная форма: два файла подключают одну общую механику.
 			*out = append(*out, "// include "+rel+" (уже подключён)")
 			*refs = append(*refs, srcRef{File: display, Line: i + 1})
 			continue
 		}
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			return fmt.Errorf("%s: include %q: файл не найден (искал %s)",
-				at(display, i+1), rel, abs)
+		if lerr != nil {
+			return fmt.Errorf("%s: include %q: файл не найден (%s)",
+				at(display, i+1), rel, ld.where(dir, rel))
 		}
-		seen[abs] = true
-		if err := expandInto(out, refs, string(data), filepath.Dir(abs), rel,
-			seen, append(chain, abs)); err != nil {
+		seen[key] = true
+		if err := expandInto(out, refs, data, nextDir, rel, seen, append(chain, key), ld); err != nil {
 			return err
 		}
 	}
@@ -148,13 +201,13 @@ func remapError(err error, refs []srcRef) error {
 // ConvertFile компилирует .lvns с диска. Это единственный вход, умеющий
 // include: подстановка требует знать, ОТНОСИТЕЛЬНО ЧЕГО резолвить путь, а
 // Convert принимает только текст.
-func ConvertFile(path string) (*Doc, error) {
-	src, err := os.ReadFile(path)
+func ConvertFile(p string) (*Doc, error) {
+	src, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
-	abs, _ := filepath.Abs(path)
-	joined, refs, err := expandIncludes(string(src), filepath.Dir(path), "", filepath.Clean(abs))
+	abs, _ := filepath.Abs(p)
+	joined, refs, err := expandIncludes(string(src), filepath.Dir(p), "", filepath.Clean(abs), diskLoader{})
 	if err != nil {
 		return nil, err
 	}
@@ -174,4 +227,30 @@ func strayInclude(lines []string) error {
 		}
 	}
 	return nil
+}
+
+// ConvertFiles компилирует .lvns из НАБОРА ОТКРЫТЫХ ФАЙЛОВ, а не с диска:
+// именно так работает веб-IDE и плейграунд — компилятор там живёт в браузере
+// (wasm), файловой системы нет, а `include` всё равно обязан работать, иначе
+// игру из нескольких глав в студии не написать.
+//
+// Ключи files — имена файлов так, как автор пишет их в include ("механики.lvns").
+// Каталогов нет: все скрипты новеллы лежат рядом.
+//
+// self — имя ОТКРЫТОГО файла. Оно нужно не для красоты: без него корневой буфер
+// безымянный, и цикл, который идёт через него самого (глава подключает
+// механики, механики подключают главу), не опознаётся как цикл — он просто
+// молча разворачивается второй копией. Пустое self допустимо для разового
+// фрагмента, у которого имени и правда нет.
+func ConvertFiles(src, self string, files map[string]string) (*Doc, error) {
+	root := ""
+	if self != "" {
+		root = path.Base(self)
+	}
+	joined, refs, err := expandIncludes(src, "", "", root, memLoader{files: files})
+	if err != nil {
+		return nil, err
+	}
+	doc, err := Convert(joined)
+	return doc, remapError(err, refs)
 }
