@@ -98,6 +98,22 @@ tint color="#f0c070" alpha=0 duration=0.5
 wait ms=300
 The reel runs out. The house lights come up.
 
+// ─── WEAVE: prose inside the branches, converging on its own ───
+// The same `{ … }` block as above — the compiler reads what is inside and picks
+// the mechanism. `set`/`inc`/`goto` stays a runtime body; prose is lowered into
+// script behind a minted label. Both branches land on the line after the choice,
+// so this costs zero invented names. Written the old way it is three labels
+// (two branches + one convergence) and three jumps.
+Ida: Do we tell the projectionist about the gate?
+- Tell her {
+    Ida: Better she hears it from us.
+    lamp = lamp + 1
+}
+- Say nothing {
+    Ida: She has enough to carry tonight.
+}
+Ida: Either way, the reel is done.
+
 // ─── One command empties the stage: `clear` takes every actor and obj off ───
 // The background stays — that is the whole point, a scene change is `clear`
 // plus a new `bg` and never an accidental black screen. Without it this line
