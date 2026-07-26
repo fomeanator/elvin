@@ -297,8 +297,8 @@ export const OP_DOCS = {
     "A line of dialogue (narration if no name)."
   ],
   "choice": [
-    "- Text -> label  [cost= min= requires_stat=]",
-    "Branching options — one '-' line each; optional cost/min/requires_stat gate an option."
+    "- Text -> label  [cost= min= requires_stat=]  [{ … }]",
+    "Branching options — one '-' line each; optional cost/min/requires_stat gate an option. A trailing `{ … }` block is the option's BODY: set/inc and staging commands that run on pick, before the jump."
   ],
   "bg": [
     "bg sprite_url=\"…\" | id=\"…\"",
@@ -432,6 +432,11 @@ export const SNIPPETS = [
     "trigger": "choice",
     "label": "choice — two options",
     "body": "- $1 -> $2\n- $3 -> __end"
+  },
+  {
+    "trigger": "option-body",
+    "label": "choice option — body block (runs on pick)",
+    "body": "- $1 -> $2 {\n    $3\n}"
   },
   {
     "trigger": "if",

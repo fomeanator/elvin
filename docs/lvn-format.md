@@ -57,7 +57,8 @@ error**, never a silent skip (`lvnconv validate`). Targets of `goto`, `if`,
 | `return` | — | Tunnel: pop and resume after the matching `call`. |
 
 **Choice option object:** `text` (required), `goto` (target label) **or**
-`body` (inline command array, usually ending in `goto`), plus optional
+`body` (inline command array, usually ending in `goto`; in `.lvns` it is the
+`{ … }` block on the option line), plus optional
 `cost` (narrative cost shown under the option), `requires_stat`/`min` (gate by
 a stat threshold), and `expr` (a boolean filter — option hidden when false).
 

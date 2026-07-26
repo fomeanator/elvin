@@ -97,6 +97,16 @@ func RunBundle(in BundleInputs, contentDir, stageDir string, opt Options) (*Resu
 	if err != nil {
 		return nil, err
 	}
+	// Run has TWO output shapes and everything below understands only one of
+	// them. A chaptered project lands in res.Scripts; a one-chapter project —
+	// or a chaptered one that fell back to a single whole-novel chapter when a
+	// scoped chapter couldn't reach an ending — lands in ScriptRel/Lvn with
+	// res.Scripts EMPTY. Every bundle pass past this point (`for i := range
+	// res.Scripts`) then quietly did nothing: no wardrobe swap, no outfit/hair
+	// stamping, no speaker renaming, no real backgrounds, no audio cues, no
+	// vars declaration. Not a degraded import — a bundle import that silently
+	// wasn't one. Normalize once, here, so there is a single shape downstream.
+	normalizeSingleChapterResult(res)
 	if res.Sprites == nil {
 		res.Sprites = map[string]any{}
 	}
@@ -523,4 +533,20 @@ func findArticyProject(root string) (string, error) {
 		return "", fmt.Errorf("no articy Flow partition found under %s", root)
 	}
 	return found, nil
+}
+
+// normalizeSingleChapterResult folds Run's single-chapter output shape
+// (ScriptRel/Lvn + LvnsRel/Lvns) into the chaptered one (res.Scripts), which
+// is the only shape the bundle wiring iterates. ScriptRel is KEPT as the
+// title's script path (the import response reports it) but its payload moves,
+// so WriteToContentDir writes each file exactly once.
+func normalizeSingleChapterResult(res *Result) {
+	if res == nil || len(res.Scripts) > 0 || res.ScriptRel == "" || len(res.Lvn) == 0 {
+		return
+	}
+	res.Scripts = append(res.Scripts, ScriptFile{Rel: res.ScriptRel, Data: res.Lvn})
+	if res.LvnsRel != "" && len(res.Lvns) > 0 {
+		res.Scripts = append(res.Scripts, ScriptFile{Rel: res.LvnsRel, Data: res.Lvns})
+	}
+	res.Lvn, res.Lvns, res.LvnsRel = nil, nil, ""
 }
