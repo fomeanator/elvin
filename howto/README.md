@@ -112,7 +112,7 @@ full-size games — look at them when the tutorials aren't enough:
   shops, random battles, a boss, a reusable combat engine).
 - `server/content/scripts/goblin-battle.lvns` — turn-based combat.
 - `server/content/scripts/showcase.lvns` — a point-and-click escape room.
-- `server/content/scripts/soviet-ch1.lvns` — a large visual novel.
+- `server/content/scripts/tour-ch01.lvns` — a full chapter of the LVN Tour, the engine's own demo novella.
 
 ---
 
