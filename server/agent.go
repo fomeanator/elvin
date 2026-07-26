@@ -35,6 +35,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/importer"
@@ -149,6 +150,19 @@ func agentHeader(base, token string) string {
 * Повторная публикация с тем же ` + "`id`" + ` и ` + "`chapter`" + ` заменяет главу; прошлая версия
   уходит в историю студии, её можно откатить из панели.
 
+## Игра из нескольких глав: общий файл
+
+Как только глав больше одной, таблицы, функции и пресеты выносят в ОБЩИЙ файл и
+подключают его строкой ` + "`include \"механики.lvns\"`" + `. Такой файл публикуется
+по имени, а не как глава — у него нет ` + "`scene`" + `, он не игра:
+
+    POST ` + base + `/v1/admin/agent/publish
+    {"path": "механики.lvns", "lvns": "сила = {}\nсила = put(сила, \"огонь\", 3)\n"}
+
+Он сохраняется под своим именем и НЕ компилируется отдельно: его проверит первая
+же глава, которая его подключит. Публикуй общий файл ДО глав, иначе глава не
+найдёт того, что подключает. Имя — только имя файла, без каталогов.
+
 Полезное рядом:
 
     GET ` + base + `/v1/content/manifest      — что уже опубликовано
@@ -179,6 +193,13 @@ type publishReq struct {
 	Chapter int    `json:"chapter"`
 	Lvns    string `json:"lvns"`
 	BgURL   string `json:"bg_url"`
+	// Path публикует ОБЩИЙ ФАЙЛ, а не главу: имя берётся как есть, ничего не
+	// компилируется и в манифест не попадает. Без него игра из нескольких глав
+	// через API невыразима вовсе — публикация именует всё как <id>-chNN.lvns,
+	// а `include "механики.lvns"` ждёт своё имя и не находит его. Библиотека
+	// проверяется тогда, когда её подключает глава: только там сочетание
+	// становится настоящим.
+	Path string `json:"path"`
 }
 
 func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
@@ -200,12 +221,17 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.ID = strings.TrimSpace(req.ID)
-	if !validID(req.ID) {
-		http.Error(w, "id must match [A-Za-z0-9_-]+", http.StatusBadRequest)
-		return
-	}
+	req.Path = strings.TrimSpace(req.Path)
 	if strings.TrimSpace(req.Lvns) == "" {
 		http.Error(w, "lvns is empty — send the .lvns source, not a file path", http.StatusBadRequest)
+		return
+	}
+	if req.Path != "" {
+		s.publishSharedFile(w, req)
+		return
+	}
+	if !validID(req.ID) {
+		http.Error(w, "id must match [A-Za-z0-9_-]+", http.StatusBadRequest)
 		return
 	}
 	if req.Chapter <= 0 {
@@ -215,17 +241,24 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 		req.Name = req.ID
 	}
 
-	// 1. Компиляция. Ошибка здесь — ошибка автора, с номером строки; на диск
-	// ничего не идёт.
-	compiled, err := importer.CompileLvns(req.Lvns)
+	rel := fmt.Sprintf("scripts/%s-ch%02d.lvn", req.ID, req.Chapter)
+
+	// 1. Компиляция. Ошибка здесь — ошибка автора, с номером строки; ничего
+	// постоянного на диск не идёт.
+	//
+	// Компилируем ИЗ ВРЕМЕННОГО ФАЙЛА, лежащего в том же каталоге scripts/, а
+	// не из строки в памяти. Причина — `include`: путь в нём резолвится
+	// относительно подключающего ФАЙЛА, а у текста каталога нет. Игра больше
+	// чем на одну главу всегда выносит общие механики в отдельный файл, то
+	// есть первая же настоящая игра упирается в это. Каталог тот же, куда
+	// ляжет результат, поэтому include видит ровно то, что увидит IDE.
+	compiled, err := s.compileInScripts(req)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"ok": false, "stage": "compile", "error": err.Error(),
 		})
 		return
 	}
-
-	rel := fmt.Sprintf("scripts/%s-ch%02d.lvn", req.ID, req.Chapter)
 
 	// 2. Тот же структурный гейт, через который проходит любая запись скрипта
 	// (lvnguard.go). Отказ — до единой записи на диск, поэтому неудачная
@@ -278,6 +311,62 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 		"script_url": "/content/" + rel,
 		"play_url":   requestBase(r) + "/",
 	})
+}
+
+// sharedNameRe — имя общего файла: только само имя, без каталогов, и только
+// .lvns. Свобода тут не нужна, а любой сегмент пути открыл бы запись куда
+// угодно под контент-корнем.
+var sharedNameRe = regexp.MustCompile(`^[A-Za-z0-9_-]+\.lvns$`)
+
+// publishSharedFile кладёт общий файл (тот, который подключают через include)
+// под его собственным именем. Не компилирует и не регистрирует: у библиотеки
+// нет `scene`, отдельная компиляция дала бы .lvn, который никто не играет, и
+// предупреждение о недостающем заголовке. Её проверит первая же глава, которая
+// её подключит, — и это правильный момент.
+func (s *server) publishSharedFile(w http.ResponseWriter, req publishReq) {
+	if !sharedNameRe.MatchString(req.Path) {
+		http.Error(w, `path must be a bare file name like "mechanics.lvns"`, http.StatusBadRequest)
+		return
+	}
+	rel := "scripts/" + req.Path
+	lk := s.writeLock()
+	lk.Lock()
+	err := s.writeContentFile(rel, []byte(req.Lvns))
+	lk.Unlock()
+	if err != nil {
+		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "kind": "shared", "path": rel,
+		"note": "общий файл сохранён; он компилируется вместе с главой, которая его подключает",
+	})
+}
+
+// compileInScripts компилирует присланный исходник так, как его увидит студия:
+// из файла в каталоге scripts/, чтобы `include` резолвился относительно
+// соседей. Временный файл удаляется всегда — и на успехе, и на ошибке, — а имя
+// начинается с точки: статика отказывает любому пути с сегментом на точку
+// (hasDotSegment), поэтому даже в окне между записью и удалением исходник
+// нельзя скачать.
+func (s *server) compileInScripts(req publishReq) ([]byte, error) {
+	dir := filepath.Join(s.content, "scripts")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	tmp, err := os.CreateTemp(dir, fmt.Sprintf(".publish-%s-*.lvns", req.ID))
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.WriteString(req.Lvns); err != nil {
+		tmp.Close()
+		return nil, err
+	}
+	if err := tmp.Close(); err != nil {
+		return nil, err
+	}
+	return importer.CompileLvnsFile(tmp.Name())
 }
 
 // writeContentFile пишет файл под контент-корнем со снапшотом в историю.

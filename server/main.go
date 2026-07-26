@@ -359,8 +359,8 @@ func (s *server) contentHandler(dir string) http.Handler {
 		// not accepted yet; serving it would publish every rejected version.
 		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
 		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
-			strings.HasPrefix(rel, ".history/") || strings.HasPrefix(rel, ".lvn-import/") ||
-			strings.HasSuffix(rel, ".incoming") || rel == "manifest.draft.json" {
+			hasDotSegment(rel) || strings.HasSuffix(rel, ".incoming") ||
+			rel == "manifest.draft.json" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
@@ -375,6 +375,22 @@ func (s *server) contentHandler(dir string) http.Handler {
 		}
 		fs.ServeHTTP(w, r)
 	})
+}
+
+// hasDotSegment reports whether any path segment starts with a dot. Nothing a
+// player fetches ever does, while everything editorial under the content root
+// does: .history/, .lvn-import/, and the short-lived .publish-*.lvns a publish
+// compiles from (it has to live in scripts/ so `include` resolves against its
+// neighbours). Listing those one by one was a standing invitation to add a
+// fourth and forget — and http.FileServer serves dotfiles perfectly happily,
+// so "it starts with a dot" hides nothing on its own.
+func hasDotSegment(rel string) bool {
+	for _, seg := range strings.Split(rel, "/") {
+		if strings.HasPrefix(seg, ".") {
+			return true
+		}
+	}
+	return false
 }
 
 // computeVersions returns {content-relative-path: sha256} for every served
