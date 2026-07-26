@@ -64,8 +64,18 @@ Ida: There. Threaded.
 lamp = 2
 Ida: The lamp is at {lamp} of 3. What do we do?
 
+// An option's `{ … }` BODY runs on pick, before the jump: the place for the
+// "ask this once" flag or a stat bump. The brace ends the option line, the `}`
+// stands alone, and the block is flat (no `if`/`choice` inside).
+//
+// Keep a body to set/inc/goto. A body command has no index in the script, and
+// the resume trace is a list of indices — so anything in a body that touches
+// the STAGE plays once and is gone the moment a save is restored. Staging goes
+// after the label, like the `hint` below.
 - Push the lamp to full -> forced requires_stat=lamp min=3
-- Thread it by hand and run it soft -> soft
+- Thread it by hand and run it soft -> soft {
+    lamp = lamp + 1
+}
 - Rewind and watch the reel again -> again
 
 :forced
@@ -74,6 +84,7 @@ Ida: Full power. Bold.
 -> reel
 
 :soft
+hint text="The soft run costs you a notch of light."
 Ida: Soft it is. The audience will never know.
 -> reel
 
