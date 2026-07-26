@@ -108,9 +108,15 @@ export default function LibraryHome({ creds, notify, onOpen, onOpenAdmin }) {
     const name = (bundle.name || "").trim();
     if (!bundle.files.articy) { notify("Выбери articy-проект (.rar / .zip).", "err"); return; }
     if (!name) { notify("Назови новеллу.", "err"); return; }
-    let id = slug(name) || "imported";
-    let base = id, i = 1;
-    while (titles.some((t) => t.id === id)) id = base + "-" + ++i;
+    // The id is the slug of the name, and a MATCH IS THE POINT: re-importing
+    // the same novel must hit the same id so the server's three-way merge runs
+    // (importer/baseline.go) — hand edits kept, disagreements parked as
+    // .incoming, never a silent overwrite. The old code appended -2/-3 on
+    // collision, which was right when import only ever created novels: every
+    // re-import forked a new title instead, so the merge path could not be
+    // reached from the panel at all. BundleModal warns before the click that
+    // this name lands on an existing novel.
+    const id = slug(name) || "imported";
     const template = (bundle.template || "").trim();
 
     setBundle((s) => ({ ...(s || {}), busy: true }));
@@ -234,6 +240,7 @@ export default function LibraryHome({ creds, notify, onOpen, onOpenAdmin }) {
           bundle={bundle}
           setBundle={setBundle}
           templateList={templateList}
+          titles={titles}
           onPickFile={pickBundleFile}
           onImport={startImport}
           onOpenMapper={openMapper}
@@ -413,8 +420,12 @@ const BUNDLE_FIELDS = [
   { key: "vars", label: "Переменные", hint: ".xlsx", accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
 ];
 
-function BundleModal({ bundle, setBundle, templateList, onPickFile, onImport, onOpenMapper, mapperBusy, onCancel, notify }) {
+function BundleModal({ bundle, setBundle, templateList, titles, onPickFile, onImport, onOpenMapper, mapperBusy, onCancel, notify }) {
   const name = (bundle.name || "").trim();
+  // Whether this import CREATES or UPDATES is decided by the name alone, so it
+  // has to be visible while the author types it — not discovered afterwards in
+  // the report.
+  const updating = name ? (titles || []).find((t) => t.id === (slug(name) || "imported")) : null;
   // "Ready" means articy is fully STAGED (not just picked) — the upload
   // started the instant it was picked, so by the time the author has named
   // the novel it's often already done.
@@ -457,6 +468,13 @@ function BundleModal({ bundle, setBundle, templateList, onPickFile, onImport, on
           <span>Название новеллы</span>
           <input className="field wide" autoFocus placeholder="Моя новелла" value={bundle.name}
                  onChange={(e) => setBundle((s) => ({ ...s, name: e.target.value }))} />
+          {updating && (
+            <span className="hint">
+              Обновит существующую новеллу «{updating.name || updating.id}». Ручные правки
+              сохранятся: расхождения не перезапишутся, а лягут рядом как <code>.incoming</code>
+              и покажутся в отчёте.
+            </span>
+          )}
         </label>
         <label className="adv-field">
           <span>Шаблон импорта</span>
