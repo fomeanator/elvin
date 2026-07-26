@@ -172,7 +172,12 @@ jobs:
       # pipeline had never run outside a developer's laptop. A skip counts as
       # green in the report step, so the gap was invisible.
       - name: build the test server (PlayMode boot smoke needs it)
-        run: go build -o qa/bin/lvnserver-test ./server
+        # Built from INSIDE the module: this workflow sets GOWORK=off globally,
+        # and the repo root has no go.mod of its own — `go build ./server` from
+        # the root fails with "cannot find main module". go.work is a local
+        # convenience, not part of the contract (see the env note at the top).
+        working-directory: server
+        run: go build -o "$GITHUB_WORKSPACE/qa/bin/lvnserver-test" .
       - name: EditMode
         run: |
           "$UNITY" -batchmode -nographics -projectPath unity/TestHost \
