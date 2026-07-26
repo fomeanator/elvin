@@ -521,3 +521,164 @@ func TestConvertFuncCannotShadowBuiltin(t *testing.T) {
 		t.Fatalf("expected a shadowing error, got %v", err)
 	}
 }
+
+// ── choice option bodies (`- text -> label { … }`) ──────────────────────────
+//
+// The body is the command list LvnPlayer.Choose runs on pick. Until the block
+// form existed it had no source spelling at all, so every "ask this once"
+// option lost the flag that retires it on the first re-save (audit O3).
+
+func TestConvertChoiceOptionBody(t *testing.T) {
+	doc, err := Convert("scene t\n- Спросить -> q1 expr=\"!_once_q1\" {\n    _once_q1 = true\n    hint text=\"ok\"\n}\n- Уйти -> __end\n:q1\nответ\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts, _ := doc.Script[0]["options"].([]any)
+	if len(opts) != 2 {
+		t.Fatalf("options: %v", doc.Script[0])
+	}
+	opt := opts[0].(map[string]any)
+	if opt["expr"] != "!_once_q1" {
+		t.Fatalf("the option's own params were eaten by the block: %v", opt)
+	}
+	if _, has := opt["goto"]; has {
+		t.Fatalf("a body option must carry its jump IN the body (the runtime ignores goto then): %v", opt)
+	}
+	body, _ := opt["body"].([]any)
+	if len(body) != 3 {
+		t.Fatalf("body: %v", body)
+	}
+	if b := body[0].(map[string]any); b["op"] != "set" || b["key"] != "_once_q1" {
+		t.Fatalf("first body command: %v", b)
+	}
+	if b := body[1].(map[string]any); b["op"] != "hint" {
+		t.Fatalf("staging command lost from the body: %v", b)
+	}
+	if b := body[2].(map[string]any); b["op"] != "goto" || b["label"] != "q1" {
+		t.Fatalf("the header's target must close the body: %v", b)
+	}
+	// The plain option next to it is untouched.
+	if opts[1].(map[string]any)["goto"] != "__end" {
+		t.Fatalf("plain option changed shape: %v", opts[1])
+	}
+}
+
+// A body without a jump falls through past the choice — the arrow-less header.
+func TestConvertChoiceOptionBodyFallsThrough(t *testing.T) {
+	doc, err := Convert("scene t\n- Закрыть expr=\"menu\" {\n    menu = false\n}\nдальше\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opt := doc.Script[0]["options"].([]any)[0].(map[string]any)
+	if opt["text"] != "Закрыть" || opt["expr"] != "menu" {
+		t.Fatalf("arrow-less header parsed wrong: %v", opt)
+	}
+	if _, has := opt["goto"]; has {
+		t.Fatalf("fall-through option gained a target: %v", opt)
+	}
+	if body, _ := opt["body"].([]any); len(body) != 1 {
+		t.Fatalf("body: %v", opt)
+	}
+}
+
+// `{gold}` in option text is interpolation, not a block: only a brace that ENDS
+// the line opens one. Getting this wrong would shred every priced option.
+func TestConvertChoiceOptionInterpolationIsNotABlock(t *testing.T) {
+	doc, err := Convert("scene t\n- Осталось {gold} монет -> shop\n:shop\nдальше\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opt := doc.Script[0]["options"].([]any)[0].(map[string]any)
+	if opt["text"] != "Осталось {gold} монет" || opt["goto"] != "shop" {
+		t.Fatalf("interpolated option mangled: %v", opt)
+	}
+}
+
+// The body is FLAT: the runtime walks it once, so control flow inside it would
+// be silently forwarded to the stage and vanish. Refuse at compile time.
+func TestConvertChoiceOptionBodyRejectsControlFlow(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"nested block", "scene t\n- A -> x {\n    if gold > 1 {\n        y = 1\n    }\n}\n:x\nz\n", "nested blocks are not allowed"},
+		{"player op", "scene t\n- A -> x {\n    Аня: нет\n}\n:x\nz\n", "does not run inside an option body"},
+		{"unclosed", "scene t\n- A -> x {\n    y = 1\n:x\nz\n", "unclosed choice option body"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Convert(tc.src)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+// ── synthetic label stability (the save anchor) ──────────────────────────────
+//
+// A save is anchored on the id of the nearest preceding label, so the names the
+// lowering mints ARE part of the save format. When they were a global counter,
+// inserting one `if` at the top of a chapter renumbered every synthetic label
+// below it (audit O16: 837 renames in one re-save) and every save anchored under
+// one of them silently resumed somewhere else.
+
+func labelIDs(t *testing.T, src string) []string {
+	t.Helper()
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	var out []string
+	for _, c := range doc.Script {
+		if c["op"] == "label" {
+			out = append(out, c["id"].(string))
+		}
+	}
+	return out
+}
+
+func TestSyntheticLabelsSurviveAnEditElsewhere(t *testing.T) {
+	base := "scene t\n:one\nif gold > 1 {\n  A\n}\n:two\nif hp > 1 {\n  B\n} else {\n  C\n}\n:three\nif x -> two\nD\n"
+	// An edit in the FIRST scene: a new line, and a whole new branch.
+	edited := "scene t\n:one\nprologue\nif mood > 0 {\n  M\n}\nif gold > 1 {\n  A\n}\n:two\nif hp > 1 {\n  B\n} else {\n  C\n}\n:three\nif x -> two\nD\n"
+
+	before, after := labelIDs(t, base), labelIDs(t, edited)
+	// Every label that belongs to a scene the edit did not touch must be
+	// byte-identical — those are the anchors old saves are holding.
+	inScope := func(ids []string, scope string) []string {
+		var out []string
+		for _, id := range ids {
+			if strings.Contains(id, "_"+scope+"_") {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	for _, scope := range []string{"two", "three"} {
+		b, a := inScope(before, scope), inScope(after, scope)
+		if len(b) == 0 {
+			t.Fatalf("scope %q has no synthetic labels — the test proves nothing: %v", scope, before)
+		}
+		if strings.Join(b, ",") != strings.Join(a, ",") {
+			t.Errorf("editing scene :one renamed scene :%s's labels — every save anchored there moves\n"+
+				"before: %v\nafter:  %v", scope, b, a)
+		}
+	}
+	// And re-compiling the very same source is of course a no-op.
+	if again := labelIDs(t, base); strings.Join(again, ",") != strings.Join(before, ",") {
+		t.Errorf("compilation is not deterministic:\n%v\n%v", before, again)
+	}
+}
+
+// A lowering must never mint a name the script already uses: it would merge two
+// different places into one jump target (and one save anchor).
+func TestSyntheticLabelsDoNotShadowAnAuthorLabel(t *testing.T) {
+	ids := labelIDs(t, "scene t\n:one\n:__then_one_1\nA\nif gold > 1 {\n  B\n}\nC\n")
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("duplicate label %q in %v", id, ids)
+		}
+		seen[id] = true
+	}
+	if !seen["__then_one_1"] {
+		t.Fatalf("the author's own label vanished: %v", ids)
+	}
+}

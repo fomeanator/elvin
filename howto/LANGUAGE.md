@@ -165,10 +165,33 @@ Option parameters: `cost=` (just a "price" caption — **it deducts nothing by
 itself**; subtract resources explicitly in the handler label),
 `requires_stat`/`min` (threshold — the option is hidden if the variable < min),
 `expr=` (boolean filter — **the option is hidden when the expression is
-false**). In the `.lvn` container an option may carry a `body` instead of
-`goto` — an inline command list executed on selection (only `set`/`inc`/
-staging commands and `goto`; **no** `if`/`choice`/`call` inside — move complex
-logic to a separate label).
+false**).
+
+An option can also carry a **body** — commands that run the moment it is
+picked, before the jump. Write it as a `{ … }` block on the option line (the
+brace ends the line, the `}` stands alone):
+```
+- Why were you in prison? -> q_prison expr="!_once_prison" {
+    _once_prison = true
+}
+- Close the menu {
+    menu_open = false
+}
+```
+The first is the "ask this once" shape: the flag is set on pick, so its own
+`expr` gate hides the option afterwards. The second has no `-> label` at all —
+it runs its body and the flow falls through past the choice.
+
+Keep a body to **`set`/`inc` and the jump**. Those are state, and state is what
+a save restores. **Staging in a body does not survive a save**: the resume
+rebuilds the scene from a trace of command *indices*, and a body command has no
+index in the script — so an `actor`/`bg`/`hint`/`fade`/`audio` inside a body
+plays once and is gone the moment the player loads. Put staging after the label
+instead (the validator warns if you don't).
+
+A body is also **flat**: no `if`/`choice`/`call` and no nested block — the
+compiler rejects those outright, because the runtime would forward them to the
+stage and drop them without a trace. Move branching to a label.
 
 ### Loops
 ```

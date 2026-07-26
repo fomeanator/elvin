@@ -157,10 +157,12 @@ func TestRoundTripHostOpViaExt(t *testing.T) {
 	}
 }
 
-// The systemic guard: a drifting sidecar must be REPORTED, never silent.
-// choice bodies are a currently-known-lossy field (audit O3) — the guard's
-// whole job is that such loss shows up as a warning.
-func TestVerifyLvnsRoundTripFlagsBodyLoss(t *testing.T) {
+// A choice option's body used to have no .lvns spelling at all: the decompiler
+// kept only its `goto` and dropped every command in it, so an "ask this once"
+// option lost the `set _once_… true` that retires it and the question pool never
+// emptied (audit O3, 14 live options in soviet). The `{ … }` block form is the
+// spelling; this pins the whole loop — decompile, recompile, same body.
+func TestChoiceBodyRoundTrips(t *testing.T) {
 	script := []articy.Cmd{
 		{"op": "choice", "options": []any{
 			map[string]any{"text": "Спросить", "expr": "!_once_1", "body": []any{
@@ -172,13 +174,93 @@ func TestVerifyLvnsRoundTripFlagsBodyLoss(t *testing.T) {
 		{"op": "say", "text": "ответ"},
 	}
 	doc := &articy.Doc{Script: script}
-	warnings := VerifyLvnsRoundTrip(script, ToLvns(doc))
+	src := string(ToLvns(doc))
+	if !strings.Contains(src, "- Спросить -> q1") || !strings.Contains(src, "_once_1 = true") {
+		t.Fatalf("body not written as a block:\n%s", src)
+	}
+	if w := VerifyLvnsRoundTrip(script, []byte(src)); len(w) != 0 {
+		t.Fatalf("faithful sidecar still flagged: %q\n%s", w, src)
+	}
+	rec, err := lvns.Convert(src)
+	if err != nil {
+		t.Fatalf("recompile failed: %v\n%s", err, src)
+	}
+	opts, _ := rec.Script[0]["options"].([]any)
+	if len(opts) != 1 {
+		t.Fatalf("options lost: %v", rec.Script[0])
+	}
+	opt, _ := opts[0].(map[string]any)
+	body, _ := opt["body"].([]any)
+	if len(body) != 2 {
+		t.Fatalf("body did not round-trip: %v", opt)
+	}
+	set, _ := body[0].(map[string]any)
+	if set["op"] != "set" || set["key"] != "_once_1" {
+		t.Fatalf("the once-flag is gone: %v", body)
+	}
+	jump, _ := body[1].(map[string]any)
+	if jump["op"] != "goto" || jump["label"] != "q1" {
+		t.Fatalf("the body's jump is gone: %v", body)
+	}
+	if _, hasGoto := opt["goto"]; hasGoto {
+		t.Fatalf("a body option must not ALSO carry a goto field (the runtime ignores it): %v", opt)
+	}
+}
+
+// A body without a trailing jump falls through past the choice — the arrow-less
+// header form. It must survive too, or a "close the menu" option turns into a
+// jump somewhere else.
+func TestChoiceBodyWithoutGotoRoundTrips(t *testing.T) {
+	script := []articy.Cmd{
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "Закрыть", "expr": "menu_open", "body": []any{
+				map[string]any{"op": "set", "key": "menu_open", "value": false},
+			}},
+		}},
+		{"op": "say", "text": "дальше"},
+	}
+	src := string(ToLvns(&articy.Doc{Script: script}))
+	if strings.Contains(src, "__end") {
+		t.Fatalf("fall-through option turned into a jump to the end:\n%s", src)
+	}
+	if w := VerifyLvnsRoundTrip(script, []byte(src)); len(w) != 0 {
+		t.Fatalf("faithful sidecar flagged: %q\n%s", w, src)
+	}
+	rec, err := lvns.Convert(src)
+	if err != nil {
+		t.Fatalf("recompile failed: %v\n%s", err, src)
+	}
+	opt := rec.Script[0]["options"].([]any)[0].(map[string]any)
+	if _, hasGoto := opt["goto"]; hasGoto {
+		t.Fatalf("fall-through option gained a target: %v", opt)
+	}
+	if body, _ := opt["body"].([]any); len(body) != 1 {
+		t.Fatalf("body did not round-trip: %v", opt)
+	}
+	if opt["expr"] != "menu_open" {
+		t.Fatalf("arrow-less header lost its params: %v", opt)
+	}
+}
+
+// The guard still has to be LOUD when something really is lost: a body carrying
+// an op the block form can't express must show up as a warning, never silence.
+func TestVerifyLvnsRoundTripFlagsBodyLoss(t *testing.T) {
+	script := []articy.Cmd{
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "Спросить", "body": []any{
+				map[string]any{"op": "set", "key": "_once_1", "value": true},
+			}},
+		}},
+		{"op": "say", "text": "ответ"},
+	}
+	// A sidecar written the OLD way (body flattened to a bare target).
+	stale := []byte("- Спросить -> q1\n:q1\nответ\n")
+	warnings := VerifyLvnsRoundTrip(script, stale)
 	if len(warnings) == 0 {
 		t.Fatal("expected the guard to flag choice-body loss, got none")
 	}
-	joined := strings.Join(warnings, "\n")
-	if !strings.Contains(joined, "bodies") && !strings.Contains(joined, "set") {
-		t.Fatalf("warning doesn't mention the loss: %q", warnings)
+	if joined := strings.Join(warnings, "\n"); !strings.Contains(joined, "bodies") {
+		t.Fatalf("warning doesn't name the loss: %q", warnings)
 	}
 }
 
