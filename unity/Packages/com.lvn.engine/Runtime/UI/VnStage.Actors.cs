@@ -92,6 +92,21 @@ namespace Lvn.UI
             });
         }
 
+        /// <summary>The `clear` op: take every actor and obj off stage in one
+        /// command, leaving the backdrop, effects and HUD exactly as they are.
+        ///
+        /// <para>Each one goes through the ORDINARY hide, so nothing here needs
+        /// to know how hiding works: placement stays remembered (a later
+        /// `actor id=…` with no position returns her to the slot she left),
+        /// hotspots and draggables are dropped, and the exit is the same fade a
+        /// hand-written `show=false` would have played. The list is snapshotted
+        /// first — <see cref="ActorsOnStage"/> builds a new list — because the
+        /// hides mutate the placement map as they run.</para></summary>
+        private void ApplyClear()
+        {
+            foreach (var id in ActorsOnStage()) HideActor(id);
+        }
+
         private void OnWardrobeChanged(string entity) => RefreshActor(entity);
 
         private async Task ApplyActorAsync(JObject cmd)
