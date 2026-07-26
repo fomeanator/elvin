@@ -248,6 +248,74 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     }
   }
 
+  // ── живой подхват правок с сервера ────────────────────────────────────
+  //
+  // Модель, ради которой всё делалось: правишь и сразу видишь. Но правит не
+  // только человек за этим браузером — ИИ пишет в ТУ ЖЕ студию через API, и
+  // соседняя глава могла измениться минуту назад. Без опроса ребёнок смотрел на
+  // вчерашний текст и не понимал, почему «ИИ ничего не сделал», пока не нажмёт F5.
+  //
+  // Правила, которые здесь важнее самого опроса:
+  //   - НИКОГДА не затирать несохранённую правку. Если в редакторе есть свои
+  //     изменения, чужие только ОБЪЯВЛЯЮТСЯ, а решает автор;
+  //   - сравнивать с savedSrc (последняя версия, о которой мы договорились с
+  //     сервером), а не с текстом в редакторе: иначе собственное сохранение
+  //     выглядело бы как чужая правка;
+  //   - список файлов обновлять тоже, иначе созданная ИИ глава не появится.
+  const [serverAhead, setServerAhead] = useState(false);
+  const srcRef = useRef("");
+  useEffect(() => { srcRef.current = src; }, [src]);
+
+  useEffect(() => {
+    if (!titleId) return;
+    let stop = false;
+    const tick = async () => {
+      const name = curFileRef.current;
+      if (!name || importedRef.current) return;
+      try {
+        const r = await fetch("/content/scripts/" + name + "?v=" + Date.now(), { cache: "no-store" });
+        if (!r.ok || stop) return;
+        const txt = await r.text();
+        if (stop || curFileRef.current !== name) return;      // успели переключить файл
+        if (txt.trimStart().startsWith("{")) return;          // отдался .lvn, не исходник
+        if (txt === savedSrc.current) { setServerAhead(false); return; }
+        const mine = srcRef.current !== savedSrc.current;      // есть свои несохранённые правки
+        if (mine) {
+          setServerAhead(true);                               // молча не трогаем, показываем плашку
+          return;
+        }
+        savedSrc.current = txt;
+        setSrc(txt);
+        compileWithIncludes(txt);
+        setServerAhead(false);
+        notify("Файл обновился на сервере — подхватил", "");
+      } catch { /* сеть мигнула — просто следующий тик */ }
+    };
+    const id = setInterval(tick, 4000);
+    return () => { stop = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleId]);
+
+  // Список файлов тоже живой: ИИ мог создать новую главу или общий файл.
+  useEffect(() => {
+    if (!titleId || !creds.token) return;
+    const id = setInterval(() => { refreshFileList(); }, 15000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleId, creds.token]);
+
+  async function refreshFileList() {
+    try {
+      const m = await getManifest();
+      const t = (m.titles || []).find((x) => x.id === titleId);
+      if (t) setTitle((prev) => (JSON.stringify(prev) === JSON.stringify(t) ? prev : t));
+      const ids = [];
+      (t?.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => ids.push(c.id)));
+      if (ids.length) setPublished(new Set(ids));
+      await loadShared(ids);
+    } catch { /* не смогли — попробуем на следующем тике */ }
+  }
+
   // Компиляция «как надо»: сперва докачать включения, потом собрать.
   async function compileWithIncludes(text) {
     await ensureIncludes(text);
@@ -971,6 +1039,22 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
               <div className="ide-editor-row">
                 {/* onClick на обёртке, а не в MonacoEditor: переход по include не
                     должен зависеть от правок в чужом файле редактора. */}
+                {serverAhead && (
+                  <div className="ide-conflict">
+                    <span>
+                      Файл изменился на сервере, а у тебя есть несохранённые правки.
+                      Молча перезаписывать твоё я не буду.
+                    </span>
+                    <button className="btn-ghost sm" onClick={() => {
+                      // Явное решение автора: взять серверную версию и потерять свою.
+                      setServerAhead(false);
+                      if (sharedName) openShared(sharedName); else if (sel) openChapter(sel);
+                    }}>Взять серверную</button>
+                    <button className="btn-ghost sm" onClick={() => setServerAhead(false)}>
+                      Оставить мою
+                    </button>
+                  </div>
+                )}
                 <section className="ide-pane" onClick={onEditorClick}>
                   <MonacoEditor ref={editorRef} key={openFile} src={src} onChange={onEdit} diags={diags} jump={jump} catalog={catalog} extGrammar={extGrammar} onCaret={onCaretMove} readOnly={imported} />
                 </section>
