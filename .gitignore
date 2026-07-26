@@ -112,3 +112,8 @@ panel/public/play/lvns.wasm
 /unity/TestHost/Assets/InitTestScene*.unity
 /unity/TestHost/Assets/InitTestScene*.unity.meta
 /unity/TestHost/mono_crash.*.json
+
+# Личные заметки в docs/ — директория отслеживаемая, и широкий `git add`
+# утащил бы их в ПУБЛИЧНЫЙ репозиторий вместе с полезным.
+/docs/supergame.txt
+/docs/*.private.md
