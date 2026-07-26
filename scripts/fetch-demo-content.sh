@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fetch the demo content (the Sovet novel + showcase assets) into
+# Fetch the demo content (the showcase library: the LVN Tour + genre demos) into
 # server/content. The content lives in its own repo so the engine repo stays
 # code-sized; nothing in the engine needs it — dev servers and the release-APK
 # pipeline do.
