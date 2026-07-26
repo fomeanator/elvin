@@ -10,6 +10,10 @@ import { useJsonDoc, JsonCard } from "./admin/jsonTools.jsx";
 // LibraryHome's BundleModal, once the articy archive is staged+extracted.
 //
 // dir: the extracted project directory (see stageExtractArticy).
+// varsPath: the same bundle's staged -vars.xlsx, when the author picked one.
+// The import reads the emotion legend and the protagonist's roster art from
+// that sheet; a preview run without it warns about holes the import doesn't
+// have. Passing it makes the preview and the import agree.
 // initialTemplateName: the template to start editing from ("" → "cold").
 // onSaved(name): called after a successful PUT — LibraryHome sets
 // bundle.template to it and closes the mapper.
@@ -112,7 +116,7 @@ function collisionFor(report, who) {
   return "";
 }
 
-export default function ImportMapper({ dir, initialTemplateName, creds, notify, onSaved, onCancel }) {
+export default function ImportMapper({ dir, varsPath, initialTemplateName, creds, notify, onSaved, onCancel }) {
   const [templateName, setTemplateName] = useState(initialTemplateName || "");
   const [draft, setDraft] = useState(null);
   const [report, setReport] = useState(null);
@@ -131,7 +135,7 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
         const wantDefault = !initialTemplateName || initialTemplateName === "cold";
         const [tpl, rep, base] = await Promise.all([
           getImportTemplate(initialTemplateName || "cold", creds.token),
-          detectRoles(dir, { template: initialTemplateName }, creds.token),
+          detectRoles(dir, { template: initialTemplateName, vars: varsPath }, creds.token),
           // A PARTIAL template inherits the built-in staging lists; editing a
           // role must seed from those, not from undefined (which would save
           // `narrator_roles: []` and wipe all 9 default narrator roles).
@@ -149,12 +153,12 @@ export default function ImportMapper({ dir, initialTemplateName, creds, notify, 
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dir]);
+  }, [dir, varsPath]);
 
   async function recompute() {
     setRecomputing(true);
     try {
-      setReport(await detectRoles(dir, { draft }, creds.token));
+      setReport(await detectRoles(dir, { draft, vars: varsPath }, creds.token));
     } catch (e) {
       notify("✗ " + e.message, "err");
     } finally {
@@ -250,7 +254,14 @@ function MapperWarnings({ report, draft, onSceneMarkerChange, onEmotionChange, o
   const hitRate = report.scene_marker_hit_rate || 0;
   const showSceneWarning = report.scene_marker_candidates > 0 && hitRate < 0.5;
   const misses = report.emotion_color_misses || [];
-  if (!showSceneWarning && !misses.length && !(report.protagonist_without_art || []).length) return null;
+  // The preview builds its cast from the ARTICY roster only. When the bundle
+  // also carries a -vars.xlsx, the import injects the protagonist's roster art
+  // from the spreadsheet (server: xlsx_protagonist) — so "she'll stay
+  // invisible" is false, and pushing the author to enable the grey placeholder
+  // is a decision made on wrong data. Say what will actually happen instead.
+  const xlsxProtagonist = report.xlsx_protagonist || "";
+  const xlsxError = report.xlsx_error || "";
+  if (!showSceneWarning && !misses.length && !xlsxError && !(report.protagonist_without_art || []).length) return null;
   // unset (undefined/null) = ON: per the partner, a spriteless protagonist
   // is always a hole in the files, never a design — the placeholder makes
   // the hole visible. Explicit false opts a project out.
@@ -258,11 +269,27 @@ function MapperWarnings({ report, draft, onSceneMarkerChange, onEmotionChange, o
   const placeholderOn = pp !== false;
   return (
     <div className="mapper-warnings">
+      {xlsxError && (
+        <div className="mapper-warn">
+          ⚠ Таблица переменных (.xlsx) не прочиталась: {xlsxError}. Превью посчитано БЕЗ неё —
+          легенда эмоций и арт протагониста из ростера здесь не учтены, импорт даст другой результат.
+        </div>
+      )}
       {(report.protagonist_without_art || []).length > 0 && (
         <div className="mapper-warn">
-          ⚠ Без арта: {report.protagonist_without_art.join(", ")} — будет показан серым плейсхолдером
-          (дыра в файлах видна сразу). Правильный фикс — алиас на реального персонажа в таблице ниже
-          или дослать портрет.
+          {xlsxProtagonist ? (
+            <>
+              ℹ В articy-ростере нет арта для: {report.protagonist_without_art.join(", ")} — но таблица
+              переменных даёт её ростер «{xlsxProtagonist}», и импорт поставит её настоящей.
+              Плейсхолдер не понадобится.
+            </>
+          ) : (
+            <>
+              ⚠ Без арта: {report.protagonist_without_art.join(", ")} — будет показан серым плейсхолдером
+              (дыра в файлах видна сразу). Правильный фикс — алиас на реального персонажа в таблице ниже
+              или дослать портрет.
+            </>
+          )}
           <label className="mapper-checkbox-row">
             <input type="checkbox" checked={placeholderOn}
                    onChange={(e) => onPlaceholderProtagonistChange(e.target.checked)} />
@@ -283,7 +310,8 @@ function MapperWarnings({ report, draft, onSceneMarkerChange, onEmotionChange, o
       )}
       {misses.length > 0 && (
         <div className="mapper-warn">
-          ⚠ {misses.length} цвет(ов) маркера без эмоции:
+          ⚠ {misses.length} цвет(ов) маркера без эмоции
+          {report.xlsx_emotion_colors ? ` (легенда из .xlsx учтена: ${report.xlsx_emotion_colors} цв.)` : ""}:
           <div className="mapper-color-list">
             {misses.map((c) => (
               <label key={c.Hex} className="mapper-color-row">
