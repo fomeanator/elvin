@@ -8,6 +8,13 @@ package importer
 // decompiled twice (literally and compacted), and both are recompiled. The
 // compiled documents must be byte-identical — the invariant the whole pass
 // rests on, checked on content anyone can see.
+//
+// KNOWN BLIND SPOT: this corpus does not contain a single dotted assignment,
+// so terseAssignments — the pass written specifically for `Relationships.X`
+// counters — never fires here. A green run says nothing about it. That shape
+// is covered by table instead, next to the pass itself:
+// internal/lvns/compact_terse_test.go. Before trusting this gate for a pass,
+// check the corpus actually contains the shape the pass looks for.
 
 import (
 	"encoding/json"
