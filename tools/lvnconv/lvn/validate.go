@@ -116,6 +116,11 @@ var EnumValues = map[string]map[string][]string{
 	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
 }
 
+// bodySafeOps are the ops that survive a choice option's body: pure state plus
+// the jump. Everything else is replayed from the execution trace, which indexes
+// the SCRIPT — and a body command is not in the script.
+var bodySafeOps = map[string]bool{"set": true, "inc": true, "goto": true}
+
 // Builtin labels are resolved by the runtime and need no definition.
 var builtinLabels = map[string]bool{"__end": true}
 
@@ -413,9 +418,25 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				ref(i, "choice", oc.Str("goto"))
 				if body, ok := oc["body"].([]any); ok {
 					for _, b := range body {
-						if bm, ok := b.(map[string]any); ok {
-							walk(i, Cmd(bm))
+						bm, ok := b.(map[string]any)
+						if !ok {
+							continue
 						}
+						bc := Cmd(bm)
+						// A body command carries no script index, and the
+						// resume trace is a list of INDICES — so anything in a
+						// body that touches the stage plays live and then
+						// vanishes on save/restore: the scene rebuilds without
+						// it. `set`/`inc`/`goto` survive because they are state,
+						// not scenery. Both CAPABILITIES §8 and LANGUAGE §5
+						// advertised staging here as supported; it never was.
+						if bop := bc.Str("op"); bop != "" && !bodySafeOps[bop] {
+							addWarn(i, op, fmt.Sprintf(
+								"option %d body runs %q — a body command has no script index, so it is LOST on save/restore "+
+									"(the scene rebuilds without it). Keep bodies to set/inc/goto and move staging to a label.",
+								oi, bop))
+						}
+						walk(i, bc)
 					}
 				}
 			}

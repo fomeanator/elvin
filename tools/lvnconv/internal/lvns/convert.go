@@ -83,9 +83,12 @@ func Convert(src string) (*Doc, error) {
 	doc := &Doc{Script: []Cmd{}}
 	actorMaps := make(map[string]string)
 	defAnims := make(map[string]map[string]any) // defanim <name> … → params, expanded by `play`
-	nf := 0                                     // counter for synthesized fall-through labels (single-branch `if … -> …`)
-	var pendingChoice map[string]any            // `choice timeout=…` attrs awaiting the next `- option` block
-	pendingVoice := ""                          // `voice <url>` awaiting the next say line
+	// Fall-through labels for the single-branch `if … -> …` are minted the same
+	// derived, edit-stable way the block lowering uses (see synthNamer): they are
+	// save anchors, so a name must not depend on how many ifs precede it.
+	var nfNames *synthNamer
+	var pendingChoice map[string]any // `choice timeout=…` attrs awaiting the next `- option` block
+	pendingVoice := ""               // `voice <url>` awaiting the next say line
 
 	// Pre-process and clean lines. `srcNo` keeps each cleaned line's original
 	// 1-based source line number, so commands can map back to the editor.
@@ -150,7 +153,27 @@ func Convert(src string) (*Doc, error) {
 		doc.SrcLine = append(doc.SrcLine, line)
 	}
 
+	nfNames = newSynthNamer(lines)
+
 	defs := make(map[string]string) // def <name> <template…> → line-prefix macros
+
+	// expandDefs applies the `def` line-prefix macros to one line, repeatedly
+	// (a preset may expand into another). Shared by the statement loop below and
+	// by choice option bodies, so a preset works the same in both places.
+	expandDefs := func(line string, srcLine int) (string, error) {
+		for hops := 0; len(defs) > 0; hops++ {
+			w := firstField(line)
+			tmpl, ok := defs[w]
+			if !ok {
+				break
+			}
+			if hops >= 16 {
+				return "", fmt.Errorf("line %d: def: expansion loop via %q", srcLine, w)
+			}
+			line = strings.TrimSpace(tmpl + " " + strings.TrimSpace(line[len(w):]))
+		}
+		return line, nil
+	}
 
 	for i := 0; i < len(lines); {
 		line := lines[i]
@@ -177,20 +200,12 @@ func Convert(src string) (*Doc, error) {
 			continue
 		}
 		if len(defs) > 0 {
-			hops := 0
-			for {
-				w := firstField(line)
-				tmpl, ok := defs[w]
-				if !ok {
-					break
-				}
-				line = strings.TrimSpace(tmpl + " " + strings.TrimSpace(line[len(w):]))
-				if hops++; hops > 16 {
-					return nil, fmt.Errorf("line %d: def: expansion loop via %q", srcNo[i], w)
-				}
+			expanded, derr := expandDefs(line, srcNo[i])
+			if derr != nil {
+				return nil, derr
 			}
-			if hops > 0 {
-				lines[i] = line
+			if expanded != line {
+				line, lines[i] = expanded, expanded
 			}
 		}
 
@@ -225,6 +240,7 @@ func Convert(src string) (*Doc, error) {
 				return nil, fmt.Errorf("line %d: label cannot be empty", i+1)
 			}
 			emit(Cmd{"op": "label", "id": labelID}, srcNo[i])
+			nfNames.enter(line) // this label scopes the fall-through names below it
 			i++
 			continue
 		}
@@ -240,8 +256,49 @@ func Convert(src string) (*Doc, error) {
 					if err != nil {
 						return nil, fmt.Errorf("line %d: %w", j+1, err)
 					}
-					options = append(options, opt)
 					j++
+					// `- text -> label … {` … `}` — the option's BODY: the command
+					// list LvnPlayer.Choose executes on pick (a `_once_` flag, a
+					// stat bump, a stage tweak) before it jumps. Without this form
+					// the body had no source spelling at all and every re-save
+					// through the panel silently dropped it (audit O3: the
+					// "ask once" question pools never emptied).
+					if isOptionBlockOpen(curr) {
+						var body []string
+						closed := false
+						for ; j < len(lines); j++ {
+							if lines[j] == "}" {
+								closed = true
+								j++
+								break
+							}
+							bl, derr := expandDefs(lines[j], srcNo[j])
+							if derr != nil {
+								return nil, derr
+							}
+							body = append(body, bl)
+						}
+						if !closed {
+							return nil, fmt.Errorf("line %d: unclosed choice option body (missing '}')", srcNo[j-1])
+						}
+						cmds, berr := parseOptionBody(body)
+						if berr != nil {
+							return nil, fmt.Errorf("line %d: %w", srcNo[i], berr)
+						}
+						// The header's `-> label` is the jump the body ends with —
+						// keeping it on the option line is what makes the target
+						// still readable (and greppable) at a glance.
+						if t, ok := opt["goto"].(string); ok && t != "" {
+							cmds = append(cmds, Cmd{"op": "goto", "label": t})
+							delete(opt, "goto")
+						}
+						bodyAny := make([]any, len(cmds))
+						for k, c := range cmds {
+							bodyAny[k] = map[string]any(c)
+						}
+						opt["body"] = bodyAny
+					}
+					options = append(options, opt)
 				} else {
 					break
 				}
@@ -278,8 +335,7 @@ func Convert(src string) (*Doc, error) {
 			if cond == "" || target == "" {
 				return nil, fmt.Errorf("line %d: expected 'if <cond> -> <label>'", srcNo[i])
 			}
-			nf++
-			fall := fmt.Sprintf("__nf%d", nf)
+			fall := nfNames.name("nf", nfNames.site())
 			emit(Cmd{"op": "if", "expr": cond, "then": target, "else": fall}, srcNo[i])
 			emit(Cmd{"op": "label", "id": fall}, srcNo[i])
 			i++
@@ -1482,7 +1538,7 @@ func matchParen(rs []rune, open int) int {
 // flattened line list (see flattenInline).
 func expandLoops(srcLines []string) (string, error) {
 	type frame struct {
-		kind            string // "for" | "while" | "if" | "func"
+		kind            string // "for" | "while" | "if" | "func" | "opt"
 		loopLbl, endLbl string
 		idxVar          string // for-only
 		elseLbl         string // if-only
@@ -1490,7 +1546,7 @@ func expandLoops(srcLines []string) (string, error) {
 	}
 	var stack []frame
 	var out []string
-	ctr := 0
+	names := newSynthNamer(srcLines)
 	lastStmt := "" // last plain statement emitted, for the trailing-`return` check
 
 	cdepth := 0
@@ -1507,7 +1563,38 @@ func expandLoops(srcLines []string) (string, error) {
 			det = strings.TrimSpace(det[:ci])
 		}
 
+		// A choice option's `{ … }` body is NOT control flow: it is a literal
+		// command list carried inside the option (LvnPlayer.Choose runs it on
+		// pick). Nothing here may lower it — the lines pass through untouched so
+		// the choice scanner in Convert can pick them up verbatim.
+		if len(stack) > 0 && stack[len(stack)-1].kind == "opt" {
+			if det == "}" {
+				stack = stack[:len(stack)-1]
+				out = append(out, raw)
+				lastStmt = ""
+				continue
+			}
+			if strings.HasSuffix(det, "{") {
+				return "", fmt.Errorf("choice option body: nested blocks are not allowed (%q) — "+
+					"the body is a flat command list; move branching to a label and lead there with '-> label'", det)
+			}
+			out = append(out, raw)
+			if det != "" {
+				lastStmt = det
+			}
+			continue
+		}
+
+		names.enter(det) // a `:label` line opens the next naming scope
+
 		switch {
+		case isOptionBlockOpen(det):
+			// `- text -> label … {` opens an option body; see the guard above.
+			out = append(out, raw)
+			stack = append(stack, frame{kind: "opt"})
+			lastStmt = ""
+			continue
+
 		case strings.HasPrefix(det, "for ") && strings.HasSuffix(det, "{"):
 			inner := strings.TrimSpace(strings.TrimSuffix(det[4:], "{"))
 			pos := strings.Index(inner, " in ")
@@ -1519,12 +1606,12 @@ func expandLoops(srcLines []string) (string, error) {
 			if itemVar == "" || expr == "" {
 				return "", fmt.Errorf("for: empty variable or collection in %q", det)
 			}
-			ctr++
-			idx := fmt.Sprintf("__i%d", ctr)
-			sv := fmt.Sprintf("__src%d", ctr)
-			loop := fmt.Sprintf("__loop%d", ctr)
-			body := fmt.Sprintf("__body%d", ctr)
-			end := fmt.Sprintf("__end%d", ctr)
+			tag := names.site()
+			idx := names.name("i", tag)
+			sv := names.name("src", tag)
+			loop := names.name("loop", tag)
+			body := names.name("body", tag)
+			end := names.name("end", tag)
 			out = append(out,
 				fmt.Sprintf("set key=%s expr=%q", sv, expr),
 				fmt.Sprintf("set key=%s value=0", idx),
@@ -1540,10 +1627,10 @@ func expandLoops(srcLines []string) (string, error) {
 			if expr == "" {
 				return "", fmt.Errorf("while: empty condition in %q", det)
 			}
-			ctr++
-			loop := fmt.Sprintf("__loop%d", ctr)
-			body := fmt.Sprintf("__body%d", ctr)
-			end := fmt.Sprintf("__end%d", ctr)
+			tag := names.site()
+			loop := names.name("loop", tag)
+			body := names.name("body", tag)
+			end := names.name("end", tag)
 			out = append(out,
 				":"+loop,
 				fmt.Sprintf("if expr=%q then=%s else=%s", expr, body, end),
@@ -1560,8 +1647,9 @@ func expandLoops(srcLines []string) (string, error) {
 			if name == "" {
 				return "", fmt.Errorf("func: missing name in %q", det)
 			}
-			ctr++
-			skip := fmt.Sprintf("__fnskip%d", ctr)
+			// A procedure's skip label is derived from the function NAME, which
+			// is as stable as a name gets — a re-save never renames it.
+			skip := names.name("fnskip", name)
 			// A PROCEDURE definition (expression functions are blanked out before
 			// this pass): jump over the body in linear flow; the body is a
 			// `call`-only routine.
@@ -1573,10 +1661,10 @@ func expandLoops(srcLines []string) (string, error) {
 			if cond == "" {
 				return "", fmt.Errorf("if: empty condition in %q", det)
 			}
-			ctr++
-			thenL := fmt.Sprintf("__then%d", ctr)
-			elseL := fmt.Sprintf("__else%d", ctr)
-			endL := fmt.Sprintf("__end%d", ctr)
+			tag := names.site()
+			thenL := names.name("then", tag)
+			elseL := names.name("else", tag)
+			endL := names.name("end", tag)
 			out = append(out,
 				fmt.Sprintf("if expr=%q then=%s else=%s", cond, thenL, elseL),
 				":"+thenL,
@@ -1629,39 +1717,130 @@ func expandLoops(srcLines []string) (string, error) {
 	}
 
 	if len(stack) > 0 {
+		if stack[len(stack)-1].kind == "opt" {
+			return "", fmt.Errorf("unclosed choice option body (missing '}')")
+		}
 		return "", fmt.Errorf("unclosed for/while block (missing '}')")
 	}
 	return strings.Join(out, "\n"), nil
 }
 
+// ── synthetic label names ────────────────────────────────────────────────────
+//
+// The names the lowering mints (`__then…`, `__else…`, `__end…`, `__nf…`) are not
+// private to the compiler: they end up as `label` ops in the .lvn, and a SAVE is
+// anchored on the id of the nearest preceding label (LvnPlayer.AnchorOf). A name
+// that moves when an unrelated part of the chapter is edited therefore moves
+// every player's bookmark — audit O16, where one re-save renamed 837 labels
+// (`n37_000000` → `__nf1`) and the anchor of every save inside them silently
+// resolved somewhere else.
+//
+// So a name is derived, not counted: nearest preceding AUTHOR label + the
+// ordinal of the lowering site inside that label's scope. Editing scene 5 cannot
+// renumber scene 1, and re-saving an unchanged chapter is a no-op. Names are
+// checked against the labels the script already defines, so a lowering can never
+// shadow an author's label (or another lowering's).
+type synthNamer struct {
+	scope string
+	seq   map[string]int
+	taken map[string]bool
+}
+
+func newSynthNamer(lines []string) *synthNamer {
+	n := &synthNamer{scope: "head", seq: map[string]int{}, taken: map[string]bool{}}
+	for _, l := range lines {
+		if id, ok := sourceLabelID(l); ok {
+			n.taken[id] = true
+		}
+	}
+	return n
+}
+
+// enter opens a new naming scope when the line is a label the AUTHOR wrote (a
+// `__`-prefixed one is itself a lowering artifact and would reintroduce the
+// drift it exists to avoid).
+func (n *synthNamer) enter(line string) {
+	if id, ok := sourceLabelID(line); ok && !strings.HasPrefix(id, "__") {
+		n.scope = id
+	}
+}
+
+// site returns the tag shared by every label one lowering site needs (an `if`
+// mints then/else/end off a single tag, so they read as one unit).
+func (n *synthNamer) site() string {
+	n.seq[n.scope]++
+	return fmt.Sprintf("%s_%d", n.scope, n.seq[n.scope])
+}
+
+// name mints one collision-free label for a site tag.
+func (n *synthNamer) name(kind, tag string) string {
+	base := "__" + kind + "_" + tag
+	name := base
+	for i := 2; n.taken[name]; i++ {
+		name = fmt.Sprintf("%s_%d", base, i)
+	}
+	n.taken[name] = true
+	return name
+}
+
+// sourceLabelID reads a `:label` source line.
+func sourceLabelID(line string) (string, bool) {
+	t := strings.TrimSpace(stripLineComment(line))
+	if !strings.HasPrefix(t, ":") {
+		return "", false
+	}
+	id := strings.TrimSpace(t[1:])
+	return id, id != ""
+}
+
+// isOptionBlockOpen reports whether a line opens a choice option's `{ … }` body:
+// an option line (`- text …`, never the `->` goto) whose LAST character is the
+// brace. Requiring the brace to end the line is what keeps option text free to
+// contain `{expr}` interpolation — `- Осталось {gold} монет -> shop` is not a
+// block, and a text ending in a bare `{` is not a thing an author writes.
+func isOptionBlockOpen(det string) bool {
+	return strings.HasPrefix(det, "-") && !strings.HasPrefix(det, "->") && strings.HasSuffix(det, "{")
+}
+
 func parseChoiceOption(line string) (map[string]any, error) {
 	text := strings.TrimSpace(line[1:]) // strip '-'
-	arrowIdx := strings.Index(text, "->")
-	if arrowIdx == -1 {
-		return nil, fmt.Errorf("choice option must have a target label (use '-> label')")
-	}
-	optText := strings.TrimSpace(text[:arrowIdx])
-	if optText == "" {
-		return nil, fmt.Errorf("choice option text cannot be empty")
-	}
-	rest := strings.TrimSpace(text[arrowIdx+2:])
-	if rest == "" {
-		return nil, fmt.Errorf("choice option must specify a target label after '->'")
+	// A trailing `{` opens the option's body block — the caller collects it; the
+	// brace is not part of the option line itself.
+	hasBody := isOptionBlockOpen(strings.TrimSpace(line))
+	if hasBody {
+		text = strings.TrimSpace(strings.TrimSuffix(text, "{"))
 	}
 
-	spaceIdx := strings.IndexAny(rest, " \t")
-	var targetLabel string
-	var paramsStr string
-	if spaceIdx == -1 {
-		targetLabel = rest
+	var optText, targetLabel, paramsStr string
+	if arrowIdx := strings.Index(text, "->"); arrowIdx >= 0 {
+		optText = strings.TrimSpace(text[:arrowIdx])
+		rest := strings.TrimSpace(text[arrowIdx+2:])
+		if rest == "" {
+			return nil, fmt.Errorf("choice option must specify a target label after '->'")
+		}
+		if spaceIdx := strings.IndexAny(rest, " \t"); spaceIdx == -1 {
+			targetLabel = rest
+		} else {
+			targetLabel = rest[:spaceIdx]
+			paramsStr = strings.TrimSpace(rest[spaceIdx+1:])
+		}
 	} else {
-		targetLabel = rest[:spaceIdx]
-		paramsStr = strings.TrimSpace(rest[spaceIdx+1:])
+		if !hasBody {
+			return nil, fmt.Errorf("choice option must have a target label (use '-> label')")
+		}
+		// Body-only option: the body IS the whole action and the flow falls
+		// through past the choice once it has run, so there is no target to name.
+		optText, paramsStr = splitOptionParams(text)
+	}
+	if optText == "" {
+		return nil, fmt.Errorf("choice option text cannot be empty")
 	}
 
 	opt := map[string]any{
 		"text": stripQuotes(optText),
-		"goto": targetLabel,
+	}
+	if targetLabel != "" {
+		opt["goto"] = targetLabel
 	}
 
 	if paramsStr != "" {
@@ -1708,6 +1887,63 @@ func parseChoiceOption(line string) (map[string]any, error) {
 
 var reWalletCost = regexp.MustCompile(`^([0-9]+(?:\.[0-9]+)?)\s+(\S+)$`)
 var reEffect = regexp.MustCompile(`^(.+):([+-][0-9]+)$`)
+var reOptParam = regexp.MustCompile(`(^|[ \t])[a-z_][a-z0-9_]*=`)
+
+// splitOptionParams separates a body-only option's text from its trailing
+// `key=value …` attributes. Reachable only when there is no `-> label` to split
+// on, so the split has to be found in the text: the first token that both LOOKS
+// like an attribute AND parses as one opens the parameter run — prose that
+// merely contains an `=` stays prose.
+func splitOptionParams(s string) (text, params string) {
+	for _, loc := range reOptParam.FindAllStringIndex(s, -1) {
+		at := loc[0]
+		for at < len(s) && (s[at] == ' ' || s[at] == '\t') {
+			at++
+		}
+		cand := strings.TrimSpace(s[at:])
+		if _, err := parseKeyValue(cand); err == nil {
+			return strings.TrimSpace(s[:at]), cand
+		}
+	}
+	return strings.TrimSpace(s), ""
+}
+
+// parseOptionBody compiles a choice option's `{ … }` block into the command list
+// the runtime runs on pick. The body is FLAT: LvnPlayer.Choose walks it once
+// (set/inc apply data, a goto jumps and stops the walk, anything else goes to
+// the stage), so control flow has no meaning there and is rejected at compile
+// time instead of vanishing silently at runtime.
+//
+// Staging inside a body is NOT rejected here, on purpose. It runs — it just is
+// not replayed after a load (the resume trace is a list of script indices and a
+// body command has no index), so lvn.Validate warns about it. Refusing it at
+// compile time would make an existing .lvn carrying one impossible to decompile
+// and recompile, and round-trip totality is the stronger invariant: a chapter
+// nobody can re-save is a chapter whose author loses work.
+func parseOptionBody(lines []string) ([]Cmd, error) {
+	doc, err := Convert(strings.Join(lines, "\n"))
+	if err != nil {
+		return nil, fmt.Errorf("choice option body: %w", err)
+	}
+	for _, c := range doc.Script {
+		if op, _ := c["op"].(string); optionBodyDenied[op] {
+			return nil, fmt.Errorf("choice option body: %q does not run inside an option body "+
+				"(it belongs to set/inc and a final '-> label') — move it behind a label", op)
+		}
+	}
+	return doc.Script, nil
+}
+
+// optionBodyDenied are the ops LvnPlayer.Choose does NOT dispatch inside a body:
+// everything the player handles in its own loop (conformance/ops-owners.json,
+// csharp "player"/"player+stage") except set/inc/goto, which Choose implements
+// explicitly. Handed to a body they would be forwarded to the stage and disappear
+// without a trace.
+var optionBodyDenied = map[string]bool{
+	"say": true, "choice": true, "label": true, "if": true,
+	"call": true, "return": true, "wait": true, "input": true,
+	"preload": true, "load": true,
+}
 
 func parseKeyValue(s string) (map[string]any, error) {
 	res := make(map[string]any)

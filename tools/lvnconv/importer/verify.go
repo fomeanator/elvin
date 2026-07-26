@@ -73,7 +73,45 @@ func VerifyLvnsRoundTrip(script []articy.Cmd, lvnsData []byte) []string {
 			out = append(out, fmt.Sprintf("lvns sidecar drift: %s %d→%d", probe.label, o, r))
 		}
 	}
+	// Counting wallet_cost's PRESENCE is not enough: a price that survives as
+	// a bare string ("5 soft coins" — the parser's amount+currency match needs
+	// a single-word currency) still counts, and LvnPlayer.Choose spends only a
+	// {currency, amount} OBJECT, so the option is silently FREE. Check the
+	// shape, which is the part money actually depends on.
+	if o, r := pricedOptionCount(cmdsAsOps(script)), pricedOptionCount(docOps(rec)); o != r {
+		out = append(out, fmt.Sprintf(
+			"lvns sidecar drift: choice options that still CHARGE %d→%d (a wallet_cost that recompiles to a string is not spent — the pick becomes free)", o, r))
+	}
 	return out
+}
+
+// pricedOptionCount counts options carrying a wallet_cost the runtime can
+// actually charge: an object with a currency and an amount.
+func pricedOptionCount(ops []map[string]any) int {
+	n := 0
+	for _, c := range ops {
+		if c["op"] != "choice" {
+			continue
+		}
+		for _, o := range asAnyList(c["options"]) {
+			m, ok := toMap(o)
+			if !ok {
+				continue
+			}
+			wc, ok := toMap(m["wallet_cost"])
+			if !ok {
+				continue
+			}
+			cur, _ := wc["currency"].(string)
+			if cur == "" {
+				cur, _ = wc["var"].(string)
+			}
+			if cur != "" && wc["amount"] != nil {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 func docOps(d *lvns.Doc) []map[string]any {

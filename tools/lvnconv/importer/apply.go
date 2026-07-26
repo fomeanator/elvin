@@ -35,7 +35,10 @@ func WriteToContentDir(contentDir string, res *Result) error {
 			return fmt.Errorf("write %s: %w", sc.Rel, err)
 		}
 	}
-	if res.ScriptRel != "" {
+	// len(res.Lvn) > 0 matters: RunBundle moves a single-chapter payload into
+	// res.Scripts (normalizeSingleChapterResult) and keeps ScriptRel as the
+	// title's path — writing it again here would truncate the file to zero.
+	if res.ScriptRel != "" && len(res.Lvn) > 0 {
 		if err := write(res.ScriptRel, res.Lvn); err != nil {
 			return fmt.Errorf("write script: %w", err)
 		}
