@@ -630,9 +630,16 @@ function render(ev) {
       setTimeout(() => render(player.advance()), ev.ms);
       break;
     case "end":
+      try { if (saveKey) localStorage.removeItem(saveKey); } catch {} // finished = clean slate
+      // В режиме игры конец главы — не конец истории: следующая начинается сама.
+      // Иначе шесть глав пришлось бы открывать шестью ссылками, и «поиграть в
+      // свою игру» перестало бы быть одним действием.
+      if (playQueue.length && playQueue[playIndex + 1]) {
+        playChapterAt(playIndex + 1);
+        break;
+      }
       els.dialogue.hidden = true;
       els.endcard.hidden = false;
-      try { if (saveKey) localStorage.removeItem(saveKey); } catch {} // finished = clean slate
       break;
   }
 }
@@ -802,7 +809,49 @@ els.editor.addEventListener("input", () => {
 });
 const repaint = attachHighlight(els.editor, document.getElementById("backdrop"));
 
+// ── режим ИГРЫ: опубликованная новелла целиком ─────────────────────────────
+//
+// Плейграунд умел ровно одно: сыграть исходник из хэша. То есть опубликованную
+// новеллу в браузере сыграть было НЕЧЕМ — автор (тем более ребёнок) мог её
+// написать, но не мог нажать «играть». Кнопки Play не существовало, потому что
+// не существовало страницы, которая играет манифест.
+//
+// #play=<id-новеллы> берёт манифест, идёт по главам по порядку и играет
+// скомпилированные .lvn, а не исходник: играется РОВНО то, что уедет игроку.
+let playQueue = [];   // очередь глав в режиме игры
+let playIndex = 0;
+
+async function bootPublished(titleId) {
+  document.body.classList.add("play-only"); // редактор в этом режиме ни при чём
+  const m = await (await fetch("/v1/content/manifest?v=" + Date.now(), { cache: "no-store" })).json();
+  const t = (m.titles || []).find((x) => x.id === titleId);
+  if (!t) { setStatus("новелла «" + titleId + "» не найдена", "err"); return; }
+  playQueue = [];
+  (t.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => playQueue.push(c)));
+  playQueue.sort((a, b) => (a.number || 0) - (b.number || 0));
+  if (!playQueue.length) { setStatus("в новелле нет глав", "err"); return; }
+  playIndex = 0;
+  document.title = t.name || titleId;
+  await playChapterAt(0);
+}
+
+async function playChapterAt(i) {
+  const c = playQueue[i];
+  if (!c) return;
+  playIndex = i;
+  stopTimers();
+  const doc = await (await fetch(c.script_url + "?v=" + Date.now(), { cache: "no-store" })).json();
+  saveKey = "lvn-play-save:" + c.id;
+  resetStage();
+  history = [];
+  setStatus((c.number || i + 1) + " · " + (c.name || c.id), "ok");
+  player = new Player(doc, { onStage: applyStage });
+  render(player.advance());
+}
+
 function boot() {
+  const play = /#play=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if (play) { bootPublished(play[1]); return; }
   const m = /#s=(.+)/.exec(location.hash);
   if (m) {
     try {
