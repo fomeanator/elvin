@@ -34,8 +34,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/importer"
@@ -337,10 +339,153 @@ func (s *server) publishSharedFile(w http.ResponseWriter, req publishReq) {
 		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Правка общего файла ОБЯЗАНА пересобрать главы, которые его подключают.
+	// Иначе получается вранье: автор поправил боевую формулу, студия сказала
+	// «сохранено», а на телефоне прежняя игра — потому что играется
+	// СКОМПИЛИРОВАННЫЙ .lvn, а он остался вчерашним. И заметно это не сразу, а
+	// когда перестаёшь понимать, почему правки «не работают».
+	rebuilt, failed := s.rebuildDependents(req.Path)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "kind": "shared", "path": rel,
-		"note": "общий файл сохранён; он компилируется вместе с главой, которая его подключает",
+		"rebuilt": rebuilt, "failed": failed,
+		"note": "общий файл сохранён; главы, которые его подключают, пересобраны",
 	})
+}
+
+// handleRebuild — та же пересборка, вызываемая явно: студия сохраняет общий файл
+// обычной ручкой ассетов (PUT /v1/admin/assets/), а не через publish, и без
+// этого вызова правка механик не доезжала до игры.
+func (s *server) handleRebuild(w http.ResponseWriter, r *http.Request) {
+	if s.adminToken == "" {
+		http.Error(w, "admin disabled", http.StatusForbidden)
+		return
+	}
+	if !bearerOK(r, s.adminToken) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	name := path.Base(strings.TrimSpace(req.Path))
+	if !sharedNameRe.MatchString(name) {
+		http.Error(w, `path must be a .lvns file name`, http.StatusBadRequest)
+		return
+	}
+	rebuilt, failed := s.rebuildDependents(name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": len(failed) == 0, "path": "scripts/" + name,
+		"rebuilt": rebuilt, "failed": failed,
+	})
+}
+
+// reIncludeLine ловит директиву подключения в исходнике главы. Кавычки
+// обязательны — так же, как в самом компиляторе.
+var reIncludeLine = regexp.MustCompile(`(?m)^[ \t]*include[ \t]+"([^"]+)"[ \t]*$`)
+
+// reSceneLine отличает ГЛАВУ от библиотеки: главa объявляет сцену, библиотека
+// только даёт таблицы и функции.
+var reSceneLine = regexp.MustCompile(`(?m)^[ \t]*scene[ :][ \t]*\S`)
+
+// rebuildDependents перекомпилирует каждую главу, которая ПРЯМО ИЛИ ЧЕРЕЗ ЦЕПОЧКУ
+// подключает изменённый файл, и переписывает её .lvn.
+//
+// Транзитивность здесь не роскошь: общий файл сам может подключать другой
+// (механики → таблицы), и пересборка «только прямых» тихо оставила бы половину
+// глав на старом коде.
+//
+// Глава, которая перестала компилироваться, НЕ переписывается: на диске остаётся
+// последняя рабочая версия, а имя и ошибка уезжают в ответ. Иначе одна опечатка
+// в общем файле обрушила бы сразу всю игру, и играть стало бы нечем.
+func (s *server) rebuildDependents(changed string) ([]string, map[string]string) {
+	dir := filepath.Join(s.content, "scripts")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil
+	}
+
+	// Кто что подключает, по именам файлов, и кто из них ГЛАВА.
+	includes := map[string][]string{}
+	isChapter := map[string]bool{}
+	var sources []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".lvns") || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		raw, rerr := os.ReadFile(filepath.Join(dir, e.Name()))
+		if rerr != nil {
+			continue
+		}
+		sources = append(sources, e.Name())
+		// Глава объявляет сцену; библиотека — нет. Пересобирать библиотеку
+		// отдельно бессмысленно и вредно: у неё нет `scene`, компиляция даёт
+		// .lvn, который никто не играет, и мусор в каталоге контента. Первая
+		// версия так и делала — поймал тест на цепочке включений.
+		if reSceneLine.MatchString(string(raw)) {
+			isChapter[e.Name()] = true
+		}
+		for _, m := range reIncludeLine.FindAllStringSubmatch(string(raw), -1) {
+			includes[e.Name()] = append(includes[e.Name()], path.Base(m[1]))
+		}
+	}
+
+	// Транзитивное «зависит от changed».
+	affected := map[string]bool{path.Base(changed): true}
+	for range sources { // граница: длиннее цепочки быть не может
+		grew := false
+		for f, deps := range includes {
+			if affected[f] {
+				continue
+			}
+			for _, d := range deps {
+				if affected[d] {
+					affected[f] = true
+					grew = true
+					break
+				}
+			}
+		}
+		if !grew {
+			break
+		}
+	}
+
+	var rebuilt []string
+	failed := map[string]string{}
+	sort.Strings(sources)
+	for _, f := range sources {
+		if f == path.Base(changed) || !affected[f] || !isChapter[f] {
+			continue
+		}
+		src := filepath.Join(dir, f)
+		compiled, cerr := importer.CompileLvnsFile(src)
+		if cerr != nil {
+			failed[f] = cerr.Error()
+			continue
+		}
+		rel := "scripts/" + strings.TrimSuffix(f, ".lvns") + ".lvn"
+		if fnd := s.checkLvn(rel, compiled); fnd.blocked() {
+			failed[f] = strings.Join(fnd.Errors, "; ")
+			continue
+		}
+		lk := s.writeLock()
+		lk.Lock()
+		werr := s.writeContentFile(rel, compiled)
+		lk.Unlock()
+		if werr != nil {
+			failed[f] = werr.Error()
+			continue
+		}
+		rebuilt = append(rebuilt, rel)
+	}
+	if len(failed) == 0 {
+		failed = nil
+	}
+	return rebuilt, failed
 }
 
 // compileInScripts компилирует присланный исходник так, как его увидит студия:
