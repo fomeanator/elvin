@@ -292,6 +292,14 @@ namespace Lvn.Content
         /// (<c>expedition</c>/<c>date</c>/<c>reality</c>). Purely informational for
         /// the engine; access/completion is driven by <see cref="unlock"/> and the
         /// script's <c>global.*</c> flags.</summary>
+        /// <summary>Who owns this title — an author id the product services
+        /// resolve payouts and per-author statistics through. The client never
+        /// sends it: the SERVER reads it from the manifest and stamps it onto
+        /// every wallet entry and analytics event as they are written, because
+        /// "which title did this money move in, and whose was it" cannot be
+        /// reconstructed afterwards. Empty means unattributed, never guessed.</summary>
+        public string author;
+
         public string type;
         /// <summary>Detail-card presentation on the hub's title screen: big image +
         /// description + a Play button. Falls back to name/subtitle/cover_url.</summary>
