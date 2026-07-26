@@ -72,13 +72,13 @@
       "op": "label"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_toggle_a_1",
       "expr": "a == 0",
       "op": "if",
       "then": "a_on"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_toggle_a_1",
       "op": "label"
     },
     {
@@ -116,13 +116,13 @@
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_toggle_b_1",
       "expr": "b == 0",
       "op": "if",
       "then": "b_on"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_toggle_b_1",
       "op": "label"
     },
     {
@@ -160,13 +160,13 @@
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_toggle_c_1",
       "expr": "c == 0",
       "op": "if",
       "then": "c_on"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_toggle_c_1",
       "op": "label"
     },
     {
@@ -221,13 +221,13 @@
       "op": "label"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_check_1",
       "expr": "a == 1",
       "op": "if",
       "then": "ck2"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_check_1",
       "op": "label"
     },
     {
@@ -239,13 +239,13 @@
       "op": "label"
     },
     {
-      "else": "__nf5",
+      "else": "__nf_ck2_1",
       "expr": "b == 0",
       "op": "if",
       "then": "ck3"
     },
     {
-      "id": "__nf5",
+      "id": "__nf_ck2_1",
       "op": "label"
     },
     {
@@ -257,13 +257,13 @@
       "op": "label"
     },
     {
-      "else": "__nf6",
+      "else": "__nf_ck3_1",
       "expr": "c == 1",
       "op": "if",
       "then": "solved"
     },
     {
-      "id": "__nf6",
+      "id": "__nf_ck3_1",
       "op": "label"
     },
     {

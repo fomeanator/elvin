@@ -23,7 +23,7 @@ conformance/
 
 | Runner | Location | Runs |
 |---|---|---|
-| Op-table guard (Go) | `tools/lvnconv/lvn/conformance_test.go` | `ops-owners.json` vs `KnownOps`, vs the real C# dispatch sites, vs the real JS dispatch sites; plus corpus well-formedness |
+| Op-table guard (Go) | `tools/lvnconv/lvn/conformance_test.go` | `ops-owners.json` vs `KnownOps`, vs the real C# dispatch sites, vs the C# `StagingOps.Known` registry, vs the real JS dispatch sites; plus corpus well-formedness |
 | C# runtime (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/ConformanceCorpusTests.cs` | every case whose `runtimes` contains `csharp` |
 | C# dispatch (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/OpDispatchContractTests.cs` | one probe command per op against a BARE engine: flow ops must be consumed, staging ops forwarded verbatim |
 | JS playground | `tools/lvn-lang/test/conformance.test.js` | every case whose `runtimes` contains `js` |
@@ -51,7 +51,10 @@ What goes red, and when:
 * claim `"csharp": "player"` for an op the player actually forwards to the stage
   (or vice versa) → **red** (`OpDispatchContractTests`, C# side, behavioural);
 * change what the playground implements without updating the `js` column →
-  **red** (`TestJsDispatchMatchesTable`).
+  **red** (`TestJsDispatchMatchesTable`);
+* add it to `KnownOps` without adding it to the public C# registry
+  `Lvn.StagingOps.Known` → **red** (`TestCSharpKnownOpsMirrorKnownOps`; see
+  §*The fifth mirror* below).
 
 ## Case format
 
@@ -191,13 +194,39 @@ a dotted key nests. Still missing in the browser evaluator: map literals
 (`{a: 1}`), which `LvnExpression` parses — no authored content uses them, and a
 case would be red on arrival.
 
-One more mirror, deliberately **not** pinned here because pinning it would be red on
-arrival: `Lvn.StagingOps.Known` (`com.lvn.engine/Runtime/StagingOps.cs`) is a public
-`HashSet<string>` whose doc comment says it "mirrors the Go validator's registry".
-It holds 24 of the 30 ops — `anim`, `input`, `load`, `save`, `text` and
-`wardrobe_show` are missing — and `CameraRigTests.cs` asserts the count is 24, so
-the drift is frozen by a test. Nothing in the runtime dispatches on it (only tests
-read it), which is why the gap has no visible symptom yet; a host that asks it
-"is this a real op?" gets a false negative six times out of thirty. Whoever fixes
-it should add the row to `TestOpOwnersCoverKnownOps`'s neighbourhood in
-`tools/lvnconv/lvn/conformance_test.go` so it can never drift again.
+### The fifth mirror: `Lvn.StagingOps.Known` — closed
+
+`Lvn.StagingOps.Known` (`com.lvn.engine/Runtime/StagingOps.cs`) is a public
+`HashSet<string>` whose doc comment claimed it "mirrors the Go validator's
+registry". It held **24 of the 30** ops — `anim`, `input`, `load`, `save`, `text`
+and `wardrobe_show` were missing — and `CameraRigTests.cs` asserted
+`Known.Count == 24`, so the drift was *frozen by a test*: the assertion stayed
+green on the bug and would have gone red on the fix. Nothing in the runtime
+dispatches on the set (only tests read it), which is why a six-op hole had no
+symptom; a host that asks it "is this a real op?" got a false negative six times
+out of thirty.
+
+Both halves are fixed. The set holds the whole dictionary, its doc comment now
+states what it actually means (*is this name part of the language, or is it
+mine?* — flow ops included, so "staging" in the type name is a legacy label, not
+a claim about which ops reach the stage), and the count assertion is gone,
+replaced by two diffs against the source of truth:
+
+* `TestCSharpKnownOpsMirrorKnownOps` (Go, this file's neighbourhood) reads the
+  literal initializer out of `StagingOps.cs` — the same source-scraping trick the
+  dispatch checks use — and diffs it against `KnownOps`, in both directions. An
+  op added to the language and not to the mirror is red before any editor opens;
+  a stale op left behind in the mirror is red too.
+* `CameraRigTests.StagingOpsMatchTheSharedOpTable` (C#, EditMode) diffs the same
+  set against `ops-owners.json`, ignoring itself when `/conformance` is absent
+  (the UPM install). A short presence-only probe test is the floor there.
+
+`TestGuardBitesOnADriftedOp` proves the Go half bites: it runs the check against a
+doctored dictionary (an op the mirror lacks) and a doctored mirror (an op the
+language lacks) and fails if either goes unreported.
+
+The type keeps its name: it has been public API since 0.1.0 and `CONTRIBUTING.md`
+names it as the C# half of "a new op must be registered". Deleting it was the
+alternative — nothing in the engine dispatches on it — but a host asking "is this
+op mine?" in `ApplyStage` is a real question, and the answer belongs in the
+engine, correct, rather than nowhere.
