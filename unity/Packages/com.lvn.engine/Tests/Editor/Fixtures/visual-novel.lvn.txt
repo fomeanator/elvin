@@ -168,23 +168,23 @@
       "who": "Мара"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_kitchen_1",
       "expr": "warmth \u003e= 2",
       "op": "if",
       "then": "end_good"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_kitchen_1",
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_kitchen_2",
       "expr": "told_truth == 1",
       "op": "if",
       "then": "end_ok"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_kitchen_2",
       "op": "label"
     },
     {

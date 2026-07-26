@@ -46,6 +46,28 @@ namespace Lvn.Editor
             "set", "inc", "hint",
             "call", "return",
             "anim", "move",
+            // Added after a drift audit: this set had fallen six entries behind
+            // convert.go, and a word that is NOT in it silently becomes a
+            // DIALOGUE LINE (see the narration branch below). So `input var=…`
+            // and `wardrobe_show char=…` used to print themselves on screen in
+            // the Unity import path. Both compile correctly through the generic
+            // key=value tail, so listing them is the whole fix.
+            "input", "wardrobe_show",
+            // `ext <op> k=v` declares a HOST op; without it the line became narration
+            // and a call into the game's own C# printed itself as dialogue.
+            "ext",
+        };
+
+        // Recognised by the .lvns language but NOT lowered here. Each needs
+        // multi-line state this single-pass compiler does not keep (a pending
+        // voice url, a table of named animations), so implementing them is a
+        // real change, not a missing case label. Until then they must FAIL, not
+        // silently become dialogue.
+        static readonly Dictionary<string, string> UnsupportedSourceOps = new Dictionary<string, string>
+        {
+            ["voice"] = "voice-over attaches to the following line, which needs cross-line state",
+            ["defanim"] = "named animations need a definition table",
+            ["play"] = "it expands a `defanim` definition, which this importer does not keep",
         };
 
         /// <summary>Compile source to indented .lvn JSON ({scene?, script}).</summary>
@@ -65,7 +87,6 @@ namespace Lvn.Editor
             string scene = null;
             var script = new JArray();
             var actorMaps = new Dictionary<string, string>();
-            int nf = 0;
 
             // Pre-process lines: strip // comments (guarding URLs), skip blanks/#,
             // and buffer multi-line «…» strings into one logical line.
@@ -119,6 +140,10 @@ namespace Lvn.Editor
             }
             if (cbuf.Length > 0) lines.Add(cbuf.ToString().Trim());
 
+            // Fall-through labels for `if … -> …` are minted the same derived,
+            // edit-stable way the block lowering uses: they are save anchors.
+            var nfNames = new SynthNamer(lines);
+
             for (int i = 0; i < lines.Count;)
             {
                 string line = lines[i];
@@ -152,6 +177,7 @@ namespace Lvn.Editor
                     if (labelId == "")
                         throw new LvnsCompileException($"line {i + 1}: label cannot be empty");
                     script.Add(new JObject { ["op"] = "label", ["id"] = labelId });
+                    nfNames.Enter(line); // this label scopes the fall-through names below it
                     i++; continue;
                 }
 
@@ -165,8 +191,36 @@ namespace Lvn.Editor
                         string curr = lines[j];
                         if (curr.StartsWith("-") && !curr.StartsWith("->"))
                         {
-                            options.Add(ParseChoiceOption(curr, j + 1));
+                            JObject opt = ParseChoiceOption(curr, j + 1);
                             j++;
+                            // `- text -> label … {` … `}` — the option's BODY: the
+                            // commands LvnPlayer.Choose runs on pick, before the
+                            // jump. Without this form the body had no source
+                            // spelling and a re-save silently dropped it.
+                            if (IsOptionBlockOpen(curr))
+                            {
+                                var bodySrc = new List<string>();
+                                bool closed = false;
+                                for (; j < lines.Count; j++)
+                                {
+                                    if (lines[j] == "}") { closed = true; j++; break; }
+                                    bodySrc.Add(lines[j]);
+                                }
+                                if (!closed)
+                                    throw new LvnsCompileException($"line {j}: unclosed choice option body (missing '}}')");
+                                JArray body = ParseOptionBody(bodySrc);
+                                // The header's `-> label` is the jump the body ends
+                                // with — keeping it on the option line is what makes
+                                // the target readable at a glance.
+                                var target = (string)opt["goto"];
+                                if (!string.IsNullOrEmpty(target))
+                                {
+                                    body.Add(new JObject { ["op"] = "goto", ["label"] = target });
+                                    opt.Remove("goto");
+                                }
+                                opt["body"] = body;
+                            }
+                            options.Add(opt);
                         }
                         else break;
                     }
@@ -193,8 +247,7 @@ namespace Lvn.Editor
                     string target = rest.Substring(ai + 2).Trim();
                     if (cond == "" || target == "")
                         throw new LvnsCompileException($"line {i + 1}: expected 'if <cond> -> <label>'");
-                    nf++;
-                    string fall = $"__nf{nf}";
+                    string fall = nfNames.Name("nf", nfNames.Site());
                     script.Add(new JObject { ["op"] = "if", ["expr"] = cond, ["then"] = target, ["else"] = fall });
                     script.Add(new JObject { ["op"] = "label", ["id"] = fall });
                     i++; continue;
@@ -210,6 +263,16 @@ namespace Lvn.Editor
                 // 5. commands + dialogue
                 string[] words = SplitFields(line);
                 string firstWord = words.Length > 0 ? words[0] : "";
+
+                // .lvns constructs the reference compiler lowers but this one does
+                // not implement. Left unlisted they fell into the narration branch
+                // and PRINTED THEMSELVES to the player — the worst possible
+                // outcome, because nothing errors and the bug ships. Say so
+                // instead: an import error names the construct and the way out.
+                if (UnsupportedSourceOps.TryGetValue(firstWord, out var why))
+                    throw new LvnsCompileException(
+                        $"line {i + 1}: `{firstWord}` is not supported by the Unity .lvns importer — {why}. " +
+                        "Compile with `lvnconv convert` and import the resulting .lvn instead.");
 
                 bool isCommand = false;
                 JObject cmd = null;
@@ -334,6 +397,26 @@ namespace Lvn.Editor
                     else if ((firstWord == "goto" || firstWord == "call") && words.Length == 2)
                     {
                         cmd = new JObject { ["op"] = firstWord, ["label"] = words[1] }; isCommand = true;
+                    }
+                    else if (firstWord == "ext")
+                    {
+                        // `ext <op> k=v …` declares a HOST op: emit it verbatim.
+                        // Without this branch the whole line fell into narration
+                        // and a call into the game's own C# printed itself as
+                        // dialogue instead of running.
+                        string rest = line.Substring(3).Trim();
+                        var extWords = rest.Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+                        if (extWords.Length == 0)
+                            throw new LvnsCompileException($"line {i + 1}: `ext` needs an op name");
+                        cmd = new JObject { ["op"] = extWords[0] };
+                        if (extWords.Length > 1)
+                        {
+                            var ep = ParseKeyValueSafe(extWords[1].Trim());
+                            if (ep == null)
+                                throw new LvnsCompileException($"line {i + 1}: `ext {extWords[0]}` expects key=value arguments");
+                            foreach (var kv in ep) cmd[kv.Key] = Tok(kv.Value);
+                        }
+                        isCommand = true;
                     }
                     else if (firstWord != "return" && firstWord != "goto" && firstWord != "call")
                     {
@@ -479,22 +562,91 @@ namespace Lvn.Editor
 
         struct Frame
         {
-            public string kind;
+            public string kind; // "for" | "while" | "if" | "func" | "opt"
             public string loopLbl, endLbl;
             public string idxVar;
             public string elseLbl;
             public bool sawElse;
         }
 
+        // ── synthetic label names (mirrors Go synthNamer) ────────────────────
+        //
+        // The names the lowering mints (`__then…`, `__else…`, `__end…`, `__nf…`)
+        // are not private to the compiler: they become `label` ops, and a SAVE is
+        // anchored on the id of the nearest preceding label (LvnPlayer.AnchorOf).
+        // A name that moves when an unrelated part of the chapter is edited moves
+        // every player's bookmark, so a name is DERIVED — nearest preceding author
+        // label + the ordinal of the lowering site inside that label's scope —
+        // never counted from the top of the file.
+        class SynthNamer
+        {
+            string _scope = "head";
+            readonly Dictionary<string, int> _seq = new Dictionary<string, int>();
+            readonly HashSet<string> _taken = new HashSet<string>(StringComparer.Ordinal);
+
+            public SynthNamer(IEnumerable<string> lines)
+            {
+                foreach (string l in lines)
+                {
+                    string id = SourceLabelId(l);
+                    if (id != null) _taken.Add(id);
+                }
+            }
+
+            /// <summary>A `:label` the AUTHOR wrote opens a new naming scope (a
+            /// `__`-prefixed one is itself a lowering artifact).</summary>
+            public void Enter(string line)
+            {
+                string id = SourceLabelId(line);
+                if (id != null && !id.StartsWith("__", StringComparison.Ordinal)) _scope = id;
+            }
+
+            /// <summary>The tag shared by every label one lowering site needs.</summary>
+            public string Site()
+            {
+                _seq.TryGetValue(_scope, out int n);
+                _seq[_scope] = n + 1;
+                return _scope + "_" + (n + 1);
+            }
+
+            /// <summary>One collision-free label for a site tag.</summary>
+            public string Name(string kind, string tag)
+            {
+                string baseName = "__" + kind + "_" + tag;
+                string name = baseName;
+                for (int i = 2; _taken.Contains(name); i++) name = baseName + "_" + i;
+                _taken.Add(name);
+                return name;
+            }
+
+            static string SourceLabelId(string line)
+            {
+                string t = StripLineComment(line.Trim()).Trim();
+                if (!t.StartsWith(":", StringComparison.Ordinal)) return null;
+                string id = t.Substring(1).Trim();
+                return id == "" ? null : id;
+            }
+        }
+
+        /// <summary>Does this line open a choice option's `{ … }` body? An option
+        /// line whose LAST character is the brace — which is what keeps option text
+        /// free to carry `{expr}` interpolation.</summary>
+        static bool IsOptionBlockOpen(string det)
+        {
+            return det.StartsWith("-", StringComparison.Ordinal)
+                && !det.StartsWith("->", StringComparison.Ordinal)
+                && det.EndsWith("{", StringComparison.Ordinal);
+        }
+
         static string ExpandLoops(string src)
         {
             var stack = new List<Frame>();
             var outLines = new List<string>();
-            int ctr = 0;
 
             var srcLines = new List<string>();
             foreach (string raw in src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
                 srcLines.AddRange(SplitInline(raw));
+            var names = new SynthNamer(srcLines);
 
             foreach (string raw in srcLines)
             {
@@ -502,7 +654,33 @@ namespace Lvn.Editor
                 int ci = det.IndexOf("//", StringComparison.Ordinal);
                 if (ci >= 0) det = det.Substring(0, ci).Trim();
 
-                if (det.StartsWith("for ") && det.EndsWith("{"))
+                // A choice option's `{ … }` body is NOT control flow: it is the
+                // literal command list the option carries. Pass it through
+                // untouched for the choice scanner in Convert.
+                if (stack.Count > 0 && stack[stack.Count - 1].kind == "opt")
+                {
+                    if (det == "}")
+                    {
+                        stack.RemoveAt(stack.Count - 1);
+                        outLines.Add(raw);
+                        continue;
+                    }
+                    if (det.EndsWith("{", StringComparison.Ordinal))
+                        throw new LvnsCompileException(
+                            $"choice option body: nested blocks are not allowed (\"{det}\") — the body is a flat " +
+                            "command list; move branching to a label and lead there with '-> label'");
+                    outLines.Add(raw);
+                    continue;
+                }
+
+                names.Enter(det); // a `:label` line opens the next naming scope
+
+                if (IsOptionBlockOpen(det))
+                {
+                    outLines.Add(raw);
+                    stack.Add(new Frame { kind = "opt" });
+                }
+                else if (det.StartsWith("for ") && det.EndsWith("{"))
                 {
                     string inner = det.Substring(4);
                     inner = inner.Substring(0, inner.Length - 1).Trim(); // drop trailing {
@@ -513,8 +691,10 @@ namespace Lvn.Editor
                     string expr = inner.Substring(pos + 4).Trim();
                     if (itemVar == "" || expr == "")
                         throw new LvnsCompileException($"for: empty variable or collection in \"{det}\"");
-                    ctr++;
-                    string idx = $"__i{ctr}", sv = $"__src{ctr}", loop = $"__loop{ctr}", body = $"__body{ctr}", end = $"__end{ctr}";
+                    string tag = names.Site();
+                    string idx = names.Name("i", tag), sv = names.Name("src", tag),
+                           loop = names.Name("loop", tag), body = names.Name("body", tag),
+                           end = names.Name("end", tag);
                     outLines.Add($"set key={sv} expr={GoQuote(expr)}");
                     outLines.Add($"set key={idx} value=0");
                     outLines.Add(":" + loop);
@@ -529,8 +709,8 @@ namespace Lvn.Editor
                     expr = expr.Substring(0, expr.Length - 1).Trim();
                     if (expr == "")
                         throw new LvnsCompileException($"while: empty condition in \"{det}\"");
-                    ctr++;
-                    string loop = $"__loop{ctr}", body = $"__body{ctr}", end = $"__end{ctr}";
+                    string tag = names.Site();
+                    string loop = names.Name("loop", tag), body = names.Name("body", tag), end = names.Name("end", tag);
                     outLines.Add(":" + loop);
                     outLines.Add($"if expr={GoQuote(expr)} then={body} else={end}");
                     outLines.Add(":" + body);
@@ -545,8 +725,8 @@ namespace Lvn.Editor
                     if (p >= 0) name = inner.Substring(0, p).Trim();
                     if (name == "")
                         throw new LvnsCompileException($"func: missing name in \"{det}\"");
-                    ctr++;
-                    string skip = $"__fnskip{ctr}";
+                    // Derived from the function NAME — as stable as a name gets.
+                    string skip = names.Name("fnskip", name);
                     outLines.Add("goto " + skip);
                     outLines.Add(":__fn_" + name);
                     stack.Add(new Frame { kind = "func", endLbl = skip });
@@ -557,8 +737,8 @@ namespace Lvn.Editor
                     cond = cond.Substring(0, cond.Length - 1).Trim();
                     if (cond == "")
                         throw new LvnsCompileException($"if: empty condition in \"{det}\"");
-                    ctr++;
-                    string thenL = $"__then{ctr}", elseL = $"__else{ctr}", endL = $"__end{ctr}";
+                    string tag = names.Site();
+                    string thenL = names.Name("then", tag), elseL = names.Name("else", tag), endL = names.Name("end", tag);
                     outLines.Add($"if expr={GoQuote(cond)} then={thenL} else={elseL}");
                     outLines.Add(":" + thenL);
                     stack.Add(new Frame { kind = "if", endLbl = endL, elseLbl = elseL });
@@ -612,7 +792,9 @@ namespace Lvn.Editor
             }
 
             if (stack.Count > 0)
-                throw new LvnsCompileException("unclosed for/while block (missing '}')");
+                throw new LvnsCompileException(stack[stack.Count - 1].kind == "opt"
+                    ? "unclosed choice option body (missing '}')"
+                    : "unclosed for/while block (missing '}')");
             return string.Join("\n", outLines);
         }
 
@@ -722,32 +904,96 @@ namespace Lvn.Editor
         static JObject ParseChoiceOption(string line, int lineNo)
         {
             string text = line.Substring(1).Trim(); // strip '-'
+            // A trailing `{` opens the option's body block (the caller collects
+            // it); the brace is not part of the option line itself.
+            bool hasBody = IsOptionBlockOpen(line.Trim());
+            if (hasBody) text = text.Substring(0, text.Length - 1).Trim();
+
+            string optText, targetLabel = "", paramsStr = "";
             int arrowIdx = text.IndexOf("->", StringComparison.Ordinal);
-            if (arrowIdx == -1)
-                throw new LvnsCompileException($"line {lineNo}: choice option must have a target label (use '-> label')");
-            string optText = text.Substring(0, arrowIdx).Trim();
+            if (arrowIdx >= 0)
+            {
+                optText = text.Substring(0, arrowIdx).Trim();
+                string rest = text.Substring(arrowIdx + 2).Trim();
+                if (rest == "")
+                    throw new LvnsCompileException($"line {lineNo}: choice option must specify a target label after '->'");
+                int spaceIdx = IndexOfAny(rest, ' ', '\t');
+                if (spaceIdx == -1) targetLabel = rest;
+                else { targetLabel = rest.Substring(0, spaceIdx); paramsStr = rest.Substring(spaceIdx + 1).Trim(); }
+            }
+            else
+            {
+                if (!hasBody)
+                    throw new LvnsCompileException($"line {lineNo}: choice option must have a target label (use '-> label')");
+                // Body-only option: the body IS the whole action and the flow falls
+                // through past the choice once it has run — no target to name.
+                SplitOptionParams(text, out optText, out paramsStr);
+            }
             if (optText == "")
                 throw new LvnsCompileException($"line {lineNo}: choice option text cannot be empty");
-            string rest = text.Substring(arrowIdx + 2).Trim();
-            if (rest == "")
-                throw new LvnsCompileException($"line {lineNo}: choice option must specify a target label after '->'");
 
-            int spaceIdx = IndexOfAny(rest, ' ', '\t');
-            string targetLabel, paramsStr = "";
-            if (spaceIdx == -1) targetLabel = rest;
-            else { targetLabel = rest.Substring(0, spaceIdx); paramsStr = rest.Substring(spaceIdx + 1).Trim(); }
-
-            var opt = new JObject
-            {
-                ["text"] = StripQuotes(optText),
-                ["goto"] = targetLabel,
-            };
+            var opt = new JObject { ["text"] = StripQuotes(optText) };
+            if (targetLabel != "") opt["goto"] = targetLabel;
             if (paramsStr != "")
             {
                 var pars = ParseKeyValue(paramsStr);
                 foreach (var kv in pars) opt[kv.Key] = Tok(kv.Value);
             }
             return opt;
+        }
+
+        static readonly Regex OptParamRe = new Regex(@"(^|[ \t])[a-z_][a-z0-9_]*=");
+
+        /// <summary>Separate a body-only option's text from its trailing
+        /// `key=value …` attributes: with no `-> label` to split on, the first
+        /// token that both LOOKS like an attribute AND parses as one opens the
+        /// parameter run — prose that merely contains an `=` stays prose.</summary>
+        static void SplitOptionParams(string s, out string text, out string parameters)
+        {
+            foreach (Match m in OptParamRe.Matches(s))
+            {
+                int at = m.Index;
+                while (at < s.Length && (s[at] == ' ' || s[at] == '\t')) at++;
+                string cand = s.Substring(at).Trim();
+                if (ParseKeyValueSafe(cand) != null)
+                {
+                    text = s.Substring(0, at).Trim();
+                    parameters = cand;
+                    return;
+                }
+            }
+            text = s.Trim();
+            parameters = "";
+        }
+
+        // The ops LvnPlayer.Choose does NOT dispatch inside an option body:
+        // everything the player handles in its own loop (conformance/
+        // ops-owners.json, csharp "player"/"player+stage") except set/inc/goto,
+        // which Choose implements explicitly. Inside a body they would be
+        // forwarded to the stage and disappear without a trace.
+        static readonly HashSet<string> OptionBodyDenied = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "say", "choice", "label", "if", "call", "return", "wait", "input", "preload", "load",
+        };
+
+        /// <summary>Compile a choice option's `{ … }` block into the command list
+        /// the runtime runs on pick. The body is FLAT — Choose walks it once — so
+        /// control flow has no meaning there and is rejected here instead of
+        /// vanishing silently at runtime.</summary>
+        static JArray ParseOptionBody(List<string> bodyLines)
+        {
+            var compiled = (JArray)Convert(string.Join("\n", bodyLines))["script"];
+            var body = new JArray();
+            foreach (JToken t in compiled)
+            {
+                var op = (string)t["op"];
+                if (op != null && OptionBodyDenied.Contains(op))
+                    throw new LvnsCompileException(
+                        $"choice option body: \"{op}\" does not run inside an option body (it belongs to " +
+                        "set/inc and a final '-> label') — move it behind a label");
+                body.Add(t.DeepClone()); // detach from the throwaway document
+            }
+            return body;
         }
 
         // ParseKeyValue throws on malformed input (mirrors Go error return used as

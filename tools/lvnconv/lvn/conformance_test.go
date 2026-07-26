@@ -11,11 +11,13 @@ import (
 	"testing"
 )
 
-// The op dictionary has four implementations: this validator (the reference),
-// grammar.json (pinned by grammar_sync_test.go), the C# runtime and the JS
-// playground. This file pins the two runtimes — cheaply, with no Unity and no
-// browser — against conformance/ops-owners.json, and checks the shared corpus
-// under conformance/cases is well formed before the runtime runners ever read it.
+// The op dictionary has five implementations: this validator (the reference),
+// grammar.json (pinned by grammar_sync_test.go), the C# runtime — which mirrors
+// the dictionary twice over, in its dispatch switches and in the public
+// Lvn.StagingOps.Known set — and the JS playground. This file pins the runtimes
+// — cheaply, with no Unity and no browser — against conformance/ops-owners.json,
+// and checks the shared corpus under conformance/cases is well formed before the
+// runtime runners ever read it.
 //
 // The point is not today's snapshot but tomorrow's drift: add an op to KnownOps
 // and TestOpOwnersCoverKnownOps goes red; declare it engine-owned without a
@@ -126,6 +128,68 @@ func TestOpOwnersCoverKnownOps(t *testing.T) {
 	}
 }
 
+// ── the C# op registry ──────────────────────────────────────────────────────
+
+// Lvn.StagingOps.Known (com.lvn.engine/Runtime/StagingOps.cs) is the C# copy of
+// this dictionary: a public HashSet a host asks "is this name part of the
+// language, or mine?" inside ILvnStage.ApplyStage. Nothing in the runtime
+// dispatches on it, which is precisely why it drifted to 24 of 30 ops in silence
+// — and a count assertion in CameraRigTests then froze the gap. So it is read
+// out of the source here, the same way the dispatch sites are, and diffed
+// against KnownOps: a mirror nobody executes has to be checked, not trusted.
+const (
+	csharpKnownOpsFile   = "unity/Packages/com.lvn.engine/Runtime/StagingOps.cs"
+	csharpKnownOpsAnchor = "Known = new HashSet<string>"
+)
+
+// checkCSharpKnownOps takes both sets as arguments so the guard can be pointed at
+// a doctored pair and proven to bite — see TestGuardBitesOnADriftedOp.
+func checkCSharpKnownOps(ops, known map[string]bool) []string {
+	var bad []string
+	add := func(format string, a ...any) { bad = append(bad, fmt.Sprintf(format, a...)) }
+	for op := range ops {
+		if !known[op] {
+			add("op %q is in KnownOps but missing from Lvn.StagingOps.Known (%s) — "+
+				"a host asking that set whether %q is a real op gets a false negative, "+
+				"so add it there whenever you add it here", op, csharpKnownOpsFile, op)
+		}
+	}
+	for op := range known {
+		if !ops[op] {
+			add("Lvn.StagingOps.Known lists %q, which is not in KnownOps — either the op was "+
+				"dropped from the language and the C# mirror kept it, or it is a host op that "+
+				"belongs in LvnOps.Register rather than in the language registry", op)
+		}
+	}
+	sort.Strings(bad)
+	return bad
+}
+
+// scrapeCSharpKnownOps reads the literal initializer of StagingOps.Known.
+func scrapeCSharpKnownOps(t *testing.T, root string) map[string]bool {
+	t.Helper()
+	path := filepath.Join(root, csharpKnownOpsFile)
+	body := methodBody(t, path, csharpKnownOpsAnchor)
+	out := map[string]bool{}
+	for _, m := range reQuoted.FindAllStringSubmatch(body, -1) {
+		if m[1] != "" {
+			out[m[1]] = true
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("%s: no ops found in the %q initializer — did the set move or change shape?",
+			csharpKnownOpsFile, csharpKnownOpsAnchor)
+	}
+	return out
+}
+
+func TestCSharpKnownOpsMirrorKnownOps(t *testing.T) {
+	root := repoRoot(t)
+	for _, msg := range checkCSharpKnownOps(KnownOps, scrapeCSharpKnownOps(t, root)) {
+		t.Error(msg)
+	}
+}
+
 // ── the C# runtime ──────────────────────────────────────────────────────────
 
 // csharpDispatch is where the C# side actually decides what an op does, scraped
@@ -216,9 +280,11 @@ func TestEngineOwnedOpsHaveCSharpHandlers(t *testing.T) {
 }
 
 // TestGuardBitesOnADriftedOp is the guard's own guard. A contract test that
-// passes because it checks nothing is worse than no test, so both halves are run
-// against a DOCTORED dictionary here: an op nobody declared, and an op declared
-// engine-owned with no handler anywhere. Each must be reported by name.
+// passes because it checks nothing is worse than no test, so every half is run
+// against a DOCTORED dictionary here: an op nobody declared, an op declared
+// engine-owned with no handler anywhere, and a C# registry that has fallen a step
+// behind the language (and one that has run ahead of it). Each must be reported
+// by name.
 func TestGuardBitesOnADriftedOp(t *testing.T) {
 	owners, root := loadOwners(t)
 	dispatch := scrapeCSharp(t, root)
@@ -244,9 +310,30 @@ func TestGuardBitesOnADriftedOp(t *testing.T) {
 		t.Errorf("an engine-owned op with no C# handler went UNREPORTED — the guard is asleep; got %v", msgs)
 	}
 
-	// 3. And the real tables must still be clean, or (1) and (2) prove nothing.
+	// 3. The public C# registry falls behind the language — the exact defect this
+	//    half was written for: StagingOps.Known once held 24 of 30 ops with no
+	//    symptom, because nothing dispatches on it.
+	csharp := scrapeCSharpKnownOps(t, root)
+	msgs = checkCSharpKnownOps(drifted, csharp)
+	if !anyContains(msgs, "fictional_op") {
+		t.Errorf("an op missing from Lvn.StagingOps.Known went UNREPORTED — the guard is asleep; got %v", msgs)
+	}
+	// …and the other direction: a C# registry naming something the language dropped.
+	ahead := map[string]bool{"fictional_op": true}
+	for op := range csharp {
+		ahead[op] = true
+	}
+	msgs = checkCSharpKnownOps(KnownOps, ahead)
+	if !anyContains(msgs, "fictional_op") {
+		t.Errorf("a stale op left in Lvn.StagingOps.Known went UNREPORTED — the guard is asleep; got %v", msgs)
+	}
+
+	// 4. And the real tables must still be clean, or (1)–(3) prove nothing.
 	if msgs := checkOwnersCoverOps(KnownOps, owners); len(msgs) != 0 {
 		t.Errorf("undoctored table already fails: %v", msgs)
+	}
+	if msgs := checkCSharpKnownOps(KnownOps, csharp); len(msgs) != 0 {
+		t.Errorf("undoctored C# registry already fails: %v", msgs)
 	}
 }
 
@@ -516,6 +603,7 @@ func opsUsed(d *Doc) []string {
 var (
 	reCaseLabel = regexp.MustCompile(`\bcase\s+"([^"]*)"`)
 	reRegister  = regexp.MustCompile(`LvnOps\.Register\(\s*"([^"]+)"`)
+	reQuoted    = regexp.MustCompile(`"([^"]*)"`)
 )
 
 // caseLabels returns the string `case` labels inside the C# method whose
@@ -657,6 +745,99 @@ func registeredOps(t *testing.T, dir string) map[string]bool {
 	})
 	if err != nil {
 		t.Fatalf("scanning %s: %v", dir, err)
+	}
+	return out
+}
+
+// The SIXTH mirror of the op dictionary: the Unity .lvns compiler carries its
+// own KnownOps HashSet (Editor/LvnsCompiler.cs). It had fallen six entries
+// behind convert.go, and the cost is unusually high — a word missing from that
+// set does not error, it falls into the narration branch and PRINTS ITSELF to
+// the player. `input var=…` rendered as a dialogue line in the Unity import
+// path, which the README advertises as the two-minute way in.
+//
+// Same scrape-and-diff trick the other mirrors use. Constructs the Unity
+// compiler knowingly does not lower are listed in UnsupportedSourceOps there
+// and are expected to be absent here — the test asserts that gap is DECLARED,
+// so "not implemented" can never quietly become "silently narration" again.
+func TestUnityCompilerKnownOpsMirrorsSource(t *testing.T) {
+	csPath := filepath.Join("..", "..", "..", "unity", "Packages", "com.lvn.engine",
+		"Editor", "LvnsCompiler.cs")
+	src, err := os.ReadFile(csPath)
+	if err != nil {
+		t.Skipf("Unity package not present: %v", err)
+	}
+	clean := stripCommentsAndStrings(string(src))
+	_ = clean // the sets below are read from the raw file: they ARE string literals
+
+	known := literalSet(t, string(src), "KnownOps = new HashSet<string>")
+	unsupported := literalSet(t, string(src), "UnsupportedSourceOps = new Dictionary<string, string>")
+	if len(known) == 0 {
+		t.Fatal("could not scrape KnownOps from LvnsCompiler.cs — the anchor moved; fix this test, do not delete it")
+	}
+	if len(unsupported) == 0 {
+		t.Fatal("could not scrape UnsupportedSourceOps from LvnsCompiler.cs — the anchor moved")
+	}
+
+	for op := range lvnsSourceOps() {
+		if known[op] || unsupported[op] {
+			continue
+		}
+		t.Errorf("`%s` is a .lvns construct but the Unity compiler neither lists it in KnownOps "+
+			"nor declares it in UnsupportedSourceOps — a line starting with it becomes DIALOGUE TEXT "+
+			"on screen. Add it to one of the two sets in Editor/LvnsCompiler.cs.", op)
+	}
+	src2 := lvnsSourceOps()
+	for op := range known {
+		if !src2[op] {
+			t.Errorf("the Unity compiler lists `%s` in KnownOps, but the reference compiler does not "+
+				"know it — remove it or add it to convert.go", op)
+		}
+	}
+}
+
+// literalSet scrapes the quoted names out of a C# collection initialiser.
+func literalSet(t *testing.T, src, anchor string) map[string]bool {
+	t.Helper()
+	at := strings.Index(src, anchor)
+	if at < 0 {
+		return nil
+	}
+	open := strings.Index(src[at:], "{")
+	if open < 0 {
+		return nil
+	}
+	rest := src[at+open+1:]
+	end := strings.Index(rest, "};")
+	if end < 0 {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(rest[:end], -1) {
+		out[m[1]] = true
+	}
+	return out
+}
+
+// lvnsSourceOps is the reference .lvns vocabulary (internal/lvns KnownOps),
+// scraped from source so this test needs no import of an internal package.
+func lvnsSourceOps() map[string]bool {
+	b, err := os.ReadFile(filepath.Join("..", "internal", "lvns", "convert.go"))
+	if err != nil {
+		return nil
+	}
+	at := strings.Index(string(b), "KnownOps = map[string]bool{")
+	if at < 0 {
+		return nil
+	}
+	rest := string(b)[at:]
+	end := strings.Index(rest, "\n}")
+	if end < 0 {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(rest[:end], -1) {
+		out[m[1]] = true
 	}
 	return out
 }

@@ -58,13 +58,13 @@
       "op": "set"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_loop_1",
       "expr": "cookies \u003e= goal",
       "op": "if",
       "then": "win"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_loop_1",
       "op": "label"
     },
     {
@@ -102,13 +102,13 @@
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_buy_oven_1",
       "expr": "cookies \u003e= oven_cost",
       "op": "if",
       "then": "do_oven"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_buy_oven_1",
       "op": "label"
     },
     {
@@ -151,13 +151,13 @@
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_buy_hands_1",
       "expr": "cookies \u003e= 20",
       "op": "if",
       "then": "do_hands"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_buy_hands_1",
       "op": "label"
     },
     {

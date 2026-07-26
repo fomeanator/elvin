@@ -71,13 +71,13 @@
       "text": "На ковре — осколки бокала и слабый запах горького миндаля."
     },
     {
-      "else": "__nf1",
+      "else": "__nf_study_1",
       "expr": "has(clues, \"яд\")",
       "op": "if",
       "then": "study_seen"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_study_1",
       "op": "label"
     },
     {
@@ -121,13 +121,13 @@
       "who": "Дворецкий"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_butler_1",
       "expr": "has(clues, \"один бокал\")",
       "op": "if",
       "then": "butler_seen"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_butler_1",
       "op": "label"
     },
     {
@@ -171,13 +171,13 @@
       "who": "Вдова"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_widow_1",
       "expr": "has(clues, \"вино от вдовы\")",
       "op": "if",
       "then": "widow_seen"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_widow_1",
       "op": "label"
     },
     {
@@ -211,13 +211,13 @@
       "op": "label"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_accuse_1",
       "expr": "len(clues) \u003e= 3",
       "op": "if",
       "then": "solved"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_accuse_1",
       "op": "label"
     },
     {

@@ -119,13 +119,13 @@
       "op": "label"
     },
     {
-      "else": "__else1",
+      "else": "__else_buy_pot_1",
       "expr": "gold \u003e= 5",
       "op": "if",
-      "then": "__then1"
+      "then": "__then_buy_pot_1"
     },
     {
-      "id": "__then1",
+      "id": "__then_buy_pot_1",
       "op": "label"
     },
     {
@@ -134,11 +134,11 @@
       "op": "set"
     },
     {
-      "label": "__end1",
+      "label": "__end_buy_pot_1",
       "op": "goto"
     },
     {
-      "id": "__else1",
+      "id": "__else_buy_pot_1",
       "op": "label"
     },
     {
@@ -147,7 +147,7 @@
       "who": "Торговец"
     },
     {
-      "id": "__end1",
+      "id": "__end_buy_pot_1",
       "op": "label"
     },
     {
@@ -159,13 +159,13 @@
       "op": "label"
     },
     {
-      "else": "__else2",
+      "else": "__else_buy_sword_1",
       "expr": "gold \u003e= 12",
       "op": "if",
-      "then": "__then2"
+      "then": "__then_buy_sword_1"
     },
     {
-      "id": "__then2",
+      "id": "__then_buy_sword_1",
       "op": "label"
     },
     {
@@ -174,11 +174,11 @@
       "op": "set"
     },
     {
-      "label": "__end2",
+      "label": "__end_buy_sword_1",
       "op": "goto"
     },
     {
-      "id": "__else2",
+      "id": "__else_buy_sword_1",
       "op": "label"
     },
     {
@@ -187,7 +187,7 @@
       "who": "Торговец"
     },
     {
-      "id": "__end2",
+      "id": "__end_buy_sword_1",
       "op": "label"
     },
     {
@@ -336,13 +336,13 @@
       "who": "Ты бьёшь на {dmg}. ({ename}"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_f_atk_1",
       "expr": "ehp \u003c= 0",
       "op": "if",
       "then": "f_win"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_f_atk_1",
       "op": "label"
     },
     {
@@ -354,13 +354,13 @@
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_f_pot_1",
       "expr": "potions \u003e= 1",
       "op": "if",
       "then": "do_pot"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_f_pot_1",
       "op": "label"
     },
     {
@@ -398,13 +398,13 @@
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_f_flee_1",
       "expr": "chance(0.5)",
       "op": "if",
       "then": "fled"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_f_flee_1",
       "op": "label"
     },
     {
@@ -445,13 +445,13 @@
       "text": "{ename} бьёт на {edmg}. (♥{hp})"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_f_enemy_1",
       "expr": "hp \u003c= 0",
       "op": "if",
       "then": "dead"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_f_enemy_1",
       "op": "label"
     },
     {
@@ -488,17 +488,17 @@
       "op": "label"
     },
     {
-      "id": "__loop3",
+      "id": "__loop_levelup_1",
       "op": "label"
     },
     {
-      "else": "__end3",
+      "else": "__end_levelup_1",
       "expr": "xp \u003e= need",
       "op": "if",
-      "then": "__body3"
+      "then": "__body_levelup_1"
     },
     {
-      "id": "__body3",
+      "id": "__body_levelup_1",
       "op": "label"
     },
     {
@@ -536,11 +536,11 @@
       "text": "✨ Новый уровень — {level}!"
     },
     {
-      "label": "__loop3",
+      "label": "__loop_levelup_1",
       "op": "goto"
     },
     {
-      "id": "__end3",
+      "id": "__end_levelup_1",
       "op": "label"
     },
     {
