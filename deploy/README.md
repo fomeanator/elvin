@@ -35,7 +35,7 @@ remotely — no shell needed:
 ```sh
 curl -X POST https://novels.example.com/v1/admin/import-bundle \
   -H "Authorization: Bearer $TOKEN" \
-  -F articy=@Cold.rar -F backgrounds=@bg.zip -F heroine=@heroine.zip \
+  -F articy=@партнёрского проекта.rar -F backgrounds=@bg.zip -F heroine=@heroine.zip \
   -F characters=@chars.zip -F vars=@vars.xlsx \
   -F id=cold -F name="Холодный ветер перемен"
 ```

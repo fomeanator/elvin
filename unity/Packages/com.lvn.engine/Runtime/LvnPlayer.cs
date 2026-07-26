@@ -548,7 +548,26 @@ namespace Lvn
             /// the truthful replay path. Null on older saves (legacy linear
             /// replay) and discarded when the script's command count changed.</summary>
             public int[] Trace;
+            /// <summary>Position of the random stream behind <c>rand()</c> /
+            /// <c>chance()</c> (<see cref="LvnRandom.SaveState"/>). Without it a
+            /// reload re-rolled every fight and every loot table — save-scumming
+            /// was a feature of the engine, not a choice of the game. Null on
+            /// saves written before this field existed and whenever
+            /// <see cref="PersistRandomState"/> is off; a restore then leaves the
+            /// live stream alone (see <see cref="Restore(LvnSnapshot)"/>).
+            ///
+            /// <para>Rollback rides the same field: each beat's snapshot holds the
+            /// stream as it was BEFORE the beat ran, so stepping back and
+            /// replaying re-draws the same numbers.</para></summary>
+            public string RngState;
         }
+
+        /// <summary>Whether <see cref="Save"/> records the random stream's
+        /// position. Default true: a reload continues the run it saved. Set false
+        /// for a game that WANTS a reload to re-roll (the engine's behaviour
+        /// before the stream became part of the snapshot) — old saves, which
+        /// carry no stream, behave that way regardless.</summary>
+        public static bool PersistRandomState = true;
 
         /// <summary>Capture the current state for serialization.</summary>
         public LvnSnapshot Save()
@@ -574,6 +593,7 @@ namespace Lvn
                 AnchorStableLabel = sLabel,
                 AnchorStableSteps = sSteps,
                 Trace = _trace.ToArray(),
+                RngState = PersistRandomState ? LvnExpression.Random.SaveState() : null,
             };
         }
 
@@ -654,6 +674,16 @@ namespace Lvn
             _trace = snapshot.Trace != null && snapshot.CommandCount == _script.Count
                 ? new List<int>(snapshot.Trace)
                 : new List<int>();
+            // Put the dice back where the save left them. A save from before this
+            // field existed carries nothing, and a stream is not something we can
+            // guess: reseeding to some constant would make EVERY old save re-roll
+            // the same numbers, and reseeding randomly is what already happens.
+            // So: leave the live stream running — the pre-2026-07-26 behaviour,
+            // for exactly the saves written under it.
+            if (!string.IsNullOrEmpty(snapshot.RngState) &&
+                !LvnExpression.Random.TryLoadState(snapshot.RngState))
+                Log?.Invoke("restore: unreadable rng state '" + snapshot.RngState +
+                            "' — keeping the current stream (rolls will differ)");
             // Return addresses shift with the script just like the cursor does —
             // relocate each frame by its own anchor, falling back to the raw index.
             var stack = snapshot.CallStack;

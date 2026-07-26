@@ -22,7 +22,7 @@ func putTag8(b []byte, seq, pid uint16, tag byte, v uint32) []byte {
 	return binary.LittleEndian.AppendUint32(b, v)
 }
 
-// connHashValue — значение pConnHash из живого Cold (связь 63878). Байты важны:
+// connHashValue — значение pConnHash из живого партнёрского проекта (связь 63878). Байты важны:
 // 03 fe 30 b8. Именно на них побайтовый resync попадал в ЛОЖНОЕ свойство
 // (seq=9, pid=0x030a, tag=0xfe) и проглатывал следующий за ним src. Значение, у
 // которого второй байт не совпадает с известным тегом, восстанавливается само —
@@ -69,7 +69,7 @@ func jumpNode(self, parent, targetPin uint32) []byte {
 
 // Свойство с тегом 0x0a перед ref'ами связи не должно съедать src. До фикса
 // entries() уходил в побайтовый resync и восстанавливался ПОСЛЕ src: связь
-// приходила с 3 ref'ами и молча отбрасывалась (len(r) >= 4). На Cold так рвались
+// приходила с 3 ref'ами и молча отбрасывалась (len(r) >= 4). В партнёрском проекте так рвались
 // 11 связей, и Эпизод 11 обрывался на 14-й реплике из 739.
 func TestConnectionSrcSurvivesLeadingHashProperty(t *testing.T) {
 	d := partition(
@@ -96,7 +96,7 @@ func TestConnectionSrcSurvivesLeadingHashProperty(t *testing.T) {
 }
 
 // Jump не соединён связью: его выходной пин пуст, цель — ссылка на пин. До фикса
-// поток на каждом Jump кончался (в Cold так обрывалась ветка смерти, которая по
+// поток на каждом Jump кончался (в партнёрском проекте так обрывалась ветка смерти, которая по
 // замыслу возвращает игрока на чекпойнт).
 func TestJumpFollowsTargetPin(t *testing.T) {
 	d := partition(
@@ -193,7 +193,7 @@ func TestContainerSelfRecoveredFromChildren(t *testing.T) {
 	}
 }
 
-// Ordinal 0 законен: в Cold это ПЕРВАЯ глава. Проверка «self != 0» вместо явного
+// Ordinal 0 законен: в партнёрском проекте это ПЕРВАЯ глава. Проверка «self != 0» вместо явного
 // флага «ordinal известен» стоила ровно одной главы из 25 — тихо, глава просто
 // не появлялась в списке. Тест держит именно этот случай: глава с ordinal 0 должна
 // находиться detectChapters'ом вместе со своим содержимым.

@@ -4,9 +4,9 @@ package importer
 // one-shot importer. The author picks five things and the server does the rest:
 //
 //   articy archive (.rar/.zip)  — the articy:draft project (Flow partition → script)
-//   backgrounds  (.zip)         — NEW/Cold_<Location>.png → /content/bg
-//   heroine      (.zip)         — Cold_Main/…_Hairs_N / …_clothes_N → a wardrobe sprite
-//   characters   (.zip)         — Cold_<Name>/Cold_<Name>_<Emotion>.png → emotion sprites
+//   backgrounds  (.zip)         — NEW/Demo_<Location>.png → /content/bg
+//   heroine      (.zip)         — Demo_Main/…_Hairs_N / …_clothes_N → a wardrobe sprite
+//   characters   (.zip)         — Demo_<Name>/Demo_<Name>_<Emotion>.png → emotion sprites
 //   variables    (.xlsx)        — variable defaults + a cell-colour emotion legend
 //
 // RunBundle extracts everything to a staging dir, runs the normal articy import,
@@ -504,7 +504,7 @@ func unzipTo(src, dst string) error {
 
 // findArticyProject locates the articy project root under an extracted tree — the
 // directory that holds a `Partitions/'Flow'-…adpd`. articy exports nest the
-// project one level down (e.g. Cold_13_08_25/Partitions/…), so walk to find it.
+// project one level down (e.g. Demo_13_08_25/Partitions/…), so walk to find it.
 func findArticyProject(root string) (string, error) {
 	if root == "" {
 		return "", fmt.Errorf("empty articy root")

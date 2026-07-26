@@ -26,6 +26,16 @@ namespace Lvn.Tests
             return new LvnPlayer(LvnDocument.Parse(json), stage);
         }
 
+        // The random stream and the persist switch are process-wide; a test that
+        // pins them must hand them back, or the next test inherits a rigged run.
+        [TearDown]
+        public void ResetRandomness()
+        {
+            LvnExpression.Random = new LvnRandom();
+            LvnPlayer.PersistRandomState = true;
+            LvnPlayer.Log = null;
+        }
+
         // NOTE on Advance() granularity: one Advance() runs the script up to AND
         // INCLUDING the next pausing op (say/choice) — it shows that line, then
         // pauses. So the first Advance shows the first say; the cursor afterwards
@@ -242,6 +252,174 @@ namespace Lvn.Tests
             Assert.AreEqual(0, rewritten.Index, "restarted from the top, not dropped somewhere arbitrary");
             rewritten.ContinueFrom(rewritten.Index);
             Assert.AreEqual("a whole new chapter", stage.Last);
+        }
+
+        // ── the random stream is part of the save ────────────────────────────
+        //
+        // What this pins: rand()/chance() used to draw from a private static
+        // System.Random — one per process, unseedable, absent from the snapshot.
+        // Two consequences, both reproduced before the fix: a reload re-rolled
+        // the fight the player had just lost (save-scumming built into the
+        // engine), and a soak run pinned to a seed still walked a different path
+        // every time, so the nightly flake hunter could not tell a flaky test
+        // from content that simply rolled a different number.
+
+        // Two rolls with a save between them. The range makes an accidental
+        // match a one-in-a-million event.
+        private const string TwoRolls = @"{""script"":[
+            {""op"":""set"",""key"":""roll"",""expr"":""rand(1, 1000000)""},
+            {""op"":""say"",""text"":""checkpoint""},
+            {""op"":""set"",""key"":""roll2"",""expr"":""rand(1, 1000000)""},
+            {""op"":""say"",""text"":""after""}
+        ]}";
+
+        [Test]
+        public void ReloadReplaysTheSameRollInsteadOfReRollingIt()
+        {
+            LvnExpression.Random = new LvnRandom(2026);
+            var p = Play(TwoRolls, out _);
+            p.Advance();
+            var snap = p.Save();
+            Assert.IsNotNull(snap.RngState, "the snapshot has to carry the stream");
+
+            p.Advance();
+            var live = (long)p.Vars["roll2"];
+
+            p.Restore(snap);
+            p.ContinueFrom(p.Index);
+            Assert.AreEqual(live, (long)p.Vars["roll2"],
+                "a reload must replay the roll the player already saw, not re-roll it");
+        }
+
+        [Test]
+        public void AnotherSessionRestoringTheSaveGetsTheSameRoll()
+        {
+            LvnExpression.Random = new LvnRandom(2026);
+            var first = Play(TwoRolls, out _);
+            first.Advance();
+            var snap = first.Save();
+            first.Advance();
+            var live = (long)first.Vars["roll2"];
+
+            // A different install / a later session: fresh player, fresh stream,
+            // and the save round-tripped through JSON exactly as LvnSaveStore does.
+            LvnExpression.Random = new LvnRandom(777);
+            var wire = Newtonsoft.Json.JsonConvert.SerializeObject(snap);
+            var back = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnPlayer.LvnSnapshot>(wire);
+            Assert.AreEqual(snap.RngState, back.RngState, "the stream has to survive JSON");
+
+            var later = Play(TwoRolls, out _);
+            later.Restore(back);
+            later.ContinueFrom(later.Index);
+            Assert.AreEqual(live, (long)later.Vars["roll2"]);
+        }
+
+        [Test]
+        public void ASaveWrittenBeforeTheStreamExistedStillLoads()
+        {
+            // No RngState at all — every save on disk today. It must load, and it
+            // must NOT reset the stream to some constant (that would make every
+            // old save re-roll the same numbers); the live stream just keeps going,
+            // which is exactly the behaviour those saves were written under.
+            var old = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnPlayer.LvnSnapshot>(
+                @"{""Index"":2,""Vars"":{""roll"":5},""CallStack"":[],""CommandCount"":4,""Finished"":false}");
+            Assert.IsNull(old.RngState);
+
+            LvnExpression.Random = new LvnRandom(555);
+            var expected = new LvnRandom(555).NextInt(1, 1000000);
+
+            var p = Play(TwoRolls, out _);
+            Assert.DoesNotThrow(() => p.Restore(old));
+            p.ContinueFrom(p.Index);
+            Assert.AreEqual(expected, (long)p.Vars["roll2"],
+                "an old save leaves the live stream running rather than rewinding it");
+        }
+
+        [Test]
+        public void ACorruptStreamCostsARollNotTheLoad()
+        {
+            LvnExpression.Random = new LvnRandom(3);
+            var p = Play(TwoRolls, out _);
+            p.Advance();
+            var snap = p.Save();
+            snap.RngState = "lvnrng1:not-hex:at-all:0";
+
+            var log = new List<string>();
+            LvnPlayer.Log = log.Add;
+            Assert.DoesNotThrow(() => p.Restore(snap));
+            Assert.IsTrue(log.Exists(l => l.Contains("unreadable rng state")),
+                "an unreadable stream has to be reported, not swallowed");
+            p.ContinueFrom(p.Index);
+            Assert.IsTrue(p.Vars.ContainsKey("roll2"), "and the chapter keeps playing");
+        }
+
+        [Test]
+        public void AGameCanOptOutAndKeepTheOldReRollOnReload()
+        {
+            LvnPlayer.PersistRandomState = false;
+            var p = Play(TwoRolls, out _);
+            p.Advance();
+            Assert.IsNull(p.Save().RngState);
+        }
+
+        [Test]
+        public void ASeededStreamReplaysExactly()
+        {
+            var a = new LvnRandom(12345);
+            var b = new LvnRandom(12345);
+            for (int i = 0; i < 500; i++)
+                Assert.AreEqual(a.NextULong(), b.NextULong(), "draw #" + i + " diverged");
+            Assert.AreEqual(500, a.Draws);
+            Assert.AreEqual(12345UL, a.Seed);
+            Assert.AreNotEqual(new LvnRandom(12346).NextULong(), new LvnRandom(12345).NextULong());
+        }
+
+        [Test]
+        public void TheStreamKeepsRandsPromises()
+        {
+            LvnExpression.Random = new LvnRandom(9);
+            bool sawLo = false, sawHi = false;
+            for (int i = 0; i < 5000; i++)
+            {
+                var v = (double)LvnExpression.Evaluate("rand(3, 7)", new Dictionary<string, JToken>());
+                Assert.IsTrue(v >= 3 && v <= 7 && v == System.Math.Floor(v), "rand(3,7) → " + v);
+                sawLo |= v == 3;
+                sawHi |= v == 7;
+                var d = (double)LvnExpression.Evaluate("rand()", new Dictionary<string, JToken>());
+                Assert.IsTrue(d >= 0.0 && d < 1.0, "rand() → " + d);
+            }
+            Assert.IsTrue(sawLo && sawHi, "rand(a,b) is inclusive on both ends");
+        }
+
+        [Test]
+        public void AnExplicitStreamLeavesTheAmbientOneAlone()
+        {
+            // The seam a host needs to run two stories at once without their
+            // rolls interleaving.
+            LvnExpression.Random = new LvnRandom(99);
+            var mine = new LvnRandom(99);
+            var vars = new Dictionary<string, JToken>();
+            var fromMine = (double)LvnExpression.Evaluate("rand(0, 1000000)", vars, mine);
+            var fromAmbient = (double)LvnExpression.Evaluate("rand(0, 1000000)", vars);
+            Assert.AreEqual(fromMine, fromAmbient, 0.0,
+                "the ambient stream should not have advanced while the explicit one drew");
+        }
+
+        [Test]
+        public void RollbackRewindsTheRollToo()
+        {
+            // Each beat's snapshot holds the stream as it was BEFORE the beat, so
+            // stepping back and replaying re-draws the same numbers instead of
+            // handing the player a fresh lottery ticket per rollback.
+            LvnExpression.Random = new LvnRandom(4242);
+            var p = Play(TwoRolls, out _);
+            p.Advance();
+            var beat = p.Save();
+            p.Advance();
+            var first = (long)p.Vars["roll2"];
+            p.Restore(beat);
+            p.ContinueFrom(p.Index);
+            Assert.AreEqual(first, (long)p.Vars["roll2"]);
         }
     }
 }

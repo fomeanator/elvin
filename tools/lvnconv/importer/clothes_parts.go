@@ -12,7 +12,7 @@ import (
 )
 
 // Partner packs ship some outfits as SEVERAL stacked files —
-// Cold_main_clothes_13_1.png (база: топ+брюки+кисти) + _13_2.png (куртка
+// Demo_main_clothes_13_1.png (база: топ+брюки+кисти) + _13_2.png (куртка
 // поверх) — while the engine's outfit axis wants ONE png per value. These
 // helpers find the parts and bake them into the single file the catalog
 // references. Losing a part loses body parts painted in it (a hand shipped

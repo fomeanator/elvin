@@ -22,7 +22,7 @@ import (
 const maxStagedUpload = 4 << 30 // 4 GiB — matches the archive-extraction ceiling elsewhere
 
 // stagedUploadIDRe mirrors idRe but allows dots (original extension carried
-// in the id, e.g. "cold_13_08_25.rar-33554432", is nice for debugging on disk).
+// in the id, e.g. "demo_13_08_25.rar-33554432", is nice for debugging on disk).
 var stagedUploadIDRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,200}$`)
 
 func (s *server) stagingDir() string {

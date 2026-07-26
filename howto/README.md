@@ -96,12 +96,25 @@ blueprints of how things are built):
 
 | Reference | Folder | What it shows |
 |---|---|---|
-| 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" of a modern story novel: stat gates, paid choices, wardrobe, timer, global stats |
+| 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" every story novel is made of: slides, paid/free choices, stat gains, a stat-driven fork with no choice, hint popups |
+| 👗 Wardrobe | [`wardrobe/`](wardrobe/) | Dressing a character from the script: the catalog on the cast entity, `wardrobe_show`, and branching on what the player picked — plus how an articy import wires the same thing |
 | 🏛 Hub & collections | [`hub-collections/`](hub-collections/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
 | 🧾 Every command, once | [`every-command/`](every-command/) | The commands the genre examples never reach for — `save`/`load`, `preload`, `text_pace`, `tint`/`blur`, `wait`, named animations (`defanim`/`play`), splines, queued lanes, stat-gated options. It is the **witness** that keeps [`CAPABILITIES.md`](CAPABILITIES.md) from documenting features nothing compiles |
 | 🧮 Functions | [`functions/`](functions/) | The two kinds of `func`: inlined expression functions and call/return procedures |
 
 ---
+
+## Not writing a novel — *importing* one
+
+If the story arrives as articy files rather than as text you write, the job is a
+different one: import it, fix what only a human can fix, and keep re-importing
+without losing those fixes.
+
+**[`import-articy/`](import-articy/) — the route**, step by step: look before you
+import (`detect`), teach the importer your project's conventions (a template),
+import, read the report, hand-fix inside the engine, re-import through the
+three-way merge, publish. With an annotated example of exactly what an import
+emits — generated from the importer itself, so it cannot go stale.
 
 ## Large real-world scripts
 

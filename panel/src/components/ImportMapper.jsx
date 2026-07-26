@@ -14,7 +14,7 @@ import { useJsonDoc, JsonCard } from "./admin/jsonTools.jsx";
 // The import reads the emotion legend and the protagonist's roster art from
 // that sheet; a preview run without it warns about holes the import doesn't
 // have. Passing it makes the preview and the import agree.
-// initialTemplateName: the template to start editing from ("" → "cold").
+// initialTemplateName: the template to start editing from ("" → "default").
 // onSaved(name): called after a successful PUT — LibraryHome sets
 // bundle.template to it and closes the mapper.
 
@@ -132,14 +132,14 @@ export default function ImportMapper({ dir, varsPath, initialTemplateName, creds
       setLoading(true);
       setError(null);
       try {
-        const wantDefault = !initialTemplateName || initialTemplateName === "cold";
+        const wantDefault = !initialTemplateName || initialTemplateName === "default";
         const [tpl, rep, base] = await Promise.all([
-          getImportTemplate(initialTemplateName || "cold", creds.token),
+          getImportTemplate(initialTemplateName || "default", creds.token),
           detectRoles(dir, { template: initialTemplateName, vars: varsPath }, creds.token),
           // A PARTIAL template inherits the built-in staging lists; editing a
           // role must seed from those, not from undefined (which would save
           // `narrator_roles: []` and wipe all 9 default narrator roles).
-          wantDefault ? null : getImportTemplate("cold", creds.token).catch(() => null),
+          wantDefault ? null : getImportTemplate("default", creds.token).catch(() => null),
         ]);
         if (cancelled) return;
         setDraft(tpl);

@@ -1,11 +1,11 @@
 package importer
 
-// bundle_assets.go turns the extracted "Cold" art archives (backgrounds and a
+// bundle_assets.go turns the extracted partner art archives (backgrounds and a
 // characters tree) into engine content files plus the manifest `sprites`/`bg`
 // fragments the orchestrator merges into a novel's manifest.
 //
 // Character mapping is SHEET-DRIVEN: the «Эмоции» roster (xd.Chars, incl. the
-// protagonist) and the «Гардеробыч» wardrobe (xd.Wardrobe) are authoritative for
+// protagonist) and the «Гардероб» wardrobe (xd.Wardrobe) are authoritative for
 // every emotion, outfit and hair value. For each roster character we resolve the
 // exact art stem the sheet names to a real file (a small case/underscore/`_1`
 // cascade that absorbs all on-disk drift) and COPY it to a canonical destination
@@ -62,12 +62,12 @@ func copyFile(src, dst string) error {
 }
 
 // MapBackgrounds copies every `*.png` under srcDir into <contentDir>/bg/ and
-// returns id→url, e.g. "Cold_camp" → "/content/bg/Cold_camp.png". The id is the
+// returns id→url, e.g. "Demo_camp" → "/content/bg/Demo_camp.png". The id is the
 // filename without extension; the `NEW/` prefix is stripped.
 //
 // Big fully-opaque PNGs transcode to JPEG on the way in: partners export
 // photographic scene art as 5-8 MB PNGs, which made a chapter's warm ~70 MB
-// and lose to mobile networks (live Cold case). A background gains nothing
+// and lose to mobile networks (live partner case). A background gains nothing
 // from PNG's losslessness; q85 JPEG is ~×10 smaller. Real transparency (a
 // stylized vignette) keeps the PNG untouched.
 func MapBackgrounds(srcDir, contentDir string) (map[string]string, error) {
@@ -165,7 +165,7 @@ func hasMeaningfulAlpha(img image.Image) bool {
 }
 
 // nameFromFolder is a display-name fallback: the folder/stem minus its leading
-// project prefix (the first "_"-segment), e.g. "Cold_Matvey" → "Matvey".
+// project prefix (the first "_"-segment), e.g. "Demo_Roman" → "Roman".
 func nameFromFolder(folder string) string {
 	if i := strings.Index(folder, "_"); i >= 0 && i+1 < len(folder) {
 		return folder[i+1:]
@@ -177,8 +177,8 @@ func nameFromFolder(folder string) string {
 
 // folderIndex indexes a character-art folder's *.png files by lowercased stem and
 // by underscore-collapsed lowercased stem, so a canonical sheet stem resolves to a
-// real file regardless of case, doubled underscores ("Cold_Eduard__surprised"), or
-// a project's lowercased-name drift ("Cold_commandant_Anger").
+// real file regardless of case, doubled underscores ("Demo_Felix__surprised"), or
+// a project's lowercased-name drift ("Demo_commandant_Anger").
 type folderIndex struct {
 	exact     map[string]string // lower(stem) → abs path
 	collapsed map[string]string // collapse_(lower(stem)) → abs path
@@ -242,10 +242,10 @@ func (fi folderIndex) resolveEmotionArt(stemS, v string) (string, bool) {
 	if p, ok := fi.resolve(stemS); ok { // 1 & 2 (exact + underscore-collapsed)
 		return p, true
 	}
-	if p, ok := fi.resolve(stemS + "_1"); ok { // 3: the whole Cold_Bogdan folder ships "_1"
+	if p, ok := fi.resolve(stemS + "_1"); ok { // 3: the whole Demo_Timur folder ships "_1"
 		return p, true
 	}
-	if v == "thoughtfulness" { // 4: heroine Cold_main_thougfless.png
+	if v == "thoughtfulness" { // 4: heroine Demo_main_thougfless.png
 		alt := strings.ReplaceAll(strings.ToLower(stemS), "thoughtfulness", "thougfless")
 		if p, ok := fi.resolve(alt); ok {
 			return p, true
@@ -258,7 +258,7 @@ func (fi folderIndex) resolveEmotionArt(stemS, v string) (string, bool) {
 }
 
 // staticHair finds a fixed (non-axis) hair sheet — "<tech>_hair" or "<tech>_hair_1"
-// (Bogdan / Bogdan_Flashback). It deliberately does NOT match the heroine's
+// (Timur / Timur_Flashback). It deliberately does NOT match the heroine's
 // "<tech>_Hairs_<n>" axis art.
 func (fi folderIndex) staticHair(tech string) (string, bool) {
 	if p, ok := fi.resolve(tech + "_hair"); ok {
@@ -275,7 +275,7 @@ func (fi folderIndex) staticHair(tech string) (string, bool) {
 // the manifest templates stay clean. Off-roster folders and standalone flat PNGs
 // fall back to a folder-scan face build / single-image actor respectively.
 //
-// Entities are keyed by lowercased tech name (e.g. "cold_matvey", "cold_main"); the
+// Entities are keyed by lowercased tech name (e.g. "demo_roman", "demo_main"); the
 // wiring pass (bundle_wire.go) re-keys them to the story actor id. Returns the
 // entity map plus a list of non-fatal warnings for genuinely-incomplete source data
 // (a rostered emotion with no art, a curated wardrobe row with no art).
@@ -400,7 +400,7 @@ func singleImageEntity(name, tech string) map[string]any {
 
 // buildRosterChar composes one roster character's layered entity from its art
 // folder + the sheet. Layer order is fixed body→clothes→face(→hair); body/clothes
-// are omitted when absent (bodyless Edward composes on `clothes`). The heroine
+// are omitted when absent (bodyless Felix composes on `clothes`). The heroine
 // (isHero) additionally gets a hair axis from Wardrobe.mainCh_Hair.
 func buildRosterChar(contentDir, folderPath, tech, story string, c CharMap, xd XlsxData, varDefault map[string]string, isHero bool, tpl *Template) (map[string]any, []string, error) {
 	wt := tpl.resolve().Wardrobe
@@ -692,7 +692,7 @@ func buildOffRosterFolder(contentDir, folderPath, folder string) (map[string]any
 
 // offToken strips the folder prefix from a file stem (case-insensitive), falling
 // back to everything after the second underscore when a spelling drift breaks the
-// prefix ("Cold_Philipp" folder / "Cold_Phillip_Surprised" file). Lowercased.
+// prefix ("Demo_Oscar" folder / "Demo_Oscar_Surprised" file). Lowercased.
 func offToken(base, folder string) string {
 	lb, lf := strings.ToLower(base), strings.ToLower(folder)
 	var rem string

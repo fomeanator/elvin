@@ -3,7 +3,7 @@ package importer
 // template.go makes the articy → novel importer configurable per project.
 //
 // Every authoring convention the pipeline used to hardcode for the first bundle
-// novel ("Холодный расчёт") — role names that clear the stage, the scene-marker
+// novel imported through it — role names that clear the stage, the scene-marker
 // pattern, the wardrobe variable layout, audio-cue variable prefixes, staging
 // sides, premium pricing — now lives in a Template. DefaultTemplate() holds those
 // original conventions, so nothing changes for that novel; a project whose articy
@@ -56,8 +56,8 @@ type Template struct {
 	SpeakerNames map[string]string `json:"speaker_names,omitempty"`
 
 	// VarAliases maps a variable-name PREFIX to its canonical spelling —
-	// the content-typo rescue. Live case: Cold's chapters 1-2/5-6 write
-	// `Relationship.Matvey` (singular) while the declared namespace, the
+	// the content-typo rescue. Live case: the partner novel's chapters 1-2/5-6 write
+	// `Relationship.Roman` (singular) while the declared namespace, the
 	// stat bars, and every later chapter use `Relationships.` — so early
 	// relationship points vanished into an undeclared variable and the
 	// partner's bars sat at 0 through chapter 1. Applied to set/inc keys
@@ -246,13 +246,13 @@ func (t *Template) TitleStats(globalVars []articy.GlobalVarInfo) []TitleStat {
 	return out
 }
 
-// DefaultTemplate returns the built-in "cold" template — the authoring
-// conventions of the first bundle novel ("Холодный расчёт"). It is the fallback
-// for every import that doesn't select another template, so the pipeline's
+// DefaultTemplate returns the built-in "default" template — the authoring
+// conventions of the first bundle novel imported through this pipeline. It is
+// the fallback for every import that doesn't select another template, so the
 // default behaviour is unchanged. Returns a fresh, already-compiled pointer.
 func DefaultTemplate() *Template {
 	t := &Template{
-		Name: "cold",
+		Name: "default",
 		Staging: StagingTemplate{
 			NarratorRoles: []string{
 				"Автор", "Игрок", "Выбор пути", "Информация",
@@ -436,7 +436,7 @@ func LoadTemplate(path string) (*Template, error) {
 
 // ResolveTemplate selects the template for an import from a name-or-path:
 //
-//   - "" or "default"/"cold"        → the built-in DefaultTemplate();
+//   - "" or "default"               → the built-in DefaultTemplate();
 //   - a path to an existing file    → LoadTemplate(that file);
 //   - a bare name and a non-empty dir → LoadTemplate(dir/<name>.json).
 //
@@ -444,8 +444,8 @@ func LoadTemplate(path string) (*Template, error) {
 // templates without any per-novel code.
 func ResolveTemplate(nameOrPath, dir string) (*Template, error) {
 	s := strings.TrimSpace(nameOrPath)
-	if s == "" || s == "default" {
-		s = "cold" // the built-in default's name
+	if s == "" {
+		s = "default" // the built-in default's name
 	}
 	// An explicit path (has a separator or a .json suffix and exists) loads directly.
 	if strings.HasSuffix(s, ".json") || strings.ContainsAny(s, `/\`) {
@@ -454,15 +454,16 @@ func ResolveTemplate(nameOrPath, dir string) (*Template, error) {
 	// THE AUTHOR'S FILE ALWAYS WINS: a <name>.json under the templates dir
 	// overrides a built-in of the same name. The code's DefaultTemplate is only
 	// the fallback when no file exists — author conventions are content, not
-	// code (live-hit: editing cold.json's emotion legend silently did nothing
-	// because "cold" short-circuited to the built-in without reading the file).
+	// code (live-hit: editing the default template's emotion legend on disk did
+	// nothing, because the name short-circuited to the built-in without ever
+	// reading the file).
 	if dir != "" {
 		p := filepath.Join(dir, s+".json")
 		if _, err := os.Stat(p); err == nil {
 			return LoadTemplate(p)
 		}
 	}
-	if s == "cold" {
+	if s == "default" {
 		return DefaultTemplate(), nil
 	}
 	return nil, fmt.Errorf("unknown import template %q (no built-in and no %s.json under templates dir)", s, s)

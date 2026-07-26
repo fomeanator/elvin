@@ -336,7 +336,7 @@ namespace Lvn.Content
     {
         /// <summary>"pair" or "single".</summary>
         public string kind;
-        /// <summary>Single: the player-var key (dotted path, e.g. "Relationships.Matvey").</summary>
+        /// <summary>Single: the player-var key (dotted path, e.g. "Relationships.Roman").</summary>
         public string key;
         /// <summary>Single: the display label.</summary>
         public string label;

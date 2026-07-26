@@ -113,12 +113,12 @@ func TestAutoStageSingleSpeakerSwap(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "text": "Сцена 1. Класс."},
 		{"op": "say", "who": "Тимур", "text": "a"},
-		{"op": "say", "who": "Люба", "text": "b"},
+		{"op": "say", "who": "Вера", "text": "b"},
 	}}
-	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
+	cast := map[string]string{"Тимур": "t.png", "Вера": "l.png"}
 	AutoStage(doc, cast, nil)
 
-	// Люба's turn must first hide Тимур, then show Люба — never two up at once.
+	// Вера's turn must first hide Тимур, then show Вера — never two up at once.
 	on := map[string]bool{}
 	maxOn := 0
 	var shownPos []string
@@ -397,7 +397,7 @@ func TestApplySpeakerAliasesToCast(t *testing.T) {
 // hide before the tail's show.
 func TestAutoStageBranchGotoCollisionGetsDefensiveHide(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
-		{"op": "say", "who": "Matvey", "text": "m1"},    // show Matvey
+		{"op": "say", "who": "Roman", "text": "m1"},     // show Roman
 		{"op": "say", "who": "Рассказчик", "text": "…"}, // clear stage
 		{"op": "choice", "options": []any{
 			articy.Cmd{"goto": "E"}, articy.Cmd{"goto": "R"},
@@ -406,15 +406,15 @@ func TestAutoStageBranchGotoCollisionGetsDefensiveHide(t *testing.T) {
 		{"op": "label", "id": "TAIL"},
 		{"op": "say", "who": "Miron", "text": "tail"}, // TAIL shows Miron
 		{"op": "goto", "label": "END"},
-		{"op": "label", "id": "R"},                  // reshow branch
-		{"op": "say", "who": "Matvey", "text": "r"}, // shows Matvey, still up…
-		{"op": "goto", "label": "TAIL"},             // …then jumps into TAIL
+		{"op": "label", "id": "R"},                 // reshow branch
+		{"op": "say", "who": "Roman", "text": "r"}, // shows Roman, still up…
+		{"op": "goto", "label": "TAIL"},            // …then jumps into TAIL
 		{"op": "label", "id": "END"},
 	}}
-	cast := map[string]string{"Matvey": "matvey.png", "Miron": "miron.png"}
+	cast := map[string]string{"Roman": "roman.png", "Miron": "miron.png"}
 	AutoStage(doc, cast, nil)
 
-	// The Miron show must be immediately preceded by a defensive hide of Matvey.
+	// The Miron show must be immediately preceded by a defensive hide of Roman.
 	mironShow := -1
 	for i, c := range doc.Script {
 		if c["op"] == "actor" && c["show"] == true && c["id"] == "Miron" {
@@ -426,8 +426,8 @@ func TestAutoStageBranchGotoCollisionGetsDefensiveHide(t *testing.T) {
 		t.Fatalf("no Miron show emitted; script=%v", doc.Script)
 	}
 	prev := doc.Script[mironShow-1]
-	if !(prev["op"] == "actor" && prev["id"] == "Matvey" && prev["show"] == false) {
-		t.Fatalf("expected defensive hide of Matvey before Miron show, got %v", prev)
+	if !(prev["op"] == "actor" && prev["id"] == "Roman" && prev["show"] == false) {
+		t.Fatalf("expected defensive hide of Roman before Miron show, got %v", prev)
 	}
 }
 
@@ -436,9 +436,9 @@ func TestAutoStageBranchGotoCollisionGetsDefensiveHide(t *testing.T) {
 func TestNormalizeAddsNoHidesOnCleanLinearFlow(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Тимур", "text": "a"},
-		{"op": "say", "who": "Люба", "text": "b"},
+		{"op": "say", "who": "Вера", "text": "b"},
 	}}
-	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
+	cast := map[string]string{"Тимур": "t.png", "Вера": "l.png"}
 	AutoStage(doc, cast, nil)
 
 	hides := 0

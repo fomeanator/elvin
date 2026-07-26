@@ -21,7 +21,7 @@ namespace Lvn.Tests
         [Test]
         public void FreeSlotKeepsTheDesiredX()
         {
-            var others = new[] { Actor("matvey", 0.25f) };
+            var others = new[] { Actor("roman", 0.25f) };
             var x = VnStage.ArbitrateSlotX(0.75f, "miron", false, others, null, out var owner);
             Assert.IsNull(owner);
             Assert.AreEqual(0.75f, x, 0.001f);
@@ -31,16 +31,16 @@ namespace Lvn.Tests
         public void OccupiedSlotSlidesToTheNearestFreeSlot_TiesBreakOutward()
         {
             // right (0.75) is owned; 0.62 and 0.88 are equally near — outward wins
-            var others = new[] { Actor("matvey", 0.75f) };
+            var others = new[] { Actor("roman", 0.75f) };
             var x = VnStage.ArbitrateSlotX(0.75f, "miron", false, others, null, out var owner);
-            Assert.AreEqual("matvey", owner);
+            Assert.AreEqual("roman", owner);
             Assert.AreEqual(0.88f, x, 0.001f);
         }
 
         [Test]
         public void ExplicitAuthorXIsNeverArbitrated()
         {
-            var others = new[] { Actor("matvey", 0.75f) };
+            var others = new[] { Actor("roman", 0.75f) };
             var x = VnStage.ArbitrateSlotX(0.75f, "miron", true, others, null, out var owner);
             Assert.IsNull(owner, "явный x — авторская композиция, не коллизия");
             Assert.AreEqual(0.75f, x, 0.001f);
@@ -49,7 +49,7 @@ namespace Lvn.Tests
         [Test]
         public void HiddenActorsHoldNoSlot()
         {
-            var others = new[] { Actor("matvey", 0.75f, show: false) };
+            var others = new[] { Actor("roman", 0.75f, show: false) };
             var x = VnStage.ArbitrateSlotX(0.75f, "miron", false, others, null, out var owner);
             Assert.IsNull(owner);
             Assert.AreEqual(0.75f, x, 0.001f);
@@ -83,10 +83,10 @@ namespace Lvn.Tests
         public void EntitySlotOverridesJoinTheCandidatePool()
         {
             // the entity's own tuned slot (e.g. hill wardrobe stand) is free — usable
-            var others = new[] { Actor("matvey", 0.75f), Actor("roman", 0.88f), Actor("lena", 0.62f) };
+            var others = new[] { Actor("roman", 0.75f), Actor("roman", 0.88f), Actor("lena", 0.62f) };
             var custom = new Dictionary<string, float> { ["porch"] = 0.97f };
             var x = VnStage.ArbitrateSlotX(0.75f, "miron", false, others, custom, out var owner);
-            Assert.AreEqual("matvey", owner);
+            Assert.AreEqual("roman", owner);
             Assert.AreEqual(0.97f, x, 0.001f, "кастомный слот сущности — легальный кандидат");
         }
     }
