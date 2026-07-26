@@ -428,7 +428,7 @@ namespace Lvn.UI
         // A VISIBLE actor owns its X until it hides or moves. Branch-merged
         // content routinely loses a hide on the way into a shared tail (the
         // partner's "two characters standing inside each other" screenshot:
-        // choice branch re-shows Matvey right, jumps to the tail, the tail
+        // choice branch re-shows Roman right, jumps to the tail, the tail
         // shows Miron right — 673 such flow-order collisions across the cold
         // chapters). The stage must never DRAW that: a claimant resolved into
         // an occupied slot slides to the nearest free slot instead. An explicit

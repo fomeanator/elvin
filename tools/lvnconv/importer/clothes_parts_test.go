@@ -88,17 +88,17 @@ func TestSplitPartSuffix_OnlyNumericPairs(t *testing.T) {
 
 func TestResolveParts_FindsOrderedParts(t *testing.T) {
 	dir := t.TempDir()
-	writePng(t, filepath.Join(dir, "Cold_main_clothes_13_1.png"), 2, 2, color.NRGBA{A: 255})
-	writePng(t, filepath.Join(dir, "Cold_main_clothes_13_2.png"), 2, 2, color.NRGBA{A: 255})
+	writePng(t, filepath.Join(dir, "Demo_main_clothes_13_1.png"), 2, 2, color.NRGBA{A: 255})
+	writePng(t, filepath.Join(dir, "Demo_main_clothes_13_2.png"), 2, 2, color.NRGBA{A: 255})
 	fi := indexFolder(dir)
-	parts := fi.resolveParts("cold_main_clothes_13")
+	parts := fi.resolveParts("demo_main_clothes_13")
 	if len(parts) != 2 {
 		t.Fatalf("want 2 parts, got %v", parts)
 	}
-	if filepath.Base(parts[0]) != "Cold_main_clothes_13_1.png" {
+	if filepath.Base(parts[0]) != "Demo_main_clothes_13_1.png" {
 		t.Fatalf("part order wrong: %v", parts)
 	}
-	if got := fi.resolveParts("cold_main_clothes_11"); got != nil {
+	if got := fi.resolveParts("demo_main_clothes_11"); got != nil {
 		t.Fatalf("phantom parts for a single-file outfit: %v", got)
 	}
 }

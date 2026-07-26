@@ -95,11 +95,11 @@ func applySpeakerNameOverridesToSprites(sprites map[string]any, tpl *Template) {
 		if key == "" {
 			key = id
 		}
-		// The variant-suffix walk ("Matvey_neardeath_blood" → «Матвей») is
+		// The variant-suffix walk ("Roman_neardeath_blood" → «Роман») is
 		// safe for a STATE VARIANT of a character the catalog also holds
 		// under its base id. Applied blind to any entity id it renames
 		// strangers: with the default template's 56 latin names, another
-		// novel's "Ivan_Petrov" was captioned «Иван» because "Ivan" happens
+		// novel's "Lev_Petrov" was captioned «Лев» because "Lev" happens
 		// to be a key. Require the base to be a real entity here; the exact
 		// match (no suffix stripped) is always allowed.
 		if display := displayNameWithin(names, key, sprites); display != "" {

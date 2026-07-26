@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             el.style.borderBottomRightRadius = r;
         }
 
-        // Reads a dotted var path (e.g. "Relationships.Matvey") through the
+        // Reads a dotted var path (e.g. "Relationships.Roman") through the
         // caller's getter; missing/non-numeric → 0 (never throws into the UI).
         private static double Num(System.Func<string, JToken> getVar, string key)
         {

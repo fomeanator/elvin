@@ -40,7 +40,7 @@ var bundleFileFields = map[string]func(*importer.BundleInputs, string){
 }
 
 // resolveImportTemplate picks the novel-authoring Template for a bundle import:
-// an empty name → the built-in default ("cold"); any other name → a
+// an empty name → the built-in default ("default"); any other name → a
 // <name>.json under <content>/import-templates (drop-in, no code change). Callers
 // treat a resolve error as a 400 (a named-but-missing template is user error).
 func (s *server) resolveImportTemplate(name string) (*importer.Template, error) {

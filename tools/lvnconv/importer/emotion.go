@@ -10,7 +10,7 @@ import (
 // defaultEmotionColors maps a dialogue fragment's articy marker colour (#rrggbb)
 // to an emotion token. articy authors tint fragments to cue the speaker's mood.
 // This is the studio's OFFICIAL palette (partner docs «Все эмоции и цвета» /
-// variables table) — the six colours we reverse-engineered from Cold all
+// variables table) — the six colours we reverse-engineered from partner content all
 // matched it exactly; the rest fill out the registry. Overridable/extendable
 // per import via Options.EmotionColors.
 var defaultEmotionColors = map[string]string{

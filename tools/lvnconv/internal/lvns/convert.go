@@ -65,6 +65,11 @@ func Convert(src string) (*Doc, error) {
 	//  5. expandCalls: rewrite procedure call sites + `return <expr>`,
 	//  6. inlineFuncs (after the doc is built): substitute expression-function
 	//     calls into every expression the runtime will evaluate.
+	// Директива, дожившая до разбора, — это вызов Convert без файла. Молча
+	// пропустить нельзя: строка ушла бы в наррацию и напечаталась игроку.
+	if err := strayInclude(strings.Split(src, "\n")); err != nil {
+		return nil, err
+	}
 	flat := flattenInline(src)
 	funcs, err := collectFuncs(flat)
 	if err != nil {
@@ -1861,7 +1866,7 @@ func parseChoiceOption(line string) (map[string]any, error) {
 			opt["wallet_cost"] = map[string]any{"amount": amt, "currency": m[2]}
 		}
 	}
-	// effects="Матвей:+2,Мирон:+1" is the cosmetic "+2 Матвей" choice-preview
+	// effects="Роман:+2,Мирон:+1" is the cosmetic "+2 Роман" choice-preview
 	// hint (AnnotateChoiceEffects) — reconstruct the [{label,delta}] shape.
 	if es, ok := opt["effects"].(string); ok {
 		var effects []any

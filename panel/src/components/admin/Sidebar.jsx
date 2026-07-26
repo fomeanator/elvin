@@ -13,6 +13,8 @@ const I = {
   assets: <><path d="M2.5 5.5a1.5 1.5 0 0 1 1.5-1.5h4l2 2.5h6a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16.5H4A1.5 1.5 0 0 1 2.5 15z" /></>,
   analytics: <><path d="M3 17h14" /><path d="M5 13.5v-3M9 13.5V6.5M13 13.5v-5M17 13.5v-9" /></>,
   manifest: <><path d="M5 2.5h7l3.5 3.5v11.5h-10.5z" /><path d="M12 2.5V6h3.5M7.5 10h5M7.5 13h5" /></>,
+  novels: <><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3H9v14H4.5A1.5 1.5 0 0 1 3 15.5z" /><path d="M17 4.5A1.5 1.5 0 0 0 15.5 3H11v14h4.5a1.5 1.5 0 0 0 1.5-1.5z" /></>,
+  conflicts: <><path d="M6 3v5.5a4 4 0 0 0 4 4 4 4 0 0 1 4 4V17" /><path d="M14 3v3.5" /><circle cx="6" cy="3" r="1.4" /><circle cx="14" cy="3" r="1.4" /><circle cx="14" cy="17" r="1.4" /></>,
 };
 
 export function NavIcon({ name }) {
@@ -24,9 +26,18 @@ export function NavIcon({ name }) {
   );
 }
 
+// The first group IS the author's path, in order: заливаешь articy в Студии →
+// «Мои новеллы» показывает, что изменилось и что не разобрано → «Конфликты»
+// разбираются → «Аналитика» отвечает, что из этого вышло. Everything below is
+// background operations (audience, economy, plumbing) — deliberately after it.
 export const NAV = [
   { section: "", items: [
     { key: "overview", label: "Обзор", icon: "overview" },
+  ]},
+  { section: "Новеллы", items: [
+    { key: "novels", label: "Мои новеллы", icon: "novels" },
+    { key: "conflicts", label: "Конфликты", icon: "conflicts", badge: "conflicts" },
+    { key: "analytics", label: "Аналитика", icon: "analytics" },
   ]},
   { section: "Аудитория", items: [
     { key: "users", label: "Пользователи", icon: "users" },
@@ -38,12 +49,9 @@ export const NAV = [
     { key: "assets", label: "Ассеты", icon: "assets" },
     { key: "manifest", label: "Манифест", icon: "manifest" },
   ]},
-  { section: "Метрики", items: [
-    { key: "analytics", label: "Аналитика", icon: "analytics" },
-  ]},
 ];
 
-export default function Sidebar({ active, onNav, tokenOk, collapsed }) {
+export default function Sidebar({ active, onNav, tokenOk, collapsed, badges }) {
   // Server heartbeat for the footer — /healthz is public and cheap.
   const [alive, setAlive] = useState(null);
   useEffect(() => {
@@ -66,17 +74,23 @@ export default function Sidebar({ active, onNav, tokenOk, collapsed }) {
             {g.section && (collapsed
               ? <div className="adm-navgroup-rule" />
               : <div className="adm-navgroup-title">{g.section}</div>)}
-            {g.items.map((it) => (
-              <button
-                key={it.key}
-                className={"adm-navitem" + (active === it.key ? " active" : "")}
-                onClick={() => onNav(it.key)}
-                title={collapsed ? it.label : active === it.key ? "клик — обновить данные" : undefined}
-              >
-                <NavIcon name={it.icon} />
-                {!collapsed && <span>{it.label}</span>}
-              </button>
-            ))}
+            {g.items.map((it) => {
+              const n = it.badge ? Number((badges || {})[it.badge]) || 0 : 0;
+              return (
+                <button
+                  key={it.key}
+                  className={"adm-navitem" + (active === it.key ? " active" : "") + (n ? " has-badge" : "")}
+                  onClick={() => onNav(it.key)}
+                  title={collapsed
+                    ? it.label + (n ? " — не разобрано: " + n : "")
+                    : active === it.key ? "клик — обновить данные" : undefined}
+                >
+                  <NavIcon name={it.icon} />
+                  {!collapsed && <span>{it.label}</span>}
+                  {n > 0 && <span className="adm-navbadge">{n}</span>}
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>

@@ -71,6 +71,55 @@ characters: a sign that changes text, a sky that changes weather). Front-ends
 validator rejects an `actor` that references an unknown entity, the same way an
 unknown op or staging tag fails the build.
 
+## The `wardrobe` block — an axis the player may change
+
+An axis is normally driven by the script (`actor mara emotion=smile`). A
+`wardrobe` block hands one over to the **player**: it declares, per axis, which
+values are on offer, what they are called, what they cost, and which story
+variable the choice writes into.
+
+```json
+"mira": {
+  "layers":   [ "/art/mira/body.png", "/art/mira/outfit_{outfit}.png" ],
+  "axes":     { "outfit": ["casual", "gown"] },
+  "defaults": { "outfit": "casual" },
+
+  "wardrobe": {
+    "outfit": {
+      "name": "Outfit", "var": "look", "removable": false,
+      "items": [
+        { "value": "casual", "name": "Everyday coat", "icon": "/art/mira/outfit_casual.png" },
+        { "value": "gown",   "name": "Gala gown",     "icon": "/art/mira/outfit_gown.png",
+          "currency": "crystals", "price": 20, "rarity": "rare" }
+      ]
+    }
+  }
+}
+```
+
+The block is keyed by **axis** — the same axis name the layer templates use, so
+equipping an item is just a different value substituted into `{outfit}`.
+
+| Slot field | |
+|---|---|
+| `name` / `icon` | tab label and tab icon; the label defaults to the axis id |
+| `var` | the story variable the pick is written back into. Omit it and the slot is wardrobe-only: the player can dress the character, the story never learns |
+| `removable` | may the slot be emptied? An unset axis draws no layer, so "take off" costs nothing. Default `true` |
+| `items[]` | `value` (required — the axis value), `name`, `icon`, `currency`+`price` (bought through the wallet; ownership is a sku, so it survives reinstalls), `rarity` |
+
+Resolution stays the rule above, with one addition: an axis the `actor` command
+left **unset** is filled from what the player has equipped (and from `defaults`
+before that), while an axis the command **pinned to a literal** is a costume the
+story forces and a try-on cannot override. An axis written as a `{template}`
+(`outfit="{look}"`) is variable-driven: it re-reads the variable on every draw,
+including live while the sheet is open.
+
+Presence of a `wardrobe` block anywhere in the catalog is also what puts the
+always-open wardrobe in the game's quick menu. Opening it *at a story beat* is
+the `wardrobe_show` command — a **novel-shell** feature, not an engine one. The
+authoring guide, with a working example of both halves, is
+[`../howto/wardrobe/`](../howto/wardrobe/).
+
 ## Animating a character (in the panel)
 
 A cast entity may carry an `anim` block — named animations the runtime plays

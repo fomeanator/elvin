@@ -151,7 +151,7 @@ namespace Lvn.UI
                 btn.Add(cost);
             }
 
-            // Stat award preview ("+2 Матвей") — the importer's best-effort read
+            // Stat award preview ("+2 Роман") — the importer's best-effort read
             // of what picking this option actually does, never executed here.
             if (option.Effects != null && option.Effects.Count > 0)
             {

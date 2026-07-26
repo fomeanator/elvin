@@ -21,7 +21,7 @@ func TestDetectResponseKeepsReportFlat(t *testing.T) {
 	}
 	data, err := json.Marshal(detectResponse{
 		DetectReport: rep,
-		xlsxPreview:  xlsxPreview{XlsxProtagonist: "cold_main", XlsxEmotionColors: 11},
+		xlsxPreview:  xlsxPreview{XlsxProtagonist: "demo_main", XlsxEmotionColors: 11},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -21,17 +21,47 @@ namespace Lvn
     /// </summary>
     public static class LvnExpression
     {
-        public static JToken Evaluate(string expr, IReadOnlyDictionary<string, JToken> vars)
+        /// <summary>The random stream <c>rand()</c> / <c>chance()</c> draw from
+        /// when no explicit one is passed. It is an OBJECT with a seed and a
+        /// position (see <see cref="LvnRandom"/>), so a save can carry it and a
+        /// test harness can pin it — the old process-wide
+        /// <see cref="System.Random"/> could do neither. Never null: assigning
+        /// null installs a fresh stream.
+        ///
+        /// <para>Replace it to make a run reproducible:
+        /// <c>LvnExpression.Random = new LvnRandom(seed)</c>. The player snapshots
+        /// this stream's position in <c>LvnSnapshot.RngState</c> and restores it
+        /// on load, so a reload replays the same rolls instead of re-rolling
+        /// them.</para></summary>
+        public static LvnRandom Random
         {
-            var p = new Parser(expr, vars);
+            get => _shared;
+            set => _shared = value ?? new LvnRandom();
+        }
+
+        private static LvnRandom _shared = new LvnRandom();
+
+        public static JToken Evaluate(string expr, IReadOnlyDictionary<string, JToken> vars)
+            => Evaluate(expr, vars, null);
+
+        /// <summary>Evaluate against an explicit random stream — for a host that
+        /// runs several stories at once and wants each to own its own rolls
+        /// instead of sharing <see cref="Random"/>. Null uses the ambient one.</summary>
+        public static JToken Evaluate(string expr, IReadOnlyDictionary<string, JToken> vars, LvnRandom rng)
+        {
+            var p = new Parser(expr, vars, rng);
             var v = p.ParseOr();
             p.ExpectEnd();
             return v.ToJToken();
         }
 
         public static bool EvaluateBool(string expr, IReadOnlyDictionary<string, JToken> vars)
+            => EvaluateBool(expr, vars, null);
+
+        /// <inheritdoc cref="Evaluate(string, IReadOnlyDictionary{string, JToken}, LvnRandom)"/>
+        public static bool EvaluateBool(string expr, IReadOnlyDictionary<string, JToken> vars, LvnRandom rng)
         {
-            var p = new Parser(expr, vars);
+            var p = new Parser(expr, vars, rng);
             var v = p.ParseOr();
             p.ExpectEnd();
             return v.Truthy();
@@ -161,12 +191,14 @@ namespace Lvn
         {
             private readonly string _s;
             private readonly IReadOnlyDictionary<string, JToken> _vars;
+            private readonly LvnRandom _rng;
             private int _i;
 
-            public Parser(string s, IReadOnlyDictionary<string, JToken> vars)
+            public Parser(string s, IReadOnlyDictionary<string, JToken> vars, LvnRandom rng = null)
             {
                 _s = s ?? "";
                 _vars = vars;
+                _rng = rng ?? Random;
             }
 
             public void ExpectEnd()
@@ -455,10 +487,18 @@ namespace Lvn
                 obj[key] = ParseOr().ToJToken();
             }
 
-            // Built-in expression functions. rand() is the one stateful one — it
-            // makes combat/loot non-deterministic (so a reload re-rolls); everything
+            // Built-in expression functions. rand()/chance() are the only stateful
+            // ones — they draw from an <see cref="LvnRandom"/> stream (the ambient
+            // LvnExpression.Random unless the caller passed its own); everything
             // else is pure. rand(a,b)=int in [a,b]; rand(n)=int in [0,n]; rand()=0..1.
-            private static readonly System.Random _rng = new System.Random();
+            //
+            // That stream is part of the save (LvnSnapshot.RngState), so a reload
+            // replays the SAME rolls it showed before the crash instead of
+            // re-rolling the fight. It used to be a private static System.Random:
+            // one per process, unseedable, invisible to the snapshot — which made
+            // a seeded soak run un-reproducible (the flake hunter could not tell a
+            // flake from the content rolling a different number) and let a reload
+            // re-roll a lost battle.
             private Val CallFunc(string name, System.Collections.Generic.List<Val> a)
             {
                 double N(int i) => i < a.Count ? a[i].AsNum() : 0;
@@ -468,10 +508,9 @@ namespace Lvn
                     // ── numbers / chance ──
                     case "rand":
                         if (a.Count == 0) return Val.Of(_rng.NextDouble());
-                        if (a.Count == 1) { int n = (int)System.Math.Round(N(0)); return Val.Of((double)_rng.Next(0, (n < 0 ? 0 : n) + 1)); }
-                        int lo = (int)System.Math.Round(N(0)), hi = (int)System.Math.Round(N(1));
-                        if (lo > hi) { var t = lo; lo = hi; hi = t; }
-                        return Val.Of((double)_rng.Next(lo, hi + 1)); // inclusive
+                        if (a.Count == 1) { int n = (int)System.Math.Round(N(0)); return Val.Of((double)_rng.NextInt(0, n < 0 ? 0 : n)); }
+                        // NextInt is inclusive on both ends and orders its bounds.
+                        return Val.Of((double)_rng.NextInt((int)System.Math.Round(N(0)), (int)System.Math.Round(N(1))));
                     case "chance": return Val.Of(_rng.NextDouble() < (a.Count > 0 ? N(0) : 0.5));
                     case "min": return Val.Of(a.Count == 0 ? 0 : (a.Count == 1 ? N(0) : System.Math.Min(N(0), N(1))));
                     case "max": return Val.Of(a.Count == 0 ? 0 : (a.Count == 1 ? N(0) : System.Math.Max(N(0), N(1))));
@@ -618,5 +657,155 @@ namespace Lvn
                 return true;
             }
         }
+    }
+
+    /// <summary>
+    /// The random stream behind <c>rand()</c> and <c>chance()</c>: an instance
+    /// with a seed, a position, and a state string a save can carry.
+    ///
+    /// <para>Three things the old <c>private static System.Random</c> could not
+    /// do, and this can:</para>
+    /// <list type="bullet">
+    ///   <item>be SEEDED — <c>new LvnRandom(seed)</c> replays a run exactly, so
+    ///   the nightly flake hunter (qa/stability.sh) can tell a flaky test from
+    ///   content that simply rolled a different number;</item>
+    ///   <item>be SAVED — <see cref="SaveState"/> / <see cref="TryLoadState"/>
+    ///   ride along in <c>LvnPlayer.LvnSnapshot.RngState</c>, so a reload
+    ///   continues the same stream instead of re-rolling the fight the player
+    ///   just lost;</item>
+    ///   <item>be OWNED — a host running two stories at once gives each its own
+    ///   instance instead of interleaving draws in one global.</item>
+    /// </list>
+    ///
+    /// <para>The generator is splitmix64: 64 bits of state, no warm-up, and —
+    /// unlike <see cref="System.Random"/>, whose sequence is explicitly not
+    /// contractual across runtimes — the same seed yields the same sequence on
+    /// every platform and every .NET/Mono/IL2CPP version. A save moved from an
+    /// editor run to a phone therefore resumes the same rolls.</para>
+    ///
+    /// <para>Not thread-safe: like the rest of the player, drive it from one
+    /// thread.</para>
+    /// </summary>
+    public sealed class LvnRandom
+    {
+        private const ulong Gamma = 0x9E3779B97F4A7C15UL; // splitmix64 increment
+        private const string Tag = "lvnrng1";             // state-string version
+
+        private static long _born; // distinguishes instances made in the same tick
+
+        private ulong _state;
+
+        /// <summary>The seed this stream started from — carried through save/load
+        /// for diagnostics ("which seed produced this bug report?").</summary>
+        public ulong Seed { get; private set; }
+
+        /// <summary>How many numbers have been drawn since the seed. Together
+        /// with <see cref="Seed"/> it identifies the position exactly, and it is
+        /// what makes a QA report reproducible.</summary>
+        public long Draws { get; private set; }
+
+        /// <summary>A stream seeded from the clock — different every run, which
+        /// is what a shipped game wants.</summary>
+        public LvnRandom() : this(FreshSeed()) { }
+
+        /// <summary>A stream seeded explicitly — the same seed always replays the
+        /// same sequence.</summary>
+        public LvnRandom(ulong seed) { Reseed(seed); }
+
+        /// <summary>Restart the stream from <paramref name="seed"/>.</summary>
+        public void Reseed(ulong seed)
+        {
+            Seed = seed;
+            _state = seed;
+            Draws = 0;
+        }
+
+        private static ulong FreshSeed()
+        {
+            unchecked
+            {
+                var n = (ulong)System.Threading.Interlocked.Increment(ref _born);
+                return Mix((ulong)DateTime.UtcNow.Ticks + n * Gamma);
+            }
+        }
+
+        private static ulong Mix(ulong z)
+        {
+            unchecked
+            {
+                z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+                z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+                return z ^ (z >> 31);
+            }
+        }
+
+        /// <summary>The next 64 raw bits.</summary>
+        public ulong NextULong()
+        {
+            unchecked
+            {
+                _state += Gamma;
+                Draws++;
+                return Mix(_state);
+            }
+        }
+
+        /// <summary>Uniform double in [0, 1) — the 53 bits a double can hold.</summary>
+        public double NextDouble() => (NextULong() >> 11) * (1.0 / 9007199254740992.0);
+
+        /// <summary>Uniform int in [<paramref name="lo"/>, <paramref name="hi"/>],
+        /// INCLUSIVE on both ends (that is what <c>rand(a, b)</c> promises) and
+        /// tolerant of reversed bounds. Rejection-sampled, so no modulo bias.</summary>
+        public int NextInt(int lo, int hi)
+        {
+            if (hi < lo) { var t = lo; lo = hi; hi = t; }
+            ulong span = (ulong)((long)hi - lo) + 1UL; // ≤ 2^32, never 0
+            ulong limit = ulong.MaxValue - ulong.MaxValue % span; // largest multiple of span
+            ulong r;
+            do { r = NextULong(); } while (r >= limit);
+            return (int)((long)lo + (long)(r % span));
+        }
+
+        /// <summary>The stream's position as a string a save can hold.
+        ///
+        /// <para>A string, not a number, on purpose: the state is 64 bits, and a
+        /// save blob round-trips through JSON parsers that decode every number as
+        /// a double (Go's <c>map[string]interface{}</c>, every browser). Anything
+        /// above 2^53 would come back silently wrong — the stream would resume in
+        /// the wrong place, which is worse than not resuming it at all.</para></summary>
+        public string SaveState() =>
+            Tag + ":" + Seed.ToString("x16", CultureInfo.InvariantCulture) +
+            ":" + _state.ToString("x16", CultureInfo.InvariantCulture) +
+            ":" + Draws.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>Move this stream to a saved position. Returns false — leaving
+        /// the stream untouched — for anything it cannot read (null, an older or
+        /// newer format, a truncated blob), so a corrupt save costs the player a
+        /// re-rolled fight, never a crash on load.</summary>
+        public bool TryLoadState(string state)
+        {
+            if (string.IsNullOrEmpty(state)) return false;
+            var parts = state.Split(':');
+            if (parts.Length != 4 || !string.Equals(parts[0], Tag, StringComparison.Ordinal)) return false;
+            if (!ulong.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var seed)) return false;
+            if (!ulong.TryParse(parts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var st)) return false;
+            if (!long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var draws)) return false;
+            Seed = seed;
+            _state = st;
+            Draws = draws;
+            return true;
+        }
+
+        /// <summary>An independent stream at this one's current position — for a
+        /// "what if" simulation that must not disturb the player's rolls.</summary>
+        public LvnRandom Clone()
+        {
+            var c = new LvnRandom(Seed);
+            c._state = _state;
+            c.Draws = Draws;
+            return c;
+        }
+
+        public override string ToString() => SaveState();
     }
 }
