@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getManifest, getExtGrammar, putAsset } from "../lib/api.js";
+import { getManifest, getExtGrammar, putAsset, adminFiles } from "../lib/api.js";
 import { ensureWasm, compileLvns } from "../lib/wasm.js";
 import DocsPanel from "./DocsPanel.jsx";
 import ExamplesPanel from "./ExamplesPanel.jsx";
@@ -190,6 +190,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         setPublished(new Set(ids));
         const first = (t.seasons[0].chapters || [])[0];
         await ensureWasm().then(() => (wasmReady.current = true)).catch(() => {});
+        await loadShared(ids);
         if (first) openChapter(first); else { setSrc(""); compile(""); }
       } finally {
         setBooting(false);
@@ -197,6 +198,38 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titleId]);
+
+  // ── общие файлы новеллы (те, что подключают через include) ─────────────
+  //
+  // Список FILES строился ТОЛЬКО из глав манифеста, поэтому общий файл механик
+  // в студии не было видно и нельзя было открыть — «файлами невозможно
+  // управлять». А компилятор в браузере получал текст без соседей, и любая
+  // глава с include падала с «подключение работает только при компиляции
+  // файла». Обе беды лечит одно: знать все .lvns новеллы, а не только главы.
+  const [shared, setShared] = useState([]);        // имена общих файлов
+  const sourcesRef = useRef({});                    // имя.lvns -> текст, для include
+  const [sharedName, setSharedName] = useState(""); // открыт общий файл, а не глава
+
+  async function loadShared(chapterIds) {
+    if (!creds.token) return;
+    let names = [];
+    try {
+      const r = await adminFiles("scripts", creds.token);
+      const chapterFiles = new Set(chapterIds.map((id) => id + ".lvns"));
+      names = (r.files || [])
+        .filter((f) => !f.dir && /\.lvns$/.test(f.name) && !chapterFiles.has(f.name))
+        .map((f) => f.name)
+        .sort();
+    } catch { return; } // нет прав/сети — студия работает как раньше
+    setShared(names);
+    // Тексты нужны компилятору, а не глазам: include резолвится в браузере.
+    await Promise.all(names.map(async (n) => {
+      try {
+        const rr = await fetch("/content/scripts/" + n + "?v=" + Date.now(), { cache: "no-store" });
+        if (rr.ok) sourcesRef.current[n] = await rr.text();
+      } catch { /* нечитаемый файл просто не участвует в include */ }
+    }));
+  }
 
   const chapters = useMemo(() => {
     if (!title) return [];
@@ -238,7 +271,32 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     return false;
   }
 
+  // Открыть ОБЩИЙ файл на правку. Это не глава: у неё нет номера, обложки и
+  // записи в манифесте, и компилировать её отдельно нечего — у библиотеки нет
+  // `scene`. Поэтому сохранение пишет только .lvns, а «Save» не публикует
+  // главу. Проверит её первая же глава, которая её подключает.
+  async function openShared(name) {
+    const epoch = ++openEpoch.current;
+    setSelId("");
+    setSharedName(name);
+    setImported(false);
+    importedRef.current = false;
+    creds.setPath("scripts/" + name);
+    let txt = sourcesRef.current[name] || "";
+    try {
+      const r = await fetch("/content/scripts/" + name + "?v=" + Date.now(), { cache: "no-store" });
+      if (openEpoch.current !== epoch) return;
+      if (r.ok) txt = await r.text();
+    } catch { /* останется то, что уже прочитали для include */ }
+    if (openEpoch.current !== epoch) return;
+    sourcesRef.current[name] = txt;
+    savedSrc.current = txt;
+    setSrc(txt);
+    compile(txt);
+  }
+
   async function openChapter(c) {
+    setSharedName("");
     // Guard against a slow fetch from a previous open clobbering the chapter the
     // user has since switched to (and leaving importedRef stuck → dropped keys).
     const epoch = ++openEpoch.current;
@@ -317,7 +375,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
 
   // ── compile (WASM) ────────────────────────────────────────────────────
   function compile(text) {
-    const r = compileLvns(text, extGrammarRef.current);
+    // Соседи для include: все .lvns новеллы, КРОМЕ открытого — он и есть text,
+    // и подсунуть его копию значило бы скрыть цикл «сам на себя».
+    const self = sharedName || (selId ? selId + ".lvns" : "");
+    const sib = {};
+    for (const [n, t] of Object.entries(sourcesRef.current)) if (n !== self) sib[n] = t;
+    const r = compileLvns(text, extGrammarRef.current, sib, self);
     let ds = Array.isArray(r && r.diags) ? r.diags : [];
     // Imported chapters: articy linearization merges branches by design, so
     // machine labels (n12_000000) legitimately mix jump-targets with
@@ -465,6 +528,23 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     // stale .lvn against fresh .lvns source.
     clearTimeout(compileTimer.current);
     if (wasmReady.current && !importedRef.current) compile(src);
+
+    // Общий файл сохраняется САМ ПО СЕБЕ: компилировать его отдельно нечего
+    // (нет `scene`), в манифест он не идёт. Ошибки в нём всплывут в главе,
+    // которая его подключает — там сочетание и становится настоящим.
+    if (sharedName) {
+      notify("Saving…");
+      try {
+        await putAsset("scripts/" + sharedName, src, creds.token, "text/plain; charset=utf-8");
+        sourcesRef.current[sharedName] = src;
+        savedSrc.current = src;
+        localStorage.removeItem(draftKey(sharedName));
+        notify(`✓ Saved ${sharedName} — главы подхватят при следующей сборке`, "ok");
+      } catch (e) {
+        notify("Save failed: " + ((e && e.message) || "unknown"), "err");
+      }
+      return;
+    }
     if (!lastJson.current) { notify("Fix the errors before saving.", "err"); return; }
     const lvnPath = (creds.path || "scripts/ch1.lvn").trim();
     const lvnsPath = lvnPath.replace(/\.lvn$/, ".lvns");
@@ -587,7 +667,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             </div>
           </div>
           <div className="ide-files">
-            {chapters.length === 0 && <div className="ide-empty">No files.<br />+ New →</div>}
+            {chapters.length === 0 && shared.length === 0 && <div className="ide-empty">No files.<br />+ New →</div>}
             {chapters.map((c) => {
               const isDraft = !published.has(c.id);
               const hasError = c.id === selId && errCount > 0;
@@ -607,6 +687,22 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
               </div>
               );
             })}
+            {shared.length > 0 && (
+              <>
+                <div className="ide-files-group" title="Файлы, которые главы подключают через include — не главы: без номера и не в манифесте">
+                  общие · include
+                </div>
+                {shared.map((n) => (
+                  <div key={n} className={"ide-file-row" + (n === sharedName ? " active" : "")}>
+                    <button className="ide-file-open" onClick={() => openShared(n)} title={"scripts/" + n}>
+                      <span className="ide-file-ico st-live" />
+                      <span className="ide-file-num">∙</span>
+                      <span className="ide-file-label">{n}</span>
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {sel && outline.length > 0 && (
