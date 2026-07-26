@@ -1604,3 +1604,118 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .ide-side-sec.open { display: flex; flex-direction: column; min-height: 0; max-height: 46%; }
 .ide-side-body { overflow: auto; min-height: 0; padding: 0 8px 10px; display: flex; flex-direction: column; gap: 10px; }
 .ide-side-sec .ide-outline-list { max-height: none; }
+
+/* ── Строка списка файлов: имя ФАЙЛА, а рядом пометка «глава N» ─────────────
+   Раньше главным текстом строки было поле name из манифеста («01», «02»), и в
+   панели «Files» не было видно ни одного имени файла: «отдели названия файлов
+   от глав». Теперь имя файла — первая строка (моно, как в терминале), номер
+   главы — чип слева, человеческое имя — вторая строка мелким: одно больше не
+   подменяет другое. */
+.ide-file-chip {
+  flex: none; min-width: 30px; text-align: center;
+  padding: 1px 5px; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.02em;
+  color: var(--rose); background: rgba(207, 144, 182, 0.14);
+}
+/* Общий файл — не глава: тот же чип, но нейтральный, без «номера главы». */
+.ide-file-chip.sh { color: var(--muted); background: var(--ink-900); }
+.ide-file-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ide-file-sub {
+  font-size: 10.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ide-file-row.active .ide-file-sub { color: var(--paper-dim); }
+/* Чип вида в верхней плашке: что именно открыто — глава или общий файл. */
+.ide-file-kind {
+  padding: 1px 7px; border-radius: 8px;
+  font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--rose); background: rgba(207, 144, 182, 0.14);
+}
+.ide-file-kind.sh { color: var(--muted); background: var(--ink-800); }
+
+/* ── «Подключено» — переход по include ─────────────────────────────────────
+   Владелец, увидев в тексте `include "ec-mechanics.lvns"`, спросил «и как его
+   открыть?»: способа не было вовсе. Список подключённых файлов открывает их
+   кликом и не зависит ни от API редактора, ни от листинга каталога. */
+.ide-inc-list { display: flex; flex-direction: column; gap: 2px; }
+.ide-inc-row {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 5px 7px; border-radius: 5px; border: 1px solid transparent;
+  background: transparent; color: var(--paper-dim); text-align: left; cursor: pointer;
+}
+.ide-inc-row:hover { background: var(--ink-800); color: var(--paper); border-color: var(--rose-deep); }
+.ide-inc-ico { width: 14px; flex: none; text-align: center; font-size: 11px; color: var(--rose); }
+.ide-inc-name {
+  flex: 1; font-family: var(--font-mono); font-size: 11.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ide-inc-hint { margin: 8px 2px 0; font-size: 10.5px; line-height: 1.5; color: var(--faint); }
+.ide-inc-hint code { font-family: var(--font-mono); color: var(--muted); }
+
+/* ── Строка меню приложения (Файл · Правка · Вид · Переход · Помощь) ────────
+   Заменила цепочку пилюль в верхней панели. Пилюли выглядели «дизайнерски», но
+   каждую надо было разгадывать, а половина возможностей студии вообще не имела
+   входа глазами. Меню-бар знают все, поэтому и оформление максимально скучное:
+   ровные строки, галочка слева, горячая клавиша справа. Скука здесь — свойство,
+   а не лень: меню не должно требовать внимания, оно должно отвечать на вопрос. */
+.topbar.app-bar { align-items: center; gap: 14px; padding: 0 14px 0 18px; min-height: 46px; }
+.topbar.app-bar .brand { align-items: center; gap: 16px; }
+.topbar.app-bar .brand-mark { font-size: 19px; line-height: 1; }
+
+.menubar { display: flex; align-items: center; gap: 1px; }
+.mb-item { position: relative; }
+.mb-btn {
+  height: 30px; padding: 0 11px;
+  background: transparent; border: 0; border-radius: 6px;
+  color: var(--paper-dim); font-size: 13.5px; letter-spacing: 0.01em;
+  transition: background 0.15s, color 0.15s;
+}
+.mb-btn:hover { color: var(--paper); background: var(--ink-800); }
+.mb-btn.open { color: var(--paper); background: var(--ink-750); box-shadow: inset 0 0 0 1px var(--line); }
+
+.mb-pop {
+  position: absolute; left: 0; top: 100%; z-index: 55;
+  margin-top: 5px; min-width: 268px; max-width: 380px;
+  max-height: min(72vh, 620px); overflow: auto;
+  padding: 5px;
+  background: var(--ink-800); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+  animation: rise 0.14s var(--ease);
+}
+.mb-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 7px 10px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--paper-dim);
+  font-size: 13px; text-align: left;
+}
+.mb-row:hover:not(:disabled) { background: var(--ink-750); color: var(--paper); }
+.mb-row:disabled { color: var(--faint); cursor: default; }
+.mb-row.checked { color: var(--paper); }
+.mb-check { flex: none; width: 11px; font-size: 11px; color: var(--rose); }
+.mb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Имя файла и имя главы — РАЗНЫЕ вещи, и владелец просил их не смешивать:
+   первым идёт файл, вторым — тусклая подпись главы. */
+.mb-sub { font-style: normal; margin-left: 8px; color: var(--muted); font-size: 11.5px; }
+.mb-row:disabled .mb-sub { color: var(--faint); }
+.mb-hint { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--faint); }
+.mb-sep { height: 1px; margin: 5px 9px; background: var(--line-soft); }
+.mb-group { padding: 9px 10px 4px; }
+.mb-empty { padding: 10px; color: var(--muted); font-size: 12.5px; }
+
+/* Заголовок окна: где мы и какой файл открыт. Раньше это была цепочка
+   Library › Название › пилюли — три щелчка смысла там, где нужен один взгляд. */
+.win-title { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 9px; }
+.win-place {
+  font-family: var(--font-display); font-size: 16px; color: var(--paper);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.win-dash { color: var(--faint); }
+.win-file {
+  font-family: var(--font-mono); font-size: 12px; color: var(--paper-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* На узком экране заголовок уходит первым: меню и токен важнее подписи. */
+@media (max-width: 900px) {
+  .win-title { display: none; }
+  .mb-btn { padding: 0 8px; font-size: 13px; }
+}
