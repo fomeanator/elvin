@@ -33,7 +33,7 @@ export async function putAsset(path, body, token, contentType) {
     },
     body,
   });
-  if (!r.ok) throw new Error(r.status + ": " + (await r.text()).trim());
+  if (!r.ok) throw new Error(await errorMessage(r, r.status + ": "));
   return r.json();
 }
 
@@ -147,9 +147,24 @@ export async function adminFetch(path, token, opt = {}) {
   opt.headers = Object.assign({ Authorization: "Bearer " + (token || "") }, opt.headers || {});
   const r = await fetch(path, opt);
   if (r.status === 401) throw new Error("401");
-  if (!r.ok) throw new Error(((await r.text()) || r.status).toString().trim());
+  if (!r.ok) throw new Error(await errorMessage(r));
   const ct = r.headers.get("content-type") || "";
   return ct.includes("json") ? r.json() : r.text();
+}
+
+// errorMessage turns a failed response into something an author can act on.
+// Structured rejections (the server's .lvn write gate answers 422 with
+// {errors:[…]}) would otherwise land in the toast as a raw JSON blob — the
+// list itself IS the message, one issue per line.
+async function errorMessage(r, prefix = "") {
+  const text = ((await r.text()) || r.status).toString().trim();
+  try {
+    const body = JSON.parse(text);
+    const errs = (body && body.errors) || [];
+    if (errs.length) return errs.join("\n");
+    if (body && body.error) return prefix + String(body.error);
+  } catch { /* not JSON — the raw text is the message */ }
+  return prefix + text;
 }
 
 // GET /v1/admin/users → { users: [{ user_id, name, created, providers, balances }] }
@@ -280,13 +295,24 @@ export const stageExtractArticy = (path, token) =>
     body: JSON.stringify({ path }),
   });
 
-// POST /v1/admin/detect-roles {dir, template?, draft?} → a DetectReport:
+// POST /v1/admin/detect-roles {dir, template?, draft?, vars?} → a DetectReport:
 // every speaker's role/art/line-count, scene-marker + emotion hit rates,
 // alias-collision suggestions. Pass `draft` (an unsaved Template object) to
 // preview edits before saving them with putImportTemplate.
+//
+// `vars` is the staged -vars.xlsx path of the same bundle. The real import
+// reads the spreadsheet for the emotion legend and the protagonist's roster
+// art; a preview computed without it warns about problems the import doesn't
+// have (and inflates emotion_color_misses), so pass it whenever it exists.
+// The response then also carries xlsx_protagonist / xlsx_emotion_colors.
 export const detectRoles = (dir, opt, token) =>
   adminFetch("/v1/admin/detect-roles", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dir, template: (opt && opt.template) || "", draft: (opt && opt.draft) || undefined }),
+    body: JSON.stringify({
+      dir,
+      template: (opt && opt.template) || "",
+      draft: (opt && opt.draft) || undefined,
+      vars: (opt && opt.vars) || undefined,
+    }),
   });
