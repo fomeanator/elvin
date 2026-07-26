@@ -347,7 +347,7 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
       label: "Вид",
       items: [
         {
-          id: "v-characters", label: "Персонажи", checked: inside && nav.section === "characters",
+          id: "v-characters", label: "Ассеты", checked: inside && nav.section === "characters",
           disabled: !inside, title: inside ? "" : why,
           onSelect: () => nav.setSection("characters"),
         },
