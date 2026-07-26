@@ -207,8 +207,48 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // глава с include падала с «подключение работает только при компиляции
   // файла». Обе беды лечит одно: знать все .lvns новеллы, а не только главы.
   const [shared, setShared] = useState([]);        // имена общих файлов
-  const sourcesRef = useRef({});                    // имя.lvns -> текст, для include
+  const sourcesRef = useRef({});                    // имя.lvns -> текст (null = точно нет)
   const [sharedName, setSharedName] = useState(""); // открыт общий файл, а не глава
+  // Имя открытого файла держим в РЕФЕ, а не только в state: compile() зовут
+  // сразу после setSelId, и в том замыкании state ещё старый — из-за этого
+  // компилятор получал пустое имя, уходил в путь «текст без файлов» и выдавал
+  // «подключение работает только при компиляции файла» на живой главе.
+  const curFileRef = useRef("");
+  // Открыт ли БИБЛИОТЕЧНЫЙ файл — тоже в рефе, и по той же причине: compile()
+  // зовут сразу после setSharedName, и в его замыкании state ещё старый.
+  const libOpenRef = useRef(false);
+
+  // Докачка подключаемых файлов ПРЯМО ИЗ СТАТИКИ. Каталог scripts/ отдаётся
+  // публично, поэтому include не зависит ни от admin-токена, ни от листинга
+  // каталога: раньше зависел, и с пустым полем токена в студии он не работал
+  // вовсе. Транзитивно: подключённый файл сам может что-то подключать.
+  async function ensureIncludes(text, depth = 0) {
+    if (depth > 8) return; // цикл поймает компилятор, здесь только страховка
+    const rx = /^[ \t]*include[ \t]+"([^"]+)"[ \t]*$/gm;
+    const names = [];
+    let m;
+    while ((m = rx.exec(text || ""))) names.push(String(m[1]).split("/").pop());
+    const missing = names.filter((n) => sourcesRef.current[n] === undefined);
+    if (!missing.length) return;
+    await Promise.all(missing.map(async (n) => {
+      try {
+        const r = await fetch("/content/scripts/" + n + "?v=" + Date.now(), { cache: "no-store" });
+        const t = r.ok ? await r.text() : null;
+        // Статика при отсутствии .lvns может отдать что-то другое — компилятору
+        // нужен исходник, а не JSON скомпилированной главы.
+        sourcesRef.current[n] = t && !t.trimStart().startsWith("{") ? t : null;
+      } catch { sourcesRef.current[n] = null; }
+    }));
+    for (const n of missing) {
+      if (sourcesRef.current[n]) await ensureIncludes(sourcesRef.current[n], depth + 1);
+    }
+  }
+
+  // Компиляция «как надо»: сперва докачать включения, потом собрать.
+  async function compileWithIncludes(text) {
+    await ensureIncludes(text);
+    compile(text);
+  }
 
   async function loadShared(chapterIds) {
     if (!creds.token) return;
@@ -264,7 +304,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     const draft = localStorage.getItem(draftKey(chapterId));
     if (draft != null && draft !== serverText) {
       setSrc(draft);
-      compile(draft);
+      compileWithIncludes(draft);
       notify("Restored an unsaved draft — «Reload from server» discards it", "");
       return true;
     }
@@ -279,6 +319,8 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     const epoch = ++openEpoch.current;
     setSelId("");
     setSharedName(name);
+    curFileRef.current = name;
+    libOpenRef.current = true;
     setImported(false);
     importedRef.current = false;
     creds.setPath("scripts/" + name);
@@ -292,11 +334,13 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     sourcesRef.current[name] = txt;
     savedSrc.current = txt;
     setSrc(txt);
-    compile(txt);
+    compileWithIncludes(txt);
   }
 
   async function openChapter(c) {
     setSharedName("");
+    curFileRef.current = c.id + ".lvns";
+    libOpenRef.current = false;
     // Guard against a slow fetch from a previous open clobbering the chapter the
     // user has since switched to (and leaving importedRef stuck → dropped keys).
     const epoch = ++openEpoch.current;
@@ -321,7 +365,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             setImported(false);
             if (adoptSource(c.id, txt)) return;
             setSrc(txt);
-            compile(txt);
+            compileWithIncludes(txt);
             return;
           }
         }
@@ -361,7 +405,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     const text = defaultSrc(c.id);
     savedSrc.current = text; // a fresh template is "clean" until edited
     setSrc(text);
-    compile(text);
+    compileWithIncludes(text);
   }
 
   // A declaration that arrives after the first compile re-validates the open
@@ -377,9 +421,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   function compile(text) {
     // Соседи для include: все .lvns новеллы, КРОМЕ открытого — он и есть text,
     // и подсунуть его копию значило бы скрыть цикл «сам на себя».
-    const self = sharedName || (selId ? selId + ".lvns" : "");
+    const self = curFileRef.current;
     const sib = {};
-    for (const [n, t] of Object.entries(sourcesRef.current)) if (n !== self) sib[n] = t;
+    for (const [n, t] of Object.entries(sourcesRef.current)) {
+      if (n !== self && typeof t === "string") sib[n] = t;
+    }
     const r = compileLvns(text, extGrammarRef.current, sib, self);
     let ds = Array.isArray(r && r.diags) ? r.diags : [];
     // Imported chapters: articy linearization merges branches by design, so
@@ -388,6 +434,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     // Hand-written labels keep the hint.
     ds = ds.filter((d) => !(String(d.msg || "").includes("fall-through")
       && /label "n\d+_\d+"/.test(String(d.msg || ""))));
+    // Открыт ОБЩИЙ файл (библиотека для include). У неё нет и не будет `scene`
+    // — она не глава, её подключают. Претензия к отсутствию заголовка тут не
+    // дефект, а шум, а шум в культуре «ноль предупреждений» разъедает саму
+    // привычку смотреть на предупреждения.
+    const libOpen = libOpenRef.current;
+    if (libOpen) ds = ds.filter((d) => !/no .?scene.? header/i.test(String(d.msg || "")));
     setDiags(ds);
     if (!r || !r.ok) {
       const first = r && r.errors ? r.errors.split("\n")[0] : "Compilation error";
@@ -402,11 +454,14 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     setOutput(r.json);
     setError(false);
     let s;
-    if (r.warnings) {
-      const n = splitLines(r.warnings).length;
-      s = { kind: "warn", text: `⚠ ${n} warning${n > 1 ? "s" : ""}`, title: r.warnings };
+    const warnText = libOpen
+      ? splitLines(r.warnings || "").filter((w) => !/no .?scene.? header/i.test(w)).join("\n")
+      : (r.warnings || "");
+    if (warnText) {
+      const n = splitLines(warnText).length;
+      s = { kind: "warn", text: `⚠ ${n} warning${n > 1 ? "s" : ""}`, title: warnText };
     } else {
-      s = { kind: "success", text: "✓ Compiled" };
+      s = { kind: "success", text: libOpen ? "✓ Общий файл — проверяется в главе" : "✓ Compiled" };
     }
     setStat(s); setStatus?.(s);
   }
@@ -433,7 +488,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     }
     if (!wasmReady.current) return;
     clearTimeout(compileTimer.current);
-    compileTimer.current = setTimeout(() => compile(text), 200);
+    compileTimer.current = setTimeout(() => compileWithIncludes(text), 200);
   }
 
   // ── chapter CRUD / meta ───────────────────────────────────────────────
@@ -705,9 +760,8 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             )}
           </div>
 
-          {sel && outline.length > 0 && (
-            <div className="ide-outline">
-              <div className="section-label">Outline</div>
+          {(sel || sharedName) && outline.length > 0 && (
+            <SideSection id="outline" title="Outline" count={outline.length}>
               <div className="ide-outline-list">
                 {outline.map((o, i) => (
                   <button key={i} className={"ide-out-row k-" + o.kind + (i === curOutline ? " cur" : "")}
@@ -718,12 +772,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
                   </button>
                 ))}
               </div>
-            </div>
+            </SideSection>
           )}
 
           {sel && (
-            <div className="ide-chapter-settings">
-              <div className="section-label">Chapter</div>
+            <SideSection id="chapter" title="Chapter">
               <label className="ide-set-row">
                 <span>Name</span>
                 <input className="field" type="text" placeholder="Эпизод…" value={sel.name ?? ""}
@@ -741,7 +794,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
               </button>
               <code className="ide-set-path">{sel.script_url}</code>
               <button className="btn-ghost sm wide-btn" onClick={() => removeChapter(sel.id)}>Remove chapter</button>
-            </div>
+            </SideSection>
           )}
         </aside>
 
@@ -772,7 +825,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
                 )}
               </div>
               {showProblems && (
-                <ProblemsDock diags={diags} onJump={goLine} onClose={() => setShowProblems(false)} />
+                <ProblemsDock diags={diags} compileError={error ? output : ""} onJump={goLine} onClose={() => setShowProblems(false)} />
               )}
             </>
           ) : booting ? (
@@ -808,22 +861,60 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
 }
 
 /* ── Problems dock — click a row to jump to its source line ────────────── */
-function ProblemsDock({ diags, onJump, onClose }) {
-  const errCount = diags.filter((d) => d.sev === "error").length;
+// compileError — ошибка КОМПИЛЯЦИИ, а не валидации. Она не приходит списком
+// диагностик, поэтому эта панель раньше писала «no problems — the chapter
+// compiles clean» одновременно с красной ошибкой в строке состояния. Автор
+// видел два противоположных утверждения и верил ближнему.
+// Сворачиваемая секция сайдбара — как Explorer/Outline/Timeline в VS Code и
+// Cursor. До этого Outline и Chapter были ФИКСИРОВАННЫМИ блоками и съедали
+// сайдбар целиком: на главе с девятью метками список файлов сжимался до одной
+// видимой строки, то есть панель файлов не выполняла свою единственную работу.
+// Состояние запоминается: у автора свой рабочий режим, и заставлять его
+// сворачивать одно и то же при каждом открытии — та же мелкая порча.
+function SideSection({ id, title, count, children, defaultOpen = false }) {
+  const key = "lvn_side_" + id;
+  const [open, setOpen] = useState(() => {
+    const v = localStorage.getItem(key);
+    return v == null ? defaultOpen : v === "1";
+  });
+  useEffect(() => { localStorage.setItem(key, open ? "1" : "0"); }, [key, open]);
+  return (
+    <div className={"ide-side-sec" + (open ? " open" : "")}>
+      <button className="ide-side-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="ide-side-caret">{open ? "▾" : "▸"}</span>
+        <span className="section-label">{title}</span>
+        {count != null && count > 0 && <span className="ide-side-count">{count}</span>}
+      </button>
+      {open && <div className="ide-side-body">{children}</div>}
+    </div>
+  );
+}
+
+function ProblemsDock({ diags, compileError, onJump, onClose }) {
+  const errCount = diags.filter((d) => d.sev === "error").length + (compileError ? 1 : 0);
   const warnCount = diags.filter((d) => d.sev === "warning").length;
   const rows = [...diags].sort((a, b) => (a.sev === b.sev ? (a.line || 0) - (b.line || 0) : a.sev === "error" ? -1 : 1));
+  const ceLine = compileError ? Number((/(?:^|\s)line (\d+)/.exec(compileError) || [])[1] || 0) : 0;
   return (
     <div className="diagnostics">
       <div className="diag-head">
         <span className="diag-title">Problems</span>
         {errCount > 0 && <span className="diag-count err">{errCount} error{errCount > 1 ? "s" : ""}</span>}
         {warnCount > 0 && <span className="diag-count warn">{warnCount} warning{warnCount > 1 ? "s" : ""}</span>}
-        {diags.length === 0 && <span className="diag-count ok">no problems</span>}
+        {diags.length === 0 && !compileError && <span className="diag-count ok">no problems</span>}
         <span className="grow" />
         <button className="btn-ghost sm" onClick={onClose}>✕</button>
       </div>
       <div className="diag-list">
-        {diags.length === 0 && <div className="diag-clean">Nothing to fix — the chapter compiles clean.</div>}
+        {compileError && (
+          <button className="diag-row sev-error" onClick={() => ceLine && onJump(ceLine)}
+                  title={ceLine ? "Перейти к строке " + ceLine : ""}>
+            <span className="diag-sev">✗</span>
+            {ceLine > 0 && <span className="diag-line">{ceLine}</span>}
+            <span className="diag-msg">{String(compileError).split("\n")[0]}</span>
+          </button>
+        )}
+        {diags.length === 0 && !compileError && <div className="diag-clean">Nothing to fix — the chapter compiles clean.</div>}
         {rows.map((d, i) => (
           <button
             key={i}

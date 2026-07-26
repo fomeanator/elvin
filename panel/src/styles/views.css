@@ -719,8 +719,6 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .ide-file-acts button:hover { background: var(--ink-700); color: var(--paper); }
 
 /* outline: scenes & labels, click to jump */
-.ide-outline { border-top: 1px solid var(--line-soft); padding: 10px 8px 6px; display: flex; flex-direction: column; min-height: 0; }
-.ide-outline .section-label { padding: 0 6px 6px; }
 .ide-outline-list { overflow: auto; max-height: 32vh; display: flex; flex-direction: column; gap: 1px; }
 .ide-out-row { display: flex; align-items: center; gap: 8px; padding: 4px 7px; border-radius: 5px; border: 1px solid transparent;
   background: transparent; color: var(--paper-dim); cursor: pointer; text-align: left; width: 100%; }
@@ -733,7 +731,7 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .ide-out-name { flex: 1; font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ide-out-line { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); flex: none; }
 
-.ide-chapter-settings { border-top: 1px solid var(--line-soft); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ide-side-sec .ide-side-body > .ide-set-row:first-child { margin-top: 2px; }
 .ide-set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
 .ide-set-row .field { width: 84px; }
 .ide-bg { height: 54px; border-radius: 6px; overflow: hidden; padding: 0; background: var(--ink-900); border: 1.5px dashed var(--line); color: var(--faint); font-size: 10.5px; display: flex; align-items: center; justify-content: center; }
@@ -1582,3 +1580,27 @@ body.col-resizing { cursor: col-resize; user-select: none; }
   border-top: 1px solid var(--line);
   margin-top: 6px;
 }
+
+/* ── Сворачиваемые секции сайдбара (Outline, Chapter) ──────────────────────
+   Раньше это были фиксированные блоки, и они забирали сайдбар себе: на главе
+   с девятью метками список файлов сжимался до ОДНОЙ видимой строки. Теперь
+   как в VS Code / Cursor: заголовок со стрелкой, тело раскрывается по клику, а
+   всё свободное место по умолчанию достаётся файлам. */
+.ide-side-sec { flex: none; border-top: 1px solid var(--line-soft); }
+.ide-side-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: transparent; border: 0; cursor: pointer;
+  padding: 9px 12px; text-align: left; color: var(--muted);
+}
+.ide-side-head:hover { background: var(--ink-800); color: var(--paper-dim); }
+.ide-side-head .section-label { padding: 0; }
+.ide-side-caret { width: 10px; flex: none; font-size: 9px; color: var(--faint); }
+.ide-side-head:hover .ide-side-caret { color: var(--paper-dim); }
+.ide-side-count {
+  margin-left: auto; font-size: 10px; color: var(--faint);
+  background: var(--ink-900); border-radius: 8px; padding: 1px 6px;
+}
+/* Раскрытая секция делится местом с файлами, но не вытесняет их совсем. */
+.ide-side-sec.open { display: flex; flex-direction: column; min-height: 0; max-height: 46%; }
+.ide-side-body { overflow: auto; min-height: 0; padding: 0 8px 10px; display: flex; flex-direction: column; gap: 10px; }
+.ide-side-sec .ide-outline-list { max-height: none; }
