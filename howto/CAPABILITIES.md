@@ -154,7 +154,7 @@ stable between releases, otherwise players lose their unlocks.
 | `text` | display | Option text, interpolated with `{…}`. |
 | `cost` | display | The "price" caption under the option, interpolated. **Purely visual** — deducts nothing by itself. |
 | `goto` | functional | Jump on pick. |
-| `body` | functional (`.lvn` only) | Inline command list, executed on pick (see the limit in §8). There is no `.lvns` form for it — the importer and hand-written `.lvn` produce it; from `.lvns` you use `goto` and a label. |
+| `body` | functional | Inline command list, executed on pick, **before** the jump (see the limit in §8). In `.lvns` it is a `{ … }` block on the option line — the brace ends the line, `}` stands alone:<br>`- Спросить -> q1 expr="!_once_q1" {`<br>`    _once_q1 = true`<br>`}`<br>An option written without `-> label` runs its body and then falls through past the choice. |
 | `requires_stat` + `min` | functional | Gate: the option is **hidden** if `variable < min`. |
 | `expr` | functional | Boolean expression gate: the option is **hidden** if false. |
 | `hint` | ignored | Compiles and validates, but **no runtime reads it** — neither `LvnPlayer.BuildOptions` nor the web player. Use the `hint` **command** before the choice (or inside the option's `body`) instead. |
@@ -305,7 +305,7 @@ purpose, because they are the things authors most often assume are missing.
 | ✅ **`hint` is rendered** — a window at the top center. | `hint text="…" duration=6`; `show=false` removes it manually. For a persistent HUD label there is still the reactive `text`. Mind the namesake: a `hint=` **field on a choice option** is ignored (§3) — the command is the real thing. |
 | ✅ **Bones + springs (paper-doll).** | Catalog layer: `parent` (which layer it attaches to), `px`/`py` (the joint, fractions of its own rect), `spring`/`damping` (hair/tail swing on their own from the parent's movement and rotation, VRM model). Draw order = list order (the back arm is a child of the body, but behind it). Both renderers. |
 | ✅ **`defanim`/`play` work.** | `defanim shake prop=x keys="…"` + `play id=x anim=shake` (terse: `play x shake`); play parameters override the definition. Spline paths run at constant speed (arc-length). |
-| ❌ **A choice option's `body` is limited**: only `set`/`inc`/staging commands and `goto` inside. No `if`/`choice`/`call` inside a body. | Move complex logic to a separate label and lead there with `goto`. |
+| ❌ **A choice option's `body` is limited**: only `set`/`inc` and `goto` inside. Staging in a body plays once and is **lost on save/restore** — a body command has no index in the script, and the resume trace is a list of indices, so the rebuilt scene never replays it (the validator warns). No `if`/`choice`/`call` inside a body, and no nested `{ … }` block — the compiler rejects them rather than let the runtime drop them silently. | Move complex logic to a separate label and lead there with `-> label` (§3 has the block syntax). |
 | ❌ **An option's `cost` is a caption only**; it deducts no resource itself. | Deduct resources explicitly (`set`/`inc`) at the option's handler label. |
 | ❌ **A missing asset is not replaced by a placeholder at runtime** — the layer is skipped. | That is normal for graybox; for placeholders generate them with the tool/place the files. |
 | ❌ **No `ceil`.** | `floor(x)` / `round(x)`. |
