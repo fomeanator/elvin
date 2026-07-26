@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -241,4 +242,89 @@ func chaptersOf(t *testing.T, m map[string]any, id string) []any {
 	}
 	t.Fatalf("титул %s не найден", id)
 	return nil
+}
+
+// Игра больше чем на одну главу всегда выносит общие механики в отдельный файл
+// — ради этого include и существует, и файл «Коннекта» ему учит. Публикация,
+// компилирующая текст без файлового контекста, упиралась в это на второй главе
+// автора: «подключение работает только при компиляции файла».
+func TestPublishResolvesIncludeAgainstTheStudioScripts(t *testing.T) {
+	s := publishSrv(t)
+	if _, err := publishRaw(t, s, "mech", 1, "общее = 7\n"); err != nil {
+		t.Fatalf("общий файл не опубликовался: %v", err)
+	}
+	// Публикуется как mech-ch01.lvns — глава подключает именно его.
+	code, out := publish(t, s, map[string]any{
+		"id": "game", "chapter": 1,
+		"lvns": "scene game\ninclude \"mech-ch01.lvns\"\nВсего {общее}.\n-> __end\n",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("глава с include не опубликовалась: %d %v", code, out)
+	}
+	raw, err := os.ReadFile(filepath.Join(s.content, "scripts", "game-ch01.lvn"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"общее"`) {
+		t.Errorf("подключённый файл не вклеился в результат: %s", raw)
+	}
+}
+
+// Временный файл компиляции живёт в scripts/ — то есть внутри раздаваемого
+// дерева. Скачать его не должно быть возможно даже в это окно.
+func TestPublishTempSourceIsNotServable(t *testing.T) {
+	dir := t.TempDir()
+	srv := &server{content: dir}
+	if err := os.MkdirAll(filepath.Join(dir, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "scripts", ".publish-x.lvns"), []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	srv.contentHandler(dir).ServeHTTP(rec,
+		httptest.NewRequest(http.MethodGet, "/content/scripts/.publish-x.lvns", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("исходник, из которого идёт компиляция, отдан наружу: %d", rec.Code)
+	}
+}
+
+func publishRaw(t *testing.T, s *server, id string, ch int, lvns string) (map[string]any, error) {
+	t.Helper()
+	code, out := publish(t, s, map[string]any{"id": id, "chapter": ch, "lvns": lvns})
+	if code != http.StatusOK {
+		return out, fmt.Errorf("код %d: %v", code, out)
+	}
+	return out, nil
+}
+
+// Общий файл публикуется под СВОИМ именем — иначе главы его не найдут: include
+// ищет "механики.lvns", а публикация глав именует всё как <id>-chNN.lvns.
+func TestSharedFilePublishesUnderItsOwnName(t *testing.T) {
+	s := publishSrv(t)
+	code, out := publish(t, s, map[string]any{"path": "mech.lvns", "lvns": "общее = 7\n"})
+	if code != http.StatusOK || out["kind"] != "shared" {
+		t.Fatalf("общий файл не принят: %d %v", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(s.content, "scripts", "mech.lvns")); err != nil {
+		t.Fatalf("файл не под своим именем: %v", err)
+	}
+	// В манифест библиотека попадать не должна: это не глава.
+	if len(readManifest(t, s)["titles"].([]any)) != 1 {
+		t.Error("общий файл зарегистрирован как игра")
+	}
+	// И теперь глава может его подключить.
+	if code, out := publish(t, s, map[string]any{"id": "g", "chapter": 1,
+		"lvns": "scene g\ninclude \"mech.lvns\"\nВсего {общее}.\n-> __end\n"}); code != 200 {
+		t.Fatalf("глава не увидела общий файл: %d %v", code, out)
+	}
+}
+
+func TestSharedPathCannotEscapeScripts(t *testing.T) {
+	s := publishSrv(t)
+	for _, bad := range []string{"../../etc/x.lvns", "sub/dir.lvns", "x.lvn", "x.sh"} {
+		if code, _ := publish(t, s, map[string]any{"path": bad, "lvns": "x = 1\n"}); code != 400 {
+			t.Errorf("путь %q принят (код %d)", bad, code)
+		}
+	}
 }
