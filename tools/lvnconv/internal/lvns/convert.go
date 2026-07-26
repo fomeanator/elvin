@@ -24,7 +24,13 @@ type Doc struct {
 
 var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
-	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
+	// A bare `clear` on its own line takes the whole cast off stage. It needs no
+	// parse branch of its own — the generic fieldless path below turns a known
+	// word with nothing after it into a command of that name. It DOES need to be
+	// in this map: an unknown word falls into the narration branch and would
+	// print the word itself to the player as a line of dialogue.
+	"clear": true,
+	"fade":  true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line

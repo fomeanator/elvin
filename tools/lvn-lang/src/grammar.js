@@ -14,6 +14,7 @@ export const OPS = [
   "bg",
   "actor",
   "obj",
+  "clear",
   "fade",
   "dim",
   "flash",
@@ -219,7 +220,8 @@ export const OP_FIELDS = {
   ],
   "wardrobe_show": [
     "char"
-  ]
+  ],
+  "clear": []
 };
 
 // Enumerated values per attribute key — suggested after `key=`.
@@ -423,6 +425,10 @@ export const OP_DOCS = {
   "wardrobe_show": [
     "wardrobe_show char=\"hill\"",
     "Open the in-story wardrobe for a character."
+  ],
+  "clear": [
+    "clear",
+    "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
   ]
 };
 
@@ -495,6 +501,10 @@ export const GROUPS = [
       [
         "obj",
         "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds"
+      ],
+      [
+        "clear",
+        ""
       ],
       [
         "fade",

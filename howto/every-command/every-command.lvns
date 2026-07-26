@@ -97,4 +97,12 @@ load slot="booth"
 tint color="#f0c070" alpha=0 duration=0.5
 wait ms=300
 The reel runs out. The house lights come up.
+
+// ─── One command empties the stage: `clear` takes every actor and obj off ───
+// The background stays — that is the whole point, a scene change is `clear`
+// plus a new `bg` and never an accidental black screen. Without it this line
+// is one `actor … show=false` per body on stage, and a bug the day somebody
+// new walks into the scene and nobody updates the list.
+clear
+The booth is empty. Only the projector is still warm.
 -> __end

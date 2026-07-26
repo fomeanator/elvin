@@ -422,6 +422,9 @@ function applyStage(cmd, vars) {
 
 function trackStage(cmd) {
   if (cmd.op === "bg" && cmd.sprite_url) stagedState.bg = cmd.sprite_url;
+  // `clear` empties the cast and nothing else — the backdrop and the HUD are
+  // deliberately left in place, so a scene change stays `clear` + a new `bg`.
+  else if (cmd.op === "clear") stagedState.actors = {};
   else if (cmd.op === "actor" || cmd.op === "obj") {
     if (!cmd.id) return;
     if (cmd.show === false) delete stagedState.actors[cmd.id];
@@ -436,6 +439,11 @@ function applyStageDom(cmd, vars) {
   switch (cmd.op) {
     case "bg":
       if (cmd.sprite_url) els.bg.style.backgroundImage = `url("${art(cmd.sprite_url)}")`;
+      break;
+    case "clear":
+      // Every staged body leaves; els.bg and the HUD nodes live elsewhere in
+      // the DOM and are untouched by design.
+      els.actors.replaceChildren();
       break;
     case "actor":
     case "obj": {
