@@ -629,17 +629,32 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     clearTimeout(compileTimer.current);
     if (wasmReady.current && !importedRef.current) compile(src);
 
+    // Импортированную главу сохранять НЕЛЬЗЯ: в редакторе не её исходник, а
+    // баннер-заглушка, и Save записал бы эти девять строк комментария в
+    // <глава>.lvns. При следующем открытии редактор принял бы их за исходник
+    // (не начинается с «{»), и глава превратилась бы в пустой комментарий —
+    // компилируется, валидатор пропускает, содержимое потеряно.
+    if (importedRef.current) {
+      notify("Импортированная глава — правится переимпортом, а не здесь", "err");
+      return;
+    }
+
     // Общий файл сохраняется САМ ПО СЕБЕ: компилировать его отдельно нечего
     // (нет `scene`), в манифест он не идёт. Ошибки в нём всплывут в главе,
     // которая его подключает — там сочетание и становится настоящим.
-    if (sharedName) {
+    //
+    // Ветвление по РЕФУ, а не по состоянию: save() зовут и с горячей клавиши
+    // сразу после «+ New», когда setSharedName ещё не применился, и тогда
+    // текст новой главы уезжал в файл механик, который подключают все главы.
+    const libName = libOpenRef.current ? curFileRef.current : "";
+    if (libName) {
       notify("Saving…");
       try {
-        await putAsset("scripts/" + sharedName, src, creds.token, "text/plain; charset=utf-8");
-        sourcesRef.current[sharedName] = src;
+        await putAsset("scripts/" + libName, src, creds.token, "text/plain; charset=utf-8");
+        sourcesRef.current[libName] = src;
         savedSrc.current = src;
-        localStorage.removeItem(draftKey(sharedName));
-        notify(`✓ Saved ${sharedName} — главы подхватят при следующей сборке`, "ok");
+        localStorage.removeItem(draftKey(libName));
+        notify(`✓ Saved ${libName} — главы подхватят при следующей сборке`, "ok");
       } catch (e) {
         notify("Save failed: " + ((e && e.message) || "unknown"), "err");
       }
@@ -977,7 +992,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         <span className={"ide-stat " + stat.kind} title={stat.title}>{stat.text}</span>
         <span className="ide-status-sep" />
         <span className="ide-status-dim">{cmdCount} command{cmdCount === 1 ? "" : "s"}</span>
-        {openFile && <span className="ide-status-dim mono">{creds.path}</span>}
+        {/* Путь ОТКРЫТОГО файла, а не скомпилированного: в creds.path у главы
+            лежит .lvn, а в редакторе всегда исходник .lvns. Список файлов,
+            плашка и заголовок окна зовут его «…lvns» — четыре места об одном
+            файле обязаны говорить одно имя, иначе «файл» опять непонятно что. */}
+        {openFile && <span className="ide-status-dim mono">{String(creds.path || "").replace(/\.lvn$/, ".lvns")}</span>}
         <span className="grow" />
         {openFile && <span className="ide-status-dim mono">Ln {caretPos.line}, Col {caretPos.col}</span>}
         <span className="ide-status-sep" />
