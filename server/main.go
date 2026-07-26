@@ -159,6 +159,10 @@ func main() {
 	adsSvc.Routes(mux)
 	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
+	// "Коннект": один самодостаточный файл для ИИ (доступ + весь язык) и
+	// публикация .lvns одним запросом, чтобы для неё не требовался тулчейн.
+	mux.HandleFunc("/v1/admin/agent-bundle", srv.handleAgentBundle)
+	mux.HandleFunc("/v1/admin/agent/publish", srv.handleAgentPublish)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/import-bundle", srv.handleImportBundle)
 	// The other half of a re-import: list what the three-way merge parked and
