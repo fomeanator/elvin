@@ -13,8 +13,10 @@ import (
 // manifest.json (replacing any existing title with the same id, preserving the
 // rest of the manifest). After this the content server serves the new title and
 // the IDE/game see it on their next manifest poll — no restart needed.
-func WriteToContentDir(contentDir string, res *Result) error {
+func WriteToContentDir(contentDir string, res *Result) (*WriteReport, error) {
 	root := filepath.Clean(contentDir)
+	base := loadBaseline(root, res.Title.ID)
+	report := &WriteReport{}
 	write := func(rel string, data []byte) error {
 		dst := filepath.Clean(filepath.Join(root, filepath.FromSlash(rel)))
 		// Defence in depth: a crafted rel (e.g. an id of "../../etc/x") must never
@@ -26,13 +28,46 @@ func WriteToContentDir(contentDir string, res *Result) error {
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
-		return atomicWrite(dst, data, 0o644)
+		// Three-way check against what the LAST import wrote (baseline.go).
+		switch classify(dst, data, base, rel) {
+		case StatusUnchanged:
+			base.recordWritten(dst, rel, data) // refresh size/mtime, skip the write
+			report.Files = append(report.Files, FileOutcome{Rel: rel, Status: StatusUnchanged})
+			return nil
+		case StatusKeptLocal:
+			report.Files = append(report.Files, FileOutcome{Rel: rel, Status: StatusKeptLocal})
+			return nil
+		case StatusConflict:
+			// Park the incoming version beside the file. Overwriting here is the
+			// exact data loss this whole mechanism exists to prevent.
+			inc := dst + ".incoming"
+			if err := atomicWrite(inc, data, 0o644); err != nil {
+				return err
+			}
+			report.Files = append(report.Files, FileOutcome{Rel: rel, Status: StatusConflict, Incoming: rel + ".incoming"})
+			report.Conflicts = append(report.Conflicts, rel)
+			return nil
+		case StatusNew:
+			if err := atomicWrite(dst, data, 0o644); err != nil {
+				return err
+			}
+			base.recordWritten(dst, rel, data)
+			report.Files = append(report.Files, FileOutcome{Rel: rel, Status: StatusNew})
+			return nil
+		default: // StatusUpdated
+			if err := atomicWrite(dst, data, 0o644); err != nil {
+				return err
+			}
+			base.recordWritten(dst, rel, data)
+			report.Files = append(report.Files, FileOutcome{Rel: rel, Status: StatusUpdated})
+			return nil
+		}
 	}
 
 	// Multi-chapter import: every chapter's .lvn/.lvns. Single-chapter: ScriptRel/Lvn.
 	for _, sc := range res.Scripts {
 		if err := write(sc.Rel, sc.Data); err != nil {
-			return fmt.Errorf("write %s: %w", sc.Rel, err)
+			return report, fmt.Errorf("write %s: %w", sc.Rel, err)
 		}
 	}
 	// len(res.Lvn) > 0 matters: RunBundle moves a single-chapter payload into
@@ -40,48 +75,55 @@ func WriteToContentDir(contentDir string, res *Result) error {
 	// title's path — writing it again here would truncate the file to zero.
 	if res.ScriptRel != "" && len(res.Lvn) > 0 {
 		if err := write(res.ScriptRel, res.Lvn); err != nil {
-			return fmt.Errorf("write script: %w", err)
+			return report, fmt.Errorf("write script: %w", err)
 		}
 	}
 	if res.LvnsRel != "" && len(res.Lvns) > 0 {
 		if err := write(res.LvnsRel, res.Lvns); err != nil {
-			return fmt.Errorf("write lvns: %w", err)
+			return report, fmt.Errorf("write lvns: %w", err)
 		}
 	}
 	if res.CatalogRel != "" && len(res.Catalog) > 0 {
 		cat, err := json.MarshalIndent(res.Catalog, "", " ")
 		if err != nil {
-			return err
+			return report, err
 		}
 		if err := write(res.CatalogRel, cat); err != nil {
-			return fmt.Errorf("write catalog: %w", err)
+			return report, fmt.Errorf("write catalog: %w", err)
 		}
 	}
 	// Multi-chapter localized import: one catalog sidecar per chapter.
 	for _, cf := range res.Catalogs {
 		if err := write(cf.Rel, cf.Data); err != nil {
-			return fmt.Errorf("write catalog %s: %w", cf.Rel, err)
+			return report, fmt.Errorf("write catalog %s: %w", cf.Rel, err)
 		}
 	}
 	for _, a := range res.Art {
 		if err := write(a.Rel, a.Data); err != nil {
-			return fmt.Errorf("write %s: %w", a.Rel, err)
+			return report, fmt.Errorf("write %s: %w", a.Rel, err)
 		}
 	}
 	if err := MergeTitleIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Title); err != nil {
-		return fmt.Errorf("manifest: %w", err)
+		return report, fmt.Errorf("manifest: %w", err)
 	}
 	if len(res.Sprites) > 0 {
 		if err := MergeSpritesIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Sprites); err != nil {
-			return fmt.Errorf("manifest sprites: %w", err)
+			return report, fmt.Errorf("manifest sprites: %w", err)
 		}
 	}
 	if res.Lang != "" && res.Lang != "und" {
 		if err := MergeLanguageIntoManifest(filepath.Join(contentDir, "manifest.json"), res.Lang); err != nil {
-			return fmt.Errorf("manifest languages: %w", err)
+			return report, fmt.Errorf("manifest languages: %w", err)
 		}
 	}
-	return nil
+	// The baseline is the whole point: without it the NEXT import cannot tell a
+	// hand edit from a stale generation. Saved after the writes so it records
+	// what is actually on disk.
+	sortOutcomes(report.Files)
+	if err := base.save(root); err != nil {
+		return report, fmt.Errorf("import baseline: %w", err)
+	}
+	return report, nil
 }
 
 // MergeLanguageIntoManifest declares a shipped string-catalog language in

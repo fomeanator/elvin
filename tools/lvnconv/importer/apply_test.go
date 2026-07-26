@@ -18,7 +18,7 @@ func TestWriteToContentDirRejectsEscape(t *testing.T) {
 			{Rel: "../outside-canary/pwned.lvn", Data: []byte("x")},
 		},
 	}
-	err := WriteToContentDir(root, res)
+	_, err := WriteToContentDir(root, res)
 	if err == nil {
 		t.Fatal("expected an error writing outside the content root")
 	}
@@ -36,7 +36,7 @@ func TestWriteToContentDirWritesUnderRoot(t *testing.T) {
 	res := &Result{
 		Scripts: []ScriptFile{{Rel: "scripts/ok-ch01.lvn", Data: []byte("{}")}},
 	}
-	if err := WriteToContentDir(root, res); err != nil {
+	if _, err := WriteToContentDir(root, res); err != nil {
 		t.Fatalf("write under root failed: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "scripts", "ok-ch01.lvn")); err != nil {
