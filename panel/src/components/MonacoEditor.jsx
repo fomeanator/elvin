@@ -240,19 +240,38 @@ const MonacoEditor = forwardRef(function MonacoEditor({ src, onChange, diags = [
     const ed = edRef.current, mo = moRef.current;
     if (!ed || !mo) return;
     const model = ed.getModel(); if (!model) return;
-    mo.editor.setModelMarkers(model, "lvns", diags.filter((d) => d.line > 0).map((d) => ({
-      startLineNumber: d.line, startColumn: 1,
-      endLineNumber: d.line, endColumn: model.getLineMaxColumn(d.line),
-      message: (d.op ? d.op + ": " : "") + (d.msg || ""),
-      severity: d.sev === "error" ? mo.MarkerSeverity.Error : mo.MarkerSeverity.Warning,
-    })));
+    // Номер строки может УКАЗЫВАТЬ ЗА КОНЕЦ файла: после раскрытия `include`
+    // компилятор нумерует строки по СКЛЕЙКЕ (глава + подключённый файл), и
+    // предупреждение приезжает с номером 900 там, где в открытом файле 590
+    // строк. getLineMaxColumn на такой строке БРОСАЕТ исключение, React
+    // разматывает дерево — и студия уходит в белый экран. Именно это ловилось
+    // на ec-battle.lvns: файл открывается, панель падает.
+    //
+    // Поэтому номер зажимается в границы модели. Диагностика не теряется: в
+    // «Проблемах» она видна как есть, а маркер в тексте просто садится на
+    // последнюю строку вместо того, чтобы уронить приложение.
+    const lastLine = model.getLineCount();
+    mo.editor.setModelMarkers(model, "lvns", diags
+      .filter((d) => d.line > 0)
+      .map((d) => {
+        const ln = Math.min(d.line, lastLine);
+        return {
+          startLineNumber: ln, startColumn: 1,
+          endLineNumber: ln, endColumn: model.getLineMaxColumn(ln),
+          message: (d.op ? d.op + ": " : "") + (d.msg || ""),
+          severity: d.sev === "error" ? mo.MarkerSeverity.Error : mo.MarkerSeverity.Warning,
+        };
+      }));
   }, [diags, src]);
 
   // external jump (Outline / Problems click) → reveal + place caret
   useEffect(() => {
     const ed = edRef.current; if (!ed || !jump || !jump.line) return;
-    ed.revealLineInCenter(jump.line);
-    ed.setPosition({ lineNumber: jump.line, column: 1 });
+    // Тот же зажим, что и у маркеров: прыжок на строку за концом файла
+    // (диагностика из подключённого файла) роняет редактор так же.
+    const ln = Math.max(1, Math.min(jump.line, ed.getModel()?.getLineCount() || 1));
+    ed.revealLineInCenter(ln);
+    ed.setPosition({ lineNumber: ln, column: 1 });
     ed.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jump?.n]);

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { parseGIF, decompressFrames } from "gifuct-js";
-import { getManifest, putAsset, uploadSpine } from "../lib/api.js";
+import { getManifest, putAsset, uploadSpine, adminFiles } from "../lib/api.js";
 import {
   uid, slug, partPath, toEditor, toEntity, fill, framesFromAxis, TEMPLATES, PRESETS,
 } from "../lib/sprites.js";
@@ -399,6 +399,47 @@ export default function SpritesView({ creds, notify, titleId }) {
   const isCharacter = axisNames.length > 0;
 
   // Roster in two tiers: CHARACTERS (layered entities — the heroes) first, in
+  // ── фоны ─────────────────────────────────────────────────────────────
+  //
+  // Раздел назывался «Персонажи», а фоны в студии было не увидеть вовсе:
+  // только через Админку как файлы в каталоге. Автор при этом меняет их так же
+  // часто, как каст, и «где их редактировать» — первый вопрос, который задают.
+  // Поэтому раздел теперь «Ассеты», и фоны в нём настоящие: превью, замена
+  // перетаскиванием, имя файла как подпись (по нему на фон ссылаются главы).
+  const [bgs, setBgs] = useState([]);
+  // Свёрнут по умолчанию и помнит выбор. Фиксированным блоком фоны съедали
+  // сайдбар целиком, и от списка каста оставалась полоска — ровно та ошибка,
+  // что уже была с Outline в редакторе. Место по умолчанию принадлежит касту.
+  const [bgOpen, setBgOpen] = useState(() => localStorage.getItem("lvn_bg_open") === "1");
+  useEffect(() => { localStorage.setItem("lvn_bg_open", bgOpen ? "1" : "0"); }, [bgOpen]);
+  const [bgBust, setBgBust] = useState(0);
+
+  const loadBgs = useCallback(async () => {
+    if (!creds.token) return;
+    const dirs = ["bg/" + titleId, "bg"];
+    for (const d of dirs) {
+      try {
+        const r = await adminFiles(d, creds.token);
+        const imgs = (r.files || []).filter((f) => !f.dir && /\.(jpg|jpeg|png|webp)$/i.test(f.name));
+        if (imgs.length) { setBgs(imgs.map((f) => ({ ...f, dir: d }))); return; }
+      } catch { /* нет прав или каталога — просто не показываем раздел */ }
+    }
+    setBgs([]);
+  }, [creds.token, titleId]);
+
+  useEffect(() => { loadBgs(); }, [loadBgs]);
+
+  async function replaceBg(entry, file) {
+    if (!file) return;
+    try {
+      await putAsset(entry.dir + "/" + entry.name, file, creds.token, file.type || "image/jpeg");
+      setBgBust(Date.now());          // тот же путь — браузер обязан перечитать
+      notify(`✓ ${entry.name} заменён`, "ok");
+    } catch (e) {
+      notify("Не вышло: " + ((e && e.message) || "ошибка"), "err");
+    }
+  }
+
   // the order the story introduces them; then everything else (plain objects,
   // imported look-variants) below, same story order, alphabetical tail for
   // ids the script never mentions.
@@ -452,7 +493,7 @@ export default function SpritesView({ creds, notify, titleId }) {
       {/* roster */}
       <aside className={"roster enter" + (rosterView === "grid" ? " wide" : "")}>
         <div className="roster-head">
-          <span className="section-label">Cast</span>
+          <span className="section-label">Ассеты</span>
           <div className="roster-tools">
             <button
               className={"btn-ghost sm" + (rosterView === "grid" ? " on" : "")}
@@ -488,6 +529,7 @@ export default function SpritesView({ creds, notify, titleId }) {
           const flat = [...chars, ...objs];
           const slice = flat.slice(0, rosterCount);
           const firstObj = objs.length ? objs[0] : null;
+            const bgSlice = bgs.filter((b) => !q || b.name.toLowerCase().includes(q));
           const Item = rosterView === "grid" ? RosterCard : RosterItem;
           return (
             <>
@@ -519,6 +561,26 @@ export default function SpritesView({ creds, notify, titleId }) {
               </div>
               {slice.length < flat.length && (
                 <div className="roster-more">показано {slice.length} из {flat.length} — прокрути ниже…</div>
+              )}
+              {bgSlice.length > 0 && (
+                <div className={"bg-section" + (bgOpen ? " open" : "")}>
+                  <button className="bg-section-head" onClick={() => setBgOpen((v) => !v)} aria-expanded={bgOpen}>
+                    <span className="bg-caret">{bgOpen ? "▾" : "▸"}</span>
+                    <span className="section-label">Фоны</span>
+                    <span className="bg-count">{bgSlice.length}</span>
+                  </button>
+                  {bgOpen && <div className="bg-grid">
+                    {bgSlice.map((b) => (
+                      <label key={b.name} className="bg-tile"
+                             title={"/content/" + b.dir + "/" + b.name + " — нажми, чтобы заменить"}>
+                        <input type="file" accept="image/*" style={{ display: "none" }}
+                               onChange={(e) => replaceBg(b, e.target.files && e.target.files[0])} />
+                        <img src={"/content/" + b.dir + "/" + b.name + "?v=" + bgBust} loading="lazy" alt="" />
+                        <span className="bg-tile-name">{b.name}</span>
+                      </label>
+                    ))}
+                  </div>}
+                </div>
               )}
             </>
           );
