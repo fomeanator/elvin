@@ -121,3 +121,28 @@ def orbit bg /content/bg/ec/orbit.jpg
 стоит только `PD-*` / `CC0` / `Cc-zero`, а у обёрток `Licensed-PD*` **оба**
 параметра — тоже `PD-*`. Если видно `cc-by`, `cc-by-sa`, `GFDL`, `self|cc-...` —
 файл не берём.
+
+## Звук и иконки из паков племянника (2026-07-26)
+
+| Что | Файлы | Источник | Лицензия |
+|---|---|---|---|
+| Музыка новеллы | `content/audio/music/*.mp3`, 9 треков | [Free Background Music for Visual Novels (BGM Pack 1)](https://potat0master.itch.io/free-background-music-for-visual-novels-bgm-pack-1) | **не указана в архиве** — условия на странице itch, перед публикацией проверить |
+| Игровые иконки | `content/sprites/ec_icons/`, 21 шт. | [Game Icon Pack](https://nieobie.itch.io/free-icons) | **не указана в архиве** — то же |
+
+### Что НЕ взято и почему
+
+* **KBPixelArt «Lioren & Lael»** — лицензия в архиве есть и она НЕ свободная:
+  «resale, redistribution, or sharing … is strictly prohibited», отдельно
+  запрещено использование «in AI datasets, or automated content generation
+  systems». В игре использовать можно, в репозиторий класть нельзя. Не взято,
+  чтобы не смешивать свободное с несвободным в одной папке.
+* **Sutemo «Female character»** — один `.psd`, лицензии в архиве нет, движку в
+  таком виде не годится (нужна разборка на слои).
+
+### KayKit — CC0, но 3D
+
+Паки `kaykit-*` (приключенцы, скелеты, оружие, подземелья, анимации) под
+**CC0**, текст лицензии в архиве: «free to use in personal, educational and
+commercial projects». Внутри `obj/fbx/gltf/glb` — движок рисует 2D, поэтому это
+не «положить и работает», а путь через рендер поз в Blender (docs/ec-hero-poses.md).
+Скелеты KayKit — готовый Костолом, если пойдём этим путём.
