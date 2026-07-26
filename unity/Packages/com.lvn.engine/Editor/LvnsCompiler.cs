@@ -85,14 +85,14 @@ namespace Lvn.Editor
         }
 
         // ── Convert: the main pipeline (mirrors Go Convert) ──────────────────
-        static JObject Convert(string src) { return Convert(src, null); }
+        static JObject Convert(string src) { return Convert(src, null, null); }
 
         /// <summary>Convert with the label namespace of an ENCLOSING document.
         /// A woven option block is compiled by calling back in here, and with a
         /// fresh namer every nesting level restarts at seq 1 — an inner weave and
         /// an outer one both minted `__weave_head_1`, a duplicate label the
         /// validator refuses. Mirrors Go convertWith.</summary>
-        static JObject Convert(string src, SynthNamer inherited)
+        static JObject Convert(string src, SynthNamer inherited, Dictionary<string, string> outerActorMaps)
         {
             var funcs = CollectFuncs(src);
             string expanded = ExpandLoops(src);
@@ -159,6 +159,11 @@ namespace Lvn.Editor
             SynthNamer nfNames;
             if (inherited != null) { nfNames = inherited; nfNames.Absorb(lines); }
             else nfNames = new SynthNamer(lines);
+            // A woven block is part of the SAME chapter, so it inherits what the
+            // chapter already declared above it. Without the speaker map a line
+            // inside a block lost its who_id and the stage highlighted nobody.
+            if (outerActorMaps != null)
+                foreach (var kv in outerActorMaps) actorMaps[kv.Key] = kv.Value;
 
             for (int i = 0; i < lines.Count;)
             {
@@ -236,7 +241,7 @@ namespace Lvn.Editor
                                 }
                                 if (!closed)
                                     throw new LvnsCompileException($"line {j}: unclosed choice option body (missing '}}')");
-                                JArray cmds = ParseBlockCommands(bodySrc, nfNames);
+                                JArray cmds = ParseBlockCommands(bodySrc, nfNames, actorMaps);
                                 var target = (string)opt["goto"];
                                 if (NeedsWeaving(cmds))
                                 {
@@ -1044,9 +1049,9 @@ namespace Lvn.Editor
         /// <summary>Compile a choice option's `{ … }` block. It does NOT judge the
         /// contents — the caller does, via NeedsWeaving: set/inc/goto rides along
         /// as a runtime `body`, anything richer is lowered into script.</summary>
-        static JArray ParseBlockCommands(List<string> bodyLines, SynthNamer names)
+        static JArray ParseBlockCommands(List<string> bodyLines, SynthNamer names, Dictionary<string, string> actorMaps)
         {
-            var compiled = (JArray)Convert(string.Join("\n", bodyLines), names)["script"];
+            var compiled = (JArray)Convert(string.Join("\n", bodyLines), names, actorMaps)["script"];
             var body = new JArray();
             foreach (JToken t in compiled) body.Add(t.DeepClone()); // detach from the throwaway doc
             return body;
