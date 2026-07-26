@@ -160,8 +160,23 @@ func cmdImport(args []string) {
 	if err != nil {
 		die("import: " + err.Error())
 	}
-	if err := importer.WriteToContentDir(*content, res); err != nil {
+	writeRep, err := importer.WriteToContentDir(*content, res)
+	if err != nil {
 		die("import: " + err.Error())
+	}
+	// Re-import is a three-way merge (importer/baseline.go): say plainly what
+	// was left alone and what disagreed, or the author never learns that their
+	// edit survived — or that it collided.
+	if writeRep != nil {
+		fmt.Printf("files: %d new, %d updated, %d unchanged, %d kept (hand-edited)\n",
+			writeRep.Count(importer.StatusNew), writeRep.Count(importer.StatusUpdated),
+			writeRep.Count(importer.StatusUnchanged), writeRep.Count(importer.StatusKeptLocal))
+		if n := len(writeRep.Conflicts); n > 0 {
+			fmt.Printf("CONFLICTS (%d): hand-edited here AND regenerated differently — nothing was overwritten.\n", n)
+			for _, rel := range writeRep.Conflicts {
+				fmt.Printf("  %s  (new version parked at %s.incoming)\n", rel, rel)
+			}
+		}
 	}
 	fmt.Fprintf(os.Stderr, "imported %q → %s (%d ops, %d art files, %d bg unmatched)\n",
 		*id, res.ScriptRel, sumStats(res.Stats), len(res.Art), len(res.MissingBg))
