@@ -1,0 +1,203 @@
+{
+  "scene": "stage-churn",
+  "note": "Resume-truth stress: the same actors are re-shown with different emotion/outfit and hidden on alternating laps behind backward gotos, so the linear script prefix and the executed path disagree about what is on screen.",
+  "script": [
+    {
+      "op": "bg",
+      "id": "dawn",
+      "sprite_url": "/fx/dawn.png"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": true,
+      "position": "center",
+      "emotion": "calm",
+      "outfit": "plain"
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "Утро."
+    },
+    {
+      "op": "label",
+      "id": "lap"
+    },
+    {
+      "op": "inc",
+      "key": "lap",
+      "by": 1
+    },
+    {
+      "op": "if",
+      "expr": "lap % 2 == 0",
+      "then": "even",
+      "else": "odd"
+    },
+    {
+      "op": "label",
+      "id": "odd"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "emotion": "angry",
+      "outfit": "armor"
+    },
+    {
+      "op": "actor",
+      "id": "echo",
+      "show": true,
+      "position": "right",
+      "emotion": "sly",
+      "outfit": "rags"
+    },
+    {
+      "op": "bg",
+      "id": "storm",
+      "sprite_url": "/fx/storm.png"
+    },
+    {
+      "op": "say",
+      "who": "Герой",
+      "text": "Круг {lap}: буря."
+    },
+    {
+      "op": "goto",
+      "label": "lap_end"
+    },
+    {
+      "op": "label",
+      "id": "even"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "emotion": "sad",
+      "outfit": "plain"
+    },
+    {
+      "op": "actor",
+      "id": "echo",
+      "show": false
+    },
+    {
+      "op": "bg",
+      "id": "dawn",
+      "sprite_url": "/fx/dawn.png"
+    },
+    {
+      "op": "say",
+      "who": "Герой",
+      "text": "Круг {lap}: тишина."
+    },
+    {
+      "op": "goto",
+      "label": "lap_end"
+    },
+    {
+      "op": "label",
+      "id": "lap_end"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "text": "Ещё круг",
+          "goto": "maybe_again"
+        },
+        {
+          "text": "Спрятать эхо",
+          "body": [
+            {
+              "op": "set",
+              "key": "echo_hidden",
+              "value": true
+            },
+            {
+              "op": "goto",
+              "label": "hide_echo"
+            }
+          ]
+        },
+        {
+          "text": "Показать эхо слева",
+          "body": [
+            {
+              "op": "set",
+              "key": "echo_hidden",
+              "value": false
+            },
+            {
+              "op": "goto",
+              "label": "echo_left"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "label",
+      "id": "hide_echo"
+    },
+    {
+      "op": "actor",
+      "id": "echo",
+      "show": false
+    },
+    {
+      "op": "goto",
+      "label": "maybe_again"
+    },
+    {
+      "op": "label",
+      "id": "echo_left"
+    },
+    {
+      "op": "actor",
+      "id": "echo",
+      "show": true,
+      "position": "left",
+      "emotion": "blank",
+      "outfit": "rags"
+    },
+    {
+      "op": "goto",
+      "label": "maybe_again"
+    },
+    {
+      "op": "label",
+      "id": "maybe_again"
+    },
+    {
+      "op": "if",
+      "expr": "lap < 12",
+      "then": "lap",
+      "else": "outro"
+    },
+    {
+      "op": "label",
+      "id": "outro"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": false
+    },
+    {
+      "op": "actor",
+      "id": "echo",
+      "show": false
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "Занавес."
+    },
+    {
+      "op": "goto",
+      "label": "__end"
+    }
+  ]
+}

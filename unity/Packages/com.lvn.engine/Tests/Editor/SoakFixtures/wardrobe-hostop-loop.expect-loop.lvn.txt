@@ -1,0 +1,60 @@
+{
+  "scene": "wardrobe-hostop-loop.expect-loop",
+  "note": "NEGATIVE fixture. The 2026-07-19 import bug distilled: label -> host op -> unconditional goto back, no pause in the cycle. A bare engine MUST throw the infinite-loop guard here instead of freezing.",
+  "script": [
+    {
+      "op": "bg",
+      "id": "flat",
+      "sprite_url": "/fx/flat.png"
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Пора переодеться."
+    },
+    {
+      "op": "label",
+      "id": "wardrobe_entry"
+    },
+    {
+      "op": "set",
+      "key": "Open.Wardrobe",
+      "value": true
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": true,
+      "position": "center",
+      "outfit": "{Wardrobe.outfit}",
+      "emotion": "calm"
+    },
+    {
+      "op": "wardrobe_show",
+      "char": "hero"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": false
+    },
+    {
+      "op": "set",
+      "key": "Open.ReOpenWardrobe",
+      "value": true
+    },
+    {
+      "op": "goto",
+      "label": "wardrobe_entry"
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Этой строки игрок никогда не увидит."
+    },
+    {
+      "op": "goto",
+      "label": "__end"
+    }
+  ]
+}

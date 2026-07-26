@@ -54,6 +54,14 @@ for path in sorted(glob.glob(os.path.join(out, "run-*.xml"))):
         if tc.get("result") not in (None, "Passed", "Skipped"):
             fails.setdefault(tc.get("fullname"), []).append(os.path.basename(path))
 print(f"\nСтабильность: {runs}/{n} прогонов дали результаты")
+# Недостающий прогон — это НЕ «нет флейков». glob() по отсутствующим файлам
+# просто не итерируется, поэтому при упавшем Unity (например, после апгрейда
+# редактора: путь к нему захардкожен выше) агрегатор раньше печатал «0/5» и
+# выходил с кодом 0 — ночная ловля флейков навсегда зелёная и бесполезная.
+if runs < n:
+    print(f"ПРОВАЛ: {n - runs} прогон(ов) не дали результатов — Unity не запустился "
+          f"или умер. Проверь путь к редактору в qa/stability.sh и логи {out}/run-*.log")
+    sys.exit(1)
 if not fails:
     print("Флейков нет: все тесты зелёные во всех прогонах.")
     sys.exit(0)
