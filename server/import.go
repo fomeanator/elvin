@@ -114,7 +114,8 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 	s.guardSpriteCollisions(res)
 	// Same structural gate an author's "Save to app" passes — see lvnguard.go.
 	lvnCheck := s.checkImportedScripts(res)
-	if err := importer.WriteToContentDir(s.content, res); err != nil {
+	writeRep, err := importer.WriteToContentDir(s.content, res)
+	if err != nil {
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -131,6 +132,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 		"lang":       res.Lang,
 		"strings":    len(res.Catalog),
 		"linearizer": res.Linearize,
+		"files":      writeRep,
 	})
 }
 

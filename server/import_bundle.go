@@ -219,7 +219,8 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 	s.guardSpriteCollisions(res)
 	// Same structural gate an author's "Save to app" passes — see lvnguard.go.
 	lvnCheck := s.checkImportedScripts(res)
-	if err := importer.WriteToContentDir(s.content, res); err != nil {
+	writeRep, err := importer.WriteToContentDir(s.content, res)
+	if err != nil {
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -249,6 +250,9 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		// dropped it, so the whole "a silent loss can no longer happen quietly"
 		// guarantee was invisible exactly where imports really run.
 		"linearizer": res.Linearize,
+		// What the write did: conflicts mean a hand edit and the new export
+		// disagree and NOTHING was overwritten (importer/baseline.go).
+		"files": writeRep,
 	})
 }
 
