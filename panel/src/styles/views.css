@@ -1719,3 +1719,14 @@ body.col-resizing { cursor: col-resize; user-select: none; }
   .win-title { display: none; }
   .mb-btn { padding: 0 8px; font-size: 13px; }
 }
+
+/* Плашка расхождения: сервер ушёл вперёд, а в редакторе есть своя правка.
+   Показывается вместо молчаливой перезаписи — потерять час работы автора
+   страшнее, чем показать ему выбор. */
+.ide-conflict {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; font-size: 12.5px; color: var(--paper-dim);
+  background: color-mix(in srgb, var(--rose-deep) 22%, var(--ink-850));
+  border-bottom: 1px solid var(--line);
+}
+.ide-conflict span { flex: 1; min-width: 220px; }
