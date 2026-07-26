@@ -227,6 +227,17 @@ export const adminRollback = (file, ts, token) =>
 export const adminFiles = (dir, token) =>
   adminFetch("/v1/admin/files?dir=" + encodeURIComponent(dir || ""), token);
 
+// POST /v1/admin/rebuild — пересобрать главы, подключающие изменённый общий
+// файл. Без этого правка механик не доезжает до игры: играется скомпилированный
+// .lvn, а он остаётся прежним, и автор перестаёт понимать, почему правки «не
+// работают».
+export const rebuildDependents = (path, token) =>
+  adminFetch("/v1/admin/rebuild", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+
 // DELETE /v1/admin/assets/<path> — scripts go to history, art is gone for good.
 export const adminDeleteAsset = (path, token) =>
   adminFetch("/v1/admin/assets/" + encodePath(path), token, { method: "DELETE" });

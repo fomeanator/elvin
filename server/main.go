@@ -163,6 +163,9 @@ func main() {
 	// публикация .lvns одним запросом, чтобы для неё не требовался тулчейн.
 	mux.HandleFunc("/v1/admin/agent-bundle", srv.handleAgentBundle)
 	mux.HandleFunc("/v1/admin/agent/publish", srv.handleAgentPublish)
+	// Пересборка глав, подключающих изменённый общий файл: без неё правка
+	// механик не доезжала до игры — играется скомпилированный .lvn.
+	mux.HandleFunc("/v1/admin/rebuild", srv.handleRebuild)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/import-bundle", srv.handleImportBundle)
 	// The other half of a re-import: list what the three-way merge parked and
