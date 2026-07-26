@@ -113,47 +113,9 @@ func ToLvns(doc *articy.Doc) []byte {
 			if els != "" && !nextLabelIs(s, i, els) {
 				line("-> " + els)
 			}
-		case "set":
-			key := str(c["key"])
-			if key == "" {
-				continue
-			}
-			e, hasExpr := c["expr"].(string)
-			// A dotted/namespaced key (Music.House) isn't a bare identifier, so the
-			// `k = v` assignment form won't parse — fall back to the generic op form,
-			// which quotes the key. Same fallback when the op carries ANY field
-			// beyond op/key/value/expr — the short form can't encode them, and
-			// silently dropping `default:true` would turn a declared default into
-			// an unconditional assignment that resets the player's progress on
-			// every chapter entry. And when the key IS a directive word (`def`,
-			// `return`, `scene`…): `return = 0` round-trips as an INJECTED
-			// `return` op that exits the chapter (live-hit: rpg-inv's `def`).
-			simple := simpleKeyRe.MatchString(key) && !directiveWords[key]
-			for k := range c {
-				if k != "op" && k != "key" && k != "value" && k != "expr" {
-					simple = false
-					break
-				}
-			}
-			if simple {
-				if hasExpr && e != "" {
-					line(key + " = " + e)
-				} else {
-					line(key + " = " + literal(c["value"]))
-				}
-			} else {
-				line(genericOp("set", c))
-			}
-		case "inc":
-			key := str(c["key"])
-			by := c["by"]
-			if by == nil {
-				by = 1
-			}
-			if simpleKeyRe.MatchString(key) && !directiveWords[key] {
-				line(key + " = " + key + " + " + literal(by))
-			} else {
-				line(genericOp("inc", c))
+		case "set", "inc":
+			if l := dataOpLine(op, c); l != "" {
+				line(l)
 			}
 		case "say":
 			who, _ := c["who"].(string)
@@ -170,6 +132,10 @@ func ToLvns(doc *articy.Doc) []byte {
 				curActorMap[who] = whoID
 			}
 			line(sayLine(c))
+		case "text":
+			// A reactive label has a POSITIONAL grammar the flat k=v form
+			// cannot express — see textLine.
+			line(textLine(c))
 		case "choice":
 			// Attributes that live on the choice op ITSELF (timeout,
 			// timeout_goto, …) get their own `choice k=v` line before the
@@ -181,20 +147,13 @@ func ToLvns(doc *articy.Doc) []byte {
 			}
 			for _, o := range asList(c["options"]) {
 				if opt, ok := toMap(o); ok {
-					line(choiceOption(opt))
+					for _, l := range choiceOptionLines(opt) {
+						line(l)
+					}
 				}
 			}
 		default:
-			// A host-defined op (LvnOps.Register / `ext` in the language) is
-			// NOT in the parser's KnownOps — printing it bare (`leaderboard_submit
-			// board="quiz"`) produced a line the recompile rejects as an unknown
-			// command, breaking round-trip for every embedding game. The `ext`
-			// prefix is the documented spelling for exactly this.
-			if !lvns.KnownOps[op] {
-				line("ext " + genericOp(op, c))
-			} else {
-				line(genericOp(op, c))
-			}
+			line(otherOpLine(op, c))
 		}
 	}
 	return []byte(b.String())
@@ -316,22 +275,126 @@ func sayLine(c articy.Cmd) string {
 	return out
 }
 
-// choiceOption renders one option as `- text -> label [params]`.
-func choiceOption(o map[string]any) string {
-	text := oneLine(str(o["text"]))
-	target := str(o["goto"])
-	if target == "" {
-		// body-only option: reuse the body's own goto, else end.
-		target = "__end"
-		for _, bc := range asList(o["body"]) {
-			if m, ok := toMap(bc); ok && m["op"] == "goto" {
-				if l := str(m["label"]); l != "" {
-					target = l
-				}
-			}
+// dataOpLine renders a `set`/`inc` as the terse assignment form when that
+// round-trips, else the unambiguous generic form. Returns "" for a keyless set
+// (nothing to write).
+//
+// A dotted/namespaced key (Music.House) isn't a bare identifier, so the `k = v`
+// assignment form won't parse — fall back to the generic op form, which quotes
+// the key. Same fallback when the op carries ANY field beyond op/key/value/expr
+// — the short form can't encode them, and silently dropping `default:true` would
+// turn a declared default into an unconditional assignment that resets the
+// player's progress on every chapter entry. And when the key IS a directive word
+// (`def`, `return`, `scene`…): `return = 0` round-trips as an INJECTED `return`
+// op that exits the chapter (live-hit: rpg-inv's `def`).
+func dataOpLine(op string, c articy.Cmd) string {
+	key := str(c["key"])
+	if op == "inc" {
+		by := c["by"]
+		if by == nil {
+			by = 1
+		}
+		if simpleKeyRe.MatchString(key) && !directiveWords[key] {
+			return key + " = " + key + " + " + literal(by)
+		}
+		return genericOp("inc", c)
+	}
+	if key == "" {
+		return ""
+	}
+	e, hasExpr := c["expr"].(string)
+	simple := simpleKeyRe.MatchString(key) && !directiveWords[key]
+	for k := range c {
+		if k != "op" && k != "key" && k != "value" && k != "expr" {
+			simple = false
+			break
 		}
 	}
-	line := "- " + text + " -> " + target
+	if !simple {
+		return genericOp("set", c)
+	}
+	if hasExpr && e != "" {
+		return key + " = " + e
+	}
+	return key + " = " + literal(c["value"])
+}
+
+// otherOpLine renders any remaining command as one .lvns statement.
+//
+// A host-defined op (LvnOps.Register / `ext` in the language) is NOT in the
+// parser's KnownOps — printing it bare (`leaderboard_submit board="quiz"`)
+// produced a line the recompile rejects as an unknown command, breaking
+// round-trip for every embedding game. The `ext` prefix is the documented
+// spelling for exactly this.
+func otherOpLine(op string, c articy.Cmd) string {
+	if !lvns.KnownOps[op] {
+		return "ext " + genericOp(op, c)
+	}
+	return genericOp(op, c)
+}
+
+// choiceOptionLines renders one option: the `- text -> label [params]` header
+// and, when the option carries a `body`, the `{ … }` block holding the commands
+// the runtime runs on pick.
+//
+// Before the block form existed the body was thrown away and only its `goto`
+// survived, so every "ask this once" pool (`set _once_… true` + jump) lost the
+// flag it set and never emptied — audit O3, 14 live options in soviet alone.
+func choiceOptionLines(o map[string]any) []string {
+	body := asList(o["body"])
+	if len(body) == 0 {
+		if t := str(o["goto"]); t != "" {
+			return []string{choiceOption(o, t)}
+		}
+		// Neither target nor body: the runtime falls through past the choice.
+		// An empty block is the only spelling that says so — a bare `- text`
+		// doesn't parse, and the old `-> __end` fallback turned a fall-through
+		// into a jump to the end of the chapter.
+		return []string{choiceOption(o, "") + " {", "}"}
+	}
+	// The jump the body ends with IS the option's target: hoist it onto the
+	// header so an option still reads (and greps) as `- text -> label`, and the
+	// block carries only what runs before the jump.
+	target := str(o["goto"])
+	if m, ok := toMap(body[len(body)-1]); ok && m["op"] == "goto" {
+		if l := str(m["label"]); l != "" {
+			target = l
+			body = body[:len(body)-1]
+		}
+	}
+	out := []string{choiceOption(o, target) + " {"}
+	for _, bc := range body {
+		m, ok := toMap(bc)
+		if !ok {
+			continue
+		}
+		bop, _ := m["op"].(string)
+		var l string
+		switch bop {
+		case "goto":
+			l = "-> " + str(m["label"])
+		case "set", "inc":
+			l = dataOpLine(bop, articy.Cmd(m))
+		default:
+			l = otherOpLine(bop, articy.Cmd(m))
+		}
+		if l != "" {
+			out = append(out, "    "+l)
+		}
+	}
+	return append(out, "}")
+}
+
+// choiceOption renders one option header as `- text [-> label] [params]`. An
+// empty target is the body-only form (the flow falls through past the choice);
+// the caller then always appends a `{ … }` block, without which the line would
+// not re-parse.
+func choiceOption(o map[string]any, target string) string {
+	text := oneLine(str(o["text"]))
+	line := "- " + text
+	if target != "" {
+		line += " -> " + target
+	}
 	if v := str(o["requires_stat"]); v != "" {
 		line += " requires_stat=" + quote(v)
 		if m := o["requires_min"]; m != nil {
@@ -362,8 +425,13 @@ func choiceOption(o map[string]any) string {
 		if cur == "" {
 			cur = str(wc["var"])
 		}
+		// The amount is rendered BARE: literal() quotes a string amount
+		// ("20"), and `wallet_cost="\"20\" crystals"` fails the parser's
+		// amount-then-currency match, leaving the price a plain string the
+		// runtime reads as FREE (LvnPlayer.Choose only spends a {currency,
+		// amount} object).
 		if cur != "" && wc["amount"] != nil {
-			line += " wallet_cost=" + quote(literal(wc["amount"])+" "+cur)
+			line += " wallet_cost=" + quote(bareNumber(wc["amount"])+" "+cur)
 		}
 	}
 	if e := str(o["expr"]); e != "" {
@@ -390,7 +458,11 @@ func choiceOption(o map[string]any) string {
 			case int64:
 				delta = int(d)
 			}
-			if label == "" || delta == 0 {
+			// The wire form joins entries with "," — a label containing one
+			// comes back TRUNCATED ("Иван, брат" → "брат"). This is a
+			// cosmetic preview hint, so drop the unrepresentable entry and
+			// keep the rest honest rather than shipping a wrong name.
+			if label == "" || delta == 0 || strings.Contains(label, ",") {
 				continue
 			}
 			parts = append(parts, fmt.Sprintf("%s:%+d", label, delta))
@@ -517,4 +589,57 @@ func scalar(v any) (string, bool) {
 	default:
 		return literal(v), true
 	}
+}
+
+// textLine renders a reactive HUD label in the form its parser actually reads:
+// `text <id> [k=v …] «template»` (or `text <id> hide`). genericOp's flat
+// `text color=… id=… text=…` is NOT that grammar: the parser takes the first
+// bare word as the id and everything after the params as the template, so a
+// decompiled label came back either as an on-screen SAY line (the whole
+// command printed as dialogue) or as a label with id `id="code"` and every
+// value shifted by one field. Falls back to genericOp only when no positional
+// form exists at all (an id that is empty or carries spaces/quotes).
+func textLine(c articy.Cmd) string {
+	id := str(c["id"])
+	if id == "" || strings.ContainsAny(id, " \t\"") {
+		return genericOp("text", c)
+	}
+	out := "text " + id
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		if k != "op" && k != "id" && k != "text" && k != "hide" {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if v, ok := scalar(c[k]); ok {
+			out += " " + k + "=" + v
+		}
+	}
+	if b, _ := c["hide"].(bool); b {
+		return out + " hide" // must be the last token, with no template after it
+	}
+	tmpl := oneLine(str(c["text"]))
+	if tmpl == "" {
+		return out
+	}
+	// The template is quoted with «…» — unless the author's own text already
+	// uses guillemets, in which case "…" (the parser accepts both) keeps the
+	// delimiters unambiguous.
+	if strings.ContainsAny(tmpl, "«»") {
+		return out + " " + quote(tmpl)
+	}
+	return out + " «" + tmpl + "»"
+}
+
+// bareNumber renders a price amount without quotes, accepting the string form
+// a hand-edited script may carry ("20"). Falls back to the value as written
+// when it is not a number at all — better a visible round-trip failure than a
+// silently wrong price.
+func bareNumber(v any) string {
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s)
+	}
+	return literal(v)
 }
