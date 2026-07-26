@@ -1,0 +1,394 @@
+{
+  "scene": "flow-branching",
+  "note": "Flow feature sweep for the random walk: choice gates (requires_stat / expr / wallet_cost), an all-paid choice (free-pool fallback), option bodies with and without goto, nested call/return, if with and without else, a counted hub.",
+  "script": [
+    {
+      "op": "bg",
+      "id": "street",
+      "sprite_url": "/fx/street.png"
+    },
+    {
+      "op": "actor",
+      "id": "mara",
+      "show": true,
+      "position": "left",
+      "emotion": "calm",
+      "outfit": "coat"
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Выбирай."
+    },
+    {
+      "op": "label",
+      "id": "start"
+    },
+    {
+      "op": "inc",
+      "key": "visits",
+      "by": 1
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Заход {visits}."
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "text": "Налево",
+          "goto": "path_a"
+        },
+        {
+          "text": "Направо",
+          "goto": "path_b"
+        },
+        {
+          "text": "Тайный ход",
+          "requires_stat": "courage",
+          "requires_min": 3,
+          "goto": "path_secret"
+        },
+        {
+          "text": "Назад в переулок",
+          "expr": "visits >= 2 && knows_alley",
+          "goto": "path_alley"
+        },
+        {
+          "text": "Купить проход",
+          "cost": "10",
+          "wallet_cost": {
+            "currency": "gems",
+            "amount": 10
+          },
+          "goto": "path_paid"
+        },
+        {
+          "text": "Осмотреться",
+          "body": [
+            {
+              "op": "set",
+              "key": "knows_alley",
+              "value": true
+            },
+            {
+              "op": "goto",
+              "label": "look_around"
+            }
+          ]
+        },
+        {
+          "text": "Промолчать",
+          "body": [
+            {
+              "op": "inc",
+              "key": "silence",
+              "by": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Молчание — тоже ответ."
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "look_around"
+    },
+    {
+      "op": "actor",
+      "id": "mara",
+      "emotion": "thoughtful"
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Тут был переулок."
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "path_a"
+    },
+    {
+      "op": "actor",
+      "id": "mara",
+      "emotion": "happy"
+    },
+    {
+      "op": "inc",
+      "key": "courage",
+      "by": 2
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Смелость: {courage}."
+    },
+    {
+      "op": "call",
+      "label": "vignette"
+    },
+    {
+      "op": "wait",
+      "ms": 100
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "path_b"
+    },
+    {
+      "op": "bg",
+      "id": "docks",
+      "sprite_url": "/fx/docks.png"
+    },
+    {
+      "op": "actor",
+      "id": "kit",
+      "show": true,
+      "position": "right",
+      "emotion": "wary",
+      "outfit": "vest"
+    },
+    {
+      "op": "say",
+      "who": "Кит",
+      "text": "Здесь пахнет солью."
+    },
+    {
+      "op": "if",
+      "expr": "courage >= 2",
+      "then": "b_bold",
+      "else": "b_shy"
+    },
+    {
+      "op": "label",
+      "id": "b_bold"
+    },
+    {
+      "op": "say",
+      "who": "Кит",
+      "text": "Ты не дрогнул."
+    },
+    {
+      "op": "call",
+      "label": "vignette"
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "b_shy"
+    },
+    {
+      "op": "say",
+      "who": "Кит",
+      "text": "Ты отступил."
+    },
+    {
+      "op": "actor",
+      "id": "kit",
+      "show": false
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "path_secret"
+    },
+    {
+      "op": "bg",
+      "id": "tunnel",
+      "sprite_url": "/fx/tunnel.png"
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "Тайный ход открылся."
+    },
+    {
+      "op": "set",
+      "key": "secret",
+      "value": true
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "path_alley"
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "Переулок помнит тебя."
+    },
+    {
+      "op": "input",
+      "key": "alley_note",
+      "prompt": "Что записать?"
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "path_paid"
+    },
+    {
+      "op": "set",
+      "key": "BOT_SPENT_MONEY",
+      "value": true
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "Кошелёк опустел."
+    },
+    {
+      "op": "goto",
+      "label": "hub"
+    },
+    {
+      "op": "label",
+      "id": "hub"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "text": "Кофе",
+          "cost": "1",
+          "wallet_cost": {
+            "currency": "soft",
+            "amount": 1
+          },
+          "goto": "hub_after"
+        },
+        {
+          "text": "Чай",
+          "cost": "1",
+          "wallet_cost": {
+            "currency": "soft",
+            "amount": 1
+          },
+          "goto": "hub_after"
+        }
+      ]
+    },
+    {
+      "op": "label",
+      "id": "hub_after"
+    },
+    {
+      "op": "text",
+      "id": "ticker",
+      "text": "заходов: {visits}",
+      "x": 4,
+      "y": 6,
+      "size": 28
+    },
+    {
+      "op": "if",
+      "expr": "visits >= 5",
+      "then": "finale"
+    },
+    {
+      "op": "goto",
+      "label": "start"
+    },
+    {
+      "op": "label",
+      "id": "vignette"
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "— короткая сцена —"
+    },
+    {
+      "op": "actor",
+      "id": "ghost",
+      "show": true,
+      "position": "center",
+      "emotion": "blank"
+    },
+    {
+      "op": "call",
+      "label": "deep_vignette"
+    },
+    {
+      "op": "actor",
+      "id": "ghost",
+      "show": false
+    },
+    {
+      "op": "return"
+    },
+    {
+      "op": "label",
+      "id": "deep_vignette"
+    },
+    {
+      "op": "obj",
+      "id": "lantern",
+      "sprite_url": "/fx/lantern.png",
+      "x": 0.8,
+      "y": 0.6,
+      "width": 0.1
+    },
+    {
+      "op": "say",
+      "who": "Автор",
+      "text": "— и ещё глубже —"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "op": "label",
+      "id": "finale"
+    },
+    {
+      "op": "actor",
+      "id": "mara",
+      "show": false
+    },
+    {
+      "op": "actor",
+      "id": "kit",
+      "show": false
+    },
+    {
+      "op": "say",
+      "who": "Мара",
+      "text": "Конец. Смелость {courage}, тишина {silence}."
+    },
+    {
+      "op": "goto",
+      "label": "__end"
+    }
+  ]
+}
