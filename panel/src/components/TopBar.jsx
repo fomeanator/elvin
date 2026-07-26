@@ -125,6 +125,10 @@ function fileList() {
     if (!open) continue; // «No files.» и прочая нефайловая разметка
     const raw = open.getAttribute("title") || "";
     const shown = (el.querySelector(".ide-file-label")?.textContent || "").trim();
+    // Человеческое имя главы («01») живёт в ОТДЕЛЬНОЙ строке .ide-file-sub:
+    // в .ide-file-label теперь настоящее имя файла, и брать имя главы оттуда
+    // значит не взять его вовсе — в меню оставались одни имена файлов.
+    const sub = (el.querySelector(".ide-file-sub")?.textContent || "").trim();
     // Имя файла вытаскиваем РЕГУЛЯРКОЙ, а не split("/"): в подсказке строки
     // рядом с путём может стоять что-то ещё («scripts/x.lvns\nГлава 1»), и
     // тогда обрезка по слэшу вернула бы имя файла вместе с этим хвостом.
@@ -134,7 +138,7 @@ function fileList() {
       raw,
       path: raw.split("\n")[0].trim(),
       file,
-      name: shown && shown !== file ? shown : "",
+      name: sub && sub !== file ? sub : "",
       draft: !!el.querySelector(".ide-file-tag"),
       active: el.classList.contains("active"),
     });
@@ -259,7 +263,14 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
         { sep: true },
         {
           id: "save",
-          label: p.save && /publish/i.test(p.save.label) ? "Опубликовать в приложении" : "Сохранить в приложение",
+          // Три разных дела под одной кнопкой, и меню обязано называть то самое:
+          // черновик главы ПУБЛИКУЕТСЯ, живая глава сохраняется в приложение, а
+          // общий файл (его подключают через include) в приложение не идёт вовсе
+          // — пишется только он сам. Обещать ему «в приложение» — врать.
+          label: !p.save ? "Сохранить"
+            : /publish/i.test(p.save.label) ? "Опубликовать в приложении"
+              : /file/i.test(p.save.label) ? "Сохранить файл"
+                : "Сохранить в приложение",
           hint: MOD + "S",
           disabled: !p.save || p.save.disabled,
           title: p.save && p.save.disabled ? "Сначала исправьте ошибки — сохранение заблокировано" : why,
@@ -416,7 +427,13 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
   // Заголовок окна, а не цепочка пилюль: слева — что открыто (новелла), справа
   // — какой файл правим. Имя файла берём из creds.path: ScriptSection пишет
   // туда путь при каждом открытии, так что это единственный честный источник.
-  const file = scripting ? String(creds.path || "").split("/").pop() : "";
+  //
+  // .lvn → .lvns СПЕЦИАЛЬНО: в creds.path у главы лежит путь СКОМПИЛИРОВАННОГО
+  // файла, а правится всегда исходник рядом с ним. Без этого заголовок окна
+  // звал открытый файл «ec-ch01.lvn», а список файлов и плашка редактора — тем
+  // же «ec-ch01.lvns»: два имени одного файла в одном окне — ровно та путаница,
+  // из-за которой владелец и просил «сделай обычно — файл, вид и тд».
+  const file = scripting ? String(creds.path || "").split("/").pop().replace(/\.lvn$/, ".lvns") : "";
   const place = admin ? "Админка" : inside ? (nav.titleName || nav.titleId) : "Библиотека новелл";
 
   return (
