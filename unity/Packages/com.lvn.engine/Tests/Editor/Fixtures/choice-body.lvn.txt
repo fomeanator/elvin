@@ -1,0 +1,99 @@
+{
+  "scene": "choice-body",
+  "script": [
+    {
+      "id": "hub",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Спрашивай, пока я добрая.",
+      "who": "Ведьма"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "body": [
+            {
+              "expr": "true",
+              "key": "_once_house",
+              "op": "set"
+            },
+            {
+              "expr": "asked + 1",
+              "key": "asked",
+              "op": "set"
+            },
+            {
+              "label": "q_house",
+              "op": "goto"
+            }
+          ],
+          "expr": "!_once_house",
+          "text": "Почему ты здесь живёшь?"
+        },
+        {
+          "body": [
+            {
+              "expr": "true",
+              "key": "_once_chest",
+              "op": "set"
+            },
+            {
+              "expr": "asked + 1",
+              "key": "asked",
+              "op": "set"
+            },
+            {
+              "label": "q_chest",
+              "op": "goto"
+            }
+          ],
+          "expr": "!_once_chest",
+          "text": "Что в том сундуке?"
+        },
+        {
+          "body": [
+            {
+              "expr": "true",
+              "key": "hub_done",
+              "op": "set"
+            }
+          ],
+          "text": "Закрыть тему"
+        },
+        {
+          "goto": "__end",
+          "text": "Уйти"
+        }
+      ]
+    },
+    {
+      "id": "q_house",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Тут тихо.",
+      "who": "Ведьма"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    },
+    {
+      "id": "q_chest",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Не твоё дело.",
+      "who": "Ведьма"
+    },
+    {
+      "label": "hub",
+      "op": "goto"
+    }
+  ]
+}

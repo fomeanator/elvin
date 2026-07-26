@@ -20,6 +20,7 @@ namespace Lvn
     public sealed class LvnPlayer
     {
         private JArray _script; // swappable for hot-reload (see TryReplaceScript)
+        private readonly string _scene; // chapter name, for diagnostics only
         private readonly ILvnStage _stage;
         private readonly Dictionary<string, int> _labels = new Dictionary<string, int>();
         private readonly Stack<int> _callStack = new Stack<int>();
@@ -33,6 +34,82 @@ namespace Lvn
         /// <summary>Optional trace sink — set by the host (e.g. to Debug.Log) to get
         /// a full step-by-step log of execution. No-op when null (zero overhead).</summary>
         public static Action<string> Log;
+
+        // ── unclaimed-op diagnostics ──────────────────────────────────────────
+        // "Unknown is an error, never a silent skip" is a COMPILE-time rule (the
+        // README says so in the same breath: "content bugs surface at compile
+        // time"). lvnconv rejects a typo'd op, ext-grammar.json declares the
+        // host's own, and /conformance/ops-owners.json pins which package owns
+        // which. The runtime deliberately does NOT re-litigate that verdict: a
+        // command nobody handles keeps flowing to the stage and the story plays
+        // on. Throwing here would be worse than the bug — Advance() is called
+        // from tap / auto-advance / choice / drag handlers, so an exception is a
+        // permanent soft-lock in a player's hands, and a shell-owned op on a bare
+        // com.lvn.engine install is a DECLARED, allowed gap, not a defect.
+        //
+        // What it must not be is INVISIBLE. So: report it, once, with enough
+        // context to act on, and keep playing.
+
+        /// <summary>Where the once-per-op unclaimed-op diagnostic goes. Defaults
+        /// to the Unity console (stderr outside Unity); a host may redirect it to
+        /// its own telemetry, or null it to go silent. Unlike <see cref="Log"/>
+        /// (a verbose opt-in trace) this one is ON by default — the whole point
+        /// is that an ignored command cannot pass unnoticed.</summary>
+        public static Action<string> Warn =
+#if UNITY_5_3_OR_NEWER
+            message => UnityEngine.Debug.LogWarning(message);
+#else
+            message => Console.Error.WriteLine(message);
+#endif
+
+        // The ops the ENGINE ITSELF forwards to ILvnStage — exactly the rows with
+        // owner=engine, csharp=stage in /conformance/ops-owners.json. Anything
+        // else that reaches `default:` without an LvnOps handler is unclaimed:
+        // nobody in this build will act on it.
+        //
+        // Deliberately a private literal rather than StagingOps.Known, which is a
+        // DIFFERENT set (it also lists flow ops the player consumes itself) and
+        // is public API other packages read. OpDispatchContractTests walks the
+        // ownership table and goes red if this list falls behind it, so the
+        // duplication cannot rot.
+        private static readonly HashSet<string> _engineStageOps = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "bg", "actor", "obj", "text", "audio", "fade", "dim", "tint",
+            "flash", "blur", "camera", "particles", "anim", "text_pace",
+            "hint", "save",
+        };
+
+        // op name → how many commands went unclaimed. Static on purpose: the
+        // budget is one line per op for the whole SESSION, not one per chapter,
+        // per replay or (heaven forbid) per command. A key being present is also
+        // the "already reported" flag, so one dictionary does both jobs.
+        private static readonly Dictionary<string, int> _unclaimed =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+
+        /// <summary>Ops that reached the stage with nobody to handle them this
+        /// session → how many commands each. For a host boot report / debug
+        /// overlay: an EMPTY bag is the assertion worth making.
+        ///
+        /// <para>Ops that have since gained an <see cref="LvnOps"/> handler are
+        /// filtered out. That covers the registration race — a host that calls
+        /// <c>LvnOps.Register</c> from its own <c>MonoBehaviour.Start</c> can lose
+        /// it to the runner's <c>Start</c> (Unity does not order the two), and the
+        /// first commands would otherwise leave a permanent false entry in the
+        /// report for an op that is, in fact, handled.</para></summary>
+        public static IReadOnlyDictionary<string, int> UnclaimedOps
+        {
+            get
+            {
+                var live = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (var kv in _unclaimed)
+                    if (!LvnOps.TryGet(kv.Key, out _)) live[kv.Key] = kv.Value;
+                return live;
+            }
+        }
+
+        /// <summary>Forget every op reported so far, so the next unclaimed one is
+        /// reported afresh — tests, and a host that wants a per-session report.</summary>
+        public static void ResetOpDiagnostics() => _unclaimed.Clear();
 
         /// <summary>Optional localization catalog: <c>text_id</c> → string for the
         /// active language. When a say/choice carries a <c>text_id</c> (instead of
@@ -121,6 +198,7 @@ namespace Lvn
         public LvnPlayer(LvnDocument doc, ILvnStage stage)
         {
             _script = doc.Script;
+            _scene = doc.Scene; // only ever read back in a diagnostic message
             _stage = stage;
             for (int i = 0; i < _script.Count; i++)
             {
@@ -286,6 +364,36 @@ namespace Lvn
             if (_trace.Count > 20000) _trace.RemoveRange(0, 10000);
         }
 
+        // An op nobody claimed: no case in the switch above, no LvnOps handler,
+        // and not one of the engine's own staging ops — so it is forwarded to a
+        // stage that has no case for it and quietly does nothing.
+        //
+        // Counted every time, REPORTED once per op per session. That budget is
+        // the whole design: `ext vibrate` inside a loop, or thirty chapters that
+        // each carry a wardrobe_show, must cost one line — not one per command,
+        // which would both drown the console and put string formatting into the
+        // player's inner loop.
+        private void NoteUnclaimed(string op)
+        {
+            if (_unclaimed.TryGetValue(op, out var seen)) { _unclaimed[op] = seen + 1; return; }
+            _unclaimed[op] = 1;
+
+            Log?.Invoke("    !! unclaimed op '" + op + "' — forwarded to a stage with no case for it");
+            Warn?.Invoke(
+                "[lvn] unclaimed op '" + op + "' at command #" + _ip +
+                " of scene '" + (string.IsNullOrEmpty(_scene) ? "?" : _scene) + "': nothing in this build handles it, " +
+                "so this command — and every later '" + op + "' — is IGNORED. The story keeps playing. " +
+                "Reported once per op per session; see LvnPlayer.UnclaimedOps for the full count. Fix ONE of:\n" +
+                "  1) the op belongs to a package this build did not install — conformance/ops-owners.json names its " +
+                "owner (e.g. 'wardrobe_show' lives in com.lvn.engine.shell);\n" +
+                "  2) the op is host-defined — call LvnOps.Register(\"" + op + "\", handler) in your game, and declare " +
+                "it in ext-grammar.json so lvnconv validates its fields instead of warning 'unknown op';\n" +
+                "  3) it IS registered, but too late — registration must happen before the first Advance(). Register " +
+                "from [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)], as the " +
+                "ExtensionPlugin sample does; a MonoBehaviour.Start races the runner's Start;\n" +
+                "  4) it is simply a typo — lvnconv validate flags it as 'unknown op' at build time.");
+        }
+
         /// <summary>Set the cursor and run forward to the next pause — the resume
         /// step after a load (the scene is rebuilt by <see cref="ReplayVisuals"/>).</summary>
         public void ContinueFrom(int index)
@@ -423,6 +531,14 @@ namespace Lvn
             /// falls back to <see cref="Index"/> when the label is gone.</summary>
             public string AnchorLabel;
             public int AnchorSteps;
+            /// <summary>Second, SHOCKPROOF anchor: the nearest preceding label the
+            /// AUTHOR wrote (never a `__`-prefixed one the compiler minted) and the
+            /// offset past it. The minted names are derived from the chapter's own
+            /// labels and no longer renumber on a re-save, but they are still the
+            /// compiler's to change; a bookmark must not depend on one. Used when
+            /// <see cref="AnchorLabel"/> is gone; null on older saves.</summary>
+            public string AnchorStableLabel;
+            public int AnchorStableSteps;
             /// <summary>Per-frame anchors for <see cref="CallStack"/> (same order,
             /// top-first). Return addresses are raw indices too, so they need the
             /// same label+offset relocation as the cursor; null on older saves.</summary>
@@ -438,6 +554,7 @@ namespace Lvn
         public LvnSnapshot Save()
         {
             var (aLabel, aSteps) = AnchorOf(_ip);
+            var (sLabel, sSteps) = AnchorOf(_ip, authorLabelsOnly: true);
             var frames = _callStack.ToArray();
             var caLabels = new string[frames.Length];
             var caSteps = new int[frames.Length];
@@ -454,19 +571,79 @@ namespace Lvn
                 Finished = Finished,
                 AnchorLabel = aLabel,
                 AnchorSteps = aSteps,
+                AnchorStableLabel = sLabel,
+                AnchorStableSteps = sSteps,
                 Trace = _trace.ToArray(),
             };
         }
 
+        /// <summary>How faithfully the last <see cref="Restore(LvnSnapshot)"/> could
+        /// place the cursor. A host shows the player something honest for
+        /// <see cref="RestoreFidelity.ChapterChanged"/> instead of dropping them in
+        /// an arbitrary scene.</summary>
+        public enum RestoreFidelity
+        {
+            /// <summary>The script is the one the save was taken on.</summary>
+            Exact,
+            /// <summary>The script changed; the saved label still exists and the
+            /// cursor moved with it. The saved beat, at its new index.</summary>
+            Relocated,
+            /// <summary>The saved label is gone. The cursor was placed inside the
+            /// same author-labelled scene (or by raw index on a script whose length
+            /// is unchanged) — the right scene, possibly not the exact line.</summary>
+            Approximate,
+            /// <summary>Nothing left to anchor on: the chapter was rewritten under
+            /// the save. The cursor was reset to the top of the chapter (variables
+            /// and progress kept) — the host MUST tell the player.</summary>
+            ChapterChanged,
+        }
+
+        /// <summary>Fidelity of the most recent <see cref="Restore(LvnSnapshot)"/>.</summary>
+        public RestoreFidelity LastRestore { get; private set; } = RestoreFidelity.Exact;
+
         /// <summary>Restore from a snapshot. Resolves the position by its label anchor
-        /// first (so a save survives the script being edited/re-imported), falling back
-        /// to the raw index for older saves that lack an anchor.</summary>
+        /// first (so a save survives the script being edited/re-imported), then by the
+        /// author-label anchor, and only then by the raw index — and when NONE of them
+        /// can be trusted it restarts the chapter and says so through
+        /// <see cref="LastRestore"/> rather than landing the player in the wrong scene.
+        ///
+        /// <para>That last rung is the whole point. A re-saved chapter renames the
+        /// labels the compiler minted and shifts every index; the old code then fell
+        /// back to the raw index, which is exactly as wrong as the label — and said
+        /// nothing. "Continue" opened a scene the player had never reached.</para></summary>
         public void Restore(LvnSnapshot snapshot)
         {
             if (snapshot == null) return;
-            int at = snapshot.AnchorLabel != null
-                ? Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index)
-                : snapshot.Index;
+            bool sameShape = _script != null && snapshot.CommandCount == _script.Count;
+            int at;
+            if (snapshot.AnchorLabel != null && _labels.ContainsKey(snapshot.AnchorLabel))
+            {
+                at = Relocate(snapshot.AnchorLabel, snapshot.AnchorSteps, snapshot.Index);
+                LastRestore = sameShape ? RestoreFidelity.Exact : RestoreFidelity.Relocated;
+            }
+            else if (snapshot.AnchorStableLabel != null && _labels.ContainsKey(snapshot.AnchorStableLabel))
+            {
+                // The scene survived, the beat inside it may not have. Clamping to
+                // the scene keeps the promise that matters: never resume in a
+                // DIFFERENT scene than the one the player was reading.
+                at = Relocate(snapshot.AnchorStableLabel, snapshot.AnchorStableSteps, snapshot.Index);
+                LastRestore = RestoreFidelity.Approximate;
+            }
+            else if (sameShape)
+            {
+                // Same length, no label to relocate by: a pure rename (or a save
+                // taken before the first label). Indices did not move.
+                at = snapshot.Index;
+                LastRestore = snapshot.AnchorLabel == null ? RestoreFidelity.Exact : RestoreFidelity.Approximate;
+            }
+            else
+            {
+                at = 0;
+                LastRestore = RestoreFidelity.ChapterChanged;
+                Log?.Invoke("restore: chapter changed under the save (anchor '" +
+                            (snapshot.AnchorLabel ?? "-") + "' gone, " + snapshot.CommandCount +
+                            " → " + (_script == null ? 0 : _script.Count) + " commands) — restarting it");
+            }
             // A shortened script must not resume PAST its end — that would
             // instantly Finish() the chapter and silently mark it completed.
             // Landing on the last beat keeps the progress and the player's seat.
@@ -509,22 +686,40 @@ namespace Lvn
         // so an anchor survives a script whose command indices shifted (a line added /
         // removed, a re-import). Returns (null, index) when the cursor is before any
         // label (the leading set/init block).
-        private (string label, int steps) AnchorOf(int index)
+        //
+        // `authorLabelsOnly` skips the labels the COMPILER minted (`__then…`,
+        // `__nf…`, `__end…`): those names belong to the lowering, not to the story,
+        // and a save must have a second anchor that survives the compiler changing
+        // its mind about them.
+        private (string label, int steps) AnchorOf(int index, bool authorLabelsOnly = false)
         {
             int from = System.Math.Min(index, _script.Count) - 1;
             for (int i = from; i >= 0; i--)
-                if (_script[i] is JObject c && (string)c["op"] == "label")
-                    return ((string)c["id"], index - i);
+            {
+                if (!(_script[i] is JObject c) || (string)c["op"] != "label") continue;
+                var id = (string)c["id"];
+                if (authorLabelsOnly && (id == null || id.StartsWith("__", StringComparison.Ordinal))) continue;
+                return (id, index - i);
+            }
             return (null, index);
         }
 
         // Resolve an anchor back to an index in the CURRENT script (call after _labels
-        // is rebuilt). Falls back to the raw index if the label is gone. Clamped.
+        // is rebuilt). Falls back to the raw index if the label is gone. Clamped — and
+        // never past the NEXT label: an offset counted in a scene that has since lost
+        // commands would otherwise spill into the following scene, which is precisely
+        // the silent "continue opens the wrong beat" this anchor exists to prevent.
         private int Relocate(string label, int steps, int fallback)
         {
             int at = fallback;
             if (!string.IsNullOrEmpty(label) && _labels.TryGetValue(label, out var i))
+            {
                 at = i + steps;
+                int scopeEnd = _script.Count;
+                for (int k = i + 1; k < _script.Count; k++)
+                    if (_script[k] is JObject n && (string)n["op"] == "label") { scopeEnd = k; break; }
+                if (at > scopeEnd) at = scopeEnd;
+            }
             if (at < 0) at = 0;
             if (at > _script.Count) at = _script.Count;
             return at;
@@ -767,6 +962,14 @@ namespace Lvn
                             break;
                         }
                         RecordTrace(_ip);
+                        // One ordinal hash lookup on the hot path (every bg /
+                        // actor / fade passes here); the miss branch — string
+                        // building included — is cold and runs once per op.
+                        // `?? ""` for the same reason LvnOps.TryGet has it: a
+                        // command with no "op" at all reaches default: too, and
+                        // malformed content must never crash the runtime.
+                        var claimName = curOp ?? "";
+                        if (!_engineStageOps.Contains(claimName)) NoteUnclaimed(claimName);
                         _stage.ApplyStage(c);
                         _ip++;
                         break;

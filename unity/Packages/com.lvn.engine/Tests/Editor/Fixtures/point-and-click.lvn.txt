@@ -87,13 +87,13 @@
       "op": "label"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_desk_1",
       "expr": "has_key == 1",
       "op": "if",
       "then": "desk_empty"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_desk_1",
       "op": "label"
     },
     {
@@ -144,23 +144,23 @@
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_safe_1",
       "expr": "safe_open == 1",
       "op": "if",
       "then": "safe_done"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_safe_1",
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_safe_2",
       "expr": "knows_code == 1",
       "op": "if",
       "then": "safe_unlock"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_safe_2",
       "op": "label"
     },
     {
@@ -206,13 +206,13 @@
       "op": "label"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_door_1",
       "expr": "has_key == 1",
       "op": "if",
       "then": "escaped"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_door_1",
       "op": "label"
     },
     {

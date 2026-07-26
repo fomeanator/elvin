@@ -68,43 +68,43 @@
       "sprite_url": "/content/bg/dungeon_room.jpg"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_descend_1",
       "expr": "room \u003c= 2",
       "op": "if",
       "then": "r_monster"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_descend_1",
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_descend_2",
       "expr": "room \u003c= 3",
       "op": "if",
       "then": "r_treasure"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_descend_2",
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_descend_3",
       "expr": "room \u003c= 4",
       "op": "if",
       "then": "r_potion"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_descend_3",
       "op": "label"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_descend_4",
       "expr": "room \u003c= 5",
       "op": "if",
       "then": "r_trap"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_descend_4",
       "op": "label"
     },
     {
@@ -157,13 +157,13 @@
       "text": "Ты бьёшь на {hit}."
     },
     {
-      "else": "__nf5",
+      "else": "__nf_fight_1",
       "expr": "mhp \u003c= 0",
       "op": "if",
       "then": "mon_dead"
     },
     {
-      "id": "__nf5",
+      "id": "__nf_fight_1",
       "op": "label"
     },
     {
@@ -181,13 +181,13 @@
       "text": "Тварь огрызается на {bite}. (♥{hp})"
     },
     {
-      "else": "__nf6",
+      "else": "__nf_fight_2",
       "expr": "hp \u003c= 0",
       "op": "if",
       "then": "dead"
     },
     {
-      "id": "__nf6",
+      "id": "__nf_fight_2",
       "op": "label"
     },
     {
@@ -222,13 +222,13 @@
       "op": "label"
     },
     {
-      "else": "__nf7",
+      "else": "__nf_sneak_1",
       "expr": "chance(0.5)",
       "op": "if",
       "then": "sneak_ok"
     },
     {
-      "id": "__nf7",
+      "id": "__nf_sneak_1",
       "op": "label"
     },
     {
@@ -246,13 +246,13 @@
       "text": "Не вышло — тварь успела цапнуть (-{bite}). (♥{hp})"
     },
     {
-      "else": "__nf8",
+      "else": "__nf_sneak_2",
       "expr": "hp \u003c= 0",
       "op": "if",
       "then": "dead"
     },
     {
-      "id": "__nf8",
+      "id": "__nf_sneak_2",
       "op": "label"
     },
     {
@@ -332,13 +332,13 @@
       "who": "Комната {depth}"
     },
     {
-      "else": "__nf9",
+      "else": "__nf_r_trap_1",
       "expr": "hp \u003c= 0",
       "op": "if",
       "then": "dead"
     },
     {
-      "id": "__nf9",
+      "id": "__nf_r_trap_1",
       "op": "label"
     },
     {

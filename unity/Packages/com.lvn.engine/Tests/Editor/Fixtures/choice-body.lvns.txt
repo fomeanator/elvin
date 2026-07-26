@@ -1,0 +1,27 @@
+scene choice-body
+
+// A choice option's `{ … }` body: the commands the runtime runs on PICK,
+// before it jumps. The brace ends the option line, the `}` stands alone.
+:hub
+Ведьма: Спрашивай, пока я добрая.
+
+- Почему ты здесь живёшь? -> q_house expr="!_once_house" {
+    _once_house = true
+    asked = asked + 1
+}
+- Что в том сундуке? -> q_chest expr="!_once_chest" {
+    _once_chest = true
+    asked = asked + 1
+}
+- Закрыть тему {
+    hub_done = true
+}
+- Уйти -> __end
+
+:q_house
+Ведьма: Тут тихо.
+-> hub
+
+:q_chest
+Ведьма: Не твоё дело.
+-> hub

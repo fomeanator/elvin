@@ -48,13 +48,13 @@
       "op": "label"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_day_start_1",
       "expr": "day \u003e days",
       "op": "if",
       "then": "finale"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_day_start_1",
       "op": "label"
     },
     {
