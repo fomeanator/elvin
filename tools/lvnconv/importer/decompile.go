@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
@@ -50,7 +51,19 @@ func hasFieldsBeyond(c articy.Cmd, allowed ...string) bool {
 //   - a `goto L` immediately followed by `:L` is dropped (natural fall-through);
 //   - a two-way `if` becomes `if <expr> -> then` + a `-> else` fall-through line;
 //   - a trailing `goto __end` is dropped.
+//
+// The literal statement-per-command rendering (toLvnsRaw) is then run through
+// the compaction pass — see lvns.Compact — which factors the boilerplate an
+// articy import repeats thousands of times into `def` presets WITHOUT changing
+// a single compiled command (it recompiles both forms and keeps the literal one
+// unless the two documents are byte-identical).
 func ToLvns(doc *articy.Doc) []byte {
+	return lvns.Compact(toLvnsRaw(doc))
+}
+
+// toLvnsRaw is the literal rendering: one .lvns statement per .lvn command, no
+// presets, no factoring. It is the reference the compactor is verified against.
+func toLvnsRaw(doc *articy.Doc) []byte {
 	s := doc.Script
 	ref := referencedLabels(s)
 
@@ -131,7 +144,20 @@ func ToLvns(doc *articy.Doc) []byte {
 				line("actor_map " + who + "=" + whoID)
 				curActorMap[who] = whoID
 			}
-			line(sayLine(c))
+			// A voiced line is `voice <url>` + the dialogue it belongs to.
+			// Without this the url was dropped on the floor: sayLine never
+			// looked at it and the terse form has nowhere to put it, so every
+			// re-save through the panel silently un-voiced the chapter
+			// (live-hit: 10 narrated lines across the animation demos). A url
+			// the one-token prefix form cannot hold forces the explicit
+			// command, which carries it as a field.
+			voice := str(c["voice"])
+			prefixable := voice != "" && !strings.ContainsAny(voice, " \t\"\n\r«»")
+			said, terse := sayLine(c, voice != "" && !prefixable)
+			if prefixable && terse {
+				line("voice " + quote(voice))
+			}
+			line(said)
 		case "text":
 			// A reactive label has a POSITIONAL grammar the flat k=v form
 			// cannot express — see textLine.
@@ -230,8 +256,11 @@ func nextLabelIs(s []articy.Cmd, i int, lbl string) bool {
 }
 
 // sayLine renders a say as terse dialogue ("Who: text") or bare narration when
-// that round-trips cleanly, else the unambiguous generic form.
-func sayLine(c articy.Cmd) string {
+// that round-trips cleanly, else the unambiguous generic form. The second
+// result reports which one it chose: only the terse forms let a preceding
+// `voice <url>` line attach itself (the parser's pendingVoice is consumed by
+// the dialogue/narration branch alone), so the caller has to know.
+func sayLine(c articy.Cmd, forceGeneric bool) (string, bool) {
 	who := str(c["who"])
 	text := oneLine(str(c["text"]))
 	style := str(c["style"])
@@ -249,12 +278,12 @@ func sayLine(c articy.Cmd) string {
 	terseSafe := chevBalanced && !chevWrapped &&
 		!strings.HasPrefix(text, "-") && !strings.HasPrefix(text, ":") && !strings.HasPrefix(text, "#") &&
 		!directiveWords[who] && !strings.HasPrefix(who, "-")
-	if style == "" && text != "" && !strings.Contains(text, "\"") && terseSafe {
+	if !forceGeneric && style == "" && text != "" && !strings.Contains(text, "\"") && terseSafe {
 		if who != "" && !strings.ContainsAny(who, ":\"") {
-			return who + ": " + text
+			return who + ": " + text, true
 		}
 		if who == "" && !strings.Contains(text, ": ") {
-			return text // narration with no speaker-colon ambiguity
+			return text, true // narration with no speaker-colon ambiguity
 		}
 	}
 	out := "say"
@@ -272,7 +301,12 @@ func sayLine(c articy.Cmd) string {
 	if style != "" {
 		out += " style=" + quote(style)
 	}
-	return out
+	// The generic form never sees pendingVoice (the parser attaches it in the
+	// dialogue branch only), so the voice url has to be a field on the line.
+	if v := str(c["voice"]); v != "" {
+		out += " voice=" + quote(v)
+	}
+	return out, false
 }
 
 // dataOpLine renders a `set`/`inc` as the terse assignment form when that
@@ -290,13 +324,13 @@ func sayLine(c articy.Cmd) string {
 func dataOpLine(op string, c articy.Cmd) string {
 	key := str(c["key"])
 	if op == "inc" {
-		by := c["by"]
-		if by == nil {
-			by = 1
-		}
-		if simpleKeyRe.MatchString(key) && !directiveWords[key] {
-			return key + " = " + key + " + " + literal(by)
-		}
+		// `key = key + 1` reads better than `inc by=1 key="key"` — and compiles
+		// to a `set`, not an `inc`. That is an op the runtime dispatches on
+		// differently and a command the round-trip verifier counts, so the
+		// prettier spelling is simply the wrong one: it turned every imported
+		// `inc` into a `set` on the first re-save (ink imports emit `inc` for
+		// every `~ x++`). There is no source form that compiles to `inc`
+		// except the explicit one.
 		return genericOp("inc", c)
 	}
 	if key == "" {
@@ -316,7 +350,12 @@ func dataOpLine(op string, c articy.Cmd) string {
 	if hasExpr && e != "" {
 		return key + " = " + e
 	}
-	return key + " = " + literal(c["value"])
+	// A `value` set is NOT an assignment. The parser has exactly one rule for
+	// `k = v` and it always produces `expr`, so rendering {key,value:0} as
+	// `items = 0` handed back {key,expr:"0"} — a different command, and for a
+	// non-scalar value (a map or a list) literal() would stringify it into
+	// garbage on the way. The author wrote `set key=… value=…`; give it back.
+	return genericOp("set", c)
 }
 
 // otherOpLine renders any remaining command as one .lvns statement.
@@ -330,7 +369,170 @@ func otherOpLine(op string, c articy.Cmd) string {
 	if !lvns.KnownOps[op] {
 		return "ext " + genericOp(op, c)
 	}
+	if op == "anim" {
+		return animLine(c)
+	}
 	return genericOp(op, c)
+}
+
+// animLine renders a compiled animation back into source.
+//
+// An `anim` command carries a STRUCTURED payload (anim.tracks[].keys is an
+// array of [t,v] pairs) and genericOp drops every non-scalar field, so the
+// decompiled line came back as a bare `anim id=… ` that the recompile rejects
+// outright — "anim: prop required". Six of the 82 corpus chapters (every
+// animation demo, plus the tour) could not round-trip AT ALL because of it:
+// VerifyLvnsRoundTrip reported "lvns sidecar does not recompile" and the
+// panel could not re-save them.
+//
+// Both source spellings are reconstructed: one track is the `anim id=… prop=…
+// keys="t:v …"` form, and the two screen_x/screen_y tracks a `move` lowers to
+// become a `move … path="x,y …"` again. Anything else (a shape no source form
+// produces) falls back to genericOp — a loud failure beats a wrong guess.
+func animLine(c articy.Cmd) string {
+	if _, stopping := c["stop"]; stopping {
+		return genericOp("anim", c) // `anim id=… stop=…` is already scalar-only
+	}
+	anim, ok := toMap(c["anim"])
+	if !ok || hasFieldsBeyond(c, "op", "id", "anim", "channel", "mode") {
+		return genericOp("anim", c)
+	}
+	id := str(c["id"])
+	tracks := asList(anim["tracks"])
+	if id == "" || len(tracks) == 0 || hasFieldsBeyond(articy.Cmd(anim), "tracks", "duration", "loop", "yoyo") {
+		return genericOp("anim", c)
+	}
+	loop, _ := anim["loop"].(bool)
+	yoyo, _ := anim["yoyo"].(bool)
+	if yoyo && !loop {
+		return genericOp("anim", c) // parseLoop cannot express it
+	}
+	dur, _ := anim["duration"].(float64)
+
+	tail := ""
+	if loop {
+		if yoyo {
+			tail += " loop=\"yoyo\""
+		} else {
+			tail += " loop=true"
+		}
+	}
+	for _, k := range []string{"channel", "mode"} {
+		if v := str(c[k]); v != "" {
+			tail += " " + k + "=" + quote(v)
+		}
+	}
+
+	switch len(tracks) {
+	case 1:
+		t0, ok := toMap(tracks[0])
+		if !ok || hasFieldsBeyond(articy.Cmd(t0), "prop", "keys", "ease", "interp", "layer") {
+			return genericOp("anim", c)
+		}
+		prop := str(t0["prop"])
+		keys, kok := keyframeText(t0["keys"])
+		if prop == "" || !kok || dur <= 0 {
+			return genericOp("anim", c)
+		}
+		out := "anim id=" + quote(id) + " prop=" + quote(prop) + " keys=" + quote(keys) + " dur=" + num(dur)
+		for _, k := range []string{"ease", "interp", "layer"} {
+			if v := str(t0[k]); v != "" {
+				out += " " + k + "=" + quote(v)
+			}
+		}
+		return out + tail
+	case 2:
+		path, shaping, pok := movePath(tracks, dur)
+		if !pok {
+			return genericOp("anim", c)
+		}
+		return "move id=" + quote(id) + " path=" + quote(path) + " dur=" + num(dur) + shaping + tail
+	}
+	return genericOp("anim", c)
+}
+
+// keyframeText renders [[t,v],…] as the `t:v t:v` source form.
+func keyframeText(v any) (string, bool) {
+	list := asList(v)
+	if len(list) == 0 {
+		return "", false
+	}
+	var parts []string
+	for _, k := range list {
+		pair := asList(k)
+		if len(pair) != 2 {
+			return "", false
+		}
+		t, ok1 := pair[0].(float64)
+		val, ok2 := pair[1].(float64)
+		if !ok1 || !ok2 {
+			return "", false
+		}
+		parts = append(parts, num(t)+":"+num(val))
+	}
+	return strings.Join(parts, " "), true
+}
+
+// movePath rebuilds `move`'s `path="x,y …"` from the screen_x/screen_y track
+// pair it lowered to, or reports false when the pair is not one of those (an
+// author can write two independent tracks no `move` would ever produce).
+func movePath(tracks []any, dur float64) (path, shaping string, ok bool) {
+	xs, xok := toMap(tracks[0])
+	ys, yok := toMap(tracks[1])
+	if !xok || !yok || dur <= 0 {
+		return "", "", false
+	}
+	if str(xs["prop"]) != "screen_x" || str(ys["prop"]) != "screen_y" {
+		return "", "", false
+	}
+	if hasFieldsBeyond(articy.Cmd(xs), "prop", "keys", "ease", "interp", "orient") ||
+		hasFieldsBeyond(articy.Cmd(ys), "prop", "keys", "ease", "interp") {
+		return "", "", false
+	}
+	if str(xs["ease"]) != str(ys["ease"]) || str(xs["interp"]) != str(ys["interp"]) {
+		return "", "", false
+	}
+	xk, yk := asList(xs["keys"]), asList(ys["keys"])
+	if len(xk) < 2 || len(xk) != len(yk) {
+		return "", "", false
+	}
+	var pts []string
+	n := len(xk)
+	for i := range xk {
+		xp, yp := asList(xk[i]), asList(yk[i])
+		if len(xp) != 2 || len(yp) != 2 {
+			return "", "", false
+		}
+		xt, ok1 := xp[0].(float64)
+		yt, ok2 := yp[0].(float64)
+		xv, ok3 := xp[1].(float64)
+		yv, ok4 := yp[1].(float64)
+		if !ok1 || !ok2 || !ok3 || !ok4 || xt != yt {
+			return "", "", false
+		}
+		// `move` spaces its points evenly across the duration; a track that
+		// does not follow that grid was not written as a move.
+		if xt != float64(i)/float64(n-1)*dur {
+			return "", "", false
+		}
+		pts = append(pts, num(xv)+","+num(yv))
+	}
+	for _, k := range []string{"ease", "interp"} {
+		if v := str(xs[k]); v != "" {
+			shaping += " " + k + "=" + quote(v)
+		}
+	}
+	if b, _ := xs["orient"].(bool); b {
+		shaping += " orient=true"
+	}
+	return strings.Join(pts, " "), shaping, true
+}
+
+// num renders a float in the shortest form that parses back to the same bits —
+// a keyframe time of 0.39999999999999997 is not 0.4, and rounding it would
+// desync the track from the duration it was computed against.
+func num(f float64) string {
+	return strconv.FormatFloat(f, 'g', -1, 64)
 }
 
 // choiceOptionLines renders one option: the `- text -> label [params]` header
@@ -397,10 +599,15 @@ func choiceOption(o map[string]any, target string) string {
 	}
 	if v := str(o["requires_stat"]); v != "" {
 		line += " requires_stat=" + quote(v)
+		// `min` and `requires_min` are the same gate to the runtime
+		// (LvnPlayer reads `requires_min ?? min`) but not to the document:
+		// renaming the author's `min=3` on the way out changed the compiled
+		// option on every re-save, for no gain at all. Give back what was
+		// there.
 		if m := o["requires_min"]; m != nil {
 			line += " requires_min=" + literal(m)
 		} else if m := o["min"]; m != nil {
-			line += " requires_min=" + literal(m)
+			line += " min=" + literal(m)
 		}
 	}
 	if cost, ok := o["cost"].(map[string]any); ok {
@@ -437,7 +644,7 @@ func choiceOption(o map[string]any, target string) string {
 	if e := str(o["expr"]); e != "" {
 		line += " expr=" + quote(e)
 	}
-	// effects is the "+2 Матвей" choice-preview hint (AnnotateChoiceEffects) —
+	// effects is the "+2 Роман" choice-preview hint (AnnotateChoiceEffects) —
 	// cosmetic only, never executed, but worth round-tripping so an author who
 	// re-saves a chapter through the panel doesn't lose the preview until the
 	// next full articy re-import regenerates it.
@@ -459,7 +666,7 @@ func choiceOption(o map[string]any, target string) string {
 				delta = int(d)
 			}
 			// The wire form joins entries with "," — a label containing one
-			// comes back TRUNCATED ("Иван, брат" → "брат"). This is a
+			// comes back TRUNCATED ("Лев, брат" → "брат"). This is a
 			// cosmetic preview hint, so drop the unrepresentable entry and
 			// keep the rest honest rather than shipping a wrong name.
 			if label == "" || delta == 0 || strings.Contains(label, ",") {

@@ -48,6 +48,8 @@ func main() {
 		cmdImport(os.Args[2:])
 	case "detect":
 		cmdDetect(os.Args[2:])
+	case "conflicts":
+		cmdConflicts(os.Args[2:])
 	case "resync-lvns":
 		cmdResyncLvns(os.Args[2:])
 	case "validate":
@@ -74,6 +76,7 @@ usage:
   lvnconv convert  -i <in> [-o <out.lvn>] [-f ink|articy|adpd] [-dialogue <name>]
   lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
   lvnconv detect   <articy-project-dir> [-template <name>] [-template-dir <dir>]
+  lvnconv conflicts -i <content-dir> [-rel <path> [-choice mine|incoming]] [-diff]
   lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
@@ -89,6 +92,12 @@ detect   preview a Template's classification against a project WITHOUT
          emotion-legend hit rates, heuristic alias-collision suggestions —
          prints a DetectReport as JSON on stdout
 probe    print a one-line summary of a .lvn (counts of ops, labels, choices)
+conflicts what a re-import parked instead of overwriting (a file edited by
+         hand AND regenerated differently): both versions' size/time and, for
+         text, a unified diff. -choice commits one side — "mine" discards the
+         parked version, "incoming" installs it — validating a .lvn first and
+         recording the winner as the new import baseline, so the next import
+         does not re-raise the same file
 optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
          only get losslessly recompressed, never resized (frame-packed atlases
          bleed under any resample). Dry run by default; -apply writes; add
@@ -322,7 +331,7 @@ func printLinearizeReport(rep *adpd.LinearizeReport) {
 		fmt.Fprintln(os.Stderr, "  fallback: "+f)
 	}
 	// Предупреждения — про сюжет, который импорт дотянул наугад или потерял.
-	// Тихая потеря здесь дороже всего: именно так треть главы Cold была
+	// Тихая потеря здесь дороже всего: именно так треть одной партнёрской главы была
 	// недостижима на проде и заметили это случайно.
 	for _, w := range rep.Warnings {
 		fmt.Fprintln(os.Stderr, "  warning: "+w)
@@ -418,7 +427,9 @@ func cmdConvert(args []string) {
 		}
 		data = mustJSON(doc)
 	case "lvns":
-		doc, err := lvns.Convert(string(src))
+		// ConvertFile, а не Convert: только у него есть путь, относительно
+		// которого резолвятся include (internal/lvns/include.go).
+		doc, err := lvns.ConvertFile(*in)
 		if err != nil {
 			die("lvns: " + err.Error())
 		}

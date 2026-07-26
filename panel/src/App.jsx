@@ -9,19 +9,23 @@ import { getManifest } from "./lib/api.js";
 // Navigation is hierarchical: a Home that lists/adds novels (manifest titles),
 // and — once you open a novel — a workspace with its Characters and its Script.
 //
-// The screen LIVES IN THE URL hash (#/, #/admin, #/novel/<id>/<section>): a
-// reload lands you exactly where you were, deep links are shareable, and the
-// browser back/forward buttons walk the app history.
+// The screen LIVES IN THE URL hash (#/, #/admin, #/admin/<tab>,
+// #/novel/<id>/<section>): a reload lands you exactly where you were, deep
+// links are shareable, and the browser back/forward buttons walk the app
+// history. The admin sub-tab is part of it so one screen can hand the author
+// to another — «разобрать конфликты» right after an import is a link, not an
+// instruction to go find a tab.
 const parseHash = () => {
   const h = window.location.hash.replace(/^#\/?/, "");
   const seg = h.split("/").map(decodeURIComponent);
-  if (seg[0] === "admin") return { mode: "admin", titleId: null, section: "characters" };
+  if (seg[0] === "admin")
+    return { mode: "admin", titleId: null, section: "characters", adminTab: seg[1] || "" };
   if (seg[0] === "novel" && seg[1])
-    return { mode: "studio", titleId: seg[1], section: seg[2] === "script" ? "script" : "characters" };
-  return { mode: "studio", titleId: null, section: "characters" };
+    return { mode: "studio", titleId: seg[1], section: seg[2] === "script" ? "script" : "characters", adminTab: "" };
+  return { mode: "studio", titleId: null, section: "characters", adminTab: "" };
 };
-const toHash = (mode, titleId, section) =>
-  mode === "admin" ? "#/admin"
+const toHash = (mode, titleId, section, adminTab) =>
+  mode === "admin" ? (adminTab ? `#/admin/${encodeURIComponent(adminTab)}` : "#/admin")
     : titleId != null ? `#/novel/${encodeURIComponent(titleId)}/${section}`
     : "#/";
 
@@ -30,12 +34,13 @@ export default function App() {
   // page here with it); otherwise the hash rules, falling back to Home.
   const initial = useRef(
     new URLSearchParams(window.location.search).has("admin")
-      ? { mode: "admin", titleId: null, section: "characters" }
+      ? { mode: "admin", titleId: null, section: "characters", adminTab: "" }
       : parseHash());
   const [mode, setMode] = useState(initial.current.mode);
   const [titleId, setTitleId] = useState(initial.current.titleId);
   const [titleName, setTitleName] = useState("");
   const [section, setSection] = useState(initial.current.section);
+  const [adminTab, setAdminTab] = useState(initial.current.adminTab);
 
   const [path, setPath] = useState(() => localStorage.getItem("lvn_save_path") || "scripts/ch1.lvn");
   const [token, setToken] = useState(() => localStorage.getItem("lvn_admin_token") || "");
@@ -51,16 +56,16 @@ export default function App() {
   // State → URL. replaceState when the hash already matches (initial mount,
   // popstate echo), pushState on real navigation — so back/forward just work.
   useEffect(() => {
-    const want = toHash(mode, titleId, section);
+    const want = toHash(mode, titleId, section, adminTab);
     if (window.location.hash === want) return;
     window.history.pushState(null, "", want);
-  }, [mode, titleId, section]);
+  }, [mode, titleId, section, adminTab]);
 
   // URL → state (back/forward, hand-edited hash).
   useEffect(() => {
     const onPop = () => {
       const s = parseHash();
-      setMode(s.mode); setTitleId(s.titleId); setSection(s.section);
+      setMode(s.mode); setTitleId(s.titleId); setSection(s.section); setAdminTab(s.adminTab);
     };
     window.addEventListener("popstate", onPop);
     window.addEventListener("hashchange", onPop);
@@ -95,16 +100,20 @@ export default function App() {
 
   const nav = { mode, setMode, titleId, titleName, section, setSection, goHome };
 
+  // openAdmin: the studio's hand-off into a dashboard tab (LibraryHome sends
+  // the author to the conflicts of the import that just finished).
+  const openAdmin = useCallback((tab) => { setAdminTab(tab || ""); setMode("admin"); }, []);
+
   return (
     <div className="app">
       <TopBar nav={nav} status={status} creds={creds} />
       <div className="workspace">
         {mode === "admin" ? (
-          <AdminView creds={creds} notify={notify} />
+          <AdminView creds={creds} notify={notify} section={adminTab} onSection={setAdminTab} />
         ) : (
           <>
             {titleId == null && (
-              <LibraryHome creds={creds} notify={notify} onOpen={openNovel} />
+              <LibraryHome creds={creds} notify={notify} onOpen={openNovel} onOpenAdmin={openAdmin} />
             )}
             {titleId != null && section === "characters" && (
               <SpritesView creds={creds} notify={notify} titleId={titleId} />

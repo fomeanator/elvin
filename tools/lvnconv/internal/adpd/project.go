@@ -221,7 +221,7 @@ var (
 
 // translitMap is a common Cyrillic→Latin romanization (handles digraphs like
 // ю→yu, я→ya, ж→zh) so a Russian character name also matches a Latin speaker
-// caption: "Тимур" → "Timur", "Люба" → "Lyuba", "Андрей" → "Andrey".
+// caption: "Тимур" → "Timur", "Вера" → "Vera", "Андрей" → "Andrey".
 var translitMap = map[rune]string{
 	'а': "a", 'б': "b", 'в': "v", 'г': "g", 'д': "d", 'е': "e", 'ё': "e",
 	'ж': "zh", 'з': "z", 'и': "i", 'й': "y", 'к': "k", 'л': "l", 'м': "m",

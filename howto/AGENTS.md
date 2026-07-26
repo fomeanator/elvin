@@ -73,6 +73,8 @@ key-down), and timing-based arcade mechanics. Otherwise time is measured in
 | Dense one-screen cheatsheet | [`CHEATSHEET.md`](CHEATSHEET.md) |
 | Reusable patterns | [`recipes.md`](recipes.md) |
 | Guide + working example per genre | `howto/<genre>/` (see [`README.md`](README.md)) |
+| Dressing a character (wardrobe) | [`wardrobe/`](wardrobe/) |
+| Importing a novel from articy files | [`import-articy/`](import-articy/) |
 | Object placement, hotspots | `../docs/placement.md` |
 | Cast (parametric characters) | `../docs/cast.md` |
 | Animation (full spec) | `../docs/animation-system.md` |

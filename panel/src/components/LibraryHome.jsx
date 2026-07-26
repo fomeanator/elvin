@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { getManifest, putAsset, uploadStagedWithRetry, importBundleFromPaths, listImportTemplates, stageExtractArticy } from "../lib/api.js";
 import { slug } from "../lib/sprites.js";
+import { summarizeWrite, STATUS_LABEL, CHANGED_STATUSES } from "../lib/conflicts.js";
 import ImportMapper from "./ImportMapper.jsx";
 
 const chapterCount = (t) => (t.seasons || []).reduce((n, s) => n + (s.chapters || []).length, 0);
 
-export default function LibraryHome({ creds, notify, onOpen }) {
+export default function LibraryHome({ creds, notify, onOpen, onOpenAdmin }) {
   const [titles, setTitles] = useState([]);
   const [bust, setBust] = useState(() => Date.now());
   const [modal, setModal] = useState(null); // {mode, draft, originalId}
@@ -16,6 +17,9 @@ export default function LibraryHome({ creds, notify, onOpen }) {
   const [templateList, setTemplateList] = useState([]); // known import-template names, for the picker
   const [mapperDir, setMapperDir] = useState(null); // extracted articy project dir once staged — opens ImportMapper
   const [mapperBusy, setMapperBusy] = useState(false); // extracting the archive before the mapper can open
+  // Что импорт СДЕЛАЛ с контентом — показывается сразу после прогона, до того
+  // как автор уйдёт в новеллу. Конфликты здесь не примечание, а развилка.
+  const [report, setReport] = useState(null); // { id, name, res }
 
   useEffect(() => {
     (async () => {
@@ -126,7 +130,10 @@ export default function LibraryHome({ creds, notify, onOpen }) {
       setBust(Date.now());
       setImporting(null);
       setBundle(null);
-      if (r.id) onOpen(r.id, r.name);
+      // Always show what changed. A re-import that quietly opens the novel
+      // hides the one thing the author must act on — the files it REFUSED to
+      // overwrite — and those stay parked until somebody looks.
+      setReport({ id: r.id || id, name: r.name || name, res: r });
     } catch (e) {
       setImporting(null);
       setBundle((s) => ({ ...(s || {}), busy: false }));
@@ -266,6 +273,15 @@ export default function LibraryHome({ creds, notify, onOpen }) {
         </div>
       )}
 
+      {report && (
+        <ImportReport
+          report={report}
+          onOpenNovel={() => { const r = report; setReport(null); onOpen(r.id, r.name); }}
+          onOpenConflicts={() => { setReport(null); if (onOpenAdmin) onOpenAdmin("conflicts"); }}
+          onClose={() => setReport(null)}
+        />
+      )}
+
       {modal && (
         <NovelModal
           modal={modal}
@@ -277,6 +293,75 @@ export default function LibraryHome({ creds, notify, onOpen }) {
           bust={bust}
         />
       )}
+    </div>
+  );
+}
+
+// ImportReport: the "что изменилось" beat of the author's path. The import is
+// a three-way merge (importer/baseline.go), so its result is not one number:
+// some files were regenerated, some were left exactly as the author edited
+// them, and some COULD NOT be decided — those are parked as <file>.incoming
+// and the novel has two versions until a human picks one. That last group is
+// the primary action here, not a footnote.
+function ImportReport({ report, onOpenNovel, onOpenConflicts, onClose }) {
+  const r = report.res || {};
+  const { counts, conflicts } = summarizeWrite(r.files);
+  const warnings = r.warnings || [];
+  const lvnCheck = r.lvn_check || [];
+  const hasConflicts = conflicts.length > 0;
+
+  return (
+    <div className="sp-chooser" onClick={onClose}>
+      <div className="sp-chooser-box novel-modal import-report" onClick={(e) => e.stopPropagation()}>
+        <h3>{hasConflicts ? "Импорт прошёл — но есть спорные файлы" : "Импорт прошёл"}</h3>
+        <p className="import-hint">
+          «{report.name}» · глав: {r.chapters || 0} · артов: {r.art_files || 0}
+          {r.bg_missing ? ` · фонов не найдено: ${r.bg_missing}` : ""}
+        </p>
+
+        <div className="ir-counts">
+          {CHANGED_STATUSES.filter((s) => counts[s]).map((s) => (
+            <span key={s} className={"ir-count " + s}>
+              <b>{counts[s]}</b> {STATUS_LABEL[s] || s}
+            </span>
+          ))}
+          {!Object.values(counts).some(Boolean) && <span className="ir-count">сервер не прислал отчёт по файлам</span>}
+        </div>
+
+        {hasConflicts && (
+          <div className="ir-conflicts">
+            <p>
+              Эти файлы вы правили руками, и новый экспорт изменил их иначе — <b>ничего не перезаписано</b>.
+              Новая версия лежит рядом как <code>.incoming</code> и ждёт вашего решения:
+            </p>
+            <ul>
+              {conflicts.slice(0, 8).map((c) => <li key={c}><code>{c}</code></li>)}
+              {conflicts.length > 8 && <li className="muted">…и ещё {conflicts.length - 8}</li>}
+            </ul>
+          </div>
+        )}
+
+        {lvnCheck.length > 0 && (
+          <details className="ir-details">
+            <summary>Замечания к скриптам ({lvnCheck.length})</summary>
+            <ul>{lvnCheck.slice(0, 20).map((w, i) => <li key={i}>{w}</li>)}</ul>
+          </details>
+        )}
+        {warnings.length > 0 && (
+          <details className="ir-details">
+            <summary>Предупреждения импорта ({warnings.length})</summary>
+            <ul>{warnings.slice(0, 20).map((w, i) => <li key={i}>{w}</li>)}</ul>
+          </details>
+        )}
+
+        <div className="novel-modal-actions">
+          <div className="grow" />
+          <button className="btn-ghost" onClick={onOpenNovel}>Открыть новеллу</button>
+          {hasConflicts
+            ? <button className="btn btn-primary" onClick={onOpenConflicts}>Разобрать конфликты ({conflicts.length}) ▸</button>
+            : <button className="btn btn-primary" onClick={onClose}>Готово</button>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -378,8 +463,8 @@ function BundleModal({ bundle, setBundle, templateList, onPickFile, onImport, on
           <div className="bundle-template-row">
             <select className="field wide" value={bundle.template || ""}
                     onChange={(e) => setBundle((s) => ({ ...s, template: e.target.value }))}>
-              <option value="">— по умолчанию (cold) —</option>
-              {templateList.filter((n) => n !== "cold").map((n) => <option key={n} value={n}>{n}</option>)}
+              <option value="">— по умолчанию —</option>
+              {templateList.filter((n) => n !== "default").map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <button className="btn-ghost" onClick={onOpenMapper} disabled={!staged || mapperBusy}>
               {mapperBusy ? "Распаковка…" : "Настроить роли ▸"}

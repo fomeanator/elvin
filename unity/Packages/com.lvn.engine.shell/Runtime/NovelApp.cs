@@ -703,7 +703,7 @@ namespace Lvn.UI.Screens
 
         // The character pills of the always-open wardrobe: every dressable
         // entity, alias entities of the SAME character collapsed (they share
-        // the exact set of story vars — Katya/cold_main/Главный_герой are one
+        // the exact set of story vars — Mira/demo_main/Главный_герой are one
         // heroine). The primary (resolved) character leads.
         private List<(string id, string name)> BuildWardrobeRoster(string primary)
         {
@@ -726,7 +726,7 @@ namespace Lvn.UI.Screens
             TryAdd(primary);
             foreach (var id in sprites.Keys) TryAdd(id);
             // The protagonist's pill wears the name the PLAYER chose, not the
-            // import's internal label (Katya/cold_main/Главный_герой are all her).
+            // import's internal label (Mira/demo_main/Главный_герой are all her).
             if (list.Count > 0 && list[0].id == primary && !string.IsNullOrEmpty(_playerName))
                 list[0] = (list[0].id, _playerName);
             return list;
