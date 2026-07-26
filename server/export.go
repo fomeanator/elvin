@@ -88,11 +88,14 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if cfg.ServerURL == "" {
 		// default to the host the request came in on, so the exported game points
 		// back here unless the author overrides it.
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		cfg.ServerURL = scheme + "://" + r.Host
+		//
+		// Через requestBase, а НЕ по r.TLS: в проде сервер стоит за обратным
+		// прокси, поэтому r.TLS всегда пустой и наивная догадка вшивала в
+		// приложение "http://". Цена ошибки максимальная и отложенная: Android
+		// с 9-й версии по умолчанию запрещает открытый HTTP, так что собранный
+		// APK не грузил бы контент ВООБЩЕ — и выяснилось бы это на телефоне, а
+		// не при экспорте. requestBase читает X-Forwarded-Proto/Host.
+		cfg.ServerURL = requestBase(r)
 	}
 	name := sanitizeName(cfg.Name, "LvnGame")
 	folder := strings.ReplaceAll(name, " ", "")
@@ -305,8 +308,20 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 	if cfg.BundleID != "" {
 		id := sanitizeName(cfg.BundleID, "")
 		if id != "" {
-			repl := "  applicationIdentifier:\n    Standalone: " + yamlScalar(id)
-			out = regexp.MustCompile(`(?m)^  applicationIdentifier:.*$`).ReplaceAllString(out, repl)
+			// Заменяется ВЕСЬ блок вместе с его отступными детьми, а не одна
+			// строка-заголовок. Прежняя версия дописывала свой `Standalone:`
+			// перед старыми строками и оставляла их на месте — YAML получал
+			// ДУБЛИ ключей, Unity брал последний, и bundleId не работал вовсе
+			// ни для одной платформы. Молча: экспорт отвечал 200, а APK
+			// собирался с идентификатором песочницы и мог встать поверх другого
+			// приложения на телефоне.
+			//
+			// Android перечислен явно: для APK значим именно он, а Standalone
+			// к телефону отношения не имеет.
+			repl := "  applicationIdentifier:\n    Android: " + yamlScalar(id) +
+				"\n    Standalone: " + yamlScalar(id) + "\n"
+			out = regexp.MustCompile(`(?m)^  applicationIdentifier:\n(?:    [^\n]*\n)*`).
+				ReplaceAllString(out, repl)
 		}
 	}
 	return []byte(out)
