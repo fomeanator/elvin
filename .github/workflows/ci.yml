@@ -87,7 +87,11 @@ jobs:
         run: |
           go build -o /tmp/lvnconv .
           fail=0
-          for f in ../../howto/*/*.lvns ../../examples/*.lvns; do
+          # The UPM sample is the one .lvns a consumer actually imports through
+          # Unity Samples, and it was outside the glob — free to rot exactly like
+          # the howto examples did before this gate existed.
+          for f in ../../howto/*/*.lvns ../../examples/*.lvns \
+                   ../../unity/Packages/com.lvn.engine/Samples~/*/Resources/*.lvns; do
             out="/tmp/gate-$(basename "${f%.lvns}").lvn"
             if ! /tmp/lvnconv convert -i "$f" -o "$out"; then
               echo "::error file=${f#../../}::convert failed"; fail=1; continue
@@ -161,6 +165,14 @@ jobs:
       UNITY: /Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
     steps:
       - uses: actions/checkout@v4
+      # The PlayMode boot smoke drives NovelApp against a REAL server (boot veil,
+      # HTTP stack, UI Toolkit — the layer EditMode cannot see). It self-skips
+      # without this binary, and nothing in CI ever built it: the job's own header
+      # advertised "the PlayMode smoke" while the only test of the async boot
+      # pipeline had never run outside a developer's laptop. A skip counts as
+      # green in the report step, so the gap was invisible.
+      - name: build the test server (PlayMode boot smoke needs it)
+        run: go build -o qa/bin/lvnserver-test ./server
       - name: EditMode
         run: |
           "$UNITY" -batchmode -nographics -projectPath unity/TestHost \

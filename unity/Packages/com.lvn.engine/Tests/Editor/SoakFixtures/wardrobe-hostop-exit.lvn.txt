@@ -1,0 +1,109 @@
+{
+  "scene": "wardrobe-hostop-exit",
+  "note": "The same wardrobe shape after the importer fix, plus two more loops that only LOOK dangerous: a pause inside the cycle, and 3000 pause-free laps of set/if/goto. All three must terminate cleanly.",
+  "script": [
+    {
+      "op": "bg",
+      "id": "flat",
+      "sprite_url": "/fx/flat.png"
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Гардероб, но с выходом."
+    },
+    {
+      "op": "label",
+      "id": "w_entry"
+    },
+    {
+      "op": "set",
+      "key": "Open.Wardrobe",
+      "value": true
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": true,
+      "position": "center",
+      "outfit": "casual"
+    },
+    {
+      "op": "wardrobe_show",
+      "char": "hero"
+    },
+    {
+      "op": "actor",
+      "id": "hero",
+      "show": false
+    },
+    {
+      "op": "if",
+      "expr": "Open.ReOpenWardrobe",
+      "then": "w_entry"
+    },
+    {
+      "op": "set",
+      "key": "Open.Wardrobe",
+      "value": false
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Вышли из гардероба."
+    },
+    {
+      "op": "label",
+      "id": "hub"
+    },
+    {
+      "op": "inc",
+      "key": "laps",
+      "by": 1
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Круг {laps}."
+    },
+    {
+      "op": "if",
+      "expr": "laps < 4",
+      "then": "hub",
+      "else": "grind"
+    },
+    {
+      "op": "label",
+      "id": "grind"
+    },
+    {
+      "op": "inc",
+      "key": "n",
+      "by": 1
+    },
+    {
+      "op": "set",
+      "key": "acc",
+      "expr": "acc + n % 7"
+    },
+    {
+      "op": "if",
+      "expr": "n < 3000",
+      "then": "grind",
+      "else": "done"
+    },
+    {
+      "op": "label",
+      "id": "done"
+    },
+    {
+      "op": "say",
+      "who": "Author",
+      "text": "Посчитали: {acc}."
+    },
+    {
+      "op": "goto",
+      "label": "__end"
+    }
+  ]
+}
