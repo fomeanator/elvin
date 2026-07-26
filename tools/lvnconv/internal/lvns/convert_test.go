@@ -594,12 +594,12 @@ func TestConvertChoiceOptionInterpolationIsNotABlock(t *testing.T) {
 	}
 }
 
-// The body is FLAT: the runtime walks it once, so control flow inside it would
-// be silently forwarded to the stage and vanish. Refuse at compile time.
+// What a block still CANNOT be. A block holding prose or flow is no longer an
+// error — it is woven into script (see weave_test.go); these two are malformed
+// source, which is a different thing and must stay loud.
 func TestConvertChoiceOptionBodyRejectsControlFlow(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"nested block", "scene t\n- A -> x {\n    if gold > 1 {\n        y = 1\n    }\n}\n:x\nz\n", "nested blocks are not allowed"},
-		{"player op", "scene t\n- A -> x {\n    Аня: нет\n}\n:x\nz\n", "does not run inside an option body"},
 		{"unclosed", "scene t\n- A -> x {\n    y = 1\n:x\nz\n", "unclosed choice option body"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

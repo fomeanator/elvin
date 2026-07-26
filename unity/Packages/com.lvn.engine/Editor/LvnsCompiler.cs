@@ -85,7 +85,14 @@ namespace Lvn.Editor
         }
 
         // ── Convert: the main pipeline (mirrors Go Convert) ──────────────────
-        static JObject Convert(string src)
+        static JObject Convert(string src) { return Convert(src, null); }
+
+        /// <summary>Convert with the label namespace of an ENCLOSING document.
+        /// A woven option block is compiled by calling back in here, and with a
+        /// fresh namer every nesting level restarts at seq 1 — an inner weave and
+        /// an outer one both minted `__weave_head_1`, a duplicate label the
+        /// validator refuses. Mirrors Go convertWith.</summary>
+        static JObject Convert(string src, SynthNamer inherited)
         {
             var funcs = CollectFuncs(src);
             string expanded = ExpandLoops(src);
@@ -149,7 +156,9 @@ namespace Lvn.Editor
 
             // Fall-through labels for `if … -> …` are minted the same derived,
             // edit-stable way the block lowering uses: they are save anchors.
-            var nfNames = new SynthNamer(lines);
+            SynthNamer nfNames;
+            if (inherited != null) { nfNames = inherited; nfNames.Absorb(lines); }
+            else nfNames = new SynthNamer(lines);
 
             for (int i = 0; i < lines.Count;)
             {
@@ -192,6 +201,7 @@ namespace Lvn.Editor
                 if (line.StartsWith("-") && !line.StartsWith("->"))
                 {
                     var options = new JArray();
+                    var weaves = new List<WeaveBlock>(); // blocks too rich for a body
                     int j = i;
                     while (j < lines.Count)
                     {
@@ -208,30 +218,57 @@ namespace Lvn.Editor
                             {
                                 var bodySrc = new List<string>();
                                 bool closed = false;
+                                // Depth-counted: an option block may contain another
+                                // choice with blocks of its own, and a flat scan
+                                // would end the OUTER block on the INNER brace.
+                                int depth = 1;
+                                int blockLine = j;
                                 for (; j < lines.Count; j++)
                                 {
-                                    if (lines[j] == "}") { closed = true; j++; break; }
+                                    string t = lines[j].Trim();
+                                    if (t == "}")
+                                    {
+                                        depth--;
+                                        if (depth == 0) { closed = true; j++; break; }
+                                    }
+                                    else if (IsOptionBlockOpen(t)) depth++;
                                     bodySrc.Add(lines[j]);
                                 }
                                 if (!closed)
                                     throw new LvnsCompileException($"line {j}: unclosed choice option body (missing '}}')");
-                                JArray body = ParseOptionBody(bodySrc);
-                                // The header's `-> label` is the jump the body ends
-                                // with — keeping it on the option line is what makes
-                                // the target readable at a glance.
+                                JArray cmds = ParseBlockCommands(bodySrc, nfNames);
                                 var target = (string)opt["goto"];
-                                if (!string.IsNullOrEmpty(target))
+                                if (NeedsWeaving(cmds))
                                 {
-                                    body.Add(new JObject { ["op"] = "goto", ["label"] = target });
+                                    // WEAVE: prose or flow cannot ride in a runtime
+                                    // `body` (Choose dispatches only set/inc/goto
+                                    // there, and a body command has no script index,
+                                    // so it would vanish on the first save/restore).
+                                    // Same syntax, lowered into script instead.
+                                    string lbl = nfNames.Name("weave", nfNames.Site());
+                                    weaves.Add(new WeaveBlock { label = lbl, cmds = cmds, target = target, line = blockLine });
                                     opt.Remove("goto");
+                                    opt["goto"] = lbl;
                                 }
-                                opt["body"] = body;
+                                else
+                                {
+                                    // The header's `-> label` is the jump the body
+                                    // ends with — keeping it on the option line is
+                                    // what makes the target readable at a glance.
+                                    if (!string.IsNullOrEmpty(target))
+                                    {
+                                        cmds.Add(new JObject { ["op"] = "goto", ["label"] = target });
+                                        opt.Remove("goto");
+                                    }
+                                    opt["body"] = cmds;
+                                }
                             }
                             options.Add(opt);
                         }
                         else break;
                     }
                     script.Add(new JObject { ["op"] = "choice", ["options"] = options });
+                    EmitWeaves(script, nfNames, weaves);
                     i = j; continue;
                 }
 
@@ -608,6 +645,17 @@ namespace Lvn.Editor
                 if (id != null && !id.StartsWith("__", StringComparison.Ordinal)) _scope = id;
             }
 
+            /// <summary>Register a nested source's author labels here, so a minted
+            /// name can never collide with a label written inside a woven block.</summary>
+            public void Absorb(IEnumerable<string> lines)
+            {
+                foreach (string l in lines)
+                {
+                    string id = SourceLabelId(l);
+                    if (id != null) _taken.Add(id);
+                }
+            }
+
             /// <summary>The tag shared by every label one lowering site needs.</summary>
             public string Site()
             {
@@ -670,6 +718,16 @@ namespace Lvn.Editor
                     {
                         stack.RemoveAt(stack.Count - 1);
                         outLines.Add(raw);
+                        continue;
+                    }
+                    // A nested OPTION block is legal: a woven branch may hold
+                    // another choice whose options carry blocks. Push a frame so
+                    // the matching `}` closes the INNER one — a flat scan would
+                    // close the outer block on the inner brace.
+                    if (IsOptionBlockOpen(det))
+                    {
+                        outLines.Add(raw);
+                        stack.Add(new Frame { kind = "opt" });
                         continue;
                     }
                     if (det.EndsWith("{", StringComparison.Ordinal))
@@ -983,24 +1041,64 @@ namespace Lvn.Editor
             "say", "choice", "label", "if", "call", "return", "wait", "input", "preload", "load",
         };
 
-        /// <summary>Compile a choice option's `{ … }` block into the command list
-        /// the runtime runs on pick. The body is FLAT — Choose walks it once — so
-        /// control flow has no meaning there and is rejected here instead of
-        /// vanishing silently at runtime.</summary>
-        static JArray ParseOptionBody(List<string> bodyLines)
+        /// <summary>Compile a choice option's `{ … }` block. It does NOT judge the
+        /// contents — the caller does, via NeedsWeaving: set/inc/goto rides along
+        /// as a runtime `body`, anything richer is lowered into script.</summary>
+        static JArray ParseBlockCommands(List<string> bodyLines, SynthNamer names)
         {
-            var compiled = (JArray)Convert(string.Join("\n", bodyLines))["script"];
+            var compiled = (JArray)Convert(string.Join("\n", bodyLines), names)["script"];
             var body = new JArray();
-            foreach (JToken t in compiled)
+            foreach (JToken t in compiled) body.Add(t.DeepClone()); // detach from the throwaway doc
+            return body;
+        }
+
+        /// <summary>The weave fork: does this block fit a runtime `body`, or must
+        /// it become script? OptionBodyDenied used to make such a block an ERROR;
+        /// it is the fork now, and no error remains. Mirrors Go needsWeaving.</summary>
+        static bool NeedsWeaving(JArray cmds)
+        {
+            foreach (JToken t in cmds)
             {
                 var op = (string)t["op"];
-                if (op != null && OptionBodyDenied.Contains(op))
-                    throw new LvnsCompileException(
-                        $"choice option body: \"{op}\" does not run inside an option body (it belongs to " +
-                        "set/inc and a final '-> label') — move it behind a label");
-                body.Add(t.DeepClone()); // detach from the throwaway document
+                if (op != null && OptionBodyDenied.Contains(op)) return true;
             }
-            return body;
+            return false;
+        }
+
+        /// <summary>One option block deferred until after the choice is emitted.</summary>
+        class WeaveBlock
+        {
+            public string label;
+            public JArray cmds;
+            public string target;
+            public int line;
+        }
+
+        /// <summary>Write the lowering right behind the choice: a jump to the
+        /// convergence for the option that continues past the choice, then one
+        /// labelled branch per woven block, then the convergence label. Mirrors Go
+        /// emitWeaves — including doing NOTHING when nothing was woven, so an
+        /// ordinary choice still costs zero labels.</summary>
+        static void EmitWeaves(JArray script, SynthNamer names, List<WeaveBlock> weaves)
+        {
+            if (weaves.Count == 0) return;
+            string end = names.Name("wend", names.Site());
+            script.Add(new JObject { ["op"] = "goto", ["label"] = end });
+            foreach (WeaveBlock w in weaves)
+            {
+                script.Add(new JObject { ["op"] = "label", ["id"] = w.label });
+                foreach (JToken c in w.cmds) script.Add(c);
+                if (EndsFlow(w.cmds)) continue; // the block already jumped away
+                script.Add(new JObject { ["op"] = "goto", ["label"] = string.IsNullOrEmpty(w.target) ? end : w.target });
+            }
+            script.Add(new JObject { ["op"] = "label", ["id"] = end });
+        }
+
+        static bool EndsFlow(JArray cmds)
+        {
+            if (cmds.Count == 0) return false;
+            var op = (string)cmds[cmds.Count - 1]["op"];
+            return op == "goto" || op == "return";
         }
 
         // ParseKeyValue throws on malformed input (mirrors Go error return used as
