@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getManifest, getExtGrammar, putAsset, adminFiles } from "../lib/api.js";
+import { getManifest, getExtGrammar, putAsset, adminFiles, rebuildDependents } from "../lib/api.js";
 import { ensureWasm, compileLvns } from "../lib/wasm.js";
 import DocsPanel from "./DocsPanel.jsx";
 import ExamplesPanel from "./ExamplesPanel.jsx";
@@ -654,7 +654,21 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         sourcesRef.current[libName] = src;
         savedSrc.current = src;
         localStorage.removeItem(draftKey(libName));
-        notify(`✓ Saved ${libName} — главы подхватят при следующей сборке`, "ok");
+        // Сам файл сохранён — но игра играет СКОМПИЛИРОВАННЫЕ главы, и без
+        // пересборки правка механик до телефона не доедет. Тост обязан говорить
+        // о том, что реально произошло, а не «сохранено».
+        const r = await rebuildDependents(libName, creds.token);
+        const n = (r.rebuilt || []).length;
+        const bad = Object.entries(r.failed || {});
+        if (bad.length) {
+          notify(`⚠ ${libName} сохранён, но ${bad.length} глав(ы) перестали собираться: `
+            + bad.map(([f, e]) => `${f} — ${e}`).join("; ")
+            + ". На сервере остались прошлые рабочие версии.", "err");
+        } else if (n) {
+          notify(`✓ ${libName} сохранён, пересобрано глав: ${n} — уже в игре`, "ok");
+        } else {
+          notify(`✓ ${libName} сохранён. Его пока не подключает ни одна глава`, "ok");
+        }
       } catch (e) {
         notify("Save failed: " + ((e && e.message) || "unknown"), "err");
       }
