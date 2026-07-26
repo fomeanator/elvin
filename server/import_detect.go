@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/importer"
@@ -140,6 +141,10 @@ func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
 		Dir      string
 		Template string
 		Draft    json.RawMessage
+		// Vars is the staged -vars.xlsx of the SAME bundle, when the author
+		// picked one. Without it the preview and the real import disagree —
+		// see applyXlsxToPreview.
+		Vars string
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
@@ -169,10 +174,78 @@ func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
 		}
 		tpl = t
 	}
+	var xlsx xlsxPreview
+	if body.Vars != "" {
+		if !s.importDirAllowed(body.Vars) {
+			http.Error(w, "vars must live under the configured -import-root", http.StatusForbidden)
+			return
+		}
+		xlsx = applyXlsxToPreview(tpl, body.Vars)
+	}
 	rep, err := importer.DetectRoles(body.Dir, tpl)
 	if err != nil {
 		http.Error(w, "detect: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
-	writeJSON(w, http.StatusOK, rep)
+	writeJSON(w, http.StatusOK, detectResponse{DetectReport: rep, xlsxPreview: xlsx})
+}
+
+// detectResponse is DetectRoles' report plus the bits of the bundle the
+// importer reads from the SPREADSHEET, which the preview otherwise cannot
+// know about. The embedded pointer promotes every DetectReport field, so the
+// wire shape stays a superset — old panel builds keep working.
+type detectResponse struct {
+	*importer.DetectReport
+	xlsxPreview
+}
+
+// xlsxPreview is what the -vars.xlsx contributes to a preview that the articy
+// project alone doesn't carry.
+type xlsxPreview struct {
+	// XlsxProtagonist is the roster tech-name RunBundle injects into the
+	// staging cast for the protagonist label (bundle.go's ExtraCast). Its
+	// presence means "the import WILL have art for her" — DetectRoles only
+	// sees the articy roster and would warn that she stays invisible.
+	XlsxProtagonist string `json:"xlsx_protagonist,omitempty"`
+	// XlsxEmotionColors counts the legend entries folded into this preview,
+	// so the author can tell an honest emotion_color_misses list from one
+	// computed without the spreadsheet.
+	XlsxEmotionColors int    `json:"xlsx_emotion_colors,omitempty"`
+	XlsxError         string `json:"xlsx_error,omitempty"`
+}
+
+// applyXlsxToPreview folds the spreadsheet into the preview the same way
+// RunBundle folds it into the real import (bundle.go): the cell-colour legend
+// is authoritative over the template's, and the roster's protagonist row is
+// what gives her art the articy project has no entity for.
+//
+// The legend is applied for real — it goes onto the template DetectRoles
+// probes with, so emotion_color_misses stops listing colours the import
+// resolves. The protagonist can only be REPORTED (DetectRoles builds its cast
+// from adpd.Cast and takes no injection), so it rides back as xlsx_protagonist
+// and the mapper reworks its warning around it. A parse failure is surfaced,
+// never swallowed: a preview quietly computed without the sheet is exactly the
+// discrepancy this closes.
+func applyXlsxToPreview(tpl *importer.Template, path string) xlsxPreview {
+	var out xlsxPreview
+	xd, err := importer.ParseVarsXlsx(path)
+	if err != nil {
+		out.XlsxError = err.Error()
+		return out
+	}
+	if len(xd.EmotionColors) > 0 {
+		if tpl.EmotionColors == nil {
+			tpl.EmotionColors = map[string]string{}
+		}
+		// Same normalization RunBundle applies: the legend's labels line up
+		// with the character-art axis values only in lower case.
+		for hex, emo := range xd.EmotionColors {
+			tpl.EmotionColors[strings.ToUpper(hex)] = strings.ToLower(emo)
+		}
+		out.XlsxEmotionColors = len(xd.EmotionColors)
+	}
+	if xd.Protagonist != nil {
+		out.XlsxProtagonist = strings.TrimSpace(xd.Protagonist.TechName)
+	}
+	return out
 }
