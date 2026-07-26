@@ -108,13 +108,13 @@
       "op": "label"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_grope_1",
       "expr": "chance(0.5)",
       "op": "if",
       "then": "grope_ok"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_grope_1",
       "op": "label"
     },
     {
@@ -127,13 +127,13 @@
       "text": "Ты оступился в темноте и больно упал. (♥ {hp})"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_grope_2",
       "expr": "hp \u003c= 0",
       "op": "if",
       "then": "dead"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_grope_2",
       "op": "label"
     },
     {

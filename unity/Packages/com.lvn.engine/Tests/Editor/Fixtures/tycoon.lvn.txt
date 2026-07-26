@@ -53,13 +53,13 @@
       "op": "label"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_turn_1",
       "expr": "month \u003e months",
       "op": "if",
       "then": "finale"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_turn_1",
       "op": "label"
     },
     {
@@ -103,13 +103,13 @@
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_invest_shop_1",
       "expr": "cash \u003e= 120",
       "op": "if",
       "then": "do_shop"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_invest_shop_1",
       "op": "label"
     },
     {
@@ -147,13 +147,13 @@
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_invest_ad_1",
       "expr": "cash \u003e= 40",
       "op": "if",
       "then": "do_ad"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_invest_ad_1",
       "op": "label"
     },
     {
@@ -208,23 +208,23 @@
       "op": "set"
     },
     {
-      "else": "__nf4",
+      "else": "__nf_event_1",
       "expr": "roll \u003c= 2",
       "op": "if",
       "then": "ev_good"
     },
     {
-      "id": "__nf4",
+      "id": "__nf_event_1",
       "op": "label"
     },
     {
-      "else": "__nf5",
+      "else": "__nf_event_2",
       "expr": "roll \u003c= 3",
       "op": "if",
       "then": "ev_bad"
     },
     {
-      "id": "__nf5",
+      "id": "__nf_event_2",
       "op": "label"
     },
     {
@@ -314,13 +314,13 @@
       "who": "Год подошёл к концу. Капитал"
     },
     {
-      "else": "__nf6",
+      "else": "__nf_finale_1",
       "expr": "cash \u003e= 500",
       "op": "if",
       "then": "win"
     },
     {
-      "id": "__nf6",
+      "id": "__nf_finale_1",
       "op": "label"
     },
     {
