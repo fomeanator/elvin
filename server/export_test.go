@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -101,5 +103,61 @@ func TestEngineReleaseTagFromSandboxTemplate(t *testing.T) {
 	tag := engineReleaseTag("../sandbox")
 	if !regexp.MustCompile(`^v\d+\.\d+\.\d+`).MatchString(tag) {
 		t.Fatalf("engineReleaseTag(../sandbox) = %q, want vX.Y.Z", tag)
+	}
+}
+
+// Сервер стоит за обратным прокси, поэтому r.TLS пустой всегда, и наивная
+// догадка по нему вшивала в экспортированный проект "http://". Цена отложенная
+// и максимальная: Android с 9-й версии запрещает открытый HTTP, то есть
+// собранный APK не грузил бы контент вообще, и узналось бы это на телефоне.
+func TestExportPinsHttpsBehindAProxy(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/export", strings.NewReader(`{"name":"G"}`))
+	req.Host = "studio.example"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	if got := requestBase(req); got != "https://studio.example" {
+		t.Fatalf("адрес для вшивания = %q, ожидался https://studio.example", got)
+	}
+	// И наоборот: без заголовка (прямое соединение по http) остаётся http —
+	// иначе локальная разработка на :8000 сломалась бы.
+	plain := httptest.NewRequest(http.MethodPost, "/v1/export", nil)
+	plain.Host = "localhost:8000"
+	if got := requestBase(plain); got != "http://localhost:8000" {
+		t.Errorf("локальный адрес = %q, ожидался http://localhost:8000", got)
+	}
+}
+
+// bundleId не работал ВОВСЕ: замена одной строки-заголовка оставляла старые
+// Standalone:/Android: на месте, YAML получал дубли ключей, Unity брал
+// последний. Экспорт при этом отвечал 200, а APK собирался с идентификатором
+// песочницы — и мог встать на телефоне поверх другого приложения.
+func TestExportBundleIdReplacesTheWholeBlockIncludingAndroid(t *testing.T) {
+	raw := []byte("PlayerSettings:\n" +
+		"  productName: Sandbox\n" +
+		"  companyName: Dev\n" +
+		"  applicationIdentifier:\n" +
+		"    Standalone: com.old.sandbox\n" +
+		"    Android: com.old.sandbox\n" +
+		"  defaultCursor: {fileID: 0}\n")
+	got := string(patchProjectSettings(raw, exportConfig{
+		Name: "MyGame", Company: "Me", BundleID: "com.me.mygame",
+	}))
+
+	if strings.Count(got, "com.old.sandbox") != 0 {
+		t.Errorf("старый идентификатор остался:\n%s", got)
+	}
+	for _, want := range []string{"Android: com.me.mygame", "Standalone: com.me.mygame"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("нет %q:\n%s", want, got)
+		}
+	}
+	if strings.Count(got, "Android:") != 1 || strings.Count(got, "Standalone:") != 1 {
+		t.Errorf("дубли ключей платформ:\n%s", got)
+	}
+	// Соседние настройки не должны пострадать от замены блока.
+	if !strings.Contains(got, "defaultCursor: {fileID: 0}") {
+		t.Errorf("замена блока съела следующую настройку:\n%s", got)
+	}
+	if !strings.Contains(got, "productName: MyGame") {
+		t.Errorf("имя продукта не подставлено:\n%s", got)
 	}
 }
