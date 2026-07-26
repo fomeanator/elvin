@@ -113,6 +113,8 @@ func toLvnsRaw(doc *articy.Doc) []byte {
 			line("call " + str(c["label"]))
 		case "return":
 			line("return")
+		case "clear":
+			line("clear") // fieldless: the whole op is the word
 		case "if":
 			expr := condExpr(c)
 			then := str(c["then"])
