@@ -1,0 +1,92 @@
+{
+  "scene": "weave",
+  "script": [
+    {
+      "op": "say",
+      "text": "Куда пойдём?",
+      "who": "Нихарис"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "__weave_head_1",
+          "text": "Направо"
+        },
+        {
+          "goto": "__weave_head_2",
+          "text": "Налево"
+        },
+        {
+          "body": [
+            {
+              "expr": "true",
+              "key": "ждал",
+              "op": "set"
+            }
+          ],
+          "text": "Молча постоять"
+        }
+      ]
+    },
+    {
+      "label": "__wend_head_3",
+      "op": "goto"
+    },
+    {
+      "id": "__weave_head_1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты сворачиваешь направо, к реке."
+    },
+    {
+      "expr": "реп + 1",
+      "key": "реп",
+      "op": "set"
+    },
+    {
+      "label": "__wend_head_3",
+      "op": "goto"
+    },
+    {
+      "id": "__weave_head_2",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ты уходишь к городу, не оборачиваясь."
+    },
+    {
+      "label": "город",
+      "op": "goto"
+    },
+    {
+      "id": "__wend_head_3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ну хоть решил.",
+      "who": "Нихарис"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    },
+    {
+      "id": "город",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Город так город.",
+      "who": "Нихарис"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}
