@@ -37,6 +37,13 @@ namespace Lvn.Editor
         static readonly HashSet<string> KnownOps = new HashSet<string>
         {
             "say", "choice", "bg", "actor", "obj",
+            // A bare `clear` — no fields — compiles through the generic
+            // key=value tail below. Listed here for the same reason as
+            // everything else in this set, and for no other.
+            // NB: keep braces and quoted JSON out of comments in this file —
+            // the Go guard scrapes this literal textually and stops at the
+            // first closing-brace-semicolon it meets.
+            "clear",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles",
             "audio", "wait", "preload", "text_pace",

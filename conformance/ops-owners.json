@@ -38,6 +38,7 @@
     "bg":        { "owner": "engine", "csharp": "stage",        "js": "renderer" },
     "actor":     { "owner": "engine", "csharp": "stage",        "js": "renderer" },
     "obj":       { "owner": "engine", "csharp": "stage",        "js": "renderer" },
+    "clear":     { "owner": "engine", "csharp": "stage",        "js": "renderer" },
     "text":      { "owner": "engine", "csharp": "stage",        "js": "renderer" },
     "audio":     { "owner": "engine", "csharp": "stage",        "js": "renderer" },
     "fade":      { "owner": "engine", "csharp": "stage",        "js": "renderer" },

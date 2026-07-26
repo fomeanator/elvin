@@ -55,7 +55,14 @@ func commandLike(text string) string {
 // rule the front-ends apply to staging tags, enforced here for any .lvn.
 var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
-	"fade": true, "dim": true, "flash": true, "tint": true, "blur": true,
+	// clear hides every actor and obj at once — the same removal `show=false`
+	// performs, per character, which is what a scene change used to cost: one
+	// line per body on stage, and a bug the day someone was added and the list
+	// was not. It touches nothing else (backdrop, effects, HUD stay), and takes
+	// no fields — `clear actors` / `clear all` would be a second decision the
+	// author has to make every time, for a case that has not come up.
+	"clear": true,
+	"fade":  true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
@@ -78,6 +85,7 @@ var KnownOps = map[string]bool{
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
 	"bg":            {"id", "sprite_url"},
+	"clear":         {}, // deliberately empty: any field on `clear` is a typo
 	"fade":          {"to", "duration"},
 	"dim":           {"alpha", "duration"},
 	"flash":         {"color", "duration"},

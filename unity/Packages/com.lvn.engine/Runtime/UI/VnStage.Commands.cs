@@ -196,6 +196,7 @@ namespace Lvn.UI
                 case "bg": _ = ApplyBgAsync(command); break;
                 case "actor": _ = ApplyActorAsync(command); break;
                 case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
+                case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
                 case "anim": ApplyAnim(command); break; // script-driven tween / path
                 case "fade": ApplyFade(command); break;
                 case "dim": ApplyDim(command); break;

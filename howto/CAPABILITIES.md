@@ -85,6 +85,7 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | `bg` | Background. Resolves a catalog id or a direct `sprite_url`. Loads asynchronously. | `sprite_url`, `id?` |
 | `actor` | Place/update/hide a character. Resolves layers from the cast/catalog/direct urls; starts idle/blink/lip-sync. | `id`, cast axes, `show`,`position`,`x`,`y`,`width`,`height`,`scale`,`anchor`,`z`,`flip`,`rotation`,`opacity`,`on_click`,`hover_opacity` |
 | `obj` | Same as `actor` (same code), but semantically "not a character" (does not dim). | (same as `actor`) |
+| `clear` | Take every actor and `obj` off stage at once — the same removal `show=false` performs, per body. Leaves the background, effects and HUD alone, so a scene change is `clear` then a new `bg`. Placement is remembered: a later `actor id=…` with no position returns to the slot it left. | (none — any field is a typo) |
 
 ### Staging: effects, sound, timing
 | op | What it does | Fields / defaults |
