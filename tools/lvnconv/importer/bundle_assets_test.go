@@ -20,21 +20,21 @@ func writePNG(t *testing.T, path string, size int) {
 func TestMapBackgroundsSynthetic(t *testing.T) {
 	base := t.TempDir()
 	bg := filepath.Join(base, "bg")
-	writePNG(t, filepath.Join(bg, "NEW", "Cold_camp.png"), 10)
-	writePNG(t, filepath.Join(bg, "NEW", "Road_Corpse.png"), 11) // no Cold_ prefix, still a bg
+	writePNG(t, filepath.Join(bg, "NEW", "Demo_camp.png"), 10)
+	writePNG(t, filepath.Join(bg, "NEW", "Road_Corpse.png"), 11) // no Demo_ prefix, still a bg
 	content := t.TempDir()
 	m, err := MapBackgrounds(bg, content)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m["Cold_camp"] != "/content/bg/Cold_camp.png" {
-		t.Errorf("Cold_camp url = %q", m["Cold_camp"])
+	if m["Demo_camp"] != "/content/bg/Demo_camp.png" {
+		t.Errorf("Demo_camp url = %q", m["Demo_camp"])
 	}
 	if _, ok := m["Road_Corpse"]; !ok {
 		t.Errorf("Road_Corpse background dropped")
 	}
-	if _, err := os.Stat(filepath.Join(content, "bg", "Cold_camp.png")); err != nil {
-		t.Errorf("Cold_camp not copied: %v", err)
+	if _, err := os.Stat(filepath.Join(content, "bg", "Demo_camp.png")); err != nil {
+		t.Errorf("Demo_camp not copied: %v", err)
 	}
 }
 
@@ -45,26 +45,26 @@ func TestMapBackgroundsSynthetic(t *testing.T) {
 func fakeChars(t *testing.T) (charsDir string, xd XlsxData) {
 	t.Helper()
 	charsDir = filepath.Join(t.TempDir(), "chars")
-	// Adele: a base body + two emotions the sheet names with case drift.
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Adele", "Cold_Adele_idle.png"), 20)
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Adele", "Cold_Adele_Happy.png"), 21)
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Adele", "Cold_Adele_Body.png"), 22)
-	// Heroine Cold_Main: body + emotion + hair + clothes wardrobe art.
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Main", "Cold_Main_Idle.png"), 30)
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Main", "Cold_main_body.png"), 31)
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Main", "Cold_Main_Hairs_11.png"), 32)
-	writePNG(t, filepath.Join(charsDir, "NEW", "Cold_Main", "Cold_main_clothes_11.png"), 33)
+	// Lina: a base body + two emotions the sheet names with case drift.
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Lina", "Demo_Lina_idle.png"), 20)
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Lina", "Demo_Lina_Happy.png"), 21)
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Lina", "Demo_Lina_Body.png"), 22)
+	// Heroine Demo_Main: body + emotion + hair + clothes wardrobe art.
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Main", "Demo_Main_Idle.png"), 30)
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Main", "Demo_main_body.png"), 31)
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Main", "Demo_Main_Hairs_11.png"), 32)
+	writePNG(t, filepath.Join(charsDir, "NEW", "Demo_Main", "Demo_main_clothes_11.png"), 33)
 
 	xd = XlsxData{
 		Chars: []CharMap{
-			{StoryName: "Adele", TechName: "Cold_Adele", Role: "ЛИ",
-				Emotions: map[string]string{"idle": "Cold_Adele_idle", "happy": "Cold_Adele_Happy"}},
-			{StoryName: "Katya", TechName: "Cold_Main", Role: "ГГ",
-				Emotions: map[string]string{"idle": "Cold_Main_Idle"}},
+			{StoryName: "Lina", TechName: "Demo_Lina", Role: "ЛИ",
+				Emotions: map[string]string{"idle": "Demo_Lina_idle", "happy": "Demo_Lina_Happy"}},
+			{StoryName: "Mira", TechName: "Demo_Main", Role: "ГГ",
+				Emotions: map[string]string{"idle": "Demo_Main_Idle"}},
 		},
 		Wardrobe: map[string][]WardrobeItem{
-			"Wardrobe.mainCh_Hair":    {{Variable: "Wardrobe.mainCh_Hair", Value: "11", Name: "Офисная причёска", TechName: "Cold_Main_Hairs_11"}},
-			"Wardrobe.mainCh_Clothes": {{Variable: "Wardrobe.mainCh_Clothes", Value: "11", Name: "Офисная одежда", TechName: "Cold_main_clothes_11"}},
+			"Wardrobe.mainCh_Hair":    {{Variable: "Wardrobe.mainCh_Hair", Value: "11", Name: "Офисная причёска", TechName: "Demo_Main_Hairs_11"}},
+			"Wardrobe.mainCh_Clothes": {{Variable: "Wardrobe.mainCh_Clothes", Value: "11", Name: "Офисная одежда", TechName: "Demo_main_clothes_11"}},
 		},
 	}
 	xd.Protagonist = &xd.Chars[1]
@@ -79,34 +79,34 @@ func TestMapCharactersSheetDriven(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Adele: body + face layers; emotion axis = the sheet's resolved values, no body.
-	adele, ok := m["cold_adele"]
+	// Lina: body + face layers; emotion axis = the sheet's resolved values, no body.
+	lina, ok := m["demo_lina"]
 	if !ok {
-		t.Fatalf("cold_adele missing; got %v", keysOf(m))
+		t.Fatalf("demo_lina missing; got %v", keysOf(m))
 	}
-	if adele["kind"] != "layered" {
-		t.Errorf("adele kind = %v", adele["kind"])
+	if lina["kind"] != "layered" {
+		t.Errorf("lina kind = %v", lina["kind"])
 	}
-	byID := layersByID(adele)
-	if byID["body"] != "/content/art/Cold_Adele_body.png" {
-		t.Errorf("adele body layer = %q", byID["body"])
+	byID := layersByID(lina)
+	if byID["body"] != "/content/art/Demo_Lina_body.png" {
+		t.Errorf("lina body layer = %q", byID["body"])
 	}
-	if byID["face"] != "/content/art/Cold_Adele_{emotion}.png" {
-		t.Errorf("adele face layer = %q", byID["face"])
+	if byID["face"] != "/content/art/Demo_Lina_{emotion}.png" {
+		t.Errorf("lina face layer = %q", byID["face"])
 	}
-	em := adele["axes"].(map[string]any)["emotion"].([]any)
+	em := lina["axes"].(map[string]any)["emotion"].([]any)
 	if !containsAny(em, "idle") || !containsAny(em, "happy") || containsAny(em, "body") {
-		t.Errorf("adele emotions = %v, want idle+happy (no body)", em)
+		t.Errorf("lina emotions = %v, want idle+happy (no body)", em)
 	}
-	// Art copied to canonical dest (case drift absorbed: Cold_Adele_Happy → _happy).
-	if _, err := os.Stat(filepath.Join(content, "art", "Cold_Adele_happy.png")); err != nil {
-		t.Errorf("canonical Cold_Adele_happy.png not copied: %v", err)
+	// Art copied to canonical dest (case drift absorbed: Demo_Lina_Happy → _happy).
+	if _, err := os.Stat(filepath.Join(content, "art", "Demo_Lina_happy.png")); err != nil {
+		t.Errorf("canonical Demo_Lina_happy.png not copied: %v", err)
 	}
 
-	// Heroine (keyed by tech "cold_main"): body + clothes + face + hair, hair/outfit axes.
-	kat, ok := m["cold_main"]
+	// Heroine (keyed by tech "demo_main"): body + clothes + face + hair, hair/outfit axes.
+	kat, ok := m["demo_main"]
 	if !ok {
-		t.Fatalf("cold_main (heroine) missing; got %v", keysOf(m))
+		t.Fatalf("demo_main (heroine) missing; got %v", keysOf(m))
 	}
 	kb := layersByID(kat)
 	for _, id := range []string{"body", "clothes", "face", "hair"} {
@@ -121,7 +121,7 @@ func TestMapCharactersSheetDriven(t *testing.T) {
 	if !containsAny(kaxes["outfit"].([]any), "11") {
 		t.Errorf("heroine outfit axis = %v, want 11", kaxes["outfit"])
 	}
-	if _, err := os.Stat(filepath.Join(content, "art", "Cold_Main_hair_11.png")); err != nil {
+	if _, err := os.Stat(filepath.Join(content, "art", "Demo_Main_hair_11.png")); err != nil {
 		t.Errorf("canonical heroine hair art not copied: %v", err)
 	}
 }
@@ -158,8 +158,8 @@ func TestMappersRealData(t *testing.T) {
 		t.Fatalf("MapCharacters: %d entities, err=%v", len(chars), err)
 	}
 	// The heroine is built from her character folder (keyed by tech name).
-	if _, ok := chars["cold_main"]; !ok {
-		t.Errorf("heroine cold_main missing from character catalog")
+	if _, ok := chars["demo_main"]; !ok {
+		t.Errorf("heroine demo_main missing from character catalog")
 	}
 	for _, sub := range []string{"bg", "art"} {
 		des, err := os.ReadDir(filepath.Join(content, sub))

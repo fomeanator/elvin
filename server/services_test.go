@@ -739,16 +739,16 @@ func TestAdmin_ImportTemplatesCRUD(t *testing.T) {
 	} else {
 		found := false
 		for _, n := range out["templates"].([]any) {
-			if n == "cold" {
+			if n == "default" {
 				found = true
 			}
 		}
 		if !found {
-			t.Fatalf("built-in 'cold' must always be listed: %v", out["templates"])
+			t.Fatalf("built-in 'default' must always be listed: %v", out["templates"])
 		}
 	}
 	// GET on the built-in default with no file → the serialized DefaultTemplate().
-	if rec, out := call(t, mux, "GET", "/v1/admin/import-templates/cold", "admintok", nil); rec.Code != 200 || out["name"] != "cold" {
+	if rec, out := call(t, mux, "GET", "/v1/admin/import-templates/default", "admintok", nil); rec.Code != 200 || out["name"] != "default" {
 		t.Fatalf("default template get: %d %v", rec.Code, out)
 	}
 
@@ -789,7 +789,7 @@ func TestAdmin_ImportTemplatesCRUD(t *testing.T) {
 	}
 
 	// DELETE on the built-in default is refused; DELETE on a real one works.
-	if rec, _ := call(t, mux, "DELETE", "/v1/admin/import-templates/cold", "admintok", nil); rec.Code != 400 {
+	if rec, _ := call(t, mux, "DELETE", "/v1/admin/import-templates/default", "admintok", nil); rec.Code != 400 {
 		t.Fatalf("deleting the built-in default must 400, got %d", rec.Code)
 	}
 	if rec, _ := call(t, mux, "DELETE", "/v1/admin/import-templates/soviet", "admintok", nil); rec.Code != 200 {

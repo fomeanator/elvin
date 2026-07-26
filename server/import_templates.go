@@ -35,7 +35,7 @@ func (s *AdminService) templatesDir() string {
 }
 
 // GET /v1/admin/import-templates — every available template name. The
-// built-in default ("cold") is always listed first even when no cold.json
+// built-in default ("default") is always listed even when no default.json
 // file exists on disk (ResolveTemplate falls back to DefaultTemplate()).
 func (s *AdminService) handleImportTemplates(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
@@ -45,7 +45,7 @@ func (s *AdminService) handleImportTemplates(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "GET only", http.StatusMethodNotAllowed)
 		return
 	}
-	names := map[string]bool{"cold": true}
+	names := map[string]bool{"default": true}
 	entries, _ := os.ReadDir(s.templatesDir())
 	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
@@ -70,7 +70,7 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		http.Error(w, "template name must match [A-Za-z0-9_-]+", http.StatusBadRequest)
 		return
 	}
-	isDefault := name == "cold" || name == "default"
+	isDefault := name == "default"
 	path := filepath.Join(s.templatesDir(), name+".json")
 	rel := "import-templates/" + name + ".json"
 
@@ -88,13 +88,10 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		_, _ = w.Write(data)
 
 	case http.MethodPut:
-		// "default" is a resolver alias for "cold" (ResolveTemplate rewrites
-		// it before ever touching the disk) — a default.json would save fine,
-		// list fine, and NEVER be read. Reject rather than gaslight the author.
-		if name == "default" {
-			http.Error(w, `"default" is reserved (an alias of "cold") — pick another name`, http.StatusBadRequest)
-			return
-		}
+		// Saving "default" is allowed and meaningful: ResolveTemplate looks for
+		// <name>.json on disk BEFORE falling back to the built-in, so a
+		// default.json overrides DefaultTemplate() for every import that
+		// doesn't name another template. DELETE removes the override again.
 		var doc json.RawMessage
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&doc); err != nil {
 			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
@@ -125,7 +122,10 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
 
 	case http.MethodDelete:
-		if isDefault {
+		// Deleting "default" removes an on-disk OVERRIDE and falls back to the
+		// built-in; with no file there is nothing to delete. Refusing outright
+		// would strand an override the author saved and can no longer undo.
+		if _, err := os.Stat(path); err != nil && isDefault {
 			http.Error(w, "the built-in default isn't file-backed", http.StatusBadRequest)
 			return
 		}

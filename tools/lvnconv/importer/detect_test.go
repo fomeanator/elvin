@@ -52,7 +52,7 @@ func TestInitialsAndLooseContains(t *testing.T) {
 	if got := initials("Главный герой"); got != "ГГ" {
 		t.Errorf("initials(%q) = %q, want ГГ", "Главный герой", got)
 	}
-	if !looseContains("Matvey_black", "Matvey") {
+	if !looseContains("Roman_black", "Roman") {
 		t.Error("looseContains should match a variant-suffixed name against its base")
 	}
 	if looseContains("ab", "ab") {

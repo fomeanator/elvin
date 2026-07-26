@@ -1,6 +1,6 @@
 namespace Lvn
 {
-    /// <summary>One stat this option awards on pick ("+2 Матвей") — a preview
+    /// <summary>One stat this option awards on pick ("+2 Роман") — a preview
     /// only, computed by the importer from the branch's own immediate ops
     /// (see AnnotateChoiceEffects); never executed from here.</summary>
     public readonly struct LvnOptionEffect
@@ -29,7 +29,7 @@ namespace Lvn
         public readonly string Cost;
         public readonly string WalletCurrency; // null → free option
         public readonly long WalletAmount;
-        /// <summary>Stat award preview ("+2 Матвей"), or null when the importer
+        /// <summary>Stat award preview ("+2 Роман"), or null when the importer
         /// found nothing to preview (or the title has no stats configured).</summary>
         public readonly System.Collections.Generic.IReadOnlyList<LvnOptionEffect> Effects;
 

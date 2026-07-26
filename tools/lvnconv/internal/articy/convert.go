@@ -165,7 +165,7 @@ func Convert(src []byte, dialogue string) (*Doc, error) {
 }
 
 // repairLabels closes the two ways a reserved label can dangle after the walk
-// (live-hit by the Cold wardrobe sub-flows — a node emitted BEFORE anything
+// (live-hit by the partner wardrobe sub-flows — a node emitted BEFORE anything
 // referenced it prints no label line, and a later merge-goto then points at a
 // name that was never written):
 //  1. label reserved for an EMITTED node but never printed → splice the label

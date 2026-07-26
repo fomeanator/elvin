@@ -44,13 +44,13 @@ type VarDecl struct {
 // CharMap is one character row from the «Эмоции» roster sheet — the Rosetta
 // Stone linking a story name to its art (tech) name and per-emotion art stems.
 type CharMap struct {
-	StoryName string            // column A story name, e.g. "Katya", "Matvey"
-	TechName  string            // column D tech name / персонажи.zip folder, e.g. "Cold_Main"
+	StoryName string            // column A story name, e.g. "Mira", "Roman"
+	TechName  string            // column D tech name / персонажи.zip folder, e.g. "Demo_Main"
 	Role      string            // column C role: "ГГ" / "ЛИ" / "ОСН" / "ВТОР"
 	Emotions  map[string]string // emotion label (lowercased) → art file stem
 }
 
-// WardrobeItem is one wardrobe catalog row from the «Гардеробыч» sheet.
+// WardrobeItem is one wardrobe catalog row from the «Гардероб» sheet.
 type WardrobeItem struct {
 	Variable string // full assignment key, e.g. "Wardrobe.mainCh_Hair"
 	Value    string // clean value, e.g. "11" (never "11.0")
@@ -68,7 +68,7 @@ type XlsxData struct {
 	Chars       []CharMap                 // «Эмоции» roster, one entry per character row
 	Protagonist *CharMap                  // the Role=="ГГ" row, or nil when absent
 	Locations   map[string]string         // «Локации» articyName → techName
-	Wardrobe    map[string][]WardrobeItem // «Гардеробыч» variable base → catalog items
+	Wardrobe    map[string][]WardrobeItem // «Гардероб» variable base → catalog items
 }
 
 // ---- internal XML shapes -------------------------------------------------
@@ -298,7 +298,7 @@ func (x XlsxData) SetDefaultLines() []string {
 // ---- parsing helpers ------------------------------------------------------
 
 type sheetPart struct {
-	name string // display name (e.g. "Гардеробыч")
+	name string // display name (e.g. "Гардероб")
 	file string // e.g. "xl/worksheets/sheet2.xml"
 }
 
@@ -651,7 +651,7 @@ func parseCharsFromSheet(cells []cell) []CharMap {
 
 // parseLocationsFromSheet reads the «Локации» background map. It self-detects
 // by the «Название в Артиси» header. Keys and values are whitespace-trimmed;
-// values are otherwise kept verbatim (doubled "Cold_Cold_" prefixes and all).
+// values are otherwise kept verbatim (doubled "Demo_Demo_" prefixes and all).
 func parseLocationsFromSheet(cells []cell) map[string]string {
 	byRow, maxRow := indexCells(cells)
 	headerRow, articyCol := findHeaderRow(byRow, maxRow, "Артиси")
@@ -680,7 +680,7 @@ func parseLocationsFromSheet(cells []cell) map[string]string {
 	return out
 }
 
-// parseWardrobeFromSheet reads the «Гардеробыч» catalog, grouping items by
+// parseWardrobeFromSheet reads the «Гардероб» catalog, grouping items by
 // their variable base (e.g. "Wardrobe.mainCh_Hair"). Self-detects by the
 // «Переменная» header.
 func parseWardrobeFromSheet(cells []cell) map[string][]WardrobeItem {

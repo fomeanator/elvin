@@ -252,15 +252,67 @@ export const adminDiscardDraft = (token) =>
   adminFetch("/v1/admin/manifest?draft=1", token, { method: "DELETE" });
 
 // GET /v1/analytics/summary?day=YYYY-MM-DD → { total, unique_users, by_name }.
+// The one-day legacy shape, still what Обзор asks for. Wider windows and the
+// cuts/funnel/health reports go through the three helpers below.
 export const adminAnalytics = (day, token) =>
   adminFetch("/v1/analytics/summary?day=" + encodeURIComponent(day), token);
+
+// ── Analytics reports (server/analytics_report.go) ──────────────────────────
+// `query` is the window string built by windowQuery() in lib/analytics.js —
+// "day=…", "days=N" or "from=…&to=…". Empty means "today" (the server default).
+
+// GET /v1/analytics/summary → cuts by title / author / day / hour + signals.
+export const analyticsSummary = (query, token) =>
+  adminFetch("/v1/analytics/summary" + (query ? "?" + query : ""), token);
+
+// GET /v1/analytics/funnel[&title=…] — with a title: that novel's chapter
+// funnel ({funnel, chapters}); without: the cross-title drop-off leaderboard
+// ({dropoffs, stop_points, titles}).
+export const analyticsFunnel = (query, title, token) =>
+  adminFetch("/v1/analytics/funnel?" + (query ? query + "&" : "") +
+    "title=" + encodeURIComponent(title || ""), token);
+
+// GET /v1/analytics/health — the engineering view: failures, unknown ops,
+// asset misses, and the gaps the log cannot answer yet.
+export const analyticsHealth = (query, token) =>
+  adminFetch("/v1/analytics/health" + (query ? "?" + query : ""), token);
+
+// ── Import conflicts (server/import_conflicts.go) ───────────────────────────
+// A re-import never overwrites a hand edit: the new version is parked as
+// <file>.incoming and the pair waits here for a decision.
+
+// GET /v1/admin/import-conflicts[?rel=…][&diff=0] →
+//   { count, conflicts: [{ rel, incoming_rel, mine, incoming, text, titles,
+//                          diff, diff_note, undoable }] }
+// `rel` narrows to one conflict AND raises the diff budget 400 → 4000 lines,
+// so the drawer refetches per file instead of trusting the listing's excerpt.
+// `diff:false` skips diffing entirely — the cheap "is anything waiting?" poll.
+export const adminConflicts = (token, opt = {}) => {
+  const q = [];
+  if (opt.rel) q.push("rel=" + encodeURIComponent(opt.rel));
+  if (opt.diff === false) q.push("diff=0");
+  if (opt.maxLines) q.push("max_lines=" + Number(opt.maxLines));
+  return adminFetch("/v1/admin/import-conflicts" + (q.length ? "?" + q.join("&") : ""), token);
+};
+
+// POST /v1/admin/import-conflicts/resolve {rel, choice:"mine"|"incoming"}
+// Commits one side: the bytes are written through the normal editorial path
+// (history snapshot + atomic write) and stamped into the import baseline, so
+// the next import compares against the decision. 422 → the chosen version is
+// not a valid .lvn; adminFetch surfaces the parse errors as the message.
+export const adminResolveConflict = (rel, choice, token, title) =>
+  adminFetch("/v1/admin/import-conflicts/resolve", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rel, choice, title: title || "" }),
+  });
 
 // ── Import mapper: Template CRUD + pre-import detect preview ────────────────
 // See tools/lvnconv/importer/template.go (Template) and detect.go
 // (DetectRoles) — the panel's import-mapper screen (ImportMapper.jsx) is the
 // UI for both.
 
-// GET /v1/admin/import-templates → { templates: [name, …] } — "cold" (the
+// GET /v1/admin/import-templates → { templates: [name, …] } — "default" (the
 // built-in default) is always included even with no file on disk.
 export const listImportTemplates = (token) =>
   adminFetch("/v1/admin/import-templates", token).then((d) => d.templates || []);
@@ -281,7 +333,7 @@ export const putImportTemplate = (name, doc, token) =>
     body: JSON.stringify(doc),
   });
 
-// DELETE /v1/admin/import-templates/<name> — refused for "cold"/"default".
+// DELETE /v1/admin/import-templates/<name> — refused for "default"/"default".
 export const deleteImportTemplate = (name, token) =>
   adminFetch("/v1/admin/import-templates/" + encodeURIComponent(name), token, { method: "DELETE" });
 

@@ -15,7 +15,7 @@ func TestEmotionThreading(t *testing.T) {
 		{"op": "say", "who": "Тимур", "text": "Дом, милый дом.", "color": "#00b050"},
 		{"op": "say", "who": "Тимур", "text": "Но почему…", "color": "#7030A0"},      // upper-case
 		{"op": "say", "who": "Тимур", "text": "Страшно.", "color": "#ff0c0c0c"},      // leading ff alpha
-		{"op": "say", "who": "Люба", "text": "Что это за цвет?", "color": "#123456"}, // unmapped
+		{"op": "say", "who": "Вера", "text": "Что это за цвет?", "color": "#123456"}, // unmapped
 	}}
 
 	probe := newColorProbe(nil)
@@ -50,7 +50,7 @@ func TestEmotionThreading(t *testing.T) {
 
 	// AutoStage copies each emotion onto the actor show cmd (re-showing Тимур as his
 	// emotion changes), so BuildCatalog records the full emotion axis.
-	cast := map[string]string{"Тимур": "t.png", "Люба": "l.png"}
+	cast := map[string]string{"Тимур": "t.png", "Вера": "l.png"}
 	AutoStage(doc, cast, nil)
 	sprites, _ := BuildCatalog(doc)
 	ent, _ := sprites["Тимур"].(map[string]any)

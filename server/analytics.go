@@ -3,11 +3,14 @@ package main
 // Analytics service — an honest append-only event log. Clients batch events
 // to /v1/analytics/events (anonymous or authenticated); each day lands in
 // its own JSONL file, one event per line, ready for jq / DuckDB / anything.
-// /v1/analytics/summary gives the admin per-name counts without any storage
-// engine — the files ARE the database at this scale.
+// The files ARE the database at this scale.
+//
+// Reading them is the other half, and it lives in analytics_rollup.go (the
+// incremental aggregates) and analytics_report.go (the cuts and the signals:
+// title / author / chapter / day, the completion funnel and its drop-off
+// points, and the technical health of the build in the field).
 
 import (
-	"bufio"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -24,18 +27,38 @@ type AnalyticsService struct {
 	dir        string
 	auth       *AuthService
 	adminToken string
+
+	rollups  *rollupStore  // derived aggregates over the day files
+	chapters *chapterIndex // chapter ORDER, read from the same manifest players read
 }
 
 func NewAnalyticsService(dir string, auth *AuthService, adminToken string, owners *ownerIndex) (*AnalyticsService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	return &AnalyticsService{dir: dir, auth: auth, adminToken: adminToken, owners: owners}, nil
+	s := &AnalyticsService{dir: dir, auth: auth, adminToken: adminToken, owners: owners,
+		rollups: newRollupStore(dir)}
+	if owners != nil {
+		// Same manifest the owner index already watches — a funnel needs the
+		// chapter ORDER, which only the manifest knows.
+		s.chapters = newChapterIndex(owners.path)
+	}
+	return s, nil
 }
 
 func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/events", s.handleEvents)
 	mux.HandleFunc("/v1/analytics/summary", s.handleSummary)
+	mux.HandleFunc("/v1/analytics/funnel", s.handleFunnel)
+	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
+}
+
+func (s *AnalyticsService) adminOK(w http.ResponseWriter, r *http.Request) bool {
+	if s.adminToken == "" || !bearerOK(r, s.adminToken) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	return true
 }
 
 type analyticsEvent struct {
@@ -49,6 +72,12 @@ type analyticsEvent struct {
 	// payee. Neither can be reconstructed once the request is gone.
 	Title  string `json:"title,omitempty"`
 	Author string `json:"author,omitempty"`
+	// The two other DIMENSIONS, normalized at write time for the same reason
+	// the title is: the reader must not have to know that NovelApp spells it
+	// "chapter" while the helper's own docstring spells it "ch", and a
+	// dimension has to be length-capped once, here, not in every query.
+	Chapter string `json:"chapter,omitempty"`
+	SID     string `json:"sid,omitempty"` // session id — not sent yet; see health.gaps
 }
 
 var reDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -162,9 +191,21 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 				ev.Title = t
 			}
 		}
-		if len(ev.Title) > 64 {
-			ev.Title = ev.Title[:64]
+		if ev.Chapter == "" {
+			if c, ok := ev.Props["chapter"].(string); ok {
+				ev.Chapter = c
+			} else if c, ok := ev.Props["ch"].(string); ok {
+				ev.Chapter = c
+			}
 		}
+		if ev.SID == "" {
+			if v, ok := ev.Props["sid"].(string); ok {
+				ev.SID = v
+			} else if v, ok := ev.Props["session"].(string); ok {
+				ev.SID = v
+			}
+		}
+		ev.Title, ev.Chapter, ev.SID = clip(ev.Title, 64), clip(ev.Chapter, 64), clip(ev.SID, 64)
 		ev.Author = s.owners.authorOf(ev.Title)
 		line, _ := json.Marshal(ev)
 		if _, err := f.Write(append(line, '\n')); err == nil {
@@ -175,43 +216,5 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 	_ = json.NewEncoder(w).Encode(map[string]int{"accepted": accepted})
 }
 
-func (s *AnalyticsService) handleSummary(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" || !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-	day := r.URL.Query().Get("day")
-	if day == "" {
-		day = time.Now().UTC().Format("2006-01-02")
-	}
-	if !reDay.MatchString(day) {
-		http.Error(w, "day=YYYY-MM-DD", http.StatusBadRequest)
-		return
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	counts := map[string]int{}
-	users := map[string]bool{}
-	total := 0
-	if f, err := os.Open(filepath.Join(s.dir, day+".jsonl")); err == nil {
-		defer f.Close()
-		sc := bufio.NewScanner(f)
-		sc.Buffer(make([]byte, 64<<10), 1<<20)
-		for sc.Scan() {
-			var ev analyticsEvent
-			if json.Unmarshal(sc.Bytes(), &ev) != nil {
-				continue
-			}
-			counts[ev.Name]++
-			total++
-			if ev.User != "" {
-				users[ev.User] = true
-			}
-		}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"day": day, "total": total, "unique_users": len(users), "by_name": counts,
-	})
-}
+// handleSummary lives in analytics_report.go — reading is a different job from
+// writing, and it is the only one that needs to be clever.
