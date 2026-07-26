@@ -137,6 +137,10 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const [showTranslate, setShowTranslate] = useState(false);
   const [newMenu, setNewMenu] = useState(false);
   const [caretPos, setCaretPos] = useState({ line: 1, col: 1 });
+  // Каретка нужна не только статус-бару: по ней Cmd/Ctrl+клик определяет, на
+  // какой строке щёлкнули (см. onEditorClick). Из state её там не прочитать —
+  // обработчик замкнут на прошлый рендер, поэтому дублируем в реф.
+  const caretRef = useRef({ line: 1, col: 1 });
   const lastJson = useRef("");
   const importedRef = useRef(false); // sync mirror of `imported` for the editor's mount-echo guard
   const openEpoch = useRef(0); // bumped per openChapter call; a stale async open bails out
@@ -279,6 +283,14 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     return out;
   }, [title]);
 
+  const sel = chapters.find((c) => c.id === selId) || null;
+  // ИМЯ ОТКРЫТОГО ФАЙЛА — одна точка правды для плашки, ключа редактора,
+  // черновика, статус-бара и самого факта «есть что показывать». Раньше это
+  // выводили из selId, а у общего файла он пустой — поэтому редактор для него
+  // не рендерился ВООБЩЕ, хотя файл был прочитан, скомпилирован и подсвечен в
+  // списке как активный: «редачить файлы нельзя» — это ровно про то место.
+  const openFile = sharedName || (sel ? sel.id + ".lvns" : "");
+
   // ── unsaved-work safety ───────────────────────────────────────────────
   // Every IDE keeps your typing safe; "the server is the single source of
   // truth" must not mean "a closed tab eats an hour of writing". The editor
@@ -287,8 +299,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // server discards it), saving clears it, and closing the tab with unsaved
   // changes asks first.
   const savedSrc = useRef(""); // the last server-agreed source for this chapter
-  const draftKey = (chapterId) => `lvn_draft_${titleId}_${chapterId}`;
-  const dirty = !imported && !!selId && src !== savedSrc.current;
+  // Ключ черновика: у главы — её id (так черновики уже лежат у авторов, менять
+  // ключ значило бы выбросить их несохранённый текст), у общего файла — имя
+  // файла. Пространства не пересекаются.
+  const draftKey = (fileKey) => `lvn_draft_${titleId}_${fileKey}`;
+  const draftId = sharedName || selId || "";
+  const dirty = !imported && !!openFile && src !== savedSrc.current;
 
   useEffect(() => {
     document.title = (dirty ? "● " : "") + "Elvin Studio";
@@ -299,9 +315,9 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   }, [dirty]);
 
   // Adopt server text as the agreed baseline, then let a stashed draft win.
-  function adoptSource(chapterId, serverText) {
+  function adoptSource(fileKey, serverText) {
     savedSrc.current = serverText;
-    const draft = localStorage.getItem(draftKey(chapterId));
+    const draft = localStorage.getItem(draftKey(fileKey));
     if (draft != null && draft !== serverText) {
       setSrc(draft);
       compileWithIncludes(draft);
@@ -325,16 +341,35 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     importedRef.current = false;
     creds.setPath("scripts/" + name);
     let txt = sourcesRef.current[name] || "";
+    let found = !!txt;
     try {
       const r = await fetch("/content/scripts/" + name + "?v=" + Date.now(), { cache: "no-store" });
       if (openEpoch.current !== epoch) return;
-      if (r.ok) txt = await r.text();
+      if (r.ok) { txt = await r.text(); found = true; }
     } catch { /* останется то, что уже прочитали для include */ }
     if (openEpoch.current !== epoch) return;
     sourcesRef.current[name] = txt;
-    savedSrc.current = txt;
+    // Файл могли открыть по include, а в списке его может не быть (листинг
+    // каталога требует токена). Дописываем — иначе открытый файл не подсвечен
+    // как активный, то есть «открыт» ничем не подтверждено.
+    if (found) setShared((s) => (s.includes(name) ? s : [...s, name].sort()));
+    else notify(`Нет файла scripts/${name} — сохранение создаст его`, "err");
     setSrc(txt);
+    if (adoptSource(name, txt)) return; // несохранённый черновик этого файла
     compileWithIncludes(txt);
+  }
+
+  // Переход ПО include. Владелец, увидев в тексте `include "ec-mechanics.lvns"`,
+  // спросил «и как его открыть?» — и был прав: способа не было. Глава открывается
+  // как глава (у неё номер и запись в манифесте), всё остальное — как общий файл.
+  function openInclude(raw) {
+    const name = String(raw).split("/").pop();
+    const ch = chapters.find((c) => c.id + ".lvns" === name);
+    if (ch) { openChapter(ch); return; }
+    // null = файл уже пробовали докачать для компиляции и его нет. Молча открыть
+    // пустоту здесь хуже, чем сказать правду: строка include ссылается в никуда.
+    if (sourcesRef.current[name] === null) { notify(`Нет файла scripts/${name} — include ссылается в пустоту`, "err"); return; }
+    openShared(name);
   }
 
   async function openChapter(c) {
@@ -480,10 +515,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     if (importedRef.current) return;
     setSrc(text);
     // Draft stash: unsaved typing survives a closed tab / crashed browser.
-    if (selId) {
+    // Ключ — открытый файл, а не глава: у общего файла черновик не писался
+    // вовсе, то есть его правки теряла любая перезагрузка молча.
+    if (draftId) {
       try {
-        if (text !== savedSrc.current) localStorage.setItem(draftKey(selId), text);
-        else localStorage.removeItem(draftKey(selId));
+        if (text !== savedSrc.current) localStorage.setItem(draftKey(draftId), text);
+        else localStorage.removeItem(draftKey(draftId));
       } catch { /* quota — the beforeunload guard still protects */ }
     }
     if (!wasmReady.current) return;
@@ -523,6 +560,14 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   function seedNewChapter(id, text, bg) {
     const ch = { id, number: (chapters.length ? Math.max(...chapters.map((x) => x.number || 0)) : 0) + 1, script_url: `/content/scripts/${id}.lvn`, bg_url: bg || "" };
     setTitle(addToSeasonOne(ch));
+    // Новый файл — ГЛАВА, а не тот файл, что был открыт. Если открыт общий файл,
+    // забыть о нём надо целиком и синхронно: иначе save() уходил в ветку общего
+    // файла и писал текст новой главы ПОВЕРХ библиотеки механик, а недокачанный
+    // fetch прошлого открытия ещё и подменял текст в редакторе.
+    ++openEpoch.current;
+    setSharedName("");
+    curFileRef.current = id + ".lvns";
+    libOpenRef.current = false;
     setSelId(id);
     creds.setPath(`scripts/${id}.lvn`);
     importedRef.current = false; setImported(false);
@@ -637,14 +682,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
 
   saveRef.current = save;
 
-  const sel = chapters.find((c) => c.id === selId) || null;
-
-  // Re-read the current chapter's .lvns from the server (drops in-editor unsaved
+  // Re-read the current file's .lvns from the server (drops in-editor unsaved
   // changes) — handy when the source was edited out-of-band, e.g. on disk.
   function reloadFromServer() {
-    if (!sel) return;
-    try { localStorage.removeItem(draftKey(sel.id)); } catch { } // an explicit reload discards the draft
-    openChapter(sel);
+    if (!openFile) return;
+    try { localStorage.removeItem(draftKey(draftId)); } catch { } // an explicit reload discards the draft
+    if (sharedName) openShared(sharedName); else openChapter(sel);
     notify("Перечитано с сервера (черновик сброшен)", "ok");
   }
   const cmdCount = (output.match(/"op":/g) || []).length;
@@ -665,6 +708,44 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     for (let i = 0; i < outline.length; i++) { if (outline[i].line <= caretPos.line) cur = i; else break; }
     return cur;
   })();
+
+  // Что подключает ОТКРЫТЫЙ файл — список строится из текста в редакторе, поэтому
+  // он честен и для несохранённых правок. Это второй (и не зависящий от Monaco)
+  // ответ на «и как его открыть?»: файл видно и он открывается кликом.
+  const includes = useMemo(() => {
+    const out = [];
+    src.split("\n").forEach((l, i) => {
+      const m = /^[ \t]*include[ \t]+"([^"]+)"/.exec(l);
+      if (!m) return;
+      const name = String(m[1]).split("/").pop();
+      if (!out.some((x) => x.name === name)) out.push({ name, line: i + 1 });
+    });
+    return out;
+  }, [src]);
+
+  function onCaretMove(p) { caretRef.current = p; setCaretPos(p); }
+
+  // Cmd/Ctrl+клик по строке `include "…"` открывает подключённый файл. Строку
+  // берём из позиции каретки: Monaco ставит её на mousedown, то есть ДО click,
+  // — так переход не требует API редактора (MonacoEditor.jsx не меняется), а
+  // если каретка вдруг не там, обработчик просто ничего не делает.
+  function onEditorClick(e) {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    // Только клик по САМОМУ ТЕКСТУ: по миникарте и полосе прокрутки каретка не
+    // двигается, и переход сработал бы по строке, где каретка осталась с прошлого
+    // раза — то есть уводил бы из файла по клику в стороне.
+    if (!(e.target instanceof Element) || !e.target.closest(".view-lines")) return;
+    const line = src.split("\n")[caretRef.current.line - 1] || "";
+    const m = /^[ \t]*include[ \t]+"([^"]+)"/.exec(line);
+    if (!m) return;
+    e.preventDefault();
+    openInclude(m[1]);
+  }
+
+  // Подсказка строки списка: путь как на сервере плюс что это такое. Раньше у
+  // глав в title было имя файла без каталога, а у общих — с каталогом, и
+  // одинаковые с виду строки объясняли себя по-разному.
+  const rowTitle = (file, what) => "scripts/" + file + "\n" + what;
 
   return (
     <div className="ide">
@@ -690,7 +771,14 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
       <div className="ide-top">
         <div className="ide-file">
           <span className={"ide-file-dot" + (dirty ? " dirty" : "")} title={dirty ? "Unsaved changes (drafted locally)" : "Saved"} />
-          <span className="ide-file-name">{sel ? sel.id : "—"}<em>.lvns</em>{dirty ? " •" : ""}</span>
+          {/* Настоящее имя открытого файла, а не «—.lvns»: общий файл раньше не
+              назывался в плашке никак, хотя был открыт. Рядом — чем он является. */}
+          <span className="ide-file-name">
+            {openFile ? <>{openFile.replace(/\.lvns$/, "")}<em>.lvns</em></> : "—"}{dirty ? " •" : ""}
+          </span>
+          {sharedName
+            ? <span className="ide-file-kind sh" title="Общий файл: не глава — его подключают в главах через include">общий файл</span>
+            : sel ? <span className="ide-file-kind" title={"Глава " + (sel.number || "?") + (sel.name ? " · «" + sel.name + "»" : "")}>глава {sel.number || "?"}</span> : null}
         </div>
         <div className="ide-top-actions">
           <button className={"btn-ghost sm" + (showExamples ? " on" : "")} onClick={() => { setShowExamples((v) => !v); setShowDocs(false); }}>❖ Examples</button>
@@ -701,7 +789,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
           <button className={"btn-ghost sm" + (showTranslate ? " on" : "")} onClick={() => setShowTranslate((v) => !v)}>🌐 Languages</button>
           <button className="btn-ghost sm" onClick={reloadFromServer} title="Перечитать .lvns с сервера (сбросить несохранённые правки)">↻ Reload</button>
           <button className="btn-ghost sm" onClick={() => navigator.clipboard.writeText(output)}>Copy .lvn</button>
-          <button className="btn btn-primary" onClick={save} disabled={!!error}>{selId && !published.has(selId) ? "Publish to app ▸" : "Save to app ▸"}</button>
+          {/* У общего файла нет манифеста и главы, публиковать нечего — и обещать
+              «to app» тоже: сохраняется он сам, а проверяет его первая же глава. */}
+          <button className="btn btn-primary" onClick={save} disabled={!!error}
+            title={sharedName ? "Записать scripts/" + sharedName + " на сервер" : ""}>
+            {sharedName ? "Save file ▸" : selId && !published.has(selId) ? "Publish to app ▸" : "Save to app ▸"}
+          </button>
         </div>
       </div>
 
@@ -729,10 +822,18 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
               const status = hasError ? "error" : isDraft ? "draft" : "live";
               return (
               <div key={c.id} className={"ide-file-row" + (c.id === selId ? " active" : "")}>
-                <button className="ide-file-open" onClick={() => openChapter(c)} title={c.id + ".lvns"}>
+                {/* Главный текст строки — НАСТОЯЩЕЕ имя файла. Раньше здесь стояло
+                    поле name из манифеста («01», «02»), то есть в списке файлов не
+                    было видно ни одного имени файла. Номер главы — отдельный чип,
+                    человеческое имя — второй строкой: одно больше не подменяет другое. */}
+                <button className="ide-file-open" onClick={() => openChapter(c)}
+                  title={rowTitle(c.id + ".lvns", "Глава " + (c.number || "?") + (c.name ? " · «" + c.name + "»" : ""))}>
                   <span className={"ide-file-ico st-" + status} title={status === "error" ? "has errors" : status === "draft" ? "draft — not in the game yet" : "live in the game"} />
-                  <span className="ide-file-num">{c.number}</span>
-                  <span className="ide-file-label">{c.name ? c.name : <>{c.id}<em>.lvns</em></>}</span>
+                  <span className="ide-file-chip">гл. {c.number || "?"}</span>
+                  <span className="ide-file-main">
+                    <span className="ide-file-label">{c.id}<em>.lvns</em></span>
+                    {c.name ? <span className="ide-file-sub">{c.name}</span> : null}
+                  </span>
                   {isDraft && <span className="ide-file-tag">draft</span>}
                 </button>
                 <span className="ide-file-acts">
@@ -744,15 +845,22 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             })}
             {shared.length > 0 && (
               <>
-                <div className="ide-files-group" title="Файлы, которые главы подключают через include — не главы: без номера и не в манифесте">
-                  общие · include
+                {/* Заголовок обещал «файлы, которые главы подключают через include»,
+                    а список — это ВСЕ прочие .lvns каталога (в нём нашлась памятка
+                    авторам, которую не подключает никто). Что подключает открытый
+                    файл — в секции «Подключено» ниже, там это правда. */}
+                <div className="ide-files-group" title="Прочие .lvns в scripts/ — не главы: без номера и не в манифесте. Что подключает открытый файл — см. «Подключено» ниже">
+                  общие файлы
                 </div>
                 {shared.map((n) => (
                   <div key={n} className={"ide-file-row" + (n === sharedName ? " active" : "")}>
-                    <button className="ide-file-open" onClick={() => openShared(n)} title={"scripts/" + n}>
-                      <span className="ide-file-ico st-live" />
-                      <span className="ide-file-num">∙</span>
-                      <span className="ide-file-label">{n}</span>
+                    <button className="ide-file-open" onClick={() => openShared(n)}
+                      title={rowTitle(n, "Общий файл — не глава, его подключают через include")}>
+                      <span className="ide-file-ico st-live" title="файл есть на сервере" />
+                      <span className="ide-file-chip sh">общ.</span>
+                      <span className="ide-file-main">
+                        <span className="ide-file-label">{n.replace(/\.lvns$/, "")}<em>.lvns</em></span>
+                      </span>
                     </button>
                   </div>
                 ))}
@@ -760,7 +868,23 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             )}
           </div>
 
-          {(sel || sharedName) && outline.length > 0 && (
+          {includes.length > 0 && (
+            <SideSection id="includes" title="Подключено" count={includes.length} defaultOpen>
+              <div className="ide-inc-list">
+                {includes.map((it) => (
+                  <button key={it.name} className="ide-inc-row" onClick={() => openInclude(it.name)}
+                    title={"Открыть scripts/" + it.name + "\nстрока include: " + it.line}>
+                    <span className="ide-inc-ico">↗</span>
+                    <span className="ide-inc-name">{it.name}</span>
+                    <span className="ide-out-line">{it.line}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="ide-inc-hint">Cmd/Ctrl+клик по строке <code>include</code> в редакторе тоже открывает файл.</p>
+            </SideSection>
+          )}
+
+          {openFile && outline.length > 0 && (
             <SideSection id="outline" title="Outline" count={outline.length}>
               <div className="ide-outline-list">
                 {outline.map((o, i) => (
@@ -810,16 +934,23 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         )}
 
         <main className="ide-main">
-          {sel ? (
+          {/* Гейт по ОТКРЫТОМУ ФАЙЛУ, а не по главе: с `sel` общий файл открывался
+              «в никуда» — редактор не рендерился, и на его месте предлагали
+              «+ Add the first chapter» у новеллы с шестью главами. */}
+          {openFile ? (
             <>
               <div className="ide-editor-row">
-                <section className="ide-pane">
-                  <MonacoEditor ref={editorRef} key={selId} src={src} onChange={onEdit} diags={diags} jump={jump} catalog={catalog} extGrammar={extGrammar} onCaret={setCaretPos} readOnly={imported} />
+                {/* onClick на обёртке, а не в MonacoEditor: переход по include не
+                    должен зависеть от правок в чужом файле редактора. */}
+                <section className="ide-pane" onClick={onEditorClick}>
+                  <MonacoEditor ref={editorRef} key={openFile} src={src} onChange={onEdit} diags={diags} jump={jump} catalog={catalog} extGrammar={extGrammar} onCaret={onCaretMove} readOnly={imported} />
                 </section>
                 {showPreview && (
                   <section className="ide-pane ide-preview">
                     <ResizeHandle storageKey="ide-w-preview" side="left" min={300} max={900} />
-                    <div className="ide-pane-head"><span>Compiled · {sel.id}.lvn</span></div>
+                    {/* Общий файл в .lvn не собирается — эта колонка для него
+                        только проверка сборки, обещать «Compiled · x.lvn» нельзя. */}
+                    <div className="ide-pane-head"><span>{sel ? `Compiled · ${sel.id}.lvn` : `Проверка · ${sharedName}`}</span></div>
                     <pre className={"code-output" + (error ? " error" : "")}>{output}</pre>
                   </section>
                 )}
@@ -846,9 +977,9 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         <span className={"ide-stat " + stat.kind} title={stat.title}>{stat.text}</span>
         <span className="ide-status-sep" />
         <span className="ide-status-dim">{cmdCount} command{cmdCount === 1 ? "" : "s"}</span>
-        {sel && <span className="ide-status-dim mono">{creds.path}</span>}
+        {openFile && <span className="ide-status-dim mono">{creds.path}</span>}
         <span className="grow" />
-        {sel && <span className="ide-status-dim mono">Ln {caretPos.line}, Col {caretPos.col}</span>}
+        {openFile && <span className="ide-status-dim mono">Ln {caretPos.line}, Col {caretPos.col}</span>}
         <span className="ide-status-sep" />
         <button className={"ide-status-toggle" + (showProblems ? " on" : "")} onClick={() => setShowProblems((v) => !v)}>
           {errCount > 0 && <span className="dot err" />}
