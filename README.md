@@ -144,7 +144,7 @@ One repo, four products — take only what you need:
 | `unity/Packages/` | the Unity packages — the development home; consumers install the mirrors |
 | `examples/` | the minimal sources the README and CI point at |
 
-Demo content (the Sovet demo's art/audio) lives in
+Demo content (the demo library's art/audio) lives in
 [`lvn-demo-content`](https://github.com/fomeanator/lvn-demo-content);
 `scripts/fetch-demo-content.sh` pulls it in for dev servers and releases.
 

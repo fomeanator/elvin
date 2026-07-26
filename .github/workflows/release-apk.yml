@@ -38,10 +38,10 @@ jobs:
           until curl -s -m 1 "http://localhost:$PORT/healthz" >/dev/null; do sleep 0.5; done
           curl -s -X POST "http://localhost:$PORT/v1/export" \
             -H "Authorization: Bearer release" -H "Content-Type: application/json" \
-            -d '{"name":"Sovet Demo","bundleId":"com.ominis.sovetdemo","company":"Ominis","offline":true}' \
+            -d '{"name":"Elvin Demo","bundleId":"com.ominis.elvindemo","company":"Ominis","offline":true}' \
             -o export.zip
           mkdir -p export && tar -xf export.zip -C export
-          test -d "export/SovetDemo/Assets/StreamingAssets/lvn"
+          test -d "export/ElvinDemo/Assets/StreamingAssets/lvn"
 
       - name: build APK from the tagged engine
         run: |
@@ -49,23 +49,23 @@ jobs:
           # use the checked-out package — identical code, no network fetch.
           python3 - <<PY
           import json
-          p = 'export/SovetDemo/Packages/manifest.json'
+          p = 'export/ElvinDemo/Packages/manifest.json'
           d = json.load(open(p))
           d['dependencies']['com.lvn.engine'] = 'file:${{ github.workspace }}/unity/Packages/com.lvn.engine'
           json.dump(d, open(p, 'w'), indent=2)
           PY
-          export LVN_BUILD_OUT="$PWD/sovet-demo-${GITHUB_REF_NAME}.apk"
-          "$UNITY" -batchmode -nographics -projectPath "$PWD/export/SovetDemo" \
+          export LVN_BUILD_OUT="$PWD/elvin-demo-${GITHUB_REF_NAME}.apk"
+          "$UNITY" -batchmode -nographics -projectPath "$PWD/export/ElvinDemo" \
             -buildTarget Android -executeMethod Lvn.EditorTools.CliBuild.Android \
             -quit -logFile - | grep -E "\[lvn-build\]|error CS" || true
-          test -s "sovet-demo-${GITHUB_REF_NAME}.apk"
+          test -s "elvin-demo-${GITHUB_REF_NAME}.apk"
 
       - name: attach to the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="$GITHUB_REF_NAME"
-          APK="sovet-demo-${TAG}.apk"
+          APK="elvin-demo-${TAG}.apk"
           PRERELEASE=$([[ "$TAG" == *-* ]] && echo true || echo false)
           # create the release for this tag, or reuse an existing one
           RID=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
@@ -89,6 +89,6 @@ jobs:
         if: always()
         continue-on-error: true
         with:
-          name: sovet-demo-apk
+          name: elvin-demo-apk
           path: "*.apk"
           if-no-files-found: ignore

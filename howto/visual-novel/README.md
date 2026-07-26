@@ -123,4 +123,4 @@ The goal is **0 warning(s)**. The most common warning, "label … reached by fal
 - [Language reference](../LANGUAGE.md) — the single source of truth for syntax.
 - [Recipe book](../recipes.md) — short reusable patterns.
 - [All genres](../README.md) — the map of game types and a quick start.
-- A large real script: `server/content/scripts/soviet-ch1.lvns` — a full-size novel built on the same constructs.
+- A large real script: `server/content/scripts/tour-ch01.lvns` — a shipped chapter built on the same constructs.

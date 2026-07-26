@@ -1,8 +1,8 @@
 # Reverse-engineering articy:draft `.adpd` — working findings
 
 > Living log of the binary-format reverse engineering. Verified facts vs open
-> questions are tagged. Test corpus: the "Советское воспитание" project
-> (articy:draft 3.x project, ~25k flow objects). Everything below was checked
+> questions are tagged. Test corpus: a private partner project
+> (articy:draft 3.x, ~25k flow objects). Everything below was checked
 > against the real `Flow` / `Entities` / `Global_Variables` partitions.
 
 ## Project layout (on disk, after unrar)

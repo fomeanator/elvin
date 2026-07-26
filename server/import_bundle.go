@@ -257,7 +257,7 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 // and sprite ids are just Slug(actor label) — so two novels whose protagonist
 // slugs collide (the default protagonist role slugs to Главный_герой for ALL
 // of them) silently overwrite each other. Live incident 2026-07-25: a test
-// Mechlove import replaced Cold's layered wardrobe heroine (and the Katya
+// A test import replaced another title's layered wardrobe heroine (and the
 // entry title.hero points at) with a flat PNG.
 //
 // Policy: an entry another LIVE title depends on — its title.hero, or any
