@@ -8,7 +8,7 @@ import (
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
 
-// DefaultTemplate is fully compiled and carries the original "cold" conventions.
+// DefaultTemplate is fully compiled and carries the built-in default conventions.
 func TestDefaultTemplateCompiled(t *testing.T) {
 	tpl := DefaultTemplate()
 	if tpl.sceneMarker == nil {
@@ -101,9 +101,9 @@ func TestResolveTemplate(t *testing.T) {
 		[]byte(`{"name":"myproj","staging":{"npc_side":"center"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"", "default", "cold"} {
+	for _, name := range []string{"", "default"} {
 		tpl, err := ResolveTemplate(name, dir)
-		if err != nil || tpl.Name != "cold" {
+		if err != nil || tpl.Name != "default" {
 			t.Fatalf("ResolveTemplate(%q) = %v, %v", name, tpl, err)
 		}
 	}
@@ -172,32 +172,32 @@ func TestAudioCueFromTemplate(t *testing.T) {
 	}
 }
 
-// cold.json in server content mirrors the built-in DefaultTemplate exactly, so the
+// default.json in server content mirrors the built-in DefaultTemplate exactly, so the
 // shipped reference file and the code can't drift apart silently.
 // The contract INVERTED (ResolveTemplate: the author's file always wins, the
-// code built-in is only the no-file fallback): cold.json is now authoritative
+// code built-in is only the no-file fallback): default.json is now authoritative
 // and legitimately diverges from DefaultTemplate (emotion legend, speaker
 // names). Assert the new contract instead of the old byte-for-byte sync.
-func TestColdJSONFileWins(t *testing.T) {
+func TestDefaultJSONFileWins(t *testing.T) {
 	dir := filepath.FromSlash("../../../server/content/import-templates")
-	if _, err := os.Stat(filepath.Join(dir, "cold.json")); err != nil {
-		t.Skipf("cold.json not present: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "default.json")); err != nil {
+		t.Skipf("default.json not present: %v", err)
 	}
-	tpl, err := ResolveTemplate("cold", dir)
+	tpl, err := ResolveTemplate("default", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := tpl.resolve()
 	// A field only the FILE carries proves the file was actually loaded.
 	if len(r.SpeakerNames) == 0 {
-		t.Fatal("ResolveTemplate(\"cold\") returned the built-in — the file must win when present")
+		t.Fatal("ResolveTemplate(\"default\") returned the built-in — the file must win when present")
 	}
 	// Core conventions must still resolve (overlay-by-presence keeps defaults).
 	if r.Wardrobe.FlagKey == "" || r.Staging.ProtagonistLabel == "" {
 		t.Fatalf("file template lost built-in defaults: %+v", r)
 	}
 	// And with NO directory the built-in fallback still works.
-	fb, err := ResolveTemplate("cold", t.TempDir())
+	fb, err := ResolveTemplate("default", t.TempDir())
 	if err != nil || fb == nil {
 		t.Fatalf("built-in fallback broken: %v", err)
 	}

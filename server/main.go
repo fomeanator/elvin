@@ -160,6 +160,10 @@ func main() {
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	mux.HandleFunc("/v1/admin/import-articy", srv.handleImportArticy)
 	mux.HandleFunc("/v1/admin/import-bundle", srv.handleImportBundle)
+	// The other half of a re-import: list what the three-way merge parked and
+	// commit one side of it. Wired to adminSvc so a resolution takes the same
+	// editorial write lock as a manifest/script save (import_conflicts.go).
+	srv.routesImportConflicts(mux, adminSvc)
 	mux.HandleFunc("/v1/admin/stage-extract", srv.handleStageExtract)
 	mux.HandleFunc("/v1/admin/detect-roles", srv.handleDetectRoles)
 	mux.HandleFunc("/v1/admin/staged-upload/", srv.handleStagedUpload)

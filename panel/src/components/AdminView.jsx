@@ -1,37 +1,74 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminUsers, adminUserDetail, adminGrant,
-  adminOrders, adminSaves, adminSaveDetail, adminDeleteSave,
+  adminOrders, adminSaves, adminSaveDetail, adminDeleteSave, adminConflicts,
 } from "../lib/api.js";
 import { useAsync, useDebounced, authMsg, fmt, dt } from "./adminShared.jsx";
 import Sidebar, { NAV } from "./admin/Sidebar.jsx";
 import { AdmShell, Page, Drawer, LoadState, Empty, Confirm, usePagination, Pagination, Facet, countBy } from "./admin/ui.jsx";
 import Overview from "./admin/Overview.jsx";
+import Novels from "./admin/Novels.jsx";
+import Conflicts from "./admin/Conflicts.jsx";
+import Analytics from "./admin/Analytics.jsx";
 import AdminEconomy from "./AdminEconomy.jsx";
 import AdminAssets from "./AdminAssets.jsx";
-import AdminAnalytics from "./AdminAnalytics.jsx";
 import AdminManifest from "./AdminManifest.jsx";
 
 // The admin dashboard: a left nav rail over section pages, records opening in
-// a right-side drawer. Sections: Обзор (landing), Аудитория (users/orders/
-// saves), Игра (economy/assets/manifest), Метрики (analytics). Визуал stays in
-// the Студия's ThemePanel and titles/chapters in LibraryHome — this dashboard
-// is operations, not authoring.
+// a right-side drawer. The FIRST group is the author's path (мои новеллы →
+// конфликты → аналитика); Аудитория/Игра are the background operations under
+// it. Визуал stays in the Студия's ThemePanel and titles/chapters in
+// LibraryHome — this dashboard is operations and oversight, not authoring.
 const KEYS = NAV.flatMap((g) => g.items.map((i) => i.key));
 
-export default function AdminView({ creds, notify }) {
+export default function AdminView({ creds, notify, section: sectionProp, onSection }) {
   const [section, setSectionState] = useState(() => {
+    if (KEYS.includes(sectionProp)) return sectionProp;
     const s = localStorage.getItem("lvn_admin_tab");
     return KEYS.includes(s) ? s : "overview";
   });
   const token = useDebounced(creds.token, 400); // не спамить 401 на каждый символ ввода
   // Повторный клик по активному пункту перемонтирует страницу — жест «обновить всё».
   const [bump, setBump] = useState(0);
+  // Открыть конфликты уже отфильтрованными по новелле (переход из кабинета).
+  const [conflictTitle, setConflictTitle] = useState("");
+  const clearConflictFocus = useCallback(() => setConflictTitle(""), []);
   const onNav = (k) => {
     if (k === section) { setBump((b) => b + 1); return; }
     setSectionState(k);
     localStorage.setItem("lvn_admin_tab", k);
+    if (onSection) onSection(k); // держим #/admin/<tab> в адресной строке
   };
+  // Deep link (#/admin/<section>) wins over the remembered tab: LibraryHome
+  // sends the author straight to the conflicts of the import that just ran.
+  useEffect(() => {
+    if (KEYS.includes(sectionProp)) {
+      setSectionState(sectionProp);
+      localStorage.setItem("lvn_admin_tab", sectionProp);
+    }
+  }, [sectionProp]);
+
+  // The conflict count is the one number the whole shell needs: it is the
+  // "state undefined" flag for every novel, so it rides in the nav badge and
+  // refreshes on a timer instead of only when the conflicts page is open.
+  // diff=0 makes it a cheap directory walk with no diffing at all.
+  const [pending, setPending] = useState(0);
+  const pollPending = useCallback(() => {
+    if (!token) { setPending(0); return Promise.resolve(); }
+    return adminConflicts(token, { diff: false })
+      .then((d) => setPending(d.count || 0))
+      .catch(() => setPending(0));
+  }, [token]);
+  useEffect(() => {
+    if (!token) { setPending(0); return undefined; }
+    let live = true;
+    const poll = () => adminConflicts(token, { diff: false })
+      .then((d) => live && setPending(d.count || 0))
+      .catch(() => live && setPending(0));
+    poll();
+    const t = setInterval(poll, 30000);
+    return () => { live = false; clearInterval(t); };
+  }, [token, section, bump]);
   // Сайдбар сворачивается в иконочный рейл (Ctrl/Cmd+B), выбор переживает перезагрузку.
   // На узком экране (<900px) тот же тоггл открывает сайдбар ОВЕРЛЕЕМ поверх контента.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("lvn_admin_sidebar") === "collapsed");
@@ -66,12 +103,24 @@ export default function AdminView({ creds, notify }) {
   return (
     <AdmShell.Provider value={{ toggleSidebar }}>
     <div className={"adm" + (collapsed ? " collapsed" : "") + (mobileOpen ? " mobile-open" : "")}>
-      <Sidebar active={section} onNav={onNavMobile} tokenOk={!!token} collapsed={collapsed} />
+      <Sidebar active={section} onNav={onNavMobile} tokenOk={!!token} collapsed={collapsed}
+               badges={{ conflicts: pending }} />
       {mobileOpen && <div className="adm-mobile-scrim" onClick={() => setMobileOpen(false)} />}
       <main className="adm-main" key={section + ":" + bump}>
         {(
           <>
-            {section === "overview" && <Overview token={token} onNav={onNav} />}
+            {section === "overview" && <Overview token={token} onNav={onNav} pending={pending} />}
+            {section === "novels" && (
+              <Novels
+                token={token} notify={notify} onNav={onNav}
+                onOpenConflicts={(id) => { setConflictTitle(id || ""); onNav("conflicts"); }}
+              />
+            )}
+            {section === "conflicts" && (
+              <Conflicts token={token} notify={notify} focusTitle={conflictTitle}
+                         onFocusUsed={clearConflictFocus} onNav={onNav} onChanged={pollPending} />
+            )}
+            {section === "analytics" && <Analytics token={token} />}
             {section === "users" && <UsersPage token={token} notify={notify} />}
             {section === "orders" && <OrdersPage token={token} />}
             {section === "saves" && <SavesPage token={token} notify={notify} />}
@@ -83,11 +132,6 @@ export default function AdminView({ creds, notify }) {
             {section === "assets" && (
               <Page title="Ассеты" description="Контент-директория сервера: арт, фоны, скрипты. Клик по имени копирует URL.">
                 <AdminAssets token={token} notify={notify} />
-              </Page>
-            )}
-            {section === "analytics" && (
-              <Page title="Аналитика" description="События игры по дням: количество, уникальные игроки, разбивка по событиям.">
-                <AdminAnalytics token={token} />
               </Page>
             )}
             {section === "manifest" && (

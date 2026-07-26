@@ -8,7 +8,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 // live economy + today's activity), the freshest orders, and today's top
 // events. Each block loads independently so one slow endpoint doesn't blank
 // the page.
-export default function Overview({ token, onNav }) {
+export default function Overview({ token, onNav, pending }) {
   const users = useAsync(() => adminUsers(token), [token]);
   const orders = useAsync(() => adminOrders(token), [token]);
   const day = useAsync(() => adminAnalytics(today(), token), [token]);
@@ -29,6 +29,17 @@ export default function Overview({ token, onNav }) {
 
   return (
     <Page title="Обзор" description="Аудитория, экономика и активность — одним экраном.">
+      {/* Неразобранный импорт — первое, что видно: пока файлы припаркованы,
+          у новеллы две версии, и молчать об этом нельзя. */}
+      {pending > 0 && (
+        <div className="adm-alert bad">
+          <span>
+            После импорта не разобрано файлов: <b>{pending}</b>. Игрокам отдаётся ваша версия,
+            версия из articy лежит рядом — состояние новеллы не определено.
+          </span>
+          <button className="adm-link" onClick={() => onNav("conflicts")}>Разобрать →</button>
+        </div>
+      )}
       {hasDraft && (
         <div className="adm-alert">
           <span>Есть неопубликованный черновик манифеста — игроки его не видят.</span>
