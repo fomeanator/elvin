@@ -205,33 +205,33 @@
       "who": "Игра окончена. Твой счёт"
     },
     {
-      "else": "__nf1",
+      "else": "__nf_result_1",
       "expr": "score == 3",
       "op": "if",
       "then": "grade_a"
     },
     {
-      "id": "__nf1",
+      "id": "__nf_result_1",
       "op": "label"
     },
     {
-      "else": "__nf2",
+      "else": "__nf_result_2",
       "expr": "score \u003e= 2",
       "op": "if",
       "then": "grade_b"
     },
     {
-      "id": "__nf2",
+      "id": "__nf_result_2",
       "op": "label"
     },
     {
-      "else": "__nf3",
+      "else": "__nf_result_3",
       "expr": "score == 1",
       "op": "if",
       "then": "grade_c"
     },
     {
-      "id": "__nf3",
+      "id": "__nf_result_3",
       "op": "label"
     },
     {
