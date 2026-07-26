@@ -34,7 +34,7 @@ func TestE2EProjects(t *testing.T) {
 			}
 			// Gather the chapters actually written (multi-chapter → res.Scripts; single
 			// → res.ScriptRel/Lvn), plus the title's manifest chapters for asset checks.
-			if err := WriteToContentDir(out, res); err != nil {
+			if _, err := WriteToContentDir(out, res); err != nil {
 				t.Fatalf("write: %v", err)
 			}
 			chapters := chaptersOf(res)
@@ -96,7 +96,7 @@ func TestE2ELocalizeMultiChapter(t *testing.T) {
 		}
 		// Every chapter .lvn should be fully keyed (no inline say text survived).
 		out := t.TempDir()
-		if err := WriteToContentDir(out, res); err != nil {
+		if _, err := WriteToContentDir(out, res); err != nil {
 			t.Fatalf("write: %v", err)
 		}
 		inlineFound := false

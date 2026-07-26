@@ -341,7 +341,8 @@ func (s *server) contentHandler(dir string) http.Handler {
 		// bypass the save-key check entirely.
 		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
 		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
-			strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
+			strings.HasPrefix(rel, ".history/") || strings.HasPrefix(rel, ".lvn-import/") ||
+			rel == "manifest.draft.json" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
