@@ -19,17 +19,18 @@ import (
 )
 
 type AnalyticsService struct {
+	owners     *ownerIndex // title → author, for attribution stamping
 	mu         sync.Mutex
 	dir        string
 	auth       *AuthService
 	adminToken string
 }
 
-func NewAnalyticsService(dir string, auth *AuthService, adminToken string) (*AnalyticsService, error) {
+func NewAnalyticsService(dir string, auth *AuthService, adminToken string, owners *ownerIndex) (*AnalyticsService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	return &AnalyticsService{dir: dir, auth: auth, adminToken: adminToken}, nil
+	return &AnalyticsService{dir: dir, auth: auth, adminToken: adminToken, owners: owners}, nil
 }
 
 func (s *AnalyticsService) Routes(mux *http.ServeMux) {
@@ -42,6 +43,12 @@ type analyticsEvent struct {
 	TS    string         `json:"ts,omitempty"`
 	Props map[string]any `json:"props,omitempty"`
 	User  string         `json:"user,omitempty"` // filled server-side, never trusted from the client
+	// Attribution, stamped at write time (see attribution.go). Title is
+	// client-reported — only the client knows what it is playing; Author is
+	// resolved from the manifest server-side, so a client cannot name its own
+	// payee. Neither can be reconstructed once the request is gone.
+	Title  string `json:"title,omitempty"`
+	Author string `json:"author,omitempty"`
 }
 
 var reDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -147,6 +154,18 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 			ev.TS = now.Format(time.RFC3339)
 		}
 		ev.User = user
+		// The client may also pass the title inside props (that is where the
+		// Unity helper puts context today) — accept either spelling, then
+		// resolve the author OURSELVES. A client-supplied author is discarded.
+		if ev.Title == "" {
+			if t, ok := ev.Props["title"].(string); ok {
+				ev.Title = t
+			}
+		}
+		if len(ev.Title) > 64 {
+			ev.Title = ev.Title[:64]
+		}
+		ev.Author = s.owners.authorOf(ev.Title)
 		line, _ := json.Marshal(ev)
 		if _, err := f.Write(append(line, '\n')); err == nil {
 			accepted++

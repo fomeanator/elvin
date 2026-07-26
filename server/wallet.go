@@ -75,6 +75,11 @@ type walletEntry struct {
 	Amount   int64  `json:"amount,omitempty"`
 	SKU      string `json:"sku,omitempty"`
 	Reason   string `json:"reason,omitempty"`
+	// Attribution — which title the money moved in, and whose title that is.
+	// A creator payout can only ever be computed from history that carried
+	// this at the time; see attribution.go.
+	Title  string `json:"title,omitempty"`
+	Author string `json:"author,omitempty"`
 }
 
 // iapProduct is a catalog entry. Currency+Amount are what /v1/iap/verify
@@ -101,6 +106,7 @@ type iapProduct struct {
 }
 
 type WalletService struct {
+	owners  *ownerIndex // title → author, stamped onto every history entry
 	mu      sync.Mutex
 	dir     string
 	auth    *AuthService
@@ -133,7 +139,7 @@ var reUserFile = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // NewWalletService: catalogPath is optional (missing file = empty catalog —
 // every IAP verify then 404s on the sku, which is the safe default).
-func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev bool) (*WalletService, error) {
+func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev bool, owners *ownerIndex) (*WalletService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -141,7 +147,7 @@ func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev 
 	// the per-user wallet dir (services/energy.json). Missing file = no regen
 	// currencies, so this is a no-op for anyone who doesn't ship energy.
 	regenPath := filepath.Join(filepath.Dir(dir), "energy.json")
-	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev,
+	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev, owners: owners,
 		catalog: newHotJSON(catalogPath, map[string]iapProduct{}),
 		regen:   newHotJSON(regenPath, map[string]regenRule{})}
 	s.verifyApple = verifyAppleReceipt
@@ -387,6 +393,10 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			// Client-generated idempotency key: the same op replayed (offline
 			// queue, lost response) applies EXACTLY once.
 			OpID string `json:"op_id"`
+			// Which title the money moved in. Only the client knows; the AUTHOR
+			// is resolved server-side from it, never taken from the request —
+			// otherwise a client could name its own payee (see attribution.go).
+			Title string `json:"title"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil ||
 			req.Currency == "" || req.Amount <= 0 || req.Reason == "" {
@@ -432,6 +442,7 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 		s.accrue(doc, s.now()) // re-settle the refill clock for the new balance
 		doc.History = append(doc.History, walletEntry{
 			TS: time.Now().UTC().Format(time.RFC3339), Type: kind,
+			Title: req.Title, Author: s.owners.authorOf(req.Title),
 			Currency: req.Currency, Amount: req.Amount, SKU: req.SKU, Reason: req.Reason,
 		})
 		if req.OpID != "" {

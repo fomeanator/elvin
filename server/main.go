@@ -104,8 +104,11 @@ func main() {
 	authSvc.AuthDev = *authDev
 	authSvc.GoogleClientID = *googleClientID
 	authSvc.AppleBundleID = *appleBundleID
+	// One shared title→author index: attribution is stamped at write time, and
+	// both the wallet and analytics need the same answer to the same question.
+	owners := newOwnerIndex(filepath.Join(*contentDir, "manifest.json"))
 	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), authSvc,
-		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev)
+		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev, owners)
 	if err != nil {
 		log.Fatalf("wallet service: %v", err)
 	}
@@ -123,7 +126,7 @@ func main() {
 	if !*authDev && (*googleClientID == "" || *appleBundleID == "") {
 		log.Printf("note: -google-client-id / -apple-bundle-id unset — platform token audience is not pinned (fine for dev, set both in production)")
 	}
-	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken)
+	analyticsSvc, err := NewAnalyticsService(filepath.Join(servicesDir, "analytics"), authSvc, *adminToken, owners)
 	if err != nil {
 		log.Fatalf("analytics service: %v", err)
 	}

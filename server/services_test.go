@@ -32,11 +32,11 @@ func servicesMuxFull(t *testing.T, iapDev bool) (*http.ServeMux, *AuthService, s
 	if err != nil {
 		t.Fatal(err)
 	}
-	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, iapDev)
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, iapDev, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	analytics, err := NewAnalyticsService(filepath.Join(dir, "analytics"), auth, "admintok")
+	analytics, err := NewAnalyticsService(filepath.Join(dir, "analytics"), auth, "admintok", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestWallet_EnergyRegenSeedCapSpendAndBuyPastCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	now := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
 	wallet.clock = func() time.Time { return now }
 
@@ -256,7 +256,7 @@ func TestIAP_BundleGrantsMultipleCurrencies(t *testing.T) {
 		`{"bundle_starter":{"currency":"gold","amount":500,"grants":{"gold":500,"energy":3}}}`), 0o644)
 
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true) // dev IAP
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true, nil) // dev IAP
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -313,7 +313,7 @@ func TestDaily_StreakGrowsResetsAndRefusesSecondClaim(t *testing.T) {
 	// A time machine for the daily service: rebuild it on the same stores
 	// with a controllable clock.
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	day := time.Date(2026, 7, 4, 10, 0, 0, 0, time.UTC)
 	daily, _ := NewDailyService(filepath.Join(dir, "daily"), auth, wallet,
 		filepath.Join(dir, "no-rewards.json")) // default: 25 gold
@@ -433,7 +433,7 @@ func TestIAP_CatalogIsPublicAndSorted(t *testing.T) {
 		"plain":    {"currency": "crystals", "amount": 1}
 	}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false, nil)
 	mux := http.NewServeMux()
 	wallet.Routes(mux)
 
@@ -541,7 +541,7 @@ func TestIAP_AppleReceiptPathAndReplayGuard(t *testing.T) {
 	catalog := filepath.Join(dir, "iap-catalog.json")
 	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency": "gold", "amount": 100}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false, nil)
 	wallet.AppleSharedSecret = "shhh"
 	wallet.verifyApple = func(receipt, sku, secret, bundleID string) (string, error) {
 		if receipt != "valid-receipt" {
@@ -582,7 +582,7 @@ func TestAds_RewardGrantsAndDailyCap(t *testing.T) {
 	adsPath := filepath.Join(dir, "ads.json")
 	_ = os.WriteFile(adsPath, []byte(`{"gold_small":{"currency":"gold","amount":25,"daily_cap":2}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	ads, _ := NewAdsService(filepath.Join(dir, "ads"), auth, wallet, adsPath)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
@@ -619,7 +619,7 @@ func TestAdmin_UsersOrdersGrantAndManifest(t *testing.T) {
 	_ = os.MkdirAll(content, 0o755)
 	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"titles":[]}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", true)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", true, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
@@ -673,7 +673,7 @@ func TestEconomy_CatalogsHotReloadFromDisk(t *testing.T) {
 	catalog := filepath.Join(dir, "iap-catalog.json")
 	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency":"gold","amount":100}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true, nil)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -701,7 +701,7 @@ func TestAdmin_ConfigWhitelistRoundTrip(t *testing.T) {
 	content := filepath.Join(dir, "content")
 	_ = os.MkdirAll(content, 0o755)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -728,7 +728,7 @@ func TestAdmin_ImportTemplatesCRUD(t *testing.T) {
 	content := filepath.Join(dir, "content")
 	_ = os.MkdirAll(content, 0o755)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -811,7 +811,7 @@ func TestAdmin_DraftPublishAndHistoryRollback(t *testing.T) {
 	_ = os.MkdirAll(content, 0o755)
 	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"v": 1}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -859,7 +859,7 @@ func TestAdmin_FilesBrowserHidesInternals(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(content, ".history"), 0o755)
 	_ = os.WriteFile(filepath.Join(content, "bg", "room.jpg"), []byte("jpg"), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -938,7 +938,7 @@ func TestWallet_EarnKillSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false)
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
