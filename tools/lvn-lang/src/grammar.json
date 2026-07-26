@@ -10,6 +10,7 @@
     "bg",
     "actor",
     "obj",
+    "clear",
     "fade",
     "dim",
     "flash",
@@ -206,11 +207,13 @@
     ],
     "wardrobe_show": [
       "char"
-    ]
+    ],
+    "clear": []
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
   "closed_field_ops": [
     "bg",
+    "clear",
     "fade",
     "dim",
     "flash",
@@ -220,6 +223,7 @@
     "particles",
     "audio",
     "wait",
+    "input",
     "preload",
     "text_pace",
     "text",
@@ -231,11 +235,10 @@
     "hint",
     "call",
     "return",
-    "label",
     "save",
     "load",
-    "input",
-    "wardrobe_show"
+    "wardrobe_show",
+    "label"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
   "enums": {
@@ -483,6 +486,10 @@
     "wardrobe_show": [
       "wardrobe_show char=\"hill\"",
       "Open the in-story wardrobe for a character."
+    ],
+    "clear": [
+      "clear",
+      "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
     ]
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
@@ -493,6 +500,7 @@
         "bg",
         "actor",
         "obj",
+        "clear",
         "fade",
         "dim",
         "flash",

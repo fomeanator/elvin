@@ -43,7 +43,7 @@ namespace Lvn
             // paused or acted on by the player AND forwarded to the stage
             "wait", "input", "preload", "load",
             // presentation — forwarded to ILvnStage.ApplyStage
-            "bg", "actor", "obj", "text", "audio",
+            "bg", "actor", "obj", "clear", "text", "audio",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles", "anim", "text_pace", "hint", "save",
             // part of the language, implemented in com.lvn.engine.shell
