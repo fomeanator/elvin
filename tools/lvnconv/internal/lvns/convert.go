@@ -61,6 +61,14 @@ var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*
 // Convert parses lvns source and returns the .lvn document.
 func Convert(src string) (*Doc, error) { return convertWith(src, nil) }
 
+// nestCtx — то, что вложенная компиляция обязана унаследовать от объемлющего
+// документа. Блок опции это НЕ отдельный файл: он часть той же главы, и всё,
+// что глава успела объявить выше по тексту, для него так же в силе.
+type nestCtx struct {
+	names     *synthNamer       // чтобы минтованные метки не столкнулись
+	actorMaps map[string]string // чтобы реплика в блоке не потеряла who_id
+}
+
 // convertWith is Convert with one extra input: the label namespace of an
 // ENCLOSING document. A woven option block is compiled by calling back into the
 // compiler, and with a fresh namer each nesting level restarts at seq 1 — an
@@ -68,7 +76,7 @@ func Convert(src string) (*Doc, error) { return convertWith(src, nil) }
 // duplicate label and a chapter the validator refuses. Inheriting the namer
 // keeps every minted name unique across nesting AND keeps it derived from the
 // nearest author label, so it still does not move when the chapter is edited.
-func convertWith(src string, inherited *synthNamer) (*Doc, error) {
+func convertWith(src string, outer *nestCtx) (*Doc, error) {
 	// Lower the sugar before the line parser runs (core language stays tiny):
 	//  1. flattenInline: put every control-flow `{`/`}` on its own line,
 	//  2. collectFuncs: read the func signatures AND classify each one (expression
@@ -173,9 +181,15 @@ func convertWith(src string, inherited *synthNamer) (*Doc, error) {
 		doc.SrcLine = append(doc.SrcLine, line)
 	}
 
-	if inherited != nil {
-		nfNames = inherited
+	if outer != nil {
+		nfNames = outer.names
 		nfNames.absorb(lines) // the block's own author labels must not be shadowed
+		// Speaker→actor mapping: without it a line inside a woven block lost its
+		// who_id, so the stage highlighted nobody for exactly those lines — and
+		// the round-trip guard saw the field appear out of nowhere on recompile.
+		for k, v := range outer.actorMaps {
+			actorMaps[k] = v
+		}
 	} else {
 		nfNames = newSynthNamer(lines)
 	}
@@ -319,7 +333,7 @@ func convertWith(src string, inherited *synthNamer) (*Doc, error) {
 						if !closed {
 							return nil, fmt.Errorf("line %d: unclosed choice option body (missing '}')", srcNo[j-1])
 						}
-						cmds, berr := parseBlockCommands(body, nfNames)
+						cmds, berr := parseBlockCommands(body, &nestCtx{names: nfNames, actorMaps: actorMaps})
 						if berr != nil {
 							return nil, fmt.Errorf("line %d: %w", srcNo[i], berr)
 						}
@@ -1991,8 +2005,8 @@ func splitOptionParams(s string) (text, params string) {
 // parseBlockCommands compiles an option's `{ … }` block. It does NOT judge what
 // is in there — the caller does, via needsWeaving: a block of set/inc/goto rides
 // along as a runtime `body`, anything richer is lowered into script (weave.go).
-func parseBlockCommands(lines []string, names *synthNamer) ([]Cmd, error) {
-	doc, err := convertWith(strings.Join(lines, "\n"), names)
+func parseBlockCommands(lines []string, outer *nestCtx) ([]Cmd, error) {
+	doc, err := convertWith(strings.Join(lines, "\n"), outer)
 	if err != nil {
 		return nil, fmt.Errorf("choice option body: %w", err)
 	}
