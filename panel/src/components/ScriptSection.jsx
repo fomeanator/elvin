@@ -473,8 +473,15 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
       // Persist BOTH the editable source (.lvns) and the compiled bytecode (.lvn)
       // to the server — the source is what the editor re-reads on open, so this is
       // what makes the no-drafts model work.
+      //
+      // The COMPILED script goes first, because it is the one the server
+      // structurally validates (dangling jumps, duplicate labels — see
+      // lvnguard.go). If it is refused, this throws before the .lvns is
+      // touched, so source and bytecode can never end up describing different
+      // stories; the author's text is still in the editor (and its local
+      // draft) and the errors land in the toast.
+      const saved = await putAsset(lvnPath, lastJson.current, creds.token, "application/json");
       await putAsset(lvnsPath, src, creds.token, "text/plain; charset=utf-8");
-      await putAsset(lvnPath, lastJson.current, creds.token, "application/json");
       // a new chapter is published on first save: push its manifest entry too.
       if (selId && !published.has(selId)) {
         await persist(title);
@@ -483,6 +490,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
       } else {
         notify(`✓ Saved ${lvnsPath} (+ .lvn) — live in ~2s`, "ok");
       }
+      // Advisory findings from the server's gate (a host op nobody declared,
+      // a label nothing reaches). The save DID go through, so they replace the
+      // success toast rather than pretending to be a failure.
+      const warns = (saved && saved.warnings) || [];
+      if (warns.length) notify(`⚠ Сохранено, но ${warns.length}: ${warns[0]}`, "err");
       savedSrc.current = src; // the server now agrees — clean
       if (selId) try { localStorage.removeItem(draftKey(selId)); } catch { }
     } catch (e) { notify("✗ " + e.message, "err"); }

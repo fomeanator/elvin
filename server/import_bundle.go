@@ -217,6 +217,8 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		return
 	}
 	s.guardSpriteCollisions(res)
+	// Same structural gate an author's "Save to app" passes — see lvnguard.go.
+	lvnCheck := s.checkImportedScripts(res)
 	if err := importer.WriteToContentDir(s.content, res); err != nil {
 		http.Error(w, "write: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -240,6 +242,7 @@ func (s *server) runBundleAndRespond(w http.ResponseWriter, in importer.BundleIn
 		"bg_missing": len(res.MissingBg),
 		"ops":        res.Stats,
 		"warnings":   res.Warnings, // genuinely-incomplete source data (missing art, etc.)
+		"lvn_check":  lvnCheck,     // structural verdict on every generated .lvn (lvnguard.go)
 		// Connectivity/linearizer transparency (reachable, stitched, orphans,
 		// jumps resolved). The single-file /import has reported it for a while,
 		// but the BUNDLE path — the one the panel and production actually use —
