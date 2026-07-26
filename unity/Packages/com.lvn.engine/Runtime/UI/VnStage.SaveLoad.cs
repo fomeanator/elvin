@@ -22,6 +22,15 @@ namespace Lvn.UI
         /// the host's hook for cloud sync / analytics. Argument: the slot name.</summary>
         public event Action<string> Saved;
 
+        /// <summary>Raised after every resume with how faithfully the cursor could
+        /// be placed. The one a host MUST handle is
+        /// <see cref="LvnPlayer.RestoreFidelity.ChapterChanged"/>: the chapter was
+        /// rewritten under the save, the position is gone and the chapter restarted
+        /// from the top (variables kept). Say so — "this chapter has been updated,
+        /// starting it again" — instead of letting the player wonder why "Continue"
+        /// opened a scene they had never reached.</summary>
+        public event Action<LvnPlayer.RestoreFidelity> Resumed;
+
         // ── save / load ──────────────────────────────────────────────────────
         // `save [slot=name]` writes the player snapshot (cursor + vars + call stack)
         // to PlayerPrefs; `load [slot=name]` restores it, rebuilds the scene from the
@@ -99,6 +108,11 @@ namespace Lvn.UI
             // made this guard always-false and silently swallowed every resume.
             int epoch = _stageEpoch;            // an Exit/chapter change mid-restore must not repaint the cleared stage
             player.Restore(snap);               // cursor (via label anchor) + vars + call stack
+            var fidelity = player.LastRestore;
+            if (fidelity == LvnPlayer.RestoreFidelity.ChapterChanged)
+                Debug.LogWarning("[lvn] resume: the chapter changed under this save — " +
+                                 "no anchor survived, restarting the chapter (variables kept)");
+            Resumed?.Invoke(fidelity);
             player.ClearHistory();              // the rollback trail no longer describes the path here
             int at = player.Index;              // the anchor-relocated cursor, not the raw saved index
             at = player.ResumeRenderIndex(at);  // step back onto the say the player was reading (never skip a seen beat)
