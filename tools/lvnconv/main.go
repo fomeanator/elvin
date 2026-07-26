@@ -127,7 +127,7 @@ func detectFormat(path string) string {
 // exposed on the CLI: an extracted .adpd project directory in, a playable title
 // (script + matted art + manifest entry) written into a content root out.
 //
-//	lvnconv import <project-dir> -id soviet -name "Советское воспитание" -content ./server/content
+//	lvnconv import <project-dir> -id my-novel -name "My Novel" -content ./server/content
 func cmdImport(args []string) {
 	var lead string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {

@@ -5,7 +5,7 @@ don't have to start from a blank hex editor. Part of [lvnconv](../README.md).*
 
 articy:draft saves its project as proprietary binary partitions (`ADPD8`). There
 is no public specification. This document writes down everything we verified
-against a real project (the "Советское воспитание" novel, articy:draft 3.x,
+against a real project (a private novella, articy:draft 3.x,
 ~25k flow objects) — what the bytes mean, what you can pull out of them today,
 and — just as importantly — **what you cannot**, and why.
 
@@ -175,11 +175,10 @@ at a time.
 > it cost real story: while resyncing, the scanner can land mid-entry on bytes that
 > happen to parse as a *valid* entry and thereby swallow the real entry behind it.
 >
-> Measured on five live partner projects (Cold / Lastaut / Inaweb / Soviet /
-> Mechlove): ~22% of body bytes fall into resync, and in 11–15 connections per
+> Measured on five live partner projects (private, not in this repo): ~22% of body bytes fall into resync, and in 11–15 connections per
 > project the swallowed entry was the connection's **first** ref — its `source`.
 > A connection with three refs looks malformed and gets dropped, so the flow is
-> cut at that point. One such cut left Cold's Эпизод 11 with 14 reachable beats
+> cut at that point. One such cut left a 739-beat chapter with 14 reachable beats
 > out of 739; four projects out of five sat at 79–91% reachable instead of 100%.
 >
 > The fix is not a smarter resync but **knowing the widths**. Every tag actually
@@ -198,7 +197,7 @@ at a time.
 > Only `0x0a`/`propid 0x009` is decoded today, deliberately: it is the one that
 > stood before the connection refs, and a blanket "any propid with tag 0x0a" rule
 > measured *worse* — it swallowed a container's `0x39` self ordinal and dropped a
-> whole chapter from Cold (25 → 24). Widen this table one propid at a time, and
+> whole chapter from a 25-chapter project (25 → 24). Widen this table one propid at a time, and
 > re-measure `TestConnectivityOnRealProjects` after each step.
 
 ### 6.2 The propids that matter
@@ -283,13 +282,13 @@ author notes* (team comments, scene-category labels, testing TODOs) with no
 in-flow connections — not story. (This project has **no `Jump` nodes** — the
 pockets are sub-scenes reached through container nesting, surfaced by the hub.)
 
-**`Jump` nodes (classId 78) do exist in other projects** — Cold has 10, Inaweb 12,
-Mechlove 9 — and they are NOT wired with connections. A Jump's own output pin is
+**`Jump` nodes (classId 78) do exist in real projects** — 9 to 12 per project in the
+ones measured — and they are NOT wired with connections. A Jump's own output pin is
 always empty; its destination is a ref under `propid 0x02a` pointing at the
 **target's pin** (the sibling ref there is a `ModelDependency` wrapper — tell them
 apart by which ordinal is a known pin). Treat the Jump as transparent routing:
 enter the target node through that pin. Until this was decoded the flow simply
-ENDED at every Jump — in Cold that killed the death/retry branch ("Вас убили!
+ENDED at every Jump — in one live novella that killed the death/retry branch ("you died,
 Попробуйте ещё раз" → Jump back to a checkpoint Outcome), so a death was a dead
 end instead of a rewind.
 
