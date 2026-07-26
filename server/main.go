@@ -145,6 +145,7 @@ func main() {
 		log.Fatalf("ads service: %v", err)
 	}
 	adminSvc := NewAdminService(*contentDir, *adminToken, authSvc, walletSvc)
+	srv.admin = adminSvc // share the editorial write lock (see (*server).writeLock)
 	clientLogSvc, err := NewClientLogService(filepath.Join(servicesDir, "client-logs"), *adminToken)
 	if err != nil {
 		log.Fatalf("client log service: %v", err)
@@ -267,9 +268,13 @@ type server struct {
 	stateToken  string
 	importRoot  string
 	templateDir string
-	mu          sync.RWMutex
-	state       map[string]stateEntry // user id -> save + version
-	stateOrder  []string              // insertion order, for bounded eviction
+	// admin is wired in main() purely to share ONE editorial write lock across
+	// every snapshot+write pair on content/ (see writeLock). May be nil in
+	// tests and in a server built without the panel API.
+	admin      *AdminService
+	mu         sync.RWMutex
+	state      map[string]stateEntry // user id -> save + version
+	stateOrder []string              // insertion order, for bounded eviction
 
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
@@ -343,10 +348,15 @@ func (s *server) contentHandler(dir string) http.Handler {
 		// (services/), edit history and the unpublished draft. Serving
 		// them here would hand any visitor another player's wallet and
 		// bypass the save-key check entirely.
+		// A re-import conflict parks the incoming version BESIDE the live file
+		// as <name>.incoming (importer/baseline.go), so it lands inside the
+		// served tree — unlike the other private subtrees it has no directory
+		// to hide behind. It is unpublished, unreviewed content the author has
+		// not accepted yet; serving it would publish every rejected version.
 		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
 		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
 			strings.HasPrefix(rel, ".history/") || strings.HasPrefix(rel, ".lvn-import/") ||
-			rel == "manifest.draft.json" {
+			strings.HasSuffix(rel, ".incoming") || rel == "manifest.draft.json" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
@@ -401,10 +411,15 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") {
 			return nil
 		}
-		// Editorial plumbing, not content: history snapshots and the unpublished
-		// manifest draft must never bump the version (a backup would otherwise
-		// reload every client).
-		if strings.HasPrefix(rel, ".history/") || rel == "manifest.draft.json" {
+		// Editorial plumbing, not content: history snapshots, the re-import
+		// baseline, parked conflict versions and the unpublished manifest draft
+		// must never bump the version (a backup would otherwise reload every
+		// client). The .incoming case is the live one: an import that ends in
+		// conflicts parks a file next to each live chapter, so a routine
+		// re-import would reload every player mid-chapter over content nobody
+		// has accepted yet.
+		if strings.HasPrefix(rel, ".history/") || strings.HasPrefix(rel, ".lvn-import/") ||
+			strings.HasSuffix(rel, ".incoming") || rel == "manifest.draft.json" {
 			return nil
 		}
 		data, derr := os.ReadFile(path)
@@ -713,6 +728,23 @@ func (s *server) writeStateFile(user string, entry stateEntry) error {
 	return atomicWrite(p, encodeStateFile(entry), 0o644)
 }
 
+// writeLock returns the ONE mutex that serialises snapshot+write pairs on
+// content/. admin.go documents the contract ("two parallel panel saves can't
+// lose a history revision"), and every AdminService write honours it — but the
+// asset endpoint below, which the panel's script editor and every CLI upload
+// go through, took no lock at all. Two saves of the same script racing meant
+// snapshotHistory writing the same .bak name twice: one revision lost, and the
+// version the author expected to roll back to simply not there. Falls back to
+// the same package-level mutex conflict resolution uses when no AdminService
+// was wired in (tests) — serialising against nothing still beats not
+// serialising.
+func (s *server) writeLock() *sync.Mutex {
+	if s.admin != nil {
+		return &s.admin.writeMu
+	}
+	return &fallbackWriteMu
+}
+
 func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 	if s.adminToken == "" {
 		http.Error(w, "admin disabled", http.StatusForbidden)
@@ -761,8 +793,15 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Snapshot and write are ONE indivisible step: the .bak name is derived
+		// from the clock, so two concurrent saves of the same file otherwise
+		// collide on it and the older revision is gone.
+		lk := s.writeLock()
+		lk.Lock()
 		snapshotHistory(s.content, rel) // scripts keep their past versions
-		if err := atomicWrite(dst, body, 0o644); err != nil {
+		err = atomicWrite(dst, body, 0o644)
+		lk.Unlock()
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -770,8 +809,14 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 			"path": rel, "bytes": len(body), "warnings": orEmpty(findings.Warnings),
 		})
 	case http.MethodDelete:
+		// Same pair, same lock: a delete that races a save must not lose the
+		// snapshot that makes the delete undoable.
+		lk := s.writeLock()
+		lk.Lock()
 		snapshotHistory(s.content, rel)
-		if err := os.Remove(dst); err != nil {
+		err := os.Remove(dst)
+		lk.Unlock()
+		if err != nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
