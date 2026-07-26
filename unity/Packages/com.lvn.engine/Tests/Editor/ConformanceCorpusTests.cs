@@ -251,6 +251,27 @@ namespace Lvn.Tests
                     case "bg":
                         Bg = (string)c["sprite_url"];
                         break;
+                    // clear takes everyone off stage at once. It must leave the
+                    // SAME residue a per-actor `show=false` leaves — placement
+                    // remembered, actor invisible — because the live stage keeps
+                    // _placements through a hide, so a later `actor id=…` with no
+                    // position returns her to the slot she left.
+                    case "clear":
+                        foreach (var kv in Actors)
+                        {
+                            var keptPl = new JObject();
+                            foreach (var keep in new[] { "position", "x", "y" })
+                                if (kv.Value[keep] != null) keptPl[keep] = kv.Value[keep].DeepClone();
+                            kv.Value.RemoveAll();
+                            foreach (var p in keptPl.Properties()) kv.Value[p.Name] = p.Value.DeepClone();
+                            kv.Value["__visible"] = false;
+                        }
+                        break;
+                    // obj is a placeable sprite and shares the actor pipeline on
+                    // the live stage (VnStage.ApplyStage routes both to
+                    // ApplyActorAsync), so the reduction has to treat it the same
+                    // — otherwise "clear also removes objects" is untestable.
+                    case "obj":
                     case "actor":
                         var id = (string)c["id"];
                         if (string.IsNullOrEmpty(id)) break;
