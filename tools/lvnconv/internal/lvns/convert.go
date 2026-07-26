@@ -59,7 +59,16 @@ var KnownOps = map[string]bool{
 var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*(.*)$`)
 
 // Convert parses lvns source and returns the .lvn document.
-func Convert(src string) (*Doc, error) {
+func Convert(src string) (*Doc, error) { return convertWith(src, nil) }
+
+// convertWith is Convert with one extra input: the label namespace of an
+// ENCLOSING document. A woven option block is compiled by calling back into the
+// compiler, and with a fresh namer each nesting level restarts at seq 1 — an
+// inner weave and an outer one both minted `__weave_head_1`, which is a
+// duplicate label and a chapter the validator refuses. Inheriting the namer
+// keeps every minted name unique across nesting AND keeps it derived from the
+// nearest author label, so it still does not move when the chapter is edited.
+func convertWith(src string, inherited *synthNamer) (*Doc, error) {
 	// Lower the sugar before the line parser runs (core language stays tiny):
 	//  1. flattenInline: put every control-flow `{`/`}` on its own line,
 	//  2. collectFuncs: read the func signatures AND classify each one (expression
@@ -164,7 +173,12 @@ func Convert(src string) (*Doc, error) {
 		doc.SrcLine = append(doc.SrcLine, line)
 	}
 
-	nfNames = newSynthNamer(lines)
+	if inherited != nil {
+		nfNames = inherited
+		nfNames.absorb(lines) // the block's own author labels must not be shadowed
+	} else {
+		nfNames = newSynthNamer(lines)
+	}
 
 	defs := make(map[string]string) // def <name> <template…> → line-prefix macros
 
@@ -259,6 +273,7 @@ func Convert(src string) (*Doc, error) {
 		// 4. Choice: consecutive lines starting with `-` (but not `->`, which is goto)
 		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "->") {
 			var options []any
+			var weaves []weaveBlock // blocks too rich for a body — lowered below
 			j := i
 			for j < len(lines) {
 				curr := lines[j]
@@ -277,11 +292,23 @@ func Convert(src string) (*Doc, error) {
 					if isOptionBlockOpen(curr) {
 						var body []string
 						closed := false
+						// Depth-counted, so an option block may contain another
+						// choice with its own blocks: a flat scan would end the
+						// outer block at the INNER `}` and silently reparent the
+						// rest of it as top-level script.
+						depth := 1
+						blockLine := srcNo[j-1]
 						for ; j < len(lines); j++ {
-							if lines[j] == "}" {
-								closed = true
-								j++
-								break
+							t := strings.TrimSpace(lines[j])
+							if t == "}" {
+								depth--
+								if depth == 0 {
+									closed = true
+									j++
+									break
+								}
+							} else if isOptionBlockOpen(t) {
+								depth++
 							}
 							bl, derr := expandDefs(lines[j], srcNo[j])
 							if derr != nil {
@@ -292,22 +319,40 @@ func Convert(src string) (*Doc, error) {
 						if !closed {
 							return nil, fmt.Errorf("line %d: unclosed choice option body (missing '}')", srcNo[j-1])
 						}
-						cmds, berr := parseOptionBody(body)
+						cmds, berr := parseBlockCommands(body, nfNames)
 						if berr != nil {
 							return nil, fmt.Errorf("line %d: %w", srcNo[i], berr)
 						}
-						// The header's `-> label` is the jump the body ends with —
-						// keeping it on the option line is what makes the target
-						// still readable (and greppable) at a glance.
-						if t, ok := opt["goto"].(string); ok && t != "" {
-							cmds = append(cmds, Cmd{"op": "goto", "label": t})
+						target, _ := opt["goto"].(string)
+						if needsWeaving(cmds) {
+							// WEAVE. The block holds prose or flow, which a runtime
+							// `body` cannot carry: LvnPlayer.Choose dispatches only
+							// set/inc/goto there, and a body command has no index in
+							// the script, so anything else would vanish on the first
+							// save/restore. Same syntax, different mechanism — the
+							// block is lowered to ordinary script behind a minted
+							// label, exactly as the author would have written it by
+							// hand, minus the naming.
+							lbl := nfNames.name("weave", nfNames.site())
+							weaves = append(weaves, weaveBlock{
+								label: lbl, cmds: cmds, target: target, line: blockLine,
+							})
 							delete(opt, "goto")
+							opt["goto"] = lbl
+						} else {
+							// The header's `-> label` is the jump the body ends with —
+							// keeping it on the option line is what makes the target
+							// still readable (and greppable) at a glance.
+							if target != "" {
+								cmds = append(cmds, Cmd{"op": "goto", "label": target})
+								delete(opt, "goto")
+							}
+							bodyAny := make([]any, len(cmds))
+							for k, c := range cmds {
+								bodyAny[k] = map[string]any(c)
+							}
+							opt["body"] = bodyAny
 						}
-						bodyAny := make([]any, len(cmds))
-						for k, c := range cmds {
-							bodyAny[k] = map[string]any(c)
-						}
-						opt["body"] = bodyAny
 					}
 					options = append(options, opt)
 				} else {
@@ -320,6 +365,7 @@ func Convert(src string) (*Doc, error) {
 			}
 			pendingChoice = nil
 			emit(cc, srcNo[i])
+			emitWeaves(emit, nfNames, weaves, srcNo[i])
 			i = j
 			continue
 		}
@@ -1585,6 +1631,17 @@ func expandLoops(srcLines []string) (string, error) {
 				lastStmt = ""
 				continue
 			}
+			// A nested OPTION block is legal: a woven branch may hold another
+			// choice, and its options carry blocks of their own (weave.go).
+			// Push a frame so the matching `}` closes the inner one — a flat
+			// scan would close the OUTER block on the inner brace and silently
+			// reparent the rest of the branch as top-level script.
+			if isOptionBlockOpen(det) {
+				out = append(out, raw)
+				stack = append(stack, frame{kind: "opt"})
+				lastStmt = ""
+				continue
+			}
 			if strings.HasSuffix(det, "{") {
 				return "", fmt.Errorf("choice option body: nested blocks are not allowed (%q) — "+
 					"the body is a flat command list; move branching to a label and lead there with '-> label'", det)
@@ -1931,16 +1988,13 @@ func splitOptionParams(s string) (text, params string) {
 // compile time would make an existing .lvn carrying one impossible to decompile
 // and recompile, and round-trip totality is the stronger invariant: a chapter
 // nobody can re-save is a chapter whose author loses work.
-func parseOptionBody(lines []string) ([]Cmd, error) {
-	doc, err := Convert(strings.Join(lines, "\n"))
+// parseBlockCommands compiles an option's `{ … }` block. It does NOT judge what
+// is in there — the caller does, via needsWeaving: a block of set/inc/goto rides
+// along as a runtime `body`, anything richer is lowered into script (weave.go).
+func parseBlockCommands(lines []string, names *synthNamer) ([]Cmd, error) {
+	doc, err := convertWith(strings.Join(lines, "\n"), names)
 	if err != nil {
 		return nil, fmt.Errorf("choice option body: %w", err)
-	}
-	for _, c := range doc.Script {
-		if op, _ := c["op"].(string); optionBodyDenied[op] {
-			return nil, fmt.Errorf("choice option body: %q does not run inside an option body "+
-				"(it belongs to set/inc and a final '-> label') — move it behind a label", op)
-		}
 	}
 	return doc.Script, nil
 }
@@ -1950,6 +2004,10 @@ func parseOptionBody(lines []string) ([]Cmd, error) {
 // csharp "player"/"player+stage") except set/inc/goto, which Choose implements
 // explicitly. Handed to a body they would be forwarded to the stage and disappear
 // without a trace.
+//
+// This list used to make such a block an ERROR. It is now the weave fork instead
+// (weave.go): the same block is lowered into ordinary script behind a minted
+// label, which is what the author would have hand-written anyway.
 var optionBodyDenied = map[string]bool{
 	"say": true, "choice": true, "label": true, "if": true,
 	"call": true, "return": true, "wait": true, "input": true,
