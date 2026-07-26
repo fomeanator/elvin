@@ -414,8 +414,8 @@ export default function SpritesView({ creds, notify, titleId }) {
       return Math.min(byId ?? Infinity, byName ?? Infinity);
     };
     const cmp = (a, b) => ord(a) - ord(b) || a.localeCompare(b, "ru");
-    // Look-variants share one display name (Матвей / Matvey_bloody /
-    // Matvey_bandage…) — the roster shows ONE tile per character, variants
+    // Look-variants share one display name (Роман / Roman_bloody /
+    // Roman_bandage…) — the roster shows ONE tile per character, variants
     // fold inside it. Grouping is by display name within each tier.
     const grouped = (list) => {
       const by = new Map();
@@ -760,7 +760,7 @@ function RosterCard({ group, catalog, bust, activeId, onPick }) {
 }
 
 // Chip label for a variant id: strip the segments every variant of the group
-// shares (project prefix + the character: Cold_Matvey_mechanic → "mechanic");
+// shares (project prefix + the character: Demo_Roman_mechanic → "mechanic");
 // the main entity shows as «основной».
 function variantLabel(vid, group) {
   if (vid === group.ids[0]) return "основной";

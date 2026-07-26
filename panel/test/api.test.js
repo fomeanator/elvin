@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adminFetch, adminUsers, adminDeleteAsset, putAsset } from "../src/lib/api.js";
+import {
+  adminFetch, adminUsers, adminDeleteAsset, putAsset,
+  adminConflicts, adminResolveConflict, analyticsSummary, analyticsFunnel, analyticsHealth,
+} from "../src/lib/api.js";
 
 // fetch is mocked per test — these are contract tests for the thin client:
 // auth header, typed 401, JSON/text switching, and path encoding.
@@ -65,5 +68,68 @@ describe("wrappers", () => {
     await putAsset("/content/scripts/ch1.lvn", "hi", "tok", "text/plain");
     const [url] = fn.mock.calls[0];
     expect(url).toBe("/v1/admin/assets/scripts/ch1.lvn");
+  });
+});
+
+describe("import conflicts", () => {
+  it("asks for the plain listing by default", async () => {
+    const fn = mockFetch(async () => jsonResponse({ count: 0, conflicts: [] }));
+    await adminConflicts("tok");
+    expect(fn.mock.calls[0][0]).toBe("/v1/admin/import-conflicts");
+  });
+
+  it("polls without diffing when only the count is wanted", async () => {
+    const fn = mockFetch(async () => jsonResponse({ count: 2 }));
+    await adminConflicts("tok", { diff: false });
+    expect(fn.mock.calls[0][0]).toBe("/v1/admin/import-conflicts?diff=0");
+  });
+
+  it("narrows to one path (which also raises the server's diff budget)", async () => {
+    const fn = mockFetch(async () => jsonResponse({ count: 1, conflicts: [] }));
+    await adminConflicts("tok", { rel: "scripts/n/ch 1.lvn" });
+    expect(fn.mock.calls[0][0]).toBe("/v1/admin/import-conflicts?rel=scripts%2Fn%2Fch%201.lvn");
+  });
+
+  it("posts the chosen side as JSON", async () => {
+    const fn = mockFetch(async () => jsonResponse({ resolved: true, choice: "incoming" }));
+    await adminResolveConflict("scripts/n/ch1.lvn", "incoming", "tok");
+    const [url, opt] = fn.mock.calls[0];
+    expect(url).toBe("/v1/admin/import-conflicts/resolve");
+    expect(opt.method).toBe("POST");
+    expect(JSON.parse(opt.body)).toEqual({ rel: "scripts/n/ch1.lvn", choice: "incoming", title: "" });
+  });
+
+  it("surfaces a 422 rejection as the validator's own error lines", async () => {
+    // The resolve endpoint answers an invalid .lvn with {errors:[…]}; the UI
+    // must show WHY the version cannot ship, not a raw JSON blob.
+    mockFetch(async () => new Response(
+      JSON.stringify({ rejected: true, errors: ["not a .lvn document: invalid character 'l'"] }),
+      { status: 422, headers: { "content-type": "application/json" } }));
+    await expect(adminResolveConflict("scripts/n/ch1.lvn", "incoming", "tok"))
+      .rejects.toThrow(/not a \.lvn document/);
+  });
+});
+
+describe("analytics reports", () => {
+  it("passes the window through and omits '?' when it is empty", async () => {
+    const fn = mockFetch(async () => jsonResponse({ total: 0 }));
+    await analyticsSummary("days=7", "tok");
+    await analyticsSummary("", "tok");
+    expect(fn.mock.calls[0][0]).toBe("/v1/analytics/summary?days=7");
+    expect(fn.mock.calls[1][0]).toBe("/v1/analytics/summary");
+  });
+
+  it("joins the window and the title on the funnel endpoint", async () => {
+    const fn = mockFetch(async () => jsonResponse({ funnel: {} }));
+    await analyticsFunnel("days=7&min=5", "novel", "tok");
+    await analyticsFunnel("", "", "tok");
+    expect(fn.mock.calls[0][0]).toBe("/v1/analytics/funnel?days=7&min=5&title=novel");
+    expect(fn.mock.calls[1][0]).toBe("/v1/analytics/funnel?title=");
+  });
+
+  it("sends the window to health too", async () => {
+    const fn = mockFetch(async () => jsonResponse({ gaps: [] }));
+    await analyticsHealth("day=2026-07-26", "tok");
+    expect(fn.mock.calls[0][0]).toBe("/v1/analytics/health?day=2026-07-26");
   });
 });

@@ -307,7 +307,7 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
 	}
 	PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
-	AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
+	AnnotateChoiceEffects(doc, tpl) // "+2 Роман" preview on choice buttons
 
 	// Resolve art before localization swaps say text for keys (art reads sprite_url,
 	// not text, but keep the ordering intent explicit).
@@ -446,7 +446,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 			applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
 		}
 		PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
-		AnnotateChoiceEffects(doc, tpl) // "+2 Матвей" preview on choice buttons
+		AnnotateChoiceEffects(doc, tpl) // "+2 Роман" preview on choice buttons
 		art, missing, firstBg := collectArt(index, doc, artCache)
 		sprites, extraArt := BuildCatalog(doc)
 		art = append(art, extraArt...)

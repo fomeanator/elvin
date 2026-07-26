@@ -9,12 +9,12 @@ func TestPostProcessBundle(t *testing.T) {
 	// A character entity keyed by tech name, plus the layered heroine.
 	res := &Result{
 		Sprites: map[string]any{
-			"cold_matvey": map[string]any{
-				"name": "Matvey",
+			"demo_roman": map[string]any{
+				"name": "Roman",
 				"kind": "layered",
 				"axes": map[string]any{"emotion": []any{"idle", "happy"}},
 			},
-			"cold_main": map[string]any{
+			"demo_main": map[string]any{
 				"name":   "Главная героиня",
 				"kind":   "layered",
 				"layers": []any{map[string]any{"id": "hair"}, map[string]any{"id": "clothes"}},
@@ -28,25 +28,25 @@ func TestPostProcessBundle(t *testing.T) {
 		{"op": "bg", "id": "Двор", "sprite_url": "/content/bg/Двор.jpg"},
 		{"op": "set", "key": "Music.Battle", "value": true},
 		{"op": "set", "key": "Music.Calm", "value": false}, // falsy → no audio op
-		{"op": "say", "who": "Matvey", "text": "Hi"},
+		{"op": "say", "who": "Roman", "text": "Hi"},
 	}
 	sb, _ := json.Marshal(scriptOps)
 	res.Scripts = []ScriptFile{{Rel: "scripts/ch1.lvn", Data: sb}}
 
 	xd := XlsxData{
 		Chars: []CharMap{
-			{StoryName: "Matvey", TechName: "Cold_Matvey", Role: "ВТОР"},
-			{StoryName: "Katya", TechName: "Cold_Main", Role: "ГГ"},
+			{StoryName: "Roman", TechName: "Demo_Roman", Role: "ВТОР"},
+			{StoryName: "Mira", TechName: "Demo_Main", Role: "ГГ"},
 		},
-		Locations: map[string]string{"Двор": "Cold_yard"},
+		Locations: map[string]string{"Двор": "Demo_yard"},
 		Wardrobe: map[string][]WardrobeItem{
 			"Wardrobe.mainCh_Hair": {
-				{Variable: "Wardrobe.mainCh_Hair", Value: "11", Name: "Офисная причёска.", TechName: "Cold_Main_Hairs_11"},
-				{Variable: "Wardrobe.mainCh_Hair", Value: "12", Name: "", TechName: "Cold_Main_Hairs_12"},   // blank → fallback name
-				{Variable: "Wardrobe.mainCh_Hair", Value: "13", Hide: true, TechName: "Cold_Main_Hairs_13"}, // hidden → dropped
+				{Variable: "Wardrobe.mainCh_Hair", Value: "11", Name: "Офисная причёска.", TechName: "Demo_Main_Hairs_11"},
+				{Variable: "Wardrobe.mainCh_Hair", Value: "12", Name: "", TechName: "Demo_Main_Hairs_12"},   // blank → fallback name
+				{Variable: "Wardrobe.mainCh_Hair", Value: "13", Hide: true, TechName: "Demo_Main_Hairs_13"}, // hidden → dropped
 			},
 			"Wardrobe.mainCh_Clothes": {
-				{Variable: "Wardrobe.mainCh_Clothes", Value: "1", Name: "Костюм", TechName: "Cold_Main_clothes_1"},
+				{Variable: "Wardrobe.mainCh_Clothes", Value: "1", Name: "Костюм", TechName: "Demo_Main_clothes_1"},
 			},
 		},
 	}
@@ -54,24 +54,24 @@ func TestPostProcessBundle(t *testing.T) {
 
 	PostProcessBundle(res, xd, "", nil) // "" = rewrite bg unconditionally (no on-disk фон gate)
 
-	// 1) Character re-key: cold_matvey → Matvey.
-	if _, ok := res.Sprites["cold_matvey"]; ok {
-		t.Errorf("expected old key cold_matvey removed")
+	// 1) Character re-key: demo_roman → Roman.
+	if _, ok := res.Sprites["demo_roman"]; ok {
+		t.Errorf("expected old key demo_roman removed")
 	}
-	if _, ok := res.Sprites["Matvey"]; !ok {
-		t.Errorf("expected character re-keyed to actor id Matvey")
-	}
-
-	// 2) Protagonist alias: Katya added, cold_main kept.
-	if _, ok := res.Sprites["Katya"]; !ok {
-		t.Errorf("expected heroine aliased to protagonist actor id Katya")
-	}
-	if _, ok := res.Sprites["cold_main"]; !ok {
-		t.Errorf("expected cold_main alias kept for title.hero")
+	if _, ok := res.Sprites["Roman"]; !ok {
+		t.Errorf("expected character re-keyed to actor id Roman")
 	}
 
-	// 3) Wardrobe block built on the heroine (shared with the Katya alias).
-	ent := res.Sprites["cold_main"].(map[string]any)
+	// 2) Protagonist alias: Mira added, demo_main kept.
+	if _, ok := res.Sprites["Mira"]; !ok {
+		t.Errorf("expected heroine aliased to protagonist actor id Mira")
+	}
+	if _, ok := res.Sprites["demo_main"]; !ok {
+		t.Errorf("expected demo_main alias kept for title.hero")
+	}
+
+	// 3) Wardrobe block built on the heroine (shared with the Mira alias).
+	ent := res.Sprites["demo_main"].(map[string]any)
 	wb, ok := ent["wardrobe"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected wardrobe block on heroine entity")
@@ -107,8 +107,8 @@ func TestPostProcessBundle(t *testing.T) {
 	// A player-name default is seeded at the very top (the display name is player-
 	// entered); drop it so the positional assertions below read the original script.
 	if len(outOps) > 0 && outOps[0]["op"] == "set" && outOps[0]["key"] == "player" {
-		if outOps[0]["value"] != "Katya" || outOps[0]["default"] != true {
-			t.Errorf("player seed = %v, want value=Katya default=true", outOps[0])
+		if outOps[0]["value"] != "Mira" || outOps[0]["default"] != true {
+			t.Errorf("player seed = %v, want value=Mira default=true", outOps[0])
 		}
 		outOps = outOps[1:]
 	} else {
@@ -119,8 +119,8 @@ func TestPostProcessBundle(t *testing.T) {
 	if outOps[0]["op"] != "bg" || outOps[0]["id"] != "Двор" {
 		t.Fatalf("first op should stay the bg for Двор, got %v", outOps[0])
 	}
-	if got := outOps[0]["sprite_url"]; got != "/content/bg/Cold_yard.png" {
-		t.Errorf("bg sprite_url = %v, want /content/bg/Cold_yard.png", got)
+	if got := outOps[0]["sprite_url"]; got != "/content/bg/Demo_yard.png" {
+		t.Errorf("bg sprite_url = %v, want /content/bg/Demo_yard.png", got)
 	}
 
 	// Music set followed by an inserted audio op.
@@ -150,11 +150,11 @@ func TestPostProcessBundle(t *testing.T) {
 // urls for the real HD фон files. Left unrefreshed, the title card and
 // chapter-1 thumbnail point at a stale (often missing/corrupt) file even
 // though the script itself plays the correct background — exactly the "no
-// first background" symptom reported against a live Cold import.
+// first background" symptom reported against a live partner import.
 func TestPostProcessBundleRefreshesCoverURL(t *testing.T) {
 	scriptOps := []map[string]any{
 		{"op": "bg", "id": "Двор", "sprite_url": "/content/bg/STALE_PLACEHOLDER.png"},
-		{"op": "say", "who": "Matvey", "text": "Hi"},
+		{"op": "say", "who": "Roman", "text": "Hi"},
 	}
 	sb, _ := json.Marshal(scriptOps)
 	res := &Result{
@@ -166,11 +166,11 @@ func TestPostProcessBundleRefreshesCoverURL(t *testing.T) {
 			}}}},
 		},
 	}
-	xd := XlsxData{Locations: map[string]string{"Двор": "Cold_yard"}}
+	xd := XlsxData{Locations: map[string]string{"Двор": "Demo_yard"}}
 
 	PostProcessBundle(res, xd, "", nil) // "" = rewrite bg unconditionally (no on-disk фон gate)
 
-	const want = "/content/bg/Cold_yard.png"
+	const want = "/content/bg/Demo_yard.png"
 	if got := res.Title.CoverURL; got != want {
 		t.Errorf("Title.CoverURL = %q, want %q (stale pre-rewrite url leaked through)", got, want)
 	}

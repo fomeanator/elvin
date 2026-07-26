@@ -29,8 +29,8 @@ func mustRoundTrip(t *testing.T, doc *articy.Doc) *lvns.Doc {
 func TestRoundTripUnbalancedGuillemetKeepsEverySay(t *testing.T) {
 	doc := &articy.Doc{Script: []articy.Cmd{
 		{"op": "say", "who": "Автор", "text": "«Союз нерушимый республик свободных"},
-		{"op": "say", "who": "Автор", "text": "Сплотила навеки Великая Русь!"},
-		{"op": "say", "who": "Автор", "text": "Единый, могучий Советский Союз!»"},
+		{"op": "say", "who": "Автор", "text": "Тропа уходит в туман, и следы обрываются!"},
+		{"op": "say", "who": "Автор", "text": "И тогда он сказал: «дальше — сам»»"},
 		{"op": "say", "who": "ГГ", "text": "Видела такое в «Ну, погоди!"},
 	}}
 	rec := mustRoundTrip(t, doc)
@@ -40,8 +40,8 @@ func TestRoundTripUnbalancedGuillemetKeepsEverySay(t *testing.T) {
 	}
 	for i, want := range []string{
 		"«Союз нерушимый республик свободных",
-		"Сплотила навеки Великая Русь!",
-		"Единый, могучий Советский Союз!»",
+		"Тропа уходит в туман, и следы обрываются!",
+		"И тогда он сказал: «дальше — сам»»",
 		"Видела такое в «Ну, погоди!",
 	} {
 		if says[i] != want {
@@ -175,7 +175,11 @@ func TestChoiceBodyRoundTrips(t *testing.T) {
 	}
 	doc := &articy.Doc{Script: script}
 	src := string(ToLvns(doc))
-	if !strings.Contains(src, "- Спросить -> q1") || !strings.Contains(src, "_once_1 = true") {
+	// The flag is written in the `value` form it was compiled from, NOT as
+	// `_once_1 = true`: the parser's assignment rule always produces `expr`,
+	// so the pretty spelling would hand back a different command
+	// ({key,expr:"true"} instead of {key,value:true}) on every re-save.
+	if !strings.Contains(src, "- Спросить -> q1") || !strings.Contains(src, `set key="_once_1" value=true`) {
 		t.Fatalf("body not written as a block:\n%s", src)
 	}
 	if w := VerifyLvnsRoundTrip(script, []byte(src)); len(w) != 0 {
@@ -333,7 +337,7 @@ func TestRemoveUnreachableOpsDropsWardrobeTails(t *testing.T) {
 func TestApplyVarAliases(t *testing.T) {
 	tpl := &Template{VarAliases: map[string]string{"Relationship.": "Relationships."}}
 	ops := []map[string]any{
-		{"op": "set", "key": "Relationship.Matvey", "expr": "Relationships.Matvey +1"},
+		{"op": "set", "key": "Relationship.Roman", "expr": "Relationships.Roman +1"},
 		{"op": "if", "expr": "Relationship.Roman > 2"},
 		{"op": "choice", "options": []any{
 			map[string]any{"text": "x", "goto": "l", "expr": "Relationship.Ainan >= 1"},
@@ -341,7 +345,7 @@ func TestApplyVarAliases(t *testing.T) {
 		{"op": "say", "who": "A", "text": "Relationship. как слово в тексте"},
 	}
 	applyVarAliases(ops, tpl)
-	if ops[0]["key"] != "Relationships.Matvey" || ops[0]["expr"] != "Relationships.Matvey +1" {
+	if ops[0]["key"] != "Relationships.Roman" || ops[0]["expr"] != "Relationships.Roman +1" {
 		t.Fatalf("set not fixed: %v", ops[0])
 	}
 	if ops[1]["expr"] != "Relationships.Roman > 2" {
@@ -358,7 +362,7 @@ func TestApplyVarAliases(t *testing.T) {
 
 // The wardrobe swap must leave a STRAIGHT LINE from the opening flag to the
 // closing one: a surviving picker-branch `goto` used to cut the path to the
-// closing op and everything after it (a third of Cold ch24 was unreachable
+// closing op and everything after it (a third of one partner chapter was unreachable
 // on prod). keepInWardrobeBlock must drop picker control flow.
 func TestWardrobeSwapKeepsPathToClosing(t *testing.T) {
 	tpl := DefaultTemplate()

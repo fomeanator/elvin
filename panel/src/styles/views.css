@@ -1399,3 +1399,173 @@ body.col-resizing { cursor: col-resize; user-select: none; }
   .adm-form-grid { grid-template-columns: 1fr; }
   .adm-form-grid .span2 { grid-column: auto; }
 }
+
+/* ══ the author's path: конфликты, кабинет новеллы, аналитика ═══════════════ */
+
+/* nav badge — сколько файлов ждут разбора; счётчик живёт в шелле, потому что
+   это флаг «состояние новеллы не определено», а не деталь одной страницы */
+.adm-navbadge {
+  margin-left: auto; min-width: 20px; height: 18px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--bad); color: var(--ink-900);
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.adm.collapsed .adm-navitem.has-badge { position: relative; }
+.adm.collapsed .adm-navbadge {
+  position: absolute; top: 4px; right: 4px; margin: 0; min-width: 14px; height: 14px;
+  padding: 0 3px; font-size: 9px;
+}
+.adm-alert.bad { background: rgba(223, 138, 112, 0.13); border-color: var(--bad); color: var(--bad); }
+.adm-alert.bad .adm-link { color: var(--bad); }
+.adm-errlist { margin: 0 0 14px; padding-left: 18px; color: var(--bad); font-size: 12.5px; }
+.adm-foot-note { margin-top: 14px; }
+.adm-cell-sub.adm-nomargin { margin-left: 0; }
+.adm .pill.warn-pill { color: var(--warn); border-color: var(--warn); margin-left: 6px; }
+.adm-titlepick { width: auto; min-width: 150px; padding: 4px 8px; font-size: 12.5px; }
+.adm-minbox { width: 68px; padding: 4px 8px; font-size: 12.5px; }
+
+/* состояние новеллы / источник правки — словом, не цветом одним */
+.adm-state { font-size: 12px; font-weight: 600; }
+.adm-state.ok { color: var(--good); }
+.adm-state.conflicts { color: var(--bad); }
+.adm-state.unattributed, .adm-state.empty { color: var(--muted); }
+.adm-src { font-size: 11.5px; }
+.adm-src.editor { color: var(--rose-deep); }
+.adm-src.import { color: var(--paper-dim); }
+.adm-src.unknown { color: var(--faint); }
+
+/* ── конфликт: две стороны + дифф ── */
+.cf-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .cf-sides { grid-template-columns: 1fr; } }
+.cf-side {
+  background: var(--ink-800); border: 1px solid var(--line-soft);
+  border-radius: 8px; padding: 12px;
+}
+.cf-side.accent { border-color: var(--rose-deep); }
+.cf-side h4 {
+  margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); font-weight: 500;
+}
+.cf-thumb {
+  height: 150px; margin-bottom: 10px; border-radius: var(--r-sm);
+  background: repeating-conic-gradient(var(--ink-750) 0% 25%, var(--ink-900) 0% 50%) 50% / 16px 16px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.cf-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.cf-meta { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 12px; }
+.cf-meta dt { color: var(--muted); }
+.cf-meta dd { margin: 0; color: var(--paper); font-variant-numeric: tabular-nums; }
+.cf-meta code { font-family: var(--font-mono); font-size: 11.5px; color: var(--paper-dim); }
+.cf-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.cf-note { margin: 8px 0 0; }
+.cf-diff {
+  margin-top: 8px; max-height: 46vh; overflow: auto;
+  border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  background: var(--ink-900); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55;
+}
+.cf-diff-line { display: flex; white-space: pre; }
+.cf-diff-gutter { width: 18px; flex: none; text-align: center; color: var(--faint); user-select: none; }
+.cf-diff-text { flex: 1; padding-right: 10px; }
+.cf-diff-line.ctx { color: var(--paper-dim); }
+.cf-diff-line.add { background: rgba(147, 178, 124, 0.12); color: var(--good); }
+.cf-diff-line.del { background: rgba(223, 138, 112, 0.12); color: var(--bad); }
+.cf-diff-line.hunk { background: var(--ink-800); color: var(--muted); }
+.cf-diff-line.file { color: var(--faint); }
+
+/* ── кабинет новеллы ── */
+.nv-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+.nv-facts > div {
+  background: var(--ink-800); border: 1px solid var(--line-soft);
+  border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.nv-facts b { font-size: 14px; color: var(--paper); font-variant-numeric: tabular-nums; }
+.nv-undo {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 10px; padding: 8px 10px; font-size: 12.5px; color: var(--paper-dim);
+  background: var(--ink-800); border: 1px solid var(--line-soft); border-radius: 8px;
+}
+
+/* ── аналитика ── */
+.adm-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.adm-seg.wide { margin: 4px 0 16px; }
+.adm-seg-btn {
+  padding: 5px 14px; background: transparent; border: 0; border-right: 1px solid var(--line);
+  color: var(--paper-dim); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.adm-seg-btn:last-child { border-right: 0; }
+.adm-seg-btn:hover { background: var(--hover-bg); color: var(--paper); }
+.adm-seg-btn.on { background: var(--selected-bg); color: var(--rose); }
+.adm-kpis.tight { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.adm-kpi.as-stat { cursor: default; padding: 12px 14px; }
+.adm-kpi.as-stat:hover { border-color: var(--line-soft); transform: none; }
+.adm-kpi.as-stat .adm-kpi-value { font-size: 20px; }
+.adm-kpi.as-stat.bad .adm-kpi-value { color: var(--bad); }
+.adm-panel + .adm-panel, .adm-cols2 + .adm-panel, .adm-panel + .adm-cols2 { margin-top: 14px; }
+.an-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.an-meter { display: inline-flex; align-items: center; gap: 8px; }
+.an-meter-track { width: 68px; height: 6px; border-radius: 3px; background: var(--ink-900); overflow: hidden; }
+.an-meter-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--rose-deep), var(--rose)); }
+.an-meter-val { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); min-width: 34px; }
+.adm-bars-fill.bad { background: linear-gradient(90deg, #a8573f, var(--bad)); }
+.an-hours { display: flex; align-items: flex-end; gap: 3px; height: 96px; }
+.an-hour { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.an-hour-bar { width: 100%; border-radius: 2px 2px 0 0; background: var(--rose-deep); opacity: 0.75; }
+.an-hour-lbl { font-size: 9.5px; color: var(--faint); height: 12px; }
+.an-funnel { list-style: none; margin: 0; padding: 0; }
+.an-funnel-step { display: grid; grid-template-columns: 160px 1fr; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.an-funnel-step:last-child { border-bottom: 0; }
+.an-funnel-name { font-size: 12.5px; color: var(--paper); align-self: center; }
+.an-funnel-track { position: relative; height: 18px; background: var(--ink-900); border-radius: 4px; overflow: hidden; }
+.an-funnel-fill { position: absolute; inset: 0 auto 0 0; background: rgba(207, 144, 182, 0.35); }
+.an-funnel-done { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--rose-deep), var(--rose)); }
+.an-funnel-nums { grid-column: 2; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.an-funnel-nums b { color: var(--paper); }
+.adm .sev-high { color: var(--bad); font-weight: 700; }
+.adm .sev-med { color: var(--warn); font-weight: 600; }
+.adm .sev-low { color: var(--paper-dim); }
+.adm-drop { font-size: 11.5px; }
+.adm-drop.in_chapter { color: var(--warn); }
+.adm-drop.after_chapter { color: var(--rose-deep); }
+.adm-drop.failures { color: var(--bad); }
+.an-gaps { list-style: none; margin: 0; padding: 0; }
+.an-gap { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.an-gap:last-child { border-bottom: 0; }
+.an-gap.seen { opacity: 0.55; }
+.an-gap-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.an-gap-head code { font-family: var(--font-mono); color: var(--rose); }
+.an-gap p { margin: 4px 0 0; }
+.an-gap-fix { font-size: 12px; color: var(--paper-dim); }
+.an-gap-fix b { color: var(--muted); font-weight: 600; }
+
+/* ── отчёт импорта (Студия, сразу после прогона) ── */
+.import-report { max-width: 620px; text-align: left; }
+.ir-counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.ir-count {
+  padding: 4px 10px; border-radius: 999px; font-size: 12px;
+  border: 1px solid var(--line); color: var(--paper-dim);
+}
+.ir-count b { color: var(--paper); font-variant-numeric: tabular-nums; }
+.ir-count.conflict { border-color: var(--bad); color: var(--bad); }
+.ir-count.conflict b { color: var(--bad); }
+.ir-count.new { border-color: var(--good); }
+.ir-count.kept_local { border-color: var(--rose-deep); }
+.ir-conflicts {
+  background: rgba(223, 138, 112, 0.1); border: 1px solid var(--bad);
+  border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: var(--paper-dim);
+}
+.ir-conflicts p { margin: 0 0 6px; }
+.ir-conflicts ul { margin: 0; padding-left: 18px; }
+.ir-conflicts code { font-family: var(--font-mono); font-size: 11.5px; color: var(--paper); }
+.ir-details { margin-top: 10px; font-size: 12.5px; color: var(--paper-dim); }
+.ir-details summary { cursor: pointer; color: var(--muted); }
+.ir-details ul { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
+
+/* Мобильный брейкпоинт админки: на ≤900px сайдбар становится position:fixed,
+   то есть перестаёт быть элементом грида — и .adm-main, оставшись
+   единственным, попадал в ПЕРВУЮ дорожку (в этом брейкпоинте она 0) и получал
+   ширину 0: вся админка была пустым экраном. Растягиваем на все дорожки.
+   Баг существовал до этих экранов (проверено: .adm-main шириной 0 при 750px,
+   750px сразу после position:static на сайдбаре). */
+@media (max-width: 900px) {
+  .adm-main { grid-column: 1 / -1; }
+}

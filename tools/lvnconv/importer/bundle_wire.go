@@ -13,12 +13,12 @@ package importer
 // built-in DefaultTemplate's values; another project ships its own template.
 //
 // It runs AFTER the asset mappers have populated res.Sprites (character/heroine
-// entities keyed by tech name, e.g. "cold_matvey"/"cold_main") and the scripts
+// entities keyed by tech name, e.g. "demo_roman"/"demo_main") and the scripts
 // have been compiled. The orchestrator calls PostProcessBundle once, then writes
 // the mutated Result. Everything here is a pure in-place mutation of *res.
 //
 // NOTE for the orchestrator: this pass re-keys the protagonist's heroine entity to
-// the protagonist's actor id but deliberately KEEPS the "cold_main" alias, so the
+// the protagonist's actor id but deliberately KEEPS the "demo_main" alias, so the
 // orchestrator can still point `title.hero` at the resolved actor id
 // (Slug(protagonist.StoryName)). There is no Title.Hero / Result.HeroEntity field
 // to stash it in here, so setting title.hero remains the orchestrator's job.
@@ -40,10 +40,10 @@ import (
 // Result, mutating res in place. In order it:
 //
 //  1. re-keys character sprite entities from their tech-name key (e.g.
-//     "cold_matvey") to the story actor id used in the scripts (Slug(StoryName),
-//     e.g. "Matvey") so an `actor id="Matvey"` composes via the emotion art;
-//  2. re-keys the layered heroine ("cold_main") to the protagonist's actor id,
-//     keeping "cold_main" as an alias (see the package note above re: title.hero);
+//     "demo_roman") to the story actor id used in the scripts (Slug(StoryName),
+//     e.g. "Roman") so an `actor id="Roman"` composes via the emotion art;
+//  2. re-keys the layered heroine ("demo_main") to the protagonist's actor id,
+//     keeping "demo_main" as an alias (see the package note above re: title.hero);
 //  3. stamps `outfit={Wardrobe.<StoryName>}` (heroine also `outfit=`/`hair=` from
 //     mainCh_Clothes/mainCh_Hair) onto every `actor` op that left the slot unset,
 //     so the outfit follows the story variable at runtime;
@@ -182,9 +182,9 @@ func firstBgURL(ops []map[string]any) string {
 // indexBackgrounds builds a fuzzy lookup normalized-name → served-url for the real
 // HD backgrounds. It keys the actual фон files on disk (the ground truth, robust
 // to the «Локации» sheet's doubled-prefix / mis-mapped rows) and also folds in the
-// sheet's articy→tech mapping as a fallback. normBg strips the leading "cold_"
-// prefixes and punctuation so "Apartment_Katya_evening" matches a file named
-// "Cold_Cold_Apartment_Katya_evening.png".
+// sheet's articy→tech mapping as a fallback. normBg strips the leading "demo_"
+// prefixes and punctuation so "Apartment_Mira_evening" matches a file named
+// "Demo_Demo_Apartment_Mira_evening.png".
 func indexBackgrounds(contentDir string, locs map[string]string, tpl *Template) map[string]string {
 	minSize := tpl.resolve().Backgrounds.MinFileSize
 	if minSize <= 0 {
@@ -207,7 +207,7 @@ func indexBackgrounds(contentDir string, locs map[string]string, tpl *Template) 
 				}
 				// Index under the full name AND under progressively prefix-stripped
 				// suffixes (up to 2 leading "word_" segments) so a scene id matches a
-				// file with any project prefix ("Cold_", the doubled "Cold_Cold_", or
+				// file with any project prefix ("Demo_", the doubled "Demo_Demo_", or
 				// none) — no per-novel prefix hardcoded.
 				for _, k := range bgKeys(strings.TrimSuffix(n, filepath.Ext(n))) {
 					if _, ok := idx[k]; !ok {
@@ -220,7 +220,7 @@ func indexBackgrounds(contentDir string, locs map[string]string, tpl *Template) 
 	// Sheet fallback (used when the file scan is unavailable, e.g. in unit
 	// tests). When we CAN see the disk, only map to files that exist — the
 	// sheet routinely lists art that never shipped, and an unchecked entry
-	// rewrote scenes onto dead /content/bg/Cold_*.png URLs (21 broken
+	// rewrote scenes onto dead /content/bg/Demo_*.png URLs (21 broken
 	// backgrounds on the live import).
 	for articy, tech := range locs {
 		k := normBg(strings.TrimSpace(articy))
@@ -255,7 +255,7 @@ func normBg(s string) string {
 
 // bgKeys returns match keys for a фон file stem: the full normalized name plus
 // versions with the first one or two "_"-separated segments dropped, so a scene
-// id resolves regardless of the project's file prefix (e.g. "Cold_", "Cold_Cold_").
+// id resolves regardless of the project's file prefix (e.g. "Demo_", "Demo_Demo_").
 func bgKeys(stem string) []string {
 	segs := strings.Split(stem, "_")
 	var keys []string
@@ -304,7 +304,7 @@ func rekeyCharacters(res *Result, xd XlsxData) {
 }
 
 // heroKey is the layered-heroine entity id — derived from the protagonist's tech
-// name in the spreadsheet (e.g. "Cold_Main" → "cold_main"), NOT hardcoded, so the
+// name in the spreadsheet (e.g. "Demo_Main" → "demo_main"), NOT hardcoded, so the
 // pipeline works for any novel. Empty when there's no protagonist row.
 func heroKey(xd XlsxData) string {
 	if xd.Protagonist == nil {
@@ -337,8 +337,8 @@ func rekeyProtagonist(res *Result, xd XlsxData, tpl *Template) {
 
 // buildWardrobes builds each owner entity's `wardrobe` screen block from the
 // spreadsheet catalog. Every `Wardrobe.<X>` group becomes a slot on the entity
-// keyed by StoryName (`Slug(X)`) — NOT tech name (`Wardrobe.Edward` owns the
-// `Edward` entity, art prefix `Cold_Eduard`); the mainCh_Hair/mainCh_Clothes groups
+// keyed by StoryName (`Slug(X)`) — NOT tech name (`Wardrobe.Felix` owns the
+// `Felix` entity, art prefix `Demo_Felix`); the mainCh_Hair/mainCh_Clothes groups
 // are the protagonist's hair/outfit slots. The entity's layers/axes are untouched.
 func buildWardrobes(res *Result, xd XlsxData, tpl *Template) {
 	if res.Sprites == nil {
@@ -430,15 +430,22 @@ func replaceWardrobeScenes(res *Result, xd XlsxData, tpl *Template) {
 		return
 	}
 	for i := range res.Scripts {
-		replaceWardrobeInScript(&res.Scripts[i], char, tpl)
+		res.Warnings = append(res.Warnings, replaceWardrobeInScript(&res.Scripts[i], char, tpl)...)
 	}
 }
 
-func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
+// replaceWardrobeInScript performs the swap on one script and returns any
+// warnings for the import report. An UNTERMINATED block is the one failure the
+// author cannot see from the result: the pass silently leaves the whole span
+// alone, so the hand-built articy picker ships as text choices in a novel whose
+// every other dressing scene opens the real sheet. Reporting it costs nothing
+// and turns "why is this one scene different?" into a line of the import log.
+func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) []string {
 	ops, rewrap, ok := decodeScriptOps(sf.Data) // ok=false on .lvns sidecars → no-op
 	if !ok {
-		return
+		return nil
 	}
+	var warnings []string
 	out := make([]map[string]any, 0, len(ops))
 	changed := false
 	dropped := map[string]bool{} // labels removed with the manual picker flow
@@ -453,6 +460,10 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 		}
 		if j >= len(ops) { // unterminated block → leave intact
 			out = append(out, op)
+			warnings = append(warnings, fmt.Sprintf(
+				"%s: `%s = true` at op %d is never closed with `= false` — the wardrobe block "+
+					"was left untouched, so this scene ships the source's own picker instead of "+
+					"the wardrobe screen", sf.Rel, tpl.resolve().Wardrobe.FlagKey, i))
 			continue
 		}
 		// Auto-stage the protagonist right before the wardrobe so the in-story sheet
@@ -476,7 +487,7 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 		changed = true
 	}
 	if !changed {
-		return
+		return warnings
 	}
 	// The manual pickers' BRANCH BODIES live OUTSIDE the flag block (the
 	// linearizer appends choice branches at the script tail), so they survive
@@ -533,6 +544,7 @@ func replaceWardrobeInScript(sf *ScriptFile, char string, tpl *Template) {
 	if b, err := json.Marshal(rewrap(out)); err == nil {
 		sf.Data = b
 	}
+	return warnings
 }
 
 // removeUnreachableOps walks the control-flow graph from the script's entry
@@ -649,8 +661,8 @@ func applySpeakerNames(res *Result, tpl *Template) {
 }
 
 // displayNameFor resolves a speaker label through the names map, falling back
-// through VARIANT suffixes: "Matvey_neardeath_blood" → "Matvey_neardeath" →
-// "Matvey" → «Матвей». State-variant sprites (X_black silhouettes, X_dead,
+// through VARIANT suffixes: "Roman_neardeath_blood" → "Roman_neardeath" →
+// "Roman" → «Роман». State-variant sprites (X_black silhouettes, X_dead,
 // X_flashback…) speak under their variant label but ARE the base character —
 // the nameplate should say the character's name.
 func displayNameFor(names map[string]string, who string) string {
@@ -915,7 +927,7 @@ func keepInWardrobeBlock(op map[string]any, tpl *Template) bool {
 		// and a kept re-open branch tail (`goto n44`) sat as the last op
 		// before the closing Open.Wardrobe=false — an unconditional jump
 		// that CUT the path to the closing marker and everything after it.
-		// Live-hit: a third of Cold ch24 (the Victor/Philipp scene, 1190
+		// Live-hit: a third of one partner chapter (the Felix/Oscar scene, 1190
 		// unique lines) plus chunks of ch14/17/18/21-23 were unreachable on
 		// prod. The block must stay a straight line into its closing op.
 		return false

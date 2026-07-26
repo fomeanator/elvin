@@ -1,0 +1,93 @@
+scene wardrobe
+
+// ═════════════ WARDROBE — dressing a character from the script ═════════════
+// The wardrobe is three parts, and only ONE of them is script:
+//
+//   1. CATALOG — which outfits exist, what they cost, which story variable each
+//      slot drives.  Lives in manifest.json → sprites.<id>.wardrobe (the file
+//      next to this one). It CANNOT be written in .lvns, like the whole cast.
+//   2. MOMENT  — when the sheet opens:  wardrobe_show char="<entity id>"
+//      ← that is this file, and it is the only line of script the mechanic needs.
+//   3. RESULT  — what the player picked: an ordinary story variable, named by the
+//      slot's "var" field. The sheet writes it back when the player confirms.
+//
+// wardrobe_show belongs to the novel-shell package (com.lvn.engine.shell). A host
+// that installed only com.lvn.engine ignores it SILENTLY — the sheet never opens,
+// the variable keeps whatever the script last set, and the scene plays on. So the
+// beat must still read like a story if the sheet never appeared.
+
+actor_map Mira=mira Dorn=dorn
+
+// ─── 1. Seed the wardrobe variables ──────────────────────────────────────────
+// The manifest declares  "var": "look"  on Mira's outfit slot, so `look` is what
+// the sheet writes into. Seeding it does two jobs: it is the outfit before the
+// player touches anything, AND the outfit forever on a host without the shell.
+look = "casual"
+dorn_look = "dress"
+
+bg /content/bg/dressing_room.jpg
+
+// ─── 2. Wear the variable ────────────────────────────────────────────────────
+// An axis value in {braces} is a TEMPLATE — it is re-read from the variable every
+// time the actor is drawn, including live while the player is trying things on.
+// A literal value (outfit="armor", see the finale) is a costume the STORY forces:
+// a try-on cannot override it.
+// `hair` is deliberately NOT mentioned here: an axis the script leaves unset is
+// filled by whatever the player has equipped, and by the manifest default before
+// that. That is the difference between a slot WITH a "var" (story-visible) and a
+// slot without one (wardrobe-only).
+actor mira center outfit="{look}" emotion=neutral
+Mira: The gala is in an hour and I own exactly three things.
+
+// ─── 3. The moment ───────────────────────────────────────────────────────────
+// The sheet has no preview pane: the LIVE actor on stage is the mirror. Put the
+// character on stage first — the shell will stage her if you forget, but then she
+// walks in mid-beat instead of being there already.
+wardrobe_show char="mira"
+
+// ─── 4. The result ───────────────────────────────────────────────────────────
+// `look` now holds the confirmed axis value; branch on it like any variable.
+// A numeric-looking value ("3") is written back as a NUMBER, anything else as a
+// string — compare the way the catalog spells it.
+actor mira center outfit="{look}" emotion=smile
+if look == "gown" -> gala
+if look == "armor" -> guard
+-> plain
+
+:gala
+Mira [smile]: Then the gown it is. Twenty crystals of very good judgement.
+-> fitting_dorn
+
+:guard
+Mira [neutral]: Plate, then. The canapés can wait.
+-> fitting_dorn
+
+:plain
+Mira [neutral]: The coat has survived worse parties than this one.
+-> fitting_dorn
+
+// ─── 5. A SECOND character ───────────────────────────────────────────────────
+// `char` is just a cast entity id: anything with a wardrobe block can be dressed.
+// This is the one thing the articy importer cannot express — its automatic
+// substitution only ever opens the sheet for the protagonist — so an NPC fitting
+// is authored by hand, exactly like this.
+:fitting_dorn
+actor dorn right emotion=neutral
+Dorn: Do I have to wear the plumed one?
+wardrobe_show char="dorn"
+if dorn_look == "plume" -> teased
+-> finale
+
+:teased
+Mira [smile]: You have to wear the plumed one.
+-> finale
+
+// ─── 6. A costume the story forces ───────────────────────────────────────────
+// A literal axis value outranks both the variable and the player's try-on, so a
+// plot outfit can never be undressed by accident. Use it for "she is in uniform
+// because she is on duty", never for "she likes this one".
+:finale
+actor mira center outfit="armor" emotion=neutral
+Mira: ...and then the guard turned out, and nobody was dressed for a party.
+ENDING: «Dressed for the occasion»
+-> __end

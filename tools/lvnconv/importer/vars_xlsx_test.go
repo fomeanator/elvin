@@ -42,7 +42,7 @@ func TestParseVarsXlsx_Real(t *testing.T) {
 	}
 
 	// Spot-check known wardrobe variables from the real sheet.
-	for _, want := range []string{"Wardrobe.mainCh_Hair", "Wardrobe.mainCh_Clothes", "Wardrobe.Matvey"} {
+	for _, want := range []string{"Wardrobe.mainCh_Hair", "Wardrobe.mainCh_Clothes", "Wardrobe.Roman"} {
 		if !seen[want] {
 			t.Errorf("expected variable %q in parsed decls", want)
 		}
@@ -88,8 +88,8 @@ func TestParseVarsXlsx_Real(t *testing.T) {
 	if data.Protagonist == nil {
 		t.Fatalf("expected a non-nil Protagonist (Role==ГГ row)")
 	}
-	if data.Protagonist.TechName != "Cold_Main" {
-		t.Errorf("Protagonist.TechName = %q, want %q", data.Protagonist.TechName, "Cold_Main")
+	if data.Protagonist.TechName != "Demo_Main" {
+		t.Errorf("Protagonist.TechName = %q, want %q", data.Protagonist.TechName, "Demo_Main")
 	}
 	if data.Protagonist.Role != "ГГ" {
 		t.Errorf("Protagonist.Role = %q, want %q", data.Protagonist.Role, "ГГ")
@@ -98,29 +98,29 @@ func TestParseVarsXlsx_Real(t *testing.T) {
 		t.Errorf("Protagonist has no emotions parsed")
 	}
 	// Emotion labels are lowercased and map to art stems.
-	if got := data.Protagonist.Emotions["idle"]; got != "Cold_Main_Idle" {
-		t.Errorf("Protagonist idle stem = %q, want %q", got, "Cold_Main_Idle")
+	if got := data.Protagonist.Emotions["idle"]; got != "Demo_Main_Idle" {
+		t.Errorf("Protagonist idle stem = %q, want %q", got, "Demo_Main_Idle")
 	}
 
 	// Spot-check a known secondary character.
-	var matvey *CharMap
+	var roman *CharMap
 	for i := range data.Chars {
-		if data.Chars[i].TechName == "Cold_Matvey" {
-			matvey = &data.Chars[i]
+		if data.Chars[i].TechName == "Demo_Roman" {
+			roman = &data.Chars[i]
 		}
 	}
-	if matvey == nil {
-		t.Errorf("expected a character with TechName Cold_Matvey")
-	} else if matvey.Emotions["happy"] == "" {
-		t.Errorf("Cold_Matvey has no happy emotion stem")
+	if roman == nil {
+		t.Errorf("expected a character with TechName Demo_Roman")
+	} else if roman.Emotions["happy"] == "" {
+		t.Errorf("Demo_Roman has no happy emotion stem")
 	}
 
 	if len(data.Locations) == 0 {
 		t.Fatalf("expected non-empty Locations")
 	}
 	// A known articy→tech background mapping (trimmed).
-	if got := data.Locations["2nd_floor"]; got != "Cold_2nd_floor" {
-		t.Errorf("Locations[2nd_floor] = %q, want %q", got, "Cold_2nd_floor")
+	if got := data.Locations["2nd_floor"]; got != "Demo_2nd_floor" {
+		t.Errorf("Locations[2nd_floor] = %q, want %q", got, "Demo_2nd_floor")
 	}
 
 	if len(data.Wardrobe) == 0 {
@@ -135,8 +135,8 @@ func TestParseVarsXlsx_Real(t *testing.T) {
 				t.Errorf("wardrobe value not normalized: %q", it.Value)
 			}
 		}
-		if items[0].Value != "11" || items[0].TechName != "Cold_Main_Hairs_11" || !items[0].Hide {
-			t.Errorf("first hair item = %+v, want Value=11 TechName=Cold_Main_Hairs_11 Hide=true", items[0])
+		if items[0].Value != "11" || items[0].TechName != "Demo_Main_Hairs_11" || !items[0].Hide {
+			t.Errorf("first hair item = %+v, want Value=11 TechName=Demo_Main_Hairs_11 Hide=true", items[0])
 		}
 	}
 
@@ -149,8 +149,8 @@ func TestSplitAssignment(t *testing.T) {
 		in, key, def string
 	}{
 		{"Wardrobe.mainCh_Hair = 11;", "Wardrobe.mainCh_Hair", "11"},
-		{"Wardrobe.Matvey = 0", "Wardrobe.Matvey", "0"},
-		{"Wardrobe.Edward = 1 ", "Wardrobe.Edward", "1"},
+		{"Wardrobe.Roman = 0", "Wardrobe.Roman", "0"},
+		{"Wardrobe.Felix = 1 ", "Wardrobe.Felix", "1"},
 		{"foo=bar", "foo", "bar"},
 		{"not an assignment", "", ""},
 		{"", "", ""},
@@ -199,14 +199,14 @@ func TestFormatValue(t *testing.T) {
 func TestSetDefaultLines(t *testing.T) {
 	x := XlsxData{Vars: []VarDecl{
 		{Key: "Wardrobe.mainCh_Hair", Default: "11"},
-		{Key: "Wardrobe.Matvey", Default: "0"},
-		{Key: "Story.name", Default: "Katya"},
+		{Key: "Wardrobe.Roman", Default: "0"},
+		{Key: "Story.name", Default: "Mira"},
 	}}
 	lines := x.SetDefaultLines()
 	want := []string{
 		`set default=true key="Wardrobe.mainCh_Hair" value=11`,
-		`set default=true key="Wardrobe.Matvey" value=0`,
-		`set default=true key="Story.name" value="Katya"`,
+		`set default=true key="Wardrobe.Roman" value=0`,
+		`set default=true key="Story.name" value="Mira"`,
 	}
 	if len(lines) != len(want) {
 		t.Fatalf("got %d lines, want %d", len(lines), len(want))

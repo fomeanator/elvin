@@ -81,21 +81,21 @@ func TestSingleChapterBundleIsWiredLikeAChapteredOne(t *testing.T) {
 }
 
 // O18: the variant-suffix fallback exists for state variants of a character
-// the catalog holds ("Matvey_neardeath" → «Матвей»). Applied to any id that
+// the catalog holds ("Roman_neardeath" → «Роман»). Applied to any id that
 // merely STARTS with a known name, it captions strangers — another novel's
-// "Ivan_Petrov" became «Иван» from the default template's 56 names.
+// "Lev_Petrov" became «Лев» from the default template's 56 names.
 func TestSpriteDisplayNamesOnlyFollowRealVariants(t *testing.T) {
-	tpl := &Template{SpeakerNames: map[string]string{"Matvey": "Матвей", "Ivan": "Иван"}}
+	tpl := &Template{SpeakerNames: map[string]string{"Roman": "Роман", "Lev": "Лев"}}
 	sprites := map[string]any{
-		"Matvey":           map[string]any{"name": "Matvey"},
-		"Matvey_neardeath": map[string]any{"name": "Matvey_neardeath"}, // variant of a present entity
-		"Ivan_Petrov":      map[string]any{"name": "Ivan_Petrov"},      // a DIFFERENT person
+		"Roman":           map[string]any{"name": "Roman"},
+		"Roman_neardeath": map[string]any{"name": "Roman_neardeath"}, // variant of a present entity
+		"Lev_Petrov":      map[string]any{"name": "Lev_Petrov"},      // a DIFFERENT person
 	}
 	applySpeakerNameOverridesToSprites(sprites, tpl)
 	want := map[string]string{
-		"Matvey":           "Матвей",
-		"Matvey_neardeath": "Матвей",
-		"Ivan_Petrov":      "Ivan_Petrov",
+		"Roman":           "Роман",
+		"Roman_neardeath": "Роман",
+		"Lev_Petrov":      "Lev_Petrov",
 	}
 	for id, exp := range want {
 		got, _ := sprites[id].(map[string]any)["name"].(string)
@@ -163,14 +163,14 @@ func TestWalletCostShapeIsGuarded(t *testing.T) {
 }
 
 // O23: the effects hint is joined with "," — a label containing one came back
-// truncated («Иван, брат» → «брат»). Cosmetic, so the unrepresentable entry is
+// truncated («Лев, брат» → «брат»). Cosmetic, so the unrepresentable entry is
 // dropped; the others must be untouched.
 func TestEffectsHintNeverShowsATruncatedName(t *testing.T) {
 	in := []articy.Cmd{
 		{"op": "choice", "options": []any{
 			map[string]any{"text": "pick", "goto": "a", "effects": []any{
-				map[string]any{"label": "Иван, брат", "delta": 1.0},
-				map[string]any{"label": "Матвей", "delta": 2.0},
+				map[string]any{"label": "Лев, брат", "delta": 1.0},
+				map[string]any{"label": "Роман", "delta": 2.0},
 			}},
 		}},
 		{"op": "label", "id": "a"},
