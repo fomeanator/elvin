@@ -493,4 +493,4 @@ before it (see the idiom in the examples).
 - `howto/recipes.md` — short reusable patterns.
 - `howto/<genre>/` — a guide + working example for each game type.
 - Large real scripts: `server/content/scripts/` (`rpg-inv.lvns`,
-  `goblin-battle.lvns`, `showcase.lvns`, `soviet-ch1.lvns`).
+  `goblin-battle.lvns`, `showcase.lvns`, `tour-ch01.lvns`).
