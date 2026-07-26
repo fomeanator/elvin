@@ -2,21 +2,28 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Lvn.Tests
 {
     /// <summary>
-    /// The soak bot (ladder A1+A2): every local .lvn script gets played
+    /// The soak bot (ladder A1+A2): every script we can reach gets played
     /// through headlessly with seeded random choices. The run must raise no
     /// exceptions and no error logs, and at EVERY pause a snapshot restored
     /// into a fresh player must rebuild the very scene the live run shows —
-    /// the resume-truth property enforced across the whole content library,
-    /// not just hand-written minimal repros.
+    /// the resume-truth property enforced across whole scripts, not just
+    /// hand-written minimal repros.
     ///
-    /// Partner content (cold-*) lives only on dev machines and stays out of
-    /// git — a missing scripts dir skips, never fails, so CI stays green on
-    /// clean clones while dev machines soak everything they have.
+    /// TWO fixture sources, and the difference matters:
+    ///
+    ///  * <see cref="SynthDir"/> — synthetic fixtures that SHIP IN GIT, so the
+    ///    soak actually runs on a clean clone and in CI. Partner content can
+    ///    never live in a public repo, and a gate that only fires on the two
+    ///    dev machines that happen to hold that content is not a gate. Each
+    ///    fixture reproduces a shape that has bitten us (see SoakFixtures/*).
+    ///  * server/content/scripts — partner content (cold-*) on dev machines
+    ///    only; a missing dir simply adds no cases, it never fails.
     /// </summary>
     public class SoakBotTests
     {
@@ -46,31 +53,71 @@ namespace Lvn.Tests
         private static string ScriptsRoot => Path.GetFullPath(
             Path.Combine(Application.dataPath, "..", "..", "..", "server", "content", "scripts"));
 
+        /// <summary>Committed synthetic fixtures — the soak's CI floor.</summary>
+        private const string SynthDir = "Packages/com.lvn.engine/Tests/Editor/SoakFixtures";
+
+        // A fixture named `*.expect-loop.lvn.txt` is a NEGATIVE fixture: it is
+        // supposed to trip the runaway guard, so it stays out of the clean-run
+        // sweep and is asserted by LoopGuardFiresOnUnexitableCycle instead.
+        private const string ExpectLoopSuffix = ".expect-loop.lvn.txt";
+
+        private static List<string> SynthFixtures(bool expectLoop)
+        {
+            var found = new List<string>();
+            foreach (var guid in AssetDatabase.FindAssets("t:TextAsset", new[] { SynthDir }))
+            {
+                var p = AssetDatabase.GUIDToAssetPath(guid);
+                if (!p.EndsWith(".lvn.txt")) continue;
+                if (p.EndsWith(ExpectLoopSuffix) == expectLoop) found.Add(p);
+            }
+            found.Sort();
+            return found;
+        }
+
+        // Reads either an in-project fixture (package path → AssetDatabase) or
+        // a partner script sitting outside the Unity project (plain file IO).
+        private static string ReadScript(string path)
+        {
+            if (!path.StartsWith("Packages/")) return File.ReadAllText(path);
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+            Assert.IsNotNull(asset, "фикстура не загрузилась: " + path);
+            return asset.text;
+        }
+
+        private static string CaseName(string path)
+        {
+            var n = Path.GetFileName(path);
+            return n.EndsWith(".lvn.txt") ? n.Substring(0, n.Length - ".txt".Length) : n;
+        }
+
         public static IEnumerable<TestCaseData> AllScripts()
         {
-            if (!Directory.Exists(ScriptsRoot))
-            {
-                yield return new TestCaseData(null).SetName("Soak(no-local-content)");
-                yield break;
-            }
+            // Synthetic first — these run everywhere, including a clean clone.
+            foreach (var p in SynthFixtures(expectLoop: false))
+                yield return new TestCaseData(p).SetName("Soak(" + CaseName(p) + ")");
+
+            if (!Directory.Exists(ScriptsRoot)) yield break;
             var files = Directory.GetFiles(ScriptsRoot, "*.lvn");
             System.Array.Sort(files);
             foreach (var f in files)
                 yield return new TestCaseData(f).SetName("Soak(" + Path.GetFileName(f) + ")");
         }
 
-        // Real content bugs the soak caught on 2026-07-19: an UNCONDITIONAL
-        // `goto` back into the wardrobe loop (the exit condition lived on an
-        // articy pin the importer dropped), leaving the rest of the chapter
-        // dead code. The player's infinite-loop guard fires — correctly.
-        // Kept out of the red bar so ENGINE regressions stay visible; the
-        // moment the importer is fixed and a chapter passes, the test demands
-        // its removal from this list.
-        private static readonly HashSet<string> KnownContentLoops = new HashSet<string>
+        public static IEnumerable<TestCaseData> LoopFixtures()
         {
-            "cold-ch14.lvn", "cold-ch17.lvn", "cold-ch18.lvn",
-            "cold-ch21.lvn", "cold-ch23.lvn", "cold-ch24.lvn",
-        };
+            foreach (var p in SynthFixtures(expectLoop: true))
+                yield return new TestCaseData(p).SetName("LoopGuard(" + CaseName(p) + ")");
+        }
+
+        // Content bugs the soak caught, quarantined so ENGINE regressions stay
+        // visible in the red bar while the IMPORTER is being fixed. The moment
+        // a quarantined chapter passes, the test below demands its removal —
+        // which is exactly how this list emptied out: the 2026-07-19 entries
+        // (cold-ch14/17/18/21/23/24, an UNCONDITIONAL `goto` back into the
+        // wardrobe loop whose exit condition lived on an articy pin the
+        // importer dropped) all pass on content rebuilt 2026-07-25. The shape
+        // itself is now pinned forever by SoakFixtures/wardrobe-hostop-*.
+        private static readonly HashSet<string> KnownContentLoops = new HashSet<string>();
 
         // The real client applies the title declaration (vars_url: game +
         // chapter defaults) before every chapter, and imported chapters are
@@ -78,6 +125,7 @@ namespace Lvn.Tests
         // declaration would walk branches no player can ever reach.
         private static JObject LoadDeclaration(string path)
         {
+            if (path.StartsWith("Packages/")) return null; // synthetic fixtures are self-contained
             var name = Path.GetFileName(path);
             int cut = name.LastIndexOf("-ch", System.StringComparison.Ordinal);
             if (cut <= 0) return null;
@@ -85,12 +133,23 @@ namespace Lvn.Tests
             return File.Exists(vars) ? JObject.Parse(File.ReadAllText(vars)) : null;
         }
 
+        /// <summary>
+        /// The fixtures are the whole point of the clean-clone story, so their
+        /// absence must be a red bar, not a quietly shrunken test list.
+        /// </summary>
+        [Test]
+        public void SyntheticFixturesAreShipped()
+        {
+            Assert.Greater(SynthFixtures(expectLoop: false).Count, 0,
+                "нет коммитируемых соук-фикстур в " + SynthDir + " — на чистом клоне соук ничего не гоняет");
+            Assert.Greater(SynthFixtures(expectLoop: true).Count, 0,
+                "нет негативных фикстур (*" + ExpectLoopSuffix + ") — сторож бесконечного цикла ничем не проверен");
+        }
+
         [TestCaseSource(nameof(AllScripts))]
         public void RandomPlaythroughIsCleanAndResumable(string path)
         {
-            if (path == null)
-                Assert.Ignore("server/content/scripts отсутствует на этой машине — соук пропущен");
-            var json = File.ReadAllText(path);
+            var json = ReadScript(path);
             var name = Path.GetFileName(path);
             var decl = LoadDeclaration(path);
             var known = KnownContentLoops.Contains(name);
@@ -105,6 +164,29 @@ namespace Lvn.Tests
             }
             if (known)
                 Assert.Fail(name + " прошёл соук — импортёр починен? Убери главу из KnownContentLoops.");
+        }
+
+        /// <summary>
+        /// The other half of the guard: a cycle with NO pause between jumps
+        /// must fail loudly instead of spinning the main thread forever. This
+        /// is the 2026-07-19 wardrobe shape — a host op (served by the shell
+        /// package, absent on a bare engine) followed by an unconditional
+        /// `goto` back to the label above it. Raise the budget, drop the
+        /// guard, or start treating unregistered ops as pauses, and this test
+        /// is the one that notices.
+        /// </summary>
+        [TestCaseSource(nameof(LoopFixtures))]
+        public void LoopGuardFiresOnUnexitableCycle(string path)
+        {
+            var json = ReadScript(path);
+            var name = Path.GetFileName(path);
+            foreach (var seed in Seeds)
+            {
+                var e = Assert.Throws<LvnException>(
+                    () => SoakOne(json, seed, name, null),
+                    $"{name} seed {seed}: цикл без паузы НЕ поймал сторож — плеер завис бы навсегда");
+                StringAssert.Contains("infinite loop", e.Message);
+            }
         }
 
         private static void SoakOne(string json, int seed, string name, JObject decl)
