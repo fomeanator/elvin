@@ -722,13 +722,35 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 	dst := filepath.Join(s.content, filepath.Clean(rel))
 	switch r.Method {
 	case http.MethodPut:
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
 		if err != nil {
 			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		// THE gate: a compiled script is structurally checked BEFORE anything
+		// touches the disk — no mkdir, no .history snapshot, no atomic write —
+		// so a rejected save leaves the previous version, and the author's
+		// history, exactly as they were. content/ is served to players with
+		// no-store, i.e. a bad save is live instantly; this is the only place
+		// on the write path where that can still be stopped. Errors block,
+		// warnings (unknown/host ops above all) ride along in the response.
+		var findings lvnFindings
+		if isLvnPath(rel) {
+			findings = s.checkLvn(rel, body)
+			if findings.blocked() {
+				log.Printf("asset PUT rejected %s: %d error(s): %s", rel, len(findings.Errors), strings.Join(findings.Errors, "; "))
+				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+					"path": rel, "rejected": true,
+					"errors": orEmpty(findings.Errors), "warnings": orEmpty(findings.Warnings),
+				})
+				return
+			}
+			if len(findings.Warnings) > 0 {
+				log.Printf("asset PUT %s: %d warning(s): %s", rel, len(findings.Warnings), strings.Join(findings.Warnings, "; "))
+			}
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		snapshotHistory(s.content, rel) // scripts keep their past versions
@@ -736,7 +758,9 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"path": rel, "bytes": len(body)})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"path": rel, "bytes": len(body), "warnings": orEmpty(findings.Warnings),
+		})
 	case http.MethodDelete:
 		snapshotHistory(s.content, rel)
 		if err := os.Remove(dst); err != nil {

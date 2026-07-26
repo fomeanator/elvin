@@ -239,6 +239,10 @@ export default function LibraryHome({ creds, notify, onOpen }) {
       {mapperDir && (
         <ImportMapper
           dir={mapperDir}
+          // The spreadsheet the SAME bundle will be imported with — without it
+          // the preview reports an art-less protagonist and unmapped emotion
+          // colours the import actually resolves from the sheet.
+          varsPath={(bundle && bundle.uploads.vars && bundle.uploads.vars.path) || ""}
           initialTemplateName={bundle && bundle.template}
           creds={creds}
           notify={notify}

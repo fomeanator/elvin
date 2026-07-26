@@ -29,6 +29,30 @@ curl -X PUT -H "Authorization: Bearer secret" \
      http://localhost:8000/v1/admin/assets/scripts/chapter.lvn
 ```
 
+### The `.lvn` write gate
+
+Content is served to players immediately (`Cache-Control: no-store`), so a
+`.lvn` uploaded through this route is structurally validated **before** it
+reaches the disk — see `lvnguard.go`. Nothing else on the path (Studio's "Save
+to app", the importers, a raw `curl`) can bypass it.
+
+* **Rejected — `422`, nothing written, no `.history` entry:** a body that is
+  not a `.lvn` document (the runtime's loader needs a JSON object with a
+  `script` array), duplicate label ids, a jump to a label that does not exist,
+  a command with no `op`, or a host op that omits a field its `ext-grammar.json`
+  declares required. The response body lists them: `{"rejected":true,"errors":[…]}`.
+* **Written, reported as `warnings` in the `200` body and in the server log:**
+  an op the core grammar does not know (a host op registered with
+  `LvnOps.Register` is legal content — declaring it in `ext-grammar.json` turns
+  the warning into real field/enum checking), unknown fields, dead labels,
+  unbalanced `{}` in dialogue.
+* **Untouched:** every non-`.lvn` path — art, config JSON, and the `.lvns`
+  editable source, which an author saves half-written by design.
+
+Both import endpoints run the same check over the scripts they generate and
+return the verdict as `lvn_check` (reporting only — an import also writes art
+and the manifest, so it is not failed after the fact).
+
 ## Downscaled variants
 
 `GET /content/<name>@2k.png` (or `.jpg`/`.jpeg`) serves `<name>.png` resized
