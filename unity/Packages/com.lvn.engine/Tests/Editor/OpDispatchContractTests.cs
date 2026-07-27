@@ -55,6 +55,7 @@ namespace Lvn.Tests
             { "camera", "{\"op\":\"camera\",\"action\":\"shake\",\"amplitude\":2}" },
             { "particles", "{\"op\":\"particles\",\"type\":\"rain\",\"on\":true}" },
             { "anim", "{\"op\":\"anim\",\"id\":\"a\",\"anim\":\"wave\"}" },
+            { "clear", "{\"op\":\"clear\"}" },
             { "text_pace", "{\"op\":\"text_pace\",\"cps\":30}" },
             { "hint", "{\"op\":\"hint\",\"text\":\"подсказка\"}" },
             { "save", "{\"op\":\"save\",\"slot\":\"probe\"}" },
