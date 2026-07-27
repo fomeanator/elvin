@@ -35,6 +35,8 @@ var KnownOps = map[string]bool{
 	// Мультиэффект кадра: fx vignette=… grain=… bloom=… (галочки-поля одного
 	// опа, `fx off` сбрасывает). Рантайм — LvnFxStack на камере канвас-сцены.
 	"fx": true,
+	// Спрайтовые эффекты актёра: sfx id=… outline/glow/dissolve (+_color, dur).
+	"sfx": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
 	"text":  true,               // reactive HUD/stat label
@@ -434,7 +436,25 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 		var cmd Cmd
 
 		if KnownOps[firstWord] {
-			if firstWord == "ext" {
+			if firstWord == "fx" && strings.TrimSpace(line[len("fx"):]) == "off" {
+				// `fx off` — сброс мультиэффекта. Голое слово без `=` не лезет в
+				// parseKeyValue, а раньше строка ТИХО падала в наррацию и
+				// печаталась игроку — эффекты копились в кашу.
+				isCommand = true
+				cmd = Cmd{"op": "fx", "off": true}
+			} else if firstWord == "sfx" && strings.HasSuffix(strings.TrimSpace(line), " off") {
+				// `sfx id=… off` — снять эффекты актёра; голое off дружит с парсером.
+				params, perr := parseKeyValue(strings.TrimSuffix(strings.TrimSpace(line[len("sfx"):]), "off"))
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: sfx: %w", srcNo[i], perr)
+				}
+				sc := Cmd{"op": "sfx", "off": true}
+				for k, v := range params {
+					sc[k] = v
+				}
+				isCommand = true
+				cmd = sc
+			} else if firstWord == "ext" {
 				// ext minigame kind="lockpick" → {"op":"minigame","kind":"lockpick"}
 				rest := strings.TrimSpace(line[len("ext"):])
 				toks := strings.Fields(rest)
