@@ -57,6 +57,7 @@ namespace Lvn.Tests
             { "anim", "{\"op\":\"anim\",\"id\":\"a\",\"anim\":\"wave\"}" },
             { "clear", "{\"op\":\"clear\"}" },
             { "fx", "{\"op\":\"fx\",\"vignette\":0.3}" },
+            { "sfx", "{\"op\":\"sfx\",\"id\":\"a\",\"glow\":0.5}" },
             { "text_pace", "{\"op\":\"text_pace\",\"cps\":30}" },
             { "hint", "{\"op\":\"hint\",\"text\":\"подсказка\"}" },
             { "save", "{\"op\":\"save\",\"slot\":\"probe\"}" },
