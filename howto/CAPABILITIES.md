@@ -97,6 +97,8 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | `blur` | Screen blur (`alpha`≤0 removes it). | `alpha`≈0.5,`duration` |
 | `camera` | `shake`/`zoom`/`pan`/`reset`. | `action`,`amplitude`,`factor`,`x`,`y`,`duration` |
 | `particles` | Weather layer. | `type`=rain/snow, `on`(bool) |
+| `fx` | Full-frame multi-effect stack (Canvas path; vignette, grain, bloom, rays, glitch, …). Sticky fields; `fx off` resets. | `vignette grain chromatic scanlines pixelate glitch bloom rays rays_x rays_y distort saturation contrast tint frost blink invert dur off` |
+| `sfx` | Per-actor sprite effects (Canvas path): outline, glow, noise-dissolve with burning edge. `sfx id=… off` resets. | `id outline outline_color glow glow_color dissolve flash dark tint tint_color dur off` |
 | `audio` | Sound on a channel (async). | `channel`=music/sfx/ambient, `action`=play/stop, `url?` |
 | `wait` | Pause the script for N ms (default 1000). | `ms` |
 | `hint` | Popup card at the top center of the scene (`VnStage.cs`: `ApplyHint`); `show=false` removes it, `duration>0` auto-hides. The text interpolates `{vars}`. | `text`, `show?`, `duration?` |

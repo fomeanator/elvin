@@ -18,6 +18,8 @@
     "blur",
     "camera",
     "particles",
+    "fx",
+    "sfx",
     "audio",
     "wait",
     "input",
@@ -208,7 +210,42 @@
     "wardrobe_show": [
       "char"
     ],
-    "clear": []
+    "clear": [],
+    "fx": [
+      "vignette",
+      "grain",
+      "chromatic",
+      "scanlines",
+      "pixelate",
+      "glitch",
+      "bloom",
+      "rays",
+      "rays_x",
+      "rays_y",
+      "distort",
+      "saturation",
+      "contrast",
+      "tint",
+      "frost",
+      "blink",
+      "invert",
+      "dur",
+      "off"
+    ],
+    "sfx": [
+      "id",
+      "outline",
+      "outline_color",
+      "glow",
+      "glow_color",
+      "dissolve",
+      "flash",
+      "dark",
+      "tint",
+      "tint_color",
+      "dur",
+      "off"
+    ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
   "closed_field_ops": [
