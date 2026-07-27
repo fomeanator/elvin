@@ -32,6 +32,9 @@ var KnownOps = map[string]bool{
 	"clear": true,
 	"fade":  true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
+	// Мультиэффект кадра: fx vignette=… grain=… bloom=… (галочки-поля одного
+	// опа, `fx off` сбрасывает). Рантайм — LvnFxStack на камере канвас-сцены.
+	"fx": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
 	"text":  true,               // reactive HUD/stat label
