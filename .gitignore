@@ -117,3 +117,8 @@ panel/public/play/lvns.wasm
 # утащил бы их в ПУБЛИЧНЫЙ репозиторий вместе с полезным.
 /docs/supergame.txt
 /docs/*.private.md
+
+# локальные артефакты рабочей машины
+unity.licence
+/push
+.codex/
