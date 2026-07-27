@@ -84,6 +84,7 @@ namespace Lvn.UI.World
             }
             if (_shaderMissing || !Active)
             {
+                if (_shaderMissing) Debug.LogWarning("[LvnFx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
                 Graphics.Blit(src, dst);
                 if (!Active) enabled = false; // всё выключено — не платим за хук
                 return;
