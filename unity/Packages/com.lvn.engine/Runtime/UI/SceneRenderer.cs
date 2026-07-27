@@ -62,6 +62,10 @@ namespace Lvn.UI
         /// false → the stage falls back to the FxLayer veil imitation.</summary>
         bool TryBlur(float strength01, float seconds);
 
+        /// <summary>The `fx` multi-effect stack (vignette/grain/bloom/…): same
+        /// camera hook as TryBlur. False → no camera, the op is a no-op.</summary>
+        bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
+
         /// <summary>Destroy engine-side objects that OUTLIVE the UI panel (the
         /// Canvas scene's GameObjects). UITK elements die with their panel, so
         /// that path is a no-op. Called on stage disable before a rebuild.</summary>
@@ -113,6 +117,7 @@ namespace Lvn.UI
         public void ResetCamera(float seconds) => _camera.Reset(seconds);
 
         public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
+        public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
 
         public void Teardown() { /* UITK elements die with the panel root */ }
     }
@@ -198,6 +203,13 @@ namespace Lvn.UI
         {
             if (_scene.Blur == null) return false;
             _scene.Blur.FadeTo(strength01, seconds);
+            return true;
+        }
+
+        public bool TryFx(Newtonsoft.Json.Linq.JObject cmd)
+        {
+            if (_scene.Fx == null) return false;
+            _scene.Fx.Apply(cmd);
             return true;
         }
 
