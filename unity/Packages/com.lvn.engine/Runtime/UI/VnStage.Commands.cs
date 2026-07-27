@@ -288,11 +288,21 @@ namespace Lvn.UI
 
         private IEnumerator WaitCoroutine(JObject cmd)
         {
+            int gen = ++_waitGen; // this wait owns the timer until something cancels it
             float ms = NumOr(cmd["ms"], 1000f);
             yield return new WaitForSecondsRealtime(ms / 1000f);
+            if (gen != _waitGen) yield break; // cancelled by a hotspot jump / newer wait
             _awaitingWait = false;
             if (_player != null && !_player.Finished)
                 _player.Advance();
+        }
+
+        // A hotspot click that jumps the story must kill a pending `wait`, or its
+        // deferred Advance() lands mid-flight somewhere else and skips a beat.
+        private void CancelPendingWait()
+        {
+            _waitGen++;
+            _awaitingWait = false;
         }
 
         private async Task PreloadAssetsAsync(JObject cmd)
