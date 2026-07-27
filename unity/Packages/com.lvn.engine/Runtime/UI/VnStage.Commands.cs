@@ -203,6 +203,10 @@ namespace Lvn.UI
                 case "flash": ApplyFlash(command); break;
                 case "tint": ApplyTint(command); break;
                 case "blur": ApplyBlur(command); break;
+                case "sfx":
+                    // Спрайтовый эффект по id актёра; вне канвас-пути — no-op.
+                    _renderer?.TrySpriteFx((string)command["id"], command);
+                    break;
                 case "fx":
                     // Мультиэффект кадра; без камеры (overlay-канвас, UITK-путь)
                     // честный no-op — сцена просто остаётся чистой.
