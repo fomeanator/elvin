@@ -77,7 +77,10 @@ namespace Lvn.UI
         private readonly HashSet<string> _hidden = new HashSet<string>();
         private readonly Dictionary<string, VisualElement> _rigs = new Dictionary<string, VisualElement>(); // animation wrapper per slot
         private readonly Dictionary<string, ActorAnimator> _animators = new Dictionary<string, ActorAnimator>();
+        // Explicit z per slot (unset = 0); _birth breaks ties so no-z novels keep
+        // their "shown later = on top" stacking. Mirrors WorldStage's sibling sort.
         private readonly Dictionary<VisualElement, int> _z = new Dictionary<VisualElement, int>();
+        private readonly Dictionary<VisualElement, int> _birth = new Dictionary<VisualElement, int>();
         private readonly Dictionary<string, Action> _onClick = new Dictionary<string, Action>();
         private readonly Dictionary<string, float> _hoverOpacity = new Dictionary<string, float>();
         private readonly Dictionary<string, float> _baseOpacity = new Dictionary<string, float>();
@@ -130,7 +133,7 @@ namespace Lvn.UI
                 slot.RegisterCallback<GeometryChangedEvent>(_ => FitAspect(capturedId));
                 Add(slot);
                 _slots[id] = slot;
-                _z[slot] = _nextZ++;
+                _birth[slot] = _nextZ++;
             }
 
             _onClick[id] = onClick;
@@ -229,11 +232,15 @@ namespace Lvn.UI
             else if (exitWithAnim)
                 PlayTransition(slot, p.ExitTransition, p.TransitionDuration, p, exiting: true);
 
-            if (p.Z.HasValue)
+            // Sort on EVERY apply, not only when the command carries z= — a slot
+            // created by a no-z command used to sit on top (Add appends) until some
+            // unrelated z-command re-sorted the layer out from under it.
+            if (p.Z.HasValue) _z[slot] = p.Z.Value;
+            Sort((a, b) =>
             {
-                _z[slot] = p.Z.Value;
-                Sort((a, b) => ZOf(a).CompareTo(ZOf(b)));
-            }
+                int byZ = ZOf(a).CompareTo(ZOf(b));
+                return byZ != 0 ? byZ : BirthOf(a).CompareTo(BirthOf(b));
+            });
 
             // An emotion/outfit swap rebuilt the layer images — re-tint them so a
             // dimmed actor doesn't pop back to full brightness mid-line.
@@ -439,6 +446,7 @@ namespace Lvn.UI
             _slots.Clear();
             _hidden.Clear();
             _z.Clear();
+            _birth.Clear();
             _onClick.Clear();
             _hoverOpacity.Clear();
             _baseOpacity.Clear();
@@ -447,6 +455,7 @@ namespace Lvn.UI
         }
 
         private int ZOf(VisualElement e) => _z.TryGetValue(e, out var z) ? z : 0;
+        private int BirthOf(VisualElement e) => _birth.TryGetValue(e, out var b) ? b : 0;
 
         // Plays an enter (appear) or exit (disappear) transition. The animation
         // always runs 0→1 and lerps the actual property between the right
