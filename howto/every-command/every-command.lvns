@@ -24,12 +24,18 @@ preload url="/content/sfx/projector.ogg" kind=audio
 // Full-frame multi-effect stack (Canvas path). Sticky fields; off resets.
 fx vignette=0.35 grain=0.12
 fx frost=0.5 blink=0.3 invert=0.2 dur=0.4
+fx fog=0.5 rain=0.7 embers=0.4
+fx blood=0.8 poison=0.5 speedlines=0.7
+fx shockwave=1 shock_x=0.5 shock_y=0.45 dur=0.5
+fx dream=0.7 sepia=0.4 posterize=0.3 letterbox=0.6
 fx off
 
-// Per-actor sprite effects: outline / glow / dissolve (Canvas path).
+// Per-actor sprite effects (Canvas path).
 sfx id=mara outline=0.6 outline_color=#ffd76a
 sfx id=mara flash=0.8 dark=0.5 tint=0.6 tint_color=#7ad0ff dur=0.1
 sfx id=mara dissolve=1 dur=1.5
+sfx id=mara ghost=0.8 rim=0.5 shake=0.12
+sfx id=mara petrify=1 hologram=0.7 burn=0.5
 sfx id=mara off
 
 bg /content/bg/projection.jpg
