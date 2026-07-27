@@ -177,5 +177,10 @@
         "owner": "engine",
         "csharp": "stage",
         "js": "renderer"
+    },
+    "sfx": {
+        "owner": "engine",
+        "csharp": "stage",
+        "js": "renderer"
     }
 }
