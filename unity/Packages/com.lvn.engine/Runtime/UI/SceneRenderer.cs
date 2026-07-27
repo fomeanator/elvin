@@ -66,6 +66,10 @@ namespace Lvn.UI
         /// camera hook as TryBlur. False → no camera, the op is a no-op.</summary>
         bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
 
+        /// <summary>Спрайтовые эффекты актёра (op `sfx`: обводка/свечение/
+        /// растворение). False → путь без канвас-актёров, no-op.</summary>
+        bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd);
+
         /// <summary>Destroy engine-side objects that OUTLIVE the UI panel (the
         /// Canvas scene's GameObjects). UITK elements die with their panel, so
         /// that path is a no-op. Called on stage disable before a rebuild.</summary>
@@ -118,6 +122,7 @@ namespace Lvn.UI
 
         public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
         public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
+        public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd) => false; // UITK: слои не Image'ы
 
         public void Teardown() { /* UITK elements die with the panel root */ }
     }
@@ -210,6 +215,14 @@ namespace Lvn.UI
         {
             if (_scene.Fx == null) return false;
             _scene.Fx.Apply(cmd);
+            return true;
+        }
+
+        public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd)
+        {
+            var actor = _scene.ActorFor(id);
+            if (actor == null) return false;
+            LvnSpriteFxDriver.Apply(actor.gameObject, cmd);
             return true;
         }
 
