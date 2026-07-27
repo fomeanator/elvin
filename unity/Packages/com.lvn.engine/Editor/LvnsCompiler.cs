@@ -1188,8 +1188,11 @@ namespace Lvn.Editor
             if (k.Length == 0) return false;
             foreach (char r in k)
             {
-                bool ok = (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-                          (r >= '0' && r <= '9') || r == '_' || r == '.';
+                // Any unicode letter — authors write Russian variable names
+                // (`ждал = true`) as naturally as English ones (mirrors Go
+                // isValidKey; ASCII-only here silently turned such assignments
+                // into prose and forked weave vs body differently than Go).
+                bool ok = char.IsLetter(r) || char.IsDigit(r) || r == '_' || r == '.';
                 if (!ok) return false;
             }
             return true;
