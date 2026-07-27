@@ -87,5 +87,39 @@ namespace Lvn.Tests
 
             Object.DestroyImmediate(host);
         }
+
+        [Test]
+        public void Stage_ZOrder_SurvivesLateApplies()
+        {
+            var host = new GameObject("host", typeof(RectTransform));
+            var stage = new WorldStage(host.transform);
+
+            var pEnemy = Placement.Standing(0.5f); pEnemy.Z = 10;
+            var pHands = Placement.Standing(0.5f); pHands.Z = 80;
+
+            var enemy = stage.ApplyActor("enemy", new List<Sprite> { NewSprite() }, pEnemy);
+            var hands = stage.ApplyActor("hands", new List<Sprite> { NewSprite() }, pHands);
+            // The bug: SetSiblingIndex(z) clamped z=10 to "last child" on a small
+            // canvas, so the skeleton's hurt-pose re-apply (landing AFTER the
+            // hands' attack-pose) drew the skeleton over the hands. Null layers:
+            // re-configuring art calls Destroy(), which EditMode forbids — the
+            // sibling sort under test doesn't depend on the art.
+            stage.ApplyActor("enemy", null, pEnemy);
+
+            Assert.Less(enemy.transform.GetSiblingIndex(), hands.transform.GetSiblingIndex(),
+                "z=10 stays under z=80 no matter which apply lands last");
+
+            // No-z objects keep the classic "shown later = on top" order between
+            // themselves (birth-order tie-break)…
+            var first = stage.ApplyActor("first", new List<Sprite> { NewSprite() }, Placement.Standing(0.25f));
+            var second = stage.ApplyActor("second", new List<Sprite> { NewSprite() }, Placement.Standing(0.75f));
+            Assert.Less(first.transform.GetSiblingIndex(), second.transform.GetSiblingIndex(),
+                "no-z: creation order preserved");
+            // …and sit below explicit positive z (default z = 0).
+            Assert.Less(second.transform.GetSiblingIndex(), enemy.transform.GetSiblingIndex(),
+                "no-z (0) stacks under z=10");
+
+            Object.DestroyImmediate(host);
+        }
     }
 }
