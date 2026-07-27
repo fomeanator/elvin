@@ -812,6 +812,20 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 				log.Printf("asset PUT %s: %d warning(s): %s", rel, len(findings.Warnings), strings.Join(findings.Warnings, "; "))
 			}
 		}
+		// Оптимистическая блокировка манифеста: его правят несколько агентов,
+		// и PUT устаревшей копии молча стирал чужие тайтлы и спрайты («куда
+		// делась игра»). Правило: rev в теле обязан совпадать с rev на диске;
+		// сервер инкрементирует rev сам при каждой записи — вперёд и только
+		// вперёд. Старая копия получает 409 с инструкцией, а не тихую победу.
+		if rel == "manifest.json" {
+			newBody, code, msg := s.manifestRevGate(body)
+			if code != 0 {
+				log.Printf("manifest PUT rejected: %s", msg)
+				writeJSON(w, code, map[string]any{"error": msg, "rejected": true})
+				return
+			}
+			body = newBody
+		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -903,4 +917,49 @@ func withLog(next http.Handler) http.Handler {
 		log.Printf("%s %s", r.Method, r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// manifestRevGate — оптимистическая блокировка manifest.json (см. PUT выше).
+// Возвращает тело с уже увеличенным rev, либо (0-код ≠ 0) HTTP-статус и
+// понятное сообщение. Манифест без rev принимается один раз — как миграция
+// (на диске rev тоже отсутствует), после этого rev обязателен.
+func (s *server) manifestRevGate(body []byte) ([]byte, int, string) {
+	var incoming map[string]any
+	if err := json.Unmarshal(body, &incoming); err != nil {
+		return nil, http.StatusBadRequest, "manifest.json: тело не является валидным JSON: " + err.Error()
+	}
+	curRev := 0
+	if raw, err := os.ReadFile(filepath.Join(s.content, "manifest.json")); err == nil {
+		var cur map[string]any
+		if json.Unmarshal(raw, &cur) == nil {
+			if v, ok := cur["rev"].(float64); ok {
+				curRev = int(v)
+			}
+		}
+	}
+	bodyRev := -1
+	if v, ok := incoming["rev"].(float64); ok {
+		bodyRev = int(v)
+	}
+	// Миграция: ни на диске, ни в теле rev ещё нет — принять и завести rev=1.
+	if curRev == 0 && bodyRev == -1 {
+		incoming["rev"] = 1
+	} else if bodyRev != curRev {
+		have := "отсутствует"
+		if bodyRev >= 0 {
+			have = fmt.Sprintf("rev %d", bodyRev)
+		}
+		return nil, http.StatusConflict, fmt.Sprintf(
+			"манифест устарел: на сервере rev %d, в вашей копии %s. "+
+				"Обновите манифест перед изменениями: GET /content/manifest.json, "+
+				"внесите правки поверх свежей копии и повторите PUT — rev двигается "+
+				"только вперёд, сервер увеличит его сам.", curRev, have)
+	} else {
+		incoming["rev"] = curRev + 1
+	}
+	out, err := json.MarshalIndent(incoming, "", "  ")
+	if err != nil {
+		return nil, http.StatusInternalServerError, err.Error()
+	}
+	return append(out, '\n'), 0, ""
 }
