@@ -54,7 +54,10 @@ namespace Lvn.UI
         {
             if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (_player == null || _player.Finished) return;
-            if (_awaitingWait || _awaitingInput) return;
+            if (_awaitingInput) return;
+            // A `wait` swallows input — EXCEPT on a timed hotspot screen (icons +
+            // wait), where the click must reach the hotspot and cancel the timer.
+            if (_awaitingWait && _hotspots.Count == 0) return;
             if (evt.target is Button) return; // buttons (choices etc.) own their press
 
             _pressTracking = true;
@@ -116,7 +119,10 @@ namespace Lvn.UI
             if (InputBlocked) return;
             if (EntryGatePending) return; // the chapter-title card owns the screen
             if (_player == null || _player.Finished) return;
-            if (_awaitingWait || _awaitingInput) return;
+            if (_awaitingInput) return;
+            // Same exception as OnPointerDown: a timed hotspot screen stays
+            // clickable through the wait.
+            if (_awaitingWait && _hotspots.Count == 0) return;
 
             // Canvas-scene hotspots: there's no uGUI raycaster, so a tap is routed
             // here. Test it against each obj's normalized placement rect (top-left
@@ -142,6 +148,9 @@ namespace Lvn.UI
                     return;
                 }
                 LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0} of {pw:0}x{ph:0}] → miss → advance");
+                // A timed hotspot screen: a miss must neither advance nor
+                // complete the line — the wait keeps ticking until hit/timeout.
+                if (_awaitingWait) return;
                 // fall through to tap-to-advance
             }
 
