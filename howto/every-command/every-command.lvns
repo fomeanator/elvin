@@ -21,6 +21,17 @@ text_pace cps=45
 preload url="/content/bg/projection.jpg" kind=sprite
 preload url="/content/sfx/projector.ogg" kind=audio
 
+// Full-frame multi-effect stack (Canvas path). Sticky fields; off resets.
+fx vignette=0.35 grain=0.12
+fx frost=0.5 blink=0.3 invert=0.2 dur=0.4
+fx off
+
+// Per-actor sprite effects: outline / glow / dissolve (Canvas path).
+sfx id=mara outline=0.6 outline_color=#ffd76a
+sfx id=mara flash=0.8 dark=0.5 tint=0.6 tint_color=#7ad0ff dur=0.1
+sfx id=mara dissolve=1 dur=1.5
+sfx id=mara off
+
 bg /content/bg/projection.jpg
 actor ida left neutral scale=1 rotation=0
 Ida: Reel three. Let's see if the lamp holds this time.

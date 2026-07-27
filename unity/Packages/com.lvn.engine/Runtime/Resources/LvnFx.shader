@@ -37,7 +37,8 @@ Shader "Hidden/LvnFx"
 
             sampler2D _BloomTex;
             float _Vignette, _Grain, _Chromatic, _Scanlines, _Pixelate,
-                  _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort;
+                  _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort,
+                  _Frost, _Blink, _Invert;
             float4 _Tint;      // rgb множитель (1,1,1 = нет)
             float4 _RayCenter; // xy — источник лучей в uv
 
@@ -110,6 +111,28 @@ Shader "Hidden/LvnFx"
                 // Зерно (анимированное).
                 if (_Grain > 0.001)
                     col.rgb += (hash(uv * (t + 1.0) * 601.0) - 0.5) * _Grain * 0.35;
+
+                // Негатив (хоррор): плавный к инверсии.
+                if (_Invert > 0.001)
+                    col.rgb = lerp(col.rgb, 1.0 - col.rgb, _Invert);
+
+                // Заморозка: бело-голубой иней ползёт с краёв, кромка шумная.
+                if (_Frost > 0.001)
+                {
+                    float d2 = length(fromC) * 1.4142;
+                    float edge = smoothstep(1.05 - _Frost * 0.9, 1.25, d2 + hash(uv * 90.0) * 0.12);
+                    col.rgb = lerp(col.rgb, float3(0.83, 0.93, 1.0), edge * 0.9);
+                }
+
+                // Моргание: веки смыкаются сверху и снизу (мягкая кромка).
+                // open=1 в видимой середине, 0 под веками; при _Blink=1 темно.
+                if (_Blink > 0.001)
+                {
+                    float lid = _Blink * 0.52;
+                    float open = smoothstep(lid - 0.08, lid, uv.y)
+                               * smoothstep(lid - 0.08, lid, 1.0 - uv.y);
+                    col.rgb *= open;
+                }
 
                 // Виньетка (естественное затухание к углам).
                 if (_Vignette > 0.001)
