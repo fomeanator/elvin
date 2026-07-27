@@ -203,6 +203,11 @@ namespace Lvn.UI
                 case "flash": ApplyFlash(command); break;
                 case "tint": ApplyTint(command); break;
                 case "blur": ApplyBlur(command); break;
+                case "fx":
+                    // Мультиэффект кадра; без камеры (overlay-канвас, UITK-путь)
+                    // честный no-op — сцена просто остаётся чистой.
+                    _renderer?.TryFx(command);
+                    break;
                 case "camera": ApplyCamera(command); break;
                 case "particles":
                     _particles.Set((string)command["type"], BoolOr(command["on"], true));

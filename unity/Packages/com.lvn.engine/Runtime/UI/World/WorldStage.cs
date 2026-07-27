@@ -45,6 +45,9 @@ namespace Lvn.UI.World
         /// (built-in pipeline + a scene camera). Null → caller uses its veil.</summary>
         public LvnBlurEffect Blur { get; }
 
+        /// <summary>Мультиэффект кадра (op `fx`); null там же, где null Blur.</summary>
+        public LvnFxStack Fx { get; }
+
         /// <param name="parent">Where to park the canvas GameObject (e.g. the VnStage's transform).</param>
         /// <param name="sortingOrder">Canvas sort order — keep below the UITK panel's so chrome draws on top.</param>
         /// <param name="reference">Reference resolution (canvas units); default 1080×1920 portrait.</param>
@@ -80,6 +83,7 @@ namespace Lvn.UI.World
                 canvas.worldCamera = cam;
                 canvas.planeDistance = 1f;
                 Blur = LvnBlurEffect.Ensure(cam);
+                Fx = LvnFxStack.Ensure(cam); // мультиэффект (op `fx`), тот же крюк
             }
 
             var scaler = _canvasGo.GetComponent<CanvasScaler>();
