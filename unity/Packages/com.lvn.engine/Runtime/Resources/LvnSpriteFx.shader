@@ -24,8 +24,8 @@ Shader "Hidden/LvnSpriteFx"
             sampler2D _MainTex;
             float4 _MainTex_TexelSize;
             fixed4 _Color;
-            float _Outline, _Glow, _Dissolve;
-            fixed4 _OutlineColor, _GlowColor;
+            float _Outline, _Glow, _Dissolve, _Flash, _Dark, _TintFx;
+            fixed4 _OutlineColor, _GlowColor, _TintFxColor;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
@@ -96,6 +96,11 @@ Shader "Hidden/LvnSpriteFx"
                     }
                     else col.rgb += _GlowColor.rgb * _Glow * 0.25;
                 }
+
+                // Перекрас (отравлен/заморожен/призрак) → силуэт → хит-флеш.
+                if (_TintFx > 0.001) col.rgb = lerp(col.rgb, _TintFxColor.rgb, _TintFx);
+                if (_Dark > 0.001)   col.rgb = lerp(col.rgb, fixed3(0.02, 0.02, 0.03), _Dark);
+                if (_Flash > 0.001)  col.rgb = lerp(col.rgb, fixed3(1, 1, 1), _Flash);
 
                 return col;
             }
