@@ -46,7 +46,7 @@ namespace Lvn.Editor
             "clear",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles",
-            "fx", // мультиэффект кадра — зеркально Go KnownOps
+            "fx", "sfx", // мультиэффект кадра и спрайтовые эффекты — зеркально Go
             "audio", "wait", "preload", "text_pace",
             "text",
             "save", "load",
@@ -329,6 +329,22 @@ namespace Lvn.Editor
 
                 if (KnownOps.Contains(firstWord))
                 {
+                    // `fx off` — сброс мультиэффекта (зеркально Go): голое слово
+                    // без `=` не проходит parseKeyValue и падало в наррацию.
+                    if (firstWord == "fx" && line.Substring(2).Trim() == "off")
+                    {
+                        script.Add(new JObject { ["op"] = "fx", ["off"] = true });
+                        i++; continue;
+                    }
+                    if (firstWord == "sfx" && line.Trim().EndsWith(" off"))
+                    {
+                        var t = line.Trim(); t = t.Substring(3, t.Length - 3 - 3).Trim();
+                        var sp = ParseKeyValue(t);
+                        var so = new JObject { ["op"] = "sfx", ["off"] = true };
+                        foreach (var kv in sp) so[kv.Key] = JToken.FromObject(kv.Value);
+                        script.Add(so);
+                        i++; continue;
+                    }
                     if (firstWord == "anim" || firstWord == "move")
                     {
                         string rest = line.Substring(firstWord.Length).Trim();
