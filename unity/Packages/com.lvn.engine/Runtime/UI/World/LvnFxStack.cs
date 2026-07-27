@@ -25,8 +25,13 @@ namespace Lvn.UI.World
         private bool _shaderMissing;
 
         private float _vignette, _grain, _chromatic, _scanlines, _pixelate,
-                      _glitch, _bloom, _rays, _distort;
+                      _glitch, _bloom, _rays, _distort, _frost, _blink, _invert;
         private float _saturation = 1f, _contrast = 1f;
+        // Цели tween'а (op-поле dur): без dur цели применяются мгновенно.
+        private float _tVignette, _tGrain, _tChromatic, _tScanlines, _tPixelate,
+                      _tGlitch, _tBloom, _tRays, _tDistort, _tFrost, _tBlink, _tInvert;
+        private float _tSaturation = 1f, _tContrast = 1f;
+        private float _speed; // 1/dur; 0 = мгновенно
         private Vector2 _rayCenter = new Vector2(0.5f, 0.3f);
         private Color _tint = Color.white;
 
@@ -39,30 +44,67 @@ namespace Lvn.UI.World
             // `fx off` — литерал off попадает в поле "off" ИЛИ в первое слово;
             // компилятор кладёт голое слово как {"off": true}-подобный ключ не
             // гарантированно, поэтому признаём оба написания: off=1 и reset=1.
+            float dur = cmd["dur"] != null ? (float)cmd["dur"] : 0f;
+            _speed = dur > 0f ? 1f / dur : 0f;
+
             if (cmd["off"] != null || cmd["reset"] != null)
             {
-                _vignette = _grain = _chromatic = _scanlines = _pixelate = _glitch = _bloom = _rays = _distort = 0f;
-                _saturation = 1f; _contrast = 1f; _tint = Color.white;
-                enabled = Active;
+                _tVignette = _tGrain = _tChromatic = _tScanlines = _tPixelate = _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink = _tInvert = 0f;
+                _tSaturation = 1f; _tContrast = 1f; _tint = Color.white;
+                if (_speed <= 0f) SnapToTargets();
+                enabled = true;
                 return;
             }
 
-            _vignette   = F(cmd, "vignette", _vignette);
-            _grain      = F(cmd, "grain", _grain);
-            _chromatic  = F(cmd, "chromatic", _chromatic);
-            _scanlines  = F(cmd, "scanlines", _scanlines);
-            _pixelate   = F(cmd, "pixelate", _pixelate);
-            _glitch     = F(cmd, "glitch", _glitch);
-            _bloom      = F(cmd, "bloom", _bloom);
-            _rays       = F(cmd, "rays", _rays);
-            _distort    = F(cmd, "distort", _distort);
-            _saturation = F(cmd, "saturation", _saturation);
-            _contrast   = F(cmd, "contrast", _contrast);
+            _tVignette   = F(cmd, "vignette", _tVignette);
+            _tGrain      = F(cmd, "grain", _tGrain);
+            _tChromatic  = F(cmd, "chromatic", _tChromatic);
+            _tScanlines  = F(cmd, "scanlines", _tScanlines);
+            _tPixelate   = F(cmd, "pixelate", _tPixelate);
+            _tGlitch     = F(cmd, "glitch", _tGlitch);
+            _tBloom      = F(cmd, "bloom", _tBloom);
+            _tRays       = F(cmd, "rays", _tRays);
+            _tDistort    = F(cmd, "distort", _tDistort);
+            _tFrost      = F(cmd, "frost", _tFrost);
+            _tBlink      = F(cmd, "blink", _tBlink);
+            _tInvert     = F(cmd, "invert", _tInvert);
+            _tSaturation = F(cmd, "saturation", _tSaturation);
+            _tContrast   = F(cmd, "contrast", _tContrast);
             _rayCenter  = new Vector2(F(cmd, "rays_x", _rayCenter.x), F(cmd, "rays_y", _rayCenter.y));
             var tint = (string)cmd["tint"];
             if (!string.IsNullOrEmpty(tint) && ColorUtility.TryParseHtmlString(tint, out var c)) _tint = c;
 
-            enabled = Active;
+            if (_speed <= 0f) SnapToTargets();
+            enabled = true;
+        }
+
+        private void SnapToTargets()
+        {
+            _vignette = _tVignette; _grain = _tGrain; _chromatic = _tChromatic;
+            _scanlines = _tScanlines; _pixelate = _tPixelate; _glitch = _tGlitch;
+            _bloom = _tBloom; _rays = _tRays; _distort = _tDistort;
+            _frost = _tFrost; _blink = _tBlink; _invert = _tInvert;
+            _saturation = _tSaturation; _contrast = _tContrast;
+        }
+
+        private void Advance()
+        {
+            if (_speed <= 0f) { SnapToTargets(); return; }
+            float k = Time.unscaledDeltaTime * _speed;
+            _vignette = Mathf.MoveTowards(_vignette, _tVignette, k);
+            _grain = Mathf.MoveTowards(_grain, _tGrain, k);
+            _chromatic = Mathf.MoveTowards(_chromatic, _tChromatic, k);
+            _scanlines = Mathf.MoveTowards(_scanlines, _tScanlines, k);
+            _pixelate = Mathf.MoveTowards(_pixelate, _tPixelate, k * 20f);
+            _glitch = Mathf.MoveTowards(_glitch, _tGlitch, k);
+            _bloom = Mathf.MoveTowards(_bloom, _tBloom, k);
+            _rays = Mathf.MoveTowards(_rays, _tRays, k);
+            _distort = Mathf.MoveTowards(_distort, _tDistort, k);
+            _frost = Mathf.MoveTowards(_frost, _tFrost, k);
+            _blink = Mathf.MoveTowards(_blink, _tBlink, k);
+            _invert = Mathf.MoveTowards(_invert, _tInvert, k);
+            _saturation = Mathf.MoveTowards(_saturation, _tSaturation, k);
+            _contrast = Mathf.MoveTowards(_contrast, _tContrast, k);
         }
 
         private static float F(JObject cmd, string key, float cur)
@@ -71,7 +113,12 @@ namespace Lvn.UI.World
         private bool Active =>
             _vignette > 0f || _grain > 0f || _chromatic > 0f || _scanlines > 0f ||
             _pixelate > 0f || _glitch > 0f || _bloom > 0f || _rays > 0f || _distort > 0f ||
+            _frost > 0f || _blink > 0f || _invert > 0f ||
+            _tVignette > 0f || _tGrain > 0f || _tChromatic > 0f || _tScanlines > 0f ||
+            _tPixelate > 0f || _tGlitch > 0f || _tBloom > 0f || _tRays > 0f || _tDistort > 0f ||
+            _tFrost > 0f || _tBlink > 0f || _tInvert > 0f ||
             !Mathf.Approximately(_saturation, 1f) || !Mathf.Approximately(_contrast, 1f) ||
+            !Mathf.Approximately(_tSaturation, 1f) || !Mathf.Approximately(_tContrast, 1f) ||
             _tint != Color.white;
 
         private void OnRenderImage(RenderTexture src, RenderTexture dst)
@@ -82,6 +129,7 @@ namespace Lvn.UI.World
                 if (shader == null || !shader.isSupported) _shaderMissing = true;
                 else _mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             }
+            Advance();
             if (_shaderMissing || !Active)
             {
                 if (_shaderMissing) Debug.LogWarning("[LvnFx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
@@ -115,6 +163,9 @@ namespace Lvn.UI.World
             _mat.SetFloat("_Bloom", _bloom);
             _mat.SetFloat("_Rays", _rays);
             _mat.SetFloat("_Distort", _distort);
+            _mat.SetFloat("_Frost", _frost);
+            _mat.SetFloat("_Blink", _blink);
+            _mat.SetFloat("_Invert", _invert);
             _mat.SetFloat("_Saturation", _saturation);
             _mat.SetFloat("_Contrast", _contrast);
             _mat.SetColor("_Tint", _tint);
