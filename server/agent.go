@@ -542,6 +542,13 @@ func (s *server) registerChapter(req publishReq, scriptRel string) error {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return fmt.Errorf("manifest.json is not valid JSON: %w", err)
 	}
+	// Серверная запись манифеста тоже двигает rev вперёд: агент, читавший
+	// манифест до этой публикации, обязан перечитать его перед своим PUT.
+	if v, ok := m["rev"].(float64); ok {
+		m["rev"] = int(v) + 1
+	} else {
+		m["rev"] = 1
+	}
 	titles, _ := m["titles"].([]any)
 
 	var title map[string]any
