@@ -64,6 +64,8 @@ var KnownOps = map[string]bool{
 	"clear": true,
 	"fade":  true, "dim": true, "flash": true, "tint": true, "blur": true,
 	"camera": true, "particles": true,
+	// Мультиэффект кадра и спрайтовые эффекты актёра (Canvas-путь движка).
+	"fx": true, "sfx": true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
