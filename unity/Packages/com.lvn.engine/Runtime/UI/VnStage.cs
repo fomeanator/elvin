@@ -83,6 +83,10 @@ namespace Lvn.UI
         private CancellationTokenSource _cts;
         private bool _awaitingTap;
         private bool _awaitingWait;
+        // Wait generation: a hotspot jump mid-`wait` cancels the pending timer —
+        // otherwise WaitCoroutine's deferred Advance() fired AFTER the jump and
+        // swallowed a beat somewhere else (the timed-hotspot-screen pattern).
+        private int _waitGen;
         // Current on-screen beat — restored after a live theme rebuild so ApplyTheme
         // is safe to call mid-line (realtime theming keeps the line/choices visible).
         private bool _sayUp;
