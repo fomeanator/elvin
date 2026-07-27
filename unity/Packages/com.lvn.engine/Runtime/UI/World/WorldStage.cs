@@ -32,6 +32,10 @@ namespace Lvn.UI.World
         private readonly Dictionary<string, WorldActor> _actors = new Dictionary<string, WorldActor>();
         private readonly Dictionary<string, CanvasGroup> _slotGroups = new Dictionary<string, CanvasGroup>();
         private readonly Dictionary<string, float> _baseOpacity = new Dictionary<string, float>();
+        // Paint order: explicit z per id (sticky; unset = 0) + birth order as the
+        // tie-break. Mirrors ActorLayer._z — the two renderers must stack alike.
+        private readonly Dictionary<string, int> _zExplicit = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> _birth = new Dictionary<string, int>();
         private int _nextSibling;
 
         public GameObject Root => _canvasGo;
@@ -131,7 +135,7 @@ namespace Lvn.UI.World
             if (_actors.TryGetValue(id, out var a) && a != null) return a;
             var go = new GameObject("vn-obj-" + id, typeof(RectTransform), typeof(CanvasGroup));
             go.transform.SetParent(_content, false);
-            go.transform.SetSiblingIndex(_nextSibling++);
+            _birth[id] = _nextSibling++;
             a = go.AddComponent<WorldActor>();
             a.ContentSize = _reference;
             _actors[id] = a;
@@ -200,7 +204,12 @@ namespace Lvn.UI.World
             a.ContentSize = new Vector2(_reference.x, lh);
             a.SetSlotBase(a.Slot.anchoredPosition);
 
-            if (p.Z.HasValue) { a.transform.SetSiblingIndex(Mathf.Max(0, p.Z.Value)); }
+            // Re-sort on EVERY apply, not only when the command carries z=.
+            // SetSiblingIndex(z) treated z as a CHILD INDEX: on a six-child canvas
+            // z=10 and z=80 both clamped to "last", so whichever object finished
+            // its async apply later drew on top (руки под скелетом в бою 1-на-1).
+            if (p.Z.HasValue) _zExplicit[id] = p.Z.Value;
+            ResortSiblings();
 
             _baseOpacity[id] = p.Opacity;
             if (_slotGroups.TryGetValue(id, out var g) && g != null) g.alpha = p.Opacity;
@@ -212,6 +221,26 @@ namespace Lvn.UI.World
             if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
                 SetFocus(id, fg, focus);
             return a;
+        }
+
+        // Deterministic stacking: sort by explicit z (unset = 0), birth order
+        // breaks ties — so no-z novels keep their "shown later = on top" look,
+        // while z-объекты stack by value no matter which async apply lands last.
+        private void ResortSiblings()
+        {
+            var order = new List<KeyValuePair<string, WorldActor>>(_actors.Count);
+            foreach (var kv in _actors) if (kv.Value != null) order.Add(kv);
+            order.Sort((x, y) =>
+            {
+                int zx = _zExplicit.TryGetValue(x.Key, out var a) ? a : 0;
+                int zy = _zExplicit.TryGetValue(y.Key, out var b) ? b : 0;
+                if (zx != zy) return zx.CompareTo(zy);
+                int bx = _birth.TryGetValue(x.Key, out var c) ? c : 0;
+                int by = _birth.TryGetValue(y.Key, out var d) ? d : 0;
+                return bx.CompareTo(by);
+            });
+            for (int i = 0; i < order.Count; i++)
+                order[i].Value.transform.SetSiblingIndex(i);
         }
 
         // Focus dim as a COLOR, not alpha: a CanvasGroup fade applies per-graphic,
@@ -287,6 +316,8 @@ namespace Lvn.UI.World
             _slotGroups.Clear();
             _baseOpacity.Clear();
             _focusK.Clear();
+            _zExplicit.Clear();
+            _birth.Clear();
             _nextSibling = 0;
             _bg.SetColor(Color.clear);
         }
