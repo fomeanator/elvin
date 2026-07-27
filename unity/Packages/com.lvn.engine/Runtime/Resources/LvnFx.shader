@@ -60,9 +60,9 @@ Shader "Hidden/LvnFx"
                 // Аналоговый глитч: дрожь строк + дрейф цвета, всё от времени.
                 if (_Glitch > 0.001)
                 {
-                    float line = floor(uv.y * 240.0);
-                    float jitter = (hash(float2(line, floor(t * 24.0))) - 0.5)
-                                   * _Glitch * 0.04 * step(0.6, hash(float2(floor(t * 8.0), line * 0.13)));
+                    float row = floor(uv.y * 240.0);
+                    float jitter = (hash(float2(row, floor(t * 24.0))) - 0.5)
+                                   * _Glitch * 0.04 * step(0.6, hash(float2(floor(t * 8.0), row * 0.13)));
                     uv.x += jitter;
                 }
 
