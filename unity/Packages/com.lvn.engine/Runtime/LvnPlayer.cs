@@ -76,7 +76,7 @@ namespace Lvn
         {
             "bg", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
-            "hint", "save", "clear",
+            "hint", "save", "clear", "fx",
         };
 
         // op name → how many commands went unclaimed. Static on purpose: the

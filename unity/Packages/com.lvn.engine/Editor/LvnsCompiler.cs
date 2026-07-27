@@ -46,6 +46,7 @@ namespace Lvn.Editor
             "clear",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles",
+            "fx", // мультиэффект кадра — зеркально Go KnownOps
             "audio", "wait", "preload", "text_pace",
             "text",
             "save", "load",
