@@ -97,8 +97,8 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | `blur` | Screen blur (`alpha`≤0 removes it). | `alpha`≈0.5,`duration` |
 | `camera` | `shake`/`zoom`/`pan`/`reset`. | `action`,`amplitude`,`factor`,`x`,`y`,`duration` |
 | `particles` | Weather layer. | `type`=rain/snow, `on`(bool) |
-| `fx` | Full-frame multi-effect stack (Canvas path; vignette, grain, bloom, rays, glitch, …). Sticky fields; `fx off` resets. | `vignette grain chromatic scanlines pixelate glitch bloom rays rays_x rays_y distort saturation contrast tint frost blink invert dur off` |
-| `sfx` | Per-actor sprite effects (Canvas path): outline, glow, noise-dissolve with burning edge. `sfx id=… off` resets. | `id outline outline_color glow glow_color dissolve flash dark tint tint_color dur off` |
+| `fx` | Full-frame multi-effect stack (Canvas path). Optics/grading plus animated atmosphere, combat feedback and cinematic styling. Sticky fields; `fx off` resets. | `vignette grain chromatic scanlines pixelate glitch bloom rays rays_x rays_y distort saturation contrast tint frost blink invert fog fog_color rain snow embers embers_color blood blood_color poison poison_color shockwave shock_x shock_y speedlines dream sepia posterize letterbox dur off` |
+| `sfx` | Per-actor sprite effects (Canvas path): outline/glow/dissolve, status transformations and silhouette motion. `sfx id=… off` resets. | `id outline outline_color glow glow_color dissolve flash dark tint tint_color ghost ghost_color petrify hologram hologram_color burn burn_color rim rim_color shake dur off` |
 | `audio` | Sound on a channel (async). | `channel`=music/sfx/ambient, `action`=play/stop, `url?` |
 | `wait` | Pause the script for N ms (default 1000). | `ms` |
 | `hint` | Popup card at the top center of the scene (`VnStage.cs`: `ApplyHint`); `show=false` removes it, `duration>0` auto-hides. The text interpolates `{vars}`. | `text`, `show?`, `duration?` |

@@ -171,16 +171,16 @@
             "csharp": "shell-op",
             "js": "none",
             "note": "The living proof this table exists for. Emitted by the bundle importer, declared in KnownOps and grammar.json, implemented by NovelApp/WardrobeSheet — in com.lvn.engine.shell. A bare com.lvn.engine host gets a silent no-op. Declared here so that stays a known gap instead of a support ticket."
+        },
+        "fx": {
+            "owner": "engine",
+            "csharp": "stage",
+            "js": "none"
+        },
+        "sfx": {
+            "owner": "engine",
+            "csharp": "stage",
+            "js": "none"
         }
-    },
-    "fx": {
-        "owner": "engine",
-        "csharp": "stage",
-        "js": "renderer"
-    },
-    "sfx": {
-        "owner": "engine",
-        "csharp": "stage",
-        "js": "renderer"
     }
 }
