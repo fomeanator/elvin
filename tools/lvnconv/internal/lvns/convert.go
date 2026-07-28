@@ -36,7 +36,7 @@ var KnownOps = map[string]bool{
 	// опа, `fx off` сбрасывает). Рантайм — LvnFxStack на камере канвас-сцены.
 	"fx": true,
 	// Спрайтовые эффекты актёра: sfx id=… outline/glow/dissolve (+_color, dur).
-	"sfx": true,
+	"sfx":   true,
 	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
 	"text":  true,               // reactive HUD/stat label
