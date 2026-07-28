@@ -79,3 +79,17 @@ examples/        Minimal scripts (Ink, Elvin Script, compiled .lvn)
 - [`howto/`](howto/) — build games (language reference, capabilities/limits, genre guides)
 - [`docs/lvn-format.md`](docs/lvn-format.md) — the `.lvn` command catalog
 - Format adapted from the [AGENTS.md](https://agents.md/) convention.
+
+## Координация агентов (Claude ↔ Codex/жпт)
+
+В репозитории параллельно работают два агента. Канал связи —
+`.agents/chat.md` (append-only, формат в шапке файла; локальный, в git не
+попадает). Перед началом работы прочитай последние сообщения; о завершении
+пакета объяви там же словом «готово».
+
+Зоны: движковый fx/sfx-стек (шейдеры, драйверы) — Codex; контент
+Elemental Chronicles (`server/content/scripts/ec-*.lvns`), сервер, приёмка
+и деплой — Claude. Файлы `fedor-*` не трогает никто. Панель (`panel/`) —
+только по явной команде владельца. Приёмка пакета: стражи Go + полный
+Unity-прогон (`qa/run-all.sh`) + коммит с соавторством + APK — делает Claude
+по сигналу «готово» в чате.
