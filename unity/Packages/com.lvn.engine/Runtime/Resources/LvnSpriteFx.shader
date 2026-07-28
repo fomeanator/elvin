@@ -16,6 +16,9 @@ Shader "Hidden/LvnSpriteFx"
         [HideInInspector] _StencilOnly ("Composite Stencil Only", Float) = 0
         [HideInInspector] _CompositeDilate ("Composite Mask Dilation", Float) = 0
         [HideInInspector] _CompositeUvScale ("Composite UV Scale", Float) = 1
+        [HideInInspector] _AuraSize ("Aura Size", Float) = 1
+        [HideInInspector] _AuraSpeed ("Aura Speed", Float) = 1
+        [HideInInspector] _AuraDensity ("Aura Density", Float) = 1
     }
     SubShader
     {
@@ -45,7 +48,8 @@ Shader "Hidden/LvnSpriteFx"
                   _Ghost, _Petrify, _Hologram, _Burn, _Rim, _Shake,
                   _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle,
                   _CompositeSource, _CompositeOnly, _StencilOnly,
-                  _CompositeDilate, _CompositeUvScale;
+                  _CompositeDilate, _CompositeUvScale,
+                  _AuraSize, _AuraSpeed, _AuraDensity;
             fixed4 _OutlineColor, _GlowColor, _TintFxColor, _GhostColor,
                    _HologramColor, _BurnColor, _RimColor, _AuraColor,
                    _AuraColor2, _BladeColor, _LightningColor, _RunesColor;
@@ -364,15 +368,19 @@ Shader "Hidden/LvnSpriteFx"
                             }
                             else // ascendant: широкое пламя, дым и тёмные манхва-жгуты
                             {
+                                float auraTime = time * _AuraSpeed;
+                                float density = max(_AuraDensity, 0.25);
+                                float2 ascCentered = centered / max(_AuraSize, 0.4);
+                                float2 ascUv = ascCentered + 0.5;
                                 float broadNoise = noise21(float2(
-                                    uv.x * 6.5 - time * 0.19,
-                                    uv.y * 7.5 - time * 0.62));
+                                    ascUv.x * 6.5 - auraTime * 0.19,
+                                    ascUv.y * 7.5 - auraTime * 0.62));
                                 float detailNoise = noise21(float2(
-                                    uv.x * 19.0 + time * 0.13,
-                                    uv.y * 16.0 - time * 1.08));
-                                float sideCurl = sin(uv.y * 17.0 - time * 0.74
+                                    ascUv.x * 19.0 + auraTime * 0.13,
+                                    ascUv.y * 16.0 - auraTime * 1.08));
+                                float sideCurl = sin(ascUv.y * 17.0 - auraTime * 0.74
                                     + broadNoise * 7.0
-                                    + abs(centered.x) * 13.0);
+                                    + abs(ascCentered.x) * 13.0);
                                 float coreShell = max(
                                     ringAlpha(uv, 0.014),
                                     ringAlpha(uv, 0.027));
@@ -386,62 +394,80 @@ Shader "Hidden/LvnSpriteFx"
                                 // its centre; noise and paired side paths shape
                                 // the remaining exterior into smoke and ink.
                                 float ellipse = length(float2(
-                                    centered.x * 1.34,
-                                    (centered.y + 0.015) * 0.92));
+                                    ascCentered.x * 1.34,
+                                    (ascCentered.y + 0.015) * 0.92));
                                 float raggedRadius = ellipse
                                     + (broadNoise - 0.5) * 0.105
                                     + (detailNoise - 0.5) * 0.035;
+                                // Manhwa ink needs a decisive silhouette. Keep
+                                // only a very narrow antialiased transition
+                                // instead of fading the blot over a fifth of
+                                // the actor canvas.
                                 float fieldEnvelope = 1.0
-                                    - smoothstep(0.48, 0.68, raggedRadius);
+                                    - smoothstep(0.615, 0.645, raggedRadius);
+                                float fieldOuter = 1.0
+                                    - smoothstep(0.645, 0.665, raggedRadius);
+                                float fieldOutline = saturate(
+                                    fieldOuter - fieldEnvelope * 0.84);
                                 float risingSmoke = smoothstep(0.18, 0.78,
                                     broadNoise * 0.70 + detailNoise * 0.30
-                                    + centered.y * 0.24);
-                                float edgeSmoke = smoothstep(0.25, 0.52,
+                                    + ascCentered.y * 0.24);
+                                float edgeSmoke = smoothstep(0.34, 0.41,
                                     raggedRadius) * fieldEnvelope;
                                 float tongueNoise = noise21(float2(
-                                    uv.x * 12.0 + time * 0.11,
-                                    uv.y * 5.0 - time * 1.12));
+                                    ascUv.x * 12.0 * density + auraTime * 0.11,
+                                    ascUv.y * 5.0 * density - auraTime * 1.12));
                                 float tongueGate = smoothstep(0.54, 0.86,
                                     tongueNoise
-                                    + sin(uv.x * 27.0 - time * 0.48) * 0.18
-                                    + centered.y * 0.14);
+                                    + sin(ascUv.x * 27.0 * density
+                                        - auraTime * 0.48) * 0.18
+                                    + ascCentered.y * 0.14);
                                 float tongueReach = 1.0 - smoothstep(
-                                    0.52, 0.80,
+                                    0.625, 0.665,
                                     raggedRadius - tongueGate * 0.12);
-                                float edgeTongues = saturate(
+                                float edgeTonguesRaw = saturate(
                                     tongueReach - fieldEnvelope * 0.72)
                                     * tongueGate
-                                    * smoothstep(-0.56, 0.34, centered.y);
+                                    * smoothstep(-0.56, 0.34, ascCentered.y);
+                                float edgeTongues = smoothstep(
+                                    0.14, 0.30, edgeTonguesRaw);
 
                                 float ribbonCenter = 0.245
-                                    + sin(uv.y * 10.0 - time * 0.62
+                                    + sin(ascUv.y * 10.0 * density
+                                        - auraTime * 0.62
                                         + broadNoise * 4.5) * 0.052
                                     + (detailNoise - 0.5) * 0.035;
                                 float ribbonDistance = abs(
-                                    abs(centered.x * aspect) - ribbonCenter);
+                                    abs(ascCentered.x * aspect) - ribbonCenter);
                                 float ribbonLine = 1.0 - smoothstep(
-                                    0.012, 0.041, ribbonDistance);
-                                float ribbonBreaks = smoothstep(-0.18, 0.48,
+                                    0.022, 0.032, ribbonDistance);
+                                float ribbonBreaks = smoothstep(0.02, 0.20,
                                     sideCurl + (detailNoise - 0.5) * 0.82);
-                                float inkRibbons = ribbonLine * ribbonBreaks
+                                float inkRibbonsRaw = ribbonLine * ribbonBreaks
                                     * smoothstep(0.10, 0.92,
-                                        1.0 - abs(centered.y) * 0.72);
+                                        1.0 - abs(ascCentered.y) * 0.72);
+                                float inkRibbons = smoothstep(
+                                    0.16, 0.34, inkRibbonsRaw);
                                 float blueVeil = fieldEnvelope
                                     * (0.20 + risingSmoke * 0.34)
                                     + edgeSmoke * (0.28 + risingSmoke * 0.42)
                                     + edgeTongues * 0.68
                                     + innerField * 0.58;
+                                blueVeil = smoothstep(0.16, 0.31, blueVeil);
                                 float whiteHeat = saturate(coreShell * 0.94
                                     + innerField * smoothstep(0.58, 0.88,
                                         detailNoise + broadNoise * 0.22) * 0.42
                                     + edgeTongues * detailNoise * 0.16);
                                 auraNear = coreShell + innerField * 0.54;
-                                auraFar = blueVeil + inkRibbons;
-                                auraDark = inkRibbons;
+                                auraFar = blueVeil + inkRibbons
+                                    + fieldOutline * 0.72;
+                                auraDark = max(inkRibbons,
+                                    fieldOutline * 0.88);
                                 auraBright = whiteHeat;
                                 auraInk = coreShell * 0.90
-                                    + blueVeil * 0.72 + inkRibbons * 0.96;
-                                auraPulse = 0.86 + 0.09 * sin(time * 1.18)
+                                    + blueVeil * 0.72 + inkRibbons * 0.96
+                                    + fieldOutline * 0.82;
+                                auraPulse = 0.86 + 0.09 * sin(auraTime * 1.18)
                                     + (broadNoise - 0.5) * 0.14;
                             }
 
@@ -580,7 +606,8 @@ Shader "Hidden/LvnSpriteFx"
                                             : style > 3.5 && style < 4.5 ? 4.0
                                             : 7.0;
                             float flow = pow(saturate(0.5 + 0.5
-                                               * sin(uv.y * 31.0 - time * flowSpeed
+                                               * sin(uv.y * 31.0 * _AuraDensity
+                                                   - time * flowSpeed * _AuraSpeed
                                                    + noise21(uv * 9.0) * 5.0)), flowPower);
                             if (style > 0.5 && style < 1.5)
                                 flow *= 0.18; // барьер цельный, а не пламенный
@@ -589,8 +616,10 @@ Shader "Hidden/LvnSpriteFx"
                             if (style > 9.5)
                             {
                                 float livingEdge = noise21(float2(
-                                    uv.x * 8.0 - time * 0.18,
-                                    uv.y * 15.0 - time * 0.76));
+                                    uv.x * 8.0 * _AuraDensity
+                                        - time * 0.18 * _AuraSpeed,
+                                    uv.y * 15.0 * _AuraDensity
+                                        - time * 0.76 * _AuraSpeed));
                                 col.rgb += _AuraColor.rgb * auraRim * _Aura
                                     * (0.82 + livingEdge * 0.38);
                                 col.rgb += _AuraColor2.rgb * auraRim * _Aura

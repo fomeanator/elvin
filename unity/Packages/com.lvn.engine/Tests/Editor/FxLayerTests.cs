@@ -214,6 +214,35 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void AscendantAuraAcceptsSizeSpeedAndDensityControls()
+        {
+            var actor = new GameObject("tuned-ascendant",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            try
+            {
+                LvnSpriteFxDriver.Apply(actor, JObject.Parse(@"{
+                    'aura':1,'aura_style':'ascendant',
+                    'aura_size':1.5,'aura_speed':0.6,'aura_density':2
+                }"));
+
+                var fx = actor.GetComponent<LvnSpriteFxDriver>();
+                Assert.AreEqual(1.5f, Private<float>(fx, "_auraSize"), 0.0001f);
+                Assert.AreEqual(0.6f, Private<float>(fx, "_auraSpeed"), 0.0001f);
+                Assert.AreEqual(2f, Private<float>(fx, "_auraDensity"), 0.0001f);
+
+                var halo = Private<Material>(fx, "_haloMat");
+                Assert.AreEqual(2.13f, halo.GetFloat("_CompositeUvScale"), 0.0001f);
+                Assert.AreEqual(1.5f, halo.GetFloat("_AuraSize"), 0.0001f);
+                Assert.AreEqual(0.6f, halo.GetFloat("_AuraSpeed"), 0.0001f);
+                Assert.AreEqual(2f, halo.GetFloat("_AuraDensity"), 0.0001f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(actor);
+            }
+        }
+
+        [Test]
         public void AscendantCompositeUsesOneFieldAcrossAllBodyLayers()
         {
             var actor = new GameObject("composite-ascendant");
