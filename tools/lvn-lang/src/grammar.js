@@ -265,6 +265,7 @@ export const OP_FIELDS = {
   ],
   "sfx": [
     "id",
+    "part",
     "outline",
     "outline_color",
     "glow",
@@ -284,6 +285,16 @@ export const OP_FIELDS = {
     "rim",
     "rim_color",
     "shake",
+    "aura",
+    "aura_style",
+    "aura_color",
+    "aura_color2",
+    "blade",
+    "blade_color",
+    "lightning",
+    "lightning_color",
+    "runes",
+    "runes_color",
     "dur",
     "off"
   ]
@@ -346,6 +357,15 @@ export const ATTR_VALUES = {
     "reset",
     "play",
     "stop"
+  ],
+  "aura_style": [
+    "basic",
+    "guard",
+    "fire",
+    "frost",
+    "storm",
+    "shadow",
+    "holy"
   ]
 };
 

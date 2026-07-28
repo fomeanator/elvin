@@ -4,6 +4,7 @@ using Lvn.UI.World;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Lvn.Tests
 {
@@ -59,7 +60,9 @@ namespace Lvn.Tests
             {
                 LvnSpriteFxDriver.Apply(go, JObject.Parse(@"{
                     'ghost':0.8,'petrify':0.7,'hologram':0.6,
-                    'burn':0.5,'rim':0.4,'shake':0.3
+                    'burn':0.5,'rim':0.4,'shake':0.3,
+                    'aura':0.9,'aura_style':'fire',
+                    'blade':0.8,'lightning':0.6,'runes':0.5
                 }"));
                 var fx = go.GetComponent<LvnSpriteFxDriver>();
                 Assert.NotNull(fx);
@@ -69,14 +72,52 @@ namespace Lvn.Tests
                 Assert.AreEqual(0.5f, Private<float>(fx, "_tBurn"), 0.0001f);
                 Assert.AreEqual(0.4f, Private<float>(fx, "_tRim"), 0.0001f);
                 Assert.AreEqual(0.3f, Private<float>(fx, "_tShake"), 0.0001f);
+                Assert.AreEqual(0.9f, Private<float>(fx, "_tAura"), 0.0001f);
+                Assert.AreEqual(2f, Private<float>(fx, "_auraStyle"), 0.0001f);
+                Assert.Greater(Private<Color>(fx, "_auraColor").r, 0.9f);
+                Assert.AreEqual(0.8f, Private<float>(fx, "_tBlade"), 0.0001f);
+                Assert.AreEqual(0.6f, Private<float>(fx, "_tLightning"), 0.0001f);
+                Assert.AreEqual(0.5f, Private<float>(fx, "_tRunes"), 0.0001f);
 
                 LvnSpriteFxDriver.Apply(go, JObject.Parse(@"{'off':true}"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tGhost"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tShake"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tAura"));
             }
             finally
             {
                 Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void SpriteFxCanTargetAndResetACompositePart()
+        {
+            var actor = new GameObject("hero");
+            try
+            {
+                var weapon = new GameObject("layer:weapon",
+                    typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                weapon.transform.SetParent(actor.transform, false);
+
+                LvnSpriteFxDriver.Apply(actor, JObject.Parse(@"{
+                    'part':'weapon','blade':1,'blade_color':'#c8f5ff','runes':0.4
+                }"));
+
+                Assert.IsNull(actor.GetComponent<LvnSpriteFxDriver>());
+                var fx = weapon.GetComponent<LvnSpriteFxDriver>();
+                Assert.NotNull(fx);
+                Assert.IsTrue(Private<bool>(fx, "_scopedPart"));
+                Assert.AreEqual(1f, Private<float>(fx, "_tBlade"), 0.0001f);
+                Assert.AreEqual(0.4f, Private<float>(fx, "_tRunes"), 0.0001f);
+
+                LvnSpriteFxDriver.Apply(actor, JObject.Parse(@"{'off':true}"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tBlade"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tRunes"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(actor);
             }
         }
 
