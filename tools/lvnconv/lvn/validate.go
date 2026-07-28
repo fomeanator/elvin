@@ -123,6 +123,7 @@ var EnumValues = map[string]map[string][]string{
 	"particles": {"type": {"rain", "snow"}},
 	"audio":     {"channel": {"music", "ambient", "sfx"}, "action": {"play", "stop"}},
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
+	"sfx":       {"aura_style": {"basic", "guard", "fire", "frost", "storm", "shadow", "holy", "space", "distortion", "spirit", "ascendant"}},
 	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
 }
 

@@ -15,6 +15,7 @@ Shader "Hidden/LvnSpriteFx"
         [HideInInspector] _CompositeOnly ("Composite Halo Only", Float) = 0
         [HideInInspector] _StencilOnly ("Composite Stencil Only", Float) = 0
         [HideInInspector] _CompositeDilate ("Composite Mask Dilation", Float) = 0
+        [HideInInspector] _CompositeUvScale ("Composite UV Scale", Float) = 1
     }
     SubShader
     {
@@ -44,7 +45,7 @@ Shader "Hidden/LvnSpriteFx"
                   _Ghost, _Petrify, _Hologram, _Burn, _Rim, _Shake,
                   _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle,
                   _CompositeSource, _CompositeOnly, _StencilOnly,
-                  _CompositeDilate;
+                  _CompositeDilate, _CompositeUvScale;
             fixed4 _OutlineColor, _GlowColor, _TintFxColor, _GhostColor,
                    _HologramColor, _BurnColor, _RimColor, _AuraColor,
                    _AuraColor2, _BladeColor, _LightningColor, _RunesColor;
@@ -105,7 +106,11 @@ Shader "Hidden/LvnSpriteFx"
 
             fixed4 frag(v2f i) : SV_Target
             {
-                float2 uv = i.uv;
+                // Wide halo copies enlarge their geometry while this inverse
+                // UV mapping keeps the source sprite at its original size.
+                // The extra border then becomes real canvas for smoke/tendrils
+                // instead of stretching the character texture.
+                float2 uv = (i.uv - 0.5) * _CompositeUvScale + 0.5;
 
                 // Призрак и голограмма слегка ломают сам силуэт, а не весь кадр.
                 if (_Ghost > 0.001)
@@ -217,6 +222,8 @@ Shader "Hidden/LvnSpriteFx"
                                                                       uv.y * 9.0 - time * 1.35));
                             float auraInk = saturate(auraNear * 0.62 + auraFar * 0.31);
                             float auraPulse = pulse * rise;
+                            float auraDark = 0.0;
+                            float auraBright = 0.0;
                             float style = floor(_AuraStyle + 0.5);
 
                             // Стиль меняет характер движения, но не палитру:
@@ -295,7 +302,7 @@ Shader "Hidden/LvnSpriteFx"
                                         + auraFar * (0.10 + voidSmoke * 0.27);
                                 auraPulse = 0.70 + 0.10 * sin(time * 0.56);
                             }
-                            else // distortion: чёрный внутренний, красный внешний разлом
+                            else if (style < 8.5) // distortion: чёрный внутренний, красный внешний разлом
                             {
                                 float slowWarp = noise21(float2(uv.y * 8.5 - time * 0.22,
                                                                  uv.x * 3.0 + time * 0.09)) - 0.5;
@@ -322,11 +329,143 @@ Shader "Hidden/LvnSpriteFx"
                                 auraPulse = 0.78 + 0.10 * sin(time * 0.42
                                                             + uv.y * 4.0);
                             }
+                            else if (style < 9.5) // spirit: плотное ядро и шумовая светлая кромка
+                            {
+                                float shellNoise = noise21(float2(
+                                    uv.x * 9.0 - time * 0.16,
+                                    uv.y * 13.0 - time * 0.72));
+                                float fineNoise = noise21(float2(
+                                    uv.x * 23.0 + time * 0.11,
+                                    uv.y * 27.0 - time * 1.18));
+                                float innerShell = max(
+                                    ringAlpha(uv, 0.012),
+                                    ringAlpha(uv, 0.017));
+                                float middleShell = max(max(
+                                    ringAlpha(uv, 0.022
+                                        + (shellNoise - 0.5) * 0.003),
+                                    ringAlpha(uv, 0.028)),
+                                    ringAlpha(uv, 0.034
+                                        + (fineNoise - 0.5) * 0.003));
+                                float outerShell = max(
+                                    ringAlpha(uv, 0.040),
+                                    ringAlpha(uv, 0.047
+                                        + (fineNoise - 0.5) * 0.004));
+                                float denseCore = innerShell
+                                    * (0.74 + shellNoise * 0.34);
+                                float brightEdge = saturate(
+                                    middleShell * (0.42 + fineNoise * 0.54)
+                                    + outerShell * smoothstep(0.34, 0.76,
+                                        shellNoise + fineNoise * 0.26) * 0.58);
+                                auraNear = denseCore;
+                                auraFar = brightEdge;
+                                auraInk = denseCore * 0.88 + brightEdge * 0.82;
+                                auraPulse = 0.88 + 0.10 * sin(time * 1.36)
+                                    + (shellNoise - 0.5) * 0.10;
+                            }
+                            else // ascendant: широкое пламя, дым и тёмные манхва-жгуты
+                            {
+                                float broadNoise = noise21(float2(
+                                    uv.x * 6.5 - time * 0.19,
+                                    uv.y * 7.5 - time * 0.62));
+                                float detailNoise = noise21(float2(
+                                    uv.x * 19.0 + time * 0.13,
+                                    uv.y * 16.0 - time * 1.08));
+                                float sideCurl = sin(uv.y * 17.0 - time * 0.74
+                                    + broadNoise * 7.0
+                                    + abs(centered.x) * 13.0);
+                                float coreShell = max(
+                                    ringAlpha(uv, 0.014),
+                                    ringAlpha(uv, 0.027));
+                                float innerField = max(
+                                    ringAlpha(uv, 0.041),
+                                    ringAlpha(uv, 0.057));
+
+                                // A continuous actor-sized field avoids the
+                                // eight displaced sprite silhouettes produced
+                                // by very large ringAlpha taps. Stencil removes
+                                // its centre; noise and paired side paths shape
+                                // the remaining exterior into smoke and ink.
+                                float ellipse = length(float2(
+                                    centered.x * 1.34,
+                                    (centered.y + 0.015) * 0.92));
+                                float raggedRadius = ellipse
+                                    + (broadNoise - 0.5) * 0.105
+                                    + (detailNoise - 0.5) * 0.035;
+                                float fieldEnvelope = 1.0
+                                    - smoothstep(0.48, 0.68, raggedRadius);
+                                float risingSmoke = smoothstep(0.18, 0.78,
+                                    broadNoise * 0.70 + detailNoise * 0.30
+                                    + centered.y * 0.24);
+                                float edgeSmoke = smoothstep(0.25, 0.52,
+                                    raggedRadius) * fieldEnvelope;
+                                float tongueNoise = noise21(float2(
+                                    uv.x * 12.0 + time * 0.11,
+                                    uv.y * 5.0 - time * 1.12));
+                                float tongueGate = smoothstep(0.54, 0.86,
+                                    tongueNoise
+                                    + sin(uv.x * 27.0 - time * 0.48) * 0.18
+                                    + centered.y * 0.14);
+                                float tongueReach = 1.0 - smoothstep(
+                                    0.52, 0.80,
+                                    raggedRadius - tongueGate * 0.12);
+                                float edgeTongues = saturate(
+                                    tongueReach - fieldEnvelope * 0.72)
+                                    * tongueGate
+                                    * smoothstep(-0.56, 0.34, centered.y);
+
+                                float ribbonCenter = 0.245
+                                    + sin(uv.y * 10.0 - time * 0.62
+                                        + broadNoise * 4.5) * 0.052
+                                    + (detailNoise - 0.5) * 0.035;
+                                float ribbonDistance = abs(
+                                    abs(centered.x * aspect) - ribbonCenter);
+                                float ribbonLine = 1.0 - smoothstep(
+                                    0.012, 0.041, ribbonDistance);
+                                float ribbonBreaks = smoothstep(-0.18, 0.48,
+                                    sideCurl + (detailNoise - 0.5) * 0.82);
+                                float inkRibbons = ribbonLine * ribbonBreaks
+                                    * smoothstep(0.10, 0.92,
+                                        1.0 - abs(centered.y) * 0.72);
+                                float blueVeil = fieldEnvelope
+                                    * (0.20 + risingSmoke * 0.34)
+                                    + edgeSmoke * (0.28 + risingSmoke * 0.42)
+                                    + edgeTongues * 0.68
+                                    + innerField * 0.58;
+                                float whiteHeat = saturate(coreShell * 0.94
+                                    + innerField * smoothstep(0.58, 0.88,
+                                        detailNoise + broadNoise * 0.22) * 0.42
+                                    + edgeTongues * detailNoise * 0.16);
+                                auraNear = coreShell + innerField * 0.54;
+                                auraFar = blueVeil + inkRibbons;
+                                auraDark = inkRibbons;
+                                auraBright = whiteHeat;
+                                auraInk = coreShell * 0.90
+                                    + blueVeil * 0.72 + inkRibbons * 0.96;
+                                auraPulse = 0.86 + 0.09 * sin(time * 1.18)
+                                    + (broadNoise - 0.5) * 0.14;
+                            }
 
                             auraInk = saturate(auraInk) * _Aura * auraPulse;
                             fixed3 auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
                                                    saturate(uv.y * 0.72 + rise * 0.34));
-                            if (style > 6.5 && style < 7.5)
+                            if (style > 9.5)
+                            {
+                                float heatMix = saturate(auraBright
+                                    / max(auraNear + auraFar, 0.001));
+                                auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
+                                    saturate(0.08 + heatMix * 1.18));
+                                fixed3 inkTone = _AuraColor.rgb * 0.025;
+                                auraTone = lerp(auraTone, inkTone,
+                                    saturate(auraDark * 1.34));
+                            }
+                            else if (style > 8.5)
+                            {
+                                float shellRatio = auraFar
+                                    / max(auraNear + auraFar, 0.001);
+                                auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
+                                    saturate(0.06 + shellRatio * 0.56));
+                            }
+                            else if (style > 6.5 && style < 7.5)
                             {
                                 float violetOrbit = smoothstep(0.17, 0.29, radius);
                                 auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
@@ -340,7 +479,9 @@ Shader "Hidden/LvnSpriteFx"
                             }
                             energyRgb += auraTone * auraInk;
                             energyWeight += auraInk;
-                            float auraAlphaScale = style > 7.5 ? 0.68
+                            float auraAlphaScale = style > 9.5 ? 0.90
+                                                 : style > 8.5 ? 0.82
+                                                 : style > 7.5 ? 0.68
                                                  : style > 6.5 ? 0.72
                                                  : 0.62;
                             energyAlpha += auraInk * auraAlphaScale;
@@ -427,13 +568,15 @@ Shader "Hidden/LvnSpriteFx"
                                                    sampleAlpha(uv + float2(0, -px * 4.0))));
                             float auraRim = saturate(col.a - inside);
                             float style = floor(_AuraStyle + 0.5);
-                            float flowSpeed = style > 7.5 ? 0.72
+                            float flowSpeed = style > 8.5 ? 1.85
+                                            : style > 7.5 ? 0.72
                                             : style > 6.5 ? 0.88
                                             : style > 1.5 && style < 2.5 ? 7.2
                                             : style > 4.5 && style < 5.5 ? 1.3
                                             : style > 3.5 && style < 4.5 ? 9.5
                                             : 3.4;
-                            float flowPower = style > 2.5 && style < 3.5 ? 13.0
+                            float flowPower = style > 8.5 ? 3.2
+                                            : style > 2.5 && style < 3.5 ? 13.0
                                             : style > 3.5 && style < 4.5 ? 4.0
                                             : 7.0;
                             float flow = pow(saturate(0.5 + 0.5
@@ -443,7 +586,27 @@ Shader "Hidden/LvnSpriteFx"
                                 flow *= 0.18; // барьер цельный, а не пламенный
                             fixed3 auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
                                                    saturate(uv.y + flow * 0.25));
-                            if (style > 7.5)
+                            if (style > 9.5)
+                            {
+                                float livingEdge = noise21(float2(
+                                    uv.x * 8.0 - time * 0.18,
+                                    uv.y * 15.0 - time * 0.76));
+                                col.rgb += _AuraColor.rgb * auraRim * _Aura
+                                    * (0.82 + livingEdge * 0.38);
+                                col.rgb += _AuraColor2.rgb * auraRim * _Aura
+                                    * (0.18 + flow * 0.56);
+                            }
+                            else if (style > 8.5)
+                            {
+                                float shellNoise = noise21(float2(
+                                    uv.x * 11.0 - time * 0.22,
+                                    uv.y * 17.0 - time * 0.84));
+                                col.rgb += _AuraColor.rgb * auraRim * _Aura
+                                    * (0.72 + shellNoise * 0.34);
+                                col.rgb += _AuraColor2.rgb * auraRim * _Aura
+                                    * (0.28 + flow * 0.48);
+                            }
+                            else if (style > 7.5)
                             {
                                 // Разлом съедает внутреннюю кромку в чёрный;
                                 // красный остаётся снаружи и только слегка

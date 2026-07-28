@@ -372,7 +372,9 @@ export const ATTR_VALUES = {
     "shadow",
     "holy",
     "space",
-    "distortion"
+    "distortion",
+    "spirit",
+    "ascendant"
   ]
 };
 
