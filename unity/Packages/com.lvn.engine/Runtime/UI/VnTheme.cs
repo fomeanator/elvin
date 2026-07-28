@@ -99,6 +99,10 @@ namespace Lvn.UI
                  "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +
                  "sets an explicit x=.")]
         public float ActorSpread = 1f;
+        [Tooltip("Speaker focus: \"dim\" — non-speakers darken (manhwa two-shot); " +
+                 "\"solo\" — only the current speaker is visible, others fade out " +
+                 "(classic novel). Solo touches only characters that have SPOKEN.")]
+        public string SpeakerFocus = "dim";
 
         [Header("Reveal")]
         [Tooltip("Typewriter speed in characters per second.")]

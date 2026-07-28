@@ -153,6 +153,7 @@ namespace Lvn.UI
             // a flat row. actor_map'd speakers carry their true actor id (who_id);
             // without it the loose name↔slot key match applies.
             SceneHighlightSpeaker(_player?.CurrentSpeakerId ?? who);
+            ApplySpeakerSolo(_player?.CurrentSpeakerId ?? ResolveSpeakerId(who));
 
             // Lip-sync: only the speaking actor's mouth moves while the line is up.
             var spId = _player?.CurrentSpeakerId ?? ResolveSpeakerId(who);
@@ -171,6 +172,50 @@ namespace Lvn.UI
         private void SceneStopAnim(string id, string target) => _renderer?.StopAnim(id, target);
         private void SceneTalk(string id, LvnAnim t, bool on) => _renderer?.Talk(id, t, on);
         private void SceneHighlightSpeaker(string who) => _renderer?.HighlightSpeaker(who);
+
+        // ── Solo focus (novel mode) ─────────────────────────────────────────
+        // «Виден только говорящий»: классическая новелла. Трогаем ТОЛЬКО
+        // персонажей, которые хоть раз говорили (_spokenIds) — постановочные
+        // объекты (враг боя, руки, иконки) реплик не имеют и не задеваются.
+        // Реплики подряд одного персонажа не мигают: он уже виден, остальные
+        // уже спрятаны. Наррация (без who) прячет всех говоривших. Скрытие и
+        // показ идут ШТАТНЫМ путём актёра с fade-переходом — сейвы/реплей
+        // восстанавливают состояние сами.
+        private readonly HashSet<string> _spokenIds = new HashSet<string>();
+        private readonly HashSet<string> _soloHidden = new HashSet<string>();
+
+        private void ApplySpeakerSolo(string speakerId)
+        {
+            if (Theme == null || Theme.SpeakerFocus != "solo") return;
+
+            if (!string.IsNullOrEmpty(speakerId))
+            {
+                _spokenIds.Add(speakerId);
+                // Говорящий возвращается, если соло его прятало — или впервые
+                // выходит на сцену сам (каталожный арт), без ручного actor-опа.
+                if (_soloHidden.Remove(speakerId) ||
+                    (Catalog != null && Catalog.Has(speakerId) && !_placements.ContainsKey(speakerId)))
+                {
+                    _ = ApplyActorAsync(new JObject
+                    {
+                        ["op"] = "actor", ["id"] = speakerId,
+                        ["show"] = true, ["enter"] = "fade", ["transition_duration"] = 0.3f,
+                    });
+                }
+            }
+
+            foreach (var id in _spokenIds)
+            {
+                if (id == speakerId || _soloHidden.Contains(id)) continue;
+                if (!_placements.TryGetValue(id, out var pl) || !pl.Show) continue;
+                _soloHidden.Add(id);
+                _ = ApplyActorAsync(new JObject
+                {
+                    ["op"] = "actor", ["id"] = id,
+                    ["show"] = false, ["exit"] = "fade", ["transition_duration"] = 0.3f,
+                });
+            }
+        }
 
         // Speaker label → on-stage actor id (mirrors the authoring speakerEntity
         // rule: actor_map alias, else the lowercased name).
