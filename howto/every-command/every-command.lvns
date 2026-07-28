@@ -27,6 +27,7 @@ fx frost=0.5 blink=0.3 invert=0.2 dur=0.4
 fx fog=0.5 rain=0.7 embers=0.4
 fx blood=0.8 poison=0.5 speedlines=0.7
 fx shockwave=1 shock_x=0.5 shock_y=0.45 dur=0.5
+fx space=0.9 space_x=0.5 space_y=0.42 space_radius=0.28 space_color=#9148ff
 fx dream=0.7 sepia=0.4 posterize=0.3 letterbox=0.6
 fx off
 
@@ -39,6 +40,8 @@ sfx id=mara petrify=1 hologram=0.7 burn=0.5
 sfx id=mara aura=0.9 aura_style=guard aura_color=#72d9ff aura_color2=#a95fff lightning=0.35
 sfx id=mara aura=0.9 aura_style=fire
 sfx id=mara aura=0.9 aura_style=frost
+sfx id=mara aura=1 aura_style=space
+sfx id=mara aura=1 aura_style=distortion
 sfx id=mara part=weapon blade=1 blade_color=#d7f8ff runes=0.45 runes_color=#ffc963
 sfx id=mara off
 
