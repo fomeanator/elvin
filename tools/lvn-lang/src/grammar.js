@@ -236,6 +236,11 @@ export const OP_FIELDS = {
     "rays_x",
     "rays_y",
     "distort",
+    "space",
+    "space_x",
+    "space_y",
+    "space_radius",
+    "space_color",
     "saturation",
     "contrast",
     "tint",
@@ -365,7 +370,9 @@ export const ATTR_VALUES = {
     "frost",
     "storm",
     "shadow",
-    "holy"
+    "holy",
+    "space",
+    "distortion"
   ]
 };
 

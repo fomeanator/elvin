@@ -29,7 +29,9 @@ namespace Lvn.Tests
                     'blood':0.8,'poison':0.3,'shockwave':1,
                     'speedlines':0.9,'dream':0.2,'sepia':0.25,
                     'posterize':0.35,'letterbox':0.45,
-                    'shock_x':0.2,'shock_y':0.7
+                    'shock_x':0.2,'shock_y':0.7,
+                    'space':0.85,'space_x':0.4,'space_y':0.35,
+                    'space_radius':0.22,'space_color':'#8b42ff'
                 }"));
 
                 Assert.AreEqual(0.4f, Private<float>(fx, "_tFog"), 0.0001f);
@@ -40,11 +42,15 @@ namespace Lvn.Tests
                 Assert.AreEqual(0.2f, Private<float>(fx, "_tDream"), 0.0001f);
                 Assert.AreEqual(0.45f, Private<float>(fx, "_tLetterbox"), 0.0001f);
                 Assert.AreEqual(new Vector2(0.2f, 0.7f), Private<Vector2>(fx, "_fxCenter"));
+                Assert.AreEqual(0.85f, Private<float>(fx, "_tSpace"), 0.0001f);
+                Assert.AreEqual(new Vector2(0.4f, 0.35f), Private<Vector2>(fx, "_spaceCenter"));
+                Assert.AreEqual(0.22f, Private<float>(fx, "_spaceRadius"), 0.0001f);
 
                 fx.Apply(JObject.Parse(@"{'off':true}"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tFog"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tBlood"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tLetterbox"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tSpace"));
             }
             finally
             {
@@ -118,6 +124,25 @@ namespace Lvn.Tests
             finally
             {
                 Object.DestroyImmediate(actor);
+            }
+        }
+
+        [TestCase("space", 7f)]
+        [TestCase("distortion", 8f)]
+        public void SpriteFxAcceptsSpatialAuraStyles(string style, float expected)
+        {
+            var go = new GameObject("spatial-aura-test");
+            try
+            {
+                LvnSpriteFxDriver.Apply(go,
+                    JObject.Parse($"{{'aura':1,'aura_style':'{style}'}}"));
+                var fx = go.GetComponent<LvnSpriteFxDriver>();
+                Assert.NotNull(fx);
+                Assert.AreEqual(expected, Private<float>(fx, "_auraStyle"), 0.0001f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
             }
         }
 

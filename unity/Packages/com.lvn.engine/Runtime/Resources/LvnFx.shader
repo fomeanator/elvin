@@ -51,16 +51,24 @@ Shader "Hidden/LvnFx"
                   _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort,
                   _Frost, _Blink, _Invert, _Fog, _Rain, _Snow, _Embers,
                   _Blood, _Poison, _Shockwave, _Speedlines, _Dream, _Sepia,
-                  _Posterize, _Letterbox;
+                  _Posterize, _Letterbox, _Space, _SpaceRadius;
             float4 _Tint;      // rgb множитель (1,1,1 = нет)
             float4 _RayCenter; // xy — источник лучей в uv
             float4 _FxCenter;  // xy — эпицентр удара в uv
+            float4 _SpaceCenter; // xy — центр пространственной линзы
             float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor;
+            float4 _SpaceColor;
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float2 uv = i.uv;
                 float t = _Time.y;
+                float screenAspect = _MainTex_TexelSize.z
+                                   / max(_MainTex_TexelSize.w, 1.0);
+                float2 spaceDelta = float2((uv.x - _SpaceCenter.x) * screenAspect,
+                                            uv.y - _SpaceCenter.y);
+                float spaceDistance = length(spaceDelta);
+                float spaceR = max(_SpaceRadius, 0.05);
 
                 // Ударная волна: значение 0→1 — фаза расширения кольца.
                 // Автор двигает её через dur, поэтому эффект не зависит от FPS.
@@ -75,6 +83,26 @@ Shader "Hidden/LvnFx"
                 // Дисторшн: тепловое марево / вода — синусоидальный сдвиг uv.
                 if (_Distort > 0.001)
                     uv += float2(sin(uv.y * 42.0 + t * 2.6), sin(uv.x * 38.0 + t * 2.2)) * _Distort * 0.006;
+
+                // Пространственная линза: фон изгибается к чёрному ядру,
+                // слегка закручиваясь вдоль аккреционного кольца.
+                if (_Space > 0.001)
+                {
+                    float2 spaceDir = spaceDelta / max(spaceDistance, 0.0001);
+                    float2 dirUv = float2(spaceDir.x / screenAspect, spaceDir.y);
+                    float2 tangentUv = float2(-spaceDir.y / screenAspect, spaceDir.x);
+                    float lensBand = smoothstep(spaceR * 0.10, spaceR * 0.34,
+                                                spaceDistance)
+                                   * (1.0 - smoothstep(spaceR * 0.92,
+                                                      spaceR * 1.34,
+                                                      spaceDistance));
+                    float gravity = (1.0 - saturate(spaceDistance / (spaceR * 1.34)));
+                    float ripple = 0.72 + 0.28
+                                 * sin(spaceDistance * 94.0 - t * 1.15);
+                    uv += dirUv * lensBand * gravity * ripple * _Space * 0.055;
+                    uv += tangentUv * lensBand * gravity * _Space
+                        * sin(t * 0.34 + spaceDistance * 31.0) * 0.018;
+                }
 
                 // Сон/видение: медленный плавающий объектив. Сам soft-focus
                 // накладывается после основного сэмпла.
@@ -109,6 +137,28 @@ Shader "Hidden/LvnFx"
                     col.a = 1;
                 }
                 else col = tex2D(_MainTex, uv);
+
+                // Чёрное ядро и светящаяся аккреционная кромка. Само
+                // искривление уже произошло выше до чтения кадра.
+                if (_Space > 0.001)
+                {
+                    float core = 1.0 - smoothstep(spaceR * 0.10,
+                                                  spaceR * 0.28,
+                                                  spaceDistance);
+                    float shadow = 1.0 - smoothstep(spaceR * 0.30,
+                                                    spaceR * 0.62,
+                                                    spaceDistance);
+                    float ringRadius = spaceR * 0.39;
+                    float ring = 1.0 - smoothstep(spaceR * 0.025,
+                                                  spaceR * 0.085,
+                                                  abs(spaceDistance - ringRadius));
+                    float grain = 0.70 + noise2(float2(
+                        atan2(spaceDelta.y, spaceDelta.x) * 5.0 - t * 0.22,
+                        floor(t * 3.0))) * 0.30;
+                    col.rgb *= 1.0 - saturate(core * 0.98 + shadow * 0.30 * _Space);
+                    col.rgb += _SpaceColor.rgb * ring * grain * _Space * 0.78;
+                    col.rgb += ring * ring * _Space * 0.24;
+                }
 
                 // Мягкий фокус сна: четыре соседних сэмпла. Не включён —
                 // дополнительных чтений текстуры нет благодаря ветке.
