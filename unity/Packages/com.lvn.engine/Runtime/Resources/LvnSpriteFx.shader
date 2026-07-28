@@ -7,12 +7,26 @@ Shader "Hidden/LvnSpriteFx"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
+        [HideInInspector] _StencilRef ("Stencil Ref", Float) = 0
+        [HideInInspector] _StencilComp ("Stencil Comp", Float) = 8
+        [HideInInspector] _StencilOp ("Stencil Op", Float) = 0
+        [HideInInspector] _StencilWriteMask ("Stencil Write Mask", Float) = 0
+        [HideInInspector] _CompositeSource ("Composite Source", Float) = 0
+        [HideInInspector] _CompositeOnly ("Composite Halo Only", Float) = 0
     }
     SubShader
     {
         Tags { "Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" }
         Cull Off Lighting Off ZWrite Off
         Blend SrcAlpha OneMinusSrcAlpha
+        Stencil
+        {
+            Ref [_StencilRef]
+            Comp [_StencilComp]
+            Pass [_StencilOp]
+            ReadMask 255
+            WriteMask [_StencilWriteMask]
+        }
 
         Pass
         {
@@ -26,7 +40,8 @@ Shader "Hidden/LvnSpriteFx"
             fixed4 _Color;
             float _Outline, _Glow, _Dissolve, _Flash, _Dark, _TintFx,
                   _Ghost, _Petrify, _Hologram, _Burn, _Rim, _Shake,
-                  _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle;
+                  _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle,
+                  _CompositeSource, _CompositeOnly;
             fixed4 _OutlineColor, _GlowColor, _TintFxColor, _GhostColor,
                    _HologramColor, _BurnColor, _RimColor, _AuraColor,
                    _AuraColor2, _BladeColor, _LightningColor, _RunesColor;
@@ -100,6 +115,13 @@ Shader "Hidden/LvnSpriteFx"
 
                 fixed4 col = tex2D(_MainTex, saturate(uv)) * i.color;
                 col.a *= uvMask(uv);
+
+                // Первый проход составного персонажа заполняет stencil только
+                // настоящими непрозрачными пикселями всех его частей. Второй
+                // проход ауры сравнивает с этой объединённой маской, поэтому
+                // стык лица, тела и одежды больше не становится внешним краем.
+                if (_CompositeSource > 0.5)
+                    clip(col.a - 0.001);
 
                 // Растворение: шумовая маска съедает спрайт, кромка светится.
                 if (_Dissolve > 0.001)
@@ -549,6 +571,11 @@ Shader "Hidden/LvnSpriteFx"
                 if (_TintFx > 0.001) col.rgb = lerp(col.rgb, _TintFxColor.rgb, _TintFx);
                 if (_Dark > 0.001)   col.rgb = lerp(col.rgb, fixed3(0.02, 0.02, 0.03), _Dark);
                 if (_Flash > 0.001)  col.rgb = lerp(col.rgb, fixed3(1, 1, 1), _Flash);
+
+                // Копии слоёв, отвечающие за общий ореол, не повторяют сам арт:
+                // непрозрачный центр уже нарисован исходными Image.
+                if (_CompositeOnly > 0.5)
+                    return fixed4(0, 0, 0, 0);
 
                 return col;
             }
