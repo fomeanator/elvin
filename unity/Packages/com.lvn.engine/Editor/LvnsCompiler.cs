@@ -36,7 +36,7 @@ namespace Lvn.Editor
         // which lowers to an `anim` command).
         static readonly HashSet<string> KnownOps = new HashSet<string>
         {
-            "say", "choice", "bg", "actor", "obj",
+            "say", "choice", "bg", "bg3d", "actor", "obj",
             // A bare `clear` — no fields — compiles through the generic
             // key=value tail below. Listed here for the same reason as
             // everything else in this set, and for no other.
