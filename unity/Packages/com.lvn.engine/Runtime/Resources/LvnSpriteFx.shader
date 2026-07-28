@@ -135,15 +135,59 @@ Shader "Hidden/LvnSpriteFx"
                     col.rgb += _RimColor.rgb * edge * 1.8;
                 }
 
-                // Горение: снизу поднимается шумная обугленная зона с яркой кромкой.
-                if (_Burn > 0.001 && col.a > 0.05)
+                // Горение: снизу остаётся тёмный обугленный материал, а сам огонь —
+                // узкая живая кромка. Не красим всю пройденную область в оранжевый:
+                // это сразу превращает эффект в дешёвую цветовую маску.
+                if (_Burn > 0.001)
                 {
-                    float n = noise21(uv * float2(11.0, 17.0));
-                    float front = uv.y * 0.78 + n * 0.22;
-                    float charred = 1.0 - smoothstep(_Burn - 0.055, _Burn + 0.10, front);
-                    float fireEdge = 1.0 - smoothstep(0.018, 0.072, abs(front - _Burn));
-                    col.rgb = lerp(col.rgb, col.rgb * 0.12, charred * _Burn);
-                    col.rgb += _BurnColor.rgb * fireEdge * _Burn * 1.35;
+                    float drift = _Time.y * 0.42;
+                    float broad = noise21(float2(uv.x * 7.0 + drift * 0.22,
+                                                 uv.y * 10.0 - drift));
+                    float detail = noise21(float2(uv.x * 23.0 - drift * 0.37,
+                                                  uv.y * 31.0 - drift * 1.8));
+                    float flameNoise = broad * 0.72 + detail * 0.28;
+                    float front = uv.y + (flameNoise - 0.5) * 0.105;
+                    float signedFront = front - _Burn;
+
+                    // Очень тонкий ореол снаружи силуэта — пламя цепляется за край,
+                    // но не создаёт толстую неоновую обводку.
+                    if (col.a <= 0.05)
+                    {
+                        float px = max(_MainTex_TexelSize.x, _MainTex_TexelSize.y);
+                        float nearby = ringAlpha(uv, px * 3.5);
+                        float edgeHalo = 1.0 - smoothstep(0.008, 0.029, abs(signedFront));
+                        float flicker = 0.72 + detail * 0.28;
+                        float haloAlpha = nearby * edgeHalo * flicker * _Burn * 0.34;
+                        if (haloAlpha > 0.012)
+                            return fixed4(lerp(_BurnColor.rgb, fixed3(1.0, 0.72, 0.20), 0.42),
+                                          haloAlpha);
+                    }
+                    else
+                    {
+                        // Уже пройденная огнём часть теряет насыщенность и темнеет,
+                        // сохраняя складки, украшения и фактуру исходного арта.
+                        float charred = 1.0 - smoothstep(-0.065, 0.018, signedFront);
+                        float luminance = dot(col.rgb, fixed3(0.299, 0.587, 0.114));
+                        fixed3 soot = col.rgb * 0.20 + fixed3(luminance * 0.045,
+                                                             luminance * 0.027,
+                                                             luminance * 0.018);
+                        col.rgb = lerp(col.rgb, soot, charred * 0.82);
+
+                        // Два узких слоя кромки: янтарный жар и почти белое ядро.
+                        float warmEdge = 1.0 - smoothstep(0.008, 0.028, abs(signedFront));
+                        float hotCore = 1.0 - smoothstep(0.002, 0.009, abs(signedFront));
+                        float flicker = 0.68 + broad * 0.22 + detail * 0.10;
+                        col.rgb += _BurnColor.rgb * warmEdge * flicker * _Burn * 0.55;
+                        col.rgb += fixed3(1.0, 0.72, 0.22) * hotCore * flicker * _Burn * 0.44;
+
+                        // Редкие тлеющие точки остаются в угле, но не образуют пятна.
+                        float emberNoise = noise21(uv * float2(67.0, 83.0) +
+                                                   float2(0.0, -_Time.y * 0.9));
+                        float ember = smoothstep(0.91, 0.975, emberNoise)
+                                    * charred
+                                    * smoothstep(-0.24, -0.035, signedFront);
+                        col.rgb += _BurnColor.rgb * ember * _Burn * 0.38;
+                    }
                 }
 
                 // Камень: обесцвечивание + зернистая минеральная фактура.
