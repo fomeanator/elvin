@@ -105,8 +105,52 @@ namespace Lvn.UI.World
         }
 
         // ── background ───────────────────────────────────────────────────────
-        public void SetBackgroundSprite(Sprite sprite) => _bg.SetSprite(sprite);
-        public void SetBackgroundColor(Color color) => _bg.SetColor(color);
+        public void SetBackgroundSprite(Sprite sprite)
+        {
+            Set3DBackdrop(null); // a painted background replaces a live set
+            _bg.SetSprite(sprite);
+        }
+        public void SetBackgroundColor(Color color)
+        {
+            Set3DBackdrop(null);
+            _bg.SetColor(color);
+        }
+
+        // ── 3D set as the background ─────────────────────────────────────────
+
+        private Lvn3DBackdrop _backdrop;
+
+        /// <summary>Stand a 3D set behind the scene: the prefab is built off-screen,
+        /// filmed by its own camera, and the frame becomes the background. Null
+        /// tears it down and returns to flat art.</summary>
+        public void Set3DBackdrop(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                if (_backdrop != null)
+                {
+                    _backdrop.Release();
+                    _bg.SetLiveTexture(null);
+                }
+                return;
+            }
+            if (_backdrop == null) _backdrop = Lvn3DBackdrop.Ensure(_canvasGo.transform);
+            _backdrop.SetSet(prefab);
+            _bg.SetLiveTexture(_backdrop.Texture);
+        }
+
+        /// <summary>Move the 3D set's camera — the reason a built set replaces a
+        /// folder of painted angles. No-op without a set standing.</summary>
+        public void Frame3D(float? x, float? y, float? z,
+                            float? pitch, float? yaw, float? fov, float seconds)
+        {
+            if (_backdrop == null || !_backdrop.Active) return;
+            _backdrop.Frame(x, y, z, pitch, yaw, fov, seconds);
+            _bg.SetLiveTexture(_backdrop.Texture); // the buffer is recreated on resize
+        }
+
+        /// <summary>True while a 3D set is standing.</summary>
+        public bool Has3DBackdrop => _backdrop != null && _backdrop.Active;
 
         // ── camera ───────────────────────────────────────────────────────────
         public void Shake(float amplitude, float seconds) => _camera.Shake(amplitude, seconds);
