@@ -26,6 +26,7 @@ namespace Lvn.UI
                 if (stg.actor_y.HasValue) t.ActorBaselineY = stg.actor_y.Value;
                 if (stg.actor_scale.HasValue) t.ActorScale = stg.actor_scale.Value;
                 if (stg.actor_spread.HasValue) t.ActorSpread = stg.actor_spread.Value;
+                if (!string.IsNullOrEmpty(stg.speaker_focus)) t.SpeakerFocus = stg.speaker_focus;
             }
 
             var d = ui.dialogue;
