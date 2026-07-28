@@ -305,7 +305,8 @@
       "yaw",
       "fov",
       "dur",
-      "off"
+      "off",
+      "live"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
