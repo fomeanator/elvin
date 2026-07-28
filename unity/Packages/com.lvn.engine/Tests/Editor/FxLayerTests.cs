@@ -147,11 +147,15 @@ namespace Lvn.Tests
                 var fx = actor.GetComponent<LvnSpriteFxDriver>();
                 Assert.NotNull(fx);
                 Assert.IsTrue(Private<bool>(fx, "_compositeHalo"));
+                Assert.AreEqual(2, Private<System.Collections.IList>(fx, "_maskLayers").Count);
                 Assert.AreEqual(2, Private<System.Collections.IList>(fx, "_haloLayers").Count);
 
                 var main = Private<Material>(fx, "_mat");
+                var mask = Private<Material>(fx, "_maskMat");
                 var halo = Private<Material>(fx, "_haloMat");
                 Assert.AreEqual(1f, main.GetFloat("_CompositeSource"), 0.0001f);
+                Assert.AreEqual(1f, mask.GetFloat("_StencilOnly"), 0.0001f);
+                Assert.Greater(mask.GetFloat("_CompositeDilate"), 0f);
                 Assert.AreEqual(1f, halo.GetFloat("_CompositeOnly"), 0.0001f);
                 Assert.AreEqual((float)CompareFunction.NotEqual,
                     halo.GetFloat("_StencilComp"), 0.0001f);
