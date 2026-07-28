@@ -240,7 +240,7 @@ Shader "Hidden/LvnSpriteFx"
                                 auraInk = auraNear * 0.44 + auraFar * (0.16 + smoke * 0.58);
                                 auraPulse = 0.58 + smoke * 0.46;
                             }
-                            else // holy: устойчивое свечение с лучами
+                            else if (style < 6.5) // holy: устойчивое свечение с лучами
                             {
                                 float rayFalloff = smoothstep(0.11, 0.18, radius)
                                                  * (1.0 - smoothstep(0.25, 0.31, radius));
@@ -249,13 +249,66 @@ Shader "Hidden/LvnSpriteFx"
                                 auraInk = auraNear * 0.78 + auraFar * 0.28 + rays * 0.42;
                                 auraPulse = 0.88 + 0.10 * sin(time * 1.25);
                             }
+                            else if (style < 7.5) // space: вязкий вакуум у силуэта
+                            {
+                                float voidSmoke = noise21(float2(angle * 3.2 - time * 0.18,
+                                                                  radius * 19.0 + time * 0.11));
+                                // Не рисуем орбиты вокруг каждого слоя
+                                // составного персонажа: чёрную дыру и линзу
+                                // создаёт полноэкранный LvnFx.
+                                auraInk = auraNear * 0.42
+                                        + auraFar * (0.10 + voidSmoke * 0.27);
+                                auraPulse = 0.70 + 0.10 * sin(time * 0.56);
+                            }
+                            else // distortion: чёрный внутренний, красный внешний разлом
+                            {
+                                float slowWarp = noise21(float2(uv.y * 8.5 - time * 0.22,
+                                                                 uv.x * 3.0 + time * 0.09)) - 0.5;
+                                float crooked = sin(uv.y * 24.0 + slowWarp * 7.0
+                                                   - time * 0.68) * 0.0035;
+                                float innerBlack = ringAlpha(uv, 0.005 + crooked);
+                                float outerWide = ringAlpha(uv, 0.018
+                                                               + slowWarp * 0.006);
+                                float outerInner = ringAlpha(uv, 0.011
+                                                                + slowWarp * 0.003);
+                                float outerBand = saturate(outerWide
+                                                         - outerInner * 0.90);
+                                float fractureNoise = noise21(float2(
+                                    uv.y * 12.0 - time * 0.20,
+                                    uv.x * 5.0 + time * 0.08));
+                                float fractures = smoothstep(0.38, 0.72,
+                                    fractureNoise
+                                    + 0.18 * sin(uv.y * 34.0 + slowWarp * 8.0
+                                                 - time * 0.46));
+                                auraNear = innerBlack;
+                                auraFar = outerBand;
+                                auraInk = innerBlack * 0.68
+                                        + outerBand * fractures * 0.92;
+                                auraPulse = 0.78 + 0.10 * sin(time * 0.42
+                                                            + uv.y * 4.0);
+                            }
 
                             auraInk = saturate(auraInk) * _Aura * auraPulse;
                             fixed3 auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
                                                    saturate(uv.y * 0.72 + rise * 0.34));
+                            if (style > 6.5 && style < 7.5)
+                            {
+                                float violetOrbit = smoothstep(0.17, 0.29, radius);
+                                auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
+                                                violetOrbit * (0.62 + rise * 0.38));
+                            }
+                            else if (style > 7.5)
+                            {
+                                float outerRed = saturate(auraFar);
+                                auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
+                                                smoothstep(0.04, 0.72, outerRed));
+                            }
                             energyRgb += auraTone * auraInk;
                             energyWeight += auraInk;
-                            energyAlpha += auraInk * 0.62;
+                            float auraAlphaScale = style > 7.5 ? 0.68
+                                                 : style > 6.5 ? 0.72
+                                                 : 0.62;
+                            energyAlpha += auraInk * auraAlphaScale;
                         }
 
                         if (_Blade > 0.001)
@@ -339,7 +392,9 @@ Shader "Hidden/LvnSpriteFx"
                                                    sampleAlpha(uv + float2(0, -px * 4.0))));
                             float auraRim = saturate(col.a - inside);
                             float style = floor(_AuraStyle + 0.5);
-                            float flowSpeed = style > 1.5 && style < 2.5 ? 7.2
+                            float flowSpeed = style > 7.5 ? 0.72
+                                            : style > 6.5 ? 0.88
+                                            : style > 1.5 && style < 2.5 ? 7.2
                                             : style > 4.5 && style < 5.5 ? 1.3
                                             : style > 3.5 && style < 4.5 ? 9.5
                                             : 3.4;
@@ -353,8 +408,27 @@ Shader "Hidden/LvnSpriteFx"
                                 flow *= 0.18; // барьер цельный, а не пламенный
                             fixed3 auraTone = lerp(_AuraColor.rgb, _AuraColor2.rgb,
                                                    saturate(uv.y + flow * 0.25));
-                            col.rgb += auraTone * _Aura
-                                     * (auraRim * (0.68 + pulse * 0.30) + flow * 0.075);
+                            if (style > 7.5)
+                            {
+                                // Разлом съедает внутреннюю кромку в чёрный;
+                                // красный остаётся снаружи и только слегка
+                                // отражается на самом силуэте.
+                                col.rgb = lerp(col.rgb, _AuraColor.rgb,
+                                               auraRim * _Aura * 0.88);
+                                col.rgb += _AuraColor2.rgb * auraRim * _Aura * 0.08;
+                            }
+                            else if (style > 6.5)
+                            {
+                                col.rgb = lerp(col.rgb, _AuraColor.rgb,
+                                               auraRim * _Aura * 0.64);
+                                col.rgb += _AuraColor2.rgb * auraRim * _Aura * 0.13;
+                            }
+                            else
+                            {
+                                col.rgb += auraTone * _Aura
+                                         * (auraRim * (0.68 + pulse * 0.30)
+                                            + flow * 0.075);
+                            }
                         }
 
                         if (_Blade > 0.001)
