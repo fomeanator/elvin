@@ -54,7 +54,7 @@ func commandLike(text string) string {
 // outside this set is a content error, not a silent no-op — the same hard
 // rule the front-ends apply to staging tags, enforced here for any .lvn.
 var KnownOps = map[string]bool{
-	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
+	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
 	// clear hides every actor and obj at once — the same removal `show=false`
 	// performs, per character, which is what a scene change used to cost: one
 	// line per body on stage, and a bug the day someone was added and the list
@@ -87,6 +87,7 @@ var KnownOps = map[string]bool{
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
 	"bg":            {"id", "sprite_url"},
+	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off"},
 	"clear":         {}, // deliberately empty: any field on `clear` is a typo
 	"fade":          {"to", "duration"},
 	"dim":           {"alpha", "duration"},

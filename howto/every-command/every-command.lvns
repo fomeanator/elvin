@@ -48,6 +48,9 @@ sfx id=mara part=weapon blade=1 blade_color=#d7f8ff runes=0.45 runes_color=#ffc9
 sfx id=mara off
 
 bg /content/bg/projection.jpg
+bg3d id=apartment fov=55
+bg3d x=1.2 y=1.6 z=-3 pitch=-8 yaw=45 dur=1.2
+bg3d off
 actor ida left neutral scale=1 rotation=0
 Ida: Reel three. Let's see if the lamp holds this time.
 

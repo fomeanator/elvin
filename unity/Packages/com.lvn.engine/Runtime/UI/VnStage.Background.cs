@@ -108,6 +108,65 @@ namespace Lvn.UI
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
 
+        /// <summary>`bg3d` — stand a built 3D set behind the scene and frame it.
+        /// The set replaces painted backgrounds until `bg3d off` (or the next
+        /// ordinary `bg`), and every later `bg3d` on the same set just moves the
+        /// camera: one built room gives as many angles as the story asks for.
+        ///
+        /// <para>Degrades quietly: without a prefab loader (or on the UI Toolkit
+        /// path) the scene keeps the background it already had, so a script
+        /// written for 3D still plays.</para></summary>
+        private async Task ApplyBg3DAsync(JObject cmd)
+        {
+            if (BoolOr(cmd["off"], false) || (string)cmd["id"] == "off")
+            {
+                _renderer?.Set3DBackdrop(null);
+                return;
+            }
+
+            var id = (string)cmd["id"] ?? (string)cmd["prefab"] ?? (string)cmd["scene"];
+            if (!string.IsNullOrEmpty(id))
+            {
+                // The built-in room: `bg3d id=demo` shows the feature working
+                // before a project owns any 3D art. No loader, no assets.
+                if (id == Lvn.UI.World.Lvn3DDemoSet.Id)
+                {
+                    _renderer?.Set3DBackdrop(Lvn.UI.World.Lvn3DDemoSet.Build());
+                    HasBackdrop = true;
+                    _renderer?.Frame3D(
+                        Num(cmd["x"]), Num(cmd["y"]), Num(cmd["z"]),
+                        Num(cmd["pitch"]), Num(cmd["yaw"]), Num(cmd["fov"]),
+                        Num(cmd["dur"]) ?? 0f);
+                    return;
+                }
+                if (Assets == null) return;
+                int epoch = _stageEpoch;
+                int gen = ++_bgGen;
+                GameObject prefab = null;
+                try { prefab = await Assets.LoadPrefabAsync(id, _cts.Token); }
+                catch (System.Exception e) { Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}"); }
+                if (prefab == null) return;                       // keep the flat background
+                if (!StageCurrent(epoch) || _bgGen != gen) return; // a newer background won
+                _renderer?.Set3DBackdrop(prefab);
+                HasBackdrop = true;
+            }
+
+            // Framing rides on the same op: `bg3d x=… yaw=…` without an id moves
+            // the camera of the set already standing.
+            _renderer?.Frame3D(
+                Num(cmd["x"]), Num(cmd["y"]), Num(cmd["z"]),
+                Num(cmd["pitch"]), Num(cmd["yaw"]), Num(cmd["fov"]),
+                Num(cmd["dur"]) ?? 0f);
+        }
+
+        /// <summary>A command number, or null when the author left the field out —
+        /// "unset" has to survive as a distinct value so framing keeps what it had.</summary>
+        private static float? Num(JToken t)
+        {
+            if (t == null || t.Type == JTokenType.Null) return null;
+            try { return (float)t; } catch { return null; }
+        }
+
         private const string LastBgKey = "lvn_last_bg";
 
         /// <summary>The most recent scene backdrop url shown on ANY stage —

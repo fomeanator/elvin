@@ -887,6 +887,7 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | op | What it does | Key fields |
 |---|---|---|
 | `bg` | Background. Resolves a catalog id or a direct `sprite_url`. Loads asynchronously. | `sprite_url`, `id?` |
+| `bg3d` | **A built 3D set instead of painted art** (Unity, Canvas path). `bg3d id=…` stands the set; later `bg3d` calls without an id just move its camera — one room yields as many angles as the script asks for. `off` returns to flat backgrounds. Needs the game to implement prefab loading (`ILvnAssets.LoadPrefabAsync`); without it the scene keeps the background it had, so the script still plays. | `id`/`prefab`/`scene`, `x y z`, `pitch yaw`, `fov`, `dur`, `off` |
 | `actor` | Place/update/hide a character. Resolves layers from the cast/catalog/direct urls; starts idle/blink/lip-sync. | `id`, cast axes, `show`,`position`,`x`,`y`,`width`,`height`,`scale`,`anchor`,`z`,`flip`,`rotation`,`opacity`,`on_click`,`hover_opacity` |
 | `obj` | Same as `actor` (same code), but semantically "not a character" (does not dim). | (same as `actor`) |
 | `clear` | Take every actor and `obj` off stage at once — the same removal `show=false` performs, per body. Leaves the background, effects and HUD alone, so a scene change is `clear` then a new `bg`. Placement is remembered: a later `actor id=…` with no position returns to the slot it left. | (none — any field is a typo) |

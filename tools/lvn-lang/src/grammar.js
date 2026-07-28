@@ -40,7 +40,8 @@ export const OPS = [
   "return",
   "save",
   "load",
-  "wardrobe_show"
+  "wardrobe_show",
+  "bg3d"
 ];
 
 // Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
@@ -305,6 +306,19 @@ export const OP_FIELDS = {
     "runes_color",
     "dur",
     "off"
+  ],
+  "bg3d": [
+    "id",
+    "prefab",
+    "scene",
+    "x",
+    "y",
+    "z",
+    "pitch",
+    "yaw",
+    "fov",
+    "dur",
+    "off"
   ]
 };
 
@@ -526,7 +540,8 @@ export const OP_DOCS = {
   "clear": [
     "clear",
     "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
-  ]
+  ],
+  "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном."
 };
 
 // Multi-field templates. `$1`,`$2`,… are tab-stops; `$0` is the final caret.
