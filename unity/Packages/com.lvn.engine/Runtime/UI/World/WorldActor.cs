@@ -121,6 +121,11 @@ namespace Lvn.UI.World
                 var lid = layerIds != null && i < layerIds.Count ? layerIds[i] : null;
                 if (!string.IsNullOrEmpty(lid))
                 {
+                    // Stable address for `sfx id=… part=<layer id>`. The layer
+                    // dictionary is private runtime state; the transform name lets
+                    // per-part effects survive without coupling the FX driver to
+                    // the actor renderer's implementation.
+                    go.name = "layer:" + lid;
                     _layers[lid] = img; _baseSprite[lid] = sp;
                     if (layerDefs != null && i < layerDefs.Count)
                     {
