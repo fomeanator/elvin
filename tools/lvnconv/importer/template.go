@@ -37,6 +37,7 @@ type Template struct {
 	Staging     StagingTemplate    `json:"staging"`
 	Wardrobe    WardrobeTemplate   `json:"wardrobe"`
 	Audio       []AudioCueTemplate `json:"audio"`
+	Cutscenes   []CutsceneTemplate `json:"cutscenes"`
 	Backgrounds BackgroundTemplate `json:"backgrounds"`
 	Stats       StatsTemplate      `json:"stats"`
 
@@ -158,6 +159,21 @@ type AudioCueTemplate struct {
 	Channel    string `json:"channel"`     // "music" / "sfx"
 	PathPrefix string `json:"path_prefix"` // "/content/audio/music/"
 	Ext        string `json:"ext"`         // ".ogg"
+}
+
+// CutsceneTemplate turns the author's illustration triggers into real art on
+// screen. In articy a full-screen CG is a pair of writes: `set <VarPrefix><name>
+// = true` where the picture appears, and the same key set back to false where the
+// scene returns to its background. We lower the truthy write into a `bg` (which
+// is also what marks the CG unlocked in the gallery — see VnStage.Background) and
+// the falsy one into a `bg` back to whatever background was showing before.
+//
+// A missing file is not an error: the runtime keeps the previous background and
+// the scene plays on, so a project can ship its art gradually.
+type CutsceneTemplate struct {
+	VarPrefix  string `json:"var_prefix"`  // "Cutscenes.show"
+	PathPrefix string `json:"path_prefix"` // "/content/cg/"
+	Ext        string `json:"ext"`         // ".jpg"
 }
 
 // BackgroundTemplate governs real-фон matching.
@@ -285,6 +301,9 @@ func DefaultTemplate() *Template {
 		Audio: []AudioCueTemplate{
 			{VarPrefix: "Music.", Channel: "music", PathPrefix: "/content/audio/music/", Ext: ".ogg"},
 			{VarPrefix: "Sound.", Channel: "sfx", PathPrefix: "/content/audio/sfx/", Ext: ".ogg"},
+		},
+		Cutscenes: []CutsceneTemplate{
+			{VarPrefix: "Cutscenes.show", PathPrefix: "/content/cg/", Ext: ".jpg"},
 		},
 		Backgrounds: BackgroundTemplate{MinFileSize: 200000},
 		// The marker-colour → emotion legend, made explicit on the template so it is
