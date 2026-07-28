@@ -35,7 +35,7 @@ namespace Lvn.UI.World
         private Color _tintColor = new Color(0.55f, 0.8f, 1f, 1f);
         private Color _ghostColor = new Color(0.53f, 0.86f, 1f, 1f);
         private Color _hologramColor = new Color(0.2f, 0.95f, 1f, 1f);
-        private Color _burnColor = new Color(1f, 0.22f, 0.025f, 1f);
+        private Color _burnColor = new Color(1f, 0.34f, 0.035f, 1f);
         private Color _rimColor = new Color(1f, 0.82f, 0.36f, 1f);
 
         public static void Apply(GameObject actorGo, JObject cmd)
