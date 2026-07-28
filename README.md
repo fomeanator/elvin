@@ -138,7 +138,7 @@ One repo, four products — take only what you need:
 | `tools/lvnconv/` | the transcoder CLI (Go) + its WASM build |
 | `tools/lvn-lang/` | the language core: grammar + analysis shared by Studio and the VS Code extension |
 | `tools/vscode-lvn/` | the VS Code extension |
-| `docs/` | specs: `lvn-format.md`, `cast.md`, `placement.md`, `staging-tags.md`, `animation-system.md`, `embedding.md`, `releasing.md` |
+| `docs/` | specs: `lvn-format.md`, `cast.md`, `placement.md`, `staging-tags.md`, `animation-system.md`, `embedding.md`, `releasing.md`; UI contributors start at `ui-development.md` |
 | `server/` | the Go backend: content, state, product services, APK export |
 | `panel/` | Elvin Studio (React) + the playground and docs-site sources in `panel/public/` |
 | `unity/Packages/` | the Unity packages — the development home; consumers install the mirrors |
