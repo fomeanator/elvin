@@ -67,6 +67,20 @@ namespace Lvn.UI.World
             UpdateCover();
         }
 
+        /// <summary>Show a LIVE texture as the background — the frame a 3D set is
+        /// being filmed into (<see cref="Lvn3DBackdrop"/>). Unlike a sprite it is
+        /// already rendered at screen size, so it fills the slot as-is: cropping
+        /// it would throw away the camera's framing, which is the whole point of
+        /// a 3D set. Passing null hands the background back to flat art.</summary>
+        public void SetLiveTexture(Texture tex)
+        {
+            _tile = null; _tilePx = 0f;
+            _tex = null; // skip cover-crop: the frame is already the right shape
+            _image.texture = tex;
+            _image.color = tex != null ? Color.white : Color.black;
+            _image.uvRect = new Rect(0f, 0f, 1f, 1f);
+        }
+
         /// <summary>Recompute the cover-crop uv rect for the current slot size —
         /// call when the canvas resizes. Cheap and safe to call every layout.</summary>
         public void UpdateCover()

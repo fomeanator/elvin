@@ -29,6 +29,13 @@ namespace Lvn.UI
         /// unsupported (null) — implemented by the network and directory loaders.</summary>
         Task<string> LoadTextAsync(string url, CancellationToken ct) => Task.FromResult<string>(null);
 
+        /// <summary>Load a 3D set — the prefab a `bg3d` op stands behind the scene
+        /// so the script can move a camera through it instead of asking for
+        /// another painted angle. Default: unsupported (null), and the stage then
+        /// simply keeps the flat background; a game that ships 3D sets implements
+        /// this over Resources or Addressables.</summary>
+        Task<GameObject> LoadPrefabAsync(string url, CancellationToken ct) => Task.FromResult<GameObject>(null);
+
         /// <summary>Speculative batch load: warm the cache for upcoming urls.
         /// Default implementation calls <see cref="LoadSpriteAsync"/> for each
         /// sprite-kind url and <see cref="LoadAudioAsync"/> for audio-kind urls.

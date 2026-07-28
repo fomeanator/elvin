@@ -43,6 +43,7 @@ namespace Lvn.Tests
             { "preload", "{\"op\":\"preload\",\"assets\":[]}" },
             { "load", "{\"op\":\"load\",\"slot\":\"probe\"}" },
             { "bg", "{\"op\":\"bg\",\"id\":\"b\",\"sprite_url\":\"bg/b.png\"}" },
+            { "bg3d", "{\"op\":\"bg3d\",\"id\":\"demo\",\"yaw\":45}" },
             { "actor", "{\"op\":\"actor\",\"id\":\"a\",\"emotion\":\"calm\"}" },
             { "obj", "{\"op\":\"obj\",\"id\":\"o\"}" },
             { "text", "{\"op\":\"text\",\"id\":\"hud\",\"text\":\"x\"}" },

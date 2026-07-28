@@ -57,6 +57,16 @@ namespace Lvn.UI
         void Pan(float x, float y, float seconds);
         void ResetCamera(float seconds);
 
+        // ── 3D set as the background ──
+        /// <summary>Stand a built 3D set behind the scene instead of painted art;
+        /// null tears it down. Only the Canvas path films sets — the UI Toolkit
+        /// path keeps flat backgrounds, so a script using `bg3d` degrades to the
+        /// background it already had rather than breaking.</summary>
+        void Set3DBackdrop(GameObject prefab);
+        /// <summary>Move the set's camera — position, look angles, field of view.
+        /// Any argument left null keeps its value; seconds > 0 glides.</summary>
+        void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds);
+
         /// <summary>Real gaussian blur of the scene frame, when this renderer
         /// can do one (Canvas path + built-in pipeline + a camera). Returns
         /// false → the stage falls back to the FxLayer veil imitation.</summary>
@@ -119,6 +129,11 @@ namespace Lvn.UI
         public void Zoom(float factor, float seconds) => _camera.Zoom(factor, seconds);
         public void Pan(float x, float y, float seconds) => _camera.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _camera.Reset(seconds);
+
+        // The UI Toolkit path has no world to film — a script that stands a 3D
+        // set keeps whatever background it had.
+        public void Set3DBackdrop(GameObject prefab) { }
+        public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds) { }
 
         public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
         public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
@@ -198,6 +213,10 @@ namespace Lvn.UI
         public void StopAnim(string id, string target) => _scene.StopAnim(id, target);
         public void Talk(string id, LvnAnim talk, bool on) => _scene.Talk(id, talk, on);
         public void HighlightSpeaker(string who) => _scene.HighlightSpeaker(who);
+
+        public void Set3DBackdrop(GameObject prefab) => _scene.Set3DBackdrop(prefab);
+        public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds)
+            => _scene.Frame3D(x, y, z, pitch, yaw, fov, seconds);
 
         public void Shake(float amplitude, float seconds) => _scene.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
