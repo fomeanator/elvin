@@ -252,6 +252,7 @@
     ],
     "sfx": [
       "id",
+      "part",
       "outline",
       "outline_color",
       "glow",
@@ -271,6 +272,16 @@
       "rim",
       "rim_color",
       "shake",
+      "aura",
+      "aura_style",
+      "aura_color",
+      "aura_color2",
+      "blade",
+      "blade_color",
+      "lightning",
+      "lightning_color",
+      "runes",
+      "runes_color",
       "dur",
       "off"
     ]
@@ -338,6 +349,17 @@
         "zoom",
         "pan",
         "reset"
+      ]
+    },
+    "sfx": {
+      "aura_style": [
+        "basic",
+        "guard",
+        "fire",
+        "frost",
+        "storm",
+        "shadow",
+        "holy"
       ]
     },
     "actor": {
@@ -409,6 +431,15 @@
       "reset",
       "play",
       "stop"
+    ],
+    "aura_style": [
+      "basic",
+      "guard",
+      "fire",
+      "frost",
+      "storm",
+      "shadow",
+      "holy"
     ]
   },
   "op_docs": {
