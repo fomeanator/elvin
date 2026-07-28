@@ -45,6 +45,11 @@ Thumbs.db
 !/sandbox/Assets/Editor/
 !/sandbox/Assets/Editor.meta
 
+# Built 3D sets: a prefab is only GUID references into the art kits it was
+# assembled from, and those kits are not redistributable. Rebuild them from
+# the menu (Elvin/3D sets/…) after importing the kits.
+/sandbox/Assets/Resources/Sets/
+
 # Stray screenshots
 Screenshot*.png
 *_demo.png

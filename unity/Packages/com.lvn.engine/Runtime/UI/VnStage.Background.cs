@@ -151,6 +151,10 @@ namespace Lvn.UI
                 HasBackdrop = true;
             }
 
+            // `live=` overrides how the set is filmed: on for motion the engine
+            // can't see (a shader that scrolls water), off to pin a still shot.
+            if (cmd["live"] != null) _renderer?.Set3DLive(BoolOr(cmd["live"], true));
+
             // Framing rides on the same op: `bg3d x=… yaw=…` without an id moves
             // the camera of the set already standing.
             _renderer?.Frame3D(

@@ -152,6 +152,9 @@ namespace Lvn.UI.World
         /// <summary>True while a 3D set is standing.</summary>
         public bool Has3DBackdrop => _backdrop != null && _backdrop.Active;
 
+        /// <summary>Force the filming mode of the standing set (`bg3d live=`).</summary>
+        public void Set3DLive(bool live) => _backdrop?.SetLive(live);
+
         // ── camera ───────────────────────────────────────────────────────────
         public void Shake(float amplitude, float seconds) => _camera.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _camera.Zoom(factor, seconds);

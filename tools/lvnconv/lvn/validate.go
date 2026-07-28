@@ -87,7 +87,7 @@ var KnownOps = map[string]bool{
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
 	"bg":            {"id", "sprite_url"},
-	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off"},
+	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live"},
 	"clear":         {}, // deliberately empty: any field on `clear` is a typo
 	"fade":          {"to", "duration"},
 	"dim":           {"alpha", "duration"},

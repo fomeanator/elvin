@@ -66,6 +66,8 @@ namespace Lvn.UI
         /// <summary>Move the set's camera — position, look angles, field of view.
         /// Any argument left null keeps its value; seconds > 0 glides.</summary>
         void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds);
+        /// <summary>Force whether the standing set is filmed every frame.</summary>
+        void Set3DLive(bool live);
 
         /// <summary>Real gaussian blur of the scene frame, when this renderer
         /// can do one (Canvas path + built-in pipeline + a camera). Returns
@@ -134,6 +136,7 @@ namespace Lvn.UI
         // set keeps whatever background it had.
         public void Set3DBackdrop(GameObject prefab) { }
         public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds) { }
+        public void Set3DLive(bool live) { }
 
         public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
         public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
@@ -155,7 +158,10 @@ namespace Lvn.UI
         public GameObject Root => _scene.Root;
 
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
-        public void ClearBackground() { /* the canvas keeps its black board; the next bg paints over */ }
+        // The canvas keeps its black board for flat art (the next bg paints over
+        // it), but a 3D set is a live object being filmed — leaving it standing
+        // would show the previous novel's room behind the next one's scene.
+        public void ClearBackground() => _scene.Set3DBackdrop(null);
 
         public void PlaceActor(string id, Placement placement)
             => _scene.ApplyActor(id, null, placement, null, null); // create + place now; art follows
@@ -217,6 +223,7 @@ namespace Lvn.UI
         public void Set3DBackdrop(GameObject prefab) => _scene.Set3DBackdrop(prefab);
         public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds)
             => _scene.Frame3D(x, y, z, pitch, yaw, fov, seconds);
+        public void Set3DLive(bool live) => _scene.Set3DLive(live);
 
         public void Shake(float amplitude, float seconds) => _scene.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
