@@ -310,6 +310,11 @@ namespace Lvn.Content
         public float? actor_y;      // bottom-anchored feet baseline (screen fraction); 1 = screen bottom, >1 sinks
         public float? actor_scale;  // multiplier on the default actor size; 1 = default
         public float? actor_spread; // multiplier on left/right offset from centre; 1 = default, <1 = closer to centre
+        /// <summary>Speaker focus mode: "dim" (default — everyone stays, non-speakers
+        /// darken) or "solo" (novel mode — only the CURRENT speaker is visible; other
+        /// SPEAKING characters fade out, narration fades them all; staging objects
+        /// that never spoke are untouched).</summary>
+        public string speaker_focus;
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
