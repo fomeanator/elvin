@@ -202,3 +202,74 @@ func TestDefaultJSONFileWins(t *testing.T) {
 		t.Fatalf("built-in fallback broken: %v", err)
 	}
 }
+
+// An illustration trigger becomes real art on screen: the truthy write shows the
+// CG (which is also what unlocks it in the gallery), the falsy one hands the
+// scene back its own background — not a blank screen, and never another CG.
+func TestCutsceneTriggersBecomeBackgrounds(t *testing.T) {
+	tpl := &Template{Cutscenes: []CutsceneTemplate{
+		{VarPrefix: "Cutscenes.show", PathPrefix: "/cg/", Ext: ".jpg"},
+	}}
+	ops := []map[string]any{
+		{"op": "bg", "id": "apartment", "sprite_url": "/bg/apartment.jpg"},
+		{"op": "set", "key": "Cutscenes.showMap", "value": true},
+		{"op": "say", "text": "Вот карта."},
+		{"op": "set", "key": "Cutscenes.showMap", "value": false},
+	}
+	out := transformOps(ops, nil, tpl)
+
+	var shown, restored map[string]any
+	for i, o := range out {
+		if o["op"] != "bg" {
+			continue
+		}
+		if o["sprite_url"] == "/cg/Map.jpg" {
+			shown = out[i]
+		} else if shown != nil && restored == nil && i > 1 {
+			restored = out[i]
+		}
+	}
+	if shown == nil {
+		t.Fatalf("cutscene did not become a background:\n%v", out)
+	}
+	if restored == nil || restored["sprite_url"] != "/bg/apartment.jpg" {
+		t.Fatalf("scene background not restored after the cutscene:\n%v", out)
+	}
+}
+
+// A cutscene must never become the background a later cutscene restores —
+// otherwise the second one hands the scene back a picture instead of the room.
+func TestCutsceneDoesNotBecomeTheSceneBackground(t *testing.T) {
+	tpl := &Template{Cutscenes: []CutsceneTemplate{
+		{VarPrefix: "Cutscenes.show", PathPrefix: "/cg/", Ext: ".jpg"},
+	}}
+	ops := []map[string]any{
+		{"op": "bg", "id": "street", "sprite_url": "/bg/street.jpg"},
+		{"op": "set", "key": "Cutscenes.showFirst", "value": true},
+		{"op": "set", "key": "Cutscenes.showFirst", "value": false},
+		{"op": "set", "key": "Cutscenes.showSecond", "value": true},
+		{"op": "set", "key": "Cutscenes.showSecond", "value": false},
+	}
+	out := transformOps(ops, nil, tpl)
+	last := out[len(out)-1]
+	if last["op"] != "bg" || last["sprite_url"] != "/bg/street.jpg" {
+		t.Fatalf("second cutscene restored the wrong background: %v", last)
+	}
+}
+
+// Without a background to return to, ending a cutscene leaves the picture up
+// rather than blanking the screen.
+func TestCutsceneWithoutSceneBackgroundKeepsThePicture(t *testing.T) {
+	tpl := &Template{Cutscenes: []CutsceneTemplate{
+		{VarPrefix: "Cutscenes.show", PathPrefix: "/cg/", Ext: ".jpg"},
+	}}
+	out := transformOps([]map[string]any{
+		{"op": "set", "key": "Cutscenes.showLonely", "value": true},
+		{"op": "set", "key": "Cutscenes.showLonely", "value": false},
+	}, nil, tpl)
+	for _, o := range out {
+		if o["op"] == "bg" && o["sprite_url"] != "/cg/Lonely.jpg" {
+			t.Fatalf("unexpected background restore: %v", o)
+		}
+	}
+}
