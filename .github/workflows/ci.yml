@@ -22,7 +22,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "chore/**"]
+    branches: [main, "feat/**", "fix/**", "chore/**", "ui/**"]
   pull_request:
   schedule:
     # Ночной прогон стабильности (qa/stability.sh на self-hosted раннере):
