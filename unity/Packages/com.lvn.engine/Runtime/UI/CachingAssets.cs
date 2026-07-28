@@ -105,6 +105,19 @@ namespace Lvn.UI
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
             => Loader.DownloadScriptCached(url, ct);
 
+        /// <summary>A 3D set for `bg3d` — looked up in the build's
+        /// <c>Resources/Sets</c> folder, not on the content server. A set is
+        /// code-adjacent (meshes, materials, lighting) and ships with the app,
+        /// unlike the art a novel streams; so a game gains 3D backgrounds by
+        /// dropping a prefab in that folder, with nothing to declare anywhere.</summary>
+        public Task<GameObject> LoadPrefabAsync(string id, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(id)) return Task.FromResult<GameObject>(null);
+            // Accept a bare name ("apartment") or the path an author spelled out.
+            var go = Resources.Load<GameObject>("Sets/" + id) ?? Resources.Load<GameObject>(id);
+            return Task.FromResult(go);
+        }
+
         public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
         {
             System.Threading.Interlocked.Increment(ref _livePressure);
