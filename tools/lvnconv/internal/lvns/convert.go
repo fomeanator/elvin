@@ -23,7 +23,7 @@ type Doc struct {
 }
 
 var KnownOps = map[string]bool{
-	"say": true, "choice": true, "bg": true, "actor": true, "obj": true,
+	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
 	// A bare `clear` on its own line takes the whole cast off stage. It needs no
 	// parse branch of its own — the generic fieldless path below turns a known
 	// word with nothing after it into a command of that name. It DOES need to be

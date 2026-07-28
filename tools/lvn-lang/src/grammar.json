@@ -36,7 +36,8 @@
     "return",
     "save",
     "load",
-    "wardrobe_show"
+    "wardrobe_show",
+    "bg3d"
   ],
   "structural_ops": [
     "label"
@@ -292,11 +293,25 @@
       "runes_color",
       "dur",
       "off"
+    ],
+    "bg3d": [
+      "id",
+      "prefab",
+      "scene",
+      "x",
+      "y",
+      "z",
+      "pitch",
+      "yaw",
+      "fov",
+      "dur",
+      "off"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
   "closed_field_ops": [
     "bg",
+    "bg3d",
     "clear",
     "fade",
     "dim",
@@ -602,7 +617,8 @@
     "clear": [
       "clear",
       "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
-    ]
+    ],
+    "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном."
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
   "groups": [

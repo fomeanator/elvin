@@ -74,7 +74,7 @@ namespace Lvn
         // duplication cannot rot.
         private static readonly HashSet<string> _engineStageOps = new HashSet<string>(StringComparer.Ordinal)
         {
-            "bg", "actor", "obj", "text", "audio", "fade", "dim", "tint",
+            "bg", "bg3d", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
             "hint", "save", "clear", "fx", "sfx",
         };

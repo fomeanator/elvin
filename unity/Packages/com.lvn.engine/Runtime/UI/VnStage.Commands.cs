@@ -194,6 +194,7 @@ namespace Lvn.UI
             switch ((string)command["op"])
             {
                 case "bg": _ = ApplyBgAsync(command); break;
+                case "bg3d": _ = ApplyBg3DAsync(command); break;
                 case "actor": _ = ApplyActorAsync(command); break;
                 case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
                 case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
