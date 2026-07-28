@@ -1,10 +1,85 @@
+using System.Reflection;
 using Lvn;
+using Lvn.UI.World;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Lvn.Tests
 {
     public class FxLayerTests
     {
+        static T Private<T>(object target, string field)
+        {
+            var info = target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(info, $"missing private field {field}");
+            return (T)info.GetValue(target);
+        }
+
+        [Test]
+        public void FullFrameFxAcceptsAtmosphereCombatAndStyleFields()
+        {
+            var go = new GameObject("fx-test");
+            try
+            {
+                var fx = go.AddComponent<LvnFxStack>();
+                fx.Apply(JObject.Parse(@"{
+                    'fog':0.4,'rain':0.5,'snow':0.6,'embers':0.7,
+                    'blood':0.8,'poison':0.3,'shockwave':1,
+                    'speedlines':0.9,'dream':0.2,'sepia':0.25,
+                    'posterize':0.35,'letterbox':0.45,
+                    'shock_x':0.2,'shock_y':0.7
+                }"));
+
+                Assert.AreEqual(0.4f, Private<float>(fx, "_tFog"), 0.0001f);
+                Assert.AreEqual(0.7f, Private<float>(fx, "_tEmbers"), 0.0001f);
+                Assert.AreEqual(0.8f, Private<float>(fx, "_tBlood"), 0.0001f);
+                Assert.AreEqual(1f, Private<float>(fx, "_tShockwave"), 0.0001f);
+                Assert.AreEqual(0.9f, Private<float>(fx, "_tSpeedlines"), 0.0001f);
+                Assert.AreEqual(0.2f, Private<float>(fx, "_tDream"), 0.0001f);
+                Assert.AreEqual(0.45f, Private<float>(fx, "_tLetterbox"), 0.0001f);
+                Assert.AreEqual(new Vector2(0.2f, 0.7f), Private<Vector2>(fx, "_fxCenter"));
+
+                fx.Apply(JObject.Parse(@"{'off':true}"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tFog"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tBlood"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tLetterbox"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void SpriteFxAcceptsTransformationAndMotionFields()
+        {
+            var go = new GameObject("sfx-test");
+            try
+            {
+                LvnSpriteFxDriver.Apply(go, JObject.Parse(@"{
+                    'ghost':0.8,'petrify':0.7,'hologram':0.6,
+                    'burn':0.5,'rim':0.4,'shake':0.3
+                }"));
+                var fx = go.GetComponent<LvnSpriteFxDriver>();
+                Assert.NotNull(fx);
+                Assert.AreEqual(0.8f, Private<float>(fx, "_tGhost"), 0.0001f);
+                Assert.AreEqual(0.7f, Private<float>(fx, "_tPetrify"), 0.0001f);
+                Assert.AreEqual(0.6f, Private<float>(fx, "_tHologram"), 0.0001f);
+                Assert.AreEqual(0.5f, Private<float>(fx, "_tBurn"), 0.0001f);
+                Assert.AreEqual(0.4f, Private<float>(fx, "_tRim"), 0.0001f);
+                Assert.AreEqual(0.3f, Private<float>(fx, "_tShake"), 0.0001f);
+
+                LvnSpriteFxDriver.Apply(go, JObject.Parse(@"{'off':true}"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tGhost"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tShake"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
         [Test]
         public void TypewriterClockGlobalCpsOverridesDefault()
         {
