@@ -13,6 +13,8 @@ Shader "Hidden/LvnSpriteFx"
         [HideInInspector] _StencilWriteMask ("Stencil Write Mask", Float) = 0
         [HideInInspector] _CompositeSource ("Composite Source", Float) = 0
         [HideInInspector] _CompositeOnly ("Composite Halo Only", Float) = 0
+        [HideInInspector] _StencilOnly ("Composite Stencil Only", Float) = 0
+        [HideInInspector] _CompositeDilate ("Composite Mask Dilation", Float) = 0
     }
     SubShader
     {
@@ -41,7 +43,8 @@ Shader "Hidden/LvnSpriteFx"
             float _Outline, _Glow, _Dissolve, _Flash, _Dark, _TintFx,
                   _Ghost, _Petrify, _Hologram, _Burn, _Rim, _Shake,
                   _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle,
-                  _CompositeSource, _CompositeOnly;
+                  _CompositeSource, _CompositeOnly, _StencilOnly,
+                  _CompositeDilate;
             fixed4 _OutlineColor, _GlowColor, _TintFxColor, _GhostColor,
                    _HologramColor, _BurnColor, _RimColor, _AuraColor,
                    _AuraColor2, _BladeColor, _LightningColor, _RunesColor;
@@ -122,6 +125,16 @@ Shader "Hidden/LvnSpriteFx"
                 // стык лица, тела и одежды больше не становится внешним краем.
                 if (_CompositeSource > 0.5)
                     clip(col.a - 0.001);
+
+                // Невидимый промежуточный проход слегка расширяет альфа-маску
+                // каждой детали. Он закрывает технические 1–8 px щели между
+                // головой, шеей и одеждой, не меняя видимый арт.
+                if (_StencilOnly > 0.5)
+                {
+                    float joined = max(col.a, ringAlpha(uv, _CompositeDilate));
+                    clip(joined - 0.015);
+                    return fixed4(0, 0, 0, 0);
+                }
 
                 // Растворение: шумовая маска съедает спрайт, кромка светится.
                 if (_Dissolve > 0.001)
