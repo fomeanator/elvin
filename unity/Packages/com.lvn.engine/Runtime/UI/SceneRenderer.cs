@@ -222,7 +222,7 @@ namespace Lvn.UI
         {
             var actor = _scene.ActorFor(id);
             if (actor == null) return false;
-            LvnSpriteFxDriver.Apply(actor.gameObject, cmd);
+            World.LvnSpriteFxDriver.Apply(actor.gameObject, cmd);
             return true;
         }
 

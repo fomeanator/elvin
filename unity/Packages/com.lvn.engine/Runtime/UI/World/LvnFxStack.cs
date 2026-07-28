@@ -15,9 +15,10 @@ namespace Lvn.UI.World
     ///   fx glitch=0.8                        // добавить третий, первые живут
     ///   fx off                               // чистый кадр
     ///
-    /// Поля: vignette grain chromatic scanlines pixelate glitch saturation
-    /// contrast bloom rays rays_x rays_y tint (#rrggbb). Всё выключено —
-    /// компонент отключает себя и кадр не платит за хук.
+    /// Поля: базовый грейдинг/оптика; атмосфера (fog/rain/snow/embers);
+    /// боевые статусы (blood/poison/shockwave/speedlines); стилизация
+    /// (dream/sepia/posterize/letterbox). Всё выключено — компонент отключает
+    /// себя и кадр не платит за хук.
     /// </summary>
     public sealed class LvnFxStack : MonoBehaviour
     {
@@ -25,15 +26,24 @@ namespace Lvn.UI.World
         private bool _shaderMissing;
 
         private float _vignette, _grain, _chromatic, _scanlines, _pixelate,
-                      _glitch, _bloom, _rays, _distort, _frost, _blink, _invert;
+                      _glitch, _bloom, _rays, _distort, _frost, _blink, _invert,
+                      _fog, _rain, _snow, _embers, _blood, _poison, _shockwave,
+                      _speedlines, _dream, _sepia, _posterize, _letterbox;
         private float _saturation = 1f, _contrast = 1f;
         // Цели tween'а (op-поле dur): без dur цели применяются мгновенно.
         private float _tVignette, _tGrain, _tChromatic, _tScanlines, _tPixelate,
-                      _tGlitch, _tBloom, _tRays, _tDistort, _tFrost, _tBlink, _tInvert;
+                      _tGlitch, _tBloom, _tRays, _tDistort, _tFrost, _tBlink, _tInvert,
+                      _tFog, _tRain, _tSnow, _tEmbers, _tBlood, _tPoison, _tShockwave,
+                      _tSpeedlines, _tDream, _tSepia, _tPosterize, _tLetterbox;
         private float _tSaturation = 1f, _tContrast = 1f;
         private float _speed; // 1/dur; 0 = мгновенно
         private Vector2 _rayCenter = new Vector2(0.5f, 0.3f);
+        private Vector2 _fxCenter = new Vector2(0.5f, 0.5f);
         private Color _tint = Color.white;
+        private Color _fogColor = new Color(0.68f, 0.76f, 0.82f, 1f);
+        private Color _emberColor = new Color(1f, 0.28f, 0.035f, 1f);
+        private Color _bloodColor = new Color(0.42f, 0.005f, 0.01f, 1f);
+        private Color _poisonColor = new Color(0.18f, 0.55f, 0.08f, 1f);
 
         public static LvnFxStack Ensure(Camera cam) =>
             cam.GetComponent<LvnFxStack>() ?? cam.gameObject.AddComponent<LvnFxStack>();
@@ -49,7 +59,11 @@ namespace Lvn.UI.World
 
             if (cmd["off"] != null || cmd["reset"] != null)
             {
-                _tVignette = _tGrain = _tChromatic = _tScanlines = _tPixelate = _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink = _tInvert = 0f;
+                _tVignette = _tGrain = _tChromatic = _tScanlines = _tPixelate =
+                    _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
+                    _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
+                    _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
+                    _tPosterize = _tLetterbox = 0f;
                 _tSaturation = 1f; _tContrast = 1f; _tint = Color.white;
                 if (_speed <= 0f) SnapToTargets();
                 enabled = true;
@@ -68,11 +82,28 @@ namespace Lvn.UI.World
             _tFrost      = F(cmd, "frost", _tFrost);
             _tBlink      = F(cmd, "blink", _tBlink);
             _tInvert     = F(cmd, "invert", _tInvert);
+            _tFog        = F(cmd, "fog", _tFog);
+            _tRain       = F(cmd, "rain", _tRain);
+            _tSnow       = F(cmd, "snow", _tSnow);
+            _tEmbers     = F(cmd, "embers", _tEmbers);
+            _tBlood      = F(cmd, "blood", _tBlood);
+            _tPoison     = F(cmd, "poison", _tPoison);
+            _tShockwave  = F(cmd, "shockwave", _tShockwave);
+            _tSpeedlines = F(cmd, "speedlines", _tSpeedlines);
+            _tDream      = F(cmd, "dream", _tDream);
+            _tSepia      = F(cmd, "sepia", _tSepia);
+            _tPosterize  = F(cmd, "posterize", _tPosterize);
+            _tLetterbox  = F(cmd, "letterbox", _tLetterbox);
             _tSaturation = F(cmd, "saturation", _tSaturation);
             _tContrast   = F(cmd, "contrast", _tContrast);
             _rayCenter  = new Vector2(F(cmd, "rays_x", _rayCenter.x), F(cmd, "rays_y", _rayCenter.y));
+            _fxCenter = new Vector2(F(cmd, "shock_x", _fxCenter.x), F(cmd, "shock_y", _fxCenter.y));
             var tint = (string)cmd["tint"];
             if (!string.IsNullOrEmpty(tint) && ColorUtility.TryParseHtmlString(tint, out var c)) _tint = c;
+            ParseColor(cmd, "fog_color", ref _fogColor);
+            ParseColor(cmd, "embers_color", ref _emberColor);
+            ParseColor(cmd, "blood_color", ref _bloodColor);
+            ParseColor(cmd, "poison_color", ref _poisonColor);
 
             if (_speed <= 0f) SnapToTargets();
             enabled = true;
@@ -84,6 +115,10 @@ namespace Lvn.UI.World
             _scanlines = _tScanlines; _pixelate = _tPixelate; _glitch = _tGlitch;
             _bloom = _tBloom; _rays = _tRays; _distort = _tDistort;
             _frost = _tFrost; _blink = _tBlink; _invert = _tInvert;
+            _fog = _tFog; _rain = _tRain; _snow = _tSnow; _embers = _tEmbers;
+            _blood = _tBlood; _poison = _tPoison; _shockwave = _tShockwave;
+            _speedlines = _tSpeedlines; _dream = _tDream; _sepia = _tSepia;
+            _posterize = _tPosterize; _letterbox = _tLetterbox;
             _saturation = _tSaturation; _contrast = _tContrast;
         }
 
@@ -103,6 +138,18 @@ namespace Lvn.UI.World
             _frost = Mathf.MoveTowards(_frost, _tFrost, k);
             _blink = Mathf.MoveTowards(_blink, _tBlink, k);
             _invert = Mathf.MoveTowards(_invert, _tInvert, k);
+            _fog = Mathf.MoveTowards(_fog, _tFog, k);
+            _rain = Mathf.MoveTowards(_rain, _tRain, k);
+            _snow = Mathf.MoveTowards(_snow, _tSnow, k);
+            _embers = Mathf.MoveTowards(_embers, _tEmbers, k);
+            _blood = Mathf.MoveTowards(_blood, _tBlood, k);
+            _poison = Mathf.MoveTowards(_poison, _tPoison, k);
+            _shockwave = Mathf.MoveTowards(_shockwave, _tShockwave, k);
+            _speedlines = Mathf.MoveTowards(_speedlines, _tSpeedlines, k);
+            _dream = Mathf.MoveTowards(_dream, _tDream, k);
+            _sepia = Mathf.MoveTowards(_sepia, _tSepia, k);
+            _posterize = Mathf.MoveTowards(_posterize, _tPosterize, k);
+            _letterbox = Mathf.MoveTowards(_letterbox, _tLetterbox, k);
             _saturation = Mathf.MoveTowards(_saturation, _tSaturation, k);
             _contrast = Mathf.MoveTowards(_contrast, _tContrast, k);
         }
@@ -110,13 +157,26 @@ namespace Lvn.UI.World
         private static float F(JObject cmd, string key, float cur)
             => cmd[key] != null ? (float)cmd[key] : cur;
 
+        private static void ParseColor(JObject cmd, string key, ref Color current)
+        {
+            var text = (string)cmd[key];
+            if (!string.IsNullOrEmpty(text) && ColorUtility.TryParseHtmlString(text, out var parsed))
+                current = parsed;
+        }
+
         private bool Active =>
             _vignette > 0f || _grain > 0f || _chromatic > 0f || _scanlines > 0f ||
             _pixelate > 0f || _glitch > 0f || _bloom > 0f || _rays > 0f || _distort > 0f ||
-            _frost > 0f || _blink > 0f || _invert > 0f ||
+            _frost > 0f || _blink > 0f || _invert > 0f || _fog > 0f || _rain > 0f ||
+            _snow > 0f || _embers > 0f || _blood > 0f || _poison > 0f ||
+            _shockwave > 0f || _speedlines > 0f || _dream > 0f || _sepia > 0f ||
+            _posterize > 0f || _letterbox > 0f ||
             _tVignette > 0f || _tGrain > 0f || _tChromatic > 0f || _tScanlines > 0f ||
             _tPixelate > 0f || _tGlitch > 0f || _tBloom > 0f || _tRays > 0f || _tDistort > 0f ||
-            _tFrost > 0f || _tBlink > 0f || _tInvert > 0f ||
+            _tFrost > 0f || _tBlink > 0f || _tInvert > 0f || _tFog > 0f || _tRain > 0f ||
+            _tSnow > 0f || _tEmbers > 0f || _tBlood > 0f || _tPoison > 0f ||
+            _tShockwave > 0f || _tSpeedlines > 0f || _tDream > 0f || _tSepia > 0f ||
+            _tPosterize > 0f || _tLetterbox > 0f ||
             !Mathf.Approximately(_saturation, 1f) || !Mathf.Approximately(_contrast, 1f) ||
             !Mathf.Approximately(_tSaturation, 1f) || !Mathf.Approximately(_tContrast, 1f) ||
             _tint != Color.white;
@@ -166,10 +226,27 @@ namespace Lvn.UI.World
             _mat.SetFloat("_Frost", _frost);
             _mat.SetFloat("_Blink", _blink);
             _mat.SetFloat("_Invert", _invert);
+            _mat.SetFloat("_Fog", _fog);
+            _mat.SetFloat("_Rain", _rain);
+            _mat.SetFloat("_Snow", _snow);
+            _mat.SetFloat("_Embers", _embers);
+            _mat.SetFloat("_Blood", _blood);
+            _mat.SetFloat("_Poison", _poison);
+            _mat.SetFloat("_Shockwave", _shockwave);
+            _mat.SetFloat("_Speedlines", _speedlines);
+            _mat.SetFloat("_Dream", _dream);
+            _mat.SetFloat("_Sepia", _sepia);
+            _mat.SetFloat("_Posterize", _posterize);
+            _mat.SetFloat("_Letterbox", _letterbox);
             _mat.SetFloat("_Saturation", _saturation);
             _mat.SetFloat("_Contrast", _contrast);
             _mat.SetColor("_Tint", _tint);
+            _mat.SetColor("_FogColor", _fogColor);
+            _mat.SetColor("_EmberColor", _emberColor);
+            _mat.SetColor("_BloodColor", _bloodColor);
+            _mat.SetColor("_PoisonColor", _poisonColor);
             _mat.SetVector("_RayCenter", new Vector4(_rayCenter.x, 1f - _rayCenter.y, 0, 0)); // авторская y вниз → uv вверх
+            _mat.SetVector("_FxCenter", new Vector4(_fxCenter.x, 1f - _fxCenter.y, 0, 0));
             Graphics.Blit(src, dst, _mat, 0);
 
             if (bloomRt != null) RenderTexture.ReleaseTemporary(bloomRt);
