@@ -29,8 +29,10 @@ namespace Lvn.UI.World
         private static Shader _shader;
         private static int _nextStencilRef = 1;
         private Material _mat;
+        private Material _maskMat;
         private Material _haloMat;
         private readonly List<Graphic> _skinned = new List<Graphic>();
+        private readonly List<HaloLayer> _maskLayers = new List<HaloLayer>();
         private readonly List<HaloLayer> _haloLayers = new List<HaloLayer>();
         private bool _compositeHalo;
         private int _stencilRef;
@@ -282,7 +284,7 @@ namespace Lvn.UI.World
             var images = new List<Image>();
             foreach (var g in GetComponentsInChildren<Image>(true))
             {
-                if (g.name.StartsWith("__lvn-composite-halo:")) continue;
+                if (g.name.StartsWith("__lvn-composite-")) continue;
                 var owner = g.GetComponentInParent<LvnSpriteFxDriver>();
                 if (owner != null && owner != this) continue;
                 images.Add(g);
@@ -297,6 +299,7 @@ namespace Lvn.UI.World
                     _stencilRef = _nextStencilRef++;
                     if (_nextStencilRef > 254) _nextStencilRef = 1;
                 }
+                _maskMat = new Material(_shader) { hideFlags = HideFlags.HideAndDontSave };
                 _haloMat = new Material(_shader) { hideFlags = HideFlags.HideAndDontSave };
             }
 
@@ -304,10 +307,17 @@ namespace Lvn.UI.World
             {
                 g.material = _mat;
                 _skinned.Add(g);
-                if (_compositeHalo) AddCompositeHalo(g);
+            }
+            if (_compositeHalo)
+            {
+                // Paint order matters: all visible parts → expanded union mask
+                // → halo copies tested against that finished union.
+                foreach (var g in images) AddCompositeLayer(g, _maskMat, _maskLayers, "mask");
+                foreach (var g in images) AddCompositeLayer(g, _haloMat, _haloLayers, "halo");
             }
             SyncCompositeHaloGeometry();
             SyncMaterial(_mat, haloOnly: false);
+            if (_maskMat != null) SyncMaskMaterial(_maskMat);
             if (_haloMat != null) SyncMaterial(_haloMat, haloOnly: true);
         }
 
@@ -319,30 +329,37 @@ namespace Lvn.UI.World
             _compositeHalo = false;
         }
 
-        private void AddCompositeHalo(Image source)
+        private void AddCompositeLayer(Image source, Material material,
+            List<HaloLayer> destination, string kind)
         {
-            var go = new GameObject("__lvn-composite-halo:" + source.name,
+            var go = new GameObject("__lvn-composite-" + kind + ":" + source.name,
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            var halo = go.GetComponent<Image>();
-            halo.raycastTarget = false;
-            halo.material = _haloMat;
-            halo.maskable = source.maskable;
-            halo.preserveAspect = source.preserveAspect;
-            halo.type = source.type;
-            halo.fillCenter = source.fillCenter;
-            halo.fillMethod = source.fillMethod;
-            halo.fillAmount = source.fillAmount;
-            halo.fillClockwise = source.fillClockwise;
-            halo.fillOrigin = source.fillOrigin;
-            halo.pixelsPerUnitMultiplier = source.pixelsPerUnitMultiplier;
+            var copy = go.GetComponent<Image>();
+            copy.raycastTarget = false;
+            copy.material = material;
+            copy.maskable = source.maskable;
+            copy.preserveAspect = source.preserveAspect;
+            copy.type = source.type;
+            copy.fillCenter = source.fillCenter;
+            copy.fillMethod = source.fillMethod;
+            copy.fillAmount = source.fillAmount;
+            copy.fillClockwise = source.fillClockwise;
+            copy.fillOrigin = source.fillOrigin;
+            copy.pixelsPerUnitMultiplier = source.pixelsPerUnitMultiplier;
             go.transform.SetParent(source.transform.parent, false);
             go.transform.SetAsLastSibling();
-            _haloLayers.Add(new HaloLayer { Source = source, Halo = halo });
+            destination.Add(new HaloLayer { Source = source, Halo = copy });
         }
 
         private void SyncCompositeHaloGeometry()
         {
-            foreach (var layer in _haloLayers)
+            SyncCompositeLayerGeometry(_maskLayers);
+            SyncCompositeLayerGeometry(_haloLayers);
+        }
+
+        private static void SyncCompositeLayerGeometry(List<HaloLayer> layers)
+        {
+            foreach (var layer in layers)
             {
                 if (layer.Source == null || layer.Halo == null) continue;
                 var source = layer.Source;
@@ -365,7 +382,15 @@ namespace Lvn.UI.World
 
         private void ClearCompositeHalo()
         {
-            foreach (var layer in _haloLayers)
+            ClearCompositeLayers(_maskLayers);
+            ClearCompositeLayers(_haloLayers);
+            DestroyMaterial(ref _maskMat);
+            DestroyMaterial(ref _haloMat);
+        }
+
+        private static void ClearCompositeLayers(List<HaloLayer> layers)
+        {
+            foreach (var layer in layers)
             {
                 if (layer.Halo == null) continue;
                 var go = layer.Halo.gameObject;
@@ -373,12 +398,16 @@ namespace Lvn.UI.World
                 if (Application.isPlaying) Destroy(go);
                 else DestroyImmediate(go);
             }
-            _haloLayers.Clear();
-            if (_haloMat != null)
+            layers.Clear();
+        }
+
+        private static void DestroyMaterial(ref Material material)
+        {
+            if (material != null)
             {
-                if (Application.isPlaying) Destroy(_haloMat);
-                else DestroyImmediate(_haloMat);
-                _haloMat = null;
+                if (Application.isPlaying) Destroy(material);
+                else DestroyImmediate(material);
+                material = null;
             }
         }
 
@@ -413,6 +442,7 @@ namespace Lvn.UI.World
                         || !Mathf.Approximately(_aura, _tAura) || !Mathf.Approximately(_blade, _tBlade)
                         || !Mathf.Approximately(_lightning, _tLightning) || !Mathf.Approximately(_runes, _tRunes);
             if (_mat != null) SyncMaterial(_mat, haloOnly: false);
+            if (_maskMat != null) SyncMaskMaterial(_maskMat);
             if (_haloMat != null) SyncMaterial(_haloMat, haloOnly: true);
             if (!идёт)
             {
@@ -455,6 +485,8 @@ namespace Lvn.UI.World
             mat.SetFloat("_AuraStyle", _auraStyle);
             mat.SetFloat("_CompositeSource", splitExterior && !haloOnly ? 1f : 0f);
             mat.SetFloat("_CompositeOnly", haloOnly ? 1f : 0f);
+            mat.SetFloat("_StencilOnly", 0f);
+            mat.SetFloat("_CompositeDilate", 0f);
             mat.SetFloat("_StencilRef", _stencilRef);
             mat.SetFloat("_StencilComp", haloOnly
                 ? (float)CompareFunction.NotEqual
@@ -475,6 +507,26 @@ namespace Lvn.UI.World
             mat.SetColor("_BladeColor", _bladeColor);
             mat.SetColor("_LightningColor", _lightningColor);
             mat.SetColor("_RunesColor", _runesColor);
+        }
+
+        private void SyncMaskMaterial(Material mat)
+        {
+            // The mask pass returns transparent colour but replaces stencil for
+            // the union expanded by ~0.9% of the layer UV box.
+            mat.SetFloat("_CompositeSource", 0f);
+            mat.SetFloat("_CompositeOnly", 0f);
+            mat.SetFloat("_StencilOnly", 1f);
+            mat.SetFloat("_CompositeDilate", 0.009f);
+            mat.SetFloat("_StencilRef", _stencilRef);
+            mat.SetFloat("_StencilComp", (float)CompareFunction.Always);
+            mat.SetFloat("_StencilOp", (float)StencilOp.Replace);
+            mat.SetFloat("_StencilWriteMask", 255f);
+            mat.SetFloat("_Outline", 0f);
+            mat.SetFloat("_Glow", 0f);
+            mat.SetFloat("_Aura", 0f);
+            mat.SetFloat("_Blade", 0f);
+            mat.SetFloat("_Lightning", 0f);
+            mat.SetFloat("_Runes", 0f);
         }
 
         private void OnDestroy()
