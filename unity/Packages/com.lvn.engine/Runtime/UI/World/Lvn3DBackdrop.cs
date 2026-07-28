@@ -29,12 +29,14 @@ namespace Lvn.UI.World
         private Camera _cam;
         private RenderTexture _rt;
         private GameObject _set;
+        private Lvn3DSetEnv _env;      // the set's own sky/fog/ambient, if it brought any
 
         // Current framing, and where a tween is taking it.
         private Vector3 _pos, _posTo;
         private Vector3 _rot, _rotTo;   // euler: pitch (x), yaw (y)
         private float _fov = 60f, _fovTo = 60f;
         private float _speed;           // 1/seconds; 0 = snap
+        private bool _live;             // the set animates: film every frame
 
         /// <summary>The filmed frame — hand it to the stage background.</summary>
         public RenderTexture Texture => _rt;
@@ -57,6 +59,7 @@ namespace Lvn.UI.World
         {
             if (_set != null)
             {
+                if (_env != null) { _env.Restore(); _env = null; }
                 Kill(_set);
                 _set = null;
             }
@@ -66,12 +69,69 @@ namespace Lvn.UI.World
                 return;
             }
             EnsureCamera();
-            _set = Instantiate(prefab, Far, Quaternion.identity);
+            // Parent the set to this component: a set left in the scene root
+            // outlives the stage that stood it, and the next novel opens with
+            // the previous one's room still being filmed behind it.
+            _set = Instantiate(prefab, transform);
+            _set.transform.localPosition = Far;
+            _set.transform.localRotation = Quaternion.identity;
             _set.name = "lvn-3d-set:" + prefab.name;
+
+            // Does anything in this set MOVE? A still room is filmed once and
+            // costs nothing after that; a set with swaying trees, running water
+            // or particles has to be filmed every frame like any 3D game. Decide
+            // by what the set actually contains, so an author never has to
+            // declare it — and never gets a frozen waterfall by forgetting to.
+            // A set brings its own air (sky, fog, ambient bounce). Without it a
+            // stylised kit renders flat and grey — the geometry and shaders are
+            // fine, the atmosphere simply is not project-wide state we may keep.
+            _env = _set.GetComponent<Lvn3DSetEnv>();
+            if (_env != null) _env.Apply();
+
+            _live = _live || SetAnimates(_set);
+            _cam.enabled = _live;
+
             // A set authored around its own origin lands around Far; the camera
             // frames it in the set's local space, so authors keep thinking in
             // ordinary coordinates.
-            _cam.enabled = true;
+            Apply(); // one frame, so the set appears immediately
+        }
+
+        /// <summary>True when the set has anything that moves on its own.</summary>
+        private static bool SetAnimates(GameObject set)
+        {
+            // Animators and particles are named, not typed: the engine package
+            // deliberately does not reference Unity's Animation and ParticleSystem
+            // modules (a game that ships neither should not have to carry them),
+            // so asking for the type by name keeps this check dependency-free.
+            foreach (var c in set.GetComponentsInChildren<Component>(true))
+            {
+                if (c == null) continue;
+                switch (c.GetType().Name)
+                {
+                    case "Animator":
+                    case "Animation":
+                    case "ParticleSystem":
+                    case "VisualEffect":
+                        return true;
+                }
+                // Scrolling UVs, vertex-animated foliage and the like live in
+                // scripts the engine can't name; anything the set author attached
+                // beyond a plain renderer counts as motion.
+                if (c is MonoBehaviour) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Force the filming mode instead of letting the set decide:
+        /// `bg3d live=1` films every frame (a set whose motion the engine can't
+        /// detect — a shader that scrolls water, say), `live=0` pins it to a
+        /// still shot even if it could animate.</summary>
+        public void SetLive(bool live)
+        {
+            _live = live;
+            if (_cam != null) _cam.enabled = live;
+            if (live) enabled = true;
         }
 
         /// <summary>Frame the shot. Coordinates are the SET's own — as authored in
@@ -97,7 +157,12 @@ namespace Lvn.UI.World
         /// <summary>Tear the set down and free the frame buffer.</summary>
         public void Release()
         {
-            if (_set != null) { Kill(_set); _set = null; }
+            if (_set != null)
+            {
+                if (_env != null) { _env.Restore(); _env = null; }
+                Kill(_set);
+                _set = null;
+            }
             if (_cam != null) _cam.enabled = false;
             if (_rt != null)
             {
@@ -132,6 +197,9 @@ namespace Lvn.UI.World
             // never listen — the stage's own camera stays the one that hears.
             var listener = go.GetComponent<AudioListener>();
             if (listener != null) Kill(listener);
+            // Never renders on its own — see Shoot(). Unity only auto-renders
+            // ENABLED cameras, so a disabled one is free until asked.
+            _cam.enabled = false;
             EnsureTarget();
         }
 
@@ -158,21 +226,43 @@ namespace Lvn.UI.World
                 antiAliasing = QualitySettings.antiAliasing > 0 ? QualitySettings.antiAliasing : 1,
             };
             _cam.targetTexture = _rt;
+            Shoot(); // the buffer is fresh and empty — fill it at once
         }
 
         private void Apply()
         {
             if (_cam == null) return;
-            _cam.transform.position = Far + _pos;
-            _cam.transform.rotation = Quaternion.Euler(_rot.x, _rot.y, 0f);
+            _cam.transform.localPosition = Far + _pos;
+            _cam.transform.localRotation = Quaternion.Euler(_rot.x, _rot.y, 0f);
             _cam.fieldOfView = Mathf.Clamp(_fov, 5f, 120f);
+            Shoot();
+        }
+
+        /// <summary>Film ONE frame. A visual novel's shot is static between
+        /// camera moves — re-filming the identical picture sixty times a second
+        /// is the whole cost of the feature for none of the benefit. So the
+        /// camera stays disabled and takes a single frame whenever the framing
+        /// changes; a still shot then costs nothing at all.</summary>
+        private void Shoot()
+        {
+            if (_cam == null || _rt == null) return;
+            // A living set is already being filmed by Unity every frame —
+            // rendering again here would double the cost of the feature.
+            if (_cam.enabled) return;
+            _cam.Render();
         }
 
         private void Update()
         {
             if (_cam == null) return;
+            if (_speed <= 0f)
+            {
+                // A living set keeps filming (Unity renders the enabled camera
+                // itself); a still one sleeps until the next `bg3d` wakes it.
+                if (!_live) enabled = false;
+                return;
+            }
             EnsureTarget(); // a rotated device changes the frame size
-            if (_speed <= 0f) return;
 
             float step = _speed * Time.unscaledDeltaTime;
             _pos = Vector3.Lerp(_pos, _posTo, Mathf.Clamp01(step));
@@ -187,6 +277,7 @@ namespace Lvn.UI.World
                 _pos = _posTo; _rot = _rotTo; _fov = _fovTo;
                 Apply();
                 _speed = 0f;
+                enabled = false; // arrived — stop burning frames
             }
         }
 
