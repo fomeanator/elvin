@@ -1107,6 +1107,9 @@ func rewriteScriptOps(sf *ScriptFile, bgidx map[string]string, tpl *Template) {
 // transformOps applies the per-op background rewrite and audio insertion.
 func transformOps(ops []map[string]any, bgidx map[string]string, tpl *Template) []map[string]any {
 	out := make([]map[string]any, 0, len(ops))
+	// The background showing right now, so a cutscene can hand the scene back
+	// when it ends. Nil until the chapter sets its first background.
+	var sceneBg map[string]any
 	for _, op := range ops {
 		if op == nil {
 			continue
@@ -1120,15 +1123,69 @@ func transformOps(ops []map[string]any, bgidx map[string]string, tpl *Template) 
 					op["sprite_url"] = u
 				}
 			}
+			if !isCutsceneBg(op) {
+				sceneBg = op
+			}
 		}
 		out = append(out, op)
 		if name == "set" {
 			if audio := audioOpForSet(op, tpl); audio != nil {
 				out = append(out, audio)
 			}
+			if cut := cutsceneOpForSet(op, tpl, sceneBg); cut != nil {
+				out = append(out, cut)
+			}
 		}
 	}
 	return out
+}
+
+// cutsceneOpForSet lowers an illustration trigger into a background swap: the
+// truthy write shows the CG (which also unlocks it in the gallery), the falsy
+// one restores the scene's own background. Returns nil when the set is not a
+// cutscene trigger, or when a "hide" has no background to go back to.
+func cutsceneOpForSet(op map[string]any, tpl *Template, sceneBg map[string]any) map[string]any {
+	key, _ := op["key"].(string)
+	if key == "" {
+		return nil
+	}
+	for _, cue := range tpl.resolve().Cutscenes {
+		if cue.VarPrefix == "" || !strings.HasPrefix(key, cue.VarPrefix) {
+			continue
+		}
+		name := strings.Trim(key[len(cue.VarPrefix):], "_")
+		if name == "" {
+			continue
+		}
+		if truthyValue(op["value"]) {
+			return map[string]any{"op": "bg", "sprite_url": cue.PathPrefix + name + cue.Ext,
+				"cutscene": true}
+		}
+		// Ending the cutscene: hand the scene back its own background. Without a
+		// known one there is nothing to restore — leave the CG up rather than
+		// blanking the screen.
+		if sceneBg == nil {
+			return nil
+		}
+		restore := map[string]any{"op": "bg"}
+		for _, k := range []string{"id", "sprite_url", "url"} {
+			if v, ok := sceneBg[k]; ok {
+				restore[k] = v
+			}
+		}
+		if len(restore) == 1 {
+			return nil
+		}
+		return restore
+	}
+	return nil
+}
+
+// isCutsceneBg reports whether a bg op is one this pass inserted, so a cutscene
+// never becomes the background a later cutscene restores.
+func isCutsceneBg(op map[string]any) bool {
+	v, ok := op["cutscene"].(bool)
+	return ok && v
 }
 
 // lookupLocation resolves an articy location name to its tech name, tolerating
