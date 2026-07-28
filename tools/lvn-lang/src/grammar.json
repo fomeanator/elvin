@@ -366,7 +366,9 @@
         "shadow",
         "holy",
         "space",
-        "distortion"
+        "distortion",
+        "spirit",
+        "ascendant"
       ]
     },
     "actor": {
@@ -448,7 +450,9 @@
       "shadow",
       "holy",
       "space",
-      "distortion"
+      "distortion",
+      "spirit",
+      "ascendant"
     ]
   },
   "op_docs": {
