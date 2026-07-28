@@ -318,7 +318,8 @@ export const OP_FIELDS = {
     "yaw",
     "fov",
     "dur",
-    "off"
+    "off",
+    "live"
   ]
 };
 
