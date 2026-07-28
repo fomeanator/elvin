@@ -46,6 +46,7 @@ namespace Lvn
             "bg", "actor", "obj", "clear", "text", "audio",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles", "anim", "text_pace", "hint", "save",
+            "fx", "sfx",
             // part of the language, implemented in com.lvn.engine.shell
             "wardrobe_show",
         };
