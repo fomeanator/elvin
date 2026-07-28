@@ -38,6 +38,8 @@ type Template struct {
 	Wardrobe    WardrobeTemplate   `json:"wardrobe"`
 	Audio       []AudioCueTemplate `json:"audio"`
 	Cutscenes   []CutsceneTemplate `json:"cutscenes"`
+	Timer       TimerTemplate      `json:"timer"`
+	Camera      CameraTemplate     `json:"camera"`
 	Backgrounds BackgroundTemplate `json:"backgrounds"`
 	Stats       StatsTemplate      `json:"stats"`
 
@@ -176,6 +178,28 @@ type CutsceneTemplate struct {
 	Ext        string `json:"ext"`         // ".jpg"
 }
 
+// TimerTemplate arms the countdown the author asks for with a "[timer]" tag on
+// the line that introduces a choice. The tag itself is stripped — it is a
+// direction to us, not text for the player.
+//
+// Branch decides where an expired countdown goes, because articy does not say:
+// "first" takes the top option (the story's main road), "last" the bottom one
+// (usually the passive "say nothing"). Confirm with the author before shipping.
+type TimerTemplate struct {
+	Seconds float64 `json:"seconds"` // 10
+	Branch  string  `json:"branch"`  // "first" | "last"
+}
+
+// CameraTemplate translates the author's camera directions into camera ops.
+// Focus is written as a phrase ("зум, слева, 70%"); Shake carries a two-digit
+// code where the digits pick sync and strength.
+type CameraTemplate struct {
+	FocusVar string  `json:"focus_var"` // "Temp.focus"
+	ShakeVar string  `json:"shake_var"` // "Effect.shake"
+	ZoomVar  string  `json:"zoom_var"`  // "Effect.zoom"
+	Duration float64 `json:"duration"`  // 0.6 — seconds a move takes
+}
+
 // BackgroundTemplate governs real-фон matching.
 type BackgroundTemplate struct {
 	// MinFileSize skips small files as autostage placeholders, not real art.
@@ -305,6 +329,8 @@ func DefaultTemplate() *Template {
 		Cutscenes: []CutsceneTemplate{
 			{VarPrefix: "Cutscenes.show", PathPrefix: "/content/cg/", Ext: ".jpg"},
 		},
+		Timer:       TimerTemplate{Seconds: 10, Branch: "first"},
+		Camera:      CameraTemplate{FocusVar: "Temp.focus", ShakeVar: "Effect.shake", ZoomVar: "Effect.zoom", Duration: 0.6},
 		Backgrounds: BackgroundTemplate{MinFileSize: 200000},
 		// The marker-colour → emotion legend, made explicit on the template so it is
 		// self-describing and overridable per project. Identical to emotion.go's

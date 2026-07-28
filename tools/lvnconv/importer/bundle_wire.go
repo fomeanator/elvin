@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -1110,6 +1111,8 @@ func transformOps(ops []map[string]any, bgidx map[string]string, tpl *Template) 
 	// The background showing right now, so a cutscene can hand the scene back
 	// when it ends. Nil until the chapter sets its first background.
 	var sceneBg map[string]any
+	// Set by a "[timer]" line and consumed by the choice it introduces.
+	armTimer := false
 	for _, op := range ops {
 		if op == nil {
 			continue
@@ -1127,6 +1130,15 @@ func transformOps(ops []map[string]any, bgidx map[string]string, tpl *Template) 
 				sceneBg = op
 			}
 		}
+		if name == "say" {
+			if stripTimerTag(op) {
+				armTimer = true
+			}
+		}
+		if name == "choice" && armTimer {
+			armChoiceTimer(op, tpl)
+			armTimer = false
+		}
 		out = append(out, op)
 		if name == "set" {
 			if audio := audioOpForSet(op, tpl); audio != nil {
@@ -1135,9 +1147,154 @@ func transformOps(ops []map[string]any, bgidx map[string]string, tpl *Template) 
 			if cut := cutsceneOpForSet(op, tpl, sceneBg); cut != nil {
 				out = append(out, cut)
 			}
+			if cam := cameraOpForSet(op, tpl); cam != nil {
+				out = append(out, cam)
+			}
 		}
 	}
 	return out
+}
+
+// timerTag matches the author's countdown direction anywhere in a line.
+var timerTag = regexp.MustCompile(`(?i)\[\s*timer\s*\]\s*`)
+
+// stripTimerTag removes a "[timer]" direction from a line and reports whether
+// one was there. The tag is a note to the importer; leaving it in would show
+// the player "[timer] Что делать?!".
+func stripTimerTag(op map[string]any) bool {
+	found := false
+	for _, k := range []string{"text", "line"} {
+		s, ok := op[k].(string)
+		if !ok || !timerTag.MatchString(s) {
+			continue
+		}
+		op[k] = strings.TrimSpace(timerTag.ReplaceAllString(s, ""))
+		found = true
+	}
+	return found
+}
+
+// armChoiceTimer gives a choice its countdown and the branch an expired one
+// takes. Without options (or with the timer already set by the author) it does
+// nothing.
+func armChoiceTimer(op map[string]any, tpl *Template) {
+	if _, exists := op["timeout"]; exists {
+		return
+	}
+	t := tpl.resolve().Timer
+	if t.Seconds <= 0 {
+		return
+	}
+	opts, _ := op["options"].([]any)
+	if len(opts) == 0 {
+		return
+	}
+	pick := opts[0]
+	if strings.EqualFold(t.Branch, "last") {
+		pick = opts[len(opts)-1]
+	}
+	target := ""
+	switch o := pick.(type) {
+	case map[string]any:
+		target, _ = o["goto"].(string)
+	case articy.Cmd:
+		target, _ = o["goto"].(string)
+	}
+	if target == "" {
+		return
+	}
+	op["timeout"] = t.Seconds
+	op["timeout_goto"] = target
+}
+
+// cameraOpForSet turns a camera direction into a camera op: a focus phrase
+// ("зум, слева, 70%") into a pan/zoom, a shake code into a shake. Returns nil
+// for anything else, and for an empty direction (the author clearing it).
+func cameraOpForSet(op map[string]any, tpl *Template) map[string]any {
+	key, _ := op["key"].(string)
+	if key == "" {
+		return nil
+	}
+	c := tpl.resolve().Camera
+	dur := c.Duration
+	if dur <= 0 {
+		dur = 0.6
+	}
+	val := strings.TrimSpace(fmt.Sprint(op["value"]))
+	if val == "" || val == "<nil>" || val == "false" {
+		return nil
+	}
+	switch key {
+	case c.ShakeVar:
+		// Two-digit code: the second digit is the strength the author asked for.
+		amp := 0.02
+		if n := lastDigit(val); n > 0 {
+			amp = 0.01 * float64(n)
+		}
+		return map[string]any{"op": "camera", "action": "shake", "amplitude": amp, "duration": dur}
+	case c.ZoomVar, c.FocusVar:
+		factor, x, y, ok := parseFocusPhrase(val)
+		if !ok {
+			return nil
+		}
+		out := map[string]any{"op": "camera", "action": "zoom", "factor": factor, "duration": dur}
+		if x >= 0 {
+			out["x"], out["y"] = x, y
+		}
+		return out
+	}
+	return nil
+}
+
+// parseFocusPhrase reads the author's camera phrase. It names how close the
+// camera gets ("волосы" tightest, "полностью" all the way out, a percentage) and
+// optionally where it looks ("слева"/"справа"/"по центру"). Returns ok=false for
+// a phrase that asks for nothing (e.g. "по умолчанию" — the default framing).
+func parseFocusPhrase(s string) (factor, x, y float64, ok bool) {
+	l := strings.ToLower(s)
+	x, y = -1, -1
+	switch {
+	case strings.Contains(l, "по умолчанию"), strings.Contains(l, "сброс"):
+		return 1, -1, -1, true
+	case strings.Contains(l, "волос"):
+		factor = 1.8
+	case strings.Contains(l, "лиц"):
+		factor = 1.6
+	case strings.Contains(l, "поясн"), strings.Contains(l, "пояс"):
+		factor = 1.3
+	case strings.Contains(l, "полностью"), strings.Contains(l, "полн"):
+		factor = 1
+	}
+	if m := percentRe.FindStringSubmatch(l); m != nil {
+		if p, err := strconv.ParseFloat(m[1], 64); err == nil && p > 0 {
+			// "70%" means the frame keeps 70% of the scene → zoom in by its inverse.
+			factor = 100 / p
+		}
+	}
+	if factor == 0 {
+		return 0, -1, -1, false
+	}
+	switch {
+	case strings.Contains(l, "слева"), strings.Contains(l, "лев"):
+		x, y = 0.28, 0.5
+	case strings.Contains(l, "справа"), strings.Contains(l, "прав"):
+		x, y = 0.72, 0.5
+	case strings.Contains(l, "центр"):
+		x, y = 0.5, 0.5
+	}
+	return factor, x, y, true
+}
+
+var percentRe = regexp.MustCompile(`(\d{1,3})\s*%`)
+
+// lastDigit returns the final digit of a code like "23", or 0 when there is none.
+func lastDigit(s string) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] >= '0' && s[i] <= '9' {
+			return int(s[i] - '0')
+		}
+	}
+	return 0
 }
 
 // cutsceneOpForSet lowers an illustration trigger into a background swap: the
