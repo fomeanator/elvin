@@ -18,7 +18,7 @@ namespace Lvn.UI.World
     ///   sfx id=hero aura=0.9 aura_style=fire aura_color=#ff6a20 aura_color2=#ffd46a
     ///   sfx id=hero aura=1 aura_style=distortion             // чёрно-красный разлом
     ///   sfx id=hero aura=1 aura_style=spirit                 // двухслойная шумовая оболочка
-    ///   sfx id=hero aura=1 aura_style=ascendant              // широкое манхва-пламя и тёмные жгуты
+    ///   sfx id=hero aura=1 aura_style=ascendant aura_size=1.3 aura_speed=0.8 aura_density=1.5
     ///   sfx id=hero part=weapon blade=1 blade_color=#c9f5ff // аура только меча
     ///   sfx id=niharis off                                 // снять всё
     ///
@@ -54,6 +54,9 @@ namespace Lvn.UI.World
         private float _speed;                                  // 1/dur; 0 = мгновенно
         private bool _scopedPart;
         private float _auraStyle;
+        private float _auraSize = 1f;
+        private float _auraSpeed = 1f;
+        private float _auraDensity = 1f;
         private Color _outlineColor = new Color(1f, 0.84f, 0.42f, 1f);
         private Color _glowColor = new Color(1f, 0.9f, 0.6f, 1f);
         private Color _tintColor = new Color(0.55f, 0.8f, 1f, 1f);
@@ -141,6 +144,9 @@ namespace Lvn.UI.World
             _tRim      = F(cmd, "rim", _tRim);
             _tShake    = F(cmd, "shake", _tShake);
             _tAura     = F(cmd, "aura", _tAura);
+            _auraSize = ClampedF(cmd, "aura_size", _auraSize, 0.4f, 2.5f);
+            _auraSpeed = ClampedF(cmd, "aura_speed", _auraSpeed, 0f, 4f);
+            _auraDensity = ClampedF(cmd, "aura_density", _auraDensity, 0.25f, 4f);
             _tBlade    = F(cmd, "blade", _tBlade);
             _tLightning = F(cmd, "lightning", _tLightning);
             _tRunes    = F(cmd, "runes", _tRunes);
@@ -179,6 +185,12 @@ namespace Lvn.UI.World
 
         private static float F(JObject cmd, string key, float cur)
             => cmd[key] != null ? (float)cmd[key] : cur;
+
+        private static float ClampedF(JObject cmd, string key, float current,
+            float min, float max)
+            => cmd[key] != null
+                ? Mathf.Clamp((float)cmd[key], min, max)
+                : current;
 
         private static void ParseColor(JObject cmd, string key, ref Color current)
         {
@@ -401,8 +413,11 @@ namespace Lvn.UI.World
         private void SyncCompositeHaloGeometry()
         {
             SyncCompositeLayerGeometry(_maskLayers, 1f);
-            SyncCompositeLayerGeometry(_haloLayers, _auraStyle > 9.5f ? 1.42f : 1f);
+            SyncCompositeLayerGeometry(_haloLayers, AuraCanvasScale());
         }
+
+        private float AuraCanvasScale()
+            => _auraStyle > 9.5f ? Mathf.Max(1.05f, 1.42f * _auraSize) : 1f;
 
         private static void SyncCompositeLayerGeometry(List<HaloLayer> layers, float visualScale)
         {
@@ -530,11 +545,15 @@ namespace Lvn.UI.World
             mat.SetFloat("_Runes", haloOnly ? 0f : _runes);
             mat.SetFloat("_ScopedPart", _scopedPart ? 1f : 0f);
             mat.SetFloat("_AuraStyle", _auraStyle);
+            mat.SetFloat("_AuraSize", _auraSize);
+            mat.SetFloat("_AuraSpeed", _auraSpeed);
+            mat.SetFloat("_AuraDensity", _auraDensity);
             mat.SetFloat("_CompositeSource", splitExterior && !haloOnly ? 1f : 0f);
             mat.SetFloat("_CompositeOnly", haloOnly ? 1f : 0f);
             mat.SetFloat("_StencilOnly", 0f);
             mat.SetFloat("_CompositeDilate", 0f);
-            mat.SetFloat("_CompositeUvScale", haloOnly && _auraStyle > 9.5f ? 1.42f : 1f);
+            mat.SetFloat("_CompositeUvScale",
+                haloOnly && _auraStyle > 9.5f ? AuraCanvasScale() : 1f);
             mat.SetFloat("_StencilRef", _stencilRef);
             mat.SetFloat("_StencilComp", haloOnly
                 ? (float)CompareFunction.NotEqual
@@ -566,6 +585,9 @@ namespace Lvn.UI.World
             mat.SetFloat("_StencilOnly", 1f);
             mat.SetFloat("_CompositeDilate", 0.009f);
             mat.SetFloat("_CompositeUvScale", 1f);
+            mat.SetFloat("_AuraSize", _auraSize);
+            mat.SetFloat("_AuraSpeed", _auraSpeed);
+            mat.SetFloat("_AuraDensity", _auraDensity);
             mat.SetFloat("_StencilRef", _stencilRef);
             mat.SetFloat("_StencilComp", (float)CompareFunction.Always);
             mat.SetFloat("_StencilOp", (float)StencilOp.Replace);
