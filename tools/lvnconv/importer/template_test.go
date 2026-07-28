@@ -273,3 +273,86 @@ func TestCutsceneWithoutSceneBackgroundKeepsThePicture(t *testing.T) {
 		}
 	}
 }
+
+// The "[timer]" direction arms the countdown on the choice it introduces — and
+// never reaches the player as text.
+func TestTimerTagArmsTheChoiceAndLeavesTheLineClean(t *testing.T) {
+	tpl := &Template{Timer: TimerTemplate{Seconds: 8, Branch: "first"}}
+	ops := transformOps([]map[string]any{
+		{"op": "say", "text": "[timer] Что делать?!"},
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "Бежать", "goto": "run"},
+			map[string]any{"text": "Молчать", "goto": "quiet"},
+		}},
+	}, nil, tpl)
+
+	if got, _ := ops[0]["text"].(string); got != "Что делать?!" {
+		t.Fatalf("tag left in the line: %q", got)
+	}
+	if ops[1]["timeout"] != 8.0 || ops[1]["timeout_goto"] != "run" {
+		t.Fatalf("choice not armed: %v", ops[1])
+	}
+}
+
+// branch=last sends an expired countdown to the bottom option (the passive one).
+func TestTimerBranchLast(t *testing.T) {
+	tpl := &Template{Timer: TimerTemplate{Seconds: 5, Branch: "last"}}
+	ops := transformOps([]map[string]any{
+		{"op": "say", "text": "[timer]Я приземлилась…"},
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "Встать", "goto": "up"},
+			map[string]any{"text": "Лежать", "goto": "down"},
+		}},
+	}, nil, tpl)
+	if ops[1]["timeout_goto"] != "down" {
+		t.Fatalf("expected the last branch, got %v", ops[1]["timeout_goto"])
+	}
+}
+
+// A camera direction becomes a camera op: a focus phrase frames the shot, a
+// shake code shakes it. An empty direction (the author clearing the field) asks
+// for nothing and must not emit anything.
+func TestCameraDirections(t *testing.T) {
+	tpl := &Template{Camera: CameraTemplate{
+		FocusVar: "Temp.focus", ShakeVar: "Effect.shake", ZoomVar: "Effect.zoom", Duration: 0.5,
+	}}
+	out := transformOps([]map[string]any{
+		{"op": "set", "key": "Temp.focus", "value": "зум, слева, 70%"},
+		{"op": "set", "key": "Effect.shake", "value": "23"},
+		{"op": "set", "key": "Temp.focus", "value": ""},
+	}, nil, tpl)
+
+	var zoom, shake map[string]any
+	for _, o := range out {
+		if o["op"] != "camera" {
+			continue
+		}
+		if o["action"] == "zoom" {
+			zoom = o
+		} else if o["action"] == "shake" {
+			shake = o
+		}
+	}
+	if zoom == nil {
+		t.Fatal("focus phrase did not become a camera move")
+	}
+	if f, _ := zoom["factor"].(float64); f < 1.4 || f > 1.5 {
+		t.Fatalf("70%% of the frame should zoom ~1.43x, got %v", zoom["factor"])
+	}
+	if x, _ := zoom["x"].(float64); x > 0.4 {
+		t.Fatalf("«слева» should look left of centre, got x=%v", x)
+	}
+	if shake == nil {
+		t.Fatal("shake code did not become a shake")
+	}
+	// Exactly two camera ops: the empty direction emitted nothing.
+	n := 0
+	for _, o := range out {
+		if o["op"] == "camera" {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Fatalf("empty direction should emit nothing; camera ops = %d", n)
+	}
+}
