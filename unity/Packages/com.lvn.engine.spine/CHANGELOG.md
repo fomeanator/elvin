@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.0] — 2026-07-28
+
+Версия синхронизирована с движком; функциональных изменений нет.
+
 ## [0.9.0] — 2026-07-12
 
 - Version-lockstep release with `com.lvn.engine` 0.9.0 (install every
