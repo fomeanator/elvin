@@ -15,6 +15,7 @@ namespace Lvn.UI.World
     ///   sfx id=golem petrify=1                              // окаменение
     ///   sfx id=hero aura=0.9 aura_style=guard                // защитная аура
     ///   sfx id=hero aura=0.9 aura_style=fire aura_color=#ff6a20 aura_color2=#ffd46a
+    ///   sfx id=hero aura=1 aura_style=distortion             // чёрно-красный разлом
     ///   sfx id=hero part=weapon blade=1 blade_color=#c9f5ff // аура только меча
     ///   sfx id=niharis off                                 // снять всё
     ///
@@ -214,6 +215,18 @@ namespace Lvn.UI.World
                     _auraStyle = 6f;
                     primary = Html("#ffd15c");
                     secondary = Html("#fff5cb");
+                    break;
+                case "space":
+                case "void":
+                    _auraStyle = 7f;
+                    primary = Html("#05010a");
+                    secondary = Html("#9348ff");
+                    break;
+                case "distortion":
+                case "rift":
+                    _auraStyle = 8f;
+                    primary = Html("#030000");
+                    secondary = Html("#ff2118");
                     break;
                 case "basic":
                 case "neutral":
