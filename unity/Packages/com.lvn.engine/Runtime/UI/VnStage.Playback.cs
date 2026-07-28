@@ -311,6 +311,8 @@ namespace Lvn.UI
             _draggables.Clear();
             _placements.Clear();
             _actorCmds.Clear();
+            _spokenIds.Clear();
+            _soloHidden.Clear();
             _dragId = null;
             _dragCandidate = null;
             foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
