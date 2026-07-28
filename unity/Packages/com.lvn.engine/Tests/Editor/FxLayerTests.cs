@@ -170,6 +170,8 @@ namespace Lvn.Tests
 
         [TestCase("space", 7f)]
         [TestCase("distortion", 8f)]
+        [TestCase("spirit", 9f)]
+        [TestCase("ascendant", 10f)]
         public void SpriteFxAcceptsSpatialAuraStyles(string style, float expected)
         {
             var go = new GameObject("spatial-aura-test");
@@ -184,6 +186,58 @@ namespace Lvn.Tests
             finally
             {
                 Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void AscendantAuraExpandsAFlatActorsExteriorPass()
+        {
+            var actor = new GameObject("flat-ascendant",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            try
+            {
+                LvnSpriteFxDriver.Apply(actor,
+                    JObject.Parse(@"{'aura':1,'aura_style':'ascendant'}"));
+
+                var fx = actor.GetComponent<LvnSpriteFxDriver>();
+                Assert.NotNull(fx);
+                Assert.IsTrue(Private<bool>(fx, "_compositeHalo"));
+                Assert.AreEqual(1,
+                    Private<System.Collections.IList>(fx, "_haloLayers").Count);
+                var halo = Private<Material>(fx, "_haloMat");
+                Assert.AreEqual(1.42f, halo.GetFloat("_CompositeUvScale"), 0.0001f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(actor);
+            }
+        }
+
+        [Test]
+        public void AscendantCompositeUsesOneFieldAcrossAllBodyLayers()
+        {
+            var actor = new GameObject("composite-ascendant");
+            try
+            {
+                for (var i = 0; i < 3; i++)
+                {
+                    var layer = new GameObject("layer:" + i,
+                        typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    layer.transform.SetParent(actor.transform, false);
+                }
+
+                LvnSpriteFxDriver.Apply(actor,
+                    JObject.Parse(@"{'aura':1,'aura_style':'ascendant'}"));
+
+                var fx = actor.GetComponent<LvnSpriteFxDriver>();
+                Assert.AreEqual(3,
+                    Private<System.Collections.IList>(fx, "_maskLayers").Count);
+                Assert.AreEqual(1,
+                    Private<System.Collections.IList>(fx, "_haloLayers").Count);
+            }
+            finally
+            {
+                Object.DestroyImmediate(actor);
             }
         }
 

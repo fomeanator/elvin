@@ -42,6 +42,8 @@ sfx id=mara aura=0.9 aura_style=fire
 sfx id=mara aura=0.9 aura_style=frost
 sfx id=mara aura=1 aura_style=space
 sfx id=mara aura=1 aura_style=distortion
+sfx id=mara aura=1 aura_style=spirit aura_color=#3657ff aura_color2=#d8fbff
+sfx id=mara aura=1 aura_style=ascendant aura_color=#1748ff aura_color2=#d8f7ff
 sfx id=mara part=weapon blade=1 blade_color=#d7f8ff runes=0.45 runes_color=#ffc963
 sfx id=mara off
 

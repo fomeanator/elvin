@@ -17,6 +17,8 @@ namespace Lvn.UI.World
     ///   sfx id=hero aura=0.9 aura_style=guard                // защитная аура
     ///   sfx id=hero aura=0.9 aura_style=fire aura_color=#ff6a20 aura_color2=#ffd46a
     ///   sfx id=hero aura=1 aura_style=distortion             // чёрно-красный разлом
+    ///   sfx id=hero aura=1 aura_style=spirit                 // двухслойная шумовая оболочка
+    ///   sfx id=hero aura=1 aura_style=ascendant              // широкое манхва-пламя и тёмные жгуты
     ///   sfx id=hero part=weapon blade=1 blade_color=#c9f5ff // аура только меча
     ///   sfx id=niharis off                                 // снять всё
     ///
@@ -242,6 +244,20 @@ namespace Lvn.UI.World
                     primary = Html("#030000");
                     secondary = Html("#ff2118");
                     break;
+                case "spirit":
+                case "soul":
+                case "aether":
+                    _auraStyle = 9f;
+                    primary = Html("#3657ff");
+                    secondary = Html("#d8fbff");
+                    break;
+                case "ascendant":
+                case "monarch":
+                case "overlord":
+                    _auraStyle = 10f;
+                    primary = Html("#1748ff");
+                    secondary = Html("#d8f7ff");
+                    break;
                 case "basic":
                 case "neutral":
                 case "plain":
@@ -290,7 +306,11 @@ namespace Lvn.UI.World
                 images.Add(g);
             }
 
-            _compositeHalo = !_scopedPart && images.Count > 1
+            // Wide ascendant fields need their own enlarged exterior pass even
+            // for a flat one-layer actor; ordinary effects only pay this cost
+            // when several layers must share one silhouette.
+            _compositeHalo = !_scopedPart && images.Count > 0
+                && (images.Count > 1 || (_tAura > 0f && _auraStyle > 9.5f))
                 && (_tAura > 0f || _tOutline > 0f || _tGlow > 0f);
             if (_compositeHalo)
             {
@@ -313,7 +333,27 @@ namespace Lvn.UI.World
                 // Paint order matters: all visible parts → expanded union mask
                 // → halo copies tested against that finished union.
                 foreach (var g in images) AddCompositeLayer(g, _maskMat, _maskLayers, "mask");
-                foreach (var g in images) AddCompositeLayer(g, _haloMat, _haloLayers, "halo");
+                if (_auraStyle > 9.5f)
+                {
+                    // Ascendant is one large atmospheric field, not an outline
+                    // repeated for every face/body/weapon layer. Anchor it to
+                    // the largest layer (normally the full-body canvas).
+                    var fieldSource = images[0];
+                    var fieldArea = RectArea(fieldSource);
+                    for (var i = 1; i < images.Count; i++)
+                    {
+                        var candidateArea = RectArea(images[i]);
+                        if (candidateArea <= fieldArea) continue;
+                        fieldSource = images[i];
+                        fieldArea = candidateArea;
+                    }
+                    AddCompositeLayer(fieldSource, _haloMat, _haloLayers, "halo");
+                }
+                else
+                {
+                    foreach (var g in images)
+                        AddCompositeLayer(g, _haloMat, _haloLayers, "halo");
+                }
             }
             SyncCompositeHaloGeometry();
             SyncMaterial(_mat, haloOnly: false);
@@ -351,13 +391,20 @@ namespace Lvn.UI.World
             destination.Add(new HaloLayer { Source = source, Halo = copy });
         }
 
-        private void SyncCompositeHaloGeometry()
+        private static float RectArea(Image image)
         {
-            SyncCompositeLayerGeometry(_maskLayers);
-            SyncCompositeLayerGeometry(_haloLayers);
+            if (image == null) return 0f;
+            var rect = ((RectTransform)image.transform).rect;
+            return Mathf.Abs(rect.width * rect.height);
         }
 
-        private static void SyncCompositeLayerGeometry(List<HaloLayer> layers)
+        private void SyncCompositeHaloGeometry()
+        {
+            SyncCompositeLayerGeometry(_maskLayers, 1f);
+            SyncCompositeLayerGeometry(_haloLayers, _auraStyle > 9.5f ? 1.42f : 1f);
+        }
+
+        private static void SyncCompositeLayerGeometry(List<HaloLayer> layers, float visualScale)
         {
             foreach (var layer in layers)
             {
@@ -372,7 +419,7 @@ namespace Lvn.UI.World
                 dst.sizeDelta = src.sizeDelta;
                 dst.pivot = src.pivot;
                 dst.localRotation = src.localRotation;
-                dst.localScale = src.localScale;
+                dst.localScale = src.localScale * visualScale;
                 halo.sprite = source.sprite;
                 halo.overrideSprite = source.overrideSprite;
                 halo.color = source.color;
@@ -487,6 +534,7 @@ namespace Lvn.UI.World
             mat.SetFloat("_CompositeOnly", haloOnly ? 1f : 0f);
             mat.SetFloat("_StencilOnly", 0f);
             mat.SetFloat("_CompositeDilate", 0f);
+            mat.SetFloat("_CompositeUvScale", haloOnly && _auraStyle > 9.5f ? 1.42f : 1f);
             mat.SetFloat("_StencilRef", _stencilRef);
             mat.SetFloat("_StencilComp", haloOnly
                 ? (float)CompareFunction.NotEqual
@@ -517,6 +565,7 @@ namespace Lvn.UI.World
             mat.SetFloat("_CompositeOnly", 0f);
             mat.SetFloat("_StencilOnly", 1f);
             mat.SetFloat("_CompositeDilate", 0.009f);
+            mat.SetFloat("_CompositeUvScale", 1f);
             mat.SetFloat("_StencilRef", _stencilRef);
             mat.SetFloat("_StencilComp", (float)CompareFunction.Always);
             mat.SetFloat("_StencilOp", (float)StencilOp.Replace);
