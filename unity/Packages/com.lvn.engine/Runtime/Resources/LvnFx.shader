@@ -26,6 +26,17 @@ Shader "Hidden/LvnFx"
         }
 
         float hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+
+        // Дешёвый value-noise без текстур. Нужен атмосферным эффектам:
+        // туман остаётся мягким, а частицы не повторяются заметной сеткой.
+        float noise2(float2 p)
+        {
+            float2 cell = floor(p);
+            float2 f = frac(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return lerp(lerp(hash(cell), hash(cell + float2(1, 0)), f.x),
+                        lerp(hash(cell + float2(0, 1)), hash(cell + 1.0), f.x), f.y);
+        }
         ENDCG
 
         // ── 0: убер-композит ─────────────────────────────────────────────
@@ -38,18 +49,37 @@ Shader "Hidden/LvnFx"
             sampler2D _BloomTex;
             float _Vignette, _Grain, _Chromatic, _Scanlines, _Pixelate,
                   _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort,
-                  _Frost, _Blink, _Invert;
+                  _Frost, _Blink, _Invert, _Fog, _Rain, _Snow, _Embers,
+                  _Blood, _Poison, _Shockwave, _Speedlines, _Dream, _Sepia,
+                  _Posterize, _Letterbox;
             float4 _Tint;      // rgb множитель (1,1,1 = нет)
             float4 _RayCenter; // xy — источник лучей в uv
+            float4 _FxCenter;  // xy — эпицентр удара в uv
+            float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor;
 
             fixed4 frag(v2f i) : SV_Target
             {
                 float2 uv = i.uv;
                 float t = _Time.y;
 
+                // Ударная волна: значение 0→1 — фаза расширения кольца.
+                // Автор двигает её через dur, поэтому эффект не зависит от FPS.
+                if (_Shockwave > 0.001 && _Shockwave < 0.999)
+                {
+                    float2 delta = uv - _FxCenter.xy;
+                    float radius = length(delta);
+                    float ring = 1.0 - smoothstep(0.0, 0.035, abs(radius - _Shockwave * 0.82));
+                    uv += normalize(delta + 0.0001) * ring * (1.0 - _Shockwave) * 0.035;
+                }
+
                 // Дисторшн: тепловое марево / вода — синусоидальный сдвиг uv.
                 if (_Distort > 0.001)
                     uv += float2(sin(uv.y * 42.0 + t * 2.6), sin(uv.x * 38.0 + t * 2.2)) * _Distort * 0.006;
+
+                // Сон/видение: медленный плавающий объектив. Сам soft-focus
+                // накладывается после основного сэмпла.
+                if (_Dream > 0.001)
+                    uv += float2(sin(uv.y * 7.0 + t * 0.7), cos(uv.x * 6.0 + t * 0.6)) * _Dream * 0.004;
 
                 // Пикселизация: решётка крупных текселей.
                 if (_Pixelate > 0.5)
@@ -80,6 +110,19 @@ Shader "Hidden/LvnFx"
                 }
                 else col = tex2D(_MainTex, uv);
 
+                // Мягкий фокус сна: четыре соседних сэмпла. Не включён —
+                // дополнительных чтений текстуры нет благодаря ветке.
+                if (_Dream > 0.001)
+                {
+                    float2 d = _MainTex_TexelSize.xy * (2.0 + _Dream * 5.0);
+                    fixed3 soft = tex2D(_MainTex, uv + float2( d.x, 0)).rgb
+                                + tex2D(_MainTex, uv + float2(-d.x, 0)).rgb
+                                + tex2D(_MainTex, uv + float2(0,  d.y)).rgb
+                                + tex2D(_MainTex, uv + float2(0, -d.y)).rgb;
+                    col.rgb = lerp(col.rgb, soft * 0.25, _Dream * 0.72);
+                    col.rgb += float3(0.035, 0.025, 0.055) * _Dream;
+                }
+
                 // Лучи света: 12 радиальных сэмплов к источнику, взвешенных яркостью.
                 if (_Rays > 0.001)
                 {
@@ -104,6 +147,20 @@ Shader "Hidden/LvnFx"
                 col.rgb = (col.rgb - 0.5) * _Contrast + 0.5;
                 col.rgb *= _Tint.rgb;
 
+                // Сепия и постеризация — стилизация поверх общего грейдинга.
+                if (_Sepia > 0.001)
+                {
+                    float3 sep = float3(dot(col.rgb, float3(0.393, 0.769, 0.189)),
+                                        dot(col.rgb, float3(0.349, 0.686, 0.168)),
+                                        dot(col.rgb, float3(0.272, 0.534, 0.131)));
+                    col.rgb = lerp(col.rgb, sep, _Sepia);
+                }
+                if (_Posterize > 0.001)
+                {
+                    float levels = lerp(16.0, 3.0, saturate(_Posterize));
+                    col.rgb = floor(saturate(col.rgb) * levels + 0.5) / levels;
+                }
+
                 // Скан-линии.
                 if (_Scanlines > 0.001)
                     col.rgb *= 1.0 - _Scanlines * 0.5 * (0.5 + 0.5 * sin(uv.y * _MainTex_TexelSize.w * 3.14159));
@@ -124,6 +181,84 @@ Shader "Hidden/LvnFx"
                     col.rgb = lerp(col.rgb, float3(0.83, 0.93, 1.0), edge * 0.9);
                 }
 
+                // Туман: два медленных слоя value-noise. Плотнее у земли,
+                // но не закрывает верх кадра сплошной плашкой.
+                if (_Fog > 0.001)
+                {
+                    float n1 = noise2(uv * 3.2 + float2(t * 0.035, t * 0.012));
+                    float n2 = noise2(uv * 6.7 + float2(-t * 0.022, t * 0.018));
+                    float mist = smoothstep(0.48, 0.76, n1 * 0.68 + n2 * 0.32);
+                    mist *= lerp(0.55, 1.0, 1.0 - uv.y) * _Fog;
+                    col.rgb = lerp(col.rgb, _FogColor.rgb, mist * 0.72);
+                }
+
+                // Дождь: тонкие диагональные штрихи с независимым мерцанием.
+                if (_Rain > 0.001)
+                {
+                    float2 q = float2(uv.x * 45.0, uv.y * 34.0 + t * 16.0);
+                    q.x += q.y * 0.20;
+                    float2 cid = floor(q);
+                    float2 cf = frac(q);
+                    float seed = hash(cid);
+                    float streak = (1.0 - smoothstep(0.016, 0.065, abs(cf.x - seed)))
+                                 * (1.0 - smoothstep(0.18, 0.48, cf.y)) * step(0.62, seed);
+                    col.rgb += float3(0.62, 0.76, 0.92) * streak * _Rain * 0.62;
+                    col.rgb *= 1.0 - _Rain * 0.08;
+                }
+
+                // Снег: два масштаба круглых хлопьев, падающих с разной скоростью.
+                if (_Snow > 0.001)
+                {
+                    float snow = 0;
+                    float2 sq = float2(uv.x * 15.0, uv.y * 22.0 + t * 1.8);
+                    float2 sid = floor(sq);
+                    float2 sf = frac(sq) - float2(hash(sid), hash(sid + 17.3));
+                    snow += (1.0 - smoothstep(0.03, 0.16, length(sf))) * step(0.35, hash(sid + 4.1));
+                    sq = float2(uv.x * 27.0, uv.y * 35.0 + t * 3.1);
+                    sid = floor(sq);
+                    sf = frac(sq) - float2(hash(sid), hash(sid + 9.7));
+                    snow += (1.0 - smoothstep(0.02, 0.11, length(sf))) * step(0.58, hash(sid + 2.4));
+                    col.rgb = lerp(col.rgb, float3(0.92, 0.97, 1.0), saturate(snow) * _Snow * 0.9);
+                }
+
+                // Искры/угли: частицы летят вверх, яркое ядро + красный ореол.
+                if (_Embers > 0.001)
+                {
+                    float2 eq = float2(uv.x * 19.0, uv.y * 26.0 - t * 3.4);
+                    eq.x += sin(eq.y * 0.37 + t) * 0.35;
+                    float2 eid = floor(eq);
+                    float2 ef = frac(eq) - float2(hash(eid), hash(eid + 13.1));
+                    float spark = (1.0 - smoothstep(0.025, 0.13, length(ef)))
+                                * step(0.64, hash(eid + 7.9));
+                    float core = (1.0 - smoothstep(0.01, 0.045, length(ef))) * spark;
+                    col.rgb += (_EmberColor.rgb * spark + core) * _Embers;
+                }
+
+                // Кровь и яд — читаемые статусы по краям, центр боя остаётся виден.
+                if (_Blood > 0.001)
+                {
+                    float edge = smoothstep(0.40, 0.96, length(fromC) * 1.4142);
+                    float pulse = 0.78 + 0.22 * sin(t * 5.2);
+                    col.rgb = lerp(col.rgb, _BloodColor.rgb, edge * _Blood * pulse * 0.78);
+                }
+                if (_Poison > 0.001)
+                {
+                    float edge = smoothstep(0.32, 1.0, length(fromC) * 1.4142);
+                    float crawl = noise2(uv * 5.0 + float2(t * 0.08, -t * 0.06));
+                    col.rgb = lerp(col.rgb, _PoisonColor.rgb, edge * crawl * _Poison * 0.64);
+                }
+
+                // Линии скорости: радиальная штриховка только по периферии.
+                if (_Speedlines > 0.001)
+                {
+                    float radius = length(fromC);
+                    float angle = atan2(fromC.y, fromC.x) * 57.2958;
+                    float ray = hash(float2(floor(angle * 1.7), floor(t * 18.0)));
+                    float speedRay = step(0.78, ray) * smoothstep(0.18, 0.72, radius);
+                    speedRay *= 0.55 + 0.45 * sin(radius * 110.0 - t * 20.0);
+                    col.rgb += speedRay * _Speedlines * 0.55;
+                }
+
                 // Моргание: веки смыкаются сверху и снизу (мягкая кромка).
                 // open=1 в видимой середине, 0 под веками; при _Blink=1 темно.
                 if (_Blink > 0.001)
@@ -139,6 +274,15 @@ Shader "Hidden/LvnFx"
                 {
                     float d = length(fromC) * 1.4142;
                     col.rgb *= 1.0 - _Vignette * smoothstep(0.45, 1.05, d);
+                }
+
+                // Кинематографические полосы. 0→1 увеличивает их до 18% кадра.
+                if (_Letterbox > 0.001)
+                {
+                    float bar = _Letterbox * 0.18;
+                    float visible = smoothstep(bar - 0.006, bar + 0.006, uv.y)
+                                  * smoothstep(bar - 0.006, bar + 0.006, 1.0 - uv.y);
+                    col.rgb *= visible;
                 }
 
                 return col;
