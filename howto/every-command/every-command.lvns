@@ -36,6 +36,10 @@ sfx id=mara flash=0.8 dark=0.5 tint=0.6 tint_color=#7ad0ff dur=0.1
 sfx id=mara dissolve=1 dur=1.5
 sfx id=mara ghost=0.8 rim=0.5 shake=0.12
 sfx id=mara petrify=1 hologram=0.7 burn=0.5
+sfx id=mara aura=0.9 aura_style=guard aura_color=#72d9ff aura_color2=#a95fff lightning=0.35
+sfx id=mara aura=0.9 aura_style=fire
+sfx id=mara aura=0.9 aura_style=frost
+sfx id=mara part=weapon blade=1 blade_color=#d7f8ff runes=0.45 runes_color=#ffc963
 sfx id=mara off
 
 bg /content/bg/projection.jpg
