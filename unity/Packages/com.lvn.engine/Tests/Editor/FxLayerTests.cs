@@ -4,6 +4,7 @@ using Lvn.UI.World;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Lvn.Tests
@@ -120,6 +121,42 @@ namespace Lvn.Tests
                 LvnSpriteFxDriver.Apply(actor, JObject.Parse(@"{'off':true}"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tBlade"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tRunes"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(actor);
+            }
+        }
+
+        [Test]
+        public void RootAuraBuildsOneStencilUnionAcrossCompositeLayers()
+        {
+            var actor = new GameObject("composite-hero");
+            try
+            {
+                for (var i = 0; i < 2; i++)
+                {
+                    var layer = new GameObject("layer:" + i,
+                        typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    layer.transform.SetParent(actor.transform, false);
+                }
+
+                LvnSpriteFxDriver.Apply(actor,
+                    JObject.Parse(@"{'aura':1,'aura_style':'distortion'}"));
+
+                var fx = actor.GetComponent<LvnSpriteFxDriver>();
+                Assert.NotNull(fx);
+                Assert.IsTrue(Private<bool>(fx, "_compositeHalo"));
+                Assert.AreEqual(2, Private<System.Collections.IList>(fx, "_haloLayers").Count);
+
+                var main = Private<Material>(fx, "_mat");
+                var halo = Private<Material>(fx, "_haloMat");
+                Assert.AreEqual(1f, main.GetFloat("_CompositeSource"), 0.0001f);
+                Assert.AreEqual(1f, halo.GetFloat("_CompositeOnly"), 0.0001f);
+                Assert.AreEqual((float)CompareFunction.NotEqual,
+                    halo.GetFloat("_StencilComp"), 0.0001f);
+                Assert.AreEqual(0f, main.GetFloat("_Aura"), 0.0001f);
+                Assert.AreEqual(1f, halo.GetFloat("_Aura"), 0.0001f);
             }
             finally
             {
