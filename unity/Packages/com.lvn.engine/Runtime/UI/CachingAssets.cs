@@ -67,6 +67,8 @@ namespace Lvn.UI
         private IReadOnlyDictionary<string, Lvn3DSet> _sets3d;
         private readonly Dictionary<string, Task<SetBundle>> _setLoads
             = new Dictionary<string, Task<SetBundle>>();
+        private readonly List<SetBundle> _warmSets = new List<SetBundle>();
+        private const int MaxWarmSets = 2;
         private int _setLoadEpoch;
 
         private sealed class SetBundle
@@ -75,6 +77,7 @@ namespace Lvn.UI
             public AssetBundle Bundle;
             public GameObject Prefab;
             public int Leases;
+            public bool Warm;
         }
 
         /// <summary>Apply the live manifest's 3D catalog. Existing sets keep their
@@ -162,6 +165,38 @@ namespace Lvn.UI
             return fallback != null ? new Lvn3DSetAsset(id, fallback) : null;
         }
 
+        /// <summary>Download, open and resolve the prefab ahead of <c>bg3d</c>,
+        /// but do not instantiate it. Two unused sets are retained as an LRU;
+        /// acquiring one consumes its warm pin and normal lease lifetime takes
+        /// over.</summary>
+        public async Task Preload3DSetAsync(string id, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            Lvn3DSet set = null;
+            if (_sets3d != null) _sets3d.TryGetValue(id, out set);
+            var descriptor = Select3DBundle(set, PlatformKey(Application.platform));
+            if (descriptor == null || string.IsNullOrEmpty(descriptor.url)) return;
+
+            var loaded = await GetSetBundleAsync(id, descriptor, ct);
+            if (ct.IsCancellationRequested)
+            {
+                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
+                    _ = UnloadSetBundleNextFrame(loaded);
+                ct.ThrowIfCancellationRequested();
+            }
+            if (loaded?.Prefab == null || loaded.Leases > 0 || loaded.Warm) return;
+            loaded.Warm = true;
+            _warmSets.Remove(loaded);
+            _warmSets.Add(loaded);
+            while (_warmSets.Count > MaxWarmSets)
+            {
+                var evicted = _warmSets[0];
+                _warmSets.RemoveAt(0);
+                evicted.Warm = false;
+                if (evicted.Leases == 0) _ = UnloadSetBundleNextFrame(evicted);
+            }
+        }
+
         internal static string PlatformKey(RuntimePlatform platform)
         {
             switch (platform)
@@ -201,6 +236,27 @@ namespace Lvn.UI
         private async Task<Lvn3DSetAsset> AcquireSetBundleAsync(
             string id, Lvn3DBundle descriptor, CancellationToken ct)
         {
+            var loaded = await GetSetBundleAsync(id, descriptor, ct);
+            if (ct.IsCancellationRequested)
+            {
+                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
+                    _ = UnloadSetBundleNextFrame(loaded);
+                ct.ThrowIfCancellationRequested();
+            }
+            if (loaded?.Prefab == null) return null;
+            if (loaded.Warm)
+            {
+                loaded.Warm = false;
+                _warmSets.Remove(loaded);
+            }
+            loaded.Leases++;
+            return new Lvn3DSetAsset(id, loaded.Prefab, remote: true,
+                release: () => ReleaseSetBundle(loaded));
+        }
+
+        private async Task<SetBundle> GetSetBundleAsync(
+            string id, Lvn3DBundle descriptor, CancellationToken ct)
+        {
             var address = string.IsNullOrEmpty(descriptor.asset) ? id : descriptor.asset;
             var key = descriptor.url + "|" + (descriptor.hash ?? "") + "|" + address;
             if (!_setLoads.TryGetValue(key, out var load))
@@ -219,16 +275,7 @@ namespace Lvn.UI
                 throw;
             }
 
-            if (ct.IsCancellationRequested)
-            {
-                if (loaded != null && loaded.Leases == 0)
-                    _ = UnloadSetBundleNextFrame(loaded);
-                ct.ThrowIfCancellationRequested();
-            }
-            if (loaded?.Prefab == null) return null;
-            loaded.Leases++;
-            return new Lvn3DSetAsset(id, loaded.Prefab, remote: true,
-                release: () => ReleaseSetBundle(loaded));
+            return loaded;
         }
 
         private async Task<SetBundle> LoadSetBundleFileAsync(
@@ -265,7 +312,7 @@ namespace Lvn.UI
         {
             if (loaded == null || loaded.Leases <= 0) return;
             loaded.Leases--;
-            if (loaded.Leases == 0) _ = UnloadSetBundleNextFrame(loaded);
+            if (loaded.Leases == 0 && !loaded.Warm) _ = UnloadSetBundleNextFrame(loaded);
         }
 
         private async Task UnloadSetBundleNextFrame(SetBundle loaded)
@@ -274,7 +321,7 @@ namespace Lvn.UI
             // Wait one continuation before Unload(true), otherwise Unity can
             // invalidate materials still referenced by that dying instance.
             await Task.Yield();
-            if (loaded == null || loaded.Leases != 0 || loaded.Bundle == null) return;
+            if (loaded == null || loaded.Leases != 0 || loaded.Warm || loaded.Bundle == null) return;
             if (_setLoads.TryGetValue(loaded.Key, out var task) &&
                 task.IsCompletedSuccessfully && ReferenceEquals(task.Result, loaded))
                 _setLoads.Remove(loaded.Key);
@@ -341,6 +388,7 @@ namespace Lvn.UI
                     task.Result.Prefab = null;
                 }
             _setLoads.Clear();
+            _warmSets.Clear();
         }
     }
 }

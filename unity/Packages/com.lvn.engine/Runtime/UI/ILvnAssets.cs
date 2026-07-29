@@ -72,6 +72,14 @@ namespace Lvn.UI
             return prefab != null ? new Lvn3DSetAsset(id, prefab) : null;
         }
 
+        /// <summary>Warm a 3D set without instantiating it. Bundle-backed loaders
+        /// keep a bounded ready-to-use bundle pool; the compatibility default at
+        /// least exercises the loader/cache and immediately releases its lease.</summary>
+        async Task Preload3DSetAsync(string id, CancellationToken ct)
+        {
+            using var loaded = await Load3DSetAsync(id, ct);
+        }
+
         /// <summary>Speculative batch load: warm the cache for upcoming urls.
         /// Default implementation calls <see cref="LoadSpriteAsync"/> for each
         /// sprite-kind url and <see cref="LoadAudioAsync"/> for audio-kind urls.
