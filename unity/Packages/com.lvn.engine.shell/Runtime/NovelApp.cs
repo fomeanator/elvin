@@ -314,6 +314,7 @@ namespace Lvn.UI.Screens
             Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
 
             if (Stage == null) Stage = CreateStage();
+            _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
             Stage.Catalog = new SpriteCatalog(manifest.sprites);
             // Theme the in-game dialogue/choices from the manifest, the same way
@@ -1786,6 +1787,7 @@ namespace Lvn.UI.Screens
             _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
+            _assets.Set3DSetCatalog(manifest.sets3d);
             if (Stage != null)
             {
                 Stage.Catalog = new SpriteCatalog(manifest.sprites);

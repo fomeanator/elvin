@@ -484,6 +484,7 @@ namespace Lvn.UI
             {
                 _built = false;
                 _renderer?.Teardown();
+                ReleaseActive3DSet();
                 _renderer = null;
                 _world = null;
                 _uiRoot = null;
@@ -504,6 +505,7 @@ namespace Lvn.UI
 
         private void OnDestroy()
         {
+            ReleaseActive3DSet();
             Assets?.UnloadAll();
             // The spine integration's static cache holds SkeletonData/materials
             // built around textures UnloadAll just destroyed — flush it with them.
