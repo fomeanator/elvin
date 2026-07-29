@@ -6,8 +6,9 @@ versioned disk cache for offline replay.
 
 ## Authoring loop
 
-1. Put each set root prefab in `sandbox/Assets/Resources/Sets/`:
-   `forest.prefab`, `apartment.prefab`, and so on.
+1. Put server-only set prefabs in `sandbox/Assets/ServerSets/`. Put a prefab in
+   `sandbox/Assets/Resources/Sets/` only when it must also ship inside the APK as
+   an offline fallback.
 2. Build the platform bundles:
 
    ```sh
