@@ -86,13 +86,16 @@ namespace Lvn.EditorTools
         private static string EnsureBootScene()
         {
             const string path = "Assets/Scenes/Boot.unity";
+            // Never pick an arbitrary imported demo scene. AssetDatabase order
+            // changed when Blacksmith was installed, so the old fallback chose
+            // ThunderHammer.unity as the player scene and silently packed the
+            // entire 3D kit into a supposedly server-only APK.
+            if (File.Exists(path)) return path;
+
             var existing = EditorBuildSettings.scenes;
             foreach (var s in existing)
                 if (s.enabled && File.Exists(s.path))
                     return s.path;
-            var found = AssetDatabase.FindAssets("t:SceneAsset");
-            if (found.Length > 0)
-                return AssetDatabase.GUIDToAssetPath(found[0]);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             Directory.CreateDirectory("Assets/Scenes");
