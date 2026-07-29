@@ -14,8 +14,10 @@ namespace Lvn.Tests
             public int LoadSpriteCount;
             public int LoadAudioCount;
             public int PreloadCount;
+            public int LoadPrefabCount;
             public int UnloadCount;
             public int UnloadAllCount;
+            public GameObject Prefab;
 
             public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
             {
@@ -27,6 +29,12 @@ namespace Lvn.Tests
             {
                 LoadAudioCount++;
                 return Task.FromResult<AudioClip>(null);
+            }
+
+            public Task<GameObject> LoadPrefabAsync(string id, CancellationToken ct)
+            {
+                LoadPrefabCount++;
+                return Task.FromResult(Prefab);
             }
 
             public Task PreloadAsync(System.Collections.Generic.IReadOnlyList<string> urls, string kind, CancellationToken ct)
@@ -74,6 +82,19 @@ namespace Lvn.Tests
             assets.PreloadAsync(urls, "audio", CancellationToken.None).Wait();
             Assert.AreEqual(2, assets.LoadAudioCount);
             Assert.AreEqual(0, assets.LoadSpriteCount);
+        }
+
+        [Test]
+        public void Default3DPreloadWarmsPrefabLoaderWithoutInstantiation()
+        {
+            var stub = new StubAssets { Prefab = new GameObject("warm-set-prefab") };
+            ILvnAssets assets = stub;
+
+            assets.Preload3DSetAsync("forest", CancellationToken.None).Wait();
+
+            Assert.AreEqual(1, stub.LoadPrefabCount);
+            Assert.AreEqual("warm-set-prefab", stub.Prefab.name);
+            Object.DestroyImmediate(stub.Prefab);
         }
 
         [Test]
