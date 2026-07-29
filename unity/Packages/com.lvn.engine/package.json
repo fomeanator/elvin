@@ -20,6 +20,7 @@
     "url": "https://github.com/fomeanator/elvin"
   },
   "dependencies": {
+    "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
     "com.unity.modules.imageconversion": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",

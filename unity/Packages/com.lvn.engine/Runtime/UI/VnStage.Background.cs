@@ -76,6 +76,15 @@ namespace Lvn.UI
         // Monotonic backdrop generation: a retrying older bg must never paint
         // over a newer one that already landed (or is in flight).
         private int _bgGen;
+        private Lvn3DSetAsset _active3DSet;
+        private string _active3DSetId;
+
+        private void ReleaseActive3DSet()
+        {
+            _active3DSet?.Dispose();
+            _active3DSet = null;
+            _active3DSetId = null;
+        }
 
         private async Task ApplyBgAsync(JObject cmd)
         {
@@ -105,6 +114,7 @@ namespace Lvn.UI
             if (sprite == null) return;
             if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
             _renderer?.SetBackground(sprite);
+            ReleaseActive3DSet();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
 
@@ -120,7 +130,9 @@ namespace Lvn.UI
         {
             if (BoolOr(cmd["off"], false) || (string)cmd["id"] == "off")
             {
+                ++_bgGen; // supersede a bundle still downloading
                 _renderer?.Set3DBackdrop(null);
+                ReleaseActive3DSet();
                 return;
             }
 
@@ -132,6 +144,8 @@ namespace Lvn.UI
                 if (id == Lvn.UI.World.Lvn3DDemoSet.Id)
                 {
                     _renderer?.Set3DBackdrop(Lvn.UI.World.Lvn3DDemoSet.Build());
+                    ReleaseActive3DSet();
+                    _active3DSetId = id;
                     HasBackdrop = true;
                     _renderer?.Frame3D(
                         Num(cmd["x"]), Num(cmd["y"]), Num(cmd["z"]),
@@ -139,16 +153,35 @@ namespace Lvn.UI
                         Num(cmd["dur"]) ?? 0f);
                     return;
                 }
-                if (Assets == null) return;
-                int epoch = _stageEpoch;
-                int gen = ++_bgGen;
-                GameObject prefab = null;
-                try { prefab = await Assets.LoadPrefabAsync(id, _cts.Token); }
-                catch (System.Exception e) { Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}"); }
-                if (prefab == null) return;                       // keep the flat background
-                if (!StageCurrent(epoch) || _bgGen != gen) return; // a newer background won
-                _renderer?.Set3DBackdrop(prefab);
-                HasBackdrop = true;
+                // Repeating the current id is a camera cut, not a second bundle
+                // load. This is the authored "one room, many angles" loop.
+                if (_active3DSetId != id)
+                {
+                    if (Assets == null || !UseCanvasScene) return;
+                    int epoch = _stageEpoch;
+                    int gen = ++_bgGen;
+                    Lvn3DSetAsset loaded = null;
+                    try { loaded = await Assets.Load3DSetAsync(id, _cts.Token); }
+                    catch (OperationCanceledException) { return; }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}");
+                    }
+                    if (loaded?.Prefab == null) { loaded?.Dispose(); return; } // keep the flat background
+                    if (!StageCurrent(epoch) || _bgGen != gen)
+                    {
+                        loaded.Dispose(); // a newer background won while this downloaded
+                        return;
+                    }
+
+                    var old = _active3DSet;
+                    _renderer?.Set3DBackdrop(loaded.Prefab); // instantiate before releasing old assets
+                    _active3DSet = loaded;
+                    _active3DSetId = id;
+                    old?.Dispose();
+                    HasBackdrop = true;
+                    Debug.Log($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
+                }
             }
 
             // `live=` overrides how the set is filmed: on for motion the engine
