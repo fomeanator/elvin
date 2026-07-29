@@ -52,11 +52,49 @@ namespace Lvn.Content
         /// entity parameterised by axes. Optional.</summary>
         public Dictionary<string, LvnSpriteEntity> sprites;
 
+        /// <summary>The server-authored 3D set catalog. Scripts keep the stable,
+        /// save-safe id (<c>bg3d id="forest"</c>); the manifest chooses the
+        /// platform-specific AssetBundle URL and asset address. A set can also
+        /// name a Resources fallback for first launch/offline builds.</summary>
+        public Dictionary<string, Lvn3DSet> sets3d;
+
         /// <summary>Product economy rules layered over the wallet (chapter-entry
         /// gating). Optional — null, or an empty chapter_currency, means chapters
         /// are free and nothing gates entry (the default for every existing
         /// novel).</summary>
         public LvnEconomyConfig economy;
+    }
+
+    /// <summary>One remotely replaceable 3D backdrop.</summary>
+    public sealed class Lvn3DSet
+    {
+        /// <summary>Platform key → bundle. Supported runtime keys are android,
+        /// ios, windows, macos, linux and webgl; "default" is the optional
+        /// catch-all.</summary>
+        public Dictionary<string, Lvn3DBundle> platforms;
+
+        /// <summary>Resources path used when the requested bundle is absent,
+        /// unreachable or not cached yet. Example: "Sets/forest".</summary>
+        public string fallback_resource;
+    }
+
+    /// <summary>A platform-specific Unity AssetBundle containing one set prefab.</summary>
+    public sealed class Lvn3DBundle
+    {
+        /// <summary>Absolute URL or content-relative path, normally
+        /// /content/sets/forest.android.bundle.</summary>
+        public string url;
+
+        /// <summary>Address of the prefab inside the bundle. Defaults to the set id.</summary>
+        public string asset;
+
+        /// <summary>BuildPipeline AssetBundle hash. It participates in the
+        /// in-memory identity, so a live manifest update can replace a bundle
+        /// while keeping its public URL stable.</summary>
+        public string hash;
+
+        /// <summary>Informational byte size for authoring/progress UI.</summary>
+        public long bytes;
     }
 
     /// <summary>
