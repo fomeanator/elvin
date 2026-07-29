@@ -8,9 +8,10 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Exports every Assets/Resources/Sets/*.prefab as an independently replaceable,
-/// platform-specific AssetBundle and writes its descriptor into the server's
-/// live manifest. The prefab remains in Resources as the offline fallback.
+/// Exports every Assets/ServerSets/*.prefab (remote-only) and
+/// Assets/Resources/Sets/*.prefab (offline fallback) as an independently
+/// replaceable, platform-specific AssetBundle and writes its descriptor into
+/// the server's live manifest.
 /// </summary>
 public static class Lvn3DSetBundleBuilder
 {
@@ -33,13 +34,26 @@ public static class Lvn3DSetBundleBuilder
         if (string.IsNullOrEmpty(platform))
             throw new InvalidOperationException($"Unsupported 3D bundle target: {target}");
 
-        var prefabs = Directory.GetFiles(
-                Path.Combine(Application.dataPath, "Resources", "Sets"), "*.prefab",
-                SearchOption.TopDirectoryOnly)
+        var fallbackRoot = Path.Combine(Application.dataPath, "Resources", "Sets");
+        var remoteRoot = Path.Combine(Application.dataPath, "ServerSets");
+        var prefabs = new[] { fallbackRoot, remoteRoot }
+            .Where(Directory.Exists)
+            .SelectMany(root => Directory.GetFiles(
+                root, "*.prefab", SearchOption.TopDirectoryOnly))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
         if (prefabs.Length == 0)
-            throw new InvalidOperationException("No prefabs in Assets/Resources/Sets");
+            throw new InvalidOperationException(
+                "No prefabs in Assets/ServerSets or Assets/Resources/Sets");
+        var duplicate = prefabs.GroupBy(Path.GetFileNameWithoutExtension)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicate != null)
+            throw new InvalidOperationException(
+                $"Duplicate 3D set id '{duplicate.Key}' in authoring roots");
+        var fallbackIds = new HashSet<string>(
+            prefabs.Where(path => path.StartsWith(fallbackRoot, StringComparison.Ordinal))
+                .Select(Path.GetFileNameWithoutExtension),
+            StringComparer.Ordinal);
 
         var builds = prefabs.Select(path =>
         {
@@ -54,7 +68,11 @@ public static class Lvn3DSetBundleBuilder
             };
         }).ToArray();
 
-        var temp = Path.Combine("Library", "Lvn3DSets", platform);
+        // Absolute project-local output: a relative path depends on the process
+        // working directory and made an interactive Editor build race its Temp
+        // folder during asset import.
+        var temp = Path.GetFullPath(Path.Combine(
+            Application.dataPath, "..", "Library", "Lvn3DSets", platform));
         Directory.CreateDirectory(temp);
         var built = BuildPipeline.BuildAssetBundles(
             temp, builds,
@@ -86,12 +104,13 @@ public static class Lvn3DSetBundleBuilder
                       descriptors[id].hash);
         }
 
-        UpdateServerManifest(repo, platform, descriptors);
+        UpdateServerManifest(repo, platform, descriptors, fallbackIds);
         Debug.Log($"[bg3d-build] {descriptors.Count} set bundle(s) published to {contentSets}");
     }
 
     private static void UpdateServerManifest(
-        string repo, string platform, Dictionary<string, BundleDescriptor> descriptors)
+        string repo, string platform, Dictionary<string, BundleDescriptor> descriptors,
+        HashSet<string> fallbackIds)
     {
         var path = Path.Combine(repo, "server", "content", "manifest.json");
         var root = JObject.Parse(File.ReadAllText(path));
@@ -105,7 +124,10 @@ public static class Lvn3DSetBundleBuilder
         foreach (var pair in descriptors)
         {
             var entry = sets[pair.Key] as JObject ?? new JObject();
-            entry["fallback_resource"] = "Sets/" + pair.Key;
+            if (fallbackIds.Contains(pair.Key))
+                entry["fallback_resource"] = "Sets/" + pair.Key;
+            else
+                entry.Remove("fallback_resource");
             var platforms = entry["platforms"] as JObject ?? new JObject();
             platforms[platform] = JObject.FromObject(pair.Value);
             entry["platforms"] = platforms;
