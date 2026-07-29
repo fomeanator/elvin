@@ -67,6 +67,11 @@ bundle into a second `byte[]`. The active set owns a lease; replacing it
 instantiates the new prefab first, destroys the old instance, then unloads the
 old bundle. Repeating the current id is only a camera cut and does not reload.
 
+Before chapter playback advances, the first upcoming `bg3d` bundle is downloaded,
+opened, and its prefab resolved without instantiating the scene. While the player
+reads, the next 25 commands are scanned to warm the following set. At most two
+unused sets remain warm; older entries are evicted.
+
 The composition order is fixed:
 
 ```text

@@ -235,11 +235,15 @@ namespace Lvn.UI
         {
             // Plain art warms in the BACKGROUND — it races the reader, never the
             // intro (holding the first beat hostage to 12 decodes read as a
-            // multi-second black screen). Only an imminent Spine scene gates the
-            // start: its skeleton build is the one cost that visibly freezes the
-            // typewriter mid-line if it lands cold.
+            // multi-second black screen). Spine and the FIRST 3D set do gate:
+            // otherwise skeleton/bundle work visibly freezes the first line.
             _ = WarmUpcomingArtAsync(12);
-            try { await WarmUpcomingSpineAsync(12); }
+            try
+            {
+                await Task.WhenAll(
+                    WarmUpcomingSpineAsync(12),
+                    WarmUpcoming3DAsync(50));
+            }
             catch (System.OperationCanceledException) { return; }
             catch { /* warmup is best-effort; the show path reloads what it needs */ }
             if (_player == player && _startGen == gen) player.Advance();
