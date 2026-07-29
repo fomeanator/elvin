@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -5,6 +6,32 @@ using UnityEngine;
 
 namespace Lvn.UI
 {
+    /// <summary>A loaded 3D set plus the lease that keeps its AssetBundle alive.
+    /// The stage owns the lease until the instantiated set is replaced.</summary>
+    public sealed class Lvn3DSetAsset : IDisposable
+    {
+        private Action _release;
+
+        public GameObject Prefab { get; }
+        public string Id { get; }
+        public bool Remote { get; }
+
+        public Lvn3DSetAsset(string id, GameObject prefab, bool remote = false,
+            Action release = null)
+        {
+            Id = id;
+            Prefab = prefab;
+            Remote = remote;
+            _release = release;
+        }
+
+        public void Dispose()
+        {
+            var release = Interlocked.Exchange(ref _release, null);
+            release?.Invoke();
+        }
+    }
+
     /// <summary>
     /// The asset-loading seam: how the stage turns a command's <c>sprite_url</c>
     /// into a <see cref="Sprite"/>. The engine ships no loader so it stays
@@ -35,6 +62,15 @@ namespace Lvn.UI
         /// simply keeps the flat background; a game that ships 3D sets implements
         /// this over Resources or Addressables.</summary>
         Task<GameObject> LoadPrefabAsync(string url, CancellationToken ct) => Task.FromResult<GameObject>(null);
+
+        /// <summary>Load a leased 3D set. Bundle-backed loaders override this so
+        /// set changes release CPU/GPU memory. The default keeps older custom
+        /// prefab loaders source-compatible.</summary>
+        async Task<Lvn3DSetAsset> Load3DSetAsync(string id, CancellationToken ct)
+        {
+            var prefab = await LoadPrefabAsync(id, ct);
+            return prefab != null ? new Lvn3DSetAsset(id, prefab) : null;
+        }
 
         /// <summary>Speculative batch load: warm the cache for upcoming urls.
         /// Default implementation calls <see cref="LoadSpriteAsync"/> for each
