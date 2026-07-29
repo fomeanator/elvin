@@ -30,11 +30,22 @@ namespace Lvn.UI
             if (_player == null || Assets == null) return;
             const int lookAhead = 25, maxSprites = 6, maxAudio = 2;
             List<string> sprites = null, audio = null;
-            bool spineKicked = false;
+            bool spineKicked = false, set3dKicked = false;
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 var op = (string)c["op"];
-                if (op == "bg" || op == "actor" || op == "obj")
+                if (op == "bg3d")
+                {
+                    var id = (string)c["id"];
+                    if (!set3dKicked && !string.IsNullOrEmpty(id) &&
+                        id != "off" && id != Lvn.UI.World.Lvn3DDemoSet.Id &&
+                        _prefetched.Add("bg3d:" + id))
+                    {
+                        set3dKicked = true;
+                        _ = Warm3DSetBestEffortAsync(id);
+                    }
+                }
+                else if (op == "bg" || op == "actor" || op == "obj")
                 {
                     var url = (string)c["sprite_url"];
                     // A Spine actor carries no sprite_url — its (heavy) assets
@@ -114,6 +125,31 @@ namespace Lvn.UI
             if (audio != null && audio.Count > maxAudio) audio.RemoveRange(maxAudio, audio.Count - maxAudio);
             if (sprites != null) _ = Assets.PreloadAsync(sprites, "sprite", _cts.Token);
             if (audio != null) _ = Assets.PreloadAsync(audio, "audio", _cts.Token);
+        }
+
+        private async Task Warm3DSetBestEffortAsync(string id)
+        {
+            try { await Assets.Preload3DSetAsync(id, _cts.Token); }
+            catch (OperationCanceledException) { }
+            catch (Exception e) { Debug.LogWarning($"[preload] 3D set '{id}': {e.Message}"); }
+        }
+
+        /// <summary>Gate chapter entry only on the first upcoming 3D set. Unlike
+        /// ordinary sprite warming this removes both network and bundle-open work
+        /// from the first <c>bg3d</c> frame.</summary>
+        internal async Task WarmUpcoming3DAsync(int lookAhead)
+        {
+            if (_player == null || Assets == null) return;
+            foreach (var c in _player.PeekForward(lookAhead))
+            {
+                if ((string)c["op"] != "bg3d") continue;
+                var id = (string)c["id"];
+                if (string.IsNullOrEmpty(id) || id == "off" ||
+                    id == Lvn.UI.World.Lvn3DDemoSet.Id) continue;
+                _prefetched.Add("bg3d:" + id);
+                await Assets.Preload3DSetAsync(id, _cts.Token);
+                return;
+            }
         }
 
         // Chapter-entry warmup for PLAIN art — the sibling of WarmUpcomingSpineAsync.
