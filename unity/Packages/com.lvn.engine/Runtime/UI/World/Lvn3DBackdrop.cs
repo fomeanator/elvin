@@ -37,19 +37,46 @@ namespace Lvn.UI.World
         private float _fov = 60f, _fovTo = 60f;
         private float _speed;           // 1/seconds; 0 = snap
         private bool _live;             // the set animates: film every frame
+        private Vector2 _echoRot;       // camera-rig shake/pan, as degrees
+        private float _echoZoom = 1f;   // camera-rig zoom, as an fov divisor
+        private bool _echoLive;         // the rig moved this frame
 
         /// <summary>The filmed frame — hand it to the stage background.</summary>
         public RenderTexture Texture => _rt;
 
+        /// <summary>Raised when rotation/resizing replaces the frame buffer, so
+        /// the RawImage never keeps displaying a released RenderTexture.</summary>
+        public event System.Action<RenderTexture> TextureChanged;
+
         /// <summary>True while a set is loaded and filming.</summary>
         public bool Active => _set != null;
 
-        /// <summary>Attach a backdrop renderer to <paramref name="parent"/>.</summary>
-        public static Lvn3DBackdrop Ensure(Transform parent)
+        /// <summary>Stand up a backdrop renderer that lives as long as
+        /// <paramref name="owner"/> does.
+        ///
+        /// <para>The backdrop is a ROOT object on purpose. Parenting it under the
+        /// stage canvas looks tidier and is quietly fatal: a canvas scales its
+        /// children to the screen, so the set and its camera would be resized by
+        /// whatever device the game runs on — the same shot framed one way in the
+        /// editor and another on a phone, usually as an empty sky. Instead the
+        /// owner carries a keeper that tears the backdrop down with it, which is
+        /// what parenting was for.</para></summary>
+        public static Lvn3DBackdrop Ensure(Transform owner)
         {
             var go = new GameObject("lvn-3d-backdrop");
-            go.transform.SetParent(parent, false);
-            return go.AddComponent<Lvn3DBackdrop>();
+            var backdrop = go.AddComponent<Lvn3DBackdrop>();
+            if (owner != null) owner.gameObject.AddComponent<Keeper>().backdrop = backdrop;
+            return backdrop;
+        }
+
+        /// <summary>Rides on the stage and takes the backdrop down with it.</summary>
+        private sealed class Keeper : MonoBehaviour
+        {
+            public Lvn3DBackdrop backdrop;
+            private void OnDestroy()
+            {
+                if (backdrop != null) Kill(backdrop.gameObject);
+            }
         }
 
         /// <summary>Build <paramref name="prefab"/> as the current set, replacing
@@ -69,9 +96,9 @@ namespace Lvn.UI.World
                 return;
             }
             EnsureCamera();
-            // Parent the set to this component: a set left in the scene root
-            // outlives the stage that stood it, and the next novel opens with
-            // the previous one's room still being filmed behind it.
+            // Parent the set to this component (itself a root object): a set left
+            // loose in the scene outlives the stage that stood it, and the next
+            // novel opens with the previous one's room still being filmed.
             _set = Instantiate(prefab, transform);
             _set.transform.localPosition = Far;
             _set.transform.localRotation = Quaternion.identity;
@@ -88,7 +115,7 @@ namespace Lvn.UI.World
             _env = _set.GetComponent<Lvn3DSetEnv>();
             if (_env != null) _env.Apply();
 
-            _live = _live || SetAnimates(_set);
+            _live = SetAnimates(_set);
             _cam.enabled = _live;
 
             // A set authored around its own origin lands around Far; the camera
@@ -117,10 +144,41 @@ namespace Lvn.UI.World
                 }
                 // Scrolling UVs, vertex-animated foliage and the like live in
                 // scripts the engine can't name; anything the set author attached
-                // beyond a plain renderer counts as motion.
+                // beyond a plain renderer counts as motion. The engine's own
+                // carry-on components (the set's sky/fog card) are NOT motion —
+                // counting them filmed every still set per-frame, for nothing.
+                if (c is Lvn3DSetEnv) continue;
                 if (c is MonoBehaviour) return true;
             }
             return false;
+        }
+
+        /// <summary>What the 2D camera rig is doing, so the set moves with it:
+        /// a shake becomes a real jolt of the shot, a pan a turn of the head, a
+        /// zoom a change of focal length. <paramref name="offset"/> is in canvas
+        /// units and <paramref name="width"/> is the canvas' logical width, so
+        /// the same op reads the same on every screen.</summary>
+        public void Echo(Vector2 offset, float zoom, float width)
+        {
+            if (width <= 0f) return;
+            // The world swings the way the 2D layer slid, scaled by the shot's
+            // own field of view — so both layers read as one filmed scene.
+            // Horizontal motion maps against the HORIZONTAL fov (the camera
+            // stores the vertical one), vertical against the logical height.
+            float sw = Mathf.Max(1, Screen.width), sh = Mathf.Max(1, Screen.height);
+            float hfov = 2f * Mathf.Atan(Mathf.Tan(_fov * 0.5f * Mathf.Deg2Rad) * sw / sh) * Mathf.Rad2Deg;
+            float height = width * sh / sw;
+            // Content shifted right (+x) → the camera turns LEFT to carry the
+            // world along; shifted up (+y) → the camera dips DOWN. Unity euler:
+            // +pitch looks down, +yaw turns right.
+            var rot = new Vector2(offset.y / height * _fov, -offset.x / width * hfov);
+            bool moved = (rot - _echoRot).sqrMagnitude > 0.000001f
+                         || Mathf.Abs(zoom - _echoZoom) > 0.0001f;
+            _echoRot = rot;
+            _echoZoom = zoom <= 0f ? 1f : zoom;
+            if (!moved && !_echoLive) return;
+            _echoLive = rot.sqrMagnitude > 0.000001f || Mathf.Abs(_echoZoom - 1f) > 0.0001f;
+            Apply();      // re-film with the new offset; a still shot pays only while it moves
         }
 
         /// <summary>Force the filming mode instead of letting the set decide:
@@ -130,7 +188,8 @@ namespace Lvn.UI.World
         public void SetLive(bool live)
         {
             _live = live;
-            if (_cam != null) _cam.enabled = live;
+            EnsureCamera();
+            if (_cam != null) _cam.enabled = live && _cam.targetTexture != null;
             if (live) enabled = true;
         }
 
@@ -170,6 +229,7 @@ namespace Lvn.UI.World
                 _rt.Release();
                 Kill(_rt);
                 _rt = null;
+                TextureChanged?.Invoke(null);
             }
         }
 
@@ -185,7 +245,13 @@ namespace Lvn.UI.World
 
         private void EnsureCamera()
         {
-            if (_cam != null) return;
+            // The target is ensured OUTSIDE the create-once guard: a painted `bg`
+            // tears the backdrop down (Release kills the frame buffer) and the next
+            // `bg3d` arrives with the camera still alive. Returning early here left
+            // that camera without a targetTexture — and an enabled camera with no
+            // target renders straight to the SCREEN, painting the set over every
+            // sprite on the stage. One line of ordering, a whole battle invisible.
+            if (_cam != null) { EnsureTarget(); return; }
             var go = new GameObject("lvn-3d-camera");
             go.transform.SetParent(transform, false);
             _cam = go.AddComponent<Camera>();
@@ -213,7 +279,13 @@ namespace Lvn.UI.World
 
             int w = Mathf.Max(256, Screen.width);
             int h = Mathf.Max(256, Screen.height);
-            if (_rt != null && _rt.width == w && _rt.height == h) return;
+            if (_rt != null && _rt.width == w && _rt.height == h)
+            {
+                // A camera without a target draws directly to the display. Even
+                // if another component cleared it, restore the invariant here.
+                if (_cam.targetTexture != _rt) _cam.targetTexture = _rt;
+                return;
+            }
             if (_rt != null)
             {
                 _cam.targetTexture = null;
@@ -226,6 +298,7 @@ namespace Lvn.UI.World
                 antiAliasing = QualitySettings.antiAliasing > 0 ? QualitySettings.antiAliasing : 1,
             };
             _cam.targetTexture = _rt;
+            TextureChanged?.Invoke(_rt);
             Shoot(); // the buffer is fresh and empty — fill it at once
         }
 
@@ -233,8 +306,9 @@ namespace Lvn.UI.World
         {
             if (_cam == null) return;
             _cam.transform.localPosition = Far + _pos;
-            _cam.transform.localRotation = Quaternion.Euler(_rot.x, _rot.y, 0f);
-            _cam.fieldOfView = Mathf.Clamp(_fov, 5f, 120f);
+            _cam.transform.localRotation =
+                Quaternion.Euler(_rot.x + _echoRot.x, _rot.y + _echoRot.y, 0f);
+            _cam.fieldOfView = Mathf.Clamp(_fov / _echoZoom, 5f, 120f);
             Shoot();
         }
 
@@ -245,7 +319,11 @@ namespace Lvn.UI.World
         /// changes; a still shot then costs nothing at all.</summary>
         private void Shoot()
         {
-            if (_cam == null || _rt == null) return;
+            if (_cam == null || _rt == null || _cam.targetTexture != _rt)
+            {
+                if (_cam != null) _cam.enabled = false;
+                return;
+            }
             // A living set is already being filmed by Unity every frame —
             // rendering again here would double the cost of the feature.
             if (_cam.enabled) return;
@@ -255,6 +333,7 @@ namespace Lvn.UI.World
         private void Update()
         {
             if (_cam == null) return;
+            EnsureTarget(); // rotation/resize and the screen-target safety invariant
             if (_speed <= 0f)
             {
                 // A living set keeps filming (Unity renders the enabled camera
@@ -262,8 +341,6 @@ namespace Lvn.UI.World
                 if (!_live) enabled = false;
                 return;
             }
-            EnsureTarget(); // a rotated device changes the frame size
-
             float step = _speed * Time.unscaledDeltaTime;
             _pos = Vector3.Lerp(_pos, _posTo, Mathf.Clamp01(step));
             _rot = Vector3.Lerp(_rot, _rotTo, Mathf.Clamp01(step));
