@@ -1,0 +1,65 @@
+include "core.lvns"
+
+uikit_resource = 50
+uikit_resource_max = 100
+uikit_resource_label = "ENERGY"
+
+func uikit_resource_show() {
+  obj id=uikit_resource_track sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.695 y=0.112 width=0.30 anchor="0.5,0.5" z=82
+  text uikit_resource_text x=69.5 y=8.4 size=25 color=#e8e1d3 anchor="0.5,0" «{uikit_resource_label}  {uikit_resource}/{uikit_resource_max}»
+  uikit_resource_refresh()
+}
+
+func uikit_resource_refresh() {
+  uikit_resource_pct = uikit_percent(uikit_resource, uikit_resource_max)
+  if uikit_resource_pct >= 95 -> uikit_resource_100
+  if uikit_resource_pct >= 85 -> uikit_resource_90
+  if uikit_resource_pct >= 75 -> uikit_resource_80
+  if uikit_resource_pct >= 65 -> uikit_resource_70
+  if uikit_resource_pct >= 55 -> uikit_resource_60
+  if uikit_resource_pct >= 45 -> uikit_resource_50
+  if uikit_resource_pct >= 35 -> uikit_resource_40
+  if uikit_resource_pct >= 25 -> uikit_resource_30
+  if uikit_resource_pct >= 15 -> uikit_resource_20
+  if uikit_resource_pct > 0 -> uikit_resource_10
+  obj id=uikit_resource_fill show=false
+  -> uikit_resource_done
+
+  :uikit_resource_100
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.300 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_90
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.270 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_80
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.240 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_70
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.210 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_60
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.180 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_50
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.150 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_40
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.120 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_30
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.090 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_20
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.060 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_10
+  obj id=uikit_resource_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.112 width=0.030 anchor="0,0.5" z=83
+  -> uikit_resource_done
+  :uikit_resource_done
+}
+
+func uikit_resource_hide() {
+  obj id=uikit_resource_track show=false
+  obj id=uikit_resource_fill show=false
+  text uikit_resource_text hide
+}
