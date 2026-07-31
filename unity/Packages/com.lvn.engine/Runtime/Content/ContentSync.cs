@@ -24,6 +24,14 @@ namespace Lvn.Content
         /// (15–30s). Clamped to a 0.25s floor.</summary>
         public float IntervalSeconds = 2f;
 
+        /// <summary>
+        /// When enabled, the first successful poll also raises <see cref="OnChanged"/>.
+        /// Online hosts enable this after their potentially long boot so a content
+        /// save that happened after the chapter was fetched but before sync started
+        /// cannot be silently accepted as the baseline.
+        /// </summary>
+        public bool NotifyOnFirstPoll { get; set; }
+
         public bool Running => _cts != null;
         public string LastVersion => _lastVersion;
 
@@ -60,10 +68,20 @@ namespace Lvn.Content
             string v;
             try { v = ParseVersion(await _loader.DownloadScriptText(_versionPath, ct, singleAttempt: true)); }
             catch { return false; }
-            if (v == null) return false;
-            if (_lastVersion == null) { _lastVersion = v; return false; }
-            if (v == _lastVersion) return false;
-            _lastVersion = v;
+            return AdvanceVersion(ref _lastVersion, v, NotifyOnFirstPoll);
+        }
+
+        /// <summary>Pure version-state transition, exposed internally for tests.</summary>
+        internal static bool AdvanceVersion(ref string lastVersion, string version, bool notifyOnFirst)
+        {
+            if (version == null) return false;
+            if (lastVersion == null)
+            {
+                lastVersion = version;
+                return notifyOnFirst;
+            }
+            if (version == lastVersion) return false;
+            lastVersion = version;
             return true;
         }
 
