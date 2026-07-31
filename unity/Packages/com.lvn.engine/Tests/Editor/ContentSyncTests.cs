@@ -36,6 +36,24 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void FirstPoll_NotifiesWhenBootReconciliationIsEnabled()
+        {
+            string last = null;
+            Assert.IsTrue(ContentSync.AdvanceVersion(ref last, "after-save", notifyOnFirst: true));
+            Assert.AreEqual("after-save", last);
+        }
+
+        [Test]
+        public void FirstPoll_DefaultOnlyEstablishesBaseline()
+        {
+            string last = null;
+            Assert.IsFalse(ContentSync.AdvanceVersion(ref last, "baseline", notifyOnFirst: false));
+            Assert.AreEqual("baseline", last);
+            Assert.IsFalse(ContentSync.AdvanceVersion(ref last, "baseline", notifyOnFirst: true));
+            Assert.IsTrue(ContentSync.AdvanceVersion(ref last, "changed", notifyOnFirst: true));
+        }
+
+        [Test]
         public void Carousel_SetTitles_RebuildsAndClampsIndex()
         {
             var c = new TitleCarousel(
