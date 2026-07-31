@@ -28,6 +28,9 @@ namespace Lvn.UI.World
         private readonly WorldBackground _bg;
         private readonly WorldCameraRig _camera;
         private readonly Vector2 _reference;
+        private readonly Camera _canvasCamera;
+        private readonly float _canvasCameraDepthBefore;
+        private readonly float _canvasCameraDepthForced;
 
         private readonly Dictionary<string, WorldActor> _actors = new Dictionary<string, WorldActor>();
         private readonly Dictionary<string, CanvasGroup> _slotGroups = new Dictionary<string, CanvasGroup>();
@@ -79,6 +82,21 @@ namespace Lvn.UI.World
             if (cam == null) cam = Object.FindAnyObjectByType<Camera>();
             if (cam != null && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null)
             {
+                // A content/demo scene may bring its own enabled screen camera.
+                // Equal camera depths have undefined order; if that camera runs
+                // after this one it clears the framebuffer AFTER the Canvas and
+                // all actors "disappear" even though their sprites loaded. Make
+                // the camera carrying the stage canvas deterministically last.
+                float lastDepth = cam.depth;
+                foreach (var other in Object.FindObjectsByType<Camera>())
+                    if (other != null && other != cam && other.enabled &&
+                        other.targetTexture == null)
+                        lastDepth = Mathf.Max(lastDepth, other.depth);
+                _canvasCamera = cam;
+                _canvasCameraDepthBefore = cam.depth;
+                _canvasCameraDepthForced = Mathf.Min(999f, lastDepth + 1f);
+                cam.depth = _canvasCameraDepthForced;
+
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = cam;
                 canvas.planeDistance = 1f;
@@ -129,12 +147,47 @@ namespace Lvn.UI.World
             {
                 if (_backdrop != null)
                 {
+                    _camera.Echo = null;
+                    // Вернуть карточке фона родной трансформ: противоход мог
+                    // застыть на полпути, если сет снесли посреди встряски.
+                    _bg.Transform.anchoredPosition = Vector2.zero;
+                    _bg.Transform.localScale = Vector3.one;
                     _backdrop.Release();
                     _bg.SetLiveTexture(null);
                 }
                 return;
             }
-            if (_backdrop == null) _backdrop = Lvn3DBackdrop.Ensure(_canvasGo.transform);
+            if (_backdrop == null)
+            {
+                _backdrop = Lvn3DBackdrop.Ensure(_canvasGo.transform);
+                _backdrop.TextureChanged += tex =>
+                {
+                    // Device rotation replaces the RT object. Rebind the
+                    // background immediately; a released texture renders black.
+                    if (_backdrop != null && _backdrop.Active)
+                        _bg.SetLiveTexture(tex);
+                };
+                // Shake/pan/zoom now carry into the set: the `camera` op moves
+                // both layers at once instead of jolting sprites over a frozen world.
+                var backdrop = _backdrop;
+                _camera.Echo = (offset, zoom) =>
+                {
+                    // Встряска/наезд двигают МИР, а не картинку мира: карточка
+                    // кадра противоходом пригвождена к экрану (родитель сдвинул
+                    // на +x — карточка на -x), а само движение уходит в 3D-камеру.
+                    // Иначе кадр дёргался бы дважды: как карточка и как ракурс.
+                    if (zoom <= 0f) zoom = 1f;
+                    var pin = -offset / zoom;
+                    // Не трогать трансформ без изменения: сеттер будит layout
+                    // канваса, а лямбда стреляет каждый кадр — и в покое тоже.
+                    if (_bg.Transform.anchoredPosition != pin)
+                        _bg.Transform.anchoredPosition = pin;
+                    var s = Vector3.one / zoom;
+                    if (_bg.Transform.localScale != s)
+                        _bg.Transform.localScale = s;
+                    backdrop.Echo(offset, zoom, LogicalWidth());
+                };
+            }
             _backdrop.SetSet(prefab);
             _bg.SetLiveTexture(_backdrop.Texture);
         }
@@ -379,7 +432,15 @@ namespace Lvn.UI.World
             // The blur lives on the CAMERA, which outlives this canvas — a
             // chapter that ended mid-`blur` must not haunt the next one.
             Blur?.FadeTo(0f, 0f);
-            if (_canvasGo != null) Object.Destroy(_canvasGo);
+            // Respect a later owner that deliberately changed the depth.
+            if (_canvasCamera != null &&
+                Mathf.Approximately(_canvasCamera.depth, _canvasCameraDepthForced))
+                _canvasCamera.depth = _canvasCameraDepthBefore;
+            if (_canvasGo != null)
+            {
+                if (Application.isPlaying) Object.Destroy(_canvasGo);
+                else Object.DestroyImmediate(_canvasGo);
+            }
         }
 
         // ── helpers ──────────────────────────────────────────────────────────
