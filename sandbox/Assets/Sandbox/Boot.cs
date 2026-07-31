@@ -16,13 +16,13 @@ namespace Lvn.Sandbox
     {
         public const string ServerUrl =
 #if UNITY_EDITOR
-            "http://127.0.0.1:8078"; // dev: the local content server
+            "http://127.0.0.1:8077"; // dev: the local authoring-panel server
 #else
             // Device builds of the SANDBOX reach the dev server through
             // adb reverse (see qa/monkey.sh --server). A product fork bakes
             // its own production URL here — or ships a Development build and
             // steers it with the `lvn_server` intent extra (LvnLaunchOverrides).
-            "http://127.0.0.1:8078";
+            "https://31-76-8-3.sslip.io"; // EC-сборка: студийный сервер
 #endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
