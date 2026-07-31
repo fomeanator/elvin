@@ -276,3 +276,43 @@ func TestConvertFilesErrorPointsAtTheRealFileAndLine(t *testing.T) {
 		t.Errorf("ошибка = %q, ожидалось mech.lvns:3", err)
 	}
 }
+
+// Пакетный путь "@scope/pkg/file.lvns" резолвится через lvns_packages/,
+// который ищется ВВЕРХ по дереву от подключающего файла: глава может лежать
+// в глубине проекта (content/game/ch.lvns), а vendor — в его корне.
+func TestIncludePackagePathResolvesViaVendorDir(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"lvns_packages/@t/lib/lib.lvns":   "lib_gold = 7\ninclude \"extra.lvns\"\n",
+		"lvns_packages/@t/lib/extra.lvns": "lib_extra = 1\n",
+		"content/game/ch.lvns":            "scene ch\ninclude \"@t/lib/lib.lvns\"\nGot {lib_gold}.\n-> __end\n",
+	})
+	doc, err := ConvertFile(filepath.Join(dir, "content/game/ch.lvns"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sets := 0
+	for _, o := range ops(doc) {
+		if o == "set" {
+			sets++
+		}
+	}
+	// lib_gold + lib_extra: сам пакет и его ВНУТРЕННИЙ относительный include.
+	if sets != 2 {
+		t.Fatalf("ops = %v, want 2 sets from the package", ops(doc))
+	}
+}
+
+// Ненайденный пакет обязан назвать место, где искали, — lvns_packages/…,
+// а не молча превратить директиву в реплику.
+func TestMissingPackageIncludeNamesTheVendorDir(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"ch.lvns": "scene ch\ninclude \"@t/ghost/lib.lvns\"\n-> __end\n",
+	})
+	_, err := ConvertFile(filepath.Join(dir, "ch.lvns"))
+	if err == nil {
+		t.Fatal("include несуществующего пакета скомпилировался")
+	}
+	if !strings.Contains(err.Error(), "lvns_packages") {
+		t.Errorf("ошибка = %q, ожидал упоминание lvns_packages", err)
+	}
+}

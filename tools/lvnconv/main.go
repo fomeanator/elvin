@@ -24,6 +24,7 @@ import (
 	"github.com/fomeanator/elvin/tools/lvnconv/importer"
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/adpd"
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/deps"
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/ink"
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/lvns"
 	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
@@ -60,6 +61,8 @@ func main() {
 		cmdOptimize(os.Args[2:])
 	case "locale":
 		cmdLocale(os.Args[2:])
+	case "deps":
+		cmdDeps(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -81,6 +84,8 @@ usage:
   lvnconv probe    <in.lvn>
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
   lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
+  lvnconv deps     sync|update|list [-C <dir>]
+  lvnconv deps     add <@scope/pkg> <github:owner/repo@tag[#subdir] | file:path> [-C <dir>]
 
 convert  compile a source script to a .lvn container (stdout if -o omitted)
 validate run structural checks on a .lvn (unknown op, dangling jumps, dup labels)
@@ -563,4 +568,43 @@ func mustJSON(v any) []byte {
 func die(msg string) {
 	fmt.Fprintln(os.Stderr, "lvnconv: "+msg)
 	os.Exit(1)
+}
+
+// cmdDeps — пакетная система: vendor в lvns_packages/ по lvns.package.json и
+// lvns.lock. Сеть трогает ТОЛЬКО эта команда; convert собирается оффлайн.
+func cmdDeps(args []string) {
+	if len(args) == 0 {
+		die(`deps: жду sync | update | add <@scope/pkg> <ref> | list`)
+	}
+	sub, rest := args[0], args[1:]
+	root := "."
+	// -C <dir> в любом месте хвоста
+	var pos []string
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == "-C" && i+1 < len(rest) {
+			root = rest[i+1]
+			i++
+			continue
+		}
+		pos = append(pos, rest[i])
+	}
+	var err error
+	switch sub {
+	case "sync":
+		err = deps.Sync(root, false)
+	case "update":
+		err = deps.Sync(root, true)
+	case "add":
+		if len(pos) != 2 {
+			die(`deps add: жду имя и ссылку — lvnconv deps add "@scope/pkg" "github:owner/repo@v1.0.0"`)
+		}
+		err = deps.Add(root, pos[0], pos[1])
+	case "list":
+		err = deps.List(root, os.Stdout)
+	default:
+		die(fmt.Sprintf("deps: неизвестная подкоманда %q", sub))
+	}
+	if err != nil {
+		die("deps " + sub + ": " + err.Error())
+	}
 }
