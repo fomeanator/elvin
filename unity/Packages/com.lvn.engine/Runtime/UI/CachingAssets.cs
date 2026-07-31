@@ -150,6 +150,13 @@ namespace Lvn.UI
             Lvn3DSet set = null;
             if (_sets3d != null) _sets3d.TryGetValue(id, out set);
             var descriptor = Select3DBundle(set, PlatformKey(Application.platform));
+            // Три причины, по которым набор не доезжает, и все три раньше были
+            // неотличимы снаружи: нет записи в манифесте, нет бандла под ЭТУ
+            // платформу, бандл есть — но не скачался.
+            LvnPlayer.Log?.Invoke($"[lvn-set] '{id}': запись в sets3d={(set != null ? "есть" : "НЕТ")}, " +
+                $"платформа={PlatformKey(Application.platform)}, " +
+                $"бандл={(descriptor?.url ?? "нет для этой платформы")}, " +
+                $"fallback_resource={(string.IsNullOrEmpty(set?.fallback_resource) ? "нет" : set.fallback_resource)}");
             if (descriptor != null && !string.IsNullOrEmpty(descriptor.url))
             {
                 try
@@ -165,6 +172,7 @@ namespace Lvn.UI
             }
 
             var fallback = LoadSetFallback(id, set);
+            LvnPlayer.Log?.Invoke($"[lvn-set] '{id}': fallback из Resources {(fallback != null ? "загружен" : "ТОЖЕ пуст — набора не будет")}");
             return fallback != null ? new Lvn3DSetAsset(id, fallback) : null;
         }
 

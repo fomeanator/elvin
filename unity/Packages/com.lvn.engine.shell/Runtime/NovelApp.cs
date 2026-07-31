@@ -1350,6 +1350,14 @@ namespace Lvn.UI.Screens
             bool resuming = !restart && autosave?.Snap != null
                             && autosave.Snap.ScriptUrl == chapter.script_url
                             && !autosave.Snap.Finished;
+            // Снимок держит ИНДЕКС и длину скрипта на момент сохранения. Если
+            // длина разошлась, значит скрипт правили — и пересборка сцены пойдёт
+            // по сдвинутым индексам (см. [lvn-replay]). Это тот случай, когда
+            // «после правки худ поехал, а перезаход чинит».
+            if (resuming)
+                Debug.Log($"[lvn-resume] chapter={chapter.id} idx={autosave.Snap.Index} " +
+                          $"cmds_at_save={autosave.Snap.CommandCount} anchor={autosave.Snap.AnchorLabel}" +
+                          $"+{autosave.Snap.AnchorSteps} stable={autosave.Snap.AnchorStableLabel}");
 
             // Device-side wardrobe equips (the hub sheet has no live Player to
             // write through) land in the story vars HERE: every wardrobe slot
@@ -1830,6 +1838,8 @@ namespace Lvn.UI.Screens
             try { json = await _assets.Loader.DownloadScriptText(_currentChapter.script_url); }
             catch { return; }
             if (string.IsNullOrEmpty(json)) return;
+            Debug.Log($"[lvn-live] script fetched: {json.Length}b, changed={(json != _currentScriptJson)}, " +
+                      $"chapter={_currentChapter?.id}, index={Stage.Player?.Index}");
             if (json == _currentScriptJson)
             {
                 // The script didn't change — only assets did (a replaced sprite or

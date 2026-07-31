@@ -267,6 +267,20 @@ namespace Lvn
 
         private void ReplayPath(IReadOnlyList<int> path)
         {
+            // ── диагностика рассинхрона трассы ────────────────────────────────
+            // Трасса — это ИНДЕКСЫ выполненных команд. Живая правка скрипта их
+            // сдвигает, и тогда пересборка сцены применяет ЧУЖИЕ команды: HUD
+            // встаёт по чужим координатам, фон берётся не тот. Считаем, сколько
+            // индексов вылезло за новый скрипт — это прямая улика.
+            if (Log != null)
+            {
+                int oob = 0;
+                for (int k = 0; k < path.Count; k++)
+                    if (path[k] < 0 || path[k] >= _script.Count) oob++;
+                Log($"[lvn-replay] path={path.Count} script={_script.Count} " +
+                    $"out-of-range={oob} traced={(_trace != null && _trace.Count > 0 ? "yes" : "no")}");
+            }
+
             // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
             // so they re-run in path order. FX/audio are stateful overlays where
             // only the LAST setting matters — they collapse to the final value per

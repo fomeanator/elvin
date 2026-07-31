@@ -111,8 +111,20 @@ namespace Lvn.UI
             int gen = ++_bgGen;
             var sprite = await LoadSceneSpriteAsync(url, "bg",
                 () => StageCurrent(epoch) && _bgGen == gen);
-            if (sprite == null) return;
-            if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
+            // Молчаливый выход здесь и есть «фон иногда не догружается»: сцена
+            // остаётся с прежним задником, и в логе НИЧЕГО. Разделяем два случая:
+            // картинка не пришла (сеть/404/кэш) и её обогнала более новая команда.
+            if (sprite == null)
+            {
+                LvnPlayer.Log?.Invoke($"[lvn-bg] MISS {url} (спрайт не загрузился; фон остался прежним)");
+                return;
+            }
+            if (!StageCurrent(epoch) || _bgGen != gen)
+            {
+                LvnPlayer.Log?.Invoke($"[lvn-bg] skip {url} (обогнала смена главы/следующий bg)");
+                return; // a chapter change / newer bg won
+            }
+            LvnPlayer.Log?.Invoke($"[lvn-bg] ok {url}");
             _renderer?.SetBackground(sprite);
             ReleaseActive3DSet();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
@@ -157,7 +169,15 @@ namespace Lvn.UI
                 // load. This is the authored "one room, many angles" loop.
                 if (_active3DSetId != id)
                 {
-                    if (Assets == null || !UseCanvasScene) return;
+                    // Каждый выход отсюда — это «3D-фон не догрузился»: сцена
+                    // остаётся с прежним задником. Раньше все они были немыми.
+                    if (Assets == null || !UseCanvasScene)
+                    {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] SKIP '{id}': " +
+                            (Assets == null ? "нет провайдера ассетов" : "рендерер не Canvas (3D только на нём)"));
+                        return;
+                    }
+                    LvnPlayer.Log?.Invoke($"[lvn-bg3d] load '{id}' (был '{_active3DSetId ?? "—"}')");
                     int epoch = _stageEpoch;
                     int gen = ++_bgGen;
                     Lvn3DSetAsset loaded = null;
@@ -166,10 +186,19 @@ namespace Lvn.UI
                     catch (System.Exception e)
                     {
                         Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}");
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] FAIL '{id}': {e.Message}");
                     }
-                    if (loaded?.Prefab == null) { loaded?.Dispose(); return; } // keep the flat background
+                    if (loaded?.Prefab == null)
+                    {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] MISS '{id}': " +
+                            (loaded == null ? "набор не найден (каталог sets3d / бандл / fallback)"
+                                            : "бандл пришёл, но префаб внутри пустой"));
+                        loaded?.Dispose();
+                        return; // keep the flat background
+                    }
                     if (!StageCurrent(epoch) || _bgGen != gen)
                     {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] skip '{id}': обогнала смена главы/следующий фон");
                         loaded.Dispose(); // a newer background won while this downloaded
                         return;
                     }
@@ -181,6 +210,7 @@ namespace Lvn.UI
                     old?.Dispose();
                     HasBackdrop = true;
                     Debug.Log($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
+                    LvnPlayer.Log?.Invoke($"[lvn-bg3d] ok '{id}' ({(loaded.Remote ? "сервер/кэш" : "встроенный fallback")})");
                 }
             }
 
