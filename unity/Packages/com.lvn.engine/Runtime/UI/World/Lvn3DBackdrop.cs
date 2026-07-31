@@ -294,6 +294,26 @@ namespace Lvn.UI.World
         /// the prefab — so a script says "stand at the door" the same way the
         /// artist built it. Any argument left null keeps its current value;
         /// <paramref name="seconds"/> above zero glides instead of cutting.</summary>
+        /// <summary>Спроецировать точку НАБОРА в кадр: доли экрана (0..1, Y сверху)
+        /// и дистанцию до камеры. Через это спрайт «стоит» в сцене — камера едет,
+        /// а он остаётся у своей колонны, вместо того чтобы плыть по экрану.
+        /// null — набора/камеры нет (плоский фон), звать нечего.</summary>
+        /// <summary>Кадр камеры сдвинулся — привязанным к сцене спрайтам пора
+        /// пересчитать место. Ставит сцена; движение камеры плавное, поэтому
+        /// одного вызова на команду мало.</summary>
+        public System.Action CameraMoved;
+
+        public bool TryProject(Vector3 world, out Vector2 viewport, out float distance)
+        {
+            viewport = default; distance = 0f;
+            if (_cam == null) return false;
+            var vp = _cam.WorldToViewportPoint(world);
+            if (vp.z <= 0.001f) return false;      // за спиной камеры
+            viewport = new Vector2(vp.x, 1f - vp.y); // экранные доли сверху вниз
+            distance = vp.z;
+            return true;
+        }
+
         public void Frame(float? x, float? y, float? z,
                           float? pitch, float? yaw, float? fov, float seconds)
         {
@@ -459,6 +479,7 @@ namespace Lvn.UI.World
             _rot = Vector3.Lerp(_rot, _rotTo, Mathf.Clamp01(step));
             _fov = Mathf.Lerp(_fov, _fovTo, Mathf.Clamp01(step));
             Apply();
+            CameraMoved?.Invoke();
 
             if ((_pos - _posTo).sqrMagnitude < 0.0001f &&
                 (_rot - _rotTo).sqrMagnitude < 0.0001f &&

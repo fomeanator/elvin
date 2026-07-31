@@ -71,7 +71,12 @@
       "on_drop",
       "on_drop_miss",
       "loop",
-      "drag_bounds"
+      "drag_bounds",
+      "depth",
+      "world",
+      "fill",
+      "fill_from",
+      "fill_time"
     ],
     "obj": [
       "id",
@@ -94,7 +99,10 @@
       "play",
       "drag_bounds",
       "fill",
-      "fill_from"
+      "fill_from",
+      "fill_time",
+      "depth",
+      "world"
     ],
     "fade": [
       "to",
