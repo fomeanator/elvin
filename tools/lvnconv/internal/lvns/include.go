@@ -94,21 +94,52 @@ func resolveDiskPath(dir, rel string) string {
 	}
 }
 
-// memLoader — открытые буферы редактора, ключ это ИМЯ файла. Каталогов нет:
-// в студии все скрипты новеллы лежат рядом, и подкаталоги пришлось бы
-// выдумывать на стороне UI.
+// memLoader — открытые буферы редактора. Ключ обычного файла это ИМЯ: в студии
+// все скрипты новеллы лежат рядом, и подкаталоги пришлось бы выдумывать на
+// стороне UI. У ПАКЕТА (см. deps) ключ — полный путь "@scope/pkg/file.lvns":
+// имя файла внутри пакета не уникально (два пакета вправе иметь свой
+// duel.lvns), а срезав путь до имени, редактор искал бы чужой файл — и не
+// находил бы никакого, как только плоская копия пакета исчезала.
 type memLoader struct{ files map[string]string }
 
 func (m memLoader) load(dir, rel string) (string, string, string, error) {
-	name := path.Base(rel)
-	c, ok := m.files[name]
+	key := memKey(dir, rel)
+	c, ok := m.files[key]
 	if !ok {
-		return name, "", "", fmt.Errorf("нет такого файла")
+		// Файл пакета мог прийти и под плоским именем (старая студия хранила
+		// библиотеки рядом) — принимаем оба, чтобы правка include не требовала
+		// одновременного обновления и редактора, и сервера.
+		if alt := path.Base(rel); alt != key {
+			if c, ok = m.files[alt]; ok {
+				return alt, c, "", nil
+			}
+		}
+		return key, "", "", fmt.Errorf("нет такого файла")
 	}
-	return name, c, "", nil
+	// Внутри пакета относительный include — сосед по каталогу пакета.
+	next := ""
+	if strings.HasPrefix(key, "@") {
+		next = path.Dir(key)
+	}
+	return key, c, next, nil
+}
+
+// memKey — ключ буфера: пакетный путь целиком, обычный — по имени файла,
+// сосед внутри пакета — склейка с каталогом пакета.
+func memKey(dir, rel string) string {
+	if strings.HasPrefix(rel, "@") {
+		return path.Clean(rel)
+	}
+	if dir != "" {
+		return path.Clean(path.Join(dir, rel))
+	}
+	return path.Base(rel)
 }
 
 func (m memLoader) where(dir, rel string) string {
+	if strings.HasPrefix(rel, "@") {
+		return "пакет " + path.Clean(rel) + " не подключён к новелле (lvnconv deps sync)"
+	}
 	names := make([]string, 0, len(m.files))
 	for n := range m.files {
 		names = append(names, n)
