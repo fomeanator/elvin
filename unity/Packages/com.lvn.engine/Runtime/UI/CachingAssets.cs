@@ -64,6 +64,28 @@ namespace Lvn.UI
         public int LivePressure => _livePressure;
         private int _livePressure;
 
+        private IReadOnlyDictionary<string, Lvn3DSet> _sets3d;
+        private readonly Dictionary<string, Task<SetBundle>> _setLoads
+            = new Dictionary<string, Task<SetBundle>>();
+        private readonly List<SetBundle> _warmSets = new List<SetBundle>();
+        private const int MaxWarmSets = 2;
+        private int _setLoadEpoch;
+
+        private sealed class SetBundle
+        {
+            public string Key;
+            public AssetBundle Bundle;
+            public GameObject Prefab;
+            public int Leases;
+            public bool Warm;
+        }
+
+        /// <summary>Apply the live manifest's 3D catalog. Existing sets keep their
+        /// lease until the stage replaces them; the next load immediately uses
+        /// the new descriptor/hash.</summary>
+        public void Set3DSetCatalog(IReadOnlyDictionary<string, Lvn3DSet> sets) =>
+            _sets3d = sets;
+
         public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
         {
             System.Threading.Interlocked.Increment(ref _livePressure);
@@ -105,17 +127,207 @@ namespace Lvn.UI
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
             => Loader.DownloadScriptCached(url, ct);
 
-        /// <summary>A 3D set for `bg3d` — looked up in the build's
-        /// <c>Resources/Sets</c> folder, not on the content server. A set is
-        /// code-adjacent (meshes, materials, lighting) and ships with the app,
-        /// unlike the art a novel streams; so a game gains 3D backgrounds by
-        /// dropping a prefab in that folder, with nothing to declare anywhere.</summary>
+        /// <summary>Compatibility path for custom code written before leased
+        /// remote sets. It deliberately resolves only the bundled fallback;
+        /// <see cref="Load3DSetAsync"/> is the lifecycle-safe remote API.</summary>
         public Task<GameObject> LoadPrefabAsync(string id, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(id)) return Task.FromResult<GameObject>(null);
-            // Accept a bare name ("apartment") or the path an author spelled out.
-            var go = Resources.Load<GameObject>("Sets/" + id) ?? Resources.Load<GameObject>(id);
-            return Task.FromResult(go);
+            return Task.FromResult(LoadSetFallback(id,
+                _sets3d != null && _sets3d.TryGetValue(id, out var set) ? set : null));
+        }
+
+        /// <summary>A 3D set is content, just like a sprite: the manifest picks a
+        /// platform bundle, ContentLoader downloads it into the same
+        /// version-folded disk cache, and this method opens it from FILE (without
+        /// a second full-size byte[] copy). Resources is the offline fallback.</summary>
+        public async Task<Lvn3DSetAsset> Load3DSetAsync(string id, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            Lvn3DSet set = null;
+            if (_sets3d != null) _sets3d.TryGetValue(id, out set);
+            var descriptor = Select3DBundle(set, PlatformKey(Application.platform));
+            if (descriptor != null && !string.IsNullOrEmpty(descriptor.url))
+            {
+                try
+                {
+                    var remote = await AcquireSetBundleAsync(id, descriptor, ct);
+                    if (remote != null) return remote;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[assets] 3D set '{id}' remote bundle failed: {e.Message}; using fallback");
+                }
+            }
+
+            var fallback = LoadSetFallback(id, set);
+            return fallback != null ? new Lvn3DSetAsset(id, fallback) : null;
+        }
+
+        /// <summary>Download, open and resolve the prefab ahead of <c>bg3d</c>,
+        /// but do not instantiate it. Two unused sets are retained as an LRU;
+        /// acquiring one consumes its warm pin and normal lease lifetime takes
+        /// over.</summary>
+        public async Task Preload3DSetAsync(string id, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            Lvn3DSet set = null;
+            if (_sets3d != null) _sets3d.TryGetValue(id, out set);
+            var descriptor = Select3DBundle(set, PlatformKey(Application.platform));
+            if (descriptor == null || string.IsNullOrEmpty(descriptor.url)) return;
+
+            var loaded = await GetSetBundleAsync(id, descriptor, ct);
+            if (ct.IsCancellationRequested)
+            {
+                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
+                    _ = UnloadSetBundleNextFrame(loaded);
+                ct.ThrowIfCancellationRequested();
+            }
+            if (loaded?.Prefab == null || loaded.Leases > 0 || loaded.Warm) return;
+            loaded.Warm = true;
+            _warmSets.Remove(loaded);
+            _warmSets.Add(loaded);
+            while (_warmSets.Count > MaxWarmSets)
+            {
+                var evicted = _warmSets[0];
+                _warmSets.RemoveAt(0);
+                evicted.Warm = false;
+                if (evicted.Leases == 0) _ = UnloadSetBundleNextFrame(evicted);
+            }
+        }
+
+        internal static string PlatformKey(RuntimePlatform platform)
+        {
+            switch (platform)
+            {
+                case RuntimePlatform.Android: return "android";
+                case RuntimePlatform.IPhonePlayer: return "ios";
+                case RuntimePlatform.WindowsPlayer:
+                case RuntimePlatform.WindowsEditor: return "windows";
+                case RuntimePlatform.OSXPlayer:
+                case RuntimePlatform.OSXEditor: return "macos";
+                case RuntimePlatform.LinuxPlayer:
+                case RuntimePlatform.LinuxEditor: return "linux";
+                case RuntimePlatform.WebGLPlayer: return "webgl";
+                default: return "default";
+            }
+        }
+
+        internal static Lvn3DBundle Select3DBundle(Lvn3DSet set, string platform)
+        {
+            if (set?.platforms == null) return null;
+            if (!string.IsNullOrEmpty(platform) &&
+                set.platforms.TryGetValue(platform, out var exact)) return exact;
+            return set.platforms.TryGetValue("default", out var fallback) ? fallback : null;
+        }
+
+        private static GameObject LoadSetFallback(string id, Lvn3DSet set)
+        {
+            var path = set?.fallback_resource;
+            if (!string.IsNullOrEmpty(path))
+            {
+                var configured = Resources.Load<GameObject>(path);
+                if (configured != null) return configured;
+            }
+            return Resources.Load<GameObject>("Sets/" + id) ?? Resources.Load<GameObject>(id);
+        }
+
+        private async Task<Lvn3DSetAsset> AcquireSetBundleAsync(
+            string id, Lvn3DBundle descriptor, CancellationToken ct)
+        {
+            var loaded = await GetSetBundleAsync(id, descriptor, ct);
+            if (ct.IsCancellationRequested)
+            {
+                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
+                    _ = UnloadSetBundleNextFrame(loaded);
+                ct.ThrowIfCancellationRequested();
+            }
+            if (loaded?.Prefab == null) return null;
+            if (loaded.Warm)
+            {
+                loaded.Warm = false;
+                _warmSets.Remove(loaded);
+            }
+            loaded.Leases++;
+            return new Lvn3DSetAsset(id, loaded.Prefab, remote: true,
+                release: () => ReleaseSetBundle(loaded));
+        }
+
+        private async Task<SetBundle> GetSetBundleAsync(
+            string id, Lvn3DBundle descriptor, CancellationToken ct)
+        {
+            var address = string.IsNullOrEmpty(descriptor.asset) ? id : descriptor.asset;
+            var key = descriptor.url + "|" + (descriptor.hash ?? "") + "|" + address;
+            if (!_setLoads.TryGetValue(key, out var load))
+            {
+                load = LoadSetBundleFileAsync(
+                    key, descriptor.url, address, _setLoadEpoch);
+                _setLoads[key] = load;
+            }
+
+            SetBundle loaded;
+            try { loaded = await load; }
+            catch
+            {
+                if (_setLoads.TryGetValue(key, out var failed) && ReferenceEquals(failed, load))
+                    _setLoads.Remove(key);
+                throw;
+            }
+
+            return loaded;
+        }
+
+        private async Task<SetBundle> LoadSetBundleFileAsync(
+            string key, string url, string address, int epoch)
+        {
+            var path = await Loader.EnsureCachedFile(url);
+            if (epoch != _setLoadEpoch) throw new OperationCanceledException();
+            if (string.IsNullOrEmpty(path))
+                throw new InvalidOperationException("bundle is unavailable and has no cached copy");
+
+            var create = AssetBundle.LoadFromFileAsync(path);
+            while (!create.isDone) await Task.Yield();
+            var bundle = create.assetBundle;
+            if (bundle == null) throw new InvalidOperationException("Unity rejected the AssetBundle");
+            if (epoch != _setLoadEpoch)
+            {
+                bundle.Unload(true);
+                throw new OperationCanceledException();
+            }
+
+            var request = bundle.LoadAssetAsync<GameObject>(address);
+            while (!request.isDone) await Task.Yield();
+            var prefab = request.asset as GameObject;
+            if (prefab == null || epoch != _setLoadEpoch)
+            {
+                bundle.Unload(true);
+                if (epoch != _setLoadEpoch) throw new OperationCanceledException();
+                throw new InvalidOperationException($"prefab address '{address}' is absent");
+            }
+            return new SetBundle { Key = key, Bundle = bundle, Prefab = prefab };
+        }
+
+        private void ReleaseSetBundle(SetBundle loaded)
+        {
+            if (loaded == null || loaded.Leases <= 0) return;
+            loaded.Leases--;
+            if (loaded.Leases == 0 && !loaded.Warm) _ = UnloadSetBundleNextFrame(loaded);
+        }
+
+        private async Task UnloadSetBundleNextFrame(SetBundle loaded)
+        {
+            // WorldStage destroys the old instantiated set at end-of-frame.
+            // Wait one continuation before Unload(true), otherwise Unity can
+            // invalidate materials still referenced by that dying instance.
+            await Task.Yield();
+            if (loaded == null || loaded.Leases != 0 || loaded.Warm || loaded.Bundle == null) return;
+            if (_setLoads.TryGetValue(loaded.Key, out var task) &&
+                task.IsCompletedSuccessfully && ReferenceEquals(task.Result, loaded))
+                _setLoads.Remove(loaded.Key);
+            loaded.Bundle.Unload(true);
+            loaded.Bundle = null;
+            loaded.Prefab = null;
         }
 
         public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
@@ -164,6 +376,19 @@ namespace Lvn.UI
 
         public void Unload(string url) => Loader.Unload(url);
 
-        public void UnloadAll() => Loader.UnloadAll();
+        public void UnloadAll()
+        {
+            _setLoadEpoch++; // in-flight bundle opens self-cancel and unload
+            Loader.UnloadAll();
+            foreach (var task in _setLoads.Values)
+                if (task.IsCompletedSuccessfully && task.Result?.Bundle != null)
+                {
+                    task.Result.Bundle.Unload(true);
+                    task.Result.Bundle = null;
+                    task.Result.Prefab = null;
+                }
+            _setLoads.Clear();
+            _warmSets.Clear();
+        }
     }
 }

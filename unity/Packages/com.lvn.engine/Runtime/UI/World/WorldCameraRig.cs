@@ -26,6 +26,13 @@ namespace Lvn.UI.World
 
         public void Bind(RectTransform target) { _t = target; }
 
+        /// <summary>Called every frame with what the rig is doing right now:
+        /// the 2D offset in canvas units and the zoom factor. A 3D backdrop
+        /// listens so a hit shakes the SET too — without it the sprites jolt
+        /// while the world behind them stands perfectly still, which reads as a
+        /// painted backdrop no matter how good the geometry is.</summary>
+        public System.Action<Vector2, float> Echo;
+
         public void Shake(float amplitude, float seconds)
         {
             if (_t == null || amplitude <= 0f || seconds <= 0f) return;
@@ -90,6 +97,8 @@ namespace Lvn.UI.World
             // Reapply position every frame while shaking or panning.
             if (_shakeStart >= 0f || _panStart >= 0f) ApplyPosition();
             else if (_t.anchoredPosition != _panBase) _t.anchoredPosition = _panBase;
+
+            Echo?.Invoke(_t.anchoredPosition, _t.localScale.x);
         }
     }
 }
