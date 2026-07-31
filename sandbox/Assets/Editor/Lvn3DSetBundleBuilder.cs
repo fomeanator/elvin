@@ -38,8 +38,11 @@ public static class Lvn3DSetBundleBuilder
         var remoteRoot = Path.Combine(Application.dataPath, "ServerSets");
         var prefabs = new[] { fallbackRoot, remoteRoot }
             .Where(Directory.Exists)
-            .SelectMany(root => Directory.GetFiles(
-                root, "*.prefab", SearchOption.TopDirectoryOnly))
+            // .unity наравне с .prefab: набор, приехавший из покупной сцены,
+            // пакуется СЦЕНОВЫМ бандлом — только так уезжают террейн, деревья
+            // и трава, которых префаб не видит.
+            .SelectMany(root => Directory.GetFiles(root, "*.prefab", SearchOption.TopDirectoryOnly)
+                        .Concat(Directory.GetFiles(root, "*.unity", SearchOption.TopDirectoryOnly)))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
         if (prefabs.Length == 0)
@@ -60,19 +63,24 @@ public static class Lvn3DSetBundleBuilder
             var id = Path.GetFileNameWithoutExtension(path);
             var assetPath = "Assets" + path.Substring(Application.dataPath.Length)
                 .Replace('\\', '/');
+            // У сценового бандла адрес — путь сцены, а не короткое имя:
+            // SceneManager грузит её именно по нему.
+            bool isScene = assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase);
             return new AssetBundleBuild
             {
                 assetBundleName = $"{id}.{platform}.bundle",
                 assetNames = new[] { assetPath },
-                addressableNames = new[] { id },
+                addressableNames = isScene ? null : new[] { id },
             };
         }).ToArray();
 
         // Absolute project-local output: a relative path depends on the process
         // working directory and made an interactive Editor build race its Temp
         // folder during asset import.
+        // НЕ в Library: как только в сборке появляется сцена, Unity отвечает
+        // «Building to the Library folder is not allowed» и роняет весь вызов.
         var temp = Path.GetFullPath(Path.Combine(
-            Application.dataPath, "..", "Library", "Lvn3DSets", platform));
+            Application.dataPath, "..", "Build", "Lvn3DSets", platform));
         Directory.CreateDirectory(temp);
         var built = BuildPipeline.BuildAssetBundles(
             temp, builds,
@@ -96,6 +104,7 @@ public static class Lvn3DSetBundleBuilder
             descriptors[id] = new BundleDescriptor
             {
                 url = "/content/sets/" + build.assetBundleName,
+                scene = build.assetNames[0].EndsWith(".unity", StringComparison.OrdinalIgnoreCase),
                 asset = id,
                 hash = built.GetAssetBundleHash(build.assetBundleName).ToString(),
                 bytes = new FileInfo(destination).Length,
@@ -156,6 +165,9 @@ public static class Lvn3DSetBundleBuilder
     private sealed class BundleDescriptor
     {
         public string url;
+        /// <summary>Бандл несёт СЦЕНУ, а не префаб: рантайм грузит её
+        /// аддитивно. Только так доезжают террейн, его деревья и трава.</summary>
+        public bool scene;
         public string asset;
         public string hash;
         public long bytes;

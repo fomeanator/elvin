@@ -129,6 +129,15 @@ namespace Lvn.UI.Screens
 
         private async void Start()
         {
+            // Ровная подача кадров. Без явной цели Android отдаёт «сколько
+            // получится», и картинка идёт рывками даже там, где кадров хватает:
+            // на телефоне vSync игнорируется, а плавность считывается по
+            // РАВНОМЕРНОСТИ интервалов, а не по их числу. 60 там, где экран это
+            // умеет, иначе родная частота панели.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate =
+                Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
+
             // Boot telemetry: one stopwatch, a mark per phase — `adb logcat -s
             // Unity | grep lvn-boot` (or the editor console) reads as a boot
             // profile. Anything that grows here is a regression to hunt.

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Lvn.UI.World
@@ -26,10 +27,27 @@ namespace Lvn.UI.World
         /// <summary>Where sets are built: far enough that nothing else sees them.</summary>
         private static readonly Vector3 Far = new Vector3(0f, -10000f, 0f);
 
+        /// <summary>Во сколько раз крупнее экрана снимается НЕПОДВИЖНЫЙ кадр.
+        ///
+        /// <para>Ровно 2, и это принципиально: при показе кадр ужимается
+        /// билинейным фильтром, а тот усредняет ЧЕТЫРЕ соседних тексела. Только
+        /// при целом двукратном масштабе эта четвёрка ложится точно на один
+        /// экранный пиксель — получается честное усреднение. На дробном (1.5)
+        /// фильтр берёт соседей вразнобой, и часть лесенки доживает до экрана:
+        /// именно это и было видно на устройстве.</para>
+        ///
+        /// Для неподвижного кадра цена — один рендер, не каждый кадр.</summary>
+        private const float Supersample = 2f;
+
+        /// <summary>Сглаживание, пока камера едет: тайловые мобильные GPU берут
+        /// за 4x порядка 10–15% кадра — за время проезда это приемлемо.</summary>
+        private const int MovingSamples = 4;
+
         private Camera _cam;
         private RenderTexture _rt;
         private GameObject _set;
         private Lvn3DSetEnv _env;      // the set's own sky/fog/ambient, if it brought any
+        private readonly List<Material> _snapshotMaterials = new List<Material>();
 
         // Current framing, and where a tween is taking it.
         private Vector3 _pos, _posTo;
@@ -90,6 +108,7 @@ namespace Lvn.UI.World
                 Kill(_set);
                 _set = null;
             }
+            ReleaseSnapshotMaterials();
             if (prefab == null)
             {
                 Release();
@@ -117,6 +136,29 @@ namespace Lvn.UI.World
 
             _live = SetAnimates(_set);
             _cam.enabled = _live;
+
+            // A visual-novel backdrop is a composed shot, even while its camera
+            // glides to the next mark. Time-driven vendor wind otherwise moves
+            // alpha-cutout leaves in BOTH the colour and ShadowCaster passes on
+            // every moving frame. On a mobile shadow map that reads as crawling,
+            // flickering leaf shadows. Clone only the few wind materials used by
+            // this instance and pin them to one pose; source assets and other
+            // scenes keep their animation.
+            if (_env == null || _env.freezeShaderWind)
+                FreezeSnapshotShaderWind(_set);
+
+            // Набор ставится один раз и дальше НЕ двигается — значит его
+            // геометрию можно слепить в общие буферы. Без этого каждый камень
+            // и каждая ёлка уходят отдельным вызовом отрисовки: у лесного
+            // набора это 450 вызовов на кадр, отсюда рывки по секунде.
+            try
+            {
+                StaticBatchingUtility.Combine(_set);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[bg3d] набор не удалось слепить: " + e.Message);
+            }
 
             // A set authored around its own origin lands around Far; the camera
             // frames it in the set's local space, so authors keep thinking in
@@ -151,6 +193,61 @@ namespace Lvn.UI.World
                 if (c is MonoBehaviour) return true;
             }
             return false;
+        }
+
+        /// <summary>Pin time-driven vegetation and its shadow caster to one pose.
+        /// One clone is shared by every renderer that used the same source
+        /// material, so a forest with thousands of instances creates only a
+        /// handful of materials.</summary>
+        private void FreezeSnapshotShaderWind(GameObject set)
+        {
+            ReleaseSnapshotMaterials();
+            var replacements = new Dictionary<Material, Material>();
+            int bindings = 0;
+            foreach (var renderer in set.GetComponentsInChildren<Renderer>(true))
+            {
+                var materials = renderer.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    var source = materials[i];
+                    if (source == null ||
+                        (!source.HasProperty("_CUSTOMWIND") &&
+                         !source.HasProperty("_CUSTOMWIND1")))
+                        continue;
+
+                    if (!replacements.TryGetValue(source, out var frozen))
+                    {
+                        frozen = Instantiate(source);
+                        frozen.name = source.name + " (snapshot)";
+                        // Keep the keyword variant the bundle was built with.
+                        // Disabling a shader_feature at runtime is unsafe on
+                        // Android: Unity may have stripped that unused variant.
+                        // Zero speed keeps the authored bend but removes _Time
+                        // from subsequent frames. Strength is the fallback for
+                        // other compatible vegetation shaders.
+                        if (frozen.HasProperty("_WindMovement"))
+                            frozen.SetFloat("_WindMovement", 0f);
+                        else if (frozen.HasProperty("_WindStrength"))
+                            frozen.SetFloat("_WindStrength", 0f);
+                        replacements.Add(source, frozen);
+                        _snapshotMaterials.Add(frozen);
+                    }
+                    materials[i] = frozen;
+                    changed = true;
+                    bindings++;
+                }
+                if (changed) renderer.sharedMaterials = materials;
+            }
+            if (replacements.Count > 0)
+                Debug.Log($"[bg3d-shadow] frozen wind in {replacements.Count} material(s), " +
+                          $"{bindings} renderer binding(s)");
+        }
+
+        private void ReleaseSnapshotMaterials()
+        {
+            foreach (var material in _snapshotMaterials) Kill(material);
+            _snapshotMaterials.Clear();
         }
 
         /// <summary>What the 2D camera rig is doing, so the set moves with it:
@@ -222,6 +319,7 @@ namespace Lvn.UI.World
                 Kill(_set);
                 _set = null;
             }
+            ReleaseSnapshotMaterials();
             if (_cam != null) _cam.enabled = false;
             if (_rt != null)
             {
@@ -277,9 +375,21 @@ namespace Lvn.UI.World
             // run stays honest about state without touching the GPU.
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return;
 
-            int w = Mathf.Max(256, Screen.width);
-            int h = Mathf.Max(256, Screen.height);
-            if (_rt != null && _rt.width == w && _rt.height == h)
+            // Сглаживание задаём САМИ, а не спрашиваем QualitySettings: на
+            // Android активен уровень «Medium», где antiAliasing=0 — набор
+            // снимался вообще без сглаживания, отсюда лесенка на каждом ребре
+            // и мерцание листвы при проездах камеры.
+            //
+            // Кадр новеллы статичен между движениями камеры, поэтому неподвижный
+            // снимаем С ЗАПАСОМ разрешения и ужимаем при показе (суперсэмплинг):
+            // платим один раз за кадр, а качество выше любого MSAA. Пока камера
+            // едет — обычный размер с MSAA, чтобы не жечь батарею каждый кадр.
+            bool moving = _live || _speed > 0f;
+            float ss = moving ? 1f : Supersample;
+            int aa = moving ? MovingSamples : 1;
+            int w = Mathf.Max(256, Mathf.RoundToInt(Screen.width * ss));
+            int h = Mathf.Max(256, Mathf.RoundToInt(Screen.height * ss));
+            if (_rt != null && _rt.width == w && _rt.height == h && _rt.antiAliasing == aa)
             {
                 // A camera without a target draws directly to the display. Even
                 // if another component cleared it, restore the invariant here.
@@ -295,9 +405,12 @@ namespace Lvn.UI.World
             _rt = new RenderTexture(w, h, 24, RenderTextureFormat.Default)
             {
                 name = "lvn-3d-frame",
-                antiAliasing = QualitySettings.antiAliasing > 0 ? QualitySettings.antiAliasing : 1,
+                antiAliasing = aa,
+                filterMode = FilterMode.Bilinear, // мягко ужимаем крупный кадр
             };
             _cam.targetTexture = _rt;
+            Debug.Log($"[bg3d-aa] буфер {_rt.width}×{_rt.height} MSAA×{_rt.antiAliasing} " +
+                      $"(экран {Screen.width}×{Screen.height}, живой={_live}, едет={_speed > 0f})");
             TextureChanged?.Invoke(_rt);
             Shoot(); // the buffer is fresh and empty — fill it at once
         }
