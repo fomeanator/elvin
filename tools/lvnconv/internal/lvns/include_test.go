@@ -316,3 +316,47 @@ func TestMissingPackageIncludeNamesTheVendorDir(t *testing.T) {
 		t.Errorf("ошибка = %q, ожидал упоминание lvns_packages", err)
 	}
 }
+
+// Студия/плейграунд компилируют в браузере из набора буферов. Пакетный файл
+// лежит там под ПОЛНЫМ ключом: срезав путь до имени, редактор искал бы
+// duel.lvns и не находил ничего, как только плоская копия пакета исчезла.
+func TestConvertFilesResolvesPackagePathByFullKey(t *testing.T) {
+	doc, err := ConvertFiles(
+		"scene ch\ninclude \"@fomean/lvn-duel/duel.lvns\"\nGot {pkg_gold}.\n-> __end\n", "ch.lvns",
+		map[string]string{
+			"@fomean/lvn-duel/duel.lvns":  "pkg_gold = 3\ninclude \"extra.lvns\"\n",
+			"@fomean/lvn-duel/extra.lvns": "pkg_extra = 1\n",
+			"duel.lvns":                   "wrong = 1\n", // тёзка из другой новеллы — брать нельзя
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, c := range doc.Script {
+		if c["op"] == "set" {
+			got = append(got, c["key"].(string))
+		}
+	}
+	// pkg_gold + pkg_extra (сосед по каталогу пакета), и НИ РАЗУ wrong.
+	if len(got) != 2 {
+		t.Fatalf("set-ключи = %v, ожидались pkg_gold и pkg_extra", got)
+	}
+	for _, k := range got {
+		if k == "wrong" {
+			t.Fatalf("подхватился тёзка вне пакета: %v", got)
+		}
+	}
+}
+
+// Пакета нет среди буферов — сообщение обязано назвать пакет, а не список
+// «есть: …», в котором его и не могло быть.
+func TestConvertFilesMissingPackageSaysWhichPackage(t *testing.T) {
+	_, err := ConvertFiles("scene ch\ninclude \"@a/b/lib.lvns\"\n-> __end\n", "ch.lvns",
+		map[string]string{"other.lvns": "x = 1\n"})
+	if err == nil {
+		t.Fatal("отсутствующий пакет скомпилировался")
+	}
+	if !strings.Contains(err.Error(), "@a/b/lib.lvns") {
+		t.Errorf("ошибка = %q, ожидалось имя пакета", err)
+	}
+}
