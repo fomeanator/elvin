@@ -220,8 +220,16 @@ func main() {
 			// heuristic caching otherwise keeps stale interpreters alive across
 			// deploys. no-cache = revalidate every load (304s keep it fast).
 			site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if strings.HasPrefix(r.URL.Path, "/play/") {
+				switch {
+				case strings.HasPrefix(r.URL.Path, "/play/"):
 					w.Header().Set("Cache-Control", "no-cache")
+				case isAppShell(r.URL.Path):
+					// index.html — ОБОЛОЧКА приложения: она и только она знает
+					// хэши свежих бандлов. Закэшированная, она грузит вчерашний
+					// index-*.js, и деплой «не доезжает» — правка на сервере есть,
+					// а в браузере старый код. Сами бандлы неизменяемы (хэш в
+					// имени), их кэш не трогаем.
+					w.Header().Set("Cache-Control", "no-store")
 				}
 				rawSite.ServeHTTP(w, r)
 			})
@@ -962,4 +970,10 @@ func (s *server) manifestRevGate(body []byte) ([]byte, int, string) {
 		return nil, http.StatusInternalServerError, err.Error()
 	}
 	return append(out, '\n'), 0, ""
+}
+
+// isAppShell — путь, по которому отдаётся index.html: корень, каталог со
+// слэшем на конце и сам файл. Именно эти ответы обязаны быть свежими.
+func isAppShell(p string) bool {
+	return p == "" || p == "/" || strings.HasSuffix(p, "/") || strings.HasSuffix(p, "/index.html") || p == "index.html"
 }
