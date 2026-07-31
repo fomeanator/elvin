@@ -128,3 +128,6 @@ unity.licence
 /push
 .codex/
 .agents/
+# vendor пакетов .lvns — восстанавливается `lvnconv deps sync` (docs/packages.md)
+lvns_packages/
+server/content/packages/

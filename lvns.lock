@@ -1,0 +1,27 @@
+{
+  "packages": {
+    "@fomean/lvn-duel": {
+      "ref": "file:packages/lvn-duel",
+      "files": {
+        "assets/enemies/skeleton_attack.png": "8be4cc3e7fadecc372876c2dd2a89c7dedab505de55c24dc84e271f278ce4754",
+        "assets/enemies/skeleton_hurt.png": "45efede70073d88dff7a32e909e3c4a4814550ec5dc4eb879c53bf9203ff764b",
+        "assets/enemies/skeleton_idle.png": "0b96538e5f1afaaad5f1334caf07475ead69394286be3bfa39285976e1574499",
+        "assets/fp/hands_sword_attack.png": "8c3c7c76e43243e7c4ffe8bbdfb183e65acf3218f16e05c183c3b3d2fb91b91f",
+        "assets/fp/hands_sword_block.png": "536e37ae1c37623cc7780b905294b3d6be22335e0b9c41c2c4d91e4e3cd47572",
+        "assets/fp/hands_sword_idle.png": "f95e55f559b79306ee02cbf0b532c2bdd6aabda244430349b482a4e24712841e",
+        "assets/ui/bar_back.png": "8f7b90d9d782d9b42a1f934006f9eba6d94f4b347148fcd95db2c46c344f4f5f",
+        "assets/ui/bar_foe.png": "91d30137d1f424197f568b43711cbb695dea4af8e651f1404fc26450c4ecd746",
+        "assets/ui/bar_hero.png": "c553eca1b9581cf8872d0ebe82494890ed5b108b347530f532a07ec2346b7b72",
+        "assets/ui/bg_yard.png": "d9e663c093c7974f647e9f05e3e5851ac29473a3c0fc248685cb0aca626b681d",
+        "assets/ui/icon_block.png": "4c20d1ae268ebdaf6c26da93d5652aaa3c37ce11fdba79c1a853e82a8e6995b5",
+        "assets/ui/icon_break.png": "e1ade3ca04ab28c6eea984ce63d970245cb0b3e5c41ace431442e861278c72a8",
+        "assets/ui/icon_reset.png": "886b7f57996b6c0773d011cdb680581ea3502b105ee46ff42d826599e1fea9de",
+        "assets/ui/icon_strike.png": "5b89b599a9fed2b83200618b110d0bbbd89258b78ece32c3ce34708d8b6a6767",
+        "assets/ui/icon_stun.png": "6b1baf0ebd242d10f7978daa4301adddd992aa9aad770f6fa390546531bedce5",
+        "assets/ui/slot_empty.png": "6fa519fae5d14b2a412161b6e2363d5e7e51535fad72e1428d32bda12cee8396",
+        "duel.lvns": "46043c4cd12243c5c940552b18e3ba744287f62e3e6c8920302ffbcf577dd041",
+        "lvns.package.json": "2fab17d99dc0dd8b6001c3ffd33c7e1e4596408fa55d9348cda9a60c82f2478a"
+      }
+    }
+  }
+}
