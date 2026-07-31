@@ -189,5 +189,50 @@ namespace Lvn.Tests
 
             Assert.IsFalse(backdrop.Active, "null stands nothing — the scene goes back to flat art");
         }
+
+        [Test]
+        public void EnvironmentCard_AppliesAndRestoresItsShadowProfile()
+        {
+            var wasQuality = QualitySettings.shadows;
+            var wasResolution = QualitySettings.shadowResolution;
+            var wasCascades = QualitySettings.shadowCascades;
+            var wasDistance = QualitySettings.shadowDistance;
+            var wasNear = QualitySettings.shadowNearPlaneOffset;
+            var go = new GameObject("set-environment");
+            var env = go.AddComponent<Lvn3DSetEnv>();
+            env.shadowQuality = ShadowQuality.All;
+            env.shadowResolution = ShadowResolution.Medium;
+            env.shadowCascades = 3; // normalized to a supported Unity value
+            env.shadowDistance = 17f;
+            env.shadowNearPlaneOffset = 1.5f;
+
+            try
+            {
+                env.Apply();
+
+                Assert.AreEqual(ShadowQuality.All, QualitySettings.shadows);
+                Assert.AreEqual(ShadowResolution.Medium, QualitySettings.shadowResolution);
+                Assert.AreEqual(2, QualitySettings.shadowCascades);
+                Assert.AreEqual(17f, QualitySettings.shadowDistance, 0.001f);
+                Assert.AreEqual(1.5f, QualitySettings.shadowNearPlaneOffset, 0.001f);
+
+                env.Restore();
+                Assert.AreEqual(wasQuality, QualitySettings.shadows);
+                Assert.AreEqual(wasResolution, QualitySettings.shadowResolution);
+                Assert.AreEqual(wasCascades, QualitySettings.shadowCascades);
+                Assert.AreEqual(wasDistance, QualitySettings.shadowDistance, 0.001f);
+                Assert.AreEqual(wasNear, QualitySettings.shadowNearPlaneOffset, 0.001f);
+            }
+            finally
+            {
+                env.Restore();
+                Object.DestroyImmediate(go);
+                QualitySettings.shadows = wasQuality;
+                QualitySettings.shadowResolution = wasResolution;
+                QualitySettings.shadowCascades = wasCascades;
+                QualitySettings.shadowDistance = wasDistance;
+                QualitySettings.shadowNearPlaneOffset = wasNear;
+            }
+        }
     }
 }
