@@ -88,6 +88,13 @@ namespace Lvn.Content
         /// <summary>Address of the prefab inside the bundle. Defaults to the set id.</summary>
         public string asset;
 
+        /// <summary>Бандл несёт СЦЕНУ, а не префаб. Покупная сцена держит
+        /// половину себя вне объектов — террейн (его данные отдельный ассет),
+        /// деревья и траву террейна, запечённый свет; префаб всё это теряет,
+        /// и на устройстве остаётся геометрия, висящая в пустоте. Сцена увозит
+        /// всё как есть, поэтому наборы из магазинных сцен пакуются так.</summary>
+        public bool scene;
+
         /// <summary>BuildPipeline AssetBundle hash. It participates in the
         /// in-memory identity, so a live manifest update can replace a bundle
         /// while keeping its public URL stable.</summary>
