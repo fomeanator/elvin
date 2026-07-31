@@ -105,6 +105,30 @@ goto __end
 // editor, a compiled-.lvn preview, a Problems dock and a status bar. No local
 // drafts — the server is the single source of truth: open re-reads the chapter's
 // .lvns, "Save to app" writes both the .lvns source and the compiled .lvn back.
+// Ключ и адрес подключаемого файла. У ПАКЕТА (docs/packages.md) путь значим
+// целиком: "@scope/pkg/duel.lvns" — не то же, что "duel.lvns" соседней
+// новеллы, и на сервере он лежит в scripts/lvns_packages/. Обычный include
+// как был: файл рядом, ключ — его имя.
+function incKey(raw) {
+  const s = String(raw);
+  return s.startsWith("@") ? s : s.split("/").pop();
+}
+function incUrl(key) {
+  return String(key).startsWith("@")
+    ? "/content/scripts/lvns_packages/" + key
+    : "/content/scripts/" + key;
+}
+
+// Все id глав манифеста — по ним отличаем главу от библиотеки в плоском
+// каталоге scripts/. Ходит по всем титулам: файл главы принадлежит своей
+// новелле, даже когда открыта соседняя.
+function allChapterIds(manifest) {
+  const out = [];
+  (manifest?.titles || []).forEach((t) =>
+    (t.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => out.push(c.id))));
+  return out;
+}
+
 export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const [title, setTitle] = useState(null);
   // The manifest fetch takes a beat — until it lands we genuinely don't know
@@ -180,10 +204,13 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         try { setExtGrammar(await getExtGrammar()); }
         catch (e) { notify("ext-grammar.json: " + ((e && e.message) || "не читается"), "err"); }
         let t = null;
+        // Манифест нужен и ПОСЛЕ этого блока (главы всех титулов для фильтра
+        // общих файлов), поэтому переменная живёт снаружи try, а не внутри.
+        let man = null;
         try {
-          const m = await getManifest();
-          setCatalog(m.sprites || {});
-          t = (m.titles || []).find((x) => x.id === titleId) || null;
+          man = await getManifest();
+          setCatalog(man.sprites || {});
+          t = (man.titles || []).find((x) => x.id === titleId) || null;
         } catch {}
         if (!t) t = { id: titleId, seasons: [{ chapters: [] }] };
         if (!t.seasons || t.seasons.length === 0) t.seasons = [{ chapters: [] }];
@@ -194,7 +221,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
         setPublished(new Set(ids));
         const first = (t.seasons[0].chapters || [])[0];
         await ensureWasm().then(() => (wasmReady.current = true)).catch(() => {});
-        await loadShared(ids);
+        await loadShared(ids, allChapterIds(man));
         if (first) openChapter(first); else { setSrc(""); compile(""); }
       } finally {
         setBooting(false);
@@ -231,12 +258,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     const rx = /^[ \t]*include[ \t]+"([^"]+)"[ \t]*$/gm;
     const names = [];
     let m;
-    while ((m = rx.exec(text || ""))) names.push(String(m[1]).split("/").pop());
+    while ((m = rx.exec(text || ""))) names.push(incKey(m[1]));
     const missing = names.filter((n) => sourcesRef.current[n] === undefined);
     if (!missing.length) return;
     await Promise.all(missing.map(async (n) => {
       try {
-        const r = await fetch("/content/scripts/" + n + "?v=" + Date.now(), { cache: "no-store" });
+        const r = await fetch(incUrl(n) + "?v=" + Date.now(), { cache: "no-store" });
         const t = r.ok ? await r.text() : null;
         // Статика при отсутствии .lvns может отдать что-то другое — компилятору
         // нужен исходник, а не JSON скомпилированной главы.
@@ -312,7 +339,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
       const ids = [];
       (t?.seasons || []).forEach((s) => (s.chapters || []).forEach((c) => ids.push(c.id)));
       if (ids.length) setPublished(new Set(ids));
-      await loadShared(ids);
+      await loadShared(ids, allChapterIds(m));
     } catch { /* не смогли — попробуем на следующем тике */ }
   }
 
@@ -322,12 +349,16 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     compile(text);
   }
 
-  async function loadShared(chapterIds) {
+  async function loadShared(chapterIds, allChapterIds) {
     if (!creds.token) return;
     let names = [];
     try {
       const r = await adminFiles("scripts", creds.token);
-      const chapterFiles = new Set(chapterIds.map((id) => id + ".lvns"));
+      // «Общий файл» — это библиотека, а не глава. Скрывать надо главы ВСЕХ
+      // титулов студии, а не только открытого: иначе главы соседней новеллы
+      // (ec-ch01, ec-fedor-ch01 …) висят в списке общих, хотя ни один
+      // include их не подключает и открывать их отсюда нечего.
+      const chapterFiles = new Set((allChapterIds || chapterIds).map((id) => id + ".lvns"));
       names = (r.files || [])
         .filter((f) => !f.dir && /\.lvns$/.test(f.name) && !chapterFiles.has(f.name))
         .map((f) => f.name)
@@ -407,11 +438,11 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     libOpenRef.current = true;
     setImported(false);
     importedRef.current = false;
-    creds.setPath("scripts/" + name);
+    creds.setPath(String(name).startsWith("@") ? "scripts/lvns_packages/" + name : "scripts/" + name);
     let txt = sourcesRef.current[name] || "";
     let found = !!txt;
     try {
-      const r = await fetch("/content/scripts/" + name + "?v=" + Date.now(), { cache: "no-store" });
+      const r = await fetch(incUrl(name) + "?v=" + Date.now(), { cache: "no-store" });
       if (openEpoch.current !== epoch) return;
       if (r.ok) { txt = await r.text(); found = true; }
     } catch { /* останется то, что уже прочитали для include */ }
@@ -431,7 +462,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // спросил «и как его открыть?» — и был прав: способа не было. Глава открывается
   // как глава (у неё номер и запись в манифесте), всё остальное — как общий файл.
   function openInclude(raw) {
-    const name = String(raw).split("/").pop();
+    const name = incKey(raw);
     const ch = chapters.find((c) => c.id + ".lvns" === name);
     if (ch) { openChapter(ch); return; }
     // null = файл уже пробовали докачать для компиляции и его нет. Молча открыть
@@ -787,7 +818,17 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     if (sharedName) openShared(sharedName); else openChapter(sel);
     notify("Перечитано с сервера (черновик сброшен)", "ok");
   }
-  const cmdCount = (output.match(/"op":/g) || []).length;
+  // Считать по РАЗОБРАННОМУ документу, а не по вхождениям `"op":` в тексте:
+  // у структурного `if` внутри есть свой cond с полем "op" ("gte" и т.п.), и
+  // регулярка засчитывала его как отдельную команду — счётчик завышался ровно
+  // на число таких условий и расходился с `lvnconv probe`.
+  const cmdCount = useMemo(() => {
+    try {
+      const d = JSON.parse(output);
+      if (Array.isArray(d?.script)) return d.script.length;
+    } catch { /* во время печати JSON бывает неполным — падать нельзя */ }
+    return (output.match(/"op":/g) || []).length;
+  }, [output]);
   const errCount = diags.filter((d) => d.sev === "error").length;
   const warnCount = diags.filter((d) => d.sev === "warning").length;
   const goLine = (line) => { if (line > 0) setJump((j) => ({ line, n: j.n + 1 })); };
@@ -814,7 +855,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     src.split("\n").forEach((l, i) => {
       const m = /^[ \t]*include[ \t]+"([^"]+)"/.exec(l);
       if (!m) return;
-      const name = String(m[1]).split("/").pop();
+      const name = incKey(m[1]);
       if (!out.some((x) => x.name === name)) out.push({ name, line: i + 1 });
     });
     return out;
