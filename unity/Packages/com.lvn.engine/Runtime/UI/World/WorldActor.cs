@@ -385,6 +385,43 @@ namespace Lvn.UI.World
             if (_channels.Count == 0) ResetTargets();
         }
 
+        /// <summary>Показать только часть спрайта, ОБРЕЗАВ остальное (полоса
+        /// прогресса). Через width спрайт масштабируется — у полосы здоровья
+        /// сминались скругления и рамка; здесь длина режется, а рисунок остаётся
+        /// в своём масштабе. Реализовано встроенным Image.Type.Filled.</summary>
+        public void SetFill(float? fill, string from)
+        {
+            foreach (var img in AllLayerImages())
+            {
+                if (img == null) continue;
+                if (fill == null)
+                {
+                    if (img.type == Image.Type.Filled) img.type = Image.Type.Simple;
+                    continue;
+                }
+                img.type = Image.Type.Filled;
+                img.fillMethod = (from == "bottom" || from == "top")
+                    ? Image.FillMethod.Vertical : Image.FillMethod.Horizontal;
+                img.fillOrigin = from == "right" ? (int)Image.OriginHorizontal.Right
+                               : from == "top" ? (int)Image.OriginVertical.Top
+                               : from == "bottom" ? (int)Image.OriginVertical.Bottom
+                               : (int)Image.OriginHorizontal.Left;
+                img.fillAmount = Mathf.Clamp01(fill.Value);
+            }
+        }
+
+        /// <summary>Все Image-слои актёра: именованные (из каталога) и безымянные
+        /// (одиночный sprite_url — самый частый случай для полос и иконок).</summary>
+        private System.Collections.Generic.IEnumerable<Image> AllLayerImages()
+        {
+            if (_rig == null) yield break;
+            for (int i = 0; i < _rig.childCount; i++)
+            {
+                var img = _rig.GetChild(i).GetComponent<Image>();
+                if (img != null) yield return img;
+            }
+        }
+
         private void ApplyRig(RectTransform rt, CanvasGroup group, float tx, float ty, float scx, float scy, float rot, float al, Image img = null)
         {
             var size = rt.rect.size;

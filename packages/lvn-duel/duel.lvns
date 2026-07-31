@@ -329,6 +329,9 @@ func duel_hud_plate() {
 
 func foe_bar() {
   obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.185 width=0.34 height=0.025 anchor="0.5,0.5" z=30
+  // Полоса ОБРЕЗАЕТСЯ по левому краю (fill), а не сжимается шириной: рамка и
+  // скругления заливки остаются в своём масштабе, укорачивается только длина.
+  // Ступеней столько же, сколько хп, — числовые поля obj по-прежнему литералы.
   if враг_хп >= 8 -> фб8
   if враг_хп == 7 -> фб7
   if враг_хп == 6 -> фб6
@@ -340,30 +343,43 @@ func foe_bar() {
   obj id=foe_bar_fill show=false
   -> фбг
   :фб8
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=1.00
   -> фбг
   :фб7
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.298 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.875
   -> фбг
   :фб6
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.255 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.75
   -> фбг
   :фб5
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.213 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.625
   -> фбг
   :фб4
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.170 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.50
   -> фбг
   :фб3
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.128 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.375
   -> фбг
   :фб2
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.085 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.25
   -> фбг
   :фб1
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.043 height=0.025 anchor="0,0.5" z=31
+  bar_fill_foe()
+  obj id=foe_bar_fill fill=0.125
   -> фбг
   :фбг
+}
+
+// Заливка врага во всю длину трека — режет её fill, а не ширина.
+func bar_fill_foe() {
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
 }
 
 func hero_bar() {
@@ -377,24 +393,35 @@ func hero_bar() {
   obj id=hero_bar_fill show=false
   -> гбг
   :гб6
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=1.00
   -> гбг
   :гб5
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.283 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=0.833
   -> гбг
   :гб4
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.227 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=0.667
   -> гбг
   :гб3
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.170 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=0.50
   -> гбг
   :гб2
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.113 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=0.333
   -> гбг
   :гб1
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.057 height=0.025 anchor="0,0.5" z=31
+  bar_fill_hero()
+  obj id=hero_bar_fill fill=0.167
   -> гбг
   :гбг
+}
+
+// Заливка героя во всю длину трека — режет её fill.
+func bar_fill_hero() {
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
 }
 
 func bars_hide() {

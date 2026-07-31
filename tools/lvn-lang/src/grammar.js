@@ -105,7 +105,9 @@ export const OP_FIELDS = {
     "on_drop_miss",
     "loop",
     "play",
-    "drag_bounds"
+    "drag_bounds",
+    "fill",
+    "fill_from"
   ],
   "fade": [
     "to",
@@ -424,7 +426,7 @@ export const OP_DOCS = {
   ],
   "obj": [
     "obj id=\"x\" sprite_url=\"…\" x= y= on_click=\"label\"",
-    "A placeable, optionally clickable sprite."
+    "A placeable, optionally clickable sprite. `fill=0..1` shows only PART of it — cropped, not squashed (progress/health bars); `fill_from=left|right|top|bottom` picks the side it grows from."
   ],
   "fade": [
     "fade to=\"black|white|clear\" duration=0.8",
@@ -613,7 +615,7 @@ export const GROUPS = [
       ],
       [
         "obj",
-        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds"
+        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds, fill, fill_from"
       ],
       [
         "clear",
