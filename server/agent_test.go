@@ -406,3 +406,62 @@ func TestABrokenSharedFileLeavesWorkingChaptersOnDisk(t *testing.T) {
 		t.Errorf("рабочая глава перезаписана из-за опечатки в общем файле")
 	}
 }
+
+// Пакетный файл публикуется полным @-путём, ложится в scripts/lvns_packages/,
+// глава подключает его тем же путём, а правка пакета пересобирает главу —
+// цепочка целиком, как у плоских общих файлов.
+func TestPublishPackageFileAndRebuildDependents(t *testing.T) {
+	s := publishSrv(t)
+	// файл пакета
+	code, out := publish(t, s, map[string]any{
+		"path": "@t/duel/duel.lvns",
+		"lvns": "func duel_ping() { return 1 }\n",
+	})
+	if code != 200 {
+		t.Fatalf("публикация пакета: %d %v", code, out)
+	}
+	if out["path"] != "scripts/lvns_packages/@t/duel/duel.lvns" {
+		t.Fatalf("path = %v", out["path"])
+	}
+	if _, err := os.Stat(filepath.Join(s.content, "scripts/lvns_packages/@t/duel/duel.lvns")); err != nil {
+		t.Fatal(err)
+	}
+	// глава, подключающая пакет @-путём
+	code, out = publish(t, s, map[string]any{
+		"id": "kd", "chapter": 1,
+		"lvns": "scene kd\ninclude \"@t/duel/duel.lvns\"\nPing {duel_ping()}.\n-> __end\n",
+	})
+	if code != 200 {
+		t.Fatalf("публикация главы с пакетом: %d %v", code, out)
+	}
+	// правка пакета пересобирает главу
+	code, out = publish(t, s, map[string]any{
+		"path": "@t/duel/duel.lvns",
+		"lvns": "func duel_ping() { return 2 }\n",
+	})
+	if code != 200 {
+		t.Fatalf("переиздание пакета: %d %v", code, out)
+	}
+	rebuilt, _ := out["rebuilt"].([]any)
+	found := false
+	for _, r := range rebuilt {
+		if r == "scripts/kd-ch01.lvn" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("глава не пересобралась после правки пакета: rebuilt=%v failed=%v", out["rebuilt"], out["failed"])
+	}
+}
+
+// Пути мимо формата — от годного не отличить, отказ без записи.
+func TestPublishPackagePathValidation(t *testing.T) {
+	s := publishSrv(t)
+	for _, bad := range []string{
+		"@t/../escape/x.lvns", "@T/Upper/x.lvns", "@t/duel/x.txt", "@t/x.lvns", "@t//x.lvns",
+	} {
+		if code, _ := publish(t, s, map[string]any{"path": bad, "lvns": "x = 1\n"}); code != 400 {
+			t.Fatalf("путь %q принят с кодом %d", bad, code)
+		}
+	}
+}
