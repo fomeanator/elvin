@@ -161,3 +161,12 @@ func TestExportBundleIdReplacesTheWholeBlockIncludingAndroid(t *testing.T) {
 		t.Errorf("имя продукта не подставлено:\n%s", got)
 	}
 }
+
+// Экспортированная игра обязана опрашивать контент раз в пять секунд: правка в
+// студии должна доезжать до собранного приложения без пересборки.
+func TestExportedBootUsesFiveSecondLiveSync(t *testing.T) {
+	src := bootSource(exportConfig{ServerURL: "https://example.test"})
+	if !strings.Contains(src, "app.SyncInterval = 5f;") {
+		t.Fatalf("online export must poll content within five seconds:\n%s", src)
+	}
+}
