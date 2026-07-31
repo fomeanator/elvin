@@ -54,3 +54,20 @@ func TestAssetVersionsExcludesManifest(t *testing.T) {
 		t.Fatal("asset-versions must include assets")
 	}
 }
+
+// Оболочка приложения (index.html) обязана отдаваться без кэша: только она
+// знает хэши свежих бандлов. Закэшированная — грузит вчерашний index-*.js, и
+// деплой панели «не доезжает» до браузера. Бандлы с хэшем в имени — наоборот,
+// кэшируются как есть.
+func TestAppShellIsNotCached(t *testing.T) {
+	for _, p := range []string{"/", "/panel/", "/index.html", "/panel/index.html"} {
+		if !isAppShell(p) {
+			t.Errorf("%q должен считаться оболочкой приложения", p)
+		}
+	}
+	for _, p := range []string{"/assets/index-ABC123.js", "/lvns.wasm", "/play/core.js"} {
+		if isAppShell(p) {
+			t.Errorf("%q — не оболочка, кэш ему не мешает", p)
+		}
+	}
+}
