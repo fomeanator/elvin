@@ -320,17 +320,30 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 // угодно под контент-корнем.
 var sharedNameRe = regexp.MustCompile(`^[A-Za-z0-9_-]+\.lvns$`)
 
+// packagePathRe — файл ПАКЕТА: @scope/pkg/…/file.lvns (см. tools/lvnconv/
+// internal/deps). Скоуп и имя пакета — строчные, сегменты без точек в начале,
+// ".." не пройдёт по построению. Такие файлы ложатся в scripts/lvns_packages/,
+// где их находит "@"-резолвер include (include.go, resolveDiskPath).
+var packagePathRe = regexp.MustCompile(`^@[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)+\.lvns$`)
+
 // publishSharedFile кладёт общий файл (тот, который подключают через include)
 // под его собственным именем. Не компилирует и не регистрирует: у библиотеки
 // нет `scene`, отдельная компиляция дала бы .lvn, который никто не играет, и
 // предупреждение о недостающем заголовке. Её проверит первая же глава, которая
 // её подключит, — и это правильный момент.
 func (s *server) publishSharedFile(w http.ResponseWriter, req publishReq) {
-	if !sharedNameRe.MatchString(req.Path) {
-		http.Error(w, `path must be a bare file name like "mechanics.lvns"`, http.StatusBadRequest)
+	var rel string
+	switch {
+	case sharedNameRe.MatchString(req.Path):
+		rel = "scripts/" + req.Path
+	case packagePathRe.MatchString(req.Path):
+		// Файл пакета: главы подключают его полным путём
+		// `include "@scope/pkg/file.lvns"`.
+		rel = "scripts/lvns_packages/" + req.Path
+	default:
+		http.Error(w, `path must be a bare file name like "mechanics.lvns" or a package path like "@scope/pkg/file.lvns"`, http.StatusBadRequest)
 		return
 	}
-	rel := "scripts/" + req.Path
 	lk := s.writeLock()
 	lk.Lock()
 	err := s.writeContentFile(rel, []byte(req.Lvns))
@@ -371,14 +384,26 @@ func (s *server) handleRebuild(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	name := path.Base(strings.TrimSpace(req.Path))
-	if !sharedNameRe.MatchString(name) {
-		http.Error(w, `path must be a .lvns file name`, http.StatusBadRequest)
-		return
+	name := strings.TrimSpace(req.Path)
+	shown := "scripts/" + name
+	switch {
+	case strings.HasPrefix(name, "@"):
+		if !packagePathRe.MatchString(name) {
+			http.Error(w, `package path must look like "@scope/pkg/file.lvns"`, http.StatusBadRequest)
+			return
+		}
+		shown = "scripts/lvns_packages/" + name
+	default:
+		name = path.Base(name)
+		if !sharedNameRe.MatchString(name) {
+			http.Error(w, `path must be a .lvns file name`, http.StatusBadRequest)
+			return
+		}
+		shown = "scripts/" + name
 	}
 	rebuilt, failed := s.rebuildDependents(name)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": len(failed) == 0, "path": "scripts/" + name,
+		"ok": len(failed) == 0, "path": shown,
 		"rebuilt": rebuilt, "failed": failed,
 	})
 }
@@ -386,6 +411,20 @@ func (s *server) handleRebuild(w http.ResponseWriter, r *http.Request) {
 // reIncludeLine ловит директиву подключения в исходнике главы. Кавычки
 // обязательны — так же, как в самом компиляторе.
 var reIncludeLine = regexp.MustCompile(`(?m)^[ \t]*include[ \t]+"([^"]+)"[ \t]*$`)
+
+// depID — идентификатор узла, на который ссылается include из источника src.
+// "@"-путь — узел пакета как есть; относительный путь ИЗ пакета — файл того же
+// пакета (include в пакете резолвится относительно подключающего файла);
+// относительный путь из плоского скрипта — голое имя соседа.
+func depID(src, arg string) string {
+	if strings.HasPrefix(arg, "@") {
+		return path.Clean(arg)
+	}
+	if strings.Contains(src, "/") {
+		return path.Clean(path.Join(path.Dir(src), arg))
+	}
+	return path.Base(arg)
+}
 
 // reSceneLine отличает ГЛАВУ от библиотеки: главa объявляет сцену, библиотека
 // только даёт таблицы и функции.
@@ -408,10 +447,25 @@ func (s *server) rebuildDependents(changed string) ([]string, map[string]string)
 		return nil, nil
 	}
 
-	// Кто что подключает, по именам файлов, и кто из них ГЛАВА.
+	// Кто что подключает, и кто из узлов — ГЛАВА. Идентификатор узла:
+	// плоский общий файл — голое имя ("mechanics.lvns"), файл пакета — его
+	// полный @-путь ("@scope/pkg/duel.lvns"), ровно как автор пишет в include.
 	includes := map[string][]string{}
 	isChapter := map[string]bool{}
 	var sources []string
+	addSource := func(id string, raw []byte) {
+		sources = append(sources, id)
+		// Глава объявляет сцену; библиотека — нет. Пересобирать библиотеку
+		// отдельно бессмысленно и вредно: у неё нет `scene`, компиляция даёт
+		// .lvn, который никто не играет, и мусор в каталоге контента. Первая
+		// версия так и делала — поймал тест на цепочке включений.
+		if reSceneLine.MatchString(string(raw)) {
+			isChapter[id] = true
+		}
+		for _, m := range reIncludeLine.FindAllStringSubmatch(string(raw), -1) {
+			includes[id] = append(includes[id], depID(id, m[1]))
+		}
+	}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".lvns") || strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -420,21 +474,33 @@ func (s *server) rebuildDependents(changed string) ([]string, map[string]string)
 		if rerr != nil {
 			continue
 		}
-		sources = append(sources, e.Name())
-		// Глава объявляет сцену; библиотека — нет. Пересобирать библиотеку
-		// отдельно бессмысленно и вредно: у неё нет `scene`, компиляция даёт
-		// .lvn, который никто не играет, и мусор в каталоге контента. Первая
-		// версия так и делала — поймал тест на цепочке включений.
-		if reSceneLine.MatchString(string(raw)) {
-			isChapter[e.Name()] = true
-		}
-		for _, m := range reIncludeLine.FindAllStringSubmatch(string(raw), -1) {
-			includes[e.Name()] = append(includes[e.Name()], path.Base(m[1]))
-		}
+		addSource(e.Name(), raw)
 	}
+	// Файлы пакетов — рёбра графа: правка пакета обязана пересобрать главы,
+	// которые тянут его напрямую или через другой пакет.
+	pkgRoot := filepath.Join(dir, "lvns_packages")
+	_ = filepath.Walk(pkgRoot, func(p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".lvns") {
+			return nil
+		}
+		raw, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return nil
+		}
+		relp, rerr2 := filepath.Rel(pkgRoot, p)
+		if rerr2 != nil {
+			return nil
+		}
+		addSource(filepath.ToSlash(relp), raw)
+		return nil
+	})
 
 	// Транзитивное «зависит от changed».
-	affected := map[string]bool{path.Base(changed): true}
+	changedID := path.Base(changed)
+	if strings.HasPrefix(changed, "@") {
+		changedID = path.Clean(changed)
+	}
+	affected := map[string]bool{changedID: true}
 	for range sources { // граница: длиннее цепочки быть не может
 		grew := false
 		for f, deps := range includes {
@@ -458,7 +524,9 @@ func (s *server) rebuildDependents(changed string) ([]string, map[string]string)
 	failed := map[string]string{}
 	sort.Strings(sources)
 	for _, f := range sources {
-		if f == path.Base(changed) || !affected[f] || !isChapter[f] {
+		// Пакетные узлы (id с "/") — только рёбра графа: даже пакет со `scene`
+		// не глава студии, его .lvn никто не играет.
+		if f == changedID || !affected[f] || !isChapter[f] || strings.Contains(f, "/") {
 			continue
 		}
 		src := filepath.Join(dir, f)

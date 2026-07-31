@@ -1,0 +1,6 @@
+{
+  "content_dir": "server/content",
+  "dependencies": {
+    "@fomean/lvn-duel": "file:packages/lvn-duel"
+  }
+}
