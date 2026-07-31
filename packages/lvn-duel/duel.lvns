@@ -55,12 +55,15 @@
 // говорит явная реплика, это не подлость, а вторая строфа.
 
 // иконки действий — строка такта показывает ОБА хода, читается с одного взгляда
+// Названия действий для строки такта. Не эмодзи: у шрифта движка нет глифов
+// ⚔🛡💫🔨 — вместо них рисуется пустой квадрат, и строка боя читается как
+// «ты □ × он □». Слова читаются с одного взгляда и переживают любой шрифт.
 икона = {}
-икона = put(икона, "удар", "⚔")
-икона = put(икона, "блок", "🛡")
-икона = put(икона, "оглушение", "💫")
-икона = put(икона, "пробив", "🔨")
-икона = put(икона, "стан", "😵")
+икона = put(икона, "удар", "УДАР")
+икона = put(икона, "блок", "БЛОК")
+икона = put(икона, "оглушение", "ОГЛУШЕНИЕ")
+икона = put(икона, "пробив", "ПРОБИВ")
+икона = put(икона, "стан", "ОГЛУШЁН")
 
 паттерн_обычный = list("удар", "удар", "блок", "удар", "блок")
 паттерн_ярость = list("удар", "блок", "удар", "удар", "удар")
@@ -305,10 +308,10 @@ func skill_hud() {
   if навык == "пробив" -> нх_проб
   -> нх_готово
   :нх_огл
-  text skillhud x=95 y=5.5 size=20 color=#b59a62 anchor="1,0" «💫 {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
+  text skillhud x=95 y=10.5 size=20 color=#b59a62 anchor="1,0" «ОГЛУШЕНИЕ {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
   -> нх_готово
   :нх_проб
-  text skillhud x=95 y=5.5 size=20 color=#b59a62 anchor="1,0" «🔨 {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
+  text skillhud x=95 y=10.5 size=20 color=#b59a62 anchor="1,0" «ПРОБИВ {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
   -> нх_готово
   :нх_готово
 }
@@ -321,11 +324,11 @@ func skill_hud() {
 // ═══════════════════════════════════════════════════════════════════
 
 func duel_hud_plate() {
-  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.108 width=0.94 height=0.14 anchor="0.5,0.5" z=25
+  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.158 width=0.94 height=0.14 anchor="0.5,0.5" z=25
 }
 
 func foe_bar() {
-  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.135 width=0.34 height=0.025 anchor="0.5,0.5" z=30
+  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.185 width=0.34 height=0.025 anchor="0.5,0.5" z=30
   if враг_хп >= 8 -> фб8
   if враг_хп == 7 -> фб7
   if враг_хп == 6 -> фб6
@@ -337,34 +340,34 @@ func foe_bar() {
   obj id=foe_bar_fill show=false
   -> фбг
   :фб8
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.340 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб7
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.298 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.298 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб6
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.255 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.255 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб5
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.213 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.213 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб4
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.170 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.170 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб3
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.128 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.128 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб2
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.085 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.085 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб1
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.135 width=0.043 height=0.025 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.043 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фбг
 }
 
 func hero_bar() {
-  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.70 y=0.135 width=0.34 height=0.025 anchor="0.5,0.5" z=30
+  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.70 y=0.185 width=0.34 height=0.025 anchor="0.5,0.5" z=30
   if дуэль_хп >= 6 -> гб6
   if дуэль_хп == 5 -> гб5
   if дуэль_хп == 4 -> гб4
@@ -374,22 +377,22 @@ func hero_bar() {
   obj id=hero_bar_fill show=false
   -> гбг
   :гб6
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.340 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб5
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.283 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.283 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб4
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.227 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.227 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб3
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.170 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.170 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб2
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.113 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.113 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб1
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.135 width=0.057 height=0.025 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.057 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гбг
 }
@@ -619,9 +622,9 @@ func duel() {
   тычок_текст = ""
 
   duel_hud_plate()
-  text dayline x=6 y=7.0 size=18 color=#b59a62 «День {день} · обмен {обмен}»
-  text foe_num x=17 y=9.8 size=21 color=#f0765e anchor="0,0" «СКЕЛЕТ {враг_хп}/{враг_хп_макс}  ⚡{темп_врага}»
-  text hero_num x=59 y=9.8 size=21 color=#73b8ee anchor="0,0" «ТЫ {дуэль_хп}/{дуэль_хп_макс}  ⚡{темп_мой}»
+  text dayline x=6 y=12.0 size=18 color=#b59a62 «День {день} · обмен {обмен}»
+  text foe_num x=17 y=14.8 size=21 color=#f0765e anchor="0,0" «СКЕЛЕТ {враг_хп}/{враг_хп_макс}  ⚡{темп_врага}»
+  text hero_num x=59 y=14.8 size=21 color=#73b8ee anchor="0,0" «ТЫ {дуэль_хп}/{дуэль_хп_макс}  ⚡{темп_мой}»
   text tellline x=50 y=27 size=25 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
   text beatline x=50 y=36 size=27 color=#e8e1d3 anchor="0.5,0" «{бит_текст}»
   skill_hud()
@@ -708,7 +711,7 @@ func duel() {
       camera action=shake amplitude=0.02 duration=0.35
     } else {
     }
-    бит_текст = "Такт " + (такт + 1) + ":  ты " + get(икона, мой_ход, "?") + " × он " + get(икона, его_ход, "?") + "  ·  " + бит_суть
+    бит_текст = "Такт " + (такт + 1) + " · " + get(икона, мой_ход, "?") + " × " + get(икона, его_ход, "?") + " — " + бит_суть
     beat_wait()
     такт = такт + 1
   }
