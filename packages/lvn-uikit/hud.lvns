@@ -1,0 +1,35 @@
+include "hp-bar.lvns"
+include "resource-bar.lvns"
+include "badge.lvns"
+
+// Полный верхний HUD. Сначала выставьте публичные переменные:
+//   uikit_hud_title, uikit_hud_subtitle
+//   uikit_hp, uikit_hp_max, uikit_hp_label
+//   uikit_resource, uikit_resource_max, uikit_resource_label
+//   uikit_badge_label, uikit_badge_value
+// Затем вызовите uikit_hud_show(). После изменения чисел полос — refresh().
+uikit_hud_title = "LOCATION"
+uikit_hud_subtitle = "Unknown sector"
+
+func uikit_hud_show() {
+  obj id=uikit_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.078 width=0.94 anchor="0.5,0.5" z=80
+  text uikit_hud_title_text x=6 y=2.3 size=29 color=#e8e1d3 «{uikit_hud_title}»
+  text uikit_hud_subtitle_text x=6 y=5.6 size=20 color=#b59a62 «{uikit_hud_subtitle}»
+  uikit_hp_show()
+  uikit_resource_show()
+  uikit_badge_show()
+}
+
+func uikit_hud_refresh() {
+  uikit_hp_refresh()
+  uikit_resource_refresh()
+}
+
+func uikit_hud_hide() {
+  obj id=uikit_hud_plate show=false
+  text uikit_hud_title_text hide
+  text uikit_hud_subtitle_text hide
+  uikit_hp_hide()
+  uikit_resource_hide()
+  uikit_badge_hide()
+}

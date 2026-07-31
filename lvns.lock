@@ -1,9 +1,7 @@
 {
   "packages": {
     "@fomean/lvn-duel": {
-      "ref": "github:fomeanator/lvn-duel@v0.1.0",
-      "commit": "ecc7c9a40e80472bf9f46edf1cefc493c745f133",
-      "sha256": "66fdb69b2e032a6dd6c02a7c778a4408da74399db516b12c58b7210726540983",
+      "ref": "file:packages/lvn-duel",
       "files": {
         "README.md": "b33dceb1635efc7ec9605ac1f9fa1cd31b55426338136ff5d695cbedc38892ca",
         "assets/enemies/skeleton_attack.png": "8be4cc3e7fadecc372876c2dd2a89c7dedab505de55c24dc84e271f278ce4754",
@@ -22,8 +20,30 @@
         "assets/ui/icon_strike.png": "5b89b599a9fed2b83200618b110d0bbbd89258b78ece32c3ce34708d8b6a6767",
         "assets/ui/icon_stun.png": "6b1baf0ebd242d10f7978daa4301adddd992aa9aad770f6fa390546531bedce5",
         "assets/ui/slot_empty.png": "6fa519fae5d14b2a412161b6e2363d5e7e51535fad72e1428d32bda12cee8396",
-        "duel.lvns": "46043c4cd12243c5c940552b18e3ba744287f62e3e6c8920302ffbcf577dd041",
+        "duel.lvns": "f8d2f9875c61341a46183c301bec2bd7783663601ab1ed0184052144bfce788e",
         "lvns.package.json": "2fab17d99dc0dd8b6001c3ffd33c7e1e4596408fa55d9348cda9a60c82f2478a"
+      }
+    },
+    "@fomean/lvn-uikit": {
+      "ref": "file:packages/lvn-uikit",
+      "files": {
+        "LICENSE": "437a9c61bc15c9eafcd1493e35698d7309f5a85e4f6a855af5a3012739df1326",
+        "README.md": "fb06a9d8927154129aa1140b8d0e7a4dcb77c4eec0d07a7abf584d1c5ca0bd90",
+        "assets/ui/badge_plate.png": "d7fc81d3a36c9e094f287675f7f1f373e613c7935464642168781d4de053cfc7",
+        "assets/ui/bar_fill_hp.png": "6bd32d577107cac314414ca8d716de6e7c1f1bfcbac07a37987315b31df56eb3",
+        "assets/ui/bar_fill_resource.png": "0384ee3479b728c2f8045385875e332759602f17fdd360b80269eddaa36bf0ff",
+        "assets/ui/bar_track.png": "78db8289e18995bb56c11b30b8f034505f33550c427c08b6d27152f11cd1d3d6",
+        "assets/ui/hud_plate.png": "121bdc950a1b87c0cfe155953e32296b15d7bc4577da039983db4714aaea14af",
+        "assets/ui/info_panel.png": "315aa75a91d89fa38618996b408f4afa0822081a18f12d6994e61aba51dc2482",
+        "assets/ui/modal_panel.png": "5f479005c8f28b0c8677572b3e91ba46686c8b3c1d9367370298bc8cf23ece84",
+        "badge.lvns": "a831b83b458f9cc0579ae6a2fecbeb2aefb481e5f9a32864b64d8515c29345a1",
+        "core.lvns": "835371d7d5a3eedffe98265e095c11c840f68cd392a30b569b626ddd4e983b6a",
+        "examples/demo.lvns": "06b4b04b669020bd18ef9ef45929a84f356e672150d0172dbe137f8b8f717be6",
+        "hp-bar.lvns": "716531ec0e42f3372c7704019932614e369941c098b20c8f58be852defd21260",
+        "hud.lvns": "d3a278cef207e56e0388db000159002616f1149bd7aa71850f4a98a6d97445e1",
+        "lvns.package.json": "489486dc44a9cdf94741c5845da2080424dad2e9727198c6d423c64067ffa442",
+        "panel.lvns": "30c3a0529b83ff84564cc2b3bdc72778f700624a029575a04ef9f5bfcc7213d9",
+        "resource-bar.lvns": "e42204ca9780b599c3558e9fe9eb3ecd000ab67f117f726484e4e247e31e922e"
       }
     }
   }

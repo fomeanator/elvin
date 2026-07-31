@@ -78,13 +78,13 @@ func foe_sprite(pose) {
   if pose == "hurt" -> вс_ранен
   -> вс_покой
   :вс_атака
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_attack.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_attack.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
   -> вс_готово
   :вс_ранен
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_hurt.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_hurt.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
   -> вс_готово
   :вс_покой
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
   -> вс_готово
   :вс_готово
 }
@@ -94,13 +94,13 @@ func hands(pose) {
   if pose == "block" -> рк_блок
   -> рк_покой
   :рк_атака
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_attack.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_attack.png" x=0.5 y=1.0 width=0.55 height=0.35 anchor="0.5,1" z=20
   -> рк_готово
   :рк_блок
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_block.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_block.png" x=0.5 y=1.0 width=0.55 height=0.35 anchor="0.5,1" z=20
   -> рк_готово
   :рк_покой
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_idle.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_idle.png" x=0.5 y=1.0 width=0.55 height=0.35 anchor="0.5,1" z=20
   -> рк_готово
   :рк_готово
 }
@@ -113,19 +113,19 @@ func hands(pose) {
 // пять ячеек — пять процедур с литеральными координатами.
 
 func buttons_show() {
-  obj id=btn_strike sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.16 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_удар"
-  obj id=btn_block sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.32 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_блок"
+  obj id=btn_strike sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.18 y=0.51 width=0.10 height=0.06 anchor="0.5,0.5" z=40 on_click="дп_удар"
+  obj id=btn_block sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.32 y=0.51 width=0.10 height=0.06 anchor="0.5,0.5" z=40 on_click="дп_блок"
   if навык == "оглушение" -> кп_огл
   if навык == "пробив" -> кп_проб
   -> кп_сброс
   :кп_огл
-  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.48 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_оглушение"
+  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.46 y=0.51 width=0.10 height=0.06 anchor="0.5,0.5" z=40 on_click="дп_оглушение"
   -> кп_сброс
   :кп_проб
-  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.48 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_пробив"
+  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.46 y=0.51 width=0.10 height=0.06 anchor="0.5,0.5" z=40 on_click="дп_пробив"
   -> кп_сброс
   :кп_сброс
-  obj id=btn_reset sprite_url="/content/packages/lvn-duel/ui/icon_reset.png" x=0.86 y=0.26 width=0.08 anchor="0.5,0.5" z=40 on_click="дп_сброс"
+  obj id=btn_reset sprite_url="/content/packages/lvn-duel/ui/icon_reset.png" x=0.86 y=0.51 width=0.075 height=0.045 anchor="0.5,0.5" z=40 on_click="дп_сброс"
 }
 
 func buttons_hide() {
@@ -154,19 +154,19 @@ func slot1(d) {
   if d == "оглушение" -> с1о
   if d == "пробив" -> с1п
   if d == "выкл" -> с1в
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.30 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с1г
   :с1у
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.30 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с1г
   :с1б
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.30 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с1г
   :с1о
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.30 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с1г
   :с1п
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.30 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с1г
   :с1в
   obj id=slot1 show=false
@@ -180,19 +180,19 @@ func slot2(d) {
   if d == "оглушение" -> с2о
   if d == "пробив" -> с2п
   if d == "выкл" -> с2в
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.40 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с2г
   :с2у
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.40 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с2г
   :с2б
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.40 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с2г
   :с2о
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.40 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с2г
   :с2п
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.40 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с2г
   :с2в
   obj id=slot2 show=false
@@ -206,19 +206,19 @@ func slot3(d) {
   if d == "оглушение" -> с3о
   if d == "пробив" -> с3п
   if d == "выкл" -> с3в
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.50 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с3г
   :с3у
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.50 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с3г
   :с3б
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.50 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с3г
   :с3о
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.50 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с3г
   :с3п
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.50 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с3г
   :с3в
   obj id=slot3 show=false
@@ -232,19 +232,19 @@ func slot4(d) {
   if d == "оглушение" -> с4о
   if d == "пробив" -> с4п
   if d == "выкл" -> с4в
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.60 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с4г
   :с4у
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.60 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с4г
   :с4б
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.60 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с4г
   :с4о
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.60 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с4г
   :с4п
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.60 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с4г
   :с4в
   obj id=slot4 show=false
@@ -258,19 +258,19 @@ func slot5(d) {
   if d == "оглушение" -> с5о
   if d == "пробив" -> с5п
   if d == "выкл" -> с5в
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.70 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с5г
   :с5у
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.70 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с5г
   :с5б
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.70 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с5г
   :с5о
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.70 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с5г
   :с5п
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
+  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.70 y=0.42 width=0.07 height=0.04 anchor="0.5,0.5" z=40
   -> с5г
   :с5в
   obj id=slot5 show=false
@@ -305,10 +305,10 @@ func skill_hud() {
   if навык == "пробив" -> нх_проб
   -> нх_готово
   :нх_огл
-  text skillhud x=97 y=3 size=26 color=#c4b06a anchor="1,0" «💫 {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
+  text skillhud x=95 y=2.5 size=20 color=#b59a62 anchor="1,0" «💫 {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
   -> нх_готово
   :нх_проб
-  text skillhud x=97 y=3 size=26 color=#a884c6 anchor="1,0" «🔨 {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
+  text skillhud x=95 y=2.5 size=20 color=#b59a62 anchor="1,0" «🔨 {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
   -> нх_готово
   :нх_готово
 }
@@ -320,8 +320,12 @@ func skill_hud() {
 //      Скелет: над головой. Герой: над диалоговым окном.
 // ═══════════════════════════════════════════════════════════════════
 
+func duel_hud_plate() {
+  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.078 width=0.94 height=0.14 anchor="0.5,0.5" z=25
+}
+
 func foe_bar() {
-  obj id=foe_bar_bg sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.5 y=0.17 width=0.22 anchor="0.5,0.5" z=30
+  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.105 width=0.34 height=0.025 anchor="0.5,0.5" z=30
   if враг_хп >= 8 -> фб8
   if враг_хп == 7 -> фб7
   if враг_хп == 6 -> фб6
@@ -333,34 +337,34 @@ func foe_bar() {
   obj id=foe_bar_fill show=false
   -> фбг
   :фб8
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.220 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.340 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб7
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.193 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.298 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб6
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.165 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.255 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб5
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.138 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.213 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб4
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.110 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.170 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб3
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.083 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.128 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб2
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.055 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.085 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фб1
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.028 anchor="0,0.5" z=31
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.105 width=0.043 height=0.025 anchor="0,0.5" z=31
   -> фбг
   :фбг
 }
 
 func hero_bar() {
-  obj id=hero_bar_bg sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.5 y=0.74 width=0.30 anchor="0.5,0.5" z=30
+  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.70 y=0.105 width=0.34 height=0.025 anchor="0.5,0.5" z=30
   if дуэль_хп >= 6 -> гб6
   if дуэль_хп == 5 -> гб5
   if дуэль_хп == 4 -> гб4
@@ -370,27 +374,28 @@ func hero_bar() {
   obj id=hero_bar_fill show=false
   -> гбг
   :гб6
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.300 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.340 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб5
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.250 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.283 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб4
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.200 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.227 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб3
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.150 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.170 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб2
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.100 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.113 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гб1
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.050 anchor="0,0.5" z=31
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.105 width=0.057 height=0.025 anchor="0,0.5" z=31
   -> гбг
   :гбг
 }
 
 func bars_hide() {
+  obj id=duel_hud_plate show=false
   obj id=foe_bar_bg show=false
   obj id=foe_bar_fill show=false
   obj id=hero_bar_bg show=false
@@ -613,11 +618,12 @@ func duel() {
   бит_текст = ""
   тычок_текст = ""
 
-  text dayline x=3 y=3 size=26 color=#9a927f «День {день} · обмен {обмен}»
-  text foe_num x=50 y=11 size=28 color=#e8e0d0 anchor="0.5,0" «{враг_хп}/{враг_хп_макс} ⚡{темп_врага}»
-  text hero_num x=50 y=68 size=30 color=#e8e0d0 anchor="0.5,0" «{дуэль_хп}/{дуэль_хп_макс} ⚡{темп_мой}»
-  text tellline x=50 y=33 size=28 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
-  text beatline x=50 y=61 size=30 color=#f1e4c9 anchor="0.5,0" «{бит_текст}»
+  duel_hud_plate()
+  text dayline x=6 y=4.0 size=18 color=#b59a62 «День {день} · обмен {обмен}»
+  text foe_num x=17 y=6.8 size=21 color=#f0765e anchor="0,0" «СКЕЛЕТ {враг_хп}/{враг_хп_макс}  ⚡{темп_врага}»
+  text hero_num x=59 y=6.8 size=21 color=#73b8ee anchor="0,0" «ТЫ {дуэль_хп}/{дуэль_хп_макс}  ⚡{темп_мой}»
+  text tellline x=50 y=27 size=25 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
+  text beatline x=50 y=36 size=27 color=#e8e1d3 anchor="0.5,0" «{бит_текст}»
   skill_hud()
   foe_bar()
   hero_bar()
