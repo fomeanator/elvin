@@ -1,0 +1,7 @@
+{
+  "name": "@fomean/lvn-duel",
+  "version": "0.1.0",
+  "license": "MIT",
+  "min_engine": "0",
+  "exports": ["duel.lvns"]
+}
