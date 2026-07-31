@@ -280,6 +280,7 @@ namespace Lvn.UI.World
                 : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
             var sizeFit = new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
             WorldPlacement.Apply(a.Slot, p, sizeFit);
+            a.SetFill(p.Fill, p.FillFrom); // полоса прогресса: обрезаем, а не сжимаем
             if (lh > _reference.y + 0.5f)
             {
                 var pos = a.Slot.anchoredPosition;
