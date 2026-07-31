@@ -972,8 +972,12 @@ func stripLineComment(s string) string {
 	return s
 }
 
-var reFuncDef = regexp.MustCompile(`^\s*func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{\s*$`)
-var reCall = regexp.MustCompile(`^\s*(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*)\s*\((.*)\)\s*$`)
+// Имя — ЛЮБЫЕ буквы, а не только латиница. Переменные и метки кириллицей
+// работали всегда, а функции — нет: `\w` в RE2 это ASCII, поэтому строка
+// `фонполосы()` не опознавалась как вызов и молча уезжала в наррацию. Автор
+// пишет сценарий на своём языке — процедуры не должны быть исключением.
+var reFuncDef = regexp.MustCompile(`^\s*func\s+([\p{L}_][\p{L}\p{N}_]*)\s*\(([^)]*)\)\s*\{\s*$`)
+var reCall = regexp.MustCompile(`^\s*(?:([\p{L}_][\p{L}\p{N}_]*)\s*=\s*)?([\p{L}_][\p{L}\p{N}_]*)\s*\((.*)\)\s*$`)
 
 var reReturnExpr = regexp.MustCompile(`^return\s+(.+)$`)
 
@@ -2352,17 +2356,21 @@ func firstField(line string) string {
 	return line
 }
 
-// isIdentWord reports whether s is a plain identifier ([A-Za-z_][A-Za-z0-9_]*).
+// isIdentWord сообщает, является ли s обычным идентификатором: буква или «_»,
+// дальше буквы, цифры и «_». Буква — ЛЮБАЯ юникодная: сценарий пишут на языке
+// автора, и `здоровье`, `бой_итог`, `урон()` — такие же имена, как латинские.
 func isIdentWord(s string) bool {
 	if s == "" {
 		return false
 	}
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		alpha := c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-		if !alpha && (i == 0 || c < '0' || c > '9') {
-			return false
+	for i, r := range s {
+		if r == '_' || unicode.IsLetter(r) {
+			continue
 		}
+		if i > 0 && unicode.IsDigit(r) {
+			continue
+		}
+		return false
 	}
 	return true
 }
@@ -2480,6 +2488,22 @@ func parsePathPoints(s string) ([][2]float64, error) {
 		return nil, fmt.Errorf("path needs at least 2 points")
 	}
 	return pts, nil
+}
+
+// exprParam распознаёт значение-шаблон ("{hp / hp_max}") в числовом параметре.
+// Компилятор его НЕ считает: значение зависит от состояния и известно только в
+// момент проигрывания, поэтому шаблон едет в контейнер строкой, а вычисляет его
+// рантайм (ActorAnimator.F) — тем же интерполятором, что и текст реплик.
+func exprParam(v any) (string, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return "", false
+	}
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
+		return s, true
+	}
+	return "", false
 }
 
 // propIdentity is a property's rest value — the start a `to=` one-liner tweens
@@ -2607,7 +2631,18 @@ func buildAnimCmd(op string, p map[string]any) (Cmd, error) {
 			return nil, fmt.Errorf("anim: prop required")
 		}
 		tr := map[string]any{"prop": prop}
-		if to, hasTo := numParam(p["to"]); hasTo {
+		// Цель может быть ВЫРАЖЕНИЕМ: `anim bar fill to="{hp / hp_max}"`. Такой
+		// ключ уезжает строкой и вычисляется рантаймом по живым переменным —
+		// иначе анимировать к величине, зависящей от состояния, нельзя вовсе, и
+		// автор вынужден городить лестницу веток на каждое возможное значение.
+		if toExpr, isExpr := exprParam(p["to"]); isExpr {
+			d := dur
+			if !durSet || d <= 0 {
+				d = 1
+			}
+			tr["keys"] = []any{[]any{0.0, propIdentity(prop)}, []any{d, toExpr}}
+			duration = d
+		} else if to, hasTo := numParam(p["to"]); hasTo {
 			// one-liner: tween from the property's rest value to the target
 			d := dur
 			if !durSet || d <= 0 {

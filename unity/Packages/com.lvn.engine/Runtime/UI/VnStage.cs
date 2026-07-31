@@ -158,6 +158,9 @@ namespace Lvn.UI
             _uiRoot = root;
             _built = true;
             LvnPlayer.Log = m => Debug.Log("[LVN] " + m); // full step trace to the console
+            // Ключи анимаций умеют быть выражениями («доехать до {hp/hp_max}») —
+            // им нужен доступ к живым переменным сцены.
+            ActorAnimator.VarsProvider = () => _player?.Vars;
 
             if (Assets == null && !string.IsNullOrEmpty(ContentRoot))
                 Assets = new DirectoryAssets(ContentRoot);

@@ -42,8 +42,7 @@
 // После дуэли глава читает:
 //   дуэль_исход = "победа" | "пал" | "затянулась"
 //
-// ⚠ Фон ставит глава (sprite_url в bg не интерполируется — та же грабля,
-//   что задокументирована в ec-battle.lvns).
+// Фон ставит глава — просто чтобы модуль не решал за неё, как выглядит место.
 
 // ═══════════════════════════════════════════════════════════════════
 //  1. ДАННЫЕ ВРАГА — паттерны как таблицы (новый враг = новые списки)
@@ -77,19 +76,11 @@ func foe_now() { return get(враг_паттерн, pat_idx(враг_шаг, le
 // ═══════════════════════════════════════════════════════════════════
 
 func foe_sprite(pose) {
-  if pose == "attack" -> вс_атака
-  if pose == "hurt" -> вс_ранен
-  -> вс_покой
-  :вс_атака
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_attack.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
-  -> вс_готово
-  :вс_ранен
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_hurt.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
-  -> вс_готово
-  :вс_покой
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=0.5 y=0.61 width=0.36 height=0.48 anchor="0.5,0.5" z=5
-  -> вс_готово
-  :вс_готово
+  // Поза — часть ПУТИ, и путь собирается выражением: три почти одинаковые
+  // ветки (idle/attack/hurt) схлопываются в одну строку. Глубина задаётся
+  // числом: скелет стоит в своей точке, а размер считает перспектива.
+  враг_поза = pose
+  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_{враг_поза}.png" x=50% y=61% width=0.36 height=0.48 anchor="0.5,0.5" depth={враг_даль}
 }
 
 func hands(pose) {
@@ -303,17 +294,50 @@ func slots_hide() {
 }
 
 // HUD владения навыком — рисуется один раз, проценты и ступень реактивны
+// ═══════════════════════════════════════════════════════════════════
+//  3b. АРСЕНАЛ СТОРОН — иконки под полосами
+// ═══════════════════════════════════════════════════════════════════
+// Игрок должен видеть, ЧЕМ противник вообще умеет драться, иначе первый бой
+// с новым врагом — угадывание вслепую (тычок подсказывает лишь один такт).
+// Слева — арсенал скелета, справа — твой; открытый навык добавляется в ряд
+// и несёт СВОЙ процент владения прямо на иконке.
+
+func arsenal_show() {
+  // враг: чем он оперирует
+  obj id=foe_ars1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.155 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  obj id=foe_ars2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.225 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  // герой: база всегда, навык — по открытию
+  obj id=hero_ars1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.595 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  obj id=hero_ars2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.665 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  if навык == "оглушение" -> арс_огл
+  if навык == "пробив" -> арс_проб
+  obj id=hero_ars3 show=false
+  text hero_ars3_pct hide
+  -> арс_готово
+  :арс_огл
+  obj id=hero_ars3 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.735 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  // процент владения — НА иконке, а не отдельной строкой сбоку
+  text hero_ars3_pct x=73.5 y=24.2 size=15 color=#ffffff anchor="0.5,0" «{влад_оглушение}%»
+  -> арс_готово
+  :арс_проб
+  obj id=hero_ars3 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.735 y=0.232 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  text hero_ars3_pct x=73.5 y=24.2 size=15 color=#ffffff anchor="0.5,0" «{влад_пробив}%»
+  -> арс_готово
+  :арс_готово
+}
+
+func arsenal_hide() {
+  obj id=foe_ars1 show=false
+  obj id=foe_ars2 show=false
+  obj id=hero_ars1 show=false
+  obj id=hero_ars2 show=false
+  obj id=hero_ars3 show=false
+  text hero_ars3_pct hide
+}
+
 func skill_hud() {
-  if навык == "оглушение" -> нх_огл
-  if навык == "пробив" -> нх_проб
-  -> нх_готово
-  :нх_огл
-  text skillhud x=6 y=17.5 size=18 color=#b59a62 anchor="0,0" «ОГЛУШЕНИЕ {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
-  -> нх_готово
-  :нх_проб
-  text skillhud x=6 y=17.5 size=18 color=#b59a62 anchor="0,0" «ПРОБИВ {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
-  -> нх_готово
-  :нх_готово
+  // Плашка навыка сбоку убрана: процент владения живёт НА иконке в арсенале.
+  arsenal_show()
 }
 
 
@@ -324,112 +348,40 @@ func skill_hud() {
 // ═══════════════════════════════════════════════════════════════════
 
 func duel_hud_plate() {
-  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.158 width=0.94 height=0.14 anchor="0.5,0.5" z=25
+  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=0.5 y=0.175 width=0.94 height=0.19 anchor="0.5,0.5" z=25
 }
 
 func foe_bar() {
-  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.185 width=0.34 height=0.025 anchor="0.5,0.5" z=30
-  // Полоса ОБРЕЗАЕТСЯ по левому краю (fill), а не сжимается шириной: рамка и
-  // скругления заливки остаются в своём масштабе, укорачивается только длина.
-  // Ступеней столько же, сколько хп, — числовые поля obj по-прежнему литералы.
-  if враг_хп >= 8 -> фб8
-  if враг_хп == 7 -> фб7
-  if враг_хп == 6 -> фб6
-  if враг_хп == 5 -> фб5
-  if враг_хп == 4 -> фб4
-  if враг_хп == 3 -> фб3
-  if враг_хп == 2 -> фб2
-  if враг_хп == 1 -> фб1
-  obj id=foe_bar_fill show=false
-  -> фбг
-  :фб8
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=1.00
-  -> фбг
-  :фб7
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.875
-  -> фбг
-  :фб6
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.75
-  -> фбг
-  :фб5
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.625
-  -> фбг
-  :фб4
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.50
-  -> фбг
-  :фб3
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.375
-  -> фбг
-  :фб2
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.25
-  -> фбг
-  :фб1
-  bar_fill_foe()
-  obj id=foe_bar_fill fill=0.125
-  -> фбг
-  :фбг
+  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.26 y=0.170 width=0.34 height=0.025 anchor="0.5,0.5" z=30
+  // ПРИЗРАК урона (приём из Dota): тот же спрайт, бледнее и ПОД основной
+  // заливкой. Едет к той же доле, но втрое дольше — глаз успевает прочитать,
+  // сколько именно отняли, даже когда удар прошёл за долю секунды.
+  obj id=foe_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.170 width=0.340 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.170 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
+  anim id=foe_bar_fill prop=fill to="{max(враг_хп, 0) / max(враг_хп_макс, 1)}" dur=0.25 ease=outCubic
+  anim id=foe_bar_ghost prop=fill to="{max(враг_хп, 0) / max(враг_хп_макс, 1)}" dur=0.9 ease=inOutSine
 }
 
 // Заливка врага во всю длину трека — режет её fill, а не ширина.
-func bar_fill_foe() {
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.09 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
-}
 
 func hero_bar() {
-  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.70 y=0.185 width=0.34 height=0.025 anchor="0.5,0.5" z=30
-  if дуэль_хп >= 6 -> гб6
-  if дуэль_хп == 5 -> гб5
-  if дуэль_хп == 4 -> гб4
-  if дуэль_хп == 3 -> гб3
-  if дуэль_хп == 2 -> гб2
-  if дуэль_хп == 1 -> гб1
-  obj id=hero_bar_fill show=false
-  -> гбг
-  :гб6
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=1.00
-  -> гбг
-  :гб5
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=0.833
-  -> гбг
-  :гб4
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=0.667
-  -> гбг
-  :гб3
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=0.50
-  -> гбг
-  :гб2
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=0.333
-  -> гбг
-  :гб1
-  bar_fill_hero()
-  obj id=hero_bar_fill fill=0.167
-  -> гбг
-  :гбг
+  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.70 y=0.170 width=0.34 height=0.025 anchor="0.5,0.5" z=30
+  obj id=hero_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.170 width=0.340 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.170 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
+  anim id=hero_bar_fill prop=fill to="{max(дуэль_хп, 0) / max(дуэль_хп_макс, 1)}" dur=0.25 ease=outCubic
+  anim id=hero_bar_ghost prop=fill to="{max(дуэль_хп, 0) / max(дуэль_хп_макс, 1)}" dur=0.9 ease=inOutSine
 }
 
 // Заливка героя во всю длину трека — режет её fill.
-func bar_fill_hero() {
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.53 y=0.185 width=0.340 height=0.025 anchor="0,0.5" z=31 fill_from=left
-}
 
 func bars_hide() {
   obj id=duel_hud_plate show=false
   obj id=foe_bar_bg show=false
   obj id=foe_bar_fill show=false
+  obj id=foe_bar_ghost show=false
   obj id=hero_bar_bg show=false
   obj id=hero_bar_fill show=false
+  obj id=hero_bar_ghost show=false
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -441,27 +393,6 @@ func bars_hide() {
 // Обмен ВСЕГДА длится 6 секунд: такт = 6с / кол-во тактов (решение
 // владельца, 2026-07-31). Обмен 1 — один такт смакуется 6с, кап 5 — по 1.2с.
 // wait ms= принимает только литерал, поэтому таблица ветками.
-func beat_wait() {
-  if тактов <= 1 -> бв1
-  if тактов == 2 -> бв2
-  if тактов == 3 -> бв3
-  if тактов == 4 -> бв4
-  wait ms=1200
-  -> бв_готово
-  :бв1
-  wait ms=6000
-  -> бв_готово
-  :бв2
-  wait ms=3000
-  -> бв_готово
-  :бв3
-  wait ms=2000
-  -> бв_готово
-  :бв4
-  wait ms=1500
-  -> бв_готово
-  :бв_готово
-}
 
 func tell_update() {
   if враг_стан >= 1 -> ты_стан
@@ -643,18 +574,22 @@ func duel() {
   враг_шаг = 0
   враг_фаза = 1
   враг_стан = 0
+  враг_даль = 0
   враг_паттерн = паттерн_обычный
   план = []
-  бит_текст = ""
   тычок_текст = ""
 
   duel_hud_plate()
-  text dayline x=6 y=12.0 size=18 color=#b59a62 «День {день} · обмен {обмен}»
-  text foe_num x=17 y=14.8 size=21 color=#f0765e anchor="0,0" «СКЕЛЕТ {враг_хп}/{враг_хп_макс}  ⚡{темп_врага}»
-  text hero_num x=59 y=14.8 size=21 color=#73b8ee anchor="0,0" «ТЫ {дуэль_хп}/{дуэль_хп_макс}  ⚡{темп_мой}»
+  text dayline x=6 y=10.0 size=17 color=#b59a62 «День {день} · обмен {обмен}»
+  // Имя — НАД полосой, цифры — БЕЛЫМ ПОВЕРХ неё (z выше заливки): взгляд
+  // читает длину и число в одной точке, не прыгая по плашке.
+  text foe_name x=26 y=13.3 size=19 color=#f0765e anchor="0.5,0" «СКЕЛЕТ»
+  text hero_name x=70 y=13.3 size=19 color=#73b8ee anchor="0.5,0" «ТЫ»
+  text foe_num x=26 y=16.0 size=20 color=#ffffff anchor="0.5,0" «{враг_хп}/{враг_хп_макс}  ⚡{темп_врага}»
+  text hero_num x=70 y=16.0 size=20 color=#ffffff anchor="0.5,0" «{дуэль_хп}/{дуэль_хп_макс}  ⚡{темп_мой}»
   text tellline x=50 y=27 size=25 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
-  text beatline x=50 y=36 size=27 color=#e8e1d3 anchor="0.5,0" «{бит_текст}»
   skill_hud()
+  arsenal_show()
   foe_bar()
   hero_bar()
   foe_sprite("idle")
@@ -667,7 +602,6 @@ func duel() {
   if обмен > 8 -> дт_ничья
   тактов = min(обмен, 5)
   план = []
-  бит_текст = ""
   tell_update()
   -> дп_план
 
@@ -738,8 +672,10 @@ func duel() {
       camera action=shake amplitude=0.02 duration=0.35
     } else {
     }
-    бит_текст = "Такт " + (такт + 1) + " · " + get(икона, мой_ход, "?") + " × " + get(икона, его_ход, "?") + " — " + бит_суть
-    beat_wait()
+    // Строка такта — обычная реплика в диалоговом окне, а не лейбл посреди
+    // экрана: у боя и без того плотный кадр, а диалог для текста и сделан.
+    // Тап игрока задаёт темп прокрутки, поэтому таймер такта здесь не нужен.
+    Такт {такт + 1} · {get(икона, мой_ход, "?")} × {get(икона, его_ход, "?")} — {бит_суть}
     такт = такт + 1
   }
   slots_hide()
@@ -761,7 +697,6 @@ func duel() {
   -> дт_сводка
 
   :дт_сводка
-  бит_текст = ""
   if обмен == 2 && навык_выбран == 0 -> дт_озарение
   -> дт_обмен
 
@@ -789,15 +724,13 @@ func duel() {
 
   // ── занавес ──
   :дт_итог
-  бит_текст = ""
   тычок_текст = ""
   text dayline hide
   text foe_num hide
   text hero_num hide
   text tellline hide
-  text beatline hide
-  text skillhud hide
   bars_hide()
+  arsenal_hide()
   buttons_hide()
   slots_hide()
   if дуэль_исход == "победа" -> ди_жив

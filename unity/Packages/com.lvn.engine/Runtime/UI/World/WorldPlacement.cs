@@ -27,8 +27,15 @@ namespace Lvn.UI.World
             // uGUI pivot is measured from the bottom-left; the placement anchor is
             // from the top-left — flip Y.
             slot.pivot = new Vector2(p.AnchorX, 1f - p.AnchorY);
-            float w = (p.Width ?? DefaultWidth) * size.x;
-            float h = (p.Height ?? DefaultHeight) * size.y;
+            // ГЛУБИНА: одно число вместо ручной пары «размер + порядок» на каждую
+            // дистанцию. Спрайт на depth=0 стоит в плане камеры и рисуется в
+            // натуральную величину; дальше — мельче по закону перспективы
+            // (k = f / (f + depth), f — «фокус», условная дистанция до плана).
+            // В зонной боёвке этим схлопываются девять почти одинаковых веток на
+            // каждую позу врага.
+            float depthK = DepthScale(p.Depth);
+            float w = (p.Width ?? DefaultWidth) * size.x * depthK;
+            float h = (p.Height ?? DefaultHeight) * size.y * depthK;
             // Aspect-locked box (layered/boned art): fit within the placed bounds.
             if (p.BoxAspect is float a && a > 0f)
             {
@@ -41,6 +48,23 @@ namespace Lvn.UI.World
             // (UITK's convention) on the Canvas.
             slot.localScale = new Vector3(p.Flip ? -1f : 1f, 1f, 1f);
             slot.localEulerAngles = new Vector3(0f, 0f, -p.Rotation);
+            // Дальний уходит ЗА ближнего сам: явный z по-прежнему главнее, но без
+            // него порядок диктует глубина, и автору не нужно держать её в голове
+            // дважды.
+            if (p.Z == null && p.Depth is float d)
+                slot.SetSiblingIndex(Mathf.Clamp(Mathf.RoundToInt(1000f - d * 10f), 0, slot.parent != null ? slot.parent.childCount - 1 : 0));
+        }
+
+        /// <summary>Перспективный коэффициент размера для глубины. «Фокус» 6 —
+        /// подобран так, чтобы depth=6 давал половину роста: шаг глубины читается
+        /// глазом, но фигура не схлопывается в точку на разумных дистанциях.</summary>
+        public const float FocalDepth = 6f;
+
+        public static float DepthScale(float? depth)
+        {
+            if (depth == null) return 1f;
+            float d = Mathf.Max(depth.Value, -FocalDepth * 0.9f); // не даём вывернуть за камеру
+            return FocalDepth / (FocalDepth + d);
         }
     }
 }

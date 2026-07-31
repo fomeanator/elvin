@@ -179,6 +179,17 @@ namespace Lvn.UI.World
         public void Play(string channel, LvnAnim anim, Action onDone = null)
         {
             if (anim == null || anim.tracks == null || anim.tracks.Count == 0) { onDone?.Invoke(); return; }
+            // `to=` строит трек ОТ ПОКОЯ свойства. Для заливки покой — ноль, и
+            // полоса на каждом обновлении прыгала бы в пустую и ехала обратно.
+            // Стартуем от того, что нарисовано: анимация должна продолжать кадр,
+            // а не начинать его заново.
+            foreach (var tr in anim.tracks)
+            {
+                if (tr?.prop != "fill" || tr.keys == null || tr.keys.Count == 0 || _fillShown == null) continue;
+                var first = tr.keys[0];
+                if (first != null && first.Length > 1 && first[1] is double d && d == 0d)
+                    first[1] = (double)_fillShown.Value;
+            }
             _channels[channel] = new Active { anim = anim, start = ActorAnimator.Clock(), onDone = onDone };
         }
 
@@ -236,6 +247,7 @@ namespace Lvn.UI.World
         internal void Tick(float now)
         {
             if (_rig == null) EnsureRig();
+            float fillV = 0f; bool hasFill = false;
             float tx = 0f, ty = 0f, scx = 1f, scy = 1f, rot = 0f, al = 1f, sx = 0f, sy = 0f;
             var layerX = new Dictionary<string, float[]>(); // id -> {tx,ty,scx,scy,rot,al}
             Dictionary<string, string> layerFrame = null;
@@ -285,6 +297,11 @@ namespace Lvn.UI.World
                             case "scaley": scy = v; break;
                             case "rotation": rot = v; break;
                             case "alpha": al = v; break;
+                            // Доля заливки — такое же свойство, как масштаб или
+                            // прозрачность: с ним полосе достаётся весь аппарат
+                            // анимаций (easing, каналы, queue, stop), а «полоса
+                            // урона» из Dota делается вторым спрайтом с большим dur.
+                            case "fill": fillV = v; hasFill = true; break;
                         }
                     }
                     else
@@ -310,6 +327,7 @@ namespace Lvn.UI.World
             }
 
             ApplyRig(_rig, _group, tx, ty, scx, scy, rot, al);
+            if (hasFill) { _fillShown = fillV; ApplyFill(fillV, _fillFrom); }
             _heldAlpha = al; // survives the channel ending (fade-out stays faded)
             _slot.anchoredPosition = _slotBase + new Vector2(sx * ContentSize.x, -sy * ContentSize.y);
 
@@ -389,7 +407,41 @@ namespace Lvn.UI.World
         /// прогресса). Через width спрайт масштабируется — у полосы здоровья
         /// сминались скругления и рамка; здесь длина режется, а рисунок остаётся
         /// в своём масштабе. Реализовано встроенным Image.Type.Filled.</summary>
-        public void SetFill(float? fill, string from)
+        private string _fillFrom;
+        private float? _fillShown;   // что нарисовано сейчас
+        private float? _fillTarget;  // куда едем
+        private float _fillSpeed;    // долей в секунду (0 — мгновенно)
+
+        /// <summary>Плавно довести заливку до цели. Полоса здоровья должна
+        /// УТЕКАТЬ, а не прыгать: за скачок глаз не успевает прочитать, сколько
+        /// отняли. Второй спрайт с меньшей скоростью даёт «догоняющую» полосу
+        /// урона — приём из Dota, и он же тут получается даром.</summary>
+        internal void TickFill()
+        {
+            if (_fillTarget == null || _fillShown == null) return;
+            if (Mathf.Approximately(_fillShown.Value, _fillTarget.Value)) return;
+            if (_fillSpeed <= 0f) { _fillShown = _fillTarget; ApplyFill(_fillShown, _fillFrom); return; }
+            float step = _fillSpeed * Time.deltaTime;
+            _fillShown = Mathf.MoveTowards(_fillShown.Value, _fillTarget.Value, step);
+            ApplyFill(_fillShown, _fillFrom);
+        }
+
+        public void SetFill(float? fill, string from, float? seconds = null)
+        {
+            if (!string.IsNullOrEmpty(from)) _fillFrom = from;
+            if (fill != null && seconds != null && seconds.Value > 0f)
+            {
+                // первый показ — сразу на месте, дальше едем
+                if (_fillShown == null) { _fillShown = fill; ApplyFill(fill, _fillFrom); }
+                _fillTarget = fill;
+                _fillSpeed = 1f / Mathf.Max(seconds.Value, 0.01f);
+                return;
+            }
+            _fillShown = fill; _fillTarget = fill; _fillSpeed = 0f;
+            ApplyFill(fill, _fillFrom);
+        }
+
+        private void ApplyFill(float? fill, string from)
         {
             foreach (var img in AllLayerImages())
             {
