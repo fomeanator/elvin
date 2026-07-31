@@ -54,6 +54,95 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void CanvasActors_AreAlwaysASeparateSiblingAboveThe3DFrame()
+        {
+            var host = new GameObject("stage-host");
+            var stage = new WorldStage(host.transform);
+            stage.EnsureActor("hero");
+
+            var gameRoot = stage.Root.transform.Find("game-root");
+            var background = gameRoot.Find("bg");
+            var content = gameRoot.Find("content");
+            var actor = content.Find("vn-obj-hero");
+
+            Assert.IsNotNull(background);
+            Assert.IsNotNull(actor);
+            Assert.Less(background.GetSiblingIndex(), content.GetSiblingIndex(),
+                "the filmed 3D frame is background only; actors paint after it");
+            Object.DestroyImmediate(host);
+        }
+
+        [Test]
+        public void StageCanvasCamera_RendersAfterOtherScreenCameras()
+        {
+            var host = new GameObject("stage-host");
+            var mainGo = new GameObject("Main Camera");
+            var main = mainGo.AddComponent<Camera>();
+            mainGo.tag = "MainCamera";
+            main.depth = 0f;
+            var contentCamera = new GameObject("content-camera").AddComponent<Camera>();
+            contentCamera.depth = 7f;
+
+            var stage = new WorldStage(host.transform);
+            var canvas = stage.Root.GetComponent<Canvas>();
+
+            Assert.IsNotNull(canvas.worldCamera);
+            Assert.Greater(canvas.worldCamera.depth, contentCamera.depth,
+                "the camera carrying bg + actors must paint after every content camera");
+
+            stage.Dispose();
+            Object.DestroyImmediate(host);
+            Object.DestroyImmediate(mainGo);
+            Object.DestroyImmediate(contentCamera.gameObject);
+        }
+
+        [Test]
+        public void RebuildAfterRelease_FilmsIntoABufferAgain_NeverOntoTheScreen()
+        {
+            // Живой сценарий бага: рисованный `bg` сносит сет (Release убивает
+            // буфер), следующий `bg3d` строит сет заново — камера обязана снова
+            // получить буфер. Камера без targetTexture рисует ПРЯМО В ЭКРАН и
+            // накрывает сетом все спрайты сцены — так в бою пропали персонажи.
+            var host = new GameObject("host");
+            var backdrop = Lvn3DBackdrop.Ensure(host.transform);
+            backdrop.SetSet(NewSet());
+            backdrop.Release();
+
+            backdrop.SetSet(NewSet());
+
+            Assert.IsTrue(backdrop.Active, "set stands again");
+            var cam = backdrop.GetComponentInChildren<Camera>(true);
+            Assert.IsNotNull(cam, "the camera survived the release");
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                Assert.IsNotNull(backdrop.Texture, "the frame buffer is rebuilt");
+                Assert.AreEqual(backdrop.Texture, cam.targetTexture,
+                    "the camera films into the buffer — never straight onto the screen");
+            }
+        }
+
+        [Test]
+        public void ASetWithOnlyItsOwnEnvironmentCard_CountsAsStill()
+        {
+            // Lvn3DSetEnv — служебный компонент (небо/туман сета), а не анимация.
+            // Считать его «движением» = снимать каждый статичный сет 60 раз в
+            // секунду: на слабом устройстве это фризы по секунде.
+            var host = new GameObject("host");
+            var backdrop = Lvn3DBackdrop.Ensure(host.transform);
+            var prefab = NewSet();
+            // На ребёнке, не на корне: SetAnimates обходит ВСЮ иерархию, а Apply()
+            // (правка RenderSettings) в тестовой сцене редактора здесь ни к чему.
+            prefab.transform.GetChild(0).gameObject.AddComponent<Lvn3DSetEnv>();
+
+            backdrop.SetSet(prefab);
+
+            var cam = backdrop.GetComponentInChildren<Camera>(true);
+            Assert.IsNotNull(cam, "camera exists");
+            Assert.IsFalse(cam.enabled,
+                "a still set is filmed on demand — the camera must not run every frame");
+        }
+
+        [Test]
         public void FramingSnapsWithoutDuration_AndKeepsUnsetAxes()
         {
             var host = new GameObject("host");
@@ -61,7 +150,9 @@ namespace Lvn.Tests
             backdrop.SetSet(NewSet());
 
             backdrop.Frame(1f, 2f, 3f, -10f, 45f, 50f, 0f);
-            var cam = host.GetComponentInChildren<Camera>();
+            // Камера живёт на самом бэкдропе: он нарочно КОРНЕВОЙ объект, а не
+            // ребёнок сцены — Canvas масштабирует детей под экран и ломал кадр.
+            var cam = backdrop.GetComponentInChildren<Camera>();
             Assert.IsNotNull(cam, "the set has its own camera");
             Assert.AreEqual(50f, cam.fieldOfView, 0.01f, "field of view applied");
             var first = cam.transform.position;
