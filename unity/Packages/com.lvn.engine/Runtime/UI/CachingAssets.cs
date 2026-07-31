@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Lvn.UI
 {
@@ -262,7 +265,7 @@ namespace Lvn.UI
             if (!_setLoads.TryGetValue(key, out var load))
             {
                 load = LoadSetBundleFileAsync(
-                    key, descriptor.url, address, _setLoadEpoch);
+                    key, descriptor.url, address, _setLoadEpoch, descriptor.scene);
                 _setLoads[key] = load;
             }
 
@@ -279,7 +282,7 @@ namespace Lvn.UI
         }
 
         private async Task<SetBundle> LoadSetBundleFileAsync(
-            string key, string url, string address, int epoch)
+            string key, string url, string address, int epoch, bool isScene = false)
         {
             var path = await Loader.EnsureCachedFile(url);
             if (epoch != _setLoadEpoch) throw new OperationCanceledException();
@@ -303,10 +306,11 @@ namespace Lvn.UI
             {
                 bundle.Unload(true);
                 if (epoch != _setLoadEpoch) throw new OperationCanceledException();
-                throw new InvalidOperationException($"prefab address '{address}' is absent");
+                throw new InvalidOperationException($"set address '{address}' is absent");
             }
             return new SetBundle { Key = key, Bundle = bundle, Prefab = prefab };
         }
+
 
         private void ReleaseSetBundle(SetBundle loaded)
         {
