@@ -62,13 +62,36 @@ type incLoader interface {
 type diskLoader struct{}
 
 func (diskLoader) load(dir, rel string) (string, string, string, error) {
-	abs := filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+	abs := resolveDiskPath(dir, rel)
 	data, err := os.ReadFile(abs)
 	return abs, string(data), filepath.Dir(abs), err
 }
 
 func (diskLoader) where(dir, rel string) string {
-	return filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+	return resolveDiskPath(dir, rel)
+}
+
+// resolveDiskPath — путь include на диске. Обычный путь — относительно
+// подключающего файла. Путь на "@" — ПАКЕТ (`include "@scope/pkg/file.lvns"`):
+// ищется каталог lvns_packages/ вверх по дереву от подключающего файла — так
+// пакет находится и из глубины проекта, и из scripts/ на сервере, и из самого
+// vendor-каталога (пакет подключает пакет). Скачивает и проверяет пакеты
+// `lvnconv deps sync` (internal/deps); компилятор в сеть не ходит никогда.
+func resolveDiskPath(dir, rel string) string {
+	if !strings.HasPrefix(rel, "@") {
+		return filepath.Clean(filepath.Join(dir, filepath.FromSlash(rel)))
+	}
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		cand := filepath.Join(d, "lvns_packages", filepath.FromSlash(rel))
+		if _, err := os.Stat(cand); err == nil {
+			return cand
+		}
+		if d == filepath.Dir(d) { // корень ФС
+			// не нашли — вернуть «ожидаемое» место рядом с проектом, чтобы
+			// сообщение об ошибке говорило, ГДЕ искали
+			return filepath.Join(filepath.Clean(dir), "lvns_packages", filepath.FromSlash(rel))
+		}
+	}
 }
 
 // memLoader — открытые буферы редактора, ключ это ИМЯ файла. Каталогов нет:
