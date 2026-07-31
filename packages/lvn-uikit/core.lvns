@@ -1,0 +1,19 @@
+// @fomean/lvn-uikit — общее ядро.
+//
+// Все публичные имена пакета начинаются с uikit_, все id — с uikit_.
+// Это обязательная дисциплина до появления namespace/component в языке.
+//
+// Палитра Arcplate:
+//   night ink      #11131a
+//   smoked blue    #1d2230
+//   warm bone      #e8e1d3
+//   muted brass    #b59a62
+//   ember coral    #e65d45
+//   arc blue       #5da9e9
+
+func uikit_percent(value, maximum) {
+  if maximum > 0 -> uikit_percent_valid
+  return 0
+  :uikit_percent_valid
+  return max(0, min(100, floor(value * 100 / maximum)))
+}

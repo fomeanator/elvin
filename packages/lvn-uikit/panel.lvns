@@ -1,0 +1,37 @@
+// Информационная панель в нижней трети.
+uikit_panel_kicker = "OBJECTIVE"
+uikit_panel_title = "Reach the old gate"
+uikit_panel_body = "The signal is getting stronger."
+
+// Центральная модальная карточка.
+uikit_modal_kicker = "SYSTEM"
+uikit_modal_title = "Connection restored"
+uikit_modal_body = "The route is now available."
+
+func uikit_panel_show() {
+  obj id=uikit_panel_plate sprite_url="/content/packages/lvn-uikit/ui/info_panel.png" x=0.5 y=0.76 width=0.88 anchor="0.5,0.5" z=80
+  text uikit_panel_kicker_text x=10 y=66 size=20 color=#5da9e9 «{uikit_panel_kicker}»
+  text uikit_panel_title_text x=10 y=70 size=34 color=#e8e1d3 «{uikit_panel_title}»
+  text uikit_panel_body_text x=10 y=75 size=25 color=#b8b5ae «{uikit_panel_body}»
+}
+
+func uikit_panel_hide() {
+  obj id=uikit_panel_plate show=false
+  text uikit_panel_kicker_text hide
+  text uikit_panel_title_text hide
+  text uikit_panel_body_text hide
+}
+
+func uikit_modal_show() {
+  obj id=uikit_modal_plate sprite_url="/content/packages/lvn-uikit/ui/modal_panel.png" x=0.5 y=0.48 width=0.70 anchor="0.5,0.5" z=90
+  text uikit_modal_kicker_text x=50 y=41 size=20 color=#5da9e9 anchor="0.5,0" «{uikit_modal_kicker}»
+  text uikit_modal_title_text x=50 y=45 size=36 color=#e8e1d3 anchor="0.5,0" «{uikit_modal_title}»
+  text uikit_modal_body_text x=50 y=51 size=25 color=#b8b5ae anchor="0.5,0" «{uikit_modal_body}»
+}
+
+func uikit_modal_hide() {
+  obj id=uikit_modal_plate show=false
+  text uikit_modal_kicker_text hide
+  text uikit_modal_title_text hide
+  text uikit_modal_body_text hide
+}
