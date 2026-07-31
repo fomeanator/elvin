@@ -144,6 +144,40 @@ Ida: Do we tell the projectionist about the gate?
 }
 Ida: Either way, the reel is done.
 
+// ─── ГЛУБИНА, ПОЛОСА, ПОДСТАНОВКА В ПУТИ ───────────────────────────────
+// `depth=` — одно число вместо пары «размер + порядок» на каждую дистанцию:
+// размер считает перспектива, дальний сам уходит за ближнего, а при движении
+// камеры получается параллакс. `world="x,y,z"` (нужен активный bg3d) сажает
+// спрайт в ТОЧКУ набора — камера едет, фигура остаётся у своей колонны.
+здоровье = 7
+здоровье_макс = 10
+поза = "idle"
+obj id=страж sprite_url="/content/ui/hotspot/desk.png" x=50% y=70% depth=4
+obj id=страж_дальний sprite_url="/content/ui/hotspot/desk.png" x=30% y=70% depth=9
+
+// Полоса ОБРЕЗАЕТСЯ, а не сжимается (fill), сторону роста задаёт fill_from,
+// а доля берётся выражением — без лестницы веток на каждое значение.
+obj id=полоса_фон sprite_url="/content/ui/hotspot/safe.png" x=50% y=8% width=0.4 height=0.03 anchor="0.5,0.5"
+obj id=полоса sprite_url="/content/ui/hotspot/safe.png" x=30% y=8% width=0.4 height=0.03 anchor="0,0.5" fill_from=left fill="{здоровье / здоровье_макс}"
+// …и анимируется как любое свойство: полоса УТЕКАЕТ, а не прыгает.
+anim id=полоса prop=fill to="{здоровье / здоровье_макс}" dur=0.3 ease=outCubic
+
+// Путь к картинке принимает подстановку — поза/погода/дистанция больше не
+// требуют своей ветки на каждую комбинацию.
+obj id=страж_поза sprite_url="/content/ui/hotspot/{поза}.png" x=70% y=70% depth=2
+
+// Привязка к ТОЧКЕ 3D-набора: место на экране и глубину считает камера набора,
+// поэтому при её движении фигура остаётся у своей колонны, а не плывёт по
+// кадру. Без активного bg3d поле просто игнорируется — скрипт всё равно играет.
+bg3d id=demo
+obj id=страж_в_наборе sprite_url="/content/ui/hotspot/desk.png" world="2.5, 0, 6"
+bg3d off
+
+// Функции можно называть на языке автора — переменные и метки так умели всегда.
+func удвоить(ч) { return ч * 2 }
+здоровье = удвоить(4)
+Стражи расставлены по глубине, полоса показывает {здоровье}/{здоровье_макс}.
+
 // ─── One command empties the stage: `clear` takes every actor and obj off ───
 // The background stays — that is the whole point, a scene change is `clear`
 // plus a new `bg` and never an accidental black screen. Without it this line

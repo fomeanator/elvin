@@ -54,6 +54,18 @@ namespace Lvn.UI
         /// <summary>Откуда растёт заливка: "left" (по умолчанию), "right",
         /// "bottom", "top".</summary>
         public string FillFrom;
+        /// <summary>За сколько секунд доехать до новой доли. null/0 — мгновенно.
+        /// Полоса урона «догоняет» основную, если задать ей время побольше.</summary>
+        public float? FillTime;
+        /// <summary>ГЛУБИНА сцены: 0 — план камеры (натуральный размер), больше —
+        /// дальше. Размер считается перспективой, порядок отрисовки — сам собой
+        /// (дальний за ближним). Одно число вместо ручной пары width/z на каждую
+        /// дистанцию: в зонной боёвке это девять почти одинаковых веток.</summary>
+        public float? Depth;
+        /// <summary>Точка в 3D-НАБОРЕ (x,y,z), к которой привязан спрайт. Камера
+        /// набора едет — спрайт остаётся у своей колонны, а не плывёт по экрану.
+        /// Работает при активном bg3d; иначе игнорируется.</summary>
+        public Vector3? World;
         public TransitionType EnterTransition;
         public TransitionType ExitTransition;
         public float TransitionDuration;

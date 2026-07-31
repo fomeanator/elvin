@@ -24,7 +24,7 @@ namespace Lvn.UI
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
             "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
-            "fill", "fill_from",
+            "fill", "fill_from", "fill_time", "depth", "world",
             "transition", "transition_duration", "enter", "exit", "play",
         };
 
@@ -134,7 +134,7 @@ namespace Lvn.UI
             if (!BoolOr(cmd["show"], true))
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
-                var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
+                var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id), _player?.Vars) : PlacementFrom(cmd, prevHide, SlotsOf(id), _player?.Vars);
 
                 if (!freshHide)
                 {
@@ -182,12 +182,12 @@ namespace Lvn.UI
             else
             {
                 urls = new List<string>();
-                var body = (string)cmd["body_url"]; if (!string.IsNullOrEmpty(body)) urls.Add(body);
-                var clothes = (string)cmd["clothes_url"]; if (!string.IsNullOrEmpty(clothes)) urls.Add(clothes);
-                var hair = (string)cmd["hair_url"]; if (!string.IsNullOrEmpty(hair)) urls.Add(hair);
+                var body = Url(cmd["body_url"]); if (!string.IsNullOrEmpty(body)) urls.Add(body);
+                var clothes = Url(cmd["clothes_url"]); if (!string.IsNullOrEmpty(clothes)) urls.Add(clothes);
+                var hair = Url(cmd["hair_url"]); if (!string.IsNullOrEmpty(hair)) urls.Add(hair);
                 if (urls.Count == 0)
                 {
-                    var sp = (string)cmd["sprite_url"]; if (!string.IsNullOrEmpty(sp)) urls.Add(sp);
+                    var sp = Url(cmd["sprite_url"]); if (!string.IsNullOrEmpty(sp)) urls.Add(sp);
                 }
             }
 
@@ -242,7 +242,7 @@ namespace Lvn.UI
             }
 
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
-            var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
+            var placement = fresh ? PlacementFrom(cmd, SlotsOf(id), _player?.Vars) : PlacementFrom(cmd, prevPl, SlotsOf(id), _player?.Vars);
             // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
             // the op left it unset, so every novel gets the standard bottom-anchored
             // pose — tunable from ui.stage without editing the script. A follow-up op
@@ -270,8 +270,19 @@ namespace Lvn.UI
             if (aspectEntity != null && aspectEntity.aspect > 0f)
                 placement.BoxAspect = aspectEntity.aspect;
 
-            // Smart slots: never draw two actors standing inside each other.
-            if (placement.Show)
+            // Smart slots: never draw two ACTORS standing inside each other.
+            //
+            // Два условия, без которых арбитраж ломает разметку:
+            //   · `obj` — не персонаж, а реквизит и элементы HUD. Полосе здоровья
+            //     нормально лежать «внутри» плашки, на то она и полоса; растащить
+            //     их — значит развалить интерфейс (ловилось как «худ поехал»).
+            //   · Повторная команда по тому же id НЕ переставляет объект: x в ней
+            //     обычно не написан (bare `obj id=… fill=…`), он унаследован от
+            //     предыдущей команды через sticky-merge. Считать это «места нет»
+            //     и двигать — значит уносить уже размещённый объект на каждом
+            //     обновлении.
+            bool isActor = (string)cmd["op"] != "obj";
+            if (placement.Show && isActor && fresh)
             {
                 var arbX = ArbitrateSlotX(placement.X, id, cmd["x"] != null,
                     _placements, SlotsOf(id), out var slotOwner);
@@ -499,26 +510,62 @@ namespace Lvn.UI
         // The catalog's slot overrides for an actor id (null-safe at every hop).
         private IReadOnlyDictionary<string, float> SlotsOf(string id) => Catalog?.Get(id)?.slots;
 
+
+        /// <summary>Точка «x,y,z» из строки — с теми же выражениями, что и всюду:
+        /// `world="{кол_x}, 0, {кол_z}"` ставит спрайт по вычисленным координатам.</summary>
+
+        /// <summary>Путь к картинке С ПОДСТАНОВКОЙ: `sprite_url="…/skeleton_{поза}.png"`.
+        /// Без неё каждая поза и каждая дистанция писались ОТДЕЛЬНОЙ веткой с почти
+        /// одинаковой строкой — в зонной боёвке это 27 веток на одного врага.
+        /// Каталог кастинга (`cast`) решает ту же задачу для персонажей; это —
+        /// для всего остального: реквизита, иконок, полос, врагов без записи в касте.</summary>
+        private string Url(JToken t)
+        {
+            var raw = (string)t;
+            if (string.IsNullOrEmpty(raw) || raw.IndexOf('{') < 0) return raw;
+            return TextInterpolation.Apply(raw, _player?.Vars);
+        }
+
+        internal static Vector3? Vec3OrNull(JToken t, IReadOnlyDictionary<string, JToken> vars)
+        {
+            var raw = t?.Type == JTokenType.String ? (string)t : null;
+            if (string.IsNullOrEmpty(raw)) return null;
+            var parts = raw.Split(',');
+            if (parts.Length != 3) return null;
+            var v = new float[3];
+            for (int i = 0; i < 3; i++)
+            {
+                var f = NumOrNull(JToken.FromObject(parts[i].Trim()), vars);
+                if (f == null) return null;
+                v[i] = f.Value;
+            }
+            return new Vector3(v[0], v[1], v[2]);
+        }
+
         internal static Placement PlacementFrom(JObject cmd, Placement prev,
-            IReadOnlyDictionary<string, float> slots = null)
+            IReadOnlyDictionary<string, float> slots = null,
+            IReadOnlyDictionary<string, JToken> vars = null)
         {
             var p = prev;
             p.Show = BoolOr(cmd["show"], true); // re-issuing an actor shows it (existing semantics)
             if (cmd["x"] != null || cmd["position"] != null)
-                p.X = NumOrNull(cmd["x"]) ?? SlotXFor((string)cmd["position"], slots);
-            if (cmd["y"] != null) p.Y = NumOr(cmd["y"], p.Y);
-            if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
-            if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
-            if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
+                p.X = NumOrNull(cmd["x"], vars) ?? SlotXFor((string)cmd["position"], slots);
+            if (cmd["y"] != null) p.Y = NumOr(cmd["y"], p.Y, vars);
+            if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"], vars);
+            if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"], vars);
+            if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"], vars);
             if (cmd["flip"] != null || cmd["mirror"] != null) p.Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false);
-            if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
-            if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
-            if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);
-            if (cmd["fill"] != null) p.Fill = NumOrNull(cmd["fill"]);
+            if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f, vars);
+            if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f, vars);
+            if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f, vars);
+            if (cmd["fill"] != null) p.Fill = NumOrNull(cmd["fill"], vars);
             if (cmd["fill_from"] != null) p.FillFrom = (string)cmd["fill_from"];
+            if (cmd["fill_time"] != null) p.FillTime = NumOrNull(cmd["fill_time"], vars);
+            if (cmd["depth"] != null) p.Depth = NumOrNull(cmd["depth"], vars);
+            if (cmd["world"] != null) p.World = Vec3OrNull(cmd["world"], vars);
             p.EnterTransition = ParseTransition((string)cmd["enter"]);
             p.ExitTransition = ParseTransition((string)cmd["exit"]);
-            p.TransitionDuration = NumOr(cmd["transition_duration"], 0.3f);
+            p.TransitionDuration = NumOr(cmd["transition_duration"], 0.3f, vars);
             var anch = (string)cmd["anchor"];
             if (!string.IsNullOrEmpty(anch))
             {
@@ -530,34 +577,38 @@ namespace Lvn.UI
             }
             else
             {
-                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX);
-                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY);
+                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX, vars);
+                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY, vars);
             }
             return p;
         }
 
         internal static Placement PlacementFrom(JObject cmd,
-            IReadOnlyDictionary<string, float> slots = null)
+            IReadOnlyDictionary<string, float> slots = null,
+            IReadOnlyDictionary<string, JToken> vars = null)
         {
             var p = new Placement
             {
                 Show = BoolOr(cmd["show"], true),
-                X = NumOrNull(cmd["x"]) ?? SlotXFor((string)cmd["position"], slots),
-                Y = NumOr(cmd["y"], 1f),
-                Width = NumOrNull(cmd["width"]),
-                Height = NumOrNull(cmd["height"]),
+                X = NumOrNull(cmd["x"], vars) ?? SlotXFor((string)cmd["position"], slots),
+                Y = NumOr(cmd["y"], 1f, vars),
+                Width = NumOrNull(cmd["width"], vars),
+                Height = NumOrNull(cmd["height"], vars),
                 AnchorX = 0.5f,
                 AnchorY = 1f,
-                Z = IntOrNull(cmd["z"]),
+                Z = IntOrNull(cmd["z"], vars),
                 Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false), // `mirror` is an authoring alias for flip
-                Rotation = NumOr(cmd["rotation"], 0f),
-                Opacity = NumOr(cmd["opacity"], 1f),
-                HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
-                Fill = NumOrNull(cmd["fill"]),
+                Rotation = NumOr(cmd["rotation"], 0f, vars),
+                Opacity = NumOr(cmd["opacity"], 1f, vars),
+                HoverOpacity = NumOr(cmd["hover_opacity"], 1f, vars),
+                Fill = NumOrNull(cmd["fill"], vars),
                 FillFrom = (string)cmd["fill_from"],
+                FillTime = NumOrNull(cmd["fill_time"], vars),
+                Depth = NumOrNull(cmd["depth"], vars),
+                World = Vec3OrNull(cmd["world"], vars),
                 EnterTransition = ParseTransition((string)cmd["enter"]),
                 ExitTransition = ParseTransition((string)cmd["exit"]),
-                TransitionDuration = NumOr(cmd["transition_duration"], 0.3f),
+                TransitionDuration = NumOr(cmd["transition_duration"], 0.3f, vars),
             };
 
             var anchor = (string)cmd["anchor"];
@@ -574,8 +625,8 @@ namespace Lvn.UI
             }
             else
             {
-                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX);
-                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY);
+                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX, vars);
+                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY, vars);
             }
             return p;
         }

@@ -137,6 +137,60 @@ namespace Lvn.UI.World
         // ── 3D set as the background ─────────────────────────────────────────
 
         private Lvn3DBackdrop _backdrop;
+        // Кто привязан к миру: при каждом кадре набора их надо пересчитывать,
+        // иначе привязка «застынет» на позиции момента команды.
+        private readonly Dictionary<string, Vector3> _worldAnchored = new Dictionary<string, Vector3>();
+        private readonly Dictionary<string, Placement> _worldPlacements = new Dictionary<string, Placement>();
+        // Глубина по актёрам и их базовое место — параллакс считает сдвиг от него.
+        private readonly Dictionary<string, float> _depthActors = new Dictionary<string, float>();
+        private readonly Dictionary<string, Vector2> _depthBase = new Dictionary<string, Vector2>();
+
+        /// <summary>Пересчитать привязанных к сцене. Зовётся, когда камера набора
+        /// сдвинулась: без этого привязка застывает на кадре своей команды, и
+        /// фигура снова «плывёт» — ровно та фальшь, ради которой всё затевалось.</summary>
+
+        /// <summary>ПАРАЛЛАКС по глубине. Камера двигает весь слой разом, поэтому
+        /// дальнему нужно ОТСТАТЬ: его доля хода тем меньше, чем он дальше. Это
+        /// та же формула перспективы, что и у размера, — глубина остаётся одним
+        /// числом, и сцена начинает дышать без единой лишней строки в скрипте.
+        /// Работает и без 3D-набора: на плоском фоне это честный 2.5D-приём.</summary>
+        private void ApplyParallax(Vector2 cameraOffset)
+        {
+            if (_depthActors.Count == 0) return;
+            foreach (var kv in _depthActors)
+            {
+                var a = ActorFor(kv.Key);
+                if (a?.Slot == null) continue;
+                float k = WorldPlacement.DepthScale(kv.Value);   // 1 у плана, меньше вдали
+                var lag = cameraOffset * (k - 1f);               // ближние идут ровно, дальние отстают
+                var want = kv.Value == 0f ? a.Slot.anchoredPosition : _depthBase[kv.Key] + lag;
+                if (a.Slot.anchoredPosition != want) a.Slot.anchoredPosition = want;
+            }
+        }
+
+        /// <summary>Кадр размещения: та же рамка, что и при постановке актёра.</summary>
+        private Vector2 SizeFit()
+        {
+            float lh = Screen.width > Screen.height && Screen.height > 0
+                ? _reference.y
+                : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
+            return new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
+        }
+
+        public void RefreshWorldAnchors() => RefreshWorldAnchors(SizeFit());
+
+        public void RefreshWorldAnchors(Vector2 sizeFit)
+        {
+            if (_worldAnchored.Count == 0 || _backdrop == null) return;
+            foreach (var kv in _worldAnchored)
+            {
+                var a = ActorFor(kv.Key);
+                if (a == null || !_worldPlacements.TryGetValue(kv.Key, out var pl)) continue;
+                if (!_backdrop.TryProject(kv.Value, out var vp, out var dist)) continue;
+                pl.X = vp.x; pl.Y = vp.y; pl.Depth = dist - WorldPlacement.FocalDepth;
+                WorldPlacement.Apply(a.Slot, pl, sizeFit);
+            }
+        }
 
         /// <summary>Stand a 3D set behind the scene: the prefab is built off-screen,
         /// filmed by its own camera, and the frame becomes the background. Null
@@ -160,6 +214,7 @@ namespace Lvn.UI.World
             if (_backdrop == null)
             {
                 _backdrop = Lvn3DBackdrop.Ensure(_canvasGo.transform);
+                _backdrop.CameraMoved = RefreshWorldAnchors; // едем вместе с камерой
                 _backdrop.TextureChanged += tex =>
                 {
                     // Device rotation replaces the RT object. Rebind the
@@ -186,6 +241,7 @@ namespace Lvn.UI.World
                     if (_bg.Transform.localScale != s)
                         _bg.Transform.localScale = s;
                     backdrop.Echo(offset, zoom, LogicalWidth());
+                    ApplyParallax(offset);
                 };
             }
             _backdrop.SetSet(prefab);
@@ -200,6 +256,7 @@ namespace Lvn.UI.World
             if (_backdrop == null || !_backdrop.Active) return;
             _backdrop.Frame(x, y, z, pitch, yaw, fov, seconds);
             _bg.SetLiveTexture(_backdrop.Texture); // the buffer is recreated on resize
+            RefreshWorldAnchors(); // привязанные едут вместе с кадром, а не отстают
         }
 
         /// <summary>True while a 3D set is standing.</summary>
@@ -279,8 +336,28 @@ namespace Lvn.UI.World
                 ? _reference.y
                 : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
             var sizeFit = new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
-            WorldPlacement.Apply(a.Slot, p, sizeFit);
-            a.SetFill(p.Fill, p.FillFrom); // полоса прогресса: обрезаем, а не сжимаем
+            // Спрайт, привязанный к точке НАБОРА, живёт по проекции его камеры:
+            // экранное место и глубина считаются, а не пишутся руками. Камера
+            // поехала — фигура осталась там, где стояла в сцене.
+            var placed = p;
+            if (p.World is Vector3 wp && _backdrop != null
+                && _backdrop.TryProject(wp, out var vp, out var dist))
+            {
+                placed.X = vp.x;
+                placed.Y = vp.y;
+                placed.Depth = dist - WorldPlacement.FocalDepth; // 0 = план камеры
+                _worldAnchored[id] = wp;
+                _worldPlacements[id] = p;
+            }
+            else if (p.World == null) { _worldAnchored.Remove(id); _worldPlacements.Remove(id); }
+            WorldPlacement.Apply(a.Slot, placed, sizeFit);
+            if (placed.Depth is float dp && dp != 0f)
+            {
+                _depthActors[id] = dp;
+                _depthBase[id] = a.Slot.anchoredPosition;
+            }
+            else { _depthActors.Remove(id); _depthBase.Remove(id); }
+            a.SetFill(p.Fill, p.FillFrom, p.FillTime); // полоса: обрезаем, а не сжимаем; fill_time — плавно
             if (lh > _reference.y + 0.5f)
             {
                 var pos = a.Slot.anchoredPosition;

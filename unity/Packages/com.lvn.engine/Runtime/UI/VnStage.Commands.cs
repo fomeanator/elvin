@@ -55,9 +55,9 @@ namespace Lvn.UI
             // styled declaration always lands before its bare updates.
 
             // placement: x/y are screen percents; anchor picks the label's reference point
-            var xN = NumOrNull(cmd["x"]);
+            var xN = PercentOrNull(cmd["x"]);
             if (fresh || xN != null) el.style.left = Length.Percent(Mathf.Clamp(xN ?? 3f, 0f, 100f));
-            var yN = NumOrNull(cmd["y"]);
+            var yN = PercentOrNull(cmd["y"]);
             if (fresh || yN != null) el.style.top = Length.Percent(Mathf.Clamp(yN ?? 3f, 0f, 100f));
             // width: explicit `w` (screen %), else whatever the ANCHOR leaves between
             // x and the screen edge. Budgeting `97 - x` regardless of anchor is what
@@ -70,7 +70,7 @@ namespace Lvn.UI
             var (ax, _) = LabelAnchorFractions(anchorForWidth);
             if (fresh || xN != null) _labelX[id] = xN ?? 3f;
             _labelX.TryGetValue(id, out var xForWidth);
-            var wN = NumOrNull(cmd["w"]);
+            var wN = PercentOrNull(cmd["w"]);
             if (fresh || wN != null || xN != null || anchorStr != null)
             {
                 float room = ax <= 0f ? 97f - xForWidth              // grows right
@@ -127,27 +127,61 @@ namespace Lvn.UI
                 }
         }
 
-        private static float NumOr(JToken t, float dflt) => NumOrNull(t) ?? dflt;
+        /// <summary>Число ДЛЯ ЛЕЙБЛА, где единица измерения — процент экрана.
+        /// «26» и «26%» значат одно и то же; «0.26» тоже принимается как доля,
+        /// если записана с суффиксом. Так одна и та же запись `x=26%` работает и
+        /// в лейбле, и в `obj`, где родные единицы — доли.</summary>
+        private float? PercentOrNull(JToken t)
+        {
+            if (t == null) return null;
+            string raw = null;
+            try { raw = t.Type == JTokenType.String ? (string)t : null; } catch { }
+            if (raw != null && raw.TrimEnd().EndsWith("%"))
+                return NumOrNull(t, _player?.Vars) * 100f; // NumOrNull уже поделил на 100
+            return NumOrNull(t, _player?.Vars);
+        }
+
+        private float NumOr(JToken t, float dflt) => NumOrNull(t, _player?.Vars) ?? dflt;
+        private static float NumOr(JToken t, float dflt, IReadOnlyDictionary<string, JToken> vars)
+            => NumOrNull(t, vars) ?? dflt;
 
         // Nullable numeric read: absent → null, malformed → null (never throws), so
         // one bad field can't abort the whole chapter. A number written as a string
-        // ("0.5") is still accepted.
-        private static float? NumOrNull(JToken t)
+        // ("0.5") is still accepted — and so is a TEMPLATE ("{hp / hp_max}"), which
+        // is evaluated against the live variables exactly like the text of a label.
+        //
+        // Без этого числовое поле принимало только литерал, и любая величина,
+        // зависящая от состояния, писалась ЛЕСТНИЦЕЙ ВЕТОК: полоса здоровья на
+        // восемь делений — восемь почти одинаковых строк, отличавшихся одним
+        // числом. Ветки — это не выразительность, а обходной путь.
+        private float? NumOrNull(JToken t) => NumOrNull(t, _player?.Vars);
+
+        private static float? NumOrNull(JToken t, IReadOnlyDictionary<string, JToken> vars)
         {
             if (t == null) return null;
-            try { return (float)t; } catch { }
-            try
-            {
-                if (float.TryParse((string)t, NumberStyles.Float, CultureInfo.InvariantCulture, out var f))
-                    return f;
-            }
-            catch { }
-            return null;
+            try { if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return (float)t; } catch { }
+            string raw = null;
+            try { raw = (string)t; } catch { }
+            if (string.IsNullOrEmpty(raw)) return null;
+            if (raw.IndexOf('{') >= 0)
+                raw = TextInterpolation.Apply(raw, vars);
+            raw = raw.Trim();
+            // ПРОЦЕНТ ЭКРАНА — везде. У `obj` координаты исторически доли
+            // (x=0.26), у лейблов — проценты (x=26): один и тот же «четверть
+            // экрана» писался двумя способами, и перепутать их было проще, чем
+            // угадать. Суффикс «%» принимается в ЛЮБОМ числовом поле и означает
+            // ровно то, что написано.
+            bool pct = raw.EndsWith("%");
+            if (pct) raw = raw.Substring(0, raw.Length - 1).TrimEnd();
+            if (!float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) return null;
+            return pct ? f / 100f : f;
         }
 
-        private static int? IntOrNull(JToken t)
+        private int? IntOrNull(JToken t) => IntOrNull(t, _player?.Vars);
+
+        private static int? IntOrNull(JToken t, IReadOnlyDictionary<string, JToken> vars)
         {
-            var f = NumOrNull(t);
+            var f = NumOrNull(t, vars);
             return f == null ? (int?)null : (int)Mathf.Round(f.Value);
         }
 

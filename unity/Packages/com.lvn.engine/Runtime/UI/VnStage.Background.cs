@@ -88,7 +88,13 @@ namespace Lvn.UI
 
         private async Task ApplyBgAsync(JObject cmd)
         {
+            // Путь фона тоже с подстановкой: `bg sprite_url="/bg/{погода}_двор.jpg"`.
+            // Это была задокументированная грабля («в bg sprite_url не
+            // интерполируется»), из-за которой смена времени суток писалась
+            // ветками на каждый вариант.
             var url = (string)cmd["sprite_url"];
+            if (!string.IsNullOrEmpty(url) && url.IndexOf('{') >= 0)
+                url = TextInterpolation.Apply(url, _player?.Vars);
             // bg id="porch" — resolve the catalog entity to its (first) layer url.
             if (string.IsNullOrEmpty(url))
             {
