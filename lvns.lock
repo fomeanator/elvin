@@ -1,8 +1,11 @@
 {
   "packages": {
     "@fomean/lvn-duel": {
-      "ref": "file:packages/lvn-duel",
+      "ref": "github:fomeanator/lvn-duel@v0.1.0",
+      "commit": "ecc7c9a40e80472bf9f46edf1cefc493c745f133",
+      "sha256": "66fdb69b2e032a6dd6c02a7c778a4408da74399db516b12c58b7210726540983",
       "files": {
+        "README.md": "b33dceb1635efc7ec9605ac1f9fa1cd31b55426338136ff5d695cbedc38892ca",
         "assets/enemies/skeleton_attack.png": "8be4cc3e7fadecc372876c2dd2a89c7dedab505de55c24dc84e271f278ce4754",
         "assets/enemies/skeleton_hurt.png": "45efede70073d88dff7a32e909e3c4a4814550ec5dc4eb879c53bf9203ff764b",
         "assets/enemies/skeleton_idle.png": "0b96538e5f1afaaad5f1334caf07475ead69394286be3bfa39285976e1574499",

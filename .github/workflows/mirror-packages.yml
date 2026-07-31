@@ -53,3 +53,33 @@ jobs:
             [ -n "$ok" ] || { echo "::error::mirror push failed: $repo"; fail=1; }
           done
           exit $fail
+
+      - name: split each .lvns package and push to its mirror
+        env:
+          TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Пакеты языка (docs/packages.md) зеркалятся тем же способом, что и
+          # UPM-пакеты, но список НЕ захардкожен: новый пакет — это новый
+          # каталог packages/<repo>/lvns.package.json, и он публикуется сам.
+          # Имя репо-зеркала = имя каталога; ссылка потребителя —
+          # github:fomeanator/<repo>@<тег>, а тег двигает этот же пуш.
+          TAG="${GITHUB_REF_NAME}"
+          fail=0
+          shopt -s nullglob
+          for manifest in packages/*/lvns.package.json; do
+            dir="$(dirname "$manifest")"; repo="$(basename "$dir")"
+            head=$(git subtree split -P "$dir")
+            echo "$dir → $repo @ $head"
+            url="https://x-access-token:${TOKEN}@github.com/fomeanator/${repo}.git"
+            ok=""
+            for i in 1 2 3 4 5; do
+              if git -c http.version=HTTP/1.1 push --force "$url" \
+                   "${head}:refs/heads/main" "${head}:refs/tags/${TAG}"; then
+                ok=1; break
+              fi
+              echo "  push to $repo failed (attempt $i), retrying…"; sleep 15
+            done
+            [ -n "$ok" ] || { echo "::error::lvns mirror push failed: $repo"; fail=1; }
+          done
+          exit $fail
