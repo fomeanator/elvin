@@ -32,6 +32,8 @@ namespace Lvn.UI
             {
                 if (_labelEls.TryGetValue(id, out var old)) { old.RemoveFromHierarchy(); _labelEls.Remove(id); }
                 _labelTmpl.Remove(id);
+                _labelAnchor.Remove(id);
+                _labelX.Remove(id);
                 return;
             }
 
@@ -57,14 +59,28 @@ namespace Lvn.UI
             if (fresh || xN != null) el.style.left = Length.Percent(Mathf.Clamp(xN ?? 3f, 0f, 100f));
             var yN = NumOrNull(cmd["y"]);
             if (fresh || yN != null) el.style.top = Length.Percent(Mathf.Clamp(yN ?? 3f, 0f, 100f));
-            // width: explicit `w` (screen %), else capped at the right screen edge —
-            // an absolute label otherwise grows past the screen instead of wrapping.
+            // width: explicit `w` (screen %), else whatever the ANCHOR leaves between
+            // x and the screen edge. Budgeting `97 - x` regardless of anchor is what
+            // shredded right-anchored labels: at x=95 a right-pinned label grows
+            // LEFTWARDS across 95% of the screen, but was handed 2% and wrapped one
+            // letter per line.
+            var anchorStr = (string)cmd["anchor"];
+            if (fresh || anchorStr != null) _labelAnchor[id] = anchorStr;
+            _labelAnchor.TryGetValue(id, out var anchorForWidth);
+            var (ax, _) = LabelAnchorFractions(anchorForWidth);
+            if (fresh || xN != null) _labelX[id] = xN ?? 3f;
+            _labelX.TryGetValue(id, out var xForWidth);
             var wN = NumOrNull(cmd["w"]);
-            if (fresh || wN != null || xN != null)
-                el.style.maxWidth = Length.Percent(Mathf.Clamp(wN ?? (97f - (xN ?? 3f)), 1f, 100f));
-            if (fresh || cmd["anchor"] != null)
+            if (fresh || wN != null || xN != null || anchorStr != null)
             {
-                var (tx, ty) = LabelAnchor((string)cmd["anchor"]);
+                float room = ax <= 0f ? 97f - xForWidth              // grows right
+                           : ax >= 1f ? xForWidth - 3f               // grows left
+                           : 2f * Mathf.Min(xForWidth - 3f, 97f - xForWidth); // both ways
+                el.style.maxWidth = Length.Percent(Mathf.Clamp(wN ?? room, 1f, 100f));
+            }
+            if (fresh || anchorStr != null)
+            {
+                var (tx, ty) = LabelAnchor(anchorStr);
                 el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
             }
 
@@ -151,12 +167,34 @@ namespace Lvn.UI
 
         // Translate fractions for a label anchor (default top-left, so x/y read as an
         // inset from the corner). center → -50%, right/bottom → -100%.
-        private static (float, float) LabelAnchor(string anchor)
+        /// <summary>Anchor of a label, in BOTH notations. `obj` has always taken a
+        /// numeric pair ("0.5,0.5"), and scripts write labels the same way — but this
+        /// only ever matched WORDS, so every numeric anchor silently fell through to
+        /// "centre": `anchor="0,0"` did not pin the left edge, it centred the label on
+        /// x, and half of it left the screen. Both forms are accepted now; the numeric
+        /// one is the house convention.</summary>
+        internal static (float, float) LabelAnchor(string anchor)
         {
-            string a = string.IsNullOrEmpty(anchor) ? "top-left" : anchor.ToLowerInvariant();
-            float tx = a.Contains("left") ? 0f : a.Contains("right") ? -100f : -50f;
-            float ty = a.Contains("top") ? 0f : a.Contains("bottom") ? -100f : -50f;
-            return (tx, ty);
+            var (ax, ay) = LabelAnchorFractions(anchor);
+            return (-ax * 100f, -ay * 100f);
+        }
+
+        /// <summary>The anchor as fractions of the label's own box (0 = left/top,
+        /// 1 = right/bottom). Width budgeting needs the fraction, not the offset.</summary>
+        internal static (float, float) LabelAnchorFractions(string anchor)
+        {
+            if (string.IsNullOrEmpty(anchor)) return (0f, 0f); // top-left, as before
+            string a = anchor.ToLowerInvariant();
+            int comma = a.IndexOf(',');
+            if (comma > 0
+                && float.TryParse(a.Substring(0, comma), System.Globalization.NumberStyles.Float,
+                                  System.Globalization.CultureInfo.InvariantCulture, out var nx)
+                && float.TryParse(a.Substring(comma + 1), System.Globalization.NumberStyles.Float,
+                                  System.Globalization.CultureInfo.InvariantCulture, out var ny))
+                return (Mathf.Clamp01(nx), Mathf.Clamp01(ny));
+            float fx = a.Contains("left") ? 0f : a.Contains("right") ? 1f : 0.5f;
+            float fy = a.Contains("top") ? 0f : a.Contains("bottom") ? 1f : 0.5f;
+            return (fx, fy);
         }
 
         // A script-driven `anim` command: deserialize its LvnAnim payload and play

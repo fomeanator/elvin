@@ -176,5 +176,34 @@ namespace Lvn.Tests
             Assert.AreEqual("Start", m.ui.carousel.play_text);
             Assert.AreEqual(false, m.ui.hud.show_progress);
         }
+
+        // Якорь лейбла пишут ЧИСЛАМИ — той же парой, что у `obj` ("0.5,0.5"). Раньше
+        // разбирались только слова, и число молча падало в «центр»: `anchor="0,0"`
+        // не прижимал левый край, а центрировал лейбл по x, унося половину строки
+        // за экран. Обе формы обязаны работать.
+        [Test]
+        public void LabelAnchor_ReadsNumericPairsAndWords()
+        {
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor("0,0"), "0,0 — левый верх");
+            Assert.AreEqual((-100f, 0f), VnStage.LabelAnchor("1,0"), "1,0 — правый край");
+            Assert.AreEqual((-50f, 0f), VnStage.LabelAnchor("0.5,0"), "0.5,0 — центр по горизонтали");
+            Assert.AreEqual((-50f, -50f), VnStage.LabelAnchor("0.5,0.5"), "0.5,0.5 — центр");
+            // словесная форма остаётся рабочей
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor("top-left"));
+            Assert.AreEqual((-100f, -100f), VnStage.LabelAnchor("bottom-right"));
+            // пустой якорь = левый верх, как было до правки
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor(null));
+        }
+
+        // Доля якоря нужна бюджету ширины: лейбл у правого края растёт ВЛЕВО, и
+        // выдавать ему «остаток справа» — значит заставить переносить по букве.
+        [Test]
+        public void LabelAnchorFractions_DriveTheWidthBudget()
+        {
+            Assert.AreEqual((1f, 0f), VnStage.LabelAnchorFractions("1,0"));
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchorFractions("0,0"));
+            Assert.AreEqual((0.5f, 0.5f), VnStage.LabelAnchorFractions("center"));
+        }
+
     }
 }
