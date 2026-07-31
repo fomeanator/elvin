@@ -24,6 +24,7 @@ namespace Lvn.UI
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
             "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
+            "fill", "fill_from",
             "transition", "transition_duration", "enter", "exit", "play",
         };
 
@@ -513,6 +514,8 @@ namespace Lvn.UI
             if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
             if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
             if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);
+            if (cmd["fill"] != null) p.Fill = NumOrNull(cmd["fill"]);
+            if (cmd["fill_from"] != null) p.FillFrom = (string)cmd["fill_from"];
             p.EnterTransition = ParseTransition((string)cmd["enter"]);
             p.ExitTransition = ParseTransition((string)cmd["exit"]);
             p.TransitionDuration = NumOr(cmd["transition_duration"], 0.3f);
@@ -550,6 +553,8 @@ namespace Lvn.UI
                 Rotation = NumOr(cmd["rotation"], 0f),
                 Opacity = NumOr(cmd["opacity"], 1f),
                 HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
+                Fill = NumOrNull(cmd["fill"]),
+                FillFrom = (string)cmd["fill_from"],
                 EnterTransition = ParseTransition((string)cmd["enter"]),
                 ExitTransition = ParseTransition((string)cmd["exit"]),
                 TransitionDuration = NumOr(cmd["transition_duration"], 0.3f),

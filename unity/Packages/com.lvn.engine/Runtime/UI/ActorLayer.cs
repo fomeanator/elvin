@@ -46,6 +46,14 @@ namespace Lvn.UI
         public float Rotation;       // degrees
         public float Opacity;
         public float HoverOpacity;
+        /// <summary>Доля видимой части спрайта (0..1) — полоса прогресса. Спрайт
+        /// ОБРЕЗАЕТСЯ по краю, а не сжимается: у полосы здоровья скругления и
+        /// рамка обязаны остаться прежними, а укорачиваться должна только длина.
+        /// null = рисовать целиком. Сторону задаёт <see cref="FillFrom"/>.</summary>
+        public float? Fill;
+        /// <summary>Откуда растёт заливка: "left" (по умолчанию), "right",
+        /// "bottom", "top".</summary>
+        public string FillFrom;
         public TransitionType EnterTransition;
         public TransitionType ExitTransition;
         public float TransitionDuration;
