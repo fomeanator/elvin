@@ -40,6 +40,27 @@ namespace Lvn.Tests
             }
         }
 
+        // Найдено вживую: скелет, привязанный к точке набора, оставался
+        // приклеенным к экрану. Набор стоит далеко от нуля сцены (Far), а точка
+        // приходит в координатах САМОГО набора — без перевода она означала
+        // место в десяти километрах от него, проекция уходила за спину камеры,
+        // и привязка тихо не срабатывала.
+        [Test]
+        public void ProjectsAPointOfTheSet_NotOfTheScene()
+        {
+            var host = new GameObject("host");
+            var backdrop = Lvn3DBackdrop.Ensure(host.transform);
+            backdrop.SetSet(NewSet());
+            // Камера в −6 по Z смотрит вдоль +Z на точку, стоящую в нуле НАБОРА.
+            backdrop.Frame(0f, 0f, -6f, 0f, 0f, 60f, 0f);
+
+            Assert.IsTrue(backdrop.TryProject(Vector3.zero, out var vp, out var dist),
+                "точка набора должна проецироваться, а не отбрасываться");
+            Assert.AreEqual(0.5f, vp.x, 0.02f, "по центру кадра");
+            Assert.AreEqual(0.5f, vp.y, 0.02f);
+            Assert.AreEqual(6f, dist, 0.05f, "дистанция — до точки набора, а не до нуля сцены");
+        }
+
         [Test]
         public void SetIsBuiltFarFromTheScene_SoNothingElseSeesIt()
         {

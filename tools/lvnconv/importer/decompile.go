@@ -432,6 +432,18 @@ func animLine(c articy.Cmd) string {
 			return genericOp("anim", c)
 		}
 		prop := str(t0["prop"])
+		// Цель-ВЫРАЖЕНИЕ («доехать до {hp/hp_max}») не переживает текстовую
+		// форму ключей: внутри фигурных скобок бывают пробелы, а `keys=` режется
+		// по ним. Такой трек — это всегда одноходовый `to=`, им и записываем.
+		if toExpr, ok := exprTargetOf(t0["keys"]); ok && prop != "" && dur > 0 {
+			out := "anim id=" + quote(id) + " prop=" + quote(prop) + " to=" + quote(toExpr) + " dur=" + num(dur)
+			for _, k := range []string{"ease", "interp", "layer"} {
+				if v := str(t0[k]); v != "" {
+					out += " " + k + "=" + quote(v)
+				}
+			}
+			return out + tail
+		}
 		keys, kok := keyframeText(t0["keys"])
 		if prop == "" || !kok || dur <= 0 {
 			return genericOp("anim", c)
@@ -451,6 +463,24 @@ func animLine(c articy.Cmd) string {
 		return "move id=" + quote(id) + " path=" + quote(path) + " dur=" + num(dur) + shaping + tail
 	}
 	return genericOp("anim", c)
+}
+
+// exprTargetOf распознаёт трек одноходового `to=` с целью-выражением:
+// [[0, покой], [dur, "{…}"]]. Возвращает саму строку выражения.
+func exprTargetOf(v any) (string, bool) {
+	list := asList(v)
+	if len(list) != 2 {
+		return "", false
+	}
+	last := asList(list[1])
+	if len(last) != 2 {
+		return "", false
+	}
+	sv, ok := last[1].(string)
+	if !ok || !strings.HasPrefix(sv, "{") || !strings.HasSuffix(sv, "}") {
+		return "", false
+	}
+	return sv, true
 }
 
 // keyframeText renders [[t,v],…] as the `t:v t:v` source form.
@@ -743,7 +773,11 @@ func toMap(v any) (map[string]any, bool) {
 	}
 }
 
-var simpleKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+// Имя переменной — с ЛЮБЫМИ буквами: сценарии пишут на языке автора. Пока тут
+// стояла латиница, `здоровье = 7` не считалось «простым» присваиванием, и
+// обратная сборка выдавала `set key=… expr=7` — где 7 уже число, а не строка.
+// Команда после круга получалась ДРУГОЙ, и страж round-trip справедливо ругался.
+var simpleKeyRe = regexp.MustCompile(`^[\p{L}_][\p{L}\p{N}_]*$`)
 
 func str(v any) string {
 	if s, ok := v.(string); ok {

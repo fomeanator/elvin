@@ -115,7 +115,18 @@ const FUNCS = {
     return from < to ? src.slice(from, to) : [];
   },
   concat: (...a) => { const o = []; for (const v of a) { if (Array.isArray(v)) o.push(...v); else o.push(v); } return o; },
-  put: (m, k, v) => { const o = asMap(m); o[String(k)] = v; return o; },
+  // Список тоже допустим: put(список, индекс, значение) заменяет элемент.
+  // Раньше массив уходил в asMap и молча становился словарём — данные портились
+  // без единой ошибки (тот же баг был и в C#-рантайме).
+  put: (m, k, v) => {
+    if (Array.isArray(m)) {
+      const a = m.slice(); const i = Math.trunc(num(k));
+      if (i < 0) return a;
+      while (a.length <= i) a.push(null);
+      a[i] = v; return a;
+    }
+    const o = asMap(m); o[String(k)] = v; return o;
+  },
   del: (m, k) => { const o = asMap(m); delete o[String(k)]; return o; },
 };
 

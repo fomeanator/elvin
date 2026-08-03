@@ -61,6 +61,7 @@ func TestValidFieldsAndEnumsDoNotWarn(t *testing.T) {
 	 {"op":"audio","channel":"music","url":"/a.mp3","action":"play"},
 	 {"op":"camera","action":"shake","duration":0.4},
 	 {"op":"particles","type":"rain","on":true},
+	 {"op":"o3d","id":"path","shape":"plane","shader":"road","edge":0.3,"ruts":0.7,"wet":0.2},
 	 {"op":"set","key":"gold","value":5,"default":true},
 	 {"op":"say","who":"X","text":"hi {gold}"}
 	]}`)

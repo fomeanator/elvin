@@ -360,3 +360,38 @@ func TestConvertFilesMissingPackageSaysWhichPackage(t *testing.T) {
 		t.Errorf("ошибка = %q, ожидалось имя пакета", err)
 	}
 }
+
+// Сценарий пишут на языке автора: переменные и метки кириллицей работали
+// всегда, а функции — нет (`\w` в RE2 это ASCII), и строка `урон()` молча
+// уезжала в наррацию вместо вызова. Ловилось дважды в живом бою.
+func TestCyrillicFunctionsAreCalled(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"ch.lvns": "scene ch\n" +
+			"func удвоить(ч) { return ч * 2 }\n" +
+			"func показать() {\n  text счёт x=5 y=5 «Очки: {очки}»\n}\n" +
+			"очки = удвоить(21)\n" +
+			"показать()\n" +
+			"Итог {очки}.\n-> __end\n",
+	})
+	doc, err := ConvertFile(filepath.Join(dir, "ch.lvns"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawInlined, sawLabelText bool
+	for _, c := range doc.Script {
+		if c["op"] == "set" && c["key"] == "очки" {
+			if expr, _ := c["expr"].(string); strings.Contains(expr, "21") && strings.Contains(expr, "2") {
+				sawInlined = true // выражение-функция подставлена, а не потеряна
+			}
+		}
+		if c["op"] == "text" && c["id"] == "счёт" {
+			sawLabelText = true // процедура ВЫЗВАЛАСЬ и поставила лейбл
+		}
+	}
+	if !sawInlined {
+		t.Error("кириллическая функция-выражение не подставилась")
+	}
+	if !sawLabelText {
+		t.Error("кириллическая процедура не вызвалась — её тело не попало в скрипт")
+	}
+}

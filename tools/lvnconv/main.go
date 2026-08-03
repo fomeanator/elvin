@@ -37,7 +37,43 @@ func newFlagSet(name string) *flag.FlagSet {
 	return fs
 }
 
+// loadSetModels подхватывает состав 3D-наборов из манифеста, если он рядом:
+// тогда компилятор может сверить `o3d model=…` с тем, что в наборе есть.
+// Ищем в привычных местах, а не требуем флага — автор не должен помнить путь.
+func loadSetModels() {
+	for _, p := range []string{
+		"server/content/manifest.json",
+		"../server/content/manifest.json",
+		"../../server/content/manifest.json",
+	} {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var m struct {
+			Sets map[string]struct {
+				Platforms map[string]struct {
+					Models []string `json:"models"`
+				} `json:"platforms"`
+			} `json:"sets3d"`
+		}
+		if json.Unmarshal(data, &m) != nil {
+			continue
+		}
+		for id, set := range m.Sets {
+			for _, plat := range set.Platforms {
+				if len(plat.Models) > 0 {
+					lvns.SetModels[id] = plat.Models
+					break
+				}
+			}
+		}
+		return
+	}
+}
+
 func main() {
+	loadSetModels()
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -55,6 +91,13 @@ func main() {
 		cmdResyncLvns(os.Args[2:])
 	case "validate":
 		cmdValidate(os.Args[2:])
+	case "plan":
+		// План сцены сверху: расстановка тел клетками, как её писал автор.
+		if err := cmdPlan(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "error: "+err.Error())
+			os.Exit(1)
+		}
+		return
 	case "probe":
 		cmdProbe(os.Args[2:])
 	case "optimize":
@@ -82,6 +125,7 @@ usage:
   lvnconv conflicts -i <content-dir> [-rel <path> [-choice mine|incoming]] [-diff]
   lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
+  lvnconv plan     -i <scene.lvns> [-cell 2]
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
   lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
   lvnconv deps     sync|update|list [-C <dir>]

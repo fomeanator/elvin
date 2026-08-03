@@ -37,7 +37,9 @@
     "save",
     "load",
     "wardrobe_show",
-    "bg3d"
+    "bg3d",
+    "o3d",
+    "light"
   ],
   "structural_ops": [
     "label"
@@ -71,7 +73,15 @@
       "on_drop",
       "on_drop_miss",
       "loop",
-      "drag_bounds"
+      "drag_bounds",
+      "depth",
+      "world",
+      "fill",
+      "fill_from",
+      "fill_time",
+      "parent",
+      "world_height",
+      "in3d"
     ],
     "obj": [
       "id",
@@ -92,7 +102,16 @@
       "on_drop_miss",
       "loop",
       "play",
-      "drag_bounds"
+      "drag_bounds",
+      "fill",
+      "fill_from",
+      "fill_time",
+      "depth",
+      "world",
+      "rotation",
+      "parent",
+      "world_height",
+      "in3d"
     ],
     "fade": [
       "to",
@@ -211,7 +230,11 @@
     "wardrobe_show": [
       "char"
     ],
-    "clear": [],
+    "clear": [
+      "dialogue",
+      "labels",
+      "all"
+    ],
     "fx": [
       "vignette",
       "grain",
@@ -306,7 +329,106 @@
       "fov",
       "dur",
       "off",
-      "live"
+      "live",
+      "sway",
+      "sway_speed",
+      "walk",
+      "build",
+      "focus",
+      "dof",
+      "dof_range",
+      "stats",
+      "rim",
+      "warm",
+      "steps",
+      "shadow_tint",
+      "rim_color",
+      "tone",
+      "exposure",
+      "saturation",
+      "contrast",
+      "dither",
+      "knee",
+      "white",
+      "bloom",
+      "bloom_threshold",
+      "bloom_knee"
+    ],
+    "o3d": [
+      "id",
+      "shape",
+      "model",
+      "sprite",
+      "texture",
+      "pos",
+      "size",
+      "height",
+      "pitch",
+      "yaw",
+      "roll",
+      "color",
+      "alpha",
+      "glow",
+      "ground",
+      "shadow",
+      "flip",
+      "on_click",
+      "off",
+      "count",
+      "area",
+      "seed",
+      "scale_var",
+      "yaw_var",
+      "gap",
+      "kinds",
+      "colors",
+      "wind",
+      "shader",
+      "at",
+      "dur",
+      "dissolve",
+      "spin",
+      "bob",
+      "bob_speed",
+      "pulse",
+      "pulse_speed",
+      "normal",
+      "bump",
+      "tiling",
+      "edge",
+      "ruts",
+      "wet",
+      "outline",
+      "outline_color",
+      "rim",
+      "hills",
+      "hill_size",
+      "detail",
+      "cells",
+      "sound",
+      "sound_range",
+      "sound_volume",
+      "near",
+      "on",
+      "dist",
+      "side",
+      "fade"
+    ],
+    "light": [
+      "kind",
+      "id",
+      "angle",
+      "pos",
+      "color",
+      "power",
+      "range",
+      "near",
+      "far",
+      "top",
+      "bottom",
+      "off",
+      "dur",
+      "flicker"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -338,7 +460,9 @@
     "save",
     "load",
     "wardrobe_show",
-    "label"
+    "label",
+    "o3d",
+    "light"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
   "enums": {
@@ -399,6 +523,62 @@
         "far_right",
         "offscreen_left",
         "offscreen_right"
+      ]
+    },
+    "bg3d": {
+      "tone": [
+        "off",
+        "neutral",
+        "khronos"
+      ]
+    },
+    "o3d": {
+      "shape": [
+        "box",
+        "plane",
+        "sphere",
+        "cylinder",
+        "cone",
+        "disc",
+        "ground",
+        "terrain",
+        "земля"
+      ],
+      "shader": [
+        "toon",
+        "wind",
+        "aura",
+        "water",
+        "glass",
+        "dissolve",
+        "fire",
+        "smoke",
+        "triplanar",
+        "road",
+        "any",
+        "metal",
+        "cloth",
+        "unlit"
+      ],
+      "side": [
+        "left",
+        "right",
+        "front",
+        "back",
+        "слева",
+        "справа",
+        "спереди",
+        "сзади"
+      ]
+    },
+    "light": {
+      "kind": [
+        "sun",
+        "fill",
+        "point",
+        "spot",
+        "fog",
+        "sky"
       ]
     }
   },
@@ -501,7 +681,7 @@
     ],
     "obj": [
       "obj id=\"x\" sprite_url=\"…\" x= y= on_click=\"label\"",
-      "A placeable, optionally clickable sprite."
+      "A placeable, optionally clickable sprite. `fill=0..1` shows only PART of it — cropped, not squashed (progress/health bars); `fill_from=left|right|top|bottom` picks the side it grows from."
     ],
     "fade": [
       "fade to=\"black|white|clear\" duration=0.8",

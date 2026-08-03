@@ -187,6 +187,18 @@
       "csharp": "stage",
       "js": "none",
       "note": "Unity-only: films a built 3D set into the background; the web player has no scene to film and keeps the flat background."
+    },
+    "o3d": {
+      "owner": "engine",
+      "csharp": "stage",
+      "js": "none",
+      "note": "Unity-only: тело 3D-сцены (примитив, модель, посев, движение). У веб-плеера нет сцены, команда игнорируется — фон остаётся плоским."
+    },
+    "light": {
+      "owner": "engine",
+      "csharp": "stage",
+      "js": "none",
+      "note": "Unity-only: свет и атмосфера 3D-сцены (sun/fill/point/fog/sky). Веб-плеер сцены не снимает."
     }
   }
 }

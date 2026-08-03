@@ -1,0 +1,14 @@
+{
+  "name": "@fomean/lvn-uikit",
+  "version": "0.1.0",
+  "license": "MIT",
+  "min_engine": "0",
+  "exports": [
+    "core.lvns",
+    "hp-bar.lvns",
+    "resource-bar.lvns",
+    "badge.lvns",
+    "panel.lvns",
+    "hud.lvns"
+  ]
+}

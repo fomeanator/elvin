@@ -20,7 +20,8 @@
     "com.unity.modules.uielements": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
     "com.unity.modules.unitywebrequestaudio": "1.0.0",
-    "com.unity.modules.unitywebrequesttexture": "1.0.0"
+    "com.unity.modules.unitywebrequesttexture": "1.0.0",
+    "com.unity.cloud.gltfast": "6.10.1"
   },
   "testables": [
     "com.lvn.engine"

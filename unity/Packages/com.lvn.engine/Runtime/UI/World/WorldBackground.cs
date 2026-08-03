@@ -77,8 +77,20 @@ namespace Lvn.UI.World
             _tile = null; _tilePx = 0f;
             _tex = null; // skip cover-crop: the frame is already the right shape
             _image.texture = tex;
-            _image.color = tex != null ? Color.white : Color.black;
+            _image.color = tex != null ? Color.white * _liveReveal + new Color(0f, 0f, 0f, 1f) : Color.black;
             _image.uvRect = new Rect(0f, 0f, 1f, 1f);
+        }
+
+        private float _liveReveal = 1f;
+
+        /// <summary>Насколько проявлен живой кадр (0 — чернота, 1 — полностью).
+        /// Именно ЯРКОСТЬ, а не прозрачность: под фоном ничего нет, и альфа
+        /// показала бы не «сцена появляется», а дыру в кадре.</summary>
+        public void SetLiveReveal(float reveal)
+        {
+            _liveReveal = Mathf.Clamp01(reveal);
+            if (_image.texture == null) return;
+            _image.color = Color.white * _liveReveal + new Color(0f, 0f, 0f, 1f);
         }
 
         /// <summary>Recompute the cover-crop uv rect for the current slot size —
