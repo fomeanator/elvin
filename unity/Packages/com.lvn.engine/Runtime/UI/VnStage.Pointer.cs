@@ -32,6 +32,19 @@ namespace Lvn.UI
         private bool _chromeHidden;
         private bool _pressTracking, _suppressTap;
         private Vector2 _pressPos;
+        // Осмотр сцены удержанием: палец водит по 3D-набору, авторский кадр
+        // остаётся на месте, а взгляд отпускается обратно. Живёт только там,
+        // где есть что осматривать — на плоском фоне вращать нечего.
+        private bool _looking;
+        private Vector2 _lookPos;
+        private const float LookDegPerPx = 0.12f;
+        // Ходьба тачем: ЛЕВАЯ половина экрана — виртуальный стик (тянешь от
+        // точки нажатия — идёшь в ту сторону), правая — осмотр. Разделение по
+        // половинам вместо нарисованного джойстика: палец не ищет элемент,
+        // а кладётся куда попало — так делают все шутеры на телефоне.
+        private bool _walking;
+        private Vector2 _walkOrigin;
+        private const float StickRadiusPx = 140f;
         private IVisualElementScheduledItem _longPress;
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
@@ -83,10 +96,66 @@ namespace Lvn.UI
         {
             if (!_pressTracking) return;
             if (_dragId != null) { DragMove(evt.position); return; }
+            if (_walking) { WalkMove(evt.position); return; }
+            if (_looking) { LookMove(evt.position); return; }
             if (((Vector2)evt.position - _pressPos).sqrMagnitude <= PressDriftSq) return;
             _suppressTap = true; // a drag is neither a tap nor a hold
             _longPress?.Pause();
-            if (_dragCandidate != null) DragBegin(_dragCandidate, evt.position);
+            if (_dragCandidate != null) { DragBegin(_dragCandidate, evt.position); return; }
+            // Ничего перетаскиваемого под пальцем — значит игрок ОСМАТРИВАЕТСЯ.
+            // Долгое нажатие (просмотр арта) отменяем: оно про то же намерение,
+            // но осмотр богаче — он двигает саму сцену.
+            if (_renderer != null && _renderer.Has3DSet)
+            {
+                _longPress?.Pause();
+                SetChromeHidden(false);
+                // Левая половина ведёт, правая смотрит.
+                bool leftHalf = _uiRoot != null && _uiRoot.worldBound.width > 1f
+                                && _pressPos.x < _uiRoot.worldBound.width * 0.5f;
+                if (leftHalf && _walkEnabled)
+                {
+                    _walking = true;
+                    _walkOrigin = _pressPos;
+                    WalkMove(evt.position);
+                }
+                else
+                {
+                    _looking = true;
+                    _lookPos = evt.position;
+                }
+            }
+        }
+
+        /// <summary>Включена ли ходьба — ставится скриптом через `bg3d walk=1`.
+        /// Без неё левая половина работает как осмотр, чтобы не отнимать
+        /// привычный жест у сцен, где ходить некуда.</summary>
+        private bool _walkEnabled;
+
+        public void SetWalkEnabled(bool on)
+        {
+            _walkEnabled = on;
+            if (!on) { _walking = false; _renderer?.WalkStick3D(Vector2.zero); }
+        }
+
+        // Палец от точки нажатия — вектор движения. Дальше радиуса не растёт:
+        // это стик, а не пращa.
+        private void WalkMove(Vector2 pos)
+        {
+            var d = pos - _walkOrigin;
+            // Экранный Y растёт вниз, а «вперёд» — это вверх.
+            var v = new Vector2(d.x / StickRadiusPx, -d.y / StickRadiusPx);
+            _renderer?.WalkStick3D(v);
+        }
+
+        // Экранные пиксели → градусы. Осмотр идёт ЗА ПАЛЬЦЕМ: тянешь вверх —
+        // кадр едет вверх, будто сцену двигают рукой. Так же ведут себя карты
+        // и фотографии, и для сенсорного экрана это привычнее, чем инверсия из
+        // шутеров: там мышью управляют головой, а здесь пальцем — картинкой.
+        private void LookMove(Vector2 pos)
+        {
+            var d = pos - _lookPos;
+            _lookPos = pos;
+            _renderer?.Look3D(d.y * LookDegPerPx, d.x * LookDegPerPx);
         }
 
         private void OnPointerUp(PointerUpEvent evt)
@@ -97,6 +166,22 @@ namespace Lvn.UI
             _dragCandidate = null;
 
             if (_dragId != null) { DragEnd(evt.position); return; }
+            if (_walking)
+            {
+                _walking = false;
+                _renderer?.WalkStick3D(Vector2.zero);   // отпустил — встал
+                return;
+            }
+            if (_looking)
+            {
+                // Отпустил — кадр ОСТАЁТСЯ там, куда его увели. Пружинный
+                // возврат к авторскому ракурсу мешал: осмотреться толком не
+                // выходило, сцена выдёргивалась из рук на полудвижении. Взгляд
+                // возвращает сам автор — любая команда `bg3d`, и постановка
+                // нового набора тоже.
+                _looking = false;
+                return;
+            }
             if (_chromeHidden) { SetChromeHidden(false); return; } // release restores, swallows the tap
             if (!wasTracking || _suppressTap) return;
             if (Skipping) { StopSkip(); return; } // a tap during fast-forward just stops it
@@ -109,6 +194,8 @@ namespace Lvn.UI
             // or a half-dragged object.
             _pressTracking = false;
             _dragCandidate = null;
+            if (_looking) _looking = false; // жест прерван — кадр остаётся где был
+            if (_walking) { _walking = false; _renderer?.WalkStick3D(Vector2.zero); }
             if (_dragId != null) DragEnd(_pressPos);
             _longPress?.Pause();
             SetChromeHidden(false);
@@ -131,6 +218,30 @@ namespace Lvn.UI
             // A point-and-click screen (the Canvas scene has registered hotspots):
             // only hotspots act. A hit fires its on_click; a miss is IGNORED (it must
             // not advance/re-print the room). Hotspots win over tap-to-advance.
+            // ТЕЛА 3D-СЦЕНЫ. Проверяются раньше плоских точек нажатия: они
+            // стоят В МИРЕ, и попадание по ним однозначнее — экранный
+            // прямоугольник спрайта может перекрывать половину кадра, а
+            // габариты тела в сцене нет.
+            if (_uiRoot != null && _renderer != null && _renderer.Has3DSet)
+            {
+                float w3 = _uiRoot.layout.width, h3 = _uiRoot.layout.height;
+                if (w3 > 1f && h3 > 1f)
+                {
+                    // Доля кадра, снизу вверх: камера набора живёт в координатах
+                    // вьюпорта, а панель — в экранных с началом сверху.
+                    var vp = new Vector2(pos.x / w3, 1f - pos.y / h3);
+                    var label = _renderer.Pick3D(vp);
+                    if (!string.IsNullOrEmpty(label))
+                    {
+                        LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0}] → тело сцены → :{label}");
+                        if (_dialogue.IsRevealing) _dialogue.Complete();
+                        _player?.GoTo(label);
+                        _player?.Advance();
+                        return;
+                    }
+                }
+            }
+
             if (_hotspots.Count > 0 && _uiRoot != null)
             {
                 float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;

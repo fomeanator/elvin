@@ -69,6 +69,39 @@ namespace Lvn.UI
         /// <summary>Force whether the standing set is filmed every frame.</summary>
         void Set3DLive(bool live);
 
+        // ── сцена, собираемая из скрипта ──
+        /// <summary>Пустая сцена под `o3d`/`light` — 3D без готового набора.</summary>
+        void Build3D();
+        /// <summary>Тело сцены: примитив, модель или плоская фигура.</summary>
+        bool Body3D(string id, in Lvn.UI.World.Lvn3DBackdrop.Body body);
+        void RemoveBody3D(string id);
+        /// <summary>Тело реагирует на нажатие переходом на метку.</summary>
+        void SetBody3DClick(string id, string label);
+        /// <summary>Во что попали в кадре 3D-сцены (точка — доля кадра).</summary>
+        string Pick3D(Vector2 viewport);
+        /// <summary>Показать/скрыть числа сцены на устройстве.</summary>
+        void Stats3D(bool on);
+        /// <summary>Глубина резкости: фокус и его толщина в метрах, сила.</summary>
+        void Dof3D(float? focus, float? range, float? power);
+
+        void Bloom3D(float? power, float? threshold, float? knee);
+        void Shadows3D(float meters);
+
+        /// <summary>Тональная компрессия кадра набора (`bg3d tone= exposure=`).</summary>
+        void Tone3D(Lvn.UI.World.Lvn3DPostStack.Tone? tone, float? exposure, float? saturation, float? contrast, float? dither, float? knee, float? white);
+        /// <summary>Открыть кадр 3D-сцены, если он придержан на время постройки.</summary>
+        void Reveal3DIfHeld();
+        /// <summary>Строится ли сцена прямо сейчас (кадр закрыт).</summary>
+        bool Building3D { get; }
+        /// <summary>Свет и атмосфера: sun / fill / point / fog / sky.</summary>
+        void Light3D(string kind, string id, Vector2? angle, Vector3? pos,
+            Color? color, float? power, float? range, float? near, float? far,
+            Color? top, Color? bottom, bool off, float dur, float flicker);
+
+        /// <summary>Дыхание камеры 3D-набора: амплитуда в градусах (0 —
+        /// выключить) и примерные циклы в секунду.</summary>
+        void Set3DSway(float? amplitude, float? speed);
+
         /// <summary>Real gaussian blur of the scene frame, when this renderer
         /// can do one (Canvas path + built-in pipeline + a camera). Returns
         /// false → the stage falls back to the FxLayer veil imitation.</summary>
@@ -77,6 +110,21 @@ namespace Lvn.UI
         /// <summary>The `fx` multi-effect stack (vignette/grain/bloom/…): same
         /// camera hook as TryBlur. False → no camera, the op is a no-op.</summary>
         bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
+
+        /// <summary>Погасить все полнокадровые эффекты немедленно — граница сцены.</summary>
+        void ClearFx();
+
+        /// <summary>Осмотр 3D-набора удержанием: сдвиг взгляда в градусах.</summary>
+        void Look3D(float dPitch, float dYaw);
+        /// <summary>Вернуть взгляд к авторскому кадру.</summary>
+        void LookReset3D();
+        /// <summary>Ходьба по набору: включение и вектор джойстика.</summary>
+        void SetWalk3D(bool on);
+        void WalkStick3D(Vector2 v);
+        /// <summary>Текущий ракурс строкой — для подписи в отладке.</summary>
+        string Camera3DInfo();
+        /// <summary>Есть ли что осматривать (стоит ли набор).</summary>
+        bool Has3DSet { get; }
 
         /// <summary>Спрайтовые эффекты актёра (op `sfx`: обводка/свечение/
         /// растворение). False → путь без канвас-актёров, no-op.</summary>
@@ -137,9 +185,33 @@ namespace Lvn.UI
         public void Set3DBackdrop(GameObject prefab) { }
         public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds) { }
         public void Set3DLive(bool live) { }
+        public void Build3D() { }
+        public bool Body3D(string id, in Lvn.UI.World.Lvn3DBackdrop.Body body) => false;
+        public void RemoveBody3D(string id) { }
+        public void SetBody3DClick(string id, string label) { }
+        public string Pick3D(Vector2 viewport) => null;
+        public void Stats3D(bool on) { }
+        public void Dof3D(float? focus, float? range, float? power) { }
+        public void Bloom3D(float? power, float? threshold, float? knee) { }
+        public void Shadows3D(float meters) { }
+        public void Tone3D(Lvn.UI.World.Lvn3DPostStack.Tone? tone, float? exposure, float? saturation, float? contrast, float? dither, float? knee, float? white) { }
+        public void Reveal3DIfHeld() { }
+        public bool Building3D => false;
+        public void Light3D(string kind, string id, Vector2? angle, Vector3? pos,
+            Color? color, float? power, float? range, float? near, float? far,
+            Color? top, Color? bottom, bool off, float dur, float flicker) { }
+        public void Set3DSway(float? amplitude, float? speed) { }
 
         public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
         public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
+        public void ClearFx() { }                                       // нечего гасить: кадром не владеем
+        public void Look3D(float dPitch, float dYaw) { }                // UITK-путь без набора
+        public void LookReset3D() { }
+        public void SetWalk3D(bool on) { }
+        public void WalkStick3D(Vector2 v) { }
+        public string Camera3DInfo() => "";
+        public bool Has3DSet => false;
+
         public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd) => false; // UITK: слои не Image'ы
 
         public void Teardown() { /* UITK elements die with the panel root */ }
@@ -224,6 +296,24 @@ namespace Lvn.UI
         public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds)
             => _scene.Frame3D(x, y, z, pitch, yaw, fov, seconds);
         public void Set3DLive(bool live) => _scene.Set3DLive(live);
+        public void Build3D() => _scene.Build3D();
+        public bool Body3D(string id, in Lvn.UI.World.Lvn3DBackdrop.Body body) => _scene.Body3D(id, body);
+        public void RemoveBody3D(string id) => _scene.RemoveBody3D(id);
+        public void SetBody3DClick(string id, string label) => _scene.SetBody3DClick(id, label);
+        public string Pick3D(Vector2 viewport) => _scene.Pick3D(viewport);
+        public void Stats3D(bool on) => _scene.Stats3D(on);
+        public void Dof3D(float? focus, float? range, float? power) => _scene.Dof3D(focus, range, power);
+        public void Bloom3D(float? power, float? threshold, float? knee) => _scene.Bloom3D(power, threshold, knee);
+        public void Shadows3D(float meters) => _scene.Shadows3D(meters);
+        public void Tone3D(Lvn.UI.World.Lvn3DPostStack.Tone? tone, float? exposure, float? saturation, float? contrast, float? dither, float? knee, float? white)
+            => _scene.Tone3D(tone, exposure, saturation, contrast, dither, knee, white);
+        public void Reveal3DIfHeld() => _scene.Reveal3DIfHeld();
+        public bool Building3D => _scene.Building3D;
+        public void Light3D(string kind, string id, Vector2? angle, Vector3? pos,
+            Color? color, float? power, float? range, float? near, float? far,
+            Color? top, Color? bottom, bool off, float dur, float flicker)
+            => _scene.Light3D(kind, id, angle, pos, color, power, range, near, far, top, bottom, off, dur, flicker);
+        public void Set3DSway(float? amplitude, float? speed) => _scene.Set3DSway(amplitude, speed);
 
         public void Shake(float amplitude, float seconds) => _scene.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
@@ -244,10 +334,19 @@ namespace Lvn.UI
             return true;
         }
 
+        public void ClearFx() => _scene.Fx?.ClearAll();
+        public void Look3D(float dPitch, float dYaw) => _scene.Look3D(dPitch, dYaw);
+        public void LookReset3D() => _scene.LookReset3D();
+        public void SetWalk3D(bool on) => _scene.SetWalk3D(on);
+        public void WalkStick3D(Vector2 v) => _scene.WalkStick3D(v);
+        public string Camera3DInfo() => _scene.Camera3DInfo();
+        public bool Has3DSet => _scene.Has3DSet;
+
         public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd)
         {
             var actor = _scene.ActorFor(id);
             if (actor == null) return false;
+            actor.RememberFx(cmd); // переживёт смену позы и догрузку арта
             World.LvnSpriteFxDriver.Apply(actor.gameObject, cmd);
             return true;
         }
