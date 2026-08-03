@@ -106,6 +106,34 @@ namespace Lvn.UI
             }
         }
 
+        /// <summary>A tiling surface texture. Downloaded as plain bytes, not via
+        /// the texture handler: the sprite path's Clamp/no-mip settings turn a
+        /// tiled floor into stripes (see <see cref="LvnTextures"/>).</summary>
+        public async Task<Texture2D> LoadSurfaceTextureAsync(string url, bool linear, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            var hit = LvnTextures.Cached(url, linear);
+            if (hit != null) return hit;
+
+            var fullUrl = FullUrl(url);
+            if (fullUrl == null) return null;
+
+            try
+            {
+                using var request = UnityWebRequest.Get(fullUrl);
+                var op = request.SendWebRequest();
+                while (!op.isDone)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    await Task.Yield();
+                }
+                if (request.result != UnityWebRequest.Result.Success) return null;
+                return LvnTextures.Build(url, request.downloadHandler.data, linear);
+            }
+            catch (System.OperationCanceledException) { throw; }
+            catch { return null; }
+        }
+
         public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(url)) return null;

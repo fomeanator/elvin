@@ -56,6 +56,17 @@ namespace Lvn.UI
         /// unsupported (null) — implemented by the network and directory loaders.</summary>
         Task<string> LoadTextAsync(string url, CancellationToken ct) => Task.FromResult<string>(null);
 
+        /// <summary>Load a TILING SURFACE texture (an <c>o3d</c> body's
+        /// <c>texture=</c> / <c>normal=</c>), which needs different settings than
+        /// sprite art: repeat wrapping, mipmaps and anisotropy — see
+        /// <see cref="LvnTextures"/> for why each one matters on a floor that
+        /// runs to the horizon. <paramref name="linear"/> marks a normal map.
+        /// Default: unsupported (null), and the stage falls back to the sprite
+        /// path, which still shows the material — just with the seams and the
+        /// shimmer this API exists to remove.</summary>
+        Task<Texture2D> LoadSurfaceTextureAsync(string url, bool linear, CancellationToken ct)
+            => Task.FromResult<Texture2D>(null);
+
         /// <summary>Load a 3D set — the prefab a `bg3d` op stands behind the scene
         /// so the script can move a camera through it instead of asking for
         /// another painted angle. Default: unsupported (null), and the stage then
