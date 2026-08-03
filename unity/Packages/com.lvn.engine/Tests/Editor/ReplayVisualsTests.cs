@@ -153,6 +153,102 @@ namespace Lvn.Tests
                 "structural ops in order, collapsed FX after");
         }
 
+        // Найдено вживую: бой шёл на 3D-наборе, игрок продолжил с сохранения и
+        // получил ЧЁРНЫЙ экран. Набор — такой же постоянный задник, как `bg`,
+        // но в списке переигрываемых op его не было, и вернуть его было нечему:
+        // следующая команда `bg3d` в скрипте могла не встретиться уже никогда.
+        [Test]
+        public void Bg3dSetAndItsFramingReplayInOrder()
+        {
+            var (p, s) = Make(@"{""script"":[
+                {""op"":""bg3d"",""id"":""duelwood"",""z"":-7},
+                {""op"":""say"",""text"":""a""},
+                {""op"":""bg3d"",""z"":-4,""fov"":60},
+                {""op"":""say"",""text"":""b""}
+            ]}");
+            p.ReplayVisuals(4);
+
+            var sets = Ops(s, "bg3d");
+            Assert.AreEqual(2, sets.Count, "и постановка набора, и последующее кадрирование");
+            Assert.AreEqual("duelwood", (string)sets[0]["id"], "сначала встаёт сам набор");
+            Assert.AreEqual(60f, (float)sets[1]["fov"], 0.001f,
+                "последним — тот ракурс, в котором игрок сохранился");
+        }
+
+        // Полосы hp прыгали через всю историю боя при загрузке: каждая `anim`
+        // за сцену переигрывалась подряд, со своей длительностью.
+        [Test]
+        public void AnimCollapsesPerChannelAndSnapsToEnd()
+        {
+            var (p, s) = Make(@"{""script"":[
+                {""op"":""obj"",""id"":""bar"",""sprite_url"":""/ui/bar.png""},
+                {""op"":""anim"",""id"":""bar"",""anim"":{""duration"":0.4,""tracks"":[
+                    {""prop"":""fill"",""keys"":[[0,1.0],[0.4,0.75]]}]}},
+                {""op"":""say"",""text"":""удар""},
+                {""op"":""anim"",""id"":""bar"",""anim"":{""duration"":0.4,""tracks"":[
+                    {""prop"":""fill"",""keys"":[[0,0.75],[0.4,0.5]]}]}},
+                {""op"":""say"",""text"":""ещё""}
+            ]}");
+            p.ReplayVisuals(5);
+
+            var anims = Ops(s, "anim");
+            Assert.AreEqual(1, anims.Count, "одна дорожка — одна команда, не вся история");
+            var track = anims[0]["anim"]["tracks"][0];
+            Assert.AreEqual(1, ((JArray)track["keys"]).Count, "один ключ: переходить уже неоткуда");
+            Assert.AreEqual(0.5f, (float)track["keys"][0][1], 0.001f, "конечное значение последней анимации");
+            Assert.Less((float)anims[0]["anim"]["duration"], 0.01f, "без кадра перехода");
+        }
+
+        // Зацикленное (дыхание, мерцание) — это состояние, а не переход:
+        // оборвав его, сцена замерла бы в случайной фазе.
+        [Test]
+        public void LoopingAnimReplaysIntact()
+        {
+            var (p, s) = Make(@"{""script"":[
+                {""op"":""obj"",""id"":""torch"",""sprite_url"":""/ui/t.png""},
+                {""op"":""anim"",""id"":""torch"",""anim"":{""loop"":true,""duration"":1.2,""tracks"":[
+                    {""prop"":""alpha"",""keys"":[[0,1.0],[1.2,0.6]]}]}},
+                {""op"":""say"",""text"":""x""}
+            ]}");
+            p.ReplayVisuals(3);
+
+            var anims = Ops(s, "anim");
+            Assert.AreEqual(1, anims.Count);
+            Assert.AreEqual(1.2f, (float)anims[0]["anim"]["duration"], 0.001f, "длительность цикла сохранена");
+            Assert.AreEqual(2, ((JArray)anims[0]["anim"]["tracks"][0]["keys"]).Count, "ключи цикла не тронуты");
+        }
+
+        // Остановленная анимация не должна воскресать при каждой загрузке.
+        [Test]
+        public void StoppedAnimDoesNotComeBack()
+        {
+            var (p, s) = Make(@"{""script"":[
+                {""op"":""obj"",""id"":""bar"",""sprite_url"":""/ui/bar.png""},
+                {""op"":""anim"",""id"":""bar"",""anim"":{""duration"":0.4,""tracks"":[
+                    {""prop"":""fill"",""keys"":[[0,1.0],[0.4,0.3]]}]}},
+                {""op"":""anim"",""id"":""bar"",""stop"":""all""},
+                {""op"":""say"",""text"":""x""}
+            ]}");
+            p.ReplayVisuals(4);
+            Assert.AreEqual(0, Ops(s, "anim").Count, "stop снимает накопленное, а не добавляет команду");
+        }
+
+        // Разные свойства идут параллельно — схлопывать их в одну нельзя.
+        [Test]
+        public void DifferentPropsSurviveSideBySide()
+        {
+            var (p, s) = Make(@"{""script"":[
+                {""op"":""obj"",""id"":""bar"",""sprite_url"":""/ui/bar.png""},
+                {""op"":""anim"",""id"":""bar"",""anim"":{""duration"":0.3,""tracks"":[
+                    {""prop"":""fill"",""keys"":[[0,1.0],[0.3,0.4]]}]}},
+                {""op"":""anim"",""id"":""bar"",""anim"":{""duration"":0.3,""tracks"":[
+                    {""prop"":""alpha"",""keys"":[[0,1.0],[0.3,0.8]]}]}},
+                {""op"":""say"",""text"":""x""}
+            ]}");
+            p.ReplayVisuals(4);
+            Assert.AreEqual(2, Ops(s, "anim").Count, "fill и alpha — разные дорожки");
+        }
+
         [Test]
         public void SayChoiceSetWaitNeverReplay()
         {

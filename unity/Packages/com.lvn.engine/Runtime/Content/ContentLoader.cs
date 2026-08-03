@@ -1422,12 +1422,16 @@ namespace Lvn.Content
             return missing;
         }
 
-        // Session-long negative cache: a url the server answered 4xx for will
-        // 4xx again — refetching it on every screen build spams the log and the
-        // wire. Warn ONCE, then fast-fail silently for the rest of the session
-        // (a content re-deploy bumps versions, which changes the cache key path,
-        // so a fixed asset is picked up on the next launch anyway).
-        private readonly HashSet<string> _notFound = new();
+        // Негативный кэш С ГОДНОСТЬЮ: url, на который сервер ответил 4xx,
+        // почти наверняка ответит так же — перезапрашивать его на каждой сборке
+        // экрана значит засорять и лог, и провод. Но «почти» здесь важнее
+        // «наверняка»: контент правится на живом сервере, и файл, которого не
+        // было минуту назад, теперь есть. Раньше промах держался всю сессию, и
+        // залитая картинка оставалась невидимой до переустановки приложения —
+        // отказ, который выглядит как «у меня не работает, а у тебя работает».
+        // Полторы минуты — компромисс: спама нет, а исправление доезжает само.
+        private const float NotFoundTtlSeconds = 90f;
+        private readonly Dictionary<string, float> _notFound = new();
 
         private async Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
         {
@@ -1438,8 +1442,12 @@ namespace Lvn.Content
                 return await ReadAllBytesAsync(path, ct);
 
             lock (_notFound)
-                if (_notFound.Contains(url))
-                    throw new LvnFetchException(404, "http_404", url + " (cached 404)");
+                if (_notFound.TryGetValue(url, out var missedAt))
+                {
+                    if (Time.realtimeSinceStartup - missedAt < NotFoundTtlSeconds)
+                        throw new LvnFetchException(404, "http_404", url + " (cached 404)");
+                    _notFound.Remove(url); // срок вышел — пробуем снова
+                }
 
             return await TrackedFetch(url, async () =>
             {
@@ -1483,12 +1491,16 @@ namespace Lvn.Content
                     catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
                     {
                         bool first;
-                        lock (_notFound) first = _notFound.Add(url);
+                        lock (_notFound)
+                        {
+                            first = !_notFound.ContainsKey(url);
+                            _notFound[url] = Time.realtimeSinceStartup;
+                        }
                         // Info, not warning: a 4xx here is usually the EXPECTED
                         // steady state of an optional probe (.ktx2/.astc/@2k
                         // variants, demo-stub art) — a yellow triangle per asset
                         // per session reads like breakage and drowns real ones.
-                        if (first) Debug.Log($"[content] {url} permanent {ex.Status} (silenced for this session)");
+                        if (first) Debug.Log($"[content] {url} → {ex.Status} (молчим {NotFoundTtlSeconds:0} с, потом попробуем снова)");
                         throw;
                     }
                     catch (Exception ex)

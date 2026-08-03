@@ -1,6 +1,7 @@
 {
   "content_dir": "server/content",
   "dependencies": {
-    "@fomean/lvn-duel": "github:fomeanator/lvn-duel@v0.1.0"
+    "@fomean/lvn-duel": "file:packages/lvn-duel",
+    "@fomean/lvn-uikit": "file:packages/lvn-uikit"
   }
 }

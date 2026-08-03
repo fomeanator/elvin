@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Lvn.Content;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.UIElements.Experimental;
@@ -337,8 +338,26 @@ namespace Lvn.UI
         }
 
         // ── pure sampling (static, unit-tested) ──────────────────────────────
-        private static float F(object o) =>
-            o == null ? 0f : Convert.ToSingle(o, CultureInfo.InvariantCulture);
+        /// <summary>Живые переменные для ключей-выражений. Ставит сцена; null —
+        /// значит выражений в анимации нет (редактор, тесты, старый контент).</summary>
+        internal static System.Func<IReadOnlyDictionary<string, JToken>> VarsProvider;
+
+        /// <summary>Значение ключа. Число — как есть; СТРОКА С ШАБЛОНОМ — считается
+        /// по живым переменным. Благодаря этому анимировать можно НЕ ТОЛЬКО к
+        /// литералу: `anim bar fill to="{hp / hp_max}"` едет к доле, которая на
+        /// момент запуска и не была известна автору. Одна точка на все свойства —
+        /// x, scale, alpha, fill получают это разом.</summary>
+        private static float F(object o)
+        {
+            if (o == null) return 0f;
+            if (o is string str)
+            {
+                if (str.IndexOf('{') >= 0)
+                    str = TextInterpolation.Apply(str, VarsProvider?.Invoke());
+                return float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var pf) ? pf : 0f;
+            }
+            return Convert.ToSingle(o, CultureInfo.InvariantCulture);
+        }
 
         internal static float Sample(LvnAnimTrack tr, float t) => Sample(tr, t, easeless: false);
 

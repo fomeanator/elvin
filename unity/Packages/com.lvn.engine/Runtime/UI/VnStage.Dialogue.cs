@@ -122,6 +122,12 @@ namespace Lvn.UI
 
         public void ShowSay(string who, string text, string style)
         {
+            // ПАУЗА — значит место собрано. Команды сцены идут пачкой между
+            // репликами, и первая же реплика означает, что пачка кончилась:
+            // земля, свет, роща и костёр уже стоят. Открываем кадр здесь, а не
+            // в момент постройки — иначе игрок смотрит, как сцена наполняется
+            // по одному телу, и это читается как чёрный экран с артефактами.
+            _renderer?.Reveal3DIfHeld();
             if (_entryGateArmed)
             {
                 _entryGateArmed = false;
@@ -229,6 +235,7 @@ namespace Lvn.UI
 
         public void ShowChoice(IReadOnlyList<LvnOption> options)
         {
+            _renderer?.Reveal3DIfHeld();   // выбор — такая же пауза, как реплика
             _awaitingTap = false;
             _curChoices = options;
             _dialogue?.SuppressAdvanceHint(true); // a choice is up — don't invite a tap

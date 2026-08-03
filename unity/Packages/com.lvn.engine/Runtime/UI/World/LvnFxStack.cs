@@ -52,6 +52,26 @@ namespace Lvn.UI.World
         public static LvnFxStack Ensure(Camera cam) =>
             cam.GetComponent<LvnFxStack>() ?? cam.gameObject.AddComponent<LvnFxStack>();
 
+        /// <summary>Погасить ВСЁ немедленно, без команды и без перехода.
+        ///
+        /// <para>Нужен на границе сцены. Полнокадровые эффекты живут на камере,
+        /// а камера переживает смену главы — поэтому кровь, инверсия и виньетка
+        /// последнего боя спокойно доезжали до меню и до следующего запуска.
+        /// Скрипт мог бы гасить их сам, но не обязан: он вправе кончиться на
+        /// любой команде, в том числе на середине эффекта.</para></summary>
+        public void ClearAll()
+        {
+            _tVignette = _tGrain = _tChromatic = _tScanlines = _tPixelate =
+                _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
+                _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
+                _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
+                _tPosterize = _tLetterbox = _tSpace = 0f;
+            _tSaturation = 1f; _tContrast = 1f; _tint = Color.white;
+            _speed = 0f;
+            SnapToTargets();
+            enabled = false; // всё в нуле — кадр больше не платит за хук
+        }
+
         /// <summary>Применить op-команду (см. класс-комментарий).</summary>
         public void Apply(JObject cmd)
         {

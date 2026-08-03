@@ -182,6 +182,8 @@ namespace Lvn.UI
             if (SeedVars != null)      // carry stats in before the init defaults run
                 foreach (var p in SeedVars.Properties()) _player.Vars[p.Name] = p.Value;
             _player.OnSay += RecordSay;
+            HookAchievements();          // плашка достижения показывается сама
+            RegisterConsoleMenuItem();   // отладочная консоль — в бургер-меню
             ++_startGen;
             // warmIntroSpine=false ⇒ a RestoreSnapshot follows immediately and
             // advances via ContinueFrom. Running the intro here anyway (the old
@@ -300,6 +302,11 @@ namespace Lvn.UI
             _particles?.Set("snow", false);
             _fx?.Clear(0f);
             _fx?.ClearBlur(0f);
+            // Полнокадровые эффекты (`fx`) живут на КАМЕРЕ, а не на сцене, и
+            // переживали её смену: кровь, инверсия и виньетка последнего боя
+            // доезжали до меню и до следующего запуска. Гасим явно — сцена
+            // обязана уходить, не оставляя следов на кадре.
+            _renderer?.ClearFx();
             _backlog.Clear();
             _prefetched.Clear(); // the next chapter/load re-warms from scratch
             SetChromeHidden(false); // never carry a hidden UI across a reset

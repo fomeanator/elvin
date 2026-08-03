@@ -682,3 +682,100 @@ func TestSyntheticLabelsDoNotShadowAnAuthorLabel(t *testing.T) {
 		t.Fatalf("the author's own label vanished: %v", ids)
 	}
 }
+
+// Выражение с ПРОБЕЛАМИ в значении без кавычек. Раньше значение обрывалось на
+// первом пробеле, разбор команды падал, и строка ТИХО становилась репликой —
+// автор видел свою команду напечатанной в диалоге.
+func TestSpacedExpressionValueStaysOneValue(t *testing.T) {
+	doc, err := Convert("scene t\nбаза = 6\nbg3d id=x pitch={база + 5} dur=0.3\n")
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	var bg Cmd
+	for _, c := range doc.Script {
+		if c["op"] == "bg3d" {
+			bg = c
+		}
+	}
+	if bg == nil {
+		t.Fatalf("bg3d стал репликой вместо команды: %v", doc.Script)
+	}
+	if got := bg["pitch"]; got != "{база + 5}" {
+		t.Fatalf("выражение разорвано: pitch=%v", got)
+	}
+	if got := bg["dur"]; got != 0.3 {
+		t.Fatalf("хвост команды потерян: dur=%v", got)
+	}
+}
+
+// Голый флаг РЯДОМ с полями: `fx off dur=…`. Работало только «слово в
+// одиночку», иначе строка уезжала в наррацию.
+func TestBareFlagBesideFields(t *testing.T) {
+	doc, err := Convert("scene t\nfx off dur=0.15\nobj id=a hide\n")
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	var fx, obj Cmd
+	for _, c := range doc.Script {
+		switch c["op"] {
+		case "fx":
+			fx = c
+		case "obj":
+			obj = c
+		}
+	}
+	if fx == nil || fx["off"] != true || fx["dur"] != 0.15 {
+		t.Fatalf("fx off dur= не разобрался: %v", fx)
+	}
+	if obj == nil || obj["hide"] != true {
+		t.Fatalf("obj id=a hide не разобрался: %v", obj)
+	}
+}
+
+// Проза не должна притворяться командой из-за списка голых флагов.
+func TestProseWithBareWordStaysProse(t *testing.T) {
+	doc, err := Convert("scene t\nwait here, she said\n")
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	for _, c := range doc.Script {
+		if c["op"] == "wait" {
+			t.Fatalf("проза стала командой: %v", c)
+		}
+	}
+}
+
+// Голый флаг рядом с полями — `actor id=аня x=30% show`, `audio … loop`.
+//
+// Пока `show` и `loop` не были в списке, обе строки МОЛЧА становились
+// репликами: команда автора печаталась игроку в диалоге. Обе есть в
+// документации и в примерах, то есть ошибка тиражировалась.
+func TestBareFlagsShowAndLoop(t *testing.T) {
+	cases := []struct {
+		src  string
+		op   string
+		flag string
+	}{
+		{`actor id=аня sprite_url="/a.png" x=30% show`, "actor", "show"},
+		{`audio music="/m.ogg" loop`, "audio", "loop"},
+		{`obj id=письмо x=70% hide`, "obj", "hide"},
+		{`fx off dur=0.15`, "fx", "off"},
+	}
+	for _, c := range cases {
+		doc, err := Convert("scene t\n" + c.src + "\n")
+		if err != nil {
+			t.Fatalf("%s: %v", c.src, err)
+		}
+		if len(doc.Script) == 0 {
+			t.Fatalf("%s: пустой сценарий", c.src)
+		}
+		got := doc.Script[0]
+		if op, _ := got["op"].(string); op != c.op {
+			t.Errorf("%s → стала %q вместо команды %q (то есть напечаталась бы игроку)", c.src, op, c.op)
+			continue
+		}
+		if v, ok := got[c.flag]; !ok || v != true {
+			t.Errorf("%s → флаг %q не выставлен: %v", c.src, c.flag, got)
+		}
+	}
+}

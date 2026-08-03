@@ -24,6 +24,21 @@ namespace Lvn.UI.World
         private RectTransform _rig;
         private CanvasGroup _group;
         private readonly Dictionary<string, Image> _layers = new Dictionary<string, Image>();
+
+        /// <summary>Текстура первого слоя — для показа фигуры ОБЪЕКТОМ в 3D-наборе
+        /// (биллборд). null, пока арт не загружен.</summary>
+        public Texture MainTexture
+        {
+            get
+            {
+                foreach (var kv in _layers)
+                {
+                    var sp = kv.Value != null ? kv.Value.sprite : null;
+                    if (sp != null && sp.texture != null) return sp.texture;
+                }
+                return null;
+            }
+        }
         private readonly Dictionary<string, Sprite> _baseSprite = new Dictionary<string, Sprite>();
         private Dictionary<string, Dictionary<string, Sprite>> _frames;
         private readonly Dictionary<string, Active> _channels = new Dictionary<string, Active>();
@@ -179,6 +194,24 @@ namespace Lvn.UI.World
         public void Play(string channel, LvnAnim anim, Action onDone = null)
         {
             if (anim == null || anim.tracks == null || anim.tracks.Count == 0) { onDone?.Invoke(); return; }
+            // `to=` строит трек ОТ ПОКОЯ свойства. Для заливки покой — ноль, и
+            // полоса на каждом обновлении прыгала бы в пустую и ехала обратно.
+            // Стартуем от того, что нарисовано: анимация должна продолжать кадр,
+            // а не начинать его заново.
+            foreach (var tr in anim.tracks)
+            {
+                if (tr?.prop != "fill" || tr.keys == null || tr.keys.Count == 0 || _fillShown == null) continue;
+                var first = tr.keys[0];
+                if (first == null || first.Length < 2) continue;
+                // Ключ приходит из JSON и бывает long/double/decimal — проверять
+                // конкретный тип нельзя. Нас интересует одно: это «покой» (ноль),
+                // подставленный формой `to=`. Для доли покой бессмыслен: полоса
+                // должна УТЕКАТЬ от того, что нарисовано, а не вырастать от нуля.
+                double d0;
+                try { d0 = System.Convert.ToDouble(first[1], System.Globalization.CultureInfo.InvariantCulture); }
+                catch { continue; }
+                if (System.Math.Abs(d0) < 1e-6) first[1] = (double)_fillShown.Value;
+            }
             _channels[channel] = new Active { anim = anim, start = ActorAnimator.Clock(), onDone = onDone };
         }
 
@@ -236,6 +269,7 @@ namespace Lvn.UI.World
         internal void Tick(float now)
         {
             if (_rig == null) EnsureRig();
+            float fillV = 0f; bool hasFill = false;
             float tx = 0f, ty = 0f, scx = 1f, scy = 1f, rot = 0f, al = 1f, sx = 0f, sy = 0f;
             var layerX = new Dictionary<string, float[]>(); // id -> {tx,ty,scx,scy,rot,al}
             Dictionary<string, string> layerFrame = null;
@@ -285,6 +319,11 @@ namespace Lvn.UI.World
                             case "scaley": scy = v; break;
                             case "rotation": rot = v; break;
                             case "alpha": al = v; break;
+                            // Доля заливки — такое же свойство, как масштаб или
+                            // прозрачность: с ним полосе достаётся весь аппарат
+                            // анимаций (easing, каналы, queue, stop), а «полоса
+                            // урона» из Dota делается вторым спрайтом с большим dur.
+                            case "fill": fillV = v; hasFill = true; break;
                         }
                     }
                     else
@@ -310,6 +349,7 @@ namespace Lvn.UI.World
             }
 
             ApplyRig(_rig, _group, tx, ty, scx, scy, rot, al);
+            if (hasFill) { _fillShown = fillV; ApplyFill(fillV, _fillFrom); }
             _heldAlpha = al; // survives the channel ending (fade-out stays faded)
             _slot.anchoredPosition = _slotBase + new Vector2(sx * ContentSize.x, -sy * ContentSize.y);
 
@@ -383,6 +423,129 @@ namespace Lvn.UI.World
                     if (_queue.TryGetValue(c, out var q2) && q2.Count == 0) _queue.Remove(c);
                 }
             if (_channels.Count == 0) ResetTargets();
+        }
+
+        /// <summary>Показать только часть спрайта, ОБРЕЗАВ остальное (полоса
+        /// прогресса). Через width спрайт масштабируется — у полосы здоровья
+        /// сминались скругления и рамка; здесь длина режется, а рисунок остаётся
+        /// в своём масштабе. Реализовано встроенным Image.Type.Filled.</summary>
+        private string _fillFrom;
+        // Последний sfx актёра. Спрайт грузится АСИНХРОННО, а смена позы
+        // пересоздаёт слои — эффект, наложенный до этого, уходит вместе со
+        // старыми Image'ами. Отсюда «в первый раз не светится, со второго
+        // работает»: во второй раз картинка уже в кэше и слои успели родиться.
+        private Newtonsoft.Json.Linq.JObject _lastFx;
+
+        private float _lastFxUntil = -1f; // когда эффект перестаёт быть актуальным
+
+        /// <summary>Запомнить наложенный эффект, чтобы вернуть его на новые слои.
+        /// Со СРОКОМ: эффект живёт ровно свой `dur`. Без срока «память» о нём
+        /// превращалась в вечный эффект — каждая смена позы накладывала его
+        /// заново, и снять его было уже нечем.</summary>
+        internal void RememberFx(Newtonsoft.Json.Linq.JObject cmd)
+        {
+            if (cmd == null) return;
+            if (cmd["off"] != null && string.IsNullOrEmpty((string)cmd["part"]))
+            {
+                _lastFx = null; _lastFxUntil = -1f; return;
+            }
+            _lastFx = (Newtonsoft.Json.Linq.JObject)cmd.DeepClone();
+            // `dur` тут — длительность ЖИЗНИ эффекта. Ноль/отсутствие = держать
+            // до явного off (ауры, статусы), число = вернуть только в пределах окна.
+            float dur = 0f;
+            var d = cmd["dur"];
+            if (d != null) { try { dur = (float)d; } catch { dur = 0f; } }
+            _lastFxUntil = dur > 0f ? ActorAnimator.Clock() + dur : -1f;
+        }
+
+        /// <summary>Вернуть эффект на только что созданные слои — если он ещё жив.</summary>
+        internal void ReapplyFx()
+        {
+            if (_lastFx == null) return;
+            if (_lastFxUntil >= 0f && ActorAnimator.Clock() > _lastFxUntil) { _lastFx = null; return; }
+            LvnSpriteFxDriver.Apply(gameObject, _lastFx);
+        }
+        private float? _fillShown;   // что нарисовано сейчас
+        private float? _fillTarget;  // куда едем
+        private float _fillSpeed;    // долей в секунду (0 — мгновенно)
+
+        /// <summary>Плавно довести заливку до цели. Полоса здоровья должна
+        /// УТЕКАТЬ, а не прыгать: за скачок глаз не успевает прочитать, сколько
+        /// отняли. Второй спрайт с меньшей скоростью даёт «догоняющую» полосу
+        /// урона — приём из Dota, и он же тут получается даром.</summary>
+        internal void TickFill()
+        {
+            if (_fillTarget == null || _fillShown == null) return;
+            if (Mathf.Approximately(_fillShown.Value, _fillTarget.Value)) return;
+            if (_fillSpeed <= 0f) { _fillShown = _fillTarget; ApplyFill(_fillShown, _fillFrom); return; }
+            float step = _fillSpeed * Time.deltaTime;
+            _fillShown = Mathf.MoveTowards(_fillShown.Value, _fillTarget.Value, step);
+            ApplyFill(_fillShown, _fillFrom);
+        }
+
+        /// <summary>Вернуть режим заливки на ТОЛЬКО ЧТО созданные слои. Спрайт
+        /// грузится асинхронно и приходит уже после команды (а иногда и после
+        /// старта анимации) — без этого доля рисовалась в пустоту, и полоса
+        /// оставалась пустой при полном здоровье.</summary>
+        internal void ReapplyFill()
+        {
+            if (_fillShown != null) ApplyFill(_fillShown, _fillFrom);
+        }
+
+        public void SetFill(float? fill, string from, float? seconds = null)
+        {
+            if (!string.IsNullOrEmpty(from)) _fillFrom = from;
+            if (fill != null && seconds != null && seconds.Value > 0f)
+            {
+                // первый показ — сразу на месте, дальше едем
+                if (_fillShown == null) { _fillShown = fill; ApplyFill(fill, _fillFrom); }
+                _fillTarget = fill;
+                _fillSpeed = 1f / Mathf.Max(seconds.Value, 0.01f);
+                return;
+            }
+            // ОТСУТСТВИЕ поля значит «не менять» — как у всех остальных полей
+            // размещения. Иначе каждая перерисовка полосы (`obj id=bar …` без
+            // fill) обнуляла долю, и следующая анимация ехала ОТ НУЛЯ вместо
+            // того, чтобы продолжить кадр: полоса «наполнялась» вместо того,
+            // чтобы убывать.
+            if (fill == null) return;
+            _fillShown = fill; _fillTarget = fill; _fillSpeed = 0f;
+            ApplyFill(fill, _fillFrom);
+        }
+
+        private void ApplyFill(float? fill, string from)
+        {
+            int n = 0; foreach (var _ in AllLayerImages()) n++;
+            LvnPlayer.Log?.Invoke($"[lvn-fill] {name}: доля={(fill == null ? "нет" : fill.Value.ToString("0.###"))} слоёв={n} сторона={from ?? "left"}");
+            foreach (var img in AllLayerImages())
+            {
+                if (img == null) continue;
+                if (fill == null)
+                {
+                    if (img.type == Image.Type.Filled) img.type = Image.Type.Simple;
+                    continue;
+                }
+                img.type = Image.Type.Filled;
+                img.fillMethod = (from == "bottom" || from == "top")
+                    ? Image.FillMethod.Vertical : Image.FillMethod.Horizontal;
+                img.fillOrigin = from == "right" ? (int)Image.OriginHorizontal.Right
+                               : from == "top" ? (int)Image.OriginVertical.Top
+                               : from == "bottom" ? (int)Image.OriginVertical.Bottom
+                               : (int)Image.OriginHorizontal.Left;
+                img.fillAmount = Mathf.Clamp01(fill.Value);
+            }
+        }
+
+        /// <summary>Все Image-слои актёра: именованные (из каталога) и безымянные
+        /// (одиночный sprite_url — самый частый случай для полос и иконок).</summary>
+        private System.Collections.Generic.IEnumerable<Image> AllLayerImages()
+        {
+            if (_rig == null) yield break;
+            for (int i = 0; i < _rig.childCount; i++)
+            {
+                var img = _rig.GetChild(i).GetComponent<Image>();
+                if (img != null) yield return img;
+            }
         }
 
         private void ApplyRig(RectTransform rt, CanvasGroup group, float tx, float ty, float scx, float scy, float rot, float al, Image img = null)

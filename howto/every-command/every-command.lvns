@@ -144,6 +144,60 @@ Ida: Do we tell the projectionist about the gate?
 }
 Ida: Either way, the reel is done.
 
+// ─── ГЛУБИНА, ПОЛОСА, ПОДСТАНОВКА В ПУТИ ───────────────────────────────
+// `depth=` — одно число вместо пары «размер + порядок» на каждую дистанцию:
+// размер считает перспектива, дальний сам уходит за ближнего, а при движении
+// камеры получается параллакс. `world="x,y,z"` (нужен активный bg3d) сажает
+// спрайт в ТОЧКУ набора — камера едет, фигура остаётся у своей колонны.
+здоровье = 7
+здоровье_макс = 10
+поза = "idle"
+obj id=страж sprite_url="/content/ui/hotspot/desk.png" x=50% y=70% depth=4
+obj id=страж_дальний sprite_url="/content/ui/hotspot/desk.png" x=30% y=70% depth=9
+
+// Полоса ОБРЕЗАЕТСЯ, а не сжимается (fill), сторону роста задаёт fill_from,
+// а доля берётся выражением — без лестницы веток на каждое значение.
+obj id=полоса_фон sprite_url="/content/ui/hotspot/safe.png" x=50% y=8% width=0.4 height=0.03 anchor="0.5,0.5"
+obj id=полоса sprite_url="/content/ui/hotspot/safe.png" x=30% y=8% width=0.4 height=0.03 anchor="0,0.5" fill_from=left fill="{здоровье / здоровье_макс}"
+// …и анимируется как любое свойство: полоса УТЕКАЕТ, а не прыгает.
+anim id=полоса prop=fill to="{здоровье / здоровье_макс}" dur=0.3 ease=outCubic
+
+// Путь к картинке принимает подстановку — поза/погода/дистанция больше не
+// требуют своей ветки на каждую комбинацию.
+obj id=страж_поза sprite_url="/content/ui/hotspot/{поза}.png" x=70% y=70% depth=2
+
+// Привязка к ТОЧКЕ 3D-набора: место на экране и глубину считает камера набора,
+// поэтому при её движении фигура остаётся у своей колонны, а не плывёт по
+// кадру. Без активного bg3d поле просто игнорируется — скрипт всё равно играет.
+bg3d id=demo
+obj id=страж_в_наборе sprite_url="/content/ui/hotspot/desk.png" world="2.5, 0, 6"
+bg3d off
+
+// Функции можно называть на языке автора — переменные и метки так умели всегда.
+func удвоить(ч) { return ч * 2 }
+здоровье = удвоить(4)
+Стражи расставлены по глубине, полоса показывает {здоровье}/{здоровье_макс}.
+
+// ─── Сцена, СОБРАННАЯ СКРИПТОМ: `o3d` и `light` ───────────────────────────
+// Место можно не просить у художника, а написать. Пустое пространство,
+// земля, роща одной строкой, свет и атмосфера — этого хватает, чтобы место
+// читалось. Любой объект, откуда бы он ни пришёл, приводится к единому виду
+// (docs/3d-language.md), поэтому кадр не превращается в коллаж.
+bg3d build=1 x=0 y=1.7 z=-6 pitch=3 fov=52
+light kind=sky top="#0b1020" bottom="#26303f"
+light kind=sun angle="34,-26" color="#dce8ff" power=1.1
+light kind=fill color="#43567e" power=0.45
+light kind=fog color="#141c26" near=12 far=60
+o3d id=пол shape=plane pos="0,0,0" size="80,1,80" color="#37432f"
+o3d id=роща kinds="cone,cylinder" colors="#1b3324,#22402c" pos="0,0,22" size="2.4,6.5,2.4" count=40 area="60,24" gap=3.4 scale_var=0.4 yaw_var=180 seed=5 shader=wind wind=0.14
+o3d id=костёр shape=sphere pos="1.5,0.4,3" size=0.4 color="#ffb347" glow=3 pulse=0.15
+light kind=point id=огонь pos="1.5,0.8,3" color="#ff9a3c" power=2.2 range=9
+o3d id=дверь shape=box pos="-2.5,0,4" size="1,2.2,0.2" color="#6b5b45" yaw=90 dur=1.2
+o3d id=призрак shape=cylinder pos="-4,0,5" size="0.5,1.8,0.5" color="#9fd8ff" shader=dissolve dissolve=1 dur=2
+Роща качается вершинным шейдером, костёр дышит, призрак растворяется.
+o3d id=призрак off
+bg3d off
+
 // ─── One command empties the stage: `clear` takes every actor and obj off ───
 // The background stays — that is the whole point, a scene change is `clear`
 // plus a new `bg` and never an accidental black screen. Without it this line

@@ -602,8 +602,22 @@ namespace Lvn
                         foreach (var v in a) { if (v.Arr != null) foreach (var e in v.Arr) outA.Add(e.DeepClone()); else outA.Add(v.ToJToken()); }
                         return Val.Of(outA);
                     }
-                    case "put": // put(map, key, val) — new map with key set (also creates a map)
+                    case "put": // put(map, key, val) | put(list, index, val)
                     {
+                        // СПИСОК тоже разрешён: раньше put(список, 2, x) уходил в
+                        // CloneObj, тот видел не-объект и возвращал ПУСТУЮ карту —
+                        // список молча превращался в словарь с одним ключом, а
+                        // всё, что его читало по индексу, начинало съезжать. Тихая
+                        // порча данных: ошибки нет, поведение необъяснимо.
+                        if (A(0).Arr != null)
+                        {
+                            var arr = CloneArr(A(0));
+                            int idx = (int)A(1).AsNum();
+                            if (idx < 0) return Val.Of(arr);
+                            while (arr.Count <= idx) arr.Add(JValue.CreateNull());
+                            arr[idx] = A(2).ToJToken();
+                            return Val.Of(arr);
+                        }
                         var obj = CloneObj(A(0)); obj[A(1).AsStr()] = A(2).ToJToken(); return Val.Of(obj);
                     }
                     case "del": // del(map, key) — new map without key

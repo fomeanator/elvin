@@ -71,6 +71,12 @@ namespace Lvn.UI
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
         private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
+        // A repeat `text <id>` merges into the live label, so the width budget has to
+        // remember the anchor and x it was last given — otherwise a bare text update
+        // (the common case: `text hud «…»`) recomputes the budget from defaults and
+        // silently re-wraps a label that was placed correctly.
+        private readonly Dictionary<string, string> _labelAnchor = new Dictionary<string, string>(); // id → anchor as written
+        private readonly Dictionary<string, float> _labelX = new Dictionary<string, float>();        // id → x in screen %
         private VisualElement _hintCard;   // top-center popup for the `hint` op
         private Label _hintLabel;
         private IVisualElementScheduledItem _hintHide; // auto-dismiss timer (duration>0)
@@ -152,6 +158,9 @@ namespace Lvn.UI
             _uiRoot = root;
             _built = true;
             LvnPlayer.Log = m => Debug.Log("[LVN] " + m); // full step trace to the console
+            // Ключи анимаций умеют быть выражениями («доехать до {hp/hp_max}») —
+            // им нужен доступ к живым переменным сцены.
+            ActorAnimator.VarsProvider = () => _player?.Vars;
 
             if (Assets == null && !string.IsNullOrEmpty(ContentRoot))
                 Assets = new DirectoryAssets(ContentRoot);
@@ -494,6 +503,8 @@ namespace Lvn.UI
                 _hintCard = null; _hintLabel = null;
                 _labelEls.Clear();
                 _labelTmpl.Clear();
+                _labelAnchor.Clear();
+                _labelX.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }
             }
         }

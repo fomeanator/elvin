@@ -1,5 +1,9 @@
 # Elvin
 
+> **Пишете новеллу с помощью ИИ?** Дайте своей нейросети файл [AI.md](AI.md)
+> и скажите, какую игру хотите. Это полный язык на одной странице —
+> текст, персонажи, 3D-сцены, карты и шейдеры.
+
 **You write a story. Elvin plays it as a game.**
 
 [![CI](https://github.com/fomeanator/elvin/actions/workflows/ci.yml/badge.svg)](https://github.com/fomeanator/elvin/actions/workflows/ci.yml)
