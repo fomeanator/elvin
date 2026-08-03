@@ -135,7 +135,7 @@ func TestMappersRealData(t *testing.T) {
 	}
 	xlsx := os.Getenv("LVN_COLDXLSX")
 	if xlsx == "" {
-		xlsx = "/Users/fomean/ominis/elvin/content/cold/Переменные ХВП.xlsx"
+		xlsx = os.Getenv("LVN_VARS_XLSX")
 	}
 	if _, err := os.Stat(filepath.Join(root, "x-bg.done")); err != nil {
 		t.Skip("cold-work data absent; skipping real-data mapper test")
