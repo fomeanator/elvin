@@ -141,7 +141,7 @@ func TestMappersRealData(t *testing.T) {
 		t.Skip("import fixtures absent; skipping real-data mapper test")
 	}
 	if _, err := os.Stat(xlsx); err != nil {
-		t.Skip("cold xlsx absent; skipping")
+		t.Skip("таблица переменных не задана; пропускаем")
 	}
 	xd, err := ParseVarsXlsx(xlsx)
 	if err != nil {
