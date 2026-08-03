@@ -311,7 +311,7 @@ func processFile(path string, kind Kind, opt Options) Result {
 // resizeToFit downscales to fit within cap on the longest side, preserving
 // aspect ratio. CatmullRom (bicubic) — sharper than bilinear for the large
 // downscale ratios these 4k–8k source arts need (see lvn-project memory:
-// hill_lucien 7708×8252, vampires 4000×4048).
+// встречались атласы 7708×8252 и 4000×4048).
 func resizeToFit(src image.Image, cap int) image.Image {
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()
