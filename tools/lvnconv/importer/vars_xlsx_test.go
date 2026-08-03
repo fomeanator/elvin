@@ -8,7 +8,9 @@ import (
 
 // realVarsXlsx is the actual game spreadsheet. Tests that need it skip when it
 // is absent so the suite stays green in checkouts without the content tree.
-const realVarsXlsx = os.Getenv("LVN_VARS_XLSX")
+// Путь задаётся снаружи: тест работает на реальной таблице, если её
+// дали, и молча пропускается, если нет.
+var realVarsXlsx = os.Getenv("LVN_VARS_XLSX")
 
 func TestParseVarsXlsx_Real(t *testing.T) {
 	if _, err := os.Stat(realVarsXlsx); err != nil {
