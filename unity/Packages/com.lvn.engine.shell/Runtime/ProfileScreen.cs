@@ -78,7 +78,7 @@ namespace Lvn.UI.Screens
 
         public List<Relation> Relations = new List<Relation>
         {
-            new Relation("Виктория", 0.80f),
+            new Relation("Алиса", 0.80f),
             new Relation("Леонардо", 0.45f),
             new Relation("Ада",      0.62f),
             new Relation("Маркус",   0.30f),

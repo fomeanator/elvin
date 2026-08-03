@@ -43,7 +43,7 @@ import (
 const downscaleMax = 2048
 
 // downscaleSuffix sits between the base name and the extension:
-// "Hill_Death_of_Lucien@2k.png". "@" never appears in this project's asset
+// "big_scene_atlas@2k.png". "@" never appears in this project's asset
 // names, so a variant request can't collide with a real source file.
 const downscaleSuffix = "@2k"
 
