@@ -127,18 +127,18 @@ func TestMapCharactersSheetDriven(t *testing.T) {
 }
 
 // TestMappersRealData opportunistically runs the sheet-driven mappers against the
-// extracted cold-work archives + real spreadsheet; skips when the data is absent.
+// extracted source archives + real spreadsheet; skips when the data is absent.
 func TestMappersRealData(t *testing.T) {
 	root := os.Getenv("LVN_COLDWORK")
 	if root == "" {
-		root = "/private/tmp/claude-501/-Users-fomean-ominis-elvin/737487fc-56e4-4536-9525-4d9764956166/scratchpad/cold-work"
+		root = os.Getenv("LVN_IMPORT_FIXTURES")
 	}
 	xlsx := os.Getenv("LVN_COLDXLSX")
 	if xlsx == "" {
 		xlsx = os.Getenv("LVN_VARS_XLSX")
 	}
 	if _, err := os.Stat(filepath.Join(root, "x-bg.done")); err != nil {
-		t.Skip("cold-work data absent; skipping real-data mapper test")
+		t.Skip("import fixtures absent; skipping real-data mapper test")
 	}
 	if _, err := os.Stat(xlsx); err != nil {
 		t.Skip("cold xlsx absent; skipping")
