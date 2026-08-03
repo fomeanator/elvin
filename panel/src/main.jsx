@@ -7,9 +7,12 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "./styles/global.css";
 import "./styles/views.css";
 import App from "./App.jsx";
+import LoginGate from "./components/LoginGate.jsx";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <LoginGate>
+      <App />
+    </LoginGate>
   </React.StrictMode>
 );

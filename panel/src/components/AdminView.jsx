@@ -10,6 +10,7 @@ import Overview from "./admin/Overview.jsx";
 import Novels from "./admin/Novels.jsx";
 import Conflicts from "./admin/Conflicts.jsx";
 import Analytics from "./admin/Analytics.jsx";
+import People from "./admin/People.jsx";
 import AdminEconomy from "./AdminEconomy.jsx";
 import AdminAssets from "./AdminAssets.jsx";
 import AdminManifest from "./AdminManifest.jsx";
@@ -88,8 +89,14 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Без токена — полноэкранный вход вместо всего шелла (гейт, не пустой дашборд).
-  if (!token) {
+  // Вход теперь по имени и паролю — его спрашивает LoginGate ещё до того, как
+  // приложение смонтируется. Сюда мы попадаем уже узнанными, и просить сверх
+  // этого токен значит требовать войти дважды.
+  //
+  // Поле токена осталось для тех, у кого учёток ещё нет: студия на голом
+  // сервере поднимается с одним -admin-token и без единого человека, и запирать
+  // её до заведения первого владельца нельзя.
+  if (!token && !creds.me) {
     return (
       <div className="adm-gate">
         <TokenGate creds={creds} />
@@ -104,7 +111,7 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
     <AdmShell.Provider value={{ toggleSidebar }}>
     <div className={"adm" + (collapsed ? " collapsed" : "") + (mobileOpen ? " mobile-open" : "")}>
       <Sidebar active={section} onNav={onNavMobile} tokenOk={!!token} collapsed={collapsed}
-               badges={{ conflicts: pending }} />
+               badges={{ conflicts: pending }} me={creds.me} />
       {mobileOpen && <div className="adm-mobile-scrim" onClick={() => setMobileOpen(false)} />}
       <main className="adm-main" key={section + ":" + bump}>
         {(
@@ -121,6 +128,7 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
                          onFocusUsed={clearConflictFocus} onNav={onNav} onChanged={pollPending} />
             )}
             {section === "analytics" && <Analytics token={token} />}
+            {section === "people" && <People me={creds.me} notify={notify} />}
             {section === "users" && <UsersPage token={token} notify={notify} />}
             {section === "orders" && <OrdersPage token={token} />}
             {section === "saves" && <SavesPage token={token} notify={notify} />}

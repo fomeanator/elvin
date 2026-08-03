@@ -26,6 +26,7 @@ const encodePath = (rel) => String(rel).split("/").map(encodeURIComponent).join(
 export async function putAsset(path, body, token, contentType) {
   const rel = encodePath(String(path).replace(/^\/+content\/+/, "").replace(/^\/+/, ""));
   const r = await fetch("/v1/admin/assets/" + rel, {
+    credentials: "include",
     method: "PUT",
     headers: {
       Authorization: "Bearer " + (token || ""),
@@ -49,7 +50,7 @@ export async function uploadStaged(file, id, token, onProgress, chunkSize = 8 * 
   const url = "/v1/admin/staged-upload/" + encodeURIComponent(id);
   let offset = 0, path = null;
   {
-    const r = await fetch(url, { headers });
+    const r = await fetch(url, { headers, credentials: "include" });
     if (r.ok) {
       const b = await r.json();
       offset = b.offset || 0;
@@ -62,6 +63,7 @@ export async function uploadStaged(file, id, token, onProgress, chunkSize = 8 * 
     const end = Math.min(offset + chunkSize, file.size);
     const chunk = file.slice(offset, end);
     const r = await fetch(url, {
+      credentials: "include",
       method: "PUT",
       headers: { ...headers, "Content-Range": `bytes ${offset}-${end - 1}/${file.size}` },
       body: chunk,
@@ -102,6 +104,7 @@ export async function uploadStagedWithRetry(file, id, token, onProgress, maxAtte
 // multipart upload. Near-instant: the server just reads paths it already has.
 export async function importBundleFromPaths(paths, meta, token) {
   const r = await fetch("/v1/admin/import-bundle", {
+    credentials: "include",
     method: "POST",
     headers: { Authorization: "Bearer " + (token || ""), "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -127,6 +130,7 @@ export async function uploadSpine(meta, files, token) {
   fd.append("atlas", files.atlas);
   fd.append("texture", files.texture);
   const res = await fetch("/v1/admin/spine", {
+    credentials: "include",
     method: "POST",
     headers: { Authorization: "Bearer " + (token || "") },
     body: fd,
@@ -145,6 +149,7 @@ export async function uploadSpine(meta, files, token) {
 // returns parsed JSON (or text for non-JSON responses).
 export async function adminFetch(path, token, opt = {}) {
   opt.headers = Object.assign({ Authorization: "Bearer " + (token || "") }, opt.headers || {});
+  opt.credentials = "include";
   const r = await fetch(path, opt);
   if (r.status === 401) throw new Error("401");
   if (!r.ok) throw new Error(await errorMessage(r));
