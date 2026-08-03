@@ -37,6 +37,8 @@ namespace Lvn.Editor
         static readonly HashSet<string> KnownOps = new HashSet<string>
         {
             "say", "choice", "bg", "bg3d", "actor", "obj",
+            "o3d", "light", // тело 3D-сцены и её свет — зеркально Go
+
             // A bare `clear` — no fields — compiles through the generic
             // key=value tail below. Listed here for the same reason as
             // everything else in this set, and for no other.
@@ -95,6 +97,14 @@ namespace Lvn.Editor
         /// validator refuses. Mirrors Go convertWith.</summary>
         static JObject Convert(string src, SynthNamer inherited, Dictionary<string, string> outerActorMaps)
         {
+            // Порядок В ТОЧНОСТИ как в Go (см. include.go): достижения →
+            // погода → отношения → сетка. Он не произволен: отношения считают
+            // метры, а сетка потом переводит клетки, и поменять их местами
+            // значит считать привязку от нерастянутых координат.
+            src = LvnsSugar.ExpandAchievements(src);
+            src = ExpandWeather(src);
+            src = LvnsSugar.ExpandRelations(src);
+            src = LvnsSugar.ExpandGrid(src);
             var funcs = CollectFuncs(src);
             string expanded = ExpandLoops(src);
             src = ExpandCalls(expanded, funcs);
@@ -539,6 +549,179 @@ namespace Lvn.Editor
             if (scene != null && scene != "") outDoc["scene"] = scene;
             outDoc["script"] = script;
             return outDoc;
+        }
+
+
+        // ── погода (зеркало Go internal/lvns/weather.go) ─────────────────────
+        //
+        // Зачем дубль. Скрипт компилируют ДВА разных инструмента: lvnconv (Go,
+        // на сервере и в пайплайне) и этот класс (C#, в редакторе Unity). Если
+        // конструкция есть только у одного, автор получает разный результат в
+        // зависимости от того, кто собирал, — и не понимает почему. Поэтому
+        // каждая конструкция обязана быть в обоих, а golden-тест на фикстурах
+        // держит их в согласии.
+        //
+        // Таблица значений скопирована из Go ДОСЛОВНО. Любая правка там должна
+        // повторяться здесь; расхождение поймает LvnsCompilerGoldenTests.
+        class Preset
+        {
+            public string Title, SkyTop, SkyBottom, SkyAmbient;
+            public float SkyPower;
+            public string SunAngle, SunColor;
+            public float SunPower;
+            public string FillColor;
+            public float FillPower;
+            public string FogColor;
+            public float FogNear, FogFar;
+            public string ShadowTint, RimColor;
+            public float Rim, Warm, Exposure, White;
+        }
+
+        static readonly Dictionary<string, Preset> WeatherPresets = new Dictionary<string, Preset>
+        {
+            { "clear_noon", new Preset {
+                Title = "ясный полдень", SkyTop = "#3f7fd0", SkyBottom = "#bcd4ea",
+                SkyAmbient = "#8fb0cf", SkyPower = 1.0f,
+                SunAngle = "58,-30", SunColor = "#fff6e2", SunPower = 1.25f,
+                FillColor = "#6f89a8", FillPower = 0.35f,
+                FogColor = "#c3d6e8", FogNear = 30f, FogFar = 220f,
+                ShadowTint = "#5a6f92", RimColor = "#cfe3ff",
+                Rim = 0.35f, Warm = 0.14f, Exposure = -0.2f, White = 2.4f,
+            } },
+            { "clear_sunset", new Preset {
+                Title = "ясный закат", SkyTop = "#2b4a7e", SkyBottom = "#f0a468",
+                SkyAmbient = "#8c7590", SkyPower = 0.85f,
+                SunAngle = "8,-96", SunColor = "#ffb26b", SunPower = 1.1f,
+                FillColor = "#5d6f9c", FillPower = 0.32f,
+                FogColor = "#d9a37e", FogNear = 18f, FogFar = 150f,
+                ShadowTint = "#43506f", RimColor = "#ffd0a0",
+                Rim = 0.6f, Warm = 0.3f, Exposure = -0.1f, White = 2.6f,
+            } },
+            { "overcast", new Preset {
+                Title = "пасмурно", SkyTop = "#8d99a6", SkyBottom = "#b9c2ca",
+                SkyAmbient = "#9aa5b1", SkyPower = 0.95f,
+                SunAngle = "45,-40", SunColor = "#c9cfd6", SunPower = 0.45f,
+                FillColor = "#8b96a2", FillPower = 0.5f,
+                FogColor = "#b5bec7", FogNear = 14f, FogFar = 110f,
+                ShadowTint = "#6b7683", RimColor = "#c8d2dc",
+                Rim = 0.2f, Warm = 0.05f, Exposure = 0.15f, White = 1.9f,
+            } },
+            { "night_clear", new Preset {
+                Title = "ясная ночь", SkyTop = "#070c1c", SkyBottom = "#1d2740",
+                SkyAmbient = "#16203a", SkyPower = 0.55f,
+                SunAngle = "35,-42", SunColor = "#6a8bc9", SunPower = 0.45f,
+                FillColor = "#1b2340", FillPower = 0.14f,
+                FogColor = "#222d4a", FogNear = 10f, FogFar = 55f,
+                ShadowTint = "#141833", RimColor = "#7798d4",
+                Rim = 0.75f, Warm = 0.02f, Exposure = 0.35f, White = 2.2f,
+            } },
+            { "night_fog", new Preset {
+                Title = "туманная ночь", SkyTop = "#0b1021", SkyBottom = "#26314f",
+                SkyAmbient = "#18223d", SkyPower = 0.6f,
+                SunAngle = "30,-50", SunColor = "#5d7ab0", SunPower = 0.35f,
+                FillColor = "#20284d", FillPower = 0.16f,
+                FogColor = "#26314f", FogNear = 6f, FogFar = 34f,
+                ShadowTint = "#141833", RimColor = "#7798d4",
+                Rim = 0.8f, Warm = 0.02f, Exposure = 0.45f, White = 2.0f,
+            } },
+            { "dawn", new Preset {
+                Title = "рассвет", SkyTop = "#0f2038", SkyBottom = "#93a7b8",
+                SkyAmbient = "#4a5f78", SkyPower = 0.45f,
+                SunAngle = "6,-96", SunColor = "#ffd2a8", SunPower = 0.8f,
+                FillColor = "#5d7396", FillPower = 0.4f,
+                FogColor = "#9fb0c0", FogNear = 12f, FogFar = 90f,
+                ShadowTint = "#3d4c6b", RimColor = "#ffdcb8",
+                Rim = 0.5f, Warm = 0.22f, Exposure = 0.1f, White = 2.3f,
+            } },
+            { "storm", new Preset {
+                Title = "гроза", SkyTop = "#232a35", SkyBottom = "#4a545f",
+                SkyAmbient = "#39424e", SkyPower = 0.7f,
+                SunAngle = "40,-55", SunColor = "#7f8b99", SunPower = 0.3f,
+                FillColor = "#39424e", FillPower = 0.4f,
+                FogColor = "#59636e", FogNear = 8f, FogFar = 60f,
+                ShadowTint = "#2b323d", RimColor = "#9aa7b5",
+                Rim = 0.3f, Warm = 0.04f, Exposure = 0.3f, White = 1.8f,
+            } },
+        };
+
+        static readonly Regex ReWeather = new Regex(@"^\s*(?:weather|погода)\s+(.*)$");
+
+        /// <summary>Развернуть `weather` в согласованные команды света.</summary>
+        static string ExpandWeather(string src)
+        {
+            string[] lines = src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            var outLines = new List<string>(lines.Length + 8);
+            foreach (string line in lines)
+            {
+                Match m = ReWeather.Match(line);
+                if (!m.Success) { outLines.Add(line); continue; }
+                string rest = m.Groups[1].Value;
+                string id = StripQuotes(FieldStr(rest, "id")).Trim().ToLowerInvariant();
+                Preset p;
+                if (!WeatherPresets.TryGetValue(id, out p)) { outLines.Add(line); continue; }
+
+                // Точечные поправки: пресет — согласованные умолчания, а не запрет.
+                float sunPower = p.SunPower, fogNear = p.FogNear, fogFar = p.FogFar;
+                float exposure = p.Exposure, rim = p.Rim;
+                string fogColor = p.FogColor;
+                float v;
+                if (FieldNum(rest, "sun", out v)) sunPower = v;
+                if (FieldNum(rest, "fog", out v))
+                {
+                    float d = v < 0.01f ? 0.01f : (v > 1f ? 1f : v);
+                    float k = 0.1f / d;
+                    fogFar *= k; fogNear *= k;
+                }
+                if (FieldNum(rest, "exposure", out v)) exposure = v;
+                if (FieldNum(rest, "rim", out v)) rim = v;
+                string fc = FieldStr(rest, "fog_color");
+                if (!string.IsNullOrEmpty(fc)) fogColor = StripQuotes(fc);
+
+                outLines.Add("// погода: " + p.Title);
+                outLines.Add(string.Format(CultureInfo.InvariantCulture,
+                    "light kind=sky top={0} bottom={1} color={2} power={3}",
+                    GoQuote(p.SkyTop), GoQuote(p.SkyBottom), GoQuote(p.SkyAmbient), GW(p.SkyPower)));
+                outLines.Add(string.Format(CultureInfo.InvariantCulture,
+                    "light kind=sun angle={0} color={1} power={2}",
+                    GoQuote(p.SunAngle), GoQuote(p.SunColor), GW(sunPower)));
+                outLines.Add(string.Format(CultureInfo.InvariantCulture,
+                    "light kind=fill color={0} power={1}", GoQuote(p.FillColor), GW(p.FillPower)));
+                outLines.Add(string.Format(CultureInfo.InvariantCulture,
+                    "light kind=fog color={0} near={1} far={2}",
+                    GoQuote(fogColor), GW(fogNear), GW(fogFar)));
+                outLines.Add(string.Format(CultureInfo.InvariantCulture,
+                    "bg3d shadow_tint={0} rim_color={1} rim={2} warm={3} tone=neutral exposure={4} white={5}",
+                    GoQuote(p.ShadowTint), GoQuote(p.RimColor), GW(rim), GW(p.Warm), GW(exposure), GW(p.White)));
+            }
+            return string.Join("\n", outLines.ToArray());
+        }
+
+        // Число В ТОЧНОСТИ так, как его печатает Go (см. trimFloat): округление
+        // до десятых миллиметра и общий формат. Без этого golden-сверка падала
+        // бы на хвостах двоичной дроби — «24.285714285714285» против
+        // «24.2857», — и различие выглядело бы как расхождение логики.
+        static string GW(double v)
+        {
+            v = System.Math.Round(v * 10000.0) / 10000.0;
+            return v.ToString("R", CultureInfo.InvariantCulture);
+        }
+
+        // Значение поля `key=…` строкой; пусто, если поля нет.
+        static string FieldStr(string line, string key)
+        {
+            var re = new Regex(@"\b" + Regex.Escape(key) + @"=(""[^""]*""|\S+)");
+            Match m = re.Match(line);
+            return m.Success ? m.Groups[1].Value : "";
+        }
+
+        // Число поля и признак того, что поле БЫЛО: `sun=0` гасит солнце, и это
+        // не то же самое, что «поле не задано».
+        static bool FieldNum(string line, string key, out float value)
+        {
+            value = 0f;
+            string s = StripQuotes(FieldStr(line, key));
+            if (string.IsNullOrEmpty(s)) return false;
+            return float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
         // ── sugar lowering ───────────────────────────────────────────────────

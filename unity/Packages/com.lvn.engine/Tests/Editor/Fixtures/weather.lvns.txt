@@ -1,0 +1,5 @@
+scene погода_проба
+weather id=clear_sunset
+Закат.
+weather id=night_fog fog=0.14 sun=0.5
+Ночь.

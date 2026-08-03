@@ -38,6 +38,11 @@ import (
 // имени файла разобрался бы как второй аргумент и ошибка была бы невнятной.
 var reInclude = regexp.MustCompile(`^\s*include\s+"([^"]+)"\s*$`)
 
+// reMap — подключение КАРТЫ: «map "maps/деревня.lvnmap"» или с именем
+// «map "maps/деревня.lvnmap" as деревня». Имя становится приставкой к id тел,
+// чтобы две карты в одной главе не спорили за одинаковые идентификаторы.
+var reMap = regexp.MustCompile(`^\s*map\s+"([^"]+)"(?:\s+as\s+([^\s]+))?\s*$`)
+
 // srcRef — откуда пришла строка склеенного источника.
 type srcRef struct {
 	File string // путь как его написал автор (для сообщений), "" для корневого файла
@@ -265,6 +270,48 @@ func ConvertFile(p string) (*Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Карты разворачиваются ПОСЛЕ include: подключённый файл тоже вправе
+	// нарисовать своё место, и путь к карте считается от него же.
+	joined, err = expandMaps(joined, filepath.Dir(p))
+	if err != nil {
+		return nil, err
+	}
+	// Сетка разворачивается ПОСЛЕ карт: карта тоже может быть написана в
+	// клетках, и её команды должны пройти тот же перевод.
+	// Достижения — первыми: они превращаются в обычный `set`, и дальше их
+	// не отличить от того, что автор написал руками.
+	var achWarns []string
+	joined, achWarns = expandAchievements(joined)
+	for _, w := range achWarns {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
+	// Погода — РАНЬШЕ всего остального света: она разворачивается в обычные
+	// `light` и `bg3d`, и всё, что автор написал ПОСЛЕ неё, должно эти
+	// значения перекрывать, а не наоборот. «Ясная ночь, но фонарь ярче» —
+	// естественный порядок чтения, и порядок команд обязан ему следовать.
+	var weatherWarns []string
+	joined, weatherWarns = expandWeather(joined)
+	for _, w := range weatherWarns {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
+	// Отношения разворачиваются ДО сетки: «рядом с фонарём» считается в
+	// метрах, а сетка потом переведёт клетки — иначе привязка считалась бы
+	// от нерастянутых координат.
+	var relWarns []string
+	joined, relWarns = expandRelations(joined)
+	for _, w := range relWarns {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
+	var gridWarns []string
+	joined, gridWarns = expandGrid(joined)
+	for _, w := range gridWarns {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
+	// Проверки сцены идут ПОСЛЕ сетки: они смотрят на метры, а не на клетки,
+	// и должны видеть те же числа, что получит рантайм.
+	for _, w := range LintScene(joined) {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
 	doc, err := Convert(joined)
 	return doc, remapError(err, refs)
 }
@@ -307,4 +354,37 @@ func ConvertFiles(src, self string, files map[string]string) (*Doc, error) {
 	}
 	doc, err := Convert(joined)
 	return doc, remapError(err, refs)
+}
+
+// expandMaps подставляет команды сцены вместо строки «map "…"».
+//
+// Это конструкция ВРЕМЕНИ КОМПИЛЯЦИИ, как и include: рантайм о картах не знает,
+// новых опов не появляется. Карта из ста символов превращается в несколько
+// команд `o3d` со списками точек — то есть в ту же сотню объектов, но
+// разделяющих меш и материал.
+func expandMaps(src, dir string) (string, error) {
+	lines := strings.Split(src, "\n")
+	out := make([]string, 0, len(lines))
+	for i, line := range lines {
+		m := reMap.FindStringSubmatch(line)
+		if m == nil {
+			out = append(out, line)
+			continue
+		}
+		rel, name := m[1], m[2]
+		if name == "" {
+			// Имя по умолчанию — из имени файла: maps/деревня.lvnmap → деревня.
+			name = strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel))
+		}
+		p := rel
+		if !filepath.IsAbs(p) {
+			p = filepath.Join(dir, rel)
+		}
+		made, err := ExpandMap(p, name)
+		if err != nil {
+			return "", fmt.Errorf("line %d: %w", i+1, err)
+		}
+		out = append(out, made...)
+	}
+	return strings.Join(out, "\n"), nil
 }

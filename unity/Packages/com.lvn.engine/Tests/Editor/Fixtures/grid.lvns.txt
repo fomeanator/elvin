@@ -1,0 +1,4 @@
+scene сетка
+grid 2 sub 10
+o3d id=камень shape=box pos="3,0,4" size="1,1,1" color="#888"
+Готово.
