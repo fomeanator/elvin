@@ -74,7 +74,7 @@ namespace Lvn
         // duplication cannot rot.
         private static readonly HashSet<string> _engineStageOps = new HashSet<string>(StringComparer.Ordinal)
         {
-            "bg", "bg3d", "actor", "obj", "text", "audio", "fade", "dim", "tint",
+            "bg", "bg3d", "o3d", "light", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
             "hint", "save", "clear", "fx", "sfx",
         };
@@ -167,6 +167,23 @@ namespace Lvn
         /// <summary>Total command count — pairs with <see cref="Index"/> to drive
         /// a chapter-progress readout (e.g. the in-game HUD percent).</summary>
         public int Count => _script.Count;
+
+        /// <summary>Где курсор прямо сейчас — для отладочной консоли.</summary>
+        public int Position => _ip;
+
+        /// <summary>Имена меток сценария по порядку — консоль даёт по ним
+        /// прыгнуть, чтобы автор попадал в двадцатую сцену за секунду, а не
+        /// проходил игру заново.</summary>
+        public IEnumerable<string> LabelNames()
+        {
+            foreach (var c in _script)
+            {
+                if (!(c is JObject o)) continue;
+                if ((string)o["op"] != "label") continue;
+                var name = (string)o["id"] ?? (string)o["name"];
+                if (!string.IsNullOrEmpty(name)) yield return name;
+            }
+        }
 
         // Furthest MAIN-LINE command reached this chapter. The raw cursor moves
         // backward on any loop or hub revisit (a `while`, a choice that jumps to an
@@ -267,6 +284,20 @@ namespace Lvn
 
         private void ReplayPath(IReadOnlyList<int> path)
         {
+            // ── диагностика рассинхрона трассы ────────────────────────────────
+            // Трасса — это ИНДЕКСЫ выполненных команд. Живая правка скрипта их
+            // сдвигает, и тогда пересборка сцены применяет ЧУЖИЕ команды: HUD
+            // встаёт по чужим координатам, фон берётся не тот. Считаем, сколько
+            // индексов вылезло за новый скрипт — это прямая улика.
+            if (Log != null)
+            {
+                int oob = 0;
+                for (int k = 0; k < path.Count; k++)
+                    if (path[k] < 0 || path[k] >= _script.Count) oob++;
+                Log($"[lvn-replay] path={path.Count} script={_script.Count} " +
+                    $"out-of-range={oob} traced={(_trace != null && _trace.Count > 0 ? "yes" : "no")}");
+            }
+
             // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
             // so they re-run in path order. FX/audio are stateful overlays where
             // only the LAST setting matters — they collapse to the final value per
@@ -281,6 +312,14 @@ namespace Lvn
                 if (!fx.ContainsKey(key)) fxOrder.Add(key);
                 fx[key] = cmd;
             }
+            // `anim` — тоже состояние, а не событие, и переигрывать его подряд
+            // было прямой ошибкой: полосы hp прыгали через всю историю боя, а
+            // относительные треки (сдвиг на долю собственного размера) при
+            // каждом проходе уносили спрайт всё дальше. Схлопываем по тому же
+            // ключу, каким рантайм различает дорожки, и садим в конечное
+            // состояние мгновенно.
+            var anims = new Dictionary<string, JObject>();
+            var animOrder = new List<string>();
 
             // Pass 1: per actor — sticky placement accumulation + last position in path.
             var actorSticky = new Dictionary<string, JObject>();
@@ -322,6 +361,7 @@ namespace Lvn
                     _stage.ApplyStage(m);
                     continue;
                 }
+                if (op == "anim") { CollectAnim(c, anims, animOrder); continue; }
                 if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
                 switch (op)
                 {
@@ -350,9 +390,82 @@ namespace Lvn
                         break;
                 }
             }
+            // Анимации идут ПОСЛЕ структурных команд: тюнить можно только то,
+            // что уже стоит на сцене, а порядок внутри — авторский.
+            foreach (var key in animOrder)
+                if (anims.TryGetValue(key, out var cmd))
+                    _stage.ApplyStage(cmd);
             foreach (var key in fxOrder)
                 if (fx.TryGetValue(key, out var cmd))
                     _stage.ApplyStage(cmd);
+        }
+
+        /// <summary>Копит `anim` для пересборки сцены: одна дорожка — одна
+        /// команда, приведённая к своему КОНЕЧНОМУ состоянию.</summary>
+        private static void CollectAnim(
+            JObject c, Dictionary<string, JObject> anims, List<string> order)
+        {
+            var id = (string)c["id"];
+            if (string.IsNullOrEmpty(id)) return;
+
+            // `stop` не воспроизводится — он ОТМЕНЯЕТ накопленное, иначе
+            // остановленная анимация воскресала бы при каждой загрузке.
+            var stop = (string)c["stop"];
+            if (!string.IsNullOrEmpty(stop))
+            {
+                var victims = new List<string>();
+                foreach (var k in order)
+                    if (k.StartsWith(id + "|", StringComparison.Ordinal) &&
+                        (stop == "all" || k.EndsWith("|" + stop, StringComparison.Ordinal) ||
+                         k.EndsWith(":" + stop, StringComparison.Ordinal)))
+                        victims.Add(k);
+                foreach (var k in victims) { anims.Remove(k); order.Remove(k); }
+                return;
+            }
+
+            if (!(c["anim"] is JObject payload)) return;
+            var tracks = payload["tracks"] as JArray;
+            if (tracks == null || tracks.Count == 0) return;
+
+            // Ключ ровно тот же, каким рантайм различает дорожки (см. ApplyAnim):
+            // повторная анимация того же свойства ЗАМЕНЯЕТ предыдущую, а разные
+            // свойства идут параллельно — значит и восстанавливать надо по одной
+            // последней команде на свойство.
+            var channel = (string)c["channel"];
+            if (string.IsNullOrEmpty(channel))
+            {
+                var t0 = tracks[0] as JObject;
+                var layer = (string)t0?["layer"];
+                channel = "script:" + (string.IsNullOrEmpty(layer) ? "" : layer + ":") + (string)t0?["prop"];
+            }
+            var key = id + "|" + channel;
+
+            var m = (JObject)c.DeepClone();
+            m.Remove("mode"); // очередь на пересборке смысла не имеет — сцена уже «после»
+            var p = (JObject)m["anim"];
+            // Зацикленное (дыхание, мерцание) переигрывается КАК ЕСТЬ: это не
+            // переход в состояние, а само состояние — оборвав его, мы бы
+            // заморозили сцену в случайной фазе.
+            if (!BoolOr(p["loop"], false))
+            {
+                p["duration"] = 0.0001f;
+                foreach (var t in p["tracks"] as JArray)
+                {
+                    if (!(t is JObject track) || !(track["keys"] is JArray keys) || keys.Count == 0) continue;
+                    var last = keys[keys.Count - 1] as JArray;
+                    if (last == null || last.Count < 2) continue;
+                    // Один ключ в нуле = «уже приехали»: ни кадра перехода.
+                    // Обёртка строится через Add: конструктор JArray(JArray)
+                    // РАЗВЁРНУЛ бы вложенный массив в элементы и превратил
+                    // список ключей [[t,v]] в плоский [t,v].
+                    var single = new JArray();
+                    single.Add(new JArray(0f, last[1].DeepClone()));
+                    track["keys"] = single;
+                }
+            }
+
+            if (!anims.ContainsKey(key)) order.Add(key);
+            anims[key] = m;
         }
 
         // Record an executed visual op into the replay path. Capped: a looping
@@ -820,8 +933,20 @@ namespace Lvn
 
         // Pure-visual staging ops safe to re-apply on a hot-swap (no side effects
         // on vars/flow/pauses). NOT set/inc (would double-count) nor say/choice/wait.
+        // bg3d belongs here for the same reason bg does, and its absence was a
+        // real hole: a 3D set is a PERSISTENT backdrop, so a save taken mid-scene
+        // resumed onto a black screen — the set was never re-staged and no later
+        // command put it back. It re-applies in path order, so "stand the set"
+        // and every later "move the camera" land in the order the story issued
+        // them, ending on the framing the save was taken in.
+        // `anim` числится здесь ради ГОРЯЧЕЙ ПРАВКИ — там переиздаётся ровно одна
+        // изменившаяся команда, и проиграть её целиком как раз правильно: автор
+        // хочет увидеть свою анимацию. В пересборке сцены (ReplayPath) её ловит
+        // отдельная ветка: там команд накапливается вся история, и играть их
+        // подряд нельзя.
         private static bool IsReapplyable(string op) =>
-            op == "bg" || op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
+            op == "bg" || op == "bg3d" || op == "o3d" || op == "light" ||
+            op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
 
         /// <summary>
         /// Re-issue the stage command for the beat currently on screen (the say
@@ -1403,8 +1528,24 @@ namespace Lvn
         // A plain key writes Vars directly (unchanged behaviour); "a.b.c" nests
         // under the root object `a`, so `global.*` all live in one `global` object
         // the state store persists as a unit (per-player, cross-novel).
+        /// <summary>Игрок получил достижение: идентификатор и название.
+        ///
+        /// <para>Достижения — не команда языка, а состояние: они живут в
+        /// межновелльных `global.ach_*`, которые и так персистятся и уезжают на
+        /// сервер. Плееру остаётся заметить новую запись и сказать об этом —
+        /// экран и плашку рисует оболочка.</para></summary>
+        public event Action<string, string> AchievementUnlocked;
+
         private void SetVarPath(string key, JToken value)
         {
+            // Достижение засчитывается ОДИН раз: сюжет может выдать его из
+            // разных веток, и плашка на каждом проходе была бы шумом.
+            if (key.StartsWith("global.ach_", StringComparison.Ordinal) && AchievementUnlocked != null
+                && value != null && value.Type == JTokenType.String && GetVarPath(key) == null)
+            {
+                var id = key.Substring("global.ach_".Length);
+                AchievementUnlocked(id, (string)value);
+            }
             value ??= JValue.CreateNull();
             int dot = key.IndexOf('.');
             if (dot < 0) { Vars[key] = value; return; }

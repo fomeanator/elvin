@@ -1,0 +1,67 @@
+include "core.lvns"
+
+// Публичное состояние. После include игра меняет эти переменные и вызывает
+// uikit_hp_refresh(). Подпись реактивна; геометрия обновляется refresh-вызовом.
+uikit_hp = 100
+uikit_hp_max = 100
+uikit_hp_label = "HP"
+
+func uikit_hp_show() {
+  obj id=uikit_hp_track sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.245 y=0.112 width=0.35 anchor="0.5,0.5" z=82
+  text uikit_hp_text x=24.5 y=8.4 size=25 color=#e8e1d3 anchor="0.5,0" «{uikit_hp_label}  {uikit_hp}/{uikit_hp_max}»
+  uikit_hp_refresh()
+}
+
+func uikit_hp_refresh() {
+  uikit_hp_pct = uikit_percent(uikit_hp, uikit_hp_max)
+  if uikit_hp_pct >= 95 -> uikit_hp_100
+  if uikit_hp_pct >= 85 -> uikit_hp_90
+  if uikit_hp_pct >= 75 -> uikit_hp_80
+  if uikit_hp_pct >= 65 -> uikit_hp_70
+  if uikit_hp_pct >= 55 -> uikit_hp_60
+  if uikit_hp_pct >= 45 -> uikit_hp_50
+  if uikit_hp_pct >= 35 -> uikit_hp_40
+  if uikit_hp_pct >= 25 -> uikit_hp_30
+  if uikit_hp_pct >= 15 -> uikit_hp_20
+  if uikit_hp_pct > 0 -> uikit_hp_10
+  obj id=uikit_hp_fill show=false
+  -> uikit_hp_done
+
+  :uikit_hp_100
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.350 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_90
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.315 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_80
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.280 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_70
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.245 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_60
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.210 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_50
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.175 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_40
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.140 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_30
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.105 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_20
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.070 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_10
+  obj id=uikit_hp_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.07 y=0.112 width=0.035 anchor="0,0.5" z=83
+  -> uikit_hp_done
+  :uikit_hp_done
+}
+
+func uikit_hp_hide() {
+  obj id=uikit_hp_track show=false
+  obj id=uikit_hp_fill show=false
+  text uikit_hp_text hide
+}

@@ -24,6 +24,7 @@ type Doc struct {
 
 var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
+	"o3d": true, "light": true,
 	// A bare `clear` on its own line takes the whole cast off stage. It needs no
 	// parse branch of its own — the generic fieldless path below turns a known
 	// word with nothing after it into a command of that name. It DOES need to be
@@ -442,6 +443,26 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 				// печаталась игроку — эффекты копились в кашу.
 				isCommand = true
 				cmd = Cmd{"op": "fx", "off": true}
+			} else if bare, rest2, ok := splitBareFlags(strings.TrimSpace(line[len(firstWord):])); ok && len(bare) > 0 {
+				// Голый флаг РЯДОМ с полями: `fx off dur=0.15`, `obj id=x hide`.
+				// Раньше работало только «слово в одиночку», а `fx off dur=…`
+				// не разбирался и тихо становился репликой — автор видел свою
+				// команду напечатанной в диалоге. Список флагов закрытый:
+				// иначе обычная проза («wait here, she said») начнёт
+				// притворяться командой.
+				params, perr := parseKeyValue(rest2)
+				if perr != nil {
+					return nil, fmt.Errorf("line %d: %s: %w", srcNo[i], firstWord, perr)
+				}
+				bc := Cmd{"op": firstWord}
+				for _, f := range bare {
+					bc[f] = true
+				}
+				for k, v := range params {
+					bc[k] = v
+				}
+				isCommand = true
+				cmd = bc
 			} else if firstWord == "sfx" && strings.HasSuffix(strings.TrimSpace(line), " off") {
 				// `sfx id=… off` — снять эффекты актёра; голое off дружит с парсером.
 				params, perr := parseKeyValue(strings.TrimSuffix(strings.TrimSpace(line[len("sfx"):]), "off"))
@@ -972,8 +993,12 @@ func stripLineComment(s string) string {
 	return s
 }
 
-var reFuncDef = regexp.MustCompile(`^\s*func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{\s*$`)
-var reCall = regexp.MustCompile(`^\s*(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*)\s*\((.*)\)\s*$`)
+// Имя — ЛЮБЫЕ буквы, а не только латиница. Переменные и метки кириллицей
+// работали всегда, а функции — нет: `\w` в RE2 это ASCII, поэтому строка
+// `фонполосы()` не опознавалась как вызов и молча уезжала в наррацию. Автор
+// пишет сценарий на своём языке — процедуры не должны быть исключением.
+var reFuncDef = regexp.MustCompile(`^\s*func\s+([\p{L}_][\p{L}\p{N}_]*)\s*\(([^)]*)\)\s*\{\s*$`)
+var reCall = regexp.MustCompile(`^\s*(?:([\p{L}_][\p{L}\p{N}_]*)\s*=\s*)?([\p{L}_][\p{L}\p{N}_]*)\s*\((.*)\)\s*$`)
 
 var reReturnExpr = regexp.MustCompile(`^return\s+(.+)$`)
 
@@ -2051,6 +2076,82 @@ var optionBodyDenied = map[string]bool{
 	"preload": true, "load": true,
 }
 
+// bareFlags — слова, которые команда принимает БЕЗ `=`. Список закрытый и
+// короткий намеренно: любое расширение делает прозу похожей на команду.
+// Голые флаги — слова без «=», которые язык понимает рядом с полями:
+// `actor id=аня x=30% show`, `audio music=… loop`, `fx off dur=0.15`.
+//
+// Список ЗАКРЫТЫЙ: иначе обычная проза («wait here, she said») начнёт
+// притворяться командой. Но и неполный список опасен ровно так же, как его
+// отсутствие — команда с неизвестным флагом молча становится репликой и
+// печатается игроку. Именно так вели себя `show` и `loop`: они есть в
+// документации, в примерах и в чужих скриптах, а разбирались как проза.
+var bareFlags = map[string]bool{
+	"off": true, "hide": true, "reset": true, "all": true,
+	"show": true, "loop": true, "stop": true, "once": true,
+}
+
+// splitBareFlags вынимает голые флаги из хвоста команды. Возвращает найденные
+// флаги, остаток из одних key=value и признак «строка вообще похожа на
+// команду» (иначе пусть разбирается как раньше — прозой).
+func splitBareFlags(rest string) ([]string, string, bool) {
+	if rest == "" {
+		return nil, "", false
+	}
+	var flags []string
+	var kept []string
+	depth := 0
+	var tok strings.Builder
+	flush := func() {
+		t := tok.String()
+		tok.Reset()
+		if t == "" {
+			return
+		}
+		if bareFlags[t] {
+			flags = append(flags, t)
+			return
+		}
+		kept = append(kept, t)
+	}
+	for i := 0; i < len(rest); i++ {
+		c := rest[i]
+		switch c {
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case '"':
+			// в кавычки не заглядываем: там может быть что угодно
+			tok.WriteByte(c)
+			for i++; i < len(rest); i++ {
+				tok.WriteByte(rest[i])
+				if rest[i] == '"' {
+					break
+				}
+			}
+			continue
+		}
+		if (c == ' ' || c == '\t') && depth == 0 {
+			flush()
+			continue
+		}
+		tok.WriteByte(c)
+	}
+	flush()
+	if len(flags) == 0 {
+		return nil, rest, false
+	}
+	for _, k := range kept {
+		if !strings.Contains(k, "=") {
+			return nil, rest, false // не команда: остались слова без `=`
+		}
+	}
+	return flags, strings.Join(kept, " "), true
+}
+
 func parseKeyValue(s string) (map[string]any, error) {
 	res := make(map[string]any)
 	s = strings.TrimSpace(s)
@@ -2095,13 +2196,34 @@ func parseKeyValue(s string) (map[string]any, error) {
 			val = strings.ReplaceAll(val, "\\'", "'")
 			s = s[end+1:]
 		} else {
-			spaceIdx := strings.IndexAny(s, " \t")
-			if spaceIdx == -1 {
-				val = s
-				s = ""
+			// Значение без кавычек кончается на пробеле — КРОМЕ пробелов внутри
+			// {…}. Выражение это обычное значение (`pitch={база + 5}`), и рвать
+			// его на первом же пробеле означало ронять разбор всей команды: она
+			// переставала выглядеть как команда и молча уезжала в реплику —
+			// самый дорогой отказ, потому что он ничего не сообщает автору.
+			depth, end := 0, len(s)
+			for i := 0; i < len(s); i++ {
+				switch s[i] {
+				case '{':
+					depth++
+				case '}':
+					if depth > 0 {
+						depth--
+					}
+				case ' ', '\t':
+					if depth == 0 {
+						end = i
+					}
+				}
+				if end != len(s) {
+					break
+				}
+			}
+			val = s[:end]
+			if end < len(s) {
+				s = strings.TrimSpace(s[end+1:])
 			} else {
-				val = s[:spaceIdx]
-				s = s[spaceIdx+1:]
+				s = ""
 			}
 		}
 
@@ -2352,17 +2474,21 @@ func firstField(line string) string {
 	return line
 }
 
-// isIdentWord reports whether s is a plain identifier ([A-Za-z_][A-Za-z0-9_]*).
+// isIdentWord сообщает, является ли s обычным идентификатором: буква или «_»,
+// дальше буквы, цифры и «_». Буква — ЛЮБАЯ юникодная: сценарий пишут на языке
+// автора, и `здоровье`, `бой_итог`, `урон()` — такие же имена, как латинские.
 func isIdentWord(s string) bool {
 	if s == "" {
 		return false
 	}
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		alpha := c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-		if !alpha && (i == 0 || c < '0' || c > '9') {
-			return false
+	for i, r := range s {
+		if r == '_' || unicode.IsLetter(r) {
+			continue
 		}
+		if i > 0 && unicode.IsDigit(r) {
+			continue
+		}
+		return false
 	}
 	return true
 }
@@ -2480,6 +2606,22 @@ func parsePathPoints(s string) ([][2]float64, error) {
 		return nil, fmt.Errorf("path needs at least 2 points")
 	}
 	return pts, nil
+}
+
+// exprParam распознаёт значение-шаблон ("{hp / hp_max}") в числовом параметре.
+// Компилятор его НЕ считает: значение зависит от состояния и известно только в
+// момент проигрывания, поэтому шаблон едет в контейнер строкой, а вычисляет его
+// рантайм (ActorAnimator.F) — тем же интерполятором, что и текст реплик.
+func exprParam(v any) (string, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return "", false
+	}
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
+		return s, true
+	}
+	return "", false
 }
 
 // propIdentity is a property's rest value — the start a `to=` one-liner tweens
@@ -2607,7 +2749,18 @@ func buildAnimCmd(op string, p map[string]any) (Cmd, error) {
 			return nil, fmt.Errorf("anim: prop required")
 		}
 		tr := map[string]any{"prop": prop}
-		if to, hasTo := numParam(p["to"]); hasTo {
+		// Цель может быть ВЫРАЖЕНИЕМ: `anim bar fill to="{hp / hp_max}"`. Такой
+		// ключ уезжает строкой и вычисляется рантаймом по живым переменным —
+		// иначе анимировать к величине, зависящей от состояния, нельзя вовсе, и
+		// автор вынужден городить лестницу веток на каждое возможное значение.
+		if toExpr, isExpr := exprParam(p["to"]); isExpr {
+			d := dur
+			if !durSet || d <= 0 {
+				d = 1
+			}
+			tr["keys"] = []any{[]any{0.0, propIdentity(prop)}, []any{d, toExpr}}
+			duration = d
+		} else if to, hasTo := numParam(p["to"]); hasTo {
 			// one-liner: tween from the property's rest value to the target
 			d := dur
 			if !durSet || d <= 0 {

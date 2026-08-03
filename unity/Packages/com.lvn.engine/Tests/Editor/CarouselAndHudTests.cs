@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Lvn.Content;
 using Lvn.UI;
 using Lvn.UI.Screens;
+using Lvn.UI.World;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -176,5 +178,102 @@ namespace Lvn.Tests
             Assert.AreEqual("Start", m.ui.carousel.play_text);
             Assert.AreEqual(false, m.ui.hud.show_progress);
         }
+
+        // Якорь лейбла пишут ЧИСЛАМИ — той же парой, что у `obj` ("0.5,0.5"). Раньше
+        // разбирались только слова, и число молча падало в «центр»: `anchor="0,0"`
+        // не прижимал левый край, а центрировал лейбл по x, унося половину строки
+        // за экран. Обе формы обязаны работать.
+        [Test]
+        public void LabelAnchor_ReadsNumericPairsAndWords()
+        {
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor("0,0"), "0,0 — левый верх");
+            Assert.AreEqual((-100f, 0f), VnStage.LabelAnchor("1,0"), "1,0 — правый край");
+            Assert.AreEqual((-50f, 0f), VnStage.LabelAnchor("0.5,0"), "0.5,0 — центр по горизонтали");
+            Assert.AreEqual((-50f, -50f), VnStage.LabelAnchor("0.5,0.5"), "0.5,0.5 — центр");
+            // словесная форма остаётся рабочей
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor("top-left"));
+            Assert.AreEqual((-100f, -100f), VnStage.LabelAnchor("bottom-right"));
+            // пустой якорь = левый верх, как было до правки
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchor(null));
+        }
+
+        // Доля якоря нужна бюджету ширины: лейбл у правого края растёт ВЛЕВО, и
+        // выдавать ему «остаток справа» — значит заставить переносить по букве.
+        [Test]
+        public void LabelAnchorFractions_DriveTheWidthBudget()
+        {
+            Assert.AreEqual((1f, 0f), VnStage.LabelAnchorFractions("1,0"));
+            Assert.AreEqual((0f, 0f), VnStage.LabelAnchorFractions("0,0"));
+            Assert.AreEqual((0.5f, 0.5f), VnStage.LabelAnchorFractions("center"));
+        }
+
+
+        // Числовое поле принимает ВЫРАЖЕНИЕ, а не только литерал. Без этого любая
+        // величина, зависящая от состояния (доля здоровья, прогресс), писалась
+        // лестницей почти одинаковых веток — по строке на каждое значение.
+        [Test]
+        public void NumericFields_AcceptLiveExpressions()
+        {
+            var vars = new Dictionary<string, JToken>
+            {
+                ["hp"] = 3, ["hp_max"] = 8, ["k"] = 0.25f,
+            };
+            var cmd = JObject.Parse(@"{""op"":""obj"",""id"":""bar"",
+                ""fill"":""{hp / hp_max}"", ""width"":""{k}"", ""height"":0.05}");
+
+            var p = VnStage.PlacementFrom(cmd, vars: vars);
+
+            Assert.AreEqual(0.375f, p.Fill.Value, 1e-4f, "доля заливки — из живых переменных");
+            Assert.AreEqual(0.25f, p.Width.Value, 1e-4f, "выражение в width");
+            Assert.AreEqual(0.05f, p.Height.Value, 1e-4f, "обычный литерал по-прежнему работает");
+        }
+
+        // Без переменных (пересборка сцены до старта, тесты) поле не должно
+        // валить кадр — просто «значения нет».
+        [Test]
+        public void NumericExpression_WithoutVars_IsSilentlyEmpty()
+        {
+            var cmd = JObject.Parse(@"{""op"":""obj"",""id"":""bar"",""fill"":""{hp / hp_max}""}");
+            var p = VnStage.PlacementFrom(cmd);
+            Assert.IsNull(p.Fill, "нечего вычислять — поле пустое, а не 0 и не исключение");
+        }
+
+
+        // Глубина — одно число вместо пары «размер + порядок» на каждую дистанцию.
+        [Test]
+        public void Depth_ScalesByPerspective()
+        {
+            Assert.AreEqual(1f, WorldPlacement.DepthScale(null), 1e-4f, "без глубины — натуральный размер");
+            Assert.AreEqual(1f, WorldPlacement.DepthScale(0f), 1e-4f, "план камеры");
+            Assert.AreEqual(0.5f, WorldPlacement.DepthScale(WorldPlacement.FocalDepth), 1e-4f,
+                "на фокусной дистанции фигура вдвое меньше");
+            Assert.Greater(WorldPlacement.DepthScale(2f), WorldPlacement.DepthScale(8f),
+                "дальше — мельче, монотонно");
+            Assert.Greater(WorldPlacement.DepthScale(-3f), 1f, "ближе плана — крупнее");
+        }
+
+        // Процент экрана — одна и та же запись и для долей, и для процентов.
+        [Test]
+        public void PercentSuffix_WorksInPlacementFields()
+        {
+            var cmd = JObject.Parse(@"{""op"":""obj"",""id"":""x"",""x"":""50%"",""y"":0.25,""width"":""10%""}");
+            var p = VnStage.PlacementFrom(cmd);
+            Assert.AreEqual(0.5f, p.X, 1e-4f, "50% = половина экрана");
+            Assert.AreEqual(0.25f, p.Y, 1e-4f, "доля по-прежнему доля");
+            Assert.AreEqual(0.1f, p.Width.Value, 1e-4f);
+        }
+
+        // Точка в наборе разбирается вместе с выражениями.
+        [Test]
+        public void WorldPoint_ParsesWithExpressions()
+        {
+            var vars = new Dictionary<string, JToken> { ["z"] = 8.5f };
+            var cmd = JObject.Parse(@"{""op"":""actor"",""id"":""s"",""world"":""12.4, 0, {z}""}");
+            var p = VnStage.PlacementFrom(cmd, vars: vars);
+            Assert.IsNotNull(p.World);
+            Assert.AreEqual(12.4f, p.World.Value.x, 1e-3f);
+            Assert.AreEqual(8.5f, p.World.Value.z, 1e-3f);
+        }
+
     }
 }

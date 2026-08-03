@@ -1,0 +1,15 @@
+// Компактный статус справа. Значения реактивны после первого show().
+uikit_badge_label = "DAY"
+uikit_badge_value = "01"
+
+func uikit_badge_show() {
+  obj id=uikit_badge_plate sprite_url="/content/packages/lvn-uikit/ui/badge_plate.png" x=0.915 y=0.082 width=0.105 anchor="0.5,0.5" z=84
+  text uikit_badge_label_text x=91.5 y=3.8 size=18 color=#b59a62 anchor="0.5,0" «{uikit_badge_label}»
+  text uikit_badge_value_text x=91.5 y=6.2 size=28 color=#e8e1d3 anchor="0.5,0" «{uikit_badge_value}»
+}
+
+func uikit_badge_hide() {
+  obj id=uikit_badge_plate show=false
+  text uikit_badge_label_text hide
+  text uikit_badge_value_text hide
+}

@@ -29,6 +29,12 @@ public static class Lvn3DSetBundleBuilder
     /// -executeMethod Lvn3DSetBundleBuilder.Android</summary>
     public static void BuildAndroid() => Android();
 
+    /// <summary>Набор для РЕДАКТОРА. Проверять сцену на маке приходится чаще,
+    /// чем собирать под телефон, а «текущая платформа» у проекта — Android:
+    /// без отдельной точки входа редактор всегда получал вчерашний бандл, и
+    /// правки набора проверялись вслепую.</summary>
+    public static void BuildMac() => Build(BuildTarget.StandaloneOSX, "macos");
+
     private static void Build(BuildTarget target, string platform)
     {
         if (string.IsNullOrEmpty(platform))
@@ -108,13 +114,86 @@ public static class Lvn3DSetBundleBuilder
                 asset = id,
                 hash = built.GetAssetBundleHash(build.assetBundleName).ToString(),
                 bytes = new FileInfo(destination).Length,
+                models = ModelNames(build.assetNames[0]),
             };
             Debug.Log($"[bg3d-build] {id}/{platform}: {descriptors[id].bytes:N0} bytes, " +
                       descriptors[id].hash);
         }
 
+        AuditSets(prefabs, descriptors);
         UpdateServerManifest(repo, platform, descriptors, fallbackIds);
         Debug.Log($"[bg3d-build] {descriptors.Count} set bundle(s) published to {contentSets}");
+    }
+
+    /// <summary>Сверка набора с бюджетами (docs/3d-set-rules.md).
+    ///
+    /// <para>Предупреждения, а не запреты: набор соберётся в любом случае, но
+    /// автор узнает цену ДО того, как игрок будет ждать восемь секунд первого
+    /// кадра. Молчаливое превышение — как раз то, из-за чего кузница весит 68
+    /// МБ и никого это не смущало.</para></summary>
+    private static void AuditSets(string[] prefabs, Dictionary<string, BundleDescriptor> descriptors)
+    {
+        foreach (var path in prefabs)
+        {
+            var id = Path.GetFileNameWithoutExtension(path);
+            var assetPath = "Assets" + path.Substring(Application.dataPath.Length).Replace('\\', '/');
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (go == null) continue; // сцена — считать по ней нечего, пропускаем
+
+            int renderers = 0, tris = 0;
+            var mats = new HashSet<Material>();
+            var texes = new HashSet<Texture>();
+            var batches = new HashSet<string>();   // уникальные пары «меш + материал»
+            bool instanced = true;
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                renderers++;
+                var rmf = r.GetComponent<MeshFilter>();
+                var meshName = rmf != null && rmf.sharedMesh != null ? rmf.sharedMesh.name : "?";
+                foreach (var m0 in r.sharedMaterials)
+                {
+                    if (m0 == null) continue;
+                    batches.Add(meshName + "|" + m0.name);
+                    if (!m0.enableInstancing) instanced = false;
+                }
+                foreach (var m in r.sharedMaterials)
+                {
+                    if (m == null) continue;
+                    mats.Add(m);
+                    if (m.mainTexture != null) texes.Add(m.mainTexture);
+                }
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null) tris += mf.sharedMesh.triangles.Length / 3;
+            }
+            int lights = go.GetComponentsInChildren<Light>(true).Length;
+            int colliders = go.GetComponentsInChildren<Collider>(true).Length;
+            long bytes = descriptors.TryGetValue(id, out var d) ? d.bytes : 0;
+
+            void Over(string what, long got, long soft, long hard)
+            {
+                if (got <= soft) return;
+                var how = got > hard ? "ПРЕВЫШЕН ПОТОЛОК" : "выше нормы";
+                Debug.LogWarning($"[bg3d-audit] {id}: {what} {got} — {how} ({soft}/{hard}). " +
+                                 "См. docs/3d-set-rules.md");
+            }
+            Over("размер бандла, МБ", bytes / (1024 * 1024), 8, 20);
+            // Считаем ПАЧКИ, а не объекты: с инстансингом сотня одинаковых
+            // сосен стоит одного вызова, и ругаться на их число значит
+            // требовать бедную сцену там, где GPU не заметит разницы.
+            Over("пачек отрисовки", batches.Count, 150, 400);
+            if (!instanced && renderers > 200)
+                Debug.LogWarning($"[bg3d-audit] {id}: {renderers} рендереров БЕЗ инстансинга — " +
+                                 "включите enableInstancing на материалах, иначе это столько же вызовов");
+            Over("материалов", mats.Count, 20, 40);
+            Over("треугольников, тыс.", tris / 1000, 150, 400);
+            Over("текстур", texes.Count, 30, 60);
+            Over("источников света", lights, 2, 3);
+            if (colliders > 0)
+                Debug.LogWarning($"[bg3d-audit] {id}: коллайдеров {colliders} — фону они не нужны, " +
+                                 "а их классы вырезаны из сборки (ID 64/136 в логе устройства)");
+            Debug.Log($"[bg3d-audit] {id}: {batches.Count} пачек / {renderers} объектов, {tris / 1000} тыс. тр., " +
+                      $"{mats.Count} мат., {texes.Count} текс., {lights} св., {bytes / 1024} КБ");
+        }
     }
 
     private static void UpdateServerManifest(
@@ -171,5 +250,29 @@ public static class Lvn3DSetBundleBuilder
         public string asset;
         public string hash;
         public long bytes;
+        /// <summary>Имена объектов набора — то, что автор пишет в
+        /// <c>o3d model=…</c>. Список едет в манифест, и компилятор сверяет с
+        /// ним каждую ссылку: опечатка в имени модели иначе тихая, тело просто
+        /// не встаёт, а в логе ни слова.</summary>
+        public string[] models;
+    }
+
+    /// <summary>Имена объектов первого уровня внутри набора — те, по которым
+    /// скрипт достаёт модели. Вложенные части моделей не берём: автору нужен
+    /// «crypt-a», а не «crypt-a/roof/tile.003».</summary>
+    private static string[] ModelNames(string assetPath)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        if (prefab == null) return System.Array.Empty<string>();
+        var names = new List<string>();
+        foreach (Transform child in prefab.transform)
+        {
+            names.Add(child.name);
+            // Библиотека набора: модели часто лежат на «полке» одним слоем.
+            foreach (Transform grand in child)
+                names.Add(grand.name);
+        }
+        names.Sort(StringComparer.Ordinal);
+        return names.ToArray();
     }
 }
