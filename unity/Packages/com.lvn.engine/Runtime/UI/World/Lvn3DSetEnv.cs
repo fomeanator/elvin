@@ -46,10 +46,34 @@ namespace Lvn.UI.World
         [Tooltip("Use a compact, set-specific shadow profile while this set is standing.")]
         public bool overrideShadows = true;
         public ShadowQuality shadowQuality = ShadowQuality.All;
-        public ShadowResolution shadowResolution = ShadowResolution.Medium;
+        public ShadowResolution shadowResolution = ShadowResolution.High;
+        /// <summary>Как карта теней подгоняется под кадр. <c>StableFit</c> —
+        /// «стабильная подгонка»: карта привязана к сфере вокруг камеры и НЕ
+        /// перестраивается от каждого поворота. С <c>CloseFit</c> (значение
+        /// Unity по умолчанию) она пересчитывается на любое движение, и края
+        /// теней дрожат — заметнее всего при дыхании камеры и осмотре, когда
+        /// кадр не стоит на месте ни секунды. Стабильность стоит немного
+        /// чёткости, и это правильный размен для новеллы.</summary>
+        public ShadowProjection shadowProjection = ShadowProjection.StableFit;
         [Tooltip("Supported values are 0, 2 and 4; other values are normalized on apply.")]
+        /// <summary>ДВА каскада. Одного хватало, пока сцена была комнатой на
+        /// два десятка метров; кладбище и лес тянутся на сотню, и одна карта
+        /// теней на такую глубину размазывается в кашу. Четыре каскада для
+        /// новеллы избыточны — их лишние границы дают собственное мерцание на
+        /// стыках, а глубины кадра у нас не столько.</summary>
         public int shadowCascades = 2;
-        public float shadowDistance = 15f;
+
+        /// <summary>Дальность теней в метрах.
+        ///
+        /// <para>Было пятнадцать — под ту же «комнату». За этой чертой Unity
+        /// тени просто НЕ РИСУЕТ, и предмет, стоящий чуть дальше, теряет их
+        /// молча: вблизи склеп отбрасывает тень, отойди на шаг — перестаёт.
+        /// В кадре это читается как ошибка света, хотя свет здесь ни при чём.
+        /// </para>
+        /// <para>Пятьдесят метров покрывают открытую сцену новеллы целиком.
+        /// Дальше тень всё равно съедает туман, а карта теней тем грубее, чем
+        /// больше площади на неё приходится.</para></summary>
+        public float shadowDistance = 50f;
         public float shadowNearPlaneOffset = 2f;
 
         // What the project looked like before this set stood up.
@@ -63,8 +87,129 @@ namespace Lvn.UI.World
         private Color _wasSky, _wasEquator, _wasGround;
         private ShadowQuality _wasShadowQuality;
         private ShadowResolution _wasShadowResolution;
+        private ShadowProjection _wasShadowProjection;
         private int _wasShadowCascades;
         private float _wasShadowDistance, _wasShadowNearPlaneOffset;
+
+        /// <summary>Туман из скрипта (`light kind=fog`). Линейный, а не
+        /// экспоненциальный: автору нужно сказать «отсюда и досюда» в метрах, а
+        /// не подбирать плотность на глаз.</summary>
+        public void SetFog(bool on, Color? color, float? near, float? far, float dur = 0f)
+        {
+            fog = on;
+            if (dur > 0.01f)
+            {
+                // Туман переезжает вместе со светом: рассвет — это не только
+                // другое солнце, но и другая дымка, и разъезжаться им нельзя.
+                _fadeFogFrom = fogColor; _fadeFogTo = color ?? fogColor;
+                _fadeNearFrom = fogStart; _fadeNearTo = near ?? fogStart;
+                _fadeFarFrom = fogEnd;   _fadeFarTo = far ?? fogEnd;
+                _fogFadeTime = 0f; _fogFadeDur = dur;
+                if (near != null || far != null) fogMode = FogMode.Linear;
+                enabled = true;
+                return;
+            }
+            if (color is Color c) fogColor = c;
+            if (near is float n) fogStart = n;
+            if (far is float f) fogEnd = f;
+            if (near != null || far != null) fogMode = FogMode.Linear;
+            Reapply();
+        }
+
+        private Color _fadeFogFrom, _fadeFogTo, _fadeSkyFrom, _fadeSkyTo, _fadeGndFrom, _fadeGndTo;
+        private float _fadeNearFrom, _fadeNearTo, _fadeFarFrom, _fadeFarTo;
+        private float _fogFadeTime, _fogFadeDur, _skyFadeTime, _skyFadeDur;
+
+        private void Update()
+        {
+            bool busy = false;
+            if (_fogFadeDur > 0f)
+            {
+                _fogFadeTime += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(_fogFadeTime / _fogFadeDur);
+                k = k * k * (3f - 2f * k);
+                fogColor = Color.Lerp(_fadeFogFrom, _fadeFogTo, k);
+                fogStart = Mathf.Lerp(_fadeNearFrom, _fadeNearTo, k);
+                fogEnd = Mathf.Lerp(_fadeFarFrom, _fadeFarTo, k);
+                if (k >= 1f) _fogFadeDur = 0f;
+                busy = true;
+            }
+            if (_skyFadeDur > 0f)
+            {
+                _skyFadeTime += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(_skyFadeTime / _skyFadeDur);
+                k = k * k * (3f - 2f * k);
+                ambientSky = Color.Lerp(_fadeSkyFrom, _fadeSkyTo, k);
+                ambientGround = Color.Lerp(_fadeGndFrom, _fadeGndTo, k);
+                ambientEquator = Color.Lerp(ambientSky, ambientGround, 0.5f);
+                if (k >= 1f) _skyFadeDur = 0f;
+                busy = true;
+            }
+            if (busy) Reapply(); else enabled = false;
+        }
+
+        /// <summary>Небо из скрипта (`light kind=sky`): цвет вверху, у горизонта
+        /// и общий подсвет. Это не картинка неба, а ГРАДИЕНТ окружающего света —
+        /// то, из чего складывается настроение места.</summary>
+        public void SetSky(bool on, Color? top, Color? bottom, Color? mid, float dur = 0f)
+        {
+            ambient = on;
+            if (dur > 0.01f)
+            {
+                _fadeSkyFrom = ambientSky; _fadeSkyTo = top ?? ambientSky;
+                _fadeGndFrom = ambientGround; _fadeGndTo = bottom ?? ambientGround;
+                _skyFadeTime = 0f; _skyFadeDur = dur;
+                enabled = true;
+                return;
+            }
+            // РАССЕЯННЫЙ СВЕТ СВЕРХУ — НЕ ЦВЕТ ЗЕНИТА.
+            //
+            // В небо смотрит вся верхняя полусфера, а не одна точка над
+            // головой: свет, падающий на землю, складывается из всего неба —
+            // и тёмного зенита, и светлого горизонта. Приравняв его к зениту,
+            // мы получали ночью почти чёрную землю рядом со СВЕТЛОЙ стеной:
+            // вертикаль брала цвет горизонта, горизонтальная поверхность —
+            // черноту макушки неба. На одном и том же свете два одинаковых
+            // камня выглядели по-разному, и это читалось как ошибка текстур.
+            //
+            // Поэтому сверху берём общий подсвет (`color=`), а если автор его
+            // не задал — среднее между зенитом и горизонтом с перевесом в
+            // сторону горизонта: оттуда света приходит больше.
+            if (mid is Color m) ambientSky = m;
+            else if (top is Color t3 && bottom is Color b3) ambientSky = Color.Lerp(t3, b3, 0.6f);
+            else if (top is Color t) ambientSky = t;
+
+            if (bottom is Color b) ambientGround = b;
+
+            // Горизонт — между небом и землёй: боковые грани освещены и тем,
+            // и другим примерно поровну.
+            ambientEquator = Color.Lerp(ambientSky, ambientGround, 0.5f);
+            Reapply();
+        }
+
+        /// <summary>Переложить настройки, не теряя запомненное «как было».</summary>
+        /// <summary>Переложить настройки заново — после того, как их поправил
+        /// скрипт.</summary>
+        public void Reapply()
+        {
+            if (!_held) { Apply(); return; }
+            RenderSettings.fog = fog;
+            if (fog)
+            {
+                RenderSettings.fogColor = fogColor;
+                RenderSettings.fogMode = fogMode;
+                RenderSettings.fogDensity = fogDensity;
+                RenderSettings.fogStartDistance = fogStart;
+                RenderSettings.fogEndDistance = fogEnd;
+            }
+            if (ambient)
+            {
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+                RenderSettings.ambientSkyColor = ambientSky;
+                RenderSettings.ambientEquatorColor = ambientEquator;
+                RenderSettings.ambientGroundColor = ambientGround;
+            }
+        }
 
         /// <summary>Put this set's atmosphere in place, remembering the old one.</summary>
         public void Apply()
@@ -82,6 +227,7 @@ namespace Lvn.UI.World
             _wasEquator = RenderSettings.ambientEquatorColor;
             _wasGround = RenderSettings.ambientGroundColor;
             _wasShadowQuality = QualitySettings.shadows;
+            _wasShadowProjection = QualitySettings.shadowProjection;
             _wasShadowResolution = QualitySettings.shadowResolution;
             _wasShadowCascades = QualitySettings.shadowCascades;
             _wasShadowDistance = QualitySettings.shadowDistance;
@@ -111,6 +257,7 @@ namespace Lvn.UI.World
             if (_heldShadows)
             {
                 QualitySettings.shadows = shadowQuality;
+                QualitySettings.shadowProjection = shadowProjection;
                 QualitySettings.shadowResolution = shadowResolution;
                 QualitySettings.shadowCascades =
                     shadowCascades >= 4 ? 4 : shadowCascades >= 2 ? 2 : 0;
@@ -139,6 +286,7 @@ namespace Lvn.UI.World
             if (_heldShadows)
             {
                 QualitySettings.shadows = _wasShadowQuality;
+                QualitySettings.shadowProjection = _wasShadowProjection;
                 QualitySettings.shadowResolution = _wasShadowResolution;
                 QualitySettings.shadowCascades = _wasShadowCascades;
                 QualitySettings.shadowDistance = _wasShadowDistance;

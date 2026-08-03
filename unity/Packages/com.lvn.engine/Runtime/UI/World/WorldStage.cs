@@ -137,6 +137,138 @@ namespace Lvn.UI.World
         // ── 3D set as the background ─────────────────────────────────────────
 
         private Lvn3DBackdrop _backdrop;
+        // Кто привязан к миру: при каждом кадре набора их надо пересчитывать,
+        // иначе привязка «застынет» на позиции момента команды.
+        private readonly Dictionary<string, Vector3> _worldAnchored = new Dictionary<string, Vector3>();
+        private readonly Dictionary<string, Placement> _worldPlacements = new Dictionary<string, Placement>();
+        // Глубина по актёрам и их базовое место — параллакс считает сдвиг от него.
+        private readonly Dictionary<string, float> _depthActors = new Dictionary<string, float>();
+        private readonly Dictionary<string, Vector2> _depthBase = new Dictionary<string, Vector2>();
+
+        /// <summary>Пересчитать привязанных к сцене. Зовётся, когда камера набора
+        /// сдвинулась: без этого привязка застывает на кадре своей команды, и
+        /// фигура снова «плывёт» — ровно та фальшь, ради которой всё затевалось.</summary>
+
+        /// <summary>ПАРАЛЛАКС по глубине. Камера двигает весь слой разом, поэтому
+        /// дальнему нужно ОТСТАТЬ: его доля хода тем меньше, чем он дальше. Это
+        /// та же формула перспективы, что и у размера, — глубина остаётся одним
+        /// числом, и сцена начинает дышать без единой лишней строки в скрипте.
+        /// Работает и без 3D-набора: на плоском фоне это честный 2.5D-приём.</summary>
+        private void ApplyParallax(Vector2 cameraOffset)
+        {
+            if (_depthActors.Count == 0) return;
+            foreach (var kv in _depthActors)
+            {
+                var a = ActorFor(kv.Key);
+                if (a?.Slot == null) continue;
+                float k = WorldPlacement.DepthScale(kv.Value);   // 1 у плана, меньше вдали
+                var lag = cameraOffset * (k - 1f);               // ближние идут ровно, дальние отстают
+                var want = kv.Value == 0f ? a.Slot.anchoredPosition : _depthBase[kv.Key] + lag;
+                if (a.Slot.anchoredPosition != want) a.Slot.anchoredPosition = want;
+            }
+        }
+
+        /// <summary>Кадр размещения: та же рамка, что и при постановке актёра.</summary>
+        private Vector2 SizeFit()
+        {
+            float lh = Screen.width > Screen.height && Screen.height > 0
+                ? _reference.y
+                : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
+            return new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
+        }
+
+        // Где ЧТО реально стоит — в долях экрана, уже с учётом родителей: ребёнок
+        // читает отсюда прямоугольник, в который его надо вписать.
+        // Кто ждёт первой удачной проекции — до неё спрайт держим невидимым.
+        private readonly HashSet<string> _awaitingWorld = new HashSet<string>();
+        // Кто уже стоит В СЦЕНЕ биллбордом: такой не возвращается на канвас
+        // из-за временно отсутствующей текстуры.
+        private readonly HashSet<string> _inScene = new HashSet<string>();
+        // Кто ждёт СВОЮ текстуру, чтобы встать в сцену: арт грузится асинхронно,
+        // и к моменту команды его может ещё не быть.
+        private readonly Dictionary<string, (Vector3 pos, float h, bool flip)> _sceneWaiting
+            = new Dictionary<string, (Vector3, float, bool)>();
+        // Диагностика постановки — по одной строке на фигуру: молчащая
+        // невидимость дороже любого лога.
+        private readonly HashSet<string> _diagOnce = new HashSet<string>();
+
+        private readonly Dictionary<string, Rect> _placedBox = new Dictionary<string, Rect>();
+        private readonly Dictionary<string, Vector2> _placedAnchor = new Dictionary<string, Vector2>();
+
+        /// <summary>Вложить слот ребёнка В СЛОТ РОДИТЕЛЯ и вернуть размер, в
+        /// долях которого считать его координаты.
+        ///
+        /// <para>Настоящее вложение, а не пересчёт координат: ребёнок становится
+        /// потомком в иерархии, и дальше всё — размер, положение, масштаб —
+        /// считает сам движок разметки. Пересчёт «в долях экрана» я пробовал
+        /// первым, и он разъезжался: доли ширины и высоты берутся от разных баз,
+        /// а порядок применения объектов не гарантирован.</para>
+        ///
+        /// <para>Родителя ищем среди уже стоящих на сцене; неизвестный id
+        /// оставляет координаты экранными — старые скрипты не ломаются.</para></summary>
+        private Vector2 AttachToParent(WorldActor a, Placement p, Vector2 screenFit)
+        {
+            var parent = string.IsNullOrEmpty(p.Parent) ? null : ActorFor(p.Parent);
+            if (parent == null || parent.Slot == null || parent.Slot == a.Slot)
+            {
+                // Без родителя слот остаётся ТАМ, ГДЕ БЫЛ. Переносить его «на
+                // канвас» нельзя: актёры живут в собственном контейнере сцены, и
+                // такой перенос сносит всю раскладку разом — ловил живьём, весь
+                // бой оставался без единого спрайта.
+                return screenFit;
+            }
+            if (a.Slot.parent != parent.Slot) a.Slot.SetParent(parent.Slot, false);
+            var box = parent.Slot.rect.size;
+            return box.x > 1f && box.y > 1f ? box : screenFit;
+        }
+
+        /// <summary>Первая живая текстура списка слоёв — то, чем фигура встанет
+        /// в сцену, пока актёр ещё раскладывает арт по слоям.</summary>
+        private static Texture FirstTexture(IReadOnlyList<Sprite> layers)
+        {
+            if (layers == null) return null;
+            for (int i = 0; i < layers.Count; i++)
+                if (layers[i] != null && layers[i].texture != null) return layers[i].texture;
+            return null;
+        }
+
+        public void RefreshWorldAnchors() => RefreshWorldAnchors(SizeFit());
+
+        public void RefreshWorldAnchors(Vector2 sizeFit)
+        {
+            // Догружаем текстуры тем, кто уже объявлен «в сцене», но ждал арт.
+            if (_sceneWaiting.Count > 0 && _backdrop != null)
+            {
+                List<string> done = null;
+                foreach (var kv in _sceneWaiting)
+                {
+                    var actor = ActorFor(kv.Key);
+                    var tex = actor != null ? actor.MainTexture : null;
+                    if (tex == null) continue;
+                    if (_backdrop.SetBillboard(kv.Key, tex, kv.Value.pos, kv.Value.h, kv.Value.flip))
+                        (done ??= new List<string>()).Add(kv.Key);
+                }
+                if (done != null)
+                {
+                    foreach (var k in done)
+                    {
+                        _sceneWaiting.Remove(k);
+                        Debug.Log($"[lvn-scene] {k}: текстура догрузилась, фигура встала в сцену");
+                    }
+                }
+            }
+
+            if (_worldAnchored.Count == 0 || _backdrop == null) return;
+            foreach (var kv in _worldAnchored)
+            {
+                var a = ActorFor(kv.Key);
+                if (a == null || !_worldPlacements.TryGetValue(kv.Key, out var pl)) continue;
+                if (!_backdrop.TryProject(kv.Value, out var vp, out var dist)) continue;
+                pl.X = vp.x; pl.Y = vp.y; pl.Depth = dist - WorldPlacement.FocalDepth;
+                WorldPlacement.Apply(a.Slot, pl, AttachToParent(a, pl, sizeFit));
+                if (_awaitingWorld.Remove(kv.Key)) a.SetBaseOpacity(pl.Opacity); // место нашлось — показываем
+            }
+        }
 
         /// <summary>Stand a 3D set behind the scene: the prefab is built off-screen,
         /// filmed by its own camera, and the frame becomes the background. Null
@@ -157,9 +289,23 @@ namespace Lvn.UI.World
                 }
                 return;
             }
+            EnsureBackdrop();
+            _backdrop.RevealChanged = _bg.SetLiveReveal;
+            _backdrop.SetSet(prefab);
+            _bg.SetLiveTexture(_backdrop.Texture);
+            _backdrop.Reveal(0.5f);
+        }
+
+        /// <summary>Поднять рендерер набора и связать его со сценой: камера,
+        /// встряска, привязанные фигуры, живая текстура фона. Один путь и для
+        /// набора из бандла, и для сцены, собранной скриптом — иначе построенная
+        /// сцена осталась бы без половины связей.</summary>
+        private void EnsureBackdrop()
+        {
             if (_backdrop == null)
             {
                 _backdrop = Lvn3DBackdrop.Ensure(_canvasGo.transform);
+                _backdrop.CameraMoved = RefreshWorldAnchors; // едем вместе с камерой
                 _backdrop.TextureChanged += tex =>
                 {
                     // Device rotation replaces the RT object. Rebind the
@@ -186,10 +332,9 @@ namespace Lvn.UI.World
                     if (_bg.Transform.localScale != s)
                         _bg.Transform.localScale = s;
                     backdrop.Echo(offset, zoom, LogicalWidth());
+                    ApplyParallax(offset);
                 };
             }
-            _backdrop.SetSet(prefab);
-            _bg.SetLiveTexture(_backdrop.Texture);
         }
 
         /// <summary>Move the 3D set's camera — the reason a built set replaces a
@@ -200,13 +345,112 @@ namespace Lvn.UI.World
             if (_backdrop == null || !_backdrop.Active) return;
             _backdrop.Frame(x, y, z, pitch, yaw, fov, seconds);
             _bg.SetLiveTexture(_backdrop.Texture); // the buffer is recreated on resize
+            RefreshWorldAnchors(); // привязанные едут вместе с кадром, а не отстают
         }
 
         /// <summary>True while a 3D set is standing.</summary>
         public bool Has3DBackdrop => _backdrop != null && _backdrop.Active;
 
+        /// <summary>Пустая сцена под сборку из скрипта (`bg3d build=1`) — без
+        /// префаба и без бандла. Отсюда начинается 3D, которое автор собирает
+        /// сам: дальше `o3d` ставит тела, `light` — свет.</summary>
+        public void Build3D()
+        {
+            EnsureBackdrop();
+            if (_backdrop == null) return;
+            _backdrop.RevealChanged = _bg.SetLiveReveal;
+            if (!_backdrop.BuildEmpty()) return;
+            _bg.SetLiveTexture(_backdrop.Texture);
+            // Не проявляем сразу: сцена ещё пуста, её только начали строить.
+            // Откроем, когда плеер дойдёт до паузы (см. ReleaseReveal).
+            _backdrop.HoldReveal();
+        }
+
+        /// <summary>Тело сцены (`o3d`): примитив, модель из набора или плоская
+        /// фигура. Возвращает false, если сцены нет — команду просто пропускаем,
+        /// как `bg3d` без набора.</summary>
+        public bool Body3D(string id, in Lvn3DBackdrop.Body body)
+            => _backdrop != null && _backdrop.Active && _backdrop.SetBody(id, body);
+
+        public void RemoveBody3D(string id) => _backdrop?.RemoveBody(id);
+
+        /// <summary>Сделать тело кликабельным (`o3d … on_click=метка`).</summary>
+        public void SetBody3DClick(string id, string label) => _backdrop?.SetBodyClick(id, label);
+
+        /// <summary>Во что попали в кадре набора: метка перехода или null.</summary>
+        /// <summary>Числа сцены поверх кадра (`bg3d stats=1`).</summary>
+        public void Stats3D(bool on) => Lvn3DStats.Show(_backdrop, on);
+
+        public string Pick3D(Vector2 viewport)
+            => _backdrop != null && _backdrop.Active ? _backdrop.PickAt(viewport) : null;
+
+        /// <summary>Глубина резкости кадра набора (`bg3d focus= dof=`).</summary>
+        public void Dof3D(float? focus, float? range, float? power)
+            => _backdrop?.SetDof(focus, range, power);
+
+        /// <summary>Дальность теней кадра набора (`bg3d shadows=`).</summary>
+        public void Shadows3D(float meters) => _backdrop?.SetShadowDistance(meters);
+
+        /// <summary>Свечение ярких мест кадра набора (`bg3d bloom=`).</summary>
+        public void Bloom3D(float? power, float? threshold, float? knee)
+            => _backdrop?.SetBloom(power, threshold, knee);
+
+        /// <summary>Тональная компрессия кадра набора (`bg3d tone= exposure=`).</summary>
+        public void Tone3D(Lvn.UI.World.Lvn3DPostStack.Tone? tone, float? exposure, float? saturation, float? contrast, float? dither, float? knee, float? white)
+        {
+            if (_backdrop == null) return;
+            if (knee is float k || white is float w) _backdrop.SetToneCurve(knee, white);
+            _backdrop.SetTone(tone, exposure, saturation, contrast, dither);
+        }
+
+        /// <summary>Сцена собрана — открыть кадр, если он был придержан на
+        /// время постройки.</summary>
+        public void Reveal3DIfHeld(float seconds = 0.45f)
+            => _backdrop?.ReleaseReveal(seconds);
+
+        /// <summary>Держим ли кадр закрытым прямо сейчас.</summary>
+        public bool Building3D => _backdrop != null && _backdrop.RevealHeld;
+
+        /// <summary>Свет и атмосфера сцены (`light`).</summary>
+        public void Light3D(string kind, string id, Vector2? angle, Vector3? pos,
+            Color? color, float? power, float? range, float? near, float? far,
+            Color? top, Color? bottom, bool off, float dur, float flicker)
+            => _backdrop?.SetLight(kind, id, angle, pos, color, power, range, near, far, top, bottom, off, dur, flicker);
+
         /// <summary>Force the filming mode of the standing set (`bg3d live=`).</summary>
         public void Set3DLive(bool live) => _backdrop?.SetLive(live);
+
+        public void Set3DSway(float? amplitude, float? speed) => _backdrop?.SetSway(amplitude, speed);
+
+        public void Look3D(float dPitch, float dYaw) => _backdrop?.Look(dPitch, dYaw);
+
+        /// <summary>Включить/выключить ходьбу по набору.</summary>
+        public void SetWalk3D(bool on)
+        {
+            // Ходьба включена — значит игрок идёт ПО ЗЕМЛЕ, а не летит над ней.
+            _backdrop?.SetWalkGrounded(on);
+            if (_backdrop == null) return;
+            var w = Lvn3DWalker.Ensure(_backdrop);
+            if (w != null) w.enabled = on;
+        }
+
+        public void WalkStick3D(Vector2 v)
+        {
+            if (_backdrop == null) return;
+            var w = Lvn3DWalker.Ensure(_backdrop);
+            if (w != null) w.SetStick(v);
+        }
+
+        /// <summary>Где сейчас стоит камера набора — для подписи на экране.</summary>
+        public string Camera3DInfo()
+        {
+            if (_backdrop == null || !_backdrop.Active) return "";
+            var p = _backdrop.CameraPos;
+            var r = _backdrop.CameraRot;
+            return $"bg3d x={p.x:0.##} y={p.y:0.##} z={p.z:0.##} pitch={r.x:0.#} yaw={r.y:0.#}";
+        }
+        public void LookReset3D() => _backdrop?.LookReset();
+        public bool Has3DSet => _backdrop != null && _backdrop.Active;
 
         // ── camera ───────────────────────────────────────────────────────────
         public void Shake(float amplitude, float seconds) => _camera.Shake(amplitude, seconds);
@@ -259,7 +503,13 @@ namespace Lvn.UI.World
             var a = EnsureActor(id);
 
             if (layers != null && layers.Count > 0)
+            {
                 a.Configure(layers, layerIds, layerRects, layerDefs);
+                // Арт приходит асинхронно и пересоздаёт слои — возвращаем на них
+                // и долю заливки, и наложенный эффект.
+                a.ReapplyFill();
+                a.ReapplyFx();
+            }
 
             // Size/pivot/flip come from the fixed reference so a character is the SAME
             // size on every device. But the VERTICAL position maps against the REAL
@@ -279,7 +529,107 @@ namespace Lvn.UI.World
                 ? _reference.y
                 : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
             var sizeFit = new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
-            WorldPlacement.Apply(a.Slot, p, sizeFit);
+            // Спрайт, привязанный к точке НАБОРА, живёт по проекции его камеры:
+            // экранное место и глубина считаются, а не пишутся руками. Камера
+            // поехала — фигура осталась там, где стояла в сцене.
+            var placed = p;
+            var wpPending = p.World ?? Vector3.zero;
+            if (p.World is Vector3 wp && _backdrop != null
+                && _backdrop.TryProject(wp, out var vp, out var dist))
+            {
+                placed.X = vp.x;
+                placed.Y = vp.y;
+                placed.Depth = dist - WorldPlacement.FocalDepth; // 0 = план камеры
+                // РОСТ В МЕТРАХ: проецируем макушку и берём экранную высоту из
+                // разницы. Так фигура стоит вровень с деревьями и уменьшается с
+                // расстоянием сама — вместо доли экрана, которая одинакова и в
+                // двух шагах, и в тридцати метрах.
+                if (p.WorldHeight is float wh && wh > 0f
+                    && _backdrop.TryProject(wp + Vector3.up * wh, out var vpTop, out _))
+                {
+                    float hFrac = Mathf.Abs(vp.y - vpTop.y);
+                    if (hFrac > 0.0001f)
+                    {
+                        float ratio = (p.Width ?? WorldPlacement.DefaultWidth)
+                                      / Mathf.Max(p.Height ?? WorldPlacement.DefaultHeight, 0.0001f);
+                        placed.Height = hFrac;
+                        placed.Width = hFrac * ratio * (sizeFit.y / Mathf.Max(sizeFit.x, 0.0001f));
+                        placed.Depth = null; // перспективу уже учла проекция
+                    }
+                }
+                _worldAnchored[id] = wp;
+                _worldPlacements[id] = p;
+            }
+            else if (p.World == null) { _worldAnchored.Remove(id); _worldPlacements.Remove(id); }
+            else
+            {
+                // Привязка к сцене ЕСТЬ, но спроецировать нечем: набор ещё
+                // грузится, камера не готова. Раньше спрайт в этот момент вставал
+                // по экранным координатам и через кадр-другой ПРЫГАЛ на своё
+                // место в мире — первый показ каждого бойца читался как сбой.
+                // Ждём проекцию: место в сцене известно не сразу, но лучше
+                // подождать кадр, чем показать заведомо чужое.
+                _worldAnchored[id] = wpPending;
+                _worldPlacements[id] = p;
+                _awaitingWorld.Add(id);
+            }
+            // В СЦЕНУ, а не поверх неё: фигура становится плоским объектом
+            // внутри набора и разворачивается к камере. Тогда перспективу,
+            // порядок с деревьями и туман считает рендер набора, а не наша
+            // арифметика поверх экранных долей.
+            if (p.In3D && p.World is Vector3 bpos && _backdrop != null && _backdrop.Active)
+            {
+                // ОДИН путь, а не два. Раньше при неготовой текстуре фигура
+                // падала на канвасный путь — а там её место считается проекцией
+                // камеры, то есть она ЕДЕТ вместе с камерой вместо того, чтобы
+                // стоять в сцене. Именно это читается как «отхожу, а он меняет
+                // положение»: половину кадров он объект мира, половину — картинка
+                // на экране. Поэтому канвас гасим СРАЗУ и навсегда, а текстуру
+                // отдаём в набор, как только она появится.
+                a.SetBaseOpacity(0f);
+                _awaitingWorld.Remove(id);
+                _inScene.Add(id);
+                _sceneWaiting[id] = (bpos, p.WorldHeight ?? 1.8f, p.Flip);
+                // Текстуру берём ИЗ ПРИШЕДШИХ СЛОЁВ, а не только из актёра.
+                // Место ставится дважды: сперва пустым (слот до загрузки арта),
+                // потом с артом — и во втором вызове спрайты УЖЕ У НАС В РУКАХ.
+                // Полагаться на a.MainTexture значит зависеть от того, успел ли
+                // Configure разложить их по Image к этому кадру.
+                var tex = a.MainTexture ?? FirstTexture(layers);
+                bool stood = tex != null &&
+                             _backdrop.SetBillboard(id, tex, bpos, p.WorldHeight ?? 1.8f, p.Flip);
+                if (stood) _sceneWaiting.Remove(id);
+                // Пока фигура НЕ встала — говорим об этом каждый раз: молчаливое
+                // отсутствие бойца в сцене отлаживается часами. Встала — один
+                // раз, чтобы не сорить в бою.
+                if (!stood || !_diagOnce.Contains(id))
+                {
+                    if (stood) _diagOnce.Add(id);
+                    Debug.Log($"[lvn-scene] {id}: in3d, точка {bpos}, рост {p.WorldHeight}, " +
+                              $"текстура={(tex != null ? tex.width + "x" + tex.height : "НЕТ")}, " +
+                              $"слоёв={(layers != null ? layers.Count : 0)}, встал={stood}");
+                }
+                return a;
+            }
+            else if (_backdrop != null)
+            {
+                _backdrop.RemoveBillboard(id);
+                _inScene.Remove(id);
+                _sceneWaiting.Remove(id);
+            }
+
+            // РОДИТЕЛЬ: вкладываем слот и считаем координаты в долях ЕГО
+            // прямоугольника — дальше разметку ведёт сам движок.
+            WorldPlacement.Apply(a.Slot, placed, AttachToParent(a, placed, sizeFit));
+            // Пока место в сцене неизвестно — не показываем вовсе.
+            if (_awaitingWorld.Contains(id)) a.SetBaseOpacity(0f);
+            if (placed.Depth is float dp && dp != 0f)
+            {
+                _depthActors[id] = dp;
+                _depthBase[id] = a.Slot.anchoredPosition;
+            }
+            else { _depthActors.Remove(id); _depthBase.Remove(id); }
+            a.SetFill(p.Fill, p.FillFrom, p.FillTime); // полоса: обрезаем, а не сжимаем; fill_time — плавно
             if (lh > _reference.y + 0.5f)
             {
                 var pos = a.Slot.anchoredPosition;
