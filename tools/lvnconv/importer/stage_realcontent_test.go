@@ -11,13 +11,13 @@ import (
 )
 
 // Verification on REAL partner content: run the control-flow visibility
-// normalizer over every committed cold-*.lvn and count the defensive hides it
+// normalizer over every committed imported chapter and count the defensive hides it
 // injects — each is a branch-merge point where two actors would otherwise share
 // a slot (the "two characters in one slot" bug). Gated on the partner content
 // being present, so a clean clone stays green.
 func TestNormalizeVisibilityOnColdContent(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "server", "content", "scripts")
-	files, _ := filepath.Glob(filepath.Join(root, "cold-*.lvn"))
+	files, _ := filepath.Glob(filepath.Join(root, "imported-*.lvn"))
 	if len(files) == 0 {
 		t.Skip("нет партнёрского cold-контента на этой машине")
 	}
