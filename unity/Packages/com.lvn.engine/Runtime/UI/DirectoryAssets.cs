@@ -71,6 +71,26 @@ namespace Lvn.UI
             return sprite;
         }
 
+        /// <summary>A tiling surface texture: same file, different settings than
+        /// the sprite path above (repeat, mipmaps, anisotropy — see
+        /// <see cref="LvnTextures"/>).</summary>
+        public async Task<Texture2D> LoadSurfaceTextureAsync(string url, bool linear, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            var hit = LvnTextures.Cached(url, linear);
+            if (hit != null) return hit;
+
+            var path = PathFor(url);
+            if (path == null || !File.Exists(path)) return null;
+
+            byte[] bytes;
+            try { bytes = await Task.Run(() => File.ReadAllBytes(path), ct); }
+            catch { return null; }
+            if (ct.IsCancellationRequested) return null;
+
+            return LvnTextures.Build(url, bytes, linear);
+        }
+
         // Longest-side cap for loaded textures — mirrors NetworkAssets.
         private const int MaxTextureSize = 2560;
 

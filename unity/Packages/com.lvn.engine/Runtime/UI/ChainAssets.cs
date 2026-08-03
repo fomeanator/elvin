@@ -61,6 +61,16 @@ namespace Lvn.UI
             return null;
         }
 
+        public async Task<Texture2D> LoadSurfaceTextureAsync(string url, bool linear, CancellationToken ct)
+        {
+            foreach (var loader in _chain)
+            {
+                var tex = await loader.LoadSurfaceTextureAsync(url, linear, ct);
+                if (tex != null) return tex;
+            }
+            return null;
+        }
+
         public async Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct)
         {
             if (urls == null || urls.Count == 0) return;
