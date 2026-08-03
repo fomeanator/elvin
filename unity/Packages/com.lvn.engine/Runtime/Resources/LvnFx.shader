@@ -59,7 +59,7 @@ Shader "Hidden/LvnFx"
             float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor;
             float4 _SpaceColor;
 
-            fixed4 frag(v2f i) : SV_Target
+            half4 frag(v2f i) : SV_Target
             {
                 float2 uv = i.uv;
                 float t = _Time.y;
@@ -127,7 +127,7 @@ Shader "Hidden/LvnFx"
 
                 // Хроматическая аберрация: RGB расходятся по радиусу.
                 float2 fromC = uv - 0.5;
-                fixed4 col;
+                half4 col;
                 if (_Chromatic > 0.001)
                 {
                     float k = _Chromatic * 0.012;
@@ -165,7 +165,7 @@ Shader "Hidden/LvnFx"
                 if (_Dream > 0.001)
                 {
                     float2 d = _MainTex_TexelSize.xy * (2.0 + _Dream * 5.0);
-                    fixed3 soft = tex2D(_MainTex, uv + float2( d.x, 0)).rgb
+                    half3 soft = tex2D(_MainTex, uv + float2( d.x, 0)).rgb
                                 + tex2D(_MainTex, uv + float2(-d.x, 0)).rgb
                                 + tex2D(_MainTex, uv + float2(0,  d.y)).rgb
                                 + tex2D(_MainTex, uv + float2(0, -d.y)).rgb;
@@ -181,7 +181,7 @@ Shader "Hidden/LvnFx"
                     [unroll] for (int s = 0; s < 12; s++)
                     {
                         p += dir;
-                        fixed3 c = tex2D(_MainTex, p).rgb;
+                        half3 c = tex2D(_MainTex, p).rgb;
                         acc += max(c.r, max(c.g, c.b)) * w;
                         w *= 0.87;
                     }
@@ -346,11 +346,11 @@ Shader "Hidden/LvnFx"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment fragPre
-            fixed4 fragPre(v2f i) : SV_Target
+            half4 fragPre(v2f i) : SV_Target
             {
-                fixed3 c = tex2D(_MainTex, i.uv).rgb;
+                half3 c = tex2D(_MainTex, i.uv).rgb;
                 float lum = max(c.r, max(c.g, c.b));
-                return fixed4(c * smoothstep(0.65, 0.95, lum), 1);
+                return half4(c * smoothstep(0.65, 0.95, lum), 1);
             }
             ENDCG
         }
@@ -362,15 +362,15 @@ Shader "Hidden/LvnFx"
             #pragma vertex vert
             #pragma fragment fragBlur
             float4 _Dir;
-            fixed4 fragBlur(v2f i) : SV_Target
+            half4 fragBlur(v2f i) : SV_Target
             {
                 float2 d = _Dir.xy * _MainTex_TexelSize.xy * 1.8;
-                fixed3 c = tex2D(_MainTex, i.uv).rgb * 0.294;
+                half3 c = tex2D(_MainTex, i.uv).rgb * 0.294;
                 c += tex2D(_MainTex, i.uv + d).rgb * 0.235;
                 c += tex2D(_MainTex, i.uv - d).rgb * 0.235;
                 c += tex2D(_MainTex, i.uv + d * 2.2).rgb * 0.118;
                 c += tex2D(_MainTex, i.uv - d * 2.2).rgb * 0.118;
-                return fixed4(c, 1);
+                return half4(c, 1);
             }
             ENDCG
         }
