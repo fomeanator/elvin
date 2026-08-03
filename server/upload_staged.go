@@ -33,12 +33,7 @@ func (s *server) stagingDir() string {
 // Content-Range) and GET/HEAD (report bytes received so far) under
 // /v1/admin/staged-upload/<id>.
 func (s *server) handleStagedUpload(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/v1/admin/staged-upload/")

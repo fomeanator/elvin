@@ -54,6 +54,7 @@ func main() {
 	addr := flag.String("addr", ":8000", "listen address")
 	contentDir := flag.String("content", "./content", "content directory (manifest.json + assets)")
 	adminToken := flag.String("admin-token", "", "bearer token for /v1/admin/* (empty disables admin)")
+	adminUser := flag.String("admin-user", "", "завести/обновить учётку панели: логин:пароль[:роль] и выйти")
 	iapDev := flag.Bool("iap-dev", false, "accept any IAP receipt (test builds only — never production)")
 	walletEarn := flag.Bool("wallet-earn", true, "allow client-initiated POST /v1/wallet/earn (test-mode affordance; set to false before enabling real payments)")
 	authDev := flag.Bool("auth-dev", false, "accept the 'dev' auth provider (test builds only — never production)")
@@ -65,6 +66,33 @@ func main() {
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
 	studio := flag.Bool("studio", false, "serve the Elvin Studio web app (authoring IDE + admin UI + playground) at /; without it the server is a pure game API (content, state, product services)")
 	flag.Parse()
+
+	// ЗАВЕДЕНИЕ ПЕРВОГО ЧЕЛОВЕКА. Панель с учётками нельзя открыть, пока в
+	// ней никого нет, а завести первого через саму панель — значит оставить
+	// дыру «кто первый пришёл, тот и владелец». Поэтому только так: рукой,
+	// на машине, где стоит сервер.
+	//
+	//   lvn-server -content ./content -admin-user аня:пароль123:owner
+	//
+	if *adminUser != "" {
+		parts := strings.SplitN(*adminUser, ":", 3)
+		if len(parts) < 2 {
+			log.Fatal("формат: -admin-user логин:пароль[:роль]")
+		}
+		role := RoleEditor
+		if len(parts) == 3 && parts[2] != "" {
+			role = parts[2]
+		}
+		users, err := NewAdminUsers(*contentDir)
+		if err != nil {
+			log.Fatalf("не открыть хранилище учёток: %v", err)
+		}
+		if err := users.SetUser(parts[0], parts[1], role); err != nil {
+			log.Fatalf("не завести учётку: %v", err)
+		}
+		log.Printf("учётка «%s» (%s) готова — запустите сервер обычным образом", parts[0], role)
+		return
+	}
 
 	if err := os.MkdirAll(*contentDir, 0o755); err != nil {
 		log.Fatalf("content dir: %v", err)
@@ -777,12 +805,7 @@ func (s *server) writeLock() *sync.Mutex {
 }
 
 func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	rel := strings.TrimPrefix(r.URL.Path, "/v1/admin/assets/")
