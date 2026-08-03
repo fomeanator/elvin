@@ -225,7 +225,7 @@ namespace Lvn.UI.Screens
         private void SeedDemo()
         {
             _chars.Clear();
-            _chars.Add(new Character { Name = "Виктория", Preview = "/content/cards/card0.png" });
+            _chars.Add(new Character { Name = "Алиса", Preview = "/content/cards/card0.png" });
             _chars.Add(new Character { Name = "Алина", Preview = "/content/cards/card1.png" });
             _chars.Add(new Character { Name = "Ева", Preview = "/content/cards/card2.png" });
             _chars.Add(new Character { Name = "Мира", Preview = "/content/cards/card3.png" });
