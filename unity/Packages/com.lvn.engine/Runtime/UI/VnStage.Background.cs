@@ -88,7 +88,13 @@ namespace Lvn.UI
 
         private async Task ApplyBgAsync(JObject cmd)
         {
+            // Путь фона тоже с подстановкой: `bg sprite_url="/bg/{погода}_двор.jpg"`.
+            // Это была задокументированная грабля («в bg sprite_url не
+            // интерполируется»), из-за которой смена времени суток писалась
+            // ветками на каждый вариант.
             var url = (string)cmd["sprite_url"];
+            if (!string.IsNullOrEmpty(url) && url.IndexOf('{') >= 0)
+                url = TextInterpolation.Apply(url, _player?.Vars);
             // bg id="porch" — resolve the catalog entity to its (first) layer url.
             if (string.IsNullOrEmpty(url))
             {
@@ -111,8 +117,20 @@ namespace Lvn.UI
             int gen = ++_bgGen;
             var sprite = await LoadSceneSpriteAsync(url, "bg",
                 () => StageCurrent(epoch) && _bgGen == gen);
-            if (sprite == null) return;
-            if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
+            // Молчаливый выход здесь и есть «фон иногда не догружается»: сцена
+            // остаётся с прежним задником, и в логе НИЧЕГО. Разделяем два случая:
+            // картинка не пришла (сеть/404/кэш) и её обогнала более новая команда.
+            if (sprite == null)
+            {
+                LvnPlayer.Log?.Invoke($"[lvn-bg] MISS {url} (спрайт не загрузился; фон остался прежним)");
+                return;
+            }
+            if (!StageCurrent(epoch) || _bgGen != gen)
+            {
+                LvnPlayer.Log?.Invoke($"[lvn-bg] skip {url} (обогнала смена главы/следующий bg)");
+                return; // a chapter change / newer bg won
+            }
+            LvnPlayer.Log?.Invoke($"[lvn-bg] ok {url}");
             _renderer?.SetBackground(sprite);
             ReleaseActive3DSet();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
@@ -136,6 +154,11 @@ namespace Lvn.UI
                 return;
             }
 
+            // `build=1` — ПУСТАЯ сцена под сборку из скрипта: дальше её
+            // наполняют `o3d` и `light`. Так 3D перестаёт требовать Unity:
+            // место в игре можно описать текстом целиком.
+            if (BoolOr(cmd["build"], false)) _renderer?.Build3D();
+
             var id = (string)cmd["id"] ?? (string)cmd["prefab"] ?? (string)cmd["scene"];
             if (!string.IsNullOrEmpty(id))
             {
@@ -157,7 +180,15 @@ namespace Lvn.UI
                 // load. This is the authored "one room, many angles" loop.
                 if (_active3DSetId != id)
                 {
-                    if (Assets == null || !UseCanvasScene) return;
+                    // Каждый выход отсюда — это «3D-фон не догрузился»: сцена
+                    // остаётся с прежним задником. Раньше все они были немыми.
+                    if (Assets == null || !UseCanvasScene)
+                    {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] SKIP '{id}': " +
+                            (Assets == null ? "нет провайдера ассетов" : "рендерер не Canvas (3D только на нём)"));
+                        return;
+                    }
+                    LvnPlayer.Log?.Invoke($"[lvn-bg3d] load '{id}' (был '{_active3DSetId ?? "—"}')");
                     int epoch = _stageEpoch;
                     int gen = ++_bgGen;
                     Lvn3DSetAsset loaded = null;
@@ -166,10 +197,19 @@ namespace Lvn.UI
                     catch (System.Exception e)
                     {
                         Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}");
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] FAIL '{id}': {e.Message}");
                     }
-                    if (loaded?.Prefab == null) { loaded?.Dispose(); return; } // keep the flat background
+                    if (loaded?.Prefab == null)
+                    {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] MISS '{id}': " +
+                            (loaded == null ? "набор не найден (каталог sets3d / бандл / fallback)"
+                                            : "бандл пришёл, но префаб внутри пустой"));
+                        loaded?.Dispose();
+                        return; // keep the flat background
+                    }
                     if (!StageCurrent(epoch) || _bgGen != gen)
                     {
+                        LvnPlayer.Log?.Invoke($"[lvn-bg3d] skip '{id}': обогнала смена главы/следующий фон");
                         loaded.Dispose(); // a newer background won while this downloaded
                         return;
                     }
@@ -181,12 +221,76 @@ namespace Lvn.UI
                     old?.Dispose();
                     HasBackdrop = true;
                     Debug.Log($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
+                    LvnPlayer.Log?.Invoke($"[lvn-bg3d] ok '{id}' ({(loaded.Remote ? "сервер/кэш" : "встроенный fallback")})");
                 }
             }
 
             // `live=` overrides how the set is filmed: on for motion the engine
             // can't see (a shader that scrolls water), off to pin a still shot.
+            // Расфокус дальнего плана — главный кинематографический признак:
+            // объектив держит резкой одну плоскость, остальное мягко тает.
+            if (cmd["focus"] != null || cmd["dof"] != null || cmd["dof_range"] != null)
+                _renderer?.Dof3D(Num(cmd["focus"]), Num(cmd["dof_range"]), Num(cmd["dof"]));
+
+            // ТОНАЛЬНАЯ КОМПРЕССИЯ. Экран умеет одну яркость — «белое», а свет
+            // в сцене потолка не имеет. Кривая переводит второе в первое мягко:
+            // яркое подводится к белому плавно и сохраняет форму, вместо того
+            // чтобы срезаться в плоское пятно. Выключена по умолчанию — уже
+            // собранные новеллы не должны поменяться от обновления движка.
+            if (Num(cmd["shadows"]) is float shd) _renderer?.Shadows3D(shd);
+
+            if (cmd["bloom"] != null || cmd["bloom_threshold"] != null || cmd["bloom_knee"] != null)
+                _renderer?.Bloom3D(Num(cmd["bloom"]), Num(cmd["bloom_threshold"]), Num(cmd["bloom_knee"]));
+
+            if (cmd["tone"] != null || cmd["exposure"] != null || cmd["saturation"] != null
+                || cmd["contrast"] != null || cmd["dither"] != null
+                || cmd["knee"] != null || cmd["white"] != null)
+            {
+                Lvn.UI.World.Lvn3DPostStack.Tone? tone = null;
+                switch (((string)cmd["tone"] ?? "").Trim().ToLowerInvariant())
+                {
+                    case "neutral": case "мягкая": tone = Lvn.UI.World.Lvn3DPostStack.Tone.Neutral; break;
+                    case "khronos": tone = Lvn.UI.World.Lvn3DPostStack.Tone.Khronos; break;
+                    case "off": case "выкл": tone = Lvn.UI.World.Lvn3DPostStack.Tone.Off; break;
+                }
+                _renderer?.Tone3D(tone, Num(cmd["exposure"]), Num(cmd["saturation"]),
+                                  Num(cmd["contrast"]), Num(cmd["dither"]),
+                                  Num(cmd["knee"]), Num(cmd["white"]));
+            }
+            // СТИЛЬ СЦЕНЫ. Ободок и тёплая кайма — то, что делает кадр
+            // «нарисованным», и они же первыми выжигают ночь: их вклад не
+            // зависит от источников света и складывается поверх. Дневной сцене
+            // нужен один набор, ночной — другой, поэтому профиль живёт в
+            // скрипте, а не в коде движка.
+            if (cmd["rim"] != null || cmd["warm"] != null || cmd["steps"] != null
+                || cmd["shadow_tint"] != null || cmd["rim_color"] != null)
+            {
+                var pf = Lvn.UI.World.Lvn3DStyle.Current;
+                if (Num(cmd["rim"]) is float rim) pf.RimStrength = rim;
+                if (Num(cmd["warm"]) is float warm) pf.WarmEdge = warm;
+                if (Num(cmd["steps"]) is float st) pf.Steps = st;
+                if (Col(cmd["shadow_tint"]) is Color sc) pf.ShadowTint = sc;
+                if (Col(cmd["rim_color"]) is Color rc) pf.RimColor = rc;
+                Lvn.UI.World.Lvn3DStyle.SetProfile(pf);
+            }
+
+            // `stats=1` — числа сцены поверх кадра, прямо на устройстве.
+            if (cmd["stats"] != null) _renderer?.Stats3D(BoolOr(cmd["stats"], true));
             if (cmd["live"] != null) _renderer?.Set3DLive(BoolOr(cmd["live"], true));
+            // `sway` — съёмка с рук: кадр перестаёт быть фотографией, а спрайты,
+            // привязанные к сцене через `world`, едут вместе с ним. Ставится
+            // ПОСЛЕ загрузки набора: постановка набора возвращает камеру в покой.
+            // `walk=1` — свободная ходьба по набору: WASD и экранный джойстик.
+            // Нужна и автору (подобрать ракурс, пройдясь по сцене), и игроку
+            // там, где место само по себе содержание.
+            if (cmd["walk"] != null)
+            {
+                bool on = BoolOr(cmd["walk"], false);
+                _renderer?.SetWalk3D(on);
+                SetWalkEnabled(on);
+            }
+            if (cmd["sway"] != null || cmd["sway_speed"] != null)
+                _renderer?.Set3DSway(Num(cmd["sway"]), Num(cmd["sway_speed"]));
 
             // Framing rides on the same op: `bg3d x=… yaw=…` without an id moves
             // the camera of the set already standing.
@@ -197,12 +301,13 @@ namespace Lvn.UI
         }
 
         /// <summary>A command number, or null when the author left the field out —
-        /// "unset" has to survive as a distinct value so framing keeps what it had.</summary>
-        private static float? Num(JToken t)
-        {
-            if (t == null || t.Type == JTokenType.Null) return null;
-            try { return (float)t; } catch { return null; }
-        }
+        /// "unset" has to survive as a distinct value so framing keeps what it had.
+        ///
+        /// <para>Идёт через общий разборщик чисел: кадр задаётся выражениями не
+        /// реже, чем спрайт (<c>bg3d pitch={кам_боль}</c> — камера клюёт от
+        /// удара), а примитивное приведение молча роняло такую строку в null, и
+        /// команда тихо ничего не делала.</para></summary>
+        private float? Num(JToken t) => NumOrNull(t, _player?.Vars);
 
         private const string LastBgKey = "lvn_last_bg";
 
