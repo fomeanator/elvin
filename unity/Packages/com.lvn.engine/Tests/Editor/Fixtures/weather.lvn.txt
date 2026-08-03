@@ -1,0 +1,89 @@
+{
+  "scene": "погода_проба",
+  "script": [
+    {
+      "bottom": "#f0a468",
+      "color": "#8c7590",
+      "kind": "sky",
+      "op": "light",
+      "power": 0.85,
+      "top": "#2b4a7e"
+    },
+    {
+      "angle": "8,-96",
+      "color": "#ffb26b",
+      "kind": "sun",
+      "op": "light",
+      "power": 1.1
+    },
+    {
+      "color": "#5d6f9c",
+      "kind": "fill",
+      "op": "light",
+      "power": 0.32
+    },
+    {
+      "color": "#d9a37e",
+      "far": 150,
+      "kind": "fog",
+      "near": 18,
+      "op": "light"
+    },
+    {
+      "exposure": -0.1,
+      "op": "bg3d",
+      "rim": 0.6,
+      "rim_color": "#ffd0a0",
+      "shadow_tint": "#43506f",
+      "tone": "neutral",
+      "warm": 0.3,
+      "white": 2.6
+    },
+    {
+      "op": "say",
+      "text": "Закат."
+    },
+    {
+      "bottom": "#26314f",
+      "color": "#18223d",
+      "kind": "sky",
+      "op": "light",
+      "power": 0.6,
+      "top": "#0b1021"
+    },
+    {
+      "angle": "30,-50",
+      "color": "#5d7ab0",
+      "kind": "sun",
+      "op": "light",
+      "power": 0.5
+    },
+    {
+      "color": "#20284d",
+      "kind": "fill",
+      "op": "light",
+      "power": 0.16
+    },
+    {
+      "color": "#26314f",
+      "far": 24.2857,
+      "kind": "fog",
+      "near": 4.2857,
+      "op": "light"
+    },
+    {
+      "exposure": 0.45,
+      "op": "bg3d",
+      "rim": 0.8,
+      "rim_color": "#7798d4",
+      "shadow_tint": "#141833",
+      "tone": "neutral",
+      "warm": 0.02,
+      "white": 2
+    },
+    {
+      "op": "say",
+      "text": "Ночь."
+    }
+  ]
+}

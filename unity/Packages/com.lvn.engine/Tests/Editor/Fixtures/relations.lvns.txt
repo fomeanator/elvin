@@ -1,0 +1,4 @@
+scene отношения
+o3d id=фонарь shape=cylinder pos="2,0,4" size="0.3,2,0.3" color="#888"
+o3d id=скамья shape=box near=фонарь dist=1.4 side=left size="1,0.5,0.4" color="#654"
+Готово.
