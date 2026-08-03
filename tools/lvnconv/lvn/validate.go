@@ -55,6 +55,8 @@ func commandLike(text string) string {
 // rule the front-ends apply to staging tags, enforced here for any .lvn.
 var KnownOps = map[string]bool{
 	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
+	// Сцена, собираемая из скрипта: тело и свет (см. docs/3d-language.md).
+	"o3d": true, "light": true,
 	// clear hides every actor and obj at once — the same removal `show=false`
 	// performs, per character, which is what a scene change used to cost: one
 	// line per body on stage, and a bug the day someone was added and the list
@@ -86,9 +88,25 @@ var KnownOps = map[string]bool{
 // carry open-ended keys (catalog-defined emotion axes, a large placement
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
-	"bg":            {"id", "sprite_url"},
-	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live"},
-	"clear":         {}, // deliberately empty: any field on `clear` is a typo
+	"bg": {"id", "sprite_url"},
+	"bg3d": {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live", "sway", "sway_speed", "walk", "build", "focus", "dof", "dof_range", "stats", "rim", "warm", "steps", "shadow_tint", "rim_color",
+		// Тональная компрессия кадра набора: сжатие светов и правка цвета.
+		"tone", "exposure", "saturation", "contrast", "dither", "knee", "white",
+		"bloom", "bloom_threshold", "bloom_knee", "shadows"},
+	"o3d": {"id", "shape", "model", "sprite", "texture", "pos", "size", "height", "pitch", "yaw", "roll", "color", "alpha", "glow", "ground", "shadow", "flip", "on_click", "off",
+		"count", "area", "seed", "scale_var", "yaw_var", "gap",
+		"kinds", "colors", "wind", "shader", "at",
+		"dur", "dissolve", "spin", "bob", "bob_speed", "pulse", "pulse_speed",
+		"normal", "bump", "tiling", "outline", "outline_color", "rim",
+		// shader=road: силуэт и колеи процедурные, отдельные маски не нужны.
+		"edge", "ruts", "wet",
+		// Рельеф земли (shape=ground): холмы задаются числами, а не картой
+		// высот, — иначе сцену перестало бы быть видно в тексте целиком.
+		"hills", "hill_size", "detail", "cells",
+		"sound", "sound_range", "sound_volume",
+		"near", "on", "dist", "side", "fade"},
+	"light":         {"kind", "id", "angle", "pos", "color", "power", "range", "near", "far", "top", "bottom", "off", "dur", "flicker"},
+	"clear":         {"dialogue", "labels", "all"}, // any other field is a typo
 	"fade":          {"to", "duration"},
 	"dim":           {"alpha", "duration"},
 	"flash":         {"color", "duration"},
@@ -126,6 +144,18 @@ var EnumValues = map[string]map[string][]string{
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
 	"sfx":       {"aura_style": {"basic", "guard", "fire", "frost", "storm", "shadow", "holy", "space", "distortion", "spirit", "ascendant"}},
 	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
+	// Сцена, собираемая скриптом: формы и каталог шейдеров закрыты — опечатка
+	// в `shape=cоne` (с кириллической «о») иначе молча даёт коробку.
+	// ground — земля С РЕЛЬЕФОМ: та же плоскость, но поднятая холмами по
+	// числам (hills/hill_size/detail). Плоскость остаётся для случаев, где
+	// ровный пол — это правда: комната, палуба, дорога.
+	"bg3d": {"tone": {"off", "neutral", "khronos"}},
+	"o3d": {"shape": {"box", "plane", "sphere", "cylinder", "cone", "disc", "ground", "terrain", "земля"},
+		"shader": {"toon", "wind", "aura", "water", "glass", "dissolve", "fire", "smoke", "triplanar", "road", "any", "metal", "cloth", "unlit"},
+		// Сторона привязки — и по-русски: язык принимает кириллицу в именах,
+		// запрещать её здесь значило бы удивлять на ровном месте.
+		"side": {"left", "right", "front", "back", "слева", "справа", "спереди", "сзади"}},
+	"light": {"kind": {"sun", "fill", "point", "spot", "fog", "sky"}},
 }
 
 // bodySafeOps are the ops that survive a choice option's body: pure state plus
@@ -658,7 +688,11 @@ func collectDefinedVars(script []Cmd) map[string]bool {
 }
 
 var (
-	identRe  = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_.]*`)
+	// Идентификатор — ЛЮБАЯ буква, не только латинская: кириллица в именах
+	// поддерживается языком, и валидатор обязан видеть их так же, как
+	// компилятор. Без \p{L} имя `вп_i` распадалось на «вп» и «_i», и стража
+	// ругалась на переменную, которой никто не писал.
+	identRe  = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_.]*`)
 	strLitRe = regexp.MustCompile(`"[^"]*"|'[^']*'`)
 	// keywords/operators an expression may contain that are not variables.
 	exprKeywords = map[string]bool{
