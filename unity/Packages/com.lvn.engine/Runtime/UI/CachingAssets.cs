@@ -130,6 +130,26 @@ namespace Lvn.UI
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
             => Loader.DownloadScriptCached(url, ct);
 
+        /// <summary>Surface textures reuse the ordinary disk cache for bytes, then
+        /// build the texture with tiling settings instead of sprite ones — the
+        /// sprite path's Clamp/no-mip combination smears a floor into stripes
+        /// (see <see cref="LvnTextures"/>). No @2k variant here: these are small
+        /// tiling materials, not story art.</summary>
+        public async Task<Texture2D> LoadSurfaceTextureAsync(string url, bool linear, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            var hit = LvnTextures.Cached(url, linear);
+            if (hit != null) return hit;
+
+            System.Threading.Interlocked.Increment(ref _livePressure);
+            try
+            {
+                var bytes = await Loader.DownloadAssetBytes(url, ct);
+                return LvnTextures.Build(url, bytes, linear);
+            }
+            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
+        }
+
         /// <summary>Compatibility path for custom code written before leased
         /// remote sets. It deliberately resolves only the bundled fallback;
         /// <see cref="Load3DSetAsync"/> is the lifecycle-safe remote API.</summary>
@@ -150,6 +170,13 @@ namespace Lvn.UI
             Lvn3DSet set = null;
             if (_sets3d != null) _sets3d.TryGetValue(id, out set);
             var descriptor = Select3DBundle(set, PlatformKey(Application.platform));
+            // Три причины, по которым набор не доезжает, и все три раньше были
+            // неотличимы снаружи: нет записи в манифесте, нет бандла под ЭТУ
+            // платформу, бандл есть — но не скачался.
+            LvnPlayer.Log?.Invoke($"[lvn-set] '{id}': запись в sets3d={(set != null ? "есть" : "НЕТ")}, " +
+                $"платформа={PlatformKey(Application.platform)}, " +
+                $"бандл={(descriptor?.url ?? "нет для этой платформы")}, " +
+                $"fallback_resource={(string.IsNullOrEmpty(set?.fallback_resource) ? "нет" : set.fallback_resource)}");
             if (descriptor != null && !string.IsNullOrEmpty(descriptor.url))
             {
                 try
@@ -165,6 +192,7 @@ namespace Lvn.UI
             }
 
             var fallback = LoadSetFallback(id, set);
+            LvnPlayer.Log?.Invoke($"[lvn-set] '{id}': fallback из Resources {(fallback != null ? "загружен" : "ТОЖЕ пуст — набора не будет")}");
             return fallback != null ? new Lvn3DSetAsset(id, fallback) : null;
         }
 
