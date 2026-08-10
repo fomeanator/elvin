@@ -143,7 +143,7 @@ if [ ! -e /etc/nginx/lvn.htpasswd ]; then
   log "Studio basic-auth → user=$STUDIO_USER pass=$STUDIO_PASS  (при /panel)"
 fi
 
-sed -e "s|\${DOMAIN}|$DOMAIN|g" -e "s|\${PORT}|$PORT|g" \
+sed -e "s|\${DOMAIN}|$DOMAIN|g" -e "s|\${PORT}|$PORT|g" -e "s|\${LVN_HOME}|$LVN_HOME|g" \
     "$HERE/nginx/lvn.conf.template" > /etc/nginx/sites-available/lvn.conf
 ln -sf /etc/nginx/sites-available/lvn.conf /etc/nginx/sites-enabled/lvn.conf
 rm -f /etc/nginx/sites-enabled/default
