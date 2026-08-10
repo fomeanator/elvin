@@ -139,8 +139,7 @@ func clip(s string, max int) string {
 // the last n matching lines of a day, newest last. The files are also plain
 // JSONL on disk for jq when the query outgrows this.
 func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" || !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	day := r.URL.Query().Get("day")

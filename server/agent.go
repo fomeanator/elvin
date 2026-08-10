@@ -57,12 +57,11 @@ var agentBundleDocs string
 // свой ключ (у племянника будет отдельный инстанс на VPS), и зашитая шапка
 // увела бы его ИИ на чужую студию.
 func (s *server) handleAgentBundle(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	// ВЛАДЕЛЕЦ, хотя это всего лишь чтение файла. Внутри файла — ключ студии,
+	// а ключ открывает всё; отдать его смотрящему значит выдать ему права
+	// владельца в обход ролей. Правило простое: где в ответе есть ключ, там
+	// право не ниже, чем даёт сам ключ.
+	if !adminAllowedRole(w, r, s.adminToken, RoleOwner) {
 		return
 	}
 	base := requestBase(r)
@@ -205,12 +204,7 @@ type publishReq struct {
 }
 
 func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -369,12 +363,7 @@ func (s *server) publishSharedFile(w http.ResponseWriter, req publishReq) {
 // обычной ручкой ассетов (PUT /v1/admin/assets/), а не через publish, и без
 // этого вызова правка механик не доезжала до игры.
 func (s *server) handleRebuild(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	var req struct {

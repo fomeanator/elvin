@@ -83,15 +83,7 @@ const (
 )
 
 func (a *conflictAPI) authed(w http.ResponseWriter, r *http.Request) bool {
-	if a.srv.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return false
-	}
-	if !bearerOK(r, a.srv.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return false
-	}
-	return true
+	return adminAllowed(w, r, a.srv.adminToken)
 }
 
 // conflictRow is one listed conflict: the importer's metadata plus the rendered

@@ -1,3 +1,4 @@
+import { logout } from "../lib/session.js";
 import { useCallback, useState } from "react";
 import MenuBar from "./MenuBar.jsx";
 import { monaco } from "../lib/monacoSetup.js";
@@ -215,9 +216,13 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
     setBusy(true);
     try {
       const r = await fetch("/v1/admin/agent-bundle", {
-        headers: { Authorization: "Bearer " + creds.token },
+        credentials: "include",
+        headers: creds.token ? { Authorization: "Bearer " + creds.token } : {},
       });
-      if (!r.ok) throw new Error(r.status === 401 ? "неверный admin token" : "сервер ответил " + r.status);
+      if (!r.ok) throw new Error(
+        r.status === 401 ? "нужно войти" :
+        r.status === 403 ? "файл содержит ключ студии — его скачивает только владелец" :
+        "сервер ответил " + r.status);
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -291,10 +296,10 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
           onSelect: cmd("translate", () => press(toolBtn("Languages"))),
         },
         {
-          id: "connect", label: "Скачать файл для ИИ", disabled: !creds.token || busy,
-          title: creds.token
+          id: "connect", label: "Скачать файл для ИИ", disabled: !(creds.me ? creds.me.role === "owner" : !!creds.token) || busy,
+          title: (creds.me ? creds.me.role === "owner" : !!creds.token)
             ? "Адрес студии, ключ записи и весь язык одним файлом — вставьте его в чат с ИИ"
-            : "Сначала введите admin token справа — файл содержит ключ записи",
+            : "Файл содержит ключ студии — скачать его может только владелец",
           onSelect: cmd("connect", downloadAgentBundle),
         },
         { sep: true },
@@ -459,14 +464,21 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
         {scripting && status && (
           <span className={"badge " + status.kind} title={status.title || ""}>{status.text}</span>
         )}
-        <input
-          className="field token"
-          type="password"
-          placeholder="admin token"
-          title="Admin token (server -admin-token)"
-          value={creds.token}
-          onChange={(e) => creds.setToken(e.target.value)}
-        />
+        {creds.me && creds.me.login ? (
+          <span className="who" title={"Право: " + (creds.me.role || "")}>
+            {creds.me.login}
+            <button className="btn-ghost sm" onClick={() => logout().then(() => window.location.reload())}>Выйти</button>
+          </span>
+        ) : (
+          <input
+            className="field token"
+            type="password"
+            placeholder="admin token"
+            title="Ключ сборки (флаг -admin-token). Людям — вход по имени."
+            value={creds.token}
+            onChange={(e) => creds.setToken(e.target.value)}
+          />
+        )}
       </div>
     </header>
   );

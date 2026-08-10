@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import TopBar from "./components/TopBar.jsx";
 import LibraryHome from "./components/LibraryHome.jsx";
 import SpritesView from "./components/SpritesView.jsx";
 import ScriptSection from "./components/ScriptSection.jsx";
 import AdminView from "./components/AdminView.jsx";
 import { getManifest } from "./lib/api.js";
+import { Who } from "./components/LoginGate.jsx";
 
 // Navigation is hierarchical: a Home that lists/adds novels (manifest titles),
 // and — once you open a novel — a workspace with its Characters and its Script.
@@ -30,6 +31,7 @@ const toHash = (mode, titleId, section, adminTab) =>
     : "#/";
 
 export default function App() {
+  const who = useContext(Who);
   // ?admin=1 forces the dashboard (the server redirects the retired /admin/
   // page here with it); otherwise the hash rules, falling back to Home.
   const initial = useRef(
@@ -93,7 +95,7 @@ export default function App() {
     setTimeout(() => setToasts((ts) => ts.filter((t) => t.id !== id)), 4200);
   }, []);
 
-  const creds = { path, setPath, token, setToken };
+  const creds = { path, setPath, token, setToken, me: who };
 
   const openNovel = useCallback((id, name) => { setTitleId(id); setTitleName(name || id); setSection("characters"); }, []);
   const goHome = useCallback(() => { setTitleId(null); setTitleName(""); }, []);

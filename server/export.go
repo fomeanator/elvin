@@ -68,12 +68,7 @@ func sanitizeName(s, fallback string) string {
 func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// Export bundles the ENTIRE content directory — gate it behind the admin
 	// token like every other privileged endpoint, or it leaks all content.
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	if r.Method != http.MethodPost {

@@ -58,12 +58,7 @@ func sweepDetectScratch(root string, maxAge time.Duration) {
 }
 
 func (s *server) handleStageExtract(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -125,12 +120,7 @@ func findCachedProject(scratch string) (string, error) {
 }
 
 func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
-	if s.adminToken == "" {
-		http.Error(w, "admin disabled", http.StatusForbidden)
-		return
-	}
-	if !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
 	if r.Method != http.MethodPost {

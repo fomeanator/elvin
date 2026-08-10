@@ -8,6 +8,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,16 +24,34 @@ type AdminService struct {
 	token   string
 	auth    *AuthService
 	wallet  *WalletService
+	// Именованные учётки панели. Пусто — значит вход только по токену
+	// (первый запуск, пока никого не завели).
+	users *AdminUsers
 	// writeMu serialises snapshot+write pairs so two parallel panel saves
 	// can't lose a history revision (same-millisecond .bak collision).
 	writeMu sync.Mutex
 }
 
 func NewAdminService(content, token string, auth *AuthService, wallet *WalletService) *AdminService {
-	return &AdminService{content: content, token: token, auth: auth, wallet: wallet}
+	// Учётки лежат рядом с контентом: там же, где всё остальное состояние
+	// студии, и попадают в те же бэкапы.
+	users, err := NewAdminUsers(content)
+	if err != nil {
+		log.Printf("[admin] учётные записи недоступны (%v) — вход только по токену", err)
+	}
+	// Ворота стерегут не только эту службу, но и импорт, выгрузку, логи и всё
+	// остальное под /v1/admin — им нужен тот же список людей.
+	adminPeople = users
+	if users != nil && !users.Empty() {
+		log.Printf("[admin] вход по имени: заведено учёток — %d", len(users.List()))
+	}
+	return &AdminService{content: content, token: token, auth: auth, wallet: wallet, users: users}
 }
 
 func (s *AdminService) Routes(mux *http.ServeMux) {
+	// Вход и управление людьми — до всех защищённых путей.
+	s.AdminUsersRoutes(mux)
+
 	mux.HandleFunc("/v1/admin/manifest", s.handleManifest)
 	mux.HandleFunc("/v1/admin/users", s.handleUsers)
 	mux.HandleFunc("/v1/admin/users/", s.handleUserDetail)
@@ -307,12 +326,18 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ok — единственная дверь в админку. Пускает двоих: человека с открытой
+// сессией и машину со старым токеном. Второе оставлено намеренно: этим
+// токеном ходят сборка, публикация и выгрузка, и отнять его — значит
+// сломать всё, что работает без человека за клавиатурой.
+//
+// Право на ЧТЕНИЕ достаточно роли смотрящего; на запись — редактора.
 func (s *AdminService) ok(w http.ResponseWriter, r *http.Request) bool {
-	if s.token == "" || !bearerOK(r, s.token) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return false
+	need := RoleEditor
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		need = RoleViewer
 	}
-	return true
+	return s.okRole(w, r, need)
 }
 
 // ── manifest ────────────────────────────────────────────────────────────────
