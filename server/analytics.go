@@ -54,11 +54,7 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 }
 
 func (s *AnalyticsService) adminOK(w http.ResponseWriter, r *http.Request) bool {
-	if s.adminToken == "" || !bearerOK(r, s.adminToken) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return false
-	}
-	return true
+	return adminAllowed(w, r, s.adminToken)
 }
 
 type analyticsEvent struct {
