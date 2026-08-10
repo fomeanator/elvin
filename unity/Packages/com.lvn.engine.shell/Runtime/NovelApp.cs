@@ -144,6 +144,13 @@ namespace Lvn.UI.Screens
             var bootClock = System.Diagnostics.Stopwatch.StartNew();
             void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
 
+            // Мост к хост-приложению. Поднимаем ВСЕГДА: в самостоятельной
+            // сборке он молчит (отправка никуда не подключена), а когда движок
+            // собран библиотекой — хост должен найти его сразу, не дожидаясь
+            // первой главы. Иначе первые сообщения уходят в пустоту, и «Unity
+            // не отвечает» выглядит как поломка канала, а не как гонка.
+            LvnHostBridge.Ensure(this);
+
             // Test-lane server override (Development builds only): device
             // automation points this install at a throwaway server via
             // `am start … -e lvn_server <url>` (or LVN_SERVER for CI players)
