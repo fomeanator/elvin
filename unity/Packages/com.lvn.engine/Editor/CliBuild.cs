@@ -21,9 +21,30 @@ namespace Lvn.EditorTools
     /// </summary>
     public static class CliBuild
     {
-        public static void Android() => Build(BuildTarget.Android, "game.apk");
+        public static void Android()
+        {
+            // Флаг экспорта — состояние редактора, он переживает запуски.
+            // Сборка APK обязана явно его снимать, иначе после AndroidLibrary
+            // конвейер вечно выдаёт Gradle-проекты вместо пакета.
+            EditorUserBuildSettings.exportAsGoogleAndroidProject = false;
+            Build(BuildTarget.Android, "game.apk");
+        }
 
         public static void Ios() => Build(BuildTarget.iOS, "ios-xcode"); // an Xcode project folder
+
+        /// <summary>
+        /// Unity as a Library: вместо самостоятельного APK — Gradle-проект, из
+        /// которого хост-приложение (React Native и т.п.) забирает модуль
+        /// unityLibrary. Наш экран становится компонентом чужого приложения.
+        /// </summary>
+        public static void AndroidLibrary()
+        {
+            // Экспорт проекта вместо сборки пакета — всё остальное (сцена,
+            // графическое API, штамп версии) идёт тем же путём, что и APK:
+            // библиотека не должна отличаться от игры ничем, кроме упаковки.
+            EditorUserBuildSettings.exportAsGoogleAndroidProject = true;
+            Build(BuildTarget.Android, "android-library");
+        }
 
         private static void Build(BuildTarget target, string defaultName)
         {
