@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.Android; // AndroidPlatformIconKind — без него файл не компилируется
 using UnityEditor.Build;
 using UnityEngine;
 

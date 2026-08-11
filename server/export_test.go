@@ -180,14 +180,16 @@ func TestExportedBootCarriesAlternateServers(t *testing.T) {
 	src := bootSource(exportConfig{
 		ServerURL: "https://main.test",
 		AltServers: []altServer{
-			{Name: "Запасной", URL: "https://alt.test"},
+			{Name: "Запасной адрес", URL: "https://alt.test"},
 			{Name: "", URL: "https://second.test"},
 		},
 	})
 	if !strings.Contains(src, `app.KnownServers = new (string, string)[] {`) {
 		t.Fatalf("запасные адреса не попали в Boot.cs:\n%s", src)
 	}
-	for _, want := range []string{`"https://alt.test"`, `"https://second.test"`, `"Запасной"`} {
+	// Кириллическая подпись обязана доехать целиком: sanitizeName вырезал бы
+	// её под ноль, и все запасные адреса назывались бы одинаково.
+	for _, want := range []string{`"https://alt.test"`, `"https://second.test"`, `"Запасной адрес"`, `"Запасной"`} {
 		if !strings.Contains(src, want) {
 			t.Errorf("в Boot.cs нет %s:\n%s", want, src)
 		}
@@ -262,5 +264,51 @@ func TestExportIconRefusesEscapesAndNonImages(t *testing.T) {
 	}
 	if _, ok := s.exportIcon(""); ok {
 		t.Error("пустой путь — просто нет иконки")
+	}
+}
+
+// Шаблон — рабочая песочница движка: покупные 3D-киты и редакторные скрипты
+// для них. Уезжая в экспорт, они не просто раздували архив до полугигабайта —
+// экспортированный проект из-за них НЕ КОМПИЛИРОВАЛСЯ, и сборка APK падала на
+// кухне, к игре отношения не имеющей.
+func TestExportShipsOnlyWhatTheGameNeeds(t *testing.T) {
+	keep := []string{
+		"Assets/Sandbox/Boot.cs",
+		"Assets/Resources/UI/AppLoading/theme.asset",
+		"Assets/Resources.meta",
+		"ProjectSettings/ProjectSettings.asset",
+		"Packages/manifest.json",
+	}
+	drop := []string{
+		"Assets/Editor/PaintBlacksmithGround.cs",
+		"Assets/Kenney/Editor/SetProbe.cs",
+		"Assets/Proxy Games/Stylized Nature Kit Lite/Materials/Skybox.mat",
+		"Assets/3DForge/FantasyExteriors/Textures/fe_vil_grass_03_DIF.png",
+		"Assets/ServerSets/blacksmith.prefab",
+		"Assets/Screenshots/screenshot.png",
+		"Assets/Resources/Sets/forest.prefab",
+		// Иконки шаблона — иконки ЕГО игры: свою кладём отдельно, после обхода.
+		"Assets/Icon/app-icon-fg.png",
+	}
+	for _, rel := range keep {
+		if !exportAssetAllowed(rel) {
+			t.Errorf("%s должен ехать в экспорт", rel)
+		}
+	}
+	for _, rel := range drop {
+		if exportAssetAllowed(rel) {
+			t.Errorf("%s — кухня песочницы, в экспорте ему не место", rel)
+		}
+	}
+}
+
+// «build» в шаблоне — собранные 3D-наборы, 198 МБ. Список исключений был
+// написан с заглавной, а на macOS это та же папка: экспорт молча вёз их в
+// каждый архив.
+func TestExportSkipsBuildOutputWhateverTheCase(t *testing.T) {
+	for _, dir := range []string{"build", "Build", "Library", "library", "Temp"} {
+		if !exportSkipDirs[strings.ToLower(dir)] {
+			t.Errorf("каталог %s должен исключаться из экспорта", dir)
+		}
 	}
 }
