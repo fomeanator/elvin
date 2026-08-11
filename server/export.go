@@ -22,10 +22,12 @@ import (
 	"strings"
 )
 
-// directories inside the template that must never ship in an export.
+// Каталоги шаблона, которым не место в экспорте. Сравнение регистронезависимое:
+// на macOS «build» и «Build» — одна и та же папка, и список, написанный с
+// заглавной, молча пропускал 198 МБ собранных 3D-наборов из build/.
 var exportSkipDirs = map[string]bool{
-	"Library": true, "Temp": true, "Logs": true, "obj": true, "Build": true,
-	"Builds": true, "UserSettings": true, ".git": true, ".vs": true, ".idea": true,
+	"library": true, "temp": true, "logs": true, "obj": true, "build": true,
+	"builds": true, "usersettings": true, ".git": true, ".vs": true, ".idea": true,
 }
 
 type exportConfig struct {
@@ -46,7 +48,7 @@ type exportConfig struct {
 	// рабочем столе хуже кубика Unity.
 	Icon    string `json:"icon"`
 	AskName bool   `json:"askName"`
-	Offline    bool        `json:"offline"` // bundle content into StreamingAssets (no server needed)
+	Offline bool   `json:"offline"` // bundle content into StreamingAssets (no server needed)
 }
 
 // altServer — запасной адрес и подпись для ручного выбора сервера.
@@ -145,7 +147,7 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		// skip excluded top-level dirs (and everything under them)
-		top := strings.SplitN(filepath.ToSlash(rel), "/", 2)[0]
+		top := strings.ToLower(strings.SplitN(filepath.ToSlash(rel), "/", 2)[0])
 		if info.IsDir() {
 			if exportSkipDirs[top] {
 				return filepath.SkipDir
@@ -164,16 +166,13 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		// local junk that must not ship in every export: dev screenshots under
 		// Assets and loose images at the template root.
 		relSlash := filepath.ToSlash(rel)
-		if strings.HasPrefix(relSlash, "Assets/Screenshots") {
+		if !exportAssetAllowed(relSlash) {
 			return nil
 		}
-		// Иконки шаблона — это иконки ЕГО игры. Уехав в чужой экспорт, они
-		// ставят на рабочий стол бренд посторонней новеллы; свою кладём ниже.
-		if strings.HasPrefix(relSlash, "Assets/Icon/") {
-			return nil
-		}
+		// Мусор в корне шаблона: случайные картинки и отчёты об аварии Unity.
 		if !strings.Contains(relSlash, "/") &&
-			(strings.HasSuffix(relSlash, ".png") || strings.HasSuffix(relSlash, ".jpg")) {
+			(strings.HasSuffix(relSlash, ".png") || strings.HasSuffix(relSlash, ".jpg") ||
+				strings.HasPrefix(relSlash, "mono_crash.")) {
 			return nil
 		}
 
@@ -223,6 +222,72 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if zf, err := zw.Create(folder + "/HOW_TO_BUILD.md"); err == nil {
 		zf.Write([]byte(buildReadme(cfg, name)))
 	}
+}
+
+// exportAssetKeep — единственные каталоги под Assets/, которые едут в экспорт.
+//
+// Список белый, а не чёрный, и это принципиально. Шаблон — рабочая песочница
+// движка: в ней копятся покупные 3D-киты, наборы сцен, редакторные скрипты
+// (сборка наборов, покраска террейна, снимки для README). Всё это уезжало в
+// каждый экспорт, и последствий было два: архив на 561 МБ вместо десятка, и
+// главное — экспортированный проект НЕ КОМПИЛИРОВАЛСЯ. Редакторные скрипты
+// песочницы обращаются к типам, которых в закреплённом релизе движка ещё нет,
+// так что сборка APK падала на чужой кухне, к игре отношения не имеющей.
+// Чёрный список чинил бы это ровно до следующего кита в песочнице.
+var exportAssetKeep = []string{
+	"Assets/Sandbox",      // Boot.cs — точка входа, её мы и генерируем
+	"Assets/Resources/UI", // тема загрузочного экрана: без неё текст на вуали без шрифта
+	// Assets/Icon сюда НЕ входит: иконки шаблона — иконки его собственной игры.
+	// Свою кладём отдельно, после обхода (см. exportIconRel).
+}
+
+// exportAssetAllowed решает, едет ли файл шаблона в экспорт. Всё вне Assets/
+// (ProjectSettings, Packages) едет как есть — это конфигурация проекта.
+func exportAssetAllowed(relSlash string) bool {
+	if !strings.HasPrefix(relSlash, "Assets/") {
+		return true
+	}
+	for _, keep := range exportAssetKeep {
+		if relSlash == keep || strings.HasPrefix(relSlash, keep+"/") || relSlash == keep+".meta" {
+			return true
+		}
+	}
+	// .meta промежуточных каталогов: без Assets/Resources.meta Unity
+	// переимпортирует папку и меняет ссылки.
+	if strings.HasSuffix(relSlash, ".meta") {
+		dir := strings.TrimSuffix(relSlash, ".meta")
+		for _, keep := range exportAssetKeep {
+			if strings.HasPrefix(keep, dir+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// serverLabel — подпись адреса в экране выбора сервера. Через sanitizeName её
+// пропускать нельзя: тот чистит строку под ИМЯ ФАЙЛА и вырезает всё, кроме
+// латиницы, — «Запасной адрес» превращался в пустоту и подменялся заглушкой.
+// Здесь строка едет в C#-литерал через json.Marshal, который экранирует
+// кавычки и управляющие символы сам, так что резать нужно только длину и
+// переводы строк.
+func serverLabel(name string) string {
+	name = strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' {
+			return ' '
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, name))
+	if runes := []rune(name); len(runes) > 40 {
+		name = string(runes[:40])
+	}
+	if name == "" {
+		return "Запасной"
+	}
+	return name
 }
 
 // exportIconRel — куда в проекте ложится иконка. Тот же путь читает
@@ -320,7 +385,7 @@ func bootSource(cfg exportConfig) string {
 		if u == "" || u == strings.TrimSpace(cfg.ServerURL) {
 			continue
 		}
-		nameLit, _ := json.Marshal(sanitizeName(a.Name, "Запасной"))
+		nameLit, _ := json.Marshal(serverLabel(a.Name))
 		altLit, _ := json.Marshal(u)
 		if alts != "" {
 			alts += ", "
