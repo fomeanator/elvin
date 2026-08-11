@@ -63,6 +63,12 @@ namespace Lvn.EditorTools
             PlayerSettings.bundleVersion = stamp;
             Debug.Log($"[lvn-build] version stamp {stamp}");
 
+            // Иконка — часть «это готовый продукт», а не отдельный шаг, о
+            // котором надо помнить: если проект принёс свои картинки, ставим их
+            // прямо здесь. Без них сборка идёт как раньше, с кубиком Unity.
+            if (!AppIcon.ApplyIfPresent())
+                Debug.Log("[lvn-build] иконки нет (Assets/Icon/app-icon.png) — сборка с иконкой Unity");
+
             // LVN_BUILD_DEV=1 → Development player: Debug.isDebugBuild turns on,
             // which arms the test-lane launch overrides (lvn_server intent extra /
             // LVN_SERVER env) — the QA smoke builds use this to hit a local server.

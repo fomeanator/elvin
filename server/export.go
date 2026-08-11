@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,8 +33,26 @@ type exportConfig struct {
 	BundleID  string `json:"bundleId"`
 	Company   string `json:"company"`
 	ServerURL string `json:"serverUrl"`
-	AskName   bool   `json:"askName"`
-	Offline   bool   `json:"offline"` // bundle content into StreamingAssets (no server needed)
+	// AltServers — запасные адреса ТОГО ЖЕ сервера. На старте движок гоняет их
+	// вместе с основным наперегонки по /healthz и берёт первый ответивший
+	// (ServerSelectScreen), поэтому упавшее или заблокированное имя больше не
+	// превращает установленную сборку в кирпич: у продукта основной домен
+	// однажды начали резать по SNI, и единственным путём к серверу осталось
+	// второе имя — которое в собранных приложениях было не прописать.
+	AltServers []altServer `json:"altServers"`
+	// Icon — картинка из контент-директории (например "art/cover.png"), которая
+	// станет иконкой приложения. Пусто — иконки нет вовсе: чужую из шаблона
+	// экспорт не отдаёт (см. exportIconRel), потому что бренд другой игры на
+	// рабочем столе хуже кубика Unity.
+	Icon    string `json:"icon"`
+	AskName bool   `json:"askName"`
+	Offline    bool        `json:"offline"` // bundle content into StreamingAssets (no server needed)
+}
+
+// altServer — запасной адрес и подпись для ручного выбора сервера.
+type altServer struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 // where bundled content lives inside the exported project, and the URL prefixes
@@ -148,6 +167,11 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(relSlash, "Assets/Screenshots") {
 			return nil
 		}
+		// Иконки шаблона — это иконки ЕГО игры. Уехав в чужой экспорт, они
+		// ставят на рабочий стол бренд посторонней новеллы; свою кладём ниже.
+		if strings.HasPrefix(relSlash, "Assets/Icon/") {
+			return nil
+		}
 		if !strings.Contains(relSlash, "/") &&
 			(strings.HasSuffix(relSlash, ".png") || strings.HasSuffix(relSlash, ".jpg")) {
 			return nil
@@ -179,6 +203,16 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 
+	// Иконка приложения: берём картинку из контента и кладём туда, где её ждёт
+	// AppIcon (пакет движка зовёт его сам при сборке). Без этого собранное
+	// приложение выходило с кубиком Unity — или, что хуже, с иконкой той игры,
+	// чей проект послужил шаблоном.
+	if data, ok := s.exportIcon(cfg.Icon); ok {
+		if zf, err := zw.Create(folder + "/" + exportIconRel); err == nil {
+			_, _ = zf.Write(data)
+		}
+	}
+
 	// Offline build: bake the novel's content into StreamingAssets, mirroring the
 	// server's URL paths so the engine reads it via file:// with no network.
 	if cfg.Offline {
@@ -189,6 +223,38 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if zf, err := zw.Create(folder + "/HOW_TO_BUILD.md"); err == nil {
 		zf.Write([]byte(buildReadme(cfg, name)))
 	}
+}
+
+// exportIconRel — куда в проекте ложится иконка. Тот же путь читает
+// Lvn.EditorTools.AppIcon, и менять его надо в двух местах сразу.
+const exportIconRel = "Assets/Icon/app-icon.png"
+
+// exportIcon читает картинку автора из контент-директории. Путь приходит из
+// запроса, поэтому склеивается через Clean("/"+rel): выйти за пределы контента
+// («../../etc/passwd») он не должен даже теоретически — иначе экспорт станет
+// способом вынести с сервера любой файл.
+func (s *server) exportIcon(rel string) ([]byte, bool) {
+	rel = strings.TrimSpace(rel)
+	if rel == "" {
+		return nil, false
+	}
+	rel = strings.TrimPrefix(strings.TrimPrefix(rel, "/content/"), "/")
+	clean := filepath.Clean("/" + filepath.ToSlash(rel))[1:]
+	if clean == "" {
+		return nil, false
+	}
+	switch strings.ToLower(filepath.Ext(clean)) {
+	case ".png", ".jpg", ".jpeg":
+	default:
+		log.Printf("[export] иконка %q не картинка — пропускаю", rel)
+		return nil, false
+	}
+	data, err := os.ReadFile(filepath.Join(s.content, clean))
+	if err != nil {
+		log.Printf("[export] иконка %q не читается: %v", rel, err)
+		return nil, false
+	}
+	return data, true
 }
 
 // bundleContent copies the content dir into StreamingAssets and writes the
@@ -245,6 +311,28 @@ func bootSource(cfg exportConfig) string {
 	// control chars, which are all valid C# string escapes too — so a crafted
 	// serverUrl can't break out of the literal and inject code into Boot.cs.
 	urlLit, _ := json.Marshal(cfg.ServerURL)
+	// Запасные адреса — тем же способом: каждая строка через json.Marshal,
+	// пустые и битые отбрасываем здесь, чтобы в Boot.cs не уехал кортеж с
+	// пустым URL (движок его молча пропустит, но читать такой файл неприятно).
+	alts := ""
+	for _, a := range cfg.AltServers {
+		u := strings.TrimSpace(a.URL)
+		if u == "" || u == strings.TrimSpace(cfg.ServerURL) {
+			continue
+		}
+		nameLit, _ := json.Marshal(sanitizeName(a.Name, "Запасной"))
+		altLit, _ := json.Marshal(u)
+		if alts != "" {
+			alts += ", "
+		}
+		alts += "(" + string(nameLit) + ", " + string(altLit) + ")"
+	}
+	knownServers := ""
+	if alts != "" {
+		knownServers = "\n            // Запасные адреса того же сервера: на старте они гоняются\n" +
+			"            // с основным наперегонки по /healthz, побеждает первый живой.\n" +
+			"            app.KnownServers = new (string, string)[] { " + alts + " };"
+	}
 	return `using UnityEngine;
 using UnityEngine.EventSystems;
 using Lvn.UI.Screens;
@@ -280,7 +368,7 @@ namespace Game
 
             var go = new GameObject("NovelApp");
             var app = go.AddComponent<NovelApp>();
-            app.ServerUrl = ServerUrl;
+            app.ServerUrl = ServerUrl;` + knownServers + `
             app.OfflineBundled = ` + offline + `;
             app.AskName = ` + ask + `;
             app.SyncInterval = 5f;

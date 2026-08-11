@@ -4,12 +4,29 @@ import ResizeHandle from "./ResizeHandle.jsx";
 // Export the current novel as a ready-to-open Unity project (.zip). The game
 // runs in "online" mode: it loads its content from the server URL below — the
 // same backend the panel writes to — so keep that server reachable for players.
+// Запасные адреса вводятся по одному в строке (можно «Имя = адрес»), а уезжают
+// списком: сервер кладёт их в Boot.cs, и на старте движок берёт первый
+// ответивший. Это единственное, что спасает уже установленную сборку, когда
+// основное имя перестаёт работать.
+export const parseAlts = (text) =>
+  String(text || "")
+    .split(/[\n,]+/)
+    .map((line) => {
+      const s = line.trim();
+      if (!s) return null;
+      const m = s.match(/^(.*?)\s*=\s*(\S+)$/);
+      return m ? { name: m[1].trim(), url: m[2] } : { name: "", url: s };
+    })
+    .filter(Boolean);
+
 export default function ExportPanel({ defaultName, notify, onClose }) {
   const [cfg, setCfg] = useState({
     name: defaultName || "My Novel",
     company: "",
     bundleId: "",
     serverUrl: "",
+    altServers: "",
+    icon: "",
     askName: false,
     offline: true,
   });
@@ -22,7 +39,7 @@ export default function ExportPanel({ defaultName, notify, onClose }) {
       const res = await fetch("/v1/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cfg),
+        body: JSON.stringify({ ...cfg, altServers: parseAlts(cfg.altServers) }),
       });
       if (!res.ok) throw new Error(await res.text() || res.statusText);
       const blob = await res.blob();
@@ -84,6 +101,23 @@ export default function ExportPanel({ defaultName, notify, onClose }) {
             <input className="field mono" value={cfg.serverUrl} onChange={(e) => set("serverUrl", e.target.value)} placeholder="https://your-server.com" />
           </label>
         )}
+        {!cfg.offline && (
+          <label className="export-row export-row-tall">
+            <span>Запасные адреса</span>
+            <textarea
+              className="field mono" rows={2} value={cfg.altServers}
+              onChange={(e) => set("altServers", e.target.value)}
+              placeholder={"Запасной = https://backup.example.com\nhttps://1-2-3-4.sslip.io"}
+            />
+          </label>
+        )}
+        {/* Путь к картинке в контенте. Пусто — приложение выходит с иконкой
+            Unity: чужую (из проекта-шаблона) экспорт намеренно не отдаёт. */}
+        <label className="export-row">
+          <span>Иконка приложения</span>
+          <input className="field mono" value={cfg.icon} onChange={(e) => set("icon", e.target.value)}
+                 placeholder="art/cover.png" />
+        </label>
         <label className="export-check">
           <input type="checkbox" checked={cfg.askName} onChange={(e) => set("askName", e.target.checked)} />
           <span>Ask the player for a name on first launch</span>
@@ -96,6 +130,9 @@ export default function ExportPanel({ defaultName, notify, onClose }) {
           runs with no server, ready to share. Re-export to update content.</>
         ) : (
           <>The game loads its novel from <strong>Server URL</strong> at runtime.
+          Запасные адреса гоняются с основным наперегонки на старте — первый
+          ответивший и становится сервером, так что упавшее имя не превращает
+          установленную сборку в кирпич.
           Leave it blank to point at this server. Keep the server reachable;
           edits here update live.</>
         )}
