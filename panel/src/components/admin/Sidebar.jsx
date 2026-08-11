@@ -16,6 +16,7 @@ const I = {
   novels: <><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3H9v14H4.5A1.5 1.5 0 0 1 3 15.5z" /><path d="M17 4.5A1.5 1.5 0 0 0 15.5 3H11v14h4.5a1.5 1.5 0 0 0 1.5-1.5z" /></>,
   people: <><circle cx="10" cy="6" r="3.2" /><path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" /><path d="M15.5 3.5h3M17 2v3" /></>,
   conflicts: <><path d="M6 3v5.5a4 4 0 0 0 4 4 4 4 0 0 1 4 4V17" /><path d="M14 3v3.5" /><circle cx="6" cy="3" r="1.4" /><circle cx="14" cy="3" r="1.4" /><circle cx="14" cy="17" r="1.4" /></>,
+  builds: <><path d="M10 2.5v10" /><path d="M6.5 9l3.5 3.5L13.5 9" /><path d="M3.5 14v2.5h13V14" /></>,
 };
 
 export function NavIcon({ name }) {
@@ -49,6 +50,7 @@ export const NAV = [
     { key: "people", label: "Доступ", icon: "people" },
   ]},
   { section: "Игра", items: [
+    { key: "builds", label: "Сборки", icon: "builds" },
     { key: "economy", label: "Экономика", icon: "economy" },
     { key: "assets", label: "Ассеты", icon: "assets" },
     { key: "manifest", label: "Манифест", icon: "manifest" },

@@ -368,6 +368,19 @@ paths:
     post: {tags: [admin], summary: Roll the manifest back to a history entry, security: [{bearer: []}], responses: {"200": {description: rolled back}}}
   /v1/admin/files:
     get: {tags: [admin], summary: Content file listing, security: [{bearer: []}], responses: {"200": {description: files}}}
+  /v1/admin/builds:
+    get: {tags: [admin], summary: Ready-made builds, newest first, security: [{bearer: []}], responses: {"200": {description: "{builds, latest}"}}}
+    post: {tags: [admin], summary: Register a staged upload as a build, security: [{bearer: []}],
+           responses: {"200": {description: build}, "403": {description: path outside the staging dir},
+                       "415": {description: not an .apk/.aab/.ipa/.zip}}}
+  /v1/admin/builds/{id}:
+    get: {tags: [admin], summary: "Download a build; id `latest` serves the newest (optional ?platform=)",
+          security: [{bearer: []}],
+          parameters: [{name: id, in: path, required: true, schema: {type: string}}],
+          responses: {"200": {description: the build file}, "404": {description: no such build}}}
+    delete: {tags: [admin], summary: Delete a build (file and row), security: [{bearer: []}],
+             parameters: [{name: id, in: path, required: true, schema: {type: string}}],
+             responses: {"200": {description: deleted}}}
   /v1/analytics/summary:
     get: {tags: [admin], summary: Aggregated analytics, security: [{bearer: []}], responses: {"200": {description: summary}}}
   /v1/admin/client-logs:

@@ -323,6 +323,44 @@ export const adminResolveConflict = (rel, choice, token, title) =>
     body: JSON.stringify({ rel, choice, title: title || "" }),
   });
 
+// ── Сборки (server/builds.go) ───────────────────────────────────────────────
+// Готовый APK лежит у сервера, а не в мессенджере: команда забирает свежий
+// сама. Байты приезжают тем же кусочным заливом, что и бандлы импорта, —
+// uploadStaged выше, — а этот POST лишь регистрирует уже залитый файл.
+
+// GET /v1/admin/builds → { builds: [...], latest }
+export const adminBuilds = (token) => adminFetch("/v1/admin/builds", token);
+
+// POST /v1/admin/builds {path, version, platform?, notes?} → карточка сборки.
+export const adminRegisterBuild = (body, token) =>
+  adminFetch("/v1/admin/builds", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+// DELETE /v1/admin/builds/<id> — файл с диска и строка из описи.
+export const adminDeleteBuild = (id, token) =>
+  adminFetch("/v1/admin/builds/" + encodeURIComponent(id), token, { method: "DELETE" });
+
+// Скачивание идёт через fetch, а не простой ссылкой: у входа по токену нет
+// cookie, а заголовок к <a href> не привязать — ссылка молча вернула бы 401.
+export async function downloadBuild(id, filename, token) {
+  const r = await fetch("/v1/admin/builds/" + encodeURIComponent(id), {
+    headers: { Authorization: "Bearer " + (token || "") },
+    credentials: "include",
+  });
+  if (!r.ok) throw new Error(await errorMessage(r, r.status + ": "));
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "build";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── Import mapper: Template CRUD + pre-import detect preview ────────────────
 // See tools/lvnconv/importer/template.go (Template) and detect.go
 // (DetectRoles) — the panel's import-mapper screen (ImportMapper.jsx) is the
