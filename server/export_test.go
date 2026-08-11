@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -168,5 +169,98 @@ func TestExportedBootUsesFiveSecondLiveSync(t *testing.T) {
 	src := bootSource(exportConfig{ServerURL: "https://example.test"})
 	if !strings.Contains(src, "app.SyncInterval = 5f;") {
 		t.Fatalf("online export must poll content within five seconds:\n%s", src)
+	}
+}
+
+// Запасные адреса — единственная защита установленной сборки от «имя сервера
+// перестало работать»: движок гоняет их с основным наперегонки по /healthz.
+// До этого поля их некуда было прописать, и падение одного имени превращало
+// APK у всей команды в кирпич.
+func TestExportedBootCarriesAlternateServers(t *testing.T) {
+	src := bootSource(exportConfig{
+		ServerURL: "https://main.test",
+		AltServers: []altServer{
+			{Name: "Запасной", URL: "https://alt.test"},
+			{Name: "", URL: "https://second.test"},
+		},
+	})
+	if !strings.Contains(src, `app.KnownServers = new (string, string)[] {`) {
+		t.Fatalf("запасные адреса не попали в Boot.cs:\n%s", src)
+	}
+	for _, want := range []string{`"https://alt.test"`, `"https://second.test"`, `"Запасной"`} {
+		if !strings.Contains(src, want) {
+			t.Errorf("в Boot.cs нет %s:\n%s", want, src)
+		}
+	}
+}
+
+// Пустой список не должен оставлять в файле висящую строку присваивания.
+func TestExportedBootSkipsEmptyAlternates(t *testing.T) {
+	src := bootSource(exportConfig{ServerURL: "https://main.test"})
+	if strings.Contains(src, "KnownServers") {
+		t.Fatalf("без запасных адресов присваивания быть не должно:\n%s", src)
+	}
+	// Дубль основного адреса — не запасной вариант, а лишняя проба на старте.
+	src = bootSource(exportConfig{ServerURL: "https://main.test", AltServers: []altServer{{URL: "https://main.test"}}})
+	if strings.Contains(src, "KnownServers") {
+		t.Fatalf("дубль основного адреса не должен попадать в список:\n%s", src)
+	}
+}
+
+// Строки из запроса едут в исходный код — кавычка в имени не должна закрывать
+// литерал и дописывать в Boot.cs что угодно.
+func TestExportedBootEscapesAlternateServers(t *testing.T) {
+	src := bootSource(exportConfig{
+		ServerURL:  "https://main.test",
+		AltServers: []altServer{{Name: `злой", Inject()`, URL: `https://evil.test/"+Inject()+"`}},
+	})
+	if strings.Contains(src, `Inject()+"`) || strings.Contains(src, `злой", Inject()`) {
+		t.Fatalf("инъекция доехала до Boot.cs:\n%s", src)
+	}
+}
+
+// Иконка автора приезжает из контента в то место, где её ждёт AppIcon.
+func TestExportIconComesFromContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "art"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	png := []byte("\x89PNG\r\n\x1a\n не настоящий, но и не нужен")
+	if err := os.WriteFile(filepath.Join(dir, "art", "cover.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: dir}
+
+	got, ok := s.exportIcon("art/cover.png")
+	if !ok || !bytes.Equal(got, png) {
+		t.Fatalf("иконка не прочиталась: ok=%v", ok)
+	}
+	// Панель отдаёт пути с префиксом /content/ — он не должен ломать чтение.
+	if _, ok := s.exportIcon("/content/art/cover.png"); !ok {
+		t.Error("путь с префиксом /content/ должен работать")
+	}
+}
+
+// Путь приходит из запроса: выйти за пределы контент-директории он не должен,
+// иначе экспорт становится способом вынести с сервера любой файл.
+func TestExportIconRefusesEscapesAndNonImages(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(filepath.Dir(dir), "секрет.png")
+	if err := os.WriteFile(secret, []byte("не отдавать"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("не картинка"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: dir}
+
+	if _, ok := s.exportIcon("../" + filepath.Base(secret)); ok {
+		t.Error("выход за пределы контента должен отвергаться")
+	}
+	if _, ok := s.exportIcon("notes.txt"); ok {
+		t.Error("не-картинка иконкой быть не может")
+	}
+	if _, ok := s.exportIcon(""); ok {
+		t.Error("пустой путь — просто нет иконки")
 	}
 }

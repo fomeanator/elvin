@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adminBuilds, adminRegisterBuild, adminDeleteBuild, downloadBuild } from "../src/lib/api.js";
+import { parseAlts } from "../src/components/ExportPanel.jsx";
 
 // Контракт тонкого клиента сборок: токен в заголовке, путь с id, и — главное —
 // скачивание через fetch, а не ссылкой: у входа по токену нет cookie, и
@@ -69,5 +70,26 @@ describe("сборки", () => {
   it("отказ сервера доходит до вызывающего, а не молча качает пустоту", async () => {
     globalThis.fetch = vi.fn(async () => new Response("нет такой сборки", { status: 404 }));
     await expect(downloadBuild("нет", "f.apk", "tok")).rejects.toThrow(/404/);
+  });
+});
+
+// Разбор поля «Запасные адреса» в панели экспорта: то, что автор напечатал
+// в две строки, должно доехать до Boot.cs списком, а не одной строкой.
+describe("запасные адреса в экспорте", () => {
+  it("строка на адрес, «Имя = адрес» разбирается на пару", () => {
+    expect(parseAlts("Запасной = https://alt.test\nhttps://second.test")).toEqual([
+      { name: "Запасной", url: "https://alt.test" },
+      { name: "", url: "https://second.test" },
+    ]);
+  });
+
+  it("пустые строки и лишние пробелы отбрасываются", () => {
+    expect(parseAlts("  \n\n https://one.test  \n")).toEqual([{ name: "", url: "https://one.test" }]);
+    expect(parseAlts("")).toEqual([]);
+  });
+
+  it("запятая — такой же разделитель, как перевод строки", () => {
+    expect(parseAlts("https://a.test, https://b.test").map((s) => s.url))
+      .toEqual(["https://a.test", "https://b.test"]);
   });
 });
