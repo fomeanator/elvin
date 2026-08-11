@@ -8,6 +8,7 @@
 //	lvnconv convert -i export.json   -o chapter.lvn   -dialogue Ch1
 //	lvnconv validate chapter.lvn
 //	lvnconv probe   chapter.lvn
+//	lvnconv walk    chapter.lvns
 //
 // Format is inferred from the input extension (.ink → ink, .json → articy,
 // .lvn → already a container) and can be forced with -f.
@@ -57,6 +58,8 @@ func main() {
 		cmdValidate(os.Args[2:])
 	case "probe":
 		cmdProbe(os.Args[2:])
+	case "walk":
+		cmdWalk(os.Args[2:])
 	case "optimize":
 		cmdOptimize(os.Args[2:])
 	case "locale":
@@ -82,6 +85,7 @@ usage:
   lvnconv conflicts -i <content-dir> [-rel <path> [-choice mine|incoming]] [-diff]
   lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
+  lvnconv walk     [-depth N] [-strict] [-json] <in.lvn|in.lvns>…
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
   lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
   lvnconv deps     sync|update|list [-C <dir>]
@@ -97,6 +101,8 @@ detect   preview a Template's classification against a project WITHOUT
          emotion-legend hit rates, heuristic alias-collision suggestions —
          prints a DetectReport as JSON on stdout
 probe    print a one-line summary of a .lvn (counts of ops, labels, choices)
+walk     play EVERY path (all choices, both sides of every condition) and report
+         unreachable content — the dead blocks a random soak run never finds
 conflicts what a re-import parked instead of overwriting (a file edited by
          hand AND regenerated differently): both versions' size/time and, for
          text, a unified diff. -choice commits one side — "mine" discards the
