@@ -205,6 +205,9 @@ func main() {
 	mux.HandleFunc("/v1/admin/staged-upload/", srv.handleStagedUpload)
 	mux.HandleFunc("/v1/admin/spine", srv.handleAdminSpine)
 	mux.HandleFunc("/v1/export", srv.handleExport)
+	// Готовые сборки: команда забирает свежий APK из админки вместо пересылки
+	// файла руками (builds.go).
+	NewBuildsService(*contentDir, *adminToken).Routes(mux)
 
 	// The Studio surface (authoring IDE + admin UI + the playground) is
 	// opt-in: a game's production server is a pure API and has no reason to

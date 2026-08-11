@@ -11,6 +11,7 @@ import Novels from "./admin/Novels.jsx";
 import Conflicts from "./admin/Conflicts.jsx";
 import Analytics from "./admin/Analytics.jsx";
 import People from "./admin/People.jsx";
+import Builds from "./admin/Builds.jsx";
 import AdminEconomy from "./AdminEconomy.jsx";
 import AdminAssets from "./AdminAssets.jsx";
 import AdminManifest from "./AdminManifest.jsx";
@@ -132,6 +133,7 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
             {section === "users" && <UsersPage token={token} notify={notify} />}
             {section === "orders" && <OrdersPage token={token} />}
             {section === "saves" && <SavesPage token={token} notify={notify} />}
+            {section === "builds" && <Builds token={token} notify={notify} />}
             {section === "economy" && (
               <Page title="Экономика" description="Живые конфиги паков, рекламы и ежедневных наград — применяются без рестарта.">
                 <AdminEconomy token={token} notify={notify} />
