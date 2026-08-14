@@ -286,3 +286,29 @@ func TestBuildVersionKeepsCyrillic(t *testing.T) {
 		t.Errorf("обрезка по рунам: получено %d рун", len([]rune(got)))
 	}
 }
+
+// Имя ДЛЯ ЧЕЛОВЕКА и имя ФАЙЛА — разные вещи. Первое может быть на любом
+// языке, второе уезжает в путь на диске и в URL. Раньше их путали, и русская
+// версия упиралась в отказ, хотя автор не сделал ничего плохого.
+func TestBuildIdSlugSurvivesCyrillic(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"текстуры и пружина", "tekstury-i-pruzhina"},
+		{"1.4.2", "1.4.2"},
+		{"Сборка №5 (бета)", "sborka-5-beta"},
+		{"   ", "запас"},
+		{"ёлка", "elka"},
+	}
+	for _, c := range cases {
+		got := asciiSlug(c.in, "запас")
+		if got != c.want {
+			t.Errorf("%q → %q, ожидалось %q", c.in, got, c.want)
+		}
+	}
+	// Главное свойство: результат обязан годиться в имя файла.
+	for _, s := range []string{"текстуры и пружина", "Сборка №5", "a/b\\c:d", "..\\..\\etc"} {
+		id := "android-" + asciiSlug(s, "x") + "-1.apk"
+		if !buildIDRe.MatchString(id) {
+			t.Errorf("из %q вышло имя, которое не годится в файл: %q", s, id)
+		}
+	}
+}

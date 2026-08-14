@@ -231,7 +231,12 @@ func (s *BuildsService) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	id := fmt.Sprintf("%s-%s-%d%s", platform, version, now.UnixMilli(), ext)
+	// Имя ФАЙЛА и имя ДЛЯ ЧЕЛОВЕКА — разные вещи, и путать их нельзя. Версия
+	// показывается в списке и может быть на любом языке; идентификатор уезжает
+	// в имя файла на диске и в путь URL, поэтому обязан быть латиницей.
+	// Раньше id собирался прямо из версии — и «текстуры и пружина» упиралось в
+	// отказ, хотя ничего плохого автор не сделал.
+	id := fmt.Sprintf("%s-%s-%d%s", platform, asciiSlug(version, now.Format("2006-01-02")), now.UnixMilli(), ext)
 	if !buildIDRe.MatchString(id) {
 		http.Error(w, "имя версии не годится в имя файла", http.StatusBadRequest)
 		return
