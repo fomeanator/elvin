@@ -47,6 +47,16 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void FileUrlIsLeftAlone()
+        {
+            // Офлайн-сборка читает эти пути с диска (File.Exists), и «%20» там
+            // означал бы файл, которого нет: сетевую починку нельзя оплачивать
+            // тем, что игра без сети остаётся без картинок.
+            const string local = "file:///data/app/lvn/content/bg/Ночная дорога.jpg";
+            Assert.AreEqual(local, ContentLoader.EncodeUrlPath(local));
+        }
+
+        [Test]
         public void PlainAsciiPathIsUntouched()
         {
             const string plain = "/content/scripts/cold-ch01.lvn";

@@ -1714,7 +1714,12 @@ namespace Lvn.Content
             else
             {
                 if (!url.StartsWith("/")) url = "/" + url;
-                full = _baseUrl + EncodeUrlPath(url);
+                // Кодируем ТОЛЬКО сетевой адрес. У офлайн-сборки база — file://
+                // или jar:file://, и оттуда путь уходит в File.Exists и в чтение
+                // с диска: закодированный «%20» там означал бы файл, которого
+                // нет, и офлайн-игра осталась бы без картинок ради починки
+                // сетевого случая.
+                full = _local ? _baseUrl + url : _baseUrl + EncodeUrlPath(url);
             }
             // A local bundle reads files by path — a ?v= query would corrupt it.
             if (_local) return full;
@@ -1751,6 +1756,11 @@ namespace Lvn.Content
         public static string EncodeUrlPath(string url)
         {
             if (string.IsNullOrEmpty(url)) return url;
+            // Локальные адреса не кодируем НИКОГДА: за file:// и jar:file://
+            // стоит чтение с диска (File.Exists, распаковка из APK), и «%20»
+            // там означает файл, которого нет. Проверка живёт здесь, а не у
+            // вызывающего: метод публичный, и хост позовёт его как придётся.
+            if (url.StartsWith("file://") || url.StartsWith("jar:")) return url;
 
             // Схема и хост остаются как есть: кодировать надо путь, а не адрес.
             int start = 0;
