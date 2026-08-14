@@ -25,6 +25,7 @@ package main
 // с выпиской из стора она не обязана и не будет.
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"sort"
@@ -230,6 +231,15 @@ func (s *AnalyticsService) handleMoney(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rep.Conversion = ratioF(activePayers, rep.Active)
+	// «Платящих 3, конверсия 0%» выглядит как поломка, а означает, что покупка
+	// старше первого события аналитики: делить их на активных не на что.
+	// Молча показать ноль — соврать тем же способом, что и ноль на ступени
+	// воронки, которой ещё не измеряют.
+	if invisible := rep.Payers - activePayers; invisible > 0 {
+		rep.Notes = append(rep.Notes, fmt.Sprintf(
+			"%d из %d платящих не видны в аналитике за это окно (покупка раньше первого события) — в конверсию они не вошли, в выручку вошли",
+			invisible, rep.Payers))
+	}
 	rep.ARPU = divide(rep.Revenue, float64(rep.Active))
 	rep.ARPPU = divide(rep.Revenue, float64(rep.Payers))
 	rep.AvgCheck = divide(rep.Revenue, float64(rep.Purchases))

@@ -206,3 +206,27 @@ func TestPriceParsing(t *testing.T) {
 		}
 	}
 }
+
+// «Платящих 3, конверсия 0%» — не поломка, а покупки старше первого события
+// аналитики. Молчать об этом нельзя: читатель решит, что сломан отчёт, или,
+// хуже, что сломан магазин.
+func TestMoneyExplainsInvisiblePayers(t *testing.T) {
+	events := `{"name":"boot","ts":"2026-08-02T10:00:00Z","user":"новичок"}` + "\n"
+	pay := &fakePayments{
+		buys: []walletPurchase{{User: "старожил", TS: "2026-08-02T11:00:00Z", SKU: "p"}},
+		prices: map[string]struct {
+			v   float64
+			cur string
+		}{"p": {4.99, "USD"}},
+	}
+	rep := moneyFixture(t, events, pay)
+	if rep.Revenue != 4.99 {
+		t.Errorf("покупка обязана попасть в выручку: %v", rep.Revenue)
+	}
+	if rep.Conversion != 0 {
+		t.Errorf("в конверсию — не обязана: %v", rep.Conversion)
+	}
+	if !strings.Contains(strings.Join(rep.Notes, " "), "не видны в аналитике") {
+		t.Errorf("расхождение должно быть объяснено: %v", rep.Notes)
+	}
+}
