@@ -363,13 +363,22 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			// syntax slip that silently fell through to dialogue — the failure
 			// mode authors lose hours to, because nothing errors and the typo
 			// simply appears on screen. See commandLike for which shapes count.
+			// ОШИБКА, а не предупреждение. Строка, которая по форме команда,
+			// молча становится репликой и уезжает игроку — автор узнаёт об
+			// этом из скриншота, а не из сборки. Предупреждение здесь не
+			// работает: через API публикации его никто не читает (проверено —
+			// глава с `bbg /content/…` публиковалась с ok:true). Форма
+			// проверяется консервативно (см. commandLike: три формы, ни одной
+			// на 373 строках нарратива и ни одной на всём живом контенте —
+			// 91 глава плюс примеры), поэтому цена ложного срабатывания
+			// близка к нулю, а цена пропуска — сцена с мусором в диалоге.
 			if c.Str("who") == "" {
 				if word := commandLike(c.Str("text")); word != "" {
 					if KnownOps[word] {
-						addWarn(i, op, fmt.Sprintf("looks like a %q command but its syntax didn't parse — it became dialogue text", word))
+						addErr(i, op, fmt.Sprintf("это команда %q, но её синтаксис не разобрался — строка стала репликой и покажется игроку", word))
 					} else if s := suggest(word, knownOpNames()); s != "" {
 						// A near-miss of a real op name (`actro id=…`, `bbg /x.jpg`).
-						addWarn(i, op, fmt.Sprintf("looks like a mistyped command %q — did you mean %q? (it became dialogue text)", word, s))
+						addErr(i, op, fmt.Sprintf("похоже на команду с опечаткой: %q — может быть, %q? (строка стала репликой и покажется игроку)", word, s))
 					}
 				}
 			}
@@ -607,6 +616,27 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				}
 			}
 		}
+	}
+
+	// ── Достижимость ────────────────────────────────────────────────────────
+	// Ссылки целы, ops известны, а пути к куску скрипта всё равно нет: это
+	// класс, который проверка «по одной команде» пропускает по построению, и
+	// именно им терялись механики целиком — аура, не срабатывавшая ни разу,
+	// отправка результата за безусловным переходом, функция эффектов, которую
+	// никто не звал. Обход играет все ветки и приносит ровно недостижимое.
+	//
+	// Предупреждение, а не ошибка: писать главу часто начинают с куска, к
+	// которому ещё не привели переход, и запрещать сохранять черновик — значит
+	// заставить автора обходить проверку. Гейт публикации ужесточает это сам
+	// (см. publishStrict на сервере).
+	for _, blk := range Reach(d, DefaultReachDepth).Blocks {
+		what := blk.Sample
+		if len(blk.Labels) > 0 {
+			what += " [метки: " + strings.Join(blk.Labels, ", ") + "]"
+		}
+		addWarn(blk.Start, "reach", fmt.Sprintf(
+			"недостижимо: до этого места не ведёт ни один путь (%d команд(ы), по #%d) — %s",
+			blk.Len, blk.End, what))
 	}
 
 	return issues
