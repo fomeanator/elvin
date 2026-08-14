@@ -479,6 +479,7 @@ func TestDescribeFrameRebuildsTheScene(t *testing.T) {
 		{"op":"label","id":"__nf_служебная"},
 		{"op":"label","id":"встреча"},
 		{"op":"actor","id":"katya","sprite_url":"/content/sprites/katya/зло.png"},
+		{"op":"actor","id":"katya","position":"left"},
 		{"op":"say","who":"Катя","text":"Ты опоздал."},
 		{"op":"actor","id":"alex","sprite_url":"/content/sprites/alex/idle.png"},
 		{"op":"say","who":"Алекс","text":"Я всё объясню."},
@@ -489,7 +490,7 @@ func TestDescribeFrameRebuildsTheScene(t *testing.T) {
 		t.Fatal(err)
 	}
 	var p exitPoint
-	describeFrame(doc, 6, &p)
+	describeFrame(doc, 7, &p)
 
 	if p.Line != "Я всё объясню." || p.Who != "Алекс" {
 		t.Errorf("не та реплика: %q от %q", p.Line, p.Who)
@@ -507,9 +508,21 @@ func TestDescribeFrameRebuildsTheScene(t *testing.T) {
 		t.Errorf("спрайт персонажа обязан быть виден — из-за него и уходят: %v", p.Actors)
 	}
 
+	// Повторные команды по тому же актёру не должны дублировать его в кадре:
+	// в импортированной главе актёр переставляется десятки раз.
+	var again exitPoint
+	describeFrame(doc, 7, &again)
+	for i, a := range again.Actors {
+		for j := i + 1; j < len(again.Actors); j++ {
+			if a == again.Actors[j] {
+				t.Fatalf("актёр продублирован в кадре: %v", again.Actors)
+			}
+		}
+	}
+
 	// Ушли позже: Алекса убрали со сцены, он не должен «остаться» в кадре.
 	var later exitPoint
-	describeFrame(doc, 8, &later)
+	describeFrame(doc, 9, &later)
 	if len(later.Actors) != 1 || strings.Contains(later.Actors[0], "alex") {
 		t.Errorf("скрытый актёр остался в кадре: %v", later.Actors)
 	}
