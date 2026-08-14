@@ -583,10 +583,18 @@ namespace Lvn.UI.Screens
             var strip = new ScrollView(ScrollViewMode.Horizontal);
             strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             strip.style.flexDirection = FlexDirection.Row;
+            var entering = new System.Collections.Generic.List<VisualElement>();
             if (c.titles != null)
                 foreach (var id in c.titles)
                     if (_titles.TryGetValue(id, out var t))
-                        strip.Add(SliderCard(t, c, hero));
+                    {
+                        var card = SliderCard(t, c, hero);
+                        strip.Add(card);
+                        entering.Add(card);
+                    }
+            // Карточки приезжают со сдвигом, а не разом: одновременное появление
+            // читается как перерисовка экрана, последовательное — как намерение.
+            Lvn.UI.LvnMotion.Stagger(entering);
             row.Add(strip);
             return row;
         }
@@ -602,6 +610,9 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.width = 250;
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
+            // Осязаемость: палец жмёт — карточка подаётся. Работает сильнее
+            // любой подсветки и не требует ни одной картинки.
+            Lvn.UI.LvnMotion.Press(card);
             card.style.marginRight = 18;
             card.style.opacity = locked ? 0.5f : 1f;
 
