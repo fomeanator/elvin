@@ -42,6 +42,12 @@ namespace Lvn.Services
         /// </summary>
         public static string CurrentTitle { get; set; }
 
+        /// <summary>Глава, которую сейчас играют. Тот же смысл, что у
+        /// <see cref="CurrentTitle"/>: без неё событие внутри главы нельзя
+        /// поставить на воронку, а именно воронка и есть вопрос «где
+        /// отваливаются».</summary>
+        public static string CurrentChapter { get; set; }
+
         public static void Track(string name, params (string key, object value)[] props)
         {
             if (string.IsNullOrEmpty(name)) return;
@@ -54,6 +60,7 @@ namespace Lvn.Services
             };
             var p = new JObject { ["sid"] = SessionId };
             if (!string.IsNullOrEmpty(CurrentTitle)) p["title"] = CurrentTitle;
+            if (!string.IsNullOrEmpty(CurrentChapter)) p["chapter"] = CurrentChapter;
             if (props != null && props.Length > 0)
             {
                 foreach (var (key, value) in props)
