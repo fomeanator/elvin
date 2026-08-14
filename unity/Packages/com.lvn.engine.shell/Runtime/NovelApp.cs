@@ -538,6 +538,14 @@ namespace Lvn.UI.Screens
             // cross-fades into the menu.
             _ = DriveBootVeilAsync(prefetch, bootClock);
 
+            // Диплинк В КОНТЕНТ: ссылка вида …?title=cold открывает новеллу
+            // сразу, минуя хаб. Шов RequestPlay заведён ровно для этого и до
+            // сих пор пустовал. Ссылку, нажатую при уже запущенной игре, ловим
+            // тем же обработчиком.
+            ApplyDeepLink(Lvn.Services.LvnAttribution.LaunchUrl);
+            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
+            Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink;
+
             var run = _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
                 chapterReady: BeginChapterLoading,
@@ -1362,6 +1370,45 @@ namespace Lvn.UI.Screens
         private static readonly HashSet<string> _reachedLabels = new HashSet<string>();
 
         /// <summary>
+        /// Открывает новеллу, названную в ссылке запуска.
+        ///
+        /// <para>Разбор здесь, на клиенте, а не на сервере — в отличие от
+        /// меток кампании: это маршрутизация, она нужна немедленно и никуда
+        /// не записывается, поэтому ошибка разбора не становится вечной.</para>
+        /// </summary>
+        private void ApplyDeepLink(string url)
+        {
+            if (string.IsNullOrEmpty(url) || _shell == null) return;
+            var q = url;
+            int qm = q.IndexOf('?');
+            if (qm < 0) return;
+            q = q.Substring(qm + 1);
+            int hash = q.IndexOf('#');
+            if (hash >= 0) q = q.Substring(0, hash);
+
+            string titleId = null, chapterId = null;
+            foreach (var pair in q.Split('&'))
+            {
+                int eq = pair.IndexOf('=');
+                if (eq <= 0) continue;
+                var key = pair.Substring(0, eq);
+                var val = System.Uri.UnescapeDataString(pair.Substring(eq + 1).Replace("+", " "));
+                if (key == "title" || key == "t") titleId = val;
+                else if (key == "chapter" || key == "ch") chapterId = val;
+            }
+            if (string.IsNullOrEmpty(titleId)) return;
+            if (!string.IsNullOrEmpty(chapterId))
+            {
+                // Молча проглотить параметр — худший вид отказа: ссылка
+                // «работает», но открывает не то, и об этом никто не узнает.
+                Debug.LogWarning($"[novelapp] диплинк на главу ещё не поддержан " +
+                                 $"(chapter={chapterId}) — открываю новеллу {titleId} с начала");
+            }
+            if (!_shell.RequestPlay(titleId))
+                Debug.LogWarning($"[novelapp] диплинк: новеллы {titleId} нет в манифесте");
+        }
+
+        /// <summary>
         /// Регистрация, затем отправка канала привлечения. Порядок обязателен:
         /// без сессии сервер не знает, ЧЕЙ это канал, и запрос вернул бы 401.
         /// Не вышло — метка осталась лежать и уедет на следующем запуске.
@@ -2001,6 +2048,10 @@ namespace Lvn.UI.Screens
         {
             _sync?.Stop();
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
+            // Событие статическое, а обработчик — метод экземпляра: без этой
+            // отписки пересозданный NovelApp оставил бы позади себя живой
+            // объект, ссылающийся на уничтоженную оболочку.
+            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
             // The veil is a root GameObject (it outlives this component by
             // design during boot) — a host tearing NovelApp down mid-boot must
             // not be left with an opaque, input-eating veil over its own UI.
