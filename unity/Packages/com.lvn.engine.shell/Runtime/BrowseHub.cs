@@ -621,8 +621,13 @@ namespace Lvn.UI.Screens
             poster.style.width = Length.Percent(100f);
             poster.style.height = 320;
             poster.style.overflow = Overflow.Hidden;
-            poster.style.backgroundColor = _card;
-            Round(poster, _radius);
+            // Текстура вместо заливки: сплошной цвет — главный источник
+            // «пластика». Нет файла — остаётся прежний вид, ничего не ломается.
+            if (!Lvn.UI.LvnSkin.Apply(poster, Lvn.UI.LvnSkin.PanelSurface))
+            {
+                poster.style.backgroundColor = _card;
+                Round(poster, _radius);
+            }
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
