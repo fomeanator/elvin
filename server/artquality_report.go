@@ -44,7 +44,8 @@ type artQualityReport struct {
 	Note      string        `json:"note,omitempty"`
 }
 
-// GET /v1/admin/art-quality?title=<id>&top=50
+// GET /v1/admin/art-quality?title=<id>&limit=50 — параметр среза называется
+// limit, как во всей остальной аналитике.
 func (s *server) handleArtQuality(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
