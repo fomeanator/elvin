@@ -128,10 +128,18 @@ has_item("wardrobe:mira:outfit:gown")   // вещь куплена?
 balance("crystals")                      // сколько валюты сейчас
 worn("outfit")                           // что надето на герое сцены
 worn("dorn", "outfit")                   //   …или на названном
+abtest("первая_сцена")                   // группа игрока: "a" или "b"
 ```
 Operators: `+ - * /` · `== != > >= < <=` · `&& || !`. An unset variable = `0`/`""`/`false`.
+`abtest` делит игроков ДЕТЕРМИНИРОВАННО — хеш от имени теста и id игрока, а не
+жребий. Поэтому группа не меняется ни после перезахода, ни после переустановки,
+и история не переписывается у человека под руками. Группа уезжает в props
+каждого события, так что в отчётах она доступна разрезом:
+`?segment=ab:первая_сцена=b`.
+
 The last three need the services package: in a host without it (and in the web
-playground) they answer "no item, zero, nothing worn", so a paid branch stays
+playground) they answer "no item, zero, nothing worn" (and `abtest` answers
+"a" — splitting one person in half is meaningless), so a paid branch stays
 closed — which is the honest answer where nothing can be bought. Always give
 that branch a real other side, never a dead end.
 

@@ -61,6 +61,12 @@ namespace Lvn.Services
             var p = new JObject { ["sid"] = SessionId };
             if (!string.IsNullOrEmpty(CurrentTitle)) p["title"] = CurrentTitle;
             if (!string.IsNullOrEmpty(CurrentChapter)) p["chapter"] = CurrentChapter;
+            // Группы A/B — в КАЖДОЕ событие. Знать деление и не знать, что
+            // случилось в каждой половине, бесполезно: сравнивать было бы
+            // нечего, а досыпать группу задним числом невозможно — события
+            // уже записаны.
+            foreach (var kv in LvnExperiments.Assignments)
+                if (!string.IsNullOrEmpty(kv.Value)) p["ab_" + kv.Key] = kv.Value;
             if (props != null && props.Length > 0)
             {
                 foreach (var (key, value) in props)

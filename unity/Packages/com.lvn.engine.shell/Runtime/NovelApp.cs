@@ -248,6 +248,7 @@ namespace Lvn.UI.Screens
             // Читают живое состояние, поэтому ставить их надо до первой главы,
             // а не при входе в неё.
             Lvn.Services.LvnStoryFunctions.Install();
+            Lvn.Services.LvnExperiments.Install();  // abtest("имя") в выражениях
             Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
             {

@@ -491,10 +491,16 @@ func (s *AnalyticsService) handleSummary(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	n := topN(r)
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
 
 	s.rollups.mu.Lock()
 	defer s.rollups.mu.Unlock()
-	m, byDay := s.rollups.window(win.Days)
+	m, byDay := s.windowFor(win.Days, members)
 	pc := computePlayerCuts(m)
 
 	titles := s.titleCuts(m, pc, n)
@@ -564,10 +570,16 @@ func (s *AnalyticsService) handleFunnel(w http.ResponseWriter, r *http.Request) 
 		minSample = analyticsMinSample
 	}
 	title := clip(r.URL.Query().Get("title"), 64)
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
 
 	s.rollups.mu.Lock()
 	defer s.rollups.mu.Unlock()
-	m, _ := s.rollups.window(win.Days)
+	m, _ := s.windowFor(win.Days, members)
 	pc := computePlayerCuts(m)
 
 	if title != "" {
@@ -665,9 +677,16 @@ func (s *AnalyticsService) handleHealth(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
+
 	s.rollups.mu.Lock()
 	defer s.rollups.mu.Unlock()
-	m, _ := s.rollups.window(win.Days)
+	m, _ := s.windowFor(win.Days, members)
 	pc := computePlayerCuts(m)
 
 	// Chapters ranked by failures per entry — where the engine, not the story,

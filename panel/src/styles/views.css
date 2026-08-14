@@ -1532,6 +1532,7 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .an-funnel-step { display: grid; grid-template-columns: 160px 1fr; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .an-funnel-step:last-child { border-bottom: 0; }
 /* Шаг главы раскрывает воронку внутри неё — значит должен выглядеть нажимаемым. */
+.adm-segbox { min-width: 210px; }
 .an-funnel-step.clickable { cursor: pointer; }
 .an-funnel-step.clickable:hover { background: var(--bg-soft, rgba(127,127,127,.06)); }
 .an-funnel-step.clickable.on { background: var(--bg-soft, rgba(127,127,127,.10)); }

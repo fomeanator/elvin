@@ -37,7 +37,10 @@ type retentionReport struct {
 	Cohorts []retentionRow     `json:"cohorts"`
 	Overall map[string]float64 `json:"overall"` // средневзвешенное по когортам
 	Players int                `json:"players"`
-	Note    string             `json:"note,omitempty"`
+	// Segment — на какую часть аудитории смотрим. Пусто = на всех. Без этой
+	// строки два отчёта с разными числами выглядят как противоречие.
+	Segment string `json:"segment,omitempty"`
+	Note    string `json:"note,omitempty"`
 }
 
 // checkpoints — дни, за которые принято отчитываться. D1 и D7 решают всё:
@@ -54,6 +57,13 @@ func (s *AnalyticsService) handleRetention(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
+
 	// День → множество игроков, активных в этот день.
 	active := map[string]map[string]bool{}
 	s.rollups.mu.Lock()
@@ -61,6 +71,9 @@ func (s *AnalyticsService) handleRetention(w http.ResponseWriter, r *http.Reques
 		day := s.rollups.day(d)
 		set := make(map[string]bool, len(day.Users))
 		for uid := range day.Users {
+			if members != nil && !members[uid] {
+				continue
+			}
 			set[uid] = true
 		}
 		active[d] = set
@@ -80,7 +93,7 @@ func (s *AnalyticsService) handleRetention(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	rep := retentionReport{To: win.To, Players: len(first)}
+	rep := retentionReport{To: win.To, Players: len(first), Segment: seg.Human()}
 	if len(days) > 0 {
 		rep.From = days[0]
 	}

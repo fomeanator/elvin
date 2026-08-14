@@ -278,6 +278,11 @@ export const adminAnalytics = (day, token) =>
 // "day=…", "days=N" or "from=…&to=…". Empty means "today" (the server default).
 
 // GET /v1/analytics/summary → cuts by title / author / day / hour + signals.
+// Сегмент подмешивается к окну: сервер понимает его во ВСЕХ отчётах, поэтому
+// панели достаточно дописать один параметр, а не заводить отдельные вызовы.
+export const withSegment = (query, segment) =>
+  segment ? (query ? query + "&" : "") + "segment=" + encodeURIComponent(segment) : query;
+
 export const analyticsSummary = (query, token) =>
   adminFetch("/v1/analytics/summary" + (query ? "?" + query : ""), token);
 

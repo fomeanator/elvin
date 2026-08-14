@@ -79,6 +79,9 @@ const FUNCS = {
   has_item: () => false,
   balance: () => 0,
   worn: () => "",
+  // В песочнице игрок один и он же автор: держим его в первой группе, чтобы
+  // сцена была предсказуемой. Делить одного человека пополам бессмысленно.
+  abtest: () => "a",
   // min/max read only their first two arguments — mirrors LvnExpression, which
   // ignores the rest. Extra args are silently dropped in BOTH runtimes.
   min: (...a) => (a.length === 0 ? 0 : a.length === 1 ? num(a[0]) : Math.min(num(a[0]), num(a[1]))),

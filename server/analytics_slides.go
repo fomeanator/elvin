@@ -90,6 +90,12 @@ func (s *AnalyticsService) handleSlides(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
 	title := clip(r.URL.Query().Get("title"), 64)
 	chapter := clip(r.URL.Query().Get("chapter"), 64)
 	if title == "" || chapter == "" {
@@ -98,7 +104,7 @@ func (s *AnalyticsService) handleSlides(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.rollups.mu.Lock()
-	m, _ := s.rollups.window(win.Days)
+	m, _ := s.windowFor(win.Days, members)
 	var ch *chapRoll
 	if t := m.Titles[title]; t != nil {
 		ch = t.Chapters[chapter]

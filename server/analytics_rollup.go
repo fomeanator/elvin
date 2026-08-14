@@ -125,6 +125,12 @@ type dayRollup struct {
 	Trunc    map[string]bool        `json:"trunc,omitempty"`
 
 	persistedAt time.Time // in-memory only: throttles checkpoint writes
+
+	// keep — необязательный отбор по игроку для СЕГМЕНТИРОВАННОГО запроса.
+	// Не сериализуется намеренно: свёртка на диске всегда полная, а сегмент —
+	// это способ её прочитать, а не отдельные данные. Вынуть одну группу из
+	// уже сложенных сумм нельзя, поэтому сегмент складывает сырьё заново.
+	keep func(uid string) bool
 }
 
 type titleRoll struct {
@@ -202,6 +208,10 @@ type playerRoll struct {
 	// перезапусков одного человека — это по-прежнему один человек.
 	Steps  []string `json:"st,omitempty"`
 	BootMs []int    `json:"bms,omitempty"`
+	// AB — эксперименты, в которых игрок состоит: имя теста → группа. Клиент
+	// шлёт их в props каждого события (ab_<имя>), потому что досыпать группу
+	// задним числом невозможно — события уже записаны.
+	AB map[string]string `json:"ab,omitempty"`
 }
 
 // noteStep запоминает пройденную ступень без повторов.
@@ -315,6 +325,9 @@ func (r *dayRollup) foldLine(line []byte) {
 	var ev rollupEvent
 	if json.Unmarshal(line, &ev) != nil || ev.Name == "" {
 		r.Bad++ // a line the writer could not have produced: corruption, surfaced
+		return
+	}
+	if r.keep != nil && !r.keep(ev.User) {
 		return
 	}
 	name := clip(ev.Name, 64)
@@ -449,6 +462,27 @@ func (r *dayRollup) foldLine(line []byte) {
 		switch name {
 		case evBoot, evFirstScreen, evChapterStart, evChapterFinish:
 			p.noteStep(name)
+		}
+		// Группы A/B приезжают в props КАЖДОГО события (ab_<имя теста>), и
+		// запоминаются по игроку: сравнивать половины эксперимента можно
+		// только зная, кто в какой. Досыпать группу задним числом невозможно —
+		// события уже записаны, поэтому важно взять её сразу.
+		for k, raw := range ev.Props {
+			if !strings.HasPrefix(k, "ab_") || len(raw) == 0 || raw[0] != '"' {
+				continue
+			}
+			var v string
+			if json.Unmarshal(raw, &v) != nil || v == "" {
+				continue
+			}
+			if p.AB == nil {
+				p.AB = map[string]string{}
+			}
+			// Тестов в работе единицы; шестнадцать — потолок против опечатки
+			// в имени, которая иначе плодила бы ключи без предела.
+			if _, known := p.AB[k[3:]]; known || len(p.AB) < 16 {
+				p.AB[k[3:]] = clip(v, 64)
+			}
 		}
 		// Время загрузки собираем поштучно: медиана честнее среднего, а
 		// посчитать её можно только по отдельным замерам.
@@ -633,6 +667,12 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 		p.Fin += op.Fin
 		if op.First != "" && (p.First == "" || op.First < p.First) {
 			p.First = op.First
+		}
+		for test, v := range op.AB {
+			if p.AB == nil {
+				p.AB = map[string]string{}
+			}
+			p.AB[test] = v
 		}
 		if op.Last > p.Last {
 			p.Last = op.Last
