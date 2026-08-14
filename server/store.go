@@ -83,6 +83,29 @@ var migrations = []string{
 	);
 	CREATE INDEX IF NOT EXISTS user_providers_user ON user_providers(user_id);
 	`,
+	// 2. Отзывы из игры. Живут в базе, а не в файлах, ровно по одной причине:
+	// их читают запросом — новые сверху, разбивка по сборкам, скоро фильтр по
+	// главе. По файлам это обход всего каталога на каждое открытие вкладки.
+	`
+	CREATE TABLE IF NOT EXISTS feedback (
+		id       INTEGER PRIMARY KEY AUTOINCREMENT,
+		ts       TEXT NOT NULL,
+		user_id  TEXT NOT NULL DEFAULT '',
+		kind     TEXT NOT NULL DEFAULT '',
+		text     TEXT NOT NULL,
+		build    TEXT NOT NULL DEFAULT '',
+		title    TEXT NOT NULL DEFAULT '',
+		chapter  TEXT NOT NULL DEFAULT '',
+		at       INTEGER NOT NULL DEFAULT 0,
+		label    TEXT NOT NULL DEFAULT '',
+		device   TEXT NOT NULL DEFAULT '',
+		log      TEXT NOT NULL DEFAULT '',
+		line     TEXT NOT NULL DEFAULT '',
+		bg       TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX IF NOT EXISTS feedback_ts ON feedback(ts DESC);
+	CREATE INDEX IF NOT EXISTS feedback_build ON feedback(build);
+	`,
 }
 
 func migrate(db *sql.DB) error {

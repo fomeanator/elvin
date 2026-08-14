@@ -194,7 +194,7 @@ func main() {
 	// Отзывы из игры: текст плюс контекст, который собирается сам (сборка,
 	// глава, место в сценарии). Тестер в мессенджере ничего этого не назовёт.
 	feedbackSvc, err := NewFeedbackService(filepath.Join(servicesDir, "feedback"),
-		authSvc, *adminToken, analyticsSvc.chapters)
+		db, authSvc, *adminToken, analyticsSvc.chapters)
 	if err != nil {
 		log.Fatalf("feedback service: %v", err)
 	}
