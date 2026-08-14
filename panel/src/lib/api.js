@@ -283,6 +283,14 @@ export const adminAnalytics = (day, token) =>
 export const withSegment = (query, segment) =>
   segment ? (query ? query + "&" : "") + "segment=" + encodeURIComponent(segment) : query;
 
+// Эксперименты: конфиг (доли, таргет, слои) и отчёт сравнения вариантов.
+export const adminExperiments = (token) => adminFetch("/v1/admin/experiments", token);
+export const adminSaveExperiments = (list, token) =>
+  adminFetch("/v1/admin/experiments", token, { method: "PUT", body: JSON.stringify(list) });
+export const analyticsExperiment = (query, name, token) =>
+  adminFetch("/v1/analytics/experiment?" + (query ? query + "&" : "") +
+    "name=" + encodeURIComponent(name || ""), token);
+
 // GET /v1/admin/crashes — падения, сгруппированные по сути, а не по строкам.
 export const adminCrashes = (query, token) =>
   adminFetch("/v1/admin/crashes" + (query ? "?" + query : ""), token);
