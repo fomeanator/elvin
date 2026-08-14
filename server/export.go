@@ -145,7 +145,7 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// получить архив без содержимого, чем архив с содержимым и без движка —
 	// второй выглядит рабочим и не собирается.
 	if cfg.BundleEngine {
-		if err := copyEnginePackages(zw, tmpl, engineDeps(tmpl)); err != nil {
+		if err := copyEnginePackages(zw, folder, engineDeps(tmpl)); err != nil {
 			// Заголовки уже ушли, кода ошибки не отдать: обрываем архив, чтобы
 			// он не выглядел целым.
 			return
@@ -517,7 +517,7 @@ func localizeManifest(raw []byte) []byte {
 // шаблона: манифест и есть то место, где записано, где лежат пакеты, и
 // вычисленный путь разошёлся бы с ним при первой же перестановке каталогов —
 // молча, потому что пустой архив тоже архив.
-func copyEnginePackages(zw *zip.Writer, tmpl string, deps map[string]string) error {
+func copyEnginePackages(zw *zip.Writer, folder string, deps map[string]string) error {
 	for name, src := range deps {
 		if _, err := os.Stat(src); err != nil {
 			continue // пакета нет — не наш случай, не повод рушить экспорт
@@ -534,7 +534,10 @@ func copyEnginePackages(zw *zip.Writer, tmpl string, deps map[string]string) err
 			if rerr != nil {
 				return nil
 			}
-			f, werr := zw.Create(filepath.ToSlash(filepath.Join("Packages", name, rel)))
+			// ВНУТРЬ папки проекта, а не рядом с ней: обход шаблона кладёт всё
+			// под <Имя игры>/, и пакеты, оказавшиеся снаружи, Unity просто не
+			// увидит — проект откроется без движка.
+			f, werr := zw.Create(folder + "/" + filepath.ToSlash(filepath.Join("Packages", name, rel)))
 			if werr != nil {
 				return werr
 			}
