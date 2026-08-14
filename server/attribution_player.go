@@ -135,7 +135,7 @@ func (s *AuthService) SetAttributionFirstTouch(userID string, a playerAttributio
 	}
 	a.At = time.Now().UTC().Format(time.RFC3339)
 	u.Attr = &a
-	if err := s.persistLocked(); err != nil {
+	if err := s.saveUserLocked(userID); err != nil {
 		return a, false
 	}
 	return a, true

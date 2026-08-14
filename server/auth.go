@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -41,8 +42,12 @@ type authUser struct {
 }
 
 type AuthService struct {
-	mu     sync.Mutex
-	path   string
+	mu   sync.Mutex
+	path string
+	// db — источник правды для ЗАПИСИ. Чтение идёт из карты в памяти: оно
+	// случается на каждый запрос и должно стоить ноль. nil = прежний путь
+	// через users.json (встраивание без базы).
+	db     *sql.DB
 	users  map[string]*authUser // userID → record
 	byDev  map[string]string    // device hash → userID
 	byProv map[string]string    // "provider:subject" → userID
@@ -59,6 +64,8 @@ type AuthService struct {
 	verifyProvider func(provider, token string) (subject string, err error)
 }
 
+// NewAuthService — без базы: прежний путь через users.json. Оставлен для
+// встраивания движка без монетизации и для тестов, где база лишняя.
 func NewAuthService(dir string) (*AuthService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
@@ -86,6 +93,36 @@ func NewAuthService(dir string) (*AuthService, error) {
 	return s, nil
 }
 
+// NewAuthServiceDB — рабочий путь: правда в базе, чтение из памяти.
+//
+// Порядок обязателен: сначала перенос из users.json (он читает старый файл и
+// заполняет базу), потом загрузка из базы. Наоборот — значит поднять пустую
+// карту и переписать ею живые аккаунты.
+func NewAuthServiceDB(dir string, db *sql.DB) (*AuthService, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	s := &AuthService{
+		path:   filepath.Join(dir, "users.json"),
+		db:     db,
+		users:  map[string]*authUser{},
+		byDev:  map[string]string{},
+		byProv: map[string]string{},
+	}
+	s.verifyProvider = s.verifyProviderReal
+	if err := s.importUsersFile(); err != nil {
+		return nil, err
+	}
+	users, byDev, byProv, err := loadUsersFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.users, s.byDev, s.byProv = users, byDev, byProv
+	s.mu.Unlock()
+	return s, nil
+}
+
 func (s *AuthService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/auth/register", s.handleRegister)
 	mux.HandleFunc("/v1/auth/me", s.handleMe)
@@ -95,15 +132,6 @@ func (s *AuthService) Routes(mux *http.ServeMux) {
 	// Откуда пришёл игрок: клиент шлёт сюда сырую строку диплинка/меток
 	// установки при первом запуске, разбирает её сервер.
 	mux.HandleFunc("/v1/attribution", s.handleAttribution)
-}
-
-// persistLocked flushes the user table (caller holds s.mu). On failure the
-// in-memory state stays ahead of disk — callers surface a 500 so the client
-// retries, and the retry re-persists the same account (register/link/login
-// are idempotent on their identity), so nothing is silently lost.
-func (s *AuthService) persistLocked() error {
-	data, _ := json.MarshalIndent(s.users, "", "  ")
-	return atomicWrite(s.path, data, 0o600)
 }
 
 func hashHex(v string) string {
@@ -187,7 +215,7 @@ func (s *AuthService) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// recovers its account).
 	secret := newSecret()
 	s.users[userID].TokenHash = hashHex(secret)
-	if err := s.persistLocked(); err != nil {
+	if err := s.saveUserLocked(userID); err != nil {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
@@ -267,7 +295,7 @@ func (s *AuthService) handleLink(w http.ResponseWriter, r *http.Request) {
 	}
 	u.Providers[req.Provider] = subject
 	s.byProv[key] = userID
-	if err := s.persistLocked(); err != nil {
+	if err := s.saveUserLocked(userID); err != nil {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
@@ -312,7 +340,7 @@ func (s *AuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	secret := newSecret()
 	s.users[userID].TokenHash = hashHex(secret)
-	if err := s.persistLocked(); err != nil {
+	if err := s.saveUserLocked(userID); err != nil {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
@@ -350,7 +378,7 @@ func (s *AuthService) handleProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	s.users[userID].Name = name
-	err := s.persistLocked()
+	err := s.saveUserLocked(userID)
 	s.mu.Unlock()
 	if err != nil {
 		http.Error(w, "persist failed", http.StatusInternalServerError)

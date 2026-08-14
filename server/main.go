@@ -125,7 +125,15 @@ func main() {
 	// owns its store under <content>/services and registers its own routes, so
 	// promoting one to a separate process is a file move, not a rewrite.
 	servicesDir := filepath.Join(*contentDir, "services")
-	authSvc, err := NewAuthService(servicesDir)
+	// База: аккаунты (и дальше кошельки). Файл рядом со служебными данными,
+	// демона нет. Не открылась — это отказ старта, а не повод тихо уйти на
+	// старый путь: молчаливый откат означал бы запись в два разных места.
+	db, err := openStore(servicesDir)
+	if err != nil {
+		log.Fatalf("store: %v", err)
+	}
+	defer db.Close()
+	authSvc, err := NewAuthServiceDB(servicesDir, db)
 	if err != nil {
 		log.Fatalf("auth service: %v", err)
 	}
