@@ -65,9 +65,16 @@ type walkReport struct {
 	// своя точка входа, иначе библиотека выглядела бы мёртвой на 94%.
 	UncalledFuncs []string `json:"uncalled_funcs"`
 	DeadOpts      []string `json:"dead_options"`
-	Paths         int      `json:"paths"`
-	CutDepth      int      `json:"cut_by_depth"`
-	Err           string   `json:"error,omitempty"`
+	// Развилки: сколько мест в главе ветвится и сколько из них обход прошёл.
+	// Автору нужно именно это. «Путей» — счётчик обходов, дошедших до конца, и
+	// он МЕНЬШЕ числа сюжетных линий: сходящиеся ветки памятка отсекает, и
+	// глава с двумя выборами честно показывала «путей 1». Читалось как «выбор
+	// не работает», хотя обе ветки живые.
+	Forks      int    `json:"forks"`
+	ForksTaken int    `json:"forks_taken"`
+	Paths      int    `json:"paths_completed"`
+	CutDepth   int    `json:"cut_by_depth"`
+	Err        string `json:"error,omitempty"`
 }
 
 // deadBlock — недостижимый кусок скрипта.
@@ -151,6 +158,24 @@ func walkFile(path string, depth int) walkReport {
 
 	rep.Commands = len(doc.Script)
 	rep.Paths, rep.CutDepth = w.paths, w.cutDepth
+	for i, c := range doc.Script {
+		switch c.Op() {
+		case "choice":
+			opts, _ := c["options"].([]any)
+			rep.Forks += len(opts)
+			for oi := range opts {
+				if w.optSeen[i][oi] {
+					rep.ForksTaken++
+				}
+			}
+		case "if":
+			// У условия две стороны, и обе — развилка: обход берёт обе.
+			rep.Forks += 2
+			if w.seen[i] {
+				rep.ForksTaken += 2
+			}
+		}
+	}
 	for i := range doc.Script {
 		if w.seen[i] {
 			rep.Reached++
@@ -507,8 +532,8 @@ func printWalkReports(reports []walkReport, quiet bool, depth int) {
 		if r.Commands > 0 {
 			pct = float64(r.Reached) / float64(r.Commands) * 100
 		}
-		fmt.Printf("%s: %d/%d команд достижимо (%.1f%%), путей %d",
-			filepath.Base(r.File), r.Reached, r.Commands, pct, r.Paths)
+		fmt.Printf("%s: %d/%d команд достижимо (%.1f%%), развилок %d/%d",
+			filepath.Base(r.File), r.Reached, r.Commands, pct, r.ForksTaken, r.Forks)
 		if r.CutDepth > 0 {
 			fmt.Printf(", обрублено по глубине %d", r.CutDepth)
 		}

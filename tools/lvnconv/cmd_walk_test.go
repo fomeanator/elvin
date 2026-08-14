@@ -35,6 +35,9 @@ func TestWalkLinearScriptIsFullyReached(t *testing.T) {
 	if rep.Paths != 1 {
 		t.Errorf("путь один, а посчитано %d", rep.Paths)
 	}
+	if rep.Forks != 0 {
+		t.Errorf("в линейном скрипте развилок нет, посчитано %d", rep.Forks)
+	}
 }
 
 // Условие НЕ вычисляется: обе ветки живые, даже если выражение заведомо ложно.
@@ -148,6 +151,11 @@ func TestWalkTakesEveryChoiceOptionAndTimeout(t *testing.T) {
 	if len(rep.DeadOpts) != 0 {
 		t.Fatalf("варианты должны быть отмечены пройденными: %v", rep.DeadOpts)
 	}
+	// Три варианта выбора — три развилки, и все пройдены. Именно это число
+	// автору и нужно: «путей» у сходящихся ветвей меньше, чем ветвей.
+	if rep.Forks != rep.ForksTaken || rep.Forks < 3 {
+		t.Errorf("развилки: пройдено %d из %d", rep.ForksTaken, rep.Forks)
+	}
 }
 
 // Вечный цикл не вешает обход и не считается находкой: команды в нём живые.
@@ -239,7 +247,7 @@ func TestWalkJSONShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"file"`, `"commands"`, `"reached"`, `"dead_blocks"`, `"boilerplate_dead"`, `"uncalled_funcs"`, `"paths"`, `"cut_by_depth"`} {
+	for _, key := range []string{`"file"`, `"commands"`, `"reached"`, `"dead_blocks"`, `"boilerplate_dead"`, `"uncalled_funcs"`, `"forks"`, `"forks_taken"`, `"paths_completed"`, `"cut_by_depth"`} {
 		if !strings.Contains(string(raw), key) {
 			t.Errorf("в JSON-отчёте нет поля %s", key)
 		}
