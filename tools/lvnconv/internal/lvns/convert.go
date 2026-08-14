@@ -45,6 +45,12 @@ var KnownOps = map[string]bool{
 	"save":  true, "load": true, // snapshot save/load (func is lowered away by expandLoops)
 	"label": true, "goto": true, "if": true,
 	"set": true, "inc": true, "hint": true,
+	// track "имя" — САХАР над давно существующим хост-опом `ext track name=…`,
+	// а не новая команда. Оп принадлежит сервисному слою (LvnServiceOps) и
+	// шлёт событие аналитики; здесь мы лишь даём ему человеческую запись.
+	// Заводить второй оп с тем же именем нельзя: у него уже есть владелец,
+	// обработчик в веб-плеере и записи в howto.
+	"track": true,
 	"call": true, "return": true,
 	// Script-driven animation: `anim` tweens any prop of an entity/layer over
 	// time; `move` is sugar for a screen-space path. Both compile to an "anim"
@@ -466,6 +472,16 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 				}
 				isCommand = true
 				cmd = sc
+			} else if firstWord == "track" {
+				// Имя берём как есть, вместе с пробелами: «первый поцелуй»
+				// читается в отчёте, «первый_поцелуй» — нет.
+				name := strings.TrimSpace(line[len("track"):])
+				name = strings.Trim(name, "\"'\u00ab\u00bb")
+				if name == "" {
+					return nil, fmt.Errorf("line %d: track: нужно имя метки — track \"первый поцелуй\"", srcNo[i])
+				}
+				isCommand = true
+				cmd = Cmd{"op": "track", "name": name}
 			} else if firstWord == "ext" {
 				// ext minigame kind="lockpick" → {"op":"minigame","kind":"lockpick"}
 				rest := strings.TrimSpace(line[len("ext"):])

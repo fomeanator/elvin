@@ -91,6 +91,7 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 ### Staging: effects, sound, timing
 | op | What it does | Fields / defaults |
 |---|---|---|
+| `track` | Метка конверсии: `track "первый поцелуй"`. В кадре не делает НИЧЕГО — её работа попасть в отчёт «важные места» (`/v1/analytics/marks`): сколько ЧЕЛОВЕК дошло и какая среди них доля платящих. Обычные метки (`:имя`) для измерений не годятся — их ставят там, где нужен переход, и в импортированной главе они называются `n26_000000`. Сахар над давно существующим `ext track name=…`. | `name` |
 | `fade` | Full-screen fade. | `to`=black/white/clear, `duration`≈0.5 |
 | `dim` | Dim the scene (focus). | `alpha`≈0.4, `duration`≈0.5 |
 | `flash` | Short flash. | `color`=white, `duration`≈0.2 |

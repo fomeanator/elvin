@@ -39,6 +39,11 @@ namespace Lvn
         {
             // flow and state — consumed by LvnPlayer, never forwarded
             "say", "choice", "label", "goto", "if", "call", "return",
+            // track — ХОСТОВЫЙ оп (его регистрирует сервисный слой, см.
+            // LvnServiceOps). В этом наборе он нужен всё равно: набор отвечает
+            // на вопрос «это вообще команда языка?», и ответ «нет» превратил
+            // бы метку конверсии в реплику, напечатанную игроку.
+            "track",
             "set", "inc",
             // paused or acted on by the player AND forwarded to the stage
             "wait", "input", "preload", "load",

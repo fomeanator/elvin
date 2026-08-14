@@ -268,8 +268,27 @@ func scrapeCSharp(t *testing.T, root string) csharpDispatch {
 			"unity/Packages/com.lvn.engine/Runtime/LvnPlayer.cs"), "public void Advance()"),
 		stage: caseLabels(t, filepath.Join(root,
 			"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Commands.cs"), "public void ApplyStage(JObject command)"),
-		shell: registeredOps(t, filepath.Join(root, "unity/Packages/com.lvn.engine.shell")),
+		// Хост-опы регистрируются НЕ ТОЛЬКО в оболочке: сервисный слой
+		// (кошелёк, реклама, лидерборды, аналитика) — такой же хост и
+		// поставляется тем же пакетом продуктов. Искать только в shell значит
+		// объявить несуществующим всё, что регистрирует services.
+		shell: mergeOps(
+			registeredOps(t, filepath.Join(root, "unity/Packages/com.lvn.engine.shell")),
+			registeredOps(t, filepath.Join(root, "unity/Packages/com.lvn.engine.services")),
+		),
 	}
+}
+
+// mergeOps — объединение двух наборов зарегистрированных опов.
+func mergeOps(a, b map[string]bool) map[string]bool {
+	out := make(map[string]bool, len(a)+len(b))
+	for k := range a {
+		out[k] = true
+	}
+	for k := range b {
+		out[k] = true
+	}
+	return out
 }
 
 func TestEngineOwnedOpsHaveCSharpHandlers(t *testing.T) {

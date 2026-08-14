@@ -37,7 +37,8 @@
     "save",
     "load",
     "wardrobe_show",
-    "bg3d"
+    "bg3d",
+    "track"
   ],
   "structural_ops": [
     "label"
@@ -307,6 +308,9 @@
       "dur",
       "off",
       "live"
+    ],
+    "track": [
+      "name"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -619,7 +623,8 @@
       "clear",
       "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
     ],
-    "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном."
+    "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном.",
+    "track": "track \"первый поцелуй\" — метка конверсии: ничего не делает в кадре, её работа попасть в отчёт «важные места». Сахар над ext track name=…"
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
   "groups": [
