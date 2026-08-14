@@ -29,6 +29,11 @@ type sessionStep struct {
 	Players int     `json:"players"`
 	OfPrev  float64 `json:"of_prev"`  // доля от предыдущей ступени
 	OfStart float64 `json:"of_start"` // доля от всех запустивших
+	// NoData — событие этой ступени не приходило в окне НИ РАЗУ: значит
+	// ступень не «провалена», а ещё не измеряется (клиент старой сборки).
+	// Без этого различия отчёт называет худшей ступень, которой просто нет,
+	// и отправляет чинить то, что не сломано.
+	NoData bool `json:"no_data,omitempty"`
 }
 
 type firstSessionReport struct {
@@ -109,6 +114,16 @@ func (s *AnalyticsService) handleFirstSession(w http.ResponseWriter, r *http.Req
 			}
 		}
 	}
+	// Какие события вообще встречались в окне — чтобы отличить «никто не
+	// дошёл» от «ещё не измеряем».
+	present := map[string]bool{}
+	for _, d := range days {
+		for name, n := range s.rollups.day(d).Names {
+			if n > 0 {
+				present[name] = true
+			}
+		}
+	}
 	s.rollups.mu.Unlock()
 
 	rep := firstSessionReport{To: win.To, Newcomers: len(seen)}
@@ -138,22 +153,29 @@ func (s *AnalyticsService) handleFirstSession(w http.ResponseWriter, r *http.Req
 
 	start := counts[0]
 	worstDrop := -1.0
+	lastMeasured := start // сколько было на последней ступени, которая измеряется
 	for i, st := range ladder {
 		prev := start
 		if i > 0 {
-			prev = counts[i-1]
+			// От предыдущей ИЗМЕРЯЕМОЙ: иначе ступень, событий которой ещё
+			// нет, обнуляет всю воронку ниже себя.
+			prev = lastMeasured
 		}
 		step := sessionStep{Step: st.label, Players: counts[i],
-			OfPrev: ratio(counts[i], prev), OfStart: ratio(counts[i], start)}
+			OfPrev: ratio(counts[i], prev), OfStart: ratio(counts[i], start),
+			NoData: !present[st.key]}
 		rep.Steps = append(rep.Steps, step)
-		if i > 0 && prev > 0 {
+		if i > 0 && prev > 0 && !step.NoData {
 			if drop := 1 - step.OfPrev; drop > worstDrop {
 				worstDrop, rep.Worst = drop, st.label
 			}
 		}
+		if !step.NoData {
+			lastMeasured = counts[i]
+		}
 	}
 	rep.Steps = append(rep.Steps, sessionStep{Step: "вернулся назавтра",
-		Players: counts[len(ladder)], OfPrev: ratio(counts[len(ladder)], counts[len(ladder)-1]),
+		Players: counts[len(ladder)], OfPrev: ratio(counts[len(ladder)], lastMeasured),
 		OfStart: ratio(counts[len(ladder)], start)})
 
 	if len(boots) > 0 {
