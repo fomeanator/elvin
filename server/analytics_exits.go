@@ -166,9 +166,26 @@ func describeFrame(doc *lvn.Doc, at int, out *exitPoint) {
 			}
 			if show, ok := c["show"].(bool); ok && !show {
 				delete(actors, id)
+				for i, o := range order {
+					if o == id {
+						order = append(order[:i], order[i+1:]...)
+						break
+					}
+				}
 				continue
 			}
-			if _, seen := actors[id]; !seen {
+			// Порядок ведём отдельным списком и держим его без повторов: в
+			// импортированной главе один и тот же актёр переставляется
+			// десятки раз, и без этой проверки он попадал в кадр по разу на
+			// каждую команду — пятнадцать одинаковых строк вместо одной.
+			seen := false
+			for _, o := range order {
+				if o == id {
+					seen = true
+					break
+				}
+			}
+			if !seen {
 				order = append(order, id)
 			}
 			// Спрайт может не меняться при смене позы — тогда оставляем прежний.
