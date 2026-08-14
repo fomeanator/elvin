@@ -517,3 +517,21 @@ func TestDescribeFrameRebuildsTheScene(t *testing.T) {
 		t.Errorf("последняя реплика: %q", later.Line)
 	}
 }
+
+// Свёртка за день считалась верно, а отчёт за окно приходил пустым: слияние
+// дней не переносило точки выхода. Ошибка дешёвая и незаметная — данные на
+// диске есть, в ответе их нет.
+func TestMergeKeepsExitPoints(t *testing.T) {
+	a := newDayRollup("2026-08-14")
+	b := newDayRollup("2026-08-13")
+	for _, r := range []*dayRollup{a, b} {
+		tr := r.title("t")
+		c := tr.chapter(r, "ch1")
+		c.Exits = map[string]int{"420": 2}
+	}
+	a.mergeFrom(b)
+	got := a.Titles["t"].Chapters["ch1"].Exits["420"]
+	if got != 4 {
+		t.Fatalf("после слияния двух дней по 2 выхода ожидалось 4, получено %d", got)
+	}
+}
