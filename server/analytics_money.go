@@ -52,6 +52,16 @@ type cohortMoney struct {
 	ARPU    float64 `json:"arpu"`
 }
 
+// channelMoney — сколько принесла реклама, по каналам. Ради этой таблицы
+// атрибуция и заводилась: без неё «выручка выросла» не говорит, что окупилось.
+type channelMoney struct {
+	Channel string  `json:"channel"`
+	Players int     `json:"players"`
+	Payers  int     `json:"payers"`
+	Revenue float64 `json:"revenue"`
+	ARPU    float64 `json:"arpu"`
+}
+
 // timing — «сколько часов от первого запуска до первой покупки». Медиана, а не
 // среднее: один игрок, купивший через месяц, перекашивает среднее так, что по
 // нему нельзя выбрать момент показа магазина.
@@ -76,9 +86,10 @@ type moneyReport struct {
 	ARPPU      float64 `json:"arppu"`
 	AvgCheck   float64 `json:"avg_check"`
 
-	ToFirstPurchase *timing       `json:"to_first_purchase,omitempty"`
-	BySKU           []skuRow      `json:"by_sku,omitempty"`
-	ByCohort        []cohortMoney `json:"by_cohort,omitempty"`
+	ToFirstPurchase *timing        `json:"to_first_purchase,omitempty"`
+	BySKU           []skuRow       `json:"by_sku,omitempty"`
+	ByCohort        []cohortMoney  `json:"by_cohort,omitempty"`
+	ByChannel       []channelMoney `json:"by_channel,omitempty"`
 
 	// Unpriced — паки, которые покупали, но цена которых неизвестна. НЕ входят
 	// в выручку: ноль здесь означал бы «раздали даром» и занизил бы всё молча.
@@ -303,6 +314,63 @@ func (s *AnalyticsService) handleMoney(w http.ResponseWriter, r *http.Request) {
 		rep.ByCohort = append(rep.ByCohort, cohortMoney{Day: d, Players: n,
 			Payers: len(cohortPayers[d]), Revenue: round2(cohortRev[d]),
 			ARPU: round2(divide(cohortRev[d], float64(n)))})
+	}
+
+	// Разрез по каналу привлечения: кто пришёл по этой кампании и сколько
+	// принёс. Канал берётся из профиля игрока (первое касание), а не из
+	// события: событие знает, что происходит, но не знает, откуда игрок.
+	if s.auth != nil {
+		chOf := s.auth.Channels()
+		chPlayers := map[string]map[string]bool{}
+		chPayers := map[string]map[string]bool{}
+		chRev := map[string]float64{}
+		note := func(m map[string]map[string]bool, ch, uid string) {
+			if m[ch] == nil {
+				m[ch] = map[string]bool{}
+			}
+			m[ch][uid] = true
+		}
+		// Игроки без метки — это НЕ отсутствие данных, а сегмент: прямые
+		// установки вперемешку с ссылками, которые забыли разметить. Без
+		// отдельной строки их деньги просто исчезают из разреза, и сумма по
+		// каналам молча не сходится с общей выручкой.
+		const noChannel = "без метки"
+		chan4 := func(uid string) string {
+			if ch := chOf[uid]; ch != "" {
+				return ch
+			}
+			return noChannel
+		}
+		for uid := range active {
+			note(chPlayers, chan4(uid), uid)
+		}
+		for _, b := range buys {
+			ch := chan4(b.user)
+			note(chPayers, ch, b.user)
+			note(chPlayers, ch, b.user)
+			if b.ok && b.cur == rep.RefCurrency {
+				chRev[ch] += b.value
+			}
+		}
+		for ch, players := range chPlayers {
+			rep.ByChannel = append(rep.ByChannel, channelMoney{Channel: ch,
+				Players: len(players), Payers: len(chPayers[ch]),
+				Revenue: round2(chRev[ch]),
+				ARPU:    round2(divide(chRev[ch], float64(len(players))))})
+		}
+		sort.Slice(rep.ByChannel, func(i, j int) bool {
+			if rep.ByChannel[i].Revenue != rep.ByChannel[j].Revenue {
+				return rep.ByChannel[i].Revenue > rep.ByChannel[j].Revenue
+			}
+			return rep.ByChannel[i].Channel < rep.ByChannel[j].Channel
+		})
+		if len(rep.ByChannel) == 1 && rep.ByChannel[0].Channel == noChannel {
+			rep.Notes = append(rep.Notes,
+				"канал не проставлен ни у кого: метки приходят от сборки с диплинками, старый APK их не шлёт")
+		} else if len(rep.ByChannel) > 1 {
+			rep.Notes = append(rep.Notes,
+				"«без метки» — это и прямые установки, и ссылки, которые забыли разметить; различить их можно только разметив всё")
+		}
 	}
 
 	for sku := range unpriced {

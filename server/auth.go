@@ -34,6 +34,10 @@ type authUser struct {
 	// cross-device recovery path: sign in with Google/Apple on a new phone
 	// and the SAME account comes back, wallet and saves included.
 	Providers map[string]string `json:"providers,omitempty"`
+	// Attr — канал привлечения, первое касание. Неизменяемо после записи:
+	// переустановка по прямой ссылке не должна обнулять кампанию, которая
+	// привела игрока (см. attribution_player.go).
+	Attr *playerAttribution `json:"attr,omitempty"`
 }
 
 type AuthService struct {
@@ -88,6 +92,9 @@ func (s *AuthService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/auth/profile", s.handleProfile)
 	mux.HandleFunc("/v1/auth/link", s.handleLink)
 	mux.HandleFunc("/v1/auth/login", s.handleLogin)
+	// Откуда пришёл игрок: клиент шлёт сюда сырую строку диплинка/меток
+	// установки при первом запуске, разбирает её сервер.
+	mux.HandleFunc("/v1/attribution", s.handleAttribution)
 }
 
 // persistLocked flushes the user table (caller holds s.mu). On failure the
@@ -117,7 +124,7 @@ func (s *AuthService) SnapshotUsers() map[string]authUser {
 	defer s.mu.Unlock()
 	out := make(map[string]authUser, len(s.users))
 	for id, u := range s.users {
-		cp := authUser{Created: u.Created, Name: u.Name}
+		cp := authUser{Created: u.Created, Name: u.Name, Attr: u.Attr}
 		if len(u.Providers) > 0 {
 			cp.Providers = make(map[string]string, len(u.Providers))
 			for k, v := range u.Providers {

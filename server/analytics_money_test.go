@@ -230,3 +230,62 @@ func TestMoneyExplainsInvisiblePayers(t *testing.T) {
 		t.Errorf("расхождение должно быть объяснено: %v", rep.Notes)
 	}
 }
+
+// Сумма по каналам обязана сходиться с общей выручкой. Игрок без метки — это
+// сегмент («прямая установка или неразмеченная ссылка»), а не отсутствие
+// данных: молча выкинув его, отчёт теряет деньги из разреза.
+func TestMoneyChannelsAddUpToTotal(t *testing.T) {
+	dir := t.TempDir()
+	events := `{"name":"boot","ts":"2026-08-02T10:00:00Z","user":"рекламный"}` + "\n" +
+		`{"name":"boot","ts":"2026-08-02T10:00:00Z","user":"органика"}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "2026-08-02.jsonl"), []byte(events), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	auth, err := NewAuthService(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth.mu.Lock()
+	auth.users["рекламный"] = &authUser{Created: "2026-08-01T00:00:00Z"}
+	auth.users["органика"] = &authUser{Created: "2026-08-01T00:00:00Z"}
+	auth.mu.Unlock()
+	if _, ok := auth.SetAttributionFirstTouch("рекламный",
+		parseAttribution("?utm_source=telegram&utm_campaign=aug")); !ok {
+		t.Fatal("атрибуция не записалась")
+	}
+
+	pay := &fakePayments{
+		buys: []walletPurchase{
+			{User: "рекламный", TS: "2026-08-02T11:00:00Z", SKU: "big"},
+			{User: "органика", TS: "2026-08-02T11:00:00Z", SKU: "small"},
+		},
+		prices: map[string]struct {
+			v   float64
+			cur string
+		}{"big": {4.99, "USD"}, "small": {0.99, "USD"}},
+	}
+	s := &AnalyticsService{dir: dir, rollups: newRollupStore(dir), adminToken: "t",
+		payments: pay, auth: auth}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+	rec, _ := call(t, mux, "GET", "/v1/analytics/money?from=2026-08-02&to=2026-08-02", "t", nil)
+	var rep moneyReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatal(err)
+	}
+	sum := 0.0
+	byName := map[string]channelMoney{}
+	for _, c := range rep.ByChannel {
+		sum += c.Revenue
+		byName[c.Channel] = c
+	}
+	if round2(sum) != rep.Revenue {
+		t.Errorf("сумма по каналам %v не сходится с выручкой %v: %+v", sum, rep.Revenue, rep.ByChannel)
+	}
+	if got := byName["telegram/aug"]; got.Revenue != 4.99 || got.Players != 1 {
+		t.Errorf("рекламный канал посчитан неверно: %+v", got)
+	}
+	if got := byName["без метки"]; got.Revenue != 0.99 {
+		t.Errorf("игрок без метки обязан быть отдельной строкой: %+v", rep.ByChannel)
+	}
+}
