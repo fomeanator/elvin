@@ -249,6 +249,9 @@ namespace Lvn.UI.Screens
             // а не при входе в неё.
             Lvn.Services.LvnStoryFunctions.Install();
             Lvn.Services.LvnExperiments.Install();  // abtest("имя") в выражениях
+            // Хвост лога к отзыву берём из того же кольцевого буфера, что уже
+            // отправляет диагностику: второй буфер — это вторая правда.
+            Lvn.Services.LvnFeedback.TailLog = () => Lvn.Services.LvnLogShip.Tail();
             Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
             {
@@ -1433,6 +1436,10 @@ namespace Lvn.UI.Screens
                 if (!_reachedLabels.Add(label)) return;
             }
             Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label), ("at", at));
+            // Та же позиция нужна отзыву: «тут баг» без места в сценарии
+            // невоспроизводим, а сам игрок место назвать не может.
+            Lvn.Services.LvnFeedback.CurrentLabel = label;
+            Lvn.Services.LvnFeedback.CurrentAt = at;
         }
 
         private static void OnChoiceShown(int written, int shown, int at)

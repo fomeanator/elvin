@@ -34,6 +34,31 @@ namespace Lvn.Services
         private static JObject _lastLine;
 
         /// <summary>Start capturing. Call once, as early as possible.</summary>
+        /// <summary>
+        /// Последние строки лога — для отзыва из игры. Берём из ТОГО ЖЕ
+        /// буфера, что уходит на сервер: второй буфер означал бы вторую
+        /// правду, и они разошлись бы ровно в тот момент, когда сверить их
+        /// важнее всего.
+        ///
+        /// <para>Очередь может быть уже отправлена и опустошена — тогда хвост
+        /// пуст, и это честнее, чем показать старое.</para>
+        /// </summary>
+        public static string Tail(int lines = 40)
+        {
+            var sb = new System.Text.StringBuilder();
+            lock (_queue)
+            {
+                int from = _queue.Count - lines;
+                if (from < 0) from = 0;
+                for (int i = from; i < _queue.Count; i++)
+                {
+                    var msg = _queue[i]["msg"];
+                    if (msg != null) sb.Append(msg.ToString()).Append('\n');
+                }
+            }
+            return sb.ToString();
+        }
+
         public static void Boot()
         {
             if (_booted || string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
