@@ -53,6 +53,8 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	// Где бросают главу и ЧТО было на экране — единственный отчёт, который
 	// работает там, где выборов нет вовсе (analytics_exits.go).
 	mux.HandleFunc("/v1/analytics/exits", s.handleExits)
+	// Удержание — метрика номер один для покупки трафика (analytics_retention.go).
+	mux.HandleFunc("/v1/analytics/retention", s.handleRetention)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 

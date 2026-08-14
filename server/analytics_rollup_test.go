@@ -548,3 +548,63 @@ func TestMergeKeepsExitPoints(t *testing.T) {
 		t.Fatalf("после слияния двух дней по 2 выхода ожидалось 4, получено %d", got)
 	}
 }
+
+// Удержание — метрика, ради которой всё считается: вернулся ли человек, за
+// которого заплатили. Проверяем три вещи, на которых такие отчёты обычно врут:
+// когорта = ПЕРВЫЙ день игрока, «завтра» считается от дня когорты, а не от
+// начала окна, и день, который ещё не наступил, не превращается в ноль.
+func TestRetentionCohorts(t *testing.T) {
+	dir := t.TempDir()
+	// Три дня подряд. Аня приходит в первый и возвращается на следующий,
+	// Боря приходит в первый и не возвращается, Витя приходит во второй.
+	write := func(day string, users ...string) {
+		var b strings.Builder
+		for _, u := range users {
+			b.WriteString(`{"name":"boot","ts":"` + day + `T10:00:00Z","user":"` + u + `"}` + "\n")
+		}
+		if err := os.WriteFile(filepath.Join(dir, day+".jsonl"), []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("2026-08-01", "anya", "borya")
+	write("2026-08-02", "anya", "vitya")
+	write("2026-08-03", "vitya")
+
+	s := &AnalyticsService{dir: dir, rollups: newRollupStore(dir), adminToken: "t"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+
+	rec, _ := call(t, mux, "GET", "/v1/analytics/retention?from=2026-08-01&to=2026-08-03", "t", nil)
+	if rec.Code != 200 {
+		t.Fatalf("отчёт не отдался: %d %s", rec.Code, rec.Body.String())
+	}
+	var rep retentionReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatal(err)
+	}
+	if rep.Players != 3 {
+		t.Fatalf("игроков в когортах: %d, ожидалось 3", rep.Players)
+	}
+	byDay := map[string]retentionRow{}
+	for _, c := range rep.Cohorts {
+		byDay[c.Day] = c
+	}
+	first := byDay["2026-08-01"]
+	if first.Size != 2 {
+		t.Errorf("первая когорта: %d, ожидалось 2 (Аня и Боря)", first.Size)
+	}
+	if first.Back["1"] != 1 {
+		t.Errorf("на следующий день вернулась одна Аня, посчитано %d", first.Back["1"])
+	}
+	second := byDay["2026-08-02"]
+	if second.Size != 1 {
+		t.Errorf("вторая когорта: %d, ожидался один Витя", second.Size)
+	}
+	if second.Back["1"] != 1 {
+		t.Errorf("Витя вернулся на третий день — это D1 ЕГО когорты, посчитано %d", second.Back["1"])
+	}
+	// D7 ни у кого не наступил: его не должно быть вовсе, а не ноль.
+	if _, ok := first.Back["7"]; ok {
+		t.Error("день, который ещё не наступил, попал в отчёт нулём — так удержание и занижают")
+	}
+}
