@@ -18,6 +18,7 @@ const I = {
   conflicts: <><path d="M6 3v5.5a4 4 0 0 0 4 4 4 4 0 0 1 4 4V17" /><path d="M14 3v3.5" /><circle cx="6" cy="3" r="1.4" /><circle cx="14" cy="3" r="1.4" /><circle cx="14" cy="17" r="1.4" /></>,
   builds: <><path d="M10 2.5v10" /><path d="M6.5 9l3.5 3.5L13.5 9" /><path d="M3.5 14v2.5h13V14" /></>,
   feedback: <><path d="M3 4.5h14v9H8l-4 3v-3H3z" /></>,
+  experiments: <><path d="M8 2.5v5l-4 8a1.5 1.5 0 001.3 2.2h9.4A1.5 1.5 0 0016 15.5l-4-8v-5" /><path d="M7 2.5h6" /></>,
 };
 
 export function NavIcon({ name }) {
@@ -53,6 +54,7 @@ export const NAV = [
   { section: "Игра", items: [
     { key: "builds", label: "Сборки", icon: "builds" },
     { key: "feedback", label: "Отзывы", icon: "feedback" },
+    { key: "experiments", label: "Эксперименты", icon: "experiments" },
     { key: "economy", label: "Экономика", icon: "economy" },
     { key: "assets", label: "Ассеты", icon: "assets" },
     { key: "manifest", label: "Манифест", icon: "manifest" },
