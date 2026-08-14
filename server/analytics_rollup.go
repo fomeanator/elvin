@@ -454,6 +454,15 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 			if oc.First != "" && (c.First == "" || oc.First < c.First) {
 				c.First = oc.First
 			}
+			// Точки выхода тоже складываются по дням: без этого свёртка на
+			// диске правильная, а отчёт за окно пустой — ровно так оно и
+			// вышло при первом прогоне.
+			for at, n := range oc.Exits {
+				if c.Exits == nil {
+					c.Exits = map[string]int{}
+				}
+				r.bump(c.Exits, "exits", at, n, maxRollupExits)
+			}
 		}
 	}
 	for id, op := range o.Users {
