@@ -123,18 +123,29 @@ namespace Lvn
         /// места в истории, и утроили бы поток событий без единого нового
         /// факта.</para>
         /// </summary>
-        public static event Action<string> LabelReached;
+        /// <para>Второй аргумент — индекс команды в скомпилированной главе.
+        /// По нему отчёт кладёт метку на ту же ось, что и точки выхода, и
+        /// восстанавливает кадр; без него «метка» и «место, где бросили» —
+        /// два несводимых списка.</para>
+        public static event Action<string, int> LabelReached;
 
         /// <summary>Выбор показан: сколько вариантов НАПИСАНО в сценарии и
         /// сколько игрок реально видит. Закрытые гейтом до показа не доходят, и
         /// разница «написано три, доступен один» — это и есть ощущение
         /// развилки; по ней же видно, не заперт ли выбор наглухо.</summary>
-        public static event Action<int, int> ChoiceShown;
+        /// <para>Третий аргумент — индекс команды выбора: сам по себе выбор
+        /// безымянен, и без адреса его некуда положить в воронке главы.
+        /// Метку и тексты вариантов сервер достаёт из скрипта сам — он у него
+        /// есть, а доверять клиенту в том, что можно прочитать у себя, незачем.</para>
+        public static event Action<int, int, int> ChoiceShown;
 
         /// <summary>Игрок выбрал: индекс, текст варианта и сколько секунд
         /// думал. Время — единственный способ отличить «жал не глядя» от
         /// «сомневался», а именно на сомнении и уходят.</summary>
-        public static event Action<int, string, float> ChoicePicked;
+        /// <para>Последний аргумент — индекс команды выбора, тот же, что у
+        /// <see cref="ChoiceShown"/>: только он связывает «показали» и
+        /// «выбрали» в одну развилку.</para>
+        public static event Action<int, string, float, int> ChoicePicked;
 
         // Когда показали текущий выбор — чтобы измерить раздумье.
         private DateTime _choiceShownAt;
@@ -935,7 +946,7 @@ namespace Lvn
                             // воронку в шуме.
                             if (!string.IsNullOrEmpty(labelId) && !labelId.StartsWith("__"))
                             {
-                                try { LabelReached?.Invoke(labelId); }
+                                try { LabelReached?.Invoke(labelId, _ip); }
                                 catch { /* телеметрия не смеет ронять главу */ }
                             }
                         }
@@ -998,7 +1009,7 @@ namespace Lvn
                             // вовсе. Разница «написано три, доступен один» и
                             // есть ощущение развилки — считаем оба числа.
                             int written = (c["options"] as JArray)?.Count ?? 0;
-                            try { ChoiceShown?.Invoke(written, built?.Count ?? 0); }
+                            try { ChoiceShown?.Invoke(written, built?.Count ?? 0, _ip); }
                             catch { /* телеметрия не смеет ронять главу */ }
                         }
                         return;
@@ -1179,7 +1190,7 @@ namespace Lvn
             try
             {
                 var thought = _choiceShownAt == default ? 0f : (float)(DateTime.UtcNow - _choiceShownAt).TotalSeconds;
-                ChoicePicked?.Invoke(optionIndex, (string)opt["text"], thought);
+                ChoicePicked?.Invoke(optionIndex, (string)opt["text"], thought, _ip);
             }
             catch { /* телеметрия не смеет ронять главу */ }
 

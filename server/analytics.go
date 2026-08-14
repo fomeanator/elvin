@@ -60,6 +60,10 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/retention", s.handleRetention)
 	// Первая сессия: докуда доходит новичок и сколько ждёт загрузки.
 	mux.HandleFunc("/v1/analytics/first-session", s.handleFirstSession)
+	// Воронка ВНУТРИ главы: докуда дочитывают, на каких развилках уходят
+	// (analytics_slides.go). Расширение воронки по главам, а не второй отчёт:
+	// глава отвечает «где теряем», слайд — «на чём именно».
+	mux.HandleFunc("/v1/analytics/slides", s.handleSlides)
 	// Деньги: конверсия в платящего, ARPU, ARPPU (analytics_money.go).
 	mux.HandleFunc("/v1/analytics/money", s.handleMoney)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)

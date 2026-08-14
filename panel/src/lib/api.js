@@ -293,6 +293,12 @@ export const analyticsFunnel = (query, title, token) =>
 export const analyticsHealth = (query, token) =>
   adminFetch("/v1/analytics/health" + (query ? "?" + query : ""), token);
 
+// GET /v1/analytics/slides — воронка ВНУТРИ главы: метки и развилки.
+export const analyticsSlides = (query, title, chapter, token) =>
+  adminFetch("/v1/analytics/slides?" + (query ? query + "&" : "") +
+    "title=" + encodeURIComponent(title || "") +
+    "&chapter=" + encodeURIComponent(chapter || ""), token);
+
 // GET /v1/analytics/money — конверсия в платящего, ARPU, ARPPU, разбивка по
 // пакам и когортам. Сумма — оценка по прайсу каталога, не выручка из стора.
 export const analyticsMoney = (query, token) =>

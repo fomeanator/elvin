@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty } from "./ui.jsx";
 import {
@@ -260,7 +260,7 @@ function Drops({ token, q, titles }) {
       <LoadState loading={rep.loading} error={rep.error}
                  empty={!title && !(d.dropoffs || []).length && !(d.stop_points || []).length}
                  emptyText="Данных для воронки пока нет.">
-        {title ? <TitleFunnel rep={d} /> : <Leaderboard rep={d} />}
+        {title ? <TitleFunnel rep={d} token={token} q={q} title={title} /> : <Leaderboard rep={d} />}
       </LoadState>
     </>
   );
@@ -331,12 +331,15 @@ function Leaderboard({ rep }) {
   );
 }
 
-function TitleFunnel({ rep }) {
+function TitleFunnel({ rep, token, q, title }) {
   const f = rep.funnel || {};
   const steps = f.steps || [];
   const drops = f.dropoffs || [];
   const top = funnelMax(steps);
   const notes = f.notes || [];
+  // Глава — это час чтения; «теряем в первом эпизоде» не адрес. Клик по шагу
+  // раскрывает воронку ВНУТРИ главы: по меткам и развилкам.
+  const [open, setOpen] = useState(null);
 
   return (
     <>
@@ -351,7 +354,10 @@ function TitleFunnel({ rep }) {
         {!steps.length ? <Empty text="У этой новеллы нет ни одного chapter_start за окно." /> : (
           <ul className="an-funnel">
             {steps.map((s) => (
-              <li key={s.chapter} className="an-funnel-step">
+              <li key={s.chapter}
+                  className={"an-funnel-step clickable" + (open === s.chapter ? " on" : "")}
+                  onClick={() => setOpen(open === s.chapter ? null : s.chapter)}
+                  title="показать воронку внутри главы: метки и развилки">
                 <span className="an-funnel-name">
                   {s.name || s.chapter}
                   {s.off_manifest && <span className="pill warn-pill" title="главы нет в манифесте — переименована или удалена">вне манифеста</span>}
@@ -371,6 +377,8 @@ function TitleFunnel({ rep }) {
           </ul>
         )}
       </section>
+
+      {open && <ChapterSlides token={token} q={q} title={title} chapter={open} />}
 
       <section className="adm-panel">
         <header className="adm-panel-head"><h2>Точки обрыва этой новеллы</h2></header>
@@ -415,6 +423,89 @@ function TitleFunnel({ rep }) {
         </div>
       </section>
     </>
+  );
+}
+
+// ── Воронка внутри главы ────────────────────────────────────────────────────
+//
+// Метка = слайд, размеченный автором. Две таблицы отвечают на разные вопросы и
+// поэтому не смешаны: слайды — «где перестали читать», развилки — «где увидели
+// выбор и ушли, не выбрав».
+function ChapterSlides({ token, q, title, chapter }) {
+  const rep = useAsync(() => analyticsSlides(q, title, chapter, token), [q, title, chapter, token]);
+  const d = rep.data || {};
+  const slides = d.slides || [];
+  const choices = d.choices || [];
+
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Внутри главы: {d.name || chapter}</h2>
+        <span className="adm-dim">
+          вошли {fmt(d.starts || 0)} · дочитали {fmt(d.finishes || 0)} · ушли {fmt(d.abandons || 0)}
+        </span>
+      </header>
+      <LoadState loading={rep.loading} error={rep.error}>
+        {d.balance && <p className="adm-dim">{d.balance}</p>}
+        {d.note && <p className="adm-dim">⚠ {d.note}</p>}
+        {(d.notes || []).map((n, i) => <p key={i} className="adm-dim">{n}</p>)}
+
+        {d.worst_slide && (
+          <p className="adm-dim">
+            Самая дорогая потеря: <b>{d.worst_slide}</b> — не дошло {fmt(d.worst_lost)}.
+          </p>
+        )}
+
+        {!slides.length ? <Empty text="Событий меток за это окно нет — они приезжают со сборкой, где включён label_reach." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>метка</th><th>что на экране</th><th className="num">дошло</th><th>от входа</th><th className="num">потеряно</th></tr></thead>
+              <tbody>
+                {slides.map((r) => (
+                  <tr key={r.at}>
+                    <td><span className="adm-cell-main">{r.label || "#" + r.at}</span></td>
+                    <td className="muted">{r.line}</td>
+                    <td className="num">{fmt(r.reached)}</td>
+                    <td><Meter value={r.of_start} /></td>
+                    <td className={"num" + (r.lost ? " amt-minus" : " muted")}>{r.lost ? "−" + fmt(r.lost) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {choices.length > 0 && (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>развилка</th><th className="num">показали</th><th className="num">выбрали</th><th className="num">ушли тут</th><th>доля ушедших</th><th className="num">думали</th></tr></thead>
+              <tbody>
+                {choices.map((c) => (
+                  <tr key={c.at}>
+                    <td>
+                      <span className="adm-cell-main">{c.label || "#" + c.at}</span>
+                      {c.locked_note && <span className="muted"> — {c.locked_note}</span>}
+                      {(c.options || []).length > 0 && (
+                        <div className="adm-dim">
+                          {c.options.map((o) => (
+                            <div key={o.option}>{o.text || "вариант " + o.option}: {fmt(o.picks)} ({Math.round((o.share || 0) * 100)}%)</div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="num">{fmt(c.shown)}</td>
+                    <td className="num muted">{fmt(c.picked)}</td>
+                    <td className={"num" + (c.left_here ? " amt-minus" : " muted")}>{c.left_here || "—"}</td>
+                    <td><Meter value={c.leave_share} /></td>
+                    <td className="num muted">{c.median_seconds ? c.median_seconds + " с" : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </LoadState>
+    </section>
   );
 }
 
