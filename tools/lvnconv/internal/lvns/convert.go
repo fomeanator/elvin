@@ -1000,6 +1000,11 @@ var exprBuiltins = map[string]bool{
 	"sum": true, "first": true, "last": true, "keys": true, "vals": true,
 	"list": true, "push": true, "pop": true, "removeat": true, "remove": true,
 	"slice": true, "concat": true, "put": true, "del": true,
+	// Функции хоста: их значения приходят снаружи новеллы — из кошелька и
+	// гардероба, — поэтому компилятор их не вычисляет, а только признаёт
+	// существующими. В плеере без сервисов они возвращают безопасный
+	// пустой ответ (нет вещи, ноль на счету, ничего не надето).
+	"has_item": true, "balance": true, "worn": true,
 }
 
 // funcDef is one `func …` declaration. The same syntax carries TWO different

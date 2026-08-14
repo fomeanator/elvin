@@ -76,10 +76,58 @@ actor dorn right emotion=neutral
 Dorn: Do I have to wear the plumed one?
 wardrobe_show char="dorn"
 if dorn_look == "plume" -> teased
--> finale
+-> fitting_dorn_done
 
 :teased
 Mira [smile]: You have to wear the plumed one.
+-> fitting_dorn_done
+
+// ─── 5b. A BRANCH THAT EXISTS ONLY IF THE PLAYER BOUGHT SOMETHING ────────────
+// Story variables only ever know what the SCRIPT wrote. What the player OWNS
+// lives in the server wallet, and until now there was no way to ask about it —
+// so "this scene is only for people who bought the gown" could not be written.
+//
+// Three host functions close that gap. They are NOT ordinary expression
+// functions: their values come from outside the novel, so they are read LIVE on
+// every evaluation. Buy the gown mid-scene and the branch appears at once — no
+// chapter restart, because there is no snapshot to be stale.
+//
+//   has_item("<sku>")        — is the item in the wallet inventory?
+//   balance("<currency>")    — how much of a currency the player has now
+//   worn("<axis>")           — what is equipped on this scene's character
+//                              (worn("<entity>", "<axis>") for anyone else)
+//
+// The sku is what the wardrobe charges for; the catalog builds it from the
+// entity, the axis and the value: wardrobe:mira:outfit:gown.
+//
+// A host without the services package (a pure com.lvn.engine embed, the web
+// playground) has no wallet at all. There the three answer "no item, zero,
+// nothing worn" — so a paid branch simply stays closed. That is the correct
+// answer, not a failure: in a build with no purchases, nothing IS purchased.
+// Which means the OTHER side of every such branch must be a real scene, never
+// a dead end.
+:fitting_dorn_done
+if has_item("wardrobe:mira:outfit:gown") -> gown_owner
+if balance("crystals") >= 20 -> can_afford
+-> no_gown
+
+:gown_owner
+// worn() reads what is on her RIGHT NOW — including a try-on the player is
+// still previewing in the sheet, because that is what he sees on screen.
+if worn("outfit") == "gown" -> wearing_it
+Mira [smile]: The gown is mine — I simply am not wearing it yet.
+-> finale
+
+:wearing_it
+Mira [smile]: Silk, at last. Let them stare.
+-> finale
+
+:can_afford
+Mira [neutral]: Twenty crystals and the gown is mine. Tempting.
+-> finale
+
+:no_gown
+Mira [neutral]: The coat, then. It has dignity, which is cheaper than silk.
 -> finale
 
 // ─── 6. A costume the story forces ───────────────────────────────────────────
