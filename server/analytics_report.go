@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -815,7 +816,7 @@ func sumCounts(m map[string]int) int {
 
 // ------------------------------------------------------- chapter order index
 
-type chapterMeta struct{ ID, Name string }
+type chapterMeta struct{ ID, Name, ScriptURL string }
 
 // chapterIndex reads chapter ORDER out of the same manifest the players read.
 // Analytics must not invent its own idea of what comes after chapter three;
@@ -863,6 +864,10 @@ func (c *chapterIndex) refresh() {
 				Chapters []struct {
 					ID   string `json:"id"`
 					Name string `json:"name"`
+					// Путь к скрипту нужен отчёту о местах выхода: по индексу
+					// команды он восстанавливает кадр, который игрок видел
+					// последним, а для этого надо прочитать саму главу.
+					ScriptURL string `json:"script_url"`
 				} `json:"chapters"`
 			} `json:"seasons"`
 		} `json:"titles"`
@@ -881,7 +886,7 @@ func (c *chapterIndex) refresh() {
 		for _, s := range t.Seasons {
 			for _, ch := range s.Chapters {
 				if ch.ID != "" {
-					chs = append(chs, chapterMeta{ID: ch.ID, Name: ch.Name})
+					chs = append(chs, chapterMeta{ID: ch.ID, Name: ch.Name, ScriptURL: ch.ScriptURL})
 				}
 			}
 		}
@@ -908,6 +913,32 @@ func (c *chapterIndex) titleName(title string) string {
 	defer c.mu.Unlock()
 	c.refresh()
 	return c.names[title]
+}
+
+// scriptURL — путь к скомпилированной главе, как он записан в манифесте.
+// Угадывать имя файла нельзя: у импортированных глав оно не совпадает с
+// идентификатором.
+func (c *chapterIndex) scriptURL(title, chapter string) string {
+	if c == nil {
+		return ""
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.refresh()
+	for _, ch := range c.byTitle[title] {
+		if ch.ID == chapter {
+			return ch.ScriptURL
+		}
+	}
+	return ""
+}
+
+// contentRoot — каталог контента: манифест лежит в его корне.
+func (c *chapterIndex) contentRoot() string {
+	if c == nil || c.path == "" {
+		return ""
+	}
+	return filepath.Dir(c.path)
 }
 
 func (c *chapterIndex) chapterName(title, chapter string) string {

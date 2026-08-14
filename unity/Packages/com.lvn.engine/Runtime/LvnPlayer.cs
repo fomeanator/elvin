@@ -112,6 +112,33 @@ namespace Lvn
         /// reported afresh — tests, and a host that wants a per-session report.</summary>
         public static void ResetOpDiagnostics() => _unclaimed.Clear();
 
+        /// <summary>
+        /// Игрок дошёл до авторской метки. Метка — это «слайд» в терминах
+        /// автора, и по ней строится воронка ВНУТРИ главы: между входом и
+        /// выходом раньше было пусто, и «на каком месте отваливаются» ответить
+        /// было нечем.
+        ///
+        /// <para>Служебные метки компилятора (<c>__nf_</c>, <c>__then_</c>,
+        /// <c>__end</c> и прочие) сюда НЕ попадают: они разметка ветвей, а не
+        /// места в истории, и утроили бы поток событий без единого нового
+        /// факта.</para>
+        /// </summary>
+        public static event Action<string> LabelReached;
+
+        /// <summary>Выбор показан: сколько вариантов НАПИСАНО в сценарии и
+        /// сколько игрок реально видит. Закрытые гейтом до показа не доходят, и
+        /// разница «написано три, доступен один» — это и есть ощущение
+        /// развилки; по ней же видно, не заперт ли выбор наглухо.</summary>
+        public static event Action<int, int> ChoiceShown;
+
+        /// <summary>Игрок выбрал: индекс, текст варианта и сколько секунд
+        /// думал. Время — единственный способ отличить «жал не глядя» от
+        /// «сомневался», а именно на сомнении и уходят.</summary>
+        public static event Action<int, string, float> ChoicePicked;
+
+        // Когда показали текущий выбор — чтобы измерить раздумье.
+        private DateTime _choiceShownAt;
+
         /// <summary>Optional localization catalog: <c>text_id</c> → string for the
         /// active language. When a say/choice carries a <c>text_id</c> (instead of
         /// inline <c>text</c>), it is resolved here. Swap this to switch language;
@@ -901,6 +928,17 @@ namespace Lvn
                 switch (curOp)
                 {
                     case "label":
+                        {
+                            var labelId = (string)c["id"];
+                            // «__» — служебная разметка компилятора, а не место
+                            // в истории: считать её слайдом значит утопить
+                            // воронку в шуме.
+                            if (!string.IsNullOrEmpty(labelId) && !labelId.StartsWith("__"))
+                            {
+                                try { LabelReached?.Invoke(labelId); }
+                                catch { /* телеметрия не смеет ронять главу */ }
+                            }
+                        }
                         _ip++;
                         break;
 
@@ -951,7 +989,18 @@ namespace Lvn
                         bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
                                       && (string)prevCmd["op"] == "say";
                         if (!paired) PushHistory();
-                        _stage.ShowChoice(BuildOptions(c));
+                        {
+                            var built = BuildOptions(c);
+                            _stage.ShowChoice(built);
+                            _choiceShownAt = DateTime.UtcNow;
+                            // В сценарии вариантов может быть больше, чем игрок
+                            // увидит: закрытые гейтом до показа не доходят
+                            // вовсе. Разница «написано три, доступен один» и
+                            // есть ощущение развилки — считаем оба числа.
+                            int written = (c["options"] as JArray)?.Count ?? 0;
+                            try { ChoiceShown?.Invoke(written, built?.Count ?? 0); }
+                            catch { /* телеметрия не смеет ронять главу */ }
+                        }
                         return;
 
                     case "say":
@@ -1127,6 +1176,12 @@ namespace Lvn
             var opt = opts[optionIndex] as JObject;
             if (opt == null) { _ip++; return; }
             Log?.Invoke("CHOOSE [" + optionIndex + "] \"" + (string)opt["text"] + "\"" + (opt["goto"] != null ? " → :" + opt["goto"] : ""));
+            try
+            {
+                var thought = _choiceShownAt == default ? 0f : (float)(DateTime.UtcNow - _choiceShownAt).TotalSeconds;
+                ChoicePicked?.Invoke(optionIndex, (string)opt["text"], thought);
+            }
+            catch { /* телеметрия не смеет ронять главу */ }
 
             if (opt["body"] is JArray body)
             {

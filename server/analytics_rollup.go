@@ -38,6 +38,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +59,8 @@ const (
 	maxRollupSessions   = 20000
 	maxRollupOps        = 200
 	maxRollupAssets     = 200
-	maxRollupUserTitles = 8 // titles remembered per player per day
+	maxRollupExits      = 300 // точек выхода на главу: больше — это уже шум
+	maxRollupUserTitles = 8   // titles remembered per player per day
 	// Parsed rollups held in memory. The per-player map is the heavy part of a
 	// rollup (≈300 B × up to maxRollupUsers), so this constant IS the memory
 	// bound of the whole read side: 16 × 20 000 × 300 B ≈ 96 MB at the absolute
@@ -135,6 +137,12 @@ type chapRoll struct {
 	Abandons int    `json:"ab,omitempty"`
 	Fails    int    `json:"x,omitempty"`
 	First    string `json:"t,omitempty"` // earliest ts seen — the fallback ordering
+	// Exits — где именно бросили: ключ «индекс команды», значение — сколько
+	// раз. Половина глав идёт без единого выбора, и там вопрос «почему ушли»
+	// решается не развилкой, а тем, ЧТО было на экране: плохой спрайт, не тот
+	// фон, зависшая сцена. Индекс сам по себе ничего не говорит — но сервер
+	// держит скрипт главы и умеет показать по нему кадр (см. handleExits).
+	Exits map[string]int `json:"ex,omitempty"`
 }
 
 // playerRoll is one player's day. It is the only per-identity state kept, and
@@ -309,6 +317,14 @@ func (r *dayRollup) foldLine(line []byte) {
 			c.Finishes++
 		case evChapterAbandon:
 			c.Abandons++
+			if at := rollupPropInt(ev.Props, "at"); at >= 0 {
+				if c.Exits == nil {
+					c.Exits = map[string]int{}
+				}
+				// Ключ — строка: карта уезжает в JSON чекпоинта, а числовые
+				// ключи там всё равно станут строками.
+				r.bump(c.Exits, "exits", strconv.Itoa(at), 1, maxRollupExits)
+			}
 		}
 	}
 

@@ -8,9 +8,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -465,5 +467,53 @@ func TestRollupReadsWhileTheLogIsBeingWritten(t *testing.T) {
 	if svc.rollups.statRebuilds != 0 {
 		t.Fatalf("%d needless rebuilds — an append must never look like a truncation",
 			svc.rollups.statRebuilds)
+	}
+}
+
+// Половина главы идёт без единого выбора, и «ушли на команде 137» само по себе
+// не отвечает ни на что. Отчёт обязан восстановить КАДР: реплику, фон и кто на
+// сцене — по ним место открывается и смотрится глазами.
+func TestDescribeFrameRebuildsTheScene(t *testing.T) {
+	doc, err := lvn.Parse([]byte(`{"scene":"t","script":[
+		{"op":"bg","sprite_url":"/content/bg/двор.jpg"},
+		{"op":"label","id":"__nf_служебная"},
+		{"op":"label","id":"встреча"},
+		{"op":"actor","id":"katya","sprite_url":"/content/sprites/katya/зло.png"},
+		{"op":"say","who":"Катя","text":"Ты опоздал."},
+		{"op":"actor","id":"alex","sprite_url":"/content/sprites/alex/idle.png"},
+		{"op":"say","who":"Алекс","text":"Я всё объясню."},
+		{"op":"actor","id":"alex","show":false},
+		{"op":"say","text":"Он ушёл."}
+	]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p exitPoint
+	describeFrame(doc, 6, &p)
+
+	if p.Line != "Я всё объясню." || p.Who != "Алекс" {
+		t.Errorf("не та реплика: %q от %q", p.Line, p.Who)
+	}
+	if p.BG != "/content/bg/двор.jpg" {
+		t.Errorf("фон: %q", p.BG)
+	}
+	if p.Label != "встреча" {
+		t.Errorf("метка должна быть авторской, а не служебной: %q", p.Label)
+	}
+	if len(p.Actors) != 2 {
+		t.Fatalf("на сцене двое, получено %v", p.Actors)
+	}
+	if !strings.Contains(p.Actors[0], "зло.png") {
+		t.Errorf("спрайт персонажа обязан быть виден — из-за него и уходят: %v", p.Actors)
+	}
+
+	// Ушли позже: Алекса убрали со сцены, он не должен «остаться» в кадре.
+	var later exitPoint
+	describeFrame(doc, 8, &later)
+	if len(later.Actors) != 1 || strings.Contains(later.Actors[0], "alex") {
+		t.Errorf("скрытый актёр остался в кадре: %v", later.Actors)
+	}
+	if later.Line != "Он ушёл." {
+		t.Errorf("последняя реплика: %q", later.Line)
 	}
 }

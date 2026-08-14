@@ -50,6 +50,9 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/events", s.handleEvents)
 	mux.HandleFunc("/v1/analytics/summary", s.handleSummary)
 	mux.HandleFunc("/v1/analytics/funnel", s.handleFunnel)
+	// Где бросают главу и ЧТО было на экране — единственный отчёт, который
+	// работает там, где выборов нет вовсе (analytics_exits.go).
+	mux.HandleFunc("/v1/analytics/exits", s.handleExits)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 

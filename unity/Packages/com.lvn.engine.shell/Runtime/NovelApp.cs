@@ -209,6 +209,16 @@ namespace Lvn.UI.Screens
             Lvn.Content.ContentLoader.AssetFailed -= OnAssetFailed;
             Lvn.Content.ContentLoader.AssetFailed += OnAssetFailed;
 
+            // Шаги внутри главы: метки — это «слайды» автора, выборы — места,
+            // где игрок решает. Без них между входом в главу и выходом пусто, и
+            // на вопрос «где отваливаются» отвечать нечем.
+            LvnPlayer.LabelReached -= OnLabelReached;
+            LvnPlayer.LabelReached += OnLabelReached;
+            LvnPlayer.ChoiceShown -= OnChoiceShown;
+            LvnPlayer.ChoiceShown += OnChoiceShown;
+            LvnPlayer.ChoicePicked -= OnChoicePicked;
+            LvnPlayer.ChoicePicked += OnChoicePicked;
+
             // PSO precook: warms last session's traced pipeline states behind
             // the boot screen (first launch traces instead) — kills the
             // first-show shader-compile hitches. Fire-and-forget, self-paced.
@@ -1110,6 +1120,8 @@ namespace Lvn.UI.Screens
                 // какой именно: без этого сбой не отнести к истории, а таких
                 // событий в отчёте больше половины.
                 Lvn.Services.LvnAnalytics.CurrentTitle = title?.id;
+                Lvn.Services.LvnAnalytics.CurrentChapter = chapter.id;
+                lock (_reachedLabels) _reachedLabels.Clear(); // воронка считается ПО ГЛАВЕ
                 SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
@@ -1124,9 +1136,19 @@ namespace Lvn.UI.Screens
                     // просто заскучавший. Позиция говорит, ГДЕ бросили: у
                     // «дочитал до середины и вышел» и «вылетело на первом
                     // кадре» разные причины и разные починки.
+                    // Контекст КАДРА, а не только позиции. Иначе «ушли на
+                    // команде 137» не отвечает ни на что: половина глав вообще
+                    // без выборов, и бросают там не из-за развилки, а из-за
+                    // того, ЧТО на экране — плохой спрайт персонажа, не тот
+                    // фон, зависшая сцена. Метка + фон + кто на сцене дают
+                    // место, которое можно открыть и посмотреть глазами.
+                    var snap = Stage?.Player?.Save();
                     Lvn.Services.LvnAnalytics.Track("chapter_abandon",
                         ("title", title?.id), ("chapter", chapter.id),
-                        ("at", Stage?.Player?.Index ?? -1));
+                        ("at", Stage?.Player?.Index ?? -1),
+                        ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
+                        ("bg", Lvn.UI.VnStage.LastSceneBgUrl),
+                        ("actors", Stage?.ActorsOnStage()));
                     FlushUnknownOps(title, chapter);
                     break; // → carousel
                 }
@@ -1164,6 +1186,7 @@ namespace Lvn.UI.Screens
             // Вышли из новеллы: события меню не должны числиться за историей,
             // из которой игрок уже ушёл.
             Lvn.Services.LvnAnalytics.CurrentTitle = null;
+            Lvn.Services.LvnAnalytics.CurrentChapter = null;
             // A chapter's worth of remote sprites fragments the panel's dynamic
             // atlas (freed regions rarely fit the next tenant); rebuild it clean
             // at this natural boundary.
@@ -1319,6 +1342,29 @@ namespace Lvn.UI.Screens
             }
             Lvn.Services.LvnAnalytics.Track("asset_fail", ("asset", url), ("code", code));
         }
+
+        // Метки, о которых уже отчитались в этой главе. Цикл («спросить ещё
+        // раз») проходит одну и ту же метку многократно, а для воронки важен
+        // ФАКТ «дошёл», а не счётчик оборотов.
+        private static readonly HashSet<string> _reachedLabels = new HashSet<string>();
+
+        private static void OnLabelReached(string label)
+        {
+            if (string.IsNullOrEmpty(label)) return;
+            lock (_reachedLabels)
+            {
+                if (_reachedLabels.Count > 500) _reachedLabels.Clear(); // без роста без предела
+                if (!_reachedLabels.Add(label)) return;
+            }
+            Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label));
+        }
+
+        private static void OnChoiceShown(int written, int shown)
+            => Lvn.Services.LvnAnalytics.Track("choice_shown", ("written", written), ("shown", shown));
+
+        private static void OnChoicePicked(int index, string text, float seconds)
+            => Lvn.Services.LvnAnalytics.Track("choice_pick",
+                ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 1)));
 
         /// <summary>
         /// Отдаёт аналитике операции, которых рантайм не знает, и обнуляет
