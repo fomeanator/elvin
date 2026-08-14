@@ -1,6 +1,8 @@
 package lvns
 
 import (
+	"golang.org/x/text/unicode/norm"
+
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -680,5 +682,32 @@ func TestSyntheticLabelsDoNotShadowAnAuthorLabel(t *testing.T) {
 	}
 	if !seen["__then_one_1"] {
 		t.Fatalf("the author's own label vanished: %v", ids)
+	}
+}
+
+// «Ё» существует в двух видах: одним символом (NFC) и «Е» с комбинирующим
+// знаком (NFD). macOS отдаёт файлы в NFD, редакторы — по-разному, и две внешне
+// одинаковые строки при этом не равны: каталог перевода молча не находит
+// реплику, `if имя == "Ёжик"` не срабатывает. Компилятор приводит вход к NFC,
+// чтобы дальше по конвейеру формы не смешивались.
+func TestConvertNormalizesUnicodeToNFC(t *testing.T) {
+	const nfc = "Отлично! Ёжик, ёлка, объём."
+	nfd := norm.NFD.String(nfc)
+	if nfd == nfc {
+		t.Fatal("фикстура бессмысленна: NFD-форма совпала с NFC")
+	}
+
+	doc, err := Convert("scene t\n\nКатя: " + nfd + "\n")
+	if err != nil {
+		t.Fatalf("компиляция NFD-исходника: %v", err)
+	}
+	var got string
+	for _, c := range doc.Script {
+		if c["op"] == "say" {
+			got, _ = c["text"].(string)
+		}
+	}
+	if got != nfc {
+		t.Errorf("реплика осталась не в NFC:\n получили %q\n ожидали %q", got, nfc)
 	}
 }

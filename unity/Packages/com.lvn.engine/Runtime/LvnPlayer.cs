@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Newtonsoft.Json.Linq;
 
 namespace Lvn
@@ -125,16 +126,39 @@ namespace Lvn
         {
             var inline = (string)c["text"];
             if (inline != null)
-                return Strings != null && Strings.TryGetValue(inline, out var tr) ? tr : inline;
+                return Lookup(inline) ?? inline;
             var id = (string)c["text_id"];
             if (id == null) return "";
-            return Strings != null && Strings.TryGetValue(id, out var s) ? s : id;
+            return Lookup(id) ?? id;
         }
 
         // Speaker display names resolve through the same catalog (keyed by the
         // source name), so a translated cast renders without touching the script.
         private string LocalizedWho(string who)
-            => who != null && Strings != null && Strings.TryGetValue(who, out var t) ? t : who;
+            => who == null ? null : Lookup(who) ?? who;
+
+        /// <summary>
+        /// Поиск строки в каталоге, устойчивый к форме записи юникода.
+        ///
+        /// <para>«Ё» и любая буква с диакритикой существуют в двух видах: одним
+        /// символом (NFC) и буквой с комбинирующим знаком (NFD). macOS отдаёт
+        /// имена и содержимое в NFD, редакторы и веб-формы — по-разному, и
+        /// каталог, собранный из одной формы, молча не находит строку в другой.
+        /// Цена промаха несоразмерна причине: реплика остаётся непереведённой
+        /// без единого сообщения, и ищут это в переводе, а не в кодировке.</para>
+        ///
+        /// <para>Сначала точное совпадение (это горячий путь, лишней работы в
+        /// нём нет), и только при промахе — попытка нормализованным ключом.</para>
+        /// </summary>
+        private string Lookup(string key)
+        {
+            if (Strings == null || key == null) return null;
+            if (Strings.TryGetValue(key, out var hit)) return hit;
+            var nfc = key.Normalize(NormalizationForm.FormC);
+            if (!string.Equals(nfc, key, StringComparison.Ordinal)
+                && Strings.TryGetValue(nfc, out var normalized)) return normalized;
+            return null;
+        }
 
         /// <summary>
         /// Optional override for string <c>expr</c> conditions (option filters
