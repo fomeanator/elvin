@@ -150,10 +150,21 @@ func (s *server) missingAssets(doc *lvn.Doc) []string {
 			return // абсолютный путь не в /content/ — не наш
 		}
 		clean := filepath.Clean("/" + filepath.FromSlash(rel))[1:]
-		if _, err := os.Stat(filepath.Join(s.content, clean)); err == nil {
+		abs := filepath.Join(s.content, clean)
+		st, err := os.Stat(abs)
+		if err != nil {
+			out = append(out, fmt.Sprintf("script[%d] %s: файла нет — %s (ссылка есть, а на диске пусто: игрок увидит пустоту)", i, op, url))
 			return
 		}
-		out = append(out, fmt.Sprintf("script[%d] %s: файла нет — %s (ссылка есть, а на диске пусто: игрок увидит пустоту)", i, op, url))
+		if op == "audio" || op == "preload" || st.IsDir() {
+			return
+		}
+		if w, h, ok := imageSize(abs); ok {
+			if min := minArtHeight(op); h < min {
+				out = append(out, fmt.Sprintf("script[%d] %s: картинка %dx%d — мельче %dpx по высоте (%s); на телефоне растянется в мыло — %s",
+					i, op, w, h, min, artKindName(op), url))
+			}
+		}
 	}
 	for i, c := range doc.Script {
 		switch c.Op() {

@@ -187,6 +187,9 @@ func main() {
 	adsSvc.Routes(mux)
 	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
+	// «Что выглядит мылом»: разрешение арта по уже опубликованным главам.
+	// Страж ловит это на входе, но прод набивался до стража.
+	mux.HandleFunc("/v1/admin/art-quality", srv.handleArtQuality)
 	// "Коннект": один самодостаточный файл для ИИ (доступ + весь язык) и
 	// публикация .lvns одним запросом, чтобы для неё не требовался тулчейн.
 	mux.HandleFunc("/v1/admin/agent-bundle", srv.handleAgentBundle)
