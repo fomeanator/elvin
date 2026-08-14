@@ -244,6 +244,10 @@ namespace Lvn.UI.Screens
             Lvn.Services.LvnAttribution.Init();
             _ = RegisterThenAttributeAsync();
             Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
+            // has_item / balance / worn в выражениях: ветка за покупку.
+            // Читают живое состояние, поэтому ставить их надо до первой главы,
+            // а не при входе в неё.
+            Lvn.Services.LvnStoryFunctions.Install();
             Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
             {

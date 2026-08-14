@@ -21,6 +21,31 @@ namespace Lvn
     /// </summary>
     public static class LvnExpression
     {
+        /// <summary>
+        /// Функции, которых ядро знать не может: баланс кошелька, купленные
+        /// вещи, группа A/B-теста. Всё это живёт в сервисном слое, а он
+        /// снаружи движка — граница сборок здесь не формальность, а причина,
+        /// по которой движок остаётся движком, а не частью одного продукта.
+        ///
+        /// <para>Сервисный слой ставит сюда обработчик; ядро зовёт его для
+        /// любого имени, которого нет среди встроенных. Не поставили — вызов
+        /// падает ровно как раньше, с «unknown function».</para>
+        ///
+        /// <para>Обработчик получает имя и аргументы простыми объектами
+        /// (string, double, bool, null) и возвращает такой же простой объект.
+        /// Внутренние типы вычислителя наружу не выходят: иначе любой их
+        /// пересмотр ломал бы чужой код.</para>
+        ///
+        /// <para>Читать надо ЖИВОЕ значение, а не снимок при старте главы:
+        /// игрок покупает платье посреди сцены и должен сразу увидеть ветку,
+        /// которая за него отвечает.</para>
+        /// </summary>
+        public static System.Func<string, System.Collections.Generic.IReadOnlyList<object>, object> HostFunction;
+
+        /// <summary>Ответ обработчика «это имя не моё» — чтобы отличить его от
+        /// честного null. Без этого различия опечатка в имени функции молча
+        /// превращалась бы в пустое значение вместо ошибки.</summary>
+        public static readonly object NotHandled = new object();
         /// <summary>The random stream <c>rand()</c> / <c>chance()</c> draw from
         /// when no explicit one is passed. It is an OBJECT with a seed and a
         /// position (see <see cref="LvnRandom"/>), so a save can carry it and a
@@ -86,6 +111,41 @@ namespace Lvn
             public static Val Of(double n) => new Val(Kind.Num, false, n, null, null);
             public static Val Of(string s) => new Val(Kind.Str, false, 0, s, null);
             public static Val Of(JToken j) => new Val(Kind.Json, false, 0, null, j); // j must be JArray/JObject
+
+            /// <summary>Значение наружу — простым объектом. Внутренние типы
+            /// вычислителя не должны просачиваться в чужой код: иначе их
+            /// пересмотр ломает всех, кто на них сослался.</summary>
+            public object Boxed()
+            {
+                switch (Kind)
+                {
+                    case Kind.Bool: return B;
+                    case Kind.Num: return N;
+                    case Kind.Str: return S;
+                    case Kind.Json: return J;
+                    default: return null;
+                }
+            }
+
+            /// <summary>Значение внутрь — из того, что вернул сервисный слой.
+            /// Числа приходят каким угодно типом (кошелёк считает в long,
+            /// выражения в double), поэтому приводим все, а не только double:
+            /// иначе баланс молча станет пустым значением.</summary>
+            public static Val From(object o)
+            {
+                switch (o)
+                {
+                    case null: return Null;
+                    case bool b: return Of(b);
+                    case string str: return Of(str);
+                    case double d: return Of(d);
+                    case float f: return Of((double)f);
+                    case int i: return Of((double)i);
+                    case long l: return Of((double)l);
+                    case JToken t: return From(t);
+                    default: return Of(o.ToString());
+                }
+            }
 
             public static Val From(JToken t)
             {
@@ -611,7 +671,27 @@ namespace Lvn
                         var obj = CloneObj(A(0)); obj.Remove(A(1).AsStr()); return Val.Of(obj);
                     }
 
-                    default: throw new LvnException($"expr: unknown function {name}()");
+                    default:
+                    {
+                        var host = HostFunction;
+                        if (host != null)
+                        {
+                            var args = new System.Collections.Generic.List<object>(a.Count);
+                            for (int i = 0; i < a.Count; i++) args.Add(a[i].Boxed());
+                            object res;
+                            try { res = host(name, args); }
+                            catch (System.Exception e)
+                            {
+                                // Сервисный слой ходит в сеть и в кэш. Его сбой
+                                // не должен ронять главу: считаем, что условие
+                                // не выполнено, и говорим об этом в лог.
+                                UnityEngine.Debug.LogWarning($"[lvn-expr] {name}(): {e.Message}");
+                                return Val.Null;
+                            }
+                            if (res != NotHandled) return Val.From(res);
+                        }
+                        throw new LvnException($"expr: unknown function {name}()");
+                    }
                 }
             }
 

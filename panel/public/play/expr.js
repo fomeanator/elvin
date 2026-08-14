@@ -70,6 +70,15 @@ const FUNCS = {
     return randInt(lo, hi);
   },
   chance: (...a) => Math.random() < (a.length > 0 ? num(a[0]) : 0.5),
+
+  // Функции хоста: их значения приходят из кошелька и гардероба, которых у
+  // веб-плеера нет. Отвечаем безопасным пустым ответом, а не падаем: ветка за
+  // покупку в песочнице просто не открывается, и это правильный ответ —
+  // покупок здесь и правда нет. Расхождение с C# намеренное и записано в
+  // conformance; молчать о нём нельзя, поэтому оно названо здесь.
+  has_item: () => false,
+  balance: () => 0,
+  worn: () => "",
   // min/max read only their first two arguments — mirrors LvnExpression, which
   // ignores the rest. Extra args are silently dropped in BOTH runtimes.
   min: (...a) => (a.length === 0 ? 0 : a.length === 1 ? num(a[0]) : Math.min(num(a[0]), num(a[1]))),

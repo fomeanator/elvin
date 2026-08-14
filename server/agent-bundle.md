@@ -121,8 +121,20 @@ min(a,b) max(a,b)   // first two arguments only — extra ones are ignored
 abs floor round     // NO ceil
 len(x) has(coll,x) get(coll,k[,def]) indexof(arr,x) count(arr,x) sum(arr) first(arr) last(arr) keys(o) vals(o)
 list(...) push(arr,x) pop(arr) removeat(arr,i) remove(arr,x) slice(arr,s[,e]) concat(...) put(m,k,v) del(m,k)
+
+// Из внешнего мира — кошелёк и гардероб, а не переменные истории.
+// Читаются ЖИВЫМИ: купил посреди сцены — ветка открылась сразу.
+has_item("wardrobe:mira:outfit:gown")   // вещь куплена?
+balance("crystals")                      // сколько валюты сейчас
+worn("outfit")                           // что надето на герое сцены
+worn("dorn", "outfit")                   //   …или на названном
 ```
 Operators: `+ - * /` · `== != > >= < <=` · `&& || !`. An unset variable = `0`/`""`/`false`.
+The last three need the services package: in a host without it (and in the web
+playground) they answer "no item, zero, nothing worn", so a paid branch stays
+closed — which is the honest answer where nothing can be bought. Always give
+that branch a real other side, never a dead end.
+
 The list above is **closed** — there are no other functions. Your own go in a
 `func` (see above), which the compiler inlines; a call to anything else is a
 validator warning, because at runtime it would evaluate to nothing.
