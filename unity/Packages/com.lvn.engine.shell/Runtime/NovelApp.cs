@@ -238,7 +238,11 @@ namespace Lvn.UI.Screens
                 () => Task.FromResult("editor-dev-" + SystemInfo.deviceUniqueIdentifier);
             Lvn.Services.LvnAds.ShowRewarded ??= _ => Task.FromResult(true);
 #endif
-            _ = Lvn.Services.LvnBackend.EnsureRegisteredAsync();
+            // Откуда пришёл игрок. Init ловит и холодный запуск по ссылке, и
+            // переход по ссылке в уже запущенном приложении; отправка идёт
+            // ПОСЛЕ регистрации — без сессии сервер не знает, чей это канал.
+            Lvn.Services.LvnAttribution.Init();
+            _ = RegisterThenAttributeAsync();
             Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
             Lvn.Services.LvnAnalytics.Track("boot");
             if (OfflineBundled)
@@ -1356,6 +1360,17 @@ namespace Lvn.UI.Screens
         // раз») проходит одну и ту же метку многократно, а для воронки важен
         // ФАКТ «дошёл», а не счётчик оборотов.
         private static readonly HashSet<string> _reachedLabels = new HashSet<string>();
+
+        /// <summary>
+        /// Регистрация, затем отправка канала привлечения. Порядок обязателен:
+        /// без сессии сервер не знает, ЧЕЙ это канал, и запрос вернул бы 401.
+        /// Не вышло — метка осталась лежать и уедет на следующем запуске.
+        /// </summary>
+        private static async Task RegisterThenAttributeAsync()
+        {
+            if (await Lvn.Services.LvnBackend.EnsureRegisteredAsync())
+                await Lvn.Services.LvnAttribution.FlushAsync();
+        }
 
         private static void OnLabelReached(string label, int at)
         {

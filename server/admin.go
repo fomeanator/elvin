@@ -416,13 +416,18 @@ func (s *AdminService) handleUsers(w http.ResponseWriter, r *http.Request) {
 		Name      string            `json:"name,omitempty"`
 		Providers map[string]string `json:"providers,omitempty"`
 		Balances  map[string]int64  `json:"balances,omitempty"`
+		Channel   string            `json:"channel,omitempty"` // откуда пришёл
 	}
 	out := make([]row, 0, len(users))
 	for id, u := range users {
 		doc := s.wallet.AdminLoad(id)
+		ch := ""
+		if u.Attr != nil {
+			ch = u.Attr.Channel()
+		}
 		out = append(out, row{
 			UserID: id, Created: u.Created, Name: u.Name,
-			Providers: u.Providers, Balances: doc.Balances,
+			Providers: u.Providers, Balances: doc.Balances, Channel: ch,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Created > out[j].Created })
@@ -446,8 +451,9 @@ func (s *AdminService) handleUserDetail(w http.ResponseWriter, r *http.Request) 
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": id, "created": u.Created, "name": u.Name,
-		"providers": u.Providers,
-		"wallet":    s.wallet.AdminLoad(id),
+		"providers":   u.Providers,
+		"attribution": u.Attr,
+		"wallet":      s.wallet.AdminLoad(id),
 	})
 }
 
