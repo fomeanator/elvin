@@ -183,6 +183,14 @@ func main() {
 		log.Fatalf("client log service: %v", err)
 	}
 	clientLogSvc.Routes(mux)
+	// Отзывы из игры: текст плюс контекст, который собирается сам (сборка,
+	// глава, место в сценарии). Тестер в мессенджере ничего этого не назовёт.
+	feedbackSvc, err := NewFeedbackService(filepath.Join(servicesDir, "feedback"),
+		authSvc, *adminToken, analyticsSvc.chapters)
+	if err != nil {
+		log.Fatalf("feedback service: %v", err)
+	}
+	feedbackSvc.Routes(mux)
 	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)

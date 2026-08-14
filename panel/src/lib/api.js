@@ -283,6 +283,10 @@ export const adminAnalytics = (day, token) =>
 export const withSegment = (query, segment) =>
   segment ? (query ? query + "&" : "") + "segment=" + encodeURIComponent(segment) : query;
 
+// GET /v1/admin/feedback — отзывы из игры с их контекстом.
+export const adminFeedback = (query, token) =>
+  adminFetch("/v1/admin/feedback" + (query ? "?" + query : ""), token);
+
 export const analyticsSummary = (query, token) =>
   adminFetch("/v1/analytics/summary" + (query ? "?" + query : ""), token);
 
