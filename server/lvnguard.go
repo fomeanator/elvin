@@ -32,6 +32,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -116,7 +117,55 @@ func (s *server) checkLvn(rel string, data []byte) lvnFindings {
 			f.Warnings = append(f.Warnings, is.String())
 		}
 	}
+
+	// Ссылка есть, файла нет. Компилятору это не видно — он не знает, что
+	// лежит на диске, — а игроку видно сразу: пустой экран вместо фона,
+	// беззвучная сцена. Опечатка в имени файла ничем не отличается от
+	// «арт зальют завтра», поэтому предупреждение, а не отказ: порядок «сначала
+	// текст, потом картинки» — обычная работа, и запрещать его нельзя.
+	for _, miss := range s.missingAssets(doc) {
+		f.Warnings = append(f.Warnings, miss)
+	}
 	return f
+}
+
+// missingAssets — ссылки на контент, которого нет на диске.
+//
+// Смотрим ровно те поля, по которым движок идёт за файлом: фон и спрайты
+// (sprite_url у bg/actor/obj), звук (url у audio) и предзагрузку. Внешние
+// адреса (http) не наше дело, шаблоны с подстановкой ({стихия}) не проверяем:
+// их значение известно только в игре.
+func (s *server) missingAssets(doc *lvn.Doc) []string {
+	seen := map[string]bool{}
+	var out []string
+	check := func(i int, op, url string) {
+		if url == "" || seen[url] || strings.HasPrefix(url, "http") || strings.ContainsAny(url, "{}") {
+			return
+		}
+		seen[url] = true
+		rel := strings.TrimPrefix(url, "/content/")
+		if rel == url && !strings.HasPrefix(url, "/") {
+			rel = url // относительный путь внутри контента
+		} else if rel == url {
+			return // абсолютный путь не в /content/ — не наш
+		}
+		clean := filepath.Clean("/" + filepath.FromSlash(rel))[1:]
+		if _, err := os.Stat(filepath.Join(s.content, clean)); err == nil {
+			return
+		}
+		out = append(out, fmt.Sprintf("script[%d] %s: файла нет — %s (ссылка есть, а на диске пусто: игрок увидит пустоту)", i, op, url))
+	}
+	for i, c := range doc.Script {
+		switch c.Op() {
+		case "bg", "actor", "obj":
+			check(i, c.Op(), c.Str("sprite_url"))
+		case "audio":
+			check(i, "audio", c.Str("url"))
+		case "preload":
+			check(i, "preload", c.Str("url"))
+		}
+	}
+	return out
 }
 
 // checkImportedScripts runs the SAME gate over every compiled script an import
