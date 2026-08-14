@@ -97,8 +97,9 @@ type moneyReport struct {
 	UnpricedBuys    int      `json:"unpriced_purchases,omitempty"`
 	OtherCurrencies []string `json:"other_currency_skus,omitempty"`
 
-	Note  string   `json:"note,omitempty"`
-	Notes []string `json:"notes,omitempty"`
+	Segment string   `json:"segment,omitempty"`
+	Note    string   `json:"note,omitempty"`
+	Notes   []string `json:"notes,omitempty"`
 }
 
 // paymentsSource — откуда отчёт берёт покупки и цены. Интерфейс, а не
@@ -119,7 +120,14 @@ func (s *AnalyticsService) handleMoney(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	rep := moneyReport{To: win.To}
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
+
+	rep := moneyReport{To: win.To, Segment: seg.Human()}
 	days := append([]string(nil), win.Days...)
 	sort.Strings(days)
 	if len(days) > 0 {
@@ -141,6 +149,9 @@ func (s *AnalyticsService) handleMoney(w http.ResponseWriter, r *http.Request) {
 	for _, d := range days {
 		day := s.rollups.day(d)
 		for uid, pr := range day.Users {
+			if members != nil && !members[uid] {
+				continue
+			}
 			active[uid] = true
 			if _, seen := firstDay[uid]; !seen {
 				firstDay[uid] = d
@@ -181,6 +192,9 @@ func (s *AnalyticsService) handleMoney(w http.ResponseWriter, r *http.Request) {
 	}
 	var buys []pricedBuy
 	for _, p := range all {
+		if members != nil && !members[p.User] {
+			continue
+		}
 		ts, err := time.Parse(time.RFC3339, p.TS)
 		if err != nil || !inWindow[ts.UTC().Format("2006-01-02")] {
 			continue

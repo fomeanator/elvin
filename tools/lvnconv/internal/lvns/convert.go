@@ -1005,6 +1005,10 @@ var exprBuiltins = map[string]bool{
 	// существующими. В плеере без сервисов они возвращают безопасный
 	// пустой ответ (нет вещи, ноль на счету, ничего не надето).
 	"has_item": true, "balance": true, "worn": true,
+	// abtest("имя") — группа игрока в эксперименте. Деление детерминированное
+	// (хеш от имени теста и id игрока), поэтому одна и та же ветка у одного и
+	// того же человека всегда.
+	"abtest": true,
 }
 
 // funcDef is one `func …` declaration. The same syntax carries TWO different

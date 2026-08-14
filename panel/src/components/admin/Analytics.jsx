@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty } from "./ui.jsx";
 import {
@@ -34,7 +34,10 @@ export default function Analytics({ token }) {
 
   const preset = WINDOWS.find((w) => w.key === winKey) || WINDOWS[0];
   const win = winKey === "today" ? { day: customDay } : { days: preset.days };
-  const q = windowQuery(win);
+  // Сегмент — не отдельный экран, а сужение ВСЕХ таблиц сразу: вопрос
+  // «у кого именно» задают к любому числу, а не к специально отведённому.
+  const [segment, setSegment] = useState("");
+  const q = withSegment(windowQuery(win), segment);
 
   const summary = useAsync(() => analyticsSummary(q, token), [q, token]);
   const d = summary.data || {};
@@ -56,10 +59,19 @@ export default function Analytics({ token }) {
             <input type="date" className="field admin-date" value={customDay}
                    onChange={(e) => e.target.value && setCustomDay(e.target.value)} />
           )}
+          <input className="field adm-segbox" value={segment} placeholder="сегмент: channel:tg/aug"
+                 title={"Сужает все таблицы сразу. Виды: channel:<канал> · cohort:ГГГГ-ММ-ДД · " +
+                        "ab:<тест>=<группа> · payer:yes|no. Через запятую — пересечение."}
+                 onChange={(e) => setSegment(e.target.value)} />
           <button className="adm-iconbtn" onClick={summary.reload} title="обновить">⟳</button>
         </>
       }
     >
+      {segment && (
+        <p className="adm-dim">
+          Показаны только: <b>{segment}</b>. Числа ниже — по этой части аудитории, не по всем.
+        </p>
+      )}
       <div className="adm-kpis tight">
         <Stat label="событий" value={fmt(d.total || 0)} />
         <Stat label="игроков" value={fmt(d.unique_users || 0)} />

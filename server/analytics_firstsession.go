@@ -43,6 +43,7 @@ type firstSessionReport struct {
 	Steps     []sessionStep `json:"steps"`
 	BootMs    *bootTiming   `json:"boot_ms,omitempty"`
 	Worst     string        `json:"worst_step,omitempty"`
+	Segment   string        `json:"segment,omitempty"`
 	Note      string        `json:"note,omitempty"`
 }
 
@@ -66,6 +67,13 @@ func (s *AnalyticsService) handleFirstSession(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	seg, err := parseSegment(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	members := s.segmentMembers(seg, win.Days)
+
 	days := append([]string(nil), win.Days...)
 	sort.Strings(days)
 
@@ -82,6 +90,9 @@ func (s *AnalyticsService) handleFirstSession(w http.ResponseWriter, r *http.Req
 	for _, d := range days {
 		day := s.rollups.day(d)
 		for uid, pr := range day.Users {
+			if members != nil && !members[uid] {
+				continue
+			}
 			if _, known := seen[uid]; !known {
 				seen[uid] = &firstDay{day: d, steps: map[string]bool{}}
 			}
@@ -126,7 +137,7 @@ func (s *AnalyticsService) handleFirstSession(w http.ResponseWriter, r *http.Req
 	}
 	s.rollups.mu.Unlock()
 
-	rep := firstSessionReport{To: win.To, Newcomers: len(seen)}
+	rep := firstSessionReport{To: win.To, Newcomers: len(seen), Segment: seg.Human()}
 	if len(days) > 0 {
 		rep.From = days[0]
 	}
