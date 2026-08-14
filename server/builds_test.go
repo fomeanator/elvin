@@ -312,3 +312,26 @@ func TestBuildIdSlugSurvivesCyrillic(t *testing.T) {
 		}
 	}
 }
+
+// Сырая кириллица в filename= не переносима: часть клиентов покажет «Ð°Ð±Ñ€».
+// В заголовке обязаны быть ОБА имени — запасное латинское и закодированное.
+func TestDownloadHeaderCarriesBothNames(t *testing.T) {
+	dir := t.TempDir()
+	svc := NewBuildsService(filepath.Join(dir, "content"), "t")
+	m := buildMeta{ID: "android-test-1.apk", File: "android-текстуры и пружина.apk"}
+	if err := os.MkdirAll(svc.dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(svc.dir, m.ID), []byte("apk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	svc.serve(rec, httptest.NewRequest(http.MethodGet, "/v1/admin/builds/"+m.ID, nil), m)
+	cd := rec.Header().Get("Content-Disposition")
+	if !strings.Contains(cd, "filename*=UTF-8''") {
+		t.Errorf("нет закодированного имени: %q", cd)
+	}
+	if !strings.Contains(cd, `filename="android-tekstury`) {
+		t.Errorf("нет латинского запасного имени: %q", cd)
+	}
+}

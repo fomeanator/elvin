@@ -24,6 +24,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -372,7 +373,13 @@ func (s *BuildsService) serve(w http.ResponseWriter, r *http.Request, m buildMet
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+m.File+"\"")
+	// ДВА имени в заголовке, а не одно. Сырая кириллица в filename= не
+	// переносима (RFC 6266): часть клиентов покажет «Ð°Ð±Ñ€» вместо названия.
+	// Поэтому ASCII-запасное имя для старых, и filename* с процентным
+	// кодированием для всех остальных — они его и возьмут.
+	w.Header().Set("Content-Disposition",
+		"attachment; filename=\""+asciiSlug(m.File, m.ID)+"\"; filename*=UTF-8''"+
+			url.PathEscape(m.File))
 	w.Header().Set("X-Build-Version", m.Version)
 	w.Header().Set("X-Build-SHA256", m.SHA256)
 	http.ServeContent(w, r, m.File, info.ModTime(), f)
