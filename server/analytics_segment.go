@@ -218,6 +218,10 @@ func (s *AnalyticsService) windowFor(days []string, members map[string]bool) (*d
 	if members == nil {
 		return s.rollups.window(days)
 	}
+	// Событие без входа не принадлежит никому и потому не принадлежит ни
+	// одному сегменту. Это не потеря, а определение: сегмент — это множество
+	// ИГРОКОВ. Но разница в итогах («было 210, стало 207») требует объяснения,
+	// поэтому она названа в подписи сегмента, а не оставлена на догадки.
 	keep := func(uid string) bool { return uid != "" && members[uid] }
 	merged := newDayRollup("")
 	out := make([]dayReport, 0, len(days))

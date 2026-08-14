@@ -70,6 +70,7 @@ export default function Analytics({ token }) {
       {segment && (
         <p className="adm-dim">
           Показаны только: <b>{segment}</b>. Числа ниже — по этой части аудитории, не по всем.
+          События без входа в сегмент не попадают: у них нет игрока, которого можно отнести к каналу или группе.
         </p>
       )}
       <div className="adm-kpis tight">
