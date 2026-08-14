@@ -283,6 +283,10 @@ export const adminAnalytics = (day, token) =>
 export const withSegment = (query, segment) =>
   segment ? (query ? query + "&" : "") + "segment=" + encodeURIComponent(segment) : query;
 
+// GET /v1/admin/crashes — падения, сгруппированные по сути, а не по строкам.
+export const adminCrashes = (query, token) =>
+  adminFetch("/v1/admin/crashes" + (query ? "?" + query : ""), token);
+
 // GET /v1/admin/feedback — отзывы из игры с их контекстом.
 export const adminFeedback = (query, token) =>
   adminFetch("/v1/admin/feedback" + (query ? "?" + query : ""), token);

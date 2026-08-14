@@ -38,6 +38,9 @@ func NewClientLogService(dir, adminToken string) (*ClientLogService, error) {
 func (s *ClientLogService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/log/client", s.handleIngest)
 	mux.HandleFunc("/v1/admin/client-logs", s.handleTail)
+	// Падения, сгруппированные по сути, а не по строкам (crashes.go): то же,
+	// зачем ставят Sentry, на данных, которые уже собираются.
+	mux.HandleFunc("/v1/admin/crashes", s.handleCrashes)
 }
 
 type clientLogBatch struct {
@@ -54,6 +57,10 @@ type clientLogLine struct {
 	// Server-stamped:
 	Dev     string `json:"dev,omitempty"`
 	Session string `json:"session,omitempty"`
+	// App — версия сборки. Клиент присылает её один раз на пачку, а нужна она
+	// НА СТРОКЕ: без этого нельзя ответить на «в какой сборке это появилось»,
+	// а это первый вопрос к любому падению.
+	App string `json:"app,omitempty"`
 }
 
 const clientLogDayMaxSize = 256 << 20
@@ -119,6 +126,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 		}
 		ln.Dev = dev
 		ln.Session = session
+		ln.App = clip(batch.Device["app"], 64)
 		line, _ := json.Marshal(ln)
 		if _, err := f.Write(append(line, '\n')); err == nil {
 			accepted++

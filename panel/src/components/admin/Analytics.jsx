@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty } from "./ui.jsx";
 import {
@@ -439,6 +439,43 @@ function TitleFunnel({ rep, token, q, title }) {
   );
 }
 
+// Падения, сгруппированные по сути. Сырой лог отвечать на «что чинить» не
+// может: одно падение в цикле даёт тысячу строк и выглядит как тысяча проблем,
+// а редкое падение у половины игроков между ними тонет.
+function Crashes({ token, q }) {
+  const rep = useAsync(() => adminCrashes(q, token), [q, token]);
+  const d = rep.data || {};
+  const groups = d.groups || [];
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Падения</h2>
+        <span className="adm-dim">
+          ранжировано по числу ЛЮДЕЙ: редкое падение у многих важнее частого у одного
+        </span>
+      </header>
+      <LoadState loading={rep.loading} error={rep.error}>
+        {!groups.length ? <Empty text={d.note || "Ошибок в окне нет."} /> : (
+          <div className="adm-list">
+            {groups.map((g) => (
+              <details key={g.signature} className="crash">
+                <summary>
+                  <b>{g.devices}</b> устройств · {fmt(g.events)} раз · {g.title}
+                </summary>
+                <p className="adm-dim">
+                  сборки: {Object.entries(g.builds || {}).map(([b, n]) => b + " (" + n + ")").join(", ") || "—"}
+                  {g.first_seen ? " · впервые " + g.first_seen.replace("T", " ").replace("Z", "") : ""}
+                </p>
+                {g.sample_stack && <pre className="fb-log">{g.sample_stack}</pre>}
+              </details>
+            ))}
+          </div>
+        )}
+      </LoadState>
+    </section>
+  );
+}
+
 // ── Воронка внутри главы ────────────────────────────────────────────────────
 //
 // Метка = слайд, размеченный автором. Две таблицы отвечают на разные вопросы и
@@ -629,6 +666,8 @@ function Health({ token, q }) {
         <CountPanel title="Неизвестные опы" rows={d.unknown_ops}
                     empty="Клиент не прислал ни одного unknown_op." />
       </div>
+      <Crashes token={token} q={q} />
+
       <CountPanel title="Промахи по ассетам" rows={d.asset_failures}
                   empty="Ни одного asset_fail — либо всё грузится, либо клиент их не шлёт." />
 
