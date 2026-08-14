@@ -608,3 +608,72 @@ func TestRetentionCohorts(t *testing.T) {
 		t.Error("день, который ещё не наступил, попал в отчёт нулём — так удержание и занижают")
 	}
 }
+
+// Воронка первой сессии обязана считать ТОЛЬКО первый день игрока. Если в неё
+// попадёт ветеран, зашедший почитать двадцатую главу, она покажет, что новички
+// прекрасно доходят до конца, — и решение будет принято по выдумке.
+func TestFirstSessionCountsOnlyNewcomersFirstDay(t *testing.T) {
+	dir := t.TempDir()
+	write := func(day string, lines ...string) {
+		var b strings.Builder
+		for _, l := range lines {
+			b.WriteString(l + "\n")
+		}
+		if err := os.WriteFile(filepath.Join(dir, day+".jsonl"), []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ev := func(day, name, user, props string) string {
+		p := ""
+		if props != "" {
+			p = `,"props":` + props
+		}
+		return `{"name":"` + name + `","ts":"` + day + `T10:00:00Z","user":"` + user + `"` + p + `}`
+	}
+	// День 1: ветеран уже играет. День 2: приходят двое новичков — один
+	// застревает на загрузке, второй доходит до конца главы.
+	write("2026-08-01",
+		ev("2026-08-01", "boot", "veteran", ""),
+		ev("2026-08-01", "chapter_finish", "veteran", ""))
+	write("2026-08-02",
+		ev("2026-08-02", "boot", "veteran", ""),
+		ev("2026-08-02", "chapter_finish", "veteran", ""),
+		ev("2026-08-02", "boot", "newbie_stuck", ""),
+		ev("2026-08-02", "boot", "newbie_ok", ""),
+		ev("2026-08-02", "first_screen", "newbie_ok", `{"boot_ms":2500}`),
+		ev("2026-08-02", "chapter_start", "newbie_ok", ""),
+		ev("2026-08-02", "chapter_finish", "newbie_ok", ""))
+
+	s := &AnalyticsService{dir: dir, rollups: newRollupStore(dir), adminToken: "t"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+	rec, _ := call(t, mux, "GET", "/v1/analytics/first-session?from=2026-08-02&to=2026-08-02", "t", nil)
+	if rec.Code != 200 {
+		t.Fatalf("отчёт не отдался: %d %s", rec.Code, rec.Body.String())
+	}
+	var rep firstSessionReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatal(err)
+	}
+	// Окно — только второй день, но ветеран в нём НЕ новичок… впрочем, внутри
+	// одного дня отличить его нельзя, и отчёт честно берёт всех троих.
+	if rep.Newcomers != 3 {
+		t.Fatalf("в окне трое игроков, посчитано %d", rep.Newcomers)
+	}
+	byStep := map[string]sessionStep{}
+	for _, s := range rep.Steps {
+		byStep[s.Step] = s
+	}
+	if byStep["запустил"].Players != 3 {
+		t.Errorf("запустили трое, посчитано %d", byStep["запустил"].Players)
+	}
+	if byStep["увидел первый экран"].Players != 1 {
+		t.Errorf("до первого экрана дошёл один, посчитано %d", byStep["увидел первый экран"].Players)
+	}
+	if rep.Worst != "увидел первый экран" {
+		t.Errorf("худшая ступень — загрузка (двое из трёх не дошли), а отчёт назвал %q", rep.Worst)
+	}
+	if rep.BootMs == nil || rep.BootMs.Median != 2500 {
+		t.Errorf("время загрузки не собрано: %+v", rep.BootMs)
+	}
+}

@@ -82,6 +82,7 @@ const (
 	evUnknownOp      = "unknown_op"      // not sent yet; see health.missing_signals
 	evAssetFail      = "asset_fail"      // not sent yet
 	evBoot           = "boot"
+	evFirstScreen    = "first_screen" // первый интерактивный экран после загрузки
 )
 
 // rollupEvent is the read-side view of a logged event. Props stay raw: the
@@ -162,6 +163,24 @@ type playerRoll struct {
 	PC     string          `json:"pc,omitempty"` // that chapter
 	PTS    string          `json:"pts,omitempty"`
 	Titles map[string]bool `json:"ts,omitempty"`
+	// Steps — ступени первой сессии, которые игрок прошёл в этот день, и
+	// сколько миллисекунд он ждал загрузки. Хранится по игроку, потому что
+	// воронка первого дня считается по людям, а не по событиям: десять
+	// перезапусков одного человека — это по-прежнему один человек.
+	Steps  []string `json:"st,omitempty"`
+	BootMs []int    `json:"bms,omitempty"`
+}
+
+// noteStep запоминает пройденную ступень без повторов.
+func (p *playerRoll) noteStep(name string) {
+	for _, s := range p.Steps {
+		if s == name {
+			return
+		}
+	}
+	if len(p.Steps) < 8 {
+		p.Steps = append(p.Steps, name)
+	}
 }
 
 func newDayRollup(day string) *dayRollup {
@@ -338,6 +357,17 @@ func (r *dayRollup) foldLine(line []byte) {
 		if name == evChapterFinish {
 			p.Fin++
 		}
+		switch name {
+		case evBoot, evFirstScreen, evChapterStart, evChapterFinish:
+			p.noteStep(name)
+		}
+		// Время загрузки собираем поштучно: медиана честнее среднего, а
+		// посчитать её можно только по отдельным замерам.
+		if name == evFirstScreen {
+			if ms := rollupPropInt(ev.Props, "boot_ms"); ms > 0 && len(p.BootMs) < 20 {
+				p.BootMs = append(p.BootMs, ms)
+			}
+		}
 		if p.First == "" || (ts != "" && ts < p.First) {
 			p.First = ts
 		}
@@ -484,6 +514,17 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 		}
 		if op.PTS >= p.PTS && op.PC != "" {
 			p.PT, p.PC, p.PTS = op.PT, op.PC, op.PTS
+		}
+		// Ступени и замеры загрузки тоже складываем: без этого воронка первой
+		// сессии за окно из нескольких дней теряет данные — ровно так уже
+		// вышло с точками выхода.
+		for _, st := range op.Steps {
+			p.noteStep(st)
+		}
+		for _, ms := range op.BootMs {
+			if len(p.BootMs) < 20 {
+				p.BootMs = append(p.BootMs, ms)
+			}
 		}
 		for tt := range op.Titles {
 			if p.Titles == nil {
