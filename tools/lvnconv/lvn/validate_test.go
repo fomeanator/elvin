@@ -1,6 +1,9 @@
 package lvn
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func parse(t *testing.T, s string) *Doc {
 	t.Helper()
@@ -339,14 +342,15 @@ func TestValidate_EmptyScript(t *testing.T) {
 
 func TestValidate_FailedCommandAsNarration(t *testing.T) {
 	d := parse(t, `{"scene":"x","script":[{"op":"say","text":"fade to=\"black\"3 duration=0.8"}]}`)
-	if !hasWarn(Validate(d), "didn't parse") {
-		t.Fatal("expected a warning for an op-looking narration line")
+	// Ошибка, а не предупреждение: такая строка молча уезжает игроку.
+	if !hasError(Validate(d), "не разобрался") {
+		t.Fatal("строка-команда, ставшая репликой, обязана быть ОШИБКОЙ")
 	}
 }
 
 func TestValidate_PlainNarration_NoFalsePositive(t *testing.T) {
 	d := parse(t, `{"scene":"x","script":[{"op":"say","text":"She said hello."},{"op":"say","who":"Mara","text":"set the mood"}]}`)
-	if hasWarn(Validate(d), "didn't parse") {
+	if hasError(Validate(d), "не разобрался") {
 		t.Fatal("plain narration / dialogue must not warn")
 	}
 }
@@ -461,10 +465,21 @@ func TestValidate_StrayAssignInExpr(t *testing.T) {
 // The op-typo lint: a mistyped command must not reach the player as dialogue.
 // Shapes prose never has (`=`, `->`, a /path argument) are flagged; a
 // positional-only slip is knowingly left alone — see commandLike.
+//
+// Это ОШИБКА, а не предупреждение: предупреждение через API публикации никто
+// не читает, и глава с `bbg /content/…` уезжала игроку с ok:true.
 func TestMistypedCommandLint(t *testing.T) {
 	flagged := func(text string) bool {
 		doc := &Doc{Script: []Cmd{{"op": "say", "text": text}, {"op": "goto", "label": "__end"}}}
-		return hasWarn(Validate(doc), "mistyped command") || hasWarn(Validate(doc), "didn't parse")
+		for _, is := range Validate(doc) {
+			if is.Sev != SevError {
+				continue
+			}
+			if strings.Contains(is.Msg, "опечаткой") || strings.Contains(is.Msg, "не разобрался") {
+				return true
+			}
+		}
+		return false
 	}
 	for _, tc := range []struct {
 		text string

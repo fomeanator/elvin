@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // Фикстуры пишем как .lvn (это JSON) и гоняем через тот же loadForWalk, что и
@@ -16,7 +18,7 @@ func walkFixture(t *testing.T, script string) walkReport {
 	if err := os.WriteFile(path, []byte(`{"scene":"t","script":`+script+`}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rep := walkFile(path, defaultWalkDepth)
+	rep := walkFile(path, lvn.DefaultReachDepth)
 	if rep.Err != "" {
 		t.Fatalf("фикстура не разобралась: %s", rep.Err)
 	}
@@ -231,7 +233,7 @@ func TestWalkAcceptsLvnsSource(t *testing.T) {
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rep := walkFile(path, defaultWalkDepth)
+	rep := walkFile(path, lvn.DefaultReachDepth)
 	if rep.Err != "" {
 		t.Fatalf(".lvns должен приниматься: %s", rep.Err)
 	}

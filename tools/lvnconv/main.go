@@ -83,7 +83,7 @@ usage:
   lvnconv convert  <articy-project-dir> [-start <ordinal>] [-max <N>]
   lvnconv detect   <articy-project-dir> [-template <name>] [-template-dir <dir>]
   lvnconv conflicts -i <content-dir> [-rel <path> [-choice mine|incoming]] [-diff]
-  lvnconv validate <in.lvn> [-strict] [-ext-grammar file.json]
+  lvnconv validate <in.lvn|in.lvns> [-strict] [-ext-grammar file.json]
   lvnconv probe    <in.lvn>
   lvnconv walk     [-depth N] [-strict] [-json] <in.lvn|in.lvns>…
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
@@ -491,9 +491,14 @@ func cmdValidate(args []string) {
 	extPath := fs.String("ext-grammar", "", "host-op declaration (ext-grammar.json); default: auto-detect beside the file")
 	_ = fs.Parse(args)
 	if fs.NArg() != 1 {
-		die("validate: expected one <in.lvn>")
+		die("validate: expected one <in.lvn|in.lvns>")
 	}
-	doc := loadLvn(fs.Arg(0))
+	// .lvns тоже: автор пишет именно его, и «проверь мою главу» не должно
+	// требовать сначала скомпилировать её руками.
+	doc, err := loadForWalk(fs.Arg(0))
+	if err != nil {
+		die("validate: " + err.Error())
+	}
 
 	// Host-op declarations widen the known world per project: explicit flag
 	// first, else the conventional sidecar beside the file (or one level up).
