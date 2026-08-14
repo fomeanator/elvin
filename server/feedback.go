@@ -10,17 +10,17 @@ package main
 // сборка, новелла, глава, индекс команды, устройство. Просить человека их
 // назвать бессмысленно — он их не знает и знать не должен.
 //
-// Хранение — те же .jsonl по дням, что у событий и логов: отзывов будут
-// десятки, а не миллионы, и заводить под них базу значит обслуживать базу
-// ради десятков строк.
+// Лежат в базе, потому что их ЧИТАЮТ запросом: новые сверху, разбивка по
+// сборкам, дальше — фильтр по главе и по игроку. По файлам каждое открытие
+// вкладки означало бы обход всего каталога и сортировку в памяти.
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +31,6 @@ import (
 const (
 	feedbackMaxText  = 4000 // длиннее человек не пишет, а вот бот — да
 	feedbackMaxBytes = 16 << 10
-	feedbackDayMax   = 4 << 20 // защита от заливки: день не растёт без предела
 )
 
 // feedbackEntry — одна запись. Контекст лежит рядом с текстом, а не в отдельной
@@ -61,18 +60,49 @@ type feedbackEntry struct {
 
 type FeedbackService struct {
 	mu         sync.Mutex
-	dir        string
+	db         *sql.DB
+	dir        string // прежние .jsonl: только для разового переноса
 	auth       *AuthService
 	adminToken string
 	// chapters/content — чтобы восстановить кадр по индексу команды.
 	chapters *chapterIndex
 }
 
-func NewFeedbackService(dir string, auth *AuthService, adminToken string, chapters *chapterIndex) (*FeedbackService, error) {
+func NewFeedbackService(dir string, db *sql.DB, auth *AuthService, adminToken string, chapters *chapterIndex) (*FeedbackService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	return &FeedbackService{dir: dir, auth: auth, adminToken: adminToken, chapters: chapters}, nil
+	s := &FeedbackService{dir: dir, db: db, auth: auth, adminToken: adminToken, chapters: chapters}
+	if err := s.importFiles(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// importFiles переносит отзывы из прежних .jsonl и переименовывает файлы.
+// Один раз: повторный проход задвоил бы записи, а отличить их было бы нечем.
+func (s *FeedbackService) importFiles() error {
+	names, err := filepath.Glob(filepath.Join(s.dir, "*.jsonl"))
+	if err != nil || len(names) == 0 {
+		return nil
+	}
+	for _, name := range names {
+		f, err := os.Open(name)
+		if err != nil {
+			continue
+		}
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
+		for sc.Scan() {
+			var e feedbackEntry
+			if json.Unmarshal(sc.Bytes(), &e) == nil && e.Text != "" {
+				_ = s.insert(e)
+			}
+		}
+		f.Close()
+		_ = os.Rename(name, name+".imported")
+	}
+	return nil
 }
 
 func (s *FeedbackService) Routes(mux *http.ServeMux) {
@@ -124,7 +154,7 @@ func (s *FeedbackService) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.append(e); err != nil {
+	if err := s.insert(e); err != nil {
 		http.Error(w, "не удалось сохранить", http.StatusInternalServerError)
 		return
 	}
@@ -149,23 +179,11 @@ func (s *FeedbackService) loadScript(title, chapter string) *lvn.Doc {
 	return doc
 }
 
-func (s *FeedbackService) append(e feedbackEntry) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	path := filepath.Join(s.dir, time.Now().UTC().Format("2006-01-02")+".jsonl")
-	if fi, err := os.Stat(path); err == nil && fi.Size() > feedbackDayMax {
-		return nil // день переполнен: молча не пишем, но и не рушим клиент
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	line, err := json.Marshal(e)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(append(line, '\n'))
+func (s *FeedbackService) insert(e feedbackEntry) error {
+	_, err := s.db.Exec(`
+		INSERT INTO feedback(ts, user_id, kind, text, build, title, chapter, at, label, device, log, line, bg)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		e.TS, e.User, e.Kind, e.Text, e.Build, e.Title, e.Chapter, e.At, e.Label, e.Device, e.Log, e.Line, e.BG)
 	return err
 }
 
@@ -179,28 +197,25 @@ func (s *FeedbackService) handleList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Один запрос вместо обхода каталога: сортировка и срез — работа базы.
+	rows, err := s.db.Query(`
+		SELECT ts, user_id, kind, text, build, title, chapter, at, label, device, log, line, bg
+		FROM feedback WHERE ts >= ? AND ts <= ?
+		ORDER BY ts DESC LIMIT ?`,
+		win.From, win.To+"T23:59:59Z", topN(r))
+	if err != nil {
+		http.Error(w, "не удалось прочитать отзывы", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
 	var out []feedbackEntry
-	s.mu.Lock()
-	for _, day := range win.Days {
-		f, err := os.Open(filepath.Join(s.dir, day+".jsonl"))
-		if err != nil {
+	for rows.Next() {
+		var e feedbackEntry
+		if err := rows.Scan(&e.TS, &e.User, &e.Kind, &e.Text, &e.Build, &e.Title,
+			&e.Chapter, &e.At, &e.Label, &e.Device, &e.Log, &e.Line, &e.BG); err != nil {
 			continue
 		}
-		sc := bufio.NewScanner(f)
-		sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
-		for sc.Scan() {
-			var e feedbackEntry
-			if json.Unmarshal(sc.Bytes(), &e) == nil && e.Text != "" {
-				out = append(out, e)
-			}
-		}
-		f.Close()
-	}
-	s.mu.Unlock()
-
-	sort.Slice(out, func(i, j int) bool { return out[i].TS > out[j].TS })
-	if n := topN(r); len(out) > n {
-		out = out[:n]
+		out = append(out, e)
 	}
 	// Сколько отзывов на какую сборку — сразу видно, чинит ли новая версия то,
 	// на что жаловались в прошлой.

@@ -36,7 +36,12 @@ func TestFeedbackKeepsContextAndRebuildsFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := NewFeedbackService(t.TempDir(), auth, "t",
+	dbDir := t.TempDir()
+	db, err := openStore(dbDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := NewFeedbackService(t.TempDir(), db, auth, "t",
 		newChapterIndex(filepath.Join(content, "manifest.json")))
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +92,11 @@ func TestFeedbackKeepsContextAndRebuildsFrame(t *testing.T) {
 // Пустой отзыв не запись, а промах по кнопке.
 func TestFeedbackRejectsEmpty(t *testing.T) {
 	auth, _ := NewAuthService(t.TempDir())
-	svc, err := NewFeedbackService(t.TempDir(), auth, "t", nil)
+	db, err := openStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := NewFeedbackService(t.TempDir(), db, auth, "t", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,5 +107,44 @@ func TestFeedbackRejectsEmpty(t *testing.T) {
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("код %d, ожидался 400", rec.Code)
+	}
+}
+
+// Отзывы, написанные до переезда в базу, обязаны перенестись — и ровно один
+// раз: повторный проход задвоил бы их, а отличить копии было бы нечем.
+func TestFeedbackImportsOldFilesOnce(t *testing.T) {
+	dir := t.TempDir()
+	line := `{"ts":"2026-08-14T10:00:00Z","text":"героиня пропала","build":"1.4.2","kind":"bug"}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "2026-08-14.jsonl"), []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dbDir := t.TempDir()
+	db, err := openStore(dbDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, _ := NewAuthService(t.TempDir())
+	if _, err := NewFeedbackService(dir, db, auth, "t", nil); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM feedback`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("перенесено %d отзывов вместо одного", n)
+	}
+	// Исходник переименован, значит второй старт его не подхватит.
+	if _, err := os.Stat(filepath.Join(dir, "2026-08-14.jsonl")); err == nil {
+		t.Error("исходный файл остался — следующий старт задвоит записи")
+	}
+	if _, err := NewFeedbackService(dir, db, auth, "t", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM feedback`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("повторный старт задвоил отзывы: %d", n)
 	}
 }
