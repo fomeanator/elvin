@@ -63,6 +63,10 @@ namespace Lvn.Tests
             { "hint", "{\"op\":\"hint\",\"text\":\"подсказка\"}" },
             { "save", "{\"op\":\"save\",\"slot\":\"probe\"}" },
             { "wardrobe_show", "{\"op\":\"wardrobe_show\",\"char\":\"hill\"}" },
+            // track — метка конверсии: хостовый оп, поле name (сервисный слой
+            // шлёт по ней событие аналитики). В кадре не делает ничего, поэтому
+            // проверяется именно то, что он НЕ уходит на сцену.
+            { "track", "{\"op\":\"track\",\"name\":\"первый поцелуй\"}" },
         };
 
         sealed class ForwardSpy : ILvnStage
