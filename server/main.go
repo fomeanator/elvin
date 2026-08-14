@@ -158,6 +158,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("analytics service: %v", err)
 	}
+	// Отчёт о деньгах читает ведомость покупок из кошелька: активные игроки
+	// живут в аналитике, а покупки — в кошельке, и без этой связки нельзя
+	// посчитать ни конверсию, ни ARPU.
+	analyticsSvc.payments = walletSvc
 	dailySvc, err := NewDailyService(filepath.Join(servicesDir, "daily"), authSvc, walletSvc,
 		filepath.Join(*contentDir, "daily-rewards.json"))
 	if err != nil {

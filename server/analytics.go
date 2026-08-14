@@ -30,6 +30,9 @@ type AnalyticsService struct {
 
 	rollups  *rollupStore  // derived aggregates over the day files
 	chapters *chapterIndex // chapter ORDER, read from the same manifest players read
+	// payments — ведомость покупок (кошелёк). Необязательна: движок без
+	// монетизации остаётся движком, отчёт о деньгах тогда просто пуст.
+	payments paymentsSource
 }
 
 func NewAnalyticsService(dir string, auth *AuthService, adminToken string, owners *ownerIndex) (*AnalyticsService, error) {
@@ -57,6 +60,8 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/retention", s.handleRetention)
 	// Первая сессия: докуда доходит новичок и сколько ждёт загрузки.
 	mux.HandleFunc("/v1/analytics/first-session", s.handleFirstSession)
+	// Деньги: конверсия в платящего, ARPU, ARPPU (analytics_money.go).
+	mux.HandleFunc("/v1/analytics/money", s.handleMoney)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 

@@ -293,6 +293,11 @@ export const analyticsFunnel = (query, title, token) =>
 export const analyticsHealth = (query, token) =>
   adminFetch("/v1/analytics/health" + (query ? "?" + query : ""), token);
 
+// GET /v1/analytics/money — конверсия в платящего, ARPU, ARPPU, разбивка по
+// пакам и когортам. Сумма — оценка по прайсу каталога, не выручка из стора.
+export const analyticsMoney = (query, token) =>
+  adminFetch("/v1/analytics/money" + (query ? "?" + query : ""), token);
+
 // ── Import conflicts (server/import_conflicts.go) ───────────────────────────
 // A re-import never overwrites a hand edit: the new version is parked as
 // <file>.incoming and the pair waits here for a decision.
