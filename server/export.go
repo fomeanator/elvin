@@ -689,3 +689,51 @@ func buildReadme(cfg exportConfig, name string) string {
 		"Keep that server running (and reachable) for players. Edit chapters in the\n" +
 		"authoring panel and they update live.\n"
 }
+
+// translit — кириллица в латиницу для тех мест, где имя становится путём.
+// Не транслитерируем ВЕЗДЕ намеренно: человек должен видеть своё название как
+// написал, а обезличенное имя нужно только файлу.
+var translit = map[rune]string{
+	'а': "a", 'б': "b", 'в': "v", 'г': "g", 'д': "d", 'е': "e", 'ё': "e",
+	'ж': "zh", 'з': "z", 'и': "i", 'й': "y", 'к': "k", 'л': "l", 'м': "m",
+	'н': "n", 'о': "o", 'п': "p", 'р': "r", 'с': "s", 'т': "t", 'у': "u",
+	'ф': "f", 'х': "h", 'ц': "c", 'ч': "ch", 'ш': "sh", 'щ': "sch",
+	'ъ': "", 'ы': "y", 'ь': "", 'э': "e", 'ю': "yu", 'я': "ya",
+}
+
+// asciiSlug — имя, пригодное для файла и адреса. Пустой результат заменяется
+// запасным: безымянный файл хуже неточного.
+func asciiSlug(s, fallback string) string {
+	var b strings.Builder
+	prevDash := false
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		var out string
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '.', r == '_':
+			out = string(r)
+		case translit[r] != "":
+			out = translit[r]
+		case r == 'ъ' || r == 'ь':
+			out = ""
+		default:
+			out = "-"
+		}
+		if out == "-" {
+			if prevDash {
+				continue
+			}
+			prevDash = true
+		} else if out != "" {
+			prevDash = false
+		}
+		b.WriteString(out)
+	}
+	out := strings.Trim(b.String(), "-")
+	if len([]rune(out)) > 60 {
+		out = string([]rune(out)[:60])
+	}
+	if out == "" {
+		return fallback
+	}
+	return out
+}
