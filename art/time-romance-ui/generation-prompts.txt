@@ -1,0 +1,30 @@
+ImageGen look-development prompt set (built-in image generation)
+
+Общий арт-дирекшн для всех девяти исходников: premium restrained mobile romance
+UI; dark, warm, expensive evening-interior mood; matte velvet/paper or satin
+material; palette #171119, #241a24, #38293a, #ec5a92; muted old brass below 10%;
+orthographic; homogeneous nine-slice-safe centers and edges; no text, icons,
+cast shadows, perspective, mockup scenery, neon, pure black, or watermark.
+
+1. panel_surface — square #241a24 matte panel, 16 px corners, 2–3% grain,
+   4% top light, patinated inner border, faint warm upper-left lamp glow.
+2. panel_raised — the same material 6% lighter, subtle top highlight and darker
+   internal bottom edge, no external shadow.
+3. panel_sunken — recessed warm-plum slot 8% darker, reverse gradient and thin
+   top inner shadow.
+4. button_primary — #ec5a92 satin primary button, top 8% lighter, restrained
+   highlight and denser lower edge, living but subtle corner character.
+5. button_secondary — transparent dark-plum outline button with a 3% interior
+   light veil and lightly patinated #38293a edge.
+6. chip — compact translucent warm-black capsule, 28% opacity base, thin upper
+   rim, readable over both bright and dark imagery.
+7. card_frame — transparent 250:340 poster frame, restrained geometric corner
+   cuts, tiny aged-brass accents, quiet upper-right badge area, lower 30% dark veil.
+8. divider — 1–2 px #38293a horizontal separator, solid center fading to zero
+   inside the 24 px end zones.
+9. sheet_top — 3:1 dark-plum bottom-sheet cap, only upper corners rounded,
+   straight lower seam, subtle material grain, centered 40 × 4 px handle.
+
+The generated images were used for look development. Exact production geometry,
+colors, alpha, native @1x/@3x rendering and nine-slice-safe regions were then
+enforced by tools/generate_time_romance_ui.py.
