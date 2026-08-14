@@ -87,9 +87,11 @@ func TestWalkFindsBlockSkippedByUnconditionalGoto(t *testing.T) {
 	}
 }
 
-// Функция, которую никто не вызывает: её тело перепрыгнуто goto (так её и
-// компилирует .lvns), поэтому мёртвым оказывается весь блок.
-func TestWalkFindsUncalledFunctionBody(t *testing.T) {
+// Функция, которую никто не вызывает, — отдельный сигнал, а не мёртвый блок:
+// для главы это находка (в боевой новелле так потерялись эффекты оружия), а для
+// файла-библиотеки норма — её функции зовёт потребитель, которого в файле нет.
+// Поэтому тело обходится как своя точка входа, а имя уходит в отдельный список.
+func TestWalkReportsUncalledFunctionsSeparately(t *testing.T) {
 	rep := walkFixture(t, `[
 		{"op":"goto","label":"__fnskip_f"},
 		{"op":"label","id":"__fn_f"},
@@ -98,8 +100,14 @@ func TestWalkFindsUncalledFunctionBody(t *testing.T) {
 		{"op":"label","id":"__fnskip_f"},
 		{"op":"say","text":"дальше без искр"}
 	]`)
-	if len(rep.Blocks) != 1 || rep.Blocks[0].Len != 3 {
-		t.Fatalf("тело невызванной функции должно быть мёртвым блоком: %+v", rep.Blocks)
+	if len(rep.UncalledFuncs) != 1 || rep.UncalledFuncs[0] != "f" {
+		t.Fatalf("невызванная функция должна быть названа: %+v", rep.UncalledFuncs)
+	}
+	if len(rep.Blocks) != 0 {
+		t.Fatalf("её тело обходится как точка входа, мёртвым блоком быть не должно: %+v", rep.Blocks)
+	}
+	if rep.Reached != rep.Commands {
+		t.Errorf("покрытие должно быть полным: %d из %d", rep.Reached, rep.Commands)
 	}
 	// А вызванная — живой.
 	rep = walkFixture(t, `[
@@ -111,8 +119,8 @@ func TestWalkFindsUncalledFunctionBody(t *testing.T) {
 		{"op":"label","id":"__fnskip_f"},
 		{"op":"say","text":"дальше"}
 	]`)
-	if len(rep.Blocks) != 0 {
-		t.Fatalf("вызванная функция мёртвой быть не может: %+v", rep.Blocks)
+	if len(rep.Blocks) != 0 || len(rep.UncalledFuncs) != 0 {
+		t.Fatalf("вызванная функция ни мёртвой, ни «без вызова» быть не может: %+v %v", rep.Blocks, rep.UncalledFuncs)
 	}
 }
 
@@ -231,7 +239,7 @@ func TestWalkJSONShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"file"`, `"commands"`, `"reached"`, `"dead_blocks"`, `"boilerplate_dead"`, `"paths"`, `"cut_by_depth"`} {
+	for _, key := range []string{`"file"`, `"commands"`, `"reached"`, `"dead_blocks"`, `"boilerplate_dead"`, `"uncalled_funcs"`, `"paths"`, `"cut_by_depth"`} {
 		if !strings.Contains(string(raw), key) {
 			t.Errorf("в JSON-отчёте нет поля %s", key)
 		}
