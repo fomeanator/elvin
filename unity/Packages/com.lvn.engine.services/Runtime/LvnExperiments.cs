@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using System.Text;
 
 namespace Lvn.Services
@@ -44,6 +46,66 @@ namespace Lvn.Services
         /// <summary>Все тесты, в которых игрок состоит, — уезжают в события.</summary>
         public static IReadOnlyDictionary<string, string> Assignments => _cache;
 
+        // Группы, присланные сервером. Они ГЛАВНЕЕ локального деления: только
+        // сервер знает долю трафика, таргет по кампании и выключатель. Локальный
+        // хеш остаётся запасным путём — для игры без сервера и для первого
+        // запуска, пока ответ не пришёл.
+        private static readonly Dictionary<string, string> _server =
+            new Dictionary<string, string>();
+
+        private const string PServer = "lvn.svc.ab.assignments";
+
+        /// <summary>
+        /// Забирает группы с сервера. Вызывается после регистрации: без сессии
+        /// сервер не знает, кому отвечать.
+        ///
+        /// <para>Ответ переживает перезапуск (PlayerPrefs): иначе первая сцена
+        /// успевала бы сыграться на локальном делении раньше, чем придёт ответ,
+        /// и игрок увидел бы не тот вариант, за который его посчитали.</para>
+        /// </summary>
+        public static async Task RefreshAsync()
+        {
+            LoadCached();
+            if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
+            var (code, body) = await LvnBackend.GetAsync("/v1/experiments");
+            if (code != 200 || string.IsNullOrEmpty(body)) return;
+            try
+            {
+                var obj = JObject.Parse(body)["assignments"] as JObject;
+                if (obj == null) return;
+                _server.Clear();
+                foreach (var p in obj.Properties())
+                    if (p.Value != null) _server[p.Name] = p.Value.ToString();
+                // Локальный кэш сбрасываем: серверный ответ мог переставить
+                // игрока (подняли версию), и держать старое значение значит
+                // отправлять в аналитику одну группу, а показывать другую.
+                _cache.Clear();
+                foreach (var kv in _server) _cache[kv.Key] = kv.Value;
+                PlayerPrefs.SetString(PServer, obj.ToString(Newtonsoft.Json.Formatting.None));
+                PlayerPrefs.Save();
+            }
+            catch { /* испорченный ответ — живём на локальном делении */ }
+        }
+
+        private static bool _loaded;
+
+        private static void LoadCached()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            try
+            {
+                var raw = PlayerPrefs.GetString(PServer, "");
+                if (string.IsNullOrEmpty(raw)) return;
+                foreach (var p in JObject.Parse(raw).Properties())
+                {
+                    _server[p.Name] = p.Value.ToString();
+                    _cache[p.Name] = p.Value.ToString();
+                }
+            }
+            catch { }
+        }
+
         /// <summary>
         /// Объявить свои варианты: <c>Declare("первая_сцена", "тихая", "громкая")</c>.
         /// Нужно только когда имена вариантов важнее, чем «a» и «b».
@@ -64,6 +126,10 @@ namespace Lvn.Services
         public static string Variant(string test)
         {
             if (string.IsNullOrEmpty(test)) return "";
+            LoadCached();
+            // Слово сервера главнее: доля трафика, таргет и выключатель живут
+            // там, и локальный хеш про них ничего не знает.
+            if (_server.TryGetValue(test, out var fromServer)) return fromServer;
             if (_cache.TryGetValue(test, out var known)) return known;
 
             var uid = LvnBackend.UserId;

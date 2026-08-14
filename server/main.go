@@ -199,6 +199,11 @@ func main() {
 		log.Fatalf("feedback service: %v", err)
 	}
 	feedbackSvc.Routes(mux)
+	// Эксперименты: развилка в сценарии, доля трафика и таргет — здесь.
+	// Конфиг рядом с экономикой: и то и другое крутят, не пересобирая игру.
+	expSvc := NewExperimentsService(filepath.Join(*contentDir, "experiments.json"), authSvc, *adminToken)
+	expSvc.payments, expSvc.analytics = walletSvc, analyticsSvc
+	expSvc.Routes(mux)
 	lbSvc.Routes(mux)
 	authSvc.Routes(mux)
 	walletSvc.Routes(mux)
