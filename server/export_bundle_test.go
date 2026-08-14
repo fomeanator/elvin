@@ -40,7 +40,7 @@ func TestExportBundlesEngineLocally(t *testing.T) {
 
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	if err := copyEnginePackages(zw, tmpl, deps); err != nil {
+	if err := copyEnginePackages(zw, "TimeRomance", deps); err != nil {
 		t.Fatal(err)
 	}
 	zw.Close()
@@ -51,7 +51,8 @@ func TestExportBundlesEngineLocally(t *testing.T) {
 	}
 	found := false
 	for _, f := range zr.File {
-		if f.Name == "Packages/com.lvn.engine/Runtime/LvnPlayer.cs" {
+		// Путь обязан лежать ВНУТРИ папки проекта — снаружи Unity его не увидит.
+		if f.Name == "TimeRomance/Packages/com.lvn.engine/Runtime/LvnPlayer.cs" {
 			found = true
 		}
 	}
