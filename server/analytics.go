@@ -55,6 +55,8 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/exits", s.handleExits)
 	// Удержание — метрика номер один для покупки трафика (analytics_retention.go).
 	mux.HandleFunc("/v1/analytics/retention", s.handleRetention)
+	// Первая сессия: докуда доходит новичок и сколько ждёт загрузки.
+	mux.HandleFunc("/v1/analytics/first-session", s.handleFirstSession)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 

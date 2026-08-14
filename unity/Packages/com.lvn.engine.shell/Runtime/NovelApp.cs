@@ -567,6 +567,15 @@ namespace Lvn.UI.Screens
                 BootVeil.Status("");
                 await BootVeil.FadeOutAsync(0.4f);
                 Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
+                // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
+                // человек смотрит на загрузку и может уйти. Без этой ступени
+                // воронка первой сессии начинается сразу с «начал главу», и
+                // потери на загрузке выглядят так, будто игра никому не нужна.
+                // Длительность здесь же: «долго грузилось» — самая частая
+                // причина уйти, не начав.
+                Lvn.Services.LvnAnalytics.Track("first_screen",
+                    ("boot_ms", bootClock.ElapsedMilliseconds),
+                    ("offline", LvnNetworkStatus.IsOffline));
             }
             catch (Exception ex)
             {
