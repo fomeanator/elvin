@@ -201,6 +201,14 @@ namespace Lvn.UI.Screens
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
             Lvn.Services.LvnLogShip.Boot();
 
+            // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
+            // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
+            // и главе умеет только оболочка. Дедупликация по адресу: одна
+            // пропавшая картинка в цикле показа даёт сотни попыток, и без неё
+            // очередь событий забьётся одним и тем же.
+            Lvn.Content.ContentLoader.AssetFailed -= OnAssetFailed;
+            Lvn.Content.ContentLoader.AssetFailed += OnAssetFailed;
+
             // PSO precook: warms last session's traced pipeline states behind
             // the boot screen (first launch traces instead) — kills the
             // first-show shader-compile hitches. Fire-and-forget, self-paced.
@@ -1098,16 +1106,34 @@ namespace Lvn.UI.Screens
                     _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
                 _preparedChapter = null;
                 LvnProgress.SetCurrent(title, chapter);
+                // Пока игрок внутри новеллы, каждое событие обязано знать, в
+                // какой именно: без этого сбой не отнести к истории, а таких
+                // событий в отчёте больше половины.
+                Lvn.Services.LvnAnalytics.CurrentTitle = title?.id;
                 SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
                 Lvn.Services.LvnAnalytics.Track("chapter_start",
                     ("title", title?.id), ("chapter", chapter.id));
                 var finished = await PlayOneChapterAsync(title, chapter, playerName, novelFreshStart);
                 novelFreshStart = false; // only the entry chapter of this run counts
-                if (finished == null) break; // left mid-chapter (cancel/error) → carousel
+                if (finished == null)
+                {
+                    // Уход ИЗ СЕРЕДИНЫ главы. Без этого события потеря внутри
+                    // главы выводилась вычитанием (start минус finish), и в
+                    // одно число сливались крах, гибель, упёршийся в энергию и
+                    // просто заскучавший. Позиция говорит, ГДЕ бросили: у
+                    // «дочитал до середины и вышел» и «вылетело на первом
+                    // кадре» разные причины и разные починки.
+                    Lvn.Services.LvnAnalytics.Track("chapter_abandon",
+                        ("title", title?.id), ("chapter", chapter.id),
+                        ("at", Stage?.Player?.Index ?? -1));
+                    FlushUnknownOps(title, chapter);
+                    break; // → carousel
+                }
                 ChapterFinished?.Invoke(title, finished);
                 Lvn.Services.LvnAnalytics.Track("chapter_finish",
                     ("title", title?.id), ("chapter", finished.id));
+                FlushUnknownOps(title, finished);
                 // A cross-chapter save load can land the player in another title —
                 // continue along whichever title the finished chapter belongs to.
                 var (owner, _) = FindChapterByScriptUrl(finished.script_url);
@@ -1135,6 +1161,9 @@ namespace Lvn.UI.Screens
             // downloads don't keep competing with the menu's own refresh.
             _downloads?.EndChapter();
             _chapterSched = null;
+            // Вышли из новеллы: события меню не должны числиться за историей,
+            // из которой игрок уже ушёл.
+            Lvn.Services.LvnAnalytics.CurrentTitle = null;
             // A chapter's worth of remote sprites fragments the panel's dynamic
             // atlas (freed regions rarely fit the next tenant); rebuild it clean
             // at this natural boundary.
@@ -1276,6 +1305,37 @@ namespace Lvn.UI.Screens
         // HUD until it ends. Returns the chapter that actually FINISHED (it can
         // differ from the requested one — a cross-chapter save load switches the
         // stage mid-play), or null when the player left mid-chapter.
+        // Адреса, о промахе которых уже отчитались: одна пропавшая картинка в
+        // цикле показа даёт сотни попыток, а событие нужно одно.
+        private static readonly HashSet<string> _reportedAssetFails = new HashSet<string>();
+
+        private static void OnAssetFailed(string url, long code)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+            lock (_reportedAssetFails)
+            {
+                if (_reportedAssetFails.Count > 200) _reportedAssetFails.Clear(); // без роста без предела
+                if (!_reportedAssetFails.Add(url)) return;
+            }
+            Lvn.Services.LvnAnalytics.Track("asset_fail", ("asset", url), ("code", code));
+        }
+
+        /// <summary>
+        /// Отдаёт аналитике операции, которых рантайм не знает, и обнуляет
+        /// счётчик. Копится он всю главу (LvnPlayer.UnclaimedOps), а смысл имеет
+        /// только собранным: «в этой главе трижды встретился неизвестный op» —
+        /// это либо расхождение рантаймов, либо хост-оп, который забыли
+        /// зарегистрировать, и узнавать об этом надо не от игрока.
+        /// </summary>
+        private static void FlushUnknownOps(LvnTitle title, LvnChapter chapter)
+        {
+            var ops = LvnPlayer.UnclaimedOps;
+            if (ops == null || ops.Count == 0) return;
+            Lvn.Services.LvnAnalytics.Track("unknown_op",
+                ("ops", ops), ("title", title?.id), ("chapter", chapter?.id));
+            LvnPlayer.ResetOpDiagnostics();
+        }
+
         private async Task<LvnChapter> PlayOneChapterAsync(LvnTitle title, LvnChapter chapter, string playerName, bool novelFreshStart = false)
         {
             if (Stage == null || chapter == null || string.IsNullOrEmpty(chapter.script_url))

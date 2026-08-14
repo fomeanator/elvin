@@ -25,6 +25,23 @@ namespace Lvn.Services
         private static bool _loaded, _flushing;
         private static float _lastFlush;
 
+        /// <summary>
+        /// Метка запуска игры. Без неё отчёт о здоровье умеет считать только
+        /// «доля ИГРОКОВ, у которых что-то сломалось» — а это не то же самое,
+        /// что доля сессий: один невезучий за месяц и один невезучий за вечер
+        /// дают одинаковое число. Guid живёт ровно один запуск процесса;
+        /// связывать сессии между собой не нужно, нужно их различать.
+        /// </summary>
+        public static readonly string SessionId = Guid.NewGuid().ToString("N").Substring(0, 16);
+
+        /// <summary>
+        /// Новелла, внутри которой сейчас игрок. Ставится оболочкой на входе в
+        /// новеллу и снимается на выходе: без неё половина событий приходит без
+        /// title, и отчёт не может отнести сбой к конкретной истории (сейчас
+        /// таких — 104 события из 199).
+        /// </summary>
+        public static string CurrentTitle { get; set; }
+
         public static void Track(string name, params (string key, object value)[] props)
         {
             if (string.IsNullOrEmpty(name)) return;
@@ -35,14 +52,15 @@ namespace Lvn.Services
                 ["name"] = name,
                 ["ts"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
             };
+            var p = new JObject { ["sid"] = SessionId };
+            if (!string.IsNullOrEmpty(CurrentTitle)) p["title"] = CurrentTitle;
             if (props != null && props.Length > 0)
             {
-                var p = new JObject();
                 foreach (var (key, value) in props)
                     if (!string.IsNullOrEmpty(key))
                         p[key] = value == null ? JValue.CreateNull() : JToken.FromObject(value);
-                ev["props"] = p;
             }
+            ev["props"] = p;
             lock (_queue)
             {
                 _queue.Add(ev);
