@@ -91,9 +91,16 @@ type iapProduct struct {
 	Amount   int64  `json:"amount"`
 	Title    string `json:"title,omitempty"`
 	Price    string `json:"price,omitempty"` // display string ("$4.99"); the store bills, not us
-	Icon     string `json:"icon,omitempty"`  // content url
-	Bonus    int64  `json:"bonus,omitempty"` // extra amount shown as "+N bonus" (already inside Amount)
-	Order    int    `json:"order,omitempty"` // catalog sort key; ties break by amount
+	// PriceValue/PriceCurrency — та же цена ЧИСЛОМ, для отчётов о деньгах.
+	// Складывать витринную строку нельзя, а без суммы нет ни выручки, ни
+	// ARPU. Необязательные: когда их нет, цена разбирается из Price (price.go),
+	// и это единственная причина, по которой отчёт работает на текущем
+	// каталоге. Заполнять их стоит при первом же паке с непривычной валютой.
+	PriceValue    float64 `json:"price_value,omitempty"`
+	PriceCurrency string  `json:"price_currency,omitempty"`
+	Icon          string  `json:"icon,omitempty"`  // content url
+	Bonus         int64   `json:"bonus,omitempty"` // extra amount shown as "+N bonus" (already inside Amount)
+	Order         int     `json:"order,omitempty"` // catalog sort key; ties break by amount
 	// Section groups packs in the store screen (e.g. "currency1", "currency2",
 	// "bundles"). Empty = the default ungrouped list. The client maps the id to
 	// a display title (store.section_titles); packs appear section-by-section in
@@ -646,4 +653,49 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeDoc(w, doc)
+}
+
+// ── ведомость покупок для отчётов ───────────────────────────────────────────
+
+// walletPurchase — одна покупка за реальные деньги, как её видит отчёт.
+// Отдельный тип, а не walletEntry: отчёту нужен владелец записи (в самой
+// записи его нет — она лежит внутри файла игрока) и не нужно всё остальное.
+type walletPurchase struct {
+	User  string
+	TS    string // RFC3339, как записано
+	SKU   string
+	Title string // в какой новелле купили — для выплат автору и разрезов
+}
+
+// Purchases — все покупки типа iap по всем кошелькам.
+//
+// Читает файлы целиком: при сорока пяти игроках это несколько миллисекунд, при
+// сорока тысячах — уже нет. Когда дойдёт до этого, ведомость надо будет писать
+// отдельным журналом на запись, а не собирать обходом; пока честнее простое
+// решение, чем преждевременный журнал, который придётся чинить вслепую.
+func (s *WalletService) Purchases() []walletPurchase {
+	var out []walletPurchase
+	for _, id := range s.AllUserIDs() {
+		doc := s.AdminLoad(id)
+		if doc == nil {
+			continue
+		}
+		for _, e := range doc.History {
+			if e.Type != "iap" {
+				continue
+			}
+			out = append(out, walletPurchase{User: id, TS: e.TS, SKU: e.SKU, Title: e.Title})
+		}
+	}
+	return out
+}
+
+// Price — цена пака числом. ok=false означает «неизвестна», и отчёт обязан
+// не считать это нулём.
+func (s *WalletService) Price(sku string) (value float64, currency string, ok bool) {
+	p, found := s.catalog.Get()[sku]
+	if !found {
+		return 0, "", false
+	}
+	return priceOf(p)
 }

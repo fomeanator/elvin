@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty } from "./ui.jsx";
 import {
@@ -14,6 +14,7 @@ import {
 //   Обрывы   — ГДЕ теряются игроки: воронка по главам и ранжированные утечки
 //   Здоровье — что ломается: отказы, неизвестные опы, промахи по ассетам,
 //              и — отдельно — чего этот лог ПОКА не знает (blind spots)
+//   Деньги    — платят ли, сколько и за что: конверсия, ARPU, ARPPU
 //
 // The drop-off view is the one the owner asked to be useful to engineering as
 // well as to sales: it never mixes "вошли и не дошли" with "дочитали и не
@@ -23,6 +24,7 @@ const VIEWS = [
   { key: "cuts", label: "Разрезы" },
   { key: "drops", label: "Обрывы" },
   { key: "health", label: "Здоровье" },
+  { key: "money", label: "Деньги" },
 ];
 
 export default function Analytics({ token }) {
@@ -80,6 +82,7 @@ export default function Analytics({ token }) {
       {view === "cuts" && <Cuts summary={summary} />}
       {view === "drops" && <Drops token={token} q={q} titles={d.by_title || []} />}
       {view === "health" && <Health token={token} q={q} />}
+      {view === "money" && <Money token={token} q={q} />}
     </Page>
   );
 }
@@ -412,6 +415,90 @@ function TitleFunnel({ rep }) {
         </div>
       </section>
     </>
+  );
+}
+
+// ── Деньги ──────────────────────────────────────────────────────────────────
+//
+// Порядок карточек не случаен: сначала выручка (сколько), потом конверсия
+// (платят ли вообще), потом ARPPU (правильно ли собраны паки) и только затем
+// ARPU — единственное число, которое сравнимо с ценой привлечения игрока.
+function Money({ token, q }) {
+  const rep = useAsync(() => analyticsMoney(q, token), [q, token]);
+  const d = rep.data || {};
+  const cur = d.ref_currency || "";
+  const money = (v) => (v == null ? "—" : cur + " " + Number(v).toFixed(2));
+  const t = d.to_first_purchase;
+
+  return (
+    <LoadState loading={rep.loading} error={rep.error}>
+      <div className="adm-kpis tight">
+        <Stat label={"выручка" + (cur ? ", " + cur : "")} value={money(d.revenue)} />
+        <Stat label="конверсия в платящего" value={pct(d.conversion, 1)} />
+        <Stat label="ARPPU (с платящего)" value={money(d.arppu)} />
+        <Stat label="ARPU (со всех)" value={money(d.arpu)} />
+        <Stat label="средний чек" value={money(d.avg_check)} />
+        <Stat label="платящих" value={fmt(d.payers || 0) + " из " + fmt(d.active_players || 0)} />
+      </div>
+      {t && (
+        <p className="adm-dim adm-foot-note">
+          До первой покупки: медиана {t.median_hours} ч, 90% укладываются в {t.p90_hours} ч (замеров {t.n}).
+        </p>
+      )}
+      {d.note && <p className="adm-dim adm-foot-note">{d.note}</p>}
+      {(d.notes || []).map((n, i) => <p key={i} className="adm-dim adm-foot-note">{n}</p>)}
+
+      <section className="adm-panel">
+        <header className="adm-panel-head">
+          <h2>По пакам</h2>
+          <span className="adm-dim">сверху то, что приносит деньги, а не то, что чаще берут</span>
+        </header>
+        {!(d.by_sku || []).length ? <Empty text="Покупок в этом окне не было." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>пак</th><th className="num">покупок</th><th className="num">платящих</th><th className="num">выручка</th><th>доля</th></tr></thead>
+              <tbody>
+                {(d.by_sku || []).map((r) => (
+                  <tr key={r.sku}>
+                    <td><span className="adm-cell-main">{r.sku}</span>
+                        {!r.priced && <span className="muted"> — цена неизвестна</span>}</td>
+                    <td className="num">{fmt(r.purchases)}</td>
+                    <td className="num muted">{fmt(r.payers)}</td>
+                    <td className="num">{r.priced ? money(r.revenue) : "—"}</td>
+                    <td><Meter value={r.share} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="adm-panel">
+        <header className="adm-panel-head">
+          <h2>По когортам</h2>
+          <span className="adm-dim">окупился ли конкретный завоз игроков</span>
+        </header>
+        {!(d.by_cohort || []).length ? <Empty text="Когорт в этом окне нет." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>день прихода</th><th className="num">игроков</th><th className="num">платящих</th><th className="num">выручка</th><th className="num">ARPU</th></tr></thead>
+              <tbody>
+                {(d.by_cohort || []).map((r) => (
+                  <tr key={r.day}>
+                    <td><span className="adm-cell-main">{r.day}</span></td>
+                    <td className="num">{fmt(r.players)}</td>
+                    <td className="num muted">{fmt(r.payers)}</td>
+                    <td className="num">{money(r.revenue)}</td>
+                    <td className="num muted">{money(r.arpu)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </LoadState>
   );
 }
 
