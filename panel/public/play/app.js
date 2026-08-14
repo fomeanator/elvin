@@ -118,11 +118,22 @@ function escapeHtml(s) {
 // still renders without any server.
 let catalog = {};
 let contentBase = ""; // "" → same-origin /content/ works untouched
+// Пробелы, скобки и кириллица в имени файла приезжают из контента как есть
+// («Снимок экрана 2025-01-21.png», «cover (1).jpg»). Браузер экранирует такой
+// адрес в <img src> не всегда и по-разному, а fetch — не экранирует вовсе:
+// картинка молча не грузится, и ищут это в контенте, а не в адресе. Кодируем
+// посегментно, пропуская уже закодированное, чтобы %20 не стал %2520.
+const encodePathSegments = (path) =>
+  String(path).split("/").map((seg) => (
+    seg === "" || /%[0-9A-Fa-f]{2}/.test(seg) ? seg : encodeURIComponent(seg)
+  )).join("/");
+
 const art = (u) => {
   if (typeof u !== "string") return u;
   if (userAssets[u]) return userAssets[u]; // an uploaded image, by file name
+  const encoded = encodePathSegments(u);
   return contentBase && u.startsWith("/content/")
-    ? contentBase + u.slice("/content/".length) : u;
+    ? contentBase + encodePathSegments(u.slice("/content/".length)) : encoded;
 };
 fetch("/v1/content/manifest").then((r) => {
   if (!r.ok) throw new Error("no content server");
@@ -840,7 +851,7 @@ async function playChapterAt(i) {
   if (!c) return;
   playIndex = i;
   stopTimers();
-  const doc = await (await fetch(c.script_url + "?v=" + Date.now(), { cache: "no-store" })).json();
+  const doc = await (await fetch(encodePathSegments(c.script_url) + "?v=" + Date.now(), { cache: "no-store" })).json();
   saveKey = "lvn-play-save:" + c.id;
   resetStage();
   history = [];

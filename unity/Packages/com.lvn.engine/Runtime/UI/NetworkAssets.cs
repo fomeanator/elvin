@@ -42,9 +42,15 @@ namespace Lvn.UI
         private string FullUrl(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;
+            // Пробелы, скобки и кириллица в имени файла — обычное дело для арта
+            // от художника, а UnityWebRequest их не экранирует: адрес уходит
+            // сырым и промахивается. Кодируем тем же способом, что и основной
+            // загрузчик (Lvn.Content.ContentLoader.EncodeUrlPath) — иначе одна
+            // и та же картинка грузилась бы по-разному в зависимости от того,
+            // кто её запросил.
             if (!string.IsNullOrEmpty(_baseUrl) && !url.StartsWith("http"))
-                return _baseUrl + "/" + url.TrimStart('/');
-            return url;
+                return _baseUrl + "/" + Lvn.Content.ContentLoader.EncodeUrlPath(url.TrimStart('/'));
+            return Lvn.Content.ContentLoader.EncodeUrlPath(url);
         }
 
         public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)

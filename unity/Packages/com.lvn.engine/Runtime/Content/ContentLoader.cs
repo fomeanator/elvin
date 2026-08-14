@@ -1710,11 +1710,11 @@ namespace Lvn.Content
             if (url.StartsWith("file://")) return url;
             string full;
             if (url.StartsWith("http://") || url.StartsWith("https://"))
-                full = url;
+                full = EncodeUrlPath(url);
             else
             {
                 if (!url.StartsWith("/")) url = "/" + url;
-                full = _baseUrl + url;
+                full = _baseUrl + EncodeUrlPath(url);
             }
             // A local bundle reads files by path — a ?v= query would corrupt it.
             if (_local) return full;
@@ -1727,6 +1727,65 @@ namespace Lvn.Content
                 full += sep + "v=" + ver.Substring(0, Math.Min(12, ver.Length));
             }
             return full;
+        }
+
+        /// <summary>
+        /// Проценты-кодирование пути URL, посегментно.
+        ///
+        /// <para>Художник приносит файлы с пробелами, скобками и кириллицей в
+        /// именах — «Снимок экрана 2025-01-21.png», «cover (1).jpg», — и в
+        /// манифест они попадают как есть. UnityWebRequest такой адрес НЕ
+        /// экранирует: на одной платформе запрос уходит сырым и сервер отвечает
+        /// 400, на другой — падает разбор Uri. Промах при этом выглядит как
+        /// «пропала картинка», и ищут его в контенте, а не в транспорте.</para>
+        ///
+        /// <para>Кодируем именно сегменты: «/» обязан остаться разделителем, а
+        /// query (?v=…) мы дописываем сами и трогать его нельзя. Сегмент,
+        /// который уже закодирован, пропускаем — иначе %20 превратится в %2520
+        /// и сломается ровно то, что работало.</para>
+        /// </summary>
+        /// <remarks>Публичный, потому что тем же адресом ходит слой UI
+        /// (Lvn.Engine.UI — отдельная сборка) и встраивающий хост: две копии
+        /// этого кодирования разъехались бы, а промах выглядит как «пропала
+        /// картинка».</remarks>
+        public static string EncodeUrlPath(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+
+            // Схема и хост остаются как есть: кодировать надо путь, а не адрес.
+            int start = 0;
+            int scheme = url.IndexOf("://", StringComparison.Ordinal);
+            if (scheme >= 0)
+            {
+                int slash = url.IndexOf('/', scheme + 3);
+                if (slash < 0) return url; // адрес без пути
+                start = slash;
+            }
+            // Хвост с query/фрагментом не наш — оставляем нетронутым.
+            int cut = url.IndexOfAny(new[] { '?', '#' }, start);
+            string head = url.Substring(0, start);
+            string path = cut < 0 ? url.Substring(start) : url.Substring(start, cut - start);
+            string tail = cut < 0 ? "" : url.Substring(cut);
+
+            var parts = path.Split('/');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i].Length == 0 || AlreadyEncoded(parts[i])) continue;
+                parts[i] = Uri.EscapeDataString(parts[i]);
+            }
+            return head + string.Join("/", parts) + tail;
+        }
+
+        /// Сегмент считается закодированным, если в нём есть «%XX» — второй
+        /// проход по такому сегменту только испортил бы его.
+        private static bool AlreadyEncoded(string segment)
+        {
+            for (int i = 0; i + 2 < segment.Length; i++)
+            {
+                if (segment[i] != '%') continue;
+                if (Uri.IsHexDigit(segment[i + 1]) && Uri.IsHexDigit(segment[i + 2])) return true;
+            }
+            return false;
         }
 
         // On-disk cache file for a content URL: sha1(url@version) hex + ext, where
