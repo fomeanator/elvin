@@ -31,10 +31,21 @@ var exportSkipDirs = map[string]bool{
 }
 
 type exportConfig struct {
-	Name      string `json:"name"`
-	BundleID  string `json:"bundleId"`
-	Company   string `json:"company"`
-	ServerURL string `json:"serverUrl"`
+	// BundleEngine — положить исходники движка ВНУТРЬ архива и оставить
+	// локальные ссылки вместо зеркал на GitHub.
+	//
+	// Зеркала существуют для чужих проектов: они дают маленький клон вместо
+	// монорепозитория на триста мегабайт. Но НАШЕЙ собственной сборке крюк
+	// через GitHub не нужен вовсе — исходники лежат рядом, — а стоит он
+	// дорого: зеркала обновляются только по релизному тегу, и когда токен
+	// публикации протух, наши APK две недели собирались на старом движке.
+	// Ошибка при этом молчаливая: экспорт отвечает 200, проект открывается,
+	// собирается — и едет с кодом двухнедельной давности.
+	BundleEngine bool   `json:"bundleEngine"`
+	Name         string `json:"name"`
+	BundleID     string `json:"bundleId"`
+	Company      string `json:"company"`
+	ServerURL    string `json:"serverUrl"`
 	// AltServers — запасные адреса ТОГО ЖЕ сервера. На старте движок гоняет их
 	// вместе с основным наперегонки по /healthz и берёт первый ответивший
 	// (ServerSelectScreen), поэтому упавшее или заблокированное имя больше не
@@ -130,6 +141,17 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	zw := zip.NewWriter(w)
 	defer zw.Close()
 
+	// Пакеты движка кладём ДО обхода шаблона: если запись оборвётся, лучше
+	// получить архив без содержимого, чем архив с содержимым и без движка —
+	// второй выглядит рабочим и не собирается.
+	if cfg.BundleEngine {
+		if err := copyEnginePackages(zw, tmpl, engineDeps(tmpl)); err != nil {
+			// Заголовки уже ушли, кода ошибки не отдать: обрываем архив, чтобы
+			// он не выглядел целым.
+			return
+		}
+	}
+
 	bootRel := filepath.Join("Assets", "Sandbox", "Boot.cs")
 	settingsRel := filepath.Join("ProjectSettings", "ProjectSettings.asset")
 	manifestRel := filepath.Join("Packages", "manifest.json")
@@ -185,7 +207,13 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 			data = patchProjectSettings(raw, cfg)
 		case manifestRel:
 			raw, _ := os.ReadFile(path)
-			data = patchManifest(raw, engineReleaseTag(tmpl))
+			if cfg.BundleEngine {
+				// Пакеты уезжают в архив рядом с манифестом, поэтому путь
+				// становится соседним каталогом.
+				data = localizeManifest(raw)
+			} else {
+				data = patchManifest(raw, engineReleaseTag(tmpl))
+			}
 		default:
 			raw, derr := os.ReadFile(path)
 			if derr != nil {
@@ -473,6 +501,67 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 		}
 	}
 	return []byte(out)
+}
+
+// localizeManifest оставляет пакеты движка локальными, но переписывает путь:
+// в песочнице они лежат через два каталога вверх (file:../../unity/Packages/…),
+// а в архиве — прямо в Packages/ рядом с манифестом.
+func localizeManifest(raw []byte) []byte {
+	re := regexp.MustCompile(`"(com\.lvn\.engine(?:\.[a-z0-9-]+)?)"\s*:\s*"file:[^"]*"`)
+	return []byte(re.ReplaceAllString(string(raw), `"$1": "file:$1"`))
+}
+
+// copyEnginePackages кладёт исходники пакетов движка в архив под Packages/.
+//
+// Путь берётся ИЗ САМОГО МАНИФЕСТА (file:…), а не вычисляется от каталога
+// шаблона: манифест и есть то место, где записано, где лежат пакеты, и
+// вычисленный путь разошёлся бы с ним при первой же перестановке каталогов —
+// молча, потому что пустой архив тоже архив.
+func copyEnginePackages(zw *zip.Writer, tmpl string, deps map[string]string) error {
+	for name, src := range deps {
+		if _, err := os.Stat(src); err != nil {
+			continue // пакета нет — не наш случай, не повод рушить экспорт
+		}
+		err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			rel, rerr := filepath.Rel(src, path)
+			if rerr != nil {
+				return nil
+			}
+			data, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return nil
+			}
+			f, werr := zw.Create(filepath.ToSlash(filepath.Join("Packages", name, rel)))
+			if werr != nil {
+				return werr
+			}
+			_, werr = f.Write(data)
+			return werr
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// engineDeps — пакеты движка из манифеста песочницы: имя → каталог на диске.
+// Пути в манифесте относительны папке Packages, как их понимает Unity.
+func engineDeps(tmpl string) map[string]string {
+	base := filepath.Join(tmpl, "Packages")
+	raw, err := os.ReadFile(filepath.Join(base, "manifest.json"))
+	if err != nil {
+		return nil
+	}
+	re := regexp.MustCompile(`"(com\.lvn\.engine(?:\.[a-z0-9-]+)?)"\s*:\s*"file:([^"]+)"`)
+	out := map[string]string{}
+	for _, m := range re.FindAllSubmatch(raw, -1) {
+		out[string(m[1])] = filepath.Join(base, filepath.FromSlash(string(m[2])))
+	}
+	return out
 }
 
 // mirrorRepoURL is the public read-only mirror repo for one engine package:

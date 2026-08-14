@@ -29,6 +29,11 @@ export default function ExportPanel({ defaultName, notify, onClose }) {
     icon: "",
     askName: false,
     offline: true,
+    // Свои сборки собираем с вшитым движком: крюк через зеркала на GitHub
+    // нужен чужим проектам (маленький клон вместо монорепозитория), а нам он
+    // однажды стоил двух недель сборок на старом коде — зеркала обновляются
+    // только по релизному тегу.
+    bundleEngine: false,
   });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
@@ -121,6 +126,15 @@ export default function ExportPanel({ defaultName, notify, onClose }) {
         <label className="export-check">
           <input type="checkbox" checked={cfg.askName} onChange={(e) => set("askName", e.target.checked)} />
           <span>Ask the player for a name on first launch</span>
+        </label>
+        <label className="export-check">
+          <input type="checkbox" checked={cfg.bundleEngine}
+                 onChange={(e) => set("bundleEngine", e.target.checked)} />
+          <span>
+            Вшить движок в архив — проект соберётся на ТЕКУЩЕМ коде, без
+            зеркал на GitHub. Архив тяжелее; для своих сборок это правильный
+            выбор, для чужих проектов — нет.
+          </span>
         </label>
       </div>
 
