@@ -677,3 +677,44 @@ func TestFirstSessionCountsOnlyNewcomersFirstDay(t *testing.T) {
 		t.Errorf("время загрузки не собрано: %+v", rep.BootMs)
 	}
 }
+
+// Ступень, событий которой в окне нет вовсе (старая сборка у игроков), не
+// должна ни считаться проваленной, ни обнулять всё, что идёт ниже неё. Иначе
+// отчёт отправляет чинить то, что не сломано.
+func TestFirstSessionSeparatesNoDataFromZero(t *testing.T) {
+	dir := t.TempDir()
+	var b strings.Builder
+	for _, u := range []string{"a", "b", "c"} {
+		b.WriteString(`{"name":"boot","ts":"2026-08-02T10:00:00Z","user":"` + u + `"}` + "\n")
+		b.WriteString(`{"name":"chapter_start","ts":"2026-08-02T10:01:00Z","user":"` + u + `"}` + "\n")
+	}
+	b.WriteString(`{"name":"chapter_finish","ts":"2026-08-02T10:20:00Z","user":"a"}` + "\n")
+	if err := os.WriteFile(filepath.Join(dir, "2026-08-02.jsonl"), []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &AnalyticsService{dir: dir, rollups: newRollupStore(dir), adminToken: "t"}
+	mux := http.NewServeMux()
+	s.Routes(mux)
+	rec, _ := call(t, mux, "GET", "/v1/analytics/first-session?from=2026-08-02&to=2026-08-02", "t", nil)
+	var rep firstSessionReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
+		t.Fatal(err)
+	}
+	byStep := map[string]sessionStep{}
+	for _, st := range rep.Steps {
+		byStep[st.Step] = st
+	}
+	if !byStep["увидел первый экран"].NoData {
+		t.Error("ступень без единого события обязана помечаться как неизмеряемая")
+	}
+	if rep.Worst == "увидел первый экран" {
+		t.Error("неизмеряемая ступень названа худшей — отчёт врёт про причину")
+	}
+	// Три начали, дочитал один: это и есть настоящая потеря.
+	if got := byStep["начал главу"]; got.Players != 3 || got.OfPrev < 0.99 {
+		t.Errorf("«начал главу» должен считаться от запустивших: %+v", got)
+	}
+	if got := byStep["дочитал главу"]; got.Players != 1 || rep.Worst != "дочитал главу" {
+		t.Errorf("худшая ступень — чтение главы (1 из 3), получено %q %+v", rep.Worst, got)
+	}
+}
