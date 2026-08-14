@@ -86,9 +86,9 @@ type buildMeta struct {
 	// MS — то же время в миллисекундах, и порядок «свежие первыми» решает
 	// именно оно: у RFC3339 секундная точность, и две сборки одной секунды
 	// встали бы в списке как попало.
-	MS int64 `json:"ms"`
-	Notes    string `json:"notes"`    // «что нового» — попадает в список
-	By       string `json:"by"`       // кто залил: логин или «ключ сборки»
+	MS    int64  `json:"ms"`
+	Notes string `json:"notes"` // «что нового» — попадает в список
+	By    string `json:"by"`    // кто залил: логин или «ключ сборки»
 }
 
 type BuildsService struct {

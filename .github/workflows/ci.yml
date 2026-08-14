@@ -143,8 +143,18 @@ jobs:
           # файлов и сборка будет «зелёной» ни на чём.
           mapfile -t files < <(git ls-files '*.lvns')
           [ ${#files[@]} -gt 0 ] || { echo "::error::в репозитории не нашлось ни одного .lvns"; exit 1; }
+
+          # Сборка и обход — РАЗНЫЕ шаги по смыслу, и путать их нельзя: первый
+          # прогон в CI упал на сборке, а сообщение отчиталось «найден
+          # недостижимый контент». Ошибка, которая врёт про причину, дороже
+          # самой поломки. GOWORK=off — собираем один модуль по его go.sum, а
+          # не воркспейс с общим go.work.sum, которого в чистой машине может не
+          # хватить.
+          ( cd tools/lvnconv && GOWORK=off go build -o "$RUNNER_TEMP/lvnconv" . ) \
+            || { echo "::error::lvnconv не собрался — это поломка сборки, а не контента"; exit 1; }
+
           echo "обход ${#files[@]} файлов"
-          go run ./tools/lvnconv walk -strict "${files[@]}" \
+          "$RUNNER_TEMP/lvnconv" walk -strict "${files[@]}" \
             || { echo "::error::найден недостижимый контент — см. вывод выше (lvnconv walk)"; exit 1; }
 
   panel:
