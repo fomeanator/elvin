@@ -1357,7 +1357,7 @@ namespace Lvn.UI.Screens
         // ФАКТ «дошёл», а не счётчик оборотов.
         private static readonly HashSet<string> _reachedLabels = new HashSet<string>();
 
-        private static void OnLabelReached(string label)
+        private static void OnLabelReached(string label, int at)
         {
             if (string.IsNullOrEmpty(label)) return;
             lock (_reachedLabels)
@@ -1365,15 +1365,16 @@ namespace Lvn.UI.Screens
                 if (_reachedLabels.Count > 500) _reachedLabels.Clear(); // без роста без предела
                 if (!_reachedLabels.Add(label)) return;
             }
-            Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label));
+            Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label), ("at", at));
         }
 
-        private static void OnChoiceShown(int written, int shown)
-            => Lvn.Services.LvnAnalytics.Track("choice_shown", ("written", written), ("shown", shown));
+        private static void OnChoiceShown(int written, int shown, int at)
+            => Lvn.Services.LvnAnalytics.Track("choice_shown",
+                ("written", written), ("shown", shown), ("at", at));
 
-        private static void OnChoicePicked(int index, string text, float seconds)
+        private static void OnChoicePicked(int index, string text, float seconds, int at)
             => Lvn.Services.LvnAnalytics.Track("choice_pick",
-                ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 1)));
+                ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 1)), ("at", at));
 
         /// <summary>
         /// Отдаёт аналитике операции, которых рантайм не знает, и обнуляет

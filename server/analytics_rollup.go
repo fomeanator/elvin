@@ -52,15 +52,18 @@ const (
 
 	rollupOther = "~other" // the overflow bucket for a capped dimension
 
-	maxRollupNames      = 500
-	maxRollupTitles     = 200
-	maxRollupChapters   = 500 // per title
-	maxRollupUsers      = 20000
-	maxRollupSessions   = 20000
-	maxRollupOps        = 200
-	maxRollupAssets     = 200
-	maxRollupExits      = 300 // точек выхода на главу: больше — это уже шум
-	maxRollupUserTitles = 8   // titles remembered per player per day
+	maxRollupNames         = 500
+	maxRollupTitles        = 200
+	maxRollupChapters      = 500 // per title
+	maxRollupUsers         = 20000
+	maxRollupSessions      = 20000
+	maxRollupOps           = 200
+	maxRollupAssets        = 200
+	maxRollupExits         = 300 // точек выхода на главу: больше — это уже шум
+	maxRollupSlides        = 400 // меток на главу: у самой длинной живой главы их 60
+	maxRollupChoices       = 200 // развилок на главу
+	maxRollupChoiceOptions = 32  // вариантов в одной развилке
+	maxRollupUserTitles    = 8   // titles remembered per player per day
 	// Parsed rollups held in memory. The per-player map is the heavy part of a
 	// rollup (≈300 B × up to maxRollupUsers), so this constant IS the memory
 	// bound of the whole read side: 16 × 20 000 × 300 B ≈ 96 MB at the absolute
@@ -83,6 +86,9 @@ const (
 	evAssetFail      = "asset_fail"      // not sent yet
 	evBoot           = "boot"
 	evFirstScreen    = "first_screen" // первый интерактивный экран после загрузки
+	evLabelReach     = "label_reach"  // дошёл до авторской метки — слайд главы
+	evChoiceShown    = "choice_shown"
+	evChoicePick     = "choice_pick"
 )
 
 // rollupEvent is the read-side view of a logged event. Props stay raw: the
@@ -144,7 +150,34 @@ type chapRoll struct {
 	// фон, зависшая сцена. Индекс сам по себе ничего не говорит — но сервер
 	// держит скрипт главы и умеет показать по нему кадр (см. handleExits).
 	Exits map[string]int `json:"ex,omitempty"`
+	// Slides — сколько раз дошли до авторской метки: ключ «индекс команды».
+	// Метка и есть слайд: реплик в главе тысячи, меток десятки, и вопрос
+	// «где отваливаются» задают именно про них.
+	Slides map[string]int `json:"sl,omitempty"`
+	// Choices — как проходили развилки: ключ «индекс команды выбора».
+	// Выбор безымянен, поэтому адресуется тем же индексом, что и метки, —
+	// так развилка ложится на одну ось с точками выхода.
+	Choices map[string]*choiceRoll `json:"ch,omitempty"`
 }
+
+// choiceRoll — одна развилка за день.
+//
+// Показы и выборы считаются раздельно НАМЕРЕННО: их разница и есть «сколько
+// человек увидели выбор и ушли, не выбрав». Это самый дорогой сигнал в главе —
+// место, где игрок думает и закрывает приложение, — и он исчезает, если
+// хранить только распределение вариантов.
+type choiceRoll struct {
+	Shown   int            `json:"s"`           // сколько раз развилку показали
+	Picked  int            `json:"p"`           // сколько раз выбрали
+	Written int            `json:"w,omitempty"` // вариантов написано в сценарии
+	Visible int            `json:"v,omitempty"` // вариантов реально видно игроку
+	Options map[string]int `json:"o,omitempty"` // индекс варианта → сколько раз выбран
+	// Seconds — раздумье поштучно, для медианы. Ограничено: среднее по
+	// развилке ничего не стоит, а хранить все замеры за месяц незачем.
+	Seconds []int `json:"sec,omitempty"`
+}
+
+const maxRollupChoiceSeconds = 50
 
 // playerRoll is one player's day. It is the only per-identity state kept, and
 // it exists for one question the aggregate counters cannot answer: WHERE DID
@@ -336,13 +369,69 @@ func (r *dayRollup) foldLine(line []byte) {
 			c.Finishes++
 		case evChapterAbandon:
 			c.Abandons++
-			if at := rollupPropInt(ev.Props, "at"); at >= 0 {
+			// Именно ok, а не «at >= 0»: отсутствующее поле читается как ноль,
+			// и без проверки уход без адреса записался бы точкой выхода на
+			// первой команде главы — выдуманное место, на котором никто не был.
+			if at, ok := rollupPropIntOK(ev.Props, "at"); ok && at >= 0 {
 				if c.Exits == nil {
 					c.Exits = map[string]int{}
 				}
 				// Ключ — строка: карта уезжает в JSON чекпоинта, а числовые
 				// ключи там всё равно станут строками.
 				r.bump(c.Exits, "exits", strconv.Itoa(at), 1, maxRollupExits)
+			}
+		case evLabelReach:
+			// Метка = слайд: место в истории, размеченное автором. Индекс
+			// команды, а не имя — так метки, развилки и точки выхода ложатся
+			// на одну ось, и «ушли на 420» можно сопоставить со «сюда дошло
+			// столько-то».
+			if at, ok := rollupPropIntOK(ev.Props, "at"); ok && at >= 0 {
+				if c.Slides == nil {
+					c.Slides = map[string]int{}
+				}
+				r.bump(c.Slides, "slides", strconv.Itoa(at), 1, maxRollupSlides)
+			}
+		case evChoiceShown, evChoicePick:
+			at, ok := rollupPropIntOK(ev.Props, "at")
+			if !ok || at < 0 {
+				break
+			}
+			if c.Choices == nil {
+				c.Choices = map[string]*choiceRoll{}
+			}
+			key := strconv.Itoa(at)
+			ch := c.Choices[key]
+			if ch == nil {
+				if len(c.Choices) >= maxRollupChoices {
+					r.Trunc["choices"] = true
+					break
+				}
+				ch = &choiceRoll{}
+				c.Choices[key] = ch
+			}
+			if name == evChoiceShown {
+				ch.Shown++
+				// Написано/видно перезаписываем, а не копим: это свойство
+				// развилки, а не счётчик. Последнее виденное значение —
+				// самое свежее состояние гейтов.
+				if n, ok := rollupPropIntOK(ev.Props, "written"); ok && n > 0 {
+					ch.Written = n
+				}
+				if n, ok := rollupPropIntOK(ev.Props, "shown"); ok && n > 0 {
+					ch.Visible = n
+				}
+				break
+			}
+			ch.Picked++
+			if opt, ok := rollupPropIntOK(ev.Props, "option"); ok && opt >= 0 {
+				if ch.Options == nil {
+					ch.Options = map[string]int{}
+				}
+				r.bump(ch.Options, "options", strconv.Itoa(opt), 1, maxRollupChoiceOptions)
+			}
+			if sec, ok := rollupPropIntOK(ev.Props, "seconds"); ok && sec >= 0 &&
+				len(ch.Seconds) < maxRollupChoiceSeconds {
+				ch.Seconds = append(ch.Seconds, sec)
 			}
 		}
 	}
@@ -492,6 +581,45 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 					c.Exits = map[string]int{}
 				}
 				r.bump(c.Exits, "exits", at, n, maxRollupExits)
+			}
+			for at, n := range oc.Slides {
+				if c.Slides == nil {
+					c.Slides = map[string]int{}
+				}
+				r.bump(c.Slides, "slides", at, n, maxRollupSlides)
+			}
+			for at, och := range oc.Choices {
+				if c.Choices == nil {
+					c.Choices = map[string]*choiceRoll{}
+				}
+				ch := c.Choices[at]
+				if ch == nil {
+					if len(c.Choices) >= maxRollupChoices {
+						continue
+					}
+					ch = &choiceRoll{}
+					c.Choices[at] = ch
+				}
+				ch.Shown += och.Shown
+				ch.Picked += och.Picked
+				if och.Written > 0 {
+					ch.Written = och.Written
+				}
+				if och.Visible > 0 {
+					ch.Visible = och.Visible
+				}
+				for opt, n := range och.Options {
+					if ch.Options == nil {
+						ch.Options = map[string]int{}
+					}
+					r.bump(ch.Options, "options", opt, n, 32)
+				}
+				for _, sec := range och.Seconds {
+					if len(ch.Seconds) >= maxRollupChoiceSeconds {
+						break
+					}
+					ch.Seconds = append(ch.Seconds, sec)
+				}
 			}
 		}
 	}
@@ -782,6 +910,24 @@ func rollupProp(props map[string]json.RawMessage, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// rollupPropIntOK — то же, но с ответом «поле вообще было». Разница не
+// косметическая: отсутствующее поле возвращается нулём, а ноль — законный
+// индекс команды и законное число секунд, так что без этого признака
+// «события без адреса» неотличимы от «событий в самом начале главы».
+func rollupPropIntOK(props map[string]json.RawMessage, keys ...string) (int, bool) {
+	for _, k := range keys {
+		raw, ok := props[k]
+		if !ok {
+			continue
+		}
+		var n float64
+		if json.Unmarshal(raw, &n) == nil {
+			return int(n), true
+		}
+	}
+	return 0, false
 }
 
 func rollupPropInt(props map[string]json.RawMessage, keys ...string) int {
