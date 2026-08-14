@@ -97,6 +97,38 @@ func sanitizeName(s, fallback string) string {
 	return s
 }
 
+// safeLabel — человеческое имя, пригодное для файла и ссылки. В отличие от
+// sanitizeName сохраняет ЛЮБОЙ алфавит: обрезать кириллицу значит молча
+// превращать русское название в пустую строку. Запрещено ровно то, что делает
+// имя опасным: разделители пути, управляющие символы и точки-переходы.
+func safeLabel(s, fallback string, max int) string {
+	s = strings.TrimSpace(s)
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r < 0x20 || r == 0x7f: // управляющие
+		case r == '/' || r == '\\' || r == ':':
+		default:
+			b.WriteRune(r)
+		}
+	}
+	// До стабильного результата: одна замена оставляет «....» → «..», то есть
+	// ровно то, от чего избавлялись. Разделители пути уже убраны выше, так
+	// что это подстраховка, но подстраховка должна быть верной.
+	out := b.String()
+	for strings.Contains(out, "..") {
+		out = strings.ReplaceAll(out, "..", ".")
+	}
+	out = strings.TrimSpace(out)
+	if rs := []rune(out); len(rs) > max {
+		out = string(rs[:max])
+	}
+	if out == "" {
+		return fallback
+	}
+	return out
+}
+
 func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// Export bundles the ENTIRE content directory — gate it behind the admin
 	// token like every other privileged endpoint, or it leaks all content.

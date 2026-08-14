@@ -219,7 +219,12 @@ func (s *BuildsService) register(w http.ResponseWriter, r *http.Request) {
 	if body.Platform != "" {
 		platform = sanitizeName(body.Platform, platform)
 	}
-	version := sanitizeName(body.Version, time.Now().UTC().Format("2006-01-02"))
+	// НЕ sanitizeName: он оставляет только латиницу, и «сборка для беты»
+	// превращалась в пустоту молча — версия подставлялась датой, а автор
+	// узнавал об этом, только разглядывая список. Здесь нужна не латиница, а
+	// имя, которое не станет путём: убираем разделители каталогов и
+	// управляющие символы, остальное — дело автора.
+	version := safeLabel(body.Version, time.Now().UTC().Format("2006-01-02"), 64)
 	notes := strings.TrimSpace(body.Notes)
 	if len(notes) > 500 {
 		notes = notes[:500]
