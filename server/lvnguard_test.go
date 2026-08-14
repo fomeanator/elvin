@@ -225,3 +225,51 @@ func TestShippedScriptsPassTheGate(t *testing.T) {
 	}
 	t.Logf("%d shipped scripts pass the write gate", checked)
 }
+
+// Ссылка есть, файла нет — компилятору не видно (он не знает, что на диске), а
+// игроку видно сразу: пустой экран вместо фона. Предупреждение, а не отказ:
+// «сначала текст, потом картинки» — обычный порядок работы.
+func TestGateReportsMissingAssets(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	if err := os.MkdirAll(filepath.Join(content, "bg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(content, "bg", "есть.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: content}
+
+	doc := []byte(`{"scene":"t","script":[
+		{"op":"bg","sprite_url":"/content/bg/есть.jpg"},
+		{"op":"bg","sprite_url":"/content/bg/нет.jpg"},
+		{"op":"audio","url":"/content/audio/нет.ogg","channel":"music","action":"play"},
+		{"op":"actor","id":"a","sprite_url":"https://example.test/внешний.png"},
+		{"op":"obj","id":"o","sprite_url":"/content/art/{стихия}.png"}
+	]}`)
+	f := s.checkLvn("scripts/t.lvn", doc)
+
+	if f.blocked() {
+		t.Fatalf("отсутствие файла не должно блокировать запись: %v", f.Errors)
+	}
+	var missing []string
+	for _, w := range f.Warnings {
+		if strings.Contains(w, "файла нет") {
+			missing = append(missing, w)
+		}
+	}
+	if len(missing) != 2 {
+		t.Fatalf("ожидались ровно две пропажи (фон и звук), получено %d: %v", len(missing), missing)
+	}
+	for _, w := range missing {
+		if strings.Contains(w, "есть.jpg") {
+			t.Error("существующий файл попал в пропажи")
+		}
+		if strings.Contains(w, "example.test") {
+			t.Error("внешний адрес — не наша забота, проверять его нечем")
+		}
+		if strings.Contains(w, "{стихия}") {
+			t.Error("шаблон с подстановкой знает только игра — проверять его нельзя")
+		}
+	}
+}
