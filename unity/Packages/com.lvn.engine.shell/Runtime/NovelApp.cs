@@ -1423,8 +1423,12 @@ namespace Lvn.UI.Screens
         /// </summary>
         private static async Task RegisterThenAttributeAsync()
         {
-            if (await Lvn.Services.LvnBackend.EnsureRegisteredAsync())
-                await Lvn.Services.LvnAttribution.FlushAsync();
+            if (!await Lvn.Services.LvnBackend.EnsureRegisteredAsync()) return;
+            await Lvn.Services.LvnAttribution.FlushAsync();
+            // Группы забираем ПОСЛЕ отправки канала: таргет эксперимента может
+            // быть завязан на кампанию, и спросив раньше, мы получили бы ответ
+            // «этот игрок ниоткуда».
+            await Lvn.Services.LvnExperiments.RefreshAsync();
         }
 
         private static void OnLabelReached(string label, int at)

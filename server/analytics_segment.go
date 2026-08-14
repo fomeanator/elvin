@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 )
 
 // segmentSpec — разобранный запрос сегмента.
@@ -237,4 +238,26 @@ func (s *AnalyticsService) windowFor(days []string, members map[string]bool) (*d
 		merged.mergeFrom(day)
 	}
 	return merged, out
+}
+
+// firstDayOf — день первого появления игрока в свёртке. Нужен таргету
+// экспериментов: «только пришедшим сегодня». Окно берём широкое — когорта это
+// свойство игрока, а не отчёта.
+func (s *AnalyticsService) firstDayOf(userID string) string {
+	if s == nil || s.rollups == nil {
+		return ""
+	}
+	end := time.Now().UTC()
+	days, err := daysBetween(end.AddDate(0, 0, -89).Format("2006-01-02"), end.Format("2006-01-02"))
+	if err != nil {
+		return ""
+	}
+	s.rollups.mu.Lock()
+	defer s.rollups.mu.Unlock()
+	for _, d := range days {
+		if _, ok := s.rollups.day(d).Users[userID]; ok {
+			return d
+		}
+	}
+	return ""
 }

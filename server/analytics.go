@@ -66,6 +66,8 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/slides", s.handleSlides)
 	// Деньги: конверсия в платящего, ARPU, ARPPU (analytics_money.go).
 	mux.HandleFunc("/v1/analytics/money", s.handleMoney)
+	// Вариант А против Б: цель плюс предохранители плюс честная значимость.
+	mux.HandleFunc("/v1/analytics/experiment", s.handleExperiment)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 
