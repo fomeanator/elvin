@@ -187,6 +187,12 @@
       "csharp": "stage",
       "js": "none",
       "note": "Unity-only: films a built 3D set into the background; the web player has no scene to film and keeps the flat background."
+    },
+    "track": {
+      "owner": "shell",
+      "csharp": "shell-op",
+      "js": "renderer",
+      "note": "Метка конверсии. Давно существует как `ext track name=…` (LvnServiceOps шлёт событие аналитики); запись `track \"имя\"` — сахар над ней, не второй оп."
     }
   }
 }

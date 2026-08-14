@@ -68,6 +68,8 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/analytics/money", s.handleMoney)
 	// Вариант А против Б: цель плюс предохранители плюс честная значимость.
 	mux.HandleFunc("/v1/analytics/experiment", s.handleExperiment)
+	// «Важные места»: воронка по меткам, которые расставил автор (track).
+	mux.HandleFunc("/v1/analytics/marks", s.handleMarks)
 	mux.HandleFunc("/v1/analytics/health", s.handleHealth)
 }
 

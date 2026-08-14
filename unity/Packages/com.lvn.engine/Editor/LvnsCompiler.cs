@@ -36,6 +36,10 @@ namespace Lvn.Editor
         // which lowers to an `anim` command).
         static readonly HashSet<string> KnownOps = new HashSet<string>
         {
+            // track "имя" — метка конверсии (сахар над хост-опом ext track).
+            // Без неё строка, начинающаяся со слова track, стала бы РЕПЛИКОЙ и
+            // напечаталась игроку.
+            "track",
             "say", "choice", "bg", "bg3d", "actor", "obj",
             // A bare `clear` — no fields — compiles through the generic
             // key=value tail below. Listed here for the same reason as

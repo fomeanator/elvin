@@ -61,6 +61,8 @@ const (
 	maxRollupAssets        = 200
 	maxRollupExits         = 300 // точек выхода на главу: больше — это уже шум
 	maxRollupSlides        = 400 // меток на главу: у самой длинной живой главы их 60
+	maxRollupMarks         = 200 // авторских меток конверсии на главу
+	maxRollupPlayerMarks   = 100 // …и на игрока за день
 	maxRollupChoices       = 200 // развилок на главу
 	maxRollupChoiceOptions = 32  // вариантов в одной развилке
 	maxRollupUserTitles    = 8   // titles remembered per player per day
@@ -89,6 +91,7 @@ const (
 	evLabelReach     = "label_reach"  // дошёл до авторской метки — слайд главы
 	evChoiceShown    = "choice_shown"
 	evChoicePick     = "choice_pick"
+	evTrack          = "track" // авторская метка конверсии: track "имя" в .lvns
 )
 
 // rollupEvent is the read-side view of a logged event. Props stay raw: the
@@ -160,6 +163,9 @@ type chapRoll struct {
 	// Метка и есть слайд: реплик в главе тысячи, меток десятки, и вопрос
 	// «где отваливаются» задают именно про них.
 	Slides map[string]int `json:"sl,omitempty"`
+	// Marks — авторские метки конверсии: имя → сколько раз пройдена. В
+	// отличие от Slides ключ человеческий, потому что имя придумал автор.
+	Marks map[string]int `json:"mk,omitempty"`
 	// Choices — как проходили развилки: ключ «индекс команды выбора».
 	// Выбор безымянен, поэтому адресуется тем же индексом, что и метки, —
 	// так развилка ложится на одну ось с точками выхода.
@@ -208,10 +214,26 @@ type playerRoll struct {
 	// перезапусков одного человека — это по-прежнему один человек.
 	Steps  []string `json:"st,omitempty"`
 	BootMs []int    `json:"bms,omitempty"`
+	// Marks — авторские метки конверсии, до которых игрок дошёл. По игрокам,
+	// а не по событиям: «сколько ЧЕЛОВЕК добралось до первого поцелуя» —
+	// вопрос про людей, и перепрохождение не делает их больше.
+	Marks []string `json:"mk,omitempty"`
 	// AB — эксперименты, в которых игрок состоит: имя теста → группа. Клиент
 	// шлёт их в props каждого события (ab_<имя>), потому что досыпать группу
 	// задним числом невозможно — события уже записаны.
 	AB map[string]string `json:"ab,omitempty"`
+}
+
+// noteMark запоминает авторскую метку без повторов: отчёт считает ЛЮДЕЙ.
+func (p *playerRoll) noteMark(name string) {
+	for _, m := range p.Marks {
+		if m == name {
+			return
+		}
+	}
+	if len(p.Marks) < maxRollupPlayerMarks {
+		p.Marks = append(p.Marks, name)
+	}
 }
 
 // noteStep запоминает пройденную ступень без повторов.
@@ -393,6 +415,15 @@ func (r *dayRollup) foldLine(line []byte) {
 				// ключи там всё равно станут строками.
 				r.bump(c.Exits, "exits", strconv.Itoa(at), 1, maxRollupExits)
 			}
+		case evTrack:
+			// Метка автора: и по главе (сколько раз пройдена), и по игроку
+			// (кто дошёл) — второе нужно, чтобы скрестить с покупками.
+			if mark := clip(rollupProp(ev.Props, "mark"), 64); mark != "" {
+				if c.Marks == nil {
+					c.Marks = map[string]int{}
+				}
+				r.bump(c.Marks, "marks", mark, 1, maxRollupMarks)
+			}
 		case evLabelReach:
 			// Метка = слайд: место в истории, размеченное автором. Индекс
 			// команды, а не имя — так метки, развилки и точки выхода ложатся
@@ -462,6 +493,11 @@ func (r *dayRollup) foldLine(line []byte) {
 		switch name {
 		case evBoot, evFirstScreen, evChapterStart, evChapterFinish:
 			p.noteStep(name)
+		}
+		if name == evTrack {
+			if mark := clip(rollupProp(ev.Props, "mark"), 64); mark != "" {
+				p.noteMark(mark)
+			}
 		}
 		// Группы A/B приезжают в props КАЖДОГО события (ab_<имя теста>), и
 		// запоминаются по игроку: сравнивать половины эксперимента можно
@@ -616,6 +652,12 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 				}
 				r.bump(c.Exits, "exits", at, n, maxRollupExits)
 			}
+			for name, n := range oc.Marks {
+				if c.Marks == nil {
+					c.Marks = map[string]int{}
+				}
+				r.bump(c.Marks, "marks", name, n, maxRollupMarks)
+			}
 			for at, n := range oc.Slides {
 				if c.Slides == nil {
 					c.Slides = map[string]int{}
@@ -667,6 +709,9 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 		p.Fin += op.Fin
 		if op.First != "" && (p.First == "" || op.First < p.First) {
 			p.First = op.First
+		}
+		for _, m := range op.Marks {
+			p.noteMark(m)
 		}
 		for test, v := range op.AB {
 			if p.AB == nil {

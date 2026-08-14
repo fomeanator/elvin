@@ -70,6 +70,9 @@ var KnownOps = map[string]bool{
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
 	"label": true, "goto": true, "if": true,
+	// track "имя" — метка конверсии. Оп хостовый (сервисный слой), а не
+	// движковый: он шлёт событие аналитики, о которой ядро не знает.
+	"track": true,
 	"set": true, "inc": true, "hint": true,
 	"call": true, "return": true,
 	"anim": true, // script-driven tween (lvns `anim`/`move` compile to this)
