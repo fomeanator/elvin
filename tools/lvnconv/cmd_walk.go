@@ -57,11 +57,17 @@ type walkReport struct {
 	// Служебная разметка ветвей: `goto __end13` сразу после другого goto и
 	// метка, на которую он один и ссылался. Мёртво, но это шов компиляции, а не
 	// потерянный контент — считаем числом, не перечисляем.
-	Boilerplate int      `json:"boilerplate_dead"`
-	DeadOpts    []string `json:"dead_options"`
-	Paths       int      `json:"paths"`
-	CutDepth    int      `json:"cut_by_depth"`
-	Err         string   `json:"error,omitempty"`
+	Boilerplate int `json:"boilerplate_dead"`
+	// Функции, которых не зовёт никто. Для главы это находка (эффекты оружия в
+	// боевой новелле были определены и ни разу не вызваны), для файла-библиотеки
+	// — норма: её функции зовёт потребитель, которого здесь просто нет. Поэтому
+	// отдельным списком, а не в общей куче: тело такой функции обходится как
+	// своя точка входа, иначе библиотека выглядела бы мёртвой на 94%.
+	UncalledFuncs []string `json:"uncalled_funcs"`
+	DeadOpts      []string `json:"dead_options"`
+	Paths         int      `json:"paths"`
+	CutDepth      int      `json:"cut_by_depth"`
+	Err           string   `json:"error,omitempty"`
 }
 
 // deadBlock — недостижимый кусок скрипта.
@@ -141,6 +147,7 @@ func walkFile(path string, depth int) walkReport {
 	}
 	w := newWalker(doc, depth)
 	w.run(0, depth)
+	rep.UncalledFuncs = w.walkUncalledFuncs(depth)
 
 	rep.Commands = len(doc.Script)
 	rep.Paths, rep.CutDepth = w.paths, w.cutDepth
@@ -175,6 +182,27 @@ func walkFile(path string, depth int) walkReport {
 		}
 	}
 	return rep
+}
+
+// walkUncalledFuncs добирает тела функций, до которых основной поток не дошёл:
+// каждая становится своей точкой входа. Возвращает их имена — по ним видно
+// «определена, но не вызвана», и это ровно то, чем библиотека законно
+// отличается от главы.
+func (w *walker) walkUncalledFuncs(depth int) []string {
+	var names []string
+	for i, c := range w.script {
+		if c.Op() != "label" {
+			continue
+		}
+		id := c.Str("id")
+		if !strings.HasPrefix(id, "__fn_") || w.seen[i] {
+			continue
+		}
+		names = append(names, strings.TrimPrefix(id, "__fn_"))
+		w.run(i, depth)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // deadBlocks склеивает недостигнутые команды в непрерывные куски. Sample пуст,
@@ -492,6 +520,9 @@ func printWalkReports(reports []walkReport, quiet bool, depth int) {
 				r.CutDepth, depth)
 		}
 
+		if len(r.UncalledFuncs) > 0 {
+			fmt.Printf("  функции без вызова (%d): %s\n", len(r.UncalledFuncs), strings.Join(r.UncalledFuncs, ", "))
+		}
 		if r.Boilerplate > 0 {
 			fmt.Printf("  служебной разметки недостижимо: %d команд(ы) — это норма компиляции\n", r.Boilerplate)
 		}

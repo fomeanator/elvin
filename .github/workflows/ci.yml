@@ -131,6 +131,22 @@ jobs:
           node build.mjs
           node test-node.mjs
 
+      # Мёртвый контент — то, что валидатор пропускает по построению: ссылки
+      # целы, ops известны, а пути к куску скрипта всё равно нет. Обход играет
+      # ВСЕ ветки и валит сборку, если в примерах появилась недостижимая
+      # логика. На живом контенте так нашлись три места, где код есть, а игра
+      # его никогда не исполняла (см. tools/lvnconv/cmd_walk.go).
+      - name: no unreachable content in shipped .lvns
+        run: |
+          # mapfile, а не $(…) без кавычек: пути с пробелами обязаны доехать
+          # одним аргументом каждый, иначе обход молча получит мусор вместо
+          # файлов и сборка будет «зелёной» ни на чём.
+          mapfile -t files < <(git ls-files '*.lvns')
+          [ ${#files[@]} -gt 0 ] || { echo "::error::в репозитории не нашлось ни одного .lvns"; exit 1; }
+          echo "обход ${#files[@]} файлов"
+          go run ./tools/lvnconv walk -strict "${files[@]}" \
+            || { echo "::error::найден недостижимый контент — см. вывод выше (lvnconv walk)"; exit 1; }
+
   panel:
     name: authoring panel builds
     runs-on: ubuntu-latest
