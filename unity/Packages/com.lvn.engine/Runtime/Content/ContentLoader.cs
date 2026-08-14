@@ -77,8 +77,18 @@ namespace Lvn.Content
         // offline flag. A transfer that died mid-body or timed out is
         // congestion — this fetch failed, the network may be fine; the caller's
         // retry layer handles it without dragging the whole app offline.
+        /// <summary>
+        /// Ассет не доехал: адрес и код ответа. Движок сам никуда это не шлёт —
+        /// он не знает про продуктовую аналитику и не должен, — но и молчать не
+        /// вправе: для игрока это пропавшая картинка или тишина вместо музыки, а
+        /// снаружи оно выглядит как «игра кривая». Подписывается оболочка.
+        /// </summary>
+        public static event Action<string, long> AssetFailed;
+
         private void NoteFetchFailure(UnityWebRequest req)
         {
+            try { AssetFailed?.Invoke(req.url, req.responseCode); }
+            catch { /* диагностика не смеет ронять загрузку */ }
             var err = req.error ?? "";
             bool transient = req.downloadedBytes > 0
                 || err.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0
