@@ -36,7 +36,7 @@ namespace Lvn.UI.Screens
             public Ribbon Badge;
             public bool Best;     // biggest / highlighted card
             public string Card;   // illustration url, "/content/cards/cardN.png"
-            public string Glyph;  // fallback emblem drawn over the tint block
+            public LvnIcon Emblem;  // эмблема поверх плашки, пока не приехал арт
             public Color Tint;    // illustration block fill
         }
 
@@ -255,9 +255,9 @@ namespace Lvn.UI.Screens
             art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             Round(art, LvnTokens.RadiusSm);
-            var glyph = new Label(pack.Glyph) { pickingMode = PickingMode.Ignore };
-            glyph.style.fontSize = pack.Best ? 52 : 40;
-            glyph.style.color = LvnTokens.Text;
+            var glyph = LvnIcons.Make(pack.Emblem, pack.Best ? 52f : 40f, LvnTokens.Text,
+                                      0f, LvnTheme.Current.IconGlow);
+            glyph.style.alignSelf = Align.Center;
             art.Add(glyph);
             card.Add(art);
             _ = ScreenUi.AssignBgAsync(art, pack.Card, _assets);
@@ -346,7 +346,7 @@ namespace Lvn.UI.Screens
             }
             b.schedule.Execute(() =>
             {
-                b.text = "✓";
+                b.text = "Готово";
                 b.schedule.Execute(() =>
                 {
                     b.text = label;
@@ -373,11 +373,11 @@ namespace Lvn.UI.Screens
             var bal = Lvn.Services.LvnWallet.Balances;
             long crystals = bal.TryGetValue("crystals", out var c) ? c : 0;
             long energy = bal.TryGetValue("energy", out var e) ? e : 0;
-            _balances.Add(BalancePill("◆", crystals.ToString("N0"), LvnTokens.Gold));
-            _balances.Add(BalancePill("⚡", energy.ToString("N0"), LvnTokens.Accent));
+            _balances.Add(BalancePill(LvnIcon.Gem, crystals.ToString("N0"), LvnTokens.Gold));
+            _balances.Add(BalancePill(LvnIcon.Energy, energy.ToString("N0"), LvnTokens.Accent));
         }
 
-        private static VisualElement BalancePill(string glyph, string value, Color glyphColor)
+        private static VisualElement BalancePill(LvnIcon glyph, string value, Color glyphColor)
         {
             var pill = new VisualElement();
             pill.style.flexDirection = FlexDirection.Row;
@@ -388,11 +388,8 @@ namespace Lvn.UI.Screens
             pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
             Round(pill, 16f);
 
-            var icon = new Label(glyph);
-            icon.style.color = glyphColor;
-            icon.style.fontSize = 24;
+            var icon = LvnIcons.Make(glyph, 22f, glyphColor, 0f, LvnTheme.Current.IconGlow);
             icon.style.marginRight = 6;
-            icon.style.unityFontStyleAndWeight = FontStyle.Bold;
             pill.Add(icon);
 
             var amount = new Label(value);
@@ -415,35 +412,35 @@ namespace Lvn.UI.Screens
             {
                 ["crystals"] = new List<Pack>
                 {
-                    new Pack { Amount = 80,   Unit = "кристаллов", Price = "$0.99",  Bonus = 0,    Glyph = "◆", Tint = gem, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 250,  Unit = "кристаллов", Price = "$2.99",  Bonus = 20,   Glyph = "◆", Tint = gem, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 550,  Unit = "кристаллов", Price = "$4.99",  Bonus = 60,   Badge = Ribbon.Popular, Glyph = "◆", Tint = gem, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 1200, Unit = "кристаллов", Price = "$9.99",  Bonus = 200,  Glyph = "◆", Tint = gem, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 2800, Unit = "кристаллов", Price = "$19.99", Bonus = 700,  Badge = Ribbon.Value, Best = true, Glyph = "◆", Tint = gem, Card = "/content/cards/card5.png" },
+                    new Pack { Amount = 80,   Unit = "кристаллов", Price = "$0.99",  Bonus = 0,    Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card1.png" },
+                    new Pack { Amount = 250,  Unit = "кристаллов", Price = "$2.99",  Bonus = 20,   Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card2.png" },
+                    new Pack { Amount = 550,  Unit = "кристаллов", Price = "$4.99",  Bonus = 60,   Badge = Ribbon.Popular, Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card3.png" },
+                    new Pack { Amount = 1200, Unit = "кристаллов", Price = "$9.99",  Bonus = 200,  Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card4.png" },
+                    new Pack { Amount = 2800, Unit = "кристаллов", Price = "$19.99", Bonus = 700,  Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card5.png" },
                 },
                 ["gold"] = new List<Pack>
                 {
-                    new Pack { Amount = 500,    Unit = "золота", Price = "$0.99",  Bonus = 0,     Glyph = "◆", Tint = au, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 1500,   Unit = "золота", Price = "$2.99",  Bonus = 150,   Glyph = "◆", Tint = au, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 3500,   Unit = "золота", Price = "$4.99",  Bonus = 500,   Badge = Ribbon.Popular, Glyph = "◆", Tint = au, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 8000,   Unit = "золота", Price = "$9.99",  Bonus = 1500,  Glyph = "◆", Tint = au, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 20000,  Unit = "золота", Price = "$19.99", Bonus = 6000,  Badge = Ribbon.BestPrice, Best = true, Glyph = "◆", Tint = au, Card = "/content/cards/card5.png" },
+                    new Pack { Amount = 500,    Unit = "золота", Price = "$0.99",  Bonus = 0,     Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card1.png" },
+                    new Pack { Amount = 1500,   Unit = "золота", Price = "$2.99",  Bonus = 150,   Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card2.png" },
+                    new Pack { Amount = 3500,   Unit = "золота", Price = "$4.99",  Bonus = 500,   Badge = Ribbon.Popular, Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card3.png" },
+                    new Pack { Amount = 8000,   Unit = "золота", Price = "$9.99",  Bonus = 1500,  Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card4.png" },
+                    new Pack { Amount = 20000,  Unit = "золота", Price = "$19.99", Bonus = 6000,  Badge = Ribbon.BestPrice, Best = true, Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card5.png" },
                 },
                 ["energy"] = new List<Pack>
                 {
-                    new Pack { Amount = 30,   Unit = "энергии", Price = "$0.99",  Bonus = 0,   Glyph = "⚡", Tint = en, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 100,  Unit = "энергии", Price = "$2.99",  Bonus = 10,  Glyph = "⚡", Tint = en, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 250,  Unit = "энергии", Price = "$4.99",  Bonus = 35,  Badge = Ribbon.Popular, Glyph = "⚡", Tint = en, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 600,  Unit = "энергии", Price = "$9.99",  Bonus = 120, Glyph = "⚡", Tint = en, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 1500, Unit = "энергии", Price = "$19.99", Bonus = 400, Badge = Ribbon.Value, Best = true, Glyph = "⚡", Tint = en, Card = "/content/cards/card5.png" },
+                    new Pack { Amount = 30,   Unit = "энергии", Price = "$0.99",  Bonus = 0,   Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card1.png" },
+                    new Pack { Amount = 100,  Unit = "энергии", Price = "$2.99",  Bonus = 10,  Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card2.png" },
+                    new Pack { Amount = 250,  Unit = "энергии", Price = "$4.99",  Bonus = 35,  Badge = Ribbon.Popular, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card3.png" },
+                    new Pack { Amount = 600,  Unit = "энергии", Price = "$9.99",  Bonus = 120, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card4.png" },
+                    new Pack { Amount = 1500, Unit = "энергии", Price = "$19.99", Bonus = 400, Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card5.png" },
                 },
                 ["bundles"] = new List<Pack>
                 {
-                    new Pack { Amount = 1,  Unit = "Набор новичка",   Price = "$1.99",  Bonus = 0,  Glyph = "🎁", Tint = bun, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 1,  Unit = "Недельный набор", Price = "$4.99",  Bonus = 0,  Badge = Ribbon.Popular, Glyph = "🎁", Tint = bun, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 1,  Unit = "Набор героя",     Price = "$9.99",  Bonus = 0,  Glyph = "🎁", Tint = bun, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 1,  Unit = "Королевский набор",Price = "$24.99", Bonus = 0, Badge = Ribbon.Value, Best = true, Glyph = "👑", Tint = bun, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 1,  Unit = "Легендарный набор",Price = "$49.99", Bonus = 0, Badge = Ribbon.BestPrice, Glyph = "👑", Tint = bun, Card = "/content/cards/card5.png" },
+                    new Pack { Amount = 1,  Unit = "Набор новичка",   Price = "$1.99",  Bonus = 0,  Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card1.png" },
+                    new Pack { Amount = 1,  Unit = "Недельный набор", Price = "$4.99",  Bonus = 0,  Badge = Ribbon.Popular, Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card2.png" },
+                    new Pack { Amount = 1,  Unit = "Набор героя",     Price = "$9.99",  Bonus = 0,  Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card3.png" },
+                    new Pack { Amount = 1,  Unit = "Королевский набор",Price = "$24.99", Bonus = 0, Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Crown, Tint = bun, Card = "/content/cards/card4.png" },
+                    new Pack { Amount = 1,  Unit = "Легендарный набор",Price = "$49.99", Bonus = 0, Badge = Ribbon.BestPrice, Emblem = LvnIcon.Crown, Tint = bun, Card = "/content/cards/card5.png" },
                 },
             };
         }

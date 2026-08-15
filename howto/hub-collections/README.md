@@ -73,6 +73,29 @@ A different novel = different `collections`/`type`/`unlock`/`cost` + a different
 → different visuals and content, **same firmware**. Expeditions/Dates/Reality
 are product data, not the engine.
 
+## Themes
+
+`ui.browse.theme` swaps the whole look in one word — not just the palette but the
+*cut*: corner radius, the glowing edge on panels, heading case and tracking, and
+the atmosphere behind the content.
+
+```json
+"ui": { "browse": { "layout": "hub", "theme": "cyber" } }
+```
+
+| theme | look |
+|---|---|
+| `midnight` (default) | warm plum neutral, rose accent, round pills, no backdrop |
+| `cyber` | cold navy, cyan accent, chamfered corners, grid + scanlines + vignette |
+
+The individual `*_color` fields still work and override the theme one value at a
+time — the theme is the fallback, not a lock.
+
+Themes carry **no asset files**: the backdrop is generated in code and every icon
+is drawn as a vector path, so a theme costs nothing to ship and can't go missing
+from a build. That also fixes a class of bug you cannot see coming — icons used
+to be Unicode glyphs, and a phone whose font lacked one drew an empty box.
+
 ## Build and check
 
 ```

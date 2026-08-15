@@ -1,0 +1,164 @@
+using UnityEngine;
+
+namespace Lvn.UI
+{
+    /// <summary>
+    /// ТЕМА ОБОЛОЧКИ: палитра плюс огранка.
+    ///
+    /// <para>Тема — это не «набор цветов». Цвета переставить мало: между
+    /// романтическим и киберпанковым экраном разница не в оттенке, а в том, что
+    /// у одного углы скруглены и текст набран строчными, а у другого угол
+    /// срезан, заголовки капсом с разрядкой, по контуру идёт светящаяся кромка,
+    /// а за содержимым дышит сетка. Всё это здесь и лежит — рядом с палитрой и
+    /// такими же данными.</para>
+    ///
+    /// <para>Поэтому новая тема не требует ни строчки в коде экранов: хаб,
+    /// магазин и гардероб спрашивают у темы, а не решают сами. Проверка ровно
+    /// такая — если для темы пришлось трогать экран, значит в теме не хватает
+    /// поля.</para>
+    ///
+    /// <para>Ни одного файла с собой тема не тащит: атмосфера считается кодом
+    /// (см. <see cref="LvnBackdrop"/>), иконки рисуются вектором (см.
+    /// <see cref="LvnIcons"/>). Движок без арта обязан оставаться движком.</para>
+    /// </summary>
+    public sealed class LvnTheme
+    {
+        public string Name = "midnight";
+
+        // ── палитра ─────────────────────────────────────────────────────────
+        // Значения по умолчанию — «Полночь»: нейтраль Radix mauve с розовым
+        // акцентом и тёплым золотом. Они лежат ЗДЕСЬ, а не в LvnTokens, иначе
+        // получилось бы кольцо: токен спрашивает тему, тема спрашивает токен.
+        public Color Bg = Hex("#171119");
+        public Color Surface = Hex("#241a24");
+        public Color SurfaceHi = Hex("#2c2130");
+        public Color Border = Hex("#38293a");
+        public Color Text = Hex("#f6ecf1");
+        public Color TextDim = Hex("#b79caf");
+        public Color Accent = Hex("#ec5a92");
+        public Color OnAccent = Hex("#1a0f16");
+        public Color Gold = Hex("#f0d9a0");
+        /// <summary>Заливка кнопки-призрака.</summary>
+        public Color Faint = new Color(1f, 1f, 1f, 0.08f);
+        /// <summary>Затемнение под модальными окнами.</summary>
+        public Color Scrim = new Color(0f, 0f, 0f, 0.72f);
+        /// <summary>Фон панели диалога и нижних листов.</summary>
+        public Color PanelBg = new Color(0.086f, 0.063f, 0.094f, 0.97f);
+        /// <summary>Тревога и «новое». ОТДЕЛЬНЫЙ цвет, а не акцент: если
+        /// предупреждение красить тем же, чем кнопку, экран теряет способность
+        /// кричать.</summary>
+        public Color Warn = Hex("#ec5a92");
+
+        // ── огранка ─────────────────────────────────────────────────────────
+        /// <summary>Скругление карточек. Малое значение читается как срез —
+        /// именно так и делается фаска, которой в UI Toolkit нет.</summary>
+        public float Radius = 16f;
+        /// <summary>Скругление кнопок и меток — мельче карточного.</summary>
+        public float RadiusSm = 12f;
+        /// <summary>Толщина светящейся кромки по контуру панелей. 0 — без неё.
+        /// В пикселях холста: на 1080 единица — это треть точки, то есть
+        /// невидимо, поэтому у киберпанка стоит 3.</summary>
+        public float EdgeWidth = 0f;
+        /// <summary>Насколько кромка яркая (доля от акцента).</summary>
+        public float EdgeAlpha = 0.45f;
+        /// <summary>Разрядка заголовков. Техническая типографика держится
+        /// на ней сильнее, чем на начертании.</summary>
+        public float Tracking = 0f;
+        /// <summary>Заголовки капсом.</summary>
+        public bool UpperHeadings = false;
+        /// <summary>Свечение под линией иконок: 0 — нет, 1 — заметное.</summary>
+        public float IconGlow = 0f;
+        /// <summary>Заливать заглушку отсутствующей обложки акцентом.
+        ///
+        /// <para>В тёплой теме крупное акцентное пятно вместо ненаехавшей
+        /// картинки выглядит нарядно. В технической — губительно: акцент там
+        /// один на экран и служит указателем, а три постера во всю ширину
+        /// отбирают у него всю силу. Поэтому у киберпанка заглушка тёмная, с
+        /// одной светящейся кромкой.</para></summary>
+        public bool AccentPlaceholders = true;
+        /// <summary>Круглые плашки и аватар. Круг — примета тёплого,
+        /// «человеческого» интерфейса; техническому он противоречит ровно так
+        /// же, как срезанный угол противоречит романтическому.</summary>
+        public bool RoundPills = true;
+
+        // ── атмосфера за содержимым ─────────────────────────────────────────
+        public bool Grid = false;
+        public bool Scanlines = false;
+        public bool Vignette = false;
+        public bool Glow = false;
+
+        /// <summary>Заголовок с учётом темы — чтобы капс не размазывался по
+        /// экранам вручную.</summary>
+        public string Heading(string s) =>
+            UpperHeadings && !string.IsNullOrEmpty(s) ? s.ToUpperInvariant() : s;
+
+        /// <summary>Цвет кромки: акцент нужной прозрачности.</summary>
+        public Color EdgeColor =>
+            new Color(Accent.r, Accent.g, Accent.b, EdgeAlpha);
+
+        // ── готовые темы ────────────────────────────────────────────────────
+
+        /// <summary>Тема по умолчанию: тёплая, скруглённая, без атмосферы.
+        /// То, чем оболочка была всегда, — вынесено сюда, чтобы «без темы» и
+        /// «тема midnight» означали ровно одно и то же.</summary>
+        public static LvnTheme Midnight() => new LvnTheme { Name = "midnight" };
+
+        /// <summary>Киберпанк: холодный, гранёный, с сеткой и свечением.</summary>
+        public static LvnTheme Cyber() => new LvnTheme
+        {
+            Name = "cyber",
+            Bg = Hex("#0A0E16"),
+            Surface = Hex("#141B2B"),
+            SurfaceHi = Hex("#1B2438"),
+            Border = new Color(0.18f, 0.90f, 0.84f, 0.35f),
+            Text = Hex("#DFF6FF"),
+            TextDim = Hex("#7F95AD"),
+            // Один яркий акцент на экран. Второй яркий цвет отнимает у первого
+            // способность направлять взгляд, поэтому маджента — только тревога.
+            Accent = Hex("#2EE6D6"),
+            OnAccent = Hex("#06202A"),
+            Gold = Hex("#FFC46B"),
+            Warn = Hex("#FF2E88"),
+            Faint = new Color(0.18f, 0.90f, 0.84f, 0.07f),
+            Scrim = new Color(0.02f, 0.04f, 0.07f, 0.82f),
+            PanelBg = new Color(0.039f, 0.055f, 0.086f, 0.96f),
+            Radius = 14f,
+            RadiusSm = 8f,
+            EdgeWidth = 3f,
+            EdgeAlpha = 0.5f,
+            Tracking = 2.5f,
+            UpperHeadings = true,
+            IconGlow = 1f,
+            AccentPlaceholders = false,
+            RoundPills = false,
+            Grid = true,
+            Scanlines = true,
+            Vignette = true,
+            Glow = true,
+        };
+
+        /// <summary>Тема по имени. Неизвестное имя — это тема по умолчанию, а
+        /// не пустой экран: опечатка в манифесте не должна ронять оболочку.</summary>
+        public static LvnTheme ByName(string name)
+        {
+            switch ((name ?? "").Trim().ToLowerInvariant())
+            {
+                case "cyber":
+                case "cyberpunk": return Cyber();
+                default: return Midnight();
+            }
+        }
+
+        /// <summary>Действующая тема. Экраны читают отсюда.</summary>
+        public static LvnTheme Current { get; private set; } = Midnight();
+
+        public static void Use(string name) => Current = ByName(name);
+        public static void Use(LvnTheme t) { if (t != null) Current = t; }
+
+        private static Color Hex(string s)
+        {
+            ColorUtility.TryParseHtmlString(s, out var c);
+            return c;
+        }
+    }
+}

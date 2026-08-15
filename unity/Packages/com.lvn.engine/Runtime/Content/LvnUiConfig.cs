@@ -417,6 +417,10 @@ namespace Lvn.Content
     public sealed class BrowseConfig
     {
         public string layout;            // "carousel" (default) | "hub"
+        /// <summary>Тема оболочки: "midnight" (по умолчанию) | "cyber". Задаёт
+        /// палитру И огранку — скругление, кромку, разрядку заголовков, фон.
+        /// Отдельные *_color ниже перекрывают тему поштучно.</summary>
+        public string theme;
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name

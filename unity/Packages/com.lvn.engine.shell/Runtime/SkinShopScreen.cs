@@ -127,9 +127,7 @@ namespace Lvn.UI.Screens
             Border(balancePill, new Color(LvnTokens.Gold.r, LvnTokens.Gold.g, LvnTokens.Gold.b, 0.4f), 1f);
             topBar.Add(balancePill);
 
-            var diamond = new Label("◆");
-            diamond.style.color = LvnTokens.Gold;
-            diamond.style.fontSize = 24;
+            var diamond = LvnIcons.Make(LvnIcon.Gem, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
             diamond.style.marginRight = 8;
             balancePill.Add(diamond);
 
@@ -447,7 +445,7 @@ namespace Lvn.UI.Screens
             // "✓ Надето" ribbon over the thumbnail
             if (equipped)
             {
-                var ribbon = new Label("✓ Надето");
+                var ribbon = new Label("Надето");
                 ribbon.style.position = Position.Absolute;
                 ribbon.style.top = 10; ribbon.style.left = 10;
                 ribbon.style.fontSize = 18;
@@ -512,9 +510,8 @@ namespace Lvn.UI.Screens
                 chip.style.backgroundColor = new Color(priceColor.r, priceColor.g, priceColor.b, 0.14f);
                 Border(chip, new Color(priceColor.r, priceColor.g, priceColor.b, 0.5f), 1f);
 
-                var glyph = new Label(skin.Energy ? "⚡" : "◆");
-                glyph.style.color = priceColor;
-                glyph.style.fontSize = 20;
+                var glyph = LvnIcons.Make(skin.Energy ? LvnIcon.Energy : LvnIcon.Gem, 19f,
+                                          priceColor, 0f, LvnTheme.Current.IconGlow);
                 glyph.style.marginRight = 6;
                 chip.Add(glyph);
 

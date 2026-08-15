@@ -42,7 +42,7 @@ namespace Lvn.UI
         private static readonly Dictionary<string, int> Slice = new Dictionary<string, int>
         {
             { PanelSurface, 16 }, { PanelRaised, 32 }, { PanelSunken, 24 },
-            { ButtonPrimary, 22 }, { ButtonSecondary, 63 }, { Chip, 35 },
+            { ButtonPrimary, 26 }, { ButtonSecondary, 63 }, { Chip, 35 },
             { CardFrame, 95 }, { Divider, 96 }, { SheetTop, 30 },
         };
 

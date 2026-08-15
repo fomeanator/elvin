@@ -130,10 +130,16 @@ namespace Lvn.UI.Screens
             Round(_title, _radius);
             headRow.Add(_title);
 
-            var collapse = new Button(Cancel) { text = "▼" };
+            var collapse = new Button(Cancel) { text = "" };
             collapse.style.position = Position.Absolute;
             collapse.style.right = 0;
-            collapse.style.fontSize = 22;
+            collapse.style.alignItems = Align.Center;
+            collapse.style.justifyContent = Justify.Center;
+            // Шеврон, повёрнутый вниз: одна фигура на все четыре направления
+            // вместо четырёх почти одинаковых контуров.
+            var collapseIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
+            collapseIcon.style.rotate = new Rotate(90f);
+            collapse.Add(collapseIcon);
             collapse.style.paddingLeft = 14; collapse.style.paddingRight = 14;
             collapse.style.paddingTop = 6; collapse.style.paddingBottom = 6;
             SkinButton(collapse, false);
@@ -163,11 +169,16 @@ namespace Lvn.UI.Screens
             carousel.style.marginTop = 12;
             Add(carousel);
 
-            var prev = new Button(() => Step(-1)) { text = "◀" };
-            var next = new Button(() => Step(+1)) { text = "▶" };
+            var prev = new Button(() => Step(-1)) { text = "" };
+            var next = new Button(() => Step(+1)) { text = "" };
+            var prevIcon = LvnIcons.Make(LvnIcon.Chevron, 22f, LvnTokens.Text);
+            prevIcon.style.rotate = new Rotate(180f);
+            prev.Add(prevIcon);
+            next.Add(LvnIcons.Make(LvnIcon.Chevron, 22f, LvnTokens.Text));
             foreach (var b in new[] { prev, next })
             {
-                b.style.fontSize = 24;
+                b.style.alignItems = Align.Center;
+                b.style.justifyContent = Justify.Center;
                 b.style.paddingLeft = 16; b.style.paddingRight = 16;
                 b.style.paddingTop = 10; b.style.paddingBottom = 10;
                 SkinButton(b, false);

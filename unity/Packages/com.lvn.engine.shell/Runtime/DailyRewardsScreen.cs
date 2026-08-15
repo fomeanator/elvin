@@ -119,8 +119,9 @@ namespace Lvn.UI.Screens
             _subtitle.style.marginTop = 4;
             titleCol.Add(_subtitle);
 
-            var close = new Button(Close) { text = "✕" };
-            close.style.fontSize = 28;
+            var close = new Button(Close) { text = "" };
+            close.style.alignItems = Align.Center;
+            close.style.justifyContent = Justify.Center;
             close.style.width = 44;
             close.style.height = 44;
             close.style.marginLeft = 12;
@@ -271,18 +272,33 @@ namespace Lvn.UI.Screens
             }
 
             // Day label.
-            var label = new Label(premium ? $"День {day} ★" : $"День {day}");
+            // Подпись дня, а у премиального — ещё и звезда РЯДОМ, отдельным
+            // элементом: приписывать её к строке значило бы снова полагаться на
+            // то, что нужный символ найдётся в шрифте телефона.
+            var labelRow = new VisualElement();
+            labelRow.style.flexDirection = FlexDirection.Row;
+            labelRow.style.alignItems = Align.Center;
+            labelRow.style.justifyContent = Justify.Center;
+            labelRow.style.marginBottom = 8;
+            var label = new Label($"День {day}");
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
             label.style.fontSize = 20;
             label.style.unityFontStyleAndWeight = premium ? FontStyle.Bold : FontStyle.Normal;
-            label.style.marginBottom = 8;
-            cell.Add(label);
+            labelRow.Add(label);
+            if (premium)
+            {
+                var pin = LvnIcons.Make(LvnIcon.Star, 16f, LvnTokens.Gold);
+                pin.style.marginLeft = 5;
+                labelRow.Add(pin);
+            }
+            cell.Add(labelRow);
 
             // Reward icon (⚡ energy / ◆ gold).
-            var icon = new Label(reward.Gold ? "◆" : "⚡");
-            icon.style.fontSize = premium ? 48 : 40;
-            icon.style.color = reward.Gold ? LvnTokens.Gold : LvnTokens.Accent;
-            icon.style.unityTextAlign = TextAnchor.MiddleCenter;
+            var icon = LvnIcons.Make(reward.Gold ? LvnIcon.Gem : LvnIcon.Energy,
+                                     premium ? 48f : 40f,
+                                     reward.Gold ? LvnTokens.Gold : LvnTokens.Accent,
+                                     0f, LvnTheme.Current.IconGlow);
+            icon.style.alignSelf = Align.Center;
             cell.Add(icon);
 
             // Amount.
@@ -296,12 +312,10 @@ namespace Lvn.UI.Screens
             // CLAIMED tick badge, TODAY "сегодня" pill.
             if (state == State.Claimed)
             {
-                var tick = new Label("✓");
+                var tick = LvnIcons.Make(LvnIcon.Check, 22f, LvnTokens.Accent);
                 tick.style.position = Position.Absolute;
                 tick.style.top = 6;
                 tick.style.right = 10;
-                tick.style.fontSize = 24;
-                tick.style.color = LvnTokens.Accent;
                 cell.Add(tick);
             }
             else if (state == State.Today)
