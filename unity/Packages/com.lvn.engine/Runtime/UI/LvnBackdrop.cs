@@ -46,6 +46,7 @@ namespace Lvn.UI
                 g.style.top = -260; g.style.height = 900;
                 g.style.left = -120; g.style.right = -120;
                 g.style.bottom = new StyleLength(StyleKeyword.Auto);
+                Breathe(g, 0.45f, 0.62f, 4200);
 
                 // Второе — у нижней кромки: горизонт за экраном. Он прижимает
                 // навигацию и не даёт низу выглядеть обрезанным.
@@ -63,6 +64,33 @@ namespace Lvn.UI
         }
 
         private static Color Tint(Color c, float a) => new Color(c.r, c.g, c.b, a);
+
+        /// <summary>
+        /// Медленное дыхание слоя.
+        ///
+        /// <para>Неподвижный экран мёртв, даже если он безупречен. Достаточно
+        /// ОДНОЙ вещи, которая никогда не останавливается, — и всё остальное
+        /// начинает читаться как включённое. Свет подходит лучше всего: он не
+        /// отвлекает, потому что не имеет краёв, и его нельзя «дочитать».</para>
+        ///
+        /// <para>Период в четыре секунды выбран не на глаз: быстрее — заметно и
+        /// начинает раздражать, медленнее — уже не воспринимается как движение.
+        /// Синус, а не пила: у пилы слышен щелчок разворота.</para>
+        /// </summary>
+        private static void Breathe(VisualElement el, float min, float max, int periodMs)
+        {
+            if (el == null) return;
+            float phase = 0f;
+            el.schedule.Execute((TimerState ts) =>
+            {
+                // Время у планировщика, а не у Time: он и так его считает, и в
+                // редакторе вне игрового режима ведёт себя одинаково.
+                phase += Mathf.Min(ts.deltaTime, 250f) / periodMs * Mathf.PI * 2f;
+                if (phase > Mathf.PI * 2f) phase -= Mathf.PI * 2f;
+                float k = (Mathf.Sin(phase) + 1f) * 0.5f;
+                el.style.opacity = Mathf.Lerp(min, max, k);
+            }).Every(33);   // 30 кадров в секунду хватает: движение медленное
+        }
 
         private static VisualElement Layer(VisualElement parent, Texture2D tex,
                                            bool tile, float opacity, Color tint)

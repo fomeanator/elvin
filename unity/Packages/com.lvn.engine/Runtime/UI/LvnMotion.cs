@@ -28,8 +28,12 @@ namespace Lvn.UI
         /// уходит), 0,55–0,7 — заметный, но не клоунский проскок (для того, что
         /// появляется). Ниже 0,4 начинается желе.
         /// </summary>
-        public const float DampingSoft = 0.62f; // появление: проскок ~7%
-        public const float DampingFirm = 1.0f;  // исчезновение: без отскока
+        public const float DampingSoft = 0.62f;   // появление: проскок ~7%
+        public const float DampingFirm = 1.0f;    // исчезновение: без отскока
+        /// <summary>Отпускание кнопки: проскок ~15%. Заметно больше, чем у
+        /// появления, и намеренно — палец уже ушёл, и этот отскок единственное,
+        /// что подтверждает нажатие. Ниже 0,35 начинается желе.</summary>
+        public const float DampingBouncy = 0.45f;
 
         /// <summary>Жёсткость. Больше — быстрее приход. 120 ≈ 260 мс до покоя,
         /// что попадает в разумные для телефона 150–300 мс.</summary>
@@ -157,6 +161,104 @@ namespace Lvn.UI
             }, DampingSoft);
             el.RegisterCallback<PointerUpEvent>(e => back(e));
             el.RegisterCallback<PointerLeaveEvent>(e => back(e));
+        }
+
+        /// <summary>Класс-пометка «меня можно нажать». Кнопке не нужна — её
+        /// узнаём по типу; ставится на всё остальное: вкладки, карточки,
+        /// плашки, строки списка.</summary>
+        public const string TapClass = "lvn-tap";
+
+        /// <summary>Помечает элемент нажимаемым. Возвращает его же, чтобы
+        /// вписываться в цепочку построения.</summary>
+        public static T Tappable<T>(T el) where T : VisualElement
+        {
+            el?.AddToClassList(TapClass);
+            return el;
+        }
+
+        // Что сейчас под пальцем. СТАТИЧЕСКОЕ поле, а не поле замыкания: отклик
+        // можно включить сразу на нескольких корнях (оболочка + отдельный
+        // экран), и без общего состояния один и тот же элемент отработал бы
+        // дважды.
+        private static VisualElement _pressed;
+        private static Vector2 _pressAt;
+        private static float _pressX = 1f, _pressY = 1f;
+
+        /// <summary>
+        /// ОТКЛИК НА НАЖАТИЕ для всего поддерева — одним вызовом.
+        ///
+        /// <para>Это самое дешёвое, что отличает живой интерфейс от мёртвого.
+        /// Экран может быть безупречно свёрстан и правильно покрашен, но если
+        /// палец опускается и НИЧЕГО не происходит, он читается как картинка:
+        /// человек не понимает, нажалось ли, и жмёт второй раз. Подтверждение
+        /// нужно в первые же миллисекунды — раньше, чем успеет отработать сам
+        /// обработчик.</para>
+        ///
+        /// <para>Обработчик один и висит на корне, а не на каждой кнопке.
+        /// Иначе про отклик пришлось бы помнить в каждом новом месте — и
+        /// когда-нибудь забыть, что и произошло: во всей оболочке он стоял
+        /// ровно на карточках хаба.</para>
+        ///
+        /// <para>Нажатие ставится МГНОВЕННО, а возврат идёт пружиной: так
+        /// ведёт себя физический предмет, и так же — кнопки в системе.</para>
+        /// </summary>
+        public static void EnableTapFeedback(VisualElement root, float scale = 0.955f)
+        {
+            if (root == null) return;
+
+            root.RegisterCallback<PointerDownEvent>(e =>
+            {
+                var el = FindTappable(e.target as VisualElement);
+                if (el == null || ReferenceEquals(el, _pressed)) return;
+                _pressed = el;
+                _pressAt = e.position;
+                // СКВОШ, а не равномерное уменьшение. Предмет, на который давят,
+                // расплющивается: по вертикали сжимается сильнее, по горизонтали
+                // почти не меняется. Равномерное уменьшение — это «объект стал
+                // меньше», и читается оно именно как пластик.
+                _pressX = 1f - (1f - scale) * 0.45f;
+                _pressY = scale - 0.022f;
+                el.style.scale = new Scale(new Vector2(_pressX, _pressY));
+            }, TrickleDown.TrickleDown);
+
+            // Уехал палец — отпускаем. Без этого элемент остаётся вдавленным на
+            // всё время прокрутки, и лента едет с «залипшей» карточкой.
+            root.RegisterCallback<PointerMoveEvent>(e =>
+            {
+                if (_pressed == null) return;
+                if ((((Vector2)e.position) - _pressAt).sqrMagnitude > 12f * 12f) Release();
+            }, TrickleDown.TrickleDown);
+
+            root.RegisterCallback<PointerUpEvent>(_ => Release(), TrickleDown.TrickleDown);
+            root.RegisterCallback<PointerCancelEvent>(_ => Release(), TrickleDown.TrickleDown);
+        }
+
+        private static void Release()
+        {
+            var el = _pressed;
+            _pressed = null;
+            if (el == null) return;
+            float fx = _pressX, fy = _pressY;
+            Animate(el, 0, (t, x) =>
+            {
+                // Unclamped: пружина проскакивает единицу, и элемент на миг
+                // становится ЧУТЬ БОЛЬШЕ исходного — это и есть отскок. Обрежь
+                // здесь t по единице, и вся живость исчезнет.
+                x.style.scale = new Scale(new Vector2(
+                    Mathf.LerpUnclamped(fx, 1f, t),
+                    Mathf.LerpUnclamped(fy, 1f, t)));
+            }, DampingBouncy);
+        }
+
+        // Ищем ближайшего предка, который вообще нажимается. Глубина ограничена:
+        // цель нажатия бывает вложена (иконка внутри кнопки внутри строки), но
+        // не на двадцать уровней, а без ограничения одна промашка увела бы нас
+        // до самого корня и вдавила бы весь экран.
+        private static VisualElement FindTappable(VisualElement el)
+        {
+            for (int i = 0; el != null && i < 8; i++, el = el.parent)
+                if (el is Button || el.ClassListContains(TapClass)) return el;
+            return null;
         }
 
         /// <summary>

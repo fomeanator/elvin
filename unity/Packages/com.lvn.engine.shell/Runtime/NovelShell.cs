@@ -103,6 +103,9 @@ namespace Lvn.UI.Screens
             _root = _doc.rootVisualElement;
             _root.Clear();
             _root.style.flexGrow = 1;
+            // Отклик на нажатие — на КОРЕНЬ, то есть сразу на все экраны
+            // оболочки. Ставить его поэкранно значит однажды забыть.
+            LvnMotion.EnableTapFeedback(_root);
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
