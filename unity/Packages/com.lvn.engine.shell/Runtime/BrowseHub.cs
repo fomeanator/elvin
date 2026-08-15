@@ -102,6 +102,10 @@ namespace Lvn.UI.Screens
             style.backgroundColor = _bg;
             // Атмосфера — под всё содержимое. У темы без неё не делает ничего.
             LvnBackdrop.Apply(this, _theme);
+            // Отклик на нажатие — на весь хаб разом. Раньше он стоял ровно на
+            // карточках ленты, и всё остальное (вкладки, плашки, «+») на палец
+            // не отвечало: экран читался как картинка.
+            LvnMotion.EnableTapFeedback(this);
 
             // ── HUB ── a brand block up top, then full-bleed collection cards
             // that fill the height. Cards get texture gradients for real depth
@@ -287,6 +291,7 @@ namespace Lvn.UI.Screens
             pill.Add(plus);
 
             pill.RegisterCallback<ClickEvent>(evt => { if (OnStore != null) _ = OnStore(); });
+            LvnMotion.Tappable(pill);
             return pill;
         }
 
@@ -318,9 +323,7 @@ namespace Lvn.UI.Screens
         // ── navigation ──────────────────────────────────────────────────────────
         private void ShowHub()
         {
-            _hubView.style.display = DisplayStyle.Flex;
-            _collectionView.style.display = DisplayStyle.None;
-            _detailView.style.display = DisplayStyle.None;
+            ShowView(_hubView);
         }
 
         private void ShowCollection(LvnCollection c)
@@ -331,9 +334,7 @@ namespace Lvn.UI.Screens
                 foreach (var id in c.titles)
                     if (_titles.TryGetValue(id, out var t))
                         _collectionList.Add(TitleCard(t));
-            _hubView.style.display = DisplayStyle.None;
-            _collectionView.style.display = DisplayStyle.Flex;
-            _detailView.style.display = DisplayStyle.None;
+            ShowView(_collectionView);
         }
 
         // Prefer the host's rich detail page (TitleDetailScreen); fall back to the
@@ -364,9 +365,7 @@ namespace Lvn.UI.Screens
             _detailPlay.SetEnabled(!locked);
             _detailPlay.text = locked ? (_cfg.locked_text ?? "Закрыто")
                 : PlayLabel(t);
-            _hubView.style.display = DisplayStyle.None;
-            _collectionView.style.display = DisplayStyle.None;
-            _detailView.style.display = DisplayStyle.Flex;
+            ShowView(_detailView);
         }
 
         private void BackFromDetail()
@@ -412,11 +411,15 @@ namespace Lvn.UI.Screens
             if (featured == null && orphans.Count > 0) _titles.TryGetValue(orphans[0], out featured);
             if (featured != null) _hubRows.Add(FeaturedBanner(featured, resume != null));
             for (int i = 0; i < _collections.Count; i++)
-                _hubRows.Add(CollectionRow(_collections[i], hero: i == 0));
+            {
+                var cr = CollectionRow(_collections[i], hero: i == 0);
+                if (cr != null) _hubRows.Add(cr);   // null = в сборнике нечего показывать
+            }
             if (orphans.Count > 0)
             {
                 var lib = new LvnCollection { id = "_library", name = _cfg.library_text ?? "Новеллы", titles = orphans };
-                _hubRows.Add(CollectionRow(lib, hero: _collections.Count == 0));
+                var libRow = CollectionRow(lib, hero: _collections.Count == 0);
+                if (libRow != null) _hubRows.Add(libRow);
             }
             AnimateIn(_hubRows); // staggered entrance
         }
@@ -572,7 +575,7 @@ namespace Lvn.UI.Screens
             lb.style.letterSpacing = _theme.Tracking;
             lb.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
             tab.Add(lb);
-            if (onTap != null) tab.AddManipulator(new Clickable(onTap)); // reliable tap
+            if (onTap != null) { tab.AddManipulator(new Clickable(onTap)); LvnMotion.Tappable(tab); }
             return tab;
         }
 
@@ -631,6 +634,7 @@ namespace Lvn.UI.Screens
             allArrow.style.marginLeft = 4;
             all.Add(allArrow);
             all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));
+            LvnMotion.Tappable(all);
             head.Add(all);
             row.Add(head);
 
@@ -640,9 +644,6 @@ namespace Lvn.UI.Screens
             // что карточка выше отведённой ей строки: сбоку появлялся системный
             // ползунок чужого вида, а низ карточки обрезался.
             strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-            // Высота считается от карточки, а не подбирается: постер 320,
-            // отступ 12, название в две строки ~62, подпись ~26.
-            strip.style.height = 320f + 12f + 62f + 26f;
             strip.style.flexShrink = 0;
             strip.style.flexDirection = FlexDirection.Row;
             var entering = new System.Collections.Generic.List<VisualElement>();
@@ -656,6 +657,14 @@ namespace Lvn.UI.Screens
                     }
             // Карточки приезжают со сдвигом, а не разом: одновременное появление
             // читается как перерисовка экрана, последовательное — как намерение.
+            // Пустой сборник — не строка нулевой высоты, а ОТСУТСТВИЕ строки.
+            // Фиксированная высота ниже иначе зарезервировала бы полэкрана
+            // пустоты под заголовком, который не о чем.
+            if (entering.Count == 0) return null;
+            // Высота считается от карточки, а не подбирается: постер 320,
+            // отступ 12, название в две строки ~62, подпись ~26. Ставится
+            // только теперь, когда точно известно, что карточки есть.
+            strip.style.height = 320f + 12f + 62f + 26f;
             Lvn.UI.LvnMotion.Stagger(entering);
             row.Add(strip);
             return row;
@@ -672,9 +681,6 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.width = 250;
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
-            // Осязаемость: палец жмёт — карточка подаётся. Работает сильнее
-            // любой подсветки и не требует ни одной картинки.
-            Lvn.UI.LvnMotion.Press(card);
             card.style.marginRight = 18;
             card.style.opacity = locked ? 0.5f : 1f;
 
@@ -740,6 +746,7 @@ namespace Lvn.UI.Screens
                 card.Add(subLbl);
             }
 
+            LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
                 if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); }
@@ -818,6 +825,7 @@ namespace Lvn.UI.Screens
 
             card.Add(col);
 
+            LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
                 if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); }
@@ -965,6 +973,22 @@ namespace Lvn.UI.Screens
         {
             el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
             el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
+        }
+
+        /// <summary>
+        /// Переключение между тремя видами хаба — с движением, а не подменой.
+        ///
+        /// <para>Мгновенная смена display читается как перерисовка: непонятно,
+        /// «вглубь» ты пошёл или «назад», и экран ощущается набором картинок.
+        /// Короткий въезд снизу с проявлением стоит четверть секунды и отвечает
+        /// на этот вопрос сам.</para>
+        /// </summary>
+        private void ShowView(VisualElement target)
+        {
+            foreach (var v in new[] { _hubView, _collectionView, _detailView })
+                if (v != null) v.style.display = ReferenceEquals(v, target)
+                    ? DisplayStyle.Flex : DisplayStyle.None;
+            LvnMotion.SlideIn(target, 26f);
         }
 
         /// <summary>Светящаяся кромка по контуру — подпись технической темы.
