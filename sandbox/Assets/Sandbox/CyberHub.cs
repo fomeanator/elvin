@@ -49,6 +49,11 @@ namespace Sandbox
             ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
             ps.referenceResolution = new Vector2Int(1080, 1920);
             ps.match = 1f;
+            // ВАЖНО ПРО РАЗМЕРЫ. Холст 1080 пикселей — это примерно 360 точек
+            // на телефоне (плотность 3). Поэтому шрифт «17» здесь читается как
+            // ШЕСТЬ точек, то есть нечитаемо. Все размеры ниже заданы в
+            // пикселях холста и равны точкам, умноженным на три: тело 15×3=45,
+            // заголовок 28×3=84, область касания 48×3=144.
             ps.sortingOrder = 900; // поверх всего: это витрина
             var theme = Resources.Load<ThemeStyleSheet>("UI/AppLoading/UnityDefaultRuntimeTheme");
             if (theme != null) ps.themeStyleSheet = theme;
@@ -81,30 +86,40 @@ namespace Sandbox
             floor.style.bottom = -320; floor.style.height = 620;
             floor.style.left = -160; floor.style.right = -160;
 
-            var content = new VisualElement();
-            content.style.flexGrow = 1;
-            content.style.paddingLeft = 28; content.style.paddingRight = 28;
-            content.style.paddingTop = 64; content.style.paddingBottom = 28;
-            root.Add(content);
+            var page = new VisualElement();
+            page.style.flexGrow = 1;
+            root.Add(page);
+
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden; // полоса
+            // прокрутки в такой витрине — визуальный мусор, жест остаётся
+            page.Add(scroll);
+            var content = scroll.contentContainer;
+            content.style.paddingLeft = 56; content.style.paddingRight = 56;
+            content.style.paddingTop = 90; content.style.paddingBottom = 40;
 
             content.Add(StatusBar());
-            content.Add(Space(26));
+            content.Add(Space(48));
             content.Add(Hero());
-            content.Add(Space(26));
+            content.Add(Space(48));
             content.Add(SectionLabel("ДОСТУПНЫЕ ЛИНИИ", "04"));
-            content.Add(Space(12));
+            content.Add(Space(24));
             content.Add(CardRow());
-            content.Add(Space(26));
+            content.Add(Space(48));
             content.Add(SectionLabel("СЕГОДНЯ", "07"));
-            content.Add(Space(12));
+            content.Add(Space(24));
             content.Add(TodayPanel());
-            content.Add(Space(22));
+            content.Add(Space(40));
             content.Add(HazardStrip("СИГНАЛ НЕСТАБИЛЕН · ПОВТОР ЧЕРЕЗ 00:42"));
-            content.Add(Space(22));
+            content.Add(Space(40));
             content.Add(LastSession());
-            var spacer = new VisualElement { style = { flexGrow = 1 } };
-            content.Add(spacer);
-            content.Add(BottomNav());
+            // Навигация ВНЕ прокрутки: она обязана быть на месте всегда.
+            var nav = BottomNav();
+            nav.style.paddingLeft = 56; nav.style.paddingRight = 56;
+            nav.style.paddingBottom = 30;
+            nav.style.backgroundColor = new Color(0.039f, 0.055f, 0.086f, 0.96f);
+            page.Add(nav);
         }
 
         private static VisualElement Layer(VisualElement parent, string res, float opacity, bool tile)
@@ -138,17 +153,17 @@ namespace Sandbox
             var left = Row();
             left.style.alignItems = Align.Center;
             var badge = new Label("V");
-            badge.style.width = 44; badge.style.height = 44;
+            badge.style.width = 108; badge.style.height = 108;
             badge.style.unityTextAlign = TextAnchor.MiddleCenter;
             badge.style.color = C(Bg);
             badge.style.backgroundColor = C(Cy);
-            badge.style.fontSize = 22;
+            badge.style.fontSize = 52;
             badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             Chamfer(badge, 10);
             left.Add(badge);
             var who = new VisualElement { style = { marginLeft = 12 } };
-            who.Add(Text("ВИКТОРИЯ", 20, Tx, 3f, FontStyle.Bold));
-            who.Add(Text("ID 0x1F4C · УРОВЕНЬ 7", 14, Dim, 2f));
+            who.Add(Text("ВИКТОРИЯ", 54, Tx, 3f, FontStyle.Bold));
+            who.Add(Text("ID 0x1F4C · УРОВЕНЬ 7", 36, Dim, 2f));
             left.Add(who);
             row.Add(left);
 
@@ -164,13 +179,13 @@ namespace Sandbox
             var b = Row();
             b.style.alignItems = Align.Center;
             b.style.marginLeft = 10;
-            b.style.paddingLeft = 12; b.style.paddingRight = 12;
-            b.style.paddingTop = 7; b.style.paddingBottom = 7;
+            b.style.paddingLeft = 26; b.style.paddingRight = 26;
+            b.style.paddingTop = 18; b.style.paddingBottom = 18;
             b.style.backgroundColor = new Color(0.11f, 0.15f, 0.22f, 0.9f);
             Chamfer(b, 8);
             Edge(b, C(Cy), 0.55f);
-            b.Add(Text(glyph, 16, Cy, 0f));
-            var v = Text(value, 17, Tx, 1f, FontStyle.Bold);
+            b.Add(Text(glyph, 40, Cy, 0f));
+            var v = Text(value, 44, Tx, 1f, FontStyle.Bold);
             v.style.marginLeft = 7;
             b.Add(v);
             return b;
@@ -180,7 +195,7 @@ namespace Sandbox
         private static VisualElement Hero()
         {
             var card = new VisualElement();
-            card.style.height = 560;
+            card.style.height = 700;
             card.style.backgroundColor = C(Sf);
             Chamfer(card, 22);
             Edge(card, C(Cy), 0.9f);
@@ -208,7 +223,7 @@ namespace Sandbox
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
             art.style.left = 0; art.style.right = 0; art.style.top = 0;
-            art.style.height = 340;
+            art.style.height = 440;
             art.style.backgroundColor = new Color(0.10f, 0.17f, 0.26f, 1f);
             var artGlow = Resources.Load<Texture2D>("cyber/glow");
             if (artGlow != null)
@@ -223,19 +238,20 @@ namespace Sandbox
             var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
             scrim.style.position = Position.Absolute;
             scrim.style.left = 0; scrim.style.right = 0;
-            scrim.style.top = 200; scrim.style.bottom = 0;
+            scrim.style.top = 300; scrim.style.bottom = 0;
             scrim.style.backgroundColor = new Color(0.078f, 0.106f, 0.169f, 0.92f);
             card.Add(scrim);
 
             var body = new VisualElement();
             body.style.position = Position.Absolute;
-            body.style.left = 34; body.style.right = 34; body.style.bottom = 30;
-            body.Add(Text("ЭПИЗОД 01 · АКТИВНА", 14, Cy, 4f, FontStyle.Bold));
-            var t = Text("НЕМИНУЕМЫЕ\nИЗМЕНЕНИЯ", 46, Tx, 2f, FontStyle.Bold);
+            body.style.left = 56; body.style.right = 56; body.style.bottom = 52;
+            body.Add(Text("ЭПИЗОД 01 · АКТИВНА", 36, Cy, 4f, FontStyle.Bold));
+            var t = Text("НЕМИНУЕМЫЕ\nИЗМЕНЕНИЯ", 84, Tx, 2f, FontStyle.Bold);
             t.style.marginTop = 8; t.style.marginBottom = 14;
             body.Add(t);
-            body.Add(Text("Ты просыпаешься в чужом городе, и всё уже началось без тебя.",
-                          17, Dim, 0f));
+            var desc = Text("Ты просыпаешься в чужом городе,\nи всё уже началось без тебя.", 40, Dim, 0f);
+            desc.style.whiteSpace = WhiteSpace.Normal;
+            body.Add(desc);
             var actions = Row();
             actions.style.marginTop = 20;
             actions.Add(CyberButton("ПРОДОЛЖИТЬ", true));
@@ -263,7 +279,15 @@ namespace Sandbox
         // ── карточки ────────────────────────────────────────────────────────
         private static VisualElement CardRow()
         {
-            var row = Row();
+            // Горизонтальная карусель, а не три колонки: на 1080 пикселях три
+            // карточки дают по 240 на текст, и слово «ЭКСПЕДИЦИЯ» рвётся
+            // посередине. Карусель — то, что делают все мобильные хабы, и она
+            // же позволяет карточке быть достаточно широкой, чтобы читаться.
+            var scroll = new ScrollView(ScrollViewMode.Horizontal);
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.style.flexShrink = 0;
+            var row = scroll.contentContainer;
+            row.style.flexDirection = FlexDirection.Row;
             string[,] items =
             {
                 { "ЭКСПЕДИЦИЯ", "СЕВЕР", "78%" },
@@ -273,17 +297,21 @@ namespace Sandbox
             for (int i = 0; i < items.GetLength(0); i++)
             {
                 var c = new VisualElement();
-                c.style.flexGrow = 1; c.style.flexBasis = 0;
-                c.style.height = 200;
-                c.style.marginRight = i < 2 ? 14 : 0;
+                c.style.width = 430;      // хватает на слово целиком
+                c.style.flexShrink = 0;
+                c.style.height = 330;
+                c.style.marginRight = 24;
                 c.style.backgroundColor = C(Sf);
-                c.style.paddingLeft = 20; c.style.paddingRight = 20;
-                c.style.paddingTop = 18; c.style.paddingBottom = 18;
+                c.style.paddingLeft = 34; c.style.paddingRight = 34;
+                c.style.paddingTop = 30; c.style.paddingBottom = 30;
                 Chamfer(c, 14);
                 Edge(c, C(Cy), 0.45f);
 
-                c.Add(Text(items[i, 0], 15, Cy, 3f, FontStyle.Bold));
-                var sub = Text(items[i, 1], 21, Tx, 1f);
+                var ct = Text(items[i, 0], 30, Cy, 2f, FontStyle.Bold);
+                ct.style.whiteSpace = WhiteSpace.Normal;
+                c.Add(ct);
+                var sub = Text(items[i, 1], 40, Tx, 0f);
+                sub.style.whiteSpace = WhiteSpace.Normal;
                 sub.style.marginTop = 10;
                 c.Add(sub);
                 var grow = new VisualElement { style = { flexGrow = 1 } };
@@ -291,7 +319,7 @@ namespace Sandbox
                 c.Add(Bar(i == 0 ? 0.78f : i == 1 ? 0.4f : 0.15f));
                 if (items[i, 2] != "")
                 {
-                    var tag = Text(items[i, 2], 13, Bg, 2f, FontStyle.Bold);
+                    var tag = Text(items[i, 2], 32, Bg, 2f, FontStyle.Bold);
                     tag.style.position = Position.Absolute;
                     tag.style.right = 0; tag.style.top = 0;
                     tag.style.paddingLeft = 10; tag.style.paddingRight = 10;
@@ -301,16 +329,16 @@ namespace Sandbox
                 }
                 row.Add(c);
             }
-            return row;
+            return scroll;
         }
 
         private static VisualElement Bar(float fill)
         {
             var wrap = new VisualElement();
-            wrap.style.height = 6;
+            wrap.style.height = 12;
             wrap.style.backgroundColor = new Color(0.18f, 0.24f, 0.34f, 1f);
             var f = new VisualElement();
-            f.style.height = 6;
+            f.style.height = 12;
             f.style.width = Length.Percent(fill * 100f);
             f.style.backgroundColor = C(Cy);
             wrap.Add(f);
@@ -323,16 +351,16 @@ namespace Sandbox
         {
             var p = new VisualElement();
             p.style.backgroundColor = C(Sf);
-            p.style.paddingLeft = 22; p.style.paddingRight = 22;
-            p.style.paddingTop = 18; p.style.paddingBottom = 18;
+            p.style.paddingLeft = 38; p.style.paddingRight = 38;
+            p.style.paddingTop = 32; p.style.paddingBottom = 32;
             Chamfer(p, 14);
             Edge(p, C(Cy), 0.4f);
 
             var head = Row();
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.alignItems = Align.Center;
-            head.Add(Text("ЕЖЕДНЕВНАЯ СВЯЗЬ", 15, Cy, 3f, FontStyle.Bold));
-            head.Add(Text("3 / 7", 15, Dim, 2f, FontStyle.Bold));
+            head.Add(Text("ЕЖЕДНЕВНАЯ СВЯЗЬ", 38, Cy, 3f, FontStyle.Bold));
+            head.Add(Text("3 / 7", 38, Dim, 2f, FontStyle.Bold));
             p.Add(head);
 
             var days = Row();
@@ -342,7 +370,7 @@ namespace Sandbox
             {
                 var cell = new VisualElement();
                 cell.style.flexGrow = 1; cell.style.flexBasis = 0;
-                cell.style.height = 62;
+                cell.style.height = 118;
                 cell.style.marginRight = i < 6 ? 8 : 0;
                 bool done = i < 3;
                 bool today = i == 3;
@@ -353,7 +381,7 @@ namespace Sandbox
                 Edge(cell, C(today ? Mg : Cy), today ? 0.9f : (done ? 0.6f : 0.2f));
                 cell.style.alignItems = Align.Center;
                 cell.style.justifyContent = Justify.Center;
-                cell.Add(Text(done ? "✓" : (i + 1).ToString(), today ? 20 : 18,
+                cell.Add(Text(done ? "✓" : (i + 1).ToString(), today ? 50 : 44,
                               done ? Cy : (today ? Mg : Dim), 0f, FontStyle.Bold));
                 days.Add(cell);
             }
@@ -366,13 +394,13 @@ namespace Sandbox
         {
             var s = Row();
             s.style.alignItems = Align.Center;
-            s.style.paddingLeft = 16; s.style.paddingRight = 16;
-            s.style.paddingTop = 10; s.style.paddingBottom = 10;
+            s.style.paddingLeft = 30; s.style.paddingRight = 30;
+            s.style.paddingTop = 22; s.style.paddingBottom = 22;
             s.style.backgroundColor = new Color(0.16f, 0.05f, 0.11f, 0.85f);
             Chamfer(s, 10);
             Edge(s, C(Mg), 0.7f);
-            s.Add(Text("▲", 15, Mg, 0f));
-            var t = Text(text, 14, Mg, 2f, FontStyle.Bold);
+            s.Add(Text("▲", 38, Mg, 0f));
+            var t = Text(text, 34, Mg, 2f, FontStyle.Bold);
             t.style.marginLeft = 10;
             s.Add(t);
             return s;
@@ -388,27 +416,28 @@ namespace Sandbox
             p.style.flexDirection = FlexDirection.Row;
             p.style.alignItems = Align.Center;
             p.style.backgroundColor = C(Sf);
-            p.style.paddingLeft = 20; p.style.paddingRight = 20;
-            p.style.paddingTop = 18; p.style.paddingBottom = 18;
+            p.style.paddingLeft = 34; p.style.paddingRight = 34;
+            p.style.paddingTop = 32; p.style.paddingBottom = 32;
             Chamfer(p, 14);
             Edge(p, C(Cy), 0.45f);
 
             var thumb = new VisualElement();
-            thumb.style.width = 96; thumb.style.height = 96;
+            thumb.style.width = 170; thumb.style.height = 170;
             thumb.style.backgroundColor = new Color(0.10f, 0.17f, 0.26f, 1f);
             Chamfer(thumb, 10);
             Edge(thumb, C(Cy), 0.6f);
             p.Add(thumb);
 
             var col = new VisualElement { style = { marginLeft = 18, flexGrow = 1 } };
-            col.Add(Text("ПОСЛЕДНЯЯ СЕССИЯ", 14, Cy, 3f, FontStyle.Bold));
-            var t = Text("Эпизод 01 · сцена 14 из 26", 20, Tx, 1f);
+            col.Add(Text("ПОСЛЕДНЯЯ СЕССИЯ", 36, Cy, 3f, FontStyle.Bold));
+            var t = Text("Эпизод 01 · сцена 14 из 26", 40, Tx, 0f);
+            t.style.whiteSpace = WhiteSpace.Normal;
             t.style.marginTop = 8; t.style.marginBottom = 12;
             col.Add(t);
             col.Add(Bar(0.54f));
             p.Add(col);
 
-            var go = Text("▶", 30, Cy, 0f, FontStyle.Bold);
+            var go = Text("▶", 64, Cy, 0f, FontStyle.Bold);
             go.style.marginLeft = 20;
             p.Add(go);
             return p;
@@ -419,7 +448,7 @@ namespace Sandbox
         {
             var nav = Row();
             nav.style.justifyContent = Justify.SpaceBetween;
-            nav.style.paddingTop = 16;
+            nav.style.paddingTop = 30;
             nav.style.borderTopWidth = 1;
             nav.style.borderTopColor = new Color(C(Cy).r, C(Cy).g, C(Cy).b, 0.35f);
             string[] items = { "ХАБ", "МАГАЗИН", "ГАРДЕРОБ", "АРХИВ", "ПРОФИЛЬ" };
@@ -430,11 +459,11 @@ namespace Sandbox
                 // Активный помечается ЧЕРТОЙ СВЕРХУ, а не цветом текста: черта
                 // читается мгновенно и работает даже боковым зрением.
                 var mark = new VisualElement();
-                mark.style.height = 3; mark.style.width = 34;
+                mark.style.height = 6; mark.style.width = 76;
                 mark.style.backgroundColor = active ? C(Cy) : Color.clear;
-                mark.style.marginBottom = 10;
+                mark.style.marginBottom = 18;
                 col.Add(mark);
-                col.Add(Text(items[i], 13, active ? Cy : Dim, 2f,
+                col.Add(Text(items[i], 32, active ? Cy : Dim, 2f,
                              active ? FontStyle.Bold : FontStyle.Normal));
                 nav.Add(col);
             }
@@ -446,9 +475,9 @@ namespace Sandbox
         {
             var b = new Button { text = text };
             b.style.marginRight = 12;
-            b.style.paddingLeft = 26; b.style.paddingRight = 26;
-            b.style.paddingTop = 14; b.style.paddingBottom = 14;
-            b.style.fontSize = 17;
+            b.style.paddingLeft = 54; b.style.paddingRight = 54;
+            b.style.paddingTop = 34; b.style.paddingBottom = 34;
+            b.style.fontSize = 44;
             b.style.letterSpacing = 3f;
             b.style.unityFontStyleAndWeight = FontStyle.Bold;
             b.style.color = primary ? C(Bg) : C(Cy);
@@ -463,12 +492,12 @@ namespace Sandbox
             var r = Row();
             r.style.alignItems = Align.Center;
             var line = new VisualElement();
-            line.style.width = 22; line.style.height = 2;
+            line.style.width = 46; line.style.height = 4;
             line.style.backgroundColor = C(Cy);
             line.style.marginRight = 12;
             r.Add(line);
-            r.Add(Text(text, 16, Tx, 4f, FontStyle.Bold));
-            var idx = Text("[" + index + "]", 14, Dim, 2f);
+            r.Add(Text(text, 40, Tx, 4f, FontStyle.Bold));
+            var idx = Text("[" + index + "]", 34, Dim, 2f);
             idx.style.marginLeft = 10;
             r.Add(idx);
             return r;
