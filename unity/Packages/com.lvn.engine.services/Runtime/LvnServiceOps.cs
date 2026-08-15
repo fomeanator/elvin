@@ -63,34 +63,43 @@ namespace Lvn.Services
                 _ = RunAdAsync(placement, ctx);
             });
 
-            // ── дуэль вдвоём ────────────────────────────────────────────
-            // Три опа на весь сетевой бой: завести комнату, войти по коду,
-            // обменяться ходом. Правила боя остаются в скрипте — сюда уходит
-            // только «что я выбрал» и приходит «что выбрал он».
-            LvnOps.Register("duel_host", (cmd, ctx) =>
+            // ── КОМНАТА НА ДВОИХ И БОЛЬШЕ ───────────────────────────────
+            // Ни одного слова про конкретную игру. Комната, места и ящики с
+            // правилом раскрытия — из этого собирается и одновременный выбор
+            // (дуэль), и ход по очереди (карты), и гонка «кто первый». Новая
+            // игра не требует ни строчки в движке: меняется ключ ящика и
+            // правило, а не код.
+            LvnOps.Register("net_open", (cmd, ctx) => { ctx.Hold(); _ = NetOpenAsync(ctx); });
+
+            LvnOps.Register("net_join", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = DuelHostAsync(cmd, ctx);
+                _ = NetJoinAsync(Arg(cmd, "code", ctx.Vars), ctx);
             });
 
-            LvnOps.Register("duel_join", (cmd, ctx) =>
+            // ext net_wait need=2 — держит, пока за стол не сядут все.
+            LvnOps.Register("net_wait", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = DuelJoinAsync(Arg(cmd, "code", ctx.Vars), cmd, ctx);
+                _ = NetWaitAsync((int)NumFrom(cmd, "need", "need_var", ctx.Vars), ctx);
             });
 
-            // ext duel_exchange round_var=обмен plan_var=мой_план into=его_план
+            // ext net_put key="обмен:3" value_var=план reveal=all
+            LvnOps.Register("net_put", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = NetPutAsync(Arg(cmd, "key", ctx.Vars), Packed(cmd, "value", ctx.Vars),
+                                (string)cmd["reveal"] ?? "all", ctx);
+            });
+
+            // ext net_get key="обмен:3" into=чужой [one=1] [wait=0]
             //
-            // Держит скрипт, пока партнёр думает. Это НЕ недостаток: одновременный
-            // выбор тем и держится, что никто не видит чужой ход раньше времени,
-            // а значит кто-то обязан ждать.
-            LvnOps.Register("duel_exchange", (cmd, ctx) =>
-            {
-                ctx.Hold();
-                _ = DuelExchangeAsync(cmd, ctx);
-            });
+            // Держит скрипт, пока ящик не откроется. Это НЕ недостаток:
+            // одновременный выбор тем и держится, что чужое не видно раньше
+            // времени, а значит кто-то обязан ждать.
+            LvnOps.Register("net_get", (cmd, ctx) => { ctx.Hold(); _ = NetGetAsync(cmd, ctx); });
 
-            LvnOps.Register("duel_leave", (cmd, ctx) => LvnDuelOnline.Leave());
+            LvnOps.Register("net_leave", (cmd, ctx) => LvnNetRoom.Leave());
 
             LvnOps.Register("track", (cmd, ctx) =>
             {
@@ -100,56 +109,125 @@ namespace Lvn.Services
         }
 
 
-        // ── дуэль: тела операций ────────────────────────────────────────────
+
+
+
+        // ── комната: тела операций ──────────────────────────────────────────
         //
         // Каждая кладёт результат в переменные истории и снимает удержание в
         // finally. Пропущенный Resume означает намертво вставший скрипт, и
         // случиться это должно только при исключении — поэтому finally, а не
         // «в конце удачной ветки».
 
-        private static async System.Threading.Tasks.Task DuelHostAsync(JObject cmd, ILvnOpContext ctx)
+        private static async System.Threading.Tasks.Task NetOpenAsync(ILvnOpContext ctx)
+        {
+            try { NetState(ctx, await LvnNetRoom.OpenAsync()); }
+            finally { ctx.Resume(); }
+        }
+
+        private static async System.Threading.Tasks.Task NetJoinAsync(string code, ILvnOpContext ctx)
+        {
+            try { NetState(ctx, await LvnNetRoom.JoinAsync(code)); }
+            finally { ctx.Resume(); }
+        }
+
+        private static async System.Threading.Tasks.Task NetWaitAsync(int need, ILvnOpContext ctx)
+        {
+            try { NetState(ctx, await LvnNetRoom.WaitSeatsAsync(need > 0 ? need : 2)); }
+            finally { ctx.Resume(); }
+        }
+
+        private static async System.Threading.Tasks.Task NetPutAsync(
+            string key, string value, string reveal, ILvnOpContext ctx)
         {
             try
             {
-                bool ok = await LvnDuelOnline.HostAsync();
-                ctx.Vars["duel_code"] = ok ? LvnDuelOnline.Code : "";
-                ctx.Vars["duel_seat"] = ok ? LvnDuelOnline.Seat : "";
-                ctx.Vars["duel_error"] = ok ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+                bool ok = await LvnNetRoom.PutAsync(key, value, reveal);
+                ctx.Vars["net_error"] = ok ? "" : (LvnNetRoom.LastError ?? "нет связи");
             }
             finally { ctx.Resume(); }
         }
 
-        private static async System.Threading.Tasks.Task DuelJoinAsync(string code, JObject cmd, ILvnOpContext ctx)
+        private static async System.Threading.Tasks.Task NetGetAsync(JObject cmd, ILvnOpContext ctx)
         {
+            string into = (string)cmd["into"] ?? "net_value";
             try
             {
-                bool ok = await LvnDuelOnline.JoinAsync(code);
-                ctx.Vars["duel_code"] = ok ? LvnDuelOnline.Code : "";
-                ctx.Vars["duel_seat"] = ok ? LvnDuelOnline.Seat : "";
-                ctx.Vars["duel_error"] = ok ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+                bool wait = (string)cmd["wait"] != "0";
+                var others = await LvnNetRoom.GetAsync(Arg(cmd, "key", ctx.Vars), wait);
+                ctx.Vars["net_error"] = others != null ? "" : (LvnNetRoom.LastError ?? "нет связи");
+                if (others == null) { ctx.Vars[into] = new JArray(); }
+                else if ((string)cmd["one"] == "1")
+                {
+                    // За столом ровно двое — отдаём соседа напрямую, без
+                    // лишнего уровня вложенности. Самый частый случай, и
+                    // заставлять автора писать get(get(…)) ради него незачем.
+                    string first = "";
+                    foreach (var kv in others) { first = kv.Value; break; }
+                    ctx.Vars[into] = Unpacked(first);
+                }
+                else
+                {
+                    var bySeat = new JObject();
+                    foreach (var kv in others) bySeat[kv.Key] = Unpacked(kv.Value);
+                    ctx.Vars[into] = bySeat;
+                }
+                // Порядок — то, чего клиент сам не узнает: кто нажал раньше.
+                var order = new JArray();
+                foreach (var seat in LvnNetRoom.Order) order.Add(seat);
+                ctx.Vars["net_order"] = order;
             }
             finally { ctx.Resume(); }
         }
 
-        private static async System.Threading.Tasks.Task DuelExchangeAsync(JObject cmd, ILvnOpContext ctx)
+        private static void NetState(ILvnOpContext ctx, bool ok)
         {
-            // Куда положить чужой ход. Имя переменной задаёт автор: пакет дуэли
-            // называет её по-своему, и навязывать ему наше имя незачем.
-            string into = (string)cmd["into"] ?? "враг_план";
-            try
+            ctx.Vars["net_code"] = ok ? LvnNetRoom.Code : "";
+            ctx.Vars["net_seat"] = ok ? LvnNetRoom.Seat : "";
+            ctx.Vars["net_seats"] = LvnNetRoom.Seats;
+            ctx.Vars["net_error"] = ok ? "" : (LvnNetRoom.LastError ?? "нет связи");
+        }
+
+        /// <summary>
+        /// Значение на провод: список упаковывается в строку через запятую.
+        ///
+        /// <para>В скрипте очередь ходов — СПИСОК (его собирают через push при
+        /// нажатии кнопок), и работать с ним списком естественно. По сети
+        /// список ехать не обязан: строка короче, читается в логах и не требует
+        /// от языка ничего нового.</para>
+        /// </summary>
+        private static string Packed(JObject cmd, string name,
+                                     System.Collections.Generic.IDictionary<string, JToken> vars)
+        {
+            var direct = (string)cmd[name];
+            if (!string.IsNullOrEmpty(direct)) return direct;
+            var varName = (string)cmd[name + "_var"];
+            if (string.IsNullOrEmpty(varName) || !vars.TryGetValue(varName, out var v) || v == null) return "";
+            if (v is JArray arr)
             {
-                int round = (int)NumFrom(cmd, "round", "round_var", ctx.Vars);
-                string plan = Arg(cmd, "plan", ctx.Vars);
-                string theirs = await LvnDuelOnline.ExchangeAsync(round, plan);
-                ctx.Vars[into] = theirs ?? "";
-                ctx.Vars["duel_error"] = theirs != null ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+                var parts = new string[arr.Count];
+                for (int i = 0; i < arr.Count; i++) parts[i] = arr[i]?.ToString() ?? "";
+                return string.Join(",", parts);
             }
-            finally { ctx.Resume(); }
+            return v.ToString();
+        }
+
+        /// <summary>Обратно в список — в том виде, в каком его ждёт скрипт.</summary>
+        private static JToken Unpacked(string wire)
+        {
+            var arr = new JArray();
+            if (string.IsNullOrEmpty(wire)) return arr;
+            foreach (var part in wire.Split(','))
+            {
+                var t = part.Trim();
+                if (t.Length > 0) arr.Add(t);
+            }
+            return arr;
         }
 
         /// <summary>Значение параметра: либо прямо (<c>code="A7K2"</c>), либо из
         /// переменной (<c>code_var=введённый</c>). Обе формы нужны: код комнаты
-        /// игрок ВВОДИТ, а свой план скрипт собирает сам.</summary>
+        /// игрок ВВОДИТ, а ключ ящика скрипт собирает сам.</summary>
         private static string Arg(JObject cmd, string name,
                                   System.Collections.Generic.IDictionary<string, JToken> vars)
         {
