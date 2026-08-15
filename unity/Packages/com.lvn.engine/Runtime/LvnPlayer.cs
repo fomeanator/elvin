@@ -382,10 +382,10 @@ namespace Lvn
                     foreach (var prop in actorSticky[aid].Properties())
                         if (m[prop.Name] == null)
                             m[prop.Name] = prop.Value.DeepClone();
-                    _stage.ApplyStage(m);
+                    StageApply(m);
                     continue;
                 }
-                if (IsReapplyable(op)) { _stage.ApplyStage(c); continue; }
+                if (IsReapplyable(op)) { StageApply(c); continue; }
                 switch (op)
                 {
                     case "fade":
@@ -415,7 +415,7 @@ namespace Lvn
             }
             foreach (var key in fxOrder)
                 if (fx.TryGetValue(key, out var cmd))
-                    _stage.ApplyStage(cmd);
+                    StageApply(cmd);
         }
 
         // Record an executed visual op into the replay path. Capped: a looping
@@ -863,7 +863,7 @@ namespace Lvn
             {
                 if (_ip > _script.Count) _ip = _script.Count;
                 if (reapply != null)
-                    foreach (var i in reapply) _stage.ApplyStage((JObject)_script[i]);
+                    foreach (var i in reapply) StageApply((JObject)_script[i]);
             }
             else
             {
@@ -883,6 +883,72 @@ namespace Lvn
 
         // Pure-visual staging ops safe to re-apply on a hot-swap (no side effects
         // on vars/flow/pauses). NOT set/inc (would double-count) nor say/choice/wait.
+        /// <summary>
+        /// Единственная дверь на сцену. Раньше её открывали в десяти местах, и
+        /// любая обработка команды перед показом означала бы десять правок —
+        /// девять из которых однажды забыли бы.
+        /// </summary>
+        private void StageApply(JObject cmd)
+        {
+            ResolveAnimTargets(cmd);
+            _stage.ApplyStage(cmd);
+        }
+
+        // Последняя посчитанная цель по каналу анимации: id + слой + свойство.
+        private readonly Dictionary<string, double> _animLast = new Dictionary<string, double>();
+
+        /// <summary>
+        /// Досчитывает <c>anim … to="{выражение}"</c> — цель, известную только
+        /// во время игры (доля здоровья, счёт, прогресс).
+        ///
+        /// <para>Считается ЗДЕСЬ, а не на сцене: переменные живут у игрока, и
+        /// сцена о них не знает — это и держит её пригодной для реплея, где
+        /// никаких переменных нет.</para>
+        ///
+        /// <para>Начало берётся не из кадра, а из ПРЕДЫДУЩЕЙ посчитанной цели
+        /// того же канала. Иначе полоса здоровья каждый раз прыгала бы в ноль
+        /// и оттуда наполнялась: у вычисляемой цели «покой» — это не ноль, а
+        /// то место, где полоса стоит сейчас.</para>
+        /// </summary>
+        private void ResolveAnimTargets(JObject cmd)
+        {
+            // Через шлюз идёт ЛЮБАЯ команда, а не только анимация: у неё поле
+            // "anim" может быть чем угодно или отсутствовать. Проверка типа, а
+            // не просто «не null»: обращение к полю у скалярного значения в
+            // Newtonsoft бросает исключение, и страж контракта опов поймал
+            // именно это.
+            var payload = cmd?["anim"] as JObject;
+            var tracks = payload?["tracks"] as JArray;
+            if (tracks == null) return;
+            string id = (string)cmd["id"] ?? "";
+            foreach (var t in tracks)
+            {
+                var expr = (string)t["to_expr"];
+                if (string.IsNullOrEmpty(expr)) continue;
+                var keys = t["keys"] as JArray;
+                if (keys == null || keys.Count == 0) continue;
+
+                double target;
+                try
+                {
+                    var v = LvnExpression.Evaluate(expr, Vars);
+                    target = v == null ? 0d : v.Value<double>();
+                }
+                catch { continue; }   // сломанное выражение не должно ронять сцену
+
+                string lane = id + "|" + (string)t["layer"] + "|" + (string)t["prop"];
+                var k0 = keys[0] as JArray;
+                double from = _animLast.TryGetValue(lane, out var prev)
+                    ? prev
+                    : (k0 != null && k0.Count > 1 ? k0[1].Value<double>() : 0d);
+
+                if (k0 != null && k0.Count > 1) k0[1] = from;
+                var kn = keys[keys.Count - 1] as JArray;
+                if (kn != null && kn.Count > 1) kn[1] = target;
+                _animLast[lane] = target;
+            }
+        }
+
         private static bool IsReapplyable(string op) =>
             op == "bg" || op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
 
@@ -1039,19 +1105,19 @@ namespace Lvn
                         return;
 
                     case "wait":
-                        _stage.ApplyStage(c);
+                        StageApply(c);
                         _ip++;
                         return;
 
                     case "input":
                         // The stage shows a text-entry overlay; the story pauses
                         // here until the host writes the variable and re-Advances.
-                        _stage.ApplyStage(c);
+                        StageApply(c);
                         _ip++;
                         return;
 
                     case "preload":
-                        _stage.ApplyStage(c);
+                        StageApply(c);
                         _ip++;
                         break;
 
@@ -1059,7 +1125,7 @@ namespace Lvn
                         // The stage restores a snapshot and resumes (ReplayVisuals +
                         // ContinueFrom), which runs its own Advance — so bail out of
                         // this one instead of falling through to _ip++.
-                        _stage.ApplyStage(c);
+                        StageApply(c);
                         return;
 
                     default:
@@ -1085,7 +1151,7 @@ namespace Lvn
                         // malformed content must never crash the runtime.
                         var claimName = curOp ?? "";
                         if (!_engineStageOps.Contains(claimName)) NoteUnclaimed(claimName);
-                        _stage.ApplyStage(c);
+                        StageApply(c);
                         _ip++;
                         break;
                 }
@@ -1203,7 +1269,7 @@ namespace Lvn
                     var bop = (string)bc["op"];
                     if (bop == "set" || bop == "inc") ApplyData(bc);
                     else if (bop == "goto") { Jump((string)bc["label"]); return; }
-                    else _stage.ApplyStage(bc);
+                    else StageApply(bc);
                 }
                 _ip++; // body without a goto → fall through past the choice
                 return;
