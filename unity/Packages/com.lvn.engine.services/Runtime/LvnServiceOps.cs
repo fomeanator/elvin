@@ -153,11 +153,11 @@ namespace Lvn.Services
             string into = (string)cmd["into"] ?? "net_value";
             try
             {
-                bool wait = (string)cmd["wait"] != "0";
+                bool wait = !Off(cmd, "wait");
                 var others = await LvnNetRoom.GetAsync(Arg(cmd, "key", ctx.Vars), wait);
                 ctx.Vars["net_error"] = others != null ? "" : (LvnNetRoom.LastError ?? "нет связи");
                 if (others == null) { ctx.Vars[into] = new JArray(); }
-                else if ((string)cmd["one"] == "1")
+                else if (On(cmd, "one"))
                 {
                     // За столом ровно двое — отдаём соседа напрямую, без
                     // лишнего уровня вложенности. Самый частый случай, и
@@ -178,6 +178,33 @@ namespace Lvn.Services
                 ctx.Vars["net_order"] = order;
             }
             finally { ctx.Resume(); }
+        }
+
+        /// <summary>
+        /// Флаг у опа: <c>one=1</c> компилируется ЧИСЛОМ, а не строкой, и
+        /// сравнение со строкой молча не срабатывало бы. Принимаем все три
+        /// формы, в которых автор может это написать.
+        /// </summary>
+        private static bool On(JObject cmd, string name)
+        {
+            var t = cmd[name];
+            if (t == null || t.Type == JTokenType.Null) return false;
+            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
+            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<double>() != 0d;
+            var s = t.ToString().Trim().ToLowerInvariant();
+            return s == "1" || s == "true" || s == "yes" || s == "on" || s == "да";
+        }
+
+        /// <summary>Явно выключено. Отсутствие поля — НЕ выключено: у wait
+        /// умолчание «ждать», и написать надо ровно <c>wait=0</c>.</summary>
+        private static bool Off(JObject cmd, string name)
+        {
+            var t = cmd[name];
+            if (t == null || t.Type == JTokenType.Null) return false;
+            if (t.Type == JTokenType.Boolean) return !t.Value<bool>();
+            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<double>() == 0d;
+            var s = t.ToString().Trim().ToLowerInvariant();
+            return s == "0" || s == "false" || s == "no" || s == "off" || s == "нет";
         }
 
         private static void NetState(ILvnOpContext ctx, bool ok)
