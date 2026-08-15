@@ -2644,7 +2644,21 @@ func buildAnimCmd(op string, p map[string]any) (Cmd, error) {
 			return nil, fmt.Errorf("anim: prop required")
 		}
 		tr := map[string]any{"prop": prop}
-		if to, hasTo := numParam(p["to"]); hasTo {
+		// to="{выражение}" — цель СЧИТАЕТСЯ, а не задана числом. Так тянут
+		// полосу здоровья к доле, которую ещё предстоит вычислить. Компилятор
+		// выражение не трогает: считать его здесь нечем, переменные появятся
+		// только во время игры. Он лишь переносит его в трек, а игрок
+		// подставляет число перед самым запуском (см. ResolveAnimTargets).
+		if toExpr, isStr := p["to"].(string); isStr && strings.Contains(toExpr, "{") {
+			d := dur
+			if !durSet || d <= 0 {
+				d = 1
+			}
+			id := propIdentity(prop)
+			tr["to_expr"] = strings.TrimSpace(toExpr)
+			tr["keys"] = []any{[]any{0.0, id}, []any{d, id}}
+			duration = d
+		} else if to, hasTo := numParam(p["to"]); hasTo {
 			// one-liner: tween from the property's rest value to the target
 			d := dur
 			if !durSet || d <= 0 {

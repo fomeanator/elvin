@@ -711,3 +711,60 @@ func TestConvertNormalizesUnicodeToNFC(t *testing.T) {
 		t.Errorf("реплика осталась не в NFC:\n получили %q\n ожидали %q", got, nfc)
 	}
 }
+
+// anim to="{выражение}" — цель, известная только во время игры (доля здоровья,
+// счёт, прогресс). Компилятор не может её посчитать: переменных ещё нет. Он
+// обязан пронести выражение до рантайма в to_expr и оставить кадры-заглушки,
+// иначе полоса здоровья вообще не компилируется — на этом полтора года лежала
+// полная версия дуэли.
+func TestConvertAnimKeepsExpressionTarget(t *testing.T) {
+	doc, err := Convert(`
+scene anim_expr
+anim id=hp_bar prop=fill to="{hp / hp_max}" dur=0.25 ease=outCubic
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	if len(doc.Script) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(doc.Script))
+	}
+	raw, _ := json.Marshal(doc.Script[0])
+	var got map[string]any
+	json.Unmarshal(raw, &got)
+
+	tracks := got["anim"].(map[string]any)["tracks"].([]any)
+	tr := tracks[0].(map[string]any)
+	if tr["to_expr"] != "{hp / hp_max}" {
+		t.Fatalf("to_expr не пронесён: %s", raw)
+	}
+	// Кадры на месте и по длительности: рантайм подменит только значения.
+	keys := tr["keys"].([]any)
+	if len(keys) != 2 {
+		t.Fatalf("ожидались два кадра, получено %d: %s", len(keys), raw)
+	}
+	if last := keys[1].([]any); last[0].(float64) != 0.25 {
+		t.Fatalf("последний кадр должен стоять на dur: %s", raw)
+	}
+}
+
+// Число в to по-прежнему считается на месте — новая ветка не должна перехватить
+// старую форму.
+func TestConvertAnimNumericTargetStillInlined(t *testing.T) {
+	doc, err := Convert(`
+scene anim_num
+anim id=hero prop=alpha to=0.5 dur=2
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	raw, _ := json.Marshal(doc.Script[0])
+	var got map[string]any
+	json.Unmarshal(raw, &got)
+	tr := got["anim"].(map[string]any)["tracks"].([]any)[0].(map[string]any)
+	if _, has := tr["to_expr"]; has {
+		t.Fatalf("числовая цель не должна давать to_expr: %s", raw)
+	}
+	if last := tr["keys"].([]any)[1].([]any); last[1].(float64) != 0.5 {
+		t.Fatalf("числовая цель потеряна: %s", raw)
+	}
+}

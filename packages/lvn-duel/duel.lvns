@@ -35,15 +35,18 @@
 //   дуэль_хп, дуэль_хп_макс     — герой (сгорают со смертью дня)
 //   враг_хп, враг_хп_макс       — противник
 //   враг_имя                    — подпись для HUD
+//   враг_паттерн, враг_паттерн2 — его песня и песня ярости (list)
+//   враг_окраска                — "" | "щит" | "лютый" | "пробой"
+//   враг_даль                   — сколько метров до него по тропе
+//   враг_рост                   — рост фигуры В МЕТРАХ (1.9 — человек)
 //   день                        — номер дня (для HUD)
-//   навык                       — "" | "оглушение" | "пробив" (выбор
-//   навык_выбран                  озарения; ПЕРЕЖИВАЕТ день: тело
-//   влад_оглушение, влад_пробив   сгорает — руки помнят)
+//   навык                       — "" | "оглушение" | "пробив"
+//   влад_оглушение, влад_пробив — владение в %; ПЕРЕЖИВАЕТ смерть дня:
+//                                 тело сгорает, руки помнят
 // После дуэли глава читает:
 //   дуэль_исход = "победа" | "пал" | "затянулась"
 //
-// ⚠ Фон ставит глава (sprite_url в bg не интерполируется — та же грабля,
-//   что задокументирована в ec-battle.lvns).
+// Фон ставит глава — просто чтобы модуль не решал за неё, как выглядит место.
 
 // ═══════════════════════════════════════════════════════════════════
 //  1. ДАННЫЕ ВРАГА — паттерны как таблицы (новый враг = новые списки)
@@ -55,15 +58,94 @@
 // говорит явная реплика, это не подлость, а вторая строфа.
 
 // иконки действий — строка такта показывает ОБА хода, читается с одного взгляда
+// Названия действий для строки такта. Не эмодзи: у шрифта движка нет глифов
+// ⚔🛡💫🔨 — вместо них рисуется пустой квадрат, и строка боя читается как
+// «ты □ × он □». Слова читаются с одного взгляда и переживают любой шрифт.
 икона = {}
-икона = put(икона, "удар", "⚔")
-икона = put(икона, "блок", "🛡")
-икона = put(икона, "оглушение", "💫")
-икона = put(икона, "пробив", "🔨")
-икона = put(икона, "стан", "😵")
+икона = put(икона, "удар", "УДАР")
+икона = put(икона, "блок", "БЛОК")
+икона = put(икона, "оглушение", "ОГЛУШЕНИЕ")
+икона = put(икона, "пробив", "ПРОБИВ")
+икона = put(икона, "стан", "ОГЛУШЁН")
+// Зарядки ауры — такие же ходы, и в разборе такта они должны называться, а
+// не показываться знаком вопроса.
+икона = put(икона, "з_меч", "КЛИНОК")
+икона = put(икона, "з_кровь", "ЖАЖДА")
+икона = put(икона, "з_призрак", "ТЕНЬ")
+икона = put(икона, "з_сила", "СИЛА")
+икона = put(икона, "з_жизнь", "ЖИЗНЬ")
+икона = put(икона, "з_воля", "ВОЛЯ")
+икона = put(икона, "з_отчаяние", "ОТЧАЯНИЕ")
 
-паттерн_обычный = list("удар", "удар", "блок", "удар", "блок")
-паттерн_ярость = list("удар", "блок", "удар", "удар", "удар")
+// Ход → файл иконки. Таблицей, а не ветками: она нужна и при вскрытии, и
+// при показе ЕГО плана вперёд.
+ходфайл = {}
+ходфайл = put(ходфайл, "удар", "icon_strike")
+ходфайл = put(ходфайл, "блок", "icon_block")
+ходфайл = put(ходфайл, "пробив", "icon_break")
+ходфайл = put(ходфайл, "стан", "icon_stun")
+
+// ── песни троих ──────────────────────────────────────────────────
+// Костяк — азбука, и азбука не должна быть загадкой: он бьёт КАЖДЫЙ такт,
+// без чередований. Смена ходов — приём высокого уровня, читать её на первом
+// противнике нечем: игрок ещё не знает, что такое ход вообще. Здесь он
+// учится одному — закрылся, получил темп, ударил.
+паттерн_обычный = list("удар")
+паттерн_ярость = list("удар")
+// Щитоносец живёт за щитом. Бить в него бессмысленно вдвойне: урона нет, а
+// темп капает ЕМУ — значит нужен пробив, иначе бой не кончается никогда.
+паттерн_щит = list("блок", "блок", "удар", "блок", "блок", "удар")
+паттерн_щит_ярость = list("блок", "удар", "блок", "блок", "удар")
+// Лютый почти не защищается — но бьёт сериями, и переждать его блоком нельзя:
+// на блоке он сам копит темп и следующим тактом бьёт вдвое. Нужно оглушение.
+паттерн_лютый = list("удар", "удар", "удар", "блок", "удар", "удар")
+паттерн_лютый_ярость = list("удар", "удар", "удар", "удар", "удар")
+// Пробойник владеет тем же движением, что и ты: его пробив проходит СКВОЗЬ
+// блок. Значит последняя безопасная кнопка перестаёт быть безопасной — и
+// бой впервые требует читать песню, а не отсиживаться.
+паттерн_пробой = list("пробив", "удар", "блок", "пробив", "удар", "пробив")
+паттерн_пробой_ярость = list("пробив", "пробив", "удар", "пробив", "блок")
+
+// ── АУРЫ ─────────────────────────────────────────────────────────
+// Цена активации в тактах: три на старте, ноль на сотне владения — там
+// аура горит с первого кадра боя. Между ними линейный спуск, чтобы
+// прокачка чувствовалась не «числом», а числом ТАКТОВ, которые ты уже
+// не обязан стоять открытым.
+// Владение аурами — ТАБЛИЦА, а не три переменные: цена активации считается
+// внутри выражения, а функция с ветками в выражении не живёт (её тело —
+// команды, а не значение). Ключ — тот же, что и ход в плане.
+func аура_цена(вид) { return max(3 - floor(get(влад_аур, вид, 0) / 34), 0) }
+// Что происходит В МОМЕНТ вспышки: у разрядных заводится запас, у
+// живучести разом растёт потолок здоровья (иначе её реген упирался бы в
+// прежний максимум и первые такты уходили впустую).
+func аура_вспышка() {
+  // Активация — кульминация трёх тактов, прожитых открытым. Кадр обязан это
+  // подтвердить: свет бьёт из центра, камера подаётся вперёд, воздух звенит.
+  camera action=zoom factor=1.09 duration=0.12
+  fx shockwave=0.75 shock_x=0.5 shock_y=0.72 bloom=0.85 rays=0.6 dur=0.45
+  camera action=zoom factor=1 duration=0.4
+  if аура_вид == "з_призрак" -> ав_пр
+  if аура_вид == "з_кровь" -> ав_кр
+  if аура_вид == "з_жизнь" -> ав_жз
+  бит_суть = "АУРА ВСПЫХНУЛА!"
+  -> ав_готово
+  :ав_пр
+  призрак_зарядов = 3
+  бит_суть = "ТЕНЬ: три удара пройдут сквозь тебя."
+  -> ав_готово
+  :ав_кр
+  кровь_тактов = 4
+  бит_суть = "ЖАЖДА: четыре такта чужая кровь — твоя."
+  -> ав_готово
+  :ав_жз
+  дуэль_хп_макс = дуэль_хп_макс + 3
+  дуэль_хп = дуэль_хп + 3
+  бит_суть = "ЖИВУЧЕСТЬ: +3 и затягивает каждый такт."
+  -> ав_готово
+  :ав_готово
+}
+
+func аура_рост(вид, сколько) { влад_аур = put(влад_аур, вид, min(get(влад_аур, вид, 0) + сколько, 100)) }
 
 // индекс по кругу: % в языке нет, мод через floor
 func pat_idx(s, n) { return s - floor(s / n) * n }
@@ -74,17 +156,81 @@ func foe_now() { return get(враг_паттерн, pat_idx(враг_шаг, le
 // ═══════════════════════════════════════════════════════════════════
 
 func foe_sprite(pose) {
-  if pose == "attack" -> вс_атака
-  if pose == "hurt" -> вс_ранен
-  -> вс_покой
-  :вс_атака
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_attack.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  // Поза — часть ПУТИ, и путь собирается выражением: три почти одинаковые
+  // ветки (idle/attack/hurt) схлопываются в одну строку. Глубина задаётся
+  // числом: скелет стоит в своей точке, а размер считает перспектива.
+  враг_поза = pose
+  враг_файл = pose
+  // `world` ставит его В СЦЕНУ, а не поверх неё: движок проецирует точку
+  // набора в кадр и берёт глубину из дистанции до камеры — значит и место, и
+  // перспективный размер считаются сами. Когда камера дышит, скелет едет
+  // вместе с деревьями, а не плывёт по экрану поверх них. Экранные x/y/depth
+  // остаются запасным вариантом: без 3D-набора проекции нет, и работают они.
+  // Фигура стоит В СЦЕНЕ, а не поверх неё: плоский объект внутри набора,
+  // развёрнутый к камере. Рост задан В МЕТРАХ — поэтому скелет вровень с
+  // соснами, уменьшается с расстоянием сам и уходит за деревья по глубине.
+  // Наша прежняя арифметика (доля экрана × перспективный коэффициент) давала
+  // великана в двух шагах и не понимала, что творится в наборе.
+  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_{враг_файл}.png" x=50% y=46% width=0.72 height=1.05 anchor="0.5,0.5" z=10 in3d=1 world_height={враг_рост} world="0,0,{враг_даль}"
+  враг_окрас()
+}
+
+
+// Подкраска врага — ВЕТКАМИ, а не выражением. Оператор `sfx` не вычисляет
+// {…} в числовых полях: строка уходит прямо в разбор числа и роняет плеер
+// (ловили живьём — игра вставала на первом же кадре боя). Пока движок этого
+// не умеет, значения тут литеральные.
+func враг_окрас() {
+  враг_свет()
+  if враг_окраска == "щит" -> ок_щит
+  if враг_окраска == "лютый" -> ок_лютый
+  if враг_окраска == "пробой" -> ок_пробой
+  sfx id=duel_enemy tint=0 dur=0.2
+  -> ок_готово
+  :ок_щит
+  sfx id=duel_enemy tint=0.55 tint_color=#7fa8d8 dur=0.2
+  -> ок_готово
+  :ок_лютый
+  sfx id=duel_enemy tint=0.6 tint_color=#d86b5a dur=0.2
+  -> ок_готово
+  :ок_пробой
+  sfx id=duel_enemy tint=0.5 tint_color=#c8a44e dur=0.2
+  -> ок_готово
+  :ок_готово
+}
+
+// Аура противника видна ТАК ЖЕ, как своя: тем же светом, теми же цветами.
+// Это не украшение — игрок должен узнать в чужих руках то, что скоро будет
+// в своих, иначе «победил и получил» читается как случайная награда.
+func враг_свет() {
+  if враг_аура_вид == "сила" -> вс_сила
+  if враг_аура_вид == "жизнь" -> вс_жизнь
+  if враг_аура_вид == "клинок" -> вс_клинок
+  if враг_аура_вид == "жажда" -> вс_жажда
+  if враг_аура_вид == "тень" -> вс_тень
+  if враг_аура_вид == "воля" -> вс_воля
+  if враг_аура_вид == "отчаяние" -> вс_отчаяние
   -> вс_готово
-  :вс_ранен
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_hurt.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  :вс_сила
+  sfx id=duel_enemy aura=0.85 aura_style=fire aura_color=#b0c3d9 aura_color2=#dfe9f5 aura_size=1.15 dur=0.5
   -> вс_готово
-  :вс_покой
-  obj id=duel_enemy sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=0.5 y=0.48 width=0.36 anchor="0.5,0.5" z=5
+  :вс_жизнь
+  sfx id=duel_enemy aura=0.8 aura_style=guard aura_color=#5e98d9 aura_size=1.1 dur=0.5
+  -> вс_готово
+  :вс_клинок
+  sfx id=duel_enemy aura=0.9 aura_style=holy aura_color=#b28a33 aura_size=1.2 dur=0.5
+  -> вс_готово
+  :вс_жажда
+  sfx id=duel_enemy aura=0.9 aura_style=shadow aura_color=#4b69ff aura_size=1.15 dur=0.5
+  -> вс_готово
+  :вс_тень
+  sfx id=duel_enemy aura=0.85 aura_style=spirit aura_color=#8847ff aura_size=1.2 dur=0.5
+  -> вс_готово
+  :вс_воля
+  sfx id=duel_enemy dark=1 outline=0.8 outline_color=#e33b2e rim=0.5 rim_color=#ff9a8f aura=0.3 aura_style=shadow aura_color=#07070c dur=0.5
+  -> вс_готово
+  :вс_отчаяние
+  sfx id=duel_enemy aura=0.9 aura_style=distortion aura_color=#d32ce6 aura_size=1.2 dur=0.5
   -> вс_готово
   :вс_готово
 }
@@ -94,15 +240,59 @@ func hands(pose) {
   if pose == "block" -> рк_блок
   -> рк_покой
   :рк_атака
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_attack.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_attack.png" x=50% y=87% width=0.95 anchor="0.5,1" z=20
   -> рк_готово
   :рк_блок
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_block.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_block.png" x=50% y=87% width=0.95 anchor="0.5,1" z=20
   -> рк_готово
   :рк_покой
-  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_idle.png" x=0.5 y=1.0 width=0.55 anchor="0.5,1" z=20
+  obj id=duel_hands sprite_url="/content/packages/lvn-duel/fp/hands_sword_idle.png" x=50% y=87% width=0.95 anchor="0.5,1" z=20
   -> рк_готово
   :рк_готово
+  аура_свет()
+}
+
+
+
+// Свет активной ауры на руках — не индикатор, а сама аура: она горит, пока
+// горит. Ставится после смены позы, потому что новый спрайт уносит шейдер.
+func аура_свет() {
+  if аура_вид == "з_меч" -> ас_меч
+  if аура_вид == "з_кровь" -> ас_кровь
+  if аура_вид == "з_призрак" -> ас_призрак
+  if аура_вид == "з_сила" -> ас_сила
+  if аура_вид == "з_жизнь" -> ас_жизнь
+  if аура_вид == "з_воля" -> ас_воля
+  if аура_вид == "з_отчаяние" -> ас_отчаяние
+  sfx id=duel_hands aura=0 dark=0 outline=0 rim=0 dur=0.3
+  -> ас_готово
+  :ас_меч
+  sfx id=duel_hands aura=1 aura_style=holy aura_color=#b28a33 aura_size=1.3 dur=0.4
+  -> ас_готово
+  :ас_кровь
+  sfx id=duel_hands aura=0.95 aura_style=shadow aura_color=#4b69ff aura_size=1.2 dur=0.4
+  -> ас_готово
+  :ас_призрак
+  sfx id=duel_hands aura=0.9 aura_style=spirit aura_color=#8847ff aura_size=1.25 dur=0.4
+  -> ас_готово
+  :ас_сила
+  sfx id=duel_hands aura=0.9 aura_style=fire aura_color=#b0c3d9 aura_color2=#dfe9f5 aura_size=1.2 dur=0.4
+  -> ас_готово
+  :ас_жизнь
+  sfx id=duel_hands aura=0.85 aura_style=guard aura_color=#5e98d9 aura_size=1.15 dur=0.4
+  -> ас_готово
+  :ас_отчаяние
+  sfx id=duel_hands aura=0.95 aura_style=distortion aura_color=#d32ce6 aura_size=1.25 rim=0.5 rim_color=#f09aef dur=0.4
+  -> ас_готово
+  :ас_воля
+  // Воля — не свечение, а ЧЕРНЕНИЕ самой руки: сталь и кожа уходят в чёрный,
+  // как покрытие в референсе. Работает `dark`, который кладёт цвет спрайта в
+  // почти абсолютный чёрный — аурой такого не добиться, она рисует ВОКРУГ.
+  // Серебристая кромка обязательна: без неё чёрная рука на тёмной сцене
+  // читается как дыра в кадре, а не как броня.
+  sfx id=duel_hands dark=1 outline=0.8 outline_color=#e33b2e rim=0.55 rim_color=#ff9a8f aura=0.3 aura_style=shadow aura_color=#07070c aura_size=0.95 dur=0.45
+  -> ас_готово
+  :ас_готово
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -113,19 +303,68 @@ func hands(pose) {
 // пять ячеек — пять процедур с литеральными координатами.
 
 func buttons_show() {
-  obj id=btn_strike sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.16 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_удар"
-  obj id=btn_block sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.32 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_блок"
+  obj id=btn_strike sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.13 y=57% width=0.092 height=0.055 anchor="0.5,0.5" z=40 on_click="дп_удар"
+  obj id=btn_block sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.245 y=57% width=0.092 height=0.055 anchor="0.5,0.5" z=40 on_click="дп_блок"
   if навык == "оглушение" -> кп_огл
   if навык == "пробив" -> кп_проб
   -> кп_сброс
   :кп_огл
-  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.48 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_оглушение"
+  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.36 y=57% width=0.092 height=0.055 anchor="0.5,0.5" z=40 on_click="дп_оглушение"
   -> кп_сброс
   :кп_проб
-  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.48 y=0.26 width=0.11 anchor="0.5,0.5" z=40 on_click="дп_пробив"
+  obj id=btn_skill sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.36 y=57% width=0.092 height=0.055 anchor="0.5,0.5" z=40 on_click="дп_пробив"
   -> кп_сброс
   :кп_сброс
-  obj id=btn_reset sprite_url="/content/packages/lvn-duel/ui/icon_reset.png" x=0.86 y=0.26 width=0.08 anchor="0.5,0.5" z=40 on_click="дп_сброс"
+  // Тестовая кнопка: убивает противника на месте. Живёт под флагом главы,
+  // потому что в готовой игре её быть не должно — но проходить бой руками
+  // ради проверки следующей сцены невыносимо.
+  obj id=btn_tree sprite_url="/content/packages/lvn-duel/ui/icon_tree.png" x=0.795 y=65% width=0.07 height=0.043 anchor="0.5,0.5" z=40 on_click="дп_дерево"
+  // Рестарт — НЕ дело пакета: он не знает, что такое «день» этой новеллы,
+  // поэтому просто прыгает на условленную метку главы (см. контракт).
+  obj id=btn_again sprite_url="/content/packages/lvn-duel/ui/icon_again.png" x=0.875 y=65% width=0.07 height=0.043 anchor="0.5,0.5" z=40 on_click="дуэль_рестарт"
+  if тест_режим == 1 {
+    obj id=btn_win sprite_url="/content/packages/lvn-duel/ui/icon_win.png" x=0.955 y=65% width=0.07 height=0.043 anchor="0.5,0.5" z=40 on_click="дп_автопобеда"
+  } else {
+  }
+  obj id=btn_reset sprite_url="/content/packages/lvn-duel/ui/icon_reset.png" x=0.87 y=57% width=0.075 height=0.045 anchor="0.5,0.5" z=40 on_click="дп_сброс"
+  // Ауры — ВТОРЫМ рядом: они не заменяют базу, а стоят рядом с ней. База
+  // (удар и щит) не отменяется никогда, аура лишь занимает такты очереди —
+  // те самые, в которых ты иначе бил бы или закрывался.
+  аура_кнопки()
+}
+
+// Шесть кнопок в ряд — узкие, потому что их шесть; открытые показываются,
+// закрытые не занимают места (сдвига нет: позиция у каждой своя, иначе
+// «кнопка на привычном месте» менялась бы после каждой прокачки).
+func аура_кнопки() {
+  if аура_меч_откр == 1 {
+    obj id=btn_a1 sprite_url="/content/packages/lvn-duel/ui/icon_aura.png" x=0.13 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_замеч"
+  } else {
+  }
+  if аура_кровь_откр == 1 {
+    obj id=btn_a2 sprite_url="/content/packages/lvn-duel/ui/icon_vampire.png" x=0.245 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_закровь"
+  } else {
+  }
+  if аура_призрак_откр == 1 {
+    obj id=btn_a3 sprite_url="/content/packages/lvn-duel/ui/icon_ghost.png" x=0.36 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_запризрак"
+  } else {
+  }
+  if аура_сила_откр == 1 {
+    obj id=btn_a4 sprite_url="/content/packages/lvn-duel/ui/icon_might.png" x=0.475 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_засила"
+  } else {
+  }
+  if аура_жизнь_откр == 1 {
+    obj id=btn_a5 sprite_url="/content/packages/lvn-duel/ui/icon_vitality.png" x=0.59 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_зажизнь"
+  } else {
+  }
+  if аура_отчаяние_откр == 1 {
+    obj id=btn_a7 sprite_url="/content/packages/lvn-duel/ui/icon_despair.png" x=0.82 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_заотчаяние"
+  } else {
+  }
+  if аура_воля_откр == 1 {
+    obj id=btn_a6 sprite_url="/content/packages/lvn-duel/ui/icon_will.png" x=0.705 y=65% width=0.082 height=0.05 anchor="0.5,0.5" z=40 on_click="дп_заволя"
+  } else {
+  }
 }
 
 func buttons_hide() {
@@ -133,184 +372,193 @@ func buttons_hide() {
   obj id=btn_block show=false
   obj id=btn_skill show=false
   obj id=btn_reset show=false
+  obj id=btn_win show=false
+  obj id=btn_tree show=false
+  obj id=btn_again show=false
+  obj id=btn_a1 show=false
+  obj id=btn_a2 show=false
+  obj id=btn_a3 show=false
+  obj id=btn_a4 show=false
+  obj id=btn_a5 show=false
+  obj id=btn_a6 show=false
+  obj id=btn_a7 show=false
 }
 
 // вид ячейки i: "выкл" (за пределом обмена) / "пусто" / имя действия
-func slot_kind(i) {
-  сл_вид = "пусто"
-  if i >= тактов {
-    сл_вид = "выкл"
-  } else {
-    if i < len(план) {
-      сл_вид = get(план, i, "пусто")
+
+
+
+
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  3c. ДВА РЯДА ХОДОВ — твой план и его план
+// ═══════════════════════════════════════════════════════════════════
+// Верхний ряд — ХОДЫ СКЕЛЕТА, закрытые рубашкой: что он задумал, ты узнаёшь
+// только когда такт отыгран. Нижний — твой набранный план. Отыгранный такт
+// заливается цветом: зелёный — твой, красный — его, жёлтый — размен или
+// пустой обмен. Без этого бой читается только текстом, а картинка молчит.
+//
+// Файлы иконок и подложек подставляются ВЫРАЖЕНИЕМ, координаты считаются от
+// номера ячейки — поэтому здесь нет лестницы веток на каждое действие.
+
+икон_файл = {}
+икон_файл = put(икон_файл, "удар", "icon_strike")
+икон_файл = put(икон_файл, "блок", "icon_block")
+икон_файл = put(икон_файл, "оглушение", "icon_stun")
+икон_файл = put(икон_файл, "пробив", "icon_break")
+икон_файл = put(икон_файл, "стан", "icon_stun")
+
+// Имя файла иконки для ячейки i. Тернарного оператора в языке НЕТ — поэтому
+// «ещё не выбрано» и «ещё не вскрыто» выражены значением ПО УМОЛЧАНИЮ у get:
+// список короче индекса → отдаётся заглушка, и никакой ветки не нужно.
+func мойфайл(i) { return get(планфайлы, i, "icon_none") }
+// В `вскрыто` кладутся сразу ИМЕНА ФАЙЛОВ: пока такт не отыгран, элемента нет
+// и get отдаёт рубашку.
+func егофайл(i) { return get(вскрыто, i, "cell_hidden") }
+// подложка исхода: none — ещё не сыгран
+func итогфайл(i) { return get(итоги, i, "cell_none") }
+// центр ячейки i: ряд из шести, шаг 12% ширины экрана
+func ячX(i) { return 0.26 + i * 0.12 }
+
+// Вскрытие хода противника. Ветки вместо get по таблице: вложенный get внутри
+// выражения молча отдавал значение по умолчанию, и ячейка оставалась пустой.
+
+// Его очередь на предстоящий обмен — ОТКРЫТО, до планирования.
+//
+// Раньше ряд врага был закрыт рубашкой, и прочитать песню можно было только
+// памятью: игрок держал в голове шесть тактов чужого паттерна. Это не
+// сложность, а зубрёжка — и она съедала ту самую задачу, ради которой всё
+// затевалось: СОБРАТЬ ответ на известную угрозу. Открытый ряд превращает
+// обмен из проверки памяти в головоломку, где всё на столе.
+func врагплан() {
+  вскрыто = []
+  впшаг = 0
+  while впшаг < тактов {
+    вп_поз = pat_idx(враг_шаг + впшаг, len(враг_паттерн))
+    вп_ключ = враг_имя + "#" + вп_поз
+    вп_ход = get(враг_паттерн, вп_поз, "удар")
+    вп_файл = "cell_hidden"
+    if get(знание, вп_ключ, 0) == 1 {
+      вп_файл = get(ходфайл, вп_ход, "icon_none")
     } else {
     }
+    вскрыто = push(вскрыто, вп_файл)
+    впшаг = впшаг + 1
   }
 }
 
-func slot1(d) {
-  if d == "удар" -> с1у
-  if d == "блок" -> с1б
-  if d == "оглушение" -> с1о
-  if d == "пробив" -> с1п
-  if d == "выкл" -> с1в
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с1г
-  :с1у
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с1г
-  :с1б
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с1г
-  :с1о
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с1г
-  :с1п
-  obj id=slot1 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.30 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с1г
-  :с1в
-  obj id=slot1 show=false
-  -> с1г
-  :с1г
-}
-
-func slot2(d) {
-  if d == "удар" -> с2у
-  if d == "блок" -> с2б
-  if d == "оглушение" -> с2о
-  if d == "пробив" -> с2п
-  if d == "выкл" -> с2в
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с2г
-  :с2у
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с2г
-  :с2б
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с2г
-  :с2о
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с2г
-  :с2п
-  obj id=slot2 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.40 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с2г
-  :с2в
-  obj id=slot2 show=false
-  -> с2г
-  :с2г
-}
-
-func slot3(d) {
-  if d == "удар" -> с3у
-  if d == "блок" -> с3б
-  if d == "оглушение" -> с3о
-  if d == "пробив" -> с3п
-  if d == "выкл" -> с3в
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с3г
-  :с3у
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с3г
-  :с3б
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с3г
-  :с3о
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с3г
-  :с3п
-  obj id=slot3 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.50 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с3г
-  :с3в
-  obj id=slot3 show=false
-  -> с3г
-  :с3г
-}
-
-func slot4(d) {
-  if d == "удар" -> с4у
-  if d == "блок" -> с4б
-  if d == "оглушение" -> с4о
-  if d == "пробив" -> с4п
-  if d == "выкл" -> с4в
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с4г
-  :с4у
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с4г
-  :с4б
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с4г
-  :с4о
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с4г
-  :с4п
-  obj id=slot4 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.60 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с4г
-  :с4в
-  obj id=slot4 show=false
-  -> с4г
-  :с4г
-}
-
-func slot5(d) {
-  if d == "удар" -> с5у
-  if d == "блок" -> с5б
-  if d == "оглушение" -> с5о
-  if d == "пробив" -> с5п
-  if d == "выкл" -> с5в
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/slot_empty.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с5г
-  :с5у
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с5г
-  :с5б
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с5г
-  :с5о
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с5г
-  :с5п
-  obj id=slot5 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.70 y=0.10 width=0.075 anchor="0.5,0.5" z=40
-  -> с5г
-  :с5в
-  obj id=slot5 show=false
-  -> с5г
-  :с5г
-}
-
 func slots_draw() {
-  slot_kind(0)
-  slot1(сл_вид)
-  slot_kind(1)
-  slot2(сл_вид)
-  slot_kind(2)
-  slot3(сл_вид)
-  slot_kind(3)
-  slot4(сл_вид)
-  slot_kind(4)
-  slot5(сл_вид)
+  // Подписи рядов: без них два одинаковых ряда читаются как один блок.
+  text rowfoe x=4 y=8.6 size=13 color=#f0765e anchor="0,0" «ОН»
+  text rowme x=4 y=16.6 size=13 color=#73b8ee anchor="0,0" «ТЫ»
+  // Разбор такта — реактивным лейблом, а не репликой: реплика ждала бы тапа и
+  // снова разбила бы обмен на перелистывание. Текст держится ровно паузу такта.
+  text beatline x=50 y=23.5 size=26 color=#e8e1d3 anchor="0.5,0" «{бит_текст}»
+  obj id=fs1 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(0)}.png" x="{ячX(0)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi1 sprite_url="/content/packages/lvn-duel/ui/{егофайл(0)}.png" x="{ячX(0)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=fs2 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(1)}.png" x="{ячX(1)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi2 sprite_url="/content/packages/lvn-duel/ui/{егофайл(1)}.png" x="{ячX(1)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=fs3 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(2)}.png" x="{ячX(2)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi3 sprite_url="/content/packages/lvn-duel/ui/{егофайл(2)}.png" x="{ячX(2)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=fs4 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(3)}.png" x="{ячX(3)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi4 sprite_url="/content/packages/lvn-duel/ui/{егофайл(3)}.png" x="{ячX(3)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=fs5 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(4)}.png" x="{ячX(4)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi5 sprite_url="/content/packages/lvn-duel/ui/{егофайл(4)}.png" x="{ячX(4)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=fs6 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(5)}.png" x="{ячX(5)}" y=9% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=fi6 sprite_url="/content/packages/lvn-duel/ui/{егофайл(5)}.png" x="{ячX(5)}" y=9% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+
+  obj id=ms1 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(0)}.png" x="{ячX(0)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi1 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(0)}.png" x="{ячX(0)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=ms2 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(1)}.png" x="{ячX(1)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi2 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(1)}.png" x="{ячX(1)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=ms3 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(2)}.png" x="{ячX(2)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi3 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(2)}.png" x="{ячX(2)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=ms4 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(3)}.png" x="{ячX(3)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi4 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(3)}.png" x="{ячX(3)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=ms5 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(4)}.png" x="{ячX(4)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi5 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(4)}.png" x="{ячX(4)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
+  obj id=ms6 sprite_url="/content/packages/lvn-duel/ui/{итогфайл(5)}.png" x="{ячX(5)}" y=17% width=0.085 height=0.05 anchor="0.5,0.5" z=39
+  obj id=mi6 sprite_url="/content/packages/lvn-duel/ui/{мойфайл(5)}.png" x="{ячX(5)}" y=17% width=0.07 height=0.04 anchor="0.5,0.5" z=41
 }
 
 func slots_hide() {
-  obj id=slot1 show=false
-  obj id=slot2 show=false
-  obj id=slot3 show=false
-  obj id=slot4 show=false
-  obj id=slot5 show=false
+  text rowfoe hide
+  text rowme hide
+  text beatline hide
+  obj id=fs1 show=false
+  obj id=fi1 show=false
+  obj id=fs2 show=false
+  obj id=fi2 show=false
+  obj id=fs3 show=false
+  obj id=fi3 show=false
+  obj id=fs4 show=false
+  obj id=fi4 show=false
+  obj id=fs5 show=false
+  obj id=fi5 show=false
+  obj id=fs6 show=false
+  obj id=fi6 show=false
+  obj id=ms1 show=false
+  obj id=mi1 show=false
+  obj id=ms2 show=false
+  obj id=mi2 show=false
+  obj id=ms3 show=false
+  obj id=mi3 show=false
+  obj id=ms4 show=false
+  obj id=mi4 show=false
+  obj id=ms5 show=false
+  obj id=mi5 show=false
+  obj id=ms6 show=false
+  obj id=mi6 show=false
 }
 
 // HUD владения навыком — рисуется один раз, проценты и ступень реактивны
+// ═══════════════════════════════════════════════════════════════════
+//  3b. АРСЕНАЛ СТОРОН — иконки под полосами
+// ═══════════════════════════════════════════════════════════════════
+// Игрок должен видеть, ЧЕМ противник вообще умеет драться, иначе первый бой
+// с новым врагом — угадывание вслепую (тычок подсказывает лишь один такт).
+// Слева — арсенал скелета, справа — твой; открытый навык добавляется в ряд
+// и несёт СВОЙ процент владения прямо на иконке.
+
+func arsenal_show() {
+  // враг: чем он оперирует
+  obj id=foe_ars1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.155 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  obj id=foe_ars2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.225 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  // герой: база всегда, навык — по открытию
+  obj id=hero_ars1 sprite_url="/content/packages/lvn-duel/ui/icon_strike.png" x=0.595 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  obj id=hero_ars2 sprite_url="/content/packages/lvn-duel/ui/icon_block.png" x=0.665 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  if навык == "оглушение" -> арс_огл
+  if навык == "пробив" -> арс_проб
+  obj id=hero_ars3 show=false
+  text hero_ars3_pct hide
+  -> арс_готово
+  :арс_огл
+  obj id=hero_ars3 sprite_url="/content/packages/lvn-duel/ui/icon_stun.png" x=0.735 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  // процент владения — НА иконке, а не отдельной строкой сбоку
+  text hero_ars3_pct x=73.5 y=94.8 size=15 color=#ffffff anchor="0.5,0" «{влад_оглушение}%»
+  -> арс_готово
+  :арс_проб
+  obj id=hero_ars3 sprite_url="/content/packages/lvn-duel/ui/icon_break.png" x=0.735 y=0.937 width=0.062 height=0.035 anchor="0.5,0.5" z=32
+  text hero_ars3_pct x=73.5 y=94.8 size=15 color=#ffffff anchor="0.5,0" «{влад_пробив}%»
+  -> арс_готово
+  :арс_готово
+}
+
+func arsenal_hide() {
+  obj id=foe_ars1 show=false
+  obj id=foe_ars2 show=false
+  obj id=hero_ars1 show=false
+  obj id=hero_ars2 show=false
+  obj id=hero_ars3 show=false
+  text hero_ars3_pct hide
+}
+
 func skill_hud() {
-  if навык == "оглушение" -> нх_огл
-  if навык == "пробив" -> нх_проб
-  -> нх_готово
-  :нх_огл
-  text skillhud x=97 y=3 size=26 color=#c4b06a anchor="1,0" «💫 {влад_оглушение}% · ст.{min(1 + floor(влад_оглушение / 25), 4)}»
-  -> нх_готово
-  :нх_проб
-  text skillhud x=97 y=3 size=26 color=#a884c6 anchor="1,0" «🔨 {влад_пробив}% · ст.{min(1 + floor(влад_пробив / 25), 4)}»
-  -> нх_готово
-  :нх_готово
+  // Плашка навыка сбоку убрана: процент владения живёт НА иконке в арсенале.
+  arsenal_show()
 }
 
 
@@ -320,81 +568,41 @@ func skill_hud() {
 //      Скелет: над головой. Герой: над диалоговым окном.
 // ═══════════════════════════════════════════════════════════════════
 
-func foe_bar() {
-  obj id=foe_bar_bg sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.5 y=0.17 width=0.22 anchor="0.5,0.5" z=30
-  if враг_хп >= 8 -> фб8
-  if враг_хп == 7 -> фб7
-  if враг_хп == 6 -> фб6
-  if враг_хп == 5 -> фб5
-  if враг_хп == 4 -> фб4
-  if враг_хп == 3 -> фб3
-  if враг_хп == 2 -> фб2
-  if враг_хп == 1 -> фб1
-  obj id=foe_bar_fill show=false
-  -> фбг
-  :фб8
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.220 anchor="0,0.5" z=31
-  -> фбг
-  :фб7
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.193 anchor="0,0.5" z=31
-  -> фбг
-  :фб6
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.165 anchor="0,0.5" z=31
-  -> фбг
-  :фб5
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.138 anchor="0,0.5" z=31
-  -> фбг
-  :фб4
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.110 anchor="0,0.5" z=31
-  -> фбг
-  :фб3
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.083 anchor="0,0.5" z=31
-  -> фбг
-  :фб2
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.055 anchor="0,0.5" z=31
-  -> фбг
-  :фб1
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.39 y=0.17 width=0.028 anchor="0,0.5" z=31
-  -> фбг
-  :фбг
+func duel_hud_plate() {
+  obj id=duel_hud_plate sprite_url="/content/packages/lvn-uikit/ui/hud_plate.png" x=50% y=88% width=0.99 height=0.19 anchor="0.5,0.5" z=25
 }
+
+func foe_bar() {
+  obj id=foe_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.265 y=0.875 width=0.38 height=0.025 anchor="0.5,0.5" z=30
+  // ПРИЗРАК урона (приём из Dota): тот же спрайт, бледнее и ПОД основной
+  // заливкой. Едет к той же доле, но втрое дольше — глаз успевает прочитать,
+  // сколько именно отняли, даже когда удар прошёл за долю секунды.
+  obj id=foe_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31 fill_from=left
+  anim id=foe_bar_fill prop=fill to="{max(враг_хп, 0) / max(враг_хп_макс, 1)}" dur=0.25 ease=outCubic
+  anim id=foe_bar_ghost prop=fill to="{max(враг_хп, 0) / max(враг_хп_макс, 1)}" dur=0.9 ease=inOutSine
+}
+
+// Заливка врага во всю длину трека — режет её fill, а не ширина.
 
 func hero_bar() {
-  obj id=hero_bar_bg sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.5 y=0.74 width=0.30 anchor="0.5,0.5" z=30
-  if дуэль_хп >= 6 -> гб6
-  if дуэль_хп == 5 -> гб5
-  if дуэль_хп == 4 -> гб4
-  if дуэль_хп == 3 -> гб3
-  if дуэль_хп == 2 -> гб2
-  if дуэль_хп == 1 -> гб1
-  obj id=hero_bar_fill show=false
-  -> гбг
-  :гб6
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.300 anchor="0,0.5" z=31
-  -> гбг
-  :гб5
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.250 anchor="0,0.5" z=31
-  -> гбг
-  :гб4
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.200 anchor="0,0.5" z=31
-  -> гбг
-  :гб3
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.150 anchor="0,0.5" z=31
-  -> гбг
-  :гб2
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.100 anchor="0,0.5" z=31
-  -> гбг
-  :гб1
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.35 y=0.74 width=0.050 anchor="0,0.5" z=31
-  -> гбг
-  :гбг
+  obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.735 y=0.875 width=0.38 height=0.025 anchor="0.5,0.5" z=30
+  obj id=hero_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31 fill_from=left
+  anim id=hero_bar_fill prop=fill to="{max(дуэль_хп, 0) / max(дуэль_хп_макс, 1)}" dur=0.25 ease=outCubic
+  anim id=hero_bar_ghost prop=fill to="{max(дуэль_хп, 0) / max(дуэль_хп_макс, 1)}" dur=0.9 ease=inOutSine
 }
 
+// Заливка героя во всю длину трека — режет её fill.
+
 func bars_hide() {
+  obj id=duel_hud_plate show=false
   obj id=foe_bar_bg show=false
   obj id=foe_bar_fill show=false
+  obj id=foe_bar_ghost show=false
   obj id=hero_bar_bg show=false
   obj id=hero_bar_fill show=false
+  obj id=hero_bar_ghost show=false
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -406,38 +614,27 @@ func bars_hide() {
 // Обмен ВСЕГДА длится 6 секунд: такт = 6с / кол-во тактов (решение
 // владельца, 2026-07-31). Обмен 1 — один такт смакуется 6с, кап 5 — по 1.2с.
 // wait ms= принимает только литерал, поэтому таблица ветками.
-func beat_wait() {
-  if тактов <= 1 -> бв1
-  if тактов == 2 -> бв2
-  if тактов == 3 -> бв3
-  if тактов == 4 -> бв4
-  wait ms=1200
-  -> бв_готово
-  :бв1
-  wait ms=6000
-  -> бв_готово
-  :бв2
-  wait ms=3000
-  -> бв_готово
-  :бв3
-  wait ms=2000
-  -> бв_готово
-  :бв4
-  wait ms=1500
-  -> бв_готово
-  :бв_готово
-}
 
 func tell_update() {
+  // Если ближайший такт уже открыт в ряду — молчим: подсказка нужна там, где
+  // игрок ещё не знает песню, а не поверх собственной же иконки.
+  if get(знание, враг_имя + "#" + pat_idx(враг_шаг, len(враг_паттерн)), 0) == 1 -> ты_молчим
   if враг_стан >= 1 -> ты_стан
+  if foe_now() == "пробив" -> ты_пробив
   if foe_now() == "удар" -> ты_удар
   тычок_текст = "Он вжимается за щит: первым тактом закроется."
   -> ты_готово
   :ты_стан
   тычок_текст = "Он ещё качается после оглушения — первый такт твой."
   -> ты_готово
+  :ты_пробив
+  тычок_текст = "Он заносит клинок остриём вниз: первым тактом — ПРОБИВ. Щит не спасёт."
+  -> ты_готово
   :ты_удар
   тычок_текст = "Костяные пальцы сжали рукоять: первым тактом — удар."
+  -> ты_готово
+  :ты_молчим
+  тычок_текст = ""
   -> ты_готово
   :ты_готово
 }
@@ -454,6 +651,13 @@ func resolve_beat() {
   урон_мне = 0
   урон_ему = 0
   бит_суть = ""
+  if мой_ход == "з_меч" -> рт_заряд
+  if мой_ход == "з_кровь" -> рт_заряд
+  if мой_ход == "з_призрак" -> рт_заряд
+  if мой_ход == "з_сила" -> рт_заряд
+  if мой_ход == "з_жизнь" -> рт_заряд
+  if мой_ход == "з_воля" -> рт_заряд
+  if мой_ход == "з_отчаяние" -> рт_заряд
   if его_ход == "стан" -> рт_стан
   if мой_ход == "удар" && его_ход == "удар" -> рт_уу
   if мой_ход == "удар" && его_ход == "блок" -> рт_уб
@@ -462,7 +666,43 @@ func resolve_beat() {
   if мой_ход == "оглушение" && его_ход == "удар" -> рт_оу
   if мой_ход == "оглушение" && его_ход == "блок" -> рт_об
   if мой_ход == "пробив" && его_ход == "блок" -> рт_пб
+  if его_ход == "пробив" -> рт_егопробив
   -> рт_пу
+
+  // ── ЕГО пробив: то же движение, что и твоё, с той же ценой ──────
+  :рт_егопробив
+  if мой_ход == "блок" -> рт_ег_блок
+  if мой_ход == "оглушение" -> рт_ег_огл
+  if мой_ход == "пробив" -> рт_ег_оба
+  // против твоего удара он раскрыт — пробив бьёт по щиту, а не по клинку
+  урон_ему = 2
+  бит_суть = "он раскрылся под пробив: −2 ему."
+  -> рт_применить
+  :рт_ег_блок
+  урон_мне = 2
+  бит_суть = "пробил твой щит: −2 тебе!"
+  -> рт_применить
+  :рт_ег_огл
+  if темп_мой >= 1 -> рт_ег_огл_есть
+  урон_мне = 2
+  влад_оглушение = min(влад_оглушение + 1, 100)
+  hint text="Оглушение +1 — не хватило темпа" duration=2
+  бит_суть = "темпа нет — пробив прошёл: −2 тебе."
+  -> рт_применить
+  :рт_ег_огл_есть
+  темп_мой = темп_мой - 1
+  враг_стан = враг_стан + 1
+  влад_оглушение = min(влад_оглушение + 3, 100)
+  hint text="Оглушение +3 — сбил пробив!" duration=2
+  бит_суть = "сбил его пробив на замахе!"
+  -> рт_применить
+  :рт_ег_оба
+  урон_мне = 2
+  урон_ему = 2
+  влад_пробив = min(влад_пробив + 3, 100)
+  hint text="Пробив +3 — встречный размен" duration=2
+  бит_суть = "два пробива в упор: −2 обоим."
+  -> рт_применить
 
   // ── враг оглушён: такт без его действия ──
   :рт_стан
@@ -478,12 +718,12 @@ func resolve_beat() {
   :рт_стан_пробив
   урон_ему = 2
   влад_пробив = min(влад_пробив + 3, 100)
-  hint text="🔨 Пробив +3 — урон по открытому" duration=2
+  hint text="Пробив +3 — урон по открытому" duration=2
   бит_суть = "пробив по открытому: −2!"
   -> рт_применить
   :рт_стан_огл
   влад_оглушение = min(влад_оглушение + 1, 100)
-  hint text="💫 Оглушение +1 — в молоко (он и так оглушён)" duration=2
+  hint text="Оглушение +1 — в молоко (он и так оглушён)" duration=2
   бит_суть = "он и так оглушён — мимо."
   -> рт_применить
 
@@ -539,7 +779,7 @@ func resolve_beat() {
   if темп_мой >= огл_порог -> рт_оу_есть
   урон_мне = 1
   влад_оглушение = min(влад_оглушение + 1, 100)
-  hint text="💫 Оглушение +1 — не хватило темпа" duration=2
+  hint text="Оглушение +1 — не хватило темпа" duration=2
   бит_суть = "без темпа: −1 тебе."
   -> рт_применить
   :рт_оу_есть
@@ -550,12 +790,12 @@ func resolve_beat() {
   } else {
   }
   влад_оглушение = min(влад_оглушение + 3, 100)
-  hint text="💫 Оглушение +3 — сработало!" duration=2
+  hint text="Оглушение +3 — сработало!" duration=2
   бит_суть = "оглушил — он теряет такт!"
   -> рт_применить
   :рт_об
   влад_оглушение = min(влад_оглушение + 1, 100)
-  hint text="💫 Оглушение +1 — он был за щитом" duration=2
+  hint text="Оглушение +1 — он был за щитом" duration=2
   бит_суть = "в щит — мимо."
   -> рт_применить
 
@@ -568,7 +808,7 @@ func resolve_beat() {
   }
   темп_мой = темп_мой + 1
   влад_пробив = min(влад_пробив + 6, 100)
-  hint text="🔨 Пробив +6 — КРИТ сквозь щит!" duration=2
+  hint text="Пробив +6 — КРИТ сквозь щит!" duration=2
   бит_суть = "сквозь щит: −" + урон_ему + ", темп твой!"
   -> рт_применить
   :рт_пу
@@ -578,14 +818,263 @@ func resolve_beat() {
   } else {
   }
   влад_пробив = min(влад_пробив + 1, 100)
-  hint text="🔨 Пробив +1 — он не закрывался" duration=2
+  hint text="Пробив +1 — он не закрывался" duration=2
   бит_суть = "раскрылся: −" + урон_мне + " тебе."
   -> рт_применить
 
-  // ── применение ──
+  // ── ЗАРЯДКА АУРЫ: такт, в котором ты СТОИШЬ ОТКРЫТЫМ ───────────
+  // Цена честная и в этом весь смысл: пока копишь свет, ты не бьёшь и не
+  // закрываешься. Три такта на старте — почти вся очередь раннего боя, и
+  // решиться на них можно только зная его песню. С владением цена падает,
+  // а на сотне аура горит с первого кадра — но к тому времени и противники
+  // выходят со своими.
+  :рт_заряд
+  if аура_зар_вид != мой_ход -> рз_смена
+  -> рз_копим
+  :рз_смена
+  // Переключился на другую ауру — прежний прогресс сгорел: свет не смешивается.
+  аура_зар_вид = мой_ход
+  аура_заряд = 0
+  -> рз_копим
+  :рз_копим
+  аура_заряд = аура_заряд + 1
+  // Копление — не пустой такт: свет уже собирается на руках, но и виньетка
+  // сжимается, напоминая, что защиты сейчас нет.
+  sfx id=duel_hands glow=0.5 glow_color=#ffe6a8 rim=0.4 rim_color=#fff0c0 dur=0.8
+  fx vignette=0.4 bloom=0.25 dur=0.3
+  if аура_заряд >= аура_цена(мой_ход) -> рз_вспышка
+  бит_суть = "копишь свет — " + аура_заряд + " из " + аура_цена(мой_ход) + ", ты открыт."
+  -> рз_урон
+  :рз_вспышка
+  аура_вид = мой_ход
+  аура_заряд = 0
+  аура_рост(мой_ход, 8)
+  аура_вспышка()
+  -> рз_урон
+  // Открыт — значит его удар проходит как по стоячему, а щит его не нужен.
+  :рз_урон
+  if его_ход == "удар" -> рз_бьёт
+  if его_ход == "пробив" -> рз_бьёт
+  -> рт_применить
+  :рз_бьёт
+  урон_мне = 2
+  бит_суть = бит_суть + " Он бьёт в открытого: −2."
+  -> рт_применить
+
+  // ── АУРА ПРОТИВНИКА ──────────────────────────────────────────────
+  // Считается ДО твоих аур: воля защиты должна гасить уже посчитанный чужой
+  // свет, а не отменять его задним числом.
   :рт_применить
+  // (сила раны считается ниже, после применения урона)
+  if враг_аура_вид == "" -> вр_нет
+  if аура_вид == "з_воля" -> вр_нет
+  if враг_аура_вид == "сила" -> вр_сила
+  if враг_аура_вид == "клинок" -> вр_клинок
+  if враг_аура_вид == "тень" -> вр_тень
+  if враг_аура_вид == "жажда" -> вр_жажда
+  if враг_аура_вид == "жизнь" -> вр_жизнь
+  if враг_аура_вид == "отчаяние" -> вр_отчаяние
+  -> вр_нет
+  :вр_сила
+  if урон_мне > 0 {
+    урон_мне = урон_мне + 2
+    бит_суть = бит_суть + " Его сила: +2."
+  } else {
+  }
+  -> вр_нет
+  :вр_клинок
+  if мой_ход == "блок" {
+    урон_мне = max(урон_мне, 1) * 2
+    бит_суть = бит_суть + " Его клинок прошёл сквозь щит!"
+  } else {
+  }
+  -> вр_нет
+  :вр_тень
+  if урон_ему > 0 {
+    if враг_тень_зарядов > 0 {
+      урон_ему = 0
+      враг_тень_зарядов = враг_тень_зарядов - 1
+      бит_суть = бит_суть + " Он ушёл в тень (" + враг_тень_зарядов + ")."
+    } else {
+    }
+  } else {
+  }
+  -> вр_нет
+  :вр_жажда
+  if урон_мне > 0 {
+    враг_хп = min(враг_хп + 1, враг_хп_макс)
+    бит_суть = бит_суть + " Твоя кровь легла на него."
+  } else {
+  }
+  -> вр_нет
+  :вр_жизнь
+  враг_хп = min(враг_хп + 1, враг_хп_макс)
+  -> вр_нет
+  :вр_отчаяние
+  if урон_мне > 0 {
+    урон_мне = урон_мне + min(враг_хп_макс - враг_хп, 4)
+    бит_суть = бит_суть + " Он тем злее, чем ближе к концу."
+  } else {
+  }
+  -> вр_нет
+  :вр_нет
+  // ── АУРЫ ─────────────────────────────────────────────────────────
+  // Две категории, и это главное решение баланса. ПОСТОЯННЫЕ (сила,
+  // живучесть, воля) горят до конца боя, но дают немного — они меняют
+  // арифметику, а не исход. РАЗРЯДНЫЕ (клинок, тень, жажда) бьют
+  // категориально и гаснут: свет уходит в удар, тень тратится на уклонение.
+  // Без этого «клинок» был кнопкой «победить» и обесценивал остальные пять.
+  if аура_вид == "з_меч" -> ра_меч
+  -> ра_сила
+  :ра_меч
+  if мой_ход == "удар" -> ра_меч_бьёт
+  if мой_ход == "пробив" -> ра_меч_бьёт
+  -> ра_сила
+  :ра_меч_бьёт
+  // УДВОЕНИЕ, а не «+100 урона»: плоская сотня при восьми жизнях означала бы
+  // «нажми и выиграй», и остальные пять аур можно было бы выбросить. Процент
+  // же растёт вместе с боем — и остаётся значимым, когда цифры вырастут.
+  // Сквозь щит проходит даже нулевой урон: аура не бьёт мимо защиты, она её
+  // не замечает.
+  if урон_ему <= 0 {
+    урон_ему = 1
+  } else {
+  }
+  урон_ему = урон_ему * 2
+  // Удвоенный удар сквозь защиту — золотой разрез по кадру.
+  camera action=zoom factor=1.07 duration=0.1
+  sfx id=duel_enemy outline=0.9 outline_color=#ffe6a8 shake=1 dur=1.0
+  // Аура клинка не замечает защиты — щит светится чужим светом насквозь.
+  fx rays=0.5 speedlines=0.4 bloom=0.35 dur=0.3
+  camera action=zoom factor=1 duration=0.35
+  аура_рост("з_меч", 3)
+  бит_суть = "аура прошла СКВОЗЬ ЩИТ — вдвое."
+  -> ра_призрак_чек
+
+  :ра_сила
+  if аура_вид == "з_сила" -> ра_сила_есть
+  -> ра_отчаяние_чек
+  :ра_сила_есть
+  if урон_ему > 0 -> ра_сила_плюс
+  -> ра_призрак_чек
+  :ра_сила_плюс
+  camera action=shake amplitude=0.026 duration=0.3
+  sfx id=duel_enemy shake=0.9 dur=0.8
+  fx bloom=0.4 tint=0.3 dur=0.25
+  урон_ему = урон_ему + 2
+  аура_рост("з_сила", 2)
+  -> ра_призрак_чек
+
+  // Тень уклоняется от ЧЕГО УГОДНО, включая чужую ауру, но заряды кончаются.
+  // ОТЧАЯНИЕ — единственная аура, которая СИЛЬНЕЕ у проигрывающего: каждое
+  // потерянное сердце добавляет урон. Она не спасает и не защищает — она
+  // делает загнанного опасным, и потому её выгодно держать именно тогда,
+  // когда всё уже плохо. Потолок в 4 не даёт ей превратиться в «нажми и
+  // выиграй» на одном оставшемся сердце.
+  //
+  // Звено цепочки, а не висящий кусок: сюда приходит промах «силы». Без этой
+  // метки проверка стояла сразу за блоком силы, который уходит переходом, —
+  // и отчаяние не срабатывало НИ РАЗУ (нашёл `lvnconv walk`).
+  :ра_отчаяние_чек
+  if аура_вид == "з_отчаяние" -> ра_отчаяние
+  -> ра_призрак_чек
+  :ра_отчаяние
+  if урон_ему > 0 -> ра_отч_бьёт
+  -> ра_призрак_чек
+  :ра_отч_бьёт
+  отч_бонус = min(дуэль_хп_макс - дуэль_хп, 4)
+  урон_ему = урон_ему + отч_бонус
+  аура_рост("з_отчаяние", 2)
+  camera action=shake amplitude=0.022 duration=0.3
+  sfx id=duel_enemy shake=1 dur=0.6
+  бит_суть = бит_суть + " Отчаяние: +" + отч_бонус + "."
+  -> ра_призрак_чек
+
+  :ра_призрак_чек
+  if аура_вид == "з_призрак" -> ра_призрак
+  -> ра_воля_чек
+  :ра_призрак
+  if урон_мне > 0 -> ра_призрак_ушёл
+  -> ра_воля_чек
+  :ра_призрак_ушёл
+  // Удар прошёл насквозь: руки на миг теряют плотность, кадр «двоится».
+  sfx id=duel_hands ghost=0.85 hologram=0.5 hologram_color=#9fe8ff dur=0.9
+  fx distort=0.45 chromatic=0.35 dur=0.3
+  урон_мне = 0
+  призрак_зарядов = призрак_зарядов - 1
+  аура_рост("з_призрак", 3)
+  бит_суть = бит_суть + " Ты прошёл сквозь удар (" + призрак_зарядов + ")."
+  if призрак_зарядов <= 0 {
+    аура_вид = ""
+    бит_суть = бит_суть + " Тень истаяла."
+  } else {
+  }
+  -> ра_кровь_чек
+
+  // Воля защиты — единственный ответ на ЧУЖУЮ ауру: она её просто не
+  // пропускает. Против обычного удара помогает мало (−1), и в этом смысл:
+  // база остаётся базой.
+  :ра_воля_чек
+  if аура_вид == "з_воля" -> ра_воля
+  -> ра_кровь_чек
+  :ра_воля
+  if урон_мне > 0 -> ра_воля_есть
+  -> ра_кровь_чек
+  :ра_воля_есть
+  if враг_аура == 1 -> ра_воля_гасит
+  урон_мне = max(урон_мне - 1, 0)
+  аура_рост("з_воля", 2)
+  -> ра_кровь_чек
+  :ра_воля_гасит
+  // Чернь съела чужой свет: короткая инверсия кадра и глухой удар — это
+  // должно читаться как ЛУЧШЕЕ, что случилось за бой.
+  camera action=shake amplitude=0.02 duration=0.3
+  sfx id=duel_hands outline=1 outline_color=#ffffff shake=0.6 dur=0.8
+  sfx id=duel_enemy dark=0.6 shake=0.5 dur=0.7
+  fx shockwave=0.45 shock_x=0.5 shock_y=0.62 dur=0.4
+  урон_мне = 0
+  аура_рост("з_воля", 4)
+  бит_суть = бит_суть + " Чернь удержала его свет."
+  -> ра_кровь_чек
+
+  :ра_кровь_чек
+  if аура_вид == "з_кровь" -> ра_кровь
+  -> ра_жизнь_чек
+  :ра_кровь
+  if урон_ему > 0 -> ра_кровь_пьёт
+  -> ра_жизнь_чек
+  :ра_кровь_пьёт
+  // Кровь уходит от него к тебе: у врага гаснет цвет, у тебя разгорается.
+  sfx id=duel_enemy dark=0.45 dur=0.7
+  sfx id=duel_hands glow=0.7 glow_color=#ff5a72 rim=0.5 rim_color=#ff9aa8 dur=0.9
+  fx blood=0.3 vignette=0.4 dur=0.35
+  дуэль_хп = min(дуэль_хп + min(урон_ему, 2), дуэль_хп_макс)
+  аура_рост("з_кровь", 3)
+  кровь_тактов = кровь_тактов - 1
+  бит_суть = бит_суть + " Рана легла на тебя — и затянулась."
+  if кровь_тактов <= 0 {
+    аура_вид = ""
+  } else {
+  }
+  -> ра_жизнь_чек
+
+  // Живучесть регенерирует КАЖДЫЙ такт, независимо от исхода — она про
+  // выносливость в долгом бою, а не про размен.
+  :ра_жизнь_чек
+  if аура_вид == "з_жизнь" -> ра_жизнь
+  -> ра_готово
+  :ра_жизнь
+  sfx id=duel_hands glow=0.35 glow_color=#7fe6a0 dur=0.7
+  дуэль_хп = min(дуэль_хп + 1, дуэль_хп_макс)
+  аура_рост("з_жизнь", 1)
+  -> ра_готово
+  :ра_готово
   враг_хп = max(враг_хп - урон_ему, 0)
   дуэль_хп = max(дуэль_хп - урон_мне, 0)
+  // Чем меньше осталось, тем гуще кровь по краям: от 0.07 при полном теле до
+  // 0.45 на нуле. Считаем переменной, а не выражением в команде — так число
+  // видно в отладке и не зависит от разбора {…} в поле.
+  кровь_сила = 0.07 + 0.38 * (1 - дуэль_хп / max(дуэль_хп_макс, 1))
   if враг_хп <= 0 {
     дуэль_исход = "победа"
   } else {
@@ -594,6 +1083,121 @@ func resolve_beat() {
     дуэль_исход = "пал"
   } else {
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  5b. ОТДАЧА ТАКТА — свой эффект на каждый исход
+// ═══════════════════════════════════════════════════════════════════
+
+// Урок темпа — ровно в тот такт, где темп впервые начислен, и уже ПОСЛЕ
+// анимации: сначала игрок видит, что произошло, потом читает, как это
+// называется. Обратный порядок тестеры и назвали «непонятно что происходит».
+func урок_темпа() {
+  if учил_темп == 1 -> ут_нет
+  if мой_ход == "блок" && его_ход == "удар" -> ут_мне
+  if мой_ход == "удар" && его_ход == "блок" -> ут_ему
+  -> ут_нет
+  :ут_мне
+  учил_темп = 1
+  «Ты закрылся от его удара — и взял ТЕМП. В следующем размене ударишь первым и вдвое. Потратишь — сгорит.»
+  -> ут_нет
+  :ут_ему
+  учил_темп = 1
+  «Ты ударил в щит — ТЕМП забрал он. У кого темп, тот в размене бьёт первым и вдвое сильнее. Темп сгорает сразу после.»
+  -> ут_нет
+  :ут_нет
+}
+
+func beat_feedback() {
+  // Каждому исходу — СВОЙ полнокадровый эффект из галереи движка. Порядок
+  // проверок = приоритет: редкие и «говорящие» разбираются раньше рядовых.
+  if его_ход == "стан" -> оо_стан
+  if мой_ход == "оглушение" && враг_стан >= 1 -> оо_оглушил
+  if мой_ход == "пробив" && его_ход == "блок" -> оо_пробил
+  if мой_ход == "блок" && его_ход == "удар" -> оо_блок
+  if урон_ему > 0 && урон_мне > 0 -> оо_размен
+  if урон_ему > 0 -> оо_бью
+  if урон_мне > 0 -> оо_бьют
+  -> оо_готово
+
+  // ТВОЙ УДАР — РЫВОК: радиальные линии скорости, кадр бросается вперёд.
+  :оо_бью
+  // Попал — его тряхнуло. Всё. Никакой засветки: удар в дуэли случается
+  // каждый второй такт, и подсвечивать его как событие значит обесценить
+  // подсветку вообще.
+  camera action=zoom factor=1.03 duration=0.1
+  sfx id=duel_enemy shake=0.9 dur=0.5
+  fx speedlines=0.28 dur=0.18
+  camera action=zoom factor=1 duration=0.3
+  -> оо_готово
+
+  // ПОПАЛИ ПО ТЕБЕ — РАНЕНИЕ: красная пульсация по краям, враг остаётся виден.
+  :оо_бьют
+  camera action=shake amplitude=0.022 duration=0.35
+  // Камера клюёт носом: удар пришёл в тебя, и кадр складывается вниз — это
+  // читается телом раньше, чем игрок успевает посмотреть на полосу hp.
+  // Возврат стоит НЕ здесь: команды идут подряд, и «выпрямиться» сразу после
+  // «согнуться» отменило бы наклон в том же кадре. Он в конце стадии.
+  bg3d pitch={кам_боль} dur=0
+  // Прилетело тебе — трясёт кадр и руки, а по краям выступает кровь. Её
+  // густота — это ОСТАТОК здоровья, а не сила удара: полное тело даёт
+  // тонкую кромку, последнее сердце заливает края почти наполовину. Так
+  // состояние читается кадром, не цифрой в углу.
+  sfx id=duel_hands shake=1 dur=0.5
+  fx blood={кровь_сила} dur=0.25
+  -> оо_готово
+
+  // РАЗМЕН — досталось обоим: рывок и ранение вместе, каждый в своём цвете.
+  :оо_размен
+  camera action=shake amplitude=0.02 duration=0.32
+  // В размене прилетело обоим — гнёт слабее, чем от чистого пропущенного удара.
+  bg3d pitch={кам_полуболь} dur=0
+  sfx id=duel_enemy shake=0.85 dur=0.5
+  sfx id=duel_hands shake=0.85 dur=0.5
+  fx blood={кровь_сила} dur=0.25
+  -> оо_готово
+
+  // БЛОК ДЕРЖИТ — звон: холодная кромка по клинку, иней, БЕЗ тряски.
+  :оо_блок
+  // Щит держит — коротко звенит кромка, обоих качает. Свечение убрано: блок
+  // случается постоянно и светиться не должен.
+  sfx id=duel_hands rim=0.45 rim_color=#cfe8ff shake=0.4 dur=0.6
+  sfx id=duel_enemy shake=0.4 dur=0.5
+  // Удар пришёл В ЩИТ — звенит именно он: холодная кромка и отдача.
+  fx frost=0.1 dur=0.14
+  -> оо_готово
+
+  // ПРОБИВ СКВОЗЬ ЩИТ — самое дорогое попадание боя: веки, кровь, аберрация
+  // и потеря периферии разом. Кадр «схлопывается» на миг, как от чужого
+  // удара по своей же защите.
+  :оо_пробил
+  camera action=zoom factor=1.08 duration=0.1
+  sfx id=duel_hands lightning=0.7 lightning_color=#bfe3ff dur=0.9
+  sfx id=duel_enemy outline=0.7 outline_color=#bfe3ff shake=1 dur=0.9
+  // Пробив — по щиту, а не мимо него: он вспыхивает и идёт трещиной.
+  fx chromatic=0.35 vignette=0.58 dur=0.28
+  camera action=zoom factor=1 duration=0.3
+  -> оо_готово
+
+  // ОГЛУШЕНИЕ ПРОШЛО — УДАРНАЯ ВОЛНА из точки попадания.
+  // ОГЛУШЕНИЕ ПРОШЛО — ударная волна из точки попадания. Сила снята вдвое:
+  // на полной громкости волна, руны, вспышка и тряска шли разом и забивали
+  // сам момент — эффектов было видно больше, чем события. Руны остаются
+  // главным знаком (это они читаются как «оглушён»), остальное — фон под них.
+  :оо_оглушил
+  camera action=shake amplitude=0.012 duration=0.25
+  sfx id=duel_enemy runes=0.7 runes_color=#ffe08a shake=0.5 dur=1.1
+  sfx id=duel_hands rim=0.4 rim_color=#ffe08a dur=0.9
+  fx shockwave=0.5 shock_x=0.5 shock_y=0.46 dur=0.5
+  -> оо_готово
+
+  // ОН ОГЛУШЁН И ХОДИТ ВПУСТУЮ — марево: воздух дрожит, враг «плывёт».
+  :оо_стан
+  sfx id=duel_enemy hologram=0.45 hologram_color=#9fe8ff dur=1.1
+  fx distort=0.8 dur=0.4
+  -> оо_готово
+
+  :оо_готово
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -608,19 +1212,78 @@ func duel() {
   враг_шаг = 0
   враг_фаза = 1
   враг_стан = 0
-  враг_паттерн = паттерн_обычный
+  // Кто перед тобой — решает ГЛАВА, до вызова боя: враг_имя, враг_паттерн,
+  // враг_паттерн2 (песня ярости), враг_тон, враг_даль, враг_высота, hp.
+  // Пакет умеет драться, а не знать бестиарий, поэтому здесь их не трогаем.
+  // Наклон камеры: покой и «согнуло от боли». Числа держим переменными —
+  // глава ставит свой ракурс, и пакет не должен знать его в лицо.
+  кам_наклон = -6
+  кам_боль = 15
+  кам_полуболь = 10
   план = []
-  бит_текст = ""
+  планфайлы = []
+  вскрыто = []
+  итоги = []
   тычок_текст = ""
-
-  text dayline x=3 y=3 size=26 color=#9a927f «День {день} · обмен {обмен}»
-  text foe_num x=50 y=11 size=28 color=#e8e0d0 anchor="0.5,0" «{враг_хп}/{враг_хп_макс} ⚡{темп_врага}»
-  text hero_num x=50 y=68 size=30 color=#e8e0d0 anchor="0.5,0" «{дуэль_хп}/{дуэль_хп_макс} ⚡{темп_мой}»
-  text tellline x=50 y=33 size=28 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
-  text beatline x=50 y=61 size=30 color=#f1e4c9 anchor="0.5,0" «{бит_текст}»
+  // Пустая строка ДО первого такта: иначе лейбл показывает сам плейсхолдер,
+  // и игрок видит «{бит_текст}» вместо разбора.
+  бит_текст = ""
+  // Бой начинается с ЧИСТОГО кадра: ни вуали, ни остатков прошлой сцены.
+  dim alpha=0 duration=0
+  аура_вид = ""
+  аура_зар_вид = ""
+  аура_заряд = 0
+  призрак_зарядов = 0
+  кровь_тактов = 0
+  // Аура ПРОТИВНИКА. Он — мастер своей силы: копить ему нечего, она горит с
+  // первого кадра. Ровно та же аура, которую ты у него и заберёшь, победив, —
+  // поэтому её сначала ВИДНО в чужих руках, а уже потом она твоя.
+  враг_аура = 0
+  if враг_аура_вид != "" {
+    враг_аура = 1
+  } else {
+  }
+  враг_тень_зарядов = 3
+  // Сотня владения = аура горит с первого кадра: копить больше нечего.
+  if аура_цена("з_меч") == 0 -> ду_а1
+  -> ду_а2
+  :ду_а1
+  аура_вид = "з_меч"
+  -> ду_а2
+  :ду_а2
+  if аура_цена("з_кровь") == 0 -> ду_а3
+  -> ду_а4
+  :ду_а3
+  аура_вид = "з_кровь"
+  -> ду_а4
+  :ду_а4
+  if аура_цена("з_призрак") == 0 -> ду_а5
+  -> ду_а6
+  :ду_а5
+  аура_вид = "з_призрак"
+  -> ду_а6
+  :ду_а6
+  duel_hud_plate()
+  text dayline x=6 y=10.0 size=17 color=#b59a62 «День {день} · обмен {обмен}»
+  // Имя — НАД полосой, цифры — БЕЛЫМ ПОВЕРХ неё (z выше заливки): взгляд
+  // читает длину и число в одной точке, не прыгая по плашке.
+  text foe_name x=26 y=83.0 size=19 color=#f0765e anchor="0.5,0" «{враг_имя}»
+  text hero_name x=70 y=83.0 size=19 color=#73b8ee anchor="0.5,0" «ТЫ»
+  text foe_num x=26 y=86.2 size=20 color=#ffffff anchor="0.5,0" «{враг_хп}/{враг_хп_макс}  темп {темп_врага}»
+  text hero_num x=70 y=86.2 size=20 color=#ffffff anchor="0.5,0" «{дуэль_хп}/{дуэль_хп_макс}  темп {темп_мой}»
+  text tellline x=50 y=27 size=25 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
+  // Бой начинается с ЧИСТОГО кадра. Постоянная виньетка «для настроения»
+  // висела поверх сцены всегда и читалась как мгла — особенно на 3D-наборе,
+  // у которого своя атмосфера и свой туман.
+  fx off=1
   skill_hud()
+  arsenal_show()
   foe_bar()
   hero_bar()
+  // Чистим врага ПЕРЕД первым показом: прошлый бой мог закончиться его
+  // растворением, а движок помнит последний эффект спрайта, чтобы тот не
+  // слетал при смене позы. Без этого новый противник выходит невидимым.
+  sfx id=duel_enemy off
   foe_sprite("idle")
   hands("idle")
   -> дт_обмен
@@ -629,64 +1292,276 @@ func duel() {
   :дт_обмен
   обмен = обмен + 1
   if обмен > 8 -> дт_ничья
-  тактов = min(обмен, 5)
+  тактов = min(обмен, 6)
+  // Новый обмен — чистые ряды: твой план пуст, его ходы снова закрыты,
+  // заливки исходов сброшены.
   план = []
-  бит_текст = ""
+  планфайлы = []
+  вскрыто = []
+  итоги = []
   tell_update()
+  if учил_план == 0 -> ур_план
+  if обмен == 2 && учил_очередь == 0 -> ур_очередь
+  -> дп_план
+
+  // ── уроки: каждый ровно один раз, в свой момент ──────────────────
+  :ур_план
+  учил_план = 1
+  Он ждёт. Оба выбираете ход ВСЛЕПУЮ — и потом смотрите, что вышло.
+  «Удар бьёт. Блок держит удар. Удар в удар — размен, оба теряете кровь.»
+  -> дп_план
+
+  :ур_очередь
+  учил_очередь = 1
+  «Очередь выросла — теперь загадываешь ДВА хода вперёд. Дальше — больше. Он тоже.»
   -> дп_план
 
   // ── планирование: экран-пауза с кнопками (модель point-and-click) ──
   :дп_план
+  врагплан()
   slots_draw()
   if len(план) >= тактов -> дп_готово
   buttons_show()
-  План: такт {len(план) + 1} из {тактов}.
+  // Сколько ещё выбирать — числом, а не подсчётом в уме. «Такт 5 из 5» само
+  // по себе не отвечает на вопрос «сколько мне ещё тыкать»: игрок считает
+  // разницу вместо того, чтобы думать о бое. Склонение ветками — в языке нет
+  // ни тернарника, ни падежей.
+  осталось = тактов - len(план)
+  словоход = "ходов"
+  if осталось == 1 {
+    словоход = "ход"
+  } else {
+  }
+  if осталось >= 2 && осталось <= 4 {
+    словоход = "хода"
+  } else {
+  }
+  План: такт {len(план) + 1} из {тактов} — выбери ещё {осталось} {словоход}.
   -> дп_план
 
   :дп_удар
   план = push(план, "удар")
+  планфайлы = push(планфайлы, "icon_strike")
   -> дп_план
   :дп_блок
   план = push(план, "блок")
+  планфайлы = push(планфайлы, "icon_block")
   -> дп_план
   :дп_оглушение
   план = push(план, "оглушение")
+  планфайлы = push(планфайлы, "icon_stun")
   -> дп_план
   :дп_пробив
   план = push(план, "пробив")
+  планфайлы = push(планфайлы, "icon_break")
+  -> дп_план
+  :дп_замеч
+  план = push(план, "з_меч")
+  планфайлы = push(планфайлы, "icon_aura")
+  -> дп_план
+  :дп_закровь
+  план = push(план, "з_кровь")
+  планфайлы = push(планфайлы, "icon_vampire")
+  -> дп_план
+  :дп_запризрак
+  план = push(план, "з_призрак")
+  планфайлы = push(планфайлы, "icon_ghost")
+  -> дп_план
+  :дп_засила
+  план = push(план, "з_сила")
+  планфайлы = push(планфайлы, "icon_might")
+  -> дп_план
+  :дп_зажизнь
+  план = push(план, "з_жизнь")
+  планфайлы = push(планфайлы, "icon_vitality")
+  -> дп_план
+  :дп_заволя
+  план = push(план, "з_воля")
+  планфайлы = push(планфайлы, "icon_will")
+  -> дп_план
+  // ── СВОДКА ПУТИ: что открыто, на каком владении, за сколько тактов ──
+  // Числа владения жили только в голове игрока и в подписи под иконкой
+  // навыка. Аура же вспыхивает за 3, 2 или 1 такт — и это самое важное
+  // число в планировании: от него зависит, влезет ли она в очередь вообще.
+  :дп_дерево
+  buttons_hide()
+  slots_hide()
+  // Экран поверх боя обязан быть НЕПРОЗРАЧНЫМ: сквозь затемнение читались
+  // ячейки ходов, подсказка и разбор такта, и сводка тонула в этой каше.
+  text tellline hide
+  text dayline hide
+  text beatline hide
+  clear dialogue=off
+  // Значения считаем ЗАРАНЕЕ, отдельными переменными: внутри {…} нельзя
+  // писать строковый литерал в кавычках — атрибут команды закончится на
+  // первой же кавычке.
+  вл_меч = get(влад_аур, "з_меч", 0)
+  вл_кровь = get(влад_аур, "з_кровь", 0)
+  вл_тень = get(влад_аур, "з_призрак", 0)
+  вл_сила = get(влад_аур, "з_сила", 0)
+  вл_жизнь = get(влад_аур, "з_жизнь", 0)
+  вл_воля = get(влад_аур, "з_воля", 0)
+  ц_меч = аура_цена("з_меч")
+  ц_кровь = аура_цена("з_кровь")
+  ц_тень = аура_цена("з_призрак")
+  ц_сила = аура_цена("з_сила")
+  ц_жизнь = аура_цена("з_жизнь")
+  ц_воля = аура_цена("з_воля")
+  вл_отчаяние = get(влад_аур, "з_отчаяние", 0)
+  ц_отчаяние = аура_цена("з_отчаяние")
+  obj id=tr_bg sprite_url="/content/packages/lvn-duel/ui/panel_dark.png" x=50% y=45% width=0.94 height=0.82 anchor="0.5,0.5" z=55
+  text tr_h x=50 y=8 size=27 color=#e8dfc8 anchor="0.5,0" «ТВОЙ ПУТЬ · день {день}»
+  text tr_s x=50 y=12.5 size=17 color=#c2c8d6 anchor="0.5,0" «Аура занимает такты очереди. Пока копишь — ты открыт и не бьёшь.»
+  text tr_s2 x=50 y=15.8 size=16 color=#8f96a8 anchor="0.5,0" «Цвет = редкость: серая → синяя → тёмно-синяя → фиолетовая → малиновая → золотая → алая.»
+
+  // Строка ауры = иконка + полоса владения + подпись. Закрытые не прячем, а
+  // ГАСИМ прозрачностью: игрок должен видеть, что ещё бывает на этом пути,
+  // иначе ряд выглядит поломанным, а не пустым.
+  obj id=tri1 sprite_url="/content/packages/lvn-duel/ui/icon_aura.png" x=0.115 y=23% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_меч_откр * 0.74}"
+  obj id=trb1 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=24.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf1 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=24.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_меч / 100}"
+  text trt1 x=19 y=20.4 size=18 color=#b28a33 «КЛИНОК · бессмертная · {вл_меч}% · за {ц_меч} · урон ×2 сквозь щит»
+
+  obj id=tri2 sprite_url="/content/packages/lvn-duel/ui/icon_vampire.png" x=0.115 y=31% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_кровь_откр * 0.74}"
+  obj id=trb2 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=32.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf2 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=32.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_кровь / 100}"
+  text trt2 x=19 y=28.4 size=18 color=#4b69ff «ЖАЖДА · редкая · {вл_кровь}% · за {ц_кровь} · 4 такта чужая кровь лечит»
+
+  obj id=tri3 sprite_url="/content/packages/lvn-duel/ui/icon_ghost.png" x=0.115 y=39% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_призрак_откр * 0.74}"
+  obj id=trb3 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=40.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf3 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=40.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_тень / 100}"
+  text trt3 x=19 y=36.4 size=18 color=#8847ff «ТЕНЬ · мистическая · {вл_тень}% · за {ц_тень} · 3 удара сквозь тебя»
+
+  obj id=tri4 sprite_url="/content/packages/lvn-duel/ui/icon_might.png" x=0.115 y=47% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_сила_откр * 0.74}"
+  obj id=trb4 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=48.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf4 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=48.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_сила / 100}"
+  text trt4 x=19 y=44.4 size=18 color=#b0c3d9 «СИЛА · обычная · {вл_сила}% · за {ц_сила} · +2 к урону, до конца боя»
+
+  obj id=tri5 sprite_url="/content/packages/lvn-duel/ui/icon_vitality.png" x=0.115 y=55% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_жизнь_откр * 0.74}"
+  obj id=trb5 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=56.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf5 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=56.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_жизнь / 100}"
+  text trt5 x=19 y=52.4 size=18 color=#5e98d9 «ЖИЗНЬ · необычная · {вл_жизнь}% · за {ц_жизнь} · +3 тела и +1 такт»
+
+  obj id=tri6 sprite_url="/content/packages/lvn-duel/ui/icon_will.png" x=0.115 y=63% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_воля_откр * 0.74}"
+  obj id=trb6 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=64.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf6 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=64.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_воля / 100}"
+  text trt6 x=19 y=60.4 size=18 color=#e33b2e «ВОЛЯ · тайная · {вл_воля}% · за {ц_воля} · чужая аура не берёт»
+
+  text tr_c1 x=19 y=24.6 size=15 color=#8f96a8 «{усл_меч}»
+  text tr_c2 x=19 y=32.6 size=15 color=#8f96a8 «{усл_кровь}»
+  text tr_c3 x=19 y=40.6 size=15 color=#8f96a8 «{усл_тень}»
+  text tr_c4 x=19 y=48.6 size=15 color=#8f96a8 «{усл_сила}»
+  text tr_c5 x=19 y=56.6 size=15 color=#8f96a8 «{усл_жизнь}»
+  text tr_c6 x=19 y=64.6 size=15 color=#8f96a8 «{усл_воля}»
+  obj id=tri7 sprite_url="/content/packages/lvn-duel/ui/icon_despair.png" x=0.115 y=71% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + аура_отчаяние_откр * 0.74}"
+  obj id=trb7 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=72.6% width=0.40 height=0.014 anchor="0,0.5" z=56
+  obj id=trf7 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=72.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{вл_отчаяние / 100}"
+  text trt7 x=19 y=68.4 size=18 color=#d32ce6 «ОТЧАЯНИЕ · легендарная · {вл_отчаяние}% · за {ц_отчаяние} · +1 за потерянное сердце»
+  text tr_c7 x=19 y=72.6 size=15 color=#8f96a8 «{усл_отчаяние}»
+  text tr_7 x=19 y=78 size=18 color=#c9b98a «Навык: {навык} — пробив {влад_пробив}%, оглушение {влад_оглушение}%»
+  obj id=btn_close sprite_url="/content/packages/lvn-duel/ui/icon_close.png" x=50% y=84% width=0.13 height=0.075 anchor="0.5,0.5" z=60 on_click="дп_дерево_закрыть"
+  -> дп_дерево_ждём
+  :дп_дерево_ждём
+  wait ms=400
+  -> дп_дерево_ждём
+
+  :дп_дерево_закрыть
+  clear dialogue=on
+  obj id=tr_bg show=false
+  obj id=btn_close show=false
+  obj id=tri1 show=false
+  obj id=trb1 show=false
+  obj id=trf1 show=false
+  obj id=tri2 show=false
+  obj id=trb2 show=false
+  obj id=trf2 show=false
+  obj id=tri3 show=false
+  obj id=trb3 show=false
+  obj id=trf3 show=false
+  obj id=tri4 show=false
+  obj id=trb4 show=false
+  obj id=trf4 show=false
+  obj id=tri5 show=false
+  obj id=trb5 show=false
+  obj id=trf5 show=false
+  obj id=tri6 show=false
+  obj id=trb6 show=false
+  obj id=trf6 show=false
+  text tr_h hide
+  text tr_s hide
+  text tr_s2 hide
+  text tr_c1 hide
+  text tr_c2 hide
+  text tr_c3 hide
+  text tr_c4 hide
+  text tr_c5 hide
+  text tr_c6 hide
+  text tr_c7 hide
+  text trt7 hide
+  obj id=tri7 show=false
+  obj id=trb7 show=false
+  obj id=trf7 show=false
+  text trt1 hide
+  text trt2 hide
+  text trt3 hide
+  text trt4 hide
+  text trt5 hide
+  text trt6 hide
+  text tr_7 hide
+  text tellline x=50 y=27 size=25 color=#c9b98a anchor="0.5,0" «{тычок_текст}»
+  text dayline x=6 y=10.0 size=17 color=#b59a62 «День {день} · обмен {обмен}»
+  text beatline x=50 y=23.5 size=26 color=#e8e1d3 anchor="0.5,0" «{бит_текст}»
+  -> дп_план
+
+  :дп_автопобеда
+  враг_хп = 0
+  дуэль_исход = "победа"
+  buttons_hide()
+  slots_hide()
+  -> дт_итог
+  :дп_заотчаяние
+  план = push(план, "з_отчаяние")
+  планфайлы = push(планфайлы, "icon_despair")
   -> дп_план
   :дп_сброс
   план = []
+  планфайлы = []
   -> дп_план
 
   // ── прокрутка очереди ──
   :дп_готово
   buttons_hide()
+  // Обмен доигрывается сам, репликами не пользуется — рамка последней фразы
+  // здесь только мешает: она перекрывает ноги бойца и держит на экране текст,
+  // который уже неактуален. Вернётся сама на следующей реплике.
+  clear dialogue=off
   тычок_текст = ""
   такт = 0
   while такт < len(план) && дуэль_исход == "" {
     мой_ход = get(план, такт, "блок")
+    такт_поз = pat_idx(враг_шаг, len(враг_паттерн))
     if враг_стан >= 1 {
       его_ход = "стан"
       враг_стан = враг_стан - 1
     } else {
       его_ход = foe_now()
+      такт_поз = pat_idx(враг_шаг, len(враг_паттерн))
       враг_шаг = враг_шаг + 1
     }
     resolve_beat()
-    foe_bar()
-    hero_bar()
-    // позы такта: раненый перекрывает атакующего
-    поза_врага = "idle"
-    if его_ход == "удар" {
-      поза_врага = "attack"
-    } else {
-    }
-    if урон_ему > 0 {
-      поза_врага = "hurt"
-    } else {
-    }
-    foe_sprite(поза_врага)
+
+    // ─── ТАКТ ИГРАЕТСЯ В ТРИ СТАДИИ ───────────────────────────────────
+    // Раньше поза, урон, эффекты и текст выставлялись ОДНОЙ пачкой команд:
+    // всё происходило в одном кадре, и удар «проскакивал» — эффект успевал
+    // мигнуть на долю секунды, а прочитать обмен было невозможно. Теперь у
+    // такта есть замах, попадание и отдача, разделённые паузами.
+
+    бит_текст = ""
+    // Рана прошлого такта отсчитала своё — снимаем плавно, чтобы кадр не
+    // моргал на стыке.
+    fx blood=0 dur=0.6
+
+    // Стадия 1 — ЗАМАХ: видно, кто что делает, до того как посчитан урон.
     поза_рук = "idle"
     if мой_ход == "блок" {
       поза_рук = "block"
@@ -694,16 +1569,135 @@ func duel() {
       поза_рук = "attack"
     }
     hands(поза_рук)
-    if урон_ему > 0 {
-      flash color="white" duration=0.25
+    // Камера участвует в замахе. Удар — медленный увод влево-вниз: корпус
+    // разворачивается, клинок уходит за спину. Блок — короткий отвод вправо,
+    // как будто закрываешься плечом. Это не украшение: между «выбрал» и
+    // «случилось» раньше не происходило ничего, и такт читался как склейка.
+    // Камера уводит КОРПУС, поворот спрайта — КИСТИ. Вместе это читается как
+    // одно движение тела, а не как сдвиг картинки: клинок заваливается в ту
+    // же сторону, куда уходит взгляд.
+    if мой_ход == "блок" {
+      bg3d yaw=7 pitch={кам_замах_блок} dur=0.3
+      obj id=duel_hands rotation=12
     } else {
     }
-    if урон_мне > 0 {
-      camera action=shake amplitude=0.02 duration=0.35
+    if мой_ход == "удар" {
+      bg3d yaw=-10 pitch={кам_замах_удар} dur=0.42
+      obj id=duel_hands rotation=-15
     } else {
     }
-    бит_текст = "Такт " + (такт + 1) + ":  ты " + get(икона, мой_ход, "?") + " × он " + get(икона, его_ход, "?") + "  ·  " + бит_суть
-    beat_wait()
+    if мой_ход == "пробив" {
+      bg3d yaw=-12 pitch={кам_замах_пробив} dur=0.42
+      obj id=duel_hands rotation=-18
+    } else {
+    }
+    if мой_ход == "оглушение" {
+      bg3d yaw=-9 pitch={кам_замах_оглуш} dur=0.42
+      obj id=duel_hands rotation=-13
+    } else {
+    }
+    поза_врага = "idle"
+    if его_ход == "стан" {
+      поза_врага = "stun"
+    } else {
+    }
+    if его_ход == "удар" {
+      поза_врага = "attack"
+    } else {
+    }
+    if его_ход == "блок" {
+      поза_врага = "block"
+    } else {
+    }
+    foe_sprite(поза_врага)
+    wait ms=260
+
+    // Стадия 2 — ПОПАДАНИЕ: поза раненого ПЕРВОЙ, эффекты после неё.
+    // Порядок принципиален: смена картинки пересоздаёт слои спрайта, и
+    // шейдер, наложенный до неё, слетает вместе со старыми слоями — на
+    // скелете эффект просто не появлялся.
+    // «Раненый» — ТОЛЬКО когда досталось ему одному. В размене оба попали,
+    // и он остаётся в замахе: поза должна отвечать на вопрос «что он делал»,
+    // а не «сколько потерял» — потери и так видны полосой.
+    // Возврат РЕЗКИЙ и без перехода: замах копил, удар разряжает. Именно на
+    // этом кадре меняется поза и бьют эффекты — совпадение обязательно,
+    // иначе движение читается отдельно от удара.
+    bg3d yaw=0 pitch={кам_наклон} dur=0
+    obj id=duel_hands rotation=0
+    if урон_ему > 0 && урон_мне == 0 {
+      foe_sprite("hurt")
+    } else {
+      // Он бил — показываем ВТОРОЙ кадр удара: замах уже отыгран в стадии 1,
+      // здесь клинок доходит. Два кадра подряд читаются как одно движение,
+      // один — как поза, в которой он завис.
+      if его_ход == "удар" {
+        foe_sprite("strike")
+      } else {
+      }
+      if его_ход == "пробив" {
+        foe_sprite("strike")
+      } else {
+      }
+      if его_ход == "блок" {
+        foe_sprite("block2")
+      } else {
+      }
+    }
+    // Пауза после смены позы — не эстетика, а необходимость: новый арт
+    // грузится асинхронно, слои пересоздаются, и эффект, наложенный в тот же
+    // кадр, слетает вместе со старыми слоями.
+    wait ms=140
+    beat_feedback()
+    foe_bar()
+    hero_bar()
+    wait ms=420
+    // Камера выпрямляется. Команда безусловная: если такт не гнул её, она
+    // просто подтверждает покой — дешевле, чем помнить, гнули или нет.
+    bg3d pitch={кам_наклон} dur=0.55
+
+    // Стадия 3 — ИТОГ ТАКТА: ячейки залиты цветом.
+    // Зелёный — такт твой, красный — его, жёлтый — размен или пустой обмен.
+    //
+    // Ряд его ходов уже построен ПРЕДПОКАЗОМ, дописывать в него нельзя: старый
+    // `вскрыть_ход()` делал push и удлинял список на каждом такте — оттого
+    // ячейки и съезжали. Здесь только две правки: запомнить увиденную позицию
+    // песни навсегда и, если он оглушён, показать это вместо задуманного хода.
+    знание = put(знание, враг_имя + "#" + такт_поз, 1)
+    if его_ход == "стан" {
+      вскрыто = put(вскрыто, такт, "icon_stun")
+    } else {
+    }
+    if урон_ему > 0 && урон_мне == 0 {
+      итоги = push(итоги, "cell_win")
+    } else {
+      if урон_мне > 0 && урон_ему == 0 {
+        итоги = push(итоги, "cell_lose")
+      } else {
+        итоги = push(итоги, "cell_draw")
+      }
+    }
+    бит_текст = "Такт " + (такт + 1) + " · " + get(икона, мой_ход, "?") + " × " + get(икона, его_ход, "?") + " — " + бит_суть
+    slots_draw()
+    // Обмен доигрывается САМ: план на то и план, чтобы смотреть его целиком,
+    // а не перелистывать по такту. 1.7 с — время прочитать оба ряда и увидеть,
+    // где угадал, а где подставился.
+    wait ms=1200
+
+    // Стадия 4 — ОСТЫВАНИЕ. Такт гасит СВОИ эффекты сам, а не сваливает
+    // уборку на следующий: если ударом кончился весь план (или бой), гасить
+    // было уже некому — скелет так и оставался белым до конца сцены. Позы
+    // тоже возвращаются к базовым: иначе следующая засветка не читается как
+    // новое событие. Аура ярости не трогается — это состояние боя, не такт.
+    sfx id=duel_enemy flash=0 outline=0 shake=0 hologram=0 runes=0 dur=0.12
+    sfx id=duel_hands flash=0 outline=0 shake=0 tint=0 rim=0 glow=0 lightning=0 dur=0.12
+    // Виньетка возвращается к базовой, а не в ноль: это постоянная оптика боя.
+    // Гасим всё, что зажёг такт, — КРОМЕ раны: она живёт дольше такта и
+    // снимается уже в следующем, отсчитав свои три секунды.
+    fx speedlines=0 shockwave=0 distort=0 chromatic=0 blink=0 frost=0 vignette=0 bloom=0 rays=0 invert=0 tint=0 dur=0.15
+    foe_sprite("idle")
+    hands("idle")
+    wait ms=500
+    урок_темпа()
     такт = такт + 1
   }
   slots_hide()
@@ -716,33 +1710,22 @@ func duel() {
   -> дт_сводка
   :дт_ярость
   враг_фаза = 2
-  враг_паттерн = паттерн_ярость
+  враг_паттерн = враг_паттерн2
   враг_шаг = 0
   foe_sprite("attack")
-  flash color="red" duration=0.4
+  // Ярость меняет НАСТРОЙКУ кадра, а не мигает поверх него: виньетка
+  // сжимается, свет уходит в холод, зерно грубеет — и остаётся так до конца
+  // боя, потому что это новое состояние, а не событие на полсекунды.
+  fx vignette=0.35 dur=0.5
+  // Аура остаётся на нём до конца боя: смена состояния читается по САМОЙ
+  // фигуре, а не только по тону кадра.
+  sfx id=duel_enemy aura=0.9 aura_style=shadow aura_color=#7a2b4d aura_size=1.2 dur=0.6
+  camera action=shake amplitude=0.03 duration=0.5
   Скелет ЗВЕРЕЕТ — песня меняется!
   foe_sprite("idle")
   -> дт_сводка
 
   :дт_сводка
-  бит_текст = ""
-  if обмен == 2 && навык_выбран == 0 -> дт_озарение
-  -> дт_обмен
-
-  // ── озарение: развилка навыка (всегда ДВА пути — дерево владельца) ──
-  :дт_озарение
-  Озарение. Тело удержит только одно движение.
-  - 💫 Оглушение: против его удара, за темп {
-    навык = "оглушение"
-    влад_оглушение = 1
-  }
-  - 🔨 Пробив: сквозь его блок, риск при промахе {
-    навык = "пробив"
-    влад_пробив = 1
-  }
-  навык_выбран = 1
-  skill_hud()
-  Владение растёт от дела: промах +1, эффект +3, крит +6.
   -> дт_обмен
 
   // ── затянувшийся бой ──
@@ -753,15 +1736,19 @@ func duel() {
 
   // ── занавес ──
   :дт_итог
-  бит_текст = ""
   тычок_текст = ""
+  // Граница сцены: от боя не должно остаться ничего. Одна команда вместо
+  // двух десятков «спрячь по имени» — забыть тут нечего.
+  clear all=1
   text dayline hide
   text foe_num hide
   text hero_num hide
   text tellline hide
-  text beatline hide
-  text skillhud hide
   bars_hide()
+  arsenal_hide()
+  fx vignette=0 dur=0.5
+  sfx id=duel_enemy off
+  sfx id=duel_hands off
   buttons_hide()
   slots_hide()
   if дуэль_исход == "победа" -> ди_жив
