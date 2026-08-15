@@ -63,11 +63,101 @@ namespace Lvn.Services
                 _ = RunAdAsync(placement, ctx);
             });
 
+            // ── дуэль вдвоём ────────────────────────────────────────────
+            // Три опа на весь сетевой бой: завести комнату, войти по коду,
+            // обменяться ходом. Правила боя остаются в скрипте — сюда уходит
+            // только «что я выбрал» и приходит «что выбрал он».
+            LvnOps.Register("duel_host", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = DuelHostAsync(cmd, ctx);
+            });
+
+            LvnOps.Register("duel_join", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = DuelJoinAsync(Arg(cmd, "code", ctx.Vars), cmd, ctx);
+            });
+
+            // ext duel_exchange round_var=обмен plan_var=мой_план into=его_план
+            //
+            // Держит скрипт, пока партнёр думает. Это НЕ недостаток: одновременный
+            // выбор тем и держится, что никто не видит чужой ход раньше времени,
+            // а значит кто-то обязан ждать.
+            LvnOps.Register("duel_exchange", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = DuelExchangeAsync(cmd, ctx);
+            });
+
+            LvnOps.Register("duel_leave", (cmd, ctx) => LvnDuelOnline.Leave());
+
             LvnOps.Register("track", (cmd, ctx) =>
             {
                 var name = (string)cmd["name"];
                 if (!string.IsNullOrEmpty(name)) LvnAnalytics.Track(name);
             });
+        }
+
+
+        // ── дуэль: тела операций ────────────────────────────────────────────
+        //
+        // Каждая кладёт результат в переменные истории и снимает удержание в
+        // finally. Пропущенный Resume означает намертво вставший скрипт, и
+        // случиться это должно только при исключении — поэтому finally, а не
+        // «в конце удачной ветки».
+
+        private static async System.Threading.Tasks.Task DuelHostAsync(JObject cmd, ILvnOpContext ctx)
+        {
+            try
+            {
+                bool ok = await LvnDuelOnline.HostAsync();
+                ctx.Vars["duel_code"] = ok ? LvnDuelOnline.Code : "";
+                ctx.Vars["duel_seat"] = ok ? LvnDuelOnline.Seat : "";
+                ctx.Vars["duel_error"] = ok ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+            }
+            finally { ctx.Resume(); }
+        }
+
+        private static async System.Threading.Tasks.Task DuelJoinAsync(string code, JObject cmd, ILvnOpContext ctx)
+        {
+            try
+            {
+                bool ok = await LvnDuelOnline.JoinAsync(code);
+                ctx.Vars["duel_code"] = ok ? LvnDuelOnline.Code : "";
+                ctx.Vars["duel_seat"] = ok ? LvnDuelOnline.Seat : "";
+                ctx.Vars["duel_error"] = ok ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+            }
+            finally { ctx.Resume(); }
+        }
+
+        private static async System.Threading.Tasks.Task DuelExchangeAsync(JObject cmd, ILvnOpContext ctx)
+        {
+            // Куда положить чужой ход. Имя переменной задаёт автор: пакет дуэли
+            // называет её по-своему, и навязывать ему наше имя незачем.
+            string into = (string)cmd["into"] ?? "враг_план";
+            try
+            {
+                int round = (int)NumFrom(cmd, "round", "round_var", ctx.Vars);
+                string plan = Arg(cmd, "plan", ctx.Vars);
+                string theirs = await LvnDuelOnline.ExchangeAsync(round, plan);
+                ctx.Vars[into] = theirs ?? "";
+                ctx.Vars["duel_error"] = theirs != null ? "" : (LvnDuelOnline.LastError ?? "нет связи");
+            }
+            finally { ctx.Resume(); }
+        }
+
+        /// <summary>Значение параметра: либо прямо (<c>code="A7K2"</c>), либо из
+        /// переменной (<c>code_var=введённый</c>). Обе формы нужны: код комнаты
+        /// игрок ВВОДИТ, а свой план скрипт собирает сам.</summary>
+        private static string Arg(JObject cmd, string name,
+                                  System.Collections.Generic.IDictionary<string, JToken> vars)
+        {
+            var direct = (string)cmd[name];
+            if (!string.IsNullOrEmpty(direct)) return direct;
+            var byVar = (string)cmd[name + "_var"];
+            if (!string.IsNullOrEmpty(byVar) && vars.TryGetValue(byVar, out var v)) return v?.ToString();
+            return "";
         }
 
         private static async System.Threading.Tasks.Task RunAdAsync(string placement, ILvnOpContext ctx)

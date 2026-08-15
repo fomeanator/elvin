@@ -1,0 +1,81 @@
+{
+  "name": "lvn-services",
+  "doc": "Первопартийные ext-опы пакета com.lvn.engine.services (LvnServiceOps.RegisterAll; NovelApp регистрирует их сам). КАНОН ЛЕЖИТ ЗДЕСЬ, рядом с обработчиками: копия в server/content/ — развёрнутая, и она в .gitignore, то есть жила бы в одном экземпляре на одной машине. Файл кладут на директорию выше scripts/, тогда lvnconv validate/convert подхватывает его сам для всех .lvn рядом — без него любая новелла с кошельком, дуэлью или таблицей рекордов вечно светит 'unknown op'. Декларация НЕ меняет компиляцию: ext-оп всё так же требует LvnOps.Register в хосте. Поля сверены с Runtime/LvnServiceOps.cs; required проставлен там, где обработчик без поля молча ничего не делает.",
+  "ops": {
+    "wallet_earn": {
+      "doc": "Начислить валюту игроку (сервер-авторитетно, офлайн-очередь). Сумма литералом (amount) или из переменной (amount_var).",
+      "fields": [
+        "currency",
+        "amount",
+        "amount_var",
+        "reason"
+      ],
+      "snippet": "ext wallet_earn currency=gold amount=10 reason=\"quest\""
+    },
+    "wallet_spend": {
+      "doc": "Списать валюту. sku — что именно куплено (для аналитики и восстановления покупок).",
+      "fields": [
+        "currency",
+        "amount",
+        "amount_var",
+        "reason",
+        "sku"
+      ],
+      "snippet": "ext wallet_spend currency=gold amount=5 reason=\"shop\" sku=sword"
+    },
+    "leaderboard_submit": {
+      "doc": "Отправить результат в таблицу рекордов. Очки литералом (score) или из переменной (score_var); имя игрока — из переменной name_var.",
+      "fields": [
+        "score",
+        "score_var",
+        "name_var"
+      ],
+      "required": [
+        "board"
+      ],
+      "snippet": "ext leaderboard_submit board=quiz_score score_var=score name_var=player_name"
+    },
+    "daily_claim": {
+      "doc": "Забрать ежедневную награду (сервер решает, положена ли).",
+      "fields": [],
+      "snippet": "ext daily_claim"
+    },
+    "ad_reward": {
+      "doc": "Рекламный ролик за награду. Держит скрипт, пока ролик идёт; без подключённого SDK — молчаливый проход дальше.",
+      "fields": [],
+      "required": [
+        "placement"
+      ],
+      "snippet": "ext ad_reward placement=gold_small"
+    },
+    "duel_host": {
+      "doc": "Завести комнату сетевой дуэли. Кладёт код в duel_code (его диктуют партнёру), скамью в duel_seat, причину отказа в duel_error. Держит скрипт до ответа сервера.",
+      "fields": [],
+      "snippet": "ext duel_host"
+    },
+    "duel_join": {
+      "doc": "Войти в комнату партнёра по коду. Код литералом (code) или из переменной (code_var) — обычно из ввода игрока. Заполняет duel_code/duel_seat/duel_error.",
+      "fields": [
+        "code",
+        "code_var"
+      ],
+      "snippet": "ext duel_join code_var=введённый_код"
+    },
+    "duel_exchange": {
+      "doc": "Один обмен: сдать свой план и ДОЖДАТЬСЯ чужого. Чужой ход ложится в переменную into (по умолчанию враг_план); duel_error пуст, если дождались. Правила боя сервер не знает — он только пересылает планы, а исход оба клиента считают сами.",
+      "fields": [
+        "round",
+        "round_var",
+        "plan",
+        "plan_var",
+        "into"
+      ],
+      "snippet": "ext duel_exchange round_var=обмен plan_var=мой_план into=враг_план"
+    },
+    "duel_leave": {
+      "doc": "Забыть комнату (вышли из боя). Сервер уберёт её сам, когда в неё перестанут ходить.",
+      "fields": [],
+      "snippet": "ext duel_leave"
+    }
+  }
+}

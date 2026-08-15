@@ -210,6 +210,8 @@ func main() {
 	analyticsSvc.Routes(mux)
 	dailySvc.Routes(mux)
 	adsSvc.Routes(mux)
+	duelSvc := NewDuelService()
+	duelSvc.Routes(mux)   // сетевая дуэль: сервер пересылает планы, правила у клиентов
 	adminSvc.Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	// «Что выглядит мылом»: разрешение арта по уже опубликованным главам.
