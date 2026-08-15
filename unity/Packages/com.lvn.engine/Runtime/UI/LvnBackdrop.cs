@@ -42,18 +42,26 @@ namespace Lvn.UI
             {
                 // Пятно света сверху задаёт, куда смотреть. Оно выходит за края
                 // экрана, чтобы не читалось как нарисованный круг.
-                var g = Layer(root, Glow(), false, 0.45f, Tint(t.Accent, 1f));
-                g.style.top = -260; g.style.height = 900;
-                g.style.left = -120; g.style.right = -120;
+                var g = Layer(root, Glow(), false, 0.42f, Tint(t.Accent, 1f));
+                g.style.top = -300; g.style.height = 1250;
+                g.style.left = -160; g.style.right = -160;
                 g.style.bottom = new StyleLength(StyleKeyword.Auto);
-                Breathe(g, 0.45f, 0.62f, 4200);
+                Breathe(g, 0.42f, 0.58f, 4200);
 
                 // Второе — у нижней кромки: горизонт за экраном. Он прижимает
                 // навигацию и не даёт низу выглядеть обрезанным.
-                var f = Layer(root, Glow(), false, 0.28f, Tint(t.Accent, 1f));
+                //
+                // ВЫСОТЫ ПОДОБРАНЫ ТАК, ЧТОБЫ ПЯТНА ПЕРЕКРЫВАЛИСЬ. В первой
+                // версии верхнее кончалось раньше, чем начиналось нижнее, и
+                // ровно посередине экрана оставалась мёртвая полоса — она и
+                // читалась как «света нет». Свет обязан быть непрерывным:
+                // видимая граница между освещённым и неосвещённым превращает
+                // атмосферу в два наклеенных пятна.
+                var f = Layer(root, Glow(), false, 0.26f, Tint(t.Accent, 1f));
                 f.style.top = new StyleLength(StyleKeyword.Auto);
-                f.style.bottom = -320; f.style.height = 620;
-                f.style.left = -160; f.style.right = -160;
+                f.style.bottom = -340; f.style.height = 900;
+                f.style.left = -200; f.style.right = -200;
+                Breathe(f, 0.26f, 0.36f, 5600);   // другой период: два синхронных пятна пульсируют как лампа
             }
 
             if (t.Scanlines)

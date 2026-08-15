@@ -209,6 +209,7 @@ namespace Lvn.UI.Screens
             _detailImage.style.height = Length.Percent(42);
             _detailImage.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
             Round(_detailImage, _radius);
+            Edge(_detailImage);
             _detailImage.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             _detailImage.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             _detailImage.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
@@ -487,10 +488,8 @@ namespace Lvn.UI.Screens
             else if (_theme.AccentPlaceholders)
                 b.style.backgroundImage = Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f));
             else
-            {
                 b.style.backgroundImage = Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
-                Edge(b);
-            }
+            Edge(b);
 
             b.style.justifyContent = Justify.FlexEnd;
             b.style.paddingLeft = 22; b.style.paddingRight = 22; b.style.paddingBottom = 20;
@@ -710,10 +709,13 @@ namespace Lvn.UI.Screens
                 poster.style.backgroundImage = (hero && _theme.AccentPlaceholders)
                     ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.5f))
                     : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.3f));
-                // Тёмной заглушке нужна кромка, иначе она сливается с фоном и
-                // ряд читается как пустое место, а не как карточки.
-                if (_theme.EdgeWidth > 0f) Edge(poster);
             }
+            // Кромка идёт НА ЛЮБУЮ обложку, а не только на заглушку. Сначала я
+            // повесил её лишь туда, где картинки нет, — и на живом каталоге
+            // подпись темы исчезла: обложки лежали голыми прямоугольниками, а
+            // светилась только пустота. Рамка вокруг кадра — то, что делает его
+            // частью интерфейса, а не картинкой, положенной сверху.
+            Edge(poster);
 
             // cost / lock chip, small, floated on the poster
             var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)
@@ -782,6 +784,7 @@ namespace Lvn.UI.Screens
             var thumb = new VisualElement { pickingMode = PickingMode.Ignore };
             thumb.style.width = 128; thumb.style.height = Length.Percent(100f);
             thumb.style.backgroundColor = _theme.SurfaceHi;
+            Edge(thumb);
             thumb.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             thumb.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);

@@ -79,6 +79,7 @@ namespace Lvn.UI.Screens
 
             ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Bg; // full-screen opaque page
+            LvnChrome.Backdrop(this);   // тема без атмосферы не делает ничего
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
@@ -179,6 +180,7 @@ namespace Lvn.UI.Screens
             hero.style.flexShrink = 0;
             hero.style.height = 700; // placeholder until the width resolves below
             hero.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(hero, 0.8f);   // кадр — часть интерфейса, а не картинка сверху
             hero.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             hero.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             hero.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
@@ -749,7 +751,7 @@ namespace Lvn.UI.Screens
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 30;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
-            return lbl;
+            return LvnChrome.Heading(lbl);
         }
 
         // A cached bottom-anchored black gradient (transparent → dark) so hero

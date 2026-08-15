@@ -44,7 +44,7 @@ namespace Lvn.UI.Screens
             _maxLength = _cfg.max_length ?? PlayerNameInput.MaxLength;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
+            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
@@ -89,15 +89,15 @@ namespace Lvn.UI.Screens
             // field, a BIG full-width accent button. The ask is a hero moment,
             // not a settings form.
             _prompt = new Label(_cfg.prompt ?? "Enter your name");
-            _prompt.style.color = UiColor.Parse(_cfg.prompt_color ?? _dlg?.speaker_color, new Color(0.80f, 0.72f, 0.56f));
+            _prompt.style.color = UiColor.Parse(_cfg.prompt_color ?? _dlg?.speaker_color, LvnTokens.TextDim);
             _prompt.style.fontSize = 34;
             _prompt.style.unityFontStyleAndWeight = FontStyle.Bold;
             _prompt.style.unityTextAlign = TextAnchor.MiddleCenter;
             _prompt.style.marginBottom = 22;
             panel.Add(_prompt);
 
-            var fieldColor = UiColor.Parse(_cfg.field_color, new Color(0.11f, 0.11f, 0.13f));
-            var textColor = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.96f, 0.93f, 0.85f));
+            var fieldColor = UiColor.Parse(_cfg.field_color, LvnTokens.Surface);
+            var textColor = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, LvnTokens.Text);
 
             _field = new TextField { maxLength = _maxLength };
             _field.style.height = 104;
@@ -110,12 +110,12 @@ namespace Lvn.UI.Screens
             _field.RegisterCallback<KeyDownEvent>(OnKey);
             panel.Add(_field);
 
-            var accent = UiColor.Parse(_cfg.button_color ?? _dlg?.speaker_color, new Color(0.78f, 0.63f, 0.31f));
+            var accent = UiColor.Parse(_cfg.button_color ?? _dlg?.speaker_color, LvnTokens.Accent);
             _confirm = new Button { text = _cfg.confirm_text ?? "Confirm" };
             _confirm.style.height = 96;
             _confirm.style.fontSize = 32;
             _confirm.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _confirm.style.color = UiColor.Parse(_cfg.button_text_color, new Color(0.08f, 0.08f, 0.10f));
+            _confirm.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.OnAccent);
             _confirm.style.backgroundColor = accent;
             _confirm.style.borderTopLeftRadius = 14; _confirm.style.borderTopRightRadius = 14;
             _confirm.style.borderBottomLeftRadius = 14; _confirm.style.borderBottomRightRadius = 14;
@@ -150,7 +150,7 @@ namespace Lvn.UI.Screens
         {
             style.backgroundColor = overlay
                 ? Color.clear
-                : UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
+                : UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
             _bg.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
             _hero.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
             if (!overlay && !string.IsNullOrEmpty(bgUrl))

@@ -24,8 +24,8 @@ namespace Lvn.UI
         [Tooltip("Optional Resources path to a Font for dialogue/choices text " +
                  "(e.g. \"Fonts/Serif\"); used when Font is unset.")]
         public string FontResourcePath = "";
-        public int BodyFontSize = 46;
-        public int SpeakerFontSize = 34;
+        public int BodyFontSize = 31;     // было 46 при опорном 1080; масштаб вырос в 1,5 — размер на экране прежний
+        public int SpeakerFontSize = 23;
         public float PanelCornerRadius = 28f;
 
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
@@ -78,13 +78,13 @@ namespace Lvn.UI
                  "<0 (default) = bottom-anchored (grows up, uses BottomLiftPercent).")]
         public float DockTopPercent = -1f;
         [Tooltip("Body panel inner horizontal / vertical padding (px).")]
-        public float PanelPaddingX = 22f;
-        public float PanelPaddingY = 18f;
+        public float PanelPaddingX = 15f;
+        public float PanelPaddingY = 12f;
         [Tooltip("Minimum body-panel height so short lines don't collapse (px).")]
-        public float PanelMinHeight = 128f;
+        public float PanelMinHeight = 86f;
         [Tooltip("Nameplate inner horizontal / vertical padding (px).")]
-        public float NamePaddingX = 14f;
-        public float NamePaddingY = 4f;
+        public float NamePaddingX = 9f;
+        public float NamePaddingY = 3f;
 
         [Header("Stage / actors")]
         [Tooltip("Vertical baseline for a staged character: the screen fraction where " +
@@ -115,7 +115,7 @@ namespace Lvn.UI
         public Color ChoiceHoverColor = LvnTokens.SurfaceHi;
         public Color ChoiceTextColor = LvnTokens.Text;
         public Color ChoiceCostColor = LvnTokens.Gold;
-        public int ChoiceFontSize = 36;
+        public int ChoiceFontSize = 24;
 
         [Header("Choices placement")]
         [Tooltip("Horizontal placement of the choice stack: \"center\" (default) | " +

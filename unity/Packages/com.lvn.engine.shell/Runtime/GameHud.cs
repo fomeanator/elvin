@@ -157,7 +157,7 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(currency) || _pillsRow == null) return;
             if (!_pills.TryGetValue(currency, out var p))
             {
-                p = SpawnPill(iconUrl ?? _cfg.default_currency_icon_url);
+                p = SpawnPill(iconUrl ?? _cfg.default_currency_icon_url, currency);
                 _pills[currency] = p;
             }
             ApplyPillValue(p, currency, amount);
@@ -220,7 +220,19 @@ namespace Lvn.UI.Screens
             return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
         }
 
-        private Pill SpawnPill(string iconUrl)
+        // Названия валют — авторские, поэтому узнаём по подстроке, а не по
+        // точному совпадению: «gold», «soft_gold» и «gold_coins» — одно и то же.
+        private static LvnIcon IconFor(string currency)
+        {
+            var c = (currency ?? "").ToLowerInvariant();
+            if (c.Contains("energy") || c.Contains("энерг")) return LvnIcon.Energy;
+            if (c.Contains("crystal") || c.Contains("gem") || c.Contains("кристалл")) return LvnIcon.Gem;
+            if (c.Contains("gold") || c.Contains("coin") || c.Contains("золот")) return LvnIcon.Coin;
+            if (c.Contains("ticket") || c.Contains("key") || c.Contains("ключ")) return LvnIcon.Key;
+            return LvnIcon.Star;   // незнакомая валюта: хоть что-то, но не пустота
+        }
+
+        private Pill SpawnPill(string iconUrl, string currency = null)
         {
             var pill = new VisualElement { pickingMode = PickingMode.Ignore };
             pill.style.flexDirection = FlexDirection.Row;
@@ -242,6 +254,16 @@ namespace Lvn.UI.Screens
                 icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 pill.Add(icon);
                 _ = ScreenUi.AssignBgAsync(icon, iconUrl, _assets);
+            }
+            else
+            {
+                // Без картинки в манифесте плашка показывала ГОЛОЕ ЧИСЛО: в
+                // строке «40 3 4 000» не разобрать, где кристаллы, а где
+                // энергия. Векторная иконка по названию валюты стоит ноль
+                // файлов и снимает вопрос.
+                var ic = LvnIcons.Make(IconFor(currency), 22f, _pillText, 0f, LvnTheme.Current.IconGlow);
+                ic.style.marginRight = 6;
+                pill.Add(ic);
             }
 
             var label = new Label("0") { pickingMode = PickingMode.Ignore };

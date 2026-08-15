@@ -97,9 +97,9 @@ namespace Lvn.UI.Screens
             _ch = ch;
             _assets = assets;
             _text = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.95f, 0.93f, 0.88f));
-            _dim = UiColor.Parse(_cfg.dim_text_color, new Color(0.60f, 0.58f, 0.54f));
-            _accent = UiColor.Parse(_cfg.accent_color ?? _dlg?.speaker_color, new Color(0.78f, 0.63f, 0.31f));
-            _accentText = UiColor.Parse(_cfg.accent_text_color, new Color(0.08f, 0.08f, 0.10f));
+            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
+            _accent = UiColor.Parse(_cfg.accent_color ?? _dlg?.speaker_color, LvnTokens.Accent);
+            _accentText = UiColor.Parse(_cfg.accent_text_color, LvnTokens.OnAccent);
             _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? 12f;
 
             // balance pills FLOAT above the sheet (the genre-standard "wallet
@@ -121,7 +121,7 @@ namespace Lvn.UI.Screens
             Add(headRow);
 
             _title = new Label(_cfg.title ?? "Wardrobe");
-            _title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
+            _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             _title.style.fontSize = 28;
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
             _title.style.paddingLeft = 24; _title.style.paddingRight = 24;

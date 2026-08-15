@@ -12,8 +12,9 @@ cast shadows, perspective, mockup scenery, neon, pure black, or watermark.
    internal bottom edge, no external shadow.
 3. panel_sunken — recessed warm-plum slot 8% darker, reverse gradient and thin
    top inner shadow.
-4. button_primary — #ec5a92 satin primary button, top 8% lighter, restrained
-   highlight and denser lower edge, living but subtle corner character.
+4. button_primary — corrected #ec5a92 dense embossed velvet/satin insert with
+   exact 12 px radius, native 2–3% micro-weave, thin upper rim and denser lower
+   edge; no pill silhouette, broad highlight, bevel, candy gloss or plastic volume.
 5. button_secondary — transparent dark-plum outline button with a 3% interior
    light veil and lightly patinated #38293a edge.
 6. chip — compact translucent warm-black capsule, 28% opacity base, thin upper

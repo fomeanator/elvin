@@ -1,0 +1,133 @@
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Lvn.UI
+{
+    /// <summary>
+    /// ОГРАНКА ТЕМЫ, доступная любому экрану.
+    ///
+    /// <para>Цвета до экранов доезжают сами: <see cref="LvnTokens"/> — окно в
+    /// действующую тему, и все триста обращений к нему стали темозависимыми.
+    /// А вот огранка сама никуда не доедет — кромку по контуру, капс с
+    /// разрядкой и фон за содержимым надо ПОСТАВИТЬ. Пока это умел только хаб,
+    /// приложение выглядело перекрашенным, но не переодетым: хаб гранёный, а
+    /// экран за ним — обычный тёмный список с новым цветом полосок.</para>
+    ///
+    /// <para>Здесь эти три действия лежат по одной строке на экран. Тема без
+    /// огранки (midnight) не делает ничего, поэтому вызывать можно безусловно —
+    /// и это важнее краткости: приём, который надо оборачивать в «если», рано
+    /// или поздно забудут обернуть.</para>
+    /// </summary>
+    public static class LvnChrome
+    {
+        /// <summary>Светящаяся кромка по контуру. <paramref name="strength"/> —
+        /// доля от штатной яркости: у крупного кадра она может быть тише, чем у
+        /// мелкой плашки, иначе кадр читается как обведённый маркером.</summary>
+        public static void Edge(VisualElement el, float strength = 1f)
+        {
+            var t = LvnTheme.Current;
+            if (el == null || t.EdgeWidth <= 0f) return;
+            float w = t.EdgeWidth;
+            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
+            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
+            var c = new Color(t.Accent.r, t.Accent.g, t.Accent.b, t.EdgeAlpha * strength);
+            el.style.borderTopColor = c; el.style.borderBottomColor = c;
+            el.style.borderLeftColor = c; el.style.borderRightColor = c;
+        }
+
+        /// <summary>Фон темы под содержимое экрана. Зовётся сразу после того,
+        /// как выставлен цвет фона, и ДО того, как добавлено содержимое.</summary>
+        public static void Backdrop(VisualElement root) => LvnBackdrop.Apply(root, LvnTheme.Current);
+
+        /// <summary>Заголовок по теме: капс и разрядка там, где тема их
+        /// требует. Возвращает тот же элемент, чтобы вставать в цепочку.</summary>
+        public static Label Heading(Label l)
+        {
+            var t = LvnTheme.Current;
+            if (l == null) return null;
+            if (t.UpperHeadings && !string.IsNullOrEmpty(l.text)) l.text = l.text.ToUpperInvariant();
+            l.style.letterSpacing = t.Tracking;
+            return l;
+        }
+
+        /// <summary>
+        /// Накладывает рамку темы на панель диалога.
+        ///
+        /// <para>Рамка идёт ОТДЕЛЬНЫМ слоем, а не фоном самой панели. Причина
+        /// в том, что у неё прозрачная середина: сделай её фоном — и текст
+        /// ляжет на просвечивающий задник, где его не прочитать. Слой поверх
+        /// заливки оставляет обе вещи независимыми: заливка отвечает за
+        /// читаемость, рамка — за вид.</para>
+        ///
+        /// <para>Слой уходит в самый низ списка детей: он должен быть НАД
+        /// заливкой панели, но ПОД её текстом.</para>
+        /// </summary>
+        public static void Frame(VisualElement panel)
+        {
+            var t = LvnTheme.Current;
+            if (panel == null || string.IsNullOrEmpty(t.DialogueFrame)) return;
+            var tex = Resources.Load<Texture2D>("ui/" + t.DialogueFrame);
+            if (tex == null) return;   // нет файла — панель остаётся как была
+
+            var f = new VisualElement { name = "lvn-frame", pickingMode = PickingMode.Ignore };
+            f.style.position = Position.Absolute;
+            // Выступ наружу: линия рамки нарисована внутри своего файла, и без
+            // него заливка панели торчала бы из-под неё по всему периметру.
+            float bleed = t.DialogueFrameBleed;
+            f.style.left = -bleed; f.style.right = -bleed;
+            f.style.top = -bleed; f.style.bottom = -bleed;
+            f.style.backgroundImage = new StyleBackground(tex);
+            f.style.unitySliceLeft = (int)t.DialogueFrameSlice.x;
+            f.style.unitySliceRight = (int)t.DialogueFrameSlice.y;
+            f.style.unitySliceTop = (int)t.DialogueFrameSlice.z;
+            f.style.unitySliceBottom = (int)t.DialogueFrameSlice.w;
+            f.style.unitySliceScale = t.DialogueFrameScale;
+            panel.Add(f);
+            f.SendToBack();
+        }
+
+        /// <summary>
+        /// Плашка имени говорящего — картинкой из темы.
+        ///
+        /// <para>В отличие от окна, здесь картинка идёт ФОНОМ, а не слоем
+        /// поверх: у плашки середина непрозрачная, и текст на ней читается.
+        /// Отступы берутся из темы, потому что у рисованной плашки поля свои —
+        /// снизу кромка прямая, сверху накладная пластина.</para>
+        /// </summary>
+        public static bool Bubble(VisualElement plate)
+        {
+            var t = LvnTheme.Current;
+            if (plate == null || string.IsNullOrEmpty(t.SpeakerBubble)) return false;
+            var tex = Resources.Load<Texture2D>("ui/" + t.SpeakerBubble);
+            if (tex == null) return false;
+
+            plate.style.backgroundImage = new StyleBackground(tex);
+            plate.style.backgroundColor = Color.clear;   // иначе из-под срезанных углов торчит прямоугольник
+            plate.style.unitySliceLeft = (int)t.SpeakerBubbleSlice.x;
+            plate.style.unitySliceRight = (int)t.SpeakerBubbleSlice.y;
+            plate.style.unitySliceTop = (int)t.SpeakerBubbleSlice.z;
+            plate.style.unitySliceBottom = (int)t.SpeakerBubbleSlice.w;
+            plate.style.unitySliceScale = t.DialogueFrameScale;
+            plate.style.borderTopLeftRadius = 0; plate.style.borderTopRightRadius = 0;
+            plate.style.borderBottomLeftRadius = 0; plate.style.borderBottomRightRadius = 0;
+            plate.style.paddingLeft = t.SpeakerBubblePad.x;
+            plate.style.paddingRight = t.SpeakerBubblePad.y;
+            plate.style.paddingTop = t.SpeakerBubblePad.z;
+            plate.style.paddingBottom = t.SpeakerBubblePad.w;
+            plate.style.marginLeft = t.SpeakerBubbleOffsetX;
+            return true;
+        }
+
+        /// <summary>Панель темы: поверхность, скругление (у технической темы —
+        /// срез) и кромка одним вызовом.</summary>
+        public static void Panel(VisualElement el, float strength = 1f)
+        {
+            if (el == null) return;
+            var t = LvnTheme.Current;
+            el.style.backgroundColor = t.Surface;
+            el.style.borderTopLeftRadius = t.Radius; el.style.borderTopRightRadius = t.Radius;
+            el.style.borderBottomLeftRadius = t.Radius; el.style.borderBottomRightRadius = t.Radius;
+            Edge(el, strength);
+        }
+    }
+}

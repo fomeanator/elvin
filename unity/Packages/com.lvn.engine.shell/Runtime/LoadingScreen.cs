@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
             var bar = ScreenUi.ProgressBar(
                 barX, barY, barW, barH,
                 UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f)),
-                UiColor.Parse(_cfg.bar_fill_color, new Color(0.78f, 0.63f, 0.31f)),
+                UiColor.Parse(_cfg.bar_fill_color, LvnTokens.Accent),
                 out var track, out _fill);
             Add(bar);
 
@@ -81,7 +81,7 @@ namespace Lvn.UI.Screens
             bar.Add(frame);
 
             // ── labels (placed relative to the bar) ──
-            _hint = ScreenUi.CenterLabel(barY - 0.07f, UiColor.Parse(_cfg.hint_color, new Color(0.81f, 0.78f, 0.74f)), 24);
+            _hint = ScreenUi.CenterLabel(barY - 0.07f, UiColor.Parse(_cfg.hint_color, LvnTokens.TextDim), 24);
             _hint.style.display = (_cfg.show_hint ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_hint);
 
@@ -92,15 +92,15 @@ namespace Lvn.UI.Screens
             // Chapter-title reveal, Liminal-style: the name lives ON the loading
             // screen (over the chapter's backdrop) instead of being a separate
             // screen after it — one entry surface, no flash between stages.
-            _chapterTitle = ScreenUi.CenterLabel(0.34f, UiColor.Parse(_cfg.percent_color, new Color(0.96f, 0.93f, 0.85f)), 64);
+            _chapterTitle = ScreenUi.CenterLabel(0.34f, UiColor.Parse(_cfg.percent_color, LvnTokens.Text), 64);
             _chapterTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _chapterTitle.style.opacity = 0f;
             Add(_chapterTitle);
-            _chapterSubtitle = ScreenUi.CenterLabel(0.40f, UiColor.Parse(_cfg.hint_color, new Color(0.80f, 0.72f, 0.56f)), 34);
+            _chapterSubtitle = ScreenUi.CenterLabel(0.40f, UiColor.Parse(_cfg.hint_color, LvnTokens.TextDim), 34);
             _chapterSubtitle.style.opacity = 0f;
             Add(_chapterSubtitle);
 
-            _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, new Color(0.60f, 0.58f, 0.54f)), 18);
+            _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, LvnTokens.TextDim), 18);
             _file.style.display = (_cfg.show_file ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_file);
 
