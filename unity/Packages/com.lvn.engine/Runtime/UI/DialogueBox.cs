@@ -163,6 +163,15 @@ namespace Lvn.UI
             _plate.style.marginBottom = -2;
             SetCorner(_plate, _theme.PanelCornerRadius * 0.6f, top: true, bottom: false);
             UiStyle.ApplyBackground(_plate, _theme.PlateSprite, _theme.PanelSlice);
+            if (_theme.PlateSprite == null && LvnChrome.Bubble(_plate))
+            {
+                // Плашка ПОДНЫРИВАЕТ под окно: её нижняя кромка прямая и
+                // нарисована так, чтобы прятаться за верхней кромкой рамки.
+                // Встык они читаются как две отдельные коробки, внахлёст — как
+                // один прибор.
+                _plate.style.marginBottom = -5;
+                _plate.SendToBack();   // и по слоям тоже под окном, а не над ним
+            }
             _speaker = new Label { name = "vn-speaker" };
             _speaker.style.color = _theme.SpeakerColor;
             _speaker.style.fontSize = _theme.SpeakerFontSize;
@@ -182,6 +191,10 @@ namespace Lvn.UI
             if (_theme.Nvl) _panel.style.flexGrow = 1; // fill the tall NVL region
             SetCorner(_panel, _theme.PanelCornerRadius, top: true, bottom: true);
             UiStyle.ApplyBackground(_panel, _theme.PanelSprite, _theme.PanelSlice);
+            // Рамка темы — только если новелла не принесла свою: авторский
+            // спрайт сильнее оформления оболочки, иначе тема затирала бы
+            // сознательно нарисованное окно.
+            if (_theme.PanelSprite == null) LvnChrome.Frame(_panel);
             _body = new Label { name = "vn-body" };
             _body.style.color = _theme.TextColor;
             _body.style.fontSize = _theme.BodyFontSize;

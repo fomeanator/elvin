@@ -27,7 +27,7 @@ namespace Lvn.UI.Screens
             _cfg = cfg ?? new ChapterEndConfig();
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.04f, 0.03f, 0.05f, 0.92f));
+            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(LvnTokens.Bg.r, LvnTokens.Bg.g, LvnTokens.Bg.b, 0.92f));
             style.alignItems = Align.Center;
             style.justifyContent = Justify.Center;
             style.display = DisplayStyle.None;
@@ -39,14 +39,14 @@ namespace Lvn.UI.Screens
 
             _title = new Label(_cfg.title ?? "Конец главы");
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _title.style.color = UiColor.Parse(_cfg.title_color, new Color(0.96f, 0.93f, 0.85f));
+            _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             _title.style.fontSize = _cfg.title_size ?? 64f;
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             column.Add(_title);
 
             _chapter = new Label();
             _chapter.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _chapter.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
+            _chapter.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
             _chapter.style.fontSize = _cfg.subtitle_size ?? 34f;
             _chapter.style.marginTop = 14;
             _chapter.style.whiteSpace = WhiteSpace.Normal;
@@ -70,9 +70,9 @@ namespace Lvn.UI.Screens
             b.style.minHeight = 120;
             b.style.fontSize = 40;
             b.style.unityFontStyleAndWeight = FontStyle.Bold;
-            b.style.color = UiColor.Parse(_cfg.button_text_color, new Color(0.97f, 0.95f, 0.90f));
+            b.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.Text);
             b.style.backgroundColor = primary
-                ? UiColor.Parse(_cfg.button_color, new Color(0.55f, 0.21f, 0.35f))
+                ? UiColor.Parse(_cfg.button_color, LvnTokens.Accent)
                 : UiColor.Parse(_cfg.button_secondary_color, new Color(1f, 1f, 1f, 0.10f));
             b.style.borderTopWidth = 0; b.style.borderBottomWidth = 0;
             b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;

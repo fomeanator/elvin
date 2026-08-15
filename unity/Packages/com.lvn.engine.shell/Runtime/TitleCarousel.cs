@@ -64,7 +64,7 @@ namespace Lvn.UI.Screens
             _dotActiveColor = UiColor.Parse(_cfg.dot_active_color, LvnTokens.Text);
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0.06f, 0.06f, 0.08f));
+            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
 
             _viewport = new VisualElement();
             _viewport.style.position = Position.Absolute;
@@ -116,7 +116,7 @@ namespace Lvn.UI.Screens
             _progressLabel.style.top = Length.Percent(92.5f);
             _progressLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             _progressLabel.style.fontSize = 20;
-            _progressLabel.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
+            _progressLabel.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
             Add(_progressLabel);
 
             // Chapter picker — only meaningful for multi-chapter titles; shown per
@@ -129,7 +129,7 @@ namespace Lvn.UI.Screens
             _chaptersBtn.style.height = Length.Percent(8f);
             _chaptersBtn.style.fontSize = 20;
             _chaptersBtn.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
-            _chaptersBtn.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, new Color(0.11f, 0.11f, 0.13f));
+            _chaptersBtn.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
             _chaptersBtn.style.borderTopLeftRadius = 12; _chaptersBtn.style.borderTopRightRadius = 12;
             _chaptersBtn.style.borderBottomLeftRadius = 12; _chaptersBtn.style.borderBottomRightRadius = 12;
             Add(_chaptersBtn);
@@ -248,7 +248,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             card.style.flexShrink = 0;
-            card.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, new Color(0.11f, 0.11f, 0.13f));
+            card.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
             float r = _cfg.card_radius ?? 18f;
             card.style.borderTopLeftRadius = r; card.style.borderTopRightRadius = r;
             card.style.borderBottomLeftRadius = r; card.style.borderBottomRightRadius = r;
@@ -283,7 +283,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(t?.subtitle))
             {
                 var sub = new Label(t.subtitle);
-                sub.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
+                sub.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
                 sub.style.fontSize = _cfg.subtitle_size ?? 22f;
                 sub.style.marginTop = 4;
                 sub.style.whiteSpace = WhiteSpace.Normal;
@@ -360,7 +360,7 @@ namespace Lvn.UI.Screens
             panel.style.position = Position.Absolute;
             panel.style.left = Length.Percent(10f); panel.style.right = Length.Percent(10f);
             panel.style.top = Length.Percent(10f); panel.style.bottom = Length.Percent(10f);
-            panel.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, new Color(0.11f, 0.11f, 0.13f));
+            panel.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
             panel.style.borderTopLeftRadius = 14; panel.style.borderTopRightRadius = 14;
             panel.style.borderBottomLeftRadius = 14; panel.style.borderBottomRightRadius = 14;
             panel.style.paddingLeft = 16; panel.style.paddingRight = 16;
@@ -424,7 +424,7 @@ namespace Lvn.UI.Screens
                     prev.style.fontSize = 16;
                     prev.style.marginTop = 2;
                     prev.style.unityFontStyleAndWeight = FontStyle.Italic;
-                    prev.style.color = UiColor.Parse(_cfg.subtitle_color, new Color(0.80f, 0.72f, 0.56f));
+                    prev.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
                     cont.Add(prev);
                 }
                 scroll.Add(cont);

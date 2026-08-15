@@ -1,0 +1,19 @@
+Built-in ImageGen look-development prompt
+
+Use case: ui-mockup. Create an empty wide futuristic dialogue frame inspired
+closely by the large lower frame in the supplied reference: near-black blue
+translucent interior, clipped corners, double luminous turquoise rails, small
+layered cyan technical plates, restrained bloom and dark backing material.
+Adapt it for nine-slice: all ornaments and thickness changes remain inside fixed
+corner zones; the long edge centers and panel center are uniform. No text,
+numbers, symbols, watermark, cast shadow or perspective. Render outside the
+frame as flat #ff00ff chroma key.
+
+ImageGen established the material and glow treatment. The production PNG was
+then rebuilt with exact geometry and alpha by tools/generate_cyan_dialogue_frame.py.
+
+Speaker bubble follow-up: use the compact attached name tab geometry from the
+second supplied screenshot, without baked text, and restyle it to match the cyan
+dialogue frame. Dark translucent navy body, clipped upper corners, straight lower
+joining edge, thin double cyan rails, left-cap accent only. All non-uniform detail
+must stay inside the fixed side caps; the middle must stretch horizontally.

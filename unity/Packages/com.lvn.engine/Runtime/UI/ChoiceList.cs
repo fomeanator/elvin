@@ -127,6 +127,10 @@ namespace Lvn.UI
             btn.style.paddingBottom = _theme.ChoicePaddingY;
             btn.style.paddingLeft = _theme.ChoicePaddingX;
             btn.style.paddingRight = _theme.ChoicePaddingX;
+            // Кромка темы — до радиуса: у технической темы вариант выбора без
+            // светящегося контура выпадает из экрана, на котором контур есть у
+            // всего остального.
+            LvnChrome.Edge(btn, 0.85f);
             btn.style.borderTopLeftRadius = _theme.ChoiceCornerRadius;
             btn.style.borderTopRightRadius = _theme.ChoiceCornerRadius;
             btn.style.borderBottomLeftRadius = _theme.ChoiceCornerRadius;
