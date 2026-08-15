@@ -56,6 +56,7 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly Color _bg, _titleColor, _text, _dim, _card, _cardText, _accent, _accentText, _border;
         private readonly float _radius;
+        private readonly LvnTheme _theme;
 
         private readonly VisualElement _hubView, _collectionView, _detailView;
         private VisualElement _bottomNav;
@@ -79,26 +80,39 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new BrowseConfig();
             _assets = assets;
-            _bg = UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
-            _titleColor = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
-            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
-            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
-            _card = UiColor.Parse(_cfg.card_color, LvnTokens.Surface);
-            _cardText = UiColor.Parse(_cfg.card_text_color, LvnTokens.Text);
-            _accent = UiColor.Parse(_cfg.accent_color, LvnTokens.Accent);
-            _accentText = UiColor.Parse(_cfg.accent_text_color, LvnTokens.OnAccent);
-            _border = LvnTokens.Border;
-            _radius = _cfg.card_radius ?? LvnTokens.Radius;
+            // Тема идёт ПЕРВОЙ и служит запасным значением для всех цветов ниже.
+            // Порядок именно такой: точечная настройка из манифеста сильнее
+            // темы, тема сильнее умолчаний движка. Поэтому «ui.browse.theme =
+            // cyber» перекрашивает хаб целиком, а отдельный accent_color рядом
+            // с ней продолжает работать и переопределяет только себя.
+            _theme = LvnTheme.ByName(_cfg.theme);
+            LvnTheme.Use(_theme);
+            _bg = UiColor.Parse(_cfg.bg_color, _theme.Bg);
+            _titleColor = UiColor.Parse(_cfg.title_color, _theme.Text);
+            _text = UiColor.Parse(_cfg.text_color, _theme.Text);
+            _dim = UiColor.Parse(_cfg.dim_text_color, _theme.TextDim);
+            _card = UiColor.Parse(_cfg.card_color, _theme.Surface);
+            _cardText = UiColor.Parse(_cfg.card_text_color, _theme.Text);
+            _accent = UiColor.Parse(_cfg.accent_color, _theme.Accent);
+            _accentText = UiColor.Parse(_cfg.accent_text_color, _theme.OnAccent);
+            _border = _theme.Border;
+            _radius = _cfg.card_radius ?? _theme.Radius;
 
             ScreenUi.Stretch(this);
             style.backgroundColor = _bg;
+            // Атмосфера — под всё содержимое. У темы без неё не делает ничего.
+            LvnBackdrop.Apply(this, _theme);
 
             // ── HUB ── a brand block up top, then full-bleed collection cards
             // that fill the height. Cards get texture gradients for real depth
             // (UITK inline styles can't do gradients/shadows any other way).
             _hubView = Column();
             _hubView.style.paddingTop = 52; // clear the status bar / notch
-            _hubView.style.backgroundImage = Gradient(Color.Lerp(_bg, _accent, 0.16f), _bg); // subtle top glow
+            // Мягкое свечение сверху — но ТОЛЬКО если тема не принесла своего
+            // фона: сплошной градиент во весь экран закрыл бы собой и сетку, и
+            // виньетку, то есть ровно то, ради чего тему включали.
+            if (!_theme.Glow && !_theme.Grid)
+                _hubView.style.backgroundImage = Gradient(Color.Lerp(_bg, _accent, 0.16f), _bg);
 
             // Standard mobile-game top bar: player avatar + name/level on the left,
             // currency balances (with a "+" to buy) and settings on the right.
@@ -111,13 +125,13 @@ namespace Lvn.UI.Screens
             var profile = new VisualElement();
             profile.style.flexDirection = FlexDirection.Row;
             profile.style.alignItems = Align.Center;
-            var avatar = new Button(() => { if (OnMenu != null) _ = OnMenu(); }) { text = "👤" };
-            avatar.style.fontSize = 26; avatar.style.width = 56; avatar.style.height = 56;
-            avatar.style.color = _text; avatar.style.backgroundColor = LvnTokens.SurfaceHi;
+            var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) _ = OnMenu(); });
+            avatar.style.width = 56; avatar.style.height = 56;
+            avatar.style.backgroundColor = _theme.SurfaceHi;
             avatar.style.marginRight = 12;
             avatar.style.borderTopWidth = 2; avatar.style.borderBottomWidth = 2;
             avatar.style.borderLeftWidth = 2; avatar.style.borderRightWidth = 2; SetBorderColor(avatar, _accent);
-            Round(avatar, 28f); // circular, rose ring
+            Round(avatar, _theme.RoundPills ? 28f : _radius);
             profile.Add(avatar);
             var nameCol = new VisualElement();
             _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
@@ -136,18 +150,18 @@ namespace Lvn.UI.Screens
             _topPills.style.alignItems = Align.Center;
             rightGroup.Add(_topPills);
             // daily-rewards gift (badge dot hints there's something to claim)
-            var gift = new Button(() => { if (OnDaily != null) _ = OnDaily(); }) { text = "🎁" };
-            gift.style.fontSize = 22; gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = 10;
-            gift.style.color = _text; gift.style.backgroundColor = LvnTokens.Faint;
+            var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) _ = OnDaily(); });
+            gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = 10;
+            gift.style.backgroundColor = LvnTokens.Faint;
             ClearBorder(gift); Round(gift, LvnTokens.RadiusSm);
             var dot = new Label { pickingMode = PickingMode.Ignore };
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
             dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; Round(dot, 5f);
             gift.Add(dot);
             rightGroup.Add(gift);
-            var gear = new Button(() => { if (OnMenu != null) _ = OnMenu(); }) { text = "⚙" };
-            gear.style.fontSize = 24; gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
-            gear.style.color = _dim; gear.style.backgroundColor = LvnTokens.Faint;
+            var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) _ = OnMenu(); });
+            gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
+            gear.style.backgroundColor = LvnTokens.Faint;
             ClearBorder(gear); Round(gear, LvnTokens.RadiusSm);
             rightGroup.Add(gear);
             topBar.Add(rightGroup);
@@ -236,11 +250,11 @@ namespace Lvn.UI.Screens
             if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
             _topPills.Clear();
-            _topPills.Add(CurrencyPill("energy", "⚡", _accent));
-            _topPills.Add(CurrencyPill("gold", "◆", LvnTokens.Gold));
+            _topPills.Add(CurrencyPill("energy", LvnIcon.Energy, _accent));
+            _topPills.Add(CurrencyPill("gold", LvnIcon.Gem, _theme.Gold));
         }
 
-        private VisualElement CurrencyPill(string currency, string icon, Color iconColor)
+        private VisualElement CurrencyPill(string currency, LvnIcon icon, Color iconColor)
         {
             long bal = Lvn.Services.LvnWallet.Balances.TryGetValue(currency, out var b) ? b : 0;
             string amount = (Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) && r.Cap > 0 && bal < r.Cap)
@@ -253,10 +267,11 @@ namespace Lvn.UI.Screens
             pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
             pill.style.borderTopWidth = 1; pill.style.borderBottomWidth = 1;
             pill.style.borderLeftWidth = 1; pill.style.borderRightWidth = 1; SetBorderColor(pill, _border);
-            Round(pill, 18f);
+            Round(pill, _theme.RoundPills ? 18f : _radius);
             pill.style.paddingLeft = 12; pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
 
-            var ic = new Label(icon); ic.style.color = iconColor; ic.style.fontSize = 20; ic.style.marginRight = 5;
+            var ic = LvnIcons.Make(icon, 20f, iconColor, 0f, _theme.IconGlow);
+            ic.style.marginRight = 5;
             pill.Add(ic);
             var amt = new Label(amount); amt.style.color = _text; amt.style.fontSize = 22;
             amt.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -264,7 +279,7 @@ namespace Lvn.UI.Screens
 
             // the "+" — a small accent disc that opens the store
             var plus = new Label("+");
-            plus.style.color = LvnTokens.OnAccent; plus.style.backgroundColor = _accent;
+            plus.style.color = _accentText; plus.style.backgroundColor = _accent;
             plus.style.fontSize = 20; plus.style.unityFontStyleAndWeight = FontStyle.Bold;
             plus.style.unityTextAlign = TextAnchor.MiddleCenter;
             plus.style.width = 26; plus.style.height = 26; plus.style.marginLeft = 8;
@@ -347,7 +362,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(img)) _ = ScreenUi.AssignBgAsync(_detailImage, img, _assets);
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
-            _detailPlay.text = locked ? (_cfg.locked_text ?? "🔒")
+            _detailPlay.text = locked ? (_cfg.locked_text ?? "Закрыто")
                 : PlayLabel(t);
             _hubView.style.display = DisplayStyle.None;
             _collectionView.style.display = DisplayStyle.None;
@@ -466,7 +481,13 @@ namespace Lvn.UI.Screens
                 scrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.05f), new Color(0.03f, 0.01f, 0.03f, 0.92f));
                 b.Add(scrim);
             }
-            else b.style.backgroundImage = Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f));
+            else if (_theme.AccentPlaceholders)
+                b.style.backgroundImage = Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f));
+            else
+            {
+                b.style.backgroundImage = Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
+                Edge(b);
+            }
 
             b.style.justifyContent = Justify.FlexEnd;
             b.style.paddingLeft = 22; b.style.paddingRight = 22; b.style.paddingBottom = 20;
@@ -483,7 +504,7 @@ namespace Lvn.UI.Screens
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
             actions.style.marginTop = 12;
             var play = new Button(() => { if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
-            { text = locked ? (_cfg.locked_text ?? "🔒") : (resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.play_text ?? "Играть")) };
+            { text = locked ? (_cfg.locked_text ?? "Закрыто") : (resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.play_text ?? "Играть")) };
             play.style.fontSize = 24; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
@@ -491,7 +512,7 @@ namespace Lvn.UI.Screens
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)
             {
-                var chip = Chip("⚡ " + t.cost.amount, LvnTokens.Gold); chip.style.marginLeft = 12;
+                var chip = Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy); chip.style.marginLeft = 12;
                 actions.Add(chip);
             }
             b.Add(actions);
@@ -504,32 +525,53 @@ namespace Lvn.UI.Screens
             var nav = new VisualElement();
             _bottomNav = nav;
             nav.style.flexDirection = FlexDirection.Row;
-            nav.style.justifyContent = Justify.SpaceAround;
-            nav.style.alignItems = Align.Center;
+            nav.style.alignItems = Align.Stretch;
             nav.style.flexShrink = 0;
-            nav.style.marginTop = 6; nav.style.paddingBottom = 6; nav.style.paddingTop = 10;
-            nav.style.borderTopWidth = 1; nav.style.borderTopColor = _border;
+            nav.style.paddingBottom = 8; nav.style.paddingTop = 8;
+            nav.style.borderTopWidth = _theme.EdgeWidth > 0f ? _theme.EdgeWidth : 1f;
+            nav.style.borderTopColor = _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border;
+            // Панель непрозрачна: под ней проезжает лента, и полупрозрачный низ
+            // превращается в кашу из букв.
+            nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab("♥", _cfg.nav_home ?? "Главная", true, null));
-            nav.Add(NavTab("◆", _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
-            nav.Add(NavTab("★", _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
-            nav.Add(NavTab("❖", _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
-            // NB: glyph coverage — Android's default font lacks ✦/☰/💎 (tofu);
-            // every icon here must come from the safe set (◆★❖●♥⚡).
-            nav.Add(NavTab("●", _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
+            nav.Add(NavTab(LvnIcon.Home, _cfg.nav_home ?? "Главная", true, null));
+            nav.Add(NavTab(LvnIcon.Store, _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
+            nav.Add(NavTab(LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
+            nav.Add(NavTab(LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
+            nav.Add(NavTab(LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
             return nav;
         }
 
-        private VisualElement NavTab(string icon, string label, bool active, System.Action onTap)
+        private VisualElement NavTab(LvnIcon icon, string label, bool active, System.Action onTap)
         {
             var tab = new VisualElement();
-            tab.style.alignItems = Align.Center; tab.style.flexGrow = 1;
-            tab.style.paddingTop = 8; tab.style.paddingBottom = 8;
+            // РАВНЫЕ ДОЛИ, а не распределение по содержимому. Раньше здесь стояло
+            // justify-content: space-around при вкладках разной ширины — и
+            // «Главная» с «Гардеробом» разъезжались тем сильнее, чем длиннее
+            // слово. Одинаковый flex-basis выравнивает центры, а центры и есть
+            // то, по чему глаз читает ряд как ряд.
+            tab.style.flexGrow = 1; tab.style.flexBasis = 0;
+            tab.style.alignItems = Align.Center;
+            tab.style.justifyContent = Justify.FlexStart;
+            tab.style.paddingTop = 6; tab.style.paddingBottom = 6;
             var color = active ? _accent : _dim;
-            var ic = new Label(icon) { pickingMode = PickingMode.Ignore }; ic.style.fontSize = 32; ic.style.color = color;
-            var lb = new Label(label) { pickingMode = PickingMode.Ignore }; lb.style.fontSize = 19; lb.style.color = color; lb.style.marginTop = 4;
-            tab.Add(ic); tab.Add(lb);
+
+            // Активную вкладку помечает ЧЕРТА СВЕРХУ, а не только цвет: черта
+            // читается боковым зрением и не теряется у тех, кто не различает
+            // акцент и приглушённый на глаз.
+            var mark = new VisualElement { pickingMode = PickingMode.Ignore };
+            mark.style.height = 3; mark.style.width = 26;
+            mark.style.backgroundColor = active ? _accent : Color.clear;
+            mark.style.marginBottom = 6;
+            tab.Add(mark);
+
+            tab.Add(LvnIcons.Make(icon, 30f, color, 0f, active ? _theme.IconGlow : 0f));
+            var lb = new Label(_theme.Heading(label)) { pickingMode = PickingMode.Ignore };
+            lb.style.fontSize = 17; lb.style.color = color; lb.style.marginTop = 5;
+            lb.style.letterSpacing = _theme.Tracking;
+            lb.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
+            tab.Add(lb);
             if (onTap != null) tab.AddManipulator(new Clickable(onTap)); // reliable tap
             return tab;
         }
@@ -569,19 +611,39 @@ namespace Lvn.UI.Screens
             head.style.alignItems = Align.Center;
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.marginBottom = 14;
-            var title = new Label(c.name ?? c.id);
+            var title = new Label(_theme.Heading(c.name ?? c.id));
             title.style.color = _text; title.style.fontSize = 36;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.letterSpacing = _theme.Tracking;
             head.Add(title);
-            var all = new Label((_cfg.all_text ?? "Все") + "  →");
-            all.style.color = _accent; all.style.fontSize = 24;
-            all.style.unityFontStyleAndWeight = FontStyle.Bold;
+            // «Все ›» — подпись и векторная стрелка. Стрелка символом «→» на
+            // части шрифтов Android тоже отсутствует, а её пропажу замечаешь
+            // позже прочих: пустое место в конце строки читается как отступ.
+            var all = new VisualElement();
+            all.style.flexDirection = FlexDirection.Row;
+            all.style.alignItems = Align.Center;
+            var allText = new Label(_theme.Heading(_cfg.all_text ?? "Все")) { pickingMode = PickingMode.Ignore };
+            allText.style.color = _accent; allText.style.fontSize = 24;
+            allText.style.unityFontStyleAndWeight = FontStyle.Bold;
+            allText.style.letterSpacing = _theme.Tracking;
+            all.Add(allText);
+            var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent, 0f, _theme.IconGlow);
+            allArrow.style.marginLeft = 4;
+            all.Add(allArrow);
             all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));
             head.Add(all);
             row.Add(head);
 
             var strip = new ScrollView(ScrollViewMode.Horizontal);
             strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            // И ВЕРТИКАЛЬНУЮ тоже. Полоса брала своё не от прокрутки, а от того,
+            // что карточка выше отведённой ей строки: сбоку появлялся системный
+            // ползунок чужого вида, а низ карточки обрезался.
+            strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            // Высота считается от карточки, а не подбирается: постер 320,
+            // отступ 12, название в две строки ~62, подпись ~26.
+            strip.style.height = 320f + 12f + 62f + 26f;
+            strip.style.flexShrink = 0;
             strip.style.flexDirection = FlexDirection.Row;
             var entering = new System.Collections.Generic.List<VisualElement>();
             if (c.titles != null)
@@ -621,13 +683,8 @@ namespace Lvn.UI.Screens
             poster.style.width = Length.Percent(100f);
             poster.style.height = 320;
             poster.style.overflow = Overflow.Hidden;
-            // Текстура вместо заливки: сплошной цвет — главный источник
-            // «пластика». Нет файла — остаётся прежний вид, ничего не ломается.
-            if (!Lvn.UI.LvnSkin.Apply(poster, Lvn.UI.LvnSkin.PanelSurface))
-            {
-                poster.style.backgroundColor = _card;
-                Round(poster, _radius);
-            }
+            poster.style.backgroundColor = _card;
+            Round(poster, _radius);
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
@@ -640,17 +697,21 @@ namespace Lvn.UI.Screens
                 img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 poster.Add(img);
                 _ = ScreenUi.AssignBgAsync(img, art, _assets);
+
             }
             else
             {
-                poster.style.backgroundImage = hero
+                poster.style.backgroundImage = (hero && _theme.AccentPlaceholders)
                     ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.5f))
                     : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.3f));
+                // Тёмной заглушке нужна кромка, иначе она сливается с фоном и
+                // ряд читается как пустое место, а не как карточки.
+                if (_theme.EdgeWidth > 0f) Edge(poster);
             }
 
             // cost / lock chip, small, floated on the poster
-            var chip = locked ? Chip(_cfg.locked_text ?? "🔒", _dim)
-                : (t.cost != null && t.cost.amount > 0 ? Chip("⚡ " + t.cost.amount, LvnTokens.Gold) : null);
+            var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)
+                : (t.cost != null && t.cost.amount > 0 ? Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy) : null);
             if (chip != null)
             {
                 chip.style.position = Position.Absolute; chip.style.top = 12; chip.style.right = 12;
@@ -664,6 +725,8 @@ namespace Lvn.UI.Screens
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
             name.style.marginTop = 12;
+            name.style.maxHeight = 62;      // две строки: третья вытолкнула бы подпись
+            name.style.overflow = Overflow.Hidden;
             card.Add(name);
 
             string sub = t.subtitle ?? t.card?.description;
@@ -711,7 +774,7 @@ namespace Lvn.UI.Screens
             // thumbnail (left)
             var thumb = new VisualElement { pickingMode = PickingMode.Ignore };
             thumb.style.width = 128; thumb.style.height = Length.Percent(100f);
-            thumb.style.backgroundColor = LvnTokens.SurfaceHi;
+            thumb.style.backgroundColor = _theme.SurfaceHi;
             thumb.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             thumb.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
@@ -733,8 +796,8 @@ namespace Lvn.UI.Screens
             name.style.color = _text; name.style.fontSize = 24;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
-            if (locked) top.Add(Chip(_cfg.locked_text ?? "🔒", _dim));
-            else if (t.cost != null && t.cost.amount > 0) top.Add(Chip("⚡ " + t.cost.amount, LvnTokens.Gold));
+            if (locked) top.Add(Chip(_cfg.locked_text, _dim, LvnIcon.Lock));
+            else if (t.cost != null && t.cost.amount > 0) top.Add(Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy));
             col.Add(top);
 
             var desc = new Label(t.card?.description ?? t.subtitle ?? "");
@@ -746,7 +809,7 @@ namespace Lvn.UI.Screens
             // a thin progress bar (fallback demo progress)
             var track = new VisualElement();
             track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
-            track.style.backgroundColor = LvnTokens.SurfaceHi; Round(track, 3f); track.style.overflow = Overflow.Hidden;
+            track.style.backgroundColor = _theme.SurfaceHi; Round(track, 3f); track.style.overflow = Overflow.Hidden;
             var fill = new VisualElement();
             fill.style.height = Length.Percent(100f);
             fill.style.width = Length.Percent(locked ? 0f : 35f); // demo progress
@@ -775,15 +838,47 @@ namespace Lvn.UI.Screens
                 ? (_cfg.play_text ?? "Играть") + "  ·  " + string.Format(_cfg.cost_text ?? "{0}", t.cost.amount)
                 : (_cfg.play_text ?? "Играть");
 
-        private Label Chip(string text, Color color)
+        /// <summary>
+        /// Круглая/квадратная кнопка с векторной иконкой вместо надписи.
+        ///
+        /// <para>Текст у кнопки пустой намеренно: иконка — отдельный ребёнок, и
+        /// потому её цвет, толщина линии и свечение живут своей жизнью, а не
+        /// наследуются от стиля текста, у которого для этого нет свойств.</para>
+        /// </summary>
+        private Button IconButton(LvnIcon icon, float size, Color color, System.Action onTap)
         {
-            var chip = new Label(text);
-            chip.style.color = color;
-            chip.style.fontSize = 20;
+            var b = new Button(onTap) { text = "" };
+            b.style.alignItems = Align.Center;
+            b.style.justifyContent = Justify.Center;
+            b.style.paddingLeft = 0; b.style.paddingRight = 0;
+            b.style.paddingTop = 0; b.style.paddingBottom = 0;
+            b.Add(LvnIcons.Make(icon, size, color, 0f, _theme.IconGlow));
+            return b;
+        }
+
+        /// <summary>Метка на карточке: иконка, подпись или и то и другое.
+        /// Пустой текст — иконка одна, и метка сжимается до неё.</summary>
+        private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
+        {
+            var chip = new VisualElement();
+            chip.style.flexDirection = FlexDirection.Row;
+            chip.style.alignItems = Align.Center;
             chip.style.backgroundColor = new Color(0f, 0f, 0f, 0.28f);
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
             Round(chip, 10f);
+            if (icon != LvnIcon.None)
+            {
+                var ic = LvnIcons.Make(icon, 18f, color, 0f, _theme.IconGlow);
+                if (!string.IsNullOrEmpty(text)) ic.style.marginRight = 5;
+                chip.Add(ic);
+            }
+            if (!string.IsNullOrEmpty(text))
+            {
+                var lb = new Label(text) { pickingMode = PickingMode.Ignore };
+                lb.style.color = color; lb.style.fontSize = 20;
+                chip.Add(lb);
+            }
             return chip;
         }
 
@@ -818,9 +913,15 @@ namespace Lvn.UI.Screens
 
         private Label Heading(string text, int size)
         {
-            var l = new Label(text);
+            var l = new Label(_theme.Heading(text));
             l.style.color = _titleColor; l.style.fontSize = size;
             l.style.unityFontStyleAndWeight = FontStyle.Bold;
+            l.style.letterSpacing = _theme.Tracking;
+            // ПЕРЕНОС, а не обрезка. Длинное название («ELEMENTAL CHRONICLES»)
+            // при запрете переноса уезжало за правый край и теряло последние
+            // буквы — причём молча, так что на экране это читалось как опечатка
+            // в манифесте, а не как переполнение.
+            l.style.whiteSpace = WhiteSpace.Normal;
             return l;
         }
 
@@ -864,6 +965,18 @@ namespace Lvn.UI.Screens
         {
             el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
             el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
+        }
+
+        /// <summary>Светящаяся кромка по контуру — подпись технической темы.
+        /// У темы без неё (EdgeWidth = 0) не делает ничего, поэтому вызывать
+        /// можно безусловно.</summary>
+        private void Edge(VisualElement el)
+        {
+            if (el == null || _theme.EdgeWidth <= 0f) return;
+            float w = _theme.EdgeWidth;
+            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
+            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
+            SetBorderColor(el, _theme.EdgeColor);
         }
     }
 }

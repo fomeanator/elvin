@@ -141,11 +141,12 @@ namespace Lvn.UI.Screens
             _viewerImage.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             _viewer.Add(_viewerImage);
 
-            var close = new Button(CloseViewer) { text = "✕" };
+            var close = new Button(CloseViewer) { text = "" };
             close.style.position = Position.Absolute;
             close.style.top = Length.Percent(4f);
             close.style.right = Length.Percent(6f);
-            close.style.fontSize = 32;
+            close.style.alignItems = Align.Center;
+            close.style.justifyContent = Justify.Center;
             close.style.width = 56;
             close.style.height = 56;
             close.style.paddingTop = 0;
@@ -307,15 +308,12 @@ namespace Lvn.UI.Screens
                 art.style.opacity = 0.18f;
                 art.style.backgroundColor = LvnTokens.SurfaceHi;
 
-                var lockL = new Label("🔒");
+                var lockL = LvnIcons.Make(LvnIcon.Lock, 36f, LvnTokens.TextDim);
                 lockL.style.position = Position.Absolute;
                 lockL.style.left = 0;
                 lockL.style.right = 0;
                 lockL.style.top = Length.Percent(32f);
-                lockL.style.unityTextAlign = TextAnchor.MiddleCenter;
-                lockL.style.fontSize = 36;
-                lockL.style.color = LvnTokens.TextDim;
-                lockL.pickingMode = PickingMode.Ignore;
+                lockL.style.alignSelf = Align.Center;
                 cell.Add(lockL);
 
                 var q = new Label("???");

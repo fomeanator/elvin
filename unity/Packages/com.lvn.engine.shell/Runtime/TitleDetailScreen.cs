@@ -368,15 +368,27 @@ namespace Lvn.UI.Screens
             nameLbl.style.color = locked ? LvnTokens.TextDim : LvnTokens.Text;
             row.Add(nameLbl);
 
-            string glyph = state == 0 ? "✓ пройдено" : state == 1 ? "▸ текущая" : "🔒 закрыто";
-            var stateLbl = new Label(glyph);
-            stateLbl.style.flexShrink = 0;
-            stateLbl.style.marginLeft = 12;
-            stateLbl.style.fontSize = 20;
-            stateLbl.style.color = state == 0 ? LvnTokens.Gold
+            // Состояние главы: иконка И слово. Одной иконки мало — «пройдено» и
+            // «текущая» слишком близки по смыслу, чтобы различаться только
+            // фигуркой; одного слова мало — глаз ищет метку слева от текста.
+            var stateColor = state == 0 ? LvnTokens.Gold
                 : state == 1 ? LvnTokens.Accent
                 : LvnTokens.TextDim;
-            row.Add(stateLbl);
+            var stateBox = new VisualElement();
+            stateBox.style.flexDirection = FlexDirection.Row;
+            stateBox.style.alignItems = Align.Center;
+            stateBox.style.flexShrink = 0;
+            stateBox.style.marginLeft = 12;
+            var stateIcon = LvnIcons.Make(
+                state == 0 ? LvnIcon.Check : state == 1 ? LvnIcon.Play : LvnIcon.Lock,
+                17f, stateColor, 0f, LvnTheme.Current.IconGlow);
+            stateIcon.style.marginRight = 5;
+            stateBox.Add(stateIcon);
+            var stateLbl = new Label(state == 0 ? "пройдено" : state == 1 ? "текущая" : "закрыто");
+            stateLbl.style.fontSize = 20;
+            stateLbl.style.color = stateColor;
+            stateBox.Add(stateLbl);
+            row.Add(stateBox);
 
             // Demo placeholder rows: NOT clickable — a tap here used to launch
             // (and charge) the CURRENT chapter regardless of the row's label.
@@ -516,7 +528,7 @@ namespace Lvn.UI.Screens
             // right under the Play action so it reads as a secondary option.
             if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0))
             {
-                var restart = new Button(ShowRestartMenu) { text = "↻  Начать заново" };
+                var restart = new Button(ShowRestartMenu) { text = "Начать заново" };
                 restart.style.marginBottom = 12;
                 restart.style.fontSize = 24;
                 restart.style.paddingTop = 12;
@@ -558,7 +570,12 @@ namespace Lvn.UI.Screens
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
             Round(cost, LvnTokens.RadiusSm);
 
-            var costLbl = new Label("⚡ " + EnergyCost);
+            cost.style.flexDirection = FlexDirection.Row;
+            cost.style.alignItems = Align.Center;
+            var costIcon = LvnIcons.Make(LvnIcon.Energy, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
+            costIcon.style.marginRight = 6;
+            cost.Add(costIcon);
+            var costLbl = new Label(EnergyCost.ToString());
             costLbl.style.color = LvnTokens.Gold;
             costLbl.style.fontSize = 26;
             costLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -612,7 +629,7 @@ namespace Lvn.UI.Screens
                 // The first chapter is always open; later ones unlock as reached —
                 // a restart must not jump ahead of where the player has actually been.
                 bool unlocked = ch.number <= reached || ch.number == firstNumber;
-                var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   🔒"), primary: false,
+                var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  закрыто"), primary: false,
                     () => { if (unlocked) _ = RestartFromChapterAsync(ch); });
                 row.SetEnabled(unlocked);
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;

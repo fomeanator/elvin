@@ -3,44 +3,47 @@ using UnityEngine;
 namespace Lvn.UI
 {
     /// <summary>
-    /// The engine's default design tokens — <b>"Полночь"</b> (a Radix-Colors mauve
-    /// neutral with a rose accent and a warm gold for currency/premium). Every
-    /// screen's built-in colour/radius FALLBACK derives from here, so the whole app
-    /// looks like one coherent product out of the box. Authors still override any
-    /// value in <c>manifest.ui.*</c> — these are only the defaults the parse
-    /// fallbacks resolve to when a field is absent.
+    /// Токены оформления — ОКНО В ДЕЙСТВУЮЩУЮ ТЕМУ, а не набор констант.
     ///
-    /// Swapping the whole look = editing this one file (or shipping a second preset).
+    /// <para>Раньше здесь лежали сами цвета, и это было ровно то место, где
+    /// «тема» ломалась: хаб умел спрашивать тему, а остальные три сотни мест в
+    /// оболочке читали отсюда жёстко зашитую «Полночь». Экран выходил
+    /// наполовину перекрашенным — хуже, чем не перекрашенным вовсе.</para>
+    ///
+    /// <para>Теперь каждое значение отвечает <see cref="LvnTheme.Current"/>, и
+    /// все прежние обращения <c>LvnTokens.Accent</c> продолжают работать, но
+    /// стали темозависимыми — ни одно из них не пришлось править. Значения
+    /// «Полночи» переехали в <see cref="LvnTheme.Midnight"/>, поэтому по
+    /// умолчанию всё выглядит как раньше, до буквы.</para>
+    ///
+    /// <para>Сменить весь вид приложения = одно поле в манифесте
+    /// (<c>ui.browse.theme</c>), а не правка этого файла.</para>
     /// </summary>
     public static class LvnTokens
     {
-        // Neutrals (Radix "mauve", dark) — plum-tinted so nothing reads as flat grey.
-        public static readonly Color Bg        = Hex("#171119"); // app background
-        public static readonly Color Surface   = Hex("#241a24"); // cards / tiles / panels
-        public static readonly Color SurfaceHi = Hex("#2c2130"); // raised / hover
-        public static readonly Color Border    = Hex("#38293a"); // hairline separators
-        public static readonly Color Text      = Hex("#f6ecf1"); // primary text
-        public static readonly Color TextDim   = Hex("#b79caf"); // secondary text
-        public static readonly Color Faint     = new Color(1f, 1f, 1f, 0.08f); // ghost button fill
+        // Нейтральные тона.
+        public static Color Bg        => LvnTheme.Current.Bg;
+        public static Color Surface   => LvnTheme.Current.Surface;
+        public static Color SurfaceHi => LvnTheme.Current.SurfaceHi;
+        public static Color Border    => LvnTheme.Current.Border;
+        public static Color Text      => LvnTheme.Current.Text;
+        public static Color TextDim   => LvnTheme.Current.TextDim;
+        public static Color Faint     => LvnTheme.Current.Faint;
 
-        // Accent (rose) + the ink that sits on it.
-        public static readonly Color Accent   = Hex("#ec5a92");
-        public static readonly Color OnAccent = Hex("#1a0f16");
+        // Акцент и чернила поверх него.
+        public static Color Accent   => LvnTheme.Current.Accent;
+        public static Color OnAccent => LvnTheme.Current.OnAccent;
 
-        // Warm gold — currency amounts, premium chips, the "buy" call to action.
-        public static readonly Color Gold     = Hex("#f0d9a0");
+        // Тёплое золото — суммы, премиальные метки, призыв к покупке.
+        public static Color Gold     => LvnTheme.Current.Gold;
 
-        // Overlays.
-        public static readonly Color Scrim   = new Color(0f, 0f, 0f, 0.72f);
-        public static readonly Color PanelBg = new Color(0.086f, 0.063f, 0.094f, 0.97f); // dialogue/sheet fill
+        // Перекрытия.
+        public static Color Scrim   => LvnTheme.Current.Scrim;
+        public static Color PanelBg => LvnTheme.Current.PanelBg;
 
-        public const float Radius   = 16f; // cards / sheets
-        public const float RadiusSm = 12f; // buttons / chips
-
-        private static Color Hex(string h)
-        {
-            ColorUtility.TryParseHtmlString(h, out var c);
-            return c;
-        }
+        // Скругления. Были const; стали свойствами — константа не может
+        // зависеть от темы, а зависеть обязана.
+        public static float Radius   => LvnTheme.Current.Radius;
+        public static float RadiusSm => LvnTheme.Current.RadiusSm;
     }
 }

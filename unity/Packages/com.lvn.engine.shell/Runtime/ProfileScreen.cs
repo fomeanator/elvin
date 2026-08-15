@@ -22,10 +22,10 @@ namespace Lvn.UI.Screens
         /// <summary>One earned/locked achievement badge.</summary>
         public struct Achievement
         {
-            public string Icon;
+            public LvnIcon Icon;
             public string Title;
             public bool Unlocked;
-            public Achievement(string icon, string title, bool unlocked)
+            public Achievement(LvnIcon icon, string title, bool unlocked)
             { Icon = icon; Title = title; Unlocked = unlocked; }
         }
 
@@ -49,7 +49,7 @@ namespace Lvn.UI.Screens
 
         // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
         public string PlayerName = "Гость";
-        public string AvatarGlyph = "👤";
+        public LvnIcon AvatarIcon = LvnIcon.Profile;
         public string AvatarUrl;               // optional art; falls back to the glyph
         public int Level = 7;
         public int Xp = 1240;
@@ -66,14 +66,14 @@ namespace Lvn.UI.Screens
 
         public List<Achievement> Achievements = new List<Achievement>
         {
-            new Achievement("🌟", "Первый шаг",   true),
-            new Achievement("💘", "Первое свидание", true),
-            new Achievement("📖", "Знаток глав",  true),
-            new Achievement("🎭", "Все концовки", false),
-            new Achievement("🔥", "Неделя подряд", true),
-            new Achievement("👑", "Максимум любви", false),
-            new Achievement("🗝️", "Тайный путь",  false),
-            new Achievement("🏆", "Мастер новелл", false),
+            new Achievement(LvnIcon.Star,   "Первый шаг",      true),
+            new Achievement(LvnIcon.Heart,  "Первое свидание", true),
+            new Achievement(LvnIcon.Book,   "Знаток глав",     true),
+            new Achievement(LvnIcon.Mask,   "Все концовки",    false),
+            new Achievement(LvnIcon.Flame,  "Неделя подряд",   true),
+            new Achievement(LvnIcon.Crown,  "Максимум любви",  false),
+            new Achievement(LvnIcon.Key,    "Тайный путь",     false),
+            new Achievement(LvnIcon.Trophy, "Мастер новелл",   false),
         };
 
         public List<Relation> Relations = new List<Relation>
@@ -203,10 +203,8 @@ namespace Lvn.UI.Screens
             avatar.style.borderLeftColor = LvnTokens.Accent;
             avatar.style.borderRightColor = LvnTokens.Accent;
 
-            var glyph = new Label(string.IsNullOrEmpty(AvatarGlyph) ? "👤" : AvatarGlyph);
-            glyph.style.fontSize = 50;
-            glyph.style.color = LvnTokens.Text;
-            glyph.pickingMode = PickingMode.Ignore;
+            var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
+            glyph.style.alignSelf = Align.Center;
             avatar.Add(glyph);
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
@@ -336,9 +334,10 @@ namespace Lvn.UI.Screens
             badge.style.paddingRight = 6;
             if (!a.Unlocked) badge.style.opacity = 0.55f;
 
-            var icon = new Label(a.Unlocked ? a.Icon : "🔒");
-            icon.style.fontSize = 32;
-            icon.style.color = a.Unlocked ? LvnTokens.Accent : LvnTokens.TextDim;
+            var icon = LvnIcons.Make(a.Unlocked ? a.Icon : LvnIcon.Lock, 32f,
+                                     a.Unlocked ? LvnTokens.Accent : LvnTokens.TextDim,
+                                     0f, a.Unlocked ? LvnTheme.Current.IconGlow : 0f);
+            icon.style.alignSelf = Align.Center;
             badge.Add(icon);
 
             var label = new Label(a.Title);
@@ -379,10 +378,17 @@ namespace Lvn.UI.Screens
             head.style.marginBottom = 8;
             row.Add(head);
 
-            var name = new Label($"♥ {r.Name}");
+            var nameRow = new VisualElement();
+            nameRow.style.flexDirection = FlexDirection.Row;
+            nameRow.style.alignItems = Align.Center;
+            var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            heart.style.marginRight = 7;
+            nameRow.Add(heart);
+            var name = new Label(r.Name);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = 26;
-            head.Add(name);
+            nameRow.Add(name);
+            head.Add(nameRow);
 
             var pct = new Label($"{Mathf.RoundToInt(r.Affection * 100f)}%");
             pct.style.color = LvnTokens.Accent;
@@ -440,7 +446,7 @@ namespace Lvn.UI.Screens
             {
                 GUIUtility.systemCopyBuffer = id;
                 var was = copy.text;
-                copy.text = "Скопировано ✓";
+                copy.text = "Скопировано";
                 copy.schedule.Execute(() => copy.text = was).ExecuteLater(1400);
             };
             footer.Add(copy);

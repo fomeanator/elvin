@@ -251,10 +251,13 @@ namespace Lvn.UI.Screens
             if (!first) col.style.marginBottom = 10; // sink the flanks below the winner
 
             // Crown for the champion.
-            var crown = new Label(first ? "👑" : " ");
-            crown.style.fontSize = 32;
+            // Место под корону занято и у не-победителей: иначе первый столбец
+            // выше остальных на высоту иконки и ряд перекашивает.
+            var crown = first
+                ? LvnIcons.Make(LvnIcon.Crown, 30f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow)
+                : new VisualElement { style = { width = 30, height = 30 } };
             crown.style.marginBottom = 2;
-            crown.style.unityTextAlign = TextAnchor.MiddleCenter;
+            crown.style.alignSelf = Align.Center;
             col.Add(crown);
 
             // Avatar with an accent gold ring on 1st.

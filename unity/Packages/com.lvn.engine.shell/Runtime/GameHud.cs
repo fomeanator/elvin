@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly VisualElement _progressIcon;
         private readonly Label _progressLabel;
-        private readonly Label _statsBtn;
+        private readonly VisualElement _statsBtn;
         private readonly VisualElement _pillsRow;
         private readonly Color _pillBg;
         private readonly Color _pillText;
@@ -86,9 +86,10 @@ namespace Lvn.UI.Screens
             // Tap to see the title's live stats (trait pairs + relationships) —
             // hidden until SetStats hands over a non-empty list (an unconfigured
             // title never grows this button).
-            _statsBtn = new Label("📊") { pickingMode = PickingMode.Position };
-            _statsBtn.style.fontSize = 26;
+            _statsBtn = new VisualElement { pickingMode = PickingMode.Position };
+            _statsBtn.style.width = 26; _statsBtn.style.height = 26;
             _statsBtn.style.marginLeft = 16;
+            LvnIcons.Paint(_statsBtn, LvnIcon.Chart, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
             _statsBtn.style.display = DisplayStyle.None;
             _statsBtn.RegisterCallback<PointerDownEvent>(e =>
             {
