@@ -135,6 +135,29 @@ def tint_with_grain(image: Image.Image, mask: Image.Image, name: str, scale: int
                 pixels[x, y] = (clamp(r + d), clamp(g + d), clamp(b + d), a)
 
 
+def add_satin_weave(image: Image.Image, mask: Image.Image, scale: int) -> None:
+    """Apply a native-resolution 2–3% woven-satin microtexture."""
+    rng = random.Random(seed_for("button-primary-satin", scale))
+    pixels = image.load()
+    mp = mask.load()
+    warp_period = 3.0 * scale
+    twill_period = 9.0 * scale
+    for y in range(image.height):
+        for x in range(image.width):
+            if not mp[x, y]:
+                continue
+            # A dominant warp plus a weak diagonal twill reads as cloth without
+            # forming a screen-like rectangular grid. Peak-to-peak stays below 3%.
+            warp = 1.8 * math.sin(
+                2 * math.pi * x / warp_period + 0.45 * math.sin(2 * math.pi * y / (17 * scale))
+            )
+            twill = 0.9 * math.sin(2 * math.pi * (x + 2 * y) / twill_period)
+            micro = rng.uniform(-0.55, 0.55)
+            delta = warp + twill + micro
+            r, g, b, a = pixels[x, y]
+            pixels[x, y] = (clamp(r + delta), clamp(g + delta), clamp(b + delta), a)
+
+
 def apply_mask(image: Image.Image, mask: Image.Image, opacity: int = 255) -> Image.Image:
     if opacity != 255:
         mask = mask.point(lambda value: value * opacity // 255)
@@ -242,7 +265,7 @@ def button_primary(scale: int) -> Image.Image:
     radius = 12 * scale
     mask = rounded_mask(size, radius)
     image = vertical_gradient(size, (*mul(ACCENT, 1.08), 255), (*mul(ACCENT, 0.96), 255))
-    tint_with_grain(image, mask, "button_primary", scale, 1.2)
+    add_satin_weave(image, mask, scale)
     apply_mask(image, mask)
     lighting = Image.new("RGBA", size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(lighting, "RGBA")
