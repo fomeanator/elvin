@@ -112,6 +112,7 @@ namespace Lvn.UI.Screens
             left.Add(back);
 
             var title = new Label("Гардероб");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -351,6 +352,7 @@ namespace Lvn.UI.Screens
                 chip.style.overflow = Overflow.Hidden;
                 Round(chip, 32f);
                 chip.style.backgroundColor = LvnTokens.Surface;
+                LvnChrome.Edge(chip);
                 Border(chip, active ? LvnTokens.Accent : LvnTokens.Border, active ? 3f : 1f);
 
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -420,6 +422,7 @@ namespace Lvn.UI.Screens
             tile.style.width = Length.Percent(48f);
             tile.style.marginBottom = 14;
             tile.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(tile);
             Round(tile, LvnTokens.Radius);
             Border(tile, equipped ? LvnTokens.Accent : LvnTokens.Border, equipped ? 2f : 1f);
             tile.style.overflow = Overflow.Hidden;

@@ -105,6 +105,7 @@ namespace Lvn.UI.Screens
             header.Add(back);
 
             var title = new Label("Рейтинг");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -117,6 +118,7 @@ namespace Lvn.UI.Screens
             tabs.style.alignSelf = Align.Center;
             tabs.style.marginBottom = 18;
             tabs.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(tabs);
             Round(tabs, LvnTokens.RadiusSm + 4f);
             tabs.style.paddingLeft = 4; tabs.style.paddingRight = 4;
             tabs.style.paddingTop = 4; tabs.style.paddingBottom = 4;

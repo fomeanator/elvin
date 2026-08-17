@@ -180,6 +180,51 @@ namespace Lvn.UI
             Glow = true,
         };
 
+        /// <summary>
+        /// Романтическая, но ГРАНЁНАЯ: палитра Time Romance с той же огранкой,
+        /// что у киберпанка.
+        ///
+        /// <para>Существует потому, что «нравится этот дизайн» почти никогда не
+        /// значит «нравится циан». Нравится обычно ЧЁТКОСТЬ: светящаяся кромка
+        /// по контуру, техническая типографика, живой фон, отклик на нажатие.
+        /// Всё это к цвету отношения не имеет, и здесь оно соединено с розовым
+        /// вместо холодного.</para>
+        ///
+        /// <para>Углы при этом скруглены сильнее, а капса нет: капс с разрядкой
+        /// — примета технического интерфейса, и на романтическом он читается
+        /// как чужой. Разрядка остаётся, но вдвое меньше.</para>
+        /// </summary>
+        public static LvnTheme Romance() => new LvnTheme
+        {
+            Name = "romance",
+            Bg = Hex("#17141c"),
+            Surface = Hex("#241c2c"),
+            SurfaceHi = Hex("#2f2438"),
+            Border = new Color(0.88f, 0.35f, 0.54f, 0.30f),
+            Text = Hex("#f2ecf4"),
+            TextDim = Hex("#9a8fa6"),
+            Accent = Hex("#e05a8a"),
+            OnAccent = Hex("#1d0f16"),
+            Gold = Hex("#f0d9a0"),
+            Warn = Hex("#ff5c7a"),
+            Faint = new Color(1f, 1f, 1f, 0.07f),
+            Scrim = new Color(0.05f, 0.03f, 0.06f, 0.80f),
+            PanelBg = new Color(0.09f, 0.07f, 0.11f, 0.96f),
+            Radius = 18f,
+            RadiusSm = 12f,
+            EdgeWidth = 2f,
+            EdgeAlpha = 0.40f,
+            Tracking = 1.2f,
+            UpperHeadings = false,
+            IconGlow = 0.7f,
+            AccentPlaceholders = false,
+            RoundPills = true,
+            Grid = false,       // сетка — примета прибора, не романа
+            Scanlines = false,
+            Vignette = true,
+            Glow = true,
+        };
+
         /// <summary>Тема по имени. Неизвестное имя — это тема по умолчанию, а
         /// не пустой экран: опечатка в манифесте не должна ронять оболочку.</summary>
         public static LvnTheme ByName(string name)
@@ -188,6 +233,7 @@ namespace Lvn.UI
             {
                 case "cyber":
                 case "cyberpunk": return Cyber();
+                case "romance": return Romance();
                 default: return Midnight();
             }
         }

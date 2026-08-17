@@ -95,6 +95,7 @@ namespace Lvn.UI.Screens
             header.Add(back);
 
             var title = new Label("Галерея");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -257,6 +258,7 @@ namespace Lvn.UI.Screens
             cell.style.marginRight = Length.Percent(1.5f);
             cell.style.marginBottom = 12;
             cell.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(cell);
             cell.style.overflow = Overflow.Hidden;
             Round(cell, LvnTokens.RadiusSm);
             cell.style.borderTopWidth = 1;
@@ -307,6 +309,7 @@ namespace Lvn.UI.Screens
                 // Locked: keep the art dark (never load it) and stamp a lock + "???".
                 art.style.opacity = 0.18f;
                 art.style.backgroundColor = LvnTokens.SurfaceHi;
+                LvnChrome.Edge(art);
 
                 var lockL = LvnIcons.Make(LvnIcon.Lock, 36f, LvnTokens.TextDim);
                 lockL.style.position = Position.Absolute;

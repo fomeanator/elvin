@@ -62,11 +62,13 @@ namespace Lvn.UI.Screens
             sheet.style.bottom = Length.Percent(8f);
             sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
             Round(sheet, _radius + 4f);
+            LvnChrome.Edge(sheet);
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
             Add(sheet);
 
             var title = new Label(_cfg.title ?? "Settings");
+            LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = 36;
             title.style.marginBottom = 14;

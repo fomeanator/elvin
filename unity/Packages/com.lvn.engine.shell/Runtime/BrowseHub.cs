@@ -65,7 +65,8 @@ namespace Lvn.UI.Screens
         private readonly Label _collectionTitle;
         private readonly ScrollView _collectionList;
         private readonly VisualElement _detailImage;
-        private readonly Label _detailTitle, _detailDesc;
+        private readonly Label _detailTitle, _detailDesc, _detailBigTitle, _detailSubtitle;
+        private readonly VisualElement _detailChips;
         private readonly Button _detailPlay;
 
         private readonly Dictionary<string, LvnTitle> _titles = new Dictionary<string, LvnTitle>();
@@ -215,14 +216,66 @@ namespace Lvn.UI.Screens
             _detailImage.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             _detailImage.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             _detailImage.style.marginBottom = 16;
+            _detailImage.style.overflow = Overflow.Hidden;
+            _detailImage.style.justifyContent = Justify.FlexEnd;
+            // Затемнение под подписью: белый заголовок обязан читаться на любой
+            // обложке, включая светлую.
+            var dScrim = new VisualElement { pickingMode = PickingMode.Ignore };
+            dScrim.style.position = Position.Absolute;
+            dScrim.style.left = 0; dScrim.style.right = 0; dScrim.style.bottom = 0;
+            dScrim.style.height = Length.Percent(55f);
+            dScrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.02f), new Color(0f, 0f, 0f, 0.85f));
+            _detailImage.Add(dScrim);
+            // КРУПНОЕ название на самой обложке. Раньше имя новеллы жило только
+            // в узкой строке возврата мелким кеглем, и экран открывался
+            // безымянным: картинка, абзац и кнопка.
+            var dCap = new VisualElement { pickingMode = PickingMode.Ignore };
+            dCap.style.paddingLeft = 20; dCap.style.paddingRight = 20; dCap.style.paddingBottom = 16;
+            _detailBigTitle = new Label(string.Empty);
+            _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = 40;
+            _detailBigTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _detailBigTitle.style.whiteSpace = WhiteSpace.Normal;
+            _detailBigTitle.style.letterSpacing = _theme.Tracking;
+            dCap.Add(_detailBigTitle);
+            _detailSubtitle = new Label(string.Empty);
+            _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = 20;
+            _detailSubtitle.style.whiteSpace = WhiteSpace.Normal;
+            _detailSubtitle.style.marginTop = 4;
+            dCap.Add(_detailSubtitle);
+            _detailImage.Add(dCap);
             _detailView.Add(_detailImage);
+
+            // Описание — В ПАНЕЛИ, а не голым абзацем на фоне. Пустое место под
+            // коротким текстом тогда читается как поле панели, а не как дыра.
+            var dBody = new VisualElement();
+            dBody.style.flexGrow = 1;
+            dBody.style.backgroundColor = _card;
+            dBody.style.paddingLeft = 18; dBody.style.paddingRight = 18;
+            dBody.style.paddingTop = 16; dBody.style.paddingBottom = 16;
+            Round(dBody, _radius);
+            Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
             _detailDesc.style.color = _text; _detailDesc.style.fontSize = 24;
             _detailDesc.style.whiteSpace = WhiteSpace.Normal;
-            _detailDesc.style.flexGrow = 1;
-            _detailView.Add(_detailDesc);
+            dBody.Add(_detailDesc);
+            _detailView.Add(dBody);
+
+            // Действие и цена в один ряд: стоимость рядом с кнопкой, а не
+            // спрятана в её надписи.
+            var dActions = new VisualElement();
+            dActions.style.flexDirection = FlexDirection.Row;
+            dActions.style.alignItems = Align.Center;
+            dActions.style.marginTop = 14;
             _detailPlay = AccentButton(_cfg.play_text ?? "Играть", () => _ = PlayTappedAsync());
-            _detailView.Add(_detailPlay);
+            _detailPlay.style.flexGrow = 1;
+            _detailPlay.style.marginTop = 0;
+            dActions.Add(_detailPlay);
+            _detailChips = new VisualElement();
+            _detailChips.style.flexDirection = FlexDirection.Row;
+            _detailChips.style.alignItems = Align.Center;
+            _detailChips.style.marginLeft = 12;
+            dActions.Add(_detailChips);
+            _detailView.Add(dActions);
             Add(_detailView);
 
             // Keep the top-bar balances live with the wallet while on screen.
@@ -358,7 +411,11 @@ namespace Lvn.UI.Screens
             _detailTarget = t;
             _detailFrom = from;
             _detailTitle.text = t.name ?? t.id;
+            _detailBigTitle.text = _theme.Heading(t.name ?? t.id);
             var art = t.card;
+            _detailSubtitle.text = t.subtitle ?? "";
+            _detailSubtitle.style.display = string.IsNullOrEmpty(t.subtitle)
+                ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
             var img = art?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(img)) _ = ScreenUi.AssignBgAsync(_detailImage, img, _assets);
@@ -366,6 +423,10 @@ namespace Lvn.UI.Screens
             _detailPlay.SetEnabled(!locked);
             _detailPlay.text = locked ? (_cfg.locked_text ?? "Закрыто")
                 : PlayLabel(t);
+            _detailChips.Clear();
+            if (locked) _detailChips.Add(Chip(null, _dim, LvnIcon.Lock));
+            else if (t.cost != null && t.cost.amount > 0)
+                _detailChips.Add(Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy));
             ShowView(_detailView);
         }
 
@@ -997,13 +1058,7 @@ namespace Lvn.UI.Screens
         /// <summary>Светящаяся кромка по контуру — подпись технической темы.
         /// У темы без неё (EdgeWidth = 0) не делает ничего, поэтому вызывать
         /// можно безусловно.</summary>
-        private void Edge(VisualElement el)
-        {
-            if (el == null || _theme.EdgeWidth <= 0f) return;
-            float w = _theme.EdgeWidth;
-            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
-            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
-            SetBorderColor(el, _theme.EdgeColor);
-        }
+        private void Edge(VisualElement el, float strength = 1f)
+            => LvnChrome.Edge(el, strength);
     }
 }

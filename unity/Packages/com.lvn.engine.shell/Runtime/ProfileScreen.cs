@@ -138,6 +138,7 @@ namespace Lvn.UI.Screens
             top.Add(back);
 
             var title = new Label("Профиль");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -177,6 +178,7 @@ namespace Lvn.UI.Screens
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
             card.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(card);
             Round(card, LvnTokens.Radius);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
@@ -281,6 +283,7 @@ namespace Lvn.UI.Screens
             tile.style.marginRight = 8;
             tile.style.alignItems = Align.Center;
             tile.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(tile);
             Round(tile, LvnTokens.RadiusSm);
             tile.style.paddingTop = 16;
             tile.style.paddingBottom = 16;
@@ -364,6 +367,7 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             row.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(row);
             Round(row, LvnTokens.RadiusSm);
             row.style.paddingTop = 14;
             row.style.paddingBottom = 14;
@@ -462,7 +466,7 @@ namespace Lvn.UI.Screens
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.marginTop = 8;
             lbl.style.marginBottom = 10;
-            return lbl;
+            return LvnChrome.Heading(lbl);
         }
 
         private static string Shorten(string id)

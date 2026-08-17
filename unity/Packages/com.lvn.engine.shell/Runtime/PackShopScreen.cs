@@ -103,6 +103,7 @@ namespace Lvn.UI.Screens
             top.Add(back);
 
             var title = new Label("Магазин");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -217,6 +218,7 @@ namespace Lvn.UI.Screens
             card.style.alignItems = Align.Center;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             Round(card, LvnTokens.Radius);
+            LvnChrome.Edge(card);
             card.style.marginBottom = pack.Best ? 12 : 9;
             card.style.paddingTop = pack.Best ? 14 : 11;
             card.style.paddingBottom = pack.Best ? 14 : 11;
