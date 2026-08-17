@@ -1000,8 +1000,20 @@ func stripLineComment(s string) string {
 	return s
 }
 
-var reFuncDef = regexp.MustCompile(`^\s*func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{\s*$`)
-var reCall = regexp.MustCompile(`^\s*(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*)\s*\((.*)\)\s*$`)
+// БУКВЫ ЛЮБОГО АЛФАВИТА, а не только латиница. Раньше здесь стояло
+// [A-Za-z_]\w*, и это давало худший вид отказа — молчаливый: объявление
+// `func врагплан()` компилятор принимал, а ВЫЗОВ `врагплан()` не узнавал и
+// превращал в РЕПЛИКУ. Игрок видел на экране строку «врагплан()», а функция
+// не выполнялась. Тем же способом молча отвалились аура_кнопки, аура_свет,
+// враг_окрас и ещё четыре — их метки годами значились «недостижимыми», и это
+// принимали за шум.
+//
+// Язык задуман для авторов, пишущих по-русски: переменные с кириллицей
+// работали всегда, и запрет именно на имена функций был случайностью, а не
+// решением.
+var identPat = `[\p{L}_][\p{L}\p{N}_]*`
+var reFuncDef = regexp.MustCompile(`^\s*func\s+(` + identPat + `)\s*\(([^)]*)\)\s*\{\s*$`)
+var reCall = regexp.MustCompile(`^\s*(?:(` + identPat + `)\s*=\s*)?(` + identPat + `)\s*\((.*)\)\s*$`)
 
 var reReturnExpr = regexp.MustCompile(`^return\s+(.+)$`)
 
@@ -2389,15 +2401,17 @@ func firstField(line string) string {
 	return line
 }
 
-// isIdentWord reports whether s is a plain identifier ([A-Za-z_][A-Za-z0-9_]*).
+// isIdentWord reports whether s is a plain identifier: буква любого алфавита
+// или подчёркивание, дальше буквы, цифры и подчёркивания. Проверка идёт по
+// РУНАМ, а не по байтам: кириллическая буква занимает два байта, и побайтовый
+// обход считал её «не буквой».
 func isIdentWord(s string) bool {
 	if s == "" {
 		return false
 	}
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		alpha := c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-		if !alpha && (i == 0 || c < '0' || c > '9') {
+	for i, c := range s {
+		alpha := c == '_' || unicode.IsLetter(c)
+		if !alpha && (i == 0 || !unicode.IsDigit(c)) {
 			return false
 		}
 	}

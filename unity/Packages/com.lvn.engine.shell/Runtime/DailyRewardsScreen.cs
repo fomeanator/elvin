@@ -108,6 +108,7 @@ namespace Lvn.UI.Screens
             header.Add(titleCol);
 
             var title = new Label("Ежедневная награда");
+            LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -250,6 +251,7 @@ namespace Lvn.UI.Screens
             {
                 case State.Today:
                     cell.style.backgroundColor = LvnTokens.SurfaceHi;
+                    LvnChrome.Edge(cell);
                     cell.style.borderLeftWidth = 2;
                     cell.style.borderRightWidth = 2;
                     cell.style.borderTopWidth = 2;
@@ -258,11 +260,13 @@ namespace Lvn.UI.Screens
                     break;
                 case State.Claimed:
                     cell.style.backgroundColor = LvnTokens.Surface;
+                    LvnChrome.Edge(cell);
                     cell.style.opacity = 0.5f;
                     ClearBorder(cell);
                     break;
                 default: // Future
                     cell.style.backgroundColor = LvnTokens.Surface;
+                    LvnChrome.Edge(cell);
                     cell.style.borderLeftWidth = 1;
                     cell.style.borderRightWidth = 1;
                     cell.style.borderTopWidth = 1;

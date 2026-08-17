@@ -768,3 +768,44 @@ anim id=hero prop=alpha to=0.5 dur=2
 		t.Fatalf("числовая цель потеряна: %s", raw)
 	}
 }
+
+// Имя функции по-русски. Раньше объявление принималось, а ВЫЗОВ не узнавался и
+// молча становился репликой: игрок видел на экране «врагплан()», функция не
+// выполнялась, а её метка годами числилась недостижимой и принималась за шум.
+// Худший вид отказа — тот, который выглядит как работающий код.
+func TestConvertAcceptsCyrillicFunctionNames(t *testing.T) {
+	doc, err := Convert(`
+scene рус
+func подсчёт(х) {
+  итог = х * 2
+  return итог
+}
+
+:старт
+подсчёт(3)
+всего = подсчёт(4)
+`)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+	raw, _ := json.Marshal(doc.Script)
+	var cmds []map[string]any
+	json.Unmarshal(raw, &cmds)
+
+	for _, c := range cmds {
+		if c["op"] == "say" && strings.Contains(fmt.Sprint(c["text"]), "подсчёт") {
+			t.Fatalf("вызов стал репликой: %s", raw)
+		}
+	}
+	var calls int
+	for _, c := range cmds {
+		if c["op"] == "call" || c["op"] == "goto" {
+			if strings.Contains(fmt.Sprint(c), "подсчёт") {
+				calls++
+			}
+		}
+	}
+	if calls < 2 {
+		t.Fatalf("оба вызова должны компилироваться в переходы, найдено %d: %s", calls, raw)
+	}
+}
