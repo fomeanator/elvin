@@ -26,7 +26,9 @@ namespace Sandbox
     {
         // ПОСЛЕ загрузки сцены, а не до: объект, созданный до неё, погибает
         // вместе с её загрузкой, и Start у него не доживает.
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        // ВИТРИНА ВЫКЛЮЧЕНА: она рисуется поверх приложения и перекрывает
+        // собой игру. Включать точечно, когда нужно посмотреть на тему, —
+        // вернуть [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)].
         private static void Boot()
         {
             var go = new GameObject("CyberHub");
