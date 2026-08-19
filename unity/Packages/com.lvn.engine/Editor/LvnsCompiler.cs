@@ -80,6 +80,12 @@ namespace Lvn.Editor
             ["voice"] = "voice-over attaches to the following line, which needs cross-line state",
             ["defanim"] = "named animations need a definition table",
             ["play"] = "it expands a `defanim` definition, which this importer does not keep",
+            // `ui` — блок с вложенным деревом и своими правилами счёта скобок
+            // (их полно внутри «…» и "…"). Этот импортёр разбирает строку за
+            // строкой и такого не умеет. Объявлено ЯВНО: иначе строка «ui бой {»
+            // ушла бы в наррацию и напечаталась игроку — ровно тот молчаливый
+            // отказ, ради которого страж и стоит.
+            ["ui"] = "it is a nested block with its own brace rules; this line-by-line importer cannot parse it",
         };
 
         /// <summary>Compile source to indented .lvn JSON ({scene?, script}).</summary>
