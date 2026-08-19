@@ -77,6 +77,7 @@ namespace Lvn
         {
             "bg", "bg3d", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
+            "ui",
             "hint", "save", "clear", "fx", "sfx",
         };
 
@@ -263,6 +264,11 @@ namespace Lvn
             _script = doc.Script;
             _scene = doc.Scene; // only ever read back in a diagnostic message
             _stage = stage;
+            // Сцена получает доступ к истории СРАЗУ: оператору `ui` нужны живые
+            // значения переменных и прыжок по нажатию, а искать их потом по
+            // хостам значило бы требовать настройки от каждого, кто встраивает
+            // движок.
+            _stage?.BindStory(() => Vars, GoTo);
             for (int i = 0; i < _script.Count; i++)
             {
                 if (_script[i] is JObject c && (string)c["op"] == "label")

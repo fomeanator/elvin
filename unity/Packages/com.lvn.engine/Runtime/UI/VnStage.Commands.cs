@@ -162,6 +162,65 @@ namespace Lvn.UI
         // A script-driven `anim` command: deserialize its LvnAnim payload and play
         // it on the named channel (default "script") of an already-shown entity, so
         // .lvns can tween any prop/layer or move a sprite along a path live.
+        // ── ui: дерево интерфейса ───────────────────────────────────────────
+        //
+        // Слой создаётся при первом же `ui` и живёт до конца главы. Он лежит
+        // НАД сценой и ПОД окном диалога: игровой интерфейс должен перекрывать
+        // фон и актёров, но не реплику.
+        private LvnUiLayer _uiLayer;
+
+        private void ApplyUi(JObject cmd)
+        {
+            if (_uiLayer == null)
+            {
+                // Хозяин слоя — тот же корень, где живут метки оператора
+                // `text`: игровой интерфейс должен лежать НАД сценой и ПОД
+                // окном диалога, а метки уже стоят ровно там.
+                var host = _labelLayer ?? _uiRoot;
+                if (host == null) return;
+                _uiLayer = new LvnUiLayer(
+                    host,
+                    () => UiVars,
+                    label => UiGoTo?.Invoke(label),
+                    LoadUiImageAsync);
+            }
+            _uiLayer.Apply(cmd);
+        }
+
+        /// <summary>Переменные истории — для живых значений в `ui`. Ставит
+        /// ИГРОК при создании (см. BindStory), а не хост: иначе каждый, кто
+        /// встраивает движок, обязан был бы про это помнить.</summary>
+        public System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> UiVarsProvider;
+
+        /// <inheritdoc/>
+        public void BindStory(System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> vars,
+                              System.Action<string> goTo)
+        {
+            UiVarsProvider = vars;
+            UiGoTo = goTo;
+        }
+        private System.Collections.Generic.IReadOnlyDictionary<string, JToken> UiVars
+            => UiVarsProvider != null ? UiVarsProvider() : null;
+        /// <summary>Прыжок по нажатию на элемент `ui` — тот же путь, что у
+        /// on_click у obj.</summary>
+        public System.Action<string> UiGoTo;
+        /// <summary>Откуда брать картинки для `image`.</summary>
+        public ILvnAssets UiAssets;
+
+        // Загрузка своим путём, а не помощником оболочки: слой живёт в ДВИЖКЕ,
+        // а оболочка — пакет над ним. Тянуть её сюда значило бы перевернуть
+        // зависимость и лишить движок права работать без неё.
+        private async System.Threading.Tasks.Task LoadUiImageAsync(VisualElement el, string url)
+        {
+            if (el == null || string.IsNullOrEmpty(url) || UiAssets == null) return;
+            try
+            {
+                var sprite = await UiAssets.LoadSpriteAsync(url, default);
+                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
+            }
+            catch { /* картинки нет — элемент остаётся пустым, экран не падает */ }
+        }
+
         private void ApplyAnim(JObject cmd)
         {
             var id = (string)cmd["id"];
@@ -198,6 +257,7 @@ namespace Lvn.UI
                 case "actor": _ = ApplyActorAsync(command); break;
                 case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
                 case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
+                case "ui": ApplyUi(command); break;  // дерево интерфейса из сценария
                 case "anim": ApplyAnim(command); break; // script-driven tween / path
                 case "fade": ApplyFade(command); break;
                 case "dim": ApplyDim(command); break;
