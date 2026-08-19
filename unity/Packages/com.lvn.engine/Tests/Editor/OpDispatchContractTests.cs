@@ -57,6 +57,9 @@ namespace Lvn.Tests
             { "particles", "{\"op\":\"particles\",\"type\":\"rain\",\"on\":true}" },
             { "anim", "{\"op\":\"anim\",\"id\":\"a\",\"anim\":\"wave\"}" },
             { "clear", "{\"op\":\"clear\"}" },
+            // Дерево интерфейса. Проба нарочно с ВЛОЖЕННЫМ узлом: пустое дерево
+            // прошло бы и через сломанный разбор детей.
+            { "ui", "{\"op\":\"ui\",\"id\":\"t\",\"tree\":{\"kind\":\"panel\",\"children\":[{\"kind\":\"text\",\"text\":\"x\"}]}}" },
             { "fx", "{\"op\":\"fx\",\"vignette\":0.3}" },
             { "sfx", "{\"op\":\"sfx\",\"id\":\"a\",\"glow\":0.5}" },
             { "text_pace", "{\"op\":\"text_pace\",\"cps\":30}" },

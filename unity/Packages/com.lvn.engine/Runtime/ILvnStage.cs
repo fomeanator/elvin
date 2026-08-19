@@ -30,6 +30,17 @@ namespace Lvn
         /// </summary>
         void ApplyStage(JObject command);
 
+        /// <summary>
+        /// Даёт сцене доступ к истории: чтение переменных и прыжок по метке.
+        ///
+        /// <para>Нужно оператору <c>ui</c>: его привязки (<c>«{хп} из {макс}»</c>)
+        /// пересчитываются на живых значениях, а нажатие на кнопку прыгает на
+        /// метку. Реализация по умолчанию пуста — сцены, которым это не нужно,
+        /// не обязаны ничего знать.</para>
+        /// </summary>
+        void BindStory(System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> vars,
+                       System.Action<string> goTo) { }
+
         /// <summary>The script reached its end (<c>__end</c> or ran off the tail).</summary>
         void OnEnd();
     }
