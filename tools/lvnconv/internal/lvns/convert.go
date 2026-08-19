@@ -25,6 +25,7 @@ type Doc struct {
 }
 
 var KnownOps = map[string]bool{
+	"ui": true,
 	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
 	// A bare `clear` on its own line takes the whole cast off stage. It needs no
 	// parse branch of its own — the generic fieldless path below turns a known
@@ -115,6 +116,12 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 	// пропустить нельзя: строка ушла бы в наррацию и напечаталась игроку.
 	if err := strayInclude(strings.Split(src, "\n")); err != nil {
 		return nil, err
+	}
+	// `ui`-блоки вынимаются ПЕРВЫМИ: их фигурные скобки не имеют отношения к
+	// управляющим конструкциям, и общие проходы приняли бы их за незакрытый if.
+	src, uiBlocks, uiErr := extractUiBlocks(src)
+	if uiErr != nil {
+		return nil, uiErr
 	}
 	flat := flattenInline(src)
 	funcs, err := collectFuncs(flat)
@@ -269,6 +276,29 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			if expanded != line {
 				line, lines[i] = expanded, expanded
 			}
+		}
+
+		// 0b. `ui <имя> { … }` — дерево интерфейса. Разбирается ЦЕЛИКОМ здесь,
+		// до общего разбора строк: внутри блока лежат слова элементов (panel,
+		// row, text), и общий разбор принял бы их за наррацию и напечатал бы
+		// игроку.
+		if strings.HasPrefix(line, "ui#") {
+			var n int
+			if _, serr := fmt.Sscanf(line, "ui#%d", &n); serr != nil || n < 0 || n >= len(uiBlocks) {
+				return nil, fmt.Errorf("line %d: ui: внутренняя метка %q потерялась", srcNo[i], line)
+			}
+			doc.Script = append(doc.Script, uiBlocks[n])
+			i++
+			continue
+		}
+		if line == "ui" || strings.HasPrefix(line, "ui ") {
+			cmd, next, uerr := parseUiCommand(lines, srcNo, i)
+			if uerr != nil {
+				return nil, uerr
+			}
+			doc.Script = append(doc.Script, cmd)
+			i = next
+			continue
 		}
 
 		// 1. Directives: scene
