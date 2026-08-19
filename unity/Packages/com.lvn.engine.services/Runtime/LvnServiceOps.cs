@@ -99,6 +99,45 @@ namespace Lvn.Services
             // времени, а значит кто-то обязан ждать.
             LvnOps.Register("net_get", (cmd, ctx) => { ctx.Hold(); _ = NetGetAsync(cmd, ctx); });
 
+            // ext net_rng — ОДИН ПОТОК СЛУЧАЙНОСТИ НА ВСЮ КОМНАТУ.
+            //
+            // Приём из сетевых игр девяностых: не пересылать случайные числа, а
+            // договориться о ЗЕРНЕ. Дальше оба клиента тянут одни и те же числа
+            // в одном порядке, и по проводу не идёт ни одного лишнего байта —
+            // случайность перестаёт быть источником расхождения.
+            //
+            // Зерно раздаёт комната при входе, поэтому оп без аргументов: он
+            // просто берёт зерно стола и перезапускает с него общий поток.
+            LvnOps.Register("net_rng", (cmd, ctx) =>
+            {
+                if (!LvnNetRoom.InRoom || LvnNetRoom.Seed == 0UL)
+                {
+                    ctx.Vars["net_error"] = "не в комнате";
+                    return;
+                }
+                LvnExpression.Random = new LvnRandom(LvnNetRoom.Seed);
+                ctx.Vars["net_seed"] = LvnNetRoom.Seed.ToString();
+                ctx.Vars["net_error"] = "";
+            });
+
+            // ext net_check key="сверка:3" — СТОРОЖ РАСХОЖДЕНИЯ.
+            //
+            // Общий поток спасает от случайности, но не от всего: разные
+            // стартовые числа или несимметричное правило всё равно разведут
+            // клиентов, и разведут МОЛЧА — каждый будет уверен в своей картине.
+            // Старые игры на этот случай раз в несколько ходов сверяли
+            // контрольную сумму и честно объявляли рассинхрон, вместо того
+            // чтобы дать партии тихо превратиться в две разные.
+            //
+            // Здесь сверяется отпечаток: зерно, число сделанных бросков и то,
+            // что автор сам считает важным (value_var). Разошлось — net_desync
+            // становится 1, и сценарий решает, что с этим делать.
+            LvnOps.Register("net_check", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                _ = NetCheckAsync(cmd, ctx);
+            });
+
             LvnOps.Register("net_leave", (cmd, ctx) => LvnNetRoom.Leave());
 
             LvnOps.Register("track", (cmd, ctx) =>
@@ -207,11 +246,43 @@ namespace Lvn.Services
             return s == "0" || s == "false" || s == "no" || s == "off" || s == "нет";
         }
 
+
+        private static async System.Threading.Tasks.Task NetCheckAsync(JObject cmd, ILvnOpContext ctx)
+        {
+            string key = Arg(cmd, "key", ctx.Vars);
+            if (string.IsNullOrEmpty(key)) key = "сверка";
+            try
+            {
+                var rng = LvnExpression.Random;
+                // Отпечаток состояния: зерно, позиция потока и добавка автора.
+                string mine = rng.Seed + ":" + rng.Draws + ":" + Packed(cmd, "value", ctx.Vars);
+                if (!await LvnNetRoom.PutAsync(key, mine, "all"))
+                {
+                    ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
+                    return;
+                }
+                var others = await LvnNetRoom.GetAsync(key, true);
+                if (others == null)
+                {
+                    ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
+                    return;
+                }
+                bool same = true;
+                foreach (var kv in others) if (kv.Value != mine) same = false;
+                ctx.Vars["net_desync"] = same ? 0 : 1;
+                ctx.Vars["net_error"] = "";
+                if (!same)
+                    UnityEngine.Debug.LogWarning($"[lvn-net] РАССИНХРОН на «{key}»: у меня {mine}");
+            }
+            finally { ctx.Resume(); }
+        }
+
         private static void NetState(ILvnOpContext ctx, bool ok)
         {
             ctx.Vars["net_code"] = ok ? LvnNetRoom.Code : "";
             ctx.Vars["net_seat"] = ok ? LvnNetRoom.Seat : "";
             ctx.Vars["net_seats"] = LvnNetRoom.Seats;
+            ctx.Vars["net_seed"] = LvnNetRoom.Seed.ToString();
             ctx.Vars["net_error"] = ok ? "" : (LvnNetRoom.LastError ?? "нет связи");
         }
 

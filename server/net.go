@@ -65,7 +65,19 @@ type netCell struct {
 }
 
 type netRoom struct {
-	code  string
+	code string
+	// ЗЕРНО СЛУЧАЙНОСТИ комнаты. Раздаётся всем, кто сел, и никогда не
+	// меняется. Нужно затем, что детерминированность — слишком дорогая цена
+	// за сетевую игру: правила без единого случайного числа писать больно.
+	//
+	// Приём древний и проверенный: пусть у всех будет ОДИН И ТОТ ЖЕ поток
+	// псевдослучайных чисел. Тогда «случайность» перестаёт быть источником
+	// расхождения — оба клиента вытянут одни и те же числа в одном порядке,
+	// и по проводу не пойдёт ни одного лишнего байта.
+	//
+	// Зерно даёт сервер, а не код комнаты: код короткий и его диктуют вслух,
+	// то есть будущие броски можно было бы предсказать заранее.
+	seed uint64
 	seats map[string]*netSeat
 	order []string // места в порядке входа: "кто первый сел"
 	cells map[string]*netCell
@@ -111,6 +123,7 @@ func (s *NetService) handleCreate(w http.ResponseWriter, r *http.Request) {
 	code := s.freeCodeLocked()
 	room := &netRoom{
 		code:   code,
+		seed:   randomSeed(),
 		seats:  map[string]*netSeat{},
 		cells:  map[string]*netCell{},
 		seen:   time.Now(),
@@ -120,7 +133,8 @@ func (s *NetService) handleCreate(w http.ResponseWriter, r *http.Request) {
 	seat := room.addSeatLocked()
 	log.Printf("[net] комната %s открыта", code)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"code": code, "seat": seat.id, "token": seat.token, "seats": len(room.seats),
+		"code": code, "seat": seat.id, "token": seat.token,
+		"seats": len(room.seats), "seed": room.seed,
 	})
 }
 
@@ -141,7 +155,8 @@ func (s *NetService) handleJoin(w http.ResponseWriter, r *http.Request, code str
 	room.touchLocked()
 	log.Printf("[net] в комнату %s сел %s", code, seat.id)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"code": code, "seat": seat.id, "token": seat.token, "seats": len(room.seats),
+		"code": code, "seat": seat.id, "token": seat.token,
+		"seats": len(room.seats), "seed": room.seed,
 	})
 }
 
@@ -425,6 +440,16 @@ func randomCode(n int) string {
 		b[i] = netAlphabet[k.Int64()]
 	}
 	return string(b)
+}
+
+// randomSeed — 64 бита из криптографического источника. Не time.Now(): две
+// комнаты, открытые в одну миллисекунду, получили бы одинаковые броски.
+func randomSeed() uint64 {
+	n, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 64))
+	if err != nil {
+		return 0x9E3779B97F4A7C15
+	}
+	return n.Uint64()
 }
 
 func randomToken() string {
