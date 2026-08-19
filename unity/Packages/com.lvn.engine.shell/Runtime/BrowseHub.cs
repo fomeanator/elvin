@@ -140,9 +140,9 @@ namespace Lvn.UI.Screens
             profile.Add(avatar);
             var nameCol = new VisualElement();
             _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
-            _playerNameLabel.style.fontSize = 24; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _playerNameLabel.style.fontSize = 36; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             nameCol.Add(_playerNameLabel);
-            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = 17;
+            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = 26;
             nameCol.Add(_playerLevelLabel);
             profile.Add(nameCol);
             topBar.Add(profile);
@@ -175,7 +175,7 @@ namespace Lvn.UI.Screens
             var brand = new VisualElement();
             brand.style.marginTop = 2; brand.style.marginBottom = 20;
             var eyebrow = new Label((_cfg.subtitle ?? "Выбери путь").ToUpperInvariant());
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = 20;
+            eyebrow.style.color = _accent; eyebrow.style.fontSize = 30;
             eyebrow.style.letterSpacing = 4f; eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             eyebrow.style.marginBottom = 8;
             brand.Add(eyebrow);
@@ -232,13 +232,13 @@ namespace Lvn.UI.Screens
             var dCap = new VisualElement { pickingMode = PickingMode.Ignore };
             dCap.style.paddingLeft = 20; dCap.style.paddingRight = 20; dCap.style.paddingBottom = 16;
             _detailBigTitle = new Label(string.Empty);
-            _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = 40;
+            _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = 60;
             _detailBigTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _detailBigTitle.style.whiteSpace = WhiteSpace.Normal;
             _detailBigTitle.style.letterSpacing = _theme.Tracking;
             dCap.Add(_detailBigTitle);
             _detailSubtitle = new Label(string.Empty);
-            _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = 20;
+            _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = 30;
             _detailSubtitle.style.whiteSpace = WhiteSpace.Normal;
             _detailSubtitle.style.marginTop = 4;
             dCap.Add(_detailSubtitle);
@@ -255,7 +255,7 @@ namespace Lvn.UI.Screens
             Round(dBody, _radius);
             Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
-            _detailDesc.style.color = _text; _detailDesc.style.fontSize = 24;
+            _detailDesc.style.color = _text; _detailDesc.style.fontSize = 36;
             _detailDesc.style.whiteSpace = WhiteSpace.Normal;
             dBody.Add(_detailDesc);
             _detailView.Add(dBody);
@@ -331,14 +331,14 @@ namespace Lvn.UI.Screens
             var ic = LvnIcons.Make(icon, 20f, iconColor, 0f, _theme.IconGlow);
             ic.style.marginRight = 5;
             pill.Add(ic);
-            var amt = new Label(amount); amt.style.color = _text; amt.style.fontSize = 22;
+            var amt = new Label(amount); amt.style.color = _text; amt.style.fontSize = 33;
             amt.style.unityFontStyleAndWeight = FontStyle.Bold;
             pill.Add(amt);
 
             // the "+" — a small accent disc that opens the store
             var plus = new Label("+");
             plus.style.color = _accentText; plus.style.backgroundColor = _accent;
-            plus.style.fontSize = 20; plus.style.unityFontStyleAndWeight = FontStyle.Bold;
+            plus.style.fontSize = 30; plus.style.unityFontStyleAndWeight = FontStyle.Bold;
             plus.style.unityTextAlign = TextAnchor.MiddleCenter;
             plus.style.width = 26; plus.style.height = 26; plus.style.marginLeft = 8;
             Round(plus, 13f);
@@ -556,11 +556,11 @@ namespace Lvn.UI.Screens
             b.style.paddingLeft = 22; b.style.paddingRight = 22; b.style.paddingBottom = 20;
 
             var eyebrow = new Label((resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.featured_text ?? "Рекомендуем")).ToUpperInvariant());
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = 16; eyebrow.style.letterSpacing = 3f;
+            eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
             var title = new Label(t.name ?? t.id);
-            title.style.color = _text; title.style.fontSize = 38; title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.color = _text; title.style.fontSize = 57; title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.whiteSpace = WhiteSpace.Normal; b.Add(title);
 
             var actions = new VisualElement();
@@ -568,7 +568,7 @@ namespace Lvn.UI.Screens
             actions.style.marginTop = 12;
             var play = new Button(() => { if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
             { text = locked ? (_cfg.locked_text ?? "Закрыто") : (resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.play_text ?? "Играть")) };
-            play.style.fontSize = 24; play.style.paddingLeft = 26; play.style.paddingRight = 26;
+            play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
             ClearBorder(play); Round(play, LvnTokens.RadiusSm);
@@ -631,7 +631,7 @@ namespace Lvn.UI.Screens
 
             tab.Add(LvnIcons.Make(icon, 30f, color, 0f, active ? _theme.IconGlow : 0f));
             var lb = new Label(_theme.Heading(label)) { pickingMode = PickingMode.Ignore };
-            lb.style.fontSize = 17; lb.style.color = color; lb.style.marginTop = 5;
+            lb.style.fontSize = 26; lb.style.color = color; lb.style.marginTop = 5;
             lb.style.letterSpacing = _theme.Tracking;
             lb.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
             tab.Add(lb);
@@ -675,7 +675,7 @@ namespace Lvn.UI.Screens
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.marginBottom = 14;
             var title = new Label(_theme.Heading(c.name ?? c.id));
-            title.style.color = _text; title.style.fontSize = 36;
+            title.style.color = _text; title.style.fontSize = 54;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
             head.Add(title);
@@ -686,7 +686,7 @@ namespace Lvn.UI.Screens
             all.style.flexDirection = FlexDirection.Row;
             all.style.alignItems = Align.Center;
             var allText = new Label(_theme.Heading(_cfg.all_text ?? "Все")) { pickingMode = PickingMode.Ignore };
-            allText.style.color = _accent; allText.style.fontSize = 24;
+            allText.style.color = _accent; allText.style.fontSize = 36;
             allText.style.unityFontStyleAndWeight = FontStyle.Bold;
             allText.style.letterSpacing = _theme.Tracking;
             all.Add(allText);
@@ -790,7 +790,7 @@ namespace Lvn.UI.Screens
 
             // title + subtitle, below the poster (Spotify-style)
             var name = new Label(t.name ?? t.id);
-            name.style.color = _text; name.style.fontSize = 24;
+            name.style.color = _text; name.style.fontSize = 36;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
             name.style.marginTop = 12;
@@ -802,7 +802,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(sub))
             {
                 var subLbl = new Label(sub);
-                subLbl.style.color = _dim; subLbl.style.fontSize = 17; subLbl.style.marginTop = 4;
+                subLbl.style.color = _dim; subLbl.style.fontSize = 26; subLbl.style.marginTop = 4;
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
                 subLbl.style.textOverflow = TextOverflow.Ellipsis;
@@ -864,7 +864,7 @@ namespace Lvn.UI.Screens
             top.style.flexDirection = FlexDirection.Row; top.style.justifyContent = Justify.SpaceBetween;
             top.style.alignItems = Align.Center;
             var name = new Label(t.name ?? t.id);
-            name.style.color = _text; name.style.fontSize = 24;
+            name.style.color = _text; name.style.fontSize = 36;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
             if (locked) top.Add(Chip(_cfg.locked_text, _dim, LvnIcon.Lock));
@@ -872,7 +872,7 @@ namespace Lvn.UI.Screens
             col.Add(top);
 
             var desc = new Label(t.card?.description ?? t.subtitle ?? "");
-            desc.style.color = _dim; desc.style.fontSize = 16; desc.style.marginTop = 5;
+            desc.style.color = _dim; desc.style.fontSize = 24; desc.style.marginTop = 5;
             desc.style.whiteSpace = WhiteSpace.Normal;
             desc.style.overflow = Overflow.Hidden;
             col.Add(desc);
@@ -948,7 +948,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(text))
             {
                 var lb = new Label(text) { pickingMode = PickingMode.Ignore };
-                lb.style.color = color; lb.style.fontSize = 20;
+                lb.style.color = color; lb.style.fontSize = 30;
                 chip.Add(lb);
             }
             return chip;
@@ -972,7 +972,7 @@ namespace Lvn.UI.Screens
             bar.style.alignItems = Align.Center;
             bar.style.marginBottom = 14;
             var back = new Button(onBack) { text = _cfg.back_text ?? "‹" };
-            back.style.fontSize = 32; back.style.minWidth = 52;
+            back.style.fontSize = 48; back.style.minWidth = 52;
             back.style.color = _titleColor;
             back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
             ClearBorder(back); Round(back, _radius);
@@ -1000,7 +1000,7 @@ namespace Lvn.UI.Screens
         private Button AccentButton(string text, System.Action onClick)
         {
             var b = new Button(onClick) { text = text };
-            b.style.fontSize = 28;
+            b.style.fontSize = 42;
             b.style.marginTop = 14;
             b.style.paddingTop = 14; b.style.paddingBottom = 14;
             b.style.color = _accentText;
