@@ -36,6 +36,9 @@ namespace Lvn.Services
         public static string Seat { get; private set; }
         /// <summary>Сколько сейчас за столом.</summary>
         public static int Seats { get; private set; }
+        /// <summary>Зерно случайности комнаты — одно на всех, кто в ней сидит.
+        /// Ноль, пока не вошли.</summary>
+        public static ulong Seed { get; private set; }
         /// <summary>Почему не вышло — пусто, если всё хорошо.</summary>
         public static string LastError { get; private set; }
         public static bool InRoom => !string.IsNullOrEmpty(Code) && !string.IsNullOrEmpty(_token);
@@ -160,7 +163,8 @@ namespace Lvn.Services
         /// ходить.</summary>
         public static void Leave()
         {
-            Code = null; Seat = null; _token = null; Seats = 0; _order = new List<string>();
+            Code = null; Seat = null; _token = null; Seats = 0; Seed = 0UL;
+            _order = new List<string>();
         }
 
         // ── низ ─────────────────────────────────────────────────────────────
@@ -178,6 +182,7 @@ namespace Lvn.Services
                 Code = (string)o["code"];
                 Seat = (string)o["seat"];
                 Seats = (int?)o["seats"] ?? 1;
+                Seed = (ulong?)o["seed"] ?? 0UL;
                 _token = (string)o["token"];
                 return InRoom;
             }

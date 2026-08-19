@@ -229,3 +229,38 @@ func TestNetCodeAlphabetIsUnambiguous(t *testing.T) {
 		}
 	}
 }
+
+// Зерно случайности выдаётся комнатой и ОДНО на всех, кто в ней сидит. На нём
+// держится приём из сетевых игр девяностых: не пересылать случайные числа, а
+// договориться о зерне — дальше все тянут одни и те же числа сами.
+func TestNetRoomHandsOutOneSeedToEveryone(t *testing.T) {
+	srv, done := netServer(t)
+	defer done()
+
+	st, room := netCall(t, srv, "POST", "/v1/net/rooms", "", "")
+	if st != http.StatusOK {
+		t.Fatalf("комната не открылась: %d", st)
+	}
+	seed, ok := room["seed"].(float64)
+	if !ok || seed == 0 {
+		t.Fatalf("комната не выдала зерно: %v", room)
+	}
+	code := room["code"].(string)
+
+	_, join := netCall(t, srv, "POST", "/v1/net/rooms/"+code+"/join", "", "")
+	if join["seed"] != seed {
+		t.Fatalf("вошедший получил ДРУГОЕ зерно: %v против %v", join["seed"], seed)
+	}
+}
+
+// Две комнаты — разные зёрна. Иначе, открыв свою, можно было бы предсказать
+// чужие броски.
+func TestNetSeedsDifferPerRoom(t *testing.T) {
+	srv, done := netServer(t)
+	defer done()
+	_, a := netCall(t, srv, "POST", "/v1/net/rooms", "", "")
+	_, b := netCall(t, srv, "POST", "/v1/net/rooms", "", "")
+	if a["seed"] == b["seed"] {
+		t.Fatalf("две комнаты получили одно зерно: %v", a["seed"])
+	}
+}
