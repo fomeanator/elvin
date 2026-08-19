@@ -51,11 +51,11 @@ namespace Lvn.Tests
             var db = new DialogueBox(new VnTheme());
             Assert.AreEqual(24f, Px(db.style.paddingLeft), 0.01f);
             var panel = db.Q<VisualElement>("vn-panel");
-            // 86, а не 128: опорное разрешение панели уменьшено с 1080×1920 до
-            // 720×1280, отчего каждая единица стала в полтора раза крупнее на
-            // экране. Внутриигровые размеры поделены на те же полтора, поэтому
-            // окно физически осталось прежним — сменилось только число.
-            Assert.AreEqual(86f, Px(panel.style.minHeight), 0.01f);
+            // 128 — исходное значение под опорное 1080×1920. Однажды здесь
+            // стояло 86: я сдвинул опорное разрешение, чтобы укрупнить шрифт в
+            // хабе, и поделил внутриигровые размеры. Это сломало вёрстку всех
+            // новелл, написанных под 1080, — опорное вернулось, число тоже.
+            Assert.AreEqual(128f, Px(panel.style.minHeight), 0.01f);
             // ADV (default): no top anchor, panel doesn't grow.
             Assert.AreEqual(StyleKeyword.Null, db.style.top.keyword, "ADV leaves top unset");
         }
