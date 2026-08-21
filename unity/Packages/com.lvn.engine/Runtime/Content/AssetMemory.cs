@@ -1,10 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Lvn.UI
+namespace Lvn.Content
 {
     /// <summary>
     /// РАБОТА С ПАМЯТЬЮ ЗАГРУЖЕННОГО АРТА — один дом на всех поставщиков.
+    ///
+    /// <para>Живёт в слое КОНТЕНТА, а не интерфейса: это про текстуры и кэши.
+    /// Стоял в UI — и загрузчик, лежащий ниже по зависимостям, до него не
+    /// доставал, из-за чего и завёл третью копию уменьшения.</para>
     ///
     /// <para>Уменьшение великоватой текстуры, сборка спрайта и выгрузка кэшей
     /// были продублированы у <c>DirectoryAssets</c> и <c>NetworkAssets</c>
@@ -21,7 +25,11 @@ namespace Lvn.UI
 
         /// <summary>Уменьшить, если больше потолка, и освободить исходную.
         /// Уже влезающую текстуру возвращает как есть.</summary>
-        public static Texture2D DownscaleIfOversized(Texture2D tex, int cap = MaxTextureSize)
+        /// <param name="finalize">Отпустить копию пикселей на процессоре. Ложь
+        /// нужна тем, кто после уменьшения ещё дописывает текстуру сам —
+        /// финализирует вызывающий.</param>
+        public static Texture2D DownscaleIfOversized(Texture2D tex, int cap = MaxTextureSize,
+                                                     bool finalize = true)
         {
             if (tex == null) return null;
             int m = Mathf.Max(tex.width, tex.height);
@@ -37,7 +45,7 @@ namespace Lvn.UI
             RenderTexture.active = rt;
             var small = new Texture2D(w, h, TextureFormat.RGBA32, false);
             small.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-            small.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            small.Apply(updateMipmaps: false, makeNoLongerReadable: finalize);
             RenderTexture.active = prev;
             RenderTexture.ReleaseTemporary(rt);
             Object.Destroy(tex);

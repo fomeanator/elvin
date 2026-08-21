@@ -675,25 +675,6 @@ namespace Lvn.Content
                                   Mathf.Max(1, Mathf.RoundToInt(h * k)));
         }
 
-        // GPU-resample an oversized texture down to the cap and destroy the
-        // original. Returns the input unchanged when it already fits.
-        private static Texture2D DownscaleIfOversized(Texture2D tex, int cap)
-        {
-            var size = FitWithin(tex.width, tex.height, cap);
-            if (size.x == tex.width && size.y == tex.height) return tex;
-            var rt = RenderTexture.GetTemporary(size.x, size.y, 0, RenderTextureFormat.ARGB32);
-            Graphics.Blit(tex, rt);
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var small = new Texture2D(size.x, size.y, TextureFormat.RGBA32, mipChain: false);
-            small.ReadPixels(new Rect(0, 0, size.x, size.y), 0, 0);
-            small.Apply(updateMipmaps: false, makeNoLongerReadable: false); // caller finalizes
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-            UnityEngine.Object.Destroy(tex);
-            return small;
-        }
-
         // PNG/JPG decode OFF the main thread. UnityWebRequestTexture's native
         // DownloadHandlerTexture buffers, decompresses and creates the texture
         // on a worker thread — unlike Texture2D.LoadImage, which blocks the
@@ -795,8 +776,9 @@ namespace Lvn.Content
                 // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
                 // even desktop/WebGL must not upload a raw 8K Spine page. Cap
                 // the longest side and let the GPU resample once at load.
-                tex = DownscaleIfOversized(tex,
-                    Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize);
+                tex = AssetMemory.DownscaleIfOversized(tex,
+                    Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize,
+                    finalize: false);   // финализирует вызывающий, ниже
                 tex.wrapMode   = TextureWrapMode.Clamp;
                 tex.filterMode = FilterMode.Bilinear;
                 // Nothing reads pixels back — free the CPU copy (halves the

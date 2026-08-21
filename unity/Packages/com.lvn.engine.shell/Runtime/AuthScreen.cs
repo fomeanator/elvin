@@ -106,7 +106,7 @@ namespace Lvn.UI.Screens
 
                 _field = new TextField { maxLength = _maxLength };
                 _field.style.fontSize = 32;
-                StyleField(_field, UiColor.Parse(_cfg.field_color, LvnTokens.Surface), textColor);
+                LvnChrome.Field(_field, UiColor.Parse(_cfg.field_color, LvnTokens.Surface), textColor);
                 _field.RegisterCallback<KeyDownEvent>(e =>
                 {
                     if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Confirm();
@@ -238,21 +238,6 @@ namespace Lvn.UI.Screens
             _status.text = ok
                 ? (_cfg.signed_text ?? "Connected")
                 : (_cfg.offline_text ?? "Offline — progress stays on this device");
-        }
-
-        private static void StyleField(TextField f, Color bg, Color text)
-        {
-            f.style.color = text;
-            var input = f.Q(TextField.textInputUssName);
-            if (input != null)
-            {
-                input.style.backgroundColor = bg;
-                input.style.color = text;
-                input.style.paddingTop = 12;
-                input.style.paddingBottom = 12;
-                input.style.paddingLeft = 14;
-                input.style.paddingRight = 14;
-            }
         }
     }
 }

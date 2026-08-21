@@ -51,6 +51,29 @@ namespace Lvn.UI
             el.style.borderRightWidth = 0;
         }
 
+        /// <summary>
+        /// Поле ввода в тонах темы. Единственное место в игре, которое до сих
+        /// пор выглядело отладочной формой: белая полоса с серой кнопкой
+        /// посреди тёмной сцены.
+        ///
+        /// <para>Красить приходится ВНУТРЕННИЙ элемент поля, а не само поле:
+        /// у TextField своя подложка, и цвет, поставленный снаружи, до неё не
+        /// доходит — именно поэтому «покрасил, а оно белое».</para>
+        /// </summary>
+        public static void Field(TextField f, Color bg, Color text)
+        {
+            if (f == null) return;
+            f.style.color = text;
+            var input = f.Q(TextField.textInputUssName);
+            if (input == null) return;
+            input.style.backgroundColor = bg;
+            input.style.color = text;
+            input.style.paddingTop = LvnTokens.Space2;
+            input.style.paddingBottom = LvnTokens.Space2;
+            input.style.paddingLeft = LvnTokens.Space3;
+            input.style.paddingRight = LvnTokens.Space3;
+        }
+
         /// <summary>Ровная рамка одного цвета и толщины по всем сторонам.</summary>
         public static void Border(VisualElement el, Color color, float width)
         {
