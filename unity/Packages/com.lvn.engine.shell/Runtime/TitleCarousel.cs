@@ -264,8 +264,7 @@ namespace Lvn.UI.Screens
             cover.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             cover.pickingMode = PickingMode.Ignore;
             card.Add(cover);
-            _ = ScreenUi.AssignBgAsync(cover, t?.cover_url, _assets);
-
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(cover, t?.cover_url, _assets), "AssignBg");
             var caption = new VisualElement();
             caption.style.paddingLeft = 18; caption.style.paddingRight = 18;
             caption.style.paddingTop = 14; caption.style.paddingBottom = 18;

@@ -43,7 +43,7 @@ namespace Lvn.UI
         public void RefreshActor(string id)
         {
             if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
-                _ = ApplyActorAsync(cmd);
+                LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
         /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
@@ -67,7 +67,7 @@ namespace Lvn.UI
             {
                 cmd = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center" };
             }
-            _ = ApplyActorAsync(cmd);
+            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
         /// <summary>Ids of actors currently VISIBLE on stage — hosts use it to
@@ -86,10 +86,10 @@ namespace Lvn.UI
         public void HideActor(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
-            _ = ApplyActorAsync(new JObject
+            LvnAsync.Fire(ApplyActorAsync(new JObject
             {
                 ["op"] = "actor", ["id"] = id, ["show"] = false, ["exit"] = "fade",
-            });
+            }), "ApplyActor");
         }
 
         /// <summary>The `clear` op: take every actor and obj off stage in one

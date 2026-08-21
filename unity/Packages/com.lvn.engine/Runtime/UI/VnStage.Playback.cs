@@ -237,7 +237,7 @@ namespace Lvn.UI
             // intro (holding the first beat hostage to 12 decodes read as a
             // multi-second black screen). Spine and the FIRST 3D set do gate:
             // otherwise skeleton/bundle work visibly freezes the first line.
-            _ = WarmUpcomingArtAsync(12);
+            LvnAsync.Fire(WarmUpcomingArtAsync(12), "WarmUpcomingArt");
             try
             {
                 await Task.WhenAll(

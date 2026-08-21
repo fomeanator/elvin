@@ -105,10 +105,10 @@ namespace Lvn.UI.Screens
             Add(_file);
 
             // Static art from the config (async — non-fatal if missing).
-            _ = ScreenUi.AssignBgAsync(_fog, _cfg.fog_url, _assets);
-            _ = ScreenUi.AssignBgAsync(track, _cfg.bar_track_url, _assets);
-            _ = ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets);
-            _ = ScreenUi.AssignBgAsync(frame, _cfg.bar_frame_url, _assets);
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_fog, _cfg.fog_url, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(track, _cfg.bar_track_url, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(frame, _cfg.bar_frame_url, _assets), "AssignBg");
             if (!string.IsNullOrEmpty(_cfg.bg_url)) _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
         }
 

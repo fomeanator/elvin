@@ -138,8 +138,7 @@ namespace Lvn.Content
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var token = _cts.Token;
 
-            _ = RunAsync(required, deferred, token);
-
+            LvnAsync.Fire(RunAsync(required, deferred, token), "Run");
             // Empty set → already "ready"/"complete"; notify synchronously.
             if (RequiredReady) OnRequiredReady?.Invoke();
             if (AllDone) OnAllComplete?.Invoke();

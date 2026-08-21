@@ -225,8 +225,7 @@ namespace Lvn.UI.Screens
             glyph.style.alignSelf = Align.Center;
             art.Add(glyph);
             card.Add(art);
-            _ = ScreenUi.AssignBgAsync(art, pack.Card, _assets);
-
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(art, pack.Card, _assets), "AssignBg");
             // Middle column: amount headline + gold bonus line.
             var col = new VisualElement();
             col.style.flexGrow = 1;

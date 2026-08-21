@@ -76,7 +76,7 @@ namespace Lvn.UI
             if (found && !string.IsNullOrEmpty(picked.WalletCurrency)
                 && picked.WalletAmount > 0 && ChoiceSpend != null)
             {
-                _ = SpendThenChooseAsync(index, picked);
+                LvnAsync.Fire(SpendThenChooseAsync(index, picked), "SpendThenChoose");
                 return;
             }
             CommitChoice(index, found ? picked.Text : null);
@@ -151,7 +151,7 @@ namespace Lvn.UI
                 var gate = EntryGate;
                 if (gate != null && !gate.IsCompleted)
                 {
-                    _ = DeferredFirstSayAsync(gate, who, text, style);
+                    LvnAsync.Fire(DeferredFirstSayAsync(gate, who, text, style), "DeferredFirstSay");
                     return; // the dressed stage waits under the title card
                 }
             }
@@ -163,7 +163,7 @@ namespace Lvn.UI
             // Voice-over: the line's clip starts with its text; the previous line's
             // voice stops (never overlaps). Silent lines just stop the old one.
             if (_audio != null)
-                _ = _audio.PlayVoiceAsync(_player?.CurrentVoiceUrl, Assets, _cts != null ? _cts.Token : default);
+                LvnAsync.Fire(_audio.PlayVoiceAsync(_player?.CurrentVoiceUrl, Assets, _cts != null ? _cts.Token : default), "PlayVoice");
             _lastSayLength = text?.Length ?? 0; // drives the auto-advance reading delay
             _autoRevealDoneAt = -1f;
             _awaitingTap = true;
@@ -219,11 +219,11 @@ namespace Lvn.UI
                 if (_soloHidden.Remove(speakerId) ||
                     (Catalog != null && Catalog.Has(speakerId) && !_placements.ContainsKey(speakerId)))
                 {
-                    _ = ApplyActorAsync(new JObject
+                    LvnAsync.Fire(ApplyActorAsync(new JObject
                     {
                         ["op"] = "actor", ["id"] = speakerId,
                         ["show"] = true, ["enter"] = "fade", ["transition_duration"] = 0.3f,
-                    });
+                    }), "ApplyActor");
                 }
             }
 
@@ -232,11 +232,11 @@ namespace Lvn.UI
                 if (id == speakerId || _soloHidden.Contains(id)) continue;
                 if (!_placements.TryGetValue(id, out var pl) || !pl.Show) continue;
                 _soloHidden.Add(id);
-                _ = ApplyActorAsync(new JObject
+                LvnAsync.Fire(ApplyActorAsync(new JObject
                 {
                     ["op"] = "actor", ["id"] = id,
                     ["show"] = false, ["exit"] = "fade", ["transition_duration"] = 0.3f,
-                });
+                }), "ApplyActor");
             }
         }
 

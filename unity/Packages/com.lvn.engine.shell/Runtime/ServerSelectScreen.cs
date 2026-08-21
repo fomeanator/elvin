@@ -183,11 +183,11 @@ namespace Lvn.UI.Screens
                 row.Add(btn);
                 panel.Add(row);
 
-                _ = ProbeAsync(c.Url, ct).ContinueWith(t =>
+                Lvn.LvnAsync.Fire(ProbeAsync(c.Url, ct).ContinueWith(t =>
                 {
                     if (dot.panel == null) return; // screen already gone
                     dot.style.color = t.Result.ok ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.85f, 0.35f, 0.35f);
-                }, TaskScheduler.FromCurrentSynchronizationContext());
+                }, TaskScheduler.FromCurrentSynchronizationContext()), "ProbeServer");
             }
 
             var customLabel = new Label("Свой сервер (URL до /api)");

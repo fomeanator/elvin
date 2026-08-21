@@ -298,7 +298,7 @@ namespace Lvn.UI.Screens
             _previewName.text = ch.Name;
             var worn = EquippedName(_char, _cat);
             _previewWearing.text = worn != null ? "надето: " + worn : "ничего не надето";
-            _ = ScreenUi.AssignBgAsync(_previewImage, ch.Preview, _assets);
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_previewImage, ch.Preview, _assets), "AssignBg");
         }
 
         // ── character selector ──────────────────────────────────────────────
@@ -326,8 +326,7 @@ namespace Lvn.UI.Screens
                 img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 chip.Add(img);
-                _ = ScreenUi.AssignBgAsync(img, _chars[idx].Preview, _assets);
-
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _chars[idx].Preview, _assets), "AssignBg");
                 chip.AddManipulator(new Clickable(() =>
                 {
                     if (_char == idx) return;
@@ -407,8 +406,7 @@ namespace Lvn.UI.Screens
             thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             thumbWrap.Add(thumb);
-            _ = ScreenUi.AssignBgAsync(thumb, skin.Thumb, _assets);
-
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, skin.Thumb, _assets), "AssignBg");
             // "✓ Надето" ribbon over the thumbnail
             if (equipped)
             {

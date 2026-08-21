@@ -196,7 +196,7 @@ namespace Lvn.UI.Screens
             // переход по ссылке в уже запущенном приложении; отправка идёт
             // ПОСЛЕ регистрации — без сессии сервер не знает, чей это канал.
             Lvn.Services.LvnAttribution.Init();
-            _ = RegisterThenAttributeAsync();
+            LvnAsync.Fire(RegisterThenAttributeAsync(), "RegisterThenAttribute");
             Lvn.Services.LvnServiceOps.RegisterAll(); // ext wallet_earn / leaderboard_submit / … from .lvns
             // has_item / balance / worn в выражениях: ветка за покупку.
             // Читают живое состояние, поэтому ставить их надо до первой главы,
@@ -345,7 +345,7 @@ namespace Lvn.UI.Screens
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = OpenStoreFromScriptAsync(ctx);
+                LvnAsync.Fire(OpenStoreFromScriptAsync(ctx), "OpenStoreFromScript");
             });
 
             // The wardrobe: a quick-menu entry when any character has one (or
@@ -363,7 +363,7 @@ namespace Lvn.UI.Screens
                 ctx.Hold();
                 // Default: the in-story bottom sheet (the live actor is the
                 // mirror). mode=full opens the full-screen overlay instead.
-                _ = OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx);
+                LvnAsync.Fire(OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx), "OpenWardrobeFromScript");
             });
 
             // The app-level settings screen: `ext settings_show` for scripts, and
@@ -393,7 +393,7 @@ namespace Lvn.UI.Screens
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = OpenSettingsFromScriptAsync(ctx);
+                LvnAsync.Fire(OpenSettingsFromScriptAsync(ctx), "OpenSettingsFromScript");
             });
 
             // The long-press art view hides the stage's chrome; mirror it onto the
@@ -706,16 +706,14 @@ namespace Lvn.UI.Screens
             // reads — the next chapter's loading screen is then near-instant,
             // and nothing EVER trickles in on camera. Yields to an active
             // chapter gate so it never steals that bandwidth.
-            _ = WarmLibraryAsync(manifest, destroyCancellationToken);
-
+            LvnAsync.Fire(WarmLibraryAsync(manifest, destroyCancellationToken), "WarmLibrary");
             // The veil OWNS the whole app boot — one continuous surface from
             // the first frame to the first interactive screen. The shell's own
             // boot splash is suppressed (bootSplash: false): a second loading
             // screen under the veil would flash a second bar at the hand-off.
             // The veil walks 60→100% with the real boot-prefetch progress and
             // cross-fades into the menu.
-            _ = DriveBootVeilAsync(prefetch, bootClock);
-
+            LvnAsync.Fire(DriveBootVeilAsync(prefetch, bootClock), "DriveBootVeil");
             // Диплинк В КОНТЕНТ: ссылка вида …?title=cold открывает новеллу
             // сразу, минуя хаб. Шов RequestPlay заведён ровно для этого и до
             // сих пор пустовал. Ссылку, нажатую при уже запущенной игре, ловим
@@ -798,7 +796,7 @@ namespace Lvn.UI.Screens
             _preparedChapter = ch;
             var script = _chapterScript;
             var sched = _chapterSched;
-            _ = WatchChapterWarmAsync(ch, script, sched);
+            LvnAsync.Fire(WatchChapterWarmAsync(ch, script, sched), "WatchChapterWarm");
             // A faulted script task still completes the gate — PlayOneChapterAsync
             // owns the error path (cache fallback / "unavailable offline").
             return () => script.IsCompleted && sched.RequiredReady;
@@ -1024,7 +1022,7 @@ namespace Lvn.UI.Screens
                 if (hub != null)
                 {
                     hub.style.display = DisplayStyle.Flex;
-                    _ = ScreenFx.FadeAsync(hub, 0f, 1f, 0.25f, destroyCancellationToken);
+                    LvnAsync.Fire(ScreenFx.FadeAsync(hub, 0f, 1f, 0.25f, destroyCancellationToken), "Fade");
                 }
             }
         }
@@ -2103,7 +2101,7 @@ namespace Lvn.UI.Screens
         private void OnApplicationPause(bool paused)
         {
             if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
-                _ = SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars));
+                LvnAsync.Fire(SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars)), "SaveScopedVars");
             if (paused) SyncProgressVault();
             // Position too, not just stats — so a suspended app resumes on the same
             // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).

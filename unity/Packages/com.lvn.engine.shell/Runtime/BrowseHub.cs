@@ -365,7 +365,7 @@ namespace Lvn.UI.Screens
         public async Task<LvnTitle> PickTitleAsync(CancellationToken ct = default)
         {
             _globalVars = (GlobalStatsProvider != null ? await GlobalStatsProvider() : null) ?? new JObject();
-            _ = Lvn.Services.LvnWallet.RefreshAsync(); // fresh top-bar balances
+            LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh top-bar balances
             RefreshTopBar();
             ShowHub();
             BuildHubTiles(); // refresh lock states against the latest flags
@@ -762,8 +762,7 @@ namespace Lvn.UI.Screens
                 img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 poster.Add(img);
-                _ = ScreenUi.AssignBgAsync(img, art, _assets);
-
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
             }
             else
             {

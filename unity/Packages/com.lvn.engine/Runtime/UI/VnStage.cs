@@ -183,7 +183,7 @@ namespace Lvn.UI
                 var scene = new World.WorldStage(transform, sortingOrder: 0);
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);
-                _ = ApplyDefaultBackdropAsync(scene); // seamless tiled filler instead of flat black
+                LvnAsync.Fire(ApplyDefaultBackdropAsync(scene), "ApplyDefaultBackdrop"); // seamless tiled filler instead of flat black
             }
             else
             {
@@ -308,7 +308,7 @@ namespace Lvn.UI
             RebuildChrome();
             // Resolve any manifest-driven background-image urls to sprites, then
             // rebuild once more so the dialogue/choices show their skinned panels.
-            _ = EnsureThemeImagesAsync();
+            LvnAsync.Fire(EnsureThemeImagesAsync(), "EnsureThemeImages");
         }
 
         // The default backdrop behind the canvas scene: a seamless texture tiled
@@ -440,7 +440,7 @@ namespace Lvn.UI
             {
                 if (_fontUrlLoading == src) return; // fetch already in flight / done
                 _fontUrlLoading = src;
-                _ = LoadContentFontAsync(src);
+                LvnAsync.Fire(LoadContentFontAsync(src), "LoadContentFont");
                 return;
             }
             Theme.Font = Resources.Load<Font>(src);
@@ -602,9 +602,9 @@ namespace Lvn.UI
         {
             float to = faded ? 0f : 1f;
             if (_dialogue != null)
-                _ = ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+                LvnAsync.Fire(ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default), "Fade");
             if (_choices != null)
-                _ = ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default);
+                LvnAsync.Fire(ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default), "Fade");
             // The story panel OWNS the screen while it's up (the genre rule):
             // the quick-menu chrome hides with the dialogue — no burger over
             // the wardrobe, no half-working Exit under a held story.

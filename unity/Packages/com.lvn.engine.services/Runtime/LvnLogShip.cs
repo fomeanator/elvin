@@ -206,7 +206,7 @@ namespace Lvn.Services
             {
                 if (_dirty) { _dirty = false; Persist(); }
                 if (Time.realtimeSinceStartup - _lastFlush > FlushEverySec && _queue.Count > 0)
-                    _ = FlushAsync();
+                    LvnAsync.Fire(FlushAsync(), "Flush");
             }
 
             private void OnApplicationPause(bool paused)

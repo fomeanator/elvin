@@ -284,8 +284,7 @@ namespace Lvn.UI.Screens
                                 LvnWardrobe.MarkSeen(_entity, kv.Key, it.value);
             RefreshBalances();
             LvnWallet.Changed += OnWalletChanged;
-            _ = LvnWallet.RefreshAsync();
-
+            LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
             _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var reg = ct.Register(() => _tcs.TrySetResult(false));
             try { await _tcs.Task; }
@@ -344,7 +343,7 @@ namespace Lvn.UI.Screens
                     icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
                     icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                     pill.Add(icon);
-                    _ = ScreenUi.AssignBgAsync(icon, iconUrl, _assets);
+                    LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, iconUrl, _assets), "AssignBg");
                 }
                 var label = new Label(amount.ToString("N0") + (iconUrl == null ? " " + cur : ""));
                 label.style.color = _text;
@@ -408,7 +407,7 @@ namespace Lvn.UI.Screens
                     b.text = "";
                     b.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
                     b.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                    _ = ScreenUi.AssignBgAsync(b, slot.icon, _assets);
+                    LvnAsync.Fire(ScreenUi.AssignBgAsync(b, slot.icon, _assets), "AssignBg");
                 }
                 else
                 {
@@ -682,7 +681,7 @@ namespace Lvn.UI.Screens
                 : UiColor.Parse(_ch?.color, new Color(1f, 1f, 1f, 0.07f));
             LvnChrome.Round(b, _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
-                _ = ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0);
+                LvnAsync.Fire(ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0), "ApplyNineSlice");
             else
                 b.style.backgroundImage = new StyleBackground(StyleKeyword.None); // an accent tab drops the art
         }

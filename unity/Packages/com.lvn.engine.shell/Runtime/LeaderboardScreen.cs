@@ -383,8 +383,7 @@ namespace Lvn.UI.Screens
             av.Add(initial);
 
             if (!string.IsNullOrEmpty(e.AvatarUrl))
-                _ = ScreenUi.AssignBgAsync(av, e.AvatarUrl, _assets);
-
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(av, e.AvatarUrl, _assets), "AssignBg");
             return av;
         }
 

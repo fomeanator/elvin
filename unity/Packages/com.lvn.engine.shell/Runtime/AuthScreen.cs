@@ -154,8 +154,8 @@ namespace Lvn.UI.Screens
             _status.pickingMode = PickingMode.Ignore;
             panel.Add(_status);
 
-            _ = ScreenUi.AssignBgAsync(bg, _cfg.bg_url, _assets);
-            _ = ScreenUi.AssignBgAsync(logo, _cfg.logo_url, _assets);
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(bg, _cfg.bg_url, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(logo, _cfg.logo_url, _assets), "AssignBg");
         }
 
         /// <summary>Show the screen, kick the silent device sign-in (its result
@@ -169,7 +169,7 @@ namespace Lvn.UI.Screens
                 var known = Lvn.Services.LvnBackend.DisplayName;
                 _field.value = !string.IsNullOrEmpty(known) ? known : (_cfg.default_name ?? "");
             }
-            _ = DriveStatusAsync();
+            LvnAsync.Fire(DriveStatusAsync(), "DriveStatus");
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.3f, ct);
 
             _tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
