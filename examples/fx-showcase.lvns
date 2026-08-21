@@ -1,0 +1,94 @@
+scene fx-showcase
+
+// Витрина эффектов кадра. Один экран — один эффект во весь рост: в смеси их
+// не различить. Поля `fx` ЛИПКИЕ, поэтому каждый шаг сначала гасит прежнее
+// (`fx off=1`) и лишь потом ставит своё — иначе эффекты копятся друг на друга.
+//
+// Системный слой — по-английски (docs/language-policy.md); подписи для глаз.
+
+now = "без эффекта"
+tell = "Выбери эффект — он ляжет на весь кадр."
+
+bg sprite_url="/content/bg/Двор.jpg"
+-> menu
+
+:menu
+ui shelf layer=hud {
+  panel at=fill {
+    row at=top h=9% pad=3% bg=panel align=center {
+      text «{now}» size=30 color=accent weight=bold
+    }
+    column at=bottom h=46% pad=3% gap=10 {
+      text «{tell}» size=22 color=text
+      row gap=10 h=68 {
+        button «КАРАНДАШ» grow=1 bg=surface color=text radius=12 on_click=show_sketch
+        button «КОМИКС»   grow=1 bg=surface color=text radius=12 on_click=show_halftone
+      }
+      row gap=10 h=68 {
+        button «ЖАРА» grow=1 bg=surface color=text radius=12 on_click=show_heat
+        button «ВОДА» grow=1 bg=surface color=text radius=12 on_click=show_ripple
+      }
+      row gap=10 h=68 {
+        button «ПЫЛЬ»    grow=1 bg=surface color=text radius=12 on_click=show_dust
+        button «ЧЕРНИЛА» grow=1 bg=surface color=text radius=12 on_click=show_ink
+      }
+      button «БЕЗ ЭФФЕКТА» h=68 bg=accent color=on_accent radius=12 on_click=show_none
+    }
+  }
+}
+wait ms=600000
+-> menu
+
+:show_none
+now = "без эффекта"
+tell = "Чистый кадр — с ним и сравнивай."
+fx off=1 dur=0.3
+-> menu
+
+// ── карандаш: воспоминание, флэшбек ────────────────────────────────────────
+:show_sketch
+now = "КАРАНДАШ"
+tell = "Кромки ложатся штрихом, цвет уходит в бумагу."
+fx off=1
+fx sketch=0.9 dur=0.5
+-> menu
+
+// ── комикс: удар, реплика-выкрик ───────────────────────────────────────────
+:show_halftone
+now = "КОМИКС"
+tell = "Печатный растр: точка тем крупнее, чем темнее место."
+fx off=1
+fx halftone=0.85 dur=0.4
+-> menu
+
+// ── жара: пустыня, костёр, полдень ─────────────────────────────────────────
+:show_heat
+now = "ЖАРА"
+tell = "Воздух дрожит у земли и успокаивается кверху."
+fx off=1
+fx heat=1 dur=0.6
+-> menu
+
+// ── вода: сон, отражение, головокружение ───────────────────────────────────
+:show_ripple
+now = "ВОДА"
+tell = "Круги расходятся из точки shock_x / shock_y."
+fx off=1
+fx ripple=1 shock_x=0.5 shock_y=0.42 dur=0.5
+-> menu
+
+// ── пыль: тихая комната, луч из окна ───────────────────────────────────────
+:show_dust
+now = "ПЫЛЬ"
+tell = "Крупинки почти стоят и мерцают, поймав свет."
+fx off=1
+fx dust=1 dur=0.8
+-> menu
+
+// ── чернила: смена сцены кляксой вместо затемнения ─────────────────────────
+:show_ink
+now = "ЧЕРНИЛА"
+tell = "Клякса с рваным краем — переход, а не затемнение."
+fx off=1
+fx ink=0.7 dur=0.7
+-> menu

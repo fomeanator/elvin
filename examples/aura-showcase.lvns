@@ -1,0 +1,143 @@
+scene aura-showcase
+
+// Витрина аур: все одиннадцать стилей на одной фигуре, по нажатию.
+//
+// Фигура выбрана нарочно костлявая: тонкие рёбра и клинок — там, где
+// кольцевое свечение рвётся первым. Рядом стоит та же фигура ВДВОЕ меньше:
+// толщина ауры задана в долях кадра, поэтому у мелкой она визуально толще —
+// дефект, который иначе не заметить.
+//
+// Поля sfx литеральные, без {выражений}: оператор не вычисляет их в числовых
+// полях (грабля из дуэли — плеер вставал на первом кадре боя). Отсюда метка
+// на каждый стиль вместо одной с параметром.
+
+style = "нет"
+note = "Одиннадцать стилей. Смотри на кромку: где она рвётся, где ступенька."
+
+// bg_yard.png в пакете дуэли — сама болванка (14 КБ на 1600×900), поэтому
+// фон берём настоящий: на сером фоне свечение всё равно не прочитать.
+bg sprite_url="/content/bg/Двор.jpg"
+// Стороны согласованы с аспектом спрайта (1012×1401), иначе фигуру тянет.
+// У obj задаём ОБЕ стороны: без height объект не появляется вовсе — у
+// экранных объектов нет умолчания размера, в отличие от актёров.
+obj id=big   sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=32% y=34% width=0.36 height=0.28 anchor="0.5,0.5" z=10
+obj id=small sprite_url="/content/packages/lvn-duel/enemies/skeleton_idle.png" x=72% y=38% width=0.18 height=0.14 anchor="0.5,0.5" z=10
+-> menu
+
+:menu
+ui shelf layer=hud {
+  panel at=fill {
+    row at=top h=9% pad=3% bg=panel align=center {
+      text «Аура: {style}» size=28 color=accent weight=bold
+    }
+    column at=bottom h=33% pad_x=3% pad_y=2% gap=6 {
+      text «{note}» size=18 color=dim
+      row gap=8 h=48 {
+        button «БАЗА»   grow=1 bg=surface color=text radius=10 on_click=a_basic
+        button «ЩИТ»    grow=1 bg=surface color=text radius=10 on_click=a_guard
+        button «ОГОНЬ»  grow=1 bg=surface color=text radius=10 on_click=a_fire
+      }
+      row gap=8 h=48 {
+        button «ЛЁД»    grow=1 bg=surface color=text radius=10 on_click=a_frost
+        button «ГРОЗА»  grow=1 bg=surface color=text radius=10 on_click=a_storm
+        button «ТЕНЬ»   grow=1 bg=surface color=text radius=10 on_click=a_shadow
+      }
+      row gap=8 h=48 {
+        button «СВЕТ»   grow=1 bg=surface color=text radius=10 on_click=a_holy
+        button «КОСМОС» grow=1 bg=surface color=text radius=10 on_click=a_space
+        button «ИЗЛОМ»  grow=1 bg=surface color=text radius=10 on_click=a_distortion
+      }
+      row gap=8 h=48 {
+        button «ДУХ»      grow=1 bg=surface color=text radius=10 on_click=a_spirit
+        button «ВОСХОД»   grow=1 bg=surface color=text radius=10 on_click=a_ascendant
+        button «БЕЗ АУРЫ» grow=1 bg=accent  color=on_accent radius=10 on_click=a_off
+      }
+    }
+  }
+}
+wait ms=600000
+-> menu
+
+:a_off
+style = "нет"
+note = "Чистый силуэт — с ним и сравнивай."
+sfx id=big aura=0 dur=0.3
+sfx id=small aura=0 dur=0.3
+-> menu
+
+:a_basic
+style = "БАЗА"
+note = "Ровное свечение по контуру — видна ступенька между двумя кольцами."
+sfx id=big   aura=0.9 aura_style=basic aura_size=1.15 dur=0.35
+sfx id=small aura=0.9 aura_style=basic aura_size=1.15 dur=0.35
+-> menu
+
+:a_guard
+style = "ЩИТ"
+note = "Плотная оболочка: держится у самого силуэта."
+sfx id=big   aura=0.9 aura_style=guard aura_size=1.1 dur=0.35
+sfx id=small aura=0.9 aura_style=guard aura_size=1.1 dur=0.35
+-> menu
+
+:a_fire
+style = "ОГОНЬ"
+note = "Языки — синусы по uv, а не поток наружу: отсюда рябь вместо пламени."
+sfx id=big   aura=0.95 aura_style=fire aura_size=1.2 dur=0.35
+sfx id=small aura=0.95 aura_style=fire aura_size=1.2 dur=0.35
+-> menu
+
+:a_frost
+style = "ЛЁД"
+note = "Грани по кромке."
+sfx id=big   aura=0.9 aura_style=frost aura_size=1.15 dur=0.35
+sfx id=small aura=0.9 aura_style=frost aura_size=1.15 dur=0.35
+-> menu
+
+:a_storm
+style = "ГРОЗА"
+note = "Всплески: яркость скачет, форма — прежняя кайма."
+sfx id=big   aura=0.95 aura_style=storm aura_size=1.2 dur=0.35
+sfx id=small aura=0.95 aura_style=storm aura_size=1.2 dur=0.35
+-> menu
+
+:a_shadow
+style = "ТЕНЬ"
+note = "Дым: самый выигрышный из нынешних — шум маскирует ступеньку."
+sfx id=big   aura=0.9 aura_style=shadow aura_size=1.2 dur=0.35
+sfx id=small aura=0.9 aura_style=shadow aura_size=1.2 dur=0.35
+-> menu
+
+:a_holy
+style = "СВЕТ"
+note = "Лучи от центра, плотное ядро."
+sfx id=big   aura=0.95 aura_style=holy aura_size=1.25 dur=0.35
+sfx id=small aura=0.95 aura_style=holy aura_size=1.25 dur=0.35
+-> menu
+
+:a_space
+style = "КОСМОС"
+note = "Пустотная дымка — почти без ядра."
+sfx id=big   aura=0.9 aura_style=space aura_size=1.25 dur=0.35
+sfx id=small aura=0.9 aura_style=space aura_size=1.25 dur=0.35
+-> menu
+
+:a_distortion
+style = "ИЗЛОМ"
+note = "Единственный, кто трогает форму, — но фон за ним не преломляется."
+sfx id=big   aura=0.95 aura_style=distortion aura_size=1.2 dur=0.35
+sfx id=small aura=0.95 aura_style=distortion aura_size=1.2 dur=0.35
+-> menu
+
+:a_spirit
+style = "ДУХ"
+note = "Холодное свечение, широкий вынос."
+sfx id=big   aura=0.9 aura_style=spirit aura_size=1.25 dur=0.35
+sfx id=small aura=0.9 aura_style=spirit aura_size=1.25 dur=0.35
+-> menu
+
+:a_ascendant
+style = "ВОСХОД"
+note = "Самый широкий: требует отдельного прохода-ореола."
+sfx id=big   aura=1 aura_style=ascendant aura_size=1.4 dur=0.4
+sfx id=small aura=1 aura_style=ascendant aura_size=1.4 dur=0.4
+-> menu
