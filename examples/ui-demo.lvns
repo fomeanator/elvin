@@ -1,0 +1,97 @@
+scene ui-demo
+
+// Проверочный экран слоя `ui`. Задействует всё разом: раскладку флексом,
+// привязку к переменным, токены темы, иконки, кнопки, полосы, два этажа
+// (под репликой и поверх всего) и скрытие узла по условию.
+//
+// Системный слой — по-английски (см. docs/language-policy.md): имена
+// элементов, полей и меток. Текст на экране — по-русски, его читает человек.
+
+hp = 6
+hp_max = 6
+gold = 40
+turn = 1
+
+bg sprite_url="/content/packages/lvn-duel/assets/ui/bg_yard.png"
+-> screen
+
+:screen
+// layer=hud — этаж ПОД окном реплики; when=idle прячет дерево, пока идёт
+// реплика или показан выбор. Раньше приходилось звать `ui hud hide` руками в
+// каждой ветке, и одну неизбежно забывали.
+//
+// Кегли и отступы — СТУПЕНЯМИ шкалы (size=lg, gap=2), а не числами: одинаковые
+// вещи на разных экранах обязаны быть одного размера.
+ui hud layer=hud when=idle {
+  panel at=fill {
+    // ── верх: состояние. Ряд с распоркой между краями.
+    row at=top h=9% pad=3 bg=panel align=center {
+      icon name=Energy color=accent
+      text «{hp} / {hp_max}» size=lg color=text weight=bold
+      space grow=1
+      icon name=Gem color=gold
+      text «{gold}» size=lg color=gold weight=bold
+    }
+
+    // ── середина: полосы, которые ЖИВЫЕ. Ради одной этой строки всё и
+    // затевалось: раньше полоса была семнадцатью ветками literal width.
+    column at=center w=80% gap=3 {
+      text «Здоровье» size=base color=dim
+      bar value="{hp / hp_max}" h=18 bg=surface color=accent radius=9
+      text «Обмен {turn}» size=base color=dim
+      bar value="{turn / 5}" h=18 bg=surface color=warn radius=9
+    }
+
+    // ── низ: кнопки. Раскладка сама делит место — ни одного икса.
+    // Последняя пропадает, когда нечем платить: `hide` — живое поле, узел
+    // исчезает без пересборки дерева.
+    row at=bottom h=13% pad=3 gap=2 justify=center align=center {
+      button «−1 ♥» grow=1 h=64 bg=accent color=on_accent radius=10 on_click=hit
+      button «+1 ♥» grow=1 h=64 bg=surface color=text radius=10 on_click=heal
+      button «ЗЕЛЬЕ 10» grow=1 h=64 bg=surface color=gold radius=10 on_click=potion hide="{gold < 10}"
+      button «МЕНЮ» grow=1 h=64 bg=surface color=text radius=10 on_click=menu_open
+    }
+  }
+}
+Нажимай — полосы должны двигаться сами, без единой строки перерисовки.
+-> idle
+
+:idle
+wait ms=600000
+-> idle
+
+:hit
+hp = max(hp - 1, 0)
+turn = min(turn + 1, 5)
+// Реплика поверх интерфейса: HUD (layer=hud) обязан уйти ПОД окно диалога,
+// а не закрыть его собой.
+Удар. Осталось {hp} из {hp_max}.
+-> idle
+
+:heal
+hp = min(hp + 1, hp_max)
+-> idle
+
+:potion
+gold = gold - 10
+hp = hp_max
+-> idle
+
+// ── меню: второй этаж ───────────────────────────────────────────────────────
+// layer=over — поверх реплики и выборов. block=1 — тап мимо кнопок гаснет
+// здесь, а не листает историю за спиной меню.
+:menu_open
+ui menu layer=over block=1 {
+  panel at=fill bg=veil {
+    column at=center w=70% gap=3 pad=4 bg=panel radius=16 {
+      text «Меню» size=xl color=text weight=bold
+      text «Золота: {gold}» size=base color=dim
+      button «Продолжить» h=64 bg=accent color=on_accent radius=10 on_click=menu_close
+    }
+  }
+}
+-> idle
+
+:menu_close
+ui menu drop
+-> idle
