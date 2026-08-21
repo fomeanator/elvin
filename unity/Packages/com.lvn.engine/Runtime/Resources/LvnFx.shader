@@ -51,12 +51,13 @@ Shader "Hidden/LvnFx"
                   _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort,
                   _Frost, _Blink, _Invert, _Fog, _Rain, _Snow, _Embers,
                   _Blood, _Poison, _Shockwave, _Speedlines, _Dream, _Sepia,
-                  _Posterize, _Letterbox, _Space, _SpaceRadius;
+                  _Posterize, _Letterbox, _Space, _SpaceRadius,
+                  _Sketch, _Halftone, _Heat, _Ripple, _Dust, _Ink;
             float4 _Tint;      // rgb множитель (1,1,1 = нет)
             float4 _RayCenter; // xy — источник лучей в uv
             float4 _FxCenter;  // xy — эпицентр удара в uv
             float4 _SpaceCenter; // xy — центр пространственной линзы
-            float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor;
+            float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor, _InkColor;
             float4 _SpaceColor;
 
             fixed4 frag(v2f i) : SV_Target
@@ -83,6 +84,29 @@ Shader "Hidden/LvnFx"
                 // Дисторшн: тепловое марево / вода — синусоидальный сдвиг uv.
                 if (_Distort > 0.001)
                     uv += float2(sin(uv.y * 42.0 + t * 2.6), sin(uv.x * 38.0 + t * 2.2)) * _Distort * 0.006;
+
+                // Марево: воздух дрожит У ЗЕМЛИ и успокаивается кверху —
+                // потому и вертикальный градиент, а не ровный сдвиг по кадру.
+                // Ровный читается как «поплыл экран», градиент — как жара.
+                if (_Heat > 0.001)
+                {
+                    float ground = 1.0 - smoothstep(0.0, 0.85, uv.y);
+                    float wob = sin(uv.y * 58.0 - t * 3.1) * 0.6
+                              + noise2(float2(uv.x * 9.0, uv.y * 22.0 - t * 1.4)) - 0.5;
+                    uv.x += wob * ground * _Heat * 0.010;
+                    uv.y += sin(uv.x * 31.0 + t * 2.2) * ground * _Heat * 0.004;
+                }
+
+                // Круги по воде: расходятся от точки удара (та же _FxCenter,
+                // что у ударной волны) и НЕ затухают по времени — это
+                // состояние сцены, а не одиночный всплеск.
+                if (_Ripple > 0.001)
+                {
+                    float2 rd = float2((uv.x - _FxCenter.x) * screenAspect, uv.y - _FxCenter.y);
+                    float rl = length(rd);
+                    float wave = sin(rl * 68.0 - t * 3.4) * exp(-rl * 2.2);
+                    uv += (rd / max(rl, 0.0001)) * wave * _Ripple * 0.010;
+                }
 
                 // Пространственная линза: фон изгибается к чёрному ядру,
                 // слегка закручиваясь вдоль аккреционного кольца.
@@ -211,6 +235,52 @@ Shader "Hidden/LvnFx"
                     col.rgb = floor(saturate(col.rgb) * levels + 0.5) / levels;
                 }
 
+                // Карандаш: кромки по Собелю ложатся штрихом, цвет уходит в
+                // бумагу. Штрих идёт ПОД одним углом и дрожит зерном — ровная
+                // сетка читается как решётка, а не как рука.
+                if (_Sketch > 0.001)
+                {
+                    float2 px = _MainTex_TexelSize.xy * 1.6;
+                    float l00 = dot(tex2D(_MainTex, uv + float2(-px.x, -px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float l10 = dot(tex2D(_MainTex, uv + float2( 0.0, -px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float l20 = dot(tex2D(_MainTex, uv + float2( px.x, -px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float l01 = dot(tex2D(_MainTex, uv + float2(-px.x, 0.0)).rgb, float3(0.299, 0.587, 0.114));
+                    float l21 = dot(tex2D(_MainTex, uv + float2( px.x, 0.0)).rgb, float3(0.299, 0.587, 0.114));
+                    float l02 = dot(tex2D(_MainTex, uv + float2(-px.x, px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float l12 = dot(tex2D(_MainTex, uv + float2( 0.0, px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float l22 = dot(tex2D(_MainTex, uv + float2( px.x, px.y)).rgb, float3(0.299, 0.587, 0.114));
+                    float gx = (l20 + 2.0 * l21 + l22) - (l00 + 2.0 * l01 + l02);
+                    float gy = (l02 + 2.0 * l12 + l22) - (l00 + 2.0 * l10 + l20);
+                    float edge = saturate(sqrt(gx * gx + gy * gy) * 2.2);
+
+                    float shade = 1.0 - lum;                       // где темно — там штрихуем
+                    float rule = (uv.x + uv.y) * _MainTex_TexelSize.w * 0.16
+                               + hash(floor(uv * 220.0)) * 0.55;   // дрожь руки
+                    float hatch = smoothstep(0.35, 0.75, shade)
+                                * (0.5 + 0.5 * sin(rule * 3.14159));
+                    float3 paper = float3(0.94, 0.92, 0.87)
+                                 - hash(uv * 130.0) * 0.045;       // зерно бумаги
+                    float3 pencil = paper * (1.0 - saturate(edge * 0.95 + hatch * 0.55));
+                    col.rgb = lerp(col.rgb, pencil, _Sketch);
+                }
+
+                // Комиксный растр: точка тем крупнее, чем темнее место. Сетка
+                // повёрнута на 15°, как в печати, — по осям она сразу читается
+                // как пиксели, а не как типографский растр.
+                if (_Halftone > 0.001)
+                {
+                    float cells = lerp(120.0, 46.0, saturate(_Halftone));
+                    float2 aspectUv = float2(uv.x * screenAspect, uv.y);
+                    float ca = cos(0.2618), sa = sin(0.2618);
+                    float2 rot = float2(aspectUv.x * ca - aspectUv.y * sa,
+                                        aspectUv.x * sa + aspectUv.y * ca) * cells;
+                    float2 cellUv = frac(rot) - 0.5;
+                    float dot_r = (1.0 - lum) * 0.72;              // радиус точки
+                    float ink = 1.0 - smoothstep(dot_r - 0.12, dot_r + 0.06, length(cellUv));
+                    float3 printed = lerp(float3(0.97, 0.96, 0.93), col.rgb * 0.35, ink);
+                    col.rgb = lerp(col.rgb, printed, _Halftone);
+                }
+
                 // Скан-линии.
                 if (_Scanlines > 0.001)
                     col.rgb *= 1.0 - _Scanlines * 0.5 * (0.5 + 0.5 * sin(uv.y * _MainTex_TexelSize.w * 3.14159));
@@ -271,6 +341,21 @@ Shader "Hidden/LvnFx"
                     col.rgb = lerp(col.rgb, float3(0.92, 0.97, 1.0), saturate(snow) * _Snow * 0.9);
                 }
 
+                // Пыль в воздухе: мелкие крупинки, которые почти стоят и
+                // мерцают, поймав свет. Медленнее снега на порядок — иначе
+                // комната читается как метель.
+                if (_Dust > 0.001)
+                {
+                    float2 dq = float2(uv.x * 34.0 + sin(t * 0.21) * 0.6,
+                                       uv.y * 46.0 - t * 0.35);
+                    float2 did = floor(dq);
+                    float2 df = frac(dq) - float2(hash(did), hash(did + 5.7));
+                    float mote = (1.0 - smoothstep(0.015, 0.075, length(df)))
+                               * step(0.72, hash(did + 3.3));
+                    float twinkle = 0.45 + 0.55 * sin(t * 1.7 + hash(did) * 6.28);
+                    col.rgb += float3(1.0, 0.96, 0.88) * mote * twinkle * _Dust * 0.55;
+                }
+
                 // Искры/угли: частицы летят вверх, яркое ядро + красный ореол.
                 if (_Embers > 0.001)
                 {
@@ -324,6 +409,18 @@ Shader "Hidden/LvnFx"
                 {
                     float d = length(fromC) * 1.4142;
                     col.rgb *= 1.0 - _Vignette * smoothstep(0.45, 1.05, d);
+                }
+
+                // Чернила: клякса расползается по кадру с рваным краем. Это
+                // ПЕРЕХОД, поэтому 0 — чистый кадр, 1 — кадр залит целиком, а
+                // край рвётся шумом, иначе видно ровный круг.
+                if (_Ink > 0.001)
+                {
+                    float2 iq = uv - 0.5;
+                    float edgeNoise = noise2(uv * 5.5) * 0.22 + noise2(uv * 13.0) * 0.10;
+                    float reach = length(iq) * 1.4142 - edgeNoise;
+                    float front = smoothstep(_Ink * 1.28 - 0.10, _Ink * 1.28, 1.0 - reach);
+                    col.rgb = lerp(col.rgb, _InkColor.rgb, saturate(front));
                 }
 
                 // Кинематографические полосы. 0→1 увеличивает их до 18% кадра.

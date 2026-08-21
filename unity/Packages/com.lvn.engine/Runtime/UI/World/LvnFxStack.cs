@@ -18,7 +18,8 @@ namespace Lvn.UI.World
     ///
     /// Поля: базовый грейдинг/оптика; атмосфера (fog/rain/snow/embers);
     /// боевые статусы (blood/poison/shockwave/speedlines); стилизация
-    /// (dream/sepia/posterize/letterbox). Всё выключено — компонент отключает
+    /// (dream/sepia/posterize/letterbox/sketch/halftone); вода и воздух
+    /// (heat/ripple/dust); чернильный переход (ink). Всё выключено — компонент отключает
     /// себя и кадр не платит за хук.
     /// </summary>
     public sealed class LvnFxStack : MonoBehaviour
@@ -29,13 +30,16 @@ namespace Lvn.UI.World
         private float _vignette, _grain, _chromatic, _scanlines, _pixelate,
                       _glitch, _bloom, _rays, _distort, _frost, _blink, _invert,
                       _fog, _rain, _snow, _embers, _blood, _poison, _shockwave,
-                      _speedlines, _dream, _sepia, _posterize, _letterbox, _space;
+                      _speedlines, _dream, _sepia, _posterize, _letterbox, _space,
+                      _sketch, _halftone, _heat, _ripple, _dust, _ink;
         private float _saturation = 1f, _contrast = 1f;
         // Цели tween'а (op-поле dur): без dur цели применяются мгновенно.
         private float _tVignette, _tGrain, _tChromatic, _tScanlines, _tPixelate,
                       _tGlitch, _tBloom, _tRays, _tDistort, _tFrost, _tBlink, _tInvert,
                       _tFog, _tRain, _tSnow, _tEmbers, _tBlood, _tPoison, _tShockwave,
-                      _tSpeedlines, _tDream, _tSepia, _tPosterize, _tLetterbox, _tSpace;
+                      _tSpeedlines, _tDream, _tSepia, _tPosterize, _tLetterbox, _tSpace,
+                      // стилизация и атмосфера второй волны
+                      _tSketch, _tHalftone, _tHeat, _tRipple, _tDust, _tInk;
         private float _tSaturation = 1f, _tContrast = 1f;
         private float _speed; // 1/dur; 0 = мгновенно
         private Vector2 _rayCenter = new Vector2(0.5f, 0.3f);
@@ -46,6 +50,9 @@ namespace Lvn.UI.World
         private Color _fogColor = new Color(0.68f, 0.76f, 0.82f, 1f);
         private Color _emberColor = new Color(1f, 0.28f, 0.035f, 1f);
         private Color _bloodColor = new Color(0.42f, 0.005f, 0.01f, 1f);
+        // Чернила по умолчанию не чёрные, а очень тёмные сине-серые: чистый
+        // чёрный на мобильном OLED читается как выключенный экран.
+        private Color _inkColor = new Color(0.043f, 0.035f, 0.055f, 1f);
         private Color _poisonColor = new Color(0.18f, 0.55f, 0.08f, 1f);
         private Color _spaceColor = new Color(0.48f, 0.18f, 1f, 1f);
 
@@ -67,7 +74,8 @@ namespace Lvn.UI.World
                     _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
                     _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
                     _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
-                    _tPosterize = _tLetterbox = _tSpace = 0f;
+                    _tPosterize = _tLetterbox = _tSpace =
+                    _tSketch = _tHalftone = _tHeat = _tRipple = _tDust = _tInk = 0f;
                 _tSaturation = 1f; _tContrast = 1f; _tint = Color.white;
                 if (_speed <= 0f) SnapToTargets();
                 enabled = true;
@@ -99,6 +107,12 @@ namespace Lvn.UI.World
             _tPosterize  = F(cmd, "posterize", _tPosterize);
             _tLetterbox  = F(cmd, "letterbox", _tLetterbox);
             _tSpace      = F(cmd, "space", _tSpace);
+            _tSketch     = F(cmd, "sketch", _tSketch);
+            _tHalftone   = F(cmd, "halftone", _tHalftone);
+            _tHeat       = F(cmd, "heat", _tHeat);
+            _tRipple     = F(cmd, "ripple", _tRipple);
+            _tDust       = F(cmd, "dust", _tDust);
+            _tInk        = F(cmd, "ink", _tInk);
             _tSaturation = F(cmd, "saturation", _tSaturation);
             _tContrast   = F(cmd, "contrast", _tContrast);
             _rayCenter  = new Vector2(F(cmd, "rays_x", _rayCenter.x), F(cmd, "rays_y", _rayCenter.y));
@@ -111,6 +125,7 @@ namespace Lvn.UI.World
             ParseColor(cmd, "fog_color", ref _fogColor);
             ParseColor(cmd, "embers_color", ref _emberColor);
             ParseColor(cmd, "blood_color", ref _bloodColor);
+            ParseColor(cmd, "ink_color", ref _inkColor);
             ParseColor(cmd, "poison_color", ref _poisonColor);
             ParseColor(cmd, "space_color", ref _spaceColor);
 
@@ -129,6 +144,8 @@ namespace Lvn.UI.World
             _speedlines = _tSpeedlines; _dream = _tDream; _sepia = _tSepia;
             _posterize = _tPosterize; _letterbox = _tLetterbox;
             _space = _tSpace;
+            _sketch = _tSketch; _halftone = _tHalftone; _heat = _tHeat;
+            _ripple = _tRipple; _dust = _tDust; _ink = _tInk;
             _saturation = _tSaturation; _contrast = _tContrast;
         }
 
@@ -161,6 +178,12 @@ namespace Lvn.UI.World
             _posterize = Mathf.MoveTowards(_posterize, _tPosterize, k);
             _letterbox = Mathf.MoveTowards(_letterbox, _tLetterbox, k);
             _space = Mathf.MoveTowards(_space, _tSpace, k);
+            _sketch = Mathf.MoveTowards(_sketch, _tSketch, k);
+            _halftone = Mathf.MoveTowards(_halftone, _tHalftone, k);
+            _heat = Mathf.MoveTowards(_heat, _tHeat, k);
+            _ripple = Mathf.MoveTowards(_ripple, _tRipple, k);
+            _dust = Mathf.MoveTowards(_dust, _tDust, k);
+            _ink = Mathf.MoveTowards(_ink, _tInk, k);
             _saturation = Mathf.MoveTowards(_saturation, _tSaturation, k);
             _contrast = Mathf.MoveTowards(_contrast, _tContrast, k);
         }
@@ -168,12 +191,10 @@ namespace Lvn.UI.World
         private static float F(JObject cmd, string key, float cur)
             => cmd[key] != null ? (float)cmd[key] : cur;
 
+        // Разбор цвета — из общего дома (UiColor). Своя копия в каждом слое и
+        // была тем, из-за чего одно понятие расходилось по движку.
         private static void ParseColor(JObject cmd, string key, ref Color current)
-        {
-            var text = (string)cmd[key];
-            if (!string.IsNullOrEmpty(text) && ColorUtility.TryParseHtmlString(text, out var parsed))
-                current = parsed;
-        }
+            => current = UiColor.FromCmd(cmd, key, current);
 
         private bool Active =>
             _vignette > 0f || _grain > 0f || _chromatic > 0f || _scanlines > 0f ||
@@ -183,6 +204,8 @@ namespace Lvn.UI.World
             _shockwave > 0f || _speedlines > 0f || _dream > 0f || _sepia > 0f ||
             _posterize > 0f || _letterbox > 0f ||
             _space > 0f ||
+            _sketch > 0f || _halftone > 0f || _heat > 0f ||
+            _ripple > 0f || _dust > 0f || _ink > 0f ||
             _tVignette > 0f || _tGrain > 0f || _tChromatic > 0f || _tScanlines > 0f ||
             _tPixelate > 0f || _tGlitch > 0f || _tBloom > 0f || _tRays > 0f || _tDistort > 0f ||
             _tFrost > 0f || _tBlink > 0f || _tInvert > 0f || _tFog > 0f || _tRain > 0f ||
@@ -190,6 +213,8 @@ namespace Lvn.UI.World
             _tShockwave > 0f || _tSpeedlines > 0f || _tDream > 0f || _tSepia > 0f ||
             _tPosterize > 0f || _tLetterbox > 0f ||
             _tSpace > 0f ||
+            _tSketch > 0f || _tHalftone > 0f || _tHeat > 0f ||
+            _tRipple > 0f || _tDust > 0f || _tInk > 0f ||
             !Mathf.Approximately(_saturation, 1f) || !Mathf.Approximately(_contrast, 1f) ||
             !Mathf.Approximately(_tSaturation, 1f) || !Mathf.Approximately(_tContrast, 1f) ||
             _tint != Color.white;
@@ -250,6 +275,12 @@ namespace Lvn.UI.World
             _mat.SetFloat("_Dream", _dream);
             _mat.SetFloat("_Sepia", _sepia);
             _mat.SetFloat("_Posterize", _posterize);
+            _mat.SetFloat("_Sketch", _sketch);
+            _mat.SetFloat("_Halftone", _halftone);
+            _mat.SetFloat("_Heat", _heat);
+            _mat.SetFloat("_Ripple", _ripple);
+            _mat.SetFloat("_Dust", _dust);
+            _mat.SetFloat("_Ink", _ink);
             _mat.SetFloat("_Letterbox", _letterbox);
             _mat.SetFloat("_Space", _space);
             _mat.SetFloat("_SpaceRadius", _spaceRadius);
@@ -259,6 +290,7 @@ namespace Lvn.UI.World
             _mat.SetColor("_FogColor", _fogColor);
             _mat.SetColor("_EmberColor", _emberColor);
             _mat.SetColor("_BloodColor", _bloodColor);
+            _mat.SetColor("_InkColor", _inkColor);
             _mat.SetColor("_PoisonColor", _poisonColor);
             _mat.SetColor("_SpaceColor", _spaceColor);
             _mat.SetVector("_RayCenter", new Vector4(_rayCenter.x, 1f - _rayCenter.y, 0, 0)); // авторская y вниз → uv вверх
