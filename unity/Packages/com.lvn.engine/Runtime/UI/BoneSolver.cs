@@ -113,6 +113,41 @@ namespace Lvn.UI
         /// the spring pulls it along). The VRM spring-bone behaviour.</summary>
         public const float RotationInertia = 0.8f;
 
+        /// <summary>
+        /// ОСНАСТКА КОСТИ — то, что о ней знает сцена (в отличие от
+        /// <see cref="Bone"/>, который решатель получает на вход): за кем следует, где
+        /// точка вращения, какой прямоугольник занимает слой и насколько
+        /// пружинит.
+        ///
+        /// <para>Тип жил двумя дословными копиями — у плоской сцены и у
+        /// трёхмерного мира, вместе с одинаковым «есть ли живая пружина».
+        /// Два описания одного понятия расходятся тихо: добавь поле в одно —
+        /// и кости в 3D начнут вести себя иначе, чем на плоскости.</para>
+        /// </summary>
+        public sealed class RigBone
+        {
+            public string Parent;
+            public Vector2 PivotBox;   // точка вращения в долях бокса актёра
+            public Vector4 Rect;       // прямоугольник слоя в долях бокса
+            public float Spring, Damping;
+            public SpringState State;
+        }
+
+        /// <summary>Есть ли ещё живое пружинное движение — пока есть, слой
+        /// обязан обновляться каждый кадр, иначе кости замрут на полпути.</summary>
+        public static bool AnySpringLive(System.Collections.Generic.IEnumerable<RigBone> bones)
+        {
+            if (bones == null) return false;
+            foreach (var m in bones)
+            {
+                if (m == null) continue;
+                if (m.Spring > 0f && (Mathf.Abs(m.State.Angle) > 0.05f
+                                   || Mathf.Abs(m.State.Velocity) > 0.5f))
+                    return true;
+            }
+            return false;
+        }
+
         public struct SpringState { public float Angle, Velocity, LastRigidAngle; public Vector2 LastPivot; public bool Primed; }
 
         /// <summary>Advance a spring joint one tick. <paramref name="pivotWorld"/> /

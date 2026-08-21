@@ -84,19 +84,5 @@ namespace Lvn.Content
             var delay = (float)Math.Pow(2d, exp);
             return Math.Min(capSeconds, delay);
         }
-
-        /// <summary>
-        /// The same exponential curve with symmetric ±<paramref name="jitterFraction"/>
-        /// jitter, so many clients retrying after one outage don't reconverge into a
-        /// thundering herd. Deterministic given the same <paramref name="rng"/>.
-        /// </summary>
-        public static float DelaySecondsJittered(int attempt, Random rng,
-            float jitterFraction = 0.2f, float capSeconds = DefaultCapSeconds)
-        {
-            var baseDelay = DelaySeconds(attempt, capSeconds);
-            if (baseDelay <= 0f || rng == null || jitterFraction <= 0f) return baseDelay;
-            var factor = 1d + (rng.NextDouble() * 2d - 1d) * jitterFraction; // [1-j, 1+j]
-            return (float)Math.Min(capSeconds, baseDelay * factor);
-        }
     }
 }

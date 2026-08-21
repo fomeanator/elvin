@@ -169,7 +169,7 @@ namespace Lvn.Content
             {
                 if (layer == null || string.IsNullOrEmpty(layer.url)) continue;
                 if (!string.IsNullOrEmpty(layer.when) && cond != null && !cond(layer.when)) continue;
-                var filled = Fill(layer.url, axes, e.defaults);
+                var filled = LayerTemplate.Fill(layer.url, axes, e.defaults);
                 if (filled != null) outl.Add(new ResolvedLayer
                 {
                     Url = filled, Id = layer.id, X = layer.x, Y = layer.y, W = layer.w, H = layer.h,
@@ -185,7 +185,7 @@ namespace Lvn.Content
         public string FillFor(string id, string template, IReadOnlyDictionary<string, string> axes)
         {
             var e = Get(id);
-            return Fill(template, Sanitize(e, axes), e?.defaults);
+            return LayerTemplate.Fill(template, Sanitize(e, axes), e?.defaults);
         }
 
         /// <summary>A command value OUTSIDE the entity's declared axis falls back
@@ -217,29 +217,6 @@ namespace Lvn.Content
                     patched.Remove(kv.Key);
             }
             return patched ?? axes;
-        }
-
-        private static string Fill(string template,
-            IReadOnlyDictionary<string, string> axes, IReadOnlyDictionary<string, string> defaults)
-        {
-            if (string.IsNullOrEmpty(template) || template.IndexOf('{') < 0) return template;
-            var sb = new StringBuilder(template.Length);
-            int i = 0;
-            while (i < template.Length)
-            {
-                char c = template[i];
-                if (c != '{') { sb.Append(c); i++; continue; }
-                int end = template.IndexOf('}', i + 1);
-                if (end < 0) { sb.Append(template, i, template.Length - i); break; }
-                var key = template.Substring(i + 1, end - i - 1);
-                string val = null;
-                axes?.TryGetValue(key, out val);
-                if (string.IsNullOrEmpty(val)) defaults?.TryGetValue(key, out val);
-                if (string.IsNullOrEmpty(val)) return null; // unresolved → drop layer
-                sb.Append(val);
-                i = end + 1;
-            }
-            return sb.ToString();
         }
     }
 }

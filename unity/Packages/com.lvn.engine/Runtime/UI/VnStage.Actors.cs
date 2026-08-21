@@ -508,6 +508,11 @@ namespace Lvn.UI
             if (cmd["y"] != null) p.Y = NumOr(cmd["y"], p.Y);
             if (cmd["width"] != null) p.Width = NumOrNull(cmd["width"]);
             if (cmd["height"] != null) p.Height = NumOrNull(cmd["height"]);
+            // scale= МНОЖИТ размер, а не задаёт его. Поле было объявлено в
+            // грамматике, зарезервировано от осей каста и даже переживало
+            // реплей — и нигде не применялось: `actor id=x scale=1.4`
+            // компилировался и молча ничего не делал.
+            ApplyScale(cmd, ref p);
             if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
             if (cmd["flip"] != null || cmd["mirror"] != null) p.Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false);
             if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
@@ -533,47 +538,36 @@ namespace Lvn.UI
             return p;
         }
 
+        /// <summary>
+        /// Размещение с чистого листа. ЧАСТНЫЙ СЛУЧАЙ обновления: берём
+        /// умолчания сцены и применяем к ним ту же команду.
+        ///
+        /// <para>Раньше это была вторая, почти дословная копия — те же
+        /// пятнадцать полей, тот же разбор якоря. Две копии одного понятия
+        /// расходятся молча: `scale` пришлось чинить дважды, и второй раз я
+        /// едва не забыл.</para>
+        /// </summary>
         internal static Placement PlacementFrom(JObject cmd,
             IReadOnlyDictionary<string, float> slots = null)
-        {
-            var p = new Placement
+            => PlacementFrom(cmd, FreshPlacement(cmd, slots), slots);
+
+        /// <summary>Умолчания сцены: ноги на нижнем краю, столбец по слоту.</summary>
+        private static Placement FreshPlacement(JObject cmd, IReadOnlyDictionary<string, float> slots)
+            => new Placement
             {
-                Show = BoolOr(cmd["show"], true),
-                X = NumOrNull(cmd["x"]) ?? SlotXFor((string)cmd["position"], slots),
-                Y = NumOr(cmd["y"], 1f),
-                Width = NumOrNull(cmd["width"]),
-                Height = NumOrNull(cmd["height"]),
+                Show = true,
+                X = SlotXFor((string)cmd?["position"], slots),
+                Y = 1f,
                 AnchorX = 0.5f,
                 AnchorY = 1f,
-                Z = IntOrNull(cmd["z"]),
-                Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false), // `mirror` is an authoring alias for flip
-                Rotation = NumOr(cmd["rotation"], 0f),
-                Opacity = NumOr(cmd["opacity"], 1f),
-                HoverOpacity = NumOr(cmd["hover_opacity"], 1f),
-                EnterTransition = ParseTransition((string)cmd["enter"]),
-                ExitTransition = ParseTransition((string)cmd["exit"]),
-                TransitionDuration = NumOr(cmd["transition_duration"], 0.3f),
+                // Непрозрачность по умолчанию — ЕДИНИЦА, а не ноль структуры.
+                // На этом слияние двух копий и споткнулось: липкий путь берёт
+                // прозрачность из предыдущего размещения, и «предыдущим» для
+                // свежего актёра оказался пустой struct — персонаж выходил
+                // невидимым. Тест поймал сразу.
+                Opacity = 1f,
+                HoverOpacity = 1f,
             };
-
-            var anchor = (string)cmd["anchor"];
-            if (!string.IsNullOrEmpty(anchor))
-            {
-                var parts = anchor.Split(',');
-                if (parts.Length == 2
-                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var ax)
-                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ay))
-                {
-                    p.AnchorX = ax;
-                    p.AnchorY = ay;
-                }
-            }
-            else
-            {
-                if (cmd["anchor_x"] != null) p.AnchorX = NumOr(cmd["anchor_x"], p.AnchorX);
-                if (cmd["anchor_y"] != null) p.AnchorY = NumOr(cmd["anchor_y"], p.AnchorY);
-            }
-            return p;
-        }
 
         // Like AxesFrom but with {var} interpolation against the player's variables,
         // so equipment can be data-driven: `actor hero armor={arm} weapon={wpn}`.
@@ -604,6 +598,18 @@ namespace Lvn.UI
             // literal still wins, but a preview overrides a variable-driven axis.
             LvnWardrobe.MergeInto(axes, (string)cmd["id"], templated);
             return axes;
+        }
+
+        // Множитель размера. Работает и когда ширина с высотой не заданы: тогда
+        // умножается умолчание темы, иначе `scale` пришлось бы писать вместе с
+        // width/height — то есть считать за автора то, что он и хотел поручить
+        // движку.
+        private static void ApplyScale(JObject cmd, ref Placement p)
+        {
+            var k = NumOrNull(cmd["scale"]);
+            if (k == null || k.Value <= 0f) return;
+            p.Width = (p.Width ?? Placement.DefaultWidth) * k.Value;
+            p.Height = (p.Height ?? Placement.DefaultHeight) * k.Value;
         }
 
         // The actor command's free-form named fields (pose, emotion, prop, …) —

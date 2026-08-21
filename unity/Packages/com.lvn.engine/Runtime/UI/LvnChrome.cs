@@ -23,6 +23,48 @@ namespace Lvn.UI
         /// <summary>Светящаяся кромка по контуру. <paramref name="strength"/> —
         /// доля от штатной яркости: у крупного кадра она может быть тише, чем у
         /// мелкой плашки, иначе кадр читается как обведённый маркером.</summary>
+        /// <summary>
+        /// Скруглить все четыре угла. Мелочь — но именно она была скопирована
+        /// в ТРИНАДЦАТЬ экранов слово в слово, а `ClearBorder` — в десять.
+        /// Тринадцать копий одной строки означают тринадцать мест, куда надо
+        /// зайти, чтобы поменять огранку темы, и одно из них всегда забывают.
+        /// </summary>
+        public static void Round(VisualElement el, float r)
+        {
+            if (el == null) return;
+            el.style.borderTopLeftRadius = r;
+            el.style.borderTopRightRadius = r;
+            el.style.borderBottomLeftRadius = r;
+            el.style.borderBottomRightRadius = r;
+        }
+
+        /// <summary>Скругление из темы: `Round(el)` вместо числа на глаз.</summary>
+        public static void Round(VisualElement el) => Round(el, LvnTokens.Radius);
+
+        /// <summary>Снять рамку со всех четырёх сторон.</summary>
+        public static void ClearBorder(VisualElement el)
+        {
+            if (el == null) return;
+            el.style.borderTopWidth = 0;
+            el.style.borderBottomWidth = 0;
+            el.style.borderLeftWidth = 0;
+            el.style.borderRightWidth = 0;
+        }
+
+        /// <summary>Ровная рамка одного цвета и толщины по всем сторонам.</summary>
+        public static void Border(VisualElement el, Color color, float width)
+        {
+            if (el == null) return;
+            el.style.borderTopWidth = width;
+            el.style.borderBottomWidth = width;
+            el.style.borderLeftWidth = width;
+            el.style.borderRightWidth = width;
+            el.style.borderTopColor = color;
+            el.style.borderBottomColor = color;
+            el.style.borderLeftColor = color;
+            el.style.borderRightColor = color;
+        }
+
         public static void Edge(VisualElement el, float strength = 1f)
         {
             var t = LvnTheme.Current;

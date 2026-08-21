@@ -93,18 +93,5 @@ namespace Lvn.UI
             return true;
         }
 
-        /// <summary>
-        /// Скругление больше не нужно: оно нарисовано в самой текстуре.
-        /// Оставленный радиус обрезает кромку и съедает её неровность —
-        /// ровно ту, ради которой текстура и рисовалась.
-        /// </summary>
-        public static void ApplyPanel(VisualElement el, string name = PanelSurface)
-        {
-            if (!Apply(el, name)) return;
-            el.style.borderTopLeftRadius = 0;
-            el.style.borderTopRightRadius = 0;
-            el.style.borderBottomLeftRadius = 0;
-            el.style.borderBottomRightRadius = 0;
-        }
     }
 }

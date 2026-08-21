@@ -53,17 +53,7 @@ namespace Lvn.UI
             _baseSprite[id] = baseSprite;
         }
         public void ClearLayers() { _layers.Clear(); _baseSprite.Clear(); _bones.Clear(); }
-
-        // ── bones (paper-doll FK + springs) ───────────────────────────────────
-        private sealed class BoneMeta
-        {
-            public string Parent;
-            public Vector2 PivotBox;   // rest pivot in actor-box fractions
-            public Vector4 Rect;       // layer rect in box fractions (full box when w/h ≤ 0)
-            public float Spring, Damping;
-            public BoneSolver.SpringState State;
-        }
-        private readonly Dictionary<string, BoneMeta> _bones = new Dictionary<string, BoneMeta>();
+        private readonly Dictionary<string, BoneSolver.RigBone> _bones = new Dictionary<string, BoneSolver.RigBone>();
         private float _lastTick = -1f;
 
         /// <summary>Register a layer's bone: its parent joint, pivot (fractions of
@@ -74,7 +64,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(id)) return;
             if (rect.z <= 0f || rect.w <= 0f) rect = new Vector4(0f, 0f, 1f, 1f);
-            _bones[id] = new BoneMeta
+            _bones[id] = new BoneSolver.RigBone
             {
                 Parent = parent,
                 PivotBox = new Vector2(rect.x + pivotInRect.x * rect.z, rect.y + pivotInRect.y * rect.w),
@@ -121,7 +111,7 @@ namespace Lvn.UI
 
         // Apply a solved pose to the layer's element: move its pivot to the
         // solved spot (percent of own size), spin/scale around it.
-        private void ApplyPose(VisualElement el, BoneMeta m, BoneSolver.Pose p)
+        private void ApplyPose(VisualElement el, BoneSolver.RigBone m, BoneSolver.Pose p)
         {
             var d = p.PivotWorld - m.PivotBox;
             el.style.translate = new Translate(
@@ -304,18 +294,7 @@ namespace Lvn.UI
                 }
             // Springs keep swinging after their driving channel ends — let them
             // decay before the scheduler goes to sleep.
-            if (_channels.Count == 0 && !AnySpringLive()) StopAll();
-        }
-
-        private bool AnySpringLive()
-        {
-            foreach (var kv in _bones)
-            {
-                var m = kv.Value;
-                if (m.Spring > 0f && (Mathf.Abs(m.State.Angle) > 0.05f || Mathf.Abs(m.State.Velocity) > 0.5f))
-                    return true;
-            }
-            return false;
+            if (_channels.Count == 0 && !BoneSolver.AnySpringLive(_bones.Values)) StopAll();
         }
 
         private float _heldAlpha = 1f;
