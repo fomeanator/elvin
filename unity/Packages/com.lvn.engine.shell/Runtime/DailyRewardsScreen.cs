@@ -25,7 +25,7 @@ namespace Lvn.UI.Screens
     /// the claim button resolves, then fades out. All colours come from
     /// <see cref="LvnTokens"/> ("Полночь").
     /// </summary>
-    public sealed class DailyRewardsScreen : VisualElement
+    public sealed class DailyRewardsScreen : LvnOverlayScreen
     {
         /// <summary>Called when the player taps "Забрать" for the live day.
         /// Argument: the day number (1-based). Hosts wire this to their wallet;
@@ -37,8 +37,6 @@ namespace Lvn.UI.Screens
         private readonly Label _subtitle;
         private readonly Button _claim;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
 
         // ── Hardcoded demo data ────────────────────────────────────────────────
         // The reward ladder: seven days, alternating energy/gold, day 7 premium.
@@ -83,7 +81,7 @@ namespace Lvn.UI.Screens
             card.style.width = Length.Percent(90f);
             card.style.maxWidth = 760;
             card.style.backgroundColor = LvnTokens.PanelBg;
-            Round(card, LvnTokens.Radius + 4f);
+            LvnChrome.Round(card, LvnTokens.Radius + 4f);
             card.style.borderLeftWidth = 1;
             card.style.borderRightWidth = 1;
             card.style.borderTopWidth = 1;
@@ -132,8 +130,8 @@ namespace Lvn.UI.Screens
             close.style.paddingRight = 0;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(close);
-            Round(close, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(close);
+            LvnChrome.Round(close, LvnTokens.RadiusSm);
             header.Add(close);
 
             // ── The 7-day grid (wraps: 4 + 3) ──────────────────────────────────
@@ -152,46 +150,13 @@ namespace Lvn.UI.Screens
             _claim.style.paddingBottom = 16;
             _claim.style.color = LvnTokens.OnAccent;
             _claim.style.backgroundColor = LvnTokens.Accent;
-            ClearBorder(_claim);
-            Round(_claim, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(_claim);
+            LvnChrome.Round(_claim, LvnTokens.RadiusSm);
             card.Add(_claim);
 
             Rebuild();
         }
 
-        /// <summary>Open the calendar: fade in, wait until the player claims or
-        /// closes it, then fade out. Mirrors <see cref="StoreScreen.ShowAsync"/>.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            Rebuild();
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // Hide() during the fade-in must cancel the open, not leave this await
-            // parked on a _tcs nobody will ever resolve.
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
-        private void Close() => _tcs?.TrySetResult(true);
 
         private void ClaimToday()
         {
@@ -244,7 +209,7 @@ namespace Lvn.UI.Screens
             cell.style.paddingBottom = 12;
             cell.style.paddingLeft = 10;
             cell.style.paddingRight = 10;
-            Round(cell, LvnTokens.RadiusSm);
+            LvnChrome.Round(cell, LvnTokens.RadiusSm);
 
             // Fills & borders per state.
             switch (state)
@@ -262,7 +227,7 @@ namespace Lvn.UI.Screens
                     cell.style.backgroundColor = LvnTokens.Surface;
                     LvnChrome.Edge(cell);
                     cell.style.opacity = 0.5f;
-                    ClearBorder(cell);
+                    LvnChrome.ClearBorder(cell);
                     break;
                 default: // Future
                     cell.style.backgroundColor = LvnTokens.Surface;
@@ -335,7 +300,7 @@ namespace Lvn.UI.Screens
                 badge.style.paddingRight = 8;
                 badge.style.paddingTop = 2;
                 badge.style.paddingBottom = 2;
-                Round(badge, LvnTokens.RadiusSm - 4f);
+                LvnChrome.Round(badge, LvnTokens.RadiusSm - 4f);
                 cell.Add(badge);
             }
 
@@ -348,22 +313,6 @@ namespace Lvn.UI.Screens
             el.style.borderRightColor = c;
             el.style.borderTopColor = c;
             el.style.borderBottomColor = c;
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
         }
     }
 }

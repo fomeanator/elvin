@@ -75,7 +75,7 @@ namespace Lvn.UI.Screens
             _card.style.maxWidth = 560;
             _card.style.width = Length.Percent(80f);
             _card.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
-            Round(_card, _radius + 4f);
+            LvnChrome.Round(_card, _radius + 4f);
             _card.style.paddingTop = 24;
             _card.style.paddingBottom = 20;
             _card.style.paddingLeft = 24;
@@ -191,25 +191,9 @@ namespace Lvn.UI.Screens
             b.style.color = spec.Primary ? _primaryText : _btnText;
             b.style.backgroundColor = spec.Primary ? _primaryColor : _btnColor;
             b.style.unityTextAlign = TextAnchor.MiddleCenter;
-            ClearBorder(b);
-            Round(b, _radius);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, _radius);
             return b;
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
         }
     }
 }

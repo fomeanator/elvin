@@ -136,7 +136,7 @@ namespace Lvn.UI.Screens
             avatar.style.marginRight = 12;
             avatar.style.borderTopWidth = 2; avatar.style.borderBottomWidth = 2;
             avatar.style.borderLeftWidth = 2; avatar.style.borderRightWidth = 2; SetBorderColor(avatar, _accent);
-            Round(avatar, _theme.RoundPills ? 28f : _radius);
+            LvnChrome.Round(avatar, _theme.RoundPills ? 28f : _radius);
             profile.Add(avatar);
             var nameCol = new VisualElement();
             _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
@@ -158,16 +158,16 @@ namespace Lvn.UI.Screens
             var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) _ = OnDaily(); });
             gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = 10;
             gift.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(gift); Round(gift, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(gift); LvnChrome.Round(gift, LvnTokens.RadiusSm);
             var dot = new Label { pickingMode = PickingMode.Ignore };
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
-            dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; Round(dot, 5f);
+            dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; LvnChrome.Round(dot, 5f);
             gift.Add(dot);
             rightGroup.Add(gift);
             var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) _ = OnMenu(); });
             gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
             gear.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(gear); Round(gear, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(gear); LvnChrome.Round(gear, LvnTokens.RadiusSm);
             rightGroup.Add(gear);
             topBar.Add(rightGroup);
             _hubView.Add(topBar);
@@ -184,7 +184,7 @@ namespace Lvn.UI.Screens
             _hubSubtitle = new Label(); // (kept for API; the eyebrow carries the sub-line)
             var rule = new VisualElement();
             rule.style.height = 3; rule.style.width = 44; rule.style.marginTop = 12;
-            rule.style.backgroundColor = _accent; Round(rule, 2f);
+            rule.style.backgroundColor = _accent; LvnChrome.Round(rule, 2f);
             brand.Add(rule);
             _hubView.Add(brand);
             _hubRows = new ScrollView(ScrollViewMode.Vertical);
@@ -209,7 +209,7 @@ namespace Lvn.UI.Screens
             _detailImage = new VisualElement { pickingMode = PickingMode.Ignore };
             _detailImage.style.height = Length.Percent(42);
             _detailImage.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            Round(_detailImage, _radius);
+            LvnChrome.Round(_detailImage, _radius);
             Edge(_detailImage);
             _detailImage.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             _detailImage.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
@@ -252,7 +252,7 @@ namespace Lvn.UI.Screens
             dBody.style.backgroundColor = _card;
             dBody.style.paddingLeft = 18; dBody.style.paddingRight = 18;
             dBody.style.paddingTop = 16; dBody.style.paddingBottom = 16;
-            Round(dBody, _radius);
+            LvnChrome.Round(dBody, _radius);
             Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
             _detailDesc.style.color = _text; _detailDesc.style.fontSize = 36;
@@ -325,7 +325,7 @@ namespace Lvn.UI.Screens
             pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
             pill.style.borderTopWidth = 1; pill.style.borderBottomWidth = 1;
             pill.style.borderLeftWidth = 1; pill.style.borderRightWidth = 1; SetBorderColor(pill, _border);
-            Round(pill, _theme.RoundPills ? 18f : _radius);
+            LvnChrome.Round(pill, _theme.RoundPills ? 18f : _radius);
             pill.style.paddingLeft = 12; pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
 
             var ic = LvnIcons.Make(icon, 20f, iconColor, 0f, _theme.IconGlow);
@@ -341,7 +341,7 @@ namespace Lvn.UI.Screens
             plus.style.fontSize = 30; plus.style.unityFontStyleAndWeight = FontStyle.Bold;
             plus.style.unityTextAlign = TextAnchor.MiddleCenter;
             plus.style.width = 26; plus.style.height = 26; plus.style.marginLeft = 8;
-            Round(plus, 13f);
+            LvnChrome.Round(plus, 13f);
             pill.Add(plus);
 
             pill.RegisterCallback<ClickEvent>(evt => { if (OnStore != null) _ = OnStore(); });
@@ -529,7 +529,7 @@ namespace Lvn.UI.Screens
             var b = new VisualElement();
             b.style.height = 340; b.style.flexShrink = 0; b.style.marginBottom = 30;
             b.style.overflow = Overflow.Hidden;
-            Round(b, _radius + 2f);
+            LvnChrome.Round(b, _radius + 2f);
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
@@ -571,7 +571,7 @@ namespace Lvn.UI.Screens
             play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
-            ClearBorder(play); Round(play, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(play); LvnChrome.Round(play, LvnTokens.RadiusSm);
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)
             {
@@ -750,7 +750,7 @@ namespace Lvn.UI.Screens
             poster.style.height = 320;
             poster.style.overflow = Overflow.Hidden;
             poster.style.backgroundColor = _card;
-            Round(poster, _radius);
+            LvnChrome.Round(poster, _radius);
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
@@ -837,7 +837,7 @@ namespace Lvn.UI.Screens
             card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
             SetBorderColor(card, _border);
             card.style.opacity = locked ? 0.55f : 1f;
-            Round(card, _radius);
+            LvnChrome.Round(card, _radius);
             card.style.marginBottom = 14;
             card.style.overflow = Overflow.Hidden;
 
@@ -880,11 +880,11 @@ namespace Lvn.UI.Screens
             // a thin progress bar (fallback demo progress)
             var track = new VisualElement();
             track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
-            track.style.backgroundColor = _theme.SurfaceHi; Round(track, 3f); track.style.overflow = Overflow.Hidden;
+            track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, 3f); track.style.overflow = Overflow.Hidden;
             var fill = new VisualElement();
             fill.style.height = Length.Percent(100f);
             fill.style.width = Length.Percent(locked ? 0f : 35f); // demo progress
-            fill.style.backgroundColor = _accent; Round(fill, 3f);
+            fill.style.backgroundColor = _accent; LvnChrome.Round(fill, 3f);
             track.Add(fill); col.Add(track);
 
             card.Add(col);
@@ -938,7 +938,7 @@ namespace Lvn.UI.Screens
             chip.style.backgroundColor = new Color(0f, 0f, 0f, 0.28f);
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
-            Round(chip, 10f);
+            LvnChrome.Round(chip, 10f);
             if (icon != LvnIcon.None)
             {
                 var ic = LvnIcons.Make(icon, 18f, color, 0f, _theme.IconGlow);
@@ -975,7 +975,7 @@ namespace Lvn.UI.Screens
             back.style.fontSize = 48; back.style.minWidth = 52;
             back.style.color = _titleColor;
             back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
-            ClearBorder(back); Round(back, _radius);
+            LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);
             bar.Add(back);
             title = Heading("", 30);
             title.style.marginLeft = 12;
@@ -1005,7 +1005,7 @@ namespace Lvn.UI.Screens
             b.style.paddingTop = 14; b.style.paddingBottom = 14;
             b.style.color = _accentText;
             b.style.backgroundColor = _accent;
-            ClearBorder(b); Round(b, _radius);
+            LvnChrome.ClearBorder(b); LvnChrome.Round(b, _radius);
             return b;
         }
 
@@ -1026,18 +1026,6 @@ namespace Lvn.UI.Screens
 
         private static Color Lighten(Color c, float a) => Color.Lerp(c, Color.white, a);
         private static Color Darken(Color c, float a) => Color.Lerp(c, Color.black, a);
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r; el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r; el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
-        }
 
         /// <summary>
         /// Переключение между тремя видами хаба — с движением, а не подменой.

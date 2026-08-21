@@ -127,7 +127,7 @@ namespace Lvn.UI.Screens
             _title.style.paddingLeft = 24; _title.style.paddingRight = 24;
             _title.style.paddingTop = 4; _title.style.paddingBottom = 4;
             _title.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            Round(_title, _radius);
+            LvnChrome.Round(_title, _radius);
             headRow.Add(_title);
 
             var collapse = new Button(Cancel) { text = "" };
@@ -193,7 +193,7 @@ namespace Lvn.UI.Screens
             _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
             _itemName.style.marginLeft = 10; _itemName.style.marginRight = 10;
             _itemName.style.paddingTop = 10; _itemName.style.paddingBottom = 10;
-            Round(_itemName, _radius);
+            LvnChrome.Round(_itemName, _radius);
             carousel.Add(_itemName);
             carousel.Add(next);
 
@@ -234,7 +234,7 @@ namespace Lvn.UI.Screens
                     b.style.fontSize = 20;
                     bool active = pid == _entity;
                     SkinButton(b, active);
-                    Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                    LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
                     _rosterRow.Add(b);
                     shown++;
                 }
@@ -333,7 +333,7 @@ namespace Lvn.UI.Screens
                 pill.style.paddingLeft = 12; pill.style.paddingRight = 6;
                 pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
                 pill.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
-                Round(pill, 16f);
+                LvnChrome.Round(pill, 16f);
 
                 string iconUrl = _cfg.currency_icons != null
                                  && _cfg.currency_icons.TryGetValue(cur, out var u) ? u : null;
@@ -360,7 +360,7 @@ namespace Lvn.UI.Screens
                     plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
                     plus.style.color = _accentText;
                     plus.style.backgroundColor = _accent;
-                    Round(plus, 12f);
+                    LvnChrome.Round(plus, 12f);
                     pill.Add(plus);
                 }
                 _balances.Add(pill);
@@ -401,7 +401,7 @@ namespace Lvn.UI.Screens
                 var b = new Button(() => SelectTab(axis));
                 b.style.width = 92; b.style.height = 92;
                 b.style.marginLeft = 6; b.style.marginRight = 6;
-                Round(b, _radius);
+                LvnChrome.Round(b, _radius);
                 b.userData = axis;
                 if (!string.IsNullOrEmpty(slot?.icon))
                 {
@@ -453,7 +453,7 @@ namespace Lvn.UI.Screens
                 if (b == null) continue;
                 bool active = (string)b.userData == _tab;
                 SkinButton(b, active);
-                Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
             }
 
             var items = Items(_tab);
@@ -680,7 +680,7 @@ namespace Lvn.UI.Screens
             b.style.backgroundColor = accent
                 ? _accent
                 : UiColor.Parse(_ch?.color, new Color(1f, 1f, 1f, 0.07f));
-            Round(b, _ch?.corner_radius ?? _radius);
+            LvnChrome.Round(b, _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
                 _ = ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0);
             else
@@ -705,22 +705,6 @@ namespace Lvn.UI.Screens
                 }
             }
             catch { /* missing art keeps the flat look */ }
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void Border(VisualElement el, Color c, float w)
-        {
-            el.style.borderTopColor = c; el.style.borderBottomColor = c;
-            el.style.borderLeftColor = c; el.style.borderRightColor = c;
-            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
-            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
         }
     }
 }

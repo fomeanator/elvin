@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// fallback so the screen renders standalone; a host wires live data by
     /// setting the public fields and calling <see cref="Rebuild"/>.
     /// </summary>
-    public sealed class ProfileScreen : VisualElement
+    public sealed class ProfileScreen : LvnOverlayScreen
     {
         /// <summary>One earned/locked achievement badge.</summary>
         public struct Achievement
@@ -87,8 +87,6 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly ScrollView _body;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
 
         public ProfileScreen(ILvnAssets assets)
         {
@@ -108,7 +106,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(7f);
             sheet.style.bottom = Length.Percent(7f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
             sheet.style.paddingTop = 20;
             sheet.style.paddingBottom = 16;
             sheet.style.paddingLeft = 20;
@@ -133,8 +131,8 @@ namespace Lvn.UI.Screens
             back.style.paddingRight = 0;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(back);
-            Round(back, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(back);
+            LvnChrome.Round(back, LvnTokens.RadiusSm);
             top.Add(back);
 
             var title = new Label("Профиль");
@@ -179,7 +177,7 @@ namespace Lvn.UI.Screens
             card.style.alignItems = Align.Center;
             card.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(card);
-            Round(card, LvnTokens.Radius);
+            LvnChrome.Round(card, LvnTokens.Radius);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
@@ -195,7 +193,7 @@ namespace Lvn.UI.Screens
             avatar.style.alignItems = Align.Center;
             avatar.style.justifyContent = Justify.Center;
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
-            Round(avatar, avatarSize / 2f);
+            LvnChrome.Round(avatar, avatarSize / 2f);
             avatar.style.borderTopWidth = 3;
             avatar.style.borderBottomWidth = 3;
             avatar.style.borderLeftWidth = 3;
@@ -240,7 +238,7 @@ namespace Lvn.UI.Screens
             var track = new VisualElement();
             track.style.height = 16;
             track.style.backgroundColor = LvnTokens.SurfaceHi;
-            Round(track, 8f);
+            LvnChrome.Round(track, 8f);
             track.style.overflow = Overflow.Hidden;
             col.Add(track);
 
@@ -248,7 +246,7 @@ namespace Lvn.UI.Screens
             fill.style.height = 16;
             fill.style.width = Length.Percent(frac * 100f);
             fill.style.backgroundColor = LvnTokens.Accent;
-            Round(fill, 8f);
+            LvnChrome.Round(fill, 8f);
             track.Add(fill);
 
             var xpLabel = new Label($"{Xp:N0} / {next:N0} XP");
@@ -284,7 +282,7 @@ namespace Lvn.UI.Screens
             tile.style.alignItems = Align.Center;
             tile.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tile);
-            Round(tile, LvnTokens.RadiusSm);
+            LvnChrome.Round(tile, LvnTokens.RadiusSm);
             tile.style.paddingTop = 16;
             tile.style.paddingBottom = 16;
             tile.style.paddingLeft = 8;
@@ -330,7 +328,7 @@ namespace Lvn.UI.Screens
             badge.style.marginBottom = 8;
             badge.style.alignItems = Align.Center;
             badge.style.backgroundColor = a.Unlocked ? LvnTokens.SurfaceHi : LvnTokens.Surface;
-            Round(badge, LvnTokens.RadiusSm);
+            LvnChrome.Round(badge, LvnTokens.RadiusSm);
             badge.style.paddingTop = 14;
             badge.style.paddingBottom = 14;
             badge.style.paddingLeft = 6;
@@ -368,7 +366,7 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(row);
-            Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.paddingTop = 14;
             row.style.paddingBottom = 14;
             row.style.paddingLeft = 16;
@@ -403,7 +401,7 @@ namespace Lvn.UI.Screens
             var track = new VisualElement();
             track.style.height = 14;
             track.style.backgroundColor = LvnTokens.SurfaceHi;
-            Round(track, 7f);
+            LvnChrome.Round(track, 7f);
             track.style.overflow = Overflow.Hidden;
             row.Add(track);
 
@@ -411,7 +409,7 @@ namespace Lvn.UI.Screens
             fill.style.height = 14;
             fill.style.width = Length.Percent(r.Affection * 100f);
             fill.style.backgroundColor = LvnTokens.Accent;
-            Round(fill, 7f);
+            LvnChrome.Round(fill, 7f);
             track.Add(fill);
 
             return row;
@@ -444,8 +442,8 @@ namespace Lvn.UI.Screens
             copy.style.paddingRight = 16;
             copy.style.color = LvnTokens.OnAccent;
             copy.style.backgroundColor = LvnTokens.Accent;
-            ClearBorder(copy);
-            Round(copy, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(copy);
+            LvnChrome.Round(copy, LvnTokens.RadiusSm);
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = id;
@@ -472,55 +470,9 @@ namespace Lvn.UI.Screens
         private static string Shorten(string id)
             => id != null && id.Length > 12 ? id.Substring(0, 12) + "…" : id;
 
-        // ── Overlay lifecycle (mirrors StoreScreen) ────────────────────────
+        // Жизненный цикл накладного экрана — в базовом классе
+        // (LvnOverlayScreen): проявление, ожидание, угасание и отмена открытия
+        // из Hide() одинаковы у всех восьми экранов оболочки.
 
-        /// <summary>Open the profile: fade the scrim in and park on a TCS that
-        /// <see cref="Close"/> resolves, then fade back out.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // Hide() during the fade-in must cancel the open, not leave this
-            // await parked on a _tcs nobody will ever resolve.
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
-        private void Close() => _tcs?.TrySetResult(true);
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
-        }
     }
 }

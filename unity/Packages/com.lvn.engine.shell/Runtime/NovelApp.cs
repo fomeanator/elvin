@@ -127,103 +127,57 @@ namespace Lvn.UI.Screens
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
 
-        private async void Start()
+        /// <summary>
+        /// Ровная подача кадров. Без явной цели Android отдаёт «сколько
+        /// получится», и картинка идёт рывками даже там, где кадров хватает: на
+        /// телефоне vSync игнорируется, а плавность считывается по РАВНОМЕРНОСТИ
+        /// интервалов, а не по их числу. Шестьдесят там, где экран умеет, иначе
+        /// родная частота панели.
+        /// </summary>
+        /// <summary>
+        /// Продуктовый слой поверх движка: вход, реклама, кошелёк, аналитика,
+        /// эксперименты и функции выражений. Возвращает адрес, откуда берётся
+        /// контент, — он же решает, играем мы с сервера или из встроенного
+        /// набора.
+        ///
+        /// <para>Порядок здесь не косметический: регистрация идёт ПЕРЕД
+        /// отправкой источника перехода (без сессии сервер не знает, чей это
+        /// канал), а функции выражений ставятся до первой главы, потому что
+        /// читают живое состояние кошелька и гардероба.</para>
+        /// </summary>
+        /// <summary>
+        /// Откуда берётся контент и где живут статы игрока.
+        ///
+        /// <para>Две ветки, и разница между ними принципиальная: встроенный
+        /// набор играется целиком с диска (опрашивать нечего, поэтому и
+        /// интервал синхронизации обнуляется), а серверная сборка синхронизирует
+        /// статы через /v1/state — но местно-первым способом, чтобы игра
+        /// оставалась играбельной и сохраняла прогресс, когда сервер лежит.</para>
+        /// </summary>
+        private string OpenContentAndState()
         {
-            // Ровная подача кадров. Без явной цели Android отдаёт «сколько
-            // получится», и картинка идёт рывками даже там, где кадров хватает:
-            // на телефоне vSync игнорируется, а плавность считывается по
-            // РАВНОМЕРНОСТИ интервалов, а не по их числу. 60 там, где экран это
-            // умеет, иначе родная частота панели.
-            QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate =
-                Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
-
-            // Boot telemetry: one stopwatch, a mark per phase — `adb logcat -s
-            // Unity | grep lvn-boot` (or the editor console) reads as a boot
-            // profile. Anything that grows here is a regression to hunt.
-            var bootClock = System.Diagnostics.Stopwatch.StartNew();
-            void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
-
-            // Мост к хост-приложению. Поднимаем ВСЕГДА: в самостоятельной
-            // сборке он молчит (отправка никуда не подключена), а когда движок
-            // собран библиотекой — хост должен найти его сразу, не дожидаясь
-            // первой главы. Иначе первые сообщения уходят в пустоту, и «Unity
-            // не отвечает» выглядит как поломка канала, а не как гонка.
-            LvnHostBridge.Ensure(this);
-
-            // Test-lane server override (Development builds only): device
-            // automation points this install at a throwaway server via
-            // `am start … -e lvn_server <url>` (or LVN_SERVER for CI players)
-            // instead of re-exporting. Must land before ANYTHING derives from
-            // ServerUrl — the log shipper, content base and state store all do.
-            var serverOverride = LvnLaunchOverrides.ServerUrl();
-
-            // The theme must land on the shared panel BEFORE the veil: a panel
-            // without a ThemeStyleSheet has no default font, so every veil
-            // label renders as NOTHING — the "black screen with no text" class
-            // of bug. (The shell used to set it only after the manifest.)
-            if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
-                ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
-            LvnPanel.SetTheme(ShellTheme);
-
-            // First paint THIS frame — before any network round-trip — so the
-            // device never sits on a raw black screen while boot works.
-            BootVeil.Show();
-            Mark("veil up (first paint)");
-            // Let the veil actually REACH the screen before any heavier boot
-            // work (PSO load, probes): on slow devices frame 1's render was
-            // getting starved and the first visible percent was already 30.
-            await Task.Yield();
-            await Task.Yield();
-
-            if (serverOverride != null)
+            var contentBase = ServerUrl;
+            if (OfflineBundled)
             {
-                // Test-lane override always wins — it exists so device automation
-                // can point an install at a throwaway server without re-exporting.
-                ServerUrl = serverOverride;
-                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
+                contentBase = LocalContentBase(BundleSubdir);
+                SyncInterval = 0f; // nothing to poll — content is baked into the build
+                Debug.Log($"[novelapp] offline bundle → {contentBase}");
             }
-            else
-            {
-                // CS-1.6-style server pick, over the veil: unchecked (default),
-                // the known servers race a /healthz ping and the first live one
-                // wins — invisible unless nothing answers in time. Checked
-                // (persisted), a small browser lists them plus a free-text field
-                // for the player's own host, and waits for an explicit Connect.
-                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, destroyCancellationToken);
-                Debug.Log($"[novelapp] server resolved: {ServerUrl}");
-            }
-            Mark("server resolved");
 
-            // Field diagnostics BEFORE the first mark: errors, exceptions and
-            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
-            // device's crash is readable via /v1/admin/client-logs, no adb.
-            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
-            Lvn.Services.LvnLogShip.Boot();
+            _assets = new CachingAssets(contentBase);
 
-            // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
-            // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
-            // и главе умеет только оболочка. Дедупликация по адресу: одна
-            // пропавшая картинка в цикле показа даёт сотни попыток, и без неё
-            // очередь событий забьётся одним и тем же.
-            Lvn.Content.ContentLoader.AssetFailed -= OnAssetFailed;
-            Lvn.Content.ContentLoader.AssetFailed += OnAssetFailed;
+            // Stat/var persistence: a bundled offline build keeps stats locally; a
+            // server build syncs through /v1/state (local-first, so it still plays and
+            // keeps stats when the server is down).
+            _state = OfflineBundled
+                ? (ILvnStateStore)new LocalStateStore()
+                : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
+            return contentBase;
+            return contentBase;
+        }
 
-            // Шаги внутри главы: метки — это «слайды» автора, выборы — места,
-            // где игрок решает. Без них между входом в главу и выходом пусто, и
-            // на вопрос «где отваливаются» отвечать нечем.
-            LvnPlayer.LabelReached -= OnLabelReached;
-            LvnPlayer.LabelReached += OnLabelReached;
-            LvnPlayer.ChoiceShown -= OnChoiceShown;
-            LvnPlayer.ChoiceShown += OnChoiceShown;
-            LvnPlayer.ChoicePicked -= OnChoicePicked;
-            LvnPlayer.ChoicePicked += OnChoicePicked;
-
-            // PSO precook: warms last session's traced pipeline states behind
-            // the boot screen (first launch traces instead) — kills the
-            // first-show shader-compile hitches. Fire-and-forget, self-paced.
-            LvnPsoWarmup.Boot();
-
+        private string InstallProductServices()
+        {
             // Product services ride the same host (BaseUrl set above, before the
             // log shipper); registration is idempotent and a no-op offline — a
             // pure-offline game just never signs in.
@@ -253,46 +207,26 @@ namespace Lvn.UI.Screens
             // отправляет диагностику: второй буфер — это вторая правда.
             Lvn.Services.LvnFeedback.TailLog = () => Lvn.Services.LvnLogShip.Tail();
             Lvn.Services.LvnAnalytics.Track("boot");
-            if (OfflineBundled)
-            {
-                contentBase = LocalContentBase(BundleSubdir);
-                SyncInterval = 0f; // nothing to poll — content is baked into the build
-                Debug.Log($"[novelapp] offline bundle → {contentBase}");
-            }
+            return OpenContentAndState();
+        }
 
-            _assets = new CachingAssets(contentBase);
-
-            // Stat/var persistence: a bundled offline build keeps stats locally; a
-            // server build syncs through /v1/state (local-first, so it still plays and
-            // keeps stats when the server is down).
-            _state = OfflineBundled
-                ? (ILvnStateStore)new LocalStateStore()
-                : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
-
-            // Connectivity gate (Liminal-style): probe the server with a hard 3s
-            // deadline so an unreachable server falls straight through to the offline
-            // path instead of hanging on a stuck socket. A local/bundled origin is
-            // always reachable. The probe pins the global offline flag so every later
-            // fetch fast-fails into the disk cache.
-            //
-            // All three boot round-trips fly TOGETHER — healthz, the version
-            // index and the manifest are independent GETs, and running them
-            // serially was the single biggest boot cost on device (3 × mobile
-            // RTT; the old worst case even ate the probe's full 3s deadline
-            // before the first byte of manifest moved).
-            var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
-            var versionsTask = _assets.WarmVersionsAsync();
-            var manifestTask = FetchManifestAsync();
-            BootVeil.Progress(10, "подключение…");
-
-            bool online = await probeTask;
-            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
-            Mark($"connectivity → {(online ? "online" : "offline")}");
-            BootVeil.Progress(30, "загрузка данных…");
-
-            try { await versionsTask; } catch { /* offline: last-known index */ }
-            Mark("version index");
-
+        /// <summary>
+        /// Достать манифест — свежий с сервера, иначе последний сохранённый,
+        /// иначе дождаться сети.
+        ///
+        /// <para>Три исхода, и каждый существует не зря: сеть есть — берём и
+        /// кладём в кэш; сети нет, но кэш есть — играем офлайн; нет ни того, ни
+        /// другого — держим вуаль и ждём, потому что свежая установка без сети
+        /// это НЕ тупик: появится сеть — приложение стартует само.</para>
+        ///
+        /// <para>Средний случай тонкий: проба связи могла соврать (её трёхсекундный
+        /// срок проиграл медленному первому запуску), пока сам запрос манифеста
+        /// уже почти успел. Поэтому перед медленными повторами мы даём шанс
+        /// запросу, который всё ещё в полёте.</para>
+        /// </summary>
+        private async Task<(LvnManifest manifest, bool online)> ResolveManifestAsync(
+            Task<LvnManifest> manifestTask, bool online, Action<string> mark)
+        {
             // Manifest: fresh from the server when online (cached for next time), else
             // the last cached copy — so a previously-online install still plays offline.
             LvnManifest manifest = null;
@@ -312,7 +246,7 @@ namespace Lvn.UI.Screens
                 _ = manifestTask.ContinueWith(t => _ = t.Exception,
                     TaskContinuationOptions.OnlyOnFaulted);
             if (manifest == null) manifest = LoadCachedManifest();
-            Mark("manifest");
+            mark("manifest");
             BootVeil.Progress(60);
             if (manifest == null)
             {
@@ -337,8 +271,10 @@ namespace Lvn.UI.Screens
                 for (int attempt = 1; manifest == null; attempt++)
                 {
                     BootVeil.Status($"нет соединения с сервером — переподключение… ({attempt})");
+                    // Компонент умер (смена сцены, снос встраивателем) — уходим
+                    // без манифеста: вызывающий это увидит и прекратит загрузку.
                     try { await Task.Delay(5000, destroyCancellationToken); }
-                    catch (OperationCanceledException) { return; }
+                    catch (OperationCanceledException) { return (null, online); }
                     try
                     {
                         manifest = await FetchManifestAsync();
@@ -351,14 +287,21 @@ namespace Lvn.UI.Screens
                         Debug.Log($"[novelapp] manifest retry {attempt}: {ex.Message}");
                     }
                 }
-                Mark("manifest (recovered)");
+                mark("manifest (recovered)");
                 BootVeil.Progress(60, "");
             }
-            // The awaits above outlive a destroyed host (scene switch, embedder
-            // teardown) — never keep booting on a dead component.
-            if (destroyCancellationToken.IsCancellationRequested) return;
-            Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
+            return (manifest, online);
+        }
 
+        /// <summary>
+        /// Сцена под манифест: ассеты, каталог спрайтов, тема диалога и язык.
+        ///
+        /// <para>Тема берётся из того же manifest.ui, что и экраны оболочки, —
+        /// иначе игра выглядела бы двумя разными продуктами: оболочка одной
+        /// темы, диалог другой.</para>
+        /// </summary>
+        private void PrepareStage(LvnManifest manifest)
+        {
             if (Stage == null) Stage = CreateStage();
             _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
@@ -379,34 +322,19 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(LvnPrefs.Locale)) Locale = LvnPrefs.Locale;
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             LvnPrefs.Changed += OnPrefsMaybeLocale;
+        }
 
-            Mark("stage + theme ready");
-            _downloads = new DownloadManager(_assets.Loader);
-            var prefetch = SafeBootPrefetch(manifest, online);
-            _ = prefetch.ContinueWith(_ => Debug.Log(
-                $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
-                TaskScheduler.FromCurrentSynchronizationContext());
-
-            // Progress vault: a VIRGIN install (corrupted prefs, a reinstall
-            // under the same identity) gets the player's progress re-planted —
-            // file home first (instant, offline), then the server backup —
-            // BEFORE the hub renders, so «Продолжить» is right from frame one.
-            try
-            {
-                if (ProgressVault.IsVirgin(manifest))
-                {
-                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
-                    if (ProgressVault.IsVirgin(manifest) && _state != null)
-                        ProgressVault.Apply(
-                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
-                            manifest);
-                }
-            }
-            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
-
-            _shell = NovelShell.Create(transform, 30, ShellTheme);
-            _shell.Build(manifest, _assets);
-            Mark("shell built");
+        /// <summary>
+        /// Пункты быстрого меню и хостовые опы, которые их зовут: магазин,
+        /// гардероб, настройки, тестовый кран валюты, режим разглядывания арта.
+        ///
+        /// <para>Каждый пункт появляется, только если манифест его просит: игра
+        /// без валюты не должна показывать магазин, а новелла без гардероба —
+        /// пункт гардероба. Оболочка здесь ничего не знает про конкретный
+        /// продукт, она лишь читает объявленное.</para>
+        /// </summary>
+        private void WireQuickMenu(LvnManifest manifest)
+        {
 
             // The currency store: a quick-menu entry when the manifest opts in
             // (ui.store present), and the `ext store_show` op for scripts —
@@ -530,6 +458,248 @@ namespace Lvn.UI.Screens
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
+
+        }
+
+        /// <summary>
+        /// Вход в главу: дождаться первого фона за непрозрачной загрузкой,
+        /// раскрыть живую сцену, показать титул главы и — на первой главе —
+        /// спросить имя.
+        ///
+        /// <para>Ожидание фона имеет СРОК: текстовая сцена может не иметь фона
+        /// вовсе, и без срока вход завис бы навсегда. Возобновление titles не
+        /// показывает: игрок посреди сцены, а не в начале.</para>
+        ///
+        /// <para>Обещание <c>entryDone</c> выполняется в finally ЧТО БЫ НИ
+        /// СЛУЧИЛОСЬ: на нём держится первая реплика, и незакрытое обещание —
+        /// это игра, замершая на пустом экране.</para>
+        /// </summary>
+        private async Task RevealChapterEntryAsync(LvnTitle title, LvnChapter chapter,
+            bool resuming, bool restart, bool novelFreshStart,
+            TaskCompletionSource<bool> entryDone)
+        {
+            // Liminal-style entry: the chapter has been booting BEHIND the opaque
+            // loader; once the first background lands (or a short grace passes —
+            // some scenes are text-only), fade the loader into the LIVE scene and
+            // float the chapter title over it. A resume skips the title card (the
+            // player is mid-scene, not at the opening). Chapter 2+ in a seamless
+            // chain: the loader is already hidden (no-op), the title still shows.
+            float revealStart = Time.realtimeSinceStartup;
+            float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
+            while (Stage != null && !Stage.HasBackdrop && Time.realtimeSinceStartup < revealDeadline)
+                await Task.Yield();
+            Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
+                      $"waited={(Time.realtimeSinceStartup - revealStart) * 1000f:F0}ms resuming={resuming}");
+            try
+            {
+                if (_shell != null)
+                {
+                    await _shell.RevealFromLoadingAsync();
+                    if (!resuming) await _shell.ShowChapterTitleAsync(chapter, title);
+                    // The NOVEL asks the name here — after the title card, the
+                    // live scene as the backdrop, just the panel at the bottom.
+                    // Manifest switch ui.name_input.enabled; fresh starts of the
+                    // first chapter only (restart or first-ever), prefilled.
+                    var ni = _manifest?.ui?.name_input;
+                    bool firstChapter = IsFirstChapter(title, chapter);
+                    if (AskName && ni != null && (ni.enabled ?? true)
+                        && !resuming && firstChapter
+                        && (restart || novelFreshStart || string.IsNullOrEmpty(_playerName))
+                        && _shell.NameInput != null)
+                    {
+                        try
+                        {
+                            var entered = await _shell.NameInput.AskAsync(
+                                null, _playerName, overlay: true, destroyCancellationToken);
+                            if (!string.IsNullOrEmpty(entered))
+                            {
+                                _playerName = entered;
+                                Lvn.UI.LvnPrefs.PlayerName = entered;
+                                if (Stage.Player != null) Stage.Player.Vars["player"] = entered;
+                            }
+                        }
+                        catch (OperationCanceledException) { /* teardown mid-ask */ }
+                    }
+                }
+            }
+            finally { entryDone.TrySetResult(true); } // release the first line NO MATTER WHAT
+        }
+
+        private static void ConfigureFrameRate()
+        {
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate =
+                Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
+        }
+
+        /// <summary>
+        /// Подписки на то, что рассказывает о себе история: промахи ассетов и
+        /// шаги внутри главы (метки — «слайды» автора, выборы — места, где
+        /// решает игрок). Без них между входом в главу и выходом пусто, и на
+        /// вопрос «где отваливаются» отвечать нечем.
+        ///
+        /// <para>Каждая подписка сперва снимается: Start у долгоживущего
+        /// объекта может пройти дважды (пересоздание оболочки), и без снятия
+        /// одно событие обрабатывалось бы дважды.</para>
+        /// </summary>
+        private void SubscribeStoryDiagnostics()
+        {
+            Lvn.Content.ContentLoader.AssetFailed -= OnAssetFailed;
+            Lvn.Content.ContentLoader.AssetFailed += OnAssetFailed;
+
+            // Шаги внутри главы: метки — это «слайды» автора, выборы — места,
+            // где игрок решает. Без них между входом в главу и выходом пусто, и
+            // на вопрос «где отваливаются» отвечать нечем.
+            LvnPlayer.LabelReached -= OnLabelReached;
+            LvnPlayer.LabelReached += OnLabelReached;
+            LvnPlayer.ChoiceShown -= OnChoiceShown;
+            LvnPlayer.ChoiceShown += OnChoiceShown;
+            LvnPlayer.ChoicePicked -= OnChoicePicked;
+            LvnPlayer.ChoicePicked += OnChoicePicked;
+        }
+
+        private async void Start()
+        {
+            ConfigureFrameRate();
+
+            // Boot telemetry: one stopwatch, a mark per phase — `adb logcat -s
+            // Unity | grep lvn-boot` (or the editor console) reads as a boot
+            // profile. Anything that grows here is a regression to hunt.
+            var bootClock = System.Diagnostics.Stopwatch.StartNew();
+            void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
+
+            // Мост к хост-приложению. Поднимаем ВСЕГДА: в самостоятельной
+            // сборке он молчит (отправка никуда не подключена), а когда движок
+            // собран библиотекой — хост должен найти его сразу, не дожидаясь
+            // первой главы. Иначе первые сообщения уходят в пустоту, и «Unity
+            // не отвечает» выглядит как поломка канала, а не как гонка.
+            LvnHostBridge.Ensure(this);
+
+            // Test-lane server override (Development builds only): device
+            // automation points this install at a throwaway server via
+            // `am start … -e lvn_server <url>` (or LVN_SERVER for CI players)
+            // instead of re-exporting. Must land before ANYTHING derives from
+            // ServerUrl — the log shipper, content base and state store all do.
+            var serverOverride = LvnLaunchOverrides.ServerUrl();
+
+            // The theme must land on the shared panel BEFORE the veil: a panel
+            // without a ThemeStyleSheet has no default font, so every veil
+            // label renders as NOTHING — the "black screen with no text" class
+            // of bug. (The shell used to set it only after the manifest.)
+            if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
+                ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
+            LvnPanel.SetTheme(ShellTheme);
+
+            // First paint THIS frame — before any network round-trip — so the
+            // device never sits on a raw black screen while boot works.
+            BootVeil.Show();
+            Mark("veil up (first paint)");
+            // Let the veil actually REACH the screen before any heavier boot
+            // work (PSO load, probes): on slow devices frame 1's render was
+            // getting starved and the first visible percent was already 30.
+            await Task.Yield();
+            await Task.Yield();
+
+            if (serverOverride != null)
+            {
+                // Test-lane override always wins — it exists so device automation
+                // can point an install at a throwaway server without re-exporting.
+                ServerUrl = serverOverride;
+                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
+            }
+            else
+            {
+                // CS-1.6-style server pick, over the veil: unchecked (default),
+                // the known servers race a /healthz ping and the first live one
+                // wins — invisible unless nothing answers in time. Checked
+                // (persisted), a small browser lists them plus a free-text field
+                // for the player's own host, and waits for an explicit Connect.
+                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, destroyCancellationToken);
+                Debug.Log($"[novelapp] server resolved: {ServerUrl}");
+            }
+            Mark("server resolved");
+
+            // Field diagnostics BEFORE the first mark: errors, exceptions and
+            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
+            // device's crash is readable via /v1/admin/client-logs, no adb.
+            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            Lvn.Services.LvnLogShip.Boot();
+
+            // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
+            // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
+            // и главе умеет только оболочка. Дедупликация по адресу: одна
+            // пропавшая картинка в цикле показа даёт сотни попыток, и без неё
+            // очередь событий забьётся одним и тем же.
+            SubscribeStoryDiagnostics();
+
+            // PSO precook: warms last session's traced pipeline states behind
+            // the boot screen (first launch traces instead) — kills the
+            // first-show shader-compile hitches. Fire-and-forget, self-paced.
+            LvnPsoWarmup.Boot();
+
+            var contentBase = InstallProductServices();
+            // Connectivity gate (Liminal-style): probe the server with a hard 3s
+            // deadline so an unreachable server falls straight through to the offline
+            // path instead of hanging on a stuck socket. A local/bundled origin is
+            // always reachable. The probe pins the global offline flag so every later
+            // fetch fast-fails into the disk cache.
+            //
+            // All three boot round-trips fly TOGETHER — healthz, the version
+            // index and the manifest are independent GETs, and running them
+            // serially was the single biggest boot cost on device (3 × mobile
+            // RTT; the old worst case even ate the probe's full 3s deadline
+            // before the first byte of manifest moved).
+            var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
+            var versionsTask = _assets.WarmVersionsAsync();
+            var manifestTask = FetchManifestAsync();
+            BootVeil.Progress(10, "подключение…");
+
+            bool online = await probeTask;
+            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
+            Mark($"connectivity → {(online ? "online" : "offline")}");
+            BootVeil.Progress(30, "загрузка данных…");
+
+            try { await versionsTask; } catch { /* offline: last-known index */ }
+            Mark("version index");
+
+            var boot = await ResolveManifestAsync(manifestTask, online, Mark);
+            var manifest = boot.manifest;
+            online = boot.online;
+            // The awaits above outlive a destroyed host (scene switch, embedder
+            // teardown) — never keep booting on a dead component. Пустой манифест
+            // означает ровно это: ожидание сети прервали сносом компонента.
+            if (destroyCancellationToken.IsCancellationRequested || manifest == null) return;
+            Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
+
+            PrepareStage(manifest);
+            Mark("stage + theme ready");
+            _downloads = new DownloadManager(_assets.Loader);
+            var prefetch = SafeBootPrefetch(manifest, online);
+            _ = prefetch.ContinueWith(_ => Debug.Log(
+                $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
+                TaskScheduler.FromCurrentSynchronizationContext());
+
+            // Progress vault: a VIRGIN install (corrupted prefs, a reinstall
+            // under the same identity) gets the player's progress re-planted —
+            // file home first (instant, offline), then the server backup —
+            // BEFORE the hub renders, so «Продолжить» is right from frame one.
+            try
+            {
+                if (ProgressVault.IsVirgin(manifest))
+                {
+                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
+                    if (ProgressVault.IsVirgin(manifest) && _state != null)
+                        ProgressVault.Apply(
+                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                            manifest);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+
+            _shell = NovelShell.Create(transform, 30, ShellTheme);
+            _shell.Build(manifest, _assets);
+            Mark("shell built");
+            WireQuickMenu(manifest);
 
             // The FULL library warms in the background from here on: every
             // chapter of every title lands on disk while the player browses or
@@ -1638,51 +1808,7 @@ namespace Lvn.UI.Screens
                 }
             }
 
-            // Liminal-style entry: the chapter has been booting BEHIND the opaque
-            // loader; once the first background lands (or a short grace passes —
-            // some scenes are text-only), fade the loader into the LIVE scene and
-            // float the chapter title over it. A resume skips the title card (the
-            // player is mid-scene, not at the opening). Chapter 2+ in a seamless
-            // chain: the loader is already hidden (no-op), the title still shows.
-            float revealStart = Time.realtimeSinceStartup;
-            float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
-            while (Stage != null && !Stage.HasBackdrop && Time.realtimeSinceStartup < revealDeadline)
-                await Task.Yield();
-            Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
-                      $"waited={(Time.realtimeSinceStartup - revealStart) * 1000f:F0}ms resuming={resuming}");
-            try
-            {
-                if (_shell != null)
-                {
-                    await _shell.RevealFromLoadingAsync();
-                    if (!resuming) await _shell.ShowChapterTitleAsync(chapter, title);
-                    // The NOVEL asks the name here — after the title card, the
-                    // live scene as the backdrop, just the panel at the bottom.
-                    // Manifest switch ui.name_input.enabled; fresh starts of the
-                    // first chapter only (restart or first-ever), prefilled.
-                    var ni = _manifest?.ui?.name_input;
-                    bool firstChapter = IsFirstChapter(title, chapter);
-                    if (AskName && ni != null && (ni.enabled ?? true)
-                        && !resuming && firstChapter
-                        && (restart || novelFreshStart || string.IsNullOrEmpty(_playerName))
-                        && _shell.NameInput != null)
-                    {
-                        try
-                        {
-                            var entered = await _shell.NameInput.AskAsync(
-                                null, _playerName, overlay: true, destroyCancellationToken);
-                            if (!string.IsNullOrEmpty(entered))
-                            {
-                                _playerName = entered;
-                                Lvn.UI.LvnPrefs.PlayerName = entered;
-                                if (Stage.Player != null) Stage.Player.Vars["player"] = entered;
-                            }
-                        }
-                        catch (OperationCanceledException) { /* teardown mid-ask */ }
-                    }
-                }
-            }
-            finally { entryDone.TrySetResult(true); } // release the first line NO MATTER WHAT
+            await RevealChapterEntryAsync(title, chapter, resuming, restart, novelFreshStart, entryDone);
 
             // Drive the HUD percent until the chapter ends — or the player asks
             // out (the quick menu's Exit; position already autosaved, so the

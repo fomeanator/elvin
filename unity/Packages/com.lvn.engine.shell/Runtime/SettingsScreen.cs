@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// <see cref="LvnWebView"/> seam; "Sign in" is delegated to the host via
     /// <see cref="OnSignIn"/>.
     /// </summary>
-    public sealed class SettingsScreen : VisualElement
+    public sealed class SettingsScreen : LvnOverlayScreen
     {
         /// <summary>Host hook for the "Sign in" button — route to the auth screen
         /// / platform sign-in. Null hides the button.</summary>
@@ -35,8 +35,6 @@ namespace Lvn.UI.Screens
         private readonly Color _accent;
         private readonly float _radius;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
         private VisualElement _accountRow;
 
         public SettingsScreen(SettingsConfig cfg, ILvnAssets assets)
@@ -61,7 +59,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(8f);
             sheet.style.bottom = Length.Percent(8f);
             sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
-            Round(sheet, _radius + 4f);
+            LvnChrome.Round(sheet, _radius + 4f);
             LvnChrome.Edge(sheet);
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
@@ -86,42 +84,11 @@ namespace Lvn.UI.Screens
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = _text;
             close.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(close);
-            Round(close, _radius);
+            LvnChrome.ClearBorder(close);
+            LvnChrome.Round(close, _radius);
             sheet.Add(close);
         }
 
-        /// <summary>Open the settings overlay; resolves when the player closes it.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            Rebuild();
-            _ = RefreshAccountAsync(); // fills the account row from /v1/auth/me
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
-        private void Close() => _tcs?.TrySetResult(true);
 
         /// <summary>(Re)build the settings rows from the current prefs/config. Called
         /// by <see cref="ShowAsync"/>; public so tests and hosts can render on demand.</summary>
@@ -319,7 +286,7 @@ namespace Lvn.UI.Screens
         private async Task RefreshAccountAsync()
         {
             var providers = await LvnBackend.GetProvidersAsync();
-            if (!_open || _accountRow == null) return;
+            if (!IsOpen || _accountRow == null) return;
             if (providers != null && providers.Length > 0)
             {
                 string via = string.Join(", ", System.Array.ConvertAll(providers, Capitalize));
@@ -388,8 +355,8 @@ namespace Lvn.UI.Screens
             b.style.paddingLeft = 16; b.style.paddingRight = 16;
             b.style.color = active ? LvnTokens.OnAccent : _text;
             b.style.backgroundColor = active ? _accent : LvnTokens.Faint;
-            ClearBorder(b);
-            Round(b, _radius);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, _radius);
         }
 
         private static string LocaleName(string loc) =>
@@ -397,17 +364,5 @@ namespace Lvn.UI.Screens
 
         private static string Capitalize(string s) =>
             string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r; el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r; el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
-        }
     }
 }

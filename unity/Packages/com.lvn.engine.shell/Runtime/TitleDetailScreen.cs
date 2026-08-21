@@ -34,7 +34,7 @@ namespace Lvn.UI.Screens
     ///  - the back button and the action bar respect Screen.safeArea (notch /
     ///    home indicator).
     /// </summary>
-    public sealed class TitleDetailScreen : VisualElement
+    public sealed class TitleDetailScreen : LvnOverlayScreen
     {
         private const float HeroAspect = 0.68f; // hero height = page width × this
 
@@ -44,8 +44,6 @@ namespace Lvn.UI.Screens
         private VisualElement _hero;
         private Button _backBtn;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
         private VisualElement _modal; // the restart overlay, while it's up
 
         /// <summary>The real title behind this page — set by the host before
@@ -101,41 +99,11 @@ namespace Lvn.UI.Screens
             Rebuild();
         }
 
-        /// <summary>Open the detail page: fade in, then park on the TCS until the
-        /// player taps back/close (or <paramref name="ct"/> cancels), then fade out.
-        /// Returns true when the player asked to play/continue, false when they
-        /// backed out — mirrors <see cref="StoreScreen.ShowAsync"/>.</summary>
-        public async Task<bool> ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return false;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // Hide() during the fade-in must cancel the open, not leave this await
-            // parked on a _tcs nobody will ever resolve.
-            if (!_open) return false;
+        // Жизненный цикл — в LvnOverlayScreen. Здесь остаётся только смысл
+        // ДВУХ исходов: «играть» подтверждает ожидание, «назад» отменяет.
+        private void Play() => Close();
+        private void Back() => Cancel();
 
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { return await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
-        private void Close() => _tcs?.TrySetResult(false);
-        private void Play() => _tcs?.TrySetResult(true);
 
         /// <summary>(Re)build the whole content column. Public so tests/hosts can
         /// render the page without driving <see cref="ShowAsync"/>.</summary>
@@ -219,7 +187,10 @@ namespace Lvn.UI.Screens
             hero.Add(overTitle);
 
             // back button, floated on the image (top-left, below the notch)
-            var back = new Button(Close) { text = "‹" };
+            // Back — это ОТМЕНА. В прежнем коде метод отмены назывался Close и
+            // возвращал false; в базовом классе Close означает подтверждение,
+            // поэтому кнопка обязана звать Back, иначе «назад» запускало бы игру.
+            var back = new Button(Back) { text = "‹" };
             _backBtn = back;
             back.style.position = Position.Absolute; back.style.left = 20; back.style.top = 16;
             back.style.fontSize = 36; back.style.width = 56; back.style.height = 56;
@@ -227,7 +198,7 @@ namespace Lvn.UI.Screens
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
-            ClearBorder(back); Round(back, 28f);
+            LvnChrome.ClearBorder(back); LvnChrome.Round(back, 28f);
             hero.Add(back);
 
             return hero;
@@ -263,7 +234,7 @@ namespace Lvn.UI.Screens
             chip.style.borderLeftWidth = 1; chip.style.borderRightWidth = 1;
             chip.style.borderTopColor = LvnTokens.Border; chip.style.borderBottomColor = LvnTokens.Border;
             chip.style.borderLeftColor = LvnTokens.Border; chip.style.borderRightColor = LvnTokens.Border;
-            Round(chip, 999f); // pill
+            LvnChrome.Round(chip, 999f); // pill
 
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;
@@ -307,7 +278,7 @@ namespace Lvn.UI.Screens
         // ── 5. chapters list — real chapters + real reading progress ─────────
         private VisualElement BuildChaptersSection()
         {
-            var chapterList = ChaptersOf(Title);
+            var chapterList = Title.ChaptersOf();
             if (chapterList.Count == 0) return null;
 
             var section = new VisualElement();
@@ -340,7 +311,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.backgroundColor = LvnTokens.Surface;
-            Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginTop = 12;
             row.style.paddingLeft = 16;
             row.style.paddingRight = 16;
@@ -357,7 +328,7 @@ namespace Lvn.UI.Screens
             numBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             numBadge.style.color = state == 1 ? LvnTokens.OnAccent : LvnTokens.Text;
             numBadge.style.backgroundColor = state == 1 ? LvnTokens.Accent : LvnTokens.SurfaceHi;
-            Round(numBadge, 24f);
+            LvnChrome.Round(numBadge, 24f);
             row.Add(numBadge);
 
             var nameLbl = new Label(name);
@@ -427,8 +398,8 @@ namespace Lvn.UI.Screens
                 cont.style.unityFontStyleAndWeight = FontStyle.Bold;
                 cont.style.color = LvnTokens.OnAccent;
                 cont.style.backgroundColor = LvnTokens.Accent;
-                ClearBorder(cont);
-                Round(cont, LvnTokens.RadiusSm);
+                LvnChrome.ClearBorder(cont);
+                LvnChrome.Round(cont, LvnTokens.RadiusSm);
                 section.Add(cont);
             }
 
@@ -450,7 +421,7 @@ namespace Lvn.UI.Screens
 
         private static string DescribeSave(LvnTitle t, LvnSaveSlot slot)
         {
-            var chapter = ChaptersOf(t).Find(c => c.id == slot.ChapterId);
+            var chapter = t.ChaptersOf().Find(c => c.id == slot.ChapterId);
             string label = chapter != null ? ChapterLabel(chapter) : slot.ChapterId ?? "";
             return $"{label} · {RelativeTime(slot.SavedAtUnixMs)}";
         }
@@ -472,7 +443,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.backgroundColor = LvnTokens.Surface;
-            Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginTop = 12;
             row.style.paddingLeft = 18;
             row.style.paddingRight = 14;
@@ -506,8 +477,8 @@ namespace Lvn.UI.Screens
             load.style.paddingRight = 18;
             load.style.color = LvnTokens.Text;
             load.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(load);
-            Round(load, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(load);
+            LvnChrome.Round(load, LvnTokens.RadiusSm);
             row.Add(load);
 
             return row;
@@ -537,8 +508,8 @@ namespace Lvn.UI.Screens
                 restart.style.paddingBottom = 12;
                 restart.style.color = LvnTokens.Text;
                 restart.style.backgroundColor = LvnTokens.Faint;
-                ClearBorder(restart);
-                Round(restart, LvnTokens.RadiusSm);
+                LvnChrome.ClearBorder(restart);
+                LvnChrome.Round(restart, LvnTokens.RadiusSm);
                 bar.Add(restart);
             }
 
@@ -557,8 +528,8 @@ namespace Lvn.UI.Screens
             play.style.unityFontStyleAndWeight = FontStyle.Bold;
             play.style.color = LvnTokens.OnAccent;
             play.style.backgroundColor = LvnTokens.Accent;
-            ClearBorder(play);
-            Round(play, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(play);
+            LvnChrome.Round(play, LvnTokens.RadiusSm);
             actionRow.Add(play);
 
             var cost = new VisualElement();
@@ -570,7 +541,7 @@ namespace Lvn.UI.Screens
             cost.style.paddingTop = 14;
             cost.style.paddingBottom = 14;
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
-            Round(cost, LvnTokens.RadiusSm);
+            LvnChrome.Round(cost, LvnTokens.RadiusSm);
 
             cost.style.flexDirection = FlexDirection.Row;
             cost.style.alignItems = Align.Center;
@@ -594,7 +565,7 @@ namespace Lvn.UI.Screens
         private void ShowRestartMenu()
         {
             if (Title == null) return;
-            var chapters = ChaptersOf(Title);
+            var chapters = Title.ChaptersOf();
             var panel = OpenModal("Перезапуск экспедиции");
 
             var msg = new Label(
@@ -688,7 +659,7 @@ namespace Lvn.UI.Screens
             panel.style.maxWidth = 560;
             panel.style.maxHeight = Length.Percent(80f);
             panel.style.backgroundColor = LvnTokens.PanelBg;
-            Round(panel, LvnTokens.RadiusSm + 4f);
+            LvnChrome.Round(panel, LvnTokens.RadiusSm + 4f);
             panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
             panel.style.paddingLeft = 20; panel.style.paddingRight = 20;
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -722,26 +693,14 @@ namespace Lvn.UI.Screens
             b.style.whiteSpace = WhiteSpace.Normal;
             b.style.color = primary ? LvnTokens.OnAccent : LvnTokens.Text;
             b.style.backgroundColor = primary ? LvnTokens.Accent : LvnTokens.Faint;
-            ClearBorder(b);
-            Round(b, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             return b;
         }
 
         private static string ChapterLabel(LvnChapter c) =>
             !string.IsNullOrEmpty(c?.name) ? c.name
             : (c != null && c.number > 0 ? "Глава " + c.number : c?.id ?? "");
-
-        private static List<LvnChapter> ChaptersOf(LvnTitle t)
-        {
-            var list = new List<LvnChapter>();
-            if (t?.seasons == null) return list;
-            foreach (var s in t.seasons)
-                if (s?.chapters != null)
-                    foreach (var c in s.chapters)
-                        if (c != null) list.Add(c);
-            list.Sort((a, b) => a.number.CompareTo(b.number));
-            return list;
-        }
 
         // ── shared bits ──────────────────────────────────────────────────────
         private static Label SectionHeader(string text)
@@ -774,22 +733,6 @@ namespace Lvn.UI.Screens
                 _scrimTex.Apply();
             }
             return new StyleBackground(Background.FromTexture2D(_scrimTex));
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderRightWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
         }
     }
 }

@@ -65,7 +65,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(6f);
             sheet.style.bottom = Length.Percent(6f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
             sheet.style.paddingTop = 22;
             sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20;
@@ -90,8 +90,8 @@ namespace Lvn.UI.Screens
             back.style.paddingRight = 0;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(back);
-            Round(back, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(back);
+            LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
             var title = new Label("Галерея");
@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             _counter.style.paddingTop = 7;
             _counter.style.paddingBottom = 7;
             _counter.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            Round(_counter, 14f);
+            LvnChrome.Round(_counter, 14f);
             header.Add(_counter);
 
             // ── Grid of tiles ──────────────────────────────────────────────────
@@ -156,8 +156,8 @@ namespace Lvn.UI.Screens
             close.style.paddingRight = 0;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = new Color(1f, 1f, 1f, 0.12f);
-            ClearBorder(close);
-            Round(close, 28f);
+            LvnChrome.ClearBorder(close);
+            LvnChrome.Round(close, 28f);
             _viewer.Add(close);
 
             var prev = new Button(() => Page(-1)) { text = "‹" };
@@ -260,7 +260,7 @@ namespace Lvn.UI.Screens
             cell.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(cell);
             cell.style.overflow = Overflow.Hidden;
-            Round(cell, LvnTokens.RadiusSm);
+            LvnChrome.Round(cell, LvnTokens.RadiusSm);
             cell.style.borderTopWidth = 1;
             cell.style.borderBottomWidth = 1;
             cell.style.borderLeftWidth = 1;
@@ -389,8 +389,8 @@ namespace Lvn.UI.Screens
             b.style.paddingRight = 0;
             b.style.color = LvnTokens.Text;
             b.style.backgroundColor = new Color(1f, 1f, 1f, 0.12f);
-            ClearBorder(b);
-            Round(b, 30f);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, 30f);
         }
 
         // ── Demo data ──────────────────────────────────────────────────────────
@@ -414,21 +414,5 @@ namespace Lvn.UI.Screens
         }
 
         // ── Local helpers (copied from StoreScreen conventions) ────────────────
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
-        }
     }
 }
