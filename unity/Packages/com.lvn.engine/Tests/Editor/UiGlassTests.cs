@@ -70,6 +70,33 @@ namespace Lvn.Tests
                 "иначе размытый прямоугольник торчит из скруглённых углов окна");
         }
 
+        // ── совмещение: та самая арифметика, из-за которой стекло может
+        //    показывать «правильное размытие не того места» ──────────────────
+
+        [Test]
+        public void FitStretchesToTheWholeScreen()
+        {
+            var (size, _) = UiGlass.Fit(new Rect(0, 0, 1080, 1920), new Rect(100, 1400, 800, 300));
+            Assert.AreEqual(1080f, size.x, 0.01f);
+            Assert.AreEqual(1920f, size.y, 0.01f, "подложка — весь экран, а не окно: иначе мир в стекле сожмётся");
+        }
+
+        [Test]
+        public void FitShiftsByMinusBoxPosition()
+        {
+            var (_, offset) = UiGlass.Fit(new Rect(0, 0, 1080, 1920), new Rect(140, 1500, 800, 300));
+            Assert.AreEqual(-140f, offset.x, 0.01f);
+            Assert.AreEqual(-1500f, offset.y, 0.01f,
+                "знак смещения обратный координатам окна — плюс сдвинул бы мир в стекле в ту же сторону, что и окно");
+        }
+
+        [Test]
+        public void FitAtOriginDoesNotShift()
+        {
+            var (_, offset) = UiGlass.Fit(new Rect(0, 0, 1080, 1920), new Rect(0, 0, 1080, 200));
+            Assert.AreEqual(Vector2.zero, offset, "окно в углу экрана видит подложку как есть");
+        }
+
         [Test]
         public void GlassIsInvisibleToTaps()
         {

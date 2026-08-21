@@ -115,23 +115,34 @@ namespace Lvn.UI
             }
         }
 
+        /// <summary>
+        /// СОВМЕЩЕНИЕ — вся арифметика приёма, отдельно от того, кому её
+        /// присвоить. Подложка это ВЕСЬ экран, окно занимает его часть: чтобы под
+        /// окном оказался тот же кусок мира, что за ним, картинку растягивают на
+        /// размер панели и сдвигают на МИНУС координаты окна.
+        ///
+        /// <para>Ошибка здесь не ломает ничего видимо — стекло просто показывает
+        /// размытие не того места. Поэтому счёт живёт чистой функцией: его можно
+        /// проверить без камеры, панели и единого кадра.</para>
+        /// </summary>
+        /// <param name="panel">Прямоугольник корня панели (это же весь экран).</param>
+        /// <param name="box">Положение элемента в координатах панели.</param>
+        public static (Vector2 size, Vector2 offset) Fit(Rect panel, Rect box) =>
+            (new Vector2(panel.width, panel.height), new Vector2(-box.x, -box.y));
+
         private static void Align(VisualElement host)
         {
             var layer = host?.Q(LayerName);
             if (layer == null || host.panel == null) return;
             var panelRect = host.panel.visualTree.layout;
             if (panelRect.width <= 1f || panelRect.height <= 1f) return;
-            var box = host.worldBound;
 
-            // Растянуть подложку на весь экран и сдвинуть на минус координаты
-            // окна: под окном оказывается ровно тот кусок мира, который оно
-            // закрывает.
-            layer.style.backgroundSize = new StyleBackgroundSize(
-                new BackgroundSize(panelRect.width, panelRect.height));
+            var (size, offset) = Fit(panelRect, host.worldBound);
+            layer.style.backgroundSize = new StyleBackgroundSize(new BackgroundSize(size.x, size.y));
             layer.style.backgroundPositionX = new StyleBackgroundPosition(
-                new BackgroundPosition(BackgroundPositionKeyword.Left, -box.x));
+                new BackgroundPosition(BackgroundPositionKeyword.Left, offset.x));
             layer.style.backgroundPositionY = new StyleBackgroundPosition(
-                new BackgroundPosition(BackgroundPositionKeyword.Top, -box.y));
+                new BackgroundPosition(BackgroundPositionKeyword.Top, offset.y));
         }
     }
 }
