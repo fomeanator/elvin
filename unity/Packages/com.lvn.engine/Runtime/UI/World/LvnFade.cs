@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Lvn.UI.World
 {
@@ -18,10 +16,20 @@ namespace Lvn.UI.World
     /// <see cref="CanvasGroup"/>. Живёт ровно столько, сколько идёт переход, и
     /// сам себя выключает — сцена не платит за движение, которого нет.</para>
     ///
-    /// <para>Однослойный герой использует штатную альфу CanvasGroup. У
-    /// многослойного она показывает тело сквозь полупрозрачную одежду, поэтому
-    /// его слои остаются непрозрачными, а проявление ведётся яркостью из тёмного
-    /// силуэта. Это не требует материала/шейдера и не создаёт прямой «шторки».</para>
+    /// <para><b>ГАШЕНИЕ ОДНО — АЛЬФА ГРУППЫ.</b> Их успело завестись несколько:
+    /// альфа, «проявление яркостью» (герой темнел до силуэта) и шейдерная
+    /// экранная маска. Каждое лечило чужую болячку и заводило свою: яркость
+    /// давала чёрное затемнение на уходе и переписывала цвет КАЖДОГО слоя
+    /// каждый кадр — канвас перестраивался на каждом кадре перехода, отсюда
+    /// микрозадержки на показе и скрытии. Осталась альфа: без затемнения, без
+    /// материала, без перестроений.</para>
+    ///
+    /// <para>Плата известна: у СОСТАВНОГО героя (тело + одежда) альфа
+    /// применяется к каждому слою отдельно, и на середине ухода сквозь одежду
+    /// просвечивает тело. Лечится это не подбором кривых, а сведением слоёв в
+    /// одну картинку перед гашением (композит в текстуру) — отдельная работа,
+    /// не третья копия гашения. Плоский спрайт, каким нарисовано большинство
+    /// героев, этой платы не несёт.</para>
     /// </summary>
     [RequireComponent(typeof(CanvasGroup))]
     public sealed class LvnFade : MonoBehaviour
@@ -29,10 +37,6 @@ namespace Lvn.UI.World
         private CanvasGroup _group;
         private float _from, _to, _start = -1f, _dur;
         private Action _done;
-        private bool _viaTint;
-        private readonly Dictionary<Graphic, Color> _tintBase = new Dictionary<Graphic, Color>();
-
-        private static bool NeedsLayerSafeFade(int graphicCount) => graphicCount > 1;
         /// <summary>Куда сносит персонажа вид drift: правый (x ≥ 0.5) — вправо,
         /// левый — влево. Правило вынесено отдельно, потому что это КОНТРАКТ
         /// постановки («левый уходит влево»), а не деталь анимации.</summary>
@@ -111,7 +115,6 @@ namespace Lvn.UI.World
             f._done = done;
             if (seconds <= 0.001f)
             {
-                f._viaTint = false;
                 f.Release();
                 group.alpha = to;
                 f._start = -1f;
@@ -124,13 +127,8 @@ namespace Lvn.UI.World
             f._dur = seconds;
             f._start = Time.realtimeSinceStartup;
             // from == to — ЧИСТЫЙ ТАЙМЕР: вид не трогаем, просто ждём и зовём
-            // хвост. Так работает уход через шейдерное растворение — гашением
-            // занят _Dissolve, а этот компонент лишь прячет объект в конце.
-            // Гнать сюда Apply нельзя: при placement-opacity 0.9 «таймер»
-            // начал бы прорешечивать героя десятой долей пикселей.
-            f._viaTint = from != to
-                && NeedsLayerSafeFade(group.GetComponentsInChildren<Graphic>(true).Length);
-            if (f._viaTint) f.CaptureTint();
+            // хвост. Так работает уход через растворение — гашением занят
+            // _Dissolve, а этот компонент лишь прячет объект в конце.
             if (from != to) f.Apply(from, 0f);
             f.enabled = true;
         }
@@ -140,53 +138,14 @@ namespace Lvn.UI.World
         private void Apply(float k, float t01)
         {
             ApplyDrift(t01);
-            if (_viaTint)
-            {
-                float peak = Mathf.Max(_from, _to);
-                float light = peak > 0.001f ? Mathf.Clamp01(k / peak) : 0f;
-                // ХВОСТ ВЕДЁТ АЛЬФА, СЕРЕДИНУ — ЯРКОСТЬ. Чистая яркость гасит
-                // героя в НЕПРОЗРАЧНЫЙ ЧЁРНЫЙ силуэт и снимает его скачком на
-                // самом нуле: на замерах уходящий персонаж за последние 10%
-                // перехода прыгал из ясно видимого в ничто, а на светлом фоне
-                // это ещё и чёрная вырезка вместо человека. Поэтому ниже порога
-                // цвет больше не темнеет, а остаток пути герой доезжает
-                // прозрачностью — на почти чёрных слоях просвечивание тела
-                // сквозь одежду уже неразличимо, ради чего яркость и вводилась.
-                const float floorLight = 0.35f;
-                float lit = Mathf.Max(light, floorLight);
-                float alpha = peak * Mathf.Clamp01(light / floorLight);
-                if (_group != null) _group.alpha = alpha;
-                foreach (var pair in _tintBase)
-                {
-                    if (pair.Key == null) continue;
-                    var c = pair.Value;
-                    pair.Key.color = new Color(c.r * lit, c.g * lit, c.b * lit, c.a);
-                }
-            }
-            else if (_group != null) _group.alpha = k;
-        }
-
-        private void CaptureTint()
-        {
-            RestoreTint();
-            foreach (var graphic in GetComponentsInChildren<Graphic>(true))
-                if (graphic != null) _tintBase[graphic] = graphic.color;
-        }
-
-        private void RestoreTint()
-        {
-            foreach (var pair in _tintBase)
-                if (pair.Key != null) pair.Key.color = pair.Value;
-            _tintBase.Clear();
+            if (_group != null) _group.alpha = k;
         }
 
         /// <summary>Отпустить гашение: материал возвращается к обычному виду,
         /// иначе следующий выход героя начнётся с чужого значения.</summary>
         private void Release()
         {
-            RestoreTint();
             if (_group != null) _group.alpha = _to;
-            _viaTint = false;
             ReleaseDrift();
         }
 
