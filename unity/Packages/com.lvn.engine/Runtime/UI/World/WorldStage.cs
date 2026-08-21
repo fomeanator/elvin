@@ -335,7 +335,7 @@ namespace Lvn.UI.World
                     // левый — слева, с коротким федом.
                     float dir = LvnFade.DriftSign(p.X);
                     LvnFade.Play(g, 0f, p.Opacity, dur,
-                        a.Slot, new Vector2(dir * _reference.x * 0.045f, 0f));
+                        a.Slot, new Vector2(dir * _reference.x * 0.06f, 0f));
                 }
                 else LvnFade.Play(g, 0f, p.Opacity, dur);
             }
@@ -347,7 +347,7 @@ namespace Lvn.UI.World
                 {
                     float dir = LvnFade.DriftSign(p.X);
                     LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
-                        a.Slot, new Vector2(dir * _reference.x * 0.045f, 0f),
+                        a.Slot, new Vector2(dir * _reference.x * 0.06f, 0f),
                         () =>
                         {
                             if (a == null) return;
