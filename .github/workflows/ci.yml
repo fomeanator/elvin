@@ -2,6 +2,9 @@
 # push/PR instead of on somebody's machine.
 #
 #   go     — server + lvnconv (importer/validator/adpd) tests, vet, gofmt.
+#            Здесь же живут стражи формы кода: дословные дубли, почти-копии,
+#            молчаливые catch и фоновые задачи без присмотра — они читают C#
+#            движка и падают, если код возвращается к прежним привычкам.
 #            Includes the docs contract (lvn/docs_contract_test.go): CAPABILITIES.md
 #            §1 == KnownOps, no self-contradiction, and nothing marked ✅ without an
 #            example the smoke job below compiles.
@@ -22,7 +25,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "chore/**", "ui/**"]
+    branches: [main, "feat/**", "fix/**", "chore/**", "ui/**", "refactor/**"]
   pull_request:
   schedule:
     # Ночной прогон стабильности (qa/stability.sh на self-hosted раннере):
