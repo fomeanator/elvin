@@ -146,10 +146,10 @@ namespace Lvn.Sandbox
                 // одиночный снимок раз в 2 секунды их никогда не застаёт.
                 // Серия ВПРИТЫК: продуктовый переход идёт ~0.175 s, и снимок
                 // раз в десятую секунды застаёт его в лучшем случае дважды.
-                for (var s = 0; s < 12; s++)
+                for (var s = 0; s < 10; s++)
                 {
                     Snap("t" + s);
-                    yield return new WaitForSeconds(0.04f);
+                    yield return new WaitForSeconds(0.1f);
                 }
             }
             Debug.Log("[shots] done");
