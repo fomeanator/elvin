@@ -72,6 +72,30 @@ namespace Lvn.UI
             style.display = DisplayStyle.None;
         }
 
+        /// <summary>
+        /// Не дать стопке налезть на диалоговое окно. Статичный процент этого
+        /// гарантировать не может: окно растёт вниз вместе с текстом, и любая
+        /// заранее выбранная высота однажды встречает реплику длиннее себя.
+        /// Поэтому сцена сообщает, где кончается окно, а стопка опускается до
+        /// этой границы, если её собственный процент оказался выше.
+        ///
+        /// <para>Действует только в свободном режиме (ChoiceYPercent): доки
+        /// top/center/bottom живут по своим правилам. <paramref name="yPx"/> —
+        /// в координатах родителя; отрицательное значение возвращает чистый
+        /// процент (окна на экране нет).</para>
+        /// </summary>
+        public void ClampBelow(float yPx)
+        {
+            if (_theme.ChoiceYPercent < 0f) return;
+            float pct = Mathf.Clamp(_theme.ChoiceYPercent, 0f, 100f);
+            float hostH = parent != null ? parent.resolvedStyle.height : 0f;
+            float pctPx = hostH > 1f ? hostH * pct / 100f : -1f;
+            if (yPx > 0f && pctPx >= 0f && yPx > pctPx)
+                style.top = yPx;
+            else
+                style.top = Length.Percent(pct);
+        }
+
         /// <summary>Show the options. Replaces any currently shown.</summary>
         public void Present(IReadOnlyList<LvnOption> options)
         {

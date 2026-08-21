@@ -70,8 +70,14 @@ namespace Lvn.UI.World
             f._to = to;
             f._dur = seconds;
             f._start = Time.realtimeSinceStartup;
-            f._viaShader = NeedsCompositeFade(group.GetComponentsInChildren<Graphic>(true).Length);
-            f.Apply(from);
+            // from == to — ЧИСТЫЙ ТАЙМЕР: вид не трогаем, просто ждём и зовём
+            // хвост. Так работает уход через шейдерное растворение — гашением
+            // занят _Dissolve, а этот компонент лишь прячет объект в конце.
+            // Гнать сюда Apply нельзя: при placement-opacity 0.9 «таймер»
+            // начал бы прорешечивать героя десятой долей пикселей.
+            f._viaShader = from != to
+                && NeedsCompositeFade(group.GetComponentsInChildren<Graphic>(true).Length);
+            if (from != to) f.Apply(from);
             f.enabled = true;
         }
 
@@ -116,7 +122,7 @@ namespace Lvn.UI.World
             // Плавно на входе и на выходе: линейное проявление читается как
             // мигание подсветки, а не как появление человека.
             float k = Mathf.Lerp(_from, _to, t * t * (3f - 2f * t));
-            Apply(k);
+            if (_from != _to) Apply(k);
             if (t < 1f) return;
             _start = -1f;
             enabled = false;
