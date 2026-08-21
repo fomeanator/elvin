@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
     /// billing can wire it to the same <see cref="LvnWallet.VerifyPurchaseAsync"/>
     /// pattern <see cref="StoreScreen"/> uses.
     /// </summary>
-    public sealed class PackShopScreen : VisualElement
+    public sealed class PackShopScreen : LvnOverlayScreen
     {
         private enum Ribbon { None, Popular, Value, BestPrice }
 
@@ -50,8 +50,6 @@ namespace Lvn.UI.Screens
         private readonly List<Button> _tabButtons = new List<Button>();
         private readonly Dictionary<string, List<Pack>> _catalog;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
         private bool _buying;
         private int _tab;
 
@@ -74,7 +72,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(7f);
             sheet.style.bottom = Length.Percent(7f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
             sheet.style.paddingTop = 20;
             sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20;
@@ -98,8 +96,8 @@ namespace Lvn.UI.Screens
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = LvnTokens.Faint;
             back.style.unityFontStyleAndWeight = FontStyle.Bold;
-            Round(back, LvnTokens.RadiusSm);
-            ClearBorder(back);
+            LvnChrome.Round(back, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(back);
             top.Add(back);
 
             var title = new Label("Магазин");
@@ -135,40 +133,6 @@ namespace Lvn.UI.Screens
             Rebuild();
         }
 
-        /// <summary>Open the shop, fade it in, and resolve when the player closes it.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            RefreshBalances();
-            Lvn.Services.LvnWallet.Changed += RefreshBalances; // live pills while open
-            _ = Lvn.Services.LvnWallet.RefreshAsync();         // server truth on entry
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // A Hide() during the fade-in must cancel the open, not leave this
-            // await parked on a _tcs nobody will ever resolve.
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                Lvn.Services.LvnWallet.Changed -= RefreshBalances;
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
         /// <summary>Re-render the pack grid for the active tab and re-style the tab
         /// pills. Cheap to call after any state change.</summary>
         public void Rebuild()
@@ -180,7 +144,6 @@ namespace Lvn.UI.Screens
             foreach (var p in packs) _list.Add(Card(p));
         }
 
-        private void Close() => _tcs?.TrySetResult(true);
 
         private void BuildTabs()
         {
@@ -195,8 +158,8 @@ namespace Lvn.UI.Screens
                 pill.style.marginBottom = 8;
                 pill.style.paddingTop = 10; pill.style.paddingBottom = 10;
                 pill.style.paddingLeft = 20; pill.style.paddingRight = 20;
-                Round(pill, LvnTokens.RadiusSm + 4f);
-                ClearBorder(pill);
+                LvnChrome.Round(pill, LvnTokens.RadiusSm + 4f);
+                LvnChrome.ClearBorder(pill);
                 StyleTab(pill, i == _tab);
                 _tabsRow.Add(pill);
                 _tabButtons.Add(pill);
@@ -217,7 +180,7 @@ namespace Lvn.UI.Screens
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
-            Round(card, LvnTokens.Radius);
+            LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Edge(card);
             card.style.marginBottom = pack.Best ? 12 : 9;
             card.style.paddingTop = pack.Best ? 14 : 11;
@@ -238,7 +201,7 @@ namespace Lvn.UI.Screens
                 glow.style.position = Position.Absolute;
                 glow.style.left = -3; glow.style.right = -3; glow.style.top = -3; glow.style.bottom = -3;
                 glow.style.backgroundColor = new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.14f);
-                Round(glow, LvnTokens.Radius + 3f);
+                LvnChrome.Round(glow, LvnTokens.Radius + 3f);
                 card.Add(glow);
                 glow.SendToBack();
             }
@@ -256,7 +219,7 @@ namespace Lvn.UI.Screens
             art.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            Round(art, LvnTokens.RadiusSm);
+            LvnChrome.Round(art, LvnTokens.RadiusSm);
             var glyph = LvnIcons.Make(pack.Emblem, pack.Best ? 52f : 40f, LvnTokens.Text,
                                       0f, LvnTheme.Current.IconGlow);
             glyph.style.alignSelf = Align.Center;
@@ -295,8 +258,8 @@ namespace Lvn.UI.Screens
             buy.style.color = LvnTokens.OnAccent;
             buy.style.backgroundColor = LvnTokens.Accent;
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
-            Round(buy, LvnTokens.RadiusSm);
-            ClearBorder(buy);
+            LvnChrome.Round(buy, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(buy);
             buy.clicked += () => Buy(buy, pack);
             card.Add(buy);
 
@@ -317,7 +280,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
                 ribbon.style.paddingTop = 3; ribbon.style.paddingBottom = 3;
                 ribbon.style.paddingLeft = 10; ribbon.style.paddingRight = 10;
-                Round(ribbon, LvnTokens.RadiusSm - 4f);
+                LvnChrome.Round(ribbon, LvnTokens.RadiusSm - 4f);
                 card.Add(ribbon);
             }
 
@@ -388,7 +351,7 @@ namespace Lvn.UI.Screens
             pill.style.paddingLeft = 12; pill.style.paddingRight = 12;
             pill.style.paddingTop = 6; pill.style.paddingBottom = 6;
             pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
-            Round(pill, 16f);
+            LvnChrome.Round(pill, 16f);
 
             var icon = LvnIcons.Make(glyph, 22f, glyphColor, 0f, LvnTheme.Current.IconGlow);
             icon.style.marginRight = 6;
@@ -445,22 +408,6 @@ namespace Lvn.UI.Screens
                     new Pack { Amount = 1,  Unit = "Легендарный набор",Price = "$49.99", Bonus = 0, Badge = Ribbon.BestPrice, Emblem = LvnIcon.Crown, Tint = bun, Card = "/content/cards/card5.png" },
                 },
             };
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
         }
     }
 }

@@ -297,19 +297,6 @@ namespace Lvn.UI.Screens
         private static string ChapterLabel(LvnChapter c) =>
             !string.IsNullOrEmpty(c?.name) ? c.name : (c != null && c.number > 0 ? "Chapter " + c.number : c?.id ?? "");
 
-        private static List<LvnChapter> ChaptersOf(LvnTitle t)
-        {
-            var list = new List<LvnChapter>();
-            if (t?.seasons == null) return list;
-            foreach (var s in t.seasons)
-                if (s?.chapters != null)
-                    foreach (var c in s.chapters)
-                        if (c != null)
-                            list.Add(c);
-            list.Sort((a, b) => a.number.CompareTo(b.number));
-            return list;
-        }
-
         /// <summary>Re-read the selected title's saved progress into the Play
         /// button ("Continue" + the episode) and the chapter-picker visibility.
         /// The shell calls this whenever the carousel regains the screen —
@@ -330,14 +317,14 @@ namespace Lvn.UI.Screens
                 _play.text = _cfg.play_text ?? "Play";
                 _progressLabel.text = "";
             }
-            var chapters = ChaptersOf(t);
+            var chapters = t.ChaptersOf();
             _chaptersBtn.style.display = chapters.Count > 1 ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private void OpenChapterPicker()
         {
             var t = Current;
-            var chapters = ChaptersOf(t);
+            var chapters = t.ChaptersOf();
             if (chapters.Count < 2) return;
             CloseChapterPicker();
 

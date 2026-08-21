@@ -19,7 +19,7 @@ namespace Lvn.UI.Screens
     /// and calls <see cref="Rebuild"/>. Fade / show / hide mirror the other shell
     /// overlays (see <see cref="StoreScreen"/>).
     /// </summary>
-    public sealed class LeaderboardScreen : VisualElement
+    public sealed class LeaderboardScreen : LvnOverlayScreen
     {
         /// <summary>One row in the standings.</summary>
         public sealed class Entry
@@ -38,8 +38,6 @@ namespace Lvn.UI.Screens
         private readonly Button _tabWeek;
         private readonly Button _tabAll;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
         private bool _weekly = true;
 
         /// <summary>The current standings, ordered by rank ascending. Defaults to a
@@ -77,7 +75,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(6f);
             sheet.style.bottom = Length.Percent(6f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
             sheet.style.paddingTop = 20;
             sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20;
@@ -100,8 +98,8 @@ namespace Lvn.UI.Screens
             back.style.marginRight = 12;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(back);
-            Round(back, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(back);
+            LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
             var title = new Label("Рейтинг");
@@ -119,7 +117,7 @@ namespace Lvn.UI.Screens
             tabs.style.marginBottom = 18;
             tabs.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tabs);
-            Round(tabs, LvnTokens.RadiusSm + 4f);
+            LvnChrome.Round(tabs, LvnTokens.RadiusSm + 4f);
             tabs.style.paddingLeft = 4; tabs.style.paddingRight = 4;
             tabs.style.paddingTop = 4; tabs.style.paddingBottom = 4;
             sheet.Add(tabs);
@@ -148,38 +146,6 @@ namespace Lvn.UI.Screens
 
         // ── Public surface ──────────────────────────────────────────────────
 
-        /// <summary>Open the leaderboard: fade in, wait until the player closes it,
-        /// fade out. Mirrors the store overlay's lifecycle.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            style.display = DisplayStyle.Flex;
-            Rebuild();
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // Hide() during the fade-in must cancel the open, not leave this await
-            // parked on a _tcs nobody will ever resolve.
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
         /// <summary>Re-render the podium and the list from <see cref="Entries"/>.</summary>
         public void Rebuild()
         {
@@ -187,7 +153,6 @@ namespace Lvn.UI.Screens
             BuildList();
         }
 
-        private void Close() => _tcs?.TrySetResult(true);
 
         // ── Period toggle ───────────────────────────────────────────────────
 
@@ -222,8 +187,8 @@ namespace Lvn.UI.Screens
             b.style.paddingTop = 10; b.style.paddingBottom = 10;
             b.style.paddingLeft = 24; b.style.paddingRight = 24;
             b.style.marginLeft = 0; b.style.marginRight = 0;
-            ClearBorder(b);
-            Round(b, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             return b;
         }
 
@@ -270,7 +235,7 @@ namespace Lvn.UI.Screens
             ring.style.justifyContent = Justify.Center;
             ring.style.backgroundColor = first ? LvnTokens.Gold
                 : (place == 2 ? new Color(0.78f, 0.80f, 0.86f) : new Color(0.80f, 0.55f, 0.35f));
-            Round(ring, (avatar + 12f) / 2f);
+            LvnChrome.Round(ring, (avatar + 12f) / 2f);
             col.Add(ring);
 
             ring.Add(Avatar(e, avatar));
@@ -285,7 +250,7 @@ namespace Lvn.UI.Screens
             badge.style.unityTextAlign = TextAnchor.MiddleCenter;
             badge.style.width = 34; badge.style.height = 34;
             badge.style.marginTop = -16;
-            Round(badge, 17f);
+            LvnChrome.Round(badge, 17f);
             col.Add(badge);
 
             var name = new Label(e.Name);
@@ -330,7 +295,7 @@ namespace Lvn.UI.Screens
             row.style.backgroundColor = e.IsYou
                 ? new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.18f)
                 : LvnTokens.Surface;
-            Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
             if (e.IsYou)
             {
                 row.style.borderLeftWidth = 3;
@@ -376,7 +341,7 @@ namespace Lvn.UI.Screens
                 you.style.marginLeft = 10;
                 you.style.paddingLeft = 10; you.style.paddingRight = 10;
                 you.style.paddingTop = 2; you.style.paddingBottom = 2;
-                Round(you, 11f);
+                LvnChrome.Round(you, 11f);
                 nameCol.Add(you);
             }
 
@@ -406,8 +371,8 @@ namespace Lvn.UI.Screens
             av.style.backgroundColor = ColorFor(e.Name);
             av.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             av.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            Round(av, size / 2f);
-            ClearBorder(av);
+            LvnChrome.Round(av, size / 2f);
+            LvnChrome.ClearBorder(av);
 
             var initial = new Label(Initial(e.Name));
             initial.style.color = LvnTokens.OnAccent;
@@ -499,21 +464,5 @@ namespace Lvn.UI.Screens
         }
 
         // ── Style helpers (copied verbatim across the shell screens) ────────
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0;
-            el.style.borderRightWidth = 0;
-            el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0;
-        }
     }
 }

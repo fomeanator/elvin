@@ -90,24 +90,16 @@ namespace Lvn.UI.Screens
             track.style.height = 12;
             track.style.flexShrink = 0;
             track.style.backgroundColor = LvnTokens.SurfaceHi;
-            Round(track, 6f);
+            LvnChrome.Round(track, 6f);
             track.style.overflow = Overflow.Hidden;
 
             var fill = new VisualElement();
             fill.style.height = Length.Percent(100f);
             fill.style.width = Length.Percent(Mathf.Clamp01(frac) * 100f);
             fill.style.backgroundColor = LvnTokens.Accent;
-            Round(fill, 6f);
+            LvnChrome.Round(fill, 6f);
             track.Add(fill);
             return track;
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
         }
 
         // Reads a dotted var path (e.g. "Relationships.Roman") through the

@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// the real catalog + wallet wiring lands later (see the wardrobe sheet
     /// for the live, manifest-driven equivalent).
     /// </summary>
-    public sealed class SkinShopScreen : VisualElement
+    public sealed class SkinShopScreen : LvnOverlayScreen
     {
         private readonly ILvnAssets _assets;
 
@@ -42,8 +42,6 @@ namespace Lvn.UI.Screens
         private int _cat;
         private int _gold = 1240;
 
-        private TaskCompletionSource<bool> _tcs;
-        private bool _open;
 
         private enum SkinState { Equipped, Owned, ForSale }
 
@@ -81,8 +79,8 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(5f);
             sheet.style.bottom = Length.Percent(5f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            Round(sheet, LvnTokens.Radius + 4f);
-            Border(sheet, LvnTokens.Border, 1f);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Border(sheet, LvnTokens.Border, 1f);
             sheet.style.paddingTop = 18;
             sheet.style.paddingBottom = 16;
             sheet.style.paddingLeft = 18;
@@ -124,8 +122,8 @@ namespace Lvn.UI.Screens
             balancePill.style.paddingLeft = 14; balancePill.style.paddingRight = 14;
             balancePill.style.paddingTop = 7; balancePill.style.paddingBottom = 7;
             balancePill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
-            Round(balancePill, 16f);
-            Border(balancePill, new Color(LvnTokens.Gold.r, LvnTokens.Gold.g, LvnTokens.Gold.b, 0.4f), 1f);
+            LvnChrome.Round(balancePill, 16f);
+            LvnChrome.Border(balancePill, new Color(LvnTokens.Gold.r, LvnTokens.Gold.g, LvnTokens.Gold.b, 0.4f), 1f);
             topBar.Add(balancePill);
 
             var diamond = LvnIcons.Make(LvnIcon.Gem, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
@@ -142,8 +140,8 @@ namespace Lvn.UI.Screens
             _previewBox = new VisualElement();
             _previewBox.style.height = Length.Percent(38f);
             _previewBox.style.backgroundColor = LvnTokens.Bg;
-            Round(_previewBox, LvnTokens.Radius);
-            Border(_previewBox, LvnTokens.Border, 1f);
+            LvnChrome.Round(_previewBox, LvnTokens.Radius);
+            LvnChrome.Border(_previewBox, LvnTokens.Border, 1f);
             _previewBox.style.marginBottom = 12;
             _previewBox.style.overflow = Overflow.Hidden;
             sheet.Add(_previewBox);
@@ -212,8 +210,8 @@ namespace Lvn.UI.Screens
             close.style.paddingBottom = 12;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;
-            ClearBorder(close);
-            Round(close, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(close);
+            LvnChrome.Round(close, LvnTokens.RadiusSm);
             sheet.Add(close);
 
             SeedDemo();
@@ -281,40 +279,6 @@ namespace Lvn.UI.Screens
 
         // ── public API ──────────────────────────────────────────────────────
 
-        /// <summary>Open the shop: fade in and resolve when the player closes it.
-        /// Mirrors <see cref="StoreScreen.ShowAsync"/> — the fade-in can be
-        /// cancelled by <see cref="Hide"/>.</summary>
-        public async Task ShowAsync(CancellationToken ct = default)
-        {
-            if (_open) return;
-            _open = true;
-            Rebuild();
-            style.display = DisplayStyle.Flex;
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
-            // Hide() during the fade-in must cancel the open, not park this await
-            // on a _tcs nobody will ever resolve.
-            if (!_open) return;
-
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
-            finally
-            {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-            }
-        }
-
-        public void Hide()
-        {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
-            _open = false;
-            _tcs?.TrySetResult(false);
-        }
-
-        private void Close() => _tcs?.TrySetResult(true);
 
         /// <summary>(Re)build every dynamic section from the current selection.</summary>
         public void Rebuild()
@@ -350,10 +314,10 @@ namespace Lvn.UI.Screens
                 chip.style.width = 64; chip.style.height = 64;
                 chip.style.marginRight = 12;
                 chip.style.overflow = Overflow.Hidden;
-                Round(chip, 32f);
+                LvnChrome.Round(chip, 32f);
                 chip.style.backgroundColor = LvnTokens.Surface;
                 LvnChrome.Edge(chip);
-                Border(chip, active ? LvnTokens.Accent : LvnTokens.Border, active ? 3f : 1f);
+                LvnChrome.Border(chip, active ? LvnTokens.Accent : LvnTokens.Border, active ? 3f : 1f);
 
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
@@ -390,7 +354,7 @@ namespace Lvn.UI.Screens
                 tab.style.paddingLeft = 18; tab.style.paddingRight = 18;
                 tab.style.paddingTop = 9; tab.style.paddingBottom = 9;
                 tab.style.unityTextAlign = TextAnchor.MiddleCenter;
-                Round(tab, 20f);
+                LvnChrome.Round(tab, 20f);
                 tab.style.backgroundColor = active ? LvnTokens.Accent : LvnTokens.Faint;
                 tab.style.color = active ? LvnTokens.OnAccent : LvnTokens.Text;
                 if (active) tab.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -423,8 +387,8 @@ namespace Lvn.UI.Screens
             tile.style.marginBottom = 14;
             tile.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tile);
-            Round(tile, LvnTokens.Radius);
-            Border(tile, equipped ? LvnTokens.Accent : LvnTokens.Border, equipped ? 2f : 1f);
+            LvnChrome.Round(tile, LvnTokens.Radius);
+            LvnChrome.Border(tile, equipped ? LvnTokens.Accent : LvnTokens.Border, equipped ? 2f : 1f);
             tile.style.overflow = Overflow.Hidden;
             tile.style.paddingBottom = 12;
             if (forSale) tile.style.opacity = 0.82f;
@@ -457,7 +421,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.backgroundColor = LvnTokens.Accent;
                 ribbon.style.paddingLeft = 10; ribbon.style.paddingRight = 10;
                 ribbon.style.paddingTop = 4; ribbon.style.paddingBottom = 4;
-                Round(ribbon, 12f);
+                LvnChrome.Round(ribbon, 12f);
                 thumbWrap.Add(ribbon);
             }
 
@@ -495,8 +459,8 @@ namespace Lvn.UI.Screens
                 equip.style.paddingTop = 8; equip.style.paddingBottom = 8;
                 equip.style.color = LvnTokens.Text;
                 equip.style.backgroundColor = LvnTokens.Faint;
-                ClearBorder(equip);
-                Round(equip, LvnTokens.RadiusSm);
+                LvnChrome.ClearBorder(equip);
+                LvnChrome.Round(equip, LvnTokens.RadiusSm);
                 row.Add(equip);
             }
             else // for sale
@@ -508,10 +472,10 @@ namespace Lvn.UI.Screens
                 chip.style.justifyContent = Justify.Center;
                 chip.style.paddingTop = 8; chip.style.paddingBottom = 8;
                 chip.style.paddingLeft = 12; chip.style.paddingRight = 12;
-                Round(chip, LvnTokens.RadiusSm);
+                LvnChrome.Round(chip, LvnTokens.RadiusSm);
                 var priceColor = skin.Energy ? LvnTokens.Accent : LvnTokens.Gold;
                 chip.style.backgroundColor = new Color(priceColor.r, priceColor.g, priceColor.b, 0.14f);
-                Border(chip, new Color(priceColor.r, priceColor.g, priceColor.b, 0.5f), 1f);
+                LvnChrome.Border(chip, new Color(priceColor.r, priceColor.g, priceColor.b, 0.5f), 1f);
 
                 var glyph = LvnIcons.Make(skin.Energy ? LvnIcon.Energy : LvnIcon.Gem, 19f,
                                           priceColor, 0f, LvnTheme.Current.IconGlow);
@@ -553,29 +517,6 @@ namespace Lvn.UI.Screens
             // insufficient funds / not buyable: brief nudge on the tile
             tile.style.opacity = 1f;
             tile.schedule.Execute(() => { tile.style.opacity = 0.82f; }).ExecuteLater(180);
-        }
-
-        // ── helpers (mirrors StoreScreen) ───────────────────────────────────
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r;
-            el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r;
-            el.style.borderBottomRightRadius = r;
-        }
-
-        private static void Border(VisualElement el, Color c, float w)
-        {
-            el.style.borderTopColor = c; el.style.borderBottomColor = c;
-            el.style.borderLeftColor = c; el.style.borderRightColor = c;
-            el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
-            el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
         }
     }
 }

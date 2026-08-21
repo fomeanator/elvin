@@ -306,6 +306,29 @@ namespace Lvn.Content
     }
 
     /// <summary>One title (a series of chapters grouped into seasons).</summary>
+    /// <summary>
+    /// Помощники над моделью манифеста. Здесь, а не в экранах: «главы новеллы
+    /// по порядку» — свойство ДАННЫХ, и каждый экран, считавший его сам,
+    /// заводил свою копию (карусель и экран детали расходились бы молча,
+    /// стоило одному из них поменять сортировку).
+    /// </summary>
+    public static class LvnTitleExtensions
+    {
+        /// <summary>Все главы новеллы, по возрастанию номера.</summary>
+        public static List<LvnChapter> ChaptersOf(this LvnTitle t)
+        {
+            var list = new List<LvnChapter>();
+            if (t?.seasons == null) return list;
+            foreach (var s in t.seasons)
+                if (s?.chapters != null)
+                    foreach (var c in s.chapters)
+                        if (c != null)
+                            list.Add(c);
+            list.Sort((a, b) => a.number.CompareTo(b.number));
+            return list;
+        }
+    }
+
     public sealed class LvnTitle
     {
         public string id;
