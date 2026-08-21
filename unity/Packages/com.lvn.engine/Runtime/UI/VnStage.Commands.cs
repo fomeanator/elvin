@@ -381,7 +381,7 @@ namespace Lvn.UI
 
             if (!show)
             {
-                if (_hintCard != null) _hintCard.style.display = DisplayStyle.None;
+                HideHint();
                 return;
             }
 
@@ -405,7 +405,11 @@ namespace Lvn.UI
             }
 
             var bg = Theme != null ? Theme.PanelColor : new Color(0.05f, 0.05f, 0.08f, 0.9f);
-            _hintCard.style.backgroundColor = bg;
+            // Табличка — то же окно, только меньше: и стекло у неё то же самое.
+            // Разъехавшись, эти двое читаются как элементы из разных игр.
+            float glass = Theme != null ? Theme.PanelGlass : 0f;
+            UiGlass.Apply(_hintCard, glass, bg);
+            _hintCard.style.backgroundColor = glass > 0.004f ? Color.clear : bg;
             float r = Theme != null ? Theme.PanelCornerRadius : 12f;
             _hintCard.style.borderTopLeftRadius = r; _hintCard.style.borderTopRightRadius = r;
             _hintCard.style.borderBottomLeftRadius = r; _hintCard.style.borderBottomRightRadius = r;
@@ -415,13 +419,28 @@ namespace Lvn.UI
             if (Theme != null) LvnFonts.Apply(_hintLabel, Theme.Font);
             _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
 
+            // Всплывает и утопает, а не мигает: подсказка появляется поверх
+            // сцены без всякого предупреждения, и резкий скачок в углу глаза
+            // читается как сбой, а не как сообщение.
+            bool wasHidden = _hintCard.resolvedStyle.display == DisplayStyle.None;
             _hintCard.style.display = DisplayStyle.Flex;
+            if (wasHidden) LvnAppear.Play(_hintCard, LvnAppearKind.Rise, true, 260);
 
             float dur = NumOr(cmd["duration"], 0f);
             if (dur > 0f)
                 _hintHide = _labelLayer.schedule
-                    .Execute(() => { if (_hintCard != null) _hintCard.style.display = DisplayStyle.None; })
+                    .Execute(HideHint)
                     .StartingIn((long)(dur * 1000f));
+        }
+
+        /// <summary>Убрать табличку — всегда одним способом. Два места гасили её
+        /// по-разному (одно с анимацией, другое мгновенно), и подсказка по
+        /// таймеру исчезала иначе, чем снятая сценарием.</summary>
+        private void HideHint()
+        {
+            if (_hintCard == null || _hintCard.resolvedStyle.display == DisplayStyle.None) return;
+            LvnAppear.Play(_hintCard, LvnAppearKind.Rise, false, 200,
+                () => { if (_hintCard != null) _hintCard.style.display = DisplayStyle.None; });
         }
 
         // ── wait / preload ──────────────────────────────────────────────────

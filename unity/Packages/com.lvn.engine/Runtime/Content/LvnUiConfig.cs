@@ -326,6 +326,8 @@ namespace Lvn.Content
         public string text_color;        // body text; default #f5f5f5
         public string speaker_color;     // name text; default #ffd166
 
+        public float? glass;             // frosted glass under the box: 0 = flat fill (default), 1 = full blur of the scene
+
         public float? body_size;         // px; default 34
         public float? speaker_size;      // px; default 24
         public float? corner_radius;     // px; default 12
@@ -370,6 +372,8 @@ namespace Lvn.Content
         public string hover_color;       // default #33333eF5
         public string text_color;        // default #f5f5f5
         public string cost_color;        // cost/lock label; default #e6a33b
+
+        public float? glass;             // frosted glass under the buttons; same scale as dialogue.glass
 
         public string align;             // horizontal placement: "center" (default) | "left" | "right"
         public string valign;            // vertical placement: "center" (default) | "top" | "bottom"

@@ -51,6 +51,10 @@ namespace Lvn.UI.World
         /// <summary>Мультиэффект кадра (op `fx`); null там же, где null Blur.</summary>
         public LvnFxStack Fx { get; }
 
+        /// <summary>Размытая копия кадра для «матового стекла» интерфейса; null
+        /// там же, где null Blur.</summary>
+        public LvnGlass Glass { get; }
+
         /// <param name="parent">Where to park the canvas GameObject (e.g. the VnStage's transform).</param>
         /// <param name="sortingOrder">Canvas sort order — keep below the UITK panel's so chrome draws on top.</param>
         /// <param name="reference">Reference resolution (canvas units); default 1080×1920 portrait.</param>
@@ -102,6 +106,11 @@ namespace Lvn.UI.World
                 canvas.planeDistance = 1f;
                 Blur = LvnBlurEffect.Ensure(cam);
                 Fx = LvnFxStack.Ensure(cam); // мультиэффект (op `fx`), тот же крюк
+                // Стекло — ПОСЛЕДНИМ: OnRenderImage идёт в порядке компонентов,
+                // и подложка должна видеть кадр уже с эффектами. Иначе окно в
+                // задымлённой сцене осталось бы прозрачным по чистому миру —
+                // как окно из другой игры.
+                Glass = LvnGlass.Ensure(cam);
             }
 
             var scaler = _canvasGo.GetComponent<CanvasScaler>();
