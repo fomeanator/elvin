@@ -70,5 +70,29 @@ namespace Lvn.Tests
             StringAssert.Contains("<alpha=#", s);
             Assert.IsTrue(s.IndexOf("<alpha=#00>", System.StringComparison.Ordinal) >= 0);
         }
+
+        [Test]
+        public void InitialBudgetRoundsForwardToAWholeWord()
+        {
+            var tw = Make("один <b>длинный</b> третий");
+            Assert.AreEqual(12, tw.WordEndAtOrAfter(7),
+                "rich-text tags do not count and the opening chunk must not cut a word");
+            Assert.AreEqual(1, tw.WordsAfter(12));
+        }
+
+        [Test]
+        public void RevealFadesOneWholeWordAtATime()
+        {
+            var tw = Make("one two three");
+            tw.WordReveal(3, 0.5f, out int complete, out int active, out float alpha);
+            Assert.AreEqual(3, complete);
+            Assert.AreEqual(7, active, "the whole word 'two' owns one shared opacity");
+            Assert.AreEqual(0.5f, alpha, 0.001f);
+
+            tw.WordReveal(3, 1.25f, out complete, out active, out alpha);
+            Assert.AreEqual(7, complete);
+            Assert.AreEqual(13, active);
+            Assert.AreEqual(0.15625f, alpha, 0.001f, "word opacity follows smoothstep");
+        }
     }
 }

@@ -20,6 +20,11 @@ namespace Lvn.UI
         Rise,
         Drop,
         Unfold,
+        // КИНЕМАТОГРАФИЧНЫЙ БОКОВОЙ УХОД: фед + малый снос к ближнему краю
+        // (правый персонаж уходит вправо, левый — влево; направление берётся из
+        // позиции, автору его писать не нужно). У составных героев поверх идёт
+        // направленная волна проявления в шейдере.
+        Drift,
         // ШЕЙДЕРНОЕ РАСТВОРЕНИЕ: спрайт съедается шумом со светящейся кромкой
         // (LvnSpriteFx, тот же _Dissolve, что у опа `sfx`). Отличается от Fade
         // по сути: там персонаж становится прозрачным целиком, здесь — исчезает
@@ -117,6 +122,11 @@ namespace Lvn.UI
             IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             if (string.IsNullOrEmpty(id)) return;
+
+            // Видимость ДО команды — по ней решается, играть ли вход. Смена позы
+            // приходит тем же опом actor, и с дефолтным переходом темы вход без
+            // этой проверки проигрывался бы на КАЖДОЙ реплике — мигающий герой.
+            bool wasShown = _slots.ContainsKey(id) && !_hidden.Contains(id);
 
             if (!_slots.TryGetValue(id, out var slot))
             {
@@ -239,7 +249,7 @@ namespace Lvn.UI
             // moment the fade ends — shown in state, invisible on screen.
             if (p.Show) InvalidateExit(slot);
 
-            if (p.Show && p.EnterTransition != TransitionType.None)
+            if (p.Show && !wasShown && p.EnterTransition != TransitionType.None)
                 PlayTransition(slot, p.EnterTransition, p.TransitionDuration, p, exiting: false);
             else if (exitWithAnim)
                 PlayTransition(slot, p.ExitTransition, p.TransitionDuration, p, exiting: true);
@@ -507,6 +517,29 @@ namespace Lvn.UI
                 // Виды из общего набора движка: одно имя — одно движение и у
                 // персонажа, и у панели, и у кнопки. Иначе экран собран из
                 // чужих кусков.
+                case TransitionType.Drift:
+                {
+                    // Снос — ЧЕРЕЗ translate, а не через left: left принадлежит
+                    // размещению. Но translate уже занят ЯКОРЕМ (точка (X,Y) —
+                    // это -anchor% собственного размера), поэтому снос
+                    // СКЛАДЫВАЕТСЯ с якорной составляющей, а не заменяет её —
+                    // иначе на время перехода герой прыгал бы на пол-роста.
+                    float dir = Lvn.UI.World.LvnFade.DriftSign(p.X);
+                    float ax = -p.AnchorX * 100f, ay = -p.AnchorY * 100f;
+                    float from = exiting ? p.Opacity : 0f, to = exiting ? 0f : p.Opacity;
+                    float offFrom = exiting ? 0f : dir * 10f, offTo = exiting ? dir * 10f : 0f;
+                    slot.style.opacity = from;
+                    slot.style.translate = new Translate(Length.Percent(ax + offFrom), Length.Percent(ay));
+                    Finish(slot.experimental.animation
+                        .Start(0f, 1f, ms, (e, t) =>
+                        {
+                            e.style.opacity = Mathf.Lerp(from, to, t);
+                            e.style.translate = new Translate(
+                                Length.Percent(ax + Mathf.Lerp(offFrom, offTo, t)), Length.Percent(ay));
+                        })
+                        .Ease(exiting ? Easing.InSine : Easing.OutCubic), exiting, slot);
+                    break;
+                }
                 case TransitionType.Rise:
                 case TransitionType.Drop:
                 case TransitionType.Unfold:

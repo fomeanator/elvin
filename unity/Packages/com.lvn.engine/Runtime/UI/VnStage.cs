@@ -71,6 +71,7 @@ namespace Lvn.UI
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
         private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
         private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
+        private VisualElement _hintHost;   // centred motion host: keeps the card's layout transform intact
         private VisualElement _hintCard;   // top-center popup for the `hint` op
         private Label _hintLabel;
         private IVisualElementScheduledItem _hintHide; // auto-dismiss timer (duration>0)
@@ -105,6 +106,14 @@ namespace Lvn.UI
         // Current on-screen beat — restored after a live theme rebuild so ApplyTheme
         // is safe to call mid-line (realtime theming keeps the line/choices visible).
         private bool _sayUp;
+        // Every text/choice beat replaces the previous card through a short
+        // dissolve. The generation invalidates delayed callbacks on reset/new beat.
+        private int _dialogueSwapGeneration;
+        private bool _choiceCommitInFlight;
+        // A rebuilt UIDocument has no old pixels to fade out even if _sayUp
+        // remembers that the player is parked on a line. The first rerender onto
+        // that fresh surface must install the current card directly.
+        private bool _dialogueSurfaceFresh;
         private IReadOnlyList<LvnOption> _curChoices;
 
         /// <summary>Public access to the underlying player for save/load.</summary>
@@ -287,6 +296,7 @@ namespace Lvn.UI
                 // beat on the new panel, the same recipe rollback uses.
                 _player.OnSay -= RecordSay; // OnDisable unhooked it; twice would double-log
                 _player.OnSay += RecordSay; // resubscribe even before the first say exists
+                _dialogueSurfaceFresh = true;
                 var snap = _player.PopCurrent();
                 if (snap != null)
                 {
@@ -514,7 +524,7 @@ namespace Lvn.UI
                 _menu = null;
                 _labelLayer = null;
                 _hintHide?.Pause(); _hintHide = null;
-                _hintCard = null; _hintLabel = null;
+                _hintHost = null; _hintCard = null; _hintLabel = null;
                 _labelEls.Clear();
                 _labelTmpl.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }

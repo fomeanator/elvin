@@ -121,5 +121,57 @@ namespace Lvn.Tests
 
             Object.DestroyImmediate(host);
         }
+
+        [Test]
+        public void Stage_PreloadedPlacementStaysHiddenUntilArtStartsEntrance()
+        {
+            var host = new GameObject("host", typeof(RectTransform));
+            var stage = new WorldStage(host.transform);
+            var p = Placement.Standing(0.25f);
+            p.EnterTransition = TransitionType.Drift;
+            p.TransitionDuration = 1f;
+
+            var actor = stage.PlaceActor("mara", p);
+            var placedX = actor.Slot.anchoredPosition.x;
+
+            Assert.IsFalse(actor.gameObject.activeSelf,
+                "pre-load placement must not consume the entrance on an empty slot");
+
+            stage.ApplyActor("mara", new List<Sprite> { NewSprite() }, p);
+            var group = actor.GetComponent<CanvasGroup>();
+
+            Assert.IsTrue(actor.gameObject.activeSelf, "art arrival starts the real entrance");
+            Assert.AreEqual(0f, group.alpha, 0.001f, "entrance begins transparent");
+            Assert.Less(actor.Slot.anchoredPosition.x, placedX,
+                "left-side actor starts outside its final position");
+
+            Object.DestroyImmediate(host);
+        }
+
+        [Test]
+        public void CanvasRenderer_ReusesLoadedArtOnAnimatedReshow()
+        {
+            var host = new GameObject("host", typeof(RectTransform));
+            var stage = new WorldStage(host.transform);
+            var renderer = new CanvasSceneRenderer(stage);
+            var shown = Placement.Standing(0.75f);
+            stage.ApplyActor("mara", new List<Sprite> { NewSprite() }, shown);
+
+            var hidden = shown;
+            hidden.Show = false;
+            renderer.ApplyActor("mara", null, hidden, null, null, null);
+            Assert.IsFalse(stage.ActorFor("mara").gameObject.activeSelf);
+
+            shown.EnterTransition = TransitionType.Fade;
+            shown.TransitionDuration = 1f;
+            renderer.PlaceActor("mara", shown);
+            renderer.ApplyActor("mara", null, shown, null, null, null);
+
+            var actor = stage.ActorFor("mara");
+            Assert.IsTrue(actor.gameObject.activeSelf, "existing layers may be shown without repeating their URL");
+            Assert.AreEqual(0f, actor.GetComponent<CanvasGroup>().alpha, 0.001f);
+
+            Object.DestroyImmediate(host);
+        }
     }
 }

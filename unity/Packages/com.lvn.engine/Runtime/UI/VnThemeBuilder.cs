@@ -33,6 +33,9 @@ namespace Lvn.UI
                 if (stg.actor_enter != null) t.ActorEnter = stg.actor_enter;
                 if (stg.actor_exit != null) t.ActorExit = stg.actor_exit;
                 if (stg.actor_transition.HasValue) t.ActorTransition = Mathf.Max(0f, stg.actor_transition.Value);
+                if (stg.object_enter != null) t.ObjectEnter = stg.object_enter;
+                if (stg.object_exit != null) t.ObjectExit = stg.object_exit;
+                if (stg.object_transition.HasValue) t.ObjectTransition = Mathf.Max(0f, stg.object_transition.Value);
             }
 
             var d = ui.dialogue;
@@ -48,6 +51,7 @@ namespace Lvn.UI
                 if (d.glass.HasValue) t.PanelGlass = Mathf.Clamp01(d.glass.Value);
                 if (d.appear != null) t.BoxAppear = d.appear;   // "" значит «мгновенно»
                 if (d.appear_duration.HasValue) t.BoxAppearDuration = Mathf.Max(0f, d.appear_duration.Value);
+                if (d.beat_pause.HasValue) t.BeatPause = Mathf.Max(0f, d.beat_pause.Value);
 
                 if (!string.IsNullOrEmpty(d.align)) t.BoxAlign = d.align;
                 if (d.max_width_percent.HasValue) t.BoxMaxWidthPercent = d.max_width_percent.Value;
@@ -67,6 +71,7 @@ namespace Lvn.UI
                 if (d.name_padding_y.HasValue) t.NamePaddingY = d.name_padding_y.Value;
 
                 if (d.chars_per_second.HasValue) t.CharsPerSecond = d.chars_per_second.Value;
+                if (d.initial_characters.HasValue) t.InitialVisibleCharacters = Mathf.Max(0, d.initial_characters.Value);
                 if (d.fade_width.HasValue) t.FadeWidth = d.fade_width.Value;
 
                 if (!string.IsNullOrEmpty(d.font)) t.FontResourcePath = d.font;

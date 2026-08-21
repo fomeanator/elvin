@@ -316,9 +316,12 @@ namespace Lvn.Content
         /// that never spoke are untouched).</summary>
         public string speaker_focus;
 
-        public string actor_enter;    // default entrance when a command omits enter= ("fade" by default; "" = instant)
+        public string actor_enter;    // default entrance when a command omits enter= ("drift" by default; "" = instant)
         public string actor_exit;     // default exit when a command omits exit=
-        public float? actor_transition; // default transition duration, seconds (0.35)
+        public float? actor_transition; // default transition duration, seconds (0.175)
+        public string object_enter;   // default obj entrance ("fade" by default; "" = instant)
+        public string object_exit;    // default obj exit
+        public float? object_transition; // default obj transition duration, seconds (0.35)
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
@@ -333,6 +336,7 @@ namespace Lvn.Content
         public float? glass;             // frosted glass under the box: 0 = flat fill (default), 1 = full blur of the scene
         public string appear;            // box entrance/exit: fade|rise|pop|drop|unfold|slide_* ("" = instant)
         public float? appear_duration;   // seconds; default 0.22
+        public float? beat_pause;        // quiet gap between cards; default 0.06 s
 
         public float? body_size;         // px; default 34
         public float? speaker_size;      // px; default 24
@@ -359,7 +363,8 @@ namespace Lvn.Content
         public float? name_padding_x;    // nameplate inner padding; default 14
         public float? name_padding_y;    // default 4
 
-        public float? chars_per_second;  // typewriter speed; default 45
+        public float? chars_per_second;  // word-reveal pace basis; default 72 chars/s (~12 words/s)
+        public int? initial_characters;  // visible immediately; default 40
         public float? fade_width;        // soft per-glyph fade, trailing chars; default 5
 
         public string font;              // Resources path to a Font (e.g. "Fonts/Serif")

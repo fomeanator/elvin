@@ -22,6 +22,7 @@ namespace Lvn
         }
 
         private readonly List<Step> _steps = new List<Step>();
+        private readonly List<int> _wordEnds = new List<int>();
         private string _trailing = ""; // markup after the last glyph (closers)
 
         public int VisibleCount => _steps.Count;
@@ -29,6 +30,7 @@ namespace Lvn
         public void SetText(string full)
         {
             _steps.Clear();
+            _wordEnds.Clear();
             _trailing = "";
             if (string.IsNullOrEmpty(full)) return;
 
@@ -55,7 +57,71 @@ namespace Lvn
                 i++;
             }
             _trailing = pending.ToString();
+
+            // Word cadence: markup never reaches _steps, so these boundaries are
+            // measured in the same visible-character units as the reveal head.
+            for (int n = 0; n < _steps.Count; n++)
+            {
+                char here = VisibleChar(_steps[n].Chunk);
+                char next = n + 1 < _steps.Count ? VisibleChar(_steps[n + 1].Chunk) : '\0';
+                if (!char.IsWhiteSpace(here) && (next == '\0' || char.IsWhiteSpace(next)))
+                    _wordEnds.Add(n + 1);
+            }
         }
+
+        private static char VisibleChar(string chunk)
+            => string.IsNullOrEmpty(chunk) ? '\0' : chunk[chunk.Length - 1];
+
+        /// <summary>Round an initial character budget forward to a complete word.
+        /// A card never opens with half a word such as «предло…».</summary>
+        public int WordEndAtOrAfter(int characters)
+        {
+            if (characters <= 0 || _steps.Count == 0) return 0;
+            foreach (int end in _wordEnds) if (end >= characters) return end;
+            return _steps.Count;
+        }
+
+        public int WordsAfter(int character)
+        {
+            int count = 0;
+            foreach (int end in _wordEnds) if (end > character) count++;
+            return count;
+        }
+
+        /// <summary>Resolve a fractional word clock into complete characters plus
+        /// one whole active word sharing a single opacity.</summary>
+        public void WordReveal(int startCharacter, float wordProgress,
+            out int completeEnd, out int activeEnd, out float activeAlpha)
+        {
+            completeEnd = MathfClamp(startCharacter, 0, _steps.Count);
+            activeEnd = completeEnd;
+            activeAlpha = 0f;
+            if (wordProgress < 0f) wordProgress = 0f;
+
+            int completedWords = (int)System.Math.Floor(wordProgress);
+            float fraction = wordProgress - completedWords;
+            int seen = 0;
+            foreach (int end in _wordEnds)
+            {
+                if (end <= startCharacter) continue;
+                if (seen < completedWords)
+                {
+                    completeEnd = end;
+                    activeEnd = end;
+                    seen++;
+                    continue;
+                }
+                activeEnd = end;
+                activeAlpha = fraction * fraction * (3f - 2f * fraction);
+                return;
+            }
+            completeEnd = _steps.Count;
+            activeEnd = _steps.Count;
+            activeAlpha = 0f;
+        }
+
+        private static int MathfClamp(int value, int min, int max)
+            => value < min ? min : value > max ? max : value;
 
         /// <summary>Well-formed markup for the first <paramref name="k"/> glyphs.</summary>
         public string Slice(int k)

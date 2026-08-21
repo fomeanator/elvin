@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Поднять локальный сервер контента для разработки в Unity.
+#
+#   tools/dev/serve.sh                      # демо-контент репозитория на :8078
+#   tools/dev/serve.sh ~/путь/к/контенту    # свой контент (например, продуктовый)
+#   PORT=8077 tools/dev/serve.sh            # другой порт
+#
+# ПОЧЕМУ ЭТО СКРИПТ, А НЕ СТРОЧКА В ГОЛОВЕ: адрес зашит в Boot.cs проектов
+# (127.0.0.1:8078). Когда сервер подняли на другом порту или с другой папкой
+# контента, редактор молча играет ПРОШЛЫЙ кэш — и правки «не видно», хотя код
+# верный. Один вход в среду убирает этот класс потерянных часов.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CONTENT="${1:-$REPO/server/content}"
+PORT="${PORT:-8078}"
+
+if [ ! -d "$CONTENT" ]; then
+  echo "нет папки контента: $CONTENT" >&2; exit 1
+fi
+mkdir -p "$CONTENT/services"   # SQLite аккаунтов; без неё сервер падает на старте
+
+if curl -fsS --max-time 1 "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then
+  echo "на :$PORT уже кто-то отвечает — сначала останови его"; exit 1
+fi
+
+echo "контент: $CONTENT"
+echo "адрес  : http://127.0.0.1:$PORT   (панель авторов — /panel/)"
+exec go run "$REPO/server" -content "$CONTENT" -addr "127.0.0.1:$PORT" \
+  -admin-token devtoken -studio

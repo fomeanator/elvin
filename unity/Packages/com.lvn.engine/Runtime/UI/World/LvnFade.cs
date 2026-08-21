@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,21 +18,10 @@ namespace Lvn.UI.World
     /// <see cref="CanvasGroup"/>. Живёт ровно столько, сколько идёт переход, и
     /// сам себя выключает — сцена не платит за движение, которого нет.</para>
     ///
-    /// <para><b>СОСТАВНОЙ ГЕРОЙ ГАСНЕТ НЕ АЛЬФОЙ.</b> Альфа группы применяется
-    /// К КАЖДОМУ слою отдельно, поэтому на середине перехода полупрозрачная
-    /// одежда начинает пропускать тело — со стороны это читается как «одежда
-    /// исчезает быстрее тела». Дело не в скорости: два полупрозрачных слоя друг
-    /// над другом дают не то же, что один полупрозрачный композит, и никакой
-    /// подбор кривых этого не исправит. Тот же вывод однажды уже был сделан для
-    /// приглушения не-говорящего — там яркость ведут ЦВЕТОМ, а не альфой (см.
-    /// <c>WorldStage.SetFocus</c>).</para>
-    ///
-    /// <para>Поэтому многослойный герой гаснет ШЕЙДЕРОМ: порог решается для
-    /// ПИКСЕЛЯ ЭКРАНА, и в одной точке все слои исчезают разом (см. <c>_Fade</c>
-    /// в LvnSpriteFx). Рентгену взяться неоткуда, темнить ничего не нужно,
-    /// прозрачная вуаль остаётся прозрачной. Одному изображению это не нужно —
-    /// сквозь него ничего не просвечивает, и там достаточно обычной альфы,
-    /// которая дешевле и не трогает материал.</para>
+    /// <para>Однослойный герой использует штатную альфу CanvasGroup. У
+    /// многослойного она показывает тело сквозь полупрозрачную одежду, поэтому
+    /// его слои остаются непрозрачными, а проявление ведётся яркостью из тёмного
+    /// силуэта. Это не требует материала/шейдера и не создаёт прямой «шторки».</para>
     /// </summary>
     [RequireComponent(typeof(CanvasGroup))]
     public sealed class LvnFade : MonoBehaviour
@@ -39,12 +29,66 @@ namespace Lvn.UI.World
         private CanvasGroup _group;
         private float _from, _to, _start = -1f, _dur;
         private Action _done;
-        private bool _viaShader;        // true у составного героя
+        private bool _viaTint;
+        private readonly Dictionary<Graphic, Color> _tintBase = new Dictionary<Graphic, Color>();
 
-        /// <summary>Нужен ли шейдерный путь: у одного изображения просвечивать
-        /// нечему, у нескольких — есть. Чистая проверка, чтобы правило было
-        /// видно и проверяемо, а не спрятано в середине перехода.</summary>
-        public static bool NeedsCompositeFade(int graphicCount) => graphicCount > 1;
+        private static bool NeedsLayerSafeFade(int graphicCount) => graphicCount > 1;
+        /// <summary>Куда сносит персонажа вид drift: правый (x ≥ 0.5) — вправо,
+        /// левый — влево. Правило вынесено отдельно, потому что это КОНТРАКТ
+        /// постановки («левый уходит влево»), а не деталь анимации.</summary>
+        public static float DriftSign(float x01) => x01 >= 0.5f ? 1f : -1f;
+
+        private RectTransform _slot;    // кого сносим (слот актёра)
+        private Vector2 _slotBase;      // его место до перехода
+        private Vector2 _slotWrote;     // последнее, что МЫ записали в слот
+        private Vector2 _drift;         // полный снос в пикселях канваса
+
+        /// <summary>То же проигрывание, но с боковым сносом: на нуле альфы слот
+        /// смещён на <paramref name="drift"/>, на единице — на своём месте.
+        /// Формула одна для входа и выхода: смещение = (1−k)·drift.</summary>
+        public static void Play(CanvasGroup group, float from, float to, float seconds,
+                                RectTransform slot, Vector2 drift, Action done = null)
+        {
+            // Порядок важен: базовый Play снимает снос ПРЕДЫДУЩЕГО перехода,
+            // и только после этого текущее положение слота — настоящий дом.
+            // Иначе прерванный уход отдаёт сдвинутую позицию как «родную», и с
+            // каждым перебитым переходом персонаж уезжает вбок навсегда.
+            Play(group, from, to, seconds, done);
+            var f = group != null ? group.GetComponent<LvnFade>() : null;
+            // Мгновенный путь уже отработал и отпустил всё — цеплять к нему снос
+            // значит оставить слот сдвинутым навсегда.
+            if (f == null || slot == null || seconds <= 0.001f) return;
+            f._slot = slot;
+            f._slotBase = slot.anchoredPosition;
+            f._drift = drift;
+            f.ApplyDrift(to > from ? 0f : 1f);
+        }
+
+        /// <summary>Поставить снос по ДОЛЕ ПУТИ ДОМОЙ (0 — полностью снесён,
+        /// 1 — на своём месте), а не по альфе. Альфа не годится: у героя с
+        /// placement-opacity 0.6 вход кончается на k=0.6, и «(1−k)» оставляет
+        /// его сдвинутым на 40% сноса — до самого конца, где Release дёргает
+        /// его на место рывком.</summary>
+        private void ApplyDrift(float settled)
+        {
+            if (_slot == null) return;
+            var next = _slotBase + _drift * (1f - Mathf.Clamp01(settled));
+            _slot.anchoredPosition = next;
+            _slotWrote = next;
+        }
+
+        /// <summary>Вернуть слот на место — переход кончился или его оборвали.
+        /// Не вернуть — и следующая команда постановки прочтёт сдвинутую позицию
+        /// как «родную».</summary>
+        private void ReleaseDrift()
+        {
+            if (_slot == null) return;
+            // Только если с тех пор в слот не писал НИКТО другой: постановка
+            // (`actor id=x x=0.2`) посреди перехода уже поставила новый дом, и
+            // возврат к нашей старой базе телепортировал бы героя обратно.
+            if (_slot.anchoredPosition == _slotWrote) _slot.anchoredPosition = _slotBase;
+            _slot = null;
+        }
 
         /// <summary>Вести альфу <paramref name="group"/> к <paramref name="to"/> за
         /// <paramref name="seconds"/>. Новый вызов отменяет предыдущий: показ
@@ -55,10 +99,11 @@ namespace Lvn.UI.World
             var f = group.GetComponent<LvnFade>() ?? group.gameObject.AddComponent<LvnFade>();
             f._group = group;
             f._done?.Invoke();      // прошлый переход отпускает свой хвост сам
+            f.ReleaseDrift();       // и свой снос — до того, как новый запомнит дом
             f._done = done;
             if (seconds <= 0.001f)
             {
-                f._viaShader = false;
+                f._viaTint = false;
                 f.Release();
                 group.alpha = to;
                 f._start = -1f;
@@ -75,31 +120,66 @@ namespace Lvn.UI.World
             // занят _Dissolve, а этот компонент лишь прячет объект в конце.
             // Гнать сюда Apply нельзя: при placement-opacity 0.9 «таймер»
             // начал бы прорешечивать героя десятой долей пикселей.
-            f._viaShader = from != to
-                && NeedsCompositeFade(group.GetComponentsInChildren<Graphic>(true).Length);
-            if (from != to) f.Apply(from);
+            f._viaTint = from != to
+                && NeedsLayerSafeFade(group.GetComponentsInChildren<Graphic>(true).Length);
+            if (f._viaTint) f.CaptureTint();
+            if (from != to) f.Apply(from, to > from ? 0f : 1f);
             f.enabled = true;
         }
 
         /// <summary>Поставить текущее значение перехода — тем путём, который
         /// этому герою подходит.</summary>
-        private void Apply(float k)
+        private void Apply(float k, float settled)
         {
-            if (_viaShader)
+            ApplyDrift(settled);
+            if (_viaTint)
             {
-                // Альфа группы остаётся хозяйской (размещение, приглушение
-                // не-говорящего), гашением занимается шейдер.
-                LvnSpriteFxDriver.SetFade(gameObject, k);
+                float peak = Mathf.Max(_from, _to);
+                float light = peak > 0.001f ? Mathf.Clamp01(k / peak) : 0f;
+                // ХВОСТ ВЕДЁТ АЛЬФА, СЕРЕДИНУ — ЯРКОСТЬ. Чистая яркость гасит
+                // героя в НЕПРОЗРАЧНЫЙ ЧЁРНЫЙ силуэт и снимает его скачком на
+                // самом нуле: на замерах уходящий персонаж за последние 10%
+                // перехода прыгал из ясно видимого в ничто, а на светлом фоне
+                // это ещё и чёрная вырезка вместо человека. Поэтому ниже порога
+                // цвет больше не темнеет, а остаток пути герой доезжает
+                // прозрачностью — на почти чёрных слоях просвечивание тела
+                // сквозь одежду уже неразличимо, ради чего яркость и вводилась.
+                const float floorLight = 0.35f;
+                float lit = Mathf.Max(light, floorLight);
+                float alpha = peak * Mathf.Clamp01(light / floorLight);
+                if (_group != null) _group.alpha = alpha;
+                foreach (var pair in _tintBase)
+                {
+                    if (pair.Key == null) continue;
+                    var c = pair.Value;
+                    pair.Key.color = new Color(c.r * lit, c.g * lit, c.b * lit, c.a);
+                }
             }
             else if (_group != null) _group.alpha = k;
+        }
+
+        private void CaptureTint()
+        {
+            RestoreTint();
+            foreach (var graphic in GetComponentsInChildren<Graphic>(true))
+                if (graphic != null) _tintBase[graphic] = graphic.color;
+        }
+
+        private void RestoreTint()
+        {
+            foreach (var pair in _tintBase)
+                if (pair.Key != null) pair.Key.color = pair.Value;
+            _tintBase.Clear();
         }
 
         /// <summary>Отпустить гашение: материал возвращается к обычному виду,
         /// иначе следующий выход героя начнётся с чужого значения.</summary>
         private void Release()
         {
-            if (_viaShader) LvnSpriteFxDriver.SetFade(gameObject, 1f);
-            _viaShader = false;
+            RestoreTint();
+            if (_group != null) _group.alpha = _to;
+            _viaTint = false;
+            ReleaseDrift();
         }
 
         /// <summary>Оборвать переход, если он идёт: значение остаётся текущим, а
@@ -121,8 +201,10 @@ namespace Lvn.UI.World
             float t = Mathf.Clamp01((Time.realtimeSinceStartup - _start) / _dur);
             // Плавно на входе и на выходе: линейное проявление читается как
             // мигание подсветки, а не как появление человека.
-            float k = Mathf.Lerp(_from, _to, t * t * (3f - 2f * t));
-            if (_from != _to) Apply(k);
+            float s = t * t * (3f - 2f * t);
+            float k = Mathf.Lerp(_from, _to, s);
+            // «Дома» — это конец ВХОДА и начало УХОДА: снос всегда снаружи.
+            if (_from != _to) Apply(k, _to > _from ? s : 1f - s);
             if (t < 1f) return;
             _start = -1f;
             enabled = false;

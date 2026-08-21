@@ -331,7 +331,7 @@ namespace Lvn.UI
             _labelEls.Clear();
             _labelTmpl.Clear();
             _hintHide?.Pause(); _hintHide = null;
-            _hintCard = null; _hintLabel = null; // detached by the Clear above
+            _hintHost = null; _hintCard = null; _hintLabel = null; // detached by the Clear above
         }
 
         private void RecordSay(string who, string text, string style)

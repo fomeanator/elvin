@@ -219,11 +219,31 @@ namespace Lvn.UI.Screens
         private VisualElement VersionRow()
         {
             var row = Row(_cfg.version_label ?? "Version");
-            var val = new Label(Application.version);
+            var val = new Label(Application.version + EditorBuildStamp());
             val.style.color = _dim;
             val.style.fontSize = 22;
             row.Add(val);
             return row;
+        }
+
+        /// <summary>В РЕДАКТОРЕ — время сборки движка рядом с версией.
+        /// Unity не пересобирает C# на ходу: правка, сделанная во время Play,
+        /// доедет только после Stop→Play, и снаружи это неотличимо от «фича не
+        /// работает». Штамп отвечает на вопрос «я вообще на свежем коде?» за
+        /// пять секунд, без консоли. В собранной игре строки нет.</summary>
+        private static string EditorBuildStamp()
+        {
+#if UNITY_EDITOR
+            try
+            {
+                var path = typeof(Lvn.UI.VnStage).Assembly.Location;
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return "";
+                return "  · движок " + System.IO.File.GetLastWriteTime(path).ToString("HH:mm:ss");
+            }
+            catch { return ""; }
+#else
+            return "";
+#endif
         }
 
         private VisualElement LinksRow()

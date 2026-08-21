@@ -79,9 +79,9 @@ namespace Lvn.Tests
             Assert.AreEqual(1, _stage.Backlog.Count, "the opening line is on screen");
 
             _stage.Player.Advance();     // tap through the say → options present
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
             Pick(0);                     // take the left path
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
 
             var marks = _stage.Backlog.Where(b => b.style == "choice").ToList();
             Assert.AreEqual(1, marks.Count, "exactly one branch mark recorded");
@@ -133,6 +133,98 @@ namespace Lvn.Tests
             _stage.Player.Advance();
             yield return null;
             Assert.IsNotNull(_stage.Backlog, "player alive after rebuild");
+        }
+
+        [UnityTest]
+        public IEnumerator Dialogue_ReentersForEveryNewTextCard()
+        {
+            const string script = @"{""script"":[
+                {""op"":""say"",""who"":""A"",""text"":""A one""},
+                {""op"":""say"",""who"":""B"",""text"":""B one""},
+                {""op"":""say"",""who"":""B"",""text"":""B two""}
+            ]}";
+            _stage.Play(script);
+            yield return null;
+
+            var doc = _go.GetComponent<UIDocument>();
+            var speaker = doc.rootVisualElement.Q<Label>("vn-speaker");
+            Assert.AreEqual("A", speaker.text);
+
+            _stage.Player.Advance();
+            yield return null;
+            Assert.AreEqual("A", speaker.text,
+                "the old speaker stays on the outgoing window; new copy must not flash backwards");
+            Assert.IsFalse((bool)typeof(VnStage)
+                .GetField("_awaitingTapFlag", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage), "input is gated during the short card replacement");
+
+            yield return new WaitForSecondsRealtime(0.28f);
+            yield return null;
+            Assert.AreEqual("B", speaker.text, "the new speaker appears after the old window leaves");
+
+            _stage.Player.Advance();
+            yield return null;
+            Assert.AreEqual("B", speaker.text);
+            StringAssert.Contains("B one", doc.rootVisualElement.Q<Label>("vn-body").text,
+                "the old card remains intact during its fade-out");
+            Assert.IsFalse((bool)typeof(VnStage)
+                .GetField("_awaitingTapFlag", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage), "even B → B owns a protected card replacement");
+            yield return new WaitForSecondsRealtime(0.28f);
+            yield return null;
+            StringAssert.Contains("B two", doc.rootVisualElement.Q<Label>("vn-body").text);
+        }
+
+        [UnityTest]
+        public IEnumerator Dialogue_ShowsFirstReadableWordChunkImmediately()
+        {
+            const string longLine = "Один два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать";
+            _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"" + longLine + "\"}]}");
+            yield return null;
+
+            var dialogue = (DialogueBox)typeof(VnStage)
+                .GetField("_dialogue", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage);
+            int initial = (int)typeof(DialogueBox)
+                .GetField("_initialReveal", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(dialogue);
+            float progress = (float)typeof(DialogueBox)
+                .GetField("_revealProgress", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(dialogue);
+            Assert.GreaterOrEqual(initial, 40);
+            Assert.Less(initial, longLine.Length);
+            Assert.IsTrue(char.IsWhiteSpace(longLine[initial]),
+                "the approximate forty-character budget rounds to a complete word");
+            Assert.GreaterOrEqual(progress, 40f,
+                "the typewriter starts after the readable initial chunk, not at glyph zero");
+            Assert.IsTrue(dialogue.IsRevealing, "the remaining words still fade in quickly");
+
+            _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"Короткая строка\"}]}");
+            yield return null;
+            Assert.IsFalse(dialogue.IsRevealing,
+                "a short line is complete on its first frame");
+        }
+
+        [UnityTest]
+        public IEnumerator Hint_WithoutDurationBecomesFourSecondTopToast()
+        {
+            const string script = @"{""script"":[
+                {""op"":""hint"",""text"":""four seconds""},
+                {""op"":""say"",""text"":""hold""}
+            ]}";
+            _stage.Play(script);
+            yield return null;
+
+            var host = _go.GetComponent<UIDocument>().rootVisualElement.Q("vn-hint-host");
+            Assert.IsNotNull(host);
+            Assert.AreEqual(DisplayStyle.Flex, host.style.display.value);
+
+            yield return new WaitForSecondsRealtime(3.8f);
+            Assert.AreEqual(DisplayStyle.Flex, host.style.display.value,
+                "the toast must remain readable until its four-second deadline");
+            yield return new WaitForSecondsRealtime(0.45f);
+            Assert.AreEqual(DisplayStyle.None, host.style.display.value,
+                "the 4 s hold plus the short exit finishes hidden");
         }
 
         [UnityTest]
@@ -280,19 +372,19 @@ namespace Lvn.Tests
         public IEnumerator Rollback_StripsTheUndoneMark_AndRepickRecordsFresh()
         {
             _stage.Player.Advance();
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
             Pick(0);
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
             Assert.AreEqual(1, _stage.Backlog.Count(b => b.style == "choice"));
 
             Assert.IsTrue(_stage.RollbackStep(), "one beat back from the branch line");
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
 
             Assert.AreEqual(0, _stage.Backlog.Count(b => b.style == "choice"),
                 "the undone pick's mark is gone from History");
 
             Pick(1); // take the other branch this time
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.32f);
             var marks = _stage.Backlog.Where(b => b.style == "choice").ToList();
             Assert.AreEqual(1, marks.Count, "re-pick records exactly one fresh mark");
             Assert.AreEqual("take the right path", marks[0].text);

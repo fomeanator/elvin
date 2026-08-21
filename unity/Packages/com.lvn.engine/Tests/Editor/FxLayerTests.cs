@@ -29,7 +29,7 @@ namespace Lvn.Tests
                     'fog':0.4,'rain':0.5,'snow':0.6,'embers':0.7,
                     'blood':0.8,'poison':0.3,'shockwave':1,
                     'speedlines':0.9,'dream':0.2,'sepia':0.25,
-                    'posterize':0.35,'letterbox':0.45,
+                    'posterize':0.35,'letterbox':0.45,'cinematic':0.55,
                     'shock_x':0.2,'shock_y':0.7,
                     'space':0.85,'space_x':0.4,'space_y':0.35,
                     'space_radius':0.22,'space_color':'#8b42ff'
@@ -42,6 +42,7 @@ namespace Lvn.Tests
                 Assert.AreEqual(0.9f, Private<float>(fx, "_tSpeedlines"), 0.0001f);
                 Assert.AreEqual(0.2f, Private<float>(fx, "_tDream"), 0.0001f);
                 Assert.AreEqual(0.45f, Private<float>(fx, "_tLetterbox"), 0.0001f);
+                Assert.AreEqual(0.55f, Private<float>(fx, "_tCinematic"), 0.0001f);
                 Assert.AreEqual(new Vector2(0.2f, 0.7f), Private<Vector2>(fx, "_fxCenter"));
                 Assert.AreEqual(0.85f, Private<float>(fx, "_tSpace"), 0.0001f);
                 Assert.AreEqual(new Vector2(0.4f, 0.35f), Private<Vector2>(fx, "_spaceCenter"));
@@ -51,7 +52,61 @@ namespace Lvn.Tests
                 Assert.AreEqual(0f, Private<float>(fx, "_tFog"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tBlood"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tLetterbox"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tCinematic"));
                 Assert.AreEqual(0f, Private<float>(fx, "_tSpace"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void LegacyGrainMigratesToCleanCinematicGrade()
+        {
+            var go = new GameObject("fx-grain-migration");
+            try
+            {
+                var fx = go.AddComponent<LvnFxStack>();
+                fx.Apply(JObject.Parse(@"{'grain':0.12}"));
+
+                Assert.AreEqual(0.36f, Private<float>(fx, "_tCinematic"), 0.0001f,
+                    "old grain strength becomes a useful filmic grade, not animated noise");
+                Assert.IsNull(fx.GetType().GetField("_tGrain",
+                    BindingFlags.Instance | BindingFlags.NonPublic),
+                    "the grain renderer state must be gone");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void FullFrameFxHardResetCannotLeakComicStyleIntoNextScene()
+        {
+            var go = new GameObject("fx-scene-reset");
+            try
+            {
+                var fx = go.AddComponent<LvnFxStack>();
+                fx.Apply(JObject.Parse(@"{
+                    'halftone':0.9,'posterize':0.8,'sketch':0.7,
+                    'cinematic':0.6,'saturation':0.4,'contrast':1.5,
+                    'tint':'#d08040','space_x':0.2
+                }"));
+
+                fx.ResetImmediate();
+
+                Assert.AreEqual(0f, Private<float>(fx, "_halftone"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tHalftone"));
+                Assert.AreEqual(0f, Private<float>(fx, "_posterize"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tSketch"));
+                Assert.AreEqual(0f, Private<float>(fx, "_tCinematic"));
+                Assert.AreEqual(1f, Private<float>(fx, "_saturation"));
+                Assert.AreEqual(1f, Private<float>(fx, "_tContrast"));
+                Assert.AreEqual(Color.white, Private<Color>(fx, "_tint"));
+                Assert.AreEqual(new Vector2(0.5f, 0.45f), Private<Vector2>(fx, "_spaceCenter"));
+                Assert.IsFalse(fx.enabled, "an empty stack must not keep the camera image hook alive");
             }
             finally
             {

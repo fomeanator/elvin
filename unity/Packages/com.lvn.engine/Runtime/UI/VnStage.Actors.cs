@@ -80,15 +80,42 @@ namespace Lvn.UI
             return list;
         }
 
-        /// <summary>Take an actor off stage (fade) — the counterpart of
+        /// <summary>
+        /// Команда без <c>enter=</c>/<c>exit=</c> берёт постановочный переход из
+        /// темы. У actor и obj разные дефолты: герой движется от ближайшего края,
+        /// реквизит проявляется на месте. Пустая строка означает мгновенный показ.
+        /// </summary>
+        private void FillTransitionDefaults(JObject cmd, ref Placement p)
+            => ApplyTransitionDefaults(cmd, Theme, ref p);
+
+        internal static void ApplyTransitionDefaults(JObject cmd, VnTheme theme, ref Placement p)
+        {
+            if (theme == null) return;
+            bool isObject = string.Equals((string)cmd?["op"], "obj", StringComparison.OrdinalIgnoreCase);
+            if (cmd?["enter"] == null)
+                p.EnterTransition = ParseTransition(isObject ? theme.ObjectEnter : theme.ActorEnter);
+            if (cmd?["exit"] == null)
+                p.ExitTransition = ParseTransition(isObject ? theme.ObjectExit : theme.ActorExit);
+            if (cmd?["transition_duration"] == null)
+                p.TransitionDuration = Mathf.Max(0f,
+                    isObject ? theme.ObjectTransition : theme.ActorTransition);
+        }
+
+        /// <summary>Take an actor off stage — the counterpart of
         /// <see cref="EnsureActorShown"/> for a host that staged someone
         /// temporarily (the menu wardrobe) and wants the scene back as it was.</summary>
         public void HideActor(string id)
         {
             if (string.IsNullOrEmpty(id)) return;
+            string op = "actor";
+            if (_actorCmds.TryGetValue(id, out var staged)
+                && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
+                op = "obj";
+            // Без exit=: уход возьмётся из темы (drift/fade/что выбрала
+            // новелла). Жёсткий "fade" здесь затирал бы дефолт постановки.
             LvnAsync.Fire(ApplyActorAsync(new JObject
             {
-                ["op"] = "actor", ["id"] = id, ["show"] = false, ["exit"] = "fade",
+                ["op"] = op, ["id"] = id, ["show"] = false,
             }), "ApplyActor");
         }
 
@@ -134,12 +161,13 @@ namespace Lvn.UI
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
                 var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
+                FillTransitionDefaults(cmd, ref hidePl);
 
                 if (!freshHide)
                 {
-                    // Both renderer paths: the Canvas renderer hides via
-                    // PlaceActor (its ApplyActor ignores null layers), the
-                    // UITK one via ApplyActor (its PlaceActor is a no-op).
+                    // Both renderer paths: Canvas PlaceActor updates geometry
+                    // without revealing, then ApplyActor runs the exit; UITK's
+                    // PlaceActor is a no-op and ApplyActor owns both operations.
                     _renderer?.PlaceActor(id, hidePl);
                     _renderer?.ApplyActor(id, null, hidePl, null, null, null);
                 }
@@ -242,6 +270,7 @@ namespace Lvn.UI
 
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
             var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
+            FillTransitionDefaults(cmd, ref placement);
             // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
             // the op left it unset, so every novel gets the standard bottom-anchored
             // pose — tunable from ui.stage without editing the script. A follow-up op

@@ -10,7 +10,7 @@ namespace Lvn.UI.World
     /// в команде поле НЕ трогает текущее значение (липко, как placement у
     /// актёров), <c>fx off</c> сбрасывает всё:
     ///
-    ///   fx vignette=0.35 grain=0.12          // включить два эффекта
+    ///   fx vignette=0.25 cinematic=0.35      // мягкий кино-grade без шума
     ///   fx bloom=0.6 rays=0.5 rays_x=0.3 rays_y=0.25
     ///   fx space=0.9 space_x=0.5 space_y=0.42 space_radius=0.28
     ///   fx glitch=0.8                        // добавить третий, первые живут
@@ -27,14 +27,14 @@ namespace Lvn.UI.World
         private Material _mat;
         private bool _shaderMissing;
 
-        private float _vignette, _grain, _chromatic, _scanlines, _pixelate,
+        private float _vignette, _cinematic, _chromatic, _scanlines, _pixelate,
                       _glitch, _bloom, _rays, _distort, _frost, _blink, _invert,
                       _fog, _rain, _snow, _embers, _blood, _poison, _shockwave,
                       _speedlines, _dream, _sepia, _posterize, _letterbox, _space,
                       _sketch, _halftone, _heat, _ripple, _dust, _ink;
         private float _saturation = 1f, _contrast = 1f;
         // Цели tween'а (op-поле dur): без dur цели применяются мгновенно.
-        private float _tVignette, _tGrain, _tChromatic, _tScanlines, _tPixelate,
+        private float _tVignette, _tCinematic, _tChromatic, _tScanlines, _tPixelate,
                       _tGlitch, _tBloom, _tRays, _tDistort, _tFrost, _tBlink, _tInvert,
                       _tFog, _tRain, _tSnow, _tEmbers, _tBlood, _tPoison, _tShockwave,
                       _tSpeedlines, _tDream, _tSepia, _tPosterize, _tLetterbox, _tSpace,
@@ -59,6 +59,45 @@ namespace Lvn.UI.World
         public static LvnFxStack Ensure(Camera cam) =>
             cam.GetComponent<LvnFxStack>() ?? cam.gameObject.AddComponent<LvnFxStack>();
 
+        /// <summary>
+        /// Hard scene-boundary reset.  The stack is attached to the camera, not
+        /// to the WorldStage canvas, so the same component can outlive a chapter
+        /// (or even a whole VnStage).  Without this reset a sticky style such as
+        /// halftone/posterize/sketch silently colours the next story although it
+        /// contains no <c>fx</c> command at all.
+        /// </summary>
+        public void ResetImmediate()
+        {
+            _vignette = _cinematic = _chromatic = _scanlines = _pixelate =
+                _glitch = _bloom = _rays = _distort = _frost = _blink =
+                _invert = _fog = _rain = _snow = _embers = _blood = _poison =
+                _shockwave = _speedlines = _dream = _sepia = _posterize =
+                _letterbox = _space = _sketch = _halftone = _heat = _ripple =
+                _dust = _ink = 0f;
+            _tVignette = _tCinematic = _tChromatic = _tScanlines = _tPixelate =
+                _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
+                _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
+                _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
+                _tPosterize = _tLetterbox = _tSpace = _tSketch = _tHalftone =
+                _tHeat = _tRipple = _tDust = _tInk = 0f;
+
+            _saturation = _tSaturation = 1f;
+            _contrast = _tContrast = 1f;
+            _speed = 0f;
+            _rayCenter = new Vector2(0.5f, 0.3f);
+            _fxCenter = new Vector2(0.5f, 0.5f);
+            _spaceCenter = new Vector2(0.5f, 0.45f);
+            _spaceRadius = 0.28f;
+            _tint = Color.white;
+            _fogColor = new Color(0.68f, 0.76f, 0.82f, 1f);
+            _emberColor = new Color(1f, 0.28f, 0.035f, 1f);
+            _bloodColor = new Color(0.42f, 0.005f, 0.01f, 1f);
+            _inkColor = new Color(0.043f, 0.035f, 0.055f, 1f);
+            _poisonColor = new Color(0.18f, 0.55f, 0.08f, 1f);
+            _spaceColor = new Color(0.48f, 0.18f, 1f, 1f);
+            enabled = false;
+        }
+
         /// <summary>Применить op-команду (см. класс-комментарий).</summary>
         public void Apply(JObject cmd)
         {
@@ -70,7 +109,7 @@ namespace Lvn.UI.World
 
             if (cmd["off"] != null || cmd["reset"] != null)
             {
-                _tVignette = _tGrain = _tChromatic = _tScanlines = _tPixelate =
+                _tVignette = _tCinematic = _tChromatic = _tScanlines = _tPixelate =
                     _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
                     _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
                     _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
@@ -83,7 +122,15 @@ namespace Lvn.UI.World
             }
 
             _tVignette   = F(cmd, "vignette", _tVignette);
-            _tGrain      = F(cmd, "grain", _tGrain);
+            if (cmd["cinematic"] != null)
+                _tCinematic = Mathf.Clamp01((float)cmd["cinematic"]);
+            else if (cmd["grain"] != null)
+            {
+                // Compatibility migration: old stories used grain=0.05..0.20
+                // as their generic "cinema" knob. The animated noise shader is
+                // gone; those values now select a quiet filmic grade instead.
+                _tCinematic = Mathf.Clamp01((float)cmd["grain"] * 3f);
+            }
             _tChromatic  = F(cmd, "chromatic", _tChromatic);
             _tScanlines  = F(cmd, "scanlines", _tScanlines);
             _tPixelate   = F(cmd, "pixelate", _tPixelate);
@@ -135,7 +182,7 @@ namespace Lvn.UI.World
 
         private void SnapToTargets()
         {
-            _vignette = _tVignette; _grain = _tGrain; _chromatic = _tChromatic;
+            _vignette = _tVignette; _cinematic = _tCinematic; _chromatic = _tChromatic;
             _scanlines = _tScanlines; _pixelate = _tPixelate; _glitch = _tGlitch;
             _bloom = _tBloom; _rays = _tRays; _distort = _tDistort;
             _frost = _tFrost; _blink = _tBlink; _invert = _tInvert;
@@ -154,7 +201,7 @@ namespace Lvn.UI.World
             if (_speed <= 0f) { SnapToTargets(); return; }
             float k = Time.unscaledDeltaTime * _speed;
             _vignette = Mathf.MoveTowards(_vignette, _tVignette, k);
-            _grain = Mathf.MoveTowards(_grain, _tGrain, k);
+            _cinematic = Mathf.MoveTowards(_cinematic, _tCinematic, k);
             _chromatic = Mathf.MoveTowards(_chromatic, _tChromatic, k);
             _scanlines = Mathf.MoveTowards(_scanlines, _tScanlines, k);
             _pixelate = Mathf.MoveTowards(_pixelate, _tPixelate, k * 20f);
@@ -197,7 +244,7 @@ namespace Lvn.UI.World
             => current = UiColor.FromCmd(cmd, key, current);
 
         private bool Active =>
-            _vignette > 0f || _grain > 0f || _chromatic > 0f || _scanlines > 0f ||
+            _vignette > 0f || _cinematic > 0f || _chromatic > 0f || _scanlines > 0f ||
             _pixelate > 0f || _glitch > 0f || _bloom > 0f || _rays > 0f || _distort > 0f ||
             _frost > 0f || _blink > 0f || _invert > 0f || _fog > 0f || _rain > 0f ||
             _snow > 0f || _embers > 0f || _blood > 0f || _poison > 0f ||
@@ -206,7 +253,7 @@ namespace Lvn.UI.World
             _space > 0f ||
             _sketch > 0f || _halftone > 0f || _heat > 0f ||
             _ripple > 0f || _dust > 0f || _ink > 0f ||
-            _tVignette > 0f || _tGrain > 0f || _tChromatic > 0f || _tScanlines > 0f ||
+            _tVignette > 0f || _tCinematic > 0f || _tChromatic > 0f || _tScanlines > 0f ||
             _tPixelate > 0f || _tGlitch > 0f || _tBloom > 0f || _tRays > 0f || _tDistort > 0f ||
             _tFrost > 0f || _tBlink > 0f || _tInvert > 0f || _tFog > 0f || _tRain > 0f ||
             _tSnow > 0f || _tEmbers > 0f || _tBlood > 0f || _tPoison > 0f ||
@@ -253,7 +300,7 @@ namespace Lvn.UI.World
             }
 
             _mat.SetFloat("_Vignette", _vignette);
-            _mat.SetFloat("_Grain", _grain);
+            _mat.SetFloat("_Cinematic", _cinematic);
             _mat.SetFloat("_Chromatic", _chromatic);
             _mat.SetFloat("_Scanlines", _scanlines);
             _mat.SetFloat("_Pixelate", _pixelate);

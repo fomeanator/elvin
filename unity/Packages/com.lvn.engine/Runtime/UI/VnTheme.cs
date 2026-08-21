@@ -45,9 +45,11 @@ namespace Lvn.UI
         // Пусто — мгновенно, как было. Шейдера здесь быть не может: у элемента
         // UI Toolkit нет материала, поэтому окно двигается и тает, а не горит.
         [Tooltip("Dialogue box entrance/exit: fade|rise|pop|drop|unfold|slide_* (empty = instant).")]
-        public string BoxAppear = "rise";
+        public string BoxAppear = "fade";
         [Tooltip("Dialogue box entrance duration, seconds.")]
         public float BoxAppearDuration = 0.22f;
+        [Tooltip("Short breath between the old card fading out and the next beat appearing.")]
+        public float BeatPause = 0.06f;
 
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
                  "instead of the bottom ADV dialogue strip.")]
@@ -116,17 +118,21 @@ namespace Lvn.UI
                  "large). 1 = default; 1.2 = 20% bigger. Per-op width=/height= override.")]
         public float ActorScale = 1f;
 
-        // ПЕРЕХОД ПО УМОЛЧАНИЮ. Раньше персонаж без `enter=`/`exit=` возникал и
-        // пропадал мгновенно — а писать переход в каждой команде не станет никто,
-        // и не должен: плавность это свойство ПОСТАНОВКИ, а не отдельной реплики.
-        // Значения сняты с рыночного эталона: появление чуть быстрее ухода,
-        // потому что входящего ждёшь, а уходящего провожаешь.
-        [Tooltip("Default actor entrance when the command has no enter= (fade|rise|drop|pop|unfold|slide_*; empty = instant).")]
-        public string ActorEnter = "fade";
+        // ПЕРЕХОДЫ ПО УМОЛЧАНИЮ — это свойство постановки, а не каждой реплики.
+        // Герой входит в сцену направленным движением от ближайшего края; предмет
+        // просто проявляется, чтобы реквизит не изображал персонажа.
+        [Tooltip("Default actor entrance when the command has no enter= (drift = fade + motion from the nearest side; empty = instant).")]
+        public string ActorEnter = "drift";
         [Tooltip("Default actor exit when the command has no exit=.")]
-        public string ActorExit = "fade";
+        public string ActorExit = "drift";
         [Tooltip("Default actor transition duration in seconds.")]
-        public float ActorTransition = 0.35f;
+        public float ActorTransition = 0.175f;
+        [Tooltip("Default obj entrance when the command has no enter=.")]
+        public string ObjectEnter = "fade";
+        [Tooltip("Default obj exit when the command has no exit=.")]
+        public string ObjectExit = "fade";
+        [Tooltip("Default obj transition duration in seconds.")]
+        public float ObjectTransition = 0.35f;
         [Tooltip("Multiplier on a positioned actor's horizontal offset from centre. " +
                  "1 = default (left=0.25/right=0.75); 0.6 pulls left/right in by 10% of " +
                  "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +
@@ -139,7 +145,9 @@ namespace Lvn.UI
 
         [Header("Reveal")]
         [Tooltip("Typewriter speed in characters per second.")]
-        public float CharsPerSecond = 45f;
+        public float CharsPerSecond = 72f;
+        [Tooltip("Visible characters placed on screen immediately; only the remainder is typed.")]
+        public int InitialVisibleCharacters = 40;
         [Tooltip("Soft per-glyph fade-in width, in trailing characters.")]
         public float FadeWidth = 5f;
 

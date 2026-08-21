@@ -30,7 +30,7 @@
 ## Что уже умеет движок (и не используется)
 
 Оп `fx` (весь кадр): `bloom`, `chromatic`, `contrast`, `saturation`, `tint`,
-`vignette`, `grain`, `posterize`, `sepia`, `letterbox`, `fog`, `rays`,
+`vignette`, `cinematic`, `posterize`, `sepia`, `letterbox`, `fog`, `rays`,
 `distort`, `glitch`, `pixelate`, `scanlines`, `invert`, `frost`, `shockwave`,
 `speedlines`, плюс `dur` для плавного перехода.
 
@@ -372,7 +372,7 @@ bloom, размытие глубины, тональная компрессия,
 - [GDC — Guilty Gear Xrd: art style between 2D and 3D](https://www.gdcvault.com/play/1022031/GuiltyGearXrd-s-Art-Style-The)
 - [Blob Shadows](https://github.com/Delt06/toon-rp/wiki/Blob-Shadows) · [Character Rim Lighting](https://www.gamedeveloper.com/programming/character-rim-lighting)
 - [Аниме-композитинг: режимы наложения](https://note.com/taka2composite/n/n040c7d42053d) · [色トレス](https://dic.pixiv.net/a/%E8%89%B2%E3%83%88%E3%83%AC%E3%82%B9)
-- [Атмосферная перспектива](https://drawpaintacademy.com/atmospheric-perspective/) · [Film grain как объединяющий элемент](https://blog.frame.io/2023/08/14/how-a-pro-colorist-uses-film-grain/)
+- [Атмосферная перспектива](https://drawpaintacademy.com/atmospheric-perspective/) · [ACES filmic tone mapping](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/)
 
 **Пост-обработка и стоимость**
 - [Unity PPv2 Uber.shader — порядок эффектов](https://github.com/Unity-Technologies/PostProcessing/blob/v2/PostProcessing/Shaders/Builtins/Uber.shader)

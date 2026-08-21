@@ -210,6 +210,7 @@ namespace Lvn.UI
             int epoch = _stageEpoch; // the scene this build belongs to (see ResetStage)
             var placement = _placements.TryGetValue(id, out var prevSp)
                 ? PlacementFrom(cmd, prevSp, SlotsOf(id)) : PlacementFrom(cmd, SlotsOf(id));
+            FillTransitionDefaults(cmd, ref placement);
             _placements[id] = placement; // sticky base (spine actors too)
 
             if (!LvnSpineBridge.Available)
@@ -240,7 +241,7 @@ namespace Lvn.UI
 
             // The full sprite-actor placement vocabulary applies: x/y/width/height/
             // anchor/flip/rotation via the slot, opacity via the rig's CanvasGroup.
-            _renderer.PlaceActor(id, placement);
+            canvas.PlaceSpineActor(id, placement);
             canvas.SetActorOpacity(id, placement.Opacity);
             var slot = canvas.RigFor(id);
             if (slot == null) return;
