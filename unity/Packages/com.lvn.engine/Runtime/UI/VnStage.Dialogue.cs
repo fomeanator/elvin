@@ -68,11 +68,30 @@ namespace Lvn.UI
             if (boxUp) h = _dialogue.resolvedStyle.height;
             else if (choice && _choices != null) h = _choices.resolvedStyle.height;
             _uiLayer.SetStage(say, choice, boxUp || choice ? h : 0f);
+            SyncChoicesBelowBox();
         }
 
         /// <summary>Fires when the choice list appears/disappears — the shell's
         /// reading-mode HUD listens (visible while a priced choice is up).</summary>
         public event Action<bool> ChoicesVisibleChanged;
+
+        /// <summary>Опустить стопку выборов под диалоговое окно, когда оба на
+        /// экране. Зов идёт из NotifyUiStage (смена реплики/выбора) и с каждого
+        /// изменения геометрии окна — текст печатается, окно растёт, и граница
+        /// сдвигается прямо по ходу реплики.</summary>
+        private void SyncChoicesBelowBox()
+        {
+            if (_choices == null || Theme == null || Theme.ChoiceYPercent < 0f || Theme.Nvl) return;
+            float clampY = -1f;
+            if (_dialogue != null && _dialogue.style.display == DisplayStyle.Flex)
+            {
+                var box = _dialogue.Q("vn-box");
+                var host = _choices.parent;
+                if (box != null && host != null && box.resolvedStyle.height > 1f)
+                    clampY = box.worldBound.yMax - host.worldBound.y + Theme.ChoiceSpacing;
+            }
+            _choices.ClampBelow(clampY);
+        }
 
         private void OnChoicesVisibleChanged(bool visible)
         {

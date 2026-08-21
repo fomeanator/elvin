@@ -231,6 +231,9 @@ namespace Lvn.UI
             root.Add(_menuSafe);
             _choices.OnSelected += OnChoiceSelected;
             _choices.VisibleChanged += OnChoicesVisibleChanged;
+            // Окно растёт вместе с текстом — стопка выборов сторонится его в
+            // реальном времени, а не по одному замеру на реплику.
+            _dialogue.RegisterCallback<GeometryChangedEvent>(_ => SyncChoicesBelowBox());
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
             // current variables so on-screen stats track changes (incl. background ones).

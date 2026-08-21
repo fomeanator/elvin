@@ -197,6 +197,7 @@ namespace Lvn.UI.World
             _speed = dur > 0f ? 1f / dur : 0f;
             if (_speed <= 0f)
             {
+                _fade = _tFade;
                 _outline = _tOutline; _glow = _tGlow; _dissolve = _tDissolve;
                 _flash = _tFlash; _dark = _tDark; _tintFx = _tTintFx;
                 _ghost = _tGhost; _petrify = _tPetrify; _hologram = _tHologram;
