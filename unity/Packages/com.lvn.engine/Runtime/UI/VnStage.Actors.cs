@@ -420,7 +420,7 @@ namespace Lvn.UI
                         var url = Catalog.FillFor(id, template, new Dictionary<string, string> { { tr.axis, val } });
                         if (string.IsNullOrEmpty(url)) continue;
                         try { var sp = await Assets.LoadSpriteAsync(url, _cts.Token); if (sp != null) map[val] = sp; }
-                        catch { }
+                        catch { }   // актёр без арта: покажем силуэт, но кадр не потеряем
                     }
                 }
             }

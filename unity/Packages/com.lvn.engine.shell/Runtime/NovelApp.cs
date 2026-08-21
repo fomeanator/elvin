@@ -1433,7 +1433,7 @@ namespace Lvn.UI.Screens
                             {
                                 if (ch == null) continue;
                                 if (!string.IsNullOrEmpty(ch.script_url) && !_assets.Loader.IsScriptCached(ch.script_url))
-                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { }
+                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { }   // разбор объявленных переменных: кривой блок не должен ронять главу
                                 if (ch.assets == null) continue;
                                 foreach (var kv in ch.assets)
                                 {

@@ -69,7 +69,7 @@ namespace Lvn.UI
                     Task.Delay(TimeSpan.FromSeconds(Math.Max(0.5f, seconds)), _cts.Token),
                     wake.Task);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { }   // фон не загрузился — сцена остаётся с прежним, игра идёт
             finally { Lvn.Content.LvnNetworkStatus.Changed -= onChange; }
         }
 

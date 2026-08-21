@@ -104,7 +104,7 @@ namespace Lvn.Services
                     _cache[p.Name] = p.Value.ToString();
                 }
             }
-            catch { }
+            catch { }   // конфиг опытов не пришёл — играем без разбиения на группы
         }
 
         /// <summary>

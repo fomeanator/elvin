@@ -355,11 +355,11 @@ namespace Lvn.Services
             System.Collections.Generic.IDictionary<string, JToken> vars)
         {
             var v = cmd[field];
-            if (v != null) { try { return (long)v; } catch { } }
+            if (v != null) { try { return (long)v; } catch { } }   // сервис недоступен — оп остаётся тихим, история идёт дальше
             var name = (string)cmd[varField];
             if (!string.IsNullOrEmpty(name) && vars.TryGetValue(name, out var t))
             {
-                try { return (long)t; } catch { }
+                try { return (long)t; } catch { }   // то же: продуктовый слой не имеет права остановить сцену
                 if (long.TryParse(t?.ToString(), out var parsed)) return parsed;
             }
             return 0;

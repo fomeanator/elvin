@@ -128,7 +128,7 @@ namespace Lvn.Services
             {
                 lock (_queue) PlayerPrefs.SetString(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
             }
-            catch { }
+            catch { }   // аналитика не отправилась — это НИКОГДА не повод мешать игре
         }
 
         // The invisible pump: flush on a timer and when the app pauses/quits.

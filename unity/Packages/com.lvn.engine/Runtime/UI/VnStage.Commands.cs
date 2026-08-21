@@ -128,7 +128,7 @@ namespace Lvn.UI
         private static bool BoolOr(JToken t, bool dflt)
         {
             if (t == null) return dflt;
-            try { return (bool)t; } catch { }
+            try { return (bool)t; } catch { }   // поле не разобралось — идём с прежним значением
             switch (t.ToString().Trim().ToLowerInvariant())
             {
                 case "true": case "1": case "yes": return true;

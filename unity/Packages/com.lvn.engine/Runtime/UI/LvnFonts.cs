@@ -35,7 +35,7 @@ namespace Lvn.UI
             try { fa = FontAsset.CreateFontAsset(font); }
             catch { fa = null; }
             if (fa != null && _osFallbacks != null)
-                try { fa.fallbackFontAssetTable = _osFallbacks; } catch { }
+                try { fa.fallbackFontAssetTable = _osFallbacks; } catch { }   // шрифт не обернулся в SDF — ниже запасной путь
             _wrapped[font] = fa; // cache failures too — don't retry every label
             KickOsFallbacks(); // built in the background, attached when ready
             return fa;
@@ -80,7 +80,7 @@ namespace Lvn.UI
             // Late-attach to every font wrapped before the chain was ready.
             foreach (var kv in _wrapped)
                 if (kv.Value != null)
-                    try { kv.Value.fallbackFontAssetTable = list; } catch { }
+                    try { kv.Value.fallbackFontAssetTable = list; } catch { }   // файл шрифта не читается — останется гарнитура панели
         }
 
         /// <summary>A Font loaded from a file on disk (downloaded/StreamingAssets

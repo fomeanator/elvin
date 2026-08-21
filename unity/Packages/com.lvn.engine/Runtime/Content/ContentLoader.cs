@@ -111,7 +111,7 @@ namespace Lvn.Content
                 var tcs = new TaskCompletionSource<bool>();
                 op.completed += _ => tcs.TrySetResult(true);
                 using (ct.CanBeCanceled
-                           ? ct.Register(() => { try { req.Abort(); } catch { } })
+                           ? ct.Register(() => { LvnQuiet.Try(req.Abort); })
                            : default)
                     await tcs.Task;
             }
@@ -178,7 +178,7 @@ namespace Lvn.Content
                     // stale-cancelled-token hot spin.
                     using (var wake = new CancellationTokenSource())
                     {
-                        Action<bool> onChange = _ => { try { wake.Cancel(); } catch { } };
+                        Action<bool> onChange = _ => { LvnQuiet.Try(wake.Cancel); };
                         LvnNetworkStatus.Changed += onChange;
                         try { await Task.Delay((int)(delay * 1000f) + 500, wake.Token); }
                         catch (OperationCanceledException) { /* status changed — re-check now */ }
@@ -199,7 +199,7 @@ namespace Lvn.Content
         private static async Task DelayOrOnlineAsync(float seconds, CancellationToken ct)
         {
             using var wake = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            Action<bool> onChange = online => { if (online) { try { wake.Cancel(); } catch { } } };
+            Action<bool> onChange = online => { if (online) { LvnQuiet.Try(wake.Cancel); } };
             LvnNetworkStatus.Changed += onChange;
             try { await Task.Delay(Math.Max(1, (int)(seconds * 1000f)), wake.Token); }
             catch (OperationCanceledException) { ct.ThrowIfCancellationRequested(); }
@@ -359,7 +359,7 @@ namespace Lvn.Content
                 var cutoff = DateTime.UtcNow.AddDays(-7);
                 foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles("*.part"))
                     if (f.LastWriteTimeUtc < cutoff)
-                        try { f.Delete(); } catch { }
+                        LvnQuiet.Try(f.Delete);
             }
             catch { /* best-effort housekeeping */ }
         }
@@ -465,7 +465,7 @@ namespace Lvn.Content
             var path = url;
             if (path.StartsWith("http://") || path.StartsWith("https://"))
             {
-                try { path = new System.Uri(path).AbsolutePath; } catch { }
+                path = LvnQuiet.Try(() => new System.Uri(path).AbsolutePath, path);
             }
             var p = path.TrimStart('/');                                  // content/bg/... or bg/...
             var afterContent = p.StartsWith("content/") ? p.Substring("content/".Length) : p;
@@ -536,7 +536,7 @@ namespace Lvn.Content
                 var stale = NewestCachedScript(scriptUrl);
                 if (stale != null)
                 {
-                    try { return await ReadAllTextAsync(stale, ct); } catch { }
+                    try { return await ReadAllTextAsync(stale, ct); } catch { }   // старая копия не читается — вернём null, вызывающий сходит в сеть
                 }
                 return null;
             }
@@ -588,7 +588,7 @@ namespace Lvn.Content
                     var sidecar = Path.ChangeExtension(f.FullName, ".url");
                     string cachedUrl = null;
                     try { if (File.Exists(sidecar)) cachedUrl = File.ReadAllText(sidecar).Trim(); }
-                    catch { }
+                    catch { }   // сайдкар не прочёлся — считаем, что адреса рядом нет
                     if (cachedUrl != scriptUrl) continue; // different (or legacy, un-tagged) script
                     if (newest == null || f.LastWriteTimeUtc > newest.LastWriteTimeUtc) newest = f;
                 }
@@ -1425,7 +1425,7 @@ namespace Lvn.Content
                         // Each retry reads the current .part size → resumes from there.
                         long resumeFrom = 0;
                         if (File.Exists(partPath))
-                            try { resumeFrom = new FileInfo(partPath).Length; } catch { }
+                            resumeFrom = LvnQuiet.Try(() => new FileInfo(partPath).Length, 0L);
 
                         var bytes = await FetchResumable(url, partPath, resumeFrom, ct);
 
@@ -1436,7 +1436,7 @@ namespace Lvn.Content
                         var expect = VersionFor(url);
                         if (expect != null && !Sha256Matches(bytes, expect))
                         {
-                            try { File.Delete(partPath); } catch { }
+                            LvnQuiet.Try(() => File.Delete(partPath));
                             throw new LvnFetchException(0, "integrity",
                                 "sha256 mismatch for " + url + " — refetching");
                         }
@@ -1847,7 +1847,7 @@ namespace Lvn.Content
             }
             catch
             {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                LvnQuiet.Try(() => { if (File.Exists(tmp)) File.Delete(tmp); });
                 throw;
             }
         }

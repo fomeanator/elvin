@@ -322,7 +322,7 @@ namespace Lvn.UI
                 var spr = await Assets.LoadSpriteAsync("/content/ui/tile-bg.jpg", _cts.Token);
                 if (spr != null && spr.texture != null) scene.Background.SetTile(spr.texture, 140f);
             }
-            catch { }
+            catch { }   // разбор темы главы: кривое поле не повод не начать главу
         }
 
         // Recreate the dialogue box and choice list from the current Theme, keeping

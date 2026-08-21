@@ -187,7 +187,7 @@ namespace Lvn.Services
                 lock (_queue) PlayerPrefs.SetString(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
                 PlayerPrefs.Save(); // survive a hard kill, not just a clean quit
             }
-            catch { }
+            catch { }   // отправка диагностики упала — сообщать о ней некому и незачем
         }
 
         private sealed class Runner : MonoBehaviour

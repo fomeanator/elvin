@@ -118,7 +118,7 @@ namespace Lvn.UI
                 Sprite spr = null;
                 try { spr = await Assets.LoadSpriteAsync(variant, ct); }
                 catch (System.OperationCanceledException) { throw; }
-                catch { }
+                catch { }   // скелет не собрался — актёр останется плоским спрайтом
                 if (spr != null) return spr;
                 _spineVariantUnavailable = true;
             }
@@ -180,7 +180,7 @@ namespace Lvn.UI
                 var warm = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = false };
                 await ApplySpineAsync(id, sp, warm);
             }
-            catch (System.OperationCanceledException) { }
+            catch (System.OperationCanceledException) { }   // нет такой анимации в скелете — молчим, сцена важнее
             catch { /* prefetch is best-effort; the real show reloads what it needs */ }
         }
 
@@ -292,7 +292,7 @@ namespace Lvn.UI
                             lap("bg");
                         }
                     }
-                    catch { }
+                    catch { }   // страница атласа не пришла — рисуем тем, что есть
                     if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(atlasText) || textures.Count == 0)
                     {
                         Debug.LogWarning("[lvn] spine '" + id + "': failed to load skeleton files");
@@ -308,7 +308,7 @@ namespace Lvn.UI
                     if (LvnSpineBridge.Prepare != null)
                     {
                         try { await LvnSpineBridge.Prepare(json, atlasText, pageArr); }
-                        catch { }
+                        catch { }   // открепление страницы: объект мог уже умереть
                         lap("parse(worker)");
                     }
                     // Re-fetch the slot: the awaits above yield, and a scene
