@@ -99,6 +99,7 @@ namespace Lvn.UI
         /// <summary>Show the options. Replaces any currently shown.</summary>
         public void Present(IReadOnlyList<LvnOption> options)
         {
+            SetEnabled(true);
             _timerFill = null; // cleared with the children below
             Clear();
             if (options != null)

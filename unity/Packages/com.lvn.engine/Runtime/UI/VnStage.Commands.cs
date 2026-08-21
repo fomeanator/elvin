@@ -387,21 +387,28 @@ namespace Lvn.UI
 
             if (_hintCard == null)
             {
+                // Animate a full-width centred host, not the pill itself. The pill
+                // needs its own layout transform for centring; animating that same
+                // transform made it jump sideways when a vertical slide began.
+                _hintHost = new VisualElement { name = "vn-hint-host", pickingMode = PickingMode.Ignore };
+                _hintHost.style.position = Position.Absolute;
+                _hintHost.style.left = 0; _hintHost.style.right = 0;
+                _hintHost.style.top = Length.Percent(12);
+                _hintHost.style.alignItems = Align.Center;
+                _hintHost.style.display = DisplayStyle.None;
+
                 _hintCard = new VisualElement { name = "vn-hint", pickingMode = PickingMode.Ignore };
-                _hintCard.style.position = Position.Absolute;
                 _hintCard.style.maxWidth = Length.Percent(72);
                 _hintCard.style.paddingLeft = 22; _hintCard.style.paddingRight = 22;
                 _hintCard.style.paddingTop = 12; _hintCard.style.paddingBottom = 12;
                 // top-center pill at 12% — clear of the shell HUD strip (the
                 // old 5% sat underneath it), per the mobile-VN standard.
-                _hintCard.style.left = Length.Percent(50);
-                _hintCard.style.top = Length.Percent(12);
-                _hintCard.style.translate = new Translate(Length.Percent(-50), Length.Percent(0));
                 _hintLabel = new Label { name = "vn-hint-text", pickingMode = PickingMode.Ignore };
                 _hintLabel.style.whiteSpace = WhiteSpace.Normal;
                 _hintLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
                 _hintCard.Add(_hintLabel);
-                _labelLayer.Add(_hintCard);
+                _hintHost.Add(_hintCard);
+                _labelLayer.Add(_hintHost);
             }
 
             var bg = Theme != null ? Theme.PanelColor : new Color(0.05f, 0.05f, 0.08f, 0.9f);
@@ -422,11 +429,13 @@ namespace Lvn.UI
             // Всплывает и утопает, а не мигает: подсказка появляется поверх
             // сцены без всякого предупреждения, и резкий скачок в углу глаза
             // читается как сбой, а не как сообщение.
-            bool wasHidden = _hintCard.resolvedStyle.display == DisplayStyle.None;
-            _hintCard.style.display = DisplayStyle.Flex;
-            if (wasHidden) LvnAppear.Play(_hintCard, LvnAppearKind.Rise, true, 260);
+            bool wasHidden = _hintHost.style.display == DisplayStyle.None;
+            _hintHost.style.display = DisplayStyle.Flex;
+            if (wasHidden) LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, true, 220);
 
-            float dur = NumOr(cmd["duration"], 0f);
+            // A plain hint is a four-second toast. duration=0 remains the explicit
+            // authoring escape hatch for a persistent tutorial card.
+            float dur = NumOr(cmd["duration"], 4f);
             if (dur > 0f)
                 _hintHide = _labelLayer.schedule
                     .Execute(HideHint)
@@ -438,9 +447,9 @@ namespace Lvn.UI
         /// таймеру исчезала иначе, чем снятая сценарием.</summary>
         private void HideHint()
         {
-            if (_hintCard == null || _hintCard.resolvedStyle.display == DisplayStyle.None) return;
-            LvnAppear.Play(_hintCard, LvnAppearKind.Rise, false, 200,
-                () => { if (_hintCard != null) _hintCard.style.display = DisplayStyle.None; });
+            if (_hintHost == null || _hintHost.style.display == DisplayStyle.None) return;
+            LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, false, 180,
+                () => { if (_hintHost != null) _hintHost.style.display = DisplayStyle.None; });
         }
 
         // ── wait / preload ──────────────────────────────────────────────────
@@ -567,6 +576,7 @@ namespace Lvn.UI
                 case "drop": return TransitionType.Drop;
                 case "unfold": return TransitionType.Unfold;
                 case "dissolve": case "burn": return TransitionType.Dissolve;
+                case "drift": case "side": return TransitionType.Drift;
                 default: return TransitionType.None;
             }
         }

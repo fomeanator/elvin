@@ -5,7 +5,7 @@ namespace Lvn.UI
 {
     /// <summary>
     /// The dialogue panel: a nameplate above a body panel that reveals text with
-    /// a soft per-glyph fade (driven by <see cref="RichTextTypewriter"/> +
+    /// a fast whole-word fade (driven by <see cref="RichTextTypewriter"/> +
     /// <see cref="TypewriterClock"/>). A props-driven <see cref="VisualElement"/>
     /// — no networking, no asset loader, no game-specific ornament. Anchor it to
     /// the bottom of a UIDocument root; the host taps to advance and calls
@@ -24,6 +24,7 @@ namespace Lvn.UI
         private IVisualElementScheduledItem _tick;
         private float _startTime;
         private float _cps;
+        private const float AverageCharactersPerWord = 6f;
 
         private Label _advanceHint;
         private IVisualElementScheduledItem _hintPulse;
@@ -262,15 +263,38 @@ namespace Lvn.UI
             _lastQuantum = -1;
             _tick?.Pause();
 
-            IsRevealing = _tw.VisibleCount > 0;
+            // The budget is deliberately approximate: round it FORWARD to a word
+            // boundary so the first readable block never opens as "предложе…".
+            _initialReveal = _tw.WordEndAtOrAfter(
+                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), _tw.VisibleCount));
+            IsRevealing = _tw.VisibleCount > _initialReveal;
             RefreshAdvanceHint(); // hidden while revealing
-            _revealProgress = 0f;
+            _revealProgress = _initialReveal;
+            _wordCompleteChars = _initialReveal;
+            _wordActiveEndChars = _initialReveal;
+            _wordActiveAlpha = 0f;
             _body.text = _tw.Full();
             if (IsRevealing)
             {
                 _body.MarkDirtyRepaint(); // same text as the last line? still restart at 0
                 _tick = schedule.Execute(Tick).Every(16);
             }
+        }
+
+        /// <summary>How long this line's tail will take at the current reader
+        /// pace. Used to let a newly entering actor settle with the text instead
+        /// of finishing its animation in an unrelated rhythm.</summary>
+        public float EstimateRevealSeconds(string text, float? cps = null)
+        {
+            var probe = new RichTextTypewriter();
+            probe.SetText(text ?? "");
+            int initial = probe.WordEndAtOrAfter(
+                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), probe.VisibleCount));
+            int words = probe.WordsAfter(initial);
+            float pace = cps.HasValue && cps.Value > TypewriterClock.MinCps
+                ? cps.Value : _theme.CharsPerSecond;
+            float wordsPerSecond = TypewriterClock.Progress(1f, pace) / AverageCharactersPerWord;
+            return words / Mathf.Max(0.01f, wordsPerSecond);
         }
 
         /// <summary>Snap to the full line immediately (e.g. on the first tap).</summary>
@@ -363,34 +387,40 @@ namespace Lvn.UI
             ApplyPanelBackground();
         }
 
-        // Reveal head in visible CHARS (fractional; the clock's unit). The glyph
-        // callback rescales it to rendered glyphs — spaces produce no glyph, so
-        // the two counts differ.
+        // Whole-word reveal state, measured in visible characters. Every glyph
+        // of the active word shares one opacity, so the eye reads a word rather
+        // than watching individual letters crawl in.
         private float _revealProgress;
+        private int _initialReveal;
+        private int _wordCompleteChars;
+        private int _wordActiveEndChars;
+        private float _wordActiveAlpha;
 
-        // Progress quantum of the last RevealTicked — the tick sound wants
-        // eighth-glyph steps, not a 60Hz machine gun.
+        // Progress quantum of the last RevealTicked — one sound per word.
         private int _lastQuantum = -1;
 
         private void Tick()
         {
             if (!IsRevealing) { _tick?.Pause(); return; }
             float elapsed = Time.realtimeSinceStartup - _startTime;
-            float p = TypewriterClock.Progress(elapsed, _cps);
-            if (p >= TypewriterClock.DoneAt(_tw.VisibleCount, _theme.FadeWidth))
+            float wordProgress = TypewriterClock.Progress(elapsed, _cps) / AverageCharactersPerWord;
+            _tw.WordReveal(_initialReveal, wordProgress,
+                out _wordCompleteChars, out _wordActiveEndChars, out _wordActiveAlpha);
+            if (_wordCompleteChars >= _tw.VisibleCount)
             {
                 Complete();
                 return;
             }
-            _revealProgress = p;
+            _revealProgress = _wordCompleteChars
+                + (_wordActiveEndChars - _wordCompleteChars) * _wordActiveAlpha;
             _body.MarkDirtyRepaint(); // vertex-tint pass only — no layout, no strings
-            int q = (int)(p * 8f);
+            int q = Mathf.FloorToInt(wordProgress);
             if (q == _lastQuantum) return;
             _lastQuantum = q;
             RevealTicked?.Invoke();
         }
 
-        // Per-glyph alpha ramp before the text mesh renders. Vertices are
+        // Per-word alpha before the text mesh renders. Vertices are
         // regenerated fresh for every repaint, so this only ever writes the
         // CURRENT frame's fade — nothing accumulates. Inactive (IsRevealing
         // false) it leaves the mesh untouched: the full line renders as-is.
@@ -400,19 +430,21 @@ namespace Lvn.UI
             int count = glyphs.Count;
             if (count <= 0) return;
 
-            // The clock paces CHARS (steps include spaces); glyphs are only the
-            // rendered quads. Rescale so the head crosses both ranges together.
+            // Boundaries are in CHARS (steps include spaces); glyphs are only
+            // rendered quads. Rescale both complete and active word ends.
             int chars = _tw.VisibleCount;
-            float head = chars > 0 ? _revealProgress * count / chars : count;
-            float fade = Mathf.Max(0.01f, _theme.FadeWidth);
+            float completeGlyph = chars > 0 ? _wordCompleteChars * count / (float)chars : count;
+            float activeGlyph = chars > 0 ? _wordActiveEndChars * count / (float)chars : count;
 
             int i = 0;
             foreach (TextElement.Glyph glyph in glyphs)
             {
-                float a = (head - i) / fade;
+                float midpoint = i + 0.5f;
                 i++;
-                if (a >= 1f) continue;             // fully revealed — leave as-is
-                byte b = a <= 0f ? (byte)0 : (byte)(a * 255f + 0.5f);
+                if (midpoint <= completeGlyph) continue;
+                byte b = midpoint <= activeGlyph
+                    ? (byte)(_wordActiveAlpha * 255f + 0.5f)
+                    : (byte)0;
                 var verts = glyph.vertices;
                 for (int v = 0; v < verts.Length; v++)
                 {

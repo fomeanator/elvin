@@ -29,6 +29,12 @@ namespace Lvn.Tests
             Assert.AreEqual(d.BodyFontSize, t.BodyFontSize);
             Assert.AreEqual(d.PanelColor, t.PanelColor, "absent colour keeps the default");
             Assert.AreEqual(d.ChoiceSpacing, t.ChoiceSpacing);
+            Assert.AreEqual("fade", t.BoxAppear,
+                "each text card dissolves into the next one");
+            Assert.AreEqual(40, t.InitialVisibleCharacters,
+                "a readable first chunk is on screen immediately");
+            Assert.AreEqual(0.175f, t.ActorTransition, 0.0001f,
+                "actor entrances/exits use the requested twice-faster timing");
         }
 
         [Test]
@@ -44,6 +50,10 @@ namespace Lvn.Tests
                     corner_radius = 20,
                     edge_padding = 40,
                     chars_per_second = 80,
+                    initial_characters = 32,
+                    appear = "fade",
+                    appear_duration = 0.4f,
+                    beat_pause = 0.1f,
                 }
             };
             var t = VnThemeBuilder.From(ui);
@@ -55,6 +65,10 @@ namespace Lvn.Tests
             Assert.AreEqual(20f, t.PanelCornerRadius, 0.01f);
             Assert.AreEqual(40f, t.EdgePadding, 0.01f);
             Assert.AreEqual(80f, t.CharsPerSecond, 0.01f);
+            Assert.AreEqual(32, t.InitialVisibleCharacters);
+            Assert.AreEqual("fade", t.BoxAppear);
+            Assert.AreEqual(0.4f, t.BoxAppearDuration, 0.001f);
+            Assert.AreEqual(0.1f, t.BeatPause, 0.001f);
         }
 
         [Test]
@@ -81,6 +95,32 @@ namespace Lvn.Tests
             Assert.AreEqual(6f, t.ChoiceCornerRadius, 0.01f);
             // colour parsed (not the default)
             Assert.AreNotEqual(new VnTheme().ChoiceColor, t.ChoiceColor);
+        }
+
+        [Test]
+        public void Stage_MapsActorAndObjectTransitionsIndependently()
+        {
+            var ui = new LvnUiConfig
+            {
+                stage = new StageConfig
+                {
+                    actor_enter = "fade",
+                    actor_exit = "dissolve",
+                    actor_transition = 0.6f,
+                    object_enter = "pop",
+                    object_exit = "unfold",
+                    object_transition = 0.2f,
+                }
+            };
+
+            var t = VnThemeBuilder.From(ui);
+
+            Assert.AreEqual("fade", t.ActorEnter);
+            Assert.AreEqual("dissolve", t.ActorExit);
+            Assert.AreEqual(0.6f, t.ActorTransition);
+            Assert.AreEqual("pop", t.ObjectEnter);
+            Assert.AreEqual("unfold", t.ObjectExit);
+            Assert.AreEqual(0.2f, t.ObjectTransition);
         }
 
         [Test]

@@ -74,7 +74,7 @@ namespace Lvn.UI
         /// false → the stage falls back to the FxLayer veil imitation.</summary>
         bool TryBlur(float strength01, float seconds);
 
-        /// <summary>The `fx` multi-effect stack (vignette/grain/bloom/…): same
+        /// <summary>The `fx` multi-effect stack (vignette/cinematic/bloom/…): same
         /// camera hook as TryBlur. False → no camera, the op is a no-op.</summary>
         bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
 
@@ -114,7 +114,6 @@ namespace Lvn.UI
             => _actors.Apply(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
 
         public Rect? ActorScreenRect(string id) => _actors.ScreenRect(id); // drag/drop hit-testing
-
         public void RemoveAll() => _actors.RemoveAll();
 
         public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames) => _actors.SetFrames(id, frames);
@@ -164,7 +163,16 @@ namespace Lvn.UI
         public void ClearBackground() => _scene.Set3DBackdrop(null);
 
         public void PlaceActor(string id, Placement placement)
-            => _scene.ApplyActor(id, null, placement, null, null); // create + place now; art follows
+            // Build and place the slot NOW, but do not reveal it yet. The art is
+            // asynchronous: starting a fade on this empty slot used to consume
+            // the whole entrance before the sprite arrived; ApplyActor below
+            // then saw an already-visible actor and snapped the image in.
+            => _scene.PlaceActor(id, placement);
+
+        /// <summary>Spine needs a live parent slot before its runtime skeleton is
+        /// built. Unlike sprite art, its own bridge owns the reveal.</summary>
+        public void PlaceSpineActor(string id, Placement placement)
+            => _scene.ApplyActor(id, null, placement, null, null);
 
         public void ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement placement, Action onClick,
             IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
@@ -172,8 +180,9 @@ namespace Lvn.UI
         {
             // onClick is intentionally unused: canvas hotspots are hit-tested by the
             // stage (ActorScreenRect), not by per-element handlers. An actor with no
-            // loaded art keeps its PlaceActor slot — nothing to re-apply.
-            if (layers != null && layers.Count > 0)
+            // loaded art keeps its PlaceActor slot. Hides still run their exit;
+            // a re-show may omit URLs and reuse layers already on the actor.
+            if (!placement.Show || layers != null && layers.Count > 0 || _scene.HasActorArt(id))
                 _scene.ApplyActor(id, layers, placement, layerIds, layerRects, layerDefs);
         }
 

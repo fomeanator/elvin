@@ -25,15 +25,6 @@ namespace Lvn.Tests.Runtime
     /// </summary>
     public class CompositeFadeTests
     {
-        [Test]
-        public void OneImageNeedsNoShaderPath()
-        {
-            Assert.IsFalse(LvnFade.NeedsCompositeFade(1),
-                "одному изображению просвечивать не сквозь что — там дешевле обычная альфа");
-            Assert.IsTrue(LvnFade.NeedsCompositeFade(2),
-                "два слоя — уже композит: гасить их порознь нельзя");
-        }
-
         [UnityTest]
         public IEnumerator ClothesDoNotRevealTheBodyMidFade()
         {
@@ -73,36 +64,142 @@ namespace Lvn.Tests.Runtime
             yield return null;
 
             var shot = Read(rt);
-            // СРЕДНЕЕ ПО ОБЛАСТИ, а не один пиксель: гашение решает судьбу
-            // каждого пикселя отдельно, и одиночная проба попадёт либо в
-            // «выживший», либо в «отброшенный» — то есть измерит случайность.
-            float lum = 0f; int n = 0;
+            // СРЕДНЕЕ ПО ОБЛАСТИ, а не один пиксель: боковой фронт проходит
+            // через область, поэтому одиночная проба увидит только одну его
+            // сторону и не измерит переход целиком.
+            float lum = 0f; int n = 0, intermediate = 0, visible = 0, hidden = 0;
             for (int y = rt.height / 2 - 20; y < rt.height / 2 + 20; y++)
                 for (int x = rt.width / 2 - 20; x < rt.width / 2 + 20; x++)
-                { lum += shot.GetPixel(x, y).grayscale; n++; }
+                {
+                    float px = shot.GetPixel(x, y).grayscale;
+                    lum += px; n++;
+                    if (px < 0.10f) visible++;
+                    else if (px > 0.45f) hidden++;
+                    else intermediate++;
+                }
             lum /= n;
             Object.Destroy(shot);
 
-            // Считаем, что должно получиться. Чёрная одежда, погашенная
-            // наполовину над серым фоном: половина пикселей — одежда (0),
-            // половина — фон (0.5), в среднем ≈0.25.
-            //
-            // ГРАНИЦЫ С ДВУХ СТОРОН — обязательно. Сверху ловится рентген:
-            // послойная альфа пропускает белое тело и поднимает среднее до
-            // ≈0.375. Снизу ловится «гашение не применилось вовсе»: сплошная
-            // чёрная одежда без прорех даёт ≈0.0 — и первая версия этого теста,
-            // с одной верхней границей, приняла ровно такой вакуумный проход
-            // (fade при dur=0 молча не доезжал до материала).
-            Assert.Less(lum, 0.31f,
-                $"средняя яркость в перекрытии {lum:F3} (ожидалось ≈0.25): сквозь одежду " +
-                "проступает тело — гашение идёт послойно вместо композитного");
-            Assert.Greater(lum, 0.17f,
-                $"средняя яркость в перекрытии {lum:F3} (ожидалось ≈0.25): фон сквозь прорехи " +
-                "не виден — гашение не применилось, герой всё ещё непрозрачен");
+            // Форма матта нарочно не делит площадь пополам, поэтому среднее
+            // больше не является контрактом. Контракт — почти все пиксели либо
+            // чёрная непрозрачная одежда, либо серый фон. Послойная альфа дала
+            // бы широкую серую зону (тело через одежду) почти на всей площади.
+            Assert.Less((float)intermediate / n, 0.12f,
+                $"{intermediate}/{n} полупрозрачных пикселей (среднее {lum:F3}): тело видно сквозь одежду");
+            Assert.Greater(visible, n / 50, "матт не оставил видимой стороны героя");
+            Assert.Greater(hidden, n / 50, "матт не открыл фон за героем");
 
             LvnSpriteFxDriver.SetFade(actor, 1f);
             cam.targetTexture = null;
             Object.Destroy(cloth); Object.Destroy(body);
+            Object.Destroy(actor); Object.Destroy(canvasGo); Object.Destroy(camGo);
+            Object.Destroy(rt);
+        }
+
+        [UnityTest]
+        public IEnumerator SideFadeIsOneSmoothBandWithoutSpeckle()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+                Assert.Ignore("нет графики — картинку не проверить");
+
+            var camGo = new GameObject("clean-fade-cam");
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Color.black;
+            var rt = new RenderTexture(96, 96, 16);
+            cam.targetTexture = rt;
+
+            var canvasGo = new GameObject("clean-fade-canvas", typeof(Canvas), typeof(CanvasScaler));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            var actor = new GameObject("clean-fade-actor", typeof(RectTransform), typeof(CanvasGroup));
+            actor.transform.SetParent(canvasGo.transform, false);
+            Stretch((RectTransform)actor.transform);
+            var body = Layer(actor.transform, Color.white);
+            var clothes = Layer(actor.transform, Color.white);
+            yield return null;
+
+            LvnSpriteFxDriver.SetFadeDir(actor, 1f);
+            LvnSpriteFxDriver.SetFade(actor, 0.5f);
+            yield return null;
+            yield return null;
+            cam.Render();
+            yield return null;
+
+            var shot = Read(rt);
+            int y = shot.height / 2;
+            int upwardJumps = 0;
+            float previous = shot.GetPixel(0, y).grayscale;
+            for (int x = 1; x < shot.width; x++)
+            {
+                float current = shot.GetPixel(x, y).grayscale;
+                if (current > previous + 0.025f) upwardJumps++;
+                previous = current;
+            }
+            Assert.Greater(shot.GetPixel(4, y).grayscale, 0.9f, "видимая сторона потерялась");
+            Assert.Less(shot.GetPixel(shot.width - 5, y).grayscale, 0.1f, "скрытая сторона не погасла");
+            Assert.LessOrEqual(upwardJumps, 1,
+                $"в боковой маске {upwardJumps} обратных скачков яркости — это экранное зерно/дизеринг");
+
+            Object.Destroy(shot);
+            LvnSpriteFxDriver.SetFade(actor, 1f);
+            cam.targetTexture = null;
+            Object.Destroy(clothes); Object.Destroy(body);
+            Object.Destroy(actor); Object.Destroy(canvasGo); Object.Destroy(camGo);
+            Object.Destroy(rt);
+        }
+
+        [UnityTest]
+        public IEnumerator PartOwnedBodyMaterialUsesTheSameActorFade()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+                Assert.Ignore("нет графики — картинку не проверить");
+
+            var camGo = new GameObject("part-fade-cam");
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+            var rt = new RenderTexture(96, 96, 16);
+            cam.targetTexture = rt;
+
+            var canvasGo = new GameObject("part-fade-canvas", typeof(Canvas), typeof(CanvasScaler));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            var actor = new GameObject("part-fade-actor", typeof(RectTransform), typeof(CanvasGroup));
+            actor.transform.SetParent(canvasGo.transform, false);
+            Stretch((RectTransform)actor.transform);
+
+            var body = Layer(actor.transform, Color.white);
+            body.name = "layer:body";
+            // A part-scoped sfx driver owns this material independently. Before
+            // the regression fix the root fade skipped it, while fading clothes.
+            body.AddComponent<LvnSpriteFxDriver>();
+            var clothes = Layer(actor.transform, Color.black);
+            clothes.name = "layer:clothes";
+            yield return null;
+
+            LvnSpriteFxDriver.SetFadeDir(actor, 1f);
+            LvnSpriteFxDriver.SetFade(actor, 0.5f);
+            yield return null;
+            yield return null;
+            cam.Render();
+            yield return null;
+
+            var shot = Read(rt);
+            int y = shot.height / 2;
+            Assert.Less(shot.GetPixel(12, y).grayscale, 0.08f,
+                "visible half must still be opaque clothes, not body");
+            Assert.AreEqual(0.5f, shot.GetPixel(84, y).grayscale, 0.08f,
+                "hidden half must reveal the background, not the unfaded body/underwear");
+
+            Object.Destroy(shot);
+            LvnSpriteFxDriver.SetFade(actor, 1f);
+            cam.targetTexture = null;
+            Object.Destroy(clothes); Object.Destroy(body);
             Object.Destroy(actor); Object.Destroy(canvasGo); Object.Destroy(camGo);
             Object.Destroy(rt);
         }

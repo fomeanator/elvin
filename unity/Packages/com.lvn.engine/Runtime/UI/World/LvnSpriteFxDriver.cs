@@ -48,6 +48,13 @@ namespace Lvn.UI.World
         // ГАШЕНИЕ ЦЕЛИКОМ: 1 — виден, 0 — исчез. Отдельно от прочих эффектов и
         // с обратным нулём: у остальных 0 значит «выключено», у этого — «пусто».
         private float _fade = 1f, _tFade = 1f;
+        // All nested part drivers must sample the SAME actor-sized screen ramp.
+        // Using each part's own RectTransform makes a shirt, body and hair cross
+        // the fade front at different moments — the classic wardrobe x-ray.
+        private RectTransform _fadeBoundsRoot;
+        // Направление волны проявления (−1 слева, +1 справа, 0 — ближайший край).
+        // Ставится переходом drift, к полям опа sfx не относится.
+        private float _fadeDir;
         private float _outline, _glow, _dissolve, _flash, _dark, _tintFx,
                       _ghost, _petrify, _hologram, _burn, _rim, _shake,
                       _aura, _blade, _lightning, _runes;   // текущие
@@ -114,16 +121,82 @@ namespace Lvn.UI.World
         /// включено, — исчезнувшая надобность не должна оставлять за собой
         /// лишний материал на каждом слое.
         /// </summary>
+        /// <summary>Направление чистой боковой маски проявления (см. drift).
+        /// Нулевое выбирает ближайший край автоматически.</summary>
+        public static void SetFadeDir(GameObject actorGo, float dir)
+        {
+            if (actorGo == null) return;
+            var root = actorGo.GetComponent<LvnSpriteFxDriver>();
+            if (root == null && dir != 0f)
+                root = actorGo.AddComponent<LvnSpriteFxDriver>();
+            var bounds = actorGo.transform as RectTransform;
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+            {
+                d._fadeDir = dir;
+                d._fadeBoundsRoot = bounds;
+            }
+        }
+
         public static void SetFade(GameObject actorGo, float k)
         {
             if (actorGo == null) return;
-            var d = actorGo.GetComponent<LvnSpriteFxDriver>();
-            if (d == null)
+            var root = actorGo.GetComponent<LvnSpriteFxDriver>();
+            if (root == null)
             {
                 if (k >= 0.999f) return;   // нечего гасить — и незачем заводить драйвер
-                d = actorGo.AddComponent<LvnSpriteFxDriver>();
+                root = actorGo.AddComponent<LvnSpriteFxDriver>();
             }
-            d.ApplyCmd(new JObject { ["fade"] = k, ["dur"] = 0f });
+            var bounds = actorGo.transform as RectTransform;
+            float dir = root._fadeDir;
+            // A part-scoped sfx owns its Image material, so the root driver
+            // deliberately skips that subtree. Propagate the service fade to
+            // every such owner instead of leaving clothes/body on different paths.
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+            {
+                d._fadeBoundsRoot = bounds;
+                d._fadeDir = dir;
+                d.ApplyCmd(new JObject { ["fade"] = k, ["dur"] = 0f });
+            }
+        }
+
+        /// <summary>Finish the service fade and immediately return transition-
+        /// only images to UI/Default. Explicit story sfx remain skinned and keep
+        /// their own driver; an idle actor pays no per-frame transition cost.</summary>
+        public static void ReleaseFade(GameObject actorGo)
+        {
+            if (actorGo == null) return;
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+            {
+                d.ApplyCmd(new JObject { ["fade"] = 1f, ["dur"] = 0f });
+                d.Update();
+            }
+        }
+
+        /// <summary>Параметры волны для шейдера: левый край и ширина героя в
+        /// ЭКРАННЫХ пикселях (SV_POSITION фрагмента — они же), вес подмеса и
+        /// направление. Считается заново на каждом кадре перехода: герой может
+        /// ехать (снос drift двигает слот прямо во время гашения).</summary>
+        private Vector4 FadeRamp()
+        {
+            if (_fade >= 0.999f) return Vector4.zero;
+            var rt = _fadeBoundsRoot != null ? _fadeBoundsRoot : transform as RectTransform;
+            if (rt == null) return Vector4.zero;
+            var canvas = GetComponentInParent<Canvas>();
+            var cam = canvas != null ? canvas.worldCamera : null;
+            var c = new Vector3[4];
+            rt.GetWorldCorners(c);
+            float x0 = float.MaxValue, x1 = float.MinValue;
+            for (int i = 0; i < 4; i++)
+            {
+                float sx = cam != null ? cam.WorldToScreenPoint(c[i]).x : c[i].x;
+                if (sx < x0) x0 = sx;
+                if (sx > x1) x1 = sx;
+            }
+            if (x1 - x0 < 2f) return Vector4.zero;
+            float dir = _fadeDir;
+            if (dir == 0f)
+                dir = (x0 + x1) * 0.5f >= Screen.width * 0.5f ? 1f : -1f;
+            return new Vector4(x0, 1f / (x1 - x0), 1f, dir);
         }
 
         private static GameObject FindPart(GameObject actorGo, string part)
@@ -560,6 +633,7 @@ namespace Lvn.UI.World
             // Гашение — ВСЕМ проходам, включая ореол и маску силуэта: иначе
             // исчезающий герой оставит на экране свою обводку.
             mat.SetFloat("_Fade", _fade);
+            mat.SetVector("_FadeRamp", FadeRamp());
             mat.SetFloat("_Dissolve", haloOnly ? 0f : _dissolve);
             mat.SetFloat("_Flash", haloOnly ? 0f : _flash);
             mat.SetFloat("_Dark", haloOnly ? 0f : _dark);
@@ -612,6 +686,7 @@ namespace Lvn.UI.World
             // The mask pass returns transparent colour but replaces stencil for
             // the union expanded by ~0.9% of the layer UV box.
             mat.SetFloat("_Fade", _fade);   // гаснущий герой сужает и свой силуэт
+            mat.SetVector("_FadeRamp", FadeRamp());
             mat.SetFloat("_CompositeSource", 0f);
             mat.SetFloat("_CompositeOnly", 0f);
             mat.SetFloat("_StencilOnly", 1f);

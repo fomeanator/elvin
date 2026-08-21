@@ -25,6 +25,12 @@ namespace Lvn.UI
         // every stage reset, shown again by the first ShowSay.
         private void SetSayVisible(bool on)
         {
+            if (!on)
+            {
+                _dialogueSwapGeneration++; // cancel a pending card replacement
+                _choiceCommitInFlight = false;
+                _dialogueSurfaceFresh = false;
+            }
             if (_dialogue != null)
             {
                 bool wasOn = _dialogue.style.display == DisplayStyle.Flex;
@@ -106,6 +112,7 @@ namespace Lvn.UI
 
         private void OnChoiceSelected(int index)
         {
+            if (_choiceCommitInFlight) return;
             LvnOption picked = default;
             bool found = false;
             if (_curChoices != null)
@@ -146,9 +153,51 @@ namespace Lvn.UI
         {
             StopChoiceTimer(); // the pick beat the clock
             PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
+            _choiceCommitInFlight = true;
+            _choices.SetEnabled(false);
+
+            var kind = LvnAppear.Parse(Theme?.BoxAppear);
+            if (kind != LvnAppearKind.None && _dialogue != null &&
+                _dialogue.style.display == DisplayStyle.Flex)
+            {
+                int gen = ++_dialogueSwapGeneration;
+                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
+                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs);
+                LvnAppear.Play(_choices, kind, appearing: false, ms: outMs,
+                    done: () => AfterBeatPause(gen,
+                        () => FinishChoiceCommit(gen, index, pickedText)));
+                return;
+            }
+            FinishChoiceCommit(_dialogueSwapGeneration, index, pickedText);
+        }
+
+        /// <summary>A tiny neutral beat between one card going dark and the next
+        /// appearing. It is short enough not to feel like latency, but gives the
+        /// dissolve a punctuation mark instead of making two panels overlap.</summary>
+        private void AfterBeatPause(int generation, Action next)
+        {
+            if (generation != _dialogueSwapGeneration || next == null) return;
+            int ms = Mathf.RoundToInt(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f) * 1000f);
+            if (ms <= 0 || _dialogue == null) { next(); return; }
+            _dialogue.schedule.Execute(() =>
+            {
+                if (generation == _dialogueSwapGeneration) next();
+            }).ExecuteLater(ms);
+        }
+
+        private void FinishChoiceCommit(int gen, int index, string pickedText)
+        {
+            if (gen != _dialogueSwapGeneration) return;
             _choices.Dismiss();
             _curChoices = null;
             _awaitingTap = false;
+            _choiceCommitInFlight = false;
+            _sayUp = false;
+            if (_dialogue != null)
+            {
+                LvnAppear.Reset(_dialogue);
+                _dialogue.style.display = DisplayStyle.None;
+            }
             // Ignore a click on a stale button (the beat moved on via load/hot-reload
             // and these options no longer apply) instead of throwing.
             if (_player == null || !_player.AtChoice) return;
@@ -196,11 +245,39 @@ namespace Lvn.UI
                     return; // the dressed stage waits under the title card
                 }
             }
-            SetSayVisible(true);
+            // Each line is a fresh readable card. The old complete line dissolves
+            // first; only then do we install the new text and fade it in. This is
+            // intentionally independent of speaker identity.
+            bool replacing = _sayUp && _dialogue != null &&
+                _dialogue.style.display == DisplayStyle.Flex && !_dialogueSurfaceFresh;
+            var kind = LvnAppear.Parse(Theme?.BoxAppear);
+            if (replacing && kind != LvnAppearKind.None)
+            {
+                int gen = ++_dialogueSwapGeneration;
+                _awaitingTap = false; // a tap during the hand-off cannot skip the new line
+                _audio?.StopVoice();
+                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
+                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs, done: () =>
+                {
+                    if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+                    _dialogue.style.display = DisplayStyle.None;
+                    AfterBeatPause(gen, () => PresentSay(who, text, style));
+                });
+                return;
+            }
+
+            ++_dialogueSwapGeneration;
+            PresentSay(who, text, style);
+        }
+
+        private void PresentSay(string who, string text, string style)
+        {
+            _dialogueSurfaceFresh = false;
             _dialogue.SetSpeaker(who);
             _dialogue.ApplyStyle(style);
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
             _dialogue.Reveal(text);
+            SetSayVisible(true);
             // Voice-over: the line's clip starts with its text; the previous line's
             // voice stops (never overlaps). Silent lines just stop the old one.
             if (_audio != null)
@@ -296,9 +373,35 @@ namespace Lvn.UI
             _awaitingTap = false;
             _curChoices = options;
             _dialogue?.SuppressAdvanceHint(true); // a choice is up — don't invite a tap
+            _choiceCommitInFlight = false;
+
+            var kind = LvnAppear.Parse(Theme?.BoxAppear);
+            if (_dialogue != null && _dialogue.style.display == DisplayStyle.Flex &&
+                kind != LvnAppearKind.None)
+            {
+                int gen = ++_dialogueSwapGeneration;
+                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
+                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs,
+                    done: () => AfterBeatPause(gen,
+                        () => PresentChoiceBeat(gen, options, kind)));
+                return;
+            }
+            PresentChoiceBeat(_dialogueSwapGeneration, options, kind);
+        }
+
+        private void PresentChoiceBeat(int gen, IReadOnlyList<LvnOption> options, LvnAppearKind kind)
+        {
+            if (gen != _dialogueSwapGeneration || _choices == null) return;
             _choices.Present(options);
-            // A timed choice races the player: countdown bar over the options,
-            // expiry takes the timeout branch (VnStage.Input.cs).
+            _choices.SetEnabled(true);
+            if (kind != LvnAppearKind.None)
+            {
+                LvnAppear.Play(_dialogue, kind, appearing: true,
+                    ms: Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f));
+                LvnAppear.Play(_choices, kind, appearing: true,
+                    ms: Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f));
+            }
+            // A timed choice starts only when the buttons are actually visible.
             StartChoiceTimer(_player != null ? _player.CurrentChoiceTimeout : 0f);
         }
 

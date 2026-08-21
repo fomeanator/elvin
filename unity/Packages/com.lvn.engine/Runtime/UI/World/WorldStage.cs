@@ -107,6 +107,9 @@ namespace Lvn.UI.World
                 canvas.planeDistance = 1f;
                 Blur = LvnBlurEffect.Ensure(cam);
                 Fx = LvnFxStack.Ensure(cam); // мультиэффект (op `fx`), тот же крюк
+                // Fx lives on the camera and can therefore survive an older
+                // WorldStage. A fresh stage must always begin with a clean frame.
+                Fx.ResetImmediate();
                 // Стекло — ПОСЛЕДНИМ: OnRenderImage идёт в порядке компонентов,
                 // и подложка должна видеть кадр уже с эффектами. Иначе окно в
                 // задымлённой сцене осталось бы прозрачным по чистому миру —
@@ -248,6 +251,12 @@ namespace Lvn.UI.World
         {
             if (_actors.TryGetValue(id, out var a) && a != null) return a;
             var go = new GameObject("vn-obj-" + id, typeof(RectTransform), typeof(CanvasGroup));
+            // Рождается СПРЯТАННЫМ. Переход входа играет на смене видимости, а
+            // новый GameObject активен по умолчанию — из-за этого самый первый
+            // показ героя, то есть КАЖДОЕ появление нового лица в главе,
+            // проскакивал без анимации: переход был, а видел его только
+            // повторный выход того же персонажа.
+            go.SetActive(false);
             go.transform.SetParent(_content, false);
             _birth[id] = _nextSibling++;
             a = go.AddComponent<WorldActor>();
@@ -256,6 +265,26 @@ namespace Lvn.UI.World
             _slotGroups[id] = go.GetComponent<CanvasGroup>();
             _baseOpacity[id] = 1f;
             return a;
+        }
+
+        /// <summary>Create and position an actor slot without changing its
+        /// visibility. Sprite art loads asynchronously, so revealing from this
+        /// pre-load step would play the entrance on an empty container.</summary>
+        public WorldActor PlaceActor(string id, Placement p)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            var a = EnsureActor(id);
+            ApplyPlacement(id, a, p);
+            return a;
+        }
+
+        /// <summary>Whether the sprite actor already owns drawable art. A later
+        /// show command may intentionally omit URLs and reuse these layers.</summary>
+        public bool HasActorArt(string id)
+        {
+            var a = ActorFor(id);
+            return a != null && a.Rig != null
+                && a.Rig.GetComponentsInChildren<Graphic>(true).Length > 0;
         }
 
         /// <summary>Place / update / show an object as a stack of layer sprites —
@@ -270,6 +299,80 @@ namespace Lvn.UI.World
 
             if (layers != null && layers.Count > 0)
                 a.Configure(layers, layerIds, layerRects, layerDefs);
+
+            ApplyPlacement(id, a, p);
+
+            _baseOpacity[id] = p.Opacity;
+            _slotGroups.TryGetValue(id, out var g);
+
+            // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
+            // эмоции идёт тем же путём `actor`, и если проявлять на каждом
+            // применении, персонаж будет мигать на каждой реплике.
+            bool wasVisible = a.gameObject.activeSelf;
+            float dur = p.TransitionDuration;
+            bool fadeIn = p.Show && !wasVisible && p.EnterTransition != TransitionType.None && dur > 0.001f;
+            bool fadeOut = !p.Show && wasVisible && p.ExitTransition != TransitionType.None && dur > 0.001f;
+
+            if (fadeIn && p.EnterTransition == TransitionType.Dissolve)
+            {
+                a.gameObject.SetActive(true);
+                if (g != null) g.alpha = p.Opacity;
+                Dissolve(a, 1f, 0f, dur);           // собирается из шума
+                LvnFade.Play(g, p.Opacity, p.Opacity, dur); // тот же таймер, альфа не трогается
+            }
+            else if (fadeOut && p.ExitTransition == TransitionType.Dissolve)
+            {
+                Dissolve(a, 0f, 1f, dur);           // сгорает
+                LvnFade.Play(g, g != null ? g.alpha : p.Opacity, g != null ? g.alpha : p.Opacity, dur,
+                    () => { if (a != null) { a.gameObject.SetActive(false); Dissolve(a, 0f, 0f, 0f); } });
+            }
+            else if (fadeIn)
+            {
+                a.gameObject.SetActive(true);
+                if (p.EnterTransition == TransitionType.Drift)
+                {
+                    // Кинематографичный вход: правый персонаж въезжает справа,
+                    // левый — слева, с коротким федом.
+                    float dir = LvnFade.DriftSign(p.X);
+                    LvnFade.Play(g, 0f, p.Opacity, dur,
+                        a.Slot, new Vector2(dir * _reference.x * 0.045f, 0f));
+                }
+                else LvnFade.Play(g, 0f, p.Opacity, dur);
+            }
+            else if (fadeOut)
+            {
+                // Уходящий остаётся видимым, пока идёт переход, и прячется его
+                // хвостом. Спрятать сразу — значит не показать сам уход.
+                if (p.ExitTransition == TransitionType.Drift)
+                {
+                    float dir = LvnFade.DriftSign(p.X);
+                    LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
+                        a.Slot, new Vector2(dir * _reference.x * 0.045f, 0f),
+                        () =>
+                        {
+                            if (a == null) return;
+                            a.gameObject.SetActive(false);
+                        });
+                }
+                else LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
+                    () => { if (a != null) a.gameObject.SetActive(false); });
+            }
+            else
+            {
+                LvnFade.Cancel(g);      // показ посреди ухода отменяет уход
+                if (g != null) g.alpha = p.Opacity;
+                a.gameObject.SetActive(p.Show);
+            }
+            if (!p.Show) a.StopAll();
+            // An emotion/outfit swap rebuilt the layer Images (default white) — re-tint
+            // so a dimmed actor doesn't pop back to full brightness mid-line.
+            if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
+                SetFocus(id, fg, focus);
+            return a;
+        }
+
+        private void ApplyPlacement(string id, WorldActor a, Placement p)
+        {
 
             // Size/pivot/flip come from the fixed reference so a character is the SAME
             // size on every device. But the VERTICAL position maps against the REAL
@@ -324,55 +427,6 @@ namespace Lvn.UI.World
             // its async apply later drew on top (руки под скелетом в бою 1-на-1).
             if (p.Z.HasValue) _zExplicit[id] = p.Z.Value;
             ResortSiblings();
-
-            _baseOpacity[id] = p.Opacity;
-            _slotGroups.TryGetValue(id, out var g);
-
-            // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
-            // эмоции идёт тем же путём `actor`, и если проявлять на каждом
-            // применении, персонаж будет мигать на каждой реплике.
-            bool wasVisible = a.gameObject.activeSelf;
-            float dur = p.TransitionDuration;
-            bool fadeIn = p.Show && !wasVisible && p.EnterTransition != TransitionType.None && dur > 0.001f;
-            bool fadeOut = !p.Show && wasVisible && p.ExitTransition != TransitionType.None && dur > 0.001f;
-
-            if (fadeIn && p.EnterTransition == TransitionType.Dissolve)
-            {
-                a.gameObject.SetActive(true);
-                if (g != null) g.alpha = p.Opacity;
-                Dissolve(a, 1f, 0f, dur);           // собирается из шума
-                LvnFade.Play(g, p.Opacity, p.Opacity, dur); // тот же таймер, альфа не трогается
-            }
-            else if (fadeOut && p.ExitTransition == TransitionType.Dissolve)
-            {
-                Dissolve(a, 0f, 1f, dur);           // сгорает
-                LvnFade.Play(g, g != null ? g.alpha : p.Opacity, g != null ? g.alpha : p.Opacity, dur,
-                    () => { if (a != null) { a.gameObject.SetActive(false); Dissolve(a, 0f, 0f, 0f); } });
-            }
-            else if (fadeIn)
-            {
-                a.gameObject.SetActive(true);
-                LvnFade.Play(g, 0f, p.Opacity, dur);
-            }
-            else if (fadeOut)
-            {
-                // Уходящий остаётся видимым, пока идёт переход, и прячется его
-                // хвостом. Спрятать сразу — значит не показать сам уход.
-                LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
-                    () => { if (a != null) a.gameObject.SetActive(false); });
-            }
-            else
-            {
-                LvnFade.Cancel(g);      // показ посреди ухода отменяет уход
-                if (g != null) g.alpha = p.Opacity;
-                a.gameObject.SetActive(p.Show);
-            }
-            if (!p.Show) a.StopAll();
-            // An emotion/outfit swap rebuilt the layer Images (default white) — re-tint
-            // so a dimmed actor doesn't pop back to full brightness mid-line.
-            if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
-                SetFocus(id, fg, focus);
-            return a;
         }
 
         /// <summary>Шейдерное растворение спрайта: <paramref name="from"/> →
@@ -465,6 +519,9 @@ namespace Lvn.UI.World
 
         public void RemoveAll()
         {
+            // RemoveAll is the renderer half of VnStage.ResetStage.  Camera FX
+            // are sticky within a chapter, but never across chapter/load bounds.
+            Fx?.ResetImmediate();
             foreach (var a in _actors.Values) if (a != null) Object.Destroy(a.gameObject);
             _actors.Clear();
             _slotGroups.Clear();
@@ -482,6 +539,7 @@ namespace Lvn.UI.World
             // The blur lives on the CAMERA, which outlives this canvas — a
             // chapter that ended mid-`blur` must not haunt the next one.
             Blur?.FadeTo(0f, 0f);
+            Fx?.ResetImmediate();
             // Respect a later owner that deliberately changed the depth.
             if (_canvasCamera != null &&
                 Mathf.Approximately(_canvasCamera.depth, _canvasCameraDepthForced))

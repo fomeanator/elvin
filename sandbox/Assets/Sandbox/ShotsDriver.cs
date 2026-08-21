@@ -53,6 +53,9 @@ namespace Lvn.Sandbox
         {
             var app = FindAnyObjectByType<Lvn.UI.Screens.NovelApp>();
             if (app == null) { Debug.LogError("[shots] no NovelApp"); yield break; }
+            // Фотограф не человек: попап «Как тебя зовут?» ждал бы подтверждения
+            // вечно и прогон снимал бы хаб вместо сцены (так и вышло однажды).
+            app.AskName = false;
             var bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
             // Wait for the manifest (the browse screen follows right after).
@@ -77,7 +80,43 @@ namespace Lvn.Sandbox
                 .ToList();
             if (chapters == null || chapters.Count == 0) { Debug.LogError("[shots] no chapters"); yield break; }
             var chapter = chapters[Mathf.Clamp(_chapter, 1, chapters.Count) - 1];
-            app.GetType().GetMethod("PlayChapterAsync", bf)?.Invoke(app, new[] { title, chapter, (object)"Reader" });
+            // ГЛАВУ ОТКРЫВАЕТ ВИТРИНА, А НЕ МЫ. Прямой вызов PlayChapterAsync
+            // рефлексией запускает историю, но витрину со сцены убирает
+            // ОБОЛОЧКА — и она остаётся сверху весь прогон: фотограф честно
+            // снимает меню, пока за ним играет глава. Именно так и вышло, и по
+            // тем кадрам «переходов не видно» читалось как поломка движка.
+            // Поэтому говорим витрине то же, что говорит палец игрока.
+            Lvn.UI.Screens.LvnProgress.SetCurrent(title as Lvn.Content.LvnTitle,
+                chapter as Lvn.Content.LvnChapter); // какую главу открыть
+            var shell = app.Shell;
+            var hub = shell?.Hub;
+            var carousel = shell?.Carousel;
+            bool asked = false;
+            for (var i = 0; i < 60 && !asked; i++)
+            {
+                if (hub != null)
+                {
+                    var tcsField = hub.GetType().GetField("_tcs", bf);
+                    if (tcsField?.GetValue(hub) is object tcs)
+                    {
+                        tcs.GetType().GetMethod("TrySetResult")?.Invoke(tcs, new object[] { title });
+                        asked = true;
+                        break;
+                    }
+                }
+                if (carousel != null && carousel.style.display != UnityEngine.UIElements.DisplayStyle.None)
+                {
+                    carousel.RequestPlay(titles.IndexOf(title));
+                    asked = true;
+                    break;
+                }
+                yield return new WaitForSeconds(0.25f);
+            }
+            if (!asked)
+            {
+                Debug.LogWarning("[shots] витрина не спросила — открываю напрямую (витрина останется на экране)");
+                app.GetType().GetMethod("PlayChapterAsync", bf)?.Invoke(app, new[] { title, chapter, (object)"Reader" });
+            }
             Debug.Log("[shots] chapter launched");
 
             yield return new WaitForSeconds(8f);
@@ -103,6 +142,13 @@ namespace Lvn.Sandbox
                 yield return new WaitForSeconds(0.4f); // let the capture flush pre-advance
                 if (player.AtChoice) player.Choose(0);
                 else player.Advance();
+                // Хвост шага — серия из трёх кадров: переходы идут ~0.35с, и
+                // одиночный снимок раз в 2 секунды их никогда не застаёт.
+                for (var s = 0; s < 10; s++)
+                {
+                    Snap("t" + s);
+                    yield return new WaitForSeconds(0.1f);
+                }
             }
             Debug.Log("[shots] done");
         }

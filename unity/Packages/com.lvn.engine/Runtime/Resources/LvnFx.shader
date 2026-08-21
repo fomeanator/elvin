@@ -1,7 +1,7 @@
 // Мультиэффект кадра (op `fx`) — один убер-проход + три служебных пасса
 // блума. Все эффекты выключены нулями своих юниформ: стоимость невключённого
 // эффекта — одна ветка-умножение на ноль. Алгоритмы классические (виньетка,
-// зерно, аберрация, скан-линии, пикселизация, аналоговый глитч, грейдинг,
+// кино-grade, аберрация, скан-линии, пикселизация, аналоговый глитч, грейдинг,
 // радиальные лучи, блум по порогу) — реализация своя, по мотивам открытых
 // пост-стеков (Kino/Keijiro, MIT) без заимствования кода.
 Shader "Hidden/LvnFx"
@@ -47,7 +47,7 @@ Shader "Hidden/LvnFx"
             #pragma fragment frag
 
             sampler2D _BloomTex;
-            float _Vignette, _Grain, _Chromatic, _Scanlines, _Pixelate,
+            float _Vignette, _Cinematic, _Chromatic, _Scanlines, _Pixelate,
                   _Glitch, _Saturation, _Contrast, _Bloom, _Rays, _Distort,
                   _Frost, _Blink, _Invert, _Fog, _Rain, _Snow, _Embers,
                   _Blood, _Poison, _Shockwave, _Speedlines, _Dream, _Sepia,
@@ -176,11 +176,11 @@ Shader "Hidden/LvnFx"
                     float ring = 1.0 - smoothstep(spaceR * 0.025,
                                                   spaceR * 0.085,
                                                   abs(spaceDistance - ringRadius));
-                    float grain = 0.70 + noise2(float2(
+                    float ringTexture = 0.70 + noise2(float2(
                         atan2(spaceDelta.y, spaceDelta.x) * 5.0 - t * 0.22,
                         floor(t * 3.0))) * 0.30;
                     col.rgb *= 1.0 - saturate(core * 0.98 + shadow * 0.30 * _Space);
-                    col.rgb += _SpaceColor.rgb * ring * grain * _Space * 0.78;
+                    col.rgb += _SpaceColor.rgb * ring * ringTexture * _Space * 0.78;
                     col.rgb += ring * ring * _Space * 0.24;
                 }
 
@@ -221,6 +221,30 @@ Shader "Hidden/LvnFx"
                 col.rgb = (col.rgb - 0.5) * _Contrast + 0.5;
                 col.rgb *= _Tint.rgb;
 
+                // Кино-grade без зерна: мягкий toe/shoulder удерживает детали
+                // в тенях и светах, холодные тени отделяются от тёплых бликов,
+                // а оптическая виньетка едва собирает взгляд. Кадр остаётся
+                // чистым и стабильным — никаких прыгающих пикселей поверх арта.
+                if (_Cinematic > 0.001)
+                {
+                    float strength = saturate(_Cinematic);
+                    float3 source = max(col.rgb, 0.0);
+                    float3 film = saturate((source - 0.5) * 1.08 + 0.5);
+                    // Плавный highlight roll-off вместо клипа ярких областей.
+                    float3 over = max(film - 0.72, 0.0);
+                    film -= over * over * 0.38;
+                    float filmLum = dot(film, float3(0.299, 0.587, 0.114));
+                    float shadows = 1.0 - smoothstep(0.16, 0.56, filmLum);
+                    float highlights = smoothstep(0.48, 0.90, filmLum);
+                    film += float3(-0.014, 0.003, 0.030) * shadows;
+                    film += float3(0.026, 0.010, -0.010) * highlights;
+                    float2 lens = float2((i.uv.x - 0.5) * screenAspect,
+                                         i.uv.y - 0.5);
+                    float opticalEdge = smoothstep(0.34, 0.62, length(lens));
+                    film *= 1.0 - opticalEdge * 0.10 * strength;
+                    col.rgb = lerp(source, saturate(film), strength);
+                }
+
                 // Сепия и постеризация — стилизация поверх общего грейдинга.
                 if (_Sepia > 0.001)
                 {
@@ -236,7 +260,7 @@ Shader "Hidden/LvnFx"
                 }
 
                 // Карандаш: кромки по Собелю ложатся штрихом, цвет уходит в
-                // бумагу. Штрих идёт ПОД одним углом и дрожит зерном — ровная
+                // бумагу. Штрих идёт ПОД одним углом и дрожит неровностью — ровная
                 // сетка читается как решётка, а не как рука.
                 if (_Sketch > 0.001)
                 {
@@ -259,7 +283,7 @@ Shader "Hidden/LvnFx"
                     float hatch = smoothstep(0.35, 0.75, shade)
                                 * (0.5 + 0.5 * sin(rule * 3.14159));
                     float3 paper = float3(0.94, 0.92, 0.87)
-                                 - hash(uv * 130.0) * 0.045;       // зерно бумаги
+                                 - hash(uv * 130.0) * 0.045;       // фактура бумаги
                     float3 pencil = paper * (1.0 - saturate(edge * 0.95 + hatch * 0.55));
                     col.rgb = lerp(col.rgb, pencil, _Sketch);
                 }
@@ -284,10 +308,6 @@ Shader "Hidden/LvnFx"
                 // Скан-линии.
                 if (_Scanlines > 0.001)
                     col.rgb *= 1.0 - _Scanlines * 0.5 * (0.5 + 0.5 * sin(uv.y * _MainTex_TexelSize.w * 3.14159));
-
-                // Зерно (анимированное).
-                if (_Grain > 0.001)
-                    col.rgb += (hash(uv * (t + 1.0) * 601.0) - 0.5) * _Grain * 0.35;
 
                 // Негатив (хоррор): плавный к инверсии.
                 if (_Invert > 0.001)
