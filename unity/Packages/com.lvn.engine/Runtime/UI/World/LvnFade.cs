@@ -61,18 +61,26 @@ namespace Lvn.UI.World
             f._slot = slot;
             f._slotBase = slot.anchoredPosition;
             f._drift = drift;
-            f.ApplyDrift(to > from ? 0f : 1f);
+            f.ApplyDrift(0f);
         }
 
-        /// <summary>Поставить снос по ДОЛЕ ПУТИ ДОМОЙ (0 — полностью снесён,
-        /// 1 — на своём месте), а не по альфе. Альфа не годится: у героя с
-        /// placement-opacity 0.6 вход кончается на k=0.6, и «(1−k)» оставляет
-        /// его сдвинутым на 40% сноса — до самого конца, где Release дёргает
-        /// его на место рывком.</summary>
-        private void ApplyDrift(float settled)
+        /// <summary>Поставить снос по ДОЛЕ ПРОЙДЕННОГО ВРЕМЕНИ, а не по альфе.
+        /// Альфа не годится: у героя с placement-opacity 0.6 вход кончается на
+        /// k=0.6, и «(1−k)» оставляет его сдвинутым на 40% сноса — до самого
+        /// конца, где Release дёргает его на место рывком.
+        ///
+        /// <para>Кривая у движения СВОЯ — ease-out, а не общая с гашением
+        /// «плавно с обоих концов». Переход в продукте идёт около 0.17 s, и
+        /// мягкий старт съедает почти весь ход: глаз видит статичного героя,
+        /// который где-то в конце чуть дёрнулся. Ease-out тратит расстояние
+        /// сразу и мягко тормозит — движение читается даже на коротком
+        /// переходе, но не мельтешит при долгом чтении.</para></summary>
+        private void ApplyDrift(float t01)
         {
             if (_slot == null) return;
-            var next = _slotBase + _drift * (1f - Mathf.Clamp01(settled));
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t01), 3f);
+            float away = _to > _from ? 1f - e : e;   // вход: снаружи домой; уход: наоборот
+            var next = _slotBase + _drift * away;
             _slot.anchoredPosition = next;
             _slotWrote = next;
         }
@@ -123,15 +131,15 @@ namespace Lvn.UI.World
             f._viaTint = from != to
                 && NeedsLayerSafeFade(group.GetComponentsInChildren<Graphic>(true).Length);
             if (f._viaTint) f.CaptureTint();
-            if (from != to) f.Apply(from, to > from ? 0f : 1f);
+            if (from != to) f.Apply(from, 0f);
             f.enabled = true;
         }
 
         /// <summary>Поставить текущее значение перехода — тем путём, который
         /// этому герою подходит.</summary>
-        private void Apply(float k, float settled)
+        private void Apply(float k, float t01)
         {
-            ApplyDrift(settled);
+            ApplyDrift(t01);
             if (_viaTint)
             {
                 float peak = Mathf.Max(_from, _to);
@@ -201,10 +209,8 @@ namespace Lvn.UI.World
             float t = Mathf.Clamp01((Time.realtimeSinceStartup - _start) / _dur);
             // Плавно на входе и на выходе: линейное проявление читается как
             // мигание подсветки, а не как появление человека.
-            float s = t * t * (3f - 2f * t);
-            float k = Mathf.Lerp(_from, _to, s);
-            // «Дома» — это конец ВХОДА и начало УХОДА: снос всегда снаружи.
-            if (_from != _to) Apply(k, _to > _from ? s : 1f - s);
+            float k = Mathf.Lerp(_from, _to, t * t * (3f - 2f * t));
+            if (_from != _to) Apply(k, t);
             if (t < 1f) return;
             _start = -1f;
             enabled = false;
