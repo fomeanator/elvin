@@ -23,7 +23,7 @@ namespace Lvn.UI
         public Font Font;
         [Tooltip("Optional Resources path to a Font for dialogue/choices text " +
                  "(e.g. \"Fonts/Serif\"); used when Font is unset.")]
-        public string FontResourcePath = "";
+        public string FontResourcePath = "Fonts/Onest-Regular";
         public int BodyFontSize = 46;
         public int SpeakerFontSize = 34;
         public float PanelCornerRadius = 28f;
