@@ -113,21 +113,9 @@ namespace Lvn.UI
 
         private static float NumOr(JToken t, float dflt) => NumOrNull(t) ?? dflt;
 
-        // Nullable numeric read: absent → null, malformed → null (never throws), so
-        // one bad field can't abort the whole chapter. A number written as a string
-        // ("0.5") is still accepted.
-        private static float? NumOrNull(JToken t)
-        {
-            if (t == null) return null;
-            try { return (float)t; } catch { }
-            try
-            {
-                if (float.TryParse((string)t, NumberStyles.Float, CultureInfo.InvariantCulture, out var f))
-                    return f;
-            }
-            catch { }
-            return null;
-        }
+        // Что считается числом — решает Lvn.LvnNum: там же живёт разбор
+        // процентов, и там же он покрыт тестом.
+        private static float? NumOrNull(JToken t) => LvnNum.Parse(t);
 
         private static int? IntOrNull(JToken t)
         {
@@ -164,33 +152,114 @@ namespace Lvn.UI
         // .lvns can tween any prop/layer or move a sprite along a path live.
         // ── ui: дерево интерфейса ───────────────────────────────────────────
         //
-        // Слой создаётся при первом же `ui` и живёт до конца главы. Он лежит
-        // НАД сценой и ПОД окном диалога: игровой интерфейс должен перекрывать
-        // фон и актёров, но не реплику.
+        // Слой создаётся при первом же `ui` и живёт до конца главы. У него ДВА
+        // этажа, и это не украшение: `layer=hud` (по умолчанию) уходит под
+        // окно реплики, `layer=over` ложится поверх всего. Один этаж не
+        // годится — на первой же живой проверке ряд кнопок боевого интерфейса
+        // закрыл собой текст реплики.
         private LvnUiLayer _uiLayer;
+        private VisualElement _uiHudHost;
+        private VisualElement _uiOverHost;
 
         private void ApplyUi(JObject cmd)
         {
             if (_uiLayer == null)
             {
-                // Хозяин слоя — тот же корень, где живут метки оператора
-                // `text`: игровой интерфейс должен лежать НАД сценой и ПОД
-                // окном диалога, а метки уже стоят ровно там.
-                var host = _labelLayer ?? _uiRoot;
-                if (host == null) return;
+                var over = _labelLayer ?? _uiRoot;   // метки `text` стоят выше диалога
+                _uiOverHost = over;
+                var hud = UiHudHost() ?? over;
+                if (hud == null) return;
                 _uiLayer = new LvnUiLayer(
-                    host,
+                    hud, over,
                     () => UiVars,
-                    label => UiGoTo?.Invoke(label),
+                    UiClick,
                     LoadUiImageAsync);
             }
             _uiLayer.Apply(cmd);
+            NotifyUiStage();   // новое дерево обязано сразу знать, что на экране
+        }
+
+        /// <summary>
+        /// КАТСЦЕНА — кадр без интерфейса.
+        ///
+        /// <para>Убирает разом реплику, выборы, метки, меню и деревья `ui`, и
+        /// по желанию наезжает камерой. Это состояние, а не эффект: `cutscene
+        /// off=1` возвращает всё на место.</para>
+        ///
+        /// <para>Раньше до этого можно было добраться ТОЛЬКО долгим нажатием
+        /// (режим разглядывания арта) — из языка не вызвать, а игроку оно
+        /// мешало. Теперь тем же выключателем пользуются оба: автор оператором,
+        /// игрок жестом.</para>
+        /// </summary>
+        private void ApplyCutscene(JObject cmd)
+        {
+            bool on = !(BoolOr(cmd["off"], false) || !BoolOr(cmd["on"], true));
+            SetChromeHidden(on);
+
+            // Наезд — необязательная часть: `cutscene on=1 zoom=1.12 dur=3`.
+            var zoom = NumOrNull(cmd["zoom"]);
+            if (zoom != null)
+            {
+                var move = new JObject
+                {
+                    ["op"] = "camera",
+                    ["action"] = "zoom",
+                    ["factor"] = on ? zoom.Value : 1f,
+                    ["duration"] = NumOr(cmd["dur"], 2.5f),
+                };
+                ApplyCamera(move);
+            }
+            else if (!on)
+            {
+                ApplyCamera(new JObject { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.4f });
+            }
+        }
+
+        /// <summary>Этаж под окном диалога. Отдельный контейнер, а не позиция
+        /// среди детей: пересборка оболочки при смене темы вставляет диалог и
+        /// выборы перед слоем меток, и любой «просто индекс» после этого
+        /// съезжает.</summary>
+        private VisualElement UiHudHost()
+        {
+            if (_uiHudHost != null && _uiHudHost.panel != null) return _uiHudHost;
+            var chrome = (VisualElement)_chromeSafe;
+            if (chrome == null) return null;
+            _uiHudHost = new VisualElement { name = "vn-ui-hud", pickingMode = PickingMode.Ignore };
+            _uiHudHost.style.position = Position.Absolute;
+            _uiHudHost.style.left = 0; _uiHudHost.style.right = 0;
+            _uiHudHost.style.top = 0; _uiHudHost.style.bottom = 0;
+            chrome.Insert(0, _uiHudHost);   // ниже диалога, выборов и меток
+            return _uiHudHost;
         }
 
         /// <summary>Переменные истории — для живых значений в `ui`. Ставит
         /// ИГРОК при создании (см. BindStory), а не хост: иначе каждый, кто
         /// встраивает движок, обязан был бы про это помнить.</summary>
         public System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> UiVarsProvider;
+
+        /// <summary>
+        /// Нажатие на кнопку дерева `ui` — ТОТ ЖЕ рецепт, что у клика по
+        /// объекту сцены.
+        ///
+        /// <para>Прыжка мало. Игрок может стоять в `wait`, ждать касания или
+        /// показывать выбор, и запись новой позиции без пробуждения оставляет
+        /// его стоять — экран отвечает один раз, а дальше замирает. Ровно это
+        /// и случилось на первой же проверке.</para>
+        ///
+        /// <para>Отсюда же берётся способ ЖДАТЬ НАЖАТИЯ БЕЗ ОКНА ДИАЛОГА:
+        /// экран паркуется на длинном `wait`, а кнопка выигрывает гонку с
+        /// таймером — как это давно работает у кликабельных объектов.</para>
+        /// </summary>
+        private void UiClick(string label)
+        {
+            if (_player == null) return;
+            if (!string.IsNullOrEmpty(label)) _player.GoTo(label);
+            CancelPendingWait();
+            _awaitingTap = false;
+            _curChoices = null;
+            _choices?.Dismiss();
+            _player.Advance();
+        }
 
         /// <inheritdoc/>
         public void BindStory(System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> vars,
@@ -258,6 +327,7 @@ namespace Lvn.UI
                 case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
                 case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
                 case "ui": ApplyUi(command); break;  // дерево интерфейса из сценария
+                case "cutscene": ApplyCutscene(command); break;  // кадр без интерфейса
                 case "anim": ApplyAnim(command); break; // script-driven tween / path
                 case "fade": ApplyFade(command); break;
                 case "dim": ApplyDim(command); break;
@@ -472,6 +542,11 @@ namespace Lvn.UI
                 case "slide_left": return TransitionType.SlideLeft;
                 case "slide_right": return TransitionType.SlideRight;
                 case "pop": return TransitionType.Pop;
+                // Виды из общего набора движка (LvnAppear): персонаж всплывает
+                // из-под стекла и утопает обратно, как и любая панель.
+                case "rise": case "sink": return TransitionType.Rise;
+                case "drop": return TransitionType.Drop;
+                case "unfold": return TransitionType.Unfold;
                 default: return TransitionType.None;
             }
         }

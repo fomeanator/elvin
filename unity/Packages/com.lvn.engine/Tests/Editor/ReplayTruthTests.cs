@@ -137,5 +137,44 @@ namespace Lvn.Tests
             RunTruthCheck(json, 0);
             RunTruthCheck(json, 1);
         }
+
+        /// <summary>
+        /// A LOOPING script overflows the replay trace. The cap used to drop the
+        /// oldest half of it, and the chapter's only `bg` went with it: a long
+        /// session saved and reloaded came back with no background at all, and
+        /// said nothing. Caught by the soak bot on duel-online (seed 11, index
+        /// 1150); pinned here where it fails in a second instead of a minute.
+        /// </summary>
+        [Test]
+        public void Replay_KeepsTheBackdropAfterTheTraceOverflows()
+        {
+            // `bg` happens ONCE, at the top; everything after it loops forever.
+            var json = @"{""script"":[
+                {""op"":""bg"",""sprite_url"":""yard.png""},
+                {""op"":""label"",""id"":""loop""},
+                {""op"":""actor"",""id"":""foe"",""position"":""left""},
+                {""op"":""dim"",""amount"":0.2},
+                {""op"":""actor"",""id"":""foe"",""position"":""right""},
+                {""op"":""dim"",""amount"":0.4},
+                {""op"":""say"",""text"":""обмен""},
+                {""op"":""goto"",""label"":""loop""}
+            ]}";
+            var live = new SceneModel();
+            var player = new LvnPlayer(LvnDocument.Parse(json), live);
+            player.Advance();
+            // Well past the 20 000-command cap: the old truncation had long
+            // since thrown the backdrop away by here.
+            for (int i = 0; i < 60000 && !player.Finished; i++) player.Advance();
+
+            var snap = player.Save();
+            var replayed = new SceneModel();
+            var resumed = new LvnPlayer(LvnDocument.Parse(json), replayed);
+            resumed.Restore(snap);
+            resumed.ReplayVisuals(resumed.Index);
+
+            Assert.AreEqual("yard.png", replayed.Bg,
+                "фон потерян при переполнении трассы — сжатие выбросило то, что видно на экране");
+            SceneModel.AssertSameScene(live, replayed, "после переполнения трассы");
+        }
     }
 }
