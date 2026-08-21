@@ -1,0 +1,178 @@
+{
+  "id": "stage-ui-tree",
+  "title": "`ui` reaches the presentation layer as ONE command with its tree intact",
+  "why": "The interface is a description, not a sequence of actions: a whole tree arrives at once so the renderer can DIFF it against the previous one instead of rebuilding. Flattening it into per-element commands — or losing `layer`/`block` on the way — turns every update into a teardown, which drops the tap under the finger, the scroll position and any running animation. `hide`/`show`/`drop` must arrive as the same op, not as a second kind of command.",
+  "runtimes": [
+    "csharp"
+  ],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      {
+        "op": "set",
+        "key": "hp",
+        "expr": "3"
+      },
+      {
+        "op": "ui",
+        "id": "hud",
+        "layer": "hud",
+        "tree": {
+          "kind": "panel",
+          "at": "fill",
+          "children": [
+            {
+              "kind": "panel",
+              "dir": "row",
+              "at": "bottom",
+              "h": "13%",
+              "gap": 12,
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "{hp}",
+                  "size": 26,
+                  "color": "text"
+                },
+                {
+                  "kind": "bar",
+                  "value": "{hp / 6}",
+                  "h": 18,
+                  "color": "accent"
+                },
+                {
+                  "kind": "button",
+                  "text": "УДАР",
+                  "on_click": "hit",
+                  "grow": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "op": "say",
+        "text": "Интерфейс на месте."
+      },
+      {
+        "op": "ui",
+        "id": "menu",
+        "layer": "over",
+        "block": 1,
+        "tree": {
+          "kind": "panel",
+          "at": "fill",
+          "bg": "veil",
+          "children": [
+            {
+              "kind": "button",
+              "text": "Продолжить",
+              "on_click": "back"
+            }
+          ]
+        }
+      },
+      {
+        "op": "say",
+        "text": "Меню поверх."
+      },
+      {
+        "op": "ui",
+        "id": "menu",
+        "action": "drop"
+      },
+      {
+        "op": "say",
+        "text": "Меню убрано."
+      },
+      {
+        "op": "label",
+        "id": "hit"
+      },
+      {
+        "op": "label",
+        "id": "back"
+      }
+    ]
+  },
+  "expect": {
+    "stops": [
+      {
+        "say": "Интерфейс на месте."
+      },
+      {
+        "say": "Меню поверх."
+      },
+      {
+        "say": "Меню убрано."
+      },
+      {
+        "end": true
+      }
+    ],
+    "stage": [
+      {
+        "op": "ui",
+        "id": "hud",
+        "layer": "hud",
+        "tree": {
+          "kind": "panel",
+          "at": "fill",
+          "children": [
+            {
+              "kind": "panel",
+              "dir": "row",
+              "at": "bottom",
+              "h": "13%",
+              "gap": 12,
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "{hp}",
+                  "size": 26,
+                  "color": "text"
+                },
+                {
+                  "kind": "bar",
+                  "value": "{hp / 6}",
+                  "h": 18,
+                  "color": "accent"
+                },
+                {
+                  "kind": "button",
+                  "text": "УДАР",
+                  "on_click": "hit",
+                  "grow": 1
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "op": "ui",
+        "id": "menu",
+        "layer": "over",
+        "block": 1,
+        "tree": {
+          "kind": "panel",
+          "at": "fill",
+          "bg": "veil",
+          "children": [
+            {
+              "kind": "button",
+              "text": "Продолжить",
+              "on_click": "back"
+            }
+          ]
+        }
+      },
+      {
+        "op": "ui",
+        "id": "menu",
+        "action": "drop"
+      }
+    ]
+  }
+}

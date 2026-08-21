@@ -81,7 +81,22 @@ namespace Lvn.UI
         private readonly Dictionary<string, LvnAnim> _talkAnims = new Dictionary<string, LvnAnim>(); // actor id → lip-sync anim
         private LvnPlayer _player;
         private CancellationTokenSource _cts;
-        private bool _awaitingTap;
+        // Ждём ли касания по реплике. СВОЙСТВО, а не поле: слой `ui` обязан
+        // узнавать об этом сразу, а точек сброса восемь — рано или поздно одна
+        // осталась бы без оповещения. «Идёт реплика» — это именно ожидание
+        // чтения, а не видимость окна: окно остаётся на экране и после того,
+        // как игра ушла дальше, и по нему стадию определять нельзя.
+        private bool _awaitingTapFlag;
+        private bool _awaitingTap
+        {
+            get => _awaitingTapFlag;
+            set
+            {
+                if (_awaitingTapFlag == value) return;
+                _awaitingTapFlag = value;
+                NotifyUiStage();
+            }
+        }
         private bool _awaitingWait;
         // Wait generation: a hotspot jump mid-`wait` cancels the pending timer —
         // otherwise WaitCoroutine's deferred Advance() fired AFTER the jump and
@@ -193,6 +208,11 @@ namespace Lvn.UI
             _labelLayer = new VisualElement { name = "vn-labels", pickingMode = PickingMode.Ignore };
             _labelLayer.style.position = Position.Absolute;
             _labelLayer.style.left = 0; _labelLayer.style.right = 0; _labelLayer.style.top = 0; _labelLayer.style.bottom = 0;
+
+            // Шрифт темы — на корень: unityFontDefinition наследуется вниз, и
+            // сцена, интерфейс и диалог получают одну гарнитуру разом. Ставить
+            // его в каждом экране значит однажды забыть про один из них.
+            LvnFonts.ApplyDefault(root);
 
             if (_world != null) root.Add(_world);
             root.Add(_particles);   // weather sits over the scene, under the UI

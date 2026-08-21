@@ -25,7 +25,11 @@ namespace Lvn.UI
     /// </summary>
     public sealed class LvnUiLayer
     {
-        private readonly VisualElement _root;
+        // ДВА КОРНЯ, а не один. Спор за низ экрана иначе неразрешим: боевой
+        // интерфейс обязан уходить под окно реплики, полноэкранное меню —
+        // лежать поверх всего, и то и другое встречается в одной главе.
+        private readonly VisualElement _hud;
+        private readonly VisualElement _over;
         private readonly Func<string, JToken> _varOf;
         private readonly Func<IReadOnlyDictionary<string, JToken>> _vars;
         private readonly Action<string> _goTo;
@@ -38,6 +42,10 @@ namespace Lvn.UI
         {
             public VisualElement Root;
             public JObject Spec;
+            public string Layer;   // hud | over — в каком корне лежит
+            public string When;    // always | idle | say | choice — при какой стадии виден
+            public bool Manual;    // спрятано вручную через `ui X hide` — стадия не спорит
+            public LvnAppearKind Appear;   // как дерево выходит на экран
             public readonly List<Binding> Bindings = new List<Binding>();
         }
 
@@ -51,15 +59,13 @@ namespace Lvn.UI
             public string Last;    // что показано сейчас — чтобы не трогать зря
         }
 
-        public LvnUiLayer(VisualElement host,
+        public LvnUiLayer(VisualElement hudHost, VisualElement overHost,
                           Func<IReadOnlyDictionary<string, JToken>> vars,
                           Action<string> goTo,
                           Func<VisualElement, string, System.Threading.Tasks.Task> loadImage = null)
         {
-            _root = new VisualElement { name = "lvn-ui", pickingMode = PickingMode.Ignore };
-            _root.style.position = Position.Absolute;
-            _root.style.left = 0; _root.style.right = 0; _root.style.top = 0; _root.style.bottom = 0;
-            host.Add(_root);
+            _hud = Fill("lvn-ui", hudHost);
+            _over = overHost == null || ReferenceEquals(overHost, hudHost) ? _hud : Fill("lvn-ui-over", overHost);
             _vars = vars;
             _varOf = null;
             _goTo = goTo;
@@ -71,7 +77,24 @@ namespace Lvn.UI
             // миллисекунд — быстрее, чем глаз замечает у полосы с четвертью
             // секунды анимации, и дешевле: пересчитываются только привязки,
             // и только изменившиеся доходят до стиля.
-            _root.schedule.Execute(Refresh).Every(60);
+            _hud.schedule.Execute(Refresh).Every(60);
+
+            // Отклик на нажатие — тот же, что у кнопок оболочки: сквош с
+            // пружиной. Без него кнопка дерева выглядит мёртвой — палец не
+            // получает подтверждения, и человек жмёт второй раз.
+            LvnMotion.EnableTapFeedback(_hud);
+            if (!ReferenceEquals(_over, _hud)) LvnMotion.EnableTapFeedback(_over);
+        }
+
+        // Прозрачный для касаний холст во всю ширину хозяина: клик сквозь
+        // пустое место должен доставаться сцене, как доставался до `ui`.
+        private static VisualElement Fill(string name, VisualElement host)
+        {
+            var el = new VisualElement { name = name, pickingMode = PickingMode.Ignore };
+            el.style.position = Position.Absolute;
+            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
+            host.Add(el);
+            return el;
         }
 
         /// <summary>Показать/заменить дерево.</summary>
@@ -84,8 +107,8 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(action))
             {
                 if (!_trees.TryGetValue(id, out var t)) return;
-                if (action == "hide") t.Root.style.display = DisplayStyle.None;
-                else if (action == "show") t.Root.style.display = DisplayStyle.Flex;
+                if (action == "hide") { t.Manual = true; t.Root.style.display = DisplayStyle.None; }
+                else if (action == "show") { t.Manual = false; ApplyStageTo(t); }
                 else if (action == "drop") { t.Root.RemoveFromHierarchy(); _trees.Remove(id); }
                 return;
             }
@@ -103,11 +126,78 @@ namespace Lvn.UI
                 _trees.Remove(id);
             }
 
-            var tree = new Tree { Spec = (JObject)spec.DeepClone() };
+            var tree = new Tree
+            {
+                Spec = (JObject)spec.DeepClone(),
+                Layer = (string)cmd["layer"] ?? "hud",
+                When = (string)cmd["when"] ?? "always",
+                Appear = LvnAppear.Parse((string)cmd["appear"]),
+            };
             tree.Root = BuildNode(spec, tree);
-            _root.Add(tree.Root);
+
+            // block: слой ловит касание мимо кнопок. Без него тап по пустому
+            // месту меню листает историю за его спиной — экран отвечает не на
+            // то, куда смотрит игрок.
+            if (Truthy(cmd["block"]))
+            {
+                tree.Root.pickingMode = PickingMode.Position;
+                tree.Root.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+                tree.Root.RegisterCallback<PointerUpEvent>(e => e.StopPropagation());
+            }
+
+            (tree.Layer == "over" ? _over : _hud).Add(tree.Root);
             _trees[id] = tree;
+            ApplyStageTo(tree);
             RefreshTree(tree, force: true);
+        }
+
+        // ── СТАДИЯ ИГРЫ ─────────────────────────────────────────────────────
+        // Дерево не обязано висеть всегда. Боевой интерфейс не нужен, пока идёт
+        // реплика; подсказка нужна ТОЛЬКО пока идёт реплика. Раньше автор мог
+        // лишь звать `ui X hide` руками в каждой ветке — и одну неизбежно
+        // забывал, отчего интерфейс оставался поверх разговора.
+        private bool _sayUp, _choiceUp;
+        private float _dialogueHeight;
+
+        /// <summary>Движок сообщает, что сейчас на экране. Слой сам решает,
+        /// каким деревьям быть видимыми и насколько поджаться снизу.</summary>
+        public void SetStage(bool sayVisible, bool choiceVisible, float dialogueHeight)
+        {
+            bool changed = _sayUp != sayVisible || _choiceUp != choiceVisible
+                        || !Mathf.Approximately(_dialogueHeight, dialogueHeight);
+            _sayUp = sayVisible; _choiceUp = choiceVisible; _dialogueHeight = dialogueHeight;
+            if (!changed) return;
+
+            // Нижний этаж поджимается на высоту окна реплики: `at=bottom` тогда
+            // означает «над диалогом», а не «под ним». Без этого автор вручную
+            // подбирал отступ, и он разъезжался на первом же длинном имени.
+            _hud.style.bottom = dialogueHeight;
+            foreach (var kv in _trees) ApplyStageTo(kv.Value);
+        }
+
+        private void ApplyStageTo(Tree t)
+        {
+            if (t?.Root == null) return;
+            if (t.Manual) { t.Root.style.display = DisplayStyle.None; return; }
+            bool show;
+            switch (t.When)
+            {
+                case "idle":   show = !_sayUp && !_choiceUp; break;
+                case "say":    show = _sayUp; break;
+                case "choice": show = _choiceUp; break;
+                default:       show = true; break;
+            }
+            t.Root.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show) Appear(t.Root, t.Appear);
+        }
+
+        // Появление — из общего набора движка (LvnAppear), а не своя анимация
+        // здесь. Если у каждого слоя своё движение, экран выглядит собранным из
+        // чужих кусков.
+        private static void Appear(VisualElement el, LvnAppearKind kind)
+        {
+            if (kind == LvnAppearKind.None) kind = LvnAppearKind.Rise;
+            LvnAppear.Play(el, kind, appearing: true);
         }
 
         /// <summary>Убрать всё — смена главы.</summary>
@@ -116,6 +206,8 @@ namespace Lvn.UI
             foreach (var kv in _trees) kv.Value.Root.RemoveFromHierarchy();
             _trees.Clear();
         }
+
+        private static bool Truthy(JToken t) => t != null && Truthy(t.ToString());
 
         // ── построение ──────────────────────────────────────────────────────
 
@@ -133,8 +225,20 @@ namespace Lvn.UI
                     // на нажатие (сквош и пружина), потому что отклик висит на
                     // корне и узнаёт Button по типу.
                     var b = new Button();
+                    // Долой стандартный вид кнопки UI Toolkit: он приносит свои
+                    // поля, рамку и СИНЮЮ ОБВОДКУ ФОКУСА — на телефоне она
+                    // появляется после нажатия и висит, читаясь как «выделено»,
+                    // хотя выделения в игре нет вовсе.
+                    b.RemoveFromClassList(Button.ussClassName);
+                    b.focusable = false;
+                    b.style.marginLeft = 0; b.style.marginRight = 0;
+                    b.style.marginTop = 0; b.style.marginBottom = 0;
+                    b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;
+                    b.style.borderTopWidth = 0;
+                    b.style.unityTextAlign = TextAnchor.MiddleCenter;
                     var target = (string)n["on_click"];
                     if (!string.IsNullOrEmpty(target)) b.clicked += () => _goTo?.Invoke(target);
+                    PressDepth(b, Num(n["radius"], 0));
                     el = b;
                     break;
                 case "bar":
@@ -164,6 +268,12 @@ namespace Lvn.UI
             }
             el.name = (string)n["id"] ?? kind;
 
+            // Узел может выйти на экран по-своему: `appear=drop` у награды,
+            // `appear=unfold` у раскрывающегося списка.
+            var nodeAppear = LvnAppear.Parse((string)n["appear"]);
+            if (nodeAppear != LvnAppearKind.None)
+                el.schedule.Execute(() => LvnAppear.Play(el, nodeAppear, true)).StartingIn(1);
+
             ApplyLayout(el, n);
             ApplyLook(el, n, tree);
 
@@ -176,7 +286,7 @@ namespace Lvn.UI
                 // z — порядок наложения. UI Toolkit его не знает, зато знает
                 // порядок детей: сортируем сами, устойчиво.
                 list.Sort((a, c) => Num(a["z"], 0).CompareTo(Num(c["z"], 0)));
-                float gap = Len(n["gap"], out var gapUnit);
+                float gap = Step(n["gap"], out var gapUnit);
                 for (int i = 0; i < list.Count; i++)
                 {
                     var child = BuildNode(list[i], tree);
@@ -192,6 +302,66 @@ namespace Lvn.UI
                 }
             }
             return el;
+        }
+
+        /// <summary>
+        /// ГЛУБИНА НАЖАТИЯ. У кнопки есть толщина — тёмная нижняя грань; под
+        /// пальцем кнопка проседает ровно на неё и светлеет.
+        ///
+        /// <para>Грань, а не тень: теней в UI Toolkit нет вовсе. Зато толщина
+        /// читается даже лучше — палец видит, что вдавил предмет, а не что
+        /// мигнул цвет.</para>
+        ///
+        /// <para>Подсветка — плёнка поверх, а не подмена цвета фона: у `bg`
+        /// может быть живая привязка, и следующая же сверка вернула бы прежний
+        /// цвет прямо под пальцем.</para>
+        /// </summary>
+        private static void PressDepth(VisualElement el, float radius)
+        {
+            float lift = LvnTokens.ButtonLift;
+            var shade = LvnTokens.ButtonShade;
+            if (lift > 0f)
+            {
+                el.style.borderBottomWidth = lift;
+                el.style.borderBottomColor = shade;
+                el.style.marginBottom = 0;
+            }
+
+            var veil = new VisualElement { pickingMode = PickingMode.Ignore };
+            veil.style.position = Position.Absolute;
+            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            veil.style.backgroundColor = new Color(1f, 1f, 1f, 0f);
+            if (radius > 0f)
+            {
+                veil.style.borderTopLeftRadius = radius; veil.style.borderTopRightRadius = radius;
+                veil.style.borderBottomLeftRadius = radius; veil.style.borderBottomRightRadius = radius;
+            }
+            el.Add(veil);
+
+            // Просадка делается СДВИГОМ, а не отступом: отступ двигает соседей
+            // по ряду, и от нажатия одной кнопки дёргается весь ряд.
+            void Press()
+            {
+                veil.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
+                if (lift > 0f)
+                {
+                    el.style.borderBottomWidth = 0;
+                    el.style.translate = new Translate(0, lift);
+                }
+            }
+            void Release()
+            {
+                veil.style.backgroundColor = new Color(1f, 1f, 1f, 0f);
+                if (lift > 0f)
+                {
+                    el.style.borderBottomWidth = lift;
+                    el.style.translate = new Translate(0, 0);
+                }
+            }
+            el.RegisterCallback<PointerDownEvent>(_ => Press());
+            el.RegisterCallback<PointerUpEvent>(_ => Release());
+            el.RegisterCallback<PointerLeaveEvent>(_ => Release());
+            el.RegisterCallback<PointerCancelEvent>(_ => Release());
         }
 
         private static VisualElement BuildBar()
@@ -232,8 +402,10 @@ namespace Lvn.UI
             if (n["shrink"] != null) s.flexShrink = Num(n["shrink"], 1);
             if (n["basis"] != null) { float v = Len(n["basis"], out var u); SetLen(x => s.flexBasis = x, v, u); }
 
-            if (n["w"] != null) { float v = Len(n["w"], out var u); SetLen(x => s.width = x, v, u); }
-            if (n["h"] != null) { float v = Len(n["h"], out var u); SetLen(x => s.height = x, v, u); }
+            // Живой размер ставит первая же сверка (см. ApplyLook) — здесь он
+            // разобрался бы в ноль и элемент моргнул бы схлопнутым.
+            if (n["w"] != null && !Live(n["w"])) { float v = Len(n["w"], out var u); SetLen(x => s.width = x, v, u); }
+            if (n["h"] != null && !Live(n["h"])) { float v = Len(n["h"], out var u); SetLen(x => s.height = x, v, u); }
 
             ApplyPad(n["pad"], v => { s.paddingLeft = v; s.paddingRight = v; s.paddingTop = v; s.paddingBottom = v; });
             ApplyPad(n["pad_x"], v => { s.paddingLeft = v; s.paddingRight = v; });
@@ -266,7 +438,7 @@ namespace Lvn.UI
         private static void ApplyPad(JToken t, Action<Length> set)
         {
             if (t == null) return;
-            float v = Len(t, out var u);
+            float v = Step(t, out var u);
             if (u == Unit.Percent) set(Length.Percent(v)); else set(v);
         }
 
@@ -303,8 +475,21 @@ namespace Lvn.UI
                 LvnChrome.Edge(el);   // тема сама решает, быть ли кромке
             }
 
-            if (n["opacity"] != null) s.opacity = Num(n["opacity"], 1f);
-            if (n["size"] != null) s.fontSize = Num(n["size"], 20);
+            // hide, ширина, высота и прозрачность — тоже живые. Без этого
+            // «кнопка видна, только если хватает золота» пришлось бы делать
+            // пересборкой всего дерева, теряя нажатие под пальцем; а поле
+            // `hide` компилятор принимал и рантайм не читал вовсе — молча.
+            if (n["hide"] != null) Bind(tree, el, "hide", n["hide"]);
+            if (n["opacity"] != null) Bind(tree, el, "opacity", n["opacity"]);
+            if (n["w"] != null && Live(n["w"])) Bind(tree, el, "w", n["w"]);
+            if (n["h"] != null && Live(n["h"])) Bind(tree, el, "h", n["h"]);
+            // Кегль ВСЕГДА из шкалы темы, даже когда автор его не назвал:
+            // иначе текст берёт умолчание панели и выходит мелким рядом с тем,
+            // что размер получил. Разнобой на одном экране заметнее, чем
+            // неудачный размер.
+            var kind = (string)n["kind"];
+            if (n["size"] != null) s.fontSize = TextSize(n["size"]);
+            else if (kind == "text" || kind == "button") s.fontSize = LvnTokens.TextBase;
             if ((string)n["weight"] == "bold") s.unityFontStyleAndWeight = FontStyle.Bold;
         }
 
@@ -358,14 +543,43 @@ namespace Lvn.UI
                 case "bg":
                     el.style.backgroundColor = Color(value, Color32Clear);
                     break;
+                case "hide":
+                    el.style.display = Truthy(value) ? DisplayStyle.None : DisplayStyle.Flex;
+                    break;
+                case "opacity":
+                    el.style.opacity = Num(value, 1f);
+                    break;
+                case "w":
+                    SetLen(v => el.style.width = v, Len(value, out var wu), wu);
+                    break;
+                case "h":
+                    SetLen(v => el.style.height = v, Len(value, out var hu), hu);
+                    break;
                 case "value":
                     // Полоса: доля 0…1 в ширину заливки. Ради этого одного и
                     // затевалось — раньше это были семнадцать веток с
                     // литеральными ширинами.
-                    if (el.childCount > 0 && float.TryParse(value,
-                            System.Globalization.NumberStyles.Float,
-                            System.Globalization.CultureInfo.InvariantCulture, out var f))
-                        el[0].style.width = Length.Percent(Mathf.Clamp01(f) * 100f);
+                    //
+                    // Заливка ЕДЕТ, а не прыгает: мгновенный скачок здоровья
+                    // читается как сбой отрисовки, и глаз не успевает связать
+                    // удар с потерей.
+                    var fv = Lvn.LvnNum.Parse((JToken)value);
+                    if (el.childCount > 0 && fv != null)
+                    {
+                        float f = fv.Value;
+                        var fill = el[0];
+                        if (fill.style.transitionProperty.keyword == StyleKeyword.Null
+                            && (fill.style.transitionDuration.value == null
+                                || fill.style.transitionDuration.value.Count == 0))
+                        {
+                            fill.style.transitionProperty = new List<StylePropertyName> { "width" };
+                            fill.style.transitionDuration =
+                                new List<TimeValue> { new TimeValue(0.22f, TimeUnit.Second) };
+                            fill.style.transitionTimingFunction =
+                                new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
+                        }
+                        fill.style.width = Length.Percent(Mathf.Clamp01(f) * 100f);
+                    }
                     break;
             }
         }
@@ -376,61 +590,88 @@ namespace Lvn.UI
 
         private enum Unit { Px, Percent }
 
+        // Длина: число или процент. САМ разбор — в общем доме (LvnNum), здесь
+        // остаётся только выбор единицы: у стилей UI Toolkit проценты и
+        // пиксели разные типы, а у координат сцены процент — просто доля.
         private static float Len(JToken t, out Unit u)
         {
             u = Unit.Px;
             if (t == null) return 0f;
-            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<float>();
             var s = t.ToString().Trim();
             if (s.EndsWith("%"))
             {
                 u = Unit.Percent;
-                float.TryParse(s.Substring(0, s.Length - 1),
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var p);
-                return p;
+                return Lvn.LvnNum.Parse(s.Substring(0, s.Length - 1), 0f);
             }
-            float.TryParse(s, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v);
-            return v;
+            return Lvn.LvnNum.Parse(t, 0f);
         }
 
         private static void SetLen(Action<StyleLength> set, float v, Unit u)
             => set(u == Unit.Percent ? Length.Percent(v) : (Length)v);
 
-        private static float Num(JToken t, float def)
+        // Есть ли в значении живая часть. Статические размеры кладём один раз
+        // в ApplyLayout — заводить на них привязку значит опрашивать зря.
+        private static bool Live(JToken t) => t != null && t.ToString().Contains("{");
+
+        private static float Len(string s, out Unit u) => Len((JToken)s, out u);
+
+        private static float Num(string s, float def) => Num((JToken)s, def);
+
+        private static bool Truthy(string s)
         {
-            if (t == null) return def;
-            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<float>();
-            return float.TryParse(t.ToString(), System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : def;
+            if (string.IsNullOrEmpty(s)) return false;
+            s = s.Trim().ToLowerInvariant();
+            if (s == "0" || s == "false" || s == "off" || s == "no" || s == "нет" || s == "") return false;
+            return true;
         }
+
+        // Кегль по ИМЕНИ ступени, а не числом: одинаковые вещи на разных
+        // экранах обязаны быть одного размера. Число тоже принимается — но
+        // тогда за разнобой отвечает автор, а не тема.
+        private static float TextSize(JToken t)
+        {
+            switch (t?.ToString())
+            {
+                case "xs": return LvnTokens.TextXs;
+                case "sm": return LvnTokens.TextSm;
+                case "base": return LvnTokens.TextBase;
+                case "lg": return LvnTokens.TextLg;
+                case "xl": return LvnTokens.TextXl;
+                case "display": return LvnTokens.TextDisplay;
+            }
+            return Num(t, LvnTokens.TextBase);
+        }
+
+        // Отступ по ступени шкалы: pad=3 — это Space3 темы, а не «три пикселя».
+        // Проценты и пиксели по-прежнему работают, ступень выбирается только
+        // для целых 1…6 — их писать удобнее всего, и они самые частые.
+        private static float Step(JToken t, out Unit unit)
+        {
+            unit = Unit.Px;
+            var raw = t?.ToString();
+            switch (raw)
+            {
+                case "1": return LvnTokens.Space1;
+                case "2": return LvnTokens.Space2;
+                case "3": return LvnTokens.Space3;
+                case "4": return LvnTokens.Space4;
+                case "5": return LvnTokens.Space5;
+                case "6": return LvnTokens.Space6;
+            }
+            return Len(t, out unit);
+        }
+
+        private static float Num(JToken t, float def) => Lvn.LvnNum.Parse(t, def);
 
         private static Color Color(JToken t, Color def) => Color(t?.ToString(), def);
 
         /// <summary>Цвет из литерала или ИЗ ТОКЕНА ТЕМЫ. Токены важнее
         /// удобства: иначе игровой интерфейс останется единственным местом,
         /// живущим своей палитрой, и смена темы его не тронет.</summary>
-        private static Color Color(string s, Color def)
-        {
-            if (string.IsNullOrEmpty(s)) return def;
-            switch (s)
-            {
-                case "bg": return LvnTokens.Bg;
-                case "surface": return LvnTokens.Surface;
-                case "surface_hi": return LvnTokens.SurfaceHi;
-                case "panel": return LvnTokens.PanelBg;
-                case "text": return LvnTokens.Text;
-                case "dim": return LvnTokens.TextDim;
-                case "accent": return LvnTokens.Accent;
-                case "on_accent": return LvnTokens.OnAccent;
-                case "gold": return LvnTokens.Gold;
-                case "warn": return LvnTheme.Current.Warn;
-                case "border": return LvnTokens.Border;
-                case "clear": return Color32Clear;
-            }
-            return UnityEngine.ColorUtility.TryParseHtmlString(s, out var c) ? c : def;
-        }
+        // Цвет — из общего дома (UiColor.Token): имена токенов темы плюс hex.
+        // Своя копия здесь и была тем, из-за чего один и тот же `accent` мог
+        // означать разное в разных слоях.
+        private static Color Color(string s, Color def) => UiColor.Token(s, def);
 
         private static LvnIcon IconByName(string name)
         {

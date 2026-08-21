@@ -38,7 +38,7 @@ namespace Lvn.UI
         /// the host mirrors it onto its own HUD.</summary>
         public event Action<bool> ChromeHiddenChanged;
 
-        private void SetChromeHidden(bool hidden)
+        internal void SetChromeHidden(bool hidden)
         {
             if (_chromeHidden == hidden) return;
             _chromeHidden = hidden;
@@ -47,6 +47,11 @@ namespace Lvn.UI
             if (_choices != null) _choices.style.visibility = vis;
             if (_labelLayer != null) _labelLayer.style.visibility = vis;
             if (_menu != null) _menu.style.visibility = vis;
+            // Слой `ui` — такая же часть интерфейса: в катсцене не должно
+            // остаться ни кнопок, ни полос, иначе кадр не «кино», а игра с
+            // пропавшим диалогом.
+            if (_uiHudHost != null) _uiHudHost.style.visibility = vis;
+            if (_uiOverHost != null) _uiOverHost.style.visibility = vis;
             ChromeHiddenChanged?.Invoke(hidden);
         }
 

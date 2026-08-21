@@ -180,6 +180,11 @@ func toLvnsRaw(doc *articy.Doc) []byte {
 					}
 				}
 			}
+		case "ui":
+			// Дерево интерфейса — вложенный блок, а не плоские поля.
+			for _, l := range uiLines(c) {
+				line(l)
+			}
 		default:
 			line(otherOpLine(op, c))
 		}
@@ -849,6 +854,107 @@ func textLine(c articy.Cmd) string {
 func bareNumber(v any) string {
 	if s, ok := v.(string); ok {
 		return strings.TrimSpace(s)
+	}
+	return literal(v)
+}
+
+// ── `ui`: дерево обратно в текст ────────────────────────────────────────────
+//
+// Круговой прогон (текст → команды → текст) — страж, а не удобство: без него
+// правка новеллы в панели молча теряет всё, чего декомпилятор не умеет
+// печатать. Дерево `ui` пришлось учить печатать целиком, включая вложенность,
+// иначе первое же сохранение в редакторе стирало бы весь игровой интерфейс.
+
+// uiLines печатает команду `ui` — короткую форму или блок с деревом.
+func uiLines(c articy.Cmd) []string {
+	id := str(c["id"])
+	if id == "" {
+		return []string{genericOp("ui", c)}
+	}
+	head := "ui " + id
+	if a := str(c["action"]); a != "" {
+		return []string{head + " " + a}
+	}
+	// Поля самой команды идут в заголовок, в устойчивом порядке.
+	for _, k := range []string{"layer", "when", "appear", "block"} {
+		if v, ok := c[k]; ok && v != nil {
+			head += " " + k + "=" + uiVal(v)
+		}
+	}
+	tree, ok := toMap(c["tree"])
+	if !ok {
+		return []string{head}
+	}
+	out := []string{head + " {"}
+	for _, l := range uiNodeLines(tree, 1) {
+		out = append(out, l)
+	}
+	return append(out, "}")
+}
+
+// uiNodeLines печатает один узел с детьми. depth — только отступ.
+func uiNodeLines(n map[string]any, depth int) []string {
+	pad := strings.Repeat("  ", depth)
+	kind := str(n["kind"])
+	if kind == "" {
+		kind = "panel"
+	}
+	// row/column — сахар над panel: возвращаем сахар, а не разжёванное.
+	skipDir := false
+	if kind == "panel" {
+		if d := str(n["dir"]); d == "row" || d == "column" {
+			kind, skipDir = d, true
+		}
+	}
+	head := pad + kind
+	if t, ok := n["text"].(string); ok && t != "" {
+		head += " «" + oneLine(t) + "»"
+	}
+
+	keys := make([]string, 0, len(n))
+	for k := range n {
+		switch k {
+		case "kind", "text", "children":
+		case "dir":
+			if !skipDir {
+				keys = append(keys, k)
+			}
+		default:
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if v := n[k]; v != nil {
+			head += " " + k + "=" + uiVal(v)
+		}
+	}
+
+	kids := asList(n["children"])
+	if len(kids) == 0 {
+		return []string{head}
+	}
+	out := []string{head + " {"}
+	for _, k := range kids {
+		if kn, ok := toMap(k); ok {
+			out = append(out, uiNodeLines(kn, depth+1)...)
+		}
+	}
+	return append(out, pad+"}")
+}
+
+// uiVal печатает значение поля. Кавычки — только когда без них значение
+// разобралось бы иначе: пробел внутри оборвал бы поле на полуслове.
+func uiVal(v any) string {
+	// Строку без пробелов и кавычек пишем голой: `at=bottom` читается, а
+	// `at="bottom"` — уже нет. Всё остальное — через общий literal, включая
+	// целые: компилятор кладёт их как int64, и своя ветка «на float64»
+	// молча превращала бы каждый размер в пустую строку.
+	if t, ok := v.(string); ok {
+		if t == "" || strings.ContainsAny(t, " \t\"'{}«»") {
+			return quote(t)
+		}
+		return t
 	}
 	return literal(v)
 }

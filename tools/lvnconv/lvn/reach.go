@@ -274,9 +274,10 @@ func (w *walker) run(pc, budget int) {
 			pc++
 			continue
 
-		case "obj", "actor":
+		case "obj", "actor", "ui":
 			// Кликабельные и перетаскиваемые объекты — тоже развилки: точка
 			// входа в ветку, про которую в тексте новеллы ничего не сказано.
+			// То же и кнопки внутри дерева `ui`, только лежат они на глубине.
 			for _, target := range hotspotTargets(c) {
 				w.branch(target, budget)
 			}
@@ -373,6 +374,13 @@ func hotspotTargets(c Cmd) []string {
 	case map[string]any:
 		out = append(out, Cmd(v).Str("goto"))
 	}
+	// Кнопки внутри дерева `ui` уводят так же, как объекты сцены, только
+	// лежат на глубине. Не заглянув туда, обход объявил бы каждую метку,
+	// достижимую лишь нажатием, мёртвой — и весь смысл проверки пропал бы:
+	// автор перестал бы верить предупреждениям.
+	if tree, ok := c["tree"].(map[string]any); ok {
+		out = append(out, uiClickTargets(tree)...)
+	}
 	if raw := c.Str("on_drop"); raw != "" {
 		for _, pair := range strings.FieldsFunc(raw, func(r rune) bool { return r == ' ' || r == ',' }) {
 			if k := strings.Index(pair, ":"); k > 0 && k < len(pair)-1 {
@@ -411,4 +419,20 @@ func trimTo(s string, n int) string {
 		return string(runes[:n]) + "…"
 	}
 	return s
+}
+
+// uiClickTargets обходит дерево `ui` и собирает все on_click.
+func uiClickTargets(node map[string]any) []string {
+	var out []string
+	if s, ok := node["on_click"].(string); ok && s != "" {
+		out = append(out, s)
+	}
+	if kids, ok := node["children"].([]any); ok {
+		for _, k := range kids {
+			if m, ok := k.(map[string]any); ok {
+				out = append(out, uiClickTargets(m)...)
+			}
+		}
+	}
+	return out
 }
