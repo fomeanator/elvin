@@ -19,6 +19,7 @@ Shader "Hidden/LvnSpriteFx"
         [HideInInspector] _AuraSize ("Aura Size", Float) = 1
         [HideInInspector] _AuraSpeed ("Aura Speed", Float) = 1
         [HideInInspector] _AuraDensity ("Aura Density", Float) = 1
+        [HideInInspector] _Fade ("Composite Fade", Float) = 1
     }
     SubShader
     {
@@ -44,6 +45,7 @@ Shader "Hidden/LvnSpriteFx"
             sampler2D _MainTex;
             float4 _MainTex_TexelSize;
             fixed4 _Color;
+            float _Fade;   // 1 = виден целиком, 0 = исчез (композитное гашение)
             float _Outline, _Glow, _Dissolve, _Flash, _Dark, _TintFx,
                   _Ghost, _Petrify, _Hologram, _Burn, _Rim, _Shake,
                   _Aura, _Blade, _Lightning, _Runes, _ScopedPart, _AuraStyle,
@@ -81,6 +83,27 @@ Shader "Hidden/LvnSpriteFx"
                             lerp(hash21(cell + float2(0, 1)), hash21(cell + 1.0), f.x), f.y);
             }
 
+            // ПОРОГ ГАШЕНИЯ В ЭКРАННЫХ КООРДИНАТАХ — суть композитного фейда.
+            //
+            // Прозрачность у составного героя нельзя гасить альфой каждого слоя:
+            // на середине перехода полупрозрачная одежда начинает пропускать
+            // тело, и это читается как «одежда исчезла раньше тела». Причина не
+            // в скорости, а в самом альфа-смешении: два полупрозрачных слоя друг
+            // над другом дают не то же, что один полупрозрачный композит.
+            //
+            // Лечение — решать судьбу ПИКСЕЛЯ ЭКРАНА, а не пикселя слоя: в одной
+            // точке экрана все слои героя берут один и тот же порог и исчезают
+            // разом. Тогда рентгену взяться неоткуда, и темнить ничего не нужно.
+            //
+            // Порог — упорядоченная сетка 2×2 с джиттером внутри своей четверти:
+            // ровное распределение без «песка» белого шума и без читаемой сетки.
+            float lvnFadeThreshold(float2 px)
+            {
+                float2 q = floor(fmod(px, 2.0));
+                float base = (q.x + 2.0 * q.y) * 0.25;
+                return base + hash21(floor(px * 0.5)) * 0.25;
+            }
+
             float uvMask(float2 p)
             {
                 return step(0.0, p.x) * step(p.x, 1.0)
@@ -110,6 +133,21 @@ Shader "Hidden/LvnSpriteFx"
 
             fixed4 frag(v2f i) : SV_Target
             {
+                // КОМПОЗИТНОЕ ГАШЕНИЕ — до всего остального: исчезнувший пиксель
+                // не должен ни светиться обводкой, ни писать силуэт в stencil.
+                //
+                // Мягкая полоса шириной 0.22 сглаживает границу: часть пикселей
+                // на ней получает промежуточную альфу, и переход не выглядит
+                // осыпанием песка. Полоса узкая нарочно — именно в ней слои
+                // снова смешиваются по-старому, и чем она уже, тем меньше от
+                // рентгена остаётся.
+                if (_Fade < 0.999)
+                {
+                    float k = saturate((_Fade - lvnFadeThreshold(i.pos.xy)) / 0.22 + 0.5);
+                    if (k <= 0.004) discard;
+                    i.color.a *= k;
+                }
+
                 // Wide halo copies enlarge their geometry while this inverse
                 // UV mapping keeps the source sprite at its original size.
                 // The extra border then becomes real canvas for smoke/tendrils
@@ -146,9 +184,12 @@ Shader "Hidden/LvnSpriteFx"
                 }
 
                 // Растворение: шумовая маска съедает спрайт, кромка светится.
+                // Шум берётся от ЭКРАННОЙ точки, а не от UV слоя: иначе тело и
+                // одежда распадаются по разным сеткам, дыры не совпадают и
+                // сквозь одежду видно тело — та же болезнь, что у альфа-фейда.
                 if (_Dissolve > 0.001)
                 {
-                    float n = hash21(floor(uv * 220.0));
+                    float n = hash21(floor(i.pos.xy * 0.34));
                     float edge = _Dissolve * 1.06;
                     if (n < edge)
                     {
