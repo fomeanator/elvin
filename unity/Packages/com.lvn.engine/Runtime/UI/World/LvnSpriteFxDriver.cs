@@ -45,6 +45,9 @@ namespace Lvn.UI.World
             public Image Halo;
         }
 
+        // ГАШЕНИЕ ЦЕЛИКОМ: 1 — виден, 0 — исчез. Отдельно от прочих эффектов и
+        // с обратным нулём: у остальных 0 значит «выключено», у этого — «пусто».
+        private float _fade = 1f, _tFade = 1f;
         private float _outline, _glow, _dissolve, _flash, _dark, _tintFx,
                       _ghost, _petrify, _hologram, _burn, _rim, _shake,
                       _aura, _blade, _lightning, _runes;   // текущие
@@ -103,6 +106,26 @@ namespace Lvn.UI.World
             d.ApplyCmd(cmd);
         }
 
+        /// <summary>
+        /// Гашение героя целиком: 1 — виден, 0 — исчез. Отдельный вход, потому
+        /// что это не эффект сцены, а служебная величина перехода: у неё
+        /// обратный ноль (у остальных 0 значит «выключено»), и ведёт её движок,
+        /// а не автор. Значение 1 снимает материал, если больше ничего не
+        /// включено, — исчезнувшая надобность не должна оставлять за собой
+        /// лишний материал на каждом слое.
+        /// </summary>
+        public static void SetFade(GameObject actorGo, float k)
+        {
+            if (actorGo == null) return;
+            var d = actorGo.GetComponent<LvnSpriteFxDriver>();
+            if (d == null)
+            {
+                if (k >= 0.999f) return;   // нечего гасить — и незачем заводить драйвер
+                d = actorGo.AddComponent<LvnSpriteFxDriver>();
+            }
+            d.ApplyCmd(new JObject { ["fade"] = k, ["dur"] = 0f });
+        }
+
         private static GameObject FindPart(GameObject actorGo, string part)
         {
             var wanted = "layer:" + part;
@@ -119,18 +142,21 @@ namespace Lvn.UI.World
                 _tOutline = _tGlow = _tDissolve = _tFlash = _tDark = _tTintFx =
                     _tGhost = _tPetrify = _tHologram = _tBurn = _tRim = _tShake =
                     _tAura = _tBlade = _tLightning = _tRunes = 0f;
+                _tFade = 1f;
                 _speed = F(cmd, "dur", 0f) > 0f ? 1f / (float)cmd["dur"] : 0f;
                 if (_speed <= 0f)
                 {
                     _outline = _glow = _dissolve = _flash = _dark = _tintFx =
                         _ghost = _petrify = _hologram = _burn = _rim = _shake =
                         _aura = _blade = _lightning = _runes = 0f;
+                    _fade = 1f;
                     Unskin();
                 }
                 enabled = true;
                 return;
             }
 
+            _tFade     = F(cmd, "fade", _tFade);
             _tOutline  = F(cmd, "outline", _tOutline);
             _tGlow     = F(cmd, "glow", _tGlow);
             _tDissolve = F(cmd, "dissolve", _tDissolve);
@@ -476,6 +502,7 @@ namespace Lvn.UI.World
             if (_speed > 0f)
             {
                 float k = Time.unscaledDeltaTime * _speed;
+                _fade = Mathf.MoveTowards(_fade, _tFade, k);
                 _outline = Mathf.MoveTowards(_outline, _tOutline, k);
                 _glow = Mathf.MoveTowards(_glow, _tGlow, k);
                 _dissolve = Mathf.MoveTowards(_dissolve, _tDissolve, k);
@@ -493,7 +520,8 @@ namespace Lvn.UI.World
                 _lightning = Mathf.MoveTowards(_lightning, _tLightning, k);
                 _runes = Mathf.MoveTowards(_runes, _tRunes, k);
             }
-            bool идёт = !Mathf.Approximately(_outline, _tOutline) || !Mathf.Approximately(_glow, _tGlow)
+            bool идёт = !Mathf.Approximately(_fade, _tFade)
+                        || !Mathf.Approximately(_outline, _tOutline) || !Mathf.Approximately(_glow, _tGlow)
                         || !Mathf.Approximately(_dissolve, _tDissolve) || !Mathf.Approximately(_flash, _tFlash)
                         || !Mathf.Approximately(_dark, _tDark) || !Mathf.Approximately(_tintFx, _tTintFx)
                         || !Mathf.Approximately(_ghost, _tGhost) || !Mathf.Approximately(_petrify, _tPetrify)
@@ -507,7 +535,8 @@ namespace Lvn.UI.World
             if (!идёт)
             {
                 // дошли до целей; полностью нулевые — вернуть дефолтный материал
-                if (_outline <= 0f && _glow <= 0f && _dissolve <= 0f && _flash <= 0f &&
+                if (_fade >= 0.999f &&
+                    _outline <= 0f && _glow <= 0f && _dissolve <= 0f && _flash <= 0f &&
                     _dark <= 0f && _tintFx <= 0f && _ghost <= 0f && _petrify <= 0f &&
                     _hologram <= 0f && _burn <= 0f && _rim <= 0f && _shake <= 0f &&
                     _aura <= 0f && _blade <= 0f && _lightning <= 0f && _runes <= 0f &&
@@ -527,6 +556,9 @@ namespace Lvn.UI.World
             bool splitExterior = _compositeHalo;
             mat.SetFloat("_Outline", haloOnly ? _outline : splitExterior ? 0f : _outline);
             mat.SetFloat("_Glow", haloOnly ? _glow : splitExterior ? 0f : _glow);
+            // Гашение — ВСЕМ проходам, включая ореол и маску силуэта: иначе
+            // исчезающий герой оставит на экране свою обводку.
+            mat.SetFloat("_Fade", _fade);
             mat.SetFloat("_Dissolve", haloOnly ? 0f : _dissolve);
             mat.SetFloat("_Flash", haloOnly ? 0f : _flash);
             mat.SetFloat("_Dark", haloOnly ? 0f : _dark);
@@ -578,6 +610,7 @@ namespace Lvn.UI.World
         {
             // The mask pass returns transparent colour but replaces stencil for
             // the union expanded by ~0.9% of the layer UV box.
+            mat.SetFloat("_Fade", _fade);   // гаснущий герой сужает и свой силуэт
             mat.SetFloat("_CompositeSource", 0f);
             mat.SetFloat("_CompositeOnly", 0f);
             mat.SetFloat("_StencilOnly", 1f);
