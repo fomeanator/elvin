@@ -66,14 +66,19 @@ var KnownOps = map[string]bool{
 	"camera": true, "particles": true,
 	// Мультиэффект кадра и спрайтовые эффекты актёра (Canvas-путь движка).
 	"fx": true, "sfx": true,
-	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
+	// дерево интерфейса; поля лежат ВНУТРИ tree, поэтому набор верхнего
+	// уровня открытый — закрывать его значило бы проверять дважды и разное
+	"ui": true,
+	// кадр без интерфейса: прячет реплику, выборы, метки, меню и деревья `ui`
+	"cutscene": true,
+	"audio":    true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
 	"label": true, "goto": true, "if": true,
 	// track "имя" — метка конверсии. Оп хостовый (сервисный слой), а не
 	// движковый: он шлёт событие аналитики, о которой ядро не знает.
 	"track": true,
-	"set": true, "inc": true, "hint": true,
+	"set":   true, "inc": true, "hint": true,
 	"call": true, "return": true,
 	"anim": true, // script-driven tween (lvns `anim`/`move` compile to this)
 	// wardrobe_show opens the in-story wardrobe for `char` — emitted by the
@@ -129,6 +134,8 @@ var EnumValues = map[string]map[string][]string{
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
 	"sfx":       {"aura_style": {"basic", "guard", "fire", "frost", "storm", "shadow", "holy", "space", "distortion", "spirit", "ascendant"}},
 	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
+	"ui": {"layer": {"hud", "over"}, "when": {"always", "idle", "say", "choice"},
+		"appear": {"fade", "rise", "pop", "slide_up", "slide_down", "slide_left", "slide_right", "drop", "unfold"}},
 }
 
 // bodySafeOps are the ops that survive a choice option's body: pure state plus
@@ -394,14 +401,23 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 					}
 				}
 			}
-		case "obj", "actor":
+		case "obj", "actor", "ui":
 			// A clickable hotspot jumps to a label, either directly
 			// ("on_click": "label") or via an object ("on_click": {"goto": "label"}).
+			// Кнопки внутри дерева `ui` — то же самое, только на глубине.
 			switch v := c["on_click"].(type) {
 			case string:
 				ref(i, op, v)
 			case map[string]any:
 				ref(i, op, Cmd(v).Str("goto"))
+			}
+			// Кнопки внутри дерева `ui` — такие же переходы, только на
+			// глубине. Опечатка в метке кнопки иначе прошла бы молча, а
+			// нажатие в игре не привело бы никуда.
+			if tree, ok := c["tree"].(map[string]any); ok {
+				for _, t := range uiClickTargets(tree) {
+					ref(i, op, t)
+				}
 			}
 			// Drag & drop branches jump too: on_drop is "target:label" pairs
 			// (space/comma separated — the runtime's ParseDropMap syntax),
@@ -591,6 +607,11 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 	// host, so flagging all unknowns would be noise. Only runs when the doc sets
 	// at least one var of its own.
 	setVars := collectDefinedVars(d.Script)
+	// Тело функции, которую в ЭТОМ документе никто не зовёт, — библиотека:
+	// её параметры получат значения у вызывающей главы, и здесь их `set`
+	// действительно нет. Ругаться на них значит утопить настоящие находки в
+	// шуме (`battle(бой_враг, …)` — 37 предупреждений на ровном месте).
+	uncalled := uncalledFuncBodies(d.Script)
 	if len(setVars) > 0 {
 		definedList := make([]string, 0, len(setVars))
 		for k := range setVars {
@@ -599,6 +620,9 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 		sort.Strings(definedList)
 		var checkExpr func(i int, op, expr string)
 		checkExpr = func(i int, op, expr string) {
+			if uncalled[i] {
+				return
+			}
 			for _, id := range exprIdents(expr) {
 				if setVars[id] {
 					continue
@@ -656,6 +680,36 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 
 // collectDefinedVars gathers every variable the document assigns: set/inc keys,
 // on_click set-maps, and set/inc inside choice option bodies.
+// uncalledFuncBodies отмечает индексы команд, лежащих в теле функции, которую
+// в этом документе никто не вызывает. Компилятор кладёт функцию между метками
+// `__fn_<имя>` и `__fnskip_<имя>`, а вызов — это `call __fn_<имя>`.
+func uncalledFuncBodies(script []Cmd) map[int]bool {
+	called := map[string]bool{}
+	for _, c := range script {
+		if c.Op() == "call" {
+			called[c.Str("label")] = true
+		}
+	}
+	out := map[int]bool{}
+	for i, c := range script {
+		if c.Op() != "label" {
+			continue
+		}
+		id := c.Str("id")
+		if !strings.HasPrefix(id, "__fn_") || called[id] {
+			continue
+		}
+		end := "__fnskip_" + strings.TrimPrefix(id, "__fn_")
+		for j := i + 1; j < len(script); j++ {
+			if script[j].Op() == "label" && script[j].Str("id") == end {
+				break
+			}
+			out[j] = true
+		}
+	}
+	return out
+}
+
 func collectDefinedVars(script []Cmd) map[string]bool {
 	defined := map[string]bool{}
 	var visit func(cmds []Cmd)
@@ -700,7 +754,11 @@ func collectDefinedVars(script []Cmd) map[string]bool {
 }
 
 var (
-	identRe  = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_.]*`)
+	// \p{L}, не [A-Za-z]: имена в наших новеллах кириллические, и латинский
+	// класс делал ВСЮ проверку опечаток слепой к ним. Поймано переводом дуэли
+	// на английский: семь подписей в дереве умений читали переменную, которую
+	// никто не задаёт, и валидатор молчал про это полгода.
+	identRe  = regexp.MustCompile(`[\p{L}_][\p{L}\p{N}_.]*`)
 	strLitRe = regexp.MustCompile(`"[^"]*"|'[^']*'`)
 	// keywords/operators an expression may contain that are not variables.
 	exprKeywords = map[string]bool{

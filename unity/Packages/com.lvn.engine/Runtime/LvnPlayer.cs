@@ -77,7 +77,7 @@ namespace Lvn
         {
             "bg", "bg3d", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
-            "ui",
+            "ui", "cutscene",
             "hint", "save", "clear", "fx", "sfx",
         };
 
@@ -424,13 +424,98 @@ namespace Lvn
                     StageApply(cmd);
         }
 
-        // Record an executed visual op into the replay path. Capped: a looping
-        // script must not grow the trace (and every snapshot's copy) unbounded —
-        // dropping the oldest half keeps the recent scene truthful.
+        // Record an executed visual op into the replay path. A looping script
+        // must not grow the trace (and every snapshot's copy) unbounded.
+        private const int TraceCap = 20000;
+
         private void RecordTrace(int index)
         {
             _trace.Add(index);
-            if (_trace.Count > 20000) _trace.RemoveRange(0, 10000);
+            if (_trace.Count > TraceCap) CompactTrace();
+        }
+
+        // COMPACT, don't truncate. Dropping the oldest half is what the cap used
+        // to do, and it dropped the chapter's only `bg` along with it: a long
+        // session in a loop saved and reloaded WITHOUT A BACKGROUND, silently.
+        // The soak bot caught it on duel-online, seed 11, at index 1150.
+        //
+        // What goes is only what is provably overwritten: walking backwards, a
+        // command survives if it still sets a field no later command with the
+        // same key has already set. The survivors keep their original order, so
+        // ReplayPath sees the same sequence minus steps that could never have
+        // reached the screen anyway.
+        private void CompactTrace()
+        {
+            var covered = new Dictionary<string, HashSet<string>>();
+            var keep = new List<int>(_trace.Count);
+            for (int i = _trace.Count - 1; i >= 0; i--)
+            {
+                int idx = _trace[i];
+                if (idx < 0 || idx >= _script.Count || !(_script[idx] is JObject c)) continue;
+                if (!IsReplayedOp(c)) continue;   // replay would skip it regardless
+                string key = TraceKey(c);
+                if (!covered.TryGetValue(key, out var seen))
+                {
+                    seen = new HashSet<string>();
+                    covered[key] = seen;
+                }
+                // A command carrying nothing but op/id (a bare re-show) still
+                // matters the first time its key is seen — hence firstOfKey.
+                bool firstOfKey = seen.Count == 0;
+                bool novel = false;
+                foreach (var p in c.Properties())
+                    if (p.Name != "op" && p.Name != "id" && seen.Add(p.Name)) novel = true;
+                if (novel || firstOfKey)
+                {
+                    seen.Add("");   // the key has now been seen, fields or not
+                    keep.Add(idx);
+                }
+            }
+            keep.Reverse();
+            _trace = keep;
+            // Nothing compacted away — a path of genuinely distinct commands.
+            // Fall back to the old truncation so the cap still holds.
+            if (_trace.Count > TraceCap * 3 / 4) _trace.RemoveRange(0, _trace.Count / 2);
+        }
+
+        // Will ReplayPath do anything with this command? One-shots (sfx, camera
+        // shake) and ops nobody replays are dead weight in the trace.
+        private static bool IsReplayedOp(JObject c)
+        {
+            var op = (string)c["op"];
+            if (op == "actor" || IsReapplyable(op)) return true;
+            switch (op)
+            {
+                case "fade": case "dim": case "tint": case "blur": case "particles":
+                    return true;
+                case "camera":
+                    var act = (string)c["action"];
+                    return act == "zoom" || act == "pan" || act == "reset";
+                case "audio":
+                    return ((string)c["channel"] ?? "sfx") != "sfx";
+            }
+            return false;
+        }
+
+        // What this command competes for. Same key = later command's fields win;
+        // the keys mirror ReplayPath's own collapse exactly, or compaction would
+        // throw away something replay still needed.
+        private static string TraceKey(JObject c)
+        {
+            var op = (string)c["op"] ?? "";
+            switch (op)
+            {
+                case "bg": return "bg";
+                case "particles": return "particles:" + ((string)c["type"] ?? "");
+                case "camera": return "camera:" + ((string)c["action"] ?? "");
+                case "audio": return "audio:" + ((string)c["channel"] ?? "sfx");
+                case "fade": case "dim": case "tint": case "blur": return op;
+                case "anim":
+                    // An animation is identified by what it moves, not by a name.
+                    return "anim:" + ((string)c["id"] ?? (string)c["target"] ?? "")
+                         + ":" + ((string)c["prop"] ?? "") + ":" + ((string)c["channel"] ?? "");
+            }
+            return op + ":" + ((string)c["id"] ?? "");
         }
 
         // An op nobody claimed: no case in the switch above, no LvnOps handler,
@@ -956,7 +1041,10 @@ namespace Lvn
         }
 
         private static bool IsReapplyable(string op) =>
-            op == "bg" || op == "obj" || op == "anim" || op == "text"; // actor collapses per id (see ReplayVisuals)
+            // `ui` belongs here for the same reason `text` does: a tree declared
+            // before the save has to be back on screen after the load, and the
+            // path order already gives hide/show/drop their meaning.
+            op == "bg" || op == "obj" || op == "anim" || op == "text" || op == "ui"; // actor collapses per id (see ReplayVisuals)
 
         /// <summary>
         /// Re-issue the stage command for the beat currently on screen (the say
