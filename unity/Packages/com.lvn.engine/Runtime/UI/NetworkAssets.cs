@@ -94,7 +94,7 @@ namespace Lvn.UI
                 // is pristine and frame-packed atlases never risk resample skew.
                 // Потолок размера — только на телефоне: настольная машина держит
                 // исходное качество, а телефон показывает всё равно ~1080p.
-                var sprite = AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
+                var sprite = Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
                 _spriteCache[url] = sprite;
                 return sprite;
             }
@@ -152,9 +152,9 @@ namespace Lvn.UI
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
         // одинаковые правила освобождения. Копия здесь и была тем местом, где
         // «почти одинаково» однажды становится «по-разному».
-        public void Unload(string url) => AssetMemory.Forget(url, _spriteCache, _audioCache);
+        public void Unload(string url) => Lvn.Content.AssetMemory.Forget(url, _spriteCache, _audioCache);
 
-        public void UnloadAll() => AssetMemory.ForgetAll(_spriteCache, _audioCache);
+        public void UnloadAll() => Lvn.Content.AssetMemory.ForgetAll(_spriteCache, _audioCache);
 
     }
 }

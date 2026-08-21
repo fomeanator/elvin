@@ -46,6 +46,28 @@ namespace Lvn
         /// честного null. Без этого различия опечатка в имени функции молча
         /// превращалась бы в пустое значение вместо ошибки.</summary>
         public static readonly object NotHandled = new object();
+
+        /// <summary>
+        /// Добавить свои функции в выражения, НЕ ПОТЕРЯВ чужие.
+        ///
+        /// <para>Каждый сервис делал это сам: сохранял предыдущий обработчик,
+        /// строил цепочку, возвращал NotHandled дальше по ней. Приём верный, но
+        /// повторённый дословно — а забудь кто-нибудь сохранить предыдущий, и
+        /// функции соседнего сервиса тихо исчезнут из языка: выражение с ними
+        /// не упадёт, а просто перестанет что-либо значить.</para>
+        /// </summary>
+        public static void AddHostFunction(
+            System.Func<string, System.Collections.Generic.IReadOnlyList<object>, object> handler)
+        {
+            if (handler == null) return;
+            var previous = HostFunction;
+            HostFunction = (name, args) =>
+            {
+                var mine = handler(name, args);
+                if (mine != NotHandled) return mine;
+                return previous != null ? previous(name, args) : NotHandled;
+            };
+        }
         /// <summary>The random stream <c>rand()</c> / <c>chance()</c> draw from
         /// when no explicit one is passed. It is an OBJECT with a seed and a
         /// position (see <see cref="LvnRandom"/>), so a save can carry it and a

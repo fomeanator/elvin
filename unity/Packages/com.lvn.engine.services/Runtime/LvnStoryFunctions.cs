@@ -30,13 +30,9 @@ namespace Lvn.Services
         {
             if (_installed) return;
             _installed = true;
-            var previous = Lvn.LvnExpression.HostFunction;
-            Lvn.LvnExpression.HostFunction = (name, args) =>
-            {
-                var mine = Call(name, args);
-                if (mine != Lvn.LvnExpression.NotHandled) return mine;
-                return previous != null ? previous(name, args) : Lvn.LvnExpression.NotHandled;
-            };
+            // Цепочка — в LvnExpression: свои функции добавляются, чужие
+            // остаются. Своя копия этой сборки цепочки и была почти-дублем.
+            Lvn.LvnExpression.AddHostFunction(Call);
         }
 
         private static object Call(string name, IReadOnlyList<object> args)

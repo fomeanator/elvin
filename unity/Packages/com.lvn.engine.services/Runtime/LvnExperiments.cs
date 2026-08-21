@@ -164,16 +164,13 @@ namespace Lvn.Services
         {
             if (_installed) return;
             _installed = true;
-            var previous = Lvn.LvnExpression.HostFunction;
-            Lvn.LvnExpression.HostFunction = (name, args) =>
+            // Цепочка — в LvnExpression: свои функции добавляются, чужие остаются.
+            Lvn.LvnExpression.AddHostFunction((name, args) =>
             {
-                if (name == "abtest")
-                {
-                    var test = args.Count > 0 ? args[0] as string ?? args[0]?.ToString() : null;
-                    return Variant(test);
-                }
-                return previous != null ? previous(name, args) : Lvn.LvnExpression.NotHandled;
-            };
+                if (name != "abtest") return Lvn.LvnExpression.NotHandled;
+                var test = args.Count > 0 ? args[0] as string ?? args[0]?.ToString() : null;
+                return Variant(test);
+            });
         }
     }
 }

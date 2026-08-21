@@ -152,12 +152,9 @@ namespace Lvn.UI
         /// leaving engine lanes (base/blink/talk/gesture) running.</summary>
         public void StopScript()
         {
-            List<string> rm = null;
-            foreach (var k in _channels.Keys) if (k.StartsWith("script:")) (rm ??= new List<string>()).Add(k);
-            foreach (var k in new List<string>(_queue.Keys)) if (k.StartsWith("script:")) _queue.Remove(k);
-            if (rm == null) return;
-            foreach (var k in rm) _channels.Remove(k);
-            if (_channels.Count == 0) StopAll(); // else the next composite re-bakes from the survivors
+            // Правила дорожек — в AnimLanes; здесь остаётся только СВОЙ способ
+            // вернуть цели в покой, ради которого копия и существовала.
+            if (AnimLanes.DropScript(_channels, _queue)) StopAll();
         }
 
         /// <summary>Stop one lane by exact name or by the derived "script:&lt;target&gt;".</summary>

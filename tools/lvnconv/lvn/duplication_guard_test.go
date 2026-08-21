@@ -122,3 +122,109 @@ func braceBody(src string, i int) (string, bool) {
 	}
 	return "", false
 }
+
+// ПОЧТИ-ДУБЛЬ. Вторая половина стража, и она ловит то, чего не видит первая.
+//
+// `DownscaleIfOversized` жил третьей копией в загрузчике контента и отличался
+// одной строкой (не отпускал копию пикселей — «финализирует вызывающий»). Тела
+// не совпали дословно, и проверка выше промолчала, а копия оставалась копией:
+// правку в одной пришлось бы повторять в трёх местах.
+//
+// Признак: ОДИНАКОВОЕ ИМЯ плюс ПОХОЖЕЕ тело. Одного имени мало — у разных
+// классов законно бывают свои OnPointerDown и FlushAsync, и они ничего общего
+// не имеют. Похожесть считаем по доле совпавших строк.
+type dupBody struct {
+	file  string
+	lines map[string]bool
+	size  int
+}
+
+// similarity — доля строк меньшего тела, встречающихся в большем.
+func similarity(a, b dupBody) float64 {
+	small, big := a, b
+	if small.size > big.size {
+		small, big = big, small
+	}
+	if small.size == 0 {
+		return 0
+	}
+	hit := 0
+	for l := range small.lines {
+		if big.lines[l] {
+			hit++
+		}
+	}
+	return float64(hit) / float64(len(small.lines))
+}
+
+func bodyLines(body string) (map[string]bool, int) {
+	out := map[string]bool{}
+	n := 0
+	for _, l := range strings.Split(body, "\n") {
+		l = strings.TrimSpace(dupComment.ReplaceAllString(l, ""))
+		if l == "" || l == "{" || l == "}" {
+			continue
+		}
+		out[l] = true
+		n++
+	}
+	return out, n
+}
+
+func TestNoNearDuplicateMethods(t *testing.T) {
+	root := capsRepoRoot()
+	byName := map[string][]dupBody{}
+
+	for _, rel := range dupRoots {
+		dir := filepath.Join(root, rel)
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			data, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return nil
+			}
+			src := string(data)
+			for _, m := range dupSig.FindAllStringSubmatchIndex(src, -1) {
+				name := src[m[2]:m[3]]
+				body, ok := braceBody(src, m[1]-1)
+				if !ok {
+					continue
+				}
+				lines, n := bodyLines(body)
+				if n < 6 {
+					continue // короткие обёртки совпадают случайно
+				}
+				byName[name] = append(byName[name], dupBody{filepath.Base(path), lines, n})
+			}
+			return nil
+		})
+	}
+
+	var offenders []string
+	for name, bodies := range byName {
+		for i := 0; i < len(bodies); i++ {
+			for j := i + 1; j < len(bodies); j++ {
+				if bodies[i].file == bodies[j].file {
+					continue
+				}
+				if sim := similarity(bodies[i], bodies[j]); sim >= 0.75 {
+					offenders = append(offenders, fmt.Sprintf("%s — %s и %s совпадают на %.0f%%",
+						name, bodies[i].file, bodies[j].file, sim*100))
+				}
+			}
+		}
+	}
+	sort.Strings(offenders)
+
+	for _, o := range offenders {
+		t.Errorf("почти-копия: %s\n"+
+			"    Тела разошлись на строку-другую, поэтому дословная проверка молчит,\n"+
+			"    но копия остаётся копией: правку придётся вносить дважды.\n"+
+			"    Сведите в общий дом, оставив различие параметром.", o)
+	}
+}

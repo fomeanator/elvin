@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
             _field.style.height = 104;
             _field.style.fontSize = 40;
             _field.style.marginBottom = 20;
-            StyleField(_field, fieldColor, textColor);
+            LvnChrome.Field(_field, fieldColor, textColor);
             var input = _field.Q("unity-text-input");
             if (input != null) input.style.unityTextAlign = TextAnchor.MiddleCenter;
             _field.value = _cfg.default_name ?? "";
@@ -193,21 +193,6 @@ namespace Lvn.UI.Screens
             var name = PlayerNameInput.Sanitize(_field?.value, _maxLength);
             if (string.IsNullOrEmpty(name)) return;
             _tcs?.TrySetResult(name);
-        }
-
-        private static void StyleField(TextField f, Color bg, Color text)
-        {
-            f.style.color = text;
-            var input = f.Q(TextField.textInputUssName);
-            if (input != null)
-            {
-                input.style.backgroundColor = bg;
-                input.style.color = text;
-                input.style.paddingTop = 10;
-                input.style.paddingBottom = 10;
-                input.style.paddingLeft = 14;
-                input.style.paddingRight = 14;
-            }
         }
     }
 }
