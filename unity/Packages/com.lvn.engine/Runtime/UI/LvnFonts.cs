@@ -54,7 +54,7 @@ namespace Lvn.UI
         {
             if (_osKicked) return;
             _osKicked = true;
-            _ = BuildOsFallbacksAsync();
+            LvnAsync.Fire(BuildOsFallbacksAsync(), "BuildOsFallbacks");
         }
 
         private static async System.Threading.Tasks.Task BuildOsFallbacksAsync()

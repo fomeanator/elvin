@@ -209,7 +209,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
                 avatar.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-                _ = ScreenUi.AssignBgAsync(avatar, AvatarUrl, _assets);
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(avatar, AvatarUrl, _assets), "AssignBg");
             }
             card.Add(avatar);
 

@@ -83,8 +83,7 @@ namespace Lvn.UI.Screens
             Add(panel);
             // the game's dialogue-panel art (9-slice) IS the ask's frame
             if (!string.IsNullOrEmpty(_dlg?.panel_image))
-                _ = ScreenUi.AssignNineSliceAsync(panel, _dlg.panel_image, _dlg.panel_slice ?? 0, _assets);
-
+                LvnAsync.Fire(ScreenUi.AssignNineSliceAsync(panel, _dlg.panel_image, _dlg.panel_slice ?? 0, _assets), "AssignNineSlice");
             // The KR/Liminal shape: a centred column — prompt, a BIG full-width
             // field, a BIG full-width accent button. The ask is a hero moment,
             // not a settings form.
@@ -124,8 +123,8 @@ namespace Lvn.UI.Screens
             _confirm.clicked += TryConfirm;
             panel.Add(_confirm);
 
-            _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
-            _ = ScreenUi.AssignBgAsync(_hero, _cfg.hero_url, _assets);
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_hero, _cfg.hero_url, _assets), "AssignBg");
             if (!string.IsNullOrEmpty(_cfg.field_url)) _ = ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets);
             if (!string.IsNullOrEmpty(_cfg.button_url)) _ = ScreenUi.AssignBgAsync(_confirm, _cfg.button_url, _assets);
         }
@@ -154,7 +153,7 @@ namespace Lvn.UI.Screens
             _bg.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
             _hero.style.display = overlay ? DisplayStyle.None : DisplayStyle.Flex;
             if (!overlay && !string.IsNullOrEmpty(bgUrl))
-                _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(_bg, bgUrl, _assets), "AssignBg");
             _prefill = prefill;
             style.display = DisplayStyle.Flex;
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.3f, ct);

@@ -104,8 +104,7 @@ namespace Lvn.UI.Screens
             _pillsRow.style.alignItems = Align.Center;
             Add(_pillsRow);
 
-            _ = ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets);
-
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets), "AssignBg");
             // (see the height comment in the constructor)
             void FitSafeArea()
             {
@@ -211,7 +210,7 @@ namespace Lvn.UI.Screens
         {
             if (Time.realtimeSinceStartup < _nextRegenRefresh) return;
             _nextRegenRefresh = Time.realtimeSinceStartup + 15f; // avoid hammering the server at 0
-            _ = LvnWallet.RefreshAsync();
+            LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
         }
 
         private static string FormatDuration(long seconds)
@@ -253,7 +252,7 @@ namespace Lvn.UI.Screens
                 icon.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 pill.Add(icon);
-                _ = ScreenUi.AssignBgAsync(icon, iconUrl, _assets);
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, iconUrl, _assets), "AssignBg");
             }
             else
             {

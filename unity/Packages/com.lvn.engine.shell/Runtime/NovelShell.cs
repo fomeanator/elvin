@@ -323,7 +323,7 @@ namespace Lvn.UI.Screens
                 // ── play ──
                 if (playChapter != null && chapter != null)
                 {
-                    _ = Lvn.Services.LvnWallet.RefreshAsync(); // fresh pills for the HUD
+                    LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
                     if (!HudChoicesOnly) Show(Hud); // "choices" mode: the stage event shows it
                     try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }

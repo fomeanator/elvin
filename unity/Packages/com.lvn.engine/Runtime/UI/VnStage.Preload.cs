@@ -42,7 +42,7 @@ namespace Lvn.UI
                         _prefetched.Add("bg3d:" + id))
                     {
                         set3dKicked = true;
-                        _ = Warm3DSetBestEffortAsync(id);
+                        LvnAsync.Fire(Warm3DSetBestEffortAsync(id), "Warm3DSetBestEffort");
                     }
                 }
                 else if (op == "bg" || op == "actor" || op == "obj")
@@ -77,7 +77,7 @@ namespace Lvn.UI
                             if (!spineKicked && _prefetched.Add("spine:" + spineId))
                             {
                                 spineKicked = true;
-                                _ = PrefetchSpineAsync(spineId, sp);
+                                LvnAsync.Fire(PrefetchSpineAsync(spineId, sp), "PrefetchSpine");
                             }
                             continue;
                         }

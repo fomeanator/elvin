@@ -47,7 +47,7 @@ namespace Lvn.Services
                 var nameVar = (string)cmd["name_var"];
                 if (!string.IsNullOrEmpty(nameVar) && ctx.Vars.TryGetValue(nameVar, out var nv))
                     name = nv?.ToString();
-                _ = LvnLeaderboard.SubmitAsync(board, score, name);
+                LvnAsync.Fire(LvnLeaderboard.SubmitAsync(board, score, name), "Submit");
             });
 
             LvnOps.Register("daily_claim", (cmd, ctx) => _ = LvnDaily.ClaimAsync());
@@ -60,7 +60,7 @@ namespace Lvn.Services
                 var placement = (string)cmd["placement"];
                 if (string.IsNullOrEmpty(placement) || !LvnAds.Available) return;
                 ctx.Hold();
-                _ = RunAdAsync(placement, ctx);
+                LvnAsync.Fire(RunAdAsync(placement, ctx), "RunAd");
             });
 
             // ── КОМНАТА НА ДВОИХ И БОЛЬШЕ ───────────────────────────────
@@ -74,22 +74,22 @@ namespace Lvn.Services
             LvnOps.Register("net_join", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = NetJoinAsync(Arg(cmd, "code", ctx.Vars), ctx);
+                LvnAsync.Fire(NetJoinAsync(Arg(cmd, "code", ctx.Vars), ctx), "NetJoin");
             });
 
             // ext net_wait need=2 — держит, пока за стол не сядут все.
             LvnOps.Register("net_wait", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = NetWaitAsync((int)NumFrom(cmd, "need", "need_var", ctx.Vars), ctx);
+                LvnAsync.Fire(NetWaitAsync((int)NumFrom(cmd, "need", "need_var", ctx.Vars), ctx), "NetWait");
             });
 
             // ext net_put key="обмен:3" value_var=план reveal=all
             LvnOps.Register("net_put", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = NetPutAsync(Arg(cmd, "key", ctx.Vars), Packed(cmd, "value", ctx.Vars),
-                                (string)cmd["reveal"] ?? "all", ctx);
+                LvnAsync.Fire(NetPutAsync(Arg(cmd, "key", ctx.Vars), Packed(cmd, "value", ctx.Vars),
+                                (string)cmd["reveal"] ?? "all", ctx), "NetPut");
             });
 
             // ext net_get key="обмен:3" into=чужой [one=1] [wait=0]
@@ -135,7 +135,7 @@ namespace Lvn.Services
             LvnOps.Register("net_check", (cmd, ctx) =>
             {
                 ctx.Hold();
-                _ = NetCheckAsync(cmd, ctx);
+                LvnAsync.Fire(NetCheckAsync(cmd, ctx), "NetCheck");
             });
 
             LvnOps.Register("net_leave", (cmd, ctx) => LvnNetRoom.Leave());

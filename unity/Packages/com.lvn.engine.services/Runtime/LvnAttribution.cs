@@ -60,7 +60,7 @@ namespace Lvn.Services
             Remember(url);
             try { LinkOpened?.Invoke(url); }
             catch { /* атрибуция не смеет ронять игру */ }
-            _ = FlushAsync();
+            LvnAsync.Fire(FlushAsync(), "Flush");
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace Lvn.Services
         {
             if (string.IsNullOrEmpty(raw)) return;
             Remember(raw);
-            _ = FlushAsync();
+            LvnAsync.Fire(FlushAsync(), "Flush");
         }
 
         private static void Remember(string raw)

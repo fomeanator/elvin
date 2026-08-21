@@ -155,7 +155,7 @@ namespace Lvn.UI.Screens
             StyleValueButton(btn, false);
             btn.clicked += () =>
             {
-                _ = Lvn.Services.LvnWallet.RefreshAsync();
+                LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
                 btn.text = "…";
                 btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(1200);
             };
@@ -263,7 +263,7 @@ namespace Lvn.UI.Screens
                     icon.style.width = 44; icon.style.height = 44;
                     icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
                     icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                    _ = ScreenUi.AssignBgAsync(icon, s.icon, _assets);
+                    LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, s.icon, _assets), "AssignBg");
                     el = icon;
                 }
                 else

@@ -79,3 +79,50 @@ func itoa(n int) string {
 	}
 	return string(b)
 }
+
+// ФОНОВАЯ ЗАДАЧА ОБЯЗАНА БЫТЬ ПОД ПРИСМОТРОМ.
+//
+// Запись `_ = ЧтоТоAsync()` запускает работу и выбрасывает её результат вместе
+// с исключением: упавшая задача исчезает бесследно — ни строки в логе, ни следа
+// на устройстве, только симптом вроде «фон иногда не появляется». Таких мест в
+// движке было 80.
+//
+// Все переведены на Lvn.LvnAsync.Fire(task, "что делали"): он ждёт задачу в
+// стороне, отмену считает нормальным концом, а падение называет вслух. Страж
+// держит счёт на нуле.
+var fireAndForget = regexp.MustCompile(`^\s*_\s*=\s*[\w\.]+Async\s*\(`)
+
+func TestBackgroundTasksAreWatched(t *testing.T) {
+	root := capsRepoRoot()
+	var offenders []string
+
+	for _, rel := range dupRoots {
+		dir := filepath.Join(root, rel)
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			data, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return nil
+			}
+			for i, l := range strings.Split(string(data), "\n") {
+				if fireAndForget.MatchString(l) {
+					offenders = append(offenders,
+						filepath.Base(path)+":"+itoa(i+1)+"  "+strings.TrimSpace(l))
+				}
+			}
+			return nil
+		})
+	}
+	sort.Strings(offenders)
+
+	for _, o := range offenders {
+		t.Errorf("задача запущена без присмотра — %s\n"+
+			"    Упадёт — исчезнет бесследно, и останется только симптом.\n"+
+			"    Замените на Lvn.LvnAsync.Fire(задача, \"что делали\").", o)
+	}
+}

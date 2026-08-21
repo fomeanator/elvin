@@ -80,7 +80,7 @@ namespace Lvn.UI
                 // with the content (fetched into the cache, applied when ready);
                 // anything else = a Resources name baked into the build.
                 if (!string.IsNullOrEmpty(fontPath) && fontPath.StartsWith("/"))
-                    _ = ApplyContentFontAsync(el, fontPath);
+                    LvnAsync.Fire(ApplyContentFontAsync(el, fontPath), "ApplyContentFont");
                 else
                 {
                     Font font = !string.IsNullOrEmpty(fontPath) ? Resources.Load<Font>(fontPath) : Theme.Font;
@@ -358,7 +358,7 @@ namespace Lvn.UI
                     break;
                 case "input": ApplyInput(command); break; // text entry → story var
                 case "preload":
-                    _ = PreloadAssetsAsync(command);
+                    LvnAsync.Fire(PreloadAssetsAsync(command), "PreloadAssets");
                     break;
                 case "hint": ApplyHint(command); break;
                 // unknown-but-registered ops are simply not drawn.

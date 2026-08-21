@@ -161,7 +161,7 @@ namespace Lvn.Content
         {
             if (_local || LvnNetworkStatus.ForceOffline) return; // never probe a local bundle / a test kill-switch
             if (Interlocked.Exchange(ref _recovering, 1) == 1) return; // already probing
-            _ = RecoveryLoopAsync();
+            LvnAsync.Fire(RecoveryLoopAsync(), "RecoveryLoop");
         }
 
         private async Task RecoveryLoopAsync()
@@ -548,7 +548,7 @@ namespace Lvn.Content
         public void RefreshScriptInBackground(string scriptUrl, bool reloadIndex = true)
         {
             if (string.IsNullOrEmpty(scriptUrl)) return;
-            _ = RefreshScriptAsync(scriptUrl, reloadIndex);
+            LvnAsync.Fire(RefreshScriptAsync(scriptUrl, reloadIndex), "RefreshScript");
         }
 
         private async Task RefreshScriptAsync(string scriptUrl, bool reloadIndex)
