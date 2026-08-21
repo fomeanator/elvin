@@ -27,13 +27,36 @@ namespace Lvn.UI
         {
             if (_dialogue != null)
                 _dialogue.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            NotifyUiStage();
+        }
+
+        /// <summary>Сообщить слою `ui`, что сейчас на экране: идёт реплика,
+        /// показан выбор, и какой высоты окно. Слой сам решит, какие деревья
+        /// прятать и насколько поджаться снизу — иначе автор подбирал бы
+        /// отступ руками, и тот разъезжался бы на первом длинном имени.</summary>
+        private void NotifyUiStage()
+        {
+            if (_uiLayer == null) return;
+            bool say = _awaitingTap;
+            bool choice = _curChoices != null && _curChoices.Count > 0;
+            float h = 0f;
+            // Высота берётся у ВИДИМОГО окна, даже когда чтение уже кончилось:
+            // окно остаётся на экране, и нижний этаж обязан его обходить.
+            bool boxUp = _dialogue != null && _dialogue.style.display == DisplayStyle.Flex;
+            if (boxUp) h = _dialogue.resolvedStyle.height;
+            else if (choice && _choices != null) h = _choices.resolvedStyle.height;
+            _uiLayer.SetStage(say, choice, boxUp || choice ? h : 0f);
         }
 
         /// <summary>Fires when the choice list appears/disappears — the shell's
         /// reading-mode HUD listens (visible while a priced choice is up).</summary>
         public event Action<bool> ChoicesVisibleChanged;
 
-        private void OnChoicesVisibleChanged(bool visible) => ChoicesVisibleChanged?.Invoke(visible);
+        private void OnChoicesVisibleChanged(bool visible)
+        {
+            NotifyUiStage();
+            ChoicesVisibleChanged?.Invoke(visible);
+        }
 
         /// <summary>Host hook clearing a REAL (wallet-priced) option: spend
         /// <c>amount</c> of <c>currency</c>, true on success. Null → priced

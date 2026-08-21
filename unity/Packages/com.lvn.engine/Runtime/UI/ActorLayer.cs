@@ -14,6 +14,12 @@ namespace Lvn.UI
         SlideLeft,
         SlideRight,
         Pop,
+        // Всплывает из глубины и утопает обратно — общий вид движка
+        // (см. LvnAppear): телефон лежит на столе, персонаж выходит из-под
+        // стекла, а не «включается».
+        Rise,
+        Drop,
+        Unfold,
     }
 
     /// <summary>
@@ -405,35 +411,22 @@ namespace Lvn.UI
             }
         }
 
-        // Loose name key for speaker↔slot matching: lower-case, letters/digits only.
-        // A slot id ("Нина_Павловна") and a say's who ("Нина Павловна") fold to the
-        // same key, so the classic "speaker bright, rest dimmed" works without the
-        // script and the stage having to agree on an exact id spelling.
-        private static string NameKey(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return "";
-            var sb = new System.Text.StringBuilder(s.Length);
-            foreach (var c in s.ToLowerInvariant())
-                if (char.IsLetterOrDigit(c)) sb.Append(c);
-            return sb.ToString();
-        }
-
         /// <summary>Classic VN focus: the character who is speaking goes full opacity,
         /// everyone else present dims. Matches the speaker to a slot by loose name key.
         /// When the speaker isn't on stage (narration / off-screen voice) the current
         /// dim is left as-is, so prose about the scene doesn't make everyone flicker.</summary>
         public void HighlightSpeaker(string who)
         {
-            var target = NameKey(who);
+            var target = Lvn.LvnKey.Normalize(who);
             if (target == "") return;
             bool present = false;
             foreach (var kv in _slots)
-                if (!_hidden.Contains(kv.Key) && NameKey(kv.Key) == target) { present = true; break; }
+                if (!_hidden.Contains(kv.Key) && Lvn.LvnKey.Normalize(kv.Key) == target) { present = true; break; }
             if (!present) return; // speaker has no sprite on stage — keep the current focus
             foreach (var kv in _slots)
             {
                 if (_hidden.Contains(kv.Key)) continue; // nothing on screen to dim
-                SetFocus(kv.Key, kv.Value, NameKey(kv.Key) == target ? 1f : 0.7f);
+                SetFocus(kv.Key, kv.Value, Lvn.LvnKey.Normalize(kv.Key) == target ? 1f : 0.7f);
             }
         }
 
@@ -504,6 +497,26 @@ namespace Lvn.UI
                         .Ease(exiting ? Easing.InBack : Easing.OutBack), exiting, slot);
                     break;
                 }
+
+                // Виды из общего набора движка: одно имя — одно движение и у
+                // персонажа, и у панели, и у кнопки. Иначе экран собран из
+                // чужих кусков.
+                case TransitionType.Rise:
+                case TransitionType.Drop:
+                case TransitionType.Unfold:
+                {
+                    var kind = p.EnterTransition == TransitionType.Drop || exiting && p.ExitTransition == TransitionType.Drop
+                             ? LvnAppearKind.Drop
+                             : (p.EnterTransition == TransitionType.Unfold || exiting && p.ExitTransition == TransitionType.Unfold)
+                             ? LvnAppearKind.Unfold : LvnAppearKind.Rise;
+                    float target = p.Opacity;
+                    LvnAppear.Play(slot, kind, !exiting, ms, () =>
+                    {
+                        if (!exiting) { LvnAppear.Reset(slot); slot.style.opacity = target; }
+                    });
+                    if (exiting) HideAfter(slot, ms);
+                    break;
+                }
             }
         }
 
@@ -526,6 +539,20 @@ namespace Lvn.UI
                 _exitAnim.Remove(slot);
                 try { anim.Stop(); } catch { /* already finished */ }
             }
+        }
+
+        // Уход из общего набора: слот прячется, когда движение доиграло, но
+        // только если за это время его не забрал новый показ — тот же учёт
+        // токеном, что и у Finish.
+        private void HideAfter(VisualElement slot, int ms)
+        {
+            _exitToken.TryGetValue(slot, out var token);
+            slot.schedule.Execute(() =>
+            {
+                if (_exitToken.TryGetValue(slot, out var cur) && cur != token) return;
+                slot.style.display = DisplayStyle.None;
+                LvnAppear.Reset(slot);
+            }).ExecuteLater(ms + 2);
         }
 
         private void Finish(ValueAnimation<float> anim, bool exiting, VisualElement slot)

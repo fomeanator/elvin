@@ -46,8 +46,24 @@ var uiFields = map[string]bool{
 	"size": true, "weight": true, "font": true,
 	// смысл конкретных элементов
 	"id": true, "value": true, "name": true, "url": true, "on_click": true,
-	"hide": true,
+	"hide": true, "appear": true,
 }
+
+// Поля самой команды `ui`, а не элемента внутри неё.
+//
+// layer решает спор за низ экрана: боевой интерфейс обязан уходить ПОД окно
+// реплики (иначе кнопки закрывают текст — ровно это и вышло на первой живой
+// проверке), а полноэкранное меню — лежать поверх всего.
+//
+// when — при какой стадии дерево видно: always (по умолчанию), idle (пока не
+// идёт реплика и не показан выбор), say, choice. Без этого автор прятал дерево
+// вручную в каждой ветке и одну неизбежно забывал — интерфейс оставался
+// поверх разговора.
+//
+// block — про касания. Слой по умолчанию прозрачен для тапа мимо кнопок:
+// история должна продолжаться, как продолжалась. Меню — наоборот: тап по
+// пустому месту меню не должен листать историю за его спиной.
+var uiCmdFields = map[string]bool{"layer": true, "block": true, "when": true, "appear": true}
 
 // parseUiTree читает тело блока и возвращает список узлов. i указывает на
 // первую строку тела; возвращается индекс строки ПОСЛЕ закрывающей скобки.
@@ -172,9 +188,31 @@ func parseUiCommand(lines []string, srcNo []int, i int) (Cmd, int, error) {
 	case "hide", "show", "drop":
 		cmd["action"] = tail
 		return cmd, i + 1, nil
-	case "":
-	default:
-		return nil, 0, fmt.Errorf("строка %d: ui %s: непонятное %q (ждали hide/show/drop или блок)", srcNo[i], name, tail)
+	}
+	// Поля самой команды — не элемента: где лежит слой и ловит ли он касания.
+	if tail != "" {
+		attrs, err := parseKeyValue(tail)
+		if err != nil {
+			return nil, 0, fmt.Errorf("строка %d: ui %s: %w", srcNo[i], name, err)
+		}
+		for k, v := range attrs {
+			if !uiCmdFields[k] {
+				return nil, 0, fmt.Errorf("строка %d: ui %s: неизвестное поле %q (ждали hide/show/drop, layer= или block=)", srcNo[i], name, k)
+			}
+			if k == "layer" {
+				sv := fmt.Sprint(v)
+				if sv != "hud" && sv != "over" {
+					return nil, 0, fmt.Errorf("строка %d: ui %s: layer=%q — бывает hud (под окном диалога) или over (поверх всего)", srcNo[i], name, sv)
+				}
+			}
+			if k == "when" {
+				sv := fmt.Sprint(v)
+				if sv != "always" && sv != "idle" && sv != "say" && sv != "choice" {
+					return nil, 0, fmt.Errorf("строка %d: ui %s: when=%q — бывает always, idle, say или choice", srcNo[i], name, sv)
+				}
+			}
+			cmd[k] = v
+		}
 	}
 
 	i++

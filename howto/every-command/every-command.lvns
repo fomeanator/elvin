@@ -156,5 +156,15 @@ Ida: Either way, the reel is done.
 // is one `actor … show=false` per body on stage, and a bug the day somebody
 // new walks into the scene and nobody updates the list.
 clear
+
+// ─── `cutscene` takes the interface away for a frame that is pure picture ───
+// Dialogue, choices, HUD labels, quick menu and every `ui` tree go at once,
+// and the camera may push in. It is a STATE, not an effect: `off=1` puts it
+// all back and resets the camera. The same switch the long-press art view
+// uses — the author reaches it with an op, the player with a gesture.
+cutscene on=1 zoom=1.12 dur=2
+wait ms=300
+cutscene off=1
+
 The booth is empty. Only the projector is still warm.
 -> __end

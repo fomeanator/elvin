@@ -38,7 +38,9 @@
     "load",
     "wardrobe_show",
     "bg3d",
-    "track"
+    "track",
+    "ui",
+    "cutscene"
   ],
   "structural_ops": [
     "label"
@@ -254,6 +256,13 @@
       "sepia",
       "posterize",
       "letterbox",
+      "sketch",
+      "halftone",
+      "heat",
+      "ripple",
+      "dust",
+      "ink",
+      "ink_color",
       "dur",
       "off"
     ],
@@ -311,6 +320,21 @@
     ],
     "track": [
       "name"
+    ],
+    "ui": [
+      "id",
+      "action",
+      "layer",
+      "block",
+      "appear",
+      "when",
+      "tree"
+    ],
+    "cutscene": [
+      "on",
+      "off",
+      "zoom",
+      "dur"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -403,6 +427,29 @@
         "far_right",
         "offscreen_left",
         "offscreen_right"
+      ]
+    },
+    "ui": {
+      "layer": [
+        "hud",
+        "over"
+      ],
+      "when": [
+        "always",
+        "idle",
+        "say",
+        "choice"
+      ],
+      "appear": [
+        "fade",
+        "rise",
+        "pop",
+        "slide_up",
+        "slide_down",
+        "slide_left",
+        "slide_right",
+        "drop",
+        "unfold"
       ]
     }
   },

@@ -50,6 +50,7 @@ namespace Lvn
             // presentation — forwarded to ILvnStage.ApplyStage
             "bg", "bg3d", "actor", "obj", "clear", "text", "audio",
             "ui",
+            "cutscene",
             "fade", "dim", "flash", "tint", "blur",
             "camera", "particles", "anim", "text_pace", "hint", "save",
             "fx", "sfx",
