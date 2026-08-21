@@ -40,6 +40,15 @@ namespace Lvn.UI
         [Tooltip("Frosted glass under choice buttons; same scale as PanelGlass.")]
         [Range(0f, 1f)] public float ChoiceGlass = 0f;
 
+        // КАК ОКНО ПОЯВЛЯЕТСЯ И УХОДИТ. Виды из общего набора движка
+        // (LvnAppear): fade, rise, pop, drop, unfold, slide_up/down/left/right.
+        // Пусто — мгновенно, как было. Шейдера здесь быть не может: у элемента
+        // UI Toolkit нет материала, поэтому окно двигается и тает, а не горит.
+        [Tooltip("Dialogue box entrance/exit: fade|rise|pop|drop|unfold|slide_* (empty = instant).")]
+        public string BoxAppear = "rise";
+        [Tooltip("Dialogue box entrance duration, seconds.")]
+        public float BoxAppearDuration = 0.22f;
+
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
                  "instead of the bottom ADV dialogue strip.")]
         public bool Nvl = false;
@@ -106,6 +115,18 @@ namespace Lvn.UI
         [Tooltip("Multiplier on the default actor size (standard VN framing is already " +
                  "large). 1 = default; 1.2 = 20% bigger. Per-op width=/height= override.")]
         public float ActorScale = 1f;
+
+        // ПЕРЕХОД ПО УМОЛЧАНИЮ. Раньше персонаж без `enter=`/`exit=` возникал и
+        // пропадал мгновенно — а писать переход в каждой команде не станет никто,
+        // и не должен: плавность это свойство ПОСТАНОВКИ, а не отдельной реплики.
+        // Значения сняты с рыночного эталона: появление чуть быстрее ухода,
+        // потому что входящего ждёшь, а уходящего провожаешь.
+        [Tooltip("Default actor entrance when the command has no enter= (fade|rise|drop|pop|unfold|slide_*; empty = instant).")]
+        public string ActorEnter = "fade";
+        [Tooltip("Default actor exit when the command has no exit=.")]
+        public string ActorExit = "fade";
+        [Tooltip("Default actor transition duration in seconds.")]
+        public float ActorTransition = 0.35f;
         [Tooltip("Multiplier on a positioned actor's horizontal offset from centre. " +
                  "1 = default (left=0.25/right=0.75); 0.6 pulls left/right in by 10% of " +
                  "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +

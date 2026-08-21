@@ -315,6 +315,10 @@ namespace Lvn.Content
         /// SPEAKING characters fade out, narration fades them all; staging objects
         /// that never spoke are untouched).</summary>
         public string speaker_focus;
+
+        public string actor_enter;    // default entrance when a command omits enter= ("fade" by default; "" = instant)
+        public string actor_exit;     // default exit when a command omits exit=
+        public float? actor_transition; // default transition duration, seconds (0.35)
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
@@ -327,6 +331,8 @@ namespace Lvn.Content
         public string speaker_color;     // name text; default #ffd166
 
         public float? glass;             // frosted glass under the box: 0 = flat fill (default), 1 = full blur of the scene
+        public string appear;            // box entrance/exit: fade|rise|pop|drop|unfold|slide_* ("" = instant)
+        public float? appear_duration;   // seconds; default 0.22
 
         public float? body_size;         // px; default 34
         public float? speaker_size;      // px; default 24

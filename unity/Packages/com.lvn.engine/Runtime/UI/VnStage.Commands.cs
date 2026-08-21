@@ -566,6 +566,7 @@ namespace Lvn.UI
                 case "rise": case "sink": return TransitionType.Rise;
                 case "drop": return TransitionType.Drop;
                 case "unfold": return TransitionType.Unfold;
+                case "dissolve": case "burn": return TransitionType.Dissolve;
                 default: return TransitionType.None;
             }
         }

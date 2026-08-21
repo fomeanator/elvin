@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Lvn.Content;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -325,15 +326,66 @@ namespace Lvn.UI.World
             ResortSiblings();
 
             _baseOpacity[id] = p.Opacity;
-            if (_slotGroups.TryGetValue(id, out var g) && g != null) g.alpha = p.Opacity;
+            _slotGroups.TryGetValue(id, out var g);
 
-            a.gameObject.SetActive(p.Show);
+            // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
+            // эмоции идёт тем же путём `actor`, и если проявлять на каждом
+            // применении, персонаж будет мигать на каждой реплике.
+            bool wasVisible = a.gameObject.activeSelf;
+            float dur = p.TransitionDuration;
+            bool fadeIn = p.Show && !wasVisible && p.EnterTransition != TransitionType.None && dur > 0.001f;
+            bool fadeOut = !p.Show && wasVisible && p.ExitTransition != TransitionType.None && dur > 0.001f;
+
+            if (fadeIn && p.EnterTransition == TransitionType.Dissolve)
+            {
+                a.gameObject.SetActive(true);
+                if (g != null) g.alpha = p.Opacity;
+                Dissolve(a, 1f, 0f, dur);           // собирается из шума
+                LvnFade.Play(g, p.Opacity, p.Opacity, dur); // тот же таймер, альфа не трогается
+            }
+            else if (fadeOut && p.ExitTransition == TransitionType.Dissolve)
+            {
+                Dissolve(a, 0f, 1f, dur);           // сгорает
+                LvnFade.Play(g, g != null ? g.alpha : p.Opacity, g != null ? g.alpha : p.Opacity, dur,
+                    () => { if (a != null) { a.gameObject.SetActive(false); Dissolve(a, 0f, 0f, 0f); } });
+            }
+            else if (fadeIn)
+            {
+                a.gameObject.SetActive(true);
+                LvnFade.Play(g, 0f, p.Opacity, dur);
+            }
+            else if (fadeOut)
+            {
+                // Уходящий остаётся видимым, пока идёт переход, и прячется его
+                // хвостом. Спрятать сразу — значит не показать сам уход.
+                LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
+                    () => { if (a != null) a.gameObject.SetActive(false); });
+            }
+            else
+            {
+                LvnFade.Cancel(g);      // показ посреди ухода отменяет уход
+                if (g != null) g.alpha = p.Opacity;
+                a.gameObject.SetActive(p.Show);
+            }
             if (!p.Show) a.StopAll();
             // An emotion/outfit swap rebuilt the layer Images (default white) — re-tint
             // so a dimmed actor doesn't pop back to full brightness mid-line.
             if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
                 SetFocus(id, fg, focus);
             return a;
+        }
+
+        /// <summary>Шейдерное растворение спрайта: <paramref name="from"/> →
+        /// <paramref name="to"/> за <paramref name="seconds"/>. Тот же материал и
+        /// тот же параметр, что у опа <c>sfx dissolve=</c> — перехода со своей
+        /// копией эффекта не бывает: разойдутся видом.</summary>
+        private static void Dissolve(WorldActor a, float from, float to, float seconds)
+        {
+            if (a == null) return;
+            if (from != to || seconds <= 0f)
+                LvnSpriteFxDriver.Apply(a.gameObject, new JObject { ["dissolve"] = from, ["dur"] = 0f });
+            if (seconds > 0f)
+                LvnSpriteFxDriver.Apply(a.gameObject, new JObject { ["dissolve"] = to, ["dur"] = seconds });
         }
 
         // Deterministic stacking: sort by explicit z (unset = 0), birth order
