@@ -46,8 +46,19 @@ namespace Lvn.UI
             // top / centre / bottom.
             if (_theme.ChoiceYPercent >= 0f)
             {
+                // ПРОЦЕНТ ОТ ВЫСОТЫ, А НЕ ОТ ШИРИНЫ. Раньше высота стопки
+                // задавалась через paddingTop — а проценты в отступах и в CSS, и
+                // в UI Toolkit считаются от ШИРИНЫ родителя. На портретном
+                // телефоне 1080×1920 «y=56%» превращалось в 605 px, то есть в
+                // 31% высоты: выборы уезжали выше диалогового окна и налезали на
+                // него. Написано одно, получалось другое, и никто не жаловался —
+                // потому что на глаз это просто «выборы стоят не там».
+                //
+                // У top проценты берутся от ВЫСОТЫ, поэтому верх стопки надо
+                // двигать им, отпустив низ.
                 style.justifyContent = Justify.FlexStart;
-                style.paddingTop = Length.Percent(Mathf.Clamp(_theme.ChoiceYPercent, 0f, 100f));
+                style.top = Length.Percent(Mathf.Clamp(_theme.ChoiceYPercent, 0f, 100f));
+                style.bottom = StyleKeyword.Auto;
             }
             else
             {

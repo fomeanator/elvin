@@ -27,6 +27,12 @@ namespace Lvn.UI
                 if (stg.actor_scale.HasValue) t.ActorScale = stg.actor_scale.Value;
                 if (stg.actor_spread.HasValue) t.ActorSpread = stg.actor_spread.Value;
                 if (!string.IsNullOrEmpty(stg.speaker_focus)) t.SpeakerFocus = stg.speaker_focus;
+                // Пустая строка здесь ЗНАЧИМА: это «мгновенно, без перехода».
+                // Поэтому проверяем на null, а не на пустоту, — иначе новелла,
+                // сознательно отключившая плавность, не смогла бы этого сделать.
+                if (stg.actor_enter != null) t.ActorEnter = stg.actor_enter;
+                if (stg.actor_exit != null) t.ActorExit = stg.actor_exit;
+                if (stg.actor_transition.HasValue) t.ActorTransition = Mathf.Max(0f, stg.actor_transition.Value);
             }
 
             var d = ui.dialogue;
@@ -40,6 +46,8 @@ namespace Lvn.UI
                 if (d.speaker_size.HasValue) t.SpeakerFontSize = Mathf.RoundToInt(d.speaker_size.Value);
                 if (d.corner_radius.HasValue) t.PanelCornerRadius = d.corner_radius.Value;
                 if (d.glass.HasValue) t.PanelGlass = Mathf.Clamp01(d.glass.Value);
+                if (d.appear != null) t.BoxAppear = d.appear;   // "" значит «мгновенно»
+                if (d.appear_duration.HasValue) t.BoxAppearDuration = Mathf.Max(0f, d.appear_duration.Value);
 
                 if (!string.IsNullOrEmpty(d.align)) t.BoxAlign = d.align;
                 if (d.max_width_percent.HasValue) t.BoxMaxWidthPercent = d.max_width_percent.Value;

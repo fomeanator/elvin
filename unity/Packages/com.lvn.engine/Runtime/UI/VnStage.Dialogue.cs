@@ -26,7 +26,29 @@ namespace Lvn.UI
         private void SetSayVisible(bool on)
         {
             if (_dialogue != null)
-                _dialogue.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            {
+                bool wasOn = _dialogue.style.display == DisplayStyle.Flex;
+                var kind = LvnAppear.Parse(Theme?.BoxAppear);
+                int ms = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f);
+
+                if (on && !wasOn && kind != LvnAppearKind.None)
+                {
+                    _dialogue.style.display = DisplayStyle.Flex;
+                    LvnAppear.Play(_dialogue, kind, appearing: true, ms: ms);
+                }
+                else if (!on && wasOn && kind != LvnAppearKind.None)
+                {
+                    // Окно уходит СВОИМ ходом и прячется хвостом анимации: снять
+                    // его сразу значит не показать уход вовсе.
+                    LvnAppear.Play(_dialogue, kind, appearing: false, ms: Mathf.RoundToInt(ms * 0.8f),
+                        done: () => { if (_dialogue != null) _dialogue.style.display = DisplayStyle.None; });
+                }
+                else
+                {
+                    LvnAppear.Reset(_dialogue);
+                    _dialogue.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                }
+            }
             NotifyUiStage();
         }
 
