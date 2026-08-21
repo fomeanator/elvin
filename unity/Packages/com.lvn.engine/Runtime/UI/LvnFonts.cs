@@ -95,6 +95,46 @@ namespace Lvn.UI
             return f;
         }
 
+        // ── ШРИФТ ТЕМЫ ──────────────────────────────────────────────────
+        // Один вызов на корень — и всё дерево получает шрифт: unityFontDefinition
+        // наследуется вниз. Иначе шрифт пришлось бы ставить в каждом экране, и
+        // ровно один из них всегда оказывался бы забытым.
+        private static Font _default;
+        private static string _defaultPath;
+
+        /// <summary>Шрифт действующей темы (загружается один раз на путь).</summary>
+        public static Font Default
+        {
+            get
+            {
+                var path = LvnTheme.Current != null ? LvnTheme.Current.FontPath : null;
+                if (string.IsNullOrEmpty(path)) return null;
+                if (_default != null && _defaultPath == path) return _default;
+                _defaultPath = path;
+                _default = Resources.Load<Font>(path);
+                return _default;
+            }
+        }
+
+        /// <summary>Шрифт заголовков — тот же гарнитуры, но тяжёлый.</summary>
+        private static Font _display;
+        private static string _displayPath;
+        public static Font Display
+        {
+            get
+            {
+                var path = LvnTheme.Current != null ? LvnTheme.Current.FontDisplayPath : null;
+                if (string.IsNullOrEmpty(path)) return null;
+                if (_display != null && _displayPath == path) return _display;
+                _displayPath = path;
+                _display = Resources.Load<Font>(path);
+                return _display;
+            }
+        }
+
+        /// <summary>Поставить шрифт темы на корень слоя.</summary>
+        public static void ApplyDefault(VisualElement root) => Apply(root, Default);
+
         /// <summary>Apply a font to an element the modern way (SDF FontAsset via
         /// unityFontDefinition), falling back to the legacy assignment only when
         /// the wrap failed. Null font = no-op (theme/panel default applies).</summary>

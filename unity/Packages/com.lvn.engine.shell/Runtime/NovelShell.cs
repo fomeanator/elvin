@@ -106,6 +106,9 @@ namespace Lvn.UI.Screens
             // Отклик на нажатие — на КОРЕНЬ, то есть сразу на все экраны
             // оболочки. Ставить его поэкранно значит однажды забыть.
             LvnMotion.EnableTapFeedback(_root);
+            // По той же причине здесь и шрифт темы: unityFontDefinition
+            // наследуется вниз, и вся оболочка получает одну гарнитуру.
+            LvnFonts.ApplyDefault(_root);
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);

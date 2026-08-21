@@ -101,7 +101,10 @@ namespace Lvn.Tests
         {
             var t = VnThemeBuilder.From(new LvnUiConfig { dialogue = new DialogueConfig() });
             Assert.IsFalse(t.Nvl);
-            Assert.AreEqual("", t.FontResourcePath);
+            // Пустой шрифт означал системный Arial — «сделано на коленке»
+            // раньше, чем прочитан текст. Умолчание теперь — гарнитура темы,
+            // и манифест по-прежнему может её переопределить.
+            Assert.AreEqual("Fonts/Onest-Regular", t.FontResourcePath);
         }
 
         [Test]

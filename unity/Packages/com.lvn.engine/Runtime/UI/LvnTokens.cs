@@ -45,5 +45,24 @@ namespace Lvn.UI
         // зависеть от темы, а зависеть обязана.
         public static float Radius   => LvnTheme.Current.Radius;
         public static float RadiusSm => LvnTheme.Current.RadiusSm;
+
+        // Типографская шкала и шкала отступов. Здесь же, а не в каждом экране:
+        // размер — такая же часть темы, как цвет.
+        public static int TextXs      => LvnTheme.Current.TextXs;
+        public static int TextSm      => LvnTheme.Current.TextSm;
+        public static int TextBase    => LvnTheme.Current.TextBase;
+        public static int TextLg      => LvnTheme.Current.TextLg;
+        public static int TextXl      => LvnTheme.Current.TextXl;
+        public static int TextDisplay => LvnTheme.Current.TextDisplay;
+
+        public static float Space1 => LvnTheme.Current.Space1;
+        public static float Space2 => LvnTheme.Current.Space2;
+        public static float Space3 => LvnTheme.Current.Space3;
+        public static float Space4 => LvnTheme.Current.Space4;
+        public static float Space5 => LvnTheme.Current.Space5;
+        public static float Space6 => LvnTheme.Current.Space6;
+
+        public static float ButtonLift  => LvnTheme.Current.ButtonLift;
+        public static Color ButtonShade => LvnTheme.Current.ButtonShade;
     }
 }
