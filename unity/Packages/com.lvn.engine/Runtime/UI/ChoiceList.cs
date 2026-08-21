@@ -184,6 +184,16 @@ namespace Lvn.UI
                 btn.RegisterCallback<MouseEnterEvent>(_ => btn.style.backgroundImage = new StyleBackground(hover));
                 btn.RegisterCallback<MouseLeaveEvent>(_ => btn.style.backgroundImage = new StyleBackground(_theme.ChoiceSprite));
             }
+            else if (_theme.ChoiceGlass > 0.004f)
+            {
+                // Стекло: подсветка наведения меняет тонировку ПОВЕРХ размытия,
+                // а не заливку под ним — иначе на касании кнопка на кадр
+                // становится плоской.
+                btn.style.backgroundColor = Color.clear;
+                UiGlass.Apply(btn, _theme.ChoiceGlass, _theme.ChoiceColor);
+                btn.RegisterCallback<MouseEnterEvent>(_ => UiGlass.Apply(btn, _theme.ChoiceGlass, _theme.ChoiceHoverColor));
+                btn.RegisterCallback<MouseLeaveEvent>(_ => UiGlass.Apply(btn, _theme.ChoiceGlass, _theme.ChoiceColor));
+            }
             else
             {
                 btn.RegisterCallback<MouseEnterEvent>(_ => btn.style.backgroundColor = _theme.ChoiceHoverColor);

@@ -39,6 +39,7 @@ namespace Lvn.UI
                 if (d.body_size.HasValue) t.BodyFontSize = Mathf.RoundToInt(d.body_size.Value);
                 if (d.speaker_size.HasValue) t.SpeakerFontSize = Mathf.RoundToInt(d.speaker_size.Value);
                 if (d.corner_radius.HasValue) t.PanelCornerRadius = d.corner_radius.Value;
+                if (d.glass.HasValue) t.PanelGlass = Mathf.Clamp01(d.glass.Value);
 
                 if (!string.IsNullOrEmpty(d.align)) t.BoxAlign = d.align;
                 if (d.max_width_percent.HasValue) t.BoxMaxWidthPercent = d.max_width_percent.Value;
@@ -77,6 +78,7 @@ namespace Lvn.UI
                 t.ChoiceHoverColor = UiColor.Parse(c.hover_color, t.ChoiceHoverColor);
                 t.ChoiceTextColor = UiColor.Parse(c.text_color, t.ChoiceTextColor);
                 t.ChoiceCostColor = UiColor.Parse(c.cost_color, t.ChoiceCostColor);
+                if (c.glass.HasValue) t.ChoiceGlass = Mathf.Clamp01(c.glass.Value);
 
                 if (!string.IsNullOrEmpty(c.align)) t.ChoiceAlign = c.align;
                 if (!string.IsNullOrEmpty(c.valign)) t.ChoiceVAlign = c.valign;

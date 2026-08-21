@@ -182,7 +182,6 @@ namespace Lvn.UI
 
             // Body panel.
             _panel = new VisualElement { name = "vn-panel" };
-            _panel.style.backgroundColor = _theme.PanelColor;
             _panel.style.paddingLeft = _theme.PanelPaddingX;
             _panel.style.paddingRight = _theme.PanelPaddingX;
             _panel.style.paddingTop = _theme.PanelPaddingY;
@@ -222,6 +221,11 @@ namespace Lvn.UI
             _panel.Add(_advanceHint);
 
             _box.Add(_panel);
+            // Фон окна ставится ОДНИМ методом — тем же, что потом меняет его по
+            // настройке прозрачности и по стилю реплики. Раньше конструктор
+            // красил панель сам, и стекло, добавленное в общий метод, на первом
+            // кадре не появлялось: окно ждало, пока игрок тронет настройки.
+            ApplyPanelBackground();
 
             pickingMode = PickingMode.Ignore; // the host root owns tap-to-advance
         }
@@ -309,7 +313,17 @@ namespace Lvn.UI
             float a = _styleBgScale * _userOpacity;
             var c = _theme.PanelColor;
             c.a *= a;
-            _panel.style.backgroundColor = _theme.PanelSprite != null ? Color.clear : c;
+
+            // Матовое стекло вместо плоской заливки. Цвет панели при этом не
+            // пропадает — он уходит в тонировку ПОВЕРХ размытия, а сама заливка
+            // гасится: оставленная под стеклом, она приглушила бы его до того же
+            // плоского пятна, ради ухода от которого стекло и заводили.
+            // Авторский спрайт сильнее стекла: если новелла нарисовала окно, она
+            // нарисовала и то, как оно пропускает свет.
+            bool glass = _theme.PanelGlass > 0.004f && _theme.PanelSprite == null;
+            UiGlass.Apply(_panel, glass ? _theme.PanelGlass : 0f, c);
+
+            _panel.style.backgroundColor = (_theme.PanelSprite != null || glass) ? Color.clear : c;
             // Sprite-skinned panels dim via the image tint instead.
             if (_theme.PanelSprite != null)
                 _panel.style.unityBackgroundImageTintColor = new Color(1f, 1f, 1f, a);

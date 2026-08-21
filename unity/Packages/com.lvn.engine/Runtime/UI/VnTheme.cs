@@ -28,6 +28,18 @@ namespace Lvn.UI
         public int SpeakerFontSize = 34;
         public float PanelCornerRadius = 28f;
 
+        // МАТОВОЕ СТЕКЛО: 0 — обычная заливка (как было), 1 — размытая сцена под
+        // окном во всю силу. Даёт то, чего плоская прозрачность дать не может:
+        // сквозь простую прозрачность читается ТЕКСТУРА фона и мешает буквам, а
+        // сквозь размытие проходит только его свет и цвет.
+        //
+        // Требует камеры мира (канвас-сцена). Там, где её нет, поле молча
+        // ничего не меняет — окно остаётся плоским, а не пропадает.
+        [Tooltip("Frosted glass under the dialogue panel: 0 = flat fill, 1 = full blur of the scene behind it.")]
+        [Range(0f, 1f)] public float PanelGlass = 0f;
+        [Tooltip("Frosted glass under choice buttons; same scale as PanelGlass.")]
+        [Range(0f, 1f)] public float ChoiceGlass = 0f;
+
         [Tooltip("NVL mode: a tall full-width text panel covering the scene, " +
                  "instead of the bottom ADV dialogue strip.")]
         public bool Nvl = false;
