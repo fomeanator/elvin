@@ -104,7 +104,7 @@ namespace Lvn.UI
             var field = new TextField();
             field.value = (string)cmd["default"] ?? string.Empty;
             int max = 0;
-            try { max = cmd["max"] != null ? (int)cmd["max"] : 0; } catch { }
+            try { max = cmd["max"] != null ? (int)cmd["max"] : 0; } catch { }   // экран ввода снесли на полуслове — история продолжится
             if (max > 0) field.maxLength = max;
             field.style.fontSize = 22;
             field.style.marginBottom = 14;

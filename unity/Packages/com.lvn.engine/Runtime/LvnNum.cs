@@ -23,7 +23,7 @@ namespace Lvn
         public static float? Parse(JToken t)
         {
             if (t == null) return null;
-            try { return (float)t; } catch { }
+            try { return (float)t; } catch { }   // число могло прийти строкой — пробуем ниже
             try
             {
                 var text = ((string)t)?.Trim();
@@ -33,7 +33,7 @@ namespace Lvn
                 if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var f))
                     return percent ? f / 100f : f;
             }
-            catch { }
+            catch { }   // не число: одно кривое поле не должно ронять главу
             return null;
         }
 

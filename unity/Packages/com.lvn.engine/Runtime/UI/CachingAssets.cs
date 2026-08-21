@@ -108,7 +108,7 @@ namespace Lvn.UI
                     Sprite s = null;
                     try { s = await Loader.DownloadSpriteAsync(variant, ct); }
                     catch (OperationCanceledException) { throw; }
-                    catch { }
+                    catch { }   // кэш не отдал — пойдём в сеть
                     if (s != null) return s;
                 }
                 return await Loader.DownloadSpriteAsync(url, ct);

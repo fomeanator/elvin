@@ -125,7 +125,7 @@ namespace Lvn.UI.Screens
             }
             _model.SnapToFull();
             Render(true);
-            try { await Task.Delay(120, ct); } catch (OperationCanceledException) { }
+            try { await Task.Delay(120, ct); } catch (OperationCanceledException) { }   // заставка не обязана быть: без неё загрузка просто тише
 
             await ScreenFx.FadeAsync(this, 1f, 0f, 0.4f, ct);
             style.display = DisplayStyle.None;

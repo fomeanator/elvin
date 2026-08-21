@@ -130,7 +130,7 @@ namespace Lvn.UI
         private async Task Warm3DSetBestEffortAsync(string id)
         {
             try { await Assets.Preload3DSetAsync(id, _cts.Token); }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { }   // предзагрузка — не обязательство: не вышло, загрузим по месту
             catch (Exception e) { Debug.LogWarning($"[preload] 3D set '{id}': {e.Message}"); }
         }
 
