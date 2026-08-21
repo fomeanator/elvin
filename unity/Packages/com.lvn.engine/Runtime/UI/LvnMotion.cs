@@ -108,21 +108,6 @@ namespace Lvn.UI
         }
 
         /// <summary>
-        /// Появление с подскоком: элемент приходит из уменьшенного состояния.
-        /// Для того, что должно ощущаться как «прилетело»: награда, метка.
-        /// </summary>
-        public static void PopIn(VisualElement el, float fromScale = 0.88f, int delayMs = 0)
-        {
-            if (el == null) return;
-            Animate(el, delayMs, (t, e) =>
-            {
-                float s = Mathf.LerpUnclamped(fromScale, 1f, t); // Unclamped: проскок за 1 нужен
-                e.style.scale = new Scale(new Vector2(s, s));
-                e.style.opacity = Mathf.Clamp01(t);
-            }, DampingSoft);
-        }
-
-        /// <summary>
         /// Хореография: те же появления, но со сдвигом по времени. Первый
         /// элемент идёт сразу, каждый следующий — на <paramref name="stepMs"/>
         /// позже.

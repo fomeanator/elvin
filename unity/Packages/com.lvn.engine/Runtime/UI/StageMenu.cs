@@ -64,8 +64,8 @@ namespace Lvn.UI
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
             _modeBadge.style.backgroundColor = _theme.MenuFabColor;
-            Round(_modeBadge, 22);
-            ClearBorder(_modeBadge);
+            LvnChrome.Round(_modeBadge, 22);
+            LvnChrome.ClearBorder(_modeBadge);
             _modeBadge.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             if (_theme.Font != null) _modeBadge.style.unityFont = new StyleFont(_theme.Font);
             _modeBadge.style.display = DisplayStyle.None;
@@ -104,8 +104,8 @@ namespace Lvn.UI
             b.style.fontSize = 22;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = _theme.MenuFabColor;
-            Round(b, 22);
-            ClearBorder(b);
+            LvnChrome.Round(b, 22);
+            LvnChrome.ClearBorder(b);
             // A press on the chrome must never bubble into tap-to-advance.
             b.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
@@ -196,7 +196,7 @@ namespace Lvn.UI
             p.style.backgroundColor = _theme.MenuBgColor;
             p.style.paddingLeft = 18; p.style.paddingRight = 18;
             p.style.paddingTop = 14; p.style.paddingBottom = 14;
-            Round(p, _theme.MenuCornerRadius + 2f);
+            LvnChrome.Round(p, _theme.MenuCornerRadius + 2f);
             p.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(p);
 
@@ -223,7 +223,7 @@ namespace Lvn.UI
             sheet.style.width = 240;
             sheet.style.backgroundColor = _theme.MenuBgColor;
             sheet.style.paddingTop = 8; sheet.style.paddingBottom = 8;
-            Round(sheet, _theme.MenuCornerRadius);
+            LvnChrome.Round(sheet, _theme.MenuCornerRadius);
             sheet.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(sheet);
 
@@ -297,7 +297,7 @@ namespace Lvn.UI
             b.style.backgroundColor = Color.clear;
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
             b.style.paddingLeft = 18;
-            ClearBorder(b);
+            LvnChrome.ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
             return b;
         }
@@ -373,8 +373,8 @@ namespace Lvn.UI
             row.style.paddingLeft = 12;
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
-            Round(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
-            ClearBorder(row);
+            LvnChrome.Round(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
+            LvnChrome.ClearBorder(row);
             row.SetEnabled(enabled);
 
             // The saved scene's screenshot, when one exists for this slot.
@@ -388,7 +388,7 @@ namespace Lvn.UI
                 img.style.height = 45;
                 img.style.marginRight = 10;
                 img.style.flexShrink = 0;
-                Round(img, 4f);
+                LvnChrome.Round(img, 4f);
                 row.Add(img);
             }
 
@@ -488,7 +488,7 @@ namespace Lvn.UI
                 frame.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
                 frame.style.justifyContent = Justify.Center;
                 frame.style.alignItems = Align.Center;
-                Round(frame, 8f);
+                LvnChrome.Round(frame, 8f);
                 cell.Add(frame);
 
                 if (open)
@@ -710,8 +710,8 @@ namespace Lvn.UI
                 input.style.color = _theme.MenuTextColor;
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
                 input.style.fontSize = 27;
-                ClearBorder(input);
-                Round(input, 6f);
+                LvnChrome.ClearBorder(input);
+                LvnChrome.Round(input, 6f);
             }
             if (_theme.Font != null) f.style.unityFont = new StyleFont(_theme.Font);
             return f;
@@ -725,8 +725,8 @@ namespace Lvn.UI
             b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
             b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
-            ClearBorder(b);
-            Round(b, 6f);
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, 6f);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
             return b;
         }
@@ -775,8 +775,8 @@ namespace Lvn.UI
             btn.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
             btn.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
-            ClearBorder(btn);
-            Round(btn, 6f);
+            LvnChrome.ClearBorder(btn);
+            LvnChrome.Round(btn, 6f);
             btn.clicked += () =>
             {
                 LvnPrefs.Locale = LvnPrefs.NextLocale(LvnPrefs.Locale, LvnPrefs.AvailableLocales);
@@ -829,20 +829,8 @@ namespace Lvn.UI
             b.style.color = _theme.MenuTextColor;
             b.style.fontSize = 24;
             b.style.width = 34; b.style.height = 30;
-            ClearBorder(b);
+            LvnChrome.ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
-        }
-
-        private static void Round(VisualElement el, float r)
-        {
-            el.style.borderTopLeftRadius = r; el.style.borderTopRightRadius = r;
-            el.style.borderBottomLeftRadius = r; el.style.borderBottomRightRadius = r;
-        }
-
-        private static void ClearBorder(VisualElement el)
-        {
-            el.style.borderTopWidth = 0; el.style.borderBottomWidth = 0;
-            el.style.borderLeftWidth = 0; el.style.borderRightWidth = 0;
         }
 
         private static string Trunc(string s, int max)

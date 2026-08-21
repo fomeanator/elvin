@@ -36,20 +36,15 @@ namespace Lvn.Content
     /// <c>/actors/</c>, <c>/bg/</c>) are sensible defaults — a host with a
     /// different layout can classify by server-supplied <see cref="LvnAssetMeta"/>
     /// instead.
+    ///
+    /// Обрезка строки запроса живёт в <see cref="LvnUrl"/>: это ключ кэша, и
+    /// своя копия правила здесь однажды разошлась бы с планировщиком.
     /// </summary>
     public static class DownloadPolicy
     {
-        /// <summary>Strip a query string for extension/segment matching.</summary>
-        private static string Bare(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return "";
-            int q = url.IndexOf('?');
-            return q >= 0 ? url.Substring(0, q) : url;
-        }
-
         public static bool IsImage(string url)
         {
-            var u = Bare(url);
+            var u = LvnUrl.Bare(url);
             return u.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                 || u.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                 || u.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
@@ -58,14 +53,14 @@ namespace Lvn.Content
 
         public static bool IsAudio(string url)
         {
-            var u = Bare(url);
+            var u = LvnUrl.Bare(url);
             return u.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
                 || u.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
                 || u.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsScript(string url) =>
-            Bare(url).EndsWith(".lvn", StringComparison.OrdinalIgnoreCase);
+            LvnUrl.Bare(url).EndsWith(".lvn", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>The prefetch kind string ("sprite" | "audio" | "bin").</summary>
         public static string Kind(string url) =>
@@ -96,7 +91,7 @@ namespace Lvn.Content
         public static AssetClass Classify(string url)
         {
             if (string.IsNullOrEmpty(url)) return AssetClass.Other;
-            var u = Bare(url).ToLowerInvariant();
+            var u = LvnUrl.Bare(url).ToLowerInvariant();
             if (IsScript(u)) return AssetClass.Script;
             if (IsAudio(u))  return AssetClass.Audio;
             // Loading backgrounds live under /loading/ — check BEFORE /ui/.

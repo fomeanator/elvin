@@ -135,7 +135,7 @@ namespace Lvn.UI.World
                         {
                             var rr = r.z > 0f && r.w > 0f ? r : new Vector4(0f, 0f, 1f, 1f);
                             rt.pivot = new Vector2(d.Px, 1f - d.Py); // rotation/scale joint (uGUI y-up)
-                            _bones[lid] = new BoneMeta
+                            _bones[lid] = new BoneSolver.RigBone
                             {
                                 Parent = d.Parent,
                                 PivotBox = new Vector2(rr.x + d.Px * rr.z, rr.y + d.Py * rr.w),
@@ -146,29 +146,8 @@ namespace Lvn.UI.World
                 }
             }
         }
-
-        // ── bones (paper-doll FK + springs) — the canvas twin of ActorAnimator ──
-        private sealed class BoneMeta
-        {
-            public string Parent;
-            public Vector2 PivotBox;
-            public Vector4 Rect;
-            public float Spring, Damping;
-            public BoneSolver.SpringState State;
-        }
-        private readonly Dictionary<string, BoneMeta> _bones = new Dictionary<string, BoneMeta>();
+        private readonly Dictionary<string, BoneSolver.RigBone> _bones = new Dictionary<string, BoneSolver.RigBone>();
         private float _lastTick = -1f;
-
-        private bool AnySpringLive()
-        {
-            foreach (var kv in _bones)
-            {
-                var m = kv.Value;
-                if (m.Spring > 0f && (Mathf.Abs(m.State.Angle) > 0.05f || Mathf.Abs(m.State.Velocity) > 0.5f))
-                    return true;
-            }
-            return false;
-        }
 
         public void SetSlotBase(Vector2 anchored) { EnsureRig(); _slotBase = anchored; _slot.anchoredPosition = anchored; }
         public void SetFrames(Dictionary<string, Dictionary<string, Sprite>> frames) => _frames = frames;
@@ -229,7 +208,7 @@ namespace Lvn.UI.World
         private void Update()
         {
             // Springs keep swinging after their driving channel ends.
-            if (_channels.Count > 0 || AnySpringLive()) Tick(ActorAnimator.Clock());
+            if (_channels.Count > 0 || BoneSolver.AnySpringLive(_bones.Values)) Tick(ActorAnimator.Clock());
         }
 
         // One composite step — internal so tests can drive it with ActorAnimator.Clock.

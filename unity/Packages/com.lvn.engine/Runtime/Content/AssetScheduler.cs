@@ -327,21 +327,14 @@ namespace Lvn.Content
         }
 
         private static bool IsScript(string url) =>
-            StripQuery(url).ToLowerInvariant().EndsWith(".lvn");
+            LvnUrl.Bare(url).ToLowerInvariant().EndsWith(".lvn");
 
         private static string KindOf(string url)
         {
-            var u = StripQuery(url).ToLowerInvariant();
+            var u = LvnUrl.Bare(url).ToLowerInvariant();
             if (u.EndsWith(".lvn")) return "script";
             if (u.EndsWith(".ogg") || u.EndsWith(".wav") || u.EndsWith(".mp3")) return "audio";
             return "sprite";
-        }
-
-        private static string StripQuery(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return "";
-            int q = url.IndexOf('?');
-            return q >= 0 ? url.Substring(0, q) : url;
         }
     }
 }

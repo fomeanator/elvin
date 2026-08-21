@@ -290,11 +290,9 @@ namespace Lvn.Content
         /// Tune down for low-memory targets.</summary>
         public static long SpriteCacheBudgetBytes = 384L << 20;
 
-        /// <summary>Entries requested within this window are never evicted — art
-        /// requested recently is very likely still on screen.</summary>
+        /// <summary>Запись, запрошенную недавно, не вытесняем: только что
+        /// затребованный арт почти наверняка ещё на экране.</summary>
         public static float SpriteEvictionGraceSeconds = 60f;
-        public int AttemptOf(string url) =>
-            url != null && _attempts.TryGetValue(url, out var n) ? n : 1;
 
         // Author-supplied display labels for urls, persistent across the session.
         private readonly Dictionary<string, string> _aliases = new();
@@ -921,24 +919,6 @@ namespace Lvn.Content
                         if (e.Pins < 0) e.Pins = 0;
                         return;
                     }
-        }
-
-        /// <summary>Synchronous in-memory lookup — returns true (and the sprite)
-        /// only if it's ALREADY decoded in the sprite cache, never touching disk
-        /// or wire. Lets a view paint a warmed sprite on the very first frame
-        /// instead of awaiting DownloadSpriteAsync (which, even from disk, costs a
-        /// decode + a frame or two).</summary>
-        public bool TryGetSprite(string url, out Sprite sprite)
-        {
-            sprite = null;
-            if (string.IsNullOrEmpty(url)) return false;
-            lock (_spriteCache)
-            {
-                if (!_spriteCache.TryGetValue(url, out var e) || e.Sprite == null) return false;
-                Touch(e);
-                sprite = e.Sprite;
-                return true;
-            }
         }
 
         /// <summary>Releases the in-memory sprite cached for a single url and

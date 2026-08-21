@@ -61,21 +61,6 @@ namespace Lvn.UI
             return null;
         }
 
-        public async Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct)
-        {
-            if (urls == null || urls.Count == 0) return;
-
-            var tasks = new List<Task>();
-            foreach (var url in urls)
-            {
-                if (string.IsNullOrEmpty(url)) continue;
-                tasks.Add(kind == "audio"
-                    ? LoadAudioAsync(url, ct)
-                    : LoadSpriteAsync(url, ct).ContinueWith(_ => { }));
-            }
-            await Task.WhenAll(tasks);
-        }
-
         public void Unload(string url)
         {
             foreach (var loader in _chain)

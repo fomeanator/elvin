@@ -86,6 +86,9 @@ namespace Lvn.UI
         /// Override for parallel loading (Addressables, UnityWebRequest, etc.).</summary>
         Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct)
         {
+            // Пустой список — обычное дело (глава без звука, набор без обложек),
+            // и он не повод будить планировщик задач.
+            if (urls == null || urls.Count == 0) return Task.CompletedTask;
             var tasks = new List<Task>();
             foreach (var url in urls)
             {

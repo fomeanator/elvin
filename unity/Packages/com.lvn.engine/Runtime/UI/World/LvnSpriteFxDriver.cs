@@ -192,12 +192,10 @@ namespace Lvn.UI.World
                 ? Mathf.Clamp((float)cmd[key], min, max)
                 : current;
 
+        // Разбор цвета — из общего дома (UiColor). Своя копия в каждом слое и
+        // была тем, из-за чего одно понятие расходилось по движку.
         private static void ParseColor(JObject cmd, string key, ref Color current)
-        {
-            var text = (string)cmd[key];
-            if (!string.IsNullOrEmpty(text) && ColorUtility.TryParseHtmlString(text, out var parsed))
-                current = parsed;
-        }
+            => current = UiColor.FromCmd(cmd, key, current);
 
         private void ParseAuraStyle(JObject cmd)
         {
