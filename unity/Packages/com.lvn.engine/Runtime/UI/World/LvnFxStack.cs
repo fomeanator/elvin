@@ -196,6 +196,23 @@ namespace Lvn.UI.World
             _saturation = _tSaturation; _contrast = _tContrast;
         }
 
+        /// <summary>МОРГАНИЕ — ЖЕСТ, А НЕ СОСТОЯНИЕ: сомкнувшись, веки сами
+        /// отпускают цель обратно к нулю.
+        ///
+        /// <para>Раньше `blink` вёл себя как всякий другой эффект стека —
+        /// доезжал до цели и ДЕРЖАЛ её. То есть кадр оставался под веками
+        /// навсегда: следующая команда `fx` без поля `blink` прежнее значение
+        /// сохраняет (отсутствующее поле — «не трогать»), и снять занавес можно
+        /// было только явным `blink=0`, о котором никто не догадывался. Слово
+        /// обещало жест, а давало занавес — и молча, без единой жалобы.</para>
+        ///
+        /// <para>Вынесено отдельной чистой функцией не ради красоты: сам стек
+        /// считается внутри <c>OnRenderImage</c>, которого на безголовой машине
+        /// нет, и проверить правило на кадре невозможно. Правило проверяется
+        /// как правило.</para></summary>
+        internal static float ReleaseBlink(float current, float target)
+            => target > 0.001f && current >= target - 0.001f ? 0f : target;
+
         private void Advance()
         {
             if (_speed <= 0f) { SnapToTargets(); return; }
@@ -211,6 +228,7 @@ namespace Lvn.UI.World
             _distort = Mathf.MoveTowards(_distort, _tDistort, k);
             _frost = Mathf.MoveTowards(_frost, _tFrost, k);
             _blink = Mathf.MoveTowards(_blink, _tBlink, k);
+            _tBlink = ReleaseBlink(_blink, _tBlink);
             _invert = Mathf.MoveTowards(_invert, _tInvert, k);
             _fog = Mathf.MoveTowards(_fog, _tFog, k);
             _rain = Mathf.MoveTowards(_rain, _tRain, k);
