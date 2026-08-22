@@ -1819,7 +1819,7 @@ namespace Lvn.UI.Screens
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
                    && !destroyCancellationToken.IsCancellationRequested)
             {
-                _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.Count);
+                _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 await Task.Yield();
             }
             bool exited = Stage.ExitRequested;

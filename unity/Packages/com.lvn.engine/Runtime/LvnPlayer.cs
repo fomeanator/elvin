@@ -251,32 +251,56 @@ namespace Lvn
         /// a chapter-progress readout (e.g. the in-game HUD percent).</summary>
         public int Count => _script.Count;
 
-        // Furthest MAIN-LINE command reached this chapter. The raw cursor moves
-        // backward on any loop or hub revisit (a `while`, a choice that jumps to an
-        // earlier label) and dives into out-of-order labels during a `call`, so a
-        // percent built from Index alone visibly "resets and starts over" — the
-        // reported bug. Progress is the running max, and it's frozen while inside a
-        // call (callStack non-empty) so a subroutine whose label sits late in the
-        // file (e.g. `call levelup`) doesn't spike the bar to ~100% and back.
-        private int _progressMax;
+        // ПРОГРЕСС СЧИТАЕТСЯ ПО КРАТЧАЙШЕМУ ПУТИ ДО КОНЦА, а не по номеру
+        // команды в файле. Номер врал дважды. Во-первых, импорт линеаризует
+        // ветки: тела выборов лежат в ХВОСТЕ файла, и в живой главе Time
+        // Romance спина кончается на 80% файла — пройдя главу целиком, игрок
+        // видел 80% и рывок на 100%. Во-вторых, любая петля или возврат в хаб
+        // двигали курсор назад, и прежняя защита (высшая отметка плюс учёт
+        // «отлучек») откатывала полосу на дальнем прыжке назад.
+        //
+        // Теперь доля пройденного = 1 − остаток/полный_остаток, где остаток —
+        // число шагов до конца по кратчайшему маршруту (см. LvnFlowDistance).
+        // В начале ноль, в конце РОВНО сто любым маршрутом, а длинная ветка
+        // просто отдаёт проценты медленнее — до конца по ней и правда дальше.
+        private int[] _toEnd;
+        private int _toEndStart;    // кратчайший путь от начала главы: знаменатель
+        private int _progressSeen;  // ОТКАТОВ НЕТ: показанное только растёт
 
-        // Linearized imports append choice BODIES at the file tail (a pick jumps
-        // ~to the end, plays the branch, jumps back to the spine). Position there
-        // says nothing about story progress, so a far forward jump marks the
-        // cursor DISPLACED (bar frozen at the spine mark) until the matching far
-        // return. The far return also clamps the mark down to its landing —
-        // healing a snapshot that was restored INSIDE a body (its index latched
-        // the mark at ~99%).
-        private int _displaced;
-        private int FarJump => System.Math.Max(64, _script.Count / 10);
+        /// <summary>Шагов кратчайшего пути пройдено (0..<see cref="ProgressTotal"/>).
+        /// Пара для полосы прогресса — вместе с <see cref="ProgressTotal"/>.</summary>
+        public int ProgressIndex
+        {
+            get
+            {
+                EnsureDistances();
+                // Глава кончилась — значит пройдена целиком, чем бы ни был
+                // занят курсор. Иначе последняя команда (например `goto __end`)
+                // оставляла бы читателя на 90% у финальной реплики.
+                if (Finished) return _progressSeen = _toEndStart;
+                int left = _ip >= 0 && _ip < _toEnd.Length ? _toEnd[_ip] : 0;
+                if (left == int.MaxValue) return _progressSeen; // мёртвый код — стоим
+                int done = _toEndStart - left;
+                if (done < 0) done = 0;
+                if (done > _toEndStart) done = _toEndStart;
+                if (done > _progressSeen) _progressSeen = done;
+                return _progressSeen;
+            }
+        }
 
-        /// <summary>Chapter progress index (0..<see cref="Count"/>) for the HUD
-        /// percent: the high-water mark of the cursor along the MAIN line. Climbs
-        /// while flow is linear, holds through calls and far-displaced choice
-        /// bodies, and a far return jump may clamp it down to its landing (that's
-        /// the heal for a save restored inside a linearized tail body). Pair with
-        /// <see cref="Count"/> exactly like <see cref="Index"/>.</summary>
-        public int ProgressIndex => System.Math.Min(_progressMax, _script.Count);
+        /// <summary>Длина кратчайшего пути главы — знаменатель полосы.</summary>
+        public int ProgressTotal
+        {
+            get { EnsureDistances(); return _toEndStart; }
+        }
+
+        private void EnsureDistances()
+        {
+            if (_toEnd != null) return;
+            _toEnd = LvnFlowDistance.ToEnd(_script, _labels);
+            int start = _toEnd.Length > 0 ? _toEnd[0] : 0;
+            _toEndStart = start == int.MaxValue || start <= 0 ? System.Math.Max(1, _toEnd.Length) : start;
+        }
 
         public LvnPlayer(LvnDocument doc, ILvnStage stage)
         {
@@ -303,8 +327,7 @@ namespace Lvn
         public void Restore(int index, IDictionary<string, JToken> vars, IEnumerable<int> callStack)
         {
             _ip = index;
-            _progressMax = index; // resume: the bar reflects where we land, then climbs
-            _displaced = 0;       // (a body-resumed index self-heals on its far return)
+            _progressSeen = 0;    // возобновление: полоса берётся от места, где встали
             Finished = false;
             Vars.Clear();
             if (vars != null)
@@ -1109,11 +1132,6 @@ namespace Lvn
             int budget = _script.Count + 100000;
             while (!Finished && _ip >= 0 && _ip < _script.Count)
             {
-                // Advance the monotonic progress high-water mark, but only on the
-                // main line — inside a call the cursor visits a subroutine's
-                // (possibly late) labels, and inside a far-displaced choice body
-                // it sits at the linearized tail; neither should move the bar.
-                if (_callStack.Count == 0 && _displaced == 0 && _ip > _progressMax) _progressMax = _ip;
                 if (--budget < 0)
                     throw new LvnException("possible infinite loop: a goto cycle has no say/choice between jumps");
                 // Malformed content must never crash the runtime: a non-object
@@ -1498,16 +1516,8 @@ namespace Lvn
             }
             if (_labels.TryGetValue(label, out var i))
             {
-                // Displacement bookkeeping for the progress bar (see _displaced):
-                // hops WITHIN the tail are small, so one far-forward marks the
-                // excursion and one far-back closes it.
-                int delta = i - _ip;
-                if (delta > FarJump) _displaced++;
-                else if (delta < -FarJump)
-                {
-                    if (_displaced > 0) _displaced--;
-                    if (i < _progressMax) _progressMax = i; // heal a body-latched mark
-                }
+                // Полосе прогресса прыжок больше не интересен: расстояние до
+                // конца считается от места, где мы оказались.
                 _ip = i;
             }
             else { Log?.Invoke("  !! unknown label :" + label + " → end"); Finish(); } // validator catches these pre-ship
