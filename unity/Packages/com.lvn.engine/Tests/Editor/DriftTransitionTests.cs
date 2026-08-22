@@ -36,8 +36,13 @@ namespace Lvn.Tests
                 "синоним side — для авторов, которым «drift» ничего не говорит");
         }
 
+        /// <summary>ВХОД НАПРАВЛЕННЫЙ, УХОД — НА МЕСТЕ. Герой въезжает от своей
+        /// стороны: это постановка, зритель понимает, откуда он пришёл. Уход
+        /// боком владелец отменил явно — второе боковое путешествие подряд
+        /// читается как катание по сцене, а не как «ушёл». Предмет и там и там
+        /// просто проявляется: реквизит не изображает персонажа.</summary>
         [Test]
-        public void ThemeDefaults_DriftActorsButFadeObjects()
+        public void ThemeDefaults_ActorsEnterWithDriftAndLeaveWithFade()
         {
             var theme = new VnTheme();
             var actor = Placement.Standing(0.25f);
@@ -47,7 +52,8 @@ namespace Lvn.Tests
             VnStage.ApplyTransitionDefaults(new JObject { ["op"] = "obj" }, theme, ref obj);
 
             Assert.AreEqual(TransitionType.Drift, actor.EnterTransition);
-            Assert.AreEqual(TransitionType.Drift, actor.ExitTransition);
+            Assert.AreEqual(TransitionType.Fade, actor.ExitTransition,
+                "уход по умолчанию — растворение на месте, а не второй проезд вбок");
             Assert.AreEqual(TransitionType.Fade, obj.EnterTransition);
             Assert.AreEqual(TransitionType.Fade, obj.ExitTransition);
             Assert.AreEqual(theme.ObjectTransition, obj.TransitionDuration);

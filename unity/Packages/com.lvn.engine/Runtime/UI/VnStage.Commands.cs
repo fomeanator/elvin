@@ -398,32 +398,67 @@ namespace Lvn.UI
                 _hintHost.style.display = DisplayStyle.None;
 
                 _hintCard = new VisualElement { name = "vn-hint", pickingMode = PickingMode.Ignore };
-                _hintCard.style.maxWidth = Length.Percent(72);
-                _hintCard.style.paddingLeft = 22; _hintCard.style.paddingRight = 22;
-                _hintCard.style.paddingTop = 12; _hintCard.style.paddingBottom = 12;
-                // top-center pill at 12% — clear of the shell HUD strip (the
-                // old 5% sat underneath it), per the mobile-VN standard.
+                _hintCard.style.maxWidth = Length.Percent(82);
+                _hintCard.style.flexDirection = FlexDirection.Row;
+                _hintCard.style.alignItems = Align.Center;
+                _hintCard.style.paddingLeft = 16; _hintCard.style.paddingRight = 20;
+                _hintCard.style.paddingTop = 13; _hintCard.style.paddingBottom = 13;
+                _hintCard.style.overflow = Overflow.Hidden;
+
+                // The icon is deliberately part of the toast instead of a
+                // nameplate. A system message must read as UI chrome at a glance,
+                // never as a character called "Подсказка".
+                var icon = new Label("i") { name = "vn-hint-icon", pickingMode = PickingMode.Ignore };
+                icon.style.width = 36; icon.style.height = 36;
+                icon.style.flexShrink = 0;
+                icon.style.marginRight = 14;
+                icon.style.unityTextAlign = TextAnchor.MiddleCenter;
+
                 _hintLabel = new Label { name = "vn-hint-text", pickingMode = PickingMode.Ignore };
                 _hintLabel.style.whiteSpace = WhiteSpace.Normal;
-                _hintLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                _hintLabel.style.unityTextAlign = TextAnchor.MiddleLeft;
+                _hintLabel.style.flexShrink = 1;
+                _hintCard.Add(icon);
                 _hintCard.Add(_hintLabel);
                 _hintHost.Add(_hintCard);
                 _labelLayer.Add(_hintHost);
             }
 
-            var bg = Theme != null ? Theme.PanelColor : new Color(0.05f, 0.05f, 0.08f, 0.9f);
-            // Табличка — то же окно, только меньше: и стекло у неё то же самое.
-            // Разъехавшись, эти двое читаются как элементы из разных игр.
-            float glass = Theme != null ? Theme.PanelGlass : 0f;
-            UiGlass.Apply(_hintCard, glass, bg);
-            _hintCard.style.backgroundColor = glass > 0.004f ? Color.clear : bg;
-            float r = Theme != null ? Theme.PanelCornerRadius : 12f;
+            var bg = Theme != null ? Theme.PanelColor : new Color(0.03f, 0.055f, 0.075f, 0.94f);
+            bg.a = Mathf.Max(bg.a, 0.94f);
+            var accent = Theme != null ? Theme.SpeakerColor : new Color(0.1f, 0.9f, 0.82f, 1f);
+
+            // A toast stays cheap and visually separate from dialogue: one
+            // opaque/translucent surface, no fullscreen glass RenderTexture.
+            UiGlass.Apply(_hintCard, 0f, bg);
+            _hintCard.style.backgroundColor = bg;
+            _hintCard.style.borderLeftWidth = 2;
+            _hintCard.style.borderTopWidth = 1;
+            _hintCard.style.borderRightWidth = 1;
+            _hintCard.style.borderBottomWidth = 1;
+            var border = accent; border.a = 0.7f;
+            _hintCard.style.borderLeftColor = border;
+            _hintCard.style.borderTopColor = border;
+            _hintCard.style.borderRightColor = border;
+            _hintCard.style.borderBottomColor = border;
+            float r = Mathf.Max(12f, (Theme != null ? Theme.PanelCornerRadius : 12f) * 0.65f);
             _hintCard.style.borderTopLeftRadius = r; _hintCard.style.borderTopRightRadius = r;
             _hintCard.style.borderBottomLeftRadius = r; _hintCard.style.borderBottomRightRadius = r;
 
             _hintLabel.style.color = Theme != null ? Theme.TextColor : Color.white;
-            _hintLabel.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
+            _hintLabel.style.fontSize = Theme != null
+                ? Mathf.Max(22, Mathf.RoundToInt(Theme.BodyFontSize * 0.72f)) : 26;
             if (Theme != null) LvnFonts.Apply(_hintLabel, Theme.Font);
+            var hintIcon = _hintCard.Q<Label>("vn-hint-icon");
+            if (hintIcon != null)
+            {
+                hintIcon.style.backgroundColor = accent;
+                hintIcon.style.color = bg;
+                hintIcon.style.fontSize = 24;
+                hintIcon.style.borderTopLeftRadius = 18; hintIcon.style.borderTopRightRadius = 18;
+                hintIcon.style.borderBottomLeftRadius = 18; hintIcon.style.borderBottomRightRadius = 18;
+                if (Theme != null) LvnFonts.Apply(hintIcon, Theme.Font);
+            }
             _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
 
             // Всплывает и утопает, а не мигает: подсказка появляется поверх
@@ -431,7 +466,9 @@ namespace Lvn.UI
             // читается как сбой, а не как сообщение.
             bool wasHidden = _hintHost.style.display == DisplayStyle.None;
             _hintHost.style.display = DisplayStyle.Flex;
-            if (wasHidden) LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, true, 220);
+            if (wasHidden)
+                LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, true,
+                    Mathf.RoundToInt(220f * VnTheme.MotionDurationScale));
 
             // A plain hint is a four-second toast. duration=0 remains the explicit
             // authoring escape hatch for a persistent tutorial card.
@@ -448,7 +485,8 @@ namespace Lvn.UI
         private void HideHint()
         {
             if (_hintHost == null || _hintHost.style.display == DisplayStyle.None) return;
-            LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, false, 180,
+            LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, false,
+                Mathf.RoundToInt(180f * VnTheme.MotionDurationScale),
                 () => { if (_hintHost != null) _hintHost.style.display = DisplayStyle.None; });
         }
 

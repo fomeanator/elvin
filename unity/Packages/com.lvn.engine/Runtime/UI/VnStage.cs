@@ -242,7 +242,7 @@ namespace Lvn.UI
             _choices.VisibleChanged += OnChoicesVisibleChanged;
             // Окно растёт вместе с текстом — стопка выборов сторонится его в
             // реальном времени, а не по одному замеру на реплику.
-            _dialogue.RegisterCallback<GeometryChangedEvent>(_ => SyncChoicesBelowBox());
+            WireChoiceGeometrySync();
 
             // Reactive tick: re-evaluate every live label's {expr} template against the
             // current variables so on-screen stats track changes (incl. background ones).
@@ -288,6 +288,7 @@ namespace Lvn.UI
             // with the old panel WITHOUT running Close() — its input block must
             // not orphan (the panel-host block re-derives from IsOpen anyway).
             _inputBlockedFlag = false;
+            _panelInputGuardUntil = 0f;
 
             if (_player != null)
             {
@@ -352,7 +353,7 @@ namespace Lvn.UI
                 _choices.VisibleChanged -= OnChoicesVisibleChanged;
                 _choices.RemoveFromHierarchy();
             }
-            if (_dialogue != null) { _dialogue.RevealTicked -= OnRevealTicked; _dialogue.RemoveFromHierarchy(); }
+            if (_dialogue != null) _dialogue.RemoveFromHierarchy();
             // The shared window wears the theme too — drop it so the next use
             // rebuilds it with the fresh skin. NEVER while it's open: a live
             // re-theme (content sync) during an in-story wardrobe would orphan
@@ -365,7 +366,6 @@ namespace Lvn.UI
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
-            _dialogue.RevealTicked += OnRevealTicked;
             SetSayVisible(_sayUp); // a re-theme between lines must not reveal the empty frame
             _choices = new ChoiceList(Theme);
             // Rebuilt chrome goes back into the safe-area container, before the
@@ -377,6 +377,9 @@ namespace Lvn.UI
             chromeHost.Insert(labelIndex + 1, _choices);
             _choices.OnSelected += OnChoiceSelected;
             _choices.VisibleChanged += OnChoicesVisibleChanged;
+            // RebuildChrome replaces the VisualElements themselves. Event
+            // subscriptions belong to those instances and must be wired again.
+            WireChoiceGeometrySync();
 
             // The quick menu is themeable too (manifest.ui.menu) — rebuild it with
             // the fresh theme, keeping it the topmost layer.
@@ -391,7 +394,7 @@ namespace Lvn.UI
             if (_sayUp && _backlog.Count > 0)
             {
                 var beat = _backlog[_backlog.Count - 1];
-                _dialogue.SetSpeaker(beat.who);
+                _dialogue.SetSpeaker(beat.who, DialogueSideForCurrentSpeaker(beat.who));
                 _dialogue.ApplyStyle(beat.style);
                 _dialogue.SetText(beat.text);
             }
@@ -423,17 +426,6 @@ namespace Lvn.UI
 
             if (any && _built) RebuildChrome();
 
-            // UI sound clips ride the same lazy pattern (no chrome rebuild needed —
-            // the play sites read the fields directly). Missing audio stays silent.
-            async Task Clip(string url, System.Action<AudioClip> assign)
-            {
-                if (string.IsNullOrEmpty(url)) return;
-                try { assign(await Assets.LoadAudioAsync(url, _cts.Token)); }
-                catch { /* silent if the host ships no audio */ }
-            }
-            if (_sndClick == null) await Clip(Theme.ClickSoundUrl, c => _sndClick = c);
-            if (_sndChoice == null) await Clip(Theme.ChoiceSoundUrl, c => _sndChoice = c);
-            if (_sndType == null) await Clip(Theme.TypeSoundUrl, c => _sndType = c);
         }
 
         // Resolve the theme's typeface (manifest ui.dialogue.font) when no
@@ -504,7 +496,6 @@ namespace Lvn.UI
             _cts?.Cancel();
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
-            if (_dialogue != null) _dialogue.RevealTicked -= OnRevealTicked;
             LvnPrefs.Changed -= OnPrefsChanged;
             LvnWardrobe.Changed -= OnWardrobeChanged;
 
@@ -546,26 +537,6 @@ namespace Lvn.UI
             if (_pendingThumb != null) Destroy(_pendingThumb);
         }
 
-        // UI sounds (manifest ui.sounds), loaded by EnsureThemeImagesAsync. The
-        // typewriter blip is throttled by wall time: the reveal event fires on
-        // eighth-glyph steps, far denser than a blip can stay pleasant.
-        private AudioClip _sndClick, _sndChoice, _sndType;
-        private float _lastTypeBlip;
-        private const float TypeBlipMinGap = 0.055f;
-
-        private void PlayUiSound(AudioClip clip) =>
-            _audio?.PlayUi(clip, Theme != null ? Theme.UiSoundVolume : 1f);
-
-        private void OnRevealTicked()
-        {
-            if (_sndType == null) return;
-            if (_audio != null && _audio.VoicePlaying) return; // the actor speaks — no blip under it
-            float now = Time.unscaledTime;
-            if (now - _lastTypeBlip < TypeBlipMinGap) return;
-            _lastTypeBlip = now;
-            PlayUiSound(_sndType);
-        }
-
         // ── the shared bottom window (VnPanelHost) ───────────────────────────
         // One dialogue-skinned frame on the dialogue layer that hosts ANY
         // content (wardrobe, shop, minigames): showing it fades the dialogue
@@ -598,26 +569,32 @@ namespace Lvn.UI
         /// whatever it was already showing).</summary>
         public async Task ShowPanelAsync(VisualElement content)
         {
-            SetDialogueFaded(true);
-            await PanelHost.ShowAsync(content);
+            // One transaction: the old dialogue recedes while the wardrobe
+            // rises. Await both so the sheet never becomes interactive halfway
+            // through an unfinished hand-off.
+            await Task.WhenAll(FadeDialogueAsync(true), PanelHost.ShowAsync(content));
         }
 
         /// <summary>Dismiss the shared window and bring the dialogue back.</summary>
         public async Task HidePanelAsync()
         {
-            if (_panelHost != null) await _panelHost.HideAsync();
-            SetDialogueFaded(false);
+            // Keep PanelOpen/InputBlocked true until the wardrobe and restored
+            // dialogue have completed their cross-fade. Resume() is called only
+            // after this task, so the next line cannot start under stale chrome.
+            var panel = _panelHost != null ? _panelHost.HideAsync() : Task.CompletedTask;
+            await Task.WhenAll(panel, FadeDialogueAsync(false));
+            ArmPanelInputGuard(0.12f);
         }
 
         /// <summary>Fade the dialogue box (and choices) out/in — the shared
         /// window replaces it visually, so both never fight for the bottom.</summary>
         public void SetDialogueFaded(bool faded)
+            => LvnAsync.Fire(FadeDialogueAsync(faded), "PanelDialogueFade");
+
+        private async Task FadeDialogueAsync(bool faded)
         {
             float to = faded ? 0f : 1f;
-            if (_dialogue != null)
-                LvnAsync.Fire(ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default), "Fade");
-            if (_choices != null)
-                LvnAsync.Fire(ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, 0.18f, _cts?.Token ?? default), "Fade");
+            float seconds = 0.18f * VnTheme.MotionDurationScale;
             // The story panel OWNS the screen while it's up (the genre rule):
             // the quick-menu chrome hides with the dialogue — no burger over
             // the wardrobe, no half-working Exit under a held story.
@@ -626,6 +603,13 @@ namespace Lvn.UI
                 if (faded) _menu.Close();
                 _menu.style.visibility = faded ? Visibility.Hidden : Visibility.Visible;
             }
+            var dialogue = _dialogue != null
+                ? ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, seconds, _cts?.Token ?? default)
+                : Task.CompletedTask;
+            var choices = _choices != null
+                ? ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, seconds, _cts?.Token ?? default)
+                : Task.CompletedTask;
+            await Task.WhenAll(dialogue, choices);
         }
 
         /// <summary>The platform back pressed while the shared story panel is

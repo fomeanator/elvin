@@ -14,6 +14,10 @@ namespace Lvn.UI
     [Serializable]
     public class VnTheme
     {
+        /// <summary>Global presentation tempo. 0.75 makes unskippable screen
+        /// transitions finish 25% sooner without changing their relative rhythm.</summary>
+        public const float MotionDurationScale = 0.75f;
+
         // Defaults derive from the "Полночь" design tokens (LvnTokens) so the whole
         // app is one coherent look out of the box; any field is still overridable.
         [Header("Dialogue")]
@@ -119,14 +123,15 @@ namespace Lvn.UI
         public float ActorScale = 1f;
 
         // ПЕРЕХОДЫ ПО УМОЛЧАНИЮ — это свойство постановки, а не каждой реплики.
-        // Герой входит в сцену направленным движением от ближайшего края; предмет
-        // просто проявляется, чтобы реквизит не изображал персонажа.
-        [Tooltip("Default actor entrance when the command has no enter= (drift = fade + motion from the nearest side; empty = instant).")]
+        // Новый герой въезжает от своей стороны, уходящий растворяется на месте.
+        [Tooltip("Default actor entrance when the command has no enter= (drift = enter from its side; empty = instant).")]
         public string ActorEnter = "drift";
         [Tooltip("Default actor exit when the command has no exit=.")]
-        public string ActorExit = "drift";
+        // Entrance has direction; departure gives the eye no second lateral
+        // journey and simply dissolves the actor in place.
+        public string ActorExit = "fade";
         [Tooltip("Default actor transition duration in seconds.")]
-        public float ActorTransition = 0.175f;
+        public float ActorTransition = 0.35f;
         [Tooltip("Default obj entrance when the command has no enter=.")]
         public string ObjectEnter = "fade";
         [Tooltip("Default obj exit when the command has no exit=.")]
@@ -138,10 +143,9 @@ namespace Lvn.UI
                  "the screen (→0.35/0.65); 0 stacks everyone centre. Ignored when the op " +
                  "sets an explicit x=.")]
         public float ActorSpread = 1f;
-        [Tooltip("Speaker focus: \"dim\" — non-speakers darken (manhwa two-shot); " +
-                 "\"solo\" — only the current speaker is visible, others fade out " +
-                 "(classic novel). Solo touches only characters that have SPOKEN.")]
-        public string SpeakerFocus = "dim";
+        [Tooltip("Speaker focus: \"solo\" — only the current speaker is visible, others fade out " +
+                 "(classic novel); empty/none — no automatic focus. RGB dimming is disabled.")]
+        public string SpeakerFocus = "none";
 
         [Header("Reveal")]
         [Tooltip("Typewriter speed in characters per second.")]

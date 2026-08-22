@@ -148,7 +148,6 @@ namespace Lvn.UI
                     // phantom "dismiss" tap is needed. A MISS falls through to the
                     // normal tap-advance below — so descriptions and the ending are
                     // still dismissable by tapping empty space.
-                    if (_dialogue.IsRevealing) _dialogue.Complete();
                     hit();
                     return;
                 }
@@ -159,10 +158,12 @@ namespace Lvn.UI
                 // fall through to tap-to-advance
             }
 
-            if (_dialogue.IsRevealing) { PlayUiSound(_sndClick); _dialogue.Complete(); return; }
+            // Time Romance rhythm: reveal is intentionally fast and autonomous.
+            // A tap never means "finish typing" — it always dismisses the current
+            // beat.  The next ShowSay owns the protected fade-out → pause → fade-in
+            // hand-off, so one physical tap advances exactly one readable card.
             if (_awaitingTap)
             {
-                PlayUiSound(_sndClick);
                 _awaitingTap = false;
                 _player.Advance();
             }

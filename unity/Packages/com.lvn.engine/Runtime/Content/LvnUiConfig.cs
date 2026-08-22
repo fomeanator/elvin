@@ -316,9 +316,9 @@ namespace Lvn.Content
         /// that never spoke are untouched).</summary>
         public string speaker_focus;
 
-        public string actor_enter;    // default entrance when a command omits enter= ("drift" by default; "" = instant)
-        public string actor_exit;     // default exit when a command omits exit=
-        public float? actor_transition; // default transition duration, seconds (0.175)
+        public string actor_enter;    // default entrance when omitted ("drift" by default; "" = instant)
+        public string actor_exit;     // default exit when omitted ("fade" by default)
+        public float? actor_transition; // default transition duration, seconds (0.35)
         public string object_enter;   // default obj entrance ("fade" by default; "" = instant)
         public string object_exit;    // default obj exit
         public float? object_transition; // default obj transition duration, seconds (0.35)

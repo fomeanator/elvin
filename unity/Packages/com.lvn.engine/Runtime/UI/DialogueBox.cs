@@ -3,6 +3,14 @@ using UnityEngine.UIElements;
 
 namespace Lvn.UI
 {
+    public enum DialogueSpeakerSide
+    {
+        Unanchored,
+        Left,
+        Center,
+        Right,
+    }
+
     /// <summary>
     /// The dialogue panel: a nameplate above a body panel that reveals text with
     /// a fast whole-word fade (driven by <see cref="RichTextTypewriter"/> +
@@ -16,15 +24,13 @@ namespace Lvn.UI
         private readonly VnTheme _theme;
         private readonly VisualElement _box;
         private readonly VisualElement _plate;
+        private readonly VisualElement _panelShell;
         private readonly VisualElement _panel;
+        private readonly VisualElement _speakerPointer;
+        private readonly bool _hasSpeakerPointer;
         private readonly Label _speaker;
         private readonly Label _body;
         private readonly RichTextTypewriter _tw = new RichTextTypewriter();
-
-        private IVisualElementScheduledItem _tick;
-        private float _startTime;
-        private float _cps;
-        private const float AverageCharactersPerWord = 6f;
 
         private Label _advanceHint;
         private IVisualElementScheduledItem _hintPulse;
@@ -58,12 +64,27 @@ namespace Lvn.UI
             else _hintPulse?.Pause();
         }
 
-        /// <summary>True while the typewriter is still revealing the line.</summary>
-        public bool IsRevealing { get; private set; }
+        /// <summary>Peel the visible card from the screen and let it fall down.</summary>
+        public void DropOut(int ms, System.Action done = null) =>
+            LvnAppear.DetachDrop(this, _box, ms, done);
 
-        /// <summary>Fires each time the reveal head visibly moves (the eighth-glyph
-        /// rebuild steps) — the stage throttles it into the typewriter tick sound.</summary>
-        public event System.Action RevealTicked;
+        /// <summary>Slide a replacement card up and settle it onto the screen.</summary>
+        public void SlideIn(int ms, System.Action done = null) =>
+            LvnAppear.CardArrive(this, _box, ms, done);
+
+        /// <summary>Clear the previous exit transform before the next entrance.</summary>
+        public void ResetCardVisual()
+        {
+            LvnAppear.Reset(this);
+            // Do not reset _box.translate: free-popup placement stores its
+            // anchor translation there. Card choreography never owns it.
+            _box.style.scale = new Scale(Vector2.one);
+            _box.style.rotate = new Rotate(new Angle(0f, AngleUnit.Degree));
+        }
+
+        /// <summary>Kept for playback API compatibility. Text is now installed
+        /// whole and revealed by the card fade, so this is always false.</summary>
+        public bool IsRevealing { get; private set; }
 
         public DialogueBox(VnTheme theme)
         {
@@ -182,30 +203,65 @@ namespace Lvn.UI
             _box.Add(_plate);
 
             // Body panel.
+            // The shell stays overflow-visible for ornaments that rise over the
+            // border. The actual panel may be clipped by UiGlass to preserve its
+            // rounded corners; keeping the pointer inside that clipped element
+            // made it permanently invisible whenever glass was enabled.
+            _panelShell = new VisualElement { name = "vn-panel-shell" };
+            _panelShell.style.position = Position.Relative;
+            _panelShell.style.overflow = Overflow.Visible;
+            _panelShell.style.flexShrink = 0;
             _panel = new VisualElement { name = "vn-panel" };
             _panel.style.paddingLeft = _theme.PanelPaddingX;
             _panel.style.paddingRight = _theme.PanelPaddingX;
             _panel.style.paddingTop = _theme.PanelPaddingY;
             _panel.style.paddingBottom = _theme.PanelPaddingY;
             _panel.style.minHeight = _theme.PanelMinHeight;
-            if (_theme.Nvl) _panel.style.flexGrow = 1; // fill the tall NVL region
+            // The speaker pointer deliberately rises above the top border.
+            // Keep it outside the panel's content clip.
+            _panel.style.overflow = Overflow.Visible;
+            if (_theme.Nvl)
+            {
+                _panelShell.style.flexGrow = 1;
+                _panel.style.flexGrow = 1; // fill the tall NVL region
+            }
             SetCorner(_panel, _theme.PanelCornerRadius, top: true, bottom: true);
             UiStyle.ApplyBackground(_panel, _theme.PanelSprite, _theme.PanelSlice);
             // Рамка темы — только если новелла не принесла свою: авторский
             // спрайт сильнее оформления оболочки, иначе тема затирала бы
             // сознательно нарисованное окно.
             if (_theme.PanelSprite == null) LvnChrome.Frame(_panel);
+
+            // Reference grammar: the name sits below the speaker, while a small
+            // folded pointer on the OPPOSITE top edge aims back across the card.
+            // A tiny shared raster is more reliable here than Painter2D: the
+            // pointer must remain visible outside a sliced/rounded panel on every
+            // UI Toolkit backend.
+            var pointerTexture = Resources.Load<Texture2D>("ui/dialogue_pointer_cyan");
+            _hasSpeakerPointer = pointerTexture != null;
+            _speakerPointer = new VisualElement
+            {
+                name = "vn-speaker-pointer",
+                pickingMode = PickingMode.Ignore,
+            };
+            _speakerPointer.style.position = Position.Absolute;
+            // The source is a broad folded flourish, not a one-pixel caret. The
+            // former 63x21 size reduced it to a cyan speck on a phone; four times
+            // that visual size restores the intentional 3:1 silhouette.
+            _speakerPointer.style.width = 252;
+            _speakerPointer.style.height = 84;
+            _speakerPointer.style.top = -72;
+            _speakerPointer.style.backgroundColor = Color.clear;
+            if (pointerTexture != null)
+                _speakerPointer.style.backgroundImage = new StyleBackground(pointerTexture);
+            _speakerPointer.style.display = DisplayStyle.None;
+            _panelShell.Add(_panel);
+            _panelShell.Add(_speakerPointer); // above the clipped glass surface
             _body = new Label { name = "vn-body" };
             _body.style.color = _theme.TextColor;
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.whiteSpace = WhiteSpace.Normal;
             LvnFonts.Apply(_body, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
-            // Typewriter = vertex post-processing: the FULL line is set once (so
-            // word-wrap and box height are final from frame 0) and each repaint
-            // ramps per-glyph tint alpha up to the reveal head. No per-tick string
-            // rebuilds, no rich-text <alpha> hacks, no re-layout — the tick only
-            // moves a float and calls MarkDirtyRepaint.
-            _body.PostProcessTextVertices += OnPostProcessGlyphs;
             _panel.Add(_body);
 
             // The genre's "line finished — tap" marker: a small pulsing ▼ in the
@@ -221,7 +277,7 @@ namespace Lvn.UI
             LvnFonts.Apply(_advanceHint, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             _panel.Add(_advanceHint);
 
-            _box.Add(_panel);
+            _box.Add(_panelShell);
             // Фон окна ставится ОДНИМ методом — тем же, что потом меняет его по
             // настройке прозрачности и по стилю реплики. Раньше конструктор
             // красил панель сам, и стекло, добавленное в общий метод, на первом
@@ -244,72 +300,102 @@ namespace Lvn.UI
         }
 
         /// <summary>Set the speaker name; empty/null hides the nameplate.</summary>
-        public void SetSpeaker(string who)
+        public void SetSpeaker(string who, DialogueSpeakerSide side = DialogueSpeakerSide.Unanchored)
         {
             bool show = !string.IsNullOrEmpty(who);
             _plate.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             _speaker.text = show ? who : "";
+
+            float offset = Mathf.Max(0f, LvnTheme.Current.SpeakerBubbleOffsetX);
+            switch (side)
+            {
+                case DialogueSpeakerSide.Right:
+                    _plate.style.alignSelf = Align.FlexEnd;
+                    _plate.style.marginLeft = 0;
+                    _plate.style.marginRight = offset;
+                    // Name right → pointer left, leaning back toward the actor.
+                    PlaceSpeakerPointer(left: true, pointsRight: true, show: show);
+                    break;
+                case DialogueSpeakerSide.Center:
+                    _plate.style.alignSelf = Align.Center;
+                    _plate.style.marginLeft = 0;
+                    _plate.style.marginRight = 0;
+                    // A centred staged actor still owns a spatial dialogue card.
+                    // Keep the ornament on the opposite/right edge of the plate
+                    // instead of silently dropping it.
+                    PlaceSpeakerPointer(left: false, pointsRight: false, show: show);
+                    break;
+                case DialogueSpeakerSide.Left:
+                    _plate.style.alignSelf = Align.FlexStart;
+                    _plate.style.marginLeft = offset;
+                    _plate.style.marginRight = 0;
+                    // Name left → pointer right, leaning back toward the actor.
+                    PlaceSpeakerPointer(left: false, pointsRight: false, show: show);
+                    break;
+                default:
+                    // Narrator / voice without a staged actor keeps the stable
+                    // historical left plate and has no false spatial pointer.
+                    _plate.style.alignSelf = Align.FlexStart;
+                    _plate.style.marginLeft = offset;
+                    _plate.style.marginRight = 0;
+                    PlaceSpeakerPointer(left: false, pointsRight: false, show: false);
+                    break;
+            }
+        }
+
+        private void PlaceSpeakerPointer(bool left, bool pointsRight, bool show)
+        {
+            _speakerPointer.style.display = show && _hasSpeakerPointer
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+            if (left)
+            {
+                _speakerPointer.style.left = 22;
+                _speakerPointer.style.right = StyleKeyword.Auto;
+            }
+            else
+            {
+                _speakerPointer.style.left = StyleKeyword.Auto;
+                _speakerPointer.style.right = 22;
+            }
+            _speakerPointer.style.scale = new Scale(new Vector2(pointsRight ? 1f : -1f, 1f));
         }
 
         /// <summary>
-        /// Begin revealing <paramref name="text"/> with the typewriter. Optional
-        /// <paramref name="cps"/> overrides the theme speed for this line.
+        /// Install the complete line. Its appearance belongs to the dialogue
+        /// card's fixed fade, not to a length-dependent typewriter.
         /// </summary>
         public void Reveal(string text, float? cps = null)
         {
             _tw.SetText(text ?? "");
-            _cps = cps.HasValue && cps.Value > TypewriterClock.MinCps ? cps.Value : _theme.CharsPerSecond;
-            _startTime = Time.realtimeSinceStartup;
-            _lastQuantum = -1;
-            _tick?.Pause();
-
-            // The budget is deliberately approximate: round it FORWARD to a word
-            // boundary so the first readable block never opens as "предложе…".
-            _initialReveal = _tw.WordEndAtOrAfter(
-                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), _tw.VisibleCount));
-            IsRevealing = _tw.VisibleCount > _initialReveal;
-            RefreshAdvanceHint(); // hidden while revealing
-            _revealProgress = _initialReveal;
-            _wordCompleteChars = _initialReveal;
-            _wordActiveEndChars = _initialReveal;
-            _wordActiveAlpha = 0f;
             _body.text = _tw.Full();
-            if (IsRevealing)
-            {
-                _body.MarkDirtyRepaint(); // same text as the last line? still restart at 0
-                _tick = schedule.Execute(Tick).Every(16);
-            }
+            IsRevealing = false;
+            _body.MarkDirtyRepaint();
+            RefreshAdvanceHint();
         }
 
-        /// <summary>How long this line's tail will take at the current reader
-        /// pace. Used to let a newly entering actor settle with the text instead
-        /// of finishing its animation in an unrelated rhythm.</summary>
+        /// <summary>How long until the card fade makes this already-complete line
+        /// fully visible. Independent of text length and never longer than the
+        /// actor transition.</summary>
         public float EstimateRevealSeconds(string text, float? cps = null)
         {
-            var probe = new RichTextTypewriter();
-            probe.SetText(text ?? "");
-            int initial = probe.WordEndAtOrAfter(
-                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), probe.VisibleCount));
-            int words = probe.WordsAfter(initial);
-            float pace = cps.HasValue && cps.Value > TypewriterClock.MinCps
-                ? cps.Value : _theme.CharsPerSecond;
-            float wordsPerSecond = TypewriterClock.Progress(1f, pace) / AverageCharactersPerWord;
-            return words / Mathf.Max(0.01f, wordsPerSecond);
+            float card = Mathf.Max(0f, _theme.BoxAppearDuration) * VnTheme.MotionDurationScale;
+            float actor = Mathf.Max(0f, _theme.ActorTransition) * VnTheme.MotionDurationScale;
+            return actor > 0.001f ? Mathf.Min(card, actor) : card;
         }
 
-        /// <summary>Snap to the full line immediately (e.g. on the first tap).</summary>
+        /// <summary>Snap to the full line immediately for engine-controlled fast
+        /// forward/restore. Normal player taps advance the card instead.</summary>
         public void Complete()
         {
-            _tick?.Pause();
             IsRevealing = false;
-            _body.MarkDirtyRepaint(); // repaint with the reveal ramp inactive
+            _body.MarkDirtyRepaint();
             RefreshAdvanceHint();
         }
 
         /// <summary>Show a complete line with no reveal (resume / backlog).</summary>
         public void SetText(string text)
         {
-            _tick?.Pause();
             _tw.SetText(text ?? "");
             _body.text = _tw.Full();
             IsRevealing = false;
@@ -387,76 +473,6 @@ namespace Lvn.UI
             ApplyPanelBackground();
         }
 
-        // Whole-word reveal state, measured in visible characters. Every glyph
-        // of the active word shares one opacity, so the eye reads a word rather
-        // than watching individual letters crawl in.
-        private float _revealProgress;
-        private int _initialReveal;
-        private int _wordCompleteChars;
-        private int _wordActiveEndChars;
-        private float _wordActiveAlpha;
-
-        // Progress quantum of the last RevealTicked — one sound per word.
-        private int _lastQuantum = -1;
-
-        private void Tick()
-        {
-            if (!IsRevealing) { _tick?.Pause(); return; }
-            float elapsed = Time.realtimeSinceStartup - _startTime;
-            float wordProgress = TypewriterClock.Progress(elapsed, _cps) / AverageCharactersPerWord;
-            _tw.WordReveal(_initialReveal, wordProgress,
-                out _wordCompleteChars, out _wordActiveEndChars, out _wordActiveAlpha);
-            if (_wordCompleteChars >= _tw.VisibleCount)
-            {
-                Complete();
-                return;
-            }
-            _revealProgress = _wordCompleteChars
-                + (_wordActiveEndChars - _wordCompleteChars) * _wordActiveAlpha;
-            _body.MarkDirtyRepaint(); // vertex-tint pass only — no layout, no strings
-            int q = Mathf.FloorToInt(wordProgress);
-            if (q == _lastQuantum) return;
-            _lastQuantum = q;
-            RevealTicked?.Invoke();
-        }
-
-        // Per-word alpha before the text mesh renders. Vertices are
-        // regenerated fresh for every repaint, so this only ever writes the
-        // CURRENT frame's fade — nothing accumulates. Inactive (IsRevealing
-        // false) it leaves the mesh untouched: the full line renders as-is.
-        private void OnPostProcessGlyphs(TextElement.GlyphsEnumerable glyphs)
-        {
-            if (!IsRevealing) return;
-            int count = glyphs.Count;
-            if (count <= 0) return;
-
-            // Boundaries are in CHARS (steps include spaces); glyphs are only
-            // rendered quads. Rescale both complete and active word ends.
-            int chars = _tw.VisibleCount;
-            float completeGlyph = chars > 0 ? _wordCompleteChars * count / (float)chars : count;
-            float activeGlyph = chars > 0 ? _wordActiveEndChars * count / (float)chars : count;
-
-            int i = 0;
-            foreach (TextElement.Glyph glyph in glyphs)
-            {
-                float midpoint = i + 0.5f;
-                i++;
-                if (midpoint <= completeGlyph) continue;
-                byte b = midpoint <= activeGlyph
-                    ? (byte)(_wordActiveAlpha * 255f + 0.5f)
-                    : (byte)0;
-                var verts = glyph.vertices;
-                for (int v = 0; v < verts.Length; v++)
-                {
-                    var vert = verts[v];
-                    var tint = vert.tint;
-                    tint.a = b == 0 ? (byte)0 : (byte)(tint.a * b / 255);
-                    vert.tint = tint;
-                    verts[v] = vert;
-                }
-            }
-        }
-
         private static void SetCorner(VisualElement el, float r, bool top, bool bottom)
         {
             if (top)
@@ -470,5 +486,6 @@ namespace Lvn.UI
                 el.style.borderBottomRightRadius = r;
             }
         }
+
     }
 }

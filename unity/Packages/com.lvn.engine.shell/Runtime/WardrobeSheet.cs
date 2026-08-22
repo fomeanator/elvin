@@ -246,7 +246,7 @@ namespace Lvn.UI.Screens
         {
             if (string.IsNullOrEmpty(id) || id == _entity) return;
             var from = _entity;
-            LvnWardrobe.ClearPreview(from); // the outgoing look snaps back
+            LvnWardrobe.ClearPreview(from); // the outgoing look blends back
             OnCharacterPicked?.Invoke(from, id);
             BuildFor(id);
             RefreshBalances();
@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             finally
             {
                 LvnWallet.Changed -= OnWalletChanged;
-                LvnWardrobe.ClearPreview(_entity); // confirm already committed; cancel snaps back
+                LvnWardrobe.ClearPreview(_entity); // confirm stays; cancel blends back
                 _open = false;
             }
         }

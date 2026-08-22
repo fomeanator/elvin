@@ -19,11 +19,23 @@ namespace Lvn.UI
     /// </summary>
     public sealed partial class VnStage
     {
+        /// <summary>One fixed dialogue-card duration. Content length never enters
+        /// this calculation; a dialogue fade may be quicker than actor motion but
+        /// never outlive it.</summary>
+        private float DialogueFadeSeconds()
+        {
+            float card = Mathf.Max(0f, Theme?.BoxAppearDuration ?? 0.22f)
+                * VnTheme.MotionDurationScale;
+            float actor = Mathf.Max(0f, Theme?.ActorTransition ?? 0.35f)
+                * VnTheme.MotionDurationScale;
+            return actor > 0.001f ? Mathf.Min(card, actor) : card;
+        }
+
         // The dialogue frame is chrome for a LINE — between chapters (and while
         // the next chapter's script/art loads) there is no line, and the empty
         // skinned box floating over a bare stage read as a glitch. Hidden on
         // every stage reset, shown again by the first ShowSay.
-        private void SetSayVisible(bool on)
+        private void SetSayVisible(bool on, Action shown = null)
         {
             if (!on)
             {
@@ -35,24 +47,31 @@ namespace Lvn.UI
             {
                 bool wasOn = _dialogue.style.display == DisplayStyle.Flex;
                 var kind = LvnAppear.Parse(Theme?.BoxAppear);
-                int ms = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f);
+                int ms = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
 
                 if (on && !wasOn && kind != LvnAppearKind.None)
                 {
+                    _dialogue.ResetCardVisual();
                     _dialogue.style.display = DisplayStyle.Flex;
-                    LvnAppear.Play(_dialogue, kind, appearing: true, ms: ms);
+                    _dialogue.SlideIn(ms, shown);
                 }
                 else if (!on && wasOn && kind != LvnAppearKind.None)
                 {
                     // Окно уходит СВОИМ ходом и прячется хвостом анимации: снять
                     // его сразу значит не показать уход вовсе.
-                    LvnAppear.Play(_dialogue, kind, appearing: false, ms: Mathf.RoundToInt(ms * 0.8f),
-                        done: () => { if (_dialogue != null) _dialogue.style.display = DisplayStyle.None; });
+                    int hideGen = _dialogueSwapGeneration;
+                    _dialogue.DropOut(ms,
+                        done: () =>
+                        {
+                            if (hideGen == _dialogueSwapGeneration && _dialogue != null)
+                                _dialogue.style.display = DisplayStyle.None;
+                        });
                 }
                 else
                 {
-                    LvnAppear.Reset(_dialogue);
+                    _dialogue.ResetCardVisual();
                     _dialogue.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                    if (on) shown?.Invoke();
                 }
             }
             NotifyUiStage();
@@ -97,6 +116,19 @@ namespace Lvn.UI
                     clampY = box.worldBound.yMax - host.worldBound.y + Theme.ChoiceSpacing;
             }
             _choices.ClampBelow(clampY);
+        }
+
+        /// <summary>Bind choice placement to the geometry that actually grows:
+        /// the inner dialogue box. The outer absolute host can keep the same
+        /// bounds while a wrapped body becomes taller, so listening only to it
+        /// misses exactly the two/three-line case. Called after every chrome
+        /// rebuild because UI Toolkit callbacks stay on the discarded instance.</summary>
+        private void WireChoiceGeometrySync()
+        {
+            if (_dialogue == null) return;
+            var box = _dialogue.Q("vn-box");
+            (box ?? (VisualElement)_dialogue)
+                .RegisterCallback<GeometryChangedEvent>(_ => SyncChoicesBelowBox());
         }
 
         private void OnChoicesVisibleChanged(bool visible)
@@ -152,7 +184,6 @@ namespace Lvn.UI
         private void CommitChoice(int index, string pickedText)
         {
             StopChoiceTimer(); // the pick beat the clock
-            PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
             _choiceCommitInFlight = true;
             _choices.SetEnabled(false);
 
@@ -161,8 +192,8 @@ namespace Lvn.UI
                 _dialogue.style.display == DisplayStyle.Flex)
             {
                 int gen = ++_dialogueSwapGeneration;
-                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
-                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs);
+                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+                _dialogue.DropOut(outMs);
                 LvnAppear.Play(_choices, kind, appearing: false, ms: outMs,
                     done: () => AfterBeatPause(gen,
                         () => FinishChoiceCommit(gen, index, pickedText)));
@@ -177,7 +208,8 @@ namespace Lvn.UI
         private void AfterBeatPause(int generation, Action next)
         {
             if (generation != _dialogueSwapGeneration || next == null) return;
-            int ms = Mathf.RoundToInt(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f) * 1000f);
+            int ms = Mathf.RoundToInt(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f)
+                * VnTheme.MotionDurationScale * 1000f);
             if (ms <= 0 || _dialogue == null) { next(); return; }
             _dialogue.schedule.Execute(() =>
             {
@@ -195,7 +227,7 @@ namespace Lvn.UI
             _sayUp = false;
             if (_dialogue != null)
             {
-                LvnAppear.Reset(_dialogue);
+                _dialogue.ResetCardVisual();
                 _dialogue.style.display = DisplayStyle.None;
             }
             // Ignore a click on a stale button (the beat moved on via load/hot-reload
@@ -245,9 +277,9 @@ namespace Lvn.UI
                     return; // the dressed stage waits under the title card
                 }
             }
-            // Each line is a fresh readable card. The old complete line dissolves
-            // first; only then do we install the new text and fade it in. This is
-            // intentionally independent of speaker identity.
+            // Each line is a fresh readable card. The old complete line releases
+            // and falls first; only then do we install the new text and slide its
+            // replacement into place. This is independent of speaker identity.
             bool replacing = _sayUp && _dialogue != null &&
                 _dialogue.style.display == DisplayStyle.Flex && !_dialogueSurfaceFresh;
             var kind = LvnAppear.Parse(Theme?.BoxAppear);
@@ -256,49 +288,66 @@ namespace Lvn.UI
                 int gen = ++_dialogueSwapGeneration;
                 _awaitingTap = false; // a tap during the hand-off cannot skip the new line
                 _audio?.StopVoice();
-                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
-                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs, done: () =>
+                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+                _dialogue.DropOut(outMs, done: () =>
                 {
                     if (gen != _dialogueSwapGeneration || _dialogue == null) return;
                     _dialogue.style.display = DisplayStyle.None;
-                    AfterBeatPause(gen, () => PresentSay(who, text, style));
+                    AfterBeatPause(gen, () => PresentSay(gen, who, text, style));
                 });
                 return;
             }
 
-            ++_dialogueSwapGeneration;
-            PresentSay(who, text, style);
+            int directGen = ++_dialogueSwapGeneration;
+            PresentSay(directGen, who, text, style);
         }
 
-        private void PresentSay(string who, string text, string style)
+        private void PresentSay(int gen, string who, string text, string style)
         {
+            if (gen != _dialogueSwapGeneration || _dialogue == null) return;
             _dialogueSurfaceFresh = false;
-            _dialogue.SetSpeaker(who);
+            _awaitingTap = false;
+            _dialogue.SetSpeaker(who, DialogueSideForCurrentSpeaker(who));
             _dialogue.ApplyStyle(style);
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
             _dialogue.Reveal(text);
-            SetSayVisible(true);
+            _sayUp = true;
+            _curChoices = null;
+            SetSayVisible(true, () => UnlockSayWhenChoreographyReady(gen));
             // Voice-over: the line's clip starts with its text; the previous line's
             // voice stops (never overlaps). Silent lines just stop the old one.
             if (_audio != null)
                 LvnAsync.Fire(_audio.PlayVoiceAsync(_player?.CurrentVoiceUrl, Assets, _cts != null ? _cts.Token : default), "PlayVoice");
             _lastSayLength = text?.Length ?? 0; // drives the auto-advance reading delay
             _autoRevealDoneAt = -1f;
-            _awaitingTap = true;
-            _sayUp = true;
-            _curChoices = null;
             PrefetchAhead(); // warm the next beats' art/audio while the player reads
 
-            // Classic VN focus: the speaker is at full brightness, everyone else
-            // present dims — so a two-shot reads as "this one is talking" instead of
-            // a flat row. actor_map'd speakers carry their true actor id (who_id);
-            // without it the loose name↔slot key match applies.
-            SceneHighlightSpeaker(_player?.CurrentSpeakerId ?? who);
+            // Speaker changes must not recolour the cast. Clear any legacy focus
+            // tint that may survive a hot rebuild; solo visibility remains a
+            // separate authored staging mode below.
+            SceneHighlightSpeaker(null);
             ApplySpeakerSolo(_player?.CurrentSpeakerId ?? ResolveSpeakerId(who));
 
             // Lip-sync: only the speaking actor's mouth moves while the line is up.
             var spId = _player?.CurrentSpeakerId ?? ResolveSpeakerId(who);
             foreach (var kv in _talkAnims) SceneTalk(kv.Key, kv.Value, kv.Key == spId);
+        }
+
+        /// <summary>Open tap input only when every visual owner of this beat has
+        /// released it. The check repeats because an async actor load can start
+        /// its real entrance after the dialogue card has already arrived.</summary>
+        private void UnlockSayWhenChoreographyReady(int gen)
+        {
+            if (gen != _dialogueSwapGeneration || !_sayUp || _dialogue == null) return;
+            if (_curChoices != null && _curChoices.Count > 0) return;
+            float left = _actorVisibilityBarrierUntil - Time.realtimeSinceStartup;
+            if (left > 0.001f)
+            {
+                _dialogue.schedule.Execute(() => UnlockSayWhenChoreographyReady(gen))
+                    .ExecuteLater(Mathf.Max(1, Mathf.CeilToInt(left * 1000f)));
+                return;
+            }
+            _awaitingTap = true;
         }
 
         // Scene calls go through the ISceneRenderer seam — path-specific behaviour
@@ -368,6 +417,36 @@ namespace Lvn.UI
             return sb.ToString();
         }
 
+        /// <summary>Map the current semantic speaker to the side of the stage
+        /// they actually occupy. Pending placement wins so an async sprite load
+        /// cannot leave the nameplate on the previous/default side.</summary>
+        private DialogueSpeakerSide DialogueSideForCurrentSpeaker(string who)
+        {
+            if (string.IsNullOrEmpty(who)) return DialogueSpeakerSide.Unanchored;
+            string id = _player?.CurrentSpeakerId;
+            if (string.IsNullOrEmpty(id))
+            {
+                // Direct-authored scripts may omit actor_map/who_id. Mirror the
+                // renderer's loose key match so `actor Bob` + `Bob: ...` still
+                // receives a spatial nameplate.
+                string key = Lvn.LvnKey.Normalize(who);
+                foreach (var kv in _actorTargets)
+                    if (Lvn.LvnKey.Normalize(kv.Key) == key) { id = kv.Key; break; }
+                if (string.IsNullOrEmpty(id))
+                    foreach (var kv in _placements)
+                        if (Lvn.LvnKey.Normalize(kv.Key) == key) { id = kv.Key; break; }
+            }
+            if (string.IsNullOrEmpty(id)) return DialogueSpeakerSide.Unanchored;
+
+            Placement p;
+            bool found = _actorTargets.TryGetValue(id, out p)
+                || _placements.TryGetValue(id, out p);
+            if (!found || !p.Show) return DialogueSpeakerSide.Unanchored;
+            if (p.X < 0.45f) return DialogueSpeakerSide.Left;
+            if (p.X > 0.55f) return DialogueSpeakerSide.Right;
+            return DialogueSpeakerSide.Center;
+        }
+
         public void ShowChoice(IReadOnlyList<LvnOption> options)
         {
             _awaitingTap = false;
@@ -380,8 +459,8 @@ namespace Lvn.UI
                 kind != LvnAppearKind.None)
             {
                 int gen = ++_dialogueSwapGeneration;
-                int outMs = Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 800f);
-                LvnAppear.Play(_dialogue, kind, appearing: false, ms: outMs,
+                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+                _dialogue.DropOut(outMs,
                     done: () => AfterBeatPause(gen,
                         () => PresentChoiceBeat(gen, options, kind)));
                 return;
@@ -393,15 +472,41 @@ namespace Lvn.UI
         {
             if (gen != _dialogueSwapGeneration || _choices == null) return;
             _choices.Present(options);
-            _choices.SetEnabled(true);
+            _choices.SetEnabled(false);
+            // Present() makes the list visible before UI Toolkit has completed
+            // its new layout. Re-evaluate once after that pass; subsequent text
+            // wrapping is covered by WireChoiceGeometrySync above.
+            SyncChoicesBelowBox();
+            _choices.schedule.Execute(SyncChoicesBelowBox).ExecuteLater(1);
             if (kind != LvnAppearKind.None)
             {
-                LvnAppear.Play(_dialogue, kind, appearing: true,
-                    ms: Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f));
+                int enterMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+                _dialogue?.ResetCardVisual();
+                _dialogue.SlideIn(enterMs);
                 LvnAppear.Play(_choices, kind, appearing: true,
-                    ms: Mathf.RoundToInt((Theme?.BoxAppearDuration ?? 0.22f) * 1000f));
+                    ms: enterMs,
+                    done: () =>
+                    {
+                        EnableChoiceWhenChoreographyReady(gen);
+                    });
+                return;
             }
-            // A timed choice starts only when the buttons are actually visible.
+            EnableChoiceWhenChoreographyReady(gen);
+        }
+
+        private void EnableChoiceWhenChoreographyReady(int gen)
+        {
+            if (gen != _dialogueSwapGeneration || _choices == null
+                || _curChoices == null || _curChoices.Count == 0) return;
+            float left = _actorVisibilityBarrierUntil - Time.realtimeSinceStartup;
+            if (left > 0.001f)
+            {
+                _choices.schedule.Execute(() => EnableChoiceWhenChoreographyReady(gen))
+                    .ExecuteLater(Mathf.Max(1, Mathf.CeilToInt(left * 1000f)));
+                return;
+            }
+            _choices.SetEnabled(true);
+            // A timed choice starts only when it is visible and can be pressed.
             StartChoiceTimer(_player != null ? _player.CurrentChoiceTimeout : 0f);
         }
 

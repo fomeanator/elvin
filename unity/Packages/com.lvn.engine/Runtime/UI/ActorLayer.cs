@@ -66,6 +66,15 @@ namespace Lvn.UI
         public TransitionType EnterTransition;
         public TransitionType ExitTransition;
         public float TransitionDuration;
+        /// <summary>One-shot renderer hint: an already-visible actor received an
+        /// explicit position/x/y command and should tween to it. Never persist it.</summary>
+        public bool SmoothPosition;
+        /// <summary>One-shot renderer hint: this visual rebuild came from live
+        /// wardrobe preview and may use the dedicated outfit-flow shader.</summary>
+        public bool WardrobeSwap;
+        /// <summary>Hair flows from the head downward; clothing keeps the
+        /// default feet-up reveal.</summary>
+        public bool WardrobeFromTop;
 
         public static Placement Standing(float x) => new Placement
         {
@@ -76,8 +85,8 @@ namespace Lvn.UI
     /// <summary>
     /// The object layer (z-order 1): every actor or prop is a slot placed by a
     /// <see cref="Placement"/> and drawn as a bottom-to-top stack of sprite
-    /// layers. Characters are just objects that also dim when not speaking — the
-    /// same `Apply` puts <em>any</em> sprite on screen from a script.
+    /// layers. Characters and props share the same neutral-colour rendering path;
+    /// the same `Apply` puts <em>any</em> sprite on screen from a script.
     /// </summary>
     public sealed class ActorLayer : VisualElement
     {
@@ -101,6 +110,7 @@ namespace Lvn.UI
         private readonly Dictionary<string, Action> _onClick = new Dictionary<string, Action>();
         private readonly Dictionary<string, float> _hoverOpacity = new Dictionary<string, float>();
         private readonly Dictionary<string, float> _baseOpacity = new Dictionary<string, float>();
+        private readonly Dictionary<string, Vector2> _positions = new Dictionary<string, Vector2>();
         private int _nextZ;
 
         public ActorLayer()
@@ -223,8 +233,44 @@ namespace Lvn.UI
             // so these ?? fallbacks only fire on a raw placement.
             slot.style.width = Length.Percent((p.Width ?? Placement.DefaultWidth) * 100f);
             slot.style.height = Length.Percent((p.Height ?? Placement.DefaultHeight) * 100f);
-            slot.style.left = Length.Percent(p.X * 100f);
-            slot.style.top = Length.Percent(p.Y * 100f);
+            // A named side slot must keep the fitted actor box on-screen. The
+            // raw classic x=.25/.75 only fits a 50%-wide actor; tall layered art
+            // can be wider after aspect-fit, so clamp by its real box extent.
+            float boxWidth = p.Width ?? Placement.DefaultWidth;
+            float boxHeight = p.Height ?? Placement.DefaultHeight;
+            if (p.BoxAspect is float boxAspect && boxAspect > 0f)
+            {
+                if (boxWidth / Mathf.Max(0.0001f, boxHeight) > boxAspect)
+                    boxWidth = boxHeight * boxAspect;
+            }
+            float visualAnchorX = p.Flip ? 1f - p.AnchorX : p.AnchorX;
+            float minX = visualAnchorX * boxWidth;
+            float maxX = 1f - (1f - visualAnchorX) * boxWidth;
+            float targetX = minX <= maxX ? Mathf.Clamp(p.X, minX, maxX) : 0.5f;
+            var targetPosition = new Vector2(targetX, p.Y);
+            var previousPosition = targetPosition;
+            bool movePosition = p.SmoothPosition && wasShown && p.Show
+                && _positions.TryGetValue(id, out previousPosition)
+                && (previousPosition - targetPosition).sqrMagnitude > 0.000001f
+                && p.TransitionDuration > 0.001f;
+            if (movePosition)
+            {
+                int moveMs = Mathf.Max(1, Mathf.RoundToInt(p.TransitionDuration * 1000f));
+                slot.style.left = Length.Percent(previousPosition.x * 100f);
+                slot.style.top = Length.Percent(previousPosition.y * 100f);
+                slot.experimental.animation.Start(0f, 1f, moveMs, (e, t) =>
+                {
+                    float k = Mathf.SmoothStep(0f, 1f, t);
+                    e.style.left = Length.Percent(Mathf.Lerp(previousPosition.x, targetPosition.x, k) * 100f);
+                    e.style.top = Length.Percent(Mathf.Lerp(previousPosition.y, targetPosition.y, k) * 100f);
+                }).Ease(Easing.Linear);
+            }
+            else
+            {
+                slot.style.left = Length.Percent(targetPosition.x * 100f);
+                slot.style.top = Length.Percent(targetPosition.y * 100f);
+            }
+            _positions[id] = targetPosition;
             // Translate so the object's own anchor point lands on (X, Y); UITK
             // percent translate is relative to the element's own size.
             slot.style.translate = new Translate(Length.Percent(-p.AnchorX * 100f), Length.Percent(-p.AnchorY * 100f), 0);
@@ -264,10 +310,6 @@ namespace Lvn.UI
                 return byZ != 0 ? byZ : BirthOf(a).CompareTo(BirthOf(b));
             });
 
-            // An emotion/outfit swap rebuilt the layer images — re-tint them so a
-            // dimmed actor doesn't pop back to full brightness mid-line.
-            if (_focusK.TryGetValue(id, out var focus) && focus < 1f)
-                SetFocus(id, slot, focus);
         }
 
         // The animation wrapper between the slot (placement/anchor/flip) and the
@@ -401,48 +443,32 @@ namespace Lvn.UI
             if (_animators.TryGetValue(id, out var a)) a.StopAll();
         }
 
-        // Focus dim as a COLOR, not opacity: fading a layered actor per-layer lets
-        // a translucent clothes layer reveal the body layer underneath (an
-        // accidental x-ray). Tinting every layer toward black dims the composite
-        // while its alpha stays intact. Remembered per id so a re-Apply (an
-        // emotion/outfit swap rebuilds the layer images) keeps the current focus.
-        private readonly Dictionary<string, float> _focusK = new Dictionary<string, float>();
-
-        private void SetFocus(string id, VisualElement slot, float k)
+        // Legacy builds may have left a speaker-focus tint on existing images.
+        // The feature is gone; this seam only restores the authored colour.
+        private static void ClearFocusTint(VisualElement slot)
         {
-            _focusK[id] = k;
-            var tint = new Color(k, k, k, 1f);
-            slot.Query<Image>().ForEach(img => img.tintColor = tint);
+            slot?.Query<Image>().ForEach(img => img.tintColor = Color.white);
         }
 
-        /// <summary>Full brightness for the speaker, dim for everyone else (null = undim all).
-        /// A hidden actor is skipped outright — she has nothing on screen to dim,
-        /// and touching her tint must never be what makes her reappear.</summary>
+        /// <summary>Speaker changes never alter actor brightness. Hidden actors
+        /// remain untouched; every visible actor is restored to neutral RGB.</summary>
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slots)
             {
                 if (_hidden.Contains(kv.Key)) continue;
-                SetFocus(kv.Key, kv.Value, id == null || kv.Key == id ? 1f : 0.7f);
+                ClearFocusTint(kv.Value);
             }
         }
 
-        /// <summary>Classic VN focus: the character who is speaking goes full opacity,
-        /// everyone else present dims. Matches the speaker to a slot by loose name key.
-        /// When the speaker isn't on stage (narration / off-screen voice) the current
-        /// dim is left as-is, so prose about the scene doesn't make everyone flicker.</summary>
+        /// <summary>Automatic non-speaker dimming is disabled. Always clear any
+        /// legacy tint on actors that are currently visible.</summary>
         public void HighlightSpeaker(string who)
         {
-            var target = Lvn.LvnKey.Normalize(who);
-            if (target == "") return;
-            bool present = false;
-            foreach (var kv in _slots)
-                if (!_hidden.Contains(kv.Key) && Lvn.LvnKey.Normalize(kv.Key) == target) { present = true; break; }
-            if (!present) return; // speaker has no sprite on stage — keep the current focus
             foreach (var kv in _slots)
             {
-                if (_hidden.Contains(kv.Key)) continue; // nothing on screen to dim
-                SetFocus(kv.Key, kv.Value, Lvn.LvnKey.Normalize(kv.Key) == target ? 1f : 0.7f);
+                if (_hidden.Contains(kv.Key)) continue;
+                ClearFocusTint(kv.Value);
             }
         }
 
@@ -459,7 +485,7 @@ namespace Lvn.UI
             _onClick.Clear();
             _hoverOpacity.Clear();
             _baseOpacity.Clear();
-            _focusK.Clear();
+            _positions.Clear();
             _nextZ = 0;
         }
 
@@ -482,8 +508,12 @@ namespace Lvn.UI
                     float from = exiting ? p.Opacity : 0f, to = exiting ? 0f : p.Opacity;
                     slot.style.opacity = from;
                     Finish(slot.experimental.animation
-                        .Start(0f, 1f, ms, (e, t) => e.style.opacity = Mathf.Lerp(from, to, t))
-                        .Ease(Easing.InOutSine), exiting, slot);
+                        .Start(0f, 1f, ms, (e, t) =>
+                        {
+                            // Движения нет — гашение занимает весь ход.
+                            float alphaT = Lvn.UI.World.LvnFade.OpacityProgress(t, !exiting, withMotion: false);
+                            e.style.opacity = Mathf.Lerp(from, to, alphaT);
+                        }), exiting, slot);
                     break;
                 }
                 case TransitionType.SlideLeft:
@@ -527,17 +557,23 @@ namespace Lvn.UI
                     float dir = Lvn.UI.World.LvnFade.DriftSign(p.X);
                     float ax = -p.AnchorX * 100f, ay = -p.AnchorY * 100f;
                     float from = exiting ? p.Opacity : 0f, to = exiting ? 0f : p.Opacity;
-                    float offFrom = exiting ? 0f : dir * 10f, offTo = exiting ? dir * 10f : 0f;
+                    // A departure only needs half the entrance travel. Keeping
+                    // the same duration preserves the late fade but removes the
+                    // overlong sideways glide from the eye.
+                    float drift = exiting ? 3.75f : 7.5f;
+                    float offFrom = exiting ? 0f : dir * drift, offTo = exiting ? dir * drift : 0f;
                     slot.style.opacity = from;
                     slot.style.translate = new Translate(Length.Percent(ax + offFrom), Length.Percent(ay));
                     Finish(slot.experimental.animation
                         .Start(0f, 1f, ms, (e, t) =>
                         {
-                            e.style.opacity = Mathf.Lerp(from, to, t);
+                            // Снос вбок — плотная фигура, кромка прозрачности.
+                            float alphaT = Lvn.UI.World.LvnFade.OpacityProgress(t, !exiting, withMotion: true);
+                            float moveT = t * t * (3f - 2f * t);
+                            e.style.opacity = Mathf.Lerp(from, to, alphaT);
                             e.style.translate = new Translate(
-                                Length.Percent(ax + Mathf.Lerp(offFrom, offTo, t)), Length.Percent(ay));
-                        })
-                        .Ease(exiting ? Easing.InSine : Easing.OutCubic), exiting, slot);
+                                Length.Percent(ax + Mathf.Lerp(offFrom, offTo, moveT)), Length.Percent(ay));
+                        }), exiting, slot);
                     break;
                 }
                 case TransitionType.Rise:

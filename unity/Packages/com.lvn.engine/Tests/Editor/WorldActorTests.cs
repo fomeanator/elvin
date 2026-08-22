@@ -54,7 +54,10 @@ namespace Lvn.Tests
             actor.Tick(0.5f);
 
             var slot = (RectTransform)actor.transform;
-            var rig = (RectTransform)actor.transform.Find("rig");
+            // Обращаемся к rig ЧЕРЕЗ ЕГО СВОЙСТВО, а не поиском по имени:
+            // между слотом и rig теперь стоит узел перехода, и путь в иерархии
+            // — не контракт. Контракт — что анимация ведёт именно этот узел.
+            var rig = actor.Rig;
             var group = rig.GetComponent<CanvasGroup>();
             var eyes = rig.GetComponentInChildren<Image>();
 

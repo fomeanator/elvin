@@ -24,6 +24,21 @@ namespace Lvn.UI
         // entity → axis → value, loaded lazily per entity.
         private static readonly Dictionary<string, Dictionary<string, string>> _cache
             = new Dictionary<string, Dictionary<string, string>>();
+        private static readonly Dictionary<string, string> _lastChangedAxis
+            = new Dictionary<string, string>();
+
+        /// <summary>The wardrobe axis that produced the latest live rebuild for
+        /// this entity. Renderers use it only to choose the transition direction.</summary>
+        public static string LastChangedAxis(string entity)
+            => !string.IsNullOrEmpty(entity) && _lastChangedAxis.TryGetValue(entity, out var axis)
+                ? axis : null;
+
+        private static void PublishChanged(string entity, string axis)
+        {
+            if (string.IsNullOrEmpty(axis)) _lastChangedAxis.Remove(entity);
+            else _lastChangedAxis[entity] = axis;
+            Changed?.Invoke(entity);
+        }
 
         /// <summary>The wallet inventory sku for a wardrobe item — deterministic,
         /// so ownership survives reinstalls via the server wallet.</summary>
@@ -47,7 +62,7 @@ namespace Lvn.UI
             if (!remove) map[axis] = value;
             Persist(entity, map);
             Debug.Log($"[lvn-wardrobe] equip {entity}.{axis} = {(remove ? "(off)" : value)}");
-            Changed?.Invoke(entity);
+            PublishChanged(entity, axis);
         }
 
         // ── try-on preview: not persisted, wins over equipped ────────────────
@@ -68,7 +83,7 @@ namespace Lvn.UI
             if (remove ? !map.Remove(axis) : (map.TryGetValue(axis, out var cur) && cur == value))
                 return;
             if (!remove) map[axis] = value;
-            Changed?.Invoke(entity);
+            PublishChanged(entity, axis);
         }
 
         /// <summary>Current previewed values for an entity (axis → value).</summary>
@@ -77,12 +92,16 @@ namespace Lvn.UI
                 ? map : (IReadOnlyDictionary<string, string>)_empty;
         private static readonly Dictionary<string, string> _empty = new Dictionary<string, string>();
 
-        /// <summary>Drop every preview for an entity (sheet closed) — the actor
-        /// snaps back to what's actually equipped.</summary>
+        /// <summary>Drop every preview for an entity (sheet closed) — the stage
+        /// blends the actor back to what's actually equipped.</summary>
         public static void ClearPreview(string entity)
         {
-            if (string.IsNullOrEmpty(entity) || !_previews.Remove(entity)) return;
-            Changed?.Invoke(entity);
+            if (string.IsNullOrEmpty(entity) || !_previews.TryGetValue(entity, out var preview)) return;
+            string onlyAxis = null;
+            if (preview.Count == 1)
+                foreach (var kv in preview) { onlyAxis = kv.Key; break; }
+            _previews.Remove(entity);
+            PublishChanged(entity, onlyAxis);
         }
 
         /// <summary>Overlay the previewed + equipped values onto a command's axes

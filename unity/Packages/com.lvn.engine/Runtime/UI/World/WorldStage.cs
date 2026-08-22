@@ -18,11 +18,17 @@ namespace Lvn.UI.World
     /// <para>The GameRoot carries the camera transform (shake/zoom/pan) so the
     /// scene moves while the chrome stays put. Each actor is a
     /// <see cref="WorldActor"/> placed by <see cref="WorldPlacement"/>; its own
-    /// <see cref="CanvasGroup"/> carries placement opacity and speaker-dim, while
+    /// <see cref="CanvasGroup"/> carries placement opacity, while
     /// the actor's internal rig group carries animation alpha (the two multiply).</para>
     /// </summary>
     public sealed class WorldStage
     {
+        // Compact side travel: 75% of the former 4.5%-screen drift.
+        private const float ActorEnterDriftScreen = 0.03375f;
+        // Exit is a dismissal, not a second entrance played backwards: a short
+        // nudge reads cleaner once the actor is already disappearing.
+        private const float ActorExitDriftScreen = ActorEnterDriftScreen * 0.5f;
+
         private readonly GameObject _canvasGo;
         private readonly RectTransform _gameRoot;
         private readonly RectTransform _content;
@@ -274,6 +280,10 @@ namespace Lvn.UI.World
         {
             if (string.IsNullOrEmpty(id)) return null;
             var a = EnsureActor(id);
+            // A visible explicit move must start from the CURRENT slot in the
+            // final ApplyActor pass. Pre-placement exists for cold art loading;
+            // applying the target here consumed the distance and caused a snap.
+            if (a.gameObject.activeSelf && (p.SmoothPosition || !p.Show)) return a;
             ApplyPlacement(id, a, p);
             return a;
         }
@@ -297,10 +307,21 @@ namespace Lvn.UI.World
             if (string.IsNullOrEmpty(id)) return null;
             var a = EnsureActor(id);
 
+            bool wasVisible = a.gameObject.activeSelf;
+            bool artSwap = wasVisible && p.Show && layers != null && layers.Count > 0
+                && a.VisualWouldChange(layers, layerIds, layerRects, layerDefs)
+                && a.BeginArtSwapVisual();
             if (layers != null && layers.Count > 0)
                 a.Configure(layers, layerIds, layerRects, layerDefs);
 
-            ApplyPlacement(id, a, p);
+            Vector2 previousSlotBase = a.SlotBase;
+            // Hiding never relocates first. If a tap interrupts an in-flight
+            // position tween, freeze at the current base and fade from there.
+            if (wasVisible && !p.Show) a.SetSlotBase(previousSlotBase);
+            else ApplyPlacement(id, a, p);
+            Vector2 targetSlotBase = a.SlotBase;
+            if (p.SmoothPosition && wasVisible && p.Show)
+                a.MoveSlotBase(previousSlotBase, targetSlotBase, p.TransitionDuration);
 
             _baseOpacity[id] = p.Opacity;
             _slotGroups.TryGetValue(id, out var g);
@@ -308,7 +329,6 @@ namespace Lvn.UI.World
             // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
             // эмоции идёт тем же путём `actor`, и если проявлять на каждом
             // применении, персонаж будет мигать на каждой реплике.
-            bool wasVisible = a.gameObject.activeSelf;
             float dur = p.TransitionDuration;
             bool fadeIn = p.Show && !wasVisible && p.EnterTransition != TransitionType.None && dur > 0.001f;
             bool fadeOut = !p.Show && wasVisible && p.ExitTransition != TransitionType.None && dur > 0.001f;
@@ -316,12 +336,14 @@ namespace Lvn.UI.World
             if (fadeIn && p.EnterTransition == TransitionType.Dissolve)
             {
                 a.gameObject.SetActive(true);
+                a.EndTransitionVisual();
                 if (g != null) g.alpha = p.Opacity;
                 Dissolve(a, 1f, 0f, dur);           // собирается из шума
                 LvnFade.Play(g, p.Opacity, p.Opacity, dur); // тот же таймер, альфа не трогается
             }
             else if (fadeOut && p.ExitTransition == TransitionType.Dissolve)
             {
+                a.EndTransitionVisual();
                 Dissolve(a, 0f, 1f, dur);           // сгорает
                 LvnFade.Play(g, g != null ? g.alpha : p.Opacity, g != null ? g.alpha : p.Opacity, dur,
                     () => { if (a != null) { a.gameObject.SetActive(false); Dissolve(a, 0f, 0f, 0f); } });
@@ -329,47 +351,66 @@ namespace Lvn.UI.World
             else if (fadeIn)
             {
                 a.gameObject.SetActive(true);
+                a.BeginTransitionVisual();
                 if (p.EnterTransition == TransitionType.Drift)
                 {
                     // Кинематографичный вход: правый персонаж въезжает справа,
                     // левый — слева, с коротким федом.
-                    float dir = LvnFade.DriftSign(p.X);
+                    // Transition is a child of the placement slot. A mirrored
+                    // slot reverses child-local X, so compensate here: POSITION
+                    // still owns the intended screen direction; mirror only
+                    // changes which way the artwork faces.
+                    float dir = LocalDriftSign(p);
                     LvnFade.Play(g, 0f, p.Opacity, dur,
-                        a.Slot, new Vector2(dir * _reference.x * 0.06f, 0f));
+                        a.Transition, new Vector2(dir * _reference.x * ActorEnterDriftScreen, 0f),
+                        () => { if (a != null) a.EndTransitionVisual(); });
                 }
-                else LvnFade.Play(g, 0f, p.Opacity, dur);
+                else LvnFade.Play(g, 0f, p.Opacity, dur,
+                    () => { if (a != null) a.EndTransitionVisual(); });
             }
             else if (fadeOut)
             {
+                a.BeginTransitionVisual();
                 // Уходящий остаётся видимым, пока идёт переход, и прячется его
                 // хвостом. Спрятать сразу — значит не показать сам уход.
                 if (p.ExitTransition == TransitionType.Drift)
                 {
-                    float dir = LvnFade.DriftSign(p.X);
+                    float dir = LocalDriftSign(p);
                     LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
-                        a.Slot, new Vector2(dir * _reference.x * 0.06f, 0f),
+                        a.Transition, new Vector2(dir * _reference.x * ActorExitDriftScreen, 0f),
                         () =>
                         {
                             if (a == null) return;
+                            a.EndTransitionVisual();
                             a.gameObject.SetActive(false);
                         });
                 }
                 else LvnFade.Play(g, g != null ? g.alpha : p.Opacity, 0f, dur,
-                    () => { if (a != null) a.gameObject.SetActive(false); });
+                    () => { if (a != null) { a.EndTransitionVisual(); a.gameObject.SetActive(false); } });
             }
             else
             {
                 LvnFade.Cancel(g);      // показ посреди ухода отменяет уход
+                if (artSwap)
+                    a.CrossfadeArtSwap(
+                        (p.WardrobeSwap ? (p.WardrobeFromTop ? 0.56f : 0.28f) : 0.20f)
+                            * VnTheme.MotionDurationScale,
+                        wardrobeFlow: p.WardrobeSwap,
+                        wardrobeFromTop: p.WardrobeFromTop);
+                else
+                    a.EndTransitionVisual();
                 if (g != null) g.alpha = p.Opacity;
                 a.gameObject.SetActive(p.Show);
             }
             if (!p.Show) a.StopAll();
-            // An emotion/outfit swap rebuilt the layer Images (default white) — re-tint
-            // so a dimmed actor doesn't pop back to full brightness mid-line.
-            if (_focusK.TryGetValue(id, out var focus) && focus < 1f && _slotGroups.TryGetValue(id, out var fg))
-                SetFocus(id, fg, focus);
             return a;
         }
+
+        /// <summary>Convert the stage-side direction into the actor slot's local
+        /// X axis. WorldPlacement mirrors that slot for <c>mirror=true</c>, while
+        /// LvnFade moves its child transition root.</summary>
+        private static float LocalDriftSign(Placement p)
+            => LvnFade.DriftSign(p.X) * (p.Flip ? -1f : 1f);
 
         private void ApplyPlacement(string id, WorldActor a, Placement p)
         {
@@ -404,20 +445,27 @@ namespace Lvn.UI.World
             // the whole cast huddled in the left third ("right" ended at 22% of
             // the screen). Remap across the REAL logical width with soft edge
             // anchoring: left-half slots keep their inset from the LEFT edge,
-            // right-half from the RIGHT (portrait-frame ratios, sqrt-softened),
-            // clamped by the slot's own half-width so nothing is ever cut.
+            // right-half from the RIGHT (portrait-frame ratios, sqrt-softened).
+            float x01 = p.X;
             if (lw > _reference.x + 0.5f)
             {
                 float k = Mathf.Sqrt(_reference.x / lw);
-                float x01 = p.X < 0.5f ? p.X * k
+                x01 = p.X < 0.5f ? p.X * k
                     : p.X > 0.5f ? 1f - (1f - p.X) * k
                     : 0.5f;
-                float halfW = a.Slot.sizeDelta.x * 0.5f / lw;
-                x01 = Mathf.Clamp(x01, halfW + 0.01f, 1f - halfW - 0.01f);
-                var pos = a.Slot.anchoredPosition;
-                pos.x = x01 * lw;
-                a.Slot.anchoredPosition = pos;
             }
+            // Clamp on EVERY aspect, not only landscape. Named left/right slots
+            // describe a side of the stage, not permission to crop a wide actor.
+            // Use the fitted box and its actual anchor: the outer edge lands
+            // exactly on the screen edge, while the actor extends toward centre.
+            float width01 = a.Slot.sizeDelta.x / Mathf.Max(1f, lw);
+            float visualAnchorX = p.Flip ? 1f - p.AnchorX : p.AnchorX;
+            float minX = visualAnchorX * width01;
+            float maxX = 1f - (1f - visualAnchorX) * width01;
+            x01 = minX <= maxX ? Mathf.Clamp(x01, minX, maxX) : 0.5f;
+            var xPos = a.Slot.anchoredPosition;
+            xPos.x = x01 * lw;
+            a.Slot.anchoredPosition = xPos;
             a.ContentSize = new Vector2(_reference.x, lh);
             a.SetSlotBase(a.Slot.anchoredPosition);
 
@@ -462,45 +510,32 @@ namespace Lvn.UI.World
                 order[i].Value.transform.SetSiblingIndex(i);
         }
 
-        // Focus dim as a COLOR, not alpha: a CanvasGroup fade applies per-graphic,
-        // so a layered actor's translucent clothes reveal the body layer beneath
-        // (an accidental x-ray). Tinting every Graphic toward black darkens the
-        // composite while its alpha stays intact. Alpha stays owned by placement
-        // and animation tracks (they read-modify-write only the .a channel, so
-        // the RGB dim survives them).
-        private readonly Dictionary<string, float> _focusK = new Dictionary<string, float>();
-
-        private void SetFocus(string id, CanvasGroup slot, float k)
+        // Legacy builds may have left a speaker-focus tint on live Graphics.
+        // Automatic dimming is gone; this seam only restores authored RGB.
+        private static void ClearFocusTint(CanvasGroup slot)
         {
-            _focusK[id] = k;
             if (slot == null) return;
             foreach (var gfx in slot.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
             {
                 var c = gfx.color;
-                gfx.color = new Color(k, k, k, c.a);
+                gfx.color = new Color(1f, 1f, 1f, c.a);
             }
         }
 
-        /// <summary>Full brightness for the speaker, dim everyone else (null = undim).</summary>
+        /// <summary>Speaker changes never alter actor brightness. Kept as an API
+        /// seam so older hosts also clear any focus tint they may have applied.</summary>
         public void SetSpeaker(string id)
         {
             foreach (var kv in _slotGroups)
-                SetFocus(kv.Key, kv.Value, (id == null || kv.Key == id) ? 1f : 0.7f);
+                ClearFocusTint(kv.Value);
         }
 
-        /// <summary>Classic VN focus: the speaking character goes full opacity, the rest
-        /// present dim. Speaker matched to a slot by loose name key; when off-stage
-        /// (narration) the current focus is kept.</summary>
+        /// <summary>Automatic non-speaker dimming is disabled. Always restore
+        /// neutral RGB for every actor, including after a hot content rebuild.</summary>
         public void HighlightSpeaker(string who)
         {
-            var target = Lvn.LvnKey.Normalize(who);
-            if (target == "") return;
-            bool present = false;
             foreach (var kv in _slotGroups)
-                if (kv.Value != null && Lvn.LvnKey.Normalize(kv.Key) == target) { present = true; break; }
-            if (!present) return;
-            foreach (var kv in _slotGroups)
-                SetFocus(kv.Key, kv.Value, Lvn.LvnKey.Normalize(kv.Key) == target ? 1f : 0.7f);
+                ClearFocusTint(kv.Value);
         }
 
         public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;
@@ -526,7 +561,6 @@ namespace Lvn.UI.World
             _actors.Clear();
             _slotGroups.Clear();
             _baseOpacity.Clear();
-            _focusK.Clear();
             _zExplicit.Clear();
             _birth.Clear();
             _nextSibling = 0;

@@ -902,9 +902,10 @@ namespace Lvn.UI.Screens
         }
 
         // The in-story sheet as CONTENT of the stage's shared window: the
-        // dialogue fades out, the same-skinned frame slides up with the
+        // dialogue fades out, the same-skinned frame fades in with the
         // wardrobe inside — one panel, native transitions (no overlay pop).
         private WardrobeSheet _storySheet;
+        private int _storyActorSwitchGeneration;
 
         private async Task OpenWardrobeFromScriptAsync(string entity, bool full, Lvn.ILvnOpContext ctx)
         {
@@ -993,7 +994,7 @@ namespace Lvn.UI.Screens
 
         // The HUB wardrobe: same sheet, same canvas — the hub cross-fades away,
         // the stage dresses itself with the last scene the player saw (or the
-        // engine's dark), the hero steps on, the sheet slides up. Closing plays
+        // engine's dark), the hero steps on, the sheet fades in. Closing plays
         // it all back. ONE wardrobe everywhere; the old fullscreen screen died.
         private async Task OpenWardrobeFromHubAsync()
         {
@@ -1066,9 +1067,10 @@ namespace Lvn.UI.Screens
                 _storySheet.ConfirmTopUp = (title, msg) => _shell.ConfirmAsync(title, msg, "Store", "Not now");
                 _storySheet.Alert = (title, msg) => _shell.AlertAsync(title, msg);
                 // Write the player's wardrobe pick back into the novel's story state
-                // (nested, like the script's own `set`), then re-dress the actor
-                // against the new value. Order matters: SetVar BEFORE RefreshActor so
-                // the {Wardrobe.*} axes re-interpolate against the fresh var.
+                // (nested, like the script's own `set`). LvnWardrobe.Equip and the
+                // following ClearPreview already publish Changed and refresh the live
+                // actor; starting a third refresh here made async sprite loads race and
+                // produced a visible wardrobe snap.
                 _storySheet.OnEquip = (ent, storyVar, value) =>
                 {
                     var p = Stage?.Player;
@@ -1078,7 +1080,6 @@ namespace Lvn.UI.Screens
                         : double.TryParse(value, out var d) ? new Newtonsoft.Json.Linq.JValue(d)
                         : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
                     p.SetVar(storyVar, jv);
-                    Stage.RefreshActor(ent);
                 };
             }
             _storySheet.OnlySeen = onlySeen; // shared instance — set on EVERY open
@@ -1087,28 +1088,35 @@ namespace Lvn.UI.Screens
             var st0 = Stage;
             if (st0 != null) st0.PanelCancelRequested = () => _storySheet?.Hide();
             var st = Stage;
-            // Who stood on stage BEFORE the fitting — everyone staged purely to
-            // be dressed (the opener, every pill switch) leaves again at close.
+            // Who stood on stage BEFORE the fitting. The wardrobe temporarily
+            // shows exactly one mannequin; this original cast returns at close.
             var wasOn = new HashSet<string>(st != null ? st.ActorsOnStage() : new List<string>());
-            _storySheet.OnCharacterPicked = (from, to) =>
+            ++_storyActorSwitchGeneration; // invalidate a task from an older open
+            _storySheet.OnCharacterPicked = (_, to) =>
             {
                 if (st == null) return;
-                if (!wasOn.Contains(from)) st.HideActor(from);
-                st.EnsureActorShown(to);
+                int gen = ++_storyActorSwitchGeneration;
+                LvnAsync.Fire(st.FocusWardrobeActorAsync(to,
+                    () => gen == _storyActorSwitchGeneration
+                          && _storySheet != null && _storySheet.CurrentEntity == to),
+                    "FocusWardrobeActor");
             };
-            // The sheet mirrors the LIVE actor — make sure the active hero is on
-            // stage so the wardrobe always shows who you're dressing, even when the
-            // story beat opened it on an empty stage.
-            st?.EnsureActorShown(entity);
+            // Engine invariant: before the wardrobe becomes visible, remove every
+            // other staged character and keep only the menu-selected mannequin.
+            await st.FocusWardrobeActorAsync(entity);
             SeedWardrobeFromStoryVars(entity);
             var done = _storySheet.ShowAsync(entity);   // logic only — the host animates
-            await st.ShowPanelAsync(_storySheet);       // dialogue fades, frame slides up
+            await st.ShowPanelAsync(_storySheet);       // dialogue and wardrobe cross-fade
             try { await done; }
             finally
             {
-                await st.HidePanelAsync();              // frame slides away, dialogue returns
+                ++_storyActorSwitchGeneration;          // no late switch may show an old pill
                 var cur = _storySheet.CurrentEntity ?? entity;
-                if (!wasOn.Contains(cur)) st.HideActor(cur);
+                if (!wasOn.Contains(cur))
+                    await st.HideActorTemporarilyAndWaitAsync(cur);
+                foreach (var original in wasOn)
+                    st.EnsureActorShown(original, fadeOnly: true);
+                await st.HidePanelAsync();              // frame leaves, dialogue returns
             }
         }
 
