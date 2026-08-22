@@ -48,7 +48,7 @@ the bottom-linked reports; this file records the DECISIONS for the engine.
    `primary (Latin+Cyrillic) → emoji sprite/OS → CJK (later)`.
    Runtime/server fonts via `FontAsset.CreateFontAsset` from bytes — no
    Resources. **Glyph pre-warm at chapter load** from the localization
-   catalog (`TryAddCharacters`) so the typewriter never rasterizes mid-reveal.
+   catalog (`TryAddCharacters`) so a card never rasterizes glyphs as it opens.
    SDF everywhere; atlas 2048 max on mobile, padding sized for outline/shadow.
 
 ## P1 — animation & rendering

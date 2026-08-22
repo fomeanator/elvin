@@ -261,10 +261,11 @@ namespace Lvn.Content
     /// so a novel without UI audio ships nothing and hears nothing.</summary>
     public sealed class SoundsConfig
     {
-        public string click;   // content url: tap-to-advance / reveal-complete blip
+        public string click;   // content url: tap-to-advance
         public string choice;  // content url: picking a choice button
-        public string type;    // content url: typewriter tick (very short; throttled)
-        public float? volume;  // 0..1 scale applied to all three; default 1
+        // `type` (побуквенный цокот) БОЛЬШЕ НЕ ЧИТАЕТСЯ: строка ставится целиком.
+        // Ключ в манифесте молча игнорируется — старый контент не ломается.
+        public float? volume;  // 0..1 scale applied to both; default 1
     }
 
     /// <summary>The in-game quick menu (StageMenu): floating buttons, the sheet,

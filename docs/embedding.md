@@ -21,7 +21,7 @@ player.Advance();                            // …then Advance/Choose on input
 
 ### Level 1 — the stage (`VnStage`)
 
-The full dialogue presentation — typewriter, choices, actors (layered, boned,
+The full dialogue presentation — dialogue cards, choices, actors (layered, boned,
 Spine), FX, audio, quick menu, saves — on your GameObject:
 
 ```csharp
