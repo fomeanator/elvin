@@ -71,19 +71,31 @@ namespace Lvn.UI
             _inputScrim.style.position = Position.Absolute;
             _inputScrim.style.left = 0; _inputScrim.style.right = 0;
             _inputScrim.style.top = 0; _inputScrim.style.bottom = 0;
-            _inputScrim.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
+            _inputScrim.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
             _inputScrim.style.justifyContent = Justify.Center;
             _inputScrim.style.alignItems = Align.Center;
             _inputScrim.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
 
+            // ФОРМА ВВОДА — ЭТО ТОЖЕ ИГРА. Она выглядела отладочной: серая
+            // коробка, белое поле с системным выделением и серая кнопка посреди
+            // нарисованной сцены. Одевается тем же, чем одето окно диалога —
+            // цвет панели, скругление, рисованная рамка темы, — потому что
+            // игрок в этот момент разговаривает с персонажем, а не заполняет
+            // анкету.
             var panel = new VisualElement();
-            panel.style.width = Length.Percent(70);
-            panel.style.backgroundColor = Theme != null ? Theme.MenuBgColor : new Color(0.08f, 0.08f, 0.10f, 0.97f);
-            panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
-            panel.style.paddingTop = 18; panel.style.paddingBottom = 18;
-            float r = Theme != null ? Theme.MenuCornerRadius : 12f;
+            panel.style.width = Length.Percent(82);
+            panel.style.maxWidth = 900;
+            panel.style.backgroundColor = Theme != null ? Theme.PanelColor : new Color(0.086f, 0.063f, 0.094f, 0.94f);
+            panel.style.paddingLeft = Theme != null ? Theme.PanelPaddingX : 22f;
+            panel.style.paddingRight = Theme != null ? Theme.PanelPaddingX : 22f;
+            panel.style.paddingTop = Theme != null ? Theme.PanelPaddingY : 18f;
+            panel.style.paddingBottom = Theme != null ? Theme.PanelPaddingY : 18f;
+            panel.style.overflow = Overflow.Visible;   // рамка выступает наружу
+            float r = Theme != null ? Theme.PanelCornerRadius : 12f;
             panel.style.borderTopLeftRadius = r; panel.style.borderTopRightRadius = r;
             panel.style.borderBottomLeftRadius = r; panel.style.borderBottomRightRadius = r;
+            UiStyle.ApplyBackground(panel, Theme?.PanelSprite, Theme != null ? Theme.PanelSlice : 0);
+            if (Theme?.PanelSprite == null) LvnChrome.Frame(panel);
             _inputScrim.Add(panel);
 
             var promptText = (string)cmd["prompt"];
@@ -93,11 +105,13 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(promptText))
             {
                 var prompt = new Label(promptText);
-                prompt.style.color = Theme != null ? Theme.MenuTextColor : Color.white;
-                prompt.style.fontSize = 22;
+                // Вопрос задаёт история — значит и цвет у него тот же, каким
+                // подписан говорящий.
+                prompt.style.color = Theme != null ? Theme.SpeakerColor : LvnTokens.Accent;
+                prompt.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
                 prompt.style.whiteSpace = WhiteSpace.Normal;
-                prompt.style.marginBottom = 12;
-                if (Theme?.Font != null) prompt.style.unityFont = new StyleFont(Theme.Font);
+                prompt.style.marginBottom = 18;
+                LvnFonts.Apply(prompt, Theme?.Font);
                 panel.Add(prompt);
             }
 
@@ -106,16 +120,43 @@ namespace Lvn.UI
             int max = 0;
             try { max = cmd["max"] != null ? (int)cmd["max"] : 0; } catch { }   // экран ввода снесли на полуслове — история продолжится
             if (max > 0) field.maxLength = max;
-            field.style.fontSize = 22;
-            field.style.marginBottom = 14;
+            field.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
+            field.style.marginBottom = 20;
+            LvnFonts.Apply(field, Theme?.Font);
+            // Красится ВНУТРЕННИЙ элемент поля: у TextField своя подложка, и
+            // цвет, поставленный снаружи, до неё не доходит.
+            LvnChrome.Field(field, LvnTokens.SurfaceHi, Theme != null ? Theme.TextColor : LvnTokens.Text);
+            var inner = field.Q(TextField.textInputUssName);
+            if (inner != null)
+            {
+                LvnChrome.Round(inner, Mathf.Max(8f, r * 0.4f));
+                LvnChrome.Border(inner, Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
+                inner.style.minHeight = 72;   // палец, а не курсор
+            }
+            // Каретка и выделение — тоже тема: системное синее выделение на
+            // тёмной панели читается как чужой элемент операционной системы.
+            field.textSelection.cursorColor = Theme != null ? Theme.SpeakerColor : LvnTokens.Accent;
+            var sel = Theme != null ? Theme.SpeakerColor : LvnTokens.Accent;
+            sel.a = 0.35f;
+            field.textSelection.selectionColor = sel;
             panel.Add(field);
 
             string okLabel = Theme?.MenuLabels != null
                 && Theme.MenuLabels.TryGetValue("input_ok", out var v) && !string.IsNullOrEmpty(v)
                 ? v : "OK";
             var ok = new Button(() => ConfirmInput(field.value)) { text = okLabel };
-            ok.style.height = 44;
-            ok.style.fontSize = 20;
+            // Та же кнопка, что и у выбора в диалоге: игрок уже знает, как она
+            // выглядит и что делает.
+            ok.style.height = Theme != null ? Theme.ChoiceMinHeight : 96f;
+            ok.style.fontSize = Theme != null ? Theme.ChoiceFontSize : 28;
+            ok.style.color = Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text;
+            ok.style.backgroundColor = Theme != null ? Theme.ChoiceColor : LvnTokens.Surface;
+            ok.style.borderLeftWidth = 0; ok.style.borderRightWidth = 0;
+            ok.style.borderTopWidth = 0; ok.style.borderBottomWidth = 0;
+            LvnChrome.Round(ok, Mathf.Max(8f, r * 0.4f));
+            LvnChrome.Border(ok, Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
+            LvnFonts.Apply(ok, Theme?.Font);
+            LvnMotion.Tappable(ok);
             panel.Add(ok);
 
             field.RegisterCallback<KeyDownEvent>(e =>
