@@ -22,13 +22,17 @@ namespace Lvn.UI.World
     {
         private RectTransform _slot;
         private RectTransform _rig;
+        private RectTransform _transition;
         private CanvasGroup _group;
+        private LvnActorComposite _transitionComposite;
         private readonly Dictionary<string, Image> _layers = new Dictionary<string, Image>();
         private readonly Dictionary<string, Sprite> _baseSprite = new Dictionary<string, Sprite>();
         private Dictionary<string, Dictionary<string, Sprite>> _frames;
         private readonly Dictionary<string, Active> _channels = new Dictionary<string, Active>();
         private readonly Dictionary<string, Queue<LvnAnim>> _queue = new Dictionary<string, Queue<LvnAnim>>(); // mode=queue pending steps
         private Vector2 _slotBase;
+        private Vector2 _slotMoveFrom, _slotMoveTo;
+        private float _slotMoveStart = -1f, _slotMoveDuration;
 
         /// <summary>Reference content size (canvas units) for screen_x/screen_y travel.</summary>
         public Vector2 ContentSize = new Vector2(1080f, 1920f);
@@ -42,6 +46,49 @@ namespace Lvn.UI.World
         /// (a Spine skeleton) here so anim/move channels and the CanvasGroup
         /// fade drive them exactly like sprite layers.</summary>
         public RectTransform Rig { get { EnsureRig(); return _rig; } }
+
+        /// <summary>Узел, которым двигает ПЕРЕХОД (вход/уход со сносом вбок).
+        /// Свой, чтобы не делить поле позиции с постановкой и анимацией.</summary>
+        public RectTransform Transition { get { EnsureRig(); return _transition; } }
+
+        /// <summary>Make a layered actor one visual for the duration of a normal
+        /// alpha transition.  A single-layer actor stays on the ordinary path.</summary>
+        public bool BeginTransitionVisual()
+        {
+            EnsureRig();
+            if (_transitionComposite == null)
+                _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
+            return _transitionComposite.Begin(_transition, _rig);
+        }
+
+        /// <summary>Snapshot even a single-layer current look before replacing
+        /// it. Wardrobe/emotion swaps use this as the opaque outgoing card.</summary>
+        public bool BeginArtSwapVisual()
+        {
+            EnsureRig();
+            if (_transitionComposite == null)
+                _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
+            return _transitionComposite.Begin(_transition, _rig, includeSingleLayer: true);
+        }
+
+        public void CrossfadeArtSwap(float seconds, bool wardrobeFlow = false,
+                                     bool wardrobeFromTop = false)
+        {
+            if (_transitionComposite != null && _transitionComposite.Active)
+                _transitionComposite.CrossfadeToLive(seconds, wardrobeFlow, wardrobeFromTop);
+            else EndTransitionVisual();
+        }
+
+        /// <summary>Return from the flat transition visual to live animated layers.</summary>
+        public void EndTransitionVisual()
+        {
+            if (_transitionComposite != null) _transitionComposite.End();
+            // Transition is a disposable visual offset, never stage placement.
+            // Keep a hard invariant at every hand-off back to the live layers so
+            // a cancelled/disabled drift cannot leak its edge offset into the
+            // following dialogue beat. The parent Slot owns all real movement.
+            if (_transition != null) _transition.anchoredPosition = Vector2.zero;
+        }
 
         /// <summary>Static placement opacity (multiplied by alpha tracks).</summary>
         public void SetBaseOpacity(float a)
@@ -68,9 +115,17 @@ namespace Lvn.UI.World
             if (_slot != null) return;
             _slot = (RectTransform)transform;
             _slotBase = _slot.anchoredPosition;
+            // У КАЖДОГО ТРАНСФОРМА ОДИН ХОЗЯИН. Слот принадлежит постановке и
+            // жестам актёра, rig — анимации. Переходу нужен свой узел: пока он
+            // писал в слот, они с анимацией дрались за одно поле каждый кадр
+            // (порядок Update не определён) — отсюда рывки и «уехавшая» база.
+            var transitionGo = new GameObject("transition", typeof(RectTransform));
+            _transition = (RectTransform)transitionGo.transform;
+            _transition.SetParent(_slot, false);
+            Stretch(_transition);
             var rigGo = new GameObject("rig", typeof(RectTransform), typeof(CanvasGroup));
             _rig = (RectTransform)rigGo.transform;
-            _rig.SetParent(_slot, false);
+            _rig.SetParent(_transition, false);
             Stretch(_rig);
             _group = rigGo.GetComponent<CanvasGroup>();
         }
@@ -88,9 +143,18 @@ namespace Lvn.UI.World
             IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
             EnsureRig();
+            // ТОТ ЖЕ ОБЛИК — НИЧЕГО НЕ ДЕЛАЕМ. Пересборка слоёв уничтожала и
+            // создавала заново ВСЕ Image на каждом применении `actor`, даже
+            // когда набор спрайтов не менялся. В живой главе таких применений
+            // 775 на 730 реплик: почти каждая строка диалога роняла батчи,
+            // перестраивала канвас и кормила сборщик мусора. Это и есть те
+            // микрозадержки на показе и скрытии.
+            var signature = VisualSignature(sprites, layerIds, layerRects, layerDefs);
+            if (signature == _signature && _rig.childCount > 0) return;
+            _signature = signature;
             for (int i = _rig.childCount - 1; i >= 0; i--) Destroy(_rig.GetChild(i).gameObject);
             _layers.Clear(); _baseSprite.Clear(); _bones.Clear();
-            if (sprites == null) return;
+            if (sprites == null) { _signature = 0; return; }
             // A layer is a bone when it has bone data OR when someone attaches to it.
             HashSet<string> boneParents = null;
             if (layerDefs != null)
@@ -146,10 +210,76 @@ namespace Lvn.UI.World
                 }
             }
         }
+        private int _signature;   // облик, из которого собраны текущие слои
+
+        public bool VisualWouldChange(IReadOnlyList<Sprite> sprites, IReadOnlyList<string> layerIds,
+            IReadOnlyList<Vector4> layerRects = null,
+            IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs = null)
+        {
+            EnsureRig();
+            return VisualSignature(sprites, layerIds, layerRects, layerDefs) != _signature
+                || _rig.childCount == 0;
+        }
+
+        /// <summary>Отпечаток ВИДИМОГО состава: сами спрайты, их адреса, куски
+        /// рамки и кости. Всё, от чего зависит построенное дерево слоёв, — и
+        /// ничего сверх того, иначе одинаковый облик перестанет узнаваться.</summary>
+        internal static int VisualSignature(IReadOnlyList<Sprite> sprites, IReadOnlyList<string> layerIds,
+            IReadOnlyList<Vector4> layerRects, IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs)
+        {
+            if (sprites == null) return 0;
+            unchecked
+            {
+                int h = 17;
+                for (int i = 0; i < sprites.Count; i++)
+                {
+                    h = h * 31 + (sprites[i] != null ? sprites[i].GetInstanceID() : 0);
+                    if (layerIds != null && i < layerIds.Count && layerIds[i] != null)
+                        h = h * 31 + layerIds[i].GetHashCode();
+                    if (layerRects != null && i < layerRects.Count)
+                        h = h * 31 + layerRects[i].GetHashCode();
+                    if (layerDefs != null && i < layerDefs.Count)
+                    {
+                        var d = layerDefs[i];
+                        h = h * 31 + (d.Parent != null ? d.Parent.GetHashCode() : 0);
+                        h = h * 31 + d.Px.GetHashCode() * 7 + d.Py.GetHashCode() * 13;
+                        h = h * 31 + d.Spring.GetHashCode() * 3 + d.Damping.GetHashCode() * 5;
+                    }
+                }
+                return h == 0 ? 1 : h;   // 0 держим за «слоёв нет»
+            }
+        }
+
         private readonly Dictionary<string, BoneSolver.RigBone> _bones = new Dictionary<string, BoneSolver.RigBone>();
         private float _lastTick = -1f;
 
-        public void SetSlotBase(Vector2 anchored) { EnsureRig(); _slotBase = anchored; _slot.anchoredPosition = anchored; }
+        public Vector2 SlotBase { get { EnsureRig(); return _slotBase; } }
+
+        public void SetSlotBase(Vector2 anchored)
+        {
+            EnsureRig();
+            _slotMoveStart = -1f;
+            _slotBase = anchored;
+            _slot.anchoredPosition = anchored;
+        }
+
+        /// <summary>Tween the placement-owned base while rig animation continues
+        /// to add its own screen_x/screen_y offset on top.</summary>
+        public void MoveSlotBase(Vector2 from, Vector2 to, float seconds)
+        {
+            EnsureRig();
+            if (seconds <= 0.001f || (from - to).sqrMagnitude <= 0.0001f)
+            {
+                SetSlotBase(to);
+                return;
+            }
+            _slotMoveFrom = from;
+            _slotMoveTo = to;
+            _slotMoveDuration = seconds;
+            _slotMoveStart = ActorAnimator.Clock();
+            _slotBase = from;
+            _slot.anchoredPosition = from;
+        }
         public void SetFrames(Dictionary<string, Dictionary<string, Sprite>> frames) => _frames = frames;
 
         public bool Has(string channel) => _channels.ContainsKey(channel);
@@ -204,8 +334,21 @@ namespace Lvn.UI.World
 
         private void Update()
         {
+            float now = ActorAnimator.Clock();
+            bool moved = StepSlotMove(now);
             // Springs keep swinging after their driving channel ends.
-            if (_channels.Count > 0 || BoneSolver.AnySpringLive(_bones.Values)) Tick(ActorAnimator.Clock());
+            if (_channels.Count > 0 || BoneSolver.AnySpringLive(_bones.Values)) Tick(now);
+            else if (moved) _slot.anchoredPosition = _slotBase;
+        }
+
+        private bool StepSlotMove(float now)
+        {
+            if (_slotMoveStart < 0f) return false;
+            float t = Mathf.Clamp01((now - _slotMoveStart) / Mathf.Max(0.0001f, _slotMoveDuration));
+            float k = Mathf.SmoothStep(0f, 1f, t);
+            _slotBase = Vector2.LerpUnclamped(_slotMoveFrom, _slotMoveTo, k);
+            if (t >= 1f) _slotMoveStart = -1f;
+            return true;
         }
 
         // One composite step — internal so tests can drive it with ActorAnimator.Clock.

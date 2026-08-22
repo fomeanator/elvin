@@ -33,7 +33,7 @@ namespace Lvn.Tests
                 "each text card dissolves into the next one");
             Assert.AreEqual(40, t.InitialVisibleCharacters,
                 "a readable first chunk is on screen immediately");
-            Assert.AreEqual(0.175f, t.ActorTransition, 0.0001f,
+            Assert.AreEqual(0.35f, t.ActorTransition, 0.0001f,
                 "actor entrances/exits use the requested twice-faster timing");
         }
 

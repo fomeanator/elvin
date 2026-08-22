@@ -130,7 +130,7 @@ namespace Lvn.UI
             if (_timerFill == null)
             {
                 var track = new VisualElement();
-                track.style.width = Length.Percent(_theme.ChoiceMinWidthPercent);
+                ApplyChoiceWidth(track);
                 track.style.height = 6;
                 track.style.marginBottom = _theme.ChoiceSpacing;
                 track.style.backgroundColor = new Color(1f, 1f, 1f, 0.15f);
@@ -150,12 +150,7 @@ namespace Lvn.UI
             int index = option.Index;
             var btn = new Button(() => OnSelected?.Invoke(index)) { text = string.Empty };
             btn.style.backgroundColor = _theme.ChoiceColor;
-            btn.style.minWidth = Length.Percent(_theme.ChoiceMinWidthPercent);
-            btn.style.maxWidth = Length.Percent(_theme.ChoiceMaxWidthPercent);
-            // Readable on tablets: percent widths of a landscape viewport are
-            // enormous — cap to the portrait story frame and centre.
-            btn.style.maxWidth = new StyleLength(new Length(900, LengthUnit.Pixel));
-            btn.style.alignSelf = Align.Center;
+            ApplyChoiceWidth(btn);
             btn.style.minHeight = _theme.ChoiceMinHeight; // thumb-sized (market norm ~6.5% H)
             btn.style.justifyContent = Justify.Center;
             btn.style.marginBottom = _theme.ChoiceSpacing;
@@ -179,6 +174,12 @@ namespace Lvn.UI
             caption.style.fontSize = _theme.ChoiceFontSize;
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.unityTextAlign = TextAnchor.MiddleCenter;
+            // The label belongs to the button's content box. Without an explicit
+            // stretch constraint a long caption may report its unwrapped desired
+            // width to flex layout and make the whole option wider. Two lines must
+            // add height only — the dialogue and choice columns stay aligned.
+            caption.style.alignSelf = Align.Stretch;
+            caption.style.flexShrink = 1f;
             LvnFonts.Apply(caption, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             btn.Add(caption);
 
@@ -236,6 +237,31 @@ namespace Lvn.UI
                 btn.RegisterCallback<MouseLeaveEvent>(_ => btn.style.backgroundColor = _theme.ChoiceColor);
             }
             return btn;
+        }
+
+        /// <summary>Apply the authored choice column width without letting text
+        /// content resize it. Equal min/max values mean a fixed column (the normal
+        /// VN setup and the live title's 68%, matching its dialogue form). The old
+        /// code assigned maxWidth twice, so the pixel tablet cap silently erased
+        /// the authored percentage and multi-line captions could widen the card.</summary>
+        private void ApplyChoiceWidth(VisualElement element)
+        {
+            if (element == null) return;
+            float min = Mathf.Clamp(_theme.ChoiceMinWidthPercent, 5f, 100f);
+            float max = Mathf.Clamp(_theme.ChoiceMaxWidthPercent, min, 100f);
+            if (Mathf.Approximately(min, max))
+            {
+                element.style.width = Length.Percent(min);
+                // Same readable-frame cap as DialogueBox: matching percentages
+                // continue to match on tablets and landscape too.
+                element.style.maxWidth = 1000f;
+            }
+            else
+            {
+                element.style.minWidth = Length.Percent(min);
+                element.style.maxWidth = Length.Percent(max);
+            }
+            element.style.alignSelf = Align.Center;
         }
     }
 }

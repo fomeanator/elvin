@@ -74,10 +74,26 @@ namespace Lvn.UI
         /// in-script screen can't be tapped/auto-advanced through.</summary>
         public bool InputBlocked
         {
-            get => _inputBlockedFlag || (_panelHost != null && _panelHost.IsOpen);
+            get => _inputBlockedFlag || (_panelHost != null && _panelHost.IsOpen)
+                || Time.unscaledTime < _panelInputGuardUntil;
             set => _inputBlockedFlag = value;
         }
         private bool _inputBlockedFlag;
+        private float _panelInputGuardUntil;
+
+        /// <summary>Closing an overlay and releasing its button happen in the
+        /// same physical gesture. Keep that release away from the newly restored
+        /// line, and restart auto-reading from that line rather than from time
+        /// spent inside the wardrobe.</summary>
+        private void ArmPanelInputGuard(float seconds)
+        {
+            _panelInputGuardUntil = Mathf.Max(_panelInputGuardUntil,
+                Time.unscaledTime + Mathf.Max(0f, seconds));
+            _autoRevealDoneAt = -1f;
+            _pressTracking = false;
+            _suppressTap = true;
+            _longPress?.Pause();
+        }
 
         /// <summary>Set when the player asks to leave the chapter (the quick
         /// menu's Exit). The host's play loop watches it and returns to the
@@ -316,6 +332,9 @@ namespace Lvn.UI
             _draggables.Clear();
             _placements.Clear();
             _actorCmds.Clear();
+            _actorTargets.Clear();
+            _actorExitBarrierUntil = 0f;
+            _actorVisibilityBarrierUntil = 0f;
             _spokenIds.Clear();
             _soloHidden.Clear();
             _dragId = null;

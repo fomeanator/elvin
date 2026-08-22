@@ -175,8 +175,13 @@ namespace Lvn.Tests
             StringAssert.Contains("B two", doc.rootVisualElement.Q<Label>("vn-body").text);
         }
 
+        /// <summary>СТРОКА СТАВИТСЯ ЦЕЛИКОМ. Побуквенное проявление убрано:
+        /// карточка реплики появляется своим ходом, а текст на ней с первого
+        /// кадра полный. Раньше здесь сторожили «первый читаемый кусок» —
+        /// теперь сторожим, что читаемо ВСЁ и длина строки ни на что не влияет,
+        /// иначе типографирование вернётся тихо, «мелким улучшением».</summary>
         [UnityTest]
-        public IEnumerator Dialogue_ShowsFirstReadableWordChunkImmediately()
+        public IEnumerator Dialogue_ShowsTheWholeLineAtOnce()
         {
             const string longLine = "Один два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать";
             _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"" + longLine + "\"}]}");
@@ -185,24 +190,22 @@ namespace Lvn.Tests
             var dialogue = (DialogueBox)typeof(VnStage)
                 .GetField("_dialogue", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(_stage);
-            int initial = (int)typeof(DialogueBox)
-                .GetField("_initialReveal", BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(dialogue);
-            float progress = (float)typeof(DialogueBox)
-                .GetField("_revealProgress", BindingFlags.Instance | BindingFlags.NonPublic)
-                .GetValue(dialogue);
-            Assert.GreaterOrEqual(initial, 40);
-            Assert.Less(initial, longLine.Length);
-            Assert.IsTrue(char.IsWhiteSpace(longLine[initial]),
-                "the approximate forty-character budget rounds to a complete word");
-            Assert.GreaterOrEqual(progress, 40f,
-                "the typewriter starts after the readable initial chunk, not at glyph zero");
-            Assert.IsTrue(dialogue.IsRevealing, "the remaining words still fade in quickly");
+            var doc = _go.GetComponent<UIDocument>();
+            var body = doc.rootVisualElement.Q<Label>("vn-body");
+
+            Assert.AreEqual(longLine, body.text, "длинная строка обязана стоять целиком с первого кадра");
+            Assert.IsFalse(dialogue.IsRevealing, "побуквенного проявления больше нет");
+
+            // Время появления карточки — постоянное: оно принадлежит виду, а не
+            // количеству букв. Длинная и короткая реплики держат один ритм.
+            float longCard = dialogue.EstimateRevealSeconds(longLine);
+            float shortCard = dialogue.EstimateRevealSeconds("Короткая строка");
+            Assert.AreEqual(longCard, shortCard, 0.0001f,
+                "длительность появления зависит от длины текста — вернулся счёт по буквам");
 
             _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"Короткая строка\"}]}");
             yield return null;
-            Assert.IsFalse(dialogue.IsRevealing,
-                "a short line is complete on its first frame");
+            Assert.IsFalse(dialogue.IsRevealing);
         }
 
         [UnityTest]
@@ -293,8 +296,13 @@ namespace Lvn.Tests
             yield return null;
             Assert.IsTrue(_stage.Player.AtChoice, "options up, clock running");
 
-            // Let the 0.25s countdown expire (the tick polls every 100ms).
-            yield return new WaitForSecondsRealtime(0.6f);
+            // Часы кнопок стартуют не раньше, чем кнопки СТАЛИ НАЖИМАЕМЫ: сперва
+            // карточка выбора приезжает, потом ждёт хореографию актёров. Поэтому
+            // ждём условие, а не фиксированные полсекунды — иначе тест краснеет
+            // от каждой правки ритма, ничего не поймав по существу.
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (_stage.Backlog.Count == 0 && Time.realtimeSinceStartup < deadline)
+                yield return null;
 
             Assert.AreEqual("время вышло", _stage.Backlog.Last().text,
                 "expiry took the timeout branch");

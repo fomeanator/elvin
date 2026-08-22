@@ -90,7 +90,8 @@ namespace Lvn.Tests.Runtime
             second.transform.SetParent(_actor.transform, false);   // два слоя → путь яркости
             yield return null;
 
-            LvnFade.Play(_group, 1f, 0f, 0.5f, _slot, Drift);
+            // УХОД ПО УМОЛЧАНИЮ — БЕЗ СНОСА: там гашение и есть весь переход.
+            LvnFade.Play(_group, 1f, 0f, 0.5f);
             yield return new WaitForSecondsRealtime(0.45f);        // 90% пути
 
             Assert.Less(_group.alpha, 0.4f,
@@ -100,13 +101,57 @@ namespace Lvn.Tests.Runtime
                     "цвет упал в чёрный: на светлом фоне это чёрная вырезка вместо человека");
         }
 
-        /// <summary>Постановка ГЛАВНЕЕ перехода: если посреди сноса пришла
-        /// команда с новым местом, хвост перехода не имеет права вернуть героя
-        /// на старое.</summary>
+        /// <summary>А ВОТ СО СНОСОМ — НАОБОРОТ. Пока герой едет вбок, он обязан
+        /// быть плотным: полупрозрачная фигура, ползущая через сцену, читается
+        /// как призрак, а не как человек. Прозрачности отдана только кромка
+        /// хода. Эти два правила легко перепутать, поэтому оба закреплены.</summary>
+        [UnityTest]
+        public IEnumerator DriftingActorStaysSolidWhileItMoves()
+        {
+            LvnFade.Play(_group, 1f, 0f, 0.5f, _slot, Drift);
+            yield return new WaitForSecondsRealtime(0.25f);        // середина хода
+
+            Assert.Greater(_group.alpha, 0.8f,
+                $"на середине сноса альфа {_group.alpha:F2} — герой уезжает призраком");
+
+            yield return new WaitForSecondsRealtime(0.35f);
+            Assert.AreEqual(0f, _group.alpha, 0.01f, "к концу снос обязан догаснуть до нуля");
+        }
+
+        /// <summary>Перебитый переход НЕ доигрывает чужой хвост. Хвост ухода
+        /// прячет актёра; исполненный чужим переходом, он гасил объект прямо в
+        /// начале нового — а выключенный объект не тикает, и новый переход
+        /// замирал на полпути. Повторное скрытие — обычное дело в контенте,
+        /// собранном из веток.</summary>
+        [UnityTest]
+        public IEnumerator InterruptedExitDoesNotFireItsTail()
+        {
+            bool firstTail = false, secondTail = false;
+            LvnFade.Play(_group, 1f, 0f, 0.5f, _slot, Drift, () => firstTail = true);
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            LvnFade.Play(_group, _group.alpha, 0f, 0.3f, _slot, Drift, () => secondTail = true);
+            Assert.IsFalse(firstTail, "хвост прерванного перехода выполнился — он спрячет актёра под новым переходом");
+
+            yield return new WaitForSecondsRealtime(0.45f);
+            Assert.IsTrue(secondTail, "свой хвост новый переход обязан довести");
+            Assert.IsFalse(firstTail, "старый хвост не должен выполниться и позже");
+        }
+
+        /// <summary>Постановка ГЛАВНЕЕ перехода — теперь это обеспечено
+        /// РАЗДЕЛЕНИЕМ УЗЛОВ, а не сравнением значений. У слота один хозяин
+        /// (постановка), у узла перехода — другой (LvnFade). Раньше оба писали
+        /// в одно поле, и переход, отпуская снос, утаскивал героя на старое
+        /// место. Проверка держит границу: команда посреди сноса меняет слот, а
+        /// хвост перехода трогает только свой узел.</summary>
         [UnityTest]
         public IEnumerator PlacementDuringDriftWins()
         {
-            LvnFade.Play(_group, 0f, 1f, 0.4f, _slot, Drift);
+            var transitionGo = new GameObject("transition", typeof(RectTransform));
+            var transition = (RectTransform)transitionGo.transform;
+            transition.SetParent(_slot, false);      // так строит узлы WorldActor
+
+            LvnFade.Play(_group, 0f, 1f, 0.4f, transition, Drift);
             yield return new WaitForSecondsRealtime(0.1f);
 
             var moved = new Vector2(-300f, -40f);
@@ -114,7 +159,9 @@ namespace Lvn.Tests.Runtime
             LvnFade.Cancel(_group);
 
             Assert.AreEqual(moved.x, _slot.anchoredPosition.x, 0.01f,
-                "переход отпустил снос по своей старой базе и утащил героя обратно");
+                "переход залез в слот постановки и утащил героя обратно");
+            Assert.AreEqual(Vector2.zero, transition.anchoredPosition,
+                "свой узел переход обязан вернуть домой, иначе снос копится");
         }
     }
 }

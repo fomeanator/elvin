@@ -177,6 +177,25 @@ namespace Lvn
         private string LocalizedWho(string who)
             => who == null ? null : Lookup(who) ?? who;
 
+        // Old imported stories encode system hints as ordinary dialogue lines
+        // spoken by "Подсказка". Keep that content playable, but present it
+        // through the real non-blocking hint op: no dialogue card, tap pause,
+        // backlog entry or synthetic actor speaker.
+        private static bool IsLegacyHintSpeaker(string who)
+        {
+            if (string.IsNullOrWhiteSpace(who)) return false;
+            var value = who.Trim();
+            return string.Equals(value, "Подсказка", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Hint", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static JObject LegacyHintCommand(string text) => new JObject
+        {
+            ["op"] = "hint",
+            ["text"] = text ?? string.Empty,
+            ["duration"] = 4f
+        };
+
         /// <summary>
         /// Поиск строки в каталоге, устойчивый к форме записи юникода.
         ///
@@ -1072,6 +1091,11 @@ namespace Lvn
                 // change the visible line on every hot-reload / chrome rebuild).
                 var text = TextAlternatives.Apply(Localized(c), Vars, j, null, mutate: false);
                 text = TextInterpolation.Apply(text, Vars);
+                if (IsLegacyHintSpeaker(who))
+                {
+                    StageApply(LegacyHintCommand(text));
+                    return;
+                }
                 _stage.ShowSay(who, text, (string)c["style"]);
             }
         }
@@ -1159,7 +1183,9 @@ namespace Lvn
                         // A choice directly after a say is the same beat (the line
                         // and its options show together) — the say already pushed.
                         bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
-                                      && (string)prevCmd["op"] == "say";
+                                      && (string)prevCmd["op"] == "say"
+                                      && !IsLegacyHintSpeaker(TextInterpolation.Apply(
+                                          LocalizedWho((string)prevCmd["who"]), Vars));
                         if (!paired) PushHistory();
                         {
                             var built = BuildOptions(c);
@@ -1176,7 +1202,6 @@ namespace Lvn
                         return;
 
                     case "say":
-                        PushHistory();
                         CurrentVoiceUrl = (string)c["voice"]; // the stage picks it up in ShowSay
                         CurrentSpeakerId = (string)c["who_id"]; // actor id behind the display name (actor_map)
                         // Ink-style alternatives first (their counters key off the
@@ -1187,6 +1212,13 @@ namespace Lvn
                         sayText = TextInterpolation.Apply(sayText, Vars);
                         var sayStyle = (string)c["style"];
                         Log?.Invoke("    \"" + (string.IsNullOrEmpty(sayWho) ? "" : sayWho + ": ") + sayText + "\"");
+                        if (IsLegacyHintSpeaker(sayWho))
+                        {
+                            StageApply(LegacyHintCommand(sayText));
+                            _ip++;
+                            break; // a real hint floats over the next playable beat
+                        }
+                        PushHistory();
                         OnSay?.Invoke(sayWho, sayText, sayStyle);
                         _stage.ShowSay(sayWho, sayText, sayStyle);
                         _ip++;

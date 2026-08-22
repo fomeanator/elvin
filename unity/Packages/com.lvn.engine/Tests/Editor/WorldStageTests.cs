@@ -78,12 +78,16 @@ namespace Lvn.Tests
             Assert.AreEqual(0f, actor.Slot.pivot.y, 0.001f, "placed via WorldPlacement");
             Assert.IsTrue(actor.gameObject.activeSelf, "shown");
 
-            // speaker-dim: the non-speaker drops below its base opacity.
+            // СМЕНА ГОВОРЯЩЕГО НЕ КРАСИТ КАСТ. Автоматическое приглушение
+            // не-говорящего отменено: художник рисует свет сам, а движок,
+            // притемняя слои, ломал его работу и заодно перестраивал канвас на
+            // каждой реплике. Проверка держит именно нейтральный цвет — иначе
+            // приглушение вернётся тихо, «мелким улучшением».
             stage.ApplyActor("guest", new List<Sprite> { NewSprite() }, Placement.Standing(0.75f));
             stage.SetSpeaker("mara");
-            // dimming is a COLOUR tint (alpha stays free for transitions)
             var guestGfx = stage.ActorFor("guest").GetComponentInChildren<UnityEngine.UI.Graphic>();
-            Assert.Less(guestGfx.color.r, 1f, "non-speaker dimmed (colour tint)");
+            Assert.AreEqual(1f, guestGfx.color.r, 0.001f, "не-говорящего притемнили — это отменено");
+            Assert.AreEqual(1f, guestGfx.color.a, 0.001f, "альфа принадлежит постановке и переходу");
 
             Object.DestroyImmediate(host);
         }
@@ -142,7 +146,11 @@ namespace Lvn.Tests
 
             Assert.IsTrue(actor.gameObject.activeSelf, "art arrival starts the real entrance");
             Assert.AreEqual(0f, group.alpha, 0.001f, "entrance begins transparent");
-            Assert.Less(actor.Slot.anchoredPosition.x, placedX,
+            // Снос живёт на СВОЁМ узле: слот принадлежит постановке и обязан
+            // стоять там, куда его поставили, даже пока герой въезжает.
+            Assert.AreEqual(placedX, actor.Slot.anchoredPosition.x, 0.001f,
+                "переход сдвинул слот — позицию слота держит постановка");
+            Assert.Less(actor.Transition.anchoredPosition.x, 0f,
                 "left-side actor starts outside its final position");
 
             Object.DestroyImmediate(host);

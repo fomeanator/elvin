@@ -9,8 +9,8 @@ namespace Lvn.UI
     /// (VnTheme panel colour/art/9-slice/radius — pixel-identical to the
     /// DialogueBox), hosting ANY content. It lives in the stage's own document
     /// on the dialogue layer, so a wardrobe/shop/minigame replaces the dialogue
-    /// inside the SAME frame: the first <see cref="ShowAsync"/> slides the
-    /// panel up, showing different content cross-fades it and morphs the
+    /// inside the SAME frame: the first <see cref="ShowAsync"/> fades the
+    /// panel in, showing different content cross-fades it and morphs the
     /// frame's height — the frame itself never blinks. This is the native
     /// transition the ad-hoc overlay sheets (each its own copy of the skin in
     /// another UIDocument) could not give.
@@ -24,7 +24,7 @@ namespace Lvn.UI
         private int _gen; // a newer Show/Hide supersedes any in-flight transition
 
         /// <summary>Transition length in seconds; tests set 0 for instant.</summary>
-        public float TransitionSeconds = 0.22f;
+        public float TransitionSeconds = 0.22f * VnTheme.MotionDurationScale;
 
         public bool IsOpen { get; private set; }
         public VisualElement Content => _content;
@@ -61,7 +61,7 @@ namespace Lvn.UI
         }
 
         /// <summary>Show <paramref name="content"/> in the shared frame. Closed →
-        /// slide the panel up around it; already open → cross-fade the content
+        /// fade the panel around it; already open → cross-fade the content
         /// and morph the frame's height, the frame itself stays put.</summary>
         public async Task ShowAsync(VisualElement content)
         {
@@ -84,7 +84,7 @@ namespace Lvn.UI
                 await Animate(TransitionSeconds, gen, k =>
                 {
                     _frame.style.opacity = k;
-                    _frame.style.translate = new Translate(0f, (1f - k) * 28f, 0f);
+                    _frame.style.translate = new Translate(0f, 0f, 0f);
                 });
                 return;
             }

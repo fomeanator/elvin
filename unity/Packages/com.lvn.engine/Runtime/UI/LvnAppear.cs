@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.UIElements.Experimental;
@@ -34,6 +35,67 @@ namespace Lvn.UI
 
     public static class LvnAppear
     {
+        // UI Toolkit does not replace an experimental animation when another
+        // Start() targets the same element. Both ticks keep writing opacity /
+        // transform, and the old scheduled completion can mutate a newer beat.
+        // One run owns one element; replacement stops both its animation and its
+        // completion callback before the new run writes its first frame.
+        private sealed class AnimationRun
+        {
+            public int Generation;
+            public ValueAnimation<float> Animation;
+            public IVisualElementScheduledItem Completion;
+        }
+
+        private static readonly ConditionalWeakTable<VisualElement, AnimationRun> Runs
+            = new ConditionalWeakTable<VisualElement, AnimationRun>();
+
+        private static (AnimationRun run, int generation) Begin(VisualElement el)
+        {
+            var run = Runs.GetOrCreateValue(el);
+            run.Generation++;
+            if (run.Animation != null)
+            {
+                try { run.Animation.Stop(); } catch { /* already completed/detached */ }
+                run.Animation = null;
+            }
+            if (run.Completion != null)
+            {
+                try { run.Completion.Pause(); } catch { /* detached scheduler */ }
+                run.Completion = null;
+            }
+            return (run, run.Generation);
+        }
+
+        private static bool Owns(AnimationRun run, int generation) =>
+            run != null && run.Generation == generation;
+
+        private static void Keep(AnimationRun run, int generation,
+                                 ValueAnimation<float> animation)
+        {
+            if (!Owns(run, generation))
+            {
+                try { animation?.Stop(); } catch { }
+                return;
+            }
+            run.Animation = animation;
+        }
+
+        private static void CompleteLater(VisualElement el, AnimationRun run,
+                                          int generation, int ms, Action done)
+        {
+            if (done == null || !Owns(run, generation)) return;
+            var completion = el.schedule.Execute(() =>
+            {
+                if (!Owns(run, generation)) return;
+                run.Animation = null;
+                run.Completion = null;
+                done();
+            });
+            run.Completion = completion;
+            completion.ExecuteLater(ms + 1);
+        }
+
         /// <summary>Имя вида из языка. Неизвестное — None: молча не двигаемся,
         /// а не падаем посреди главы.</summary>
         public static LvnAppearKind Parse(string name)
@@ -59,14 +121,18 @@ namespace Lvn.UI
         public static void Play(VisualElement el, LvnAppearKind kind, bool appearing = true,
                                 int ms = 0, Action done = null)
         {
-            if (el == null || kind == LvnAppearKind.None) { done?.Invoke(); return; }
+            if (el == null) { done?.Invoke(); return; }
+            if (kind == LvnAppearKind.None) { Reset(el); done?.Invoke(); return; }
             var t = LvnTheme.Current;
             // Уход короче прихода: приход рассказывает, уход убирает. Равные
             // длительности читаются как задержка отклика.
-            if (ms <= 0) ms = appearing ? t.AppearMs : t.DisappearMs;
+            if (ms <= 0)
+                ms = Mathf.Max(1, Mathf.RoundToInt(
+                    (appearing ? t.AppearMs : t.DisappearMs) * VnTheme.MotionDurationScale));
 
             float shift = t.AppearShift;
             float scale = t.AppearScale;
+            var (run, generation) = Begin(el);
 
             switch (kind)
             {
@@ -149,7 +215,7 @@ namespace Lvn.UI
                     break;
             }
 
-            if (done != null) el.schedule.Execute(() => done()).ExecuteLater(ms + 1);
+            CompleteLater(el, run, generation, ms, done);
         }
 
         /// <summary>Убрать следы анимации — иначе элемент остаётся
@@ -157,24 +223,120 @@ namespace Lvn.UI
         public static void Reset(VisualElement el)
         {
             if (el == null) return;
+            Begin(el); // invalidate ticks and completion from the previous owner
             el.style.opacity = 1f;
             el.style.scale = new Scale(Vector2.one);
             el.style.translate = new Translate(0, 0);
+        }
+
+        /// <summary>Release a card from the screen, then let it fall away. The
+        /// fullscreen host carries the translation so a free-positioned card
+        /// keeps its authored anchor; the visible card only tilts and recedes.</summary>
+        public static void DetachDrop(VisualElement fadeHost, VisualElement card,
+                                      int ms, Action done = null)
+        {
+            if (fadeHost == null || card == null)
+            {
+                done?.Invoke();
+                return;
+            }
+            ms = Mathf.Max(1, ms);
+            var (run, generation) = Begin(fadeHost);
+            float fall = Mathf.Max(48f, LvnTheme.Current.AppearShift * 2.8f);
+            fadeHost.style.opacity = 1f;
+            fadeHost.style.translate = new Translate(0, 0);
+            card.style.scale = new Scale(Vector2.one);
+            card.style.rotate = new Rotate(new Angle(0f, AngleUnit.Degree));
+            card.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(8));
+            var animation = fadeHost.experimental.animation
+                .Start(0f, 1f, ms, (e, p) =>
+                {
+                    if (!Owns(run, generation)) return;
+                    const float releaseEnd = 0.24f;
+                    if (p <= releaseEnd)
+                    {
+                        // A short held beat: the lower edge pulls loose while the
+                        // top still feels attached to the glass.
+                        float release = p / releaseEnd;
+                        float smooth = release * release * (3f - 2f * release);
+                        e.style.opacity = 1f;
+                        e.style.translate = new Translate(0, Mathf.Lerp(0f, -2f, smooth));
+                        float s = Mathf.Lerp(1f, 0.985f, smooth);
+                        card.style.scale = new Scale(new Vector2(s, s));
+                        card.style.rotate = new Rotate(new Angle(
+                            Mathf.Lerp(0f, -0.55f, smooth), AngleUnit.Degree));
+                        return;
+                    }
+
+                    // Once released, gravity accelerates the card down. Opacity
+                    // stays long enough to make the direction readable, then
+                    // clears before the next card enters.
+                    float fallProgress = (p - releaseEnd) / (1f - releaseEnd);
+                    float gravity = fallProgress * fallProgress;
+                    float fade = Mathf.Clamp01((fallProgress - 0.08f) / 0.92f);
+                    e.style.opacity = 1f - fade * fade;
+                    e.style.translate = new Translate(0, Mathf.Lerp(-2f, fall, gravity));
+                    float scale = Mathf.Lerp(0.985f, 0.94f, fallProgress);
+                    card.style.scale = new Scale(new Vector2(scale, scale));
+                    card.style.rotate = new Rotate(new Angle(
+                        Mathf.Lerp(-0.55f, 2.2f, fallProgress), AngleUnit.Degree));
+                });
+            Keep(run, generation, animation);
+            CompleteLater(fadeHost, run, generation, ms, done);
+        }
+
+        /// <summary>Bring the replacement card up from below and let it settle
+        /// onto the screen. This is the matching entrance for DetachDrop.</summary>
+        public static void CardArrive(VisualElement fadeHost, VisualElement card,
+                                      int ms, Action done = null)
+        {
+            if (fadeHost == null || card == null)
+            {
+                done?.Invoke();
+                return;
+            }
+            ms = Mathf.Max(1, ms);
+            var (run, generation) = Begin(fadeHost);
+            float travel = Mathf.Max(24f, LvnTheme.Current.AppearShift * 1.45f);
+            fadeHost.style.opacity = 0f;
+            fadeHost.style.translate = new Translate(0, travel);
+            card.style.scale = new Scale(new Vector2(0.975f, 0.975f));
+            card.style.rotate = new Rotate(new Angle(-0.7f, AngleUnit.Degree));
+            card.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(8));
+            var animation = fadeHost.experimental.animation
+                .Start(0f, 1f, ms, (e, p) =>
+                {
+                    if (!Owns(run, generation)) return;
+                    float settle = 1f - Mathf.Pow(1f - p, 3f);
+                    e.style.opacity = Mathf.Clamp01(p * 1.65f);
+                    e.style.translate = new Translate(0, Mathf.Lerp(travel, 0f, settle));
+                    float scale = Mathf.Lerp(0.975f, 1f, settle);
+                    card.style.scale = new Scale(new Vector2(scale, scale));
+                    card.style.rotate = new Rotate(new Angle(
+                        Mathf.Lerp(-0.7f, 0f, settle), AngleUnit.Degree));
+                });
+            Keep(run, generation, animation);
+            CompleteLater(fadeHost, run, generation, ms, done);
         }
 
         // Общий двигатель: k идёт 0→1 при появлении и 1→0 при уходе. Кривые
         // разные — приход тормозит у цели, уход разгоняется прочь.
         private static void Anim(VisualElement el, int ms, bool appearing, Action<VisualElement, float> set)
         {
+            if (!Runs.TryGetValue(el, out var run))
+                throw new InvalidOperationException("LvnAppear animation has no owner");
+            int generation = run.Generation;
             float from = appearing ? 0f : 1f, to = appearing ? 1f : 0f;
             set(el, from);
-            el.experimental.animation
+            var animation = el.experimental.animation
               .Start(0f, 1f, ms, (e, p) =>
               {
+                  if (!Owns(run, generation)) return;
                   float eased = appearing ? 1f - Mathf.Pow(1f - p, 3f)   // OutCubic
                                           : p * p;                       // InQuad
                   set(e, Mathf.Lerp(from, to, eased));
               });   // своей Ease нет: кривые разные для входа и выхода, они внутри
+            Keep(run, generation, animation);
         }
     }
 }

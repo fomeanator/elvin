@@ -44,6 +44,23 @@ namespace Lvn.UI.World
         /// девятую часть.</summary>
         public const int Downscale = 3;
 
+        /// <summary>Сколько раз в секунду пересчитывается размытая подложка.
+        /// Меньше кадровой частоты СОЗНАТЕЛЬНО: копия уменьшена втрое и сильно
+        /// размыта, на глаз её запаздывание на десятые доли кадра не читается,
+        /// а считается она недёшево — уменьшение, четыре прохода размытия и
+        /// переворот. Окно диалога висит почти всю игру, так что этот расход
+        /// постоянный: на 60 кадрах в секунду это было семь проходов на каждый
+        /// кадр, теперь столько же на четыре.</summary>
+        public const float RefreshHz = 15f;
+
+        /// <summary>Пора ли пересчитывать подложку. Вынесено отдельной чистой
+        /// функцией, потому что это правило расхода, а не деталь отрисовки:
+        /// его надо видеть и проверять, а не искать в середине кадра.</summary>
+        public static bool ShouldRefresh(float lastRefresh, float now, bool hasCopy)
+            => !hasCopy || lastRefresh < 0f || now - lastRefresh >= 1f / RefreshHz;
+
+        private float _lastRefresh = -1f;
+
         private RenderTexture _rt;
         private Material _mat;
         private bool _shaderMissing;
@@ -100,6 +117,13 @@ namespace Lvn.UI.World
 
             int w = Mathf.Max(8, src.width / Downscale);
             int h = Mathf.Max(8, src.height / Downscale);
+            bool sizeChanged = _rt == null || _rt.width != w || _rt.height != h;
+            if (!sizeChanged && !ShouldRefresh(_lastRefresh, Time.unscaledTime, _rt != null))
+            {
+                Graphics.Blit(src, dst);   // подложка ещё свежая — кадр идёт насквозь
+                return;
+            }
+            _lastRefresh = Time.unscaledTime;
             EnsureTarget(w, h, src.format);
 
             var a = RenderTexture.GetTemporary(w, h, 0, src.format);

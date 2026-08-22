@@ -31,11 +31,112 @@ namespace Lvn.UI
         // change re-resolves the SAME pose/placement with the new equipment.
         private readonly Dictionary<string, JObject> _actorCmds = new Dictionary<string, JObject>();
 
+        // The placement requested by an actor command is known before its art
+        // finishes loading. Dialogue uses this small staging view so a freshly
+        // entering speaker's name is on the correct side from the first frame.
+        private readonly Dictionary<string, Placement> _actorTargets = new Dictionary<string, Placement>();
+
         // Per-actor apply generation: rapid wardrobe browsing fires overlapping
         // ApplyActorAsync calls whose sprite loads finish out of order — only
         // the NEWEST may touch the renderer, or an older outfit "wins" by
         // arriving late.
         private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
+
+        // The short opacity window deliberately removed the long ghostly travel,
+        // but 0.35 s made the complete entrance/exit read as a cut. The first
+        // direction pass added 40%, then another 30%; the resulting transition
+        // was later shortened by 20%: 1.4 × 1.3 × 0.8 = 1.456. The global
+        // presentation tempo is applied separately to every transition, so a
+        // default 0.35 s fade lands at ~0.382 s; actual character movement gets
+        // the additional compact scale below and lands at ~0.287 s.
+        private const float ActorVisibilityDurationScale = 1.456f;
+        private const float ActorMovementDurationScale = 0.75f;
+
+        // Commands between two dialogue pauses are consumed in one LvnPlayer
+        // Advance loop.  Therefore `hide A; show B; say` used to start both
+        // transitions in the same frame.  Keep asset loading parallel, but gate
+        // the next ACTOR reveal until every already-started actor exit has used
+        // its full realtime duration. Objects are deliberately excluded.
+        private float _actorExitBarrierUntil;
+        // Input uses the same clock to keep a rapid tap from replacing a card
+        // while the actor belonging to that beat is still entering or leaving.
+        private float _actorVisibilityBarrierUntil;
+
+        private static bool IsCharacterCommand(JObject cmd)
+            => !string.Equals((string)cmd?["op"], "obj", StringComparison.OrdinalIgnoreCase);
+
+        private static void LengthenCharacterVisibility(JObject cmd, bool visibilityChanged,
+                                                         ref Placement p)
+        {
+            if (!visibilityChanged || !IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f)
+                return;
+            var transition = p.Show ? p.EnterTransition : p.ExitTransition;
+            if (transition == TransitionType.None) return;
+            p.TransitionDuration *= ActorVisibilityDurationScale;
+        }
+
+        private static void ApplyPresentationTempo(ref Placement p)
+        {
+            if (p.TransitionDuration > 0.001f)
+                p.TransitionDuration *= VnTheme.MotionDurationScale;
+        }
+
+        /// <summary>Side entrances and changes between stage positions should
+        /// read as a quick piece of blocking, not as the actor skating through
+        /// the shot. Fade-only exits deliberately keep their own timing.</summary>
+        private static void ShortenCharacterMovement(JObject cmd, ref Placement p)
+        {
+            if (!IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f) return;
+            var visibilityTransition = p.Show ? p.EnterTransition : p.ExitTransition;
+            if (p.SmoothPosition || visibilityTransition == TransitionType.Drift)
+                p.TransitionDuration *= ActorMovementDurationScale;
+        }
+
+        private void ArmActorExitBarrier(Placement p)
+        {
+            if (p.ExitTransition == TransitionType.None || p.TransitionDuration <= 0.001f) return;
+            _actorExitBarrierUntil = Mathf.Max(_actorExitBarrierUntil,
+                Time.realtimeSinceStartup + p.TransitionDuration);
+        }
+
+        private void ArmActorVisibilityBarrier(JObject cmd, bool visibilityChanged, Placement p)
+        {
+            if (!visibilityChanged || !IsCharacterCommand(cmd)
+                || p.TransitionDuration <= 0.001f) return;
+            var transition = p.Show ? p.EnterTransition : p.ExitTransition;
+            if (transition == TransitionType.None) return;
+            _actorVisibilityBarrierUntil = Mathf.Max(_actorVisibilityBarrierUntil,
+                Time.realtimeSinceStartup + p.TransitionDuration);
+            // A cold asset can begin its real entrance after the nominal early
+            // barrier already unlocked the line. Reclaim input immediately and
+            // let the same generation-aware gate reopen it at the new deadline.
+            if (_sayUp && _awaitingTap)
+            {
+                _awaitingTap = false;
+                int gen = _dialogueSwapGeneration;
+                _dialogue?.schedule.Execute(() => UnlockSayWhenChoreographyReady(gen))
+                    .ExecuteLater(1);
+            }
+            if (_curChoices != null && _curChoices.Count > 0 && _choices != null)
+            {
+                _choices.SetEnabled(false);
+                int gen = _dialogueSwapGeneration;
+                _choices.schedule.Execute(() => EnableChoiceWhenChoreographyReady(gen))
+                    .ExecuteLater(1);
+            }
+        }
+
+        private async Task WaitForActorExitsAsync(int epoch)
+        {
+            while (StageCurrent(epoch))
+            {
+                float left = _actorExitBarrierUntil - Time.realtimeSinceStartup;
+                if (left <= 0.001f) return;
+                // LvnFade also runs on realtime, so this barrier finishes on the
+                // same clock even when game time is paused or accelerated.
+                await Task.Delay(Mathf.Max(1, Mathf.CeilToInt(left * 1000f)));
+            }
+        }
 
         /// <summary>Re-apply an on-screen actor from its last command (art
         /// re-resolves against the current variables + wardrobe). No-op when
@@ -46,12 +147,25 @@ namespace Lvn.UI
                 LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
+        private void RefreshWardrobeActor(string id, string wardrobeAxis)
+        {
+            if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
+                LvnAsync.Fire(ApplyActorAsync(cmd, wardrobeSwap: true,
+                    wardrobeFromTop: IsHairWardrobeAxis(wardrobeAxis)), "WardrobeActor");
+        }
+
+        private static bool IsHairWardrobeAxis(string axis)
+        {
+            var key = (axis ?? "").ToLowerInvariant();
+            return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
+        }
+
         /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
         /// always has the active hero to dress, even when the beat left the stage empty
         /// (imported novels open the wardrobe without staging anyone). Replays the
         /// actor's last pose forcing it visible, or stages it fresh (centred) from its
         /// catalog entity. No-op for an empty id.</summary>
-        public void EnsureActorShown(string id)
+        public void EnsureActorShown(string id, bool fadeOnly = false)
         {
             if (string.IsNullOrEmpty(id)) return;
             // Already on stage (the story/import staged her) → do NOTHING. Re-applying
@@ -67,6 +181,7 @@ namespace Lvn.UI
             {
                 cmd = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center" };
             }
+            if (fadeOnly) cmd["enter"] = "fade";
             LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
@@ -82,8 +197,9 @@ namespace Lvn.UI
 
         /// <summary>
         /// Команда без <c>enter=</c>/<c>exit=</c> берёт постановочный переход из
-        /// темы. У actor и obj разные дефолты: герой движется от ближайшего края,
-        /// реквизит проявляется на месте. Пустая строка означает мгновенный показ.
+        /// темы. У actor и obj разные дефолты: герой въезжает от ближайшего края
+        /// и растворяется на месте; реквизит проявляется на месте. Пустая строка
+        /// означает мгновенный показ.
         /// </summary>
         private void FillTransitionDefaults(JObject cmd, ref Placement p)
             => ApplyTransitionDefaults(cmd, Theme, ref p);
@@ -119,6 +235,46 @@ namespace Lvn.UI
             }), "ApplyActor");
         }
 
+        /// <summary>Temporarily remove a wardrobe mannequin and wait until its
+        /// fade is fully finished. Preserve the actor's last authored show
+        /// command, so restoring it later keeps art axes, emotion and placement
+        /// instead of replaying the synthetic hide command.</summary>
+        public async Task HideActorTemporarilyAndWaitAsync(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            int epoch = _stageEpoch;
+            HideActorTemporarily(id);
+            await WaitForActorExitsAsync(epoch);
+        }
+
+        private void HideActorTemporarily(string id)
+        {
+            JObject replay = _actorCmds.TryGetValue(id, out var current)
+                ? (JObject)current.DeepClone() : null;
+            HideActor(id);
+            if (replay != null) _actorCmds[id] = replay;
+        }
+
+        /// <summary>Engine-level wardrobe focus: every visible CHARACTER except
+        /// <paramref name="keepId"/> is temporarily removed, all exits finish,
+        /// then the selected mannequin is faded in. Props are not cast and stay.
+        /// A generation predicate lets a host discard a rapid stale selection
+        /// before it can show the wrong actor.</summary>
+        public async Task FocusWardrobeActorAsync(string keepId, Func<bool> canShow = null)
+        {
+            if (string.IsNullOrEmpty(keepId)) return;
+            int epoch = _stageEpoch;
+            foreach (var id in ActorsOnStage())
+            {
+                if (id == keepId) continue;
+                if (_actorCmds.TryGetValue(id, out var cmd) && !IsCharacterCommand(cmd)) continue;
+                HideActorTemporarily(id);
+            }
+            await WaitForActorExitsAsync(epoch);
+            if (!StageCurrent(epoch) || (canShow != null && !canShow())) return;
+            EnsureActorShown(keepId, fadeOnly: true);
+        }
+
         /// <summary>The `clear` op: take every actor and obj off stage in one
         /// command, leaving the backdrop, effects and HUD exactly as they are.
         ///
@@ -134,9 +290,11 @@ namespace Lvn.UI
             foreach (var id in ActorsOnStage()) HideActor(id);
         }
 
-        private void OnWardrobeChanged(string entity) => RefreshActor(entity);
+        private void OnWardrobeChanged(string entity)
+            => RefreshWardrobeActor(entity, LvnWardrobe.LastChangedAxis(entity));
 
-        private async Task ApplyActorAsync(JObject cmd)
+        private async Task ApplyActorAsync(JObject cmd, bool wardrobeSwap = false,
+                                           bool wardrobeFromTop = false)
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
@@ -160,8 +318,14 @@ namespace Lvn.UI
             if (!BoolOr(cmd["show"], true))
             {
                 bool freshHide = !_placements.TryGetValue(id, out var prevHide);
+                bool wasVisible = !freshHide && prevHide.Show;
                 var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
                 FillTransitionDefaults(cmd, ref hidePl);
+                ApplyPresentationTempo(ref hidePl);
+                LengthenCharacterVisibility(cmd, wasVisible, ref hidePl);
+                ShortenCharacterMovement(cmd, ref hidePl);
+                ArmActorVisibilityBarrier(cmd, wasVisible, hidePl);
+                _actorTargets[id] = hidePl;
 
                 if (!freshHide)
                 {
@@ -171,6 +335,7 @@ namespace Lvn.UI
                     _renderer?.PlaceActor(id, hidePl);
                     _renderer?.ApplyActor(id, null, hidePl, null, null, null);
                 }
+                if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
                 _placements[id] = hidePl;
                 _actorCmds[id] = cmd;
                 _hotspots.RemoveAll(h => h.id == id);
@@ -269,8 +434,21 @@ namespace Lvn.UI
             }
 
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
+            bool wasVisibleBeforeShow = !fresh && prevPl.Show;
             var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
             FillTransitionDefaults(cmd, ref placement);
+            ApplyPresentationTempo(ref placement);
+            bool visibilityChanged = !wasVisibleBeforeShow && placement.Show;
+            LengthenCharacterVisibility(cmd, visibilityChanged, ref placement);
+            // Position changes are ordinary stage choreography, not another
+            // entrance. This one-shot hint is consumed by the renderer and is
+            // cleared before the sticky placement is stored (drag must stay 1:1).
+            placement.SmoothPosition = wasVisibleBeforeShow
+                && (cmd["position"] != null || cmd["x"] != null || cmd["y"] != null);
+            placement.WardrobeSwap = wardrobeSwap;
+            placement.WardrobeFromTop = wardrobeFromTop;
+            ShortenCharacterMovement(cmd, ref placement);
+            ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
             // Stage framing: on a FRESH actor, fill the theme's baseline/scale wherever
             // the op left it unset, so every novel gets the standard bottom-anchored
             // pose — tunable from ui.stage without editing the script. A follow-up op
@@ -309,6 +487,8 @@ namespace Lvn.UI
                     placement.X = arbX;
                 }
             }
+
+            _actorTargets[id] = placement;
 
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
@@ -383,7 +563,23 @@ namespace Lvn.UI
             // this stale pass may not touch the renderer (late-arrival outfit bug).
             if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
 
+            // The outgoing actor is already fading while this actor's layers load.
+            // Only the visual reveal is serialized; cached/network work remains
+            // concurrent, so the choreography adds no avoidable loading hitch.
+            if (!wasVisibleBeforeShow && IsCharacterCommand(cmd))
+            {
+                await WaitForActorExitsAsync(epoch);
+                if (!StageCurrent(epoch)) return;
+                if (_actorGen.TryGetValue(id, out cur) && cur != gen) return;
+            }
+
+            // Loading may have outlived the early nominal barrier. Re-arm from
+            // the frame where the renderer actually starts the entrance.
+            ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
+            placement.SmoothPosition = false;
+            placement.WardrobeSwap = false;
+            placement.WardrobeFromTop = false;
             _placements[id] = placement; // the sticky base for the next command
             _actorCmds[id] = cmd;        // wardrobe changes replay this in place
 
