@@ -55,12 +55,10 @@ namespace Lvn.UI
                  "art straight from Play, no code. Editor/standalone file paths.")]
         public string ContentRoot;
 
-        [Tooltip("Render the scene (background + actors + camera) on a uGUI Canvas " +
-                 "instead of UI Toolkit — the 60fps / Spine path. Dialogue and choices " +
-                 "stay on UI Toolkit above it. Off by default (UITK scene).")]
-        public bool UseCanvasScene;
-
-        private VisualElement _world;      // the camera target (UITK path)
+        // СЦЕНА РИСУЕТСЯ ОДНИМ СПОСОБОМ — uGUI-канвасом (60 кадров, Spine,
+        // шейдеры, меши). Вторая реализация на UI Toolkit жила здесь за
+        // переключателем UseCanvasScene и была снесена: продукт всегда шёл
+        // канвасом, а поддерживать приходилось обе.
         private ISceneRenderer _renderer;  // bg + actors + camera, renderer-agnostic
         private ParticleField _particles;
         private DialogueBox _dialogue;
@@ -182,28 +180,15 @@ namespace Lvn.UI
             root.Clear();
             root.style.flexGrow = 1;
 
-            // Scene = background + actors + camera. Two interchangeable renderers:
-            // the uGUI Canvas (60fps / Spine) sits on a sibling canvas *below* this
-            // UITK panel; the UITK path wraps them in a "vn-world" element. Either
-            // way the dialogue/choice chrome draws above the scene.
-            if (UseCanvasScene)
+            // Scene = background + actors + camera. Канвас-сцена живёт на
+            // СОСЕДНЕМ канвасе ПОД этой UI Toolkit-панелью, поэтому окно, выборы
+            // и меню всегда рисуются поверх сцены.
             {
                 // sortingOrder below the panel (10) so the UITK chrome composites on top.
                 var scene = new World.WorldStage(transform, sortingOrder: 0);
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);
                 LvnAsync.Fire(ApplyDefaultBackdropAsync(scene), "ApplyDefaultBackdrop"); // seamless tiled filler instead of flat black
-            }
-            else
-            {
-                _world = new VisualElement { name = "vn-world", pickingMode = PickingMode.Ignore };
-                _world.style.position = Position.Absolute;
-                _world.style.left = 0; _world.style.right = 0; _world.style.top = 0; _world.style.bottom = 0;
-                var bg = new BackgroundLayer();
-                var actors = new ActorLayer();
-                _world.Add(bg);
-                _world.Add(actors);
-                _renderer = new UitkSceneRenderer(bg, actors, new CameraRig(_world));
             }
 
             _particles = new ParticleField();
@@ -223,7 +208,6 @@ namespace Lvn.UI
             // его в каждом экране значит однажды забыть про один из них.
             LvnFonts.ApplyDefault(root);
 
-            if (_world != null) root.Add(_world);
             root.Add(_particles);   // weather sits over the scene, under the UI
             // Chrome lives inside the device SAFE AREA (never under a notch /
             // home indicator); the scene, weather and the FX veil stay full-bleed
@@ -510,7 +494,6 @@ namespace Lvn.UI
                 _renderer?.Teardown();
                 ReleaseActive3DSet();
                 _renderer = null;
-                _world = null;
                 _uiRoot = null;
                 _menu = null;
                 _labelLayer = null;

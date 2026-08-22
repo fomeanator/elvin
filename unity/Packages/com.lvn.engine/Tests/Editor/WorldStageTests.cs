@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Lvn.Tests
 {
-    /// The Canvas scene path (uGUI) — placement math mirrors the UITK ActorLayer,
+    /// The Canvas scene path (uGUI) — единственный путь сцены,
     /// and the WorldStage assembles a real Canvas → GameRoot → (bg, content) tree.
     public class WorldStageTests
     {

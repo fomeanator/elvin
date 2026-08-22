@@ -5,7 +5,7 @@ namespace Lvn.UI.World
     /// <summary>
     /// Maps a screen-fraction <see cref="Placement"/> onto a uGUI
     /// <see cref="RectTransform"/> — the Canvas mirror of the UITK math in
-    /// <see cref="ActorLayer"/>. The slot is anchored to the top-left of a content
+    /// <see cref="Placement"/>. The slot is anchored to the top-left of a content
     /// rect of <paramref name="size"/> canvas units; the object's
     /// <see cref="Placement.AnchorX"/>/<see cref="Placement.AnchorY"/> point lands
     /// on <see cref="Placement.X"/>/<see cref="Placement.Y"/> (both 0..1, Y from
@@ -22,7 +22,7 @@ namespace Lvn.UI.World
         public static void Apply(RectTransform slot, Placement p, Vector2 size)
         {
             // Top-left anchor so Y grows downward in canvas units, matching the
-            // UITK top-down coordinate ActorLayer uses.
+            // top-down coordinate the language uses (y=0 — верх экрана).
             slot.anchorMin = slot.anchorMax = new Vector2(0f, 1f);
             // uGUI pivot is measured from the bottom-left; the placement anchor is
             // from the top-left — flip Y.

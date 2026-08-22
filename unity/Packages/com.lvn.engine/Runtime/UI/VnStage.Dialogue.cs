@@ -350,9 +350,9 @@ namespace Lvn.UI
             _awaitingTap = true;
         }
 
-        // Scene calls go through the ISceneRenderer seam — path-specific behaviour
-        // lives inside UitkSceneRenderer / CanvasSceneRenderer, not in per-call-site
-        // conditionals here. These thin aliases keep historical call names readable.
+        // Scene calls go through the ISceneRenderer seam — способ рисовать живёт
+        // внутри CanvasSceneRenderer, а не в условиях на каждом вызове. Эти
+        // тонкие переходники сохраняют привычные имена вызовов.
         private void SceneSetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames) => _renderer?.SetFrames(id, frames);
         private void SceneEnsureIdle(string id, LvnAnim a) => _renderer?.EnsureIdle(id, a);
         private void SceneEnsureBlink(string id, LvnAnim a) => _renderer?.EnsureBlink(id, a);

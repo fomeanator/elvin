@@ -5,7 +5,7 @@ namespace Lvn.UI.World
 {
     /// <summary>
     /// The full-screen background on a uGUI Canvas — the Canvas mirror of
-    /// <see cref="BackgroundLayer"/>. A stretched <see cref="RawImage"/> shows the
+    /// фон канвас-сцены. A stretched <see cref="RawImage"/> shows the
     /// sprite's texture cropped to cover (uv rect computed from the texture vs.
     /// the slot aspect), or a solid colour when there is no art.
     /// </summary>
