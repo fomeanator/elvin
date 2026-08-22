@@ -494,9 +494,9 @@ namespace Lvn.UI
             // no-op on renderers that apply placement together with the art.
             _renderer?.PlaceActor(id, placement);
             _hotspots.RemoveAll(h => h.id == id);
-            // Manual hotspot hit-testing only applies to renderers that expose
-            // actor rects (the canvas path); the UITK path uses element picking.
-            if (onClick != null && placement.Show && UseCanvasScene) _hotspots.Add((id, onClick));
+            // Клик по актёру считается вручную, по прямоугольнику на экране:
+            // канвас-сцена — соседний канвас, а не элемент этой панели.
+            if (onClick != null && placement.Show) _hotspots.Add((id, onClick));
 
             // Drag & drop: `draggable=true` arms the object; on_drop maps
             // target ids to labels ("bag:apple_in_bag"), on_drop_miss is the
@@ -664,7 +664,7 @@ namespace Lvn.UI
         /// override wins over the global table (see LvnSpriteEntity.slots).</summary>
         internal static float SlotXFor(string position, IReadOnlyDictionary<string, float> slots)
             => position != null && slots != null && slots.TryGetValue(position, out var v)
-                ? v : ActorLayer.SlotX(position);
+                ? v : Placement.SlotX(position);
 
         // ── smart slots ──────────────────────────────────────────────────────
         // A VISIBLE actor owns its X until it hides or moves. Branch-merged

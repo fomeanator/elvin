@@ -43,7 +43,7 @@ namespace Lvn.UI.World
         private readonly Dictionary<string, CanvasGroup> _slotGroups = new Dictionary<string, CanvasGroup>();
         private readonly Dictionary<string, float> _baseOpacity = new Dictionary<string, float>();
         // Paint order: explicit z per id (sticky; unset = 0) + birth order as the
-        // tie-break. Mirrors ActorLayer._z — the two renderers must stack alike.
+        // tie-break: явный z сильнее, при равенстве побеждает пришедший раньше.
         private readonly Dictionary<string, int> _zExplicit = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _birth = new Dictionary<string, int>();
         private int _nextSibling;
@@ -298,7 +298,7 @@ namespace Lvn.UI.World
         }
 
         /// <summary>Place / update / show an object as a stack of layer sprites —
-        /// the Canvas equivalent of <c>ActorLayer.Apply</c>. A null/empty
+        /// один вход для облика и постановки актёра. A null/empty
         /// <paramref name="layers"/> list leaves the current art unchanged.</summary>
         public WorldActor ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement p,
             IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null,
@@ -541,7 +541,7 @@ namespace Lvn.UI.World
         public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;
         public WorldActor ActorFor(string id) => _actors.TryGetValue(id, out var a) ? a : null;
 
-        // ── animation (id-based, mirrors ActorLayer so VnStage calls one API) ──
+        // ── animation (id-based: VnStage зовёт один API для всех актёров) ──
         public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames)
             => ActorFor(id)?.SetFrames(frames);
         public void PlayAnim(string id, string channel, LvnAnim anim) { if (!string.IsNullOrEmpty(channel) && anim != null) ActorFor(id)?.Play(channel, anim); }

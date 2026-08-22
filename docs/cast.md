@@ -60,7 +60,7 @@ The model is a dictionary, a list of strings, and `{name}` substitution. Any
 runtime — Unity, Godot, web, a print preview — implements it in a few lines:
 merge defaults with the command, fill the templates, draw the layers in order.
 The reference Unity implementation is `Lvn.SpriteComposer` (pure, tested) plus
-`ActorLayer` (stacks the resolved sprites).
+`WorldStage`/`WorldActor` (stacks the resolved sprites).
 
 ## Creating entities
 

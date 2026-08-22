@@ -7,26 +7,25 @@ namespace Lvn.UI
 {
     /// <summary>
     /// The scene seam: everything VnStage asks of "the thing that draws the
-    /// background, actors and camera". Two interchangeable renderers implement
-    /// it — the UI Toolkit path (BackgroundLayer + ActorLayer + CameraRig) and
-    /// the uGUI Canvas path (WorldStage) — so the stage logic stays renderer-
-    /// agnostic without a hand-written <c>if (UseCanvasScene)</c> at every call
-    /// site. Path-specific behaviour differences live INSIDE the matching
-    /// implementation, where they are visible and testable.
+    /// background, actors and camera". Одна реализация — uGUI-канвас
+    /// (<see cref="CanvasSceneRenderer"/> поверх WorldStage). Шов оставлен
+    /// НАМЕРЕННО: он держит логику сцены отдельно от способа рисовать, и
+    /// именно по нему когда-то жила вторая реализация на UI Toolkit. Её
+    /// снесли — каждую постановочную правку приходилось делать дважды, а
+    /// тесты умели зеленеть на мёртвом пути.
     /// </summary>
     internal interface ISceneRenderer
     {
         // ── background ──
         void SetBackground(Sprite sprite);
-        /// <summary>Reset the backdrop on a stage wipe. The UITK path clears its
-        /// colour layer; the Canvas path keeps its own black board (its historical
-        /// behaviour — the next chapter's bg paints over it).</summary>
+        /// <summary>Reset the backdrop on a stage wipe: the Canvas path keeps
+        /// its own black board (its historical behaviour — the next chapter's bg
+        /// paints over it).</summary>
         void ClearBackground();
 
         // ── actors ──
         /// <summary>Create + place an actor BEFORE its art has loaded, so the
-        /// slot exists for hit-testing/animation immediately. The UITK path
-        /// applies placement and art together, so this is a no-op there.</summary>
+        /// slot exists for hit-testing/animation immediately.</summary>
         void PlaceActor(string id, Placement placement);
         /// <summary>Apply the actor's final state (art layers + placement).
         /// <paramref name="layerDefs"/> (optional, catalog path) carries each
@@ -35,8 +34,8 @@ namespace Lvn.UI
             IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
             IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null);
         /// <summary>The actor's on-screen rect, normalized 0..1 with a top-left
-        /// origin — for manual hotspot hit-testing. Null when this renderer does
-        /// its own picking (UITK) or the actor doesn't exist.</summary>
+        /// origin — for manual hotspot hit-testing. Null when the actor doesn't
+        /// exist.</summary>
         Rect? ActorScreenRect(string id);
         void RemoveAll();
 
@@ -59,9 +58,7 @@ namespace Lvn.UI
 
         // ── 3D set as the background ──
         /// <summary>Stand a built 3D set behind the scene instead of painted art;
-        /// null tears it down. Only the Canvas path films sets — the UI Toolkit
-        /// path keeps flat backgrounds, so a script using `bg3d` degrades to the
-        /// background it already had rather than breaking.</summary>
+        /// null tears it down.</summary>
         void Set3DBackdrop(GameObject prefab);
         /// <summary>Move the set's camera — position, look angles, field of view.
         /// Any argument left null keeps its value; seconds > 0 glides.</summary>
@@ -69,9 +66,9 @@ namespace Lvn.UI
         /// <summary>Force whether the standing set is filmed every frame.</summary>
         void Set3DLive(bool live);
 
-        /// <summary>Real gaussian blur of the scene frame, when this renderer
-        /// can do one (Canvas path + built-in pipeline + a camera). Returns
-        /// false → the stage falls back to the FxLayer veil imitation.</summary>
+        /// <summary>Real gaussian blur of the scene frame, when the platform
+        /// can do one (built-in pipeline + a camera). Returns false → the stage
+        /// falls back to the FxLayer veil imitation.</summary>
         bool TryBlur(float strength01, float seconds);
 
         /// <summary>The `fx` multi-effect stack (vignette/cinematic/bloom/…): same
@@ -79,73 +76,17 @@ namespace Lvn.UI
         bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
 
         /// <summary>Спрайтовые эффекты актёра (op `sfx`: обводка/свечение/
-        /// растворение). False → путь без канвас-актёров, no-op.</summary>
+        /// растворение). False → у актёра нет материала, op молчит.</summary>
         bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd);
 
         /// <summary>Destroy engine-side objects that OUTLIVE the UI panel (the
-        /// Canvas scene's GameObjects). UITK elements die with their panel, so
-        /// that path is a no-op. Called on stage disable before a rebuild.</summary>
+        /// Canvas scene's GameObjects). Called on stage disable before a
+        /// rebuild.</summary>
         void Teardown();
     }
 
-    /// <summary>The UI Toolkit scene: a colour/sprite background layer and an
-    /// actor layer inside a "vn-world" element, moved by a CameraRig.</summary>
-    internal sealed class UitkSceneRenderer : ISceneRenderer
-    {
-        private readonly BackgroundLayer _bg;
-        private readonly ActorLayer _actors;
-        private readonly CameraRig _camera;
-
-        public UitkSceneRenderer(BackgroundLayer bg, ActorLayer actors, CameraRig camera)
-        {
-            _bg = bg;
-            _actors = actors;
-            _camera = camera;
-        }
-
-        public void SetBackground(Sprite sprite) => _bg.SetSprite(sprite);
-        public void ClearBackground() => _bg.SetColor(Color.clear);
-
-        public void PlaceActor(string id, Placement placement) { /* placement applies with the art */ }
-
-        public void ApplyActor(string id, IReadOnlyList<Sprite> layers, Placement placement, Action onClick,
-            IReadOnlyList<string> layerIds, IReadOnlyList<Vector4> layerRects,
-            IReadOnlyList<SpriteCatalog.ResolvedLayer> layerDefs = null)
-            => _actors.Apply(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
-
-        public Rect? ActorScreenRect(string id) => _actors.ScreenRect(id); // drag/drop hit-testing
-        public void RemoveAll() => _actors.RemoveAll();
-
-        public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames) => _actors.SetFrames(id, frames);
-        public void EnsureIdle(string id, LvnAnim idle) => _actors.EnsureIdle(id, idle);
-        public void EnsureBlink(string id, LvnAnim blink) => _actors.EnsureBlink(id, blink);
-        public void PlayGesture(string id, LvnAnim gesture, LvnAnim idle) => _actors.PlayGesture(id, gesture, idle);
-        public void PlayAnim(string id, string channel, LvnAnim anim) => _actors.PlayAnim(id, channel, anim);
-        public void PlayAnimQueued(string id, string channel, LvnAnim anim) => _actors.PlayAnimQueued(id, channel, anim);
-        public void StopAnim(string id, string target) => _actors.StopAnim(id, target);
-        public void Talk(string id, LvnAnim talk, bool on) => _actors.Talk(id, talk, on);
-        public void HighlightSpeaker(string who) => _actors.HighlightSpeaker(who);
-
-        public void Shake(float amplitude, float seconds) => _camera.Shake(amplitude, seconds);
-        public void Zoom(float factor, float seconds) => _camera.Zoom(factor, seconds);
-        public void Pan(float x, float y, float seconds) => _camera.Pan(x, y, seconds);
-        public void ResetCamera(float seconds) => _camera.Reset(seconds);
-
-        // The UI Toolkit path has no world to film — a script that stands a 3D
-        // set keeps whatever background it had.
-        public void Set3DBackdrop(GameObject prefab) { }
-        public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds) { }
-        public void Set3DLive(bool live) { }
-
-        public bool TryBlur(float strength01, float seconds) => false; // UITK path has no camera frame
-        public bool TryFx(Newtonsoft.Json.Linq.JObject cmd) => false;  // same: no camera, no frame hook
-        public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd) => false; // UITK: слои не Image'ы
-
-        public void Teardown() { /* UITK elements die with the panel root */ }
-    }
-
     /// <summary>The uGUI Canvas scene (WorldStage): 60fps sprites/Spine on a
-    /// sibling canvas below the UITK chrome.</summary>
+    /// sibling canvas below the UI Toolkit chrome (окно, выборы, меню).</summary>
     internal sealed class CanvasSceneRenderer : ISceneRenderer
     {
         private readonly World.WorldStage _scene;

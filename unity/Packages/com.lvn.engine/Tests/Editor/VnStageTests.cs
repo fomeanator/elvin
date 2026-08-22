@@ -165,7 +165,7 @@ namespace Lvn.Tests
             };
             Placement p = default;
             Assert.DoesNotThrow(() => p = VnStage.PlacementFrom(cmd));
-            Assert.AreEqual(ActorLayer.SlotX("right"), p.X, 0.001f); // malformed x → slot
+            Assert.AreEqual(Placement.SlotX("right"), p.X, 0.001f); // malformed x → slot
             Assert.AreEqual(0.5f, p.Opacity, 0.001f);               // "0.5" parsed
             Assert.IsTrue(p.Show);                                  // "true" parsed
             Assert.IsTrue(p.Flip);                                  // "yes" parsed
@@ -329,14 +329,14 @@ namespace Lvn.Tests
         [Test]
         public void AllPositionPresetsReturnExpectedValues()
         {
-            Assert.AreEqual(0.12f, ActorLayer.SlotX("far_left"), 0.001f);
-            Assert.AreEqual(0.25f, ActorLayer.SlotX("left"), 0.001f);
-            Assert.AreEqual(0.38f, ActorLayer.SlotX("center_left"), 0.001f);
-            Assert.AreEqual(0.50f, ActorLayer.SlotX("center"), 0.001f);
-            Assert.AreEqual(0.62f, ActorLayer.SlotX("center_right"), 0.001f);
-            Assert.AreEqual(0.75f, ActorLayer.SlotX("right"), 0.001f);
-            Assert.AreEqual(0.88f, ActorLayer.SlotX("far_right"), 0.001f);
-            Assert.AreEqual(0.50f, ActorLayer.SlotX("unknown"), 0.001f);
+            Assert.AreEqual(0.12f, Placement.SlotX("far_left"), 0.001f);
+            Assert.AreEqual(0.25f, Placement.SlotX("left"), 0.001f);
+            Assert.AreEqual(0.38f, Placement.SlotX("center_left"), 0.001f);
+            Assert.AreEqual(0.50f, Placement.SlotX("center"), 0.001f);
+            Assert.AreEqual(0.62f, Placement.SlotX("center_right"), 0.001f);
+            Assert.AreEqual(0.75f, Placement.SlotX("right"), 0.001f);
+            Assert.AreEqual(0.88f, Placement.SlotX("far_right"), 0.001f);
+            Assert.AreEqual(0.50f, Placement.SlotX("unknown"), 0.001f);
         }
     }
 }

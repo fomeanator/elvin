@@ -1152,9 +1152,8 @@ namespace Lvn.UI.Screens
         {
             var go = new GameObject("VnStage");
             go.transform.SetParent(transform, false);
-            // Configure while inactive so OnEnable/Build runs only after every field
-            // (notably UseCanvasScene) is set — otherwise Build() would read the
-            // default and pick the wrong scene renderer.
+            // Configure while inactive so OnEnable/Build runs only after every
+            // field is set — иначе Build() прочитал бы значения по умолчанию.
             go.SetActive(false);
             var doc = go.AddComponent<UIDocument>();
             // Shared panel (see NovelShell.InitDocument) — the stage document
@@ -1163,11 +1162,6 @@ namespace Lvn.UI.Screens
             doc.panelSettings = LvnPanel.Shared;
             doc.sortingOrder = 10;
             var stage = go.AddComponent<VnStage>();
-            // Render the scene (bg + actors + camera) on a uGUI Canvas below this
-            // UITK panel — the 60fps / Spine path. Dialogue & choices stay on UITK
-            // above it. The shell content uses no click-hotspots or actor enter/exit
-            // transitions (the features not yet on the Canvas path), so this is safe.
-            stage.UseCanvasScene = true;
             go.SetActive(true);
             return stage;
         }

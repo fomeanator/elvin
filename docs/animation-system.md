@@ -223,7 +223,7 @@ units), which turns a feature list into a small language.
 | `anim`/`move` parse → `LvnAnim` payload | `tools/lvnconv/internal/lvns/convert.go` (`buildAnimCmd`) | ✓ |
 | `anim` in runtime op registry | `tools/lvnconv/lvn/validate.go` | ✓ |
 | `case "anim"` dispatch → play on channel | `Runtime/UI/VnStage.cs` (`ApplyAnim`, `ScenePlayAnim`) | ✓ |
-| generic channel play | `Runtime/UI/ActorLayer.cs`, `Runtime/UI/World/WorldStage.cs` (`PlayAnim`) | ✓ |
+| generic channel play | `Runtime/UI/World/WorldStage.cs` (`PlayAnim`) | ✓ |
 | per-property channel derivation | `VnStage.ApplyAnim` | ✓ |
 | keyframe sampling + easing (shared) | `Runtime/UI/ActorAnimator.cs` (`Sample`/`SampleFrame`), `WorldActor.Tick` | ✓ |
 | `interp` (`spline` Catmull-Rom / `step`) | `LvnManifest.cs` (`LvnAnimTrack.interp`) + `ActorAnimator.Sample` | ✓ |

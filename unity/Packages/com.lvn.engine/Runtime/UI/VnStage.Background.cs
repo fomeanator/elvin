@@ -157,7 +157,7 @@ namespace Lvn.UI
                 // load. This is the authored "one room, many angles" loop.
                 if (_active3DSetId != id)
                 {
-                    if (Assets == null || !UseCanvasScene) return;
+                    if (Assets == null) return;
                     int epoch = _stageEpoch;
                     int gen = ++_bgGen;
                     Lvn3DSetAsset loaded = null;
