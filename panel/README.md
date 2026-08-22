@@ -45,6 +45,4 @@ copies it into `server/website`, which the Go server hosts at `/` — only when
 started with `-studio`; a base server is a pure game API (content, saves,
 product services) and serves no authoring UI.
 
-The public playground and docs site (`panel/public/play`, `panel/public/docs`)
-are deployed to GitHub Pages separately — they are the language's shop window,
-not part of Studio.
+The docs site (`panel/public/docs`) rides along with Studio at `/docs/`.

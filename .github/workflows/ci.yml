@@ -128,12 +128,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: tools/lvnconv/go.mod
-      - name: VS Code extension assembles and answers
-        working-directory: tools/vscode-lvn
-        run: |
-          node build.mjs
-          node test-node.mjs
-
       # Мёртвый контент — то, что валидатор пропускает по построению: ссылки
       # целы, ops известны, а пути к куску скрипта всё равно нет. Обход играет
       # ВСЕ ветки и валит сборку, если в примерах появилась недостижимая

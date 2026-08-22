@@ -2,7 +2,7 @@
   "id": "flow-if-without-else",
   "title": "A false `if` with no else falls through to the next command",
   "why": "Both the cheatsheet and the language reference promise \"if true — jump, otherwise fall through\". The Unity player routed the empty branch through SeekTo, where an empty label means __end — so a false condition SILENTLY ENDED THE CHAPTER. Our compiler always emits `else`, which is why it never bit; `.lvn` is advertised as a container any tool may write, so the runtime has to honour the documented rule.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

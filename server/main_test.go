@@ -65,7 +65,7 @@ func TestAppShellIsNotCached(t *testing.T) {
 			t.Errorf("%q должен считаться оболочкой приложения", p)
 		}
 	}
-	for _, p := range []string{"/assets/index-ABC123.js", "/lvns.wasm", "/play/core.js"} {
+	for _, p := range []string{"/assets/index-ABC123.js", "/lvns.wasm"} {
 		if isAppShell(p) {
 			t.Errorf("%q — не оболочка, кэш ему не мешает", p)
 		}

@@ -2,7 +2,7 @@
   "id": "flow-if-branches",
   "title": "if takes else on the first pass and then on the second",
   "why": "One script, both branches: proves the condition is re-evaluated (not cached) and that an unset counter reads as 0 on the first visit.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

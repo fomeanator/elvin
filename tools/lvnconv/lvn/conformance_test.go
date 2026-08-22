@@ -11,13 +11,14 @@ import (
 	"testing"
 )
 
-// The op dictionary has five implementations: this validator (the reference),
-// grammar.json (pinned by grammar_sync_test.go), the C# runtime — which mirrors
-// the dictionary twice over, in its dispatch switches and in the public
-// Lvn.StagingOps.Known set — and the JS playground. This file pins the runtimes
-// — cheaply, with no Unity and no browser — against conformance/ops-owners.json,
-// and checks the shared corpus under conformance/cases is well formed before the
-// runtime runners ever read it.
+// The op dictionary has three implementations: this validator (the reference),
+// grammar.json (pinned by grammar_sync_test.go) and the C# runtime — which
+// mirrors the dictionary twice over, in its dispatch switches and in the public
+// Lvn.StagingOps.Known set. A fourth, the browser playground's own JS player,
+// was deleted: it charged every new op a second implementation and drifted from
+// the reference between releases. This file pins what is left — cheaply, with no
+// Unity — against conformance/ops-owners.json, and checks the shared corpus
+// under conformance/cases is well formed before the runtime runners read it.
 //
 // The point is not today's snapshot but tomorrow's drift: add an op to KnownOps
 // and TestOpOwnersCoverKnownOps goes red; declare it engine-owned without a
@@ -30,7 +31,6 @@ import (
 type opOwner struct {
 	Owner  string `json:"owner"`  // engine | shell
 	CSharp string `json:"csharp"` // player | stage | player+stage | shell-op
-	JS     string `json:"js"`     // player | renderer | none
 	Note   string `json:"note"`
 }
 
@@ -100,11 +100,6 @@ func checkOwnersCoverOps(ops map[string]bool, owners ownersFile) []string {
 		case "player", "stage", "player+stage", "shell-op":
 		default:
 			add("op %q: csharp=%q is not a known dispatch site", op, row.CSharp)
-		}
-		switch row.JS {
-		case "player", "renderer", "none":
-		default:
-			add("op %q: js=%q is not a known dispatch site", op, row.JS)
 		}
 		// An op the engine package owns cannot be dispatched by the shell, and
 		// vice versa — that pairing is exactly what the table exists to state.
@@ -323,7 +318,7 @@ func TestGuardBitesOnADriftedOp(t *testing.T) {
 	for op, row := range owners.Ops {
 		doctored.Ops[op] = row
 	}
-	doctored.Ops["fictional_op"] = opOwner{Owner: "engine", CSharp: "stage", JS: "none"}
+	doctored.Ops["fictional_op"] = opOwner{Owner: "engine", CSharp: "stage"}
 	msgs = checkCSharpDispatch(drifted, doctored, dispatch)
 	if !anyContains(msgs, "fictional_op") {
 		t.Errorf("an engine-owned op with no C# handler went UNREPORTED — the guard is asleep; got %v", msgs)
@@ -363,44 +358,6 @@ func anyContains(msgs []string, needle string) bool {
 		}
 	}
 	return false
-}
-
-// ── the JS playground ───────────────────────────────────────────────────────
-
-func TestJsDispatchMatchesTable(t *testing.T) {
-	owners, root := loadOwners(t)
-
-	coreCases := jsCaseLabels(t, filepath.Join(root, "panel/public/play/core.js"), "advance() {")
-	rendererCases := jsCaseLabels(t, filepath.Join(root, "panel/public/play/app.js"), "function applyStageDom(cmd, vars) {")
-
-	for op, row := range owners.Ops {
-		inCore, inRenderer := coreCases[op], rendererCases[op]
-		switch row.JS {
-		case "player":
-			if !inCore {
-				t.Errorf("op %q is declared js=player but core.js advance() has no case for it", op)
-			}
-		case "renderer":
-			if inCore {
-				t.Errorf("op %q is declared js=renderer but core.js advance() handles it itself (declare js=player)", op)
-			}
-			if !inRenderer {
-				t.Errorf("op %q is declared js=renderer but app.js applyStageDom draws nothing for it", op)
-			}
-		case "none":
-			if inCore || inRenderer {
-				t.Errorf("op %q is declared js=none but the playground now handles it "+
-					"(core=%v renderer=%v) — update the js column, the corpus can cover it", op, inCore, inRenderer)
-			}
-		}
-	}
-	// The renderer legitimately draws host ops that are not engine ops
-	// (track/leaderboard_submit), so only the engine-op direction is asserted.
-	for op := range coreCases {
-		if !KnownOps[op] {
-			t.Errorf("core.js advance() handles %q, which is not in KnownOps", op)
-		}
-	}
 }
 
 // ── the corpus ──────────────────────────────────────────────────────────────
@@ -456,16 +413,11 @@ func TestConformanceCasesWellFormed(t *testing.T) {
 		}
 		seen[c.ID] = name
 
-		js := false
 		if len(c.Runtimes) == 0 {
 			t.Errorf("%s: runtimes must list at least one runtime", name)
 		}
 		for _, r := range c.Runtimes {
-			switch r {
-			case "csharp":
-			case "js":
-				js = true
-			default:
+			if r != "csharp" {
 				t.Errorf("%s: unknown runtime %q", name, r)
 			}
 		}
@@ -513,27 +465,7 @@ func TestConformanceCasesWellFormed(t *testing.T) {
 				t.Errorf("%s: uses op %q which is not in the ownership table", name, op)
 				continue
 			}
-			if js && row.JS == "none" {
-				t.Errorf("%s: lists runtime js but uses %q, which the playground implements nowhere — "+
-					"drop js from runtimes or drop the op", name, op)
-			}
-		}
-		if js {
-			// Observability limits of the playground, enforced in data so no
-			// runner has to special-case a field.
-			if len(c.Expect.Labels) > 0 {
-				t.Errorf("%s: expect.labels is not observable in the playground — drop js from runtimes", name)
-			}
-			if len(c.Expect.Scene) > 0 {
-				t.Errorf("%s: expect.scene is not observable in the playground — drop js from runtimes", name)
-			}
-			for _, cmd := range c.Expect.Stage {
-				op, _ := cmd["op"].(string)
-				if owners.Ops[op].JS != "renderer" {
-					t.Errorf("%s: expect.stage asserts %q, which never reaches the playground's stage log "+
-						"(js=%q) — drop js from runtimes or drop the entry", name, op, owners.Ops[op].JS)
-				}
-			}
+			_ = row
 		}
 	}
 	if files == 0 {
@@ -640,11 +572,6 @@ func caseLabels(t *testing.T, path, sig string) map[string]bool {
 		t.Fatalf("%s: no case labels found in %q — did the dispatch site move?", filepath.Base(path), sig)
 	}
 	return out
-}
-
-// jsCaseLabels is caseLabels for JS (same comment/string rules for our purposes).
-func jsCaseLabels(t *testing.T, path, sig string) map[string]bool {
-	return caseLabels(t, path, sig)
 }
 
 // methodBody extracts the brace-balanced body that follows sig, with comments

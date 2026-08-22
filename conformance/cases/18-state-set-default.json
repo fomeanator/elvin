@@ -1,11 +1,8 @@
 {
   "id": "state-set-default",
   "title": "set default=true initialises only — it never overwrites a value already there",
-  "why": "This is how a title declares its variables once and every chapter re-applies the block without stomping carried-in progress or a loaded save. A runtime that treats default= as a plain set resets the player's story on every chapter entry. Declared csharp-only because the playground ignores default= today (see README §Partial runtimes). The browser player treated `default` as a plain overwrite, stomping progress carried in from an earlier chapter. Fixed and now pinned in BOTH runtimes.",
-  "runtimes": [
-    "csharp",
-    "js"
-  ],
+  "why": "This is how a title declares its variables once and every chapter re-applies the block without stomping carried-in progress or a loaded save. A runtime that treats default= as a plain set resets the player's story on every chapter entry.",
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

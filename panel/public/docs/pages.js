@@ -55,7 +55,6 @@ export const SECTIONS = [
       { id: "embedding", title: "Embedding the engine", file: "docs-embedding.md" },
       { id: "services", title: "Product services", file: "docs-services.md" },
       { id: "mcp", title: "MCP server", file: "docs-mcp.md" },
-      { id: "playground", title: "Playground", file: "docs-playground.md" },
       { id: "releasing", title: "Releases & compatibility", file: "docs-releasing.md" },
     ],
   },

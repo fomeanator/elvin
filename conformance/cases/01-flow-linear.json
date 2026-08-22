@@ -2,7 +2,7 @@
   "id": "flow-linear",
   "title": "A linear script shows every line in order and then ends",
   "why": "The floor of the contract: the cursor walks forward, one pause per say, and the end is signalled exactly once.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

@@ -64,7 +64,7 @@ func main() {
 	stateToken := flag.String("state-token", "", "bearer token required for /v1/state (empty = open; set in production)")
 	importRoot := flag.String("import-root", "", "when set, JSON {dir} imports must live under this path (defence in depth)")
 	templateDir := flag.String("template", "./sandbox", "Unity project template used by /v1/export")
-	studio := flag.Bool("studio", false, "serve the Elvin Studio web app (authoring IDE + admin UI + playground) at /; without it the server is a pure game API (content, state, product services)")
+	studio := flag.Bool("studio", false, "serve the Elvin Studio web app (authoring IDE + admin UI) at /; without it the server is a pure game API (content, state, product services)")
 	flag.Parse()
 
 	// ЗАВЕДЕНИЕ ПЕРВОГО ЧЕЛОВЕКА. Панель с учётками нельзя открыть, пока в
@@ -239,7 +239,7 @@ func main() {
 	// файла руками (builds.go).
 	NewBuildsService(*contentDir, *adminToken).Routes(mux)
 
-	// The Studio surface (authoring IDE + admin UI + the playground) is
+	// The Studio surface (authoring IDE + admin UI) is
 	// opt-in: a game's production server is a pure API and has no reason to
 	// expose an authoring web app. -studio serves it at / (and /panel).
 	if *studio {
@@ -256,7 +256,7 @@ func main() {
 		if _, err := os.Stat(filepath.Join(webDir, "index.html")); err != nil {
 			studioBuilt = false
 			const remedy = "cd panel && npm ci && npm run deploy"
-			log.Printf("WARNING: -studio is on but no built app at %s — /panel, /play/ and /docs/ will not work. Build it: %s", webDir, remedy)
+			log.Printf("WARNING: -studio is on but no built app at %s — /panel and /docs/ will not work. Build it: %s", webDir, remedy)
 			studioMissing := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusServiceUnavailable)
@@ -277,13 +277,8 @@ func main() {
 		}
 		if studioBuilt {
 			rawSite := http.FileServer(http.Dir(webDir))
-			// The playground is hand-edited ES modules; the browser's module map plus
-			// heuristic caching otherwise keeps stale interpreters alive across
-			// deploys. no-cache = revalidate every load (304s keep it fast).
 			site := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch {
-				case strings.HasPrefix(r.URL.Path, "/play/"):
-					w.Header().Set("Cache-Control", "no-cache")
 				case isAppShell(r.URL.Path):
 					// index.html — ОБОЛОЧКА приложения: она и только она знает
 					// хэши свежих бандлов. Закэшированная, она грузит вчерашний

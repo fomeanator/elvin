@@ -5,7 +5,7 @@ The complete anatomy of an Elvin plugin in three small files:
 | File | What it shows |
 |---|---|
 | `LvnMinigamePlugin.cs` | `LvnOps.Register` (custom `ext …` ops with `Hold`/`Resume` flow control + the shared variable store) and `StageMenu.AddMenuItem` — registered once via `[RuntimeInitializeOnLoadMethod]`, no scene wiring. |
-| `ext-grammar.json` | The toolchain declaration: with it, `lvnconv validate`, the panel editor and the playground treat your ops like built-ins (field/enum/required checks, completion, hover docs) — scripts keep the zero-warnings gate. |
+| `ext-grammar.json` | The toolchain declaration: with it, `lvnconv validate` and the panel editor treat your ops like built-ins (field/enum/required checks, completion, hover docs) — scripts keep the zero-warnings gate. |
 | `story.lvns.txt` | A playable scene using the ops (rename to `.lvns` to compile). |
 
 ## Try it

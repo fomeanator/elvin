@@ -2,7 +2,7 @@
   "id": "choice-gate-thresholds",
   "title": "An option gate reads requires_min, and an absent threshold is 0",
   "why": "Two shapes the importer itself emits. `requires_min` is the name it writes (`min` is the hand-authored spelling), and it left the browser player hiding options the app showed; an absent threshold defaulted to 1 there instead of 0, hiding a third. A gate that differs between runtimes means the SAME save reaches a menu with different options in it.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

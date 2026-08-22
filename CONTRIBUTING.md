@@ -7,13 +7,10 @@ it that way are very welcome.
 
 You don't need Unity or Go for any of these:
 
-- **A recipe** — build a small `.lvns` pattern in the
-  [playground](https://fomeanator.github.io/elvin/) (or `/play/`
-  locally), pass the gate below, add a section to `howto/recipes.md`.
+- **A recipe** — build a small `.lvns` pattern, pass the gate below, add a
+  section to `howto/recipes.md`.
 - **A genre example** — a folder under `howto/<genre>/` (README + validated
   `.lvns`; the 12 existing ones show the shape).
-- **Playground examples** — the dropdown lives in
-  `panel/public/play/app.js` (`EXAMPLES`).
 - **Docs fixes** — anything in `howto/`/`docs/` that confused you is a bug.
 
 The quality gate every shipped example passes:

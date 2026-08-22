@@ -2,7 +2,7 @@
   "id": "choice-requires-stat",
   "title": "requires_stat + min hides an option below the threshold and keeps one exactly at it",
   "why": "The stat-gate is the importer's own output shape. `min` is inclusive: strength 3 must PASS min 3 and FAIL min 5 — an off-by-one here silently rewrites which branches a player can ever see.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "picks": [0],
   "doc": {
     "scene": "conformance",

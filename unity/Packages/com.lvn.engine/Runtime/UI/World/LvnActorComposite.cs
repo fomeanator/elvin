@@ -300,7 +300,7 @@ namespace Lvn.UI.World
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
             _proxyTransform = (RectTransform)go.transform;
             _proxyTransform.SetParent(transition, false);
-            Stretch(_proxyTransform);
+            WorldPlacement.Stretch(_proxyTransform);
             _proxy = go.GetComponent<RawImage>();
             _proxy.raycastTarget = false;
             _proxy.texture = Texture2D.whiteTexture; // keeps the RawImage drawable; the material samples authored layers
@@ -378,15 +378,6 @@ namespace Lvn.UI.World
         private void ClearMaterial()
         {
             if (_material != null) _material.SetFloat(LayerCountId, 0f);
-        }
-
-        private static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0f);
         }
 
         private void OnDisable()

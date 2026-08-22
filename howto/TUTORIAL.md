@@ -7,13 +7,6 @@ confidence.
 
 ---
 
-## Step 0. Try it without installing (30 seconds)
-
-If the server is already running somewhere, open **`/play/`**: you write
-`.lvns` on the left, it plays instantly on the right (timers and input
-included). The "Share" button gives you a link, "⬇ HTML" — a single file
-that plays from disk. Below is the full path.
-
 ## Step 1. Start the server and open the IDE (2 minutes)
 
 From the repository root:

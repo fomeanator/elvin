@@ -19,6 +19,19 @@ namespace Lvn.UI.World
         public const float DefaultWidth = Placement.DefaultWidth;  // one source of truth (standard VN framing)
         public const float DefaultHeight = Placement.DefaultHeight;
 
+        /// <summary>Растянуть узел на весь родительский слот, пяткой вниз.
+        /// Так строится КАЖДЫЙ внутренний узел актёра — переход, rig, композит:
+        /// они не имеют своего места на сцене, место принадлежит слоту. Пивот
+        /// внизу по центру, чтобы поворот и масштаб шли от ног, а не от пояса.</summary>
+        public static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0f);
+        }
+
         public static void Apply(RectTransform slot, Placement p, Vector2 size)
         {
             // Top-left anchor so Y grows downward in canvas units, matching the

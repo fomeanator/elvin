@@ -374,12 +374,6 @@ export default function TopBar({ nav, status, creds, cmds = {} }) {
           onSelect: cmd("theme", () => press(toolBtn("Theme"))),
         },
         { sep: true },
-        {
-          id: "v-play", label: "Playground", hint: "↗",
-          title: "Песочница: пиши .lvns — играет сразу в браузере",
-          onSelect: () => window.open("/play/", "_blank", "noopener"),
-        },
-        { sep: true },
         { id: "v-studio", label: "Студия", checked: !admin, onSelect: () => nav.setMode("studio") },
         { id: "v-admin", label: "Админка", checked: admin, onSelect: () => nav.setMode("admin") },
       ],

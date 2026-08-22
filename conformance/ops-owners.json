@@ -10,200 +10,158 @@
     "player+stage": "both: LvnPlayer has an explicit case (it pauses or bails out) AND forwards the command to the stage",
     "shell-op": "registered as a host op with LvnOps.Register inside com.lvn.engine.shell"
   },
-  "js_dispatch": {
-    "player": "handled inside the core.js advance() switch",
-    "renderer": "forwarded by core.js's default branch and drawn by the playground renderer (app.js applyStage)",
-    "none": "nothing in the playground consumes it — the web player is partial BY DESIGN (see README §Partial runtimes)"
-  },
   "ops": {
     "say": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "choice": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "label": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "goto": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "if": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "call": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "return": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "set": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "inc": {
       "owner": "engine",
-      "csharp": "player",
-      "js": "player"
+      "csharp": "player"
     },
     "wait": {
       "owner": "engine",
-      "csharp": "player+stage",
-      "js": "player"
+      "csharp": "player+stage"
     },
     "input": {
       "owner": "engine",
-      "csharp": "player+stage",
-      "js": "player"
+      "csharp": "player+stage"
     },
     "preload": {
       "owner": "engine",
-      "csharp": "player+stage",
-      "js": "none"
+      "csharp": "player+stage"
     },
     "load": {
       "owner": "engine",
-      "csharp": "player+stage",
-      "js": "none"
+      "csharp": "player+stage"
     },
     "bg": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "actor": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "obj": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "clear": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "text": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "audio": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "fade": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "dim": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "tint": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "renderer"
+      "csharp": "stage"
     },
     "flash": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "blur": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "camera": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "particles": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "anim": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "text_pace": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "hint": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "save": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "wardrobe_show": {
       "owner": "shell",
       "csharp": "shell-op",
-      "js": "none",
       "note": "The living proof this table exists for. Emitted by the bundle importer, declared in KnownOps and grammar.json, implemented by NovelApp/WardrobeSheet — in com.lvn.engine.shell. A bare com.lvn.engine host gets a silent no-op. Declared here so that stays a known gap instead of a support ticket."
     },
     "fx": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "sfx": {
       "owner": "engine",
-      "csharp": "stage",
-      "js": "none"
+      "csharp": "stage"
     },
     "bg3d": {
       "owner": "engine",
       "csharp": "stage",
-      "js": "none",
       "note": "Unity-only: films a built 3D set into the background; the web player has no scene to film and keeps the flat background."
     },
     "track": {
       "owner": "shell",
       "csharp": "shell-op",
-      "js": "renderer",
       "note": "Метка конверсии. Давно существует как `ext track name=…` (LvnServiceOps шлёт событие аналитики); запись `track \"имя\"` — сахар над ней, не второй оп."
     },
     "ui": {
       "owner": "engine",
       "csharp": "stage",
-      "js": "none",
       "note": "дерево интерфейса на UI Toolkit; раскладку считает рантайм, привязки {…} пересчитываются сами. JS-плеер не поддерживает."
     },
     "cutscene": {
       "owner": "engine",
       "csharp": "stage",
-      "js": "none",
       "note": "кадр без интерфейса: прячет реплику, выборы, метки, меню и деревья ui, по желанию наезжает камерой. Тот же выключатель, что у режима разглядывания арта по долгому нажатию. JS-плеер не поддерживает."
     }
   }

@@ -141,8 +141,7 @@ Operators: `+ - * /` · `== != > >= < <=` · `&& || !`. An unset variable = `0`/
 каждого события, так что в отчётах она доступна разрезом:
 `?segment=ab:первая_сцена=b`.
 
-The last three need the services package: in a host without it (and in the web
-playground) they answer "no item, zero, nothing worn" (and `abtest` answers
+The last three need the services package: in a host without it they answer "no item, zero, nothing worn" (and `abtest` answers
 "a" — splitting one person in half is meaningless), so a paid branch stays
 closed — which is the honest answer where nothing can be bought. Always give
 that branch a real other side, never a dead end.

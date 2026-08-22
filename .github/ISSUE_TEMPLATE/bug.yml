@@ -1,5 +1,5 @@
 name: 🐞 Bug
-description: Something misbehaves — in the engine, the compiler, the IDE or the playground
+description: Something misbehaves — in the engine, the compiler or the IDE
 labels: [bug]
 body:
   - type: dropdown

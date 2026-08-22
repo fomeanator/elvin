@@ -101,7 +101,7 @@ func compile(this js.Value, args []js.Value) any {
 
 	data, _ := json.MarshalIndent(doc, "", "  ")
 
-	// Run the real .lvn validator so the playground surfaces dangling jumps,
+	// Run the real .lvn validator so the editor surfaces dangling jumps,
 	// unknown ops, duplicate labels, etc. — the same checks a build must pass.
 	var errs, warns []string
 	var diags []any

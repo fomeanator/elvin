@@ -2,7 +2,7 @@
   "id": "state-set-inc",
   "title": "set writes literals and expressions; inc adds (default +1, negative allowed)",
   "why": "The whole state surface of the language in one script. `set expr=` must win over `value=`, and `inc` without `by` must step by exactly 1.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [
