@@ -202,14 +202,12 @@ namespace Lvn.Tests
                 {
                     click = "/content/ui/click.wav",
                     choice = "/content/ui/choice.wav",
-                    type = "/content/ui/type.wav",
                     volume = 1.7f,
                 }
             };
             var t = VnThemeBuilder.From(ui);
             Assert.AreEqual("/content/ui/click.wav", t.ClickSoundUrl);
             Assert.AreEqual("/content/ui/choice.wav", t.ChoiceSoundUrl);
-            Assert.AreEqual("/content/ui/type.wav", t.TypeSoundUrl);
             Assert.AreEqual(1f, t.UiSoundVolume, 0.001f, "volume clamps to 0..1");
         }
 
@@ -219,7 +217,6 @@ namespace Lvn.Tests
             var t = VnThemeBuilder.From(new LvnUiConfig { sounds = new SoundsConfig() });
             Assert.IsNull(t.ClickSoundUrl);
             Assert.IsNull(t.ChoiceSoundUrl);
-            Assert.IsNull(t.TypeSoundUrl);
             Assert.AreEqual(1f, t.UiSoundVolume, 0.001f);
         }
 

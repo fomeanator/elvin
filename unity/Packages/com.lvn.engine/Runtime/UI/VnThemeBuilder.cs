@@ -134,7 +134,6 @@ namespace Lvn.UI
             {
                 if (!string.IsNullOrEmpty(s.click)) t.ClickSoundUrl = s.click;
                 if (!string.IsNullOrEmpty(s.choice)) t.ChoiceSoundUrl = s.choice;
-                if (!string.IsNullOrEmpty(s.type)) t.TypeSoundUrl = s.type;
                 if (s.volume.HasValue) t.UiSoundVolume = Mathf.Clamp01(s.volume.Value);
             }
 

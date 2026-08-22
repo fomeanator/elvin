@@ -8,7 +8,7 @@ the thinnest possible host. Full reference of the seams: `docs/embedding.md` (EN
 1. **Script only** — `LvnPlayer` + your own `ILvnStage` (4 methods): you draw
    the dialogue however you like, the engine drives the story/variables/saves.
 2. **Scene** — `VnStage` on your own GameObject: the whole presentation
-   (typewriter, choices, actors, bones, Spine, menu, saves). Your own assets —
+   (dialogue cards, choices, actors, bones, Spine, menu, saves). Your own assets —
    via `ILvnAssets`.
 3. **The whole shell** — `NovelApp` (package `com.lvn.engine.shell`, pulls in
    `com.lvn.engine.services`): carousel/hub, chapters, resume, stores, settings.

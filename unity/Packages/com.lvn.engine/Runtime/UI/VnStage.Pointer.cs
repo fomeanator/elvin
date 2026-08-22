@@ -158,12 +158,14 @@ namespace Lvn.UI
                 // fall through to tap-to-advance
             }
 
-            // Time Romance rhythm: reveal is intentionally fast and autonomous.
-            // A tap never means "finish typing" — it always dismisses the current
-            // beat.  The next ShowSay owns the protected fade-out → pause → fade-in
-            // hand-off, so one physical tap advances exactly one readable card.
+            // ОДНО КАСАНИЕ — ОДНА КАРТОЧКА. Строка ставится целиком, поэтому
+            // «дописать её» касание больше не означает: оно всегда закрывает
+            // текущий такт. Следующий ShowSay сам ведёт передачу «уход карточки
+            // → пауза → приход», и одно физическое касание продвигает ровно на
+            // одну читаемую карточку.
             if (_awaitingTap)
             {
+                PlayUiSound(_sndClick);
                 _awaitingTap = false;
                 _player.Advance();
             }

@@ -217,9 +217,10 @@ namespace Lvn.UI
 
         // UI interaction sounds (manifest ui.sounds) — content urls resolved through
         // ILvnAssets like the image urls above. Empty url = that interaction is silent.
+        // `ui.sounds.type` больше не читается: побуквенного проявления нет, и
+        // держать поле, за которым никто не стоит, — это тихий обман автора.
         [HideInInspector] public string ClickSoundUrl;
         [HideInInspector] public string ChoiceSoundUrl;
-        [HideInInspector] public string TypeSoundUrl;
         [HideInInspector] public float UiSoundVolume = 1f;
 
         [Header("Quick menu (StageMenu)")]
