@@ -254,7 +254,12 @@ namespace Lvn.UI.Screens
             // ── welcome/auth screen: the FIRST launch only ──
             // Later launches go straight in; the device sign-in runs silently
             // either way. A nickname entered here seeds the player name.
-            if (Auth != null && !Lvn.UI.LvnPrefs.SeenWelcome)
+            // ВВОДНАЯ ГЛАВА ИДЁТ ПЕРВОЙ И БЕЗ ВОПРОСОВ. Пока она не пройдена, у
+            // игрока не спрашивают ни имени, ни новеллы: он попадает прямо в
+            // историю, а она сама и знакомится, и объясняет правила. Витрина
+            // ждёт своей очереди — см. IntroTitle ниже.
+            var introTitle = PendingIntroTitle();
+            if (Auth != null && !Lvn.UI.LvnPrefs.SeenWelcome && introTitle == null)
             {
                 try
                 {
@@ -277,7 +282,12 @@ namespace Lvn.UI.Screens
             {
                 // ── choose a title: hub flow or the carousel ──
                 LvnTitle title;
-                if (useHub && Hub != null)
+                var intro = PendingIntroTitle();
+                if (intro != null)
+                {
+                    title = intro;   // выбора нет — и это намеренно
+                }
+                else if (useHub && Hub != null)
                 {
                     Show(Hub);
                     title = await Hub.PickTitleAsync(ct);
@@ -330,11 +340,44 @@ namespace Lvn.UI.Screens
                     catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
                     Hide(Hud);
                 }
+                // Вводная считается пройденной, когда доиграна до конца: бросил
+                // на середине — при следующем запуске снова попадёт в неё, а не
+                // на витрину, которую ещё не заслужил.
+                if (intro != null && IsTitleFinished(intro)) Lvn.UI.LvnPrefs.IntroDone = true;
+
                 // Safety: if play bailed before revealing (charge refused, script
                 // fetch failed), don't strand an opaque loader over the menu.
                 Loading.Hide();
                 Title.Hide();
             }
+        }
+
+        /// <summary>Вводная новелла, которую ещё не прошли, или null. Новелла
+        /// объявляет себя вводной полем <c>type: "intro"</c> в манифесте — как и
+        /// всякий другой вид новеллы, данными, а не кодом оболочки.</summary>
+        private LvnTitle PendingIntroTitle()
+        {
+            if (Lvn.UI.LvnPrefs.IntroDone || _manifest?.titles == null) return null;
+            foreach (var t in _manifest.titles)
+                if (t != null && string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase))
+                    return IsTitleFinished(t) ? null : t;
+            return null;
+        }
+
+        /// <summary>Новелла пройдена, если дошли до её последней главы и она
+        /// закончилась: продолжения нет, а самая дальняя достигнутая — последняя.</summary>
+        private static bool IsTitleFinished(LvnTitle t)
+        {
+            var chapters = t.ChaptersOf();
+            if (chapters.Count == 0) return false;
+            int reached = LvnProgress.Reached(t);
+            // НЕ НАЧАТА — ЗНАЧИТ НЕ ПРОЙДЕНА. Без этой строки новелла, чья
+            // первая глава имеет номер 0, считалась пройденной на чистом
+            // устройстве: «дошёл до 0» ≥ «последняя 0». Воронка не включалась
+            // ни разу, и игрок сразу видел витрину.
+            if (reached <= 0) return false;
+            return LvnProgress.Current(t) == null
+                && reached >= chapters[chapters.Count - 1].number;
         }
 
         /// <summary>Fade the (still opaque) chapter loader into whatever is on

@@ -79,6 +79,17 @@ namespace Lvn.UI
             set { PlayerPrefs.SetInt(P + "seen_welcome", value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
+        /// <summary>Пройдена ли ВВОДНАЯ новелла (title с <c>type: "intro"</c>).
+        /// Пока нет — приложение не показывает витрину вообще: игрок попадает
+        /// прямо в неё, а меню открывается только после. Это воронка, а не
+        /// сборник новелл: выбор из списка на первом экране требует от человека
+        /// решения раньше, чем он понял, во что играет.</summary>
+        public static bool IntroDone
+        {
+            get => PlayerPrefs.GetInt(P + "intro_done", 0) == 1;
+            set { PlayerPrefs.SetInt(P + "intro_done", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
         /// <summary>Player opted into picking the content server manually at
         /// boot (a CS 1.6-style server browser) instead of auto-connecting to
         /// the first known server that answers /healthz. Off by default — the
