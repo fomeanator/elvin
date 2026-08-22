@@ -24,7 +24,6 @@ namespace Lvn.UI.Screens
         /// <summary>The hub browse flow (collections → cards → detail), used when
         /// <c>ui.browse.layout == "hub"</c> instead of the carousel.</summary>
         public BrowseHub Hub { get; private set; }
-        public NameInputScreen NameInput { get; private set; }
         public LoadingScreen Loading { get; private set; }
         public TitleCard Title { get; private set; }
         public GameHud Hud { get; private set; }
@@ -114,7 +113,6 @@ namespace Lvn.UI.Screens
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
             Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
             Hide(Hub); Add(Hub);
-            NameInput = new NameInputScreen(ui.name_input, ui.dialogue, assets); Add(NameInput);
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
@@ -467,7 +465,6 @@ namespace Lvn.UI.Screens
         private void ShowOnly()
         {
             Hide(Boot); Hide(Carousel); Hide(Hub); Hide(Loading); Hide(Title); Hide(Hud);
-            NameInput.Hide();
             Auth?.Hide();
             Settings?.Hide();
             Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();

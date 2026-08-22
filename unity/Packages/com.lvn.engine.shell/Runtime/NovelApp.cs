@@ -366,6 +366,17 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx), "OpenWardrobeFromScript");
             });
 
+            // ВХОД В АККАУНТ — ШАГОМ ИСТОРИИ. Гардероб и покупки живут на
+            // сервере, поэтому пускать в них имеет смысл после входа. Раньше
+            // экран входа показывался один раз на первом запуске, ДО того как
+            // игрок понял, зачем это; теперь его зовёт сцена — там, где он
+            // осмыслен. Уже вошедшего не переспрашиваем.
+            Lvn.LvnOps.Register("auth_show", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                LvnAsync.Fire(AuthFromScriptAsync(ctx), "AuthFromScript");
+            });
+
             // The app-level settings screen: `ext settings_show` for scripts, and
             // an opt-in quick-menu entry (default OFF — the quick menu already has
             // its own in-game playback settings; set ui.settings.show_menu_item to
@@ -496,30 +507,11 @@ namespace Lvn.UI.Screens
                 {
                     await _shell.RevealFromLoadingAsync();
                     if (!resuming) await _shell.ShowChapterTitleAsync(chapter, title);
-                    // The NOVEL asks the name here — after the title card, the
-                    // live scene as the backdrop, just the panel at the bottom.
-                    // Manifest switch ui.name_input.enabled; fresh starts of the
-                    // first chapter only (restart or first-ever), prefilled.
-                    var ni = _manifest?.ui?.name_input;
-                    bool firstChapter = IsFirstChapter(title, chapter);
-                    if (AskName && ni != null && (ni.enabled ?? true)
-                        && !resuming && firstChapter
-                        && (restart || novelFreshStart || string.IsNullOrEmpty(_playerName))
-                        && _shell.NameInput != null)
-                    {
-                        try
-                        {
-                            var entered = await _shell.NameInput.AskAsync(
-                                null, _playerName, overlay: true, destroyCancellationToken);
-                            if (!string.IsNullOrEmpty(entered))
-                            {
-                                _playerName = entered;
-                                Lvn.UI.LvnPrefs.PlayerName = entered;
-                                if (Stage.Player != null) Stage.Player.Vars["player"] = entered;
-                            }
-                        }
-                        catch (OperationCanceledException) { /* teardown mid-ask */ }
-                    }
+                    // ИМЯ СПРАШИВАЕТ ИСТОРИЯ, А НЕ ОБОЛОЧКА. Отдельный экран
+                    // ввода снят: он вклинивался между титром главы и первой
+                    // репликой формой-анкетой, и ни одна новелла им больше не
+                    // пользуется. Автору доступна команда `input var=…` — тот же
+                    // вопрос, но ГОЛОСОМ ПЕРСОНАЖА и в нужном месте сцены.
                 }
             }
             finally { entryDone.TrySetResult(true); } // release the first line NO MATTER WHAT
@@ -924,6 +916,28 @@ namespace Lvn.UI.Screens
         // moment experience — the hero on the current scene's background, the
         // same sheet — but the items are the player's COLLECTION: outfits the
         // story staged or offered along the way, plus everything bought.
+        // Экран входа по просьбе сценария. Пропускаем, если игрок уже вошёл:
+        // повторное «представьтесь» посреди главы читается как сбой.
+        private async Task AuthFromScriptAsync(Lvn.ILvnOpContext ctx)
+        {
+            try
+            {
+                var auth = _shell?.Auth;
+                if (auth != null && !Lvn.UI.LvnPrefs.SeenWelcome)
+                {
+                    var nick = await auth.AskAsync(destroyCancellationToken);
+                    Lvn.UI.LvnPrefs.SeenWelcome = true;
+                    if (!string.IsNullOrEmpty(nick))
+                    {
+                        _playerName = nick;
+                        Lvn.UI.LvnPrefs.PlayerName = nick;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается */ }
+            finally { ctx.Resume(); }
+        }
+
         private async Task OpenWardrobeFromMenuAsync(VnStage stage)
         {
             var entity = ResolveMenuWardrobeEntity(stage);
