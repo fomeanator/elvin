@@ -2,7 +2,7 @@
   "id": "stage-clear",
   "title": "clear reaches the presentation layer as one command, in script order",
   "why": "clear exists to replace a run of `actor id=… show=false` lines — one per character on stage — with a single command. That only pays off if it arrives at the renderer as ONE op: a compiler that helpfully expanded it back into per-actor hides would give the author shorter source and the runtime the same work, and the two runtimes would be free to expand it differently.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

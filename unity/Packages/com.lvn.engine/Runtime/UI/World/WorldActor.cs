@@ -122,20 +122,14 @@ namespace Lvn.UI.World
             var transitionGo = new GameObject("transition", typeof(RectTransform));
             _transition = (RectTransform)transitionGo.transform;
             _transition.SetParent(_slot, false);
-            Stretch(_transition);
+            WorldPlacement.Stretch(_transition);
             var rigGo = new GameObject("rig", typeof(RectTransform), typeof(CanvasGroup));
             _rig = (RectTransform)rigGo.transform;
             _rig.SetParent(_transition, false);
-            Stretch(_rig);
+            WorldPlacement.Stretch(_rig);
             _group = rigGo.GetComponent<CanvasGroup>();
         }
 
-        private static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0f); // feet — match rotation/scale origin
-        }
 
         /// <summary>Build (or rebuild) the layer Images from resolved sprites + ids.
         /// <paramref name="layerDefs"/> carries bone metadata (parent/pivot/spring).</summary>
@@ -177,7 +171,7 @@ namespace Lvn.UI.World
                     rt.anchorMax = new Vector2(r.x + r.z, 1f - r.y);
                     rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
                 }
-                else Stretch(rt);
+                else WorldPlacement.Stretch(rt);
                 var img = go.GetComponent<Image>();
                 img.sprite = sp;
                 img.raycastTarget = false;

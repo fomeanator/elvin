@@ -92,8 +92,8 @@ counting that label as dead, and the editor completes label names in it.
 
 Put it beside your scripts or one directory up (`content/ext-grammar.json`
 covers `content/scripts/*.lvn`); `lvnconv validate` auto-detects it (or take
-`-ext-grammar <file>`), the panel editor picks it up from `/content/`, the
-playground compiler accepts it as `lvnsCompile(src, extGrammarJSON)`, and the
+`-ext-grammar <file>`), the panel editor picks it up from `/content/` (its
+wasm compiler takes it as `lvnsCompile(src, extGrammarJSON)`), and the
 MCP `lvns_check` takes an `ext_grammar` argument. A declared op then validates
 like a built-in: unknown/typo'd fields and out-of-set enum values warn, a
 missing `required` field is an error. Redeclaring a core op, unknown JSON

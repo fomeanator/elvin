@@ -2,7 +2,7 @@
   "id": "say-interpolation",
   "title": "{expr} interpolates in the line, the speaker name and the option captions",
   "why": "Interpolation is the only way content reads state back to the player. Bare vars, calls, doubled-brace escapes and the speaker slot all go through the same substitution — a runtime that covers only bare vars renders half a HUD.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "picks": [0],
   "doc": {
     "scene": "conformance",

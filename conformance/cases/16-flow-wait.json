@@ -2,7 +2,7 @@
   "id": "flow-wait",
   "title": "wait is a pause the host must release, carrying its duration",
   "why": "wait is the one non-dialogue stop. A runtime that treats it as a plain staging command runs straight through it and the beat it was pacing disappears.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

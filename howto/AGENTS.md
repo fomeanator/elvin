@@ -56,7 +56,7 @@ stories, tycoons, roguelikes, puzzles. Worked examples live in the genre folders
 You **do** get two doses of real clock and real typing: `choice timeout=10
 timeout_goto=late` (a countdown bar over the menu) and `input var=name
 prompt="…"` (a text-entry overlay that blocks the story until confirmed) —
-the playground's own default scene uses both.
+the tutorial's scene uses both.
 
 What is missing (full list — `CAPABILITIES.md` §8): a script-visible game loop
 (no `every`/`sleep`/clock ticks — `wait ms=` is a fixed pause, not a

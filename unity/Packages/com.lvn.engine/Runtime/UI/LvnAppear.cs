@@ -75,7 +75,10 @@ namespace Lvn.UI
         {
             if (!Owns(run, generation))
             {
-                try { animation?.Stop(); } catch { }
+                // Пока эта анимация заводилась, элемент забрал следующий ход.
+                // Гасим её и молчим: Stop() у уже завершённой или отцепленной от
+                // панели анимации бросает, и это ровно то, чего мы и добивались.
+                try { animation?.Stop(); } catch { /* уже кончилась — цель достигнута */ }
                 return;
             }
             run.Animation = animation;

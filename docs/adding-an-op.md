@@ -33,16 +33,15 @@ Work top to bottom. The right-hand column is what fails if you stop early.
 
 | # | Where | What | Goes red |
 |---|---|---|---|
-| 1 | `conformance/ops-owners.json` | A row: `owner` (`engine`\|`shell`), plus the dispatch site per runtime (`csharp`, `js`) | `TestOpOwnersCoverKnownOps` |
+| 1 | `conformance/ops-owners.json` | A row: `owner` (`engine`\|`shell`) and the C# dispatch site (`csharp`) | `TestOpOwnersCoverKnownOps` |
 | 2 | `tools/lvnconv/lvn/validate.go` | `KnownOps`. Add to `OpFields` **only** if the field set is closed; to `EnumValues` only for closed value sets | `TestOpFieldsMatchGrammarClosedSet`, `TestEnumValuesMatchGrammar` |
 | 3 | `tools/lvn-lang/src/grammar.json` | The op, `op_fields`, `op_docs`; then `npm run gen` in `tools/lvn-lang` | `TestKnownOpsMatchGrammar`, `grammar.test.js`, and the CI regen-diff step |
 | 4 | `unity/…/Runtime/StagingOps.cs` | `Known` — the public C# registry | `TestCSharpKnownOpsMirrorKnownOps`, `CameraRigTests.StagingOpsMatchTheSharedOpTable` |
 | 5 | `unity/…/Runtime/LvnPlayer.cs` **or** `VnStage.ApplyStage` | The actual behaviour. Flow ops get a `case` in the player; staging ops are forwarded to the stage. Match what row 1 declared | `TestEngineOwnedOpsHaveCSharpHandlers`, `OpDispatchContractTests.OpDispatchesWhereTheTableSaysItDoes` |
-| 6 | `panel/public/play/core.js` (player) or `app.js` (renderer) | The browser half — or declare `"js": "none"` in row 1 and say why | `TestJsDispatchMatchesTable` |
-| 7 | `tools/lvnconv/internal/lvns/convert.go` | `KnownOps` + the parse/lowering, so authors can write it in `.lvns` | Without it the line silently becomes **dialogue text** — see the note below |
-| 8 | `unity/…/Editor/LvnsCompiler.cs` | The same, in the C# port — or declare it in `UnsupportedSourceOps` with a reason | `TestUnityCompilerKnownOpsMirrorsSource` |
-| 9 | `tools/lvnconv/importer/decompile.go` | Emit it back when decompiling `.lvn` → `.lvns` | `VerifyLvnsRoundTrip`; `lvnconv resync-lvns` starts reporting drift |
-| 10 | `conformance/cases/NN-<topic>.json` | The behavioural contract, listing **both** runtimes where possible | `TestConformanceCasesWellFormed`, plus the C# EditMode and JS runners |
+| 6 | `tools/lvnconv/internal/lvns/convert.go` | `KnownOps` + the parse/lowering, so authors can write it in `.lvns` | Without it the line silently becomes **dialogue text** — see the note below |
+| 7 | `unity/…/Editor/LvnsCompiler.cs` | The same, in the C# port — or declare it in `UnsupportedSourceOps` with a reason | `TestUnityCompilerKnownOpsMirrorsSource` |
+| 8 | `tools/lvnconv/importer/decompile.go` | Emit it back when decompiling `.lvn` → `.lvns` | `VerifyLvnsRoundTrip`; `lvnconv resync-lvns` starts reporting drift |
+| 9 | `conformance/cases/NN-<topic>.json` | The behavioural contract | `TestConformanceCasesWellFormed`, plus the C# EditMode runner |
 | 11 | `howto/CAPABILITIES.md` §1 | A row in the op catalog | `TestCapabilitiesOpCatalogMatchesKnownOps`, `TestCapabilitiesHasNoSelfContradiction` |
 | 12 | A gated example | Use it in some `howto/*/*.lvns` | `TestDocumentedConstructsHaveAWitnessExample` |
 

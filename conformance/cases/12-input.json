@@ -2,7 +2,7 @@
   "id": "input",
   "title": "input pauses the story, hands its prompt to the host and writes the typed text into a var",
   "why": "The only op where the PLAYER writes state. The stop must carry prompt/default/max (there is no other way to draw the overlay), the variable must hold the submitted string, and the story must resume after it — not before.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "inputs": ["Аня"],
   "doc": {
     "scene": "conformance",

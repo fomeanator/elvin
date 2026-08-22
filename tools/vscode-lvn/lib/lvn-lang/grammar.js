@@ -42,9 +42,8 @@ export const OPS = [
   "load",
   "wardrobe_show",
   "bg3d",
-  "track",
-  "ui",
-  "cutscene"
+  "o3d",
+  "light"
 ];
 
 // Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
@@ -87,7 +86,15 @@ export const OP_FIELDS = {
     "on_drop",
     "on_drop_miss",
     "loop",
-    "drag_bounds"
+    "drag_bounds",
+    "depth",
+    "world",
+    "fill",
+    "fill_from",
+    "fill_time",
+    "parent",
+    "world_height",
+    "in3d"
   ],
   "obj": [
     "id",
@@ -108,7 +115,16 @@ export const OP_FIELDS = {
     "on_drop_miss",
     "loop",
     "play",
-    "drag_bounds"
+    "drag_bounds",
+    "fill",
+    "fill_from",
+    "fill_time",
+    "depth",
+    "world",
+    "rotation",
+    "parent",
+    "world_height",
+    "in3d"
   ],
   "fade": [
     "to",
@@ -227,7 +243,11 @@ export const OP_FIELDS = {
   "wardrobe_show": [
     "char"
   ],
-  "clear": [],
+  "clear": [
+    "dialogue",
+    "labels",
+    "all"
+  ],
   "fx": [
     "vignette",
     "grain",
@@ -269,13 +289,6 @@ export const OP_FIELDS = {
     "sepia",
     "posterize",
     "letterbox",
-    "sketch",
-    "halftone",
-    "heat",
-    "ripple",
-    "dust",
-    "ink",
-    "ink_color",
     "dur",
     "off"
   ],
@@ -329,25 +342,106 @@ export const OP_FIELDS = {
     "fov",
     "dur",
     "off",
-    "live"
+    "live",
+    "sway",
+    "sway_speed",
+    "walk",
+    "build",
+    "focus",
+    "dof",
+    "dof_range",
+    "stats",
+    "rim",
+    "warm",
+    "steps",
+    "shadow_tint",
+    "rim_color",
+    "tone",
+    "exposure",
+    "saturation",
+    "contrast",
+    "dither",
+    "knee",
+    "white",
+    "bloom",
+    "bloom_threshold",
+    "bloom_knee"
   ],
-  "track": [
-    "name"
-  ],
-  "ui": [
+  "o3d": [
     "id",
-    "action",
-    "layer",
-    "block",
-    "appear",
-    "when",
-    "tree"
-  ],
-  "cutscene": [
-    "on",
+    "shape",
+    "model",
+    "sprite",
+    "texture",
+    "pos",
+    "size",
+    "height",
+    "pitch",
+    "yaw",
+    "roll",
+    "color",
+    "alpha",
+    "glow",
+    "ground",
+    "shadow",
+    "flip",
+    "on_click",
     "off",
-    "zoom",
-    "dur"
+    "count",
+    "area",
+    "seed",
+    "scale_var",
+    "yaw_var",
+    "gap",
+    "kinds",
+    "colors",
+    "wind",
+    "shader",
+    "at",
+    "dur",
+    "dissolve",
+    "spin",
+    "bob",
+    "bob_speed",
+    "pulse",
+    "pulse_speed",
+    "normal",
+    "bump",
+    "tiling",
+    "edge",
+    "ruts",
+    "wet",
+    "outline",
+    "outline_color",
+    "rim",
+    "hills",
+    "hill_size",
+    "detail",
+    "cells",
+    "sound",
+    "sound_range",
+    "sound_volume",
+    "near",
+    "on",
+    "dist",
+    "side",
+    "fade"
+  ],
+  "light": [
+    "kind",
+    "id",
+    "angle",
+    "pos",
+    "color",
+    "power",
+    "range",
+    "near",
+    "far",
+    "top",
+    "bottom",
+    "off",
+    "dur",
+    "flicker"
   ]
 };
 
@@ -452,7 +546,7 @@ export const OP_DOCS = {
   ],
   "obj": [
     "obj id=\"x\" sprite_url=\"…\" x= y= on_click=\"label\"",
-    "A placeable, optionally clickable sprite."
+    "A placeable, optionally clickable sprite. `fill=0..1` shows only PART of it — cropped, not squashed (progress/health bars); `fill_from=left|right|top|bottom` picks the side it grows from."
   ],
   "fade": [
     "fade to=\"black|white|clear\" duration=0.8",
@@ -570,8 +664,7 @@ export const OP_DOCS = {
     "clear",
     "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
   ],
-  "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном.",
-  "track": "track \"первый поцелуй\" — метка конверсии: ничего не делает в кадре, её работа попасть в отчёт «важные места». Сахар над ext track name=…"
+  "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном."
 };
 
 // Multi-field templates. `$1`,`$2`,… are tab-stops; `$0` is the final caret.
@@ -638,15 +731,15 @@ export const GROUPS = [
       ],
       [
         "actor",
-        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, mirror, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop, drag_bounds"
+        "id, sprite_url, show, position (left/center/right/far_left/far_right/offscreen_left/offscreen_right), x, y, width, height, scale, emotion, play, enter, exit, flip, mirror, rotation, opacity, z, on_click, draggable, on_drop, on_drop_miss, loop, drag_bounds, depth, world, fill, fill_from, fill_time, parent, world_height, in3d"
       ],
       [
         "obj",
-        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds"
+        "id, sprite_url, x, y, width, height, anchor, on_click, show, opacity, z, enter, exit, draggable, on_drop, on_drop_miss, loop, play, drag_bounds, fill, fill_from, fill_time, depth, world, rotation, parent, world_height, in3d"
       ],
       [
         "clear",
-        ""
+        "dialogue, labels, all"
       ],
       [
         "fade",

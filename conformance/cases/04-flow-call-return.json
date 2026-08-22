@@ -2,7 +2,7 @@
   "id": "flow-call-return",
   "title": "call runs a subroutine and return resumes at the command after the call",
   "why": "Two calls to the same label must both come back — a single shared return address (or a lost frame) would end the chapter on the first return.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

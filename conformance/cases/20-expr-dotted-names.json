@@ -2,7 +2,7 @@
   "id": "expr-dotted-names",
   "title": "A dotted stat name is one variable key, not member access",
   "why": "The language namespaces stats as `ns.flag`, and the articy importer emits them by the hundred (`Way.Moral`, `Relationships.Ivan`). The browser evaluator had no dotted names at all: every imported stat was a hard parse error, so `{Way.Moral}` rendered as literal text in the playground while working in the app. Imported content is exactly the content authors preview, which made this the worst possible place to diverge. Asserted through read-back (interpolation, `if`, `expr_true`) rather than through `vars`: the STORAGE shape is deliberately not part of the contract — a dotted key nests, so there is no flat `\"Way.Moral\"` entry to compare against.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

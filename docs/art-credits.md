@@ -144,5 +144,5 @@ def orbit bg /content/bg/ec/orbit.jpg
 Паки `kaykit-*` (приключенцы, скелеты, оружие, подземелья, анимации) под
 **CC0**, текст лицензии в архиве: «free to use in personal, educational and
 commercial projects». Внутри `obj/fbx/gltf/glb` — движок рисует 2D, поэтому это
-не «положить и работает», а путь через рендер поз в Blender (docs/ec-hero-poses.md).
+не «положить и работает», а путь через рендер поз в Blender.
 Скелеты KayKit — готовый Костолом, если пойдём этим путём.

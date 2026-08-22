@@ -2,7 +2,7 @@
   "id": "choice-timeout",
   "title": "A timed choice surfaces its countdown and expiring takes timeout_goto",
   "why": "The timeout seconds must reach the presentation layer (otherwise no countdown can be drawn) and expiry must route to timeout_goto rather than to the first option.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "picks": [{ "timeout": true }],
   "doc": {
     "scene": "conformance",

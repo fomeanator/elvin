@@ -2,7 +2,7 @@
   "id": "flow-goto",
   "title": "goto jumps over the block between it and its label",
   "why": "A skipped command must not run at all — not merely be invisible.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

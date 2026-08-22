@@ -2,7 +2,7 @@
   "id": "stage-forwarding",
   "title": "bg / actor / fade reach the presentation layer verbatim, in script order",
   "why": "Staging is the half of the language the interpreter must NOT interpret. Every field the author wrote has to arrive at the renderer unchanged — a dropped `position` or a swallowed `show=false` is exactly the silent no-op class this corpus exists to catch.",
-  "runtimes": ["csharp", "js"],
+  "runtimes": ["csharp"],
   "doc": {
     "scene": "conformance",
     "script": [

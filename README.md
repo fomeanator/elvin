@@ -4,15 +4,11 @@
 
 [![CI](https://github.com/fomeanator/elvin/actions/workflows/ci.yml/badge.svg)](https://github.com/fomeanator/elvin/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-&nbsp; **[▶ Playground](https://fomeanator.github.io/elvin/)** ·
-[Docs](https://fomeanator.github.io/elvin/docs/) ·
-[Try it](#try-it) ·
+&nbsp; [Try it](#try-it) ·
 [Products](#the-products)
 
-[![Write on the left — it plays on the right. Click to open this exact scene, editable.](docs/img/playground.png)](https://fomeanator.github.io/elvin/#s=c2NlbmUgYXV0dW1uX2xldHRlcgoKYmcgL2NvbnRlbnQvYmcvQXV0dW1uX3N0cmVldC5qcGcKCmNvdXJhZ2UgPSAyCnRleHQgaHVkIHg9MyB5PTUgc2l6ZT0zNCBjb2xvcj0jZmZkNzZhIMKr4pyoIGNvdXJhZ2Uge2NvdXJhZ2V9wrsKCk1hcmE6IFlvdSBhY3R1YWxseSBjYW1lLiBJIHdhc24ndCBzdXJlIHlvdSB3b3VsZC4KTWFyYTogVGhlIGxldHRlciBzYWlkIG1pZG5pZ2h0LiBJdCdzIGJhcmVseSBzaXguCgotIEFzayBhYm91dCB0aGUgbGV0dGVyIC0+IGxldHRlcgotIFRha2UgaGVyIGhhbmQgLT4gaGFuZAotIFNheSBub3RoaW5nIC0+IHF1aWV0Cgo6bGV0dGVyCk1hcmE6IE5vdCBoZXJlLiBXYWxrIHdpdGggbWUgZmlyc3QuCi0+IF9fZW5kCgo6aGFuZApjb3VyYWdlID0gY291cmFnZSArIDEKTWFyYTogLi4ub2guIFdlbGwuIFRoYXQncyBvbmUgd2F5IHRvIGFuc3dlci4KLT4gX19lbmQKCjpxdWlldApNYXJhOiBNeXN0ZXJpb3VzLiBJIGNhbiB3b3JrIHdpdGggbXlzdGVyaW91cy4KLT4gX19lbmQ=)
-
-**↑ Click the screenshot** — that exact scene opens in the playground,
-editable. Its entire source fits on one screen of **Elvin Script**:
+A whole scene — background, an on-screen counter and three branches —
+fits on one screen of **Elvin Script**:
 
 ```lvns
 scene autumn_letter
@@ -44,9 +40,7 @@ portability — living inside Unity, with a product layer when you need one.
 - **The whole game is a text file.** Screenplay-readable, git-diffable — and
   simple enough that **an LLM writes a complete game in one shot**. Point
   your agent at [`llms.txt`](llms.txt), wire the toolchain in over the
-  [MCP server](docs/mcp.md), or install the
-  [VS Code extension](tools/vscode-lvn/) — the real compiler behind every
-  keystroke.
+  [MCP server](docs/mcp.md) — the real compiler behind every keystroke.
 - **A real compiler, honest errors.** Dangling jumps, unknown ops, dead
   labels — caught at build time, not in a player's hands. The 0-warnings
   gate runs in CI. Stable ids mean saves, analytics and **translations
@@ -75,11 +69,6 @@ Every genre below ships as a working, compile-gated example in
 | 🔍 Detective | 🏪 Tycoon | 🗡 Roguelike | 🧩 Puzzle |
 
 ## Try it
-
-**In the browser — 10 seconds.** Open the
-[playground](https://fomeanator.github.io/elvin/): write on the left, it
-plays on the right. **Share** packs your game into a link; **⬇ HTML**
-exports a single file that plays anywhere, saves included.
 
 **In Unity — 2 minutes.**
 
@@ -113,7 +102,7 @@ One repo, four products — take only what you need:
 
 | | What | Who it's for |
 |---|---|---|
-| **Language** | `.lvns` + [`lvnconv`](tools/lvnconv/): compiler, validator, Ink/articy importers, [MCP](docs/mcp.md), [llms.txt](llms.txt), [VS Code](tools/vscode-lvn/) | everyone — an AI agent plus a text editor is a complete authoring setup |
+| **Language** | `.lvns` + [`lvnconv`](tools/lvnconv/): compiler, validator, Ink/articy importers, [MCP](docs/mcp.md), [llms.txt](llms.txt) | everyone — an AI agent plus a text editor is a complete authoring setup |
 | **Engine** | [`lvn-engine`](https://github.com/fomeanator/lvn-engine) + optional [shell](https://github.com/fomeanator/lvn-engine-shell) / [services](https://github.com/fomeanator/lvn-engine-services) / [Spine](https://github.com/fomeanator/lvn-engine-spine) / [Addressables](https://github.com/fomeanator/lvn-engine-addressables) | Unity developers |
 | **Services** | the Go [server](server/): content streaming, saves, wallet/IAP/ads/leaderboards, one-click APK export | games shipping as a live product |
 | **Studio** | the [authoring workspace](panel/): Monaco IDE, visual cast editor, admin dashboard (the server's `-studio` flag) | teams that want a GUI — entirely optional |
@@ -136,11 +125,10 @@ One repo, four products — take only what you need:
 |---|---|
 | `howto/` | the build-a-game kit: tutorial, language reference, cheatsheet, recipes, 12 genre guides with validated examples; AI onboarding at `howto/AGENTS.md` |
 | `tools/lvnconv/` | the transcoder CLI (Go) + its WASM build |
-| `tools/lvn-lang/` | the language core: grammar + analysis shared by Studio and the VS Code extension |
-| `tools/vscode-lvn/` | the VS Code extension |
+| `tools/lvn-lang/` | the op contract (`grammar.json`, pinned by a Go test) + the analysis Studio's editor runs |
 | `docs/` | specs: `lvn-format.md`, `cast.md`, `placement.md`, `staging-tags.md`, `animation-system.md`, `embedding.md`, `releasing.md`; UI contributors start at `ui-development.md` |
 | `server/` | the Go backend: content, state, product services, APK export |
-| `panel/` | Elvin Studio (React) + the playground and docs-site sources in `panel/public/` |
+| `panel/` | Elvin Studio (React) + the docs-site sources in `panel/public/` |
 | `unity/Packages/` | the Unity packages — the development home; consumers install the mirrors |
 | `examples/` | the minimal sources the README and CI point at |
 

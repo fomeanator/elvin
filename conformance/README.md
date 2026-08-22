@@ -3,7 +3,7 @@
 `.lvn` is played by more than one runtime. This directory is the machine-readable
 answer to *"what does playing it correctly mean?"* — declarative cases (a `.lvn`
 document plus the effects it must produce) and a table saying which package owns
-which op. It belongs to no language: Go, C# and JS all read from here.
+which op. It belongs to no language: Go and C# both read from here.
 
 Why it exists: the op dictionary had four implementations and a test pinned two of
 them (`lvn.KnownOps` ↔ `grammar.json`). The runtimes drifted in silence — the
@@ -15,7 +15,7 @@ how that rule reaches the runtimes.
 ```
 conformance/
   README.md          ← you are here: the contract
-  ops-owners.json    ← op → owning package + dispatch site, per runtime
+  ops-owners.json    ← op → owning package + C# dispatch site
   cases/*.json       ← the corpus
 ```
 
@@ -23,17 +23,16 @@ conformance/
 
 | Runner | Location | Runs |
 |---|---|---|
-| Op-table guard (Go) | `tools/lvnconv/lvn/conformance_test.go` | `ops-owners.json` vs `KnownOps`, vs the real C# dispatch sites, vs the C# `StagingOps.Known` registry, vs the real JS dispatch sites; plus corpus well-formedness |
+| Op-table guard (Go) | `tools/lvnconv/lvn/conformance_test.go` | `ops-owners.json` vs `KnownOps`, vs the real C# dispatch sites, vs the C# `StagingOps.Known` registry; plus corpus well-formedness |
 | C# runtime (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/ConformanceCorpusTests.cs` | every case whose `runtimes` contains `csharp` |
 | C# dispatch (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/OpDispatchContractTests.cs` | one probe command per op against a BARE engine: flow ops must be consumed, staging ops forwarded verbatim |
-| JS playground | `tools/lvn-lang/test/conformance.test.js` | every case whose `runtimes` contains `js` |
 
-The Go guard is the cheap one and needs no Unity and no browser: `cd tools/lvnconv && go test ./...`.
+The Go guard is the cheap one and needs no Unity: `cd tools/lvnconv && go test ./...`.
 
 ## `ops-owners.json` — the ownership table
 
 One row per op in the reference dictionary (`lvn.KnownOps`). Each row says which
-package must contain the handler and where each runtime dispatches it. The
+package must contain the handler and where the C# runtime dispatches it. The
 columns are documented inside the file itself.
 
 The table is what makes the split **explicit**. `wardrobe_show` is the living
@@ -50,8 +49,6 @@ What goes red, and when:
   `VnStage.ApplyStage` → **red** (`TestEngineOwnedOpsHaveCSharpHandlers`);
 * claim `"csharp": "player"` for an op the player actually forwards to the stage
   (or vice versa) → **red** (`OpDispatchContractTests`, C# side, behavioural);
-* change what the playground implements without updating the `js` column →
-  **red** (`TestJsDispatchMatchesTable`);
 * add it to `KnownOps` without adding it to the public C# registry
   `Lvn.StagingOps.Known` → **red** (`TestCSharpKnownOpsMirrorKnownOps`; see
   §*The fifth mirror* below).
@@ -66,7 +63,7 @@ prefix only groups them for a human reader.
   "id": "choice-expr-gate",          // stable id, quoted in failures
   "title": "one line: what must hold",
   "why": "why it matters — the failure a reader would otherwise ship",
-  "runtimes": ["csharp", "js"],      // which runtimes MUST pass this case
+  "runtimes": ["csharp"],            // which runtimes MUST pass this case
   "picks":  [0, {"timeout": true}],  // consumed in order at each choice stop
   "inputs": ["Аня"],                 // consumed in order at each input stop
   "max_steps": 500,                  // optional runaway guard (default 500)
@@ -125,27 +122,19 @@ its options appear together), but it produces **two** stops — a `say` then a
 Absent/empty `who` compares equal to `null` — narration is narration in both
 runtimes.
 
-## Partial runtimes
+## One runtime, on purpose
 
-The playground player (`panel/public/play/core.js` + `app.js`) is a deliberately
-partial implementation: flow and text in full, staging forwarded to whatever the
-web renderer happens to draw. That is not a defect to fix, it is a scope. It is
-kept honest in **data**, never in runner code:
+There used to be a second player: the browser playground's JS core. It was a
+deliberately partial implementation — flow and text in full, staging forwarded to
+whatever the web renderer drew — and it charged every new op a second
+implementation plus a column in this table. It has been deleted; `runtimes` keeps
+its shape because the field is how a case says who must pass it, and a second
+runtime (a server-side player, another engine) may well arrive later.
 
-* `ops-owners.json` `js` column — `player` / `renderer` / `none`. The Go guard
-  pins it against the actual `case` labels in `core.js` and `app.js`, so the
-  playground cannot quietly gain or lose an op.
-* per-case `runtimes` — a case the playground is not expected to pass simply does
-  not list `js`. Runners filter on this field and nothing else.
-
-Two consequences the Go guard enforces, so a case can't be written into a trap:
-
-* a case listing `js` may only use ops whose `js` column is `player` or `renderer`;
-* a case listing `js` may only assert `stage` entries for ops whose `js` column is
-  `renderer` (the C# player also forwards `wait`/`input`/`preload`/`load` to the
-  stage; the JS player consumes them itself, so those never appear in its stage log);
-* `scene` and `labels` are not observable in the playground — a case asserting
-  either must not list `js`.
+The corpus itself is unchanged by that: it describes the LANGUAGE, not any one
+player. Every divergence the JS player once caused is listed below — closed, and
+worth reading before adding a runtime, because they are the mistakes a second
+implementation actually makes.
 
 ## Adding a case
 
@@ -157,14 +146,14 @@ Two consequences the Go guard enforces, so a case can't be written into a trap:
 3. `cd tools/lvnconv && go test ./lvn/` — the well-formedness guard checks the
    schema, that every op used is a real op, and that the script validates without
    errors.
-4. `cd tools/lvn-lang && node --test` for the JS half; the Unity EditMode suite
-   for the C# half.
+4. The Unity EditMode suite runs the behavioural half.
 
 ## Known runtime divergences
 
-None outstanding in behaviour. Every entry this table once carried is now closed
-and pinned by a case that runs in BOTH runtimes, so none of them can reopen
-quietly. What the table held, and where it went:
+None outstanding. Every entry this table once carried is closed and pinned by a
+case; the JS player that caused them is gone, but the cases stay — they are the
+list of mistakes a SECOND runtime makes, and the next one will make them too.
+What the table held, and where it went:
 
 | Was | Resolution | Pinned by |
 |---|---|---|
