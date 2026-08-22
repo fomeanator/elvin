@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Lvn.Sandbox
 {
@@ -21,6 +22,7 @@ namespace Lvn.Sandbox
         private int _chapter = 1;
         private string _titleId = "waylight";
         private int _shot;
+        private bool _wardrobe;   // флаг «wardrobe <title> <ch>»: снять гардероб из меню
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
@@ -32,6 +34,11 @@ namespace Lvn.Sandbox
             // Flag forms: "4" (legacy, waylight ch4) or "tour 1" (title id + chapter).
             var parts = File.ReadAllText(FlagPath).Trim()
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 0 && parts[0] == "wardrobe")
+            {
+                d._wardrobe = true;
+                parts = parts.Skip(1).ToArray();
+            }
             if (parts.Length >= 2) { d._titleId = parts[0]; int.TryParse(parts[1], out d._chapter); }
             else if (parts.Length == 1 && !int.TryParse(parts[0], out d._chapter)) d._titleId = parts[0];
             if (d._chapter < 1) d._chapter = 1;
@@ -104,7 +111,7 @@ namespace Lvn.Sandbox
                         break;
                     }
                 }
-                if (carousel != null && carousel.style.display != UnityEngine.UIElements.DisplayStyle.None)
+                if (carousel != null && carousel.style.display != DisplayStyle.None)
                 {
                     carousel.RequestPlay(titles.IndexOf(title));
                     asked = true;
@@ -121,6 +128,8 @@ namespace Lvn.Sandbox
 
             yield return new WaitForSeconds(8f);
             Snap("open");
+
+            if (_wardrobe) { yield return Wardrobe(); yield break; }
 
             for (var beat = 0; beat < 30; beat++)
             {
@@ -153,6 +162,88 @@ namespace Lvn.Sandbox
                 }
             }
             Debug.Log("[shots] done");
+        }
+
+        // ГАРДЕРОБ ИЗ БЫСТРОГО МЕНЮ — ровно тем путём, которым идёт палец:
+        // кнопка меню, потом пункт в списке. Звать OpenWardrobeFromMenuAsync
+        // рефлексией бессмысленно — так проверяется код, а жалоба про экран.
+        private IEnumerator Wardrobe()
+        {
+            // дать истории показать первую реплику
+            for (var i = 0; i < 6; i++)
+            {
+                var st = FindAnyObjectByType<Lvn.UI.VnStage>();
+                if (st?.Player != null) { st.Player.Advance(); }
+                yield return new WaitForSeconds(1.2f);
+            }
+            Snap("story");
+
+            var stage = FindAnyObjectByType<Lvn.UI.VnStage>();
+            if (stage == null) { Debug.LogError("[shots] нет сцены"); yield break; }
+            var root = stage.GetComponent<UIDocument>()?.rootVisualElement;
+            if (root == null) { Debug.LogError("[shots] нет корня документа"); yield break; }
+
+            // Кнопка меню без подписи: гамбургер нарисован тремя полосками
+            // (глиф ☰ на Android — «тофу»). Ищем её по этому признаку внутри
+            // элемента vn-menu, а не по тексту, которого нет.
+            var menuRoot = root.Q("vn-menu") ?? root;
+            if (!ClickButtonWhere(menuRoot, b => string.IsNullOrEmpty(b.text) && b.childCount == 3))
+                Debug.LogError("[shots] кнопку быстрого меню не нашёл");
+            yield return new WaitForSeconds(1.5f);
+            Snap("menu");
+            foreach (var b2 in root.Query<Button>().ToList())
+                if (!string.IsNullOrEmpty(b2.text)) Debug.Log("[shots] кнопка на экране: «" + b2.text + "»");
+
+            // Пункт гардероба ищем по подписи из манифеста.
+            var app2 = FindAnyObjectByType<Lvn.UI.Screens.NovelApp>();
+            var bf2 = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            var man = app2?.GetType().GetField("_manifest", bf2)?.GetValue(app2);
+            string label = "Wardrobe";
+            var ui = man?.GetType().GetField("ui")?.GetValue(man);
+            var wcfg = ui?.GetType().GetField("wardrobe")?.GetValue(ui);
+            var ml = wcfg?.GetType().GetField("menu_label")?.GetValue(wcfg) as string;
+            if (!string.IsNullOrEmpty(ml)) label = ml;
+            Debug.Log("[shots] ищу пункт меню: " + label);
+
+            if (!ClickButtonWhere(root, b => (b.text ?? "").Trim() == label))
+                Debug.LogError("[shots] пункт гардероба не найден в меню");
+            for (var i = 0; i < 8; i++)
+            {
+                yield return new WaitForSeconds(0.8f);
+                Snap("wardrobe" + i);
+            }
+            Debug.Log("[shots] гардероб снят");
+        }
+
+        private static bool ClickButtonWhere(VisualElement root,
+                                             Func<Button, bool> match)
+        {
+            foreach (var b in root.Query<Button>().ToList())
+            {
+                if (!match(b)) continue;
+                Debug.Log($"[shots] жму «{b.text}» ({b.name})");
+                // ПАЛЬЦЕМ, А НЕ ClickEvent'ом: у кнопки UI Toolkit нажатие ловит
+                // манипулятор Clickable, и он слушает pointer down/up. Голый
+                // ClickEvent пролетает мимо — кнопка «нажата», а обработчик молчит.
+
+                using (var down = PointerDownEvent.GetPooled())
+                {
+                    down.target = b;
+                    b.SendEvent(down);
+                }
+                using (var up = PointerUpEvent.GetPooled())
+                {
+                    up.target = b;
+                    b.SendEvent(up);
+                }
+                using (var click = ClickEvent.GetPooled())
+                {
+                    click.target = b;
+                    b.SendEvent(click);   // запас: часть кнопок висит прямо на нём
+                }
+                return true;
+            }
+            return false;
         }
     }
 }

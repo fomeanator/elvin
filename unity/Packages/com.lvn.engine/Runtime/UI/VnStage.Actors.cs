@@ -264,15 +264,34 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(keepId)) return;
             int epoch = _stageEpoch;
+            // НОВЫЙ ВЫБОР ОТМЕНЯЕТ ПРЕДЫДУЩИЙ, И ЭТО ЗАБОТА САМОЙ ОПЕРАЦИИ.
+            // Список «кого убрать» считается ДО ожидания ухода, а показ идёт
+            // ПОСЛЕ — значит показ отставшего выбора мог приземлиться уже после
+            // того, как следующий выбор его спрятал, и на сцене оставалось
+            // двое, наложенных друг на друга (снимок партнёра). Раньше от этого
+            // защищал предикат, который передавал только один вызывающий: путь
+            // ОТКРЫТИЯ гардероба звал без него, а именно во время открытия и
+            // жмут первую «таблетку».
+            int gen = ++_wardrobeFocusGen;
+            HideEveryoneExcept(keepId);
+            await WaitForActorExitsAsync(epoch);
+            if (gen != _wardrobeFocusGen) return;   // нас перебили — показывает он
+            if (!StageCurrent(epoch) || (canShow != null && !canShow())) return;
+            // Пока ждали, кто-то мог успеть показаться: пересобрать и убрать.
+            HideEveryoneExcept(keepId);
+            EnsureActorShown(keepId, fadeOnly: true);
+        }
+
+        private int _wardrobeFocusGen;
+
+        private void HideEveryoneExcept(string keepId)
+        {
             foreach (var id in ActorsOnStage())
             {
                 if (id == keepId) continue;
                 if (_actorCmds.TryGetValue(id, out var cmd) && !IsCharacterCommand(cmd)) continue;
                 HideActorTemporarily(id);
             }
-            await WaitForActorExitsAsync(epoch);
-            if (!StageCurrent(epoch) || (canShow != null && !canShow())) return;
-            EnsureActorShown(keepId, fadeOnly: true);
         }
 
         /// <summary>The `clear` op: take every actor and obj off stage in one
