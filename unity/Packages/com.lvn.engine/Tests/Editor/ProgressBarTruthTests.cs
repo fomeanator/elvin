@@ -6,13 +6,19 @@ using NUnit.Framework;
 namespace Lvn.Tests
 {
     /// <summary>
-    /// The HUD percent guard. Linearized imports (articy) append choice bodies
-    /// at the file TAIL: picking an option teleports the cursor to ~99% of the
-    /// file, plays the branch, and jumps back to the spine. The shipped bug:
-    /// the monotonic high-water mark latched that tail position, so the bar
-    /// showed 99% at ~14% of the story — forever. These tests pin the fixed
-    /// semantics: far excursions freeze the bar, the far return resumes it,
-    /// and a save restored INSIDE a body heals on the way out.
+    /// ПОЛОСА ПРОГРЕССА ОБЯЗАНА ГОВОРИТЬ ПРАВДУ.
+    ///
+    /// <para>Считать её от номера команды в файле нельзя: импорт линеаризует
+    /// ветки, и тела выборов лежат в ХВОСТЕ. В живой главе Time Romance
+    /// (<c>cold-ch08</c>) спина кончается на 1847-й команде из 2295 — пройдя
+    /// главу целиком, игрок видел 80% и рывок на 100%. Это и сообщил партнёр.
+    /// Прежняя защита (высшая отметка + учёт «отлучек» в хвост) лечила спайк,
+    /// но не потолок, и вдобавок откатывала полосу назад на дальнем прыжке.</para>
+    ///
+    /// <para>Правило: считать по КРАТЧАЙШЕМУ пути до конца. Отсюда три
+    /// обещания, и каждое закреплено ниже: в конце ровно сто любым маршрутом;
+    /// назад никогда; длинная ветка отдаёт проценты медленнее, а не ломает
+    /// счёт.</para>
     /// </summary>
     public class ProgressBarTruthTests
     {
@@ -51,44 +57,120 @@ namespace Lvn.Tests
             return sb.ToString();
         }
 
-        private static int Pct(LvnPlayer p) => Content.Percent.Value(p.ProgressIndex, p.Count);
+        private static int Pct(LvnPlayer p) => Content.Percent.Value(p.ProgressIndex, p.ProgressTotal);
 
         [Test]
-        public void FarTailBody_DoesNotSpikeTheBar()
+        public void ChapterEndsAtExactlyOneHundred_NoMatterHowLongTheFileTail()
+        {
+            // Хвост в 900 команд — ровно то, что делает линеаризация импорта.
+            var p = new LvnPlayer(LvnDocument.Parse(TailBodyScript()), new NullStage());
+            int guard = 0;
+            p.Advance();
+            while (!p.Finished && guard++ < 50)
+            {
+                if (!p.Finished && p.AtChoice) p.Choose(0);
+                else p.Advance();
+            }
+            Assert.IsTrue(p.Finished, "sanity: глава доиграна");
+            Assert.AreEqual(100, Pct(p),
+                "в конце главы полоса обязана быть ровно на ста — иначе будет рывок с 80 на 100");
+        }
+
+        [Test]
+        public void TailBodyIsRealProgress_NotAFrozenBar()
         {
             var p = new LvnPlayer(LvnDocument.Parse(TailBodyScript()), new NullStage());
             p.Advance();                       // intro (say pauses; choice shows with it)
             int atChoice = Pct(p);
-            Assert.Less(atChoice, 10, "the spine start must read as early progress");
+            Assert.Less(atChoice, 40, "начало главы не может читаться как её середина");
 
-            p.Choose(0);                       // teleport into the tail body
+            p.Choose(0);                       // «телепорт» в хвост файла
             p.Advance();                       // "inside the body"
-            Assert.AreEqual(atChoice, Pct(p), "a far excursion must FREEZE the bar, not spike it");
-            p.Advance();                       // "still inside"
-            Assert.AreEqual(atChoice, Pct(p), "beats inside the body still must not move the bar");
-
-            p.Advance();                       // far return → "spine again"
-            Assert.Less(Pct(p), 10, "back on the spine the bar stays honest");
-            Assert.GreaterOrEqual(p.ProgressIndex, 2, "and it keeps climbing past the choice");
+            Assert.GreaterOrEqual(Pct(p), atChoice,
+                "реплика внутри тела — такой же шаг истории, назад полоса не ходит");
+            Assert.Less(Pct(p), 100, "и это ещё не конец главы");
         }
 
         [Test]
-        public void ResumeInsideATailBody_HealsOnTheWayOut()
+        public void LongerBranchJustEarnsPercentsSlower()
         {
+            // Две ветки к одному финалу: короткая в один шаг, длинная в три.
+            const string json = @"{""script"":[
+                {""op"":""say"",""text"":""развилка""},
+                {""op"":""choice"",""options"":[
+                    {""text"":""коротко"",""goto"":""short""},
+                    {""text"":""длинно"",""goto"":""long""}
+                ]},
+                {""op"":""label"",""id"":""short""},
+                {""op"":""say"",""text"":""финал""},
+                {""op"":""goto"",""label"":""__end""},
+                {""op"":""label"",""id"":""long""},
+                {""op"":""say"",""text"":""раз""},
+                {""op"":""say"",""text"":""два""},
+                {""op"":""say"",""text"":""три""},
+                {""op"":""goto"",""label"":""short""},
+                {""op"":""label"",""id"":""__end""}
+            ]}";
+            var quick = new LvnPlayer(LvnDocument.Parse(json), new NullStage());
+            quick.Advance(); quick.Choose(0); quick.Advance();
+            var slow = new LvnPlayer(LvnDocument.Parse(json), new NullStage());
+            slow.Advance(); slow.Choose(1); slow.Advance();
+
+            Assert.Greater(Pct(quick), Pct(slow),
+                "после одного шага короткая ветка обязана быть ближе к концу, чем длинная");
+
+            int guard = 0;
+            while (!slow.Finished && guard++ < 20) slow.Advance();
+            Assert.IsTrue(slow.Finished);
+            Assert.AreEqual(100, Pct(slow), "длинная ветка тоже кончается ровно на ста");
+        }
+
+        [Test]
+        public void ResumeInsideATailBody_ReadsHonestlyAtOnce()
+        {
+            // Сейв, снятый ВНУТРИ тела выбора, лежит физически в конце файла.
+            // Прежний счёт по номеру команды показывал такому игроку ~99% и
+            // «лечил» это только на выходе. Расстояние до конца врать негде.
             var doc = LvnDocument.Parse(TailBodyScript());
             var live = new LvnPlayer(doc, new NullStage());
             live.Advance();
             live.Choose(0);
-            live.Advance();                    // paused inside the body (~tail index)
+            live.Advance();                    // пауза внутри тела (хвост файла)
             var snap = live.Save();
 
             var resumed = new LvnPlayer(LvnDocument.Parse(TailBodyScript()), new NullStage());
             resumed.Restore(snap);
-            // the restored index IS the tail — the bar may read high here…
-            resumed.ContinueFrom(resumed.Index);   // "still inside"
-            resumed.Advance();                     // far return → "spine again"
-            Assert.Less(Pct(resumed), 10,
-                "the far return must clamp a body-latched mark back to the spine");
+            Assert.Less(Pct(resumed), 90,
+                "возобновление внутри тела не должно читаться как «глава почти пройдена»");
+        }
+
+        [Test]
+        public void HubLoop_NeverRollsTheBarBack()
+        {
+            // Возврат в хаб — обычная форма импортированной главы. Курсор при
+            // этом уезжает НАЗАД по файлу; полоса не имеет права.
+            const string json = @"{""script"":[
+                {""op"":""label"",""id"":""hub""},
+                {""op"":""say"",""text"":""хаб""},
+                {""op"":""set"",""key"":""n"",""value"":1,""default"":true},
+                {""op"":""if"",""expr"":""n >= 2"",""then"":""out""},
+                {""op"":""inc"",""key"":""n""},
+                {""op"":""say"",""text"":""круг""},
+                {""op"":""goto"",""label"":""hub""},
+                {""op"":""label"",""id"":""out""},
+                {""op"":""say"",""text"":""наружу""}
+            ]}";
+            var p = new LvnPlayer(LvnDocument.Parse(json), new NullStage());
+            int last = 0, guard = 0;
+            p.Advance();
+            while (!p.Finished && guard++ < 30)
+            {
+                Assert.GreaterOrEqual(Pct(p), last, "полоса откатилась назад на возврате в хаб");
+                last = Pct(p);
+                p.Advance();
+            }
+            Assert.IsTrue(p.Finished, "sanity: глава доиграна");
+            Assert.AreEqual(100, Pct(p));
         }
 
         [Test]
