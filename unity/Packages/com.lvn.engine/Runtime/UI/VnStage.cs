@@ -612,5 +612,25 @@ namespace Lvn.UI
         /// <summary>True while the shared story panel (wardrobe…) is up — the
         /// quick-menu chrome polls this and keeps itself off the screen.</summary>
         public bool PanelOpen => _panelHost != null && _panelHost.IsOpen;
+
+        /// <summary>ПОСМОТРЕТЬ, ЧТО НАДЕЛ. Панель занимает низ экрана, а наряд
+        /// нарисован в полный рост — примеряя, игрок видит героиню по пояс.
+        /// Этот режим убирает с глаз панель и весь интерфейс, НЕ закрывая
+        /// панель: примерка продолжается, история по-прежнему не принимает
+        /// касаний, а любое касание возвращает всё назад.
+        ///
+        /// <para>Отдельный режим, а не переиспользование долгого нажатия:
+        /// то живёт на реплике и отпускается вместе с пальцем, это — на
+        /// открытой панели и держится, пока игрок смотрит.</para></summary>
+        public bool PanelPeeking { get; private set; }
+
+        public void SetPanelPeek(bool on)
+        {
+            if (PanelPeeking == on) return;
+            PanelPeeking = on;
+            if (_panelHost != null)
+                _panelHost.style.visibility = on ? Visibility.Hidden : Visibility.Visible;
+            SetChromeHidden(on);
+        }
     }
 }

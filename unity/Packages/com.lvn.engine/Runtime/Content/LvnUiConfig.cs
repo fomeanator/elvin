@@ -75,7 +75,9 @@ namespace Lvn.Content
         public string buy_text;       // the sheet's purchase button (unowned item browsed); default "Buy"
         public string currency_label; // display stand-in for the currency id in the buy caption, e.g. "◆"
         public string insufficient_text; // shown when a buy fails for funds; default "Not enough"
-        public string close_text;     // default "Close"
+        public string close_text;     // default "Close" (гардероб как отдельный экран)
+        public string cancel_text;    // закрыть примерку НЕ сохраняя; default "Отменить"
+        public string peek_text;      // «посмотреть наряд во весь рост»; default "Во весь рост"
         public string empty_text;     // no wardrobe entities; default "The wardrobe is empty"
         public string menu_label;     // quick-menu entry; default "Wardrobe"
         public bool? show_menu_item;  // default true
@@ -155,7 +157,9 @@ namespace Lvn.Content
 
         public string buy_text;       // button label when a pack has no price; default "Get"
         public string ad_text;        // rewarded-ad card button; default "Watch ad"
-        public string close_text;     // default "Close"
+        public string close_text;     // default "Close" (гардероб как отдельный экран)
+        public string cancel_text;    // закрыть примерку НЕ сохраняя; default "Отменить"
+        public string peek_text;      // «посмотреть наряд во весь рост»; default "Во весь рост"
         public string empty_text;     // no packs / server unreachable; default "The shop is closed right now"
         public string bonus_text;     // "{0}" = bonus amount; default "+{0} bonus"
         public string menu_label;     // quick-menu entry; default "Store"

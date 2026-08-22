@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,11 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _tabs;
         private readonly Label _itemName;
         private readonly Button _confirm;
+        private readonly Button _cancel;
+
+        /// <summary>Просьба к хозяину панели убрать интерфейс с глаз (и вернуть
+        /// его). Хост знает, где живёт панель; лист — нет.</summary>
+        public Action<bool> OnPeek;
         private readonly VisualElement _balances;
 
         /// <summary>Host hook: open the currency store (the pills' "+" tap).
@@ -130,20 +136,30 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(_title, _radius);
             headRow.Add(_title);
 
-            var collapse = new Button(Cancel) { text = "" };
-            collapse.style.position = Position.Absolute;
-            collapse.style.right = 0;
-            collapse.style.alignItems = Align.Center;
-            collapse.style.justifyContent = Justify.Center;
-            // Шеврон, повёрнутый вниз: одна фигура на все четыре направления
-            // вместо четырёх почти одинаковых контуров.
-            var collapseIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
-            collapseIcon.style.rotate = new Rotate(90f);
-            collapse.Add(collapseIcon);
-            collapse.style.paddingLeft = 14; collapse.style.paddingRight = 14;
-            collapse.style.paddingTop = 6; collapse.style.paddingBottom = 6;
-            SkinButton(collapse, false);
-            headRow.Add(collapse);
+            // ВО ВЕСЬ РОСТ. Раньше этот шеврон ЗАКРЫВАЛ примерку, и игроки его
+            // не понимали: фигура «свернуть вниз» обещает свернуть, а не выйти.
+            // Теперь она делает именно обещанное — убирает панель и весь
+            // интерфейс, чтобы наряд было видно целиком; примерка при этом не
+            // прерывается, любое касание возвращает панель. Выход из примерки
+            // переехал вниз, к «Выбрать», отдельной кнопкой «Отменить».
+            var peek = new Button(() => OnPeek?.Invoke(true)) { text = "" };
+            peek.style.position = Position.Absolute;
+            peek.style.right = 0;
+            peek.style.flexDirection = FlexDirection.Row;
+            peek.style.alignItems = Align.Center;
+            peek.style.justifyContent = Justify.Center;
+            var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
+            peekIcon.style.rotate = new Rotate(90f);
+            peek.Add(peekIcon);
+            var peekLabel = new Label(_cfg.peek_text ?? "Во весь рост");
+            peekLabel.style.fontSize = 20;
+            peekLabel.style.marginLeft = 8;
+            peekLabel.style.color = LvnTokens.Text;
+            peek.Add(peekLabel);
+            peek.style.paddingLeft = 14; peek.style.paddingRight = 14;
+            peek.style.paddingTop = 6; peek.style.paddingBottom = 6;
+            SkinButton(peek, false);
+            headRow.Add(peek);
 
             // Character pills — ONLY the always-open wardrobe shows them, and
             // only when several dressable characters have a collection. A story
@@ -197,13 +213,33 @@ namespace Lvn.UI.Screens
             carousel.Add(_itemName);
             carousel.Add(next);
 
+            // ДВА ЯВНЫХ ВЫХОДА В ОДНОЙ СТРОКЕ: «Отменить» закрывает примерку и
+            // НИЧЕГО не сохраняет, «Выбрать» надевает и закрывает. Пока выход
+            // был один и прятался шевроном в углу, игрок не понимал ни как
+            // выйти, ни сохранится ли надетое.
+            var actions = new VisualElement();
+            actions.style.flexDirection = FlexDirection.Row;
+            actions.style.marginTop = 12;
+            Add(actions);
+
+            _cancel = new Button(Cancel) { text = _cfg.cancel_text ?? "Отменить" };
+            _cancel.style.fontSize = 28;
+            _cancel.style.flexGrow = 1;
+            _cancel.style.flexBasis = 0;
+            _cancel.style.marginRight = 10;
+            _cancel.style.paddingTop = 14;
+            _cancel.style.paddingBottom = 14;
+            SkinButton(_cancel, false);
+            actions.Add(_cancel);
+
             _confirm = new Button(() => _ = ConfirmAsync());
             _confirm.style.fontSize = 28;
-            _confirm.style.marginTop = 12;
+            _confirm.style.flexGrow = 1;
+            _confirm.style.flexBasis = 0;
             _confirm.style.paddingTop = 14;
             _confirm.style.paddingBottom = 14;
             SkinButton(_confirm, true);
-            Add(_confirm);
+            actions.Add(_confirm);
         }
 
         public void SetManifest(LvnManifest manifest) => _manifest = manifest;
