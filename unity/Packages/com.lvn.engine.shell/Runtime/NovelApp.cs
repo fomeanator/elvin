@@ -1071,6 +1071,8 @@ namespace Lvn.UI.Screens
                 // following ClearPreview already publish Changed and refresh the live
                 // actor; starting a third refresh here made async sprite loads race and
                 // produced a visible wardrobe snap.
+                // «Во весь рост»: панель прячется, примерка продолжается.
+                _storySheet.OnPeek = on => Stage?.SetPanelPeek(on);
                 _storySheet.OnEquip = (ent, storyVar, value) =>
                 {
                     var p = Stage?.Player;

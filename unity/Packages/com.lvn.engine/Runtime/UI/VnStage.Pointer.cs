@@ -57,6 +57,12 @@ namespace Lvn.UI
 
         private void OnPointerDown(PointerDownEvent evt)
         {
+            // РЕЖИМ «ВО ВЕСЬ РОСТ» ОТПУСКАЕТСЯ ЛЮБЫМ КАСАНИЕМ — и проверяется
+            // ДО блокировки ввода. Панель открыта, значит ввод заблокирован, и
+            // будь эта строка ниже, спрятанный интерфейс было бы уже не вернуть:
+            // экран пуст, нажимать нечего. Касание съедается целиком, чтобы
+            // возврат не сработал заодно как продвижение реплики.
+            if (PanelPeeking) { SetPanelPeek(false); evt.StopPropagation(); return; }
             if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (_player == null || _player.Finished) return;
             if (_awaitingInput) return;
