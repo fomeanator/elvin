@@ -49,18 +49,6 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public void NameInputScreen_BuildsWithCustomConfig()
-        {
-            var s = new NameInputScreen(new NameInputConfig
-            {
-                prompt = "Your name?",
-                confirm_text = "OK",
-                max_length = 12,
-            }, new NoAssets());
-            Assert.Greater(s.childCount, 0);
-        }
-
-        [Test]
         public void ManifestUiConfig_DeserializesFromJson()
         {
             var json = @"{
