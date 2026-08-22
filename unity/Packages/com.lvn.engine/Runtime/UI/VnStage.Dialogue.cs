@@ -184,7 +184,6 @@ namespace Lvn.UI
         private void CommitChoice(int index, string pickedText)
         {
             StopChoiceTimer(); // the pick beat the clock
-            PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
             _choiceCommitInFlight = true;
             _choices.SetEnabled(false);
 

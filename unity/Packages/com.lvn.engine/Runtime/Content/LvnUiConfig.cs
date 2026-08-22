@@ -27,7 +27,6 @@ namespace Lvn.Content
         public DialogueConfig dialogue;
         public ChoicesConfig choices;
         public MenuConfig menu;
-        public SoundsConfig sounds;
         public AuthConfig auth;
         public StoreConfig store;
         public PopupConfig popup;
@@ -253,19 +252,6 @@ namespace Lvn.Content
         public string name; // "Discord" — shown when no icon, and as the tooltip
         public string icon; // content url for the icon (optional)
         public string url;  // opened via LvnWebView.Open
-    }
-
-    /// <summary>UI interaction sounds — short one-shot clips played by the stage
-    /// on top of the story's audio channels, scaled by the player's SFX volume.
-    /// Every field optional: a missing url simply keeps that interaction silent,
-    /// so a novel without UI audio ships nothing and hears nothing.</summary>
-    public sealed class SoundsConfig
-    {
-        public string click;   // content url: tap-to-advance
-        public string choice;  // content url: picking a choice button
-        // `type` (побуквенный цокот) БОЛЬШЕ НЕ ЧИТАЕТСЯ: строка ставится целиком.
-        // Ключ в манифесте молча игнорируется — старый контент не ломается.
-        public float? volume;  // 0..1 scale applied to both; default 1
     }
 
     /// <summary>The in-game quick menu (StageMenu): floating buttons, the sheet,
