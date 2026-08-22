@@ -110,11 +110,6 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | `anim` | Scripted tween on a channel (in `.lvns` this is `anim`/`move`). `mode=queue` enqueues on the channel; `stop` clears the channel. | `id`,`anim`(payload),`channel?`,`mode?`,`stop?` |
 | `preload` | Warm up assets asynchronously (non-blocking). | `assets[]` `{url,kind}` |
 
-UI interface sounds (a manifest, not a command): `manifest.ui.sounds =
-{ click?, choice?, volume? }` — short one-shots on dialogue tap and option
-pick. Urls are content urls, scaled by the user's SFX volume; a missing field
-means silence.
-
 Read-text tracking (automatic, not a command): the engine remembers every
 line shown, per-title (survives save deletion); the settings have a
 "Skip: read only" toggle (label key `skip_read_only`) — fast-forward stops

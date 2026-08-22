@@ -944,11 +944,6 @@ build error — the one escape hatch is `ext <op> k=v …`, which compiles a
 | `anim` | Scripted tween on a channel (in `.lvns` this is `anim`/`move`). `mode=queue` enqueues on the channel; `stop` clears the channel. | `id`,`anim`(payload),`channel?`,`mode?`,`stop?` |
 | `preload` | Warm up assets asynchronously (non-blocking). | `assets[]` `{url,kind}` |
 
-UI interface sounds (a manifest, not a command): `manifest.ui.sounds =
-{ click?, choice?, volume? }` — short one-shots on dialogue tap and option
-pick. Urls are content urls, scaled by the user's SFX volume; a missing field
-means silence.
-
 Read-text tracking (automatic, not a command): the engine remembers every
 line shown, per-title (survives save deletion); the settings have a
 "Skip: read only" toggle (label key `skip_read_only`) — fast-forward stops
@@ -1360,26 +1355,25 @@ Missed. Try again.
 
 `drag_bounds="none"` removes the screen constraint (default is `screen`).
 
-### CG gallery and UI sounds (manifest, not script)
+### CG gallery (manifest, not script)
 
-These are not commands — they are blocks in `manifest.json`. Gallery: an art piece
-unlocks forever on the first `bg` shown with the same url; a "Gallery" item appears
-in the quick menu.
+This is not a command — it is a block in `manifest.json`. An art piece unlocks
+forever on the first `bg` shown with the same url; a "Gallery" item appears in
+the quick menu.
 
 ```json
 "titles": [{ "id": "my-novel", "gallery": [
     { "id": "cg-beach", "url": "/content/bg/beach.png", "name": "Beach" }
-] }],
-"ui": { "sounds": {
-    "click": "/content/ui/sounds/click.wav",
-    "choice": "/content/ui/sounds/choice.wav",
-    "type": "/content/ui/sounds/type.wav",
-    "volume": 0.8
-} }
+] }]
 ```
 
 Keep the art `id` stable between releases — unlocks are stored by it.
-A missing sound is just silence; everything scales with the user's SFX volume.
+
+The engine plays **no interface sounds** of its own: no click on a line, no
+blip per glyph. Over an hour of reading those are thousands of identical
+noises, and a player can only silence them together with the whole soundtrack.
+Voice-over and the authored `audio` command are untouched — what is silent is
+the chrome.
 
 ### Code/logic lock (no text input)
 
