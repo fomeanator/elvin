@@ -779,8 +779,11 @@ namespace Lvn.Content
                 tex = AssetMemory.DownscaleIfOversized(tex,
                     Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize,
                     finalize: false);   // финализирует вызывающий, ниже
+                // Крупный арт получает мип-уровни: фигуру в 1600 пикселей рисуют
+                // примерно в 900, и без них край фигуры идёт ступеньками.
+                tex = AssetMemory.WithMipmaps(tex, finalize: false);
                 tex.wrapMode   = TextureWrapMode.Clamp;
-                tex.filterMode = FilterMode.Bilinear;
+                if (tex.mipmapCount <= 1) tex.filterMode = FilterMode.Bilinear;
                 // Nothing reads pixels back — free the CPU copy (halves the
                 // memory of every loaded sprite). The off-thread texture is born
                 // non-readable (no CPU copy to free — Apply would throw).

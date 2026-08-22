@@ -53,6 +53,44 @@ namespace Lvn.Content
         }
 
         /// <summary>
+        /// МИП-УРОВНИ ДЛЯ КРУПНОГО АРТА — иначе у фигуры рвутся края.
+        ///
+        /// <para>Героиня нарисована в 1600 пикселей по ширине, а на экране
+        /// занимает около девятисот. Без мип-уровней видеокарта берёт из
+        /// текстуры каждый второй пиксель — по плавным местам это незаметно, а
+        /// на границе фигуры с фоном даёт ступеньки. Со стороны выглядит как
+        /// «картинку пожали», хотя картинка целая: считали её плохо.</para>
+        ///
+        /// <para>Уровни строятся через временную RenderTexture, потому что
+        /// текстура из сети приходит без копии на процессоре. Стоит это одного
+        /// чтения кадра — заметного, поэтому делается ТОЛЬКО для крупного арта
+        /// и только на загрузке: мелкие иконки минифицировать нечем, им уровни
+        /// лишняя треть памяти.</para>
+        /// </summary>
+        public static Texture2D WithMipmaps(Texture2D tex, int minSide = 1200, bool finalize = true)
+        {
+            if (tex == null || tex.mipmapCount > 1) return tex;
+            if (Mathf.Max(tex.width, tex.height) < minSide) return tex;
+
+            int w = tex.width, h = tex.height;
+            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+            var prev = RenderTexture.active;
+            Graphics.Blit(tex, rt);
+            RenderTexture.active = rt;
+            var mipped = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: true);
+            mipped.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            mipped.Apply(updateMipmaps: true, makeNoLongerReadable: finalize);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Object.Destroy(tex);
+            // Трилинейная: между уровнями тоже надо переходить плавно, иначе на
+            // изменении масштаба видна граница переключения.
+            mipped.wrapMode = TextureWrapMode.Clamp;
+            mipped.filterMode = FilterMode.Trilinear;
+            return mipped;
+        }
+
+        /// <summary>
         /// Спрайт из текстуры по правилам движка: Clamp и Bilinear, пиксели с
         /// процессора отпущены, меш — FullRect.
         ///
