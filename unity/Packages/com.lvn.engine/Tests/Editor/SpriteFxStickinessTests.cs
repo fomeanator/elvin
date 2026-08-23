@@ -92,6 +92,36 @@ namespace Lvn.Tests
             finally { Object.DestroyImmediate(host); }
         }
 
+        /// <summary>Сценарий пишет «actor …» и «sfx …» подряд — переход
+        /// стартует на команду РАНЬШЕ эффекта, гард ещё не видит sfx и уходит
+        /// в композит (живой лог: «[lvn-actor] agent: вход Fade — композит» и
+        /// строкой ниже «#13 sfx id=agent»). Применение авторского эффекта
+        /// обязано снять прокси и вернуть живые, уже одетые слои.</summary>
+        [Test]
+        public void ApplyingFx_DropsAnAlreadyRunningTransitionComposite()
+        {
+            var host = new GameObject("host");
+            try
+            {
+                var stage = new WorldStage(host.transform, sortingOrder: 0);
+                var actor = stage.EnsureActor("hero");
+                actor.Configure(
+                    new System.Collections.Generic.List<Sprite> { NewSprite(), NewSprite() },
+                    new System.Collections.Generic.List<string> { "body", "face" });
+
+                Assert.IsTrue(actor.BeginTransitionVisual(), "sanity: переход ушёл в композит");
+                Assert.IsFalse(actor.Rig.gameObject.activeSelf, "sanity: живые слои спрятаны прокси");
+
+                LvnSpriteFxDriver.Apply(actor.gameObject, new JObject { ["dark"] = 0.88f });
+
+                Assert.IsTrue(actor.Rig.gameObject.activeSelf,
+                    "эффект одел спрятанный риг — на экране остался светлый прокси на весь фейд");
+                foreach (var img in actor.Rig.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+                    Assert.IsNotNull(img.material, "вернувшийся слой обязан выйти уже одетым");
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
         [Test]
         public void PendingSfx_WaitsForTheActorToBeBorn()
         {

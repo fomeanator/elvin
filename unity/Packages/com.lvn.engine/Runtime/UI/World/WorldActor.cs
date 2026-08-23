@@ -78,6 +78,17 @@ namespace Lvn.UI.World
             return _transitionComposite.Begin(_transition, _rig, includeSingleLayer: true);
         }
 
+        /// <summary>Авторский sfx применили ПОСРЕДИ композитного перехода:
+        /// сценарий пишет «actor …» и «sfx …» подряд, и переход стартует на
+        /// команду раньше эффекта. Прокси рисует сырые слои и эффект не
+        /// наденет — возвращаем живые (уже одетые) слои; CanvasGroup-фейд
+        /// перехода продолжает вести их дальше без скачка.</summary>
+        public void DropCompositeForFx()
+        {
+            if (_transitionComposite != null && _transitionComposite.Active)
+                EndTransitionVisual();
+        }
+
         public void CrossfadeArtSwap(float seconds, bool wardrobeFlow = false,
                                      bool wardrobeFromTop = false)
         {
