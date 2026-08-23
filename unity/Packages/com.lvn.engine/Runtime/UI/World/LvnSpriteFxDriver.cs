@@ -395,6 +395,32 @@ namespace Lvn.UI.World
             return parsed;
         }
 
+        /// <summary>Слои актёра пересобрали ПОСЛЕ применения sfx (ленивая
+        /// догрузка слоя, смена облика): материал эффекта был надет только на
+        /// прежние Image, а свежесозданные рисуются дефолтным — на тёмном
+        /// силуэте это буквально «вспышка» светлого слоя (живой случай: у
+        /// героя-голограммы доехал слой лица, и он посветлел посреди сцены).
+        /// Зовёт пересборщик слоёв (<see cref="WorldActor.Configure"/>).</summary>
+        public static void Reskin(GameObject actorGo)
+        {
+            if (actorGo == null) return;
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+                if (d.AnyFxActive())
+                {
+                    d.Skin();
+                    d.enabled = true; // мог сам себя выключить, когда снимал скин
+                }
+        }
+
+        private bool AnyFxActive()
+            => _tFade < 0.999f
+               || _tOutline > 0.001f || _tGlow > 0.001f || _tDissolve > 0.001f
+               || _tFlash > 0.001f || _tDark > 0.001f || _tTintFx > 0.001f
+               || _tGhost > 0.001f || _tPetrify > 0.001f || _tHologram > 0.001f
+               || _tBurn > 0.001f || _tRim > 0.001f || _tShake > 0.001f
+               || _tAura > 0.001f || _tBlade > 0.001f || _tLightning > 0.001f
+               || _tRunes > 0.001f;
+
         // Подменить материал всем Image-слоям актёра (и запомнить, кому).
         private void Skin()
         {
