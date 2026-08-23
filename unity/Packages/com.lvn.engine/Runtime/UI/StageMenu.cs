@@ -453,9 +453,12 @@ namespace Lvn.UI
                     // Tap-to-return: rewind to this line (the genre's history
                     // jump). Lines older than the snapshot history (or before a
                     // load, which clears it) aren't reachable — leave them inert.
+                    // Отключается темой (ui.menu.history_jump=false): продукту с
+                    // автосейвом история нужна как ЧТЕНИЕ, а случайный тап,
+                    // отматывающий главу назад, читается игроком как баг.
                     int stepsBack = saysAfter;
                     int reach = _stage.Player != null ? _stage.Player.HistoryDepth - 1 : 0;
-                    if (stepsBack > 0 && stepsBack <= reach)
+                    if (_theme.MenuHistoryJump && stepsBack > 0 && stepsBack <= reach)
                         line.RegisterCallback<PointerDownEvent>(e =>
                         {
                             e.StopPropagation();

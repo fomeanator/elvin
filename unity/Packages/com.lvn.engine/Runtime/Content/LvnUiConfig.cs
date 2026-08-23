@@ -289,6 +289,11 @@ namespace Lvn.Content
         /// exit/close не прячутся никогда: из главы должен быть выход.</summary>
         public List<string> hide;
 
+        /// <summary>Тап по строке истории отматывает главу к ней (жанровый
+        /// history-jump). false — история только для чтения: полезно продукту
+        /// с автосейвом, где случайная отмотка читается как баг.</summary>
+        public bool? history_jump;
+
         /// <summary>Text overrides for every chrome string, keyed by a stable id —
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,
         /// quick_save, history, auto, skip, settings, gallery, stats, exit, close, autosave, slot,
@@ -436,6 +441,10 @@ namespace Lvn.Content
     public sealed class BrowseConfig
     {
         public string layout;            // "carousel" (default) | "hub"
+        /// <summary>Фоновая музыка МЕНЮ (url): играет в хабе/магазине/профиле —
+        /// везде, кроме самой новеллы; глушится на время главы и возвращается
+        /// после. Громкость ведёт ползунок «Музыка» из настроек.</summary>
+        public string music;
         /// <summary>Тема оболочки: "midnight" (по умолчанию) | "cyber". Задаёт
         /// палитру И огранку — скругление, кромку, разрядку заголовков, фон.
         /// Отдельные *_color ниже перекрывают тему поштучно.</summary>

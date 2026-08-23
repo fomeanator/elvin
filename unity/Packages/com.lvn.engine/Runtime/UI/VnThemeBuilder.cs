@@ -130,6 +130,7 @@ namespace Lvn.UI
                 if (m.stats_hide != null && m.stats_hide.Count > 0) t.MenuStatsHide = m.stats_hide;
                 if (m.labels != null && m.labels.Count > 0) t.MenuLabels = m.labels;
                 if (m.hide != null && m.hide.Count > 0) t.MenuHidden = m.hide;
+                if (m.history_jump.HasValue) t.MenuHistoryJump = m.history_jump.Value;
             }
 
             return t;
