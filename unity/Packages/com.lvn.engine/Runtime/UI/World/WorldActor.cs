@@ -56,6 +56,11 @@ namespace Lvn.UI.World
         public bool BeginTransitionVisual()
         {
             EnsureRig();
+            // Прокси-композит рисует сырые текстуры слоёв — надетый sfx (тёмный
+            // силуэт, голограмма) он воспроизвести не может: герой-голограмма
+            // «раздевался» до светлого арта на время каждого фейда. С эффектом
+            // переход играет живыми слоями.
+            if (LvnSpriteFxDriver.WearsAuthoredFx(gameObject)) return false;
             if (_transitionComposite == null)
                 _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
             return _transitionComposite.Begin(_transition, _rig);
@@ -66,6 +71,8 @@ namespace Lvn.UI.World
         public bool BeginArtSwapVisual()
         {
             EnsureRig();
+            // Та же причина, что у переходов: снимок-прокси не умеет носить sfx.
+            if (LvnSpriteFxDriver.WearsAuthoredFx(gameObject)) return false;
             if (_transitionComposite == null)
                 _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
             return _transitionComposite.Begin(_transition, _rig, includeSingleLayer: true);
