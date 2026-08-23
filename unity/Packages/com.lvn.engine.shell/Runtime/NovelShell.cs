@@ -355,10 +355,24 @@ namespace Lvn.UI.Screens
         /// всякий другой вид новеллы, данными, а не кодом оболочки.</summary>
         private LvnTitle PendingIntroTitle()
         {
-            if (Lvn.UI.LvnPrefs.IntroDone || _manifest?.titles == null) return null;
+            if (Lvn.UI.LvnPrefs.IntroDone)
+            {
+                Debug.Log("[lvn-intro] ворота: IntroDone=true (метка устройства) — витрина");
+                return null;
+            }
+            if (_manifest?.titles == null) return null;
             foreach (var t in _manifest.titles)
                 if (t != null && string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase))
-                    return IsTitleFinished(t) ? null : t;
+                {
+                    bool done = IsTitleFinished(t);
+                    // Диагностический след: «почему не стартанула воронка» иначе
+                    // выясняется раскопками PlayerPrefs на чужом устройстве.
+                    Debug.Log($"[lvn-intro] ворота: '{t.id}' reached={LvnProgress.Reached(t)} "
+                        + $"current={(LvnProgress.Current(t)?.id ?? "-")} → "
+                        + (done ? "пройдена, витрина" : "играем воронку"));
+                    return done ? null : t;
+                }
+            Debug.Log("[lvn-intro] ворота: intro-тайтла в манифесте нет — витрина");
             return null;
         }
 
