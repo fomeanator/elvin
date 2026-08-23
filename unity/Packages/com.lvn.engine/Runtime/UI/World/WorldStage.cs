@@ -614,8 +614,11 @@ namespace Lvn.UI.World
         {
             // The blur lives on the CAMERA, which outlives this canvas — a
             // chapter that ended mid-`blur` must not haunt the next one.
-            Blur?.FadeTo(0f, 0f);
-            Fx?.ResetImmediate();
+            // `?.` не видит уничтоженных UnityEngine.Object (fake-null) — при
+            // выходе из Play камера уже мертва, и FadeTo кидал
+            // MissingReferenceException на каждом Stop. Только перегруженный !=.
+            if (Blur != null) Blur.FadeTo(0f, 0f);
+            if (Fx != null) Fx.ResetImmediate();
             // Respect a later owner that deliberately changed the depth.
             if (_canvasCamera != null &&
                 Mathf.Approximately(_canvasCamera.depth, _canvasCameraDepthForced))
