@@ -59,6 +59,39 @@ namespace Lvn.Tests
             finally { Object.DestroyImmediate(actor); }
         }
 
+        /// <summary>Прокси-композит переходов рисует сырые текстуры слоёв и не
+        /// умеет носить sfx: герой-голограмма «раздевался» до светлого арта на
+        /// время каждого фейда (живой репорт: «на фейде не срабатывает»).
+        /// Актёр с авторским эффектом обязан играть переход живыми слоями.</summary>
+        [Test]
+        public void ActorWearingFx_SkipsTheTransitionComposite()
+        {
+            var host = new GameObject("host");
+            try
+            {
+                var stage = new WorldStage(host.transform, sortingOrder: 0);
+                var actor = stage.EnsureActor("hero");
+                actor.Configure(
+                    new System.Collections.Generic.List<Sprite> { NewSprite(), NewSprite() },
+                    new System.Collections.Generic.List<string> { "body", "face" });
+
+                Assert.IsTrue(actor.BeginTransitionVisual(),
+                    "sanity: без эффектов двухслойный актёр гаснет композитно");
+                actor.EndTransitionVisual();
+
+                LvnSpriteFxDriver.Apply(actor.gameObject, new JObject { ["dark"] = 0.88f });
+                Assert.IsFalse(actor.BeginTransitionVisual(),
+                    "актёр в тёмном силуэте ушёл в композит — на фейде он «разденется» до светлого арта");
+                Assert.IsFalse(actor.BeginArtSwapVisual(),
+                    "снимок смены облика — тот же прокси, эффект он тоже не наденет");
+
+                LvnSpriteFxDriver.Apply(actor.gameObject, new JObject { ["off"] = 1 });
+                Assert.IsTrue(actor.BeginTransitionVisual(),
+                    "снятый эффект возвращает обычный композитный путь");
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
         [Test]
         public void PendingSfx_WaitsForTheActorToBeBorn()
         {

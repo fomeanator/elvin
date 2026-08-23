@@ -412,14 +412,30 @@ namespace Lvn.UI.World
                 }
         }
 
-        private bool AnyFxActive()
-            => _tFade < 0.999f
-               || _tOutline > 0.001f || _tGlow > 0.001f || _tDissolve > 0.001f
+        private bool AnyFxActive() => _tFade < 0.999f || AnyAuthoredFxActive();
+
+        // Авторские эффекты — без служебного фейда переходов: тот живёт на
+        // каждом входе/уходе и не означает, что актёр «что-то носит».
+        private bool AnyAuthoredFxActive()
+            => _tOutline > 0.001f || _tGlow > 0.001f || _tDissolve > 0.001f
                || _tFlash > 0.001f || _tDark > 0.001f || _tTintFx > 0.001f
                || _tGhost > 0.001f || _tPetrify > 0.001f || _tHologram > 0.001f
                || _tBurn > 0.001f || _tRim > 0.001f || _tShake > 0.001f
                || _tAura > 0.001f || _tBlade > 0.001f || _tLightning > 0.001f
                || _tRunes > 0.001f;
+
+        /// <summary>Носит ли актёр сейчас авторский спрайтовый эффект. Прокси-
+        /// композит переходов рисует СЫРЫЕ текстуры слоёв — надетый sfx (тёмный
+        /// силуэт, голограмма, аура) он воспроизвести не может, и актёр с
+        /// эффектом обязан играть переходы живыми слоями, иначе он
+        /// «раздевается» до чистого арта на время каждого фейда.</summary>
+        public static bool WearsAuthoredFx(GameObject actorGo)
+        {
+            if (actorGo == null) return false;
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+                if (d.AnyAuthoredFxActive()) return true;
+            return false;
+        }
 
         // Подменить материал всем Image-слоям актёра (и запомнить, кому).
         private void Skin()
