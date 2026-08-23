@@ -264,11 +264,21 @@ namespace Lvn
         // В начале ноль, в конце РОВНО сто любым маршрутом, а длинная ветка
         // просто отдаёт проценты медленнее — до конца по ней и правда дальше.
         private int[] _toEnd;
-        private int _toEndStart;    // кратчайший путь от начала главы: знаменатель
-        private int _progressSeen;  // ОТКАТОВ НЕТ: показанное только растёт
+        private int _toEndStart;    // кратчайший путь от начала главы (для сида резюма)
+        private int _progressSeen;  // ОТКАТОВ НЕТ: показанное только растёт (промилле)
+        private int _stepsDone;     // команд реального маршрута пройдено
+        private bool _stepsSeeded;  // резюм: первый счёт сеет пройденное по BFS
 
-        /// <summary>Шагов кратчайшего пути пройдено (0..<see cref="ProgressTotal"/>).
-        /// Пара для полосы прогресса — вместе с <see cref="ProgressTotal"/>.</summary>
+        // Промилле-шкала: доля = пройдено / (пройдено + осталось-до-конца).
+        // Пройдено — реальные шаги ЭТОГО маршрута, осталось — BFS до конца
+        // (LvnFlowDistance). Растёт на КАЖДОМ шаге: длинная ветка отдаёт
+        // проценты медленнее, но не замирает (живой случай: «дальше 80 не
+        // проходит» — прежняя формула прибивала полосу к кратчайшему пути и
+        // в длинной ветке вставала намертво до слияния с магистралью).
+        private const int ProgressScale = 1000;
+
+        /// <summary>Промилле прогресса (0..<see cref="ProgressTotal"/>).
+        /// Пара для полосы — вместе с <see cref="ProgressTotal"/>.</summary>
         public int ProgressIndex
         {
             get
@@ -277,21 +287,31 @@ namespace Lvn
                 // Глава кончилась — значит пройдена целиком, чем бы ни был
                 // занят курсор. Иначе последняя команда (например `goto __end`)
                 // оставляла бы читателя на 90% у финальной реплики.
-                if (Finished) return _progressSeen = _toEndStart;
+                if (Finished) return _progressSeen = ProgressScale;
                 int left = _ip >= 0 && _ip < _toEnd.Length ? _toEnd[_ip] : 0;
                 if (left == int.MaxValue) return _progressSeen; // мёртвый код — стоим
-                int done = _toEndStart - left;
-                if (done < 0) done = 0;
-                if (done > _toEndStart) done = _toEndStart;
-                if (done > _progressSeen) _progressSeen = done;
+                if (!_stepsSeeded)
+                {
+                    // Резюм/горячая замена: счётчик шагов не переживает сейв —
+                    // сеем его оценкой BFS, чтобы полоса встала на честное
+                    // место сразу, а не на ноль.
+                    if (_toEndStart - left > _stepsDone) _stepsDone = _toEndStart - left;
+                    _stepsSeeded = true;
+                }
+                int pm = (int)System.Math.Round(
+                    ProgressScale * (double)_stepsDone / System.Math.Max(1, _stepsDone + left));
+                // Сто — только финал: длинный маршрут не смеет доползти до
+                // 100% раньше последней команды.
+                if (pm > ProgressScale - 10) pm = ProgressScale - 10;
+                if (pm > _progressSeen) _progressSeen = pm;
                 return _progressSeen;
             }
         }
 
-        /// <summary>Длина кратчайшего пути главы — знаменатель полосы.</summary>
+        /// <summary>Знаменатель полосы (промилле-шкала).</summary>
         public int ProgressTotal
         {
-            get { EnsureDistances(); return _toEndStart; }
+            get { return ProgressScale; }
         }
 
         private void EnsureDistances()
@@ -328,6 +348,8 @@ namespace Lvn
         {
             _ip = index;
             _progressSeen = 0;    // возобновление: полоса берётся от места, где встали
+            _stepsDone = 0;
+            _stepsSeeded = false; // первый счёт после резюма посеет шаги по BFS
             Finished = false;
             Vars.Clear();
             if (vars != null)
@@ -1137,6 +1159,7 @@ namespace Lvn
                 // Malformed content must never crash the runtime: a non-object
                 // command (bad export/hand-edited JSON) is skipped, not cast-thrown.
                 if (!(_script[_ip] is JObject c)) { _ip++; continue; }
+                _stepsDone++; // реальная длина ЭТОГО маршрута — числитель полосы
                 var curOp = (string)c["op"];
                 if (Log != null) Log("#" + _ip + " " + curOp + DescribeCmd(c));
                 switch (curOp)

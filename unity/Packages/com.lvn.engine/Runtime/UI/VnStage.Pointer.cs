@@ -125,15 +125,27 @@ namespace Lvn.UI
             SetChromeHidden(false);
         }
 
+        // Диагностика проглоченных касаний: «ничего не тыкается» на устройстве
+        // иначе не разбирается вовсе — все ворота молчаливые. Раз в секунду.
+        private float _lastSwallowLog;
+        internal float _sayUpSince;
+
+        private void LogSwallow(string reason)
+        {
+            if (Time.realtimeSinceStartup - _lastSwallowLog < 1f) return;
+            _lastSwallowLog = Time.realtimeSinceStartup;
+            Debug.Log($"[lvn-input] тап проглочен: {reason} (say={_sayUp} awaitingTap={_awaitingTap})");
+        }
+
         private void HandleTap(Vector2 pos)
         {
-            if (InputBlocked) return;
-            if (EntryGatePending) return; // the chapter-title card owns the screen
+            if (InputBlocked) { LogSwallow("InputBlocked (панель/окно держит ввод)"); return; }
+            if (EntryGatePending) { LogSwallow("EntryGatePending (карточка главы)"); return; }
             if (_player == null || _player.Finished) return;
-            if (_awaitingInput) return;
+            if (_awaitingInput) { LogSwallow("awaitingInput (форма ввода)"); return; }
             // Same exception as OnPointerDown: a timed hotspot screen stays
             // clickable through the wait.
-            if (_awaitingWait && _hotspots.Count == 0) return;
+            if (_awaitingWait && _hotspots.Count == 0) { LogSwallow("awaitingWait (оп wait ещё идёт)"); return; }
 
             // Canvas-scene hotspots: there's no uGUI raycaster, so a tap is routed
             // here. Test it against each obj's normalized placement rect (top-left
@@ -174,6 +186,19 @@ namespace Lvn.UI
                 _awaitingTap = false;
                 _player.Advance();
             }
+            // САМОИСЦЕЛЕНИЕ: строка давно стоит на экране, а такт «не ждёт
+            // касания» — потерянный awaitingTap (гонка барьера видимости с
+            // перебитым показом; живой случай: игра глохла на 80% cold-главы
+            // до перезахода). Вечная глухота хуже лишнего тапа: продвигаемся
+            // и честно жалуемся в лог. Порог 1.5с не даёт сработать на
+            // штатной передаче «уход карточки → пауза → приход».
+            else if (_sayUp && Time.realtimeSinceStartup - _sayUpSince > 1.5f
+                     && Time.realtimeSinceStartup >= _actorVisibilityBarrierUntil)
+            {
+                Debug.Log("[lvn-input] такт не ждал касания при видимой строке — самоисцеление тапом");
+                _player.Advance();
+            }
+            else LogSwallow("такт не ждёт касания (передача карточки/барьер видимости)");
         }
 
         // The hotspot under a pointer — topmost (last-placed) first; null if none.
