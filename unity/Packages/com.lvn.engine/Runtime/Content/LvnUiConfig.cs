@@ -320,6 +320,12 @@ namespace Lvn.Content
         public string object_enter;   // default obj entrance ("fade" by default; "" = instant)
         public string object_exit;    // default obj exit
         public float? object_transition; // default obj transition duration, seconds (0.35)
+        // Растворение прежнего фона при смене (сек; 0 = резко, как раньше).
+        // Авторская команда может переопределить полем `bg ... fade=`.
+        public float? bg_fade;
+        // Жест «долгое нажатие = разглядывание арта» (весь интерфейс прячется,
+        // пока палец на экране). false — жест выключен целиком.
+        public bool? long_press;
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter

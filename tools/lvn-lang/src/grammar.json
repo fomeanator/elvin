@@ -48,7 +48,8 @@
   "op_fields": {
     "bg": [
       "sprite_url",
-      "id"
+      "id",
+      "fade"
     ],
     "actor": [
       "id",

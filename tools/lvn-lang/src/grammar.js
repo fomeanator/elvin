@@ -61,7 +61,8 @@ export const SOURCE_OPS = [
 export const OP_FIELDS = {
   "bg": [
     "sprite_url",
-    "id"
+    "id",
+    "fade"
   ],
   "actor": [
     "id",
@@ -634,7 +635,7 @@ export const GROUPS = [
     "rows": [
       [
         "bg",
-        "sprite_url, id"
+        "sprite_url, id, fade"
       ],
       [
         "actor",

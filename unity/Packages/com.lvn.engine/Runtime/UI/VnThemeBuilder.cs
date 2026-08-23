@@ -36,6 +36,8 @@ namespace Lvn.UI
                 if (stg.object_enter != null) t.ObjectEnter = stg.object_enter;
                 if (stg.object_exit != null) t.ObjectExit = stg.object_exit;
                 if (stg.object_transition.HasValue) t.ObjectTransition = Mathf.Max(0f, stg.object_transition.Value);
+                if (stg.bg_fade.HasValue) t.BgCrossfadeSeconds = Mathf.Max(0f, stg.bg_fade.Value);
+                if (stg.long_press.HasValue) t.LongPressArtView = stg.long_press.Value;
             }
 
             var d = ui.dialogue;
