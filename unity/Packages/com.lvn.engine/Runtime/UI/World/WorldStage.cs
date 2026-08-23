@@ -282,7 +282,10 @@ namespace Lvn.UI.World
                 foreach (var prop in cmd.Properties())
                     merged[prop.Name] = prop.Value;
             else
+            {
                 _pendingSfx[id] = (JObject)cmd.DeepClone();
+                Debug.Log($"[lvn-sfx] {id}: актёра ещё нет — эффект ждёт рождения");
+            }
             return true;
         }
 
@@ -311,6 +314,7 @@ namespace Lvn.UI.World
             {
                 _pendingSfx.Remove(id);
                 LvnSpriteFxDriver.Apply(go, queued);
+                Debug.Log($"[lvn-sfx] {id}: эффект дождался рождения актёра — доставлен");
             }
             return a;
         }
@@ -393,7 +397,12 @@ namespace Lvn.UI.World
             else if (fadeIn)
             {
                 a.gameObject.SetActive(true);
-                a.BeginTransitionVisual();
+                bool viaComposite = a.BeginTransitionVisual();
+                // След пути перехода: полдня охоты на «вспышку» стоило именно
+                // незнание, композитом герой гаснет или живыми слоями.
+                Debug.Log($"[lvn-actor] {id}: вход {p.EnterTransition} {dur:0.00}s — "
+                    + (viaComposite ? "композит" : "живые слои")
+                    + (LvnSpriteFxDriver.WearsAuthoredFx(a.gameObject) ? " (sfx надет)" : ""));
                 if (p.EnterTransition == TransitionType.Drift)
                 {
                     // Кинематографичный вход: правый персонаж въезжает справа,
@@ -412,7 +421,10 @@ namespace Lvn.UI.World
             }
             else if (fadeOut)
             {
-                a.BeginTransitionVisual();
+                bool viaComposite = a.BeginTransitionVisual();
+                Debug.Log($"[lvn-actor] {id}: уход {p.ExitTransition} {dur:0.00}s — "
+                    + (viaComposite ? "композит" : "живые слои")
+                    + (LvnSpriteFxDriver.WearsAuthoredFx(a.gameObject) ? " (sfx надет)" : ""));
                 // Уходящий остаётся видимым, пока идёт переход, и прячется его
                 // хвостом. Спрятать сразу — значит не показать сам уход.
                 if (p.ExitTransition == TransitionType.Drift)

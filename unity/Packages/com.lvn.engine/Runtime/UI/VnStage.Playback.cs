@@ -187,7 +187,15 @@ namespace Lvn.UI
         public void Play(string lvnJson, bool warmIntroSpine = true)
         {
             var doc = LvnDocument.Parse(lvnJson);
-            LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0) + " cmds) ════");
+            // Хеш текста скрипта: по нему видно, ТА ЛИ ревизия главы играет —
+            // без него живые правки контента не отличить от кэша в логе.
+            string scriptHash;
+            using (var sha = System.Security.Cryptography.SHA1.Create())
+                scriptHash = System.BitConverter.ToString(
+                    sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(lvnJson ?? "")))
+                    .Replace("-", "").Substring(0, 8).ToLowerInvariant();
+            LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0)
+                + " cmds, скрипт " + scriptHash + ") ════");
             ExitRequested = false; // a fresh chapter is a fresh run
             _entryGateArmed = true; // the first say defers to the entry choreography
             _cast = SpriteComposer.ParseCast(doc.Cast);

@@ -68,8 +68,19 @@ namespace Lvn.Content
             string v;
             try { v = ParseVersion(await _loader.DownloadScriptText(_versionPath, ct, singleAttempt: true)); }
             catch { return false; }
-            return AdvanceVersion(ref _lastVersion, v, NotifyOnFirstPoll);
+            var prev = _lastVersion;
+            bool changed = AdvanceVersion(ref _lastVersion, v, NotifyOnFirstPoll);
+            // Диагностический след: без него «а тот ли контент играет?» каждый
+            // раз выясняется руками через curl к /v1/content/version.
+            if (prev == null && _lastVersion != null)
+                UnityEngine.Debug.Log($"[lvn-sync] контент: базовая версия {Short(_lastVersion)}");
+            else if (changed)
+                UnityEngine.Debug.Log($"[lvn-sync] контент: {Short(prev)} → {Short(_lastVersion)}");
+            return changed;
         }
+
+        private static string Short(string v)
+            => string.IsNullOrEmpty(v) ? "-" : v.Substring(0, Math.Min(8, v.Length));
 
         /// <summary>Pure version-state transition, exposed internally for tests.</summary>
         internal static bool AdvanceVersion(ref string lastVersion, string version, bool notifyOnFirst)
