@@ -195,12 +195,9 @@ namespace Lvn.UI
         }
 
         public bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd)
-        {
-            var actor = _scene.ActorFor(id);
-            if (actor == null) return false;
-            World.LvnSpriteFxDriver.Apply(actor.gameObject, cmd);
-            return true;
-        }
+            // Живому актёру — сразу; ещё строящемуся — в очередь до рождения
+            // (раньше эффект молча терялся, и герой вспыхивал без силуэта).
+            => _scene.ApplySpriteFx(id, cmd);
 
         public void Teardown() => _scene.Dispose(); // the canvas GO survives the panel — destroy it
     }

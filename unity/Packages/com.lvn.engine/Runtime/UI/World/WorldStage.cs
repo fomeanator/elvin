@@ -252,6 +252,40 @@ namespace Lvn.UI.World
             return _reference;
         }
 
+        // СЦЕНАРНЫЙ ПОРЯДОК «actor герой…» и следом «sfx id=герой…» — одна
+        // пачка команд, а сам актёр строится асинхронно (арт качается). Эффект,
+        // пришедший до рождения слота, раньше просто ТЕРЯЛСЯ: герой выходил
+        // без своего тёмного силуэта/ауры и вспыхивал обычным артом, пока его
+        // не догонял следующий sfx. Теперь эффект ждёт рождения актёра.
+        private readonly Dictionary<string, JObject> _pendingSfx = new Dictionary<string, JObject>();
+
+        /// <summary>Спрайтовый эффект по id: живому актёру — сразу, ещё не
+        /// родившемуся — в очередь до рождения (поля докладываются поверх уже
+        /// ожидающих, как и положено липкому состоянию).</summary>
+        public bool ApplySpriteFx(string id, JObject cmd)
+        {
+            if (string.IsNullOrEmpty(id) || cmd == null) return false;
+            var live = ActorFor(id);
+            if (live != null)
+            {
+                LvnSpriteFxDriver.Apply(live.gameObject, cmd);
+                return true;
+            }
+            // Полный `off` отменяет и недоставленное — иначе снятый эффект
+            // «догнал» бы актёра из очереди.
+            if (cmd["off"] != null && string.IsNullOrEmpty((string)cmd["part"]))
+            {
+                _pendingSfx.Remove(id);
+                return true;
+            }
+            if (_pendingSfx.TryGetValue(id, out var merged) && merged != null)
+                foreach (var prop in cmd.Properties())
+                    merged[prop.Name] = prop.Value;
+            else
+                _pendingSfx[id] = (JObject)cmd.DeepClone();
+            return true;
+        }
+
         /// <summary>Get (or create) the <see cref="WorldActor"/> for an id.</summary>
         public WorldActor EnsureActor(string id)
         {
@@ -270,6 +304,14 @@ namespace Lvn.UI.World
             _actors[id] = a;
             _slotGroups[id] = go.GetComponent<CanvasGroup>();
             _baseOpacity[id] = 1f;
+            // Эффект, заказанный до рождения, доставляется прямо сейчас: слоёв
+            // ещё нет, но состояние драйвера липкое — Configure оденет их
+            // готовыми (см. Reskin), без единого кадра «светлой вспышки».
+            if (_pendingSfx.TryGetValue(id, out var queued))
+            {
+                _pendingSfx.Remove(id);
+                LvnSpriteFxDriver.Apply(go, queued);
+            }
             return a;
         }
 
