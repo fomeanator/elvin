@@ -111,6 +111,18 @@ namespace Lvn.UI.World
             var d = target.GetComponent<LvnSpriteFxDriver>() ?? target.AddComponent<LvnSpriteFxDriver>();
             d._scopedPart = target != actorGo;
             d.ApplyCmd(cmd);
+
+            // «actor …» и «sfx …» идут в сценарии подряд, и переход стартует
+            // на команду РАНЬШЕ эффекта: гард в BeginTransitionVisual ещё не
+            // видит sfx и честно уходит в композит, который рисует сырые слои.
+            // Эффект, применённый сейчас, одел спрятанный риг — вернём его на
+            // сцену, прокси в отставку; фейд перехода продолжается группой.
+            if (d.AnyAuthoredFxActive())
+            {
+                var worldActor = actorGo.GetComponentInParent<WorldActor>()
+                                 ?? actorGo.GetComponent<WorldActor>();
+                worldActor?.DropCompositeForFx();
+            }
         }
 
         /// <summary>
