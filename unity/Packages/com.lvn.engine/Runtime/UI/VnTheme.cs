@@ -247,5 +247,7 @@ namespace Lvn.UI
         /// how a Russian novel gets «Сохранить» instead of "Save". Null/missing
         /// keys fall back to the engine's English defaults.</summary>
         [HideInInspector] public System.Collections.Generic.Dictionary<string, string> MenuLabels;
+        // Спрятанные пункты квик-меню (ui.menu.hide) — по стабильным ключам.
+        [HideInInspector] public System.Collections.Generic.List<string> MenuHidden;
     }
 }

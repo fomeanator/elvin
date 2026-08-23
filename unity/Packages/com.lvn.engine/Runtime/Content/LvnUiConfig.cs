@@ -282,6 +282,13 @@ namespace Lvn.Content
         public List<string> stats_show;
         public List<string> stats_hide;
 
+        /// <summary>Пункты квик-меню, которых у этой игры НЕТ, по стабильным
+        /// ключам: quick_save, save, load, history, auto, skip, settings,
+        /// stats, gallery. Продукт с автосейвом и линейным чтением прячет
+        /// ручные сейвы и историю целиком — данными, не форком оболочки.
+        /// exit/close не прячутся никогда: из главы должен быть выход.</summary>
+        public List<string> hide;
+
         /// <summary>Text overrides for every chrome string, keyed by a stable id —
         /// the localization hook ("save" → "Сохранить"). Known keys: save, load,
         /// quick_save, history, auto, skip, settings, gallery, stats, exit, close, autosave, slot,
