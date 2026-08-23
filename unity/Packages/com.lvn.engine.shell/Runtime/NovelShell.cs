@@ -333,9 +333,11 @@ namespace Lvn.UI.Screens
                 {
                     LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
                     if (!HudChoicesOnly) Show(Hud); // "choices" mode: the stage event shows it
+                    OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
                     try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }
                     catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
+                    OnChapterSessionEnd?.Invoke();   // вернулись в меню — и его звук тоже
                     Hide(Hud);
                 }
                 // Вводная считается пройденной, когда доиграна до конца: бросил
@@ -353,6 +355,12 @@ namespace Lvn.UI.Screens
         /// <summary>Вводная новелла, которую ещё не прошли, или null. Новелла
         /// объявляет себя вводной полем <c>type: "intro"</c> в манифесте — как и
         /// всякий другой вид новеллы, данными, а не кодом оболочки.</summary>
+        /// <summary>Сессия главы началась/кончилась — для всего, что живёт
+        /// ТОЛЬКО вне новеллы (музыка меню и т.п.): хост глушит на старте и
+        /// возвращает по выходу в меню.</summary>
+        public Action OnChapterSessionStart;
+        public Action OnChapterSessionEnd;
+
         private LvnTitle PendingIntroTitle()
         {
             if (Lvn.UI.LvnPrefs.IntroDone)

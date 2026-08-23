@@ -457,6 +457,21 @@ namespace Lvn.UI.Screens
                 _sync.Start();
             }
 
+            // МУЗЫКА МЕНЮ (ui.browse.music): играет везде, кроме самой новеллы.
+            // Глушится хуками сессии главы — воронка, стартующая с порога,
+            // музыку меню не услышит вовсе, и это правильно.
+            var menuTrack = manifest.ui?.browse?.music;
+            if (!string.IsNullOrEmpty(menuTrack))
+            {
+                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); };
+                _shell.OnChapterSessionEnd += () =>
+                {
+                    _chapterPlaying = false;
+                    if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
+                };
+                LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
+            }
+
             // Hub browse flow (ui.browse.layout = "hub"): unlock conditions read the
             // player's global stat flags; Play charges the title's entry cost; a
             // locked card explains itself with a popup.
@@ -954,6 +969,32 @@ namespace Lvn.UI.Screens
             }
             catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается */ }
             finally { ctx.Resume(); }
+        }
+
+        // ── музыка меню (ui.browse.music) ────────────────────────────────────
+        private AudioSource _menuMusic;
+        private bool _chapterPlaying;
+
+        private async Task StartMenuMusicAsync(string url)
+        {
+            try
+            {
+                var clip = await _assets.Loader.DownloadAudioClipAsync(url, destroyCancellationToken);
+                if (clip == null) return;
+                _menuMusic = gameObject.AddComponent<AudioSource>();
+                _menuMusic.clip = clip;
+                _menuMusic.loop = true;
+                _menuMusic.playOnAwake = false;
+                _menuMusic.volume = Lvn.UI.LvnPrefs.VolMusic; // ползунок «Музыка» ведёт и меню
+                Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume;
+                if (!_chapterPlaying) _menuMusic.Play();
+            }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] музыка меню: {ex.Message}"); }
+        }
+
+        private void SyncMenuMusicVolume()
+        {
+            if (_menuMusic != null) _menuMusic.volume = Lvn.UI.LvnPrefs.VolMusic;
         }
 
         // Системный запрос разрешения на уведомления, вызванный сценой

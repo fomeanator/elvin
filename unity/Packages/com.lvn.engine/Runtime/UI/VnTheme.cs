@@ -255,5 +255,7 @@ namespace Lvn.UI
         [HideInInspector] public System.Collections.Generic.Dictionary<string, string> MenuLabels;
         // Спрятанные пункты квик-меню (ui.menu.hide) — по стабильным ключам.
         [HideInInspector] public System.Collections.Generic.List<string> MenuHidden;
+        // Тап по строке истории отматывает главу (ui.menu.history_jump).
+        [HideInInspector] public bool MenuHistoryJump = true;
     }
 }
