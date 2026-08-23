@@ -459,7 +459,19 @@ namespace Lvn.Content
             return Lookup(map, url);
         }
 
-        internal static string Lookup(Dictionary<string, string> map, string url)
+        // Version for INTEGRITY checks: exact index entries only. A derived
+        // variant inherits its source's version (see Lookup) — right for cache
+        // keys and ?v= busting, fatally wrong for integrity: an encode's bytes
+        // never hash to the source image's sha256, so checking them against it
+        // refetches the file forever.
+        private string IntegrityVersionFor(string url)
+        {
+            Dictionary<string, string> map;
+            lock (_versionsLock) map = _versions;
+            return Lookup(map, url, allowDerived: false);
+        }
+
+        internal static string Lookup(Dictionary<string, string> map, string url, bool allowDerived = true)
         {
             if (string.IsNullOrEmpty(url) || map == null || map.Count == 0) return null;
             var path = url;
@@ -479,8 +491,9 @@ namespace Lvn.Content
             // and the encode of a photo the author has since replaced would be
             // served from cache forever (live-hit: the heroine stayed a blurry
             // thumbnail through three art replacements).
-            foreach (var candidate in SourceCandidates(afterContent))
-                if (map.TryGetValue(candidate, out var sv)) return sv;
+            if (allowDerived)
+                foreach (var candidate in SourceCandidates(afterContent))
+                    if (map.TryGetValue(candidate, out var sv)) return sv;
             return null;
         }
 
@@ -1166,8 +1179,10 @@ namespace Lvn.Content
 
                         body = await fetchTask;
                         // Same integrity rule as DownloadBytes: never cache bytes
-                        // that don't match the version index's sha256.
-                        var expect = VersionFor(asset.Url);
+                        // that don't match the version index's sha256. Exact
+                        // entries only — a derived variant's inherited version
+                        // describes its SOURCE, not these bytes.
+                        var expect = IntegrityVersionFor(asset.Url);
                         if (body != null && expect != null && !Sha256Matches(body, expect))
                             throw new LvnFetchException(0, "integrity",
                                 "sha256 mismatch for " + asset.Url + " — refetching");
@@ -1467,7 +1482,9 @@ namespace Lvn.Content
                         // A torn resume (server changed the file between two Range
                         // requests) would otherwise cache spliced bytes as valid
                         // forever. Mismatch → drop the .part and refetch clean.
-                        var expect = VersionFor(url);
+                        // Exact entries only — a derived variant's inherited
+                        // version describes its SOURCE, not these bytes.
+                        var expect = IntegrityVersionFor(url);
                         if (expect != null && !Sha256Matches(bytes, expect))
                         {
                             LvnQuiet.Try(() => File.Delete(partPath));
