@@ -377,6 +377,18 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(AuthFromScriptAsync(ctx), "AuthFromScript");
             });
 
+            // РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ — ТОЖЕ ШАГОМ ИСТОРИИ. Системный диалог
+            // конвертирует, когда у игрока есть мотив сказать «да»; сцена
+            // подводит к нему (персонаж предлагает «оставаться на связи») и
+            // зовёт `ext push_ask` ровно в этот момент. Уже выданное разрешение
+            // не переспрашивается; платформа без запроса — тихий no-op, история
+            // продолжается в любом случае.
+            Lvn.LvnOps.Register("push_ask", (cmd, ctx) =>
+            {
+                ctx.Hold();
+                LvnAsync.Fire(PushAskFromScriptAsync(ctx), "PushAskFromScript");
+            });
+
             // The app-level settings screen: `ext settings_show` for scripts, and
             // an opt-in quick-menu entry (default OFF — the quick menu already has
             // its own in-game playback settings; set ui.settings.show_menu_item to
@@ -935,6 +947,44 @@ namespace Lvn.UI.Screens
                 }
             }
             catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается */ }
+            finally { ctx.Resume(); }
+        }
+
+        // Системный запрос разрешения на уведомления, вызванный сценой
+        // (`ext push_ask`). История ждёт ровно столько, сколько открыт
+        // платформенный диалог, и продолжается при ЛЮБОМ ответе — сцена
+        // не должна знать, согласился игрок или нет (спросить дважды всё
+        // равно нельзя, а наказание отказавшему читалось бы как вымогание).
+        private async Task PushAskFromScriptAsync(Lvn.ILvnOpContext ctx)
+        {
+            try
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                // Android 13+: POST_NOTIFICATIONS — рантайм-разрешение. На более
+                // старых версиях его нет в системе — Request тихо не делает ничего,
+                // а уведомления и так разрешены по умолчанию.
+                const string perm = "android.permission.POST_NOTIFICATIONS";
+                if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(perm))
+                {
+                    bool done = false;
+                    var cb = new UnityEngine.Android.PermissionCallbacks();
+                    cb.PermissionGranted += _ => done = true;
+                    cb.PermissionDenied += _ => done = true;
+                    UnityEngine.Android.Permission.RequestUserPermission(perm, cb);
+                    // Страховка от платформ, где колбэк не приходит: ждём ответ,
+                    // но не дольше минуты — история важнее диалога.
+                    float deadline = Time.realtimeSinceStartup + 60f;
+                    while (!done && Time.realtimeSinceStartup < deadline)
+                        await Task.Yield();
+                }
+#else
+                // iOS требует пакет Mobile Notifications — подключим, когда
+                // появится iOS-сборка; в редакторе и на десктопе просить нечего.
+                Debug.Log("[novelapp] push_ask: платформа без запроса — пропускаю");
+                await Task.CompletedTask;
+#endif
+            }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] push_ask: {ex.Message}"); }
             finally { ctx.Resume(); }
         }
 
