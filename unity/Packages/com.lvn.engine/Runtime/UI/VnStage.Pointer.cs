@@ -81,13 +81,19 @@ namespace Lvn.UI
             _dragCandidate = DraggableAt(evt.position);
 
             _longPress?.Pause();
-            _longPress = _uiRoot?.schedule.Execute(() =>
+            // Режим разглядывания арта по долгому нажатию — отключаемая часть
+            // темы (ui.stage.long_press=false): продукт, где игроки жмут его
+            // случайно и «теряют интерфейс», выключает жест данными.
+            if (Theme?.LongPressArtView ?? true)
             {
-                if (!_pressTracking || _dragId != null) return;
-                _suppressTap = true;      // this press is an art view, not a tap
-                SetChromeHidden(true);
-            });
-            _longPress?.ExecuteLater(LongPressMs);
+                _longPress = _uiRoot?.schedule.Execute(() =>
+                {
+                    if (!_pressTracking || _dragId != null) return;
+                    _suppressTap = true;      // this press is an art view, not a tap
+                    SetChromeHidden(true);
+                });
+                _longPress?.ExecuteLater(LongPressMs);
+            }
         }
 
         private void OnPointerMove(PointerMoveEvent evt)

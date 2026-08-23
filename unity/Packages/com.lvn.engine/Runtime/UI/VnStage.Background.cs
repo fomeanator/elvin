@@ -113,7 +113,11 @@ namespace Lvn.UI
                 () => StageCurrent(epoch) && _bgGen == gen);
             if (sprite == null) return;
             if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
-            _renderer?.SetBackground(sprite);
+            // Смена фона растворяет прежний кадр (тема ui.stage.bg_fade;
+            // авторское `fade=` на команде сильнее). Первый фон сцены проходит
+            // мгновенно — под ним ещё занавес входа.
+            float bgFade = NumOr(cmd["fade"], Theme?.BgCrossfadeSeconds ?? 0.35f);
+            _renderer?.SetBackground(sprite, bgFade);
             ReleaseActive3DSet();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }

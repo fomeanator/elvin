@@ -31,14 +31,50 @@ namespace Lvn.UI.World
 
         public RectTransform Transform => _rt;
 
-        public void SetSprite(Sprite sprite)
+        // Снимок ПРЕЖНЕГО кадра, растворяющийся над новым: смена фона резким
+        // свопом читалась как склейка («фоны меняются просто резко» — партнёр).
+        private RawImage _cross;
+        private CanvasGroup _crossGroup;
+
+        public void SetSprite(Sprite sprite) => SetSprite(sprite, 0f);
+
+        public void SetSprite(Sprite sprite, float crossfadeSeconds)
         {
             if (sprite == null) return;
+            bool hadArt = _image.texture != null && _tilePx <= 0f;
+            bool differs = _image.texture != sprite.texture;
+            if (crossfadeSeconds > 0.01f && hadArt && differs)
+                BeginCrossfade(crossfadeSeconds);
             _tile = null; _tilePx = 0f;
             _tex = sprite.texture;
             _image.texture = _tex;
             _image.color = Color.white;
             UpdateCover();
+        }
+
+        private void BeginCrossfade(float seconds)
+        {
+            if (_cross == null)
+            {
+                var go = new GameObject("bg-cross", typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(RawImage), typeof(CanvasGroup));
+                var rt = (RectTransform)go.transform;
+                rt.SetParent(_rt.parent, false);
+                // Ровно над фоном и ПОД актёрами: старый кадр — часть фона.
+                rt.SetSiblingIndex(_rt.GetSiblingIndex() + 1);
+                Stretch(rt);
+                _cross = go.GetComponent<RawImage>();
+                _cross.raycastTarget = false;
+                _crossGroup = go.GetComponent<CanvasGroup>();
+            }
+            _cross.texture = _image.texture;
+            _cross.uvRect = _image.uvRect;
+            _cross.color = _image.color;
+            _cross.gameObject.SetActive(true);
+            _crossGroup.alpha = 1f;
+            var go2 = _cross.gameObject;
+            LvnFade.Play(_crossGroup, 1f, 0f, seconds,
+                () => { if (go2 != null) go2.SetActive(false); });
         }
 
         public void SetColor(Color color)

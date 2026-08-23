@@ -142,10 +142,12 @@ namespace Lvn.UI.World
         }
 
         // ── background ───────────────────────────────────────────────────────
-        public void SetBackgroundSprite(Sprite sprite)
+        public void SetBackgroundSprite(Sprite sprite) => SetBackgroundSprite(sprite, 0f);
+
+        public void SetBackgroundSprite(Sprite sprite, float crossfadeSeconds)
         {
             Set3DBackdrop(null); // a painted background replaces a live set
-            _bg.SetSprite(sprite);
+            _bg.SetSprite(sprite, crossfadeSeconds);
         }
         public void SetBackgroundColor(Color color)
         {

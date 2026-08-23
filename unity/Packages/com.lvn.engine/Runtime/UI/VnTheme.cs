@@ -132,6 +132,12 @@ namespace Lvn.UI
         public string ActorExit = "fade";
         [Tooltip("Default actor transition duration in seconds.")]
         public float ActorTransition = 0.35f;
+        // Смена фона: прежний кадр растворяется над новым (резкий своп читался
+        // как склейка). 0 — прежнее поведение, мгновенно.
+        [Tooltip("Background crossfade on change, seconds (0 = hard cut).")]
+        public float BgCrossfadeSeconds = 0.35f;
+        [Tooltip("Long-press art view gesture (hide UI while held). ui.stage.long_press.")]
+        public bool LongPressArtView = true;
         [Tooltip("Default obj entrance when the command has no enter=.")]
         public string ObjectEnter = "fade";
         [Tooltip("Default obj exit when the command has no exit=.")]
