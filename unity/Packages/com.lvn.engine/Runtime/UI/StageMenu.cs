@@ -227,32 +227,44 @@ namespace Lvn.UI
             sheet.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(sheet);
 
-            sheet.Add(Item(L("quick_save", "Quick save"), () =>
-            {
-                _stage.SaveToSlot(QuickSlot);
-                Close();
-            }));
-            sheet.Add(Item(L("save", "Save"), () => ShowSlots(saveMode: true)));
-            sheet.Add(Item(L("load", "Load"), () => ShowSlots(saveMode: false)));
-            sheet.Add(Item(L("history", "History"), ShowHistory));
-            sheet.Add(Item(LvnPrefs.AutoAdvance ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
-            {
-                LvnPrefs.AutoAdvance = !LvnPrefs.AutoAdvance;
-                Close(); // hands-free mode starts/stops right away
-            }));
-            sheet.Add(Item(L("skip", "Skip"), () =>
-            {
-                Close();
-                _stage.StartSkip(); // fast-forward until a choice or a tap
-            }));
-            sheet.Add(Item(L("settings", "Settings"), ShowSettings));
+            // Продукт объявляет, чего в его меню НЕТ (ui.menu.hide): автосейвная
+            // игра прячет ручные сейвы и историю данными, а не форком оболочки.
+            bool Hidden(string key)
+                => _theme.MenuHidden != null && _theme.MenuHidden.Contains(key);
+
+            if (!Hidden("quick_save"))
+                sheet.Add(Item(L("quick_save", "Quick save"), () =>
+                {
+                    _stage.SaveToSlot(QuickSlot);
+                    Close();
+                }));
+            if (!Hidden("save"))
+                sheet.Add(Item(L("save", "Save"), () => ShowSlots(saveMode: true)));
+            if (!Hidden("load"))
+                sheet.Add(Item(L("load", "Load"), () => ShowSlots(saveMode: false)));
+            if (!Hidden("history"))
+                sheet.Add(Item(L("history", "History"), ShowHistory));
+            if (!Hidden("auto"))
+                sheet.Add(Item(LvnPrefs.AutoAdvance ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
+                {
+                    LvnPrefs.AutoAdvance = !LvnPrefs.AutoAdvance;
+                    Close(); // hands-free mode starts/stops right away
+                }));
+            if (!Hidden("skip"))
+                sheet.Add(Item(L("skip", "Skip"), () =>
+                {
+                    Close();
+                    _stage.StartSkip(); // fast-forward until a choice or a tap
+                }));
+            if (!Hidden("settings"))
+                sheet.Add(Item(L("settings", "Settings"), ShowSettings));
             // Live story variables — the player's stats. Only when the running
             // story actually has some, so stat-less novels never show a dead entry.
-            if (_theme.MenuShowStats && _stage.Player != null && _stage.Player.Vars.Count > 0)
+            if (!Hidden("stats") && _theme.MenuShowStats && _stage.Player != null && _stage.Player.Vars.Count > 0)
                 sheet.Add(Item(L("stats", "Stats"), ShowStats));
             // The CG gallery — only when the title curates one (manifest
             // title.gallery), so novels without CGs never show a dead entry.
-            if (_stage.Gallery != null && _stage.Gallery.Count > 0)
+            if (!Hidden("gallery") && _stage.Gallery != null && _stage.Gallery.Count > 0)
                 sheet.Add(Item(L("gallery", "Gallery"), ShowGallery));
             // Host-registered items (achievements, gallery, a debug screen…) —
             // the embedding game's own entries, between Settings and Exit.
