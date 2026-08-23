@@ -77,6 +77,24 @@ func (d *downscaler) lockFor(path string) *sync.Mutex {
 	return m
 }
 
+// sourceNewer reports whether src is strictly newer on disk than derived —
+// the derived artifact (an @2k downscale, a .ktx2/.astc transcode) then shows
+// YESTERDAY'S art and must be regenerated. "Cache to disk forever" broke the
+// moment art became replaceable: an author drops a hi-res photo over the old
+// file, the version index re-keys the client's cache, the client re-downloads
+// the variant — and got the encode of the file that no longer exists.
+func sourceNewer(src, derived string) bool {
+	si, err := os.Stat(src)
+	if err != nil {
+		return false
+	}
+	di, err := os.Stat(derived)
+	if err != nil {
+		return true // derived missing — as stale as it gets
+	}
+	return si.ModTime().After(di.ModTime())
+}
+
 // variantSource maps a variant path back to its source: "X@2k.png" → "X.png".
 // Returns "" for a path that isn't a variant request at all.
 func variantSource(variantPath string) string {
@@ -258,8 +276,8 @@ func (s *server) withDownscale(d *downscaler, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if fileExists(variantPath) {
-			next.ServeHTTP(w, r) // already generated — plain file-serve hit
+		if fileExists(variantPath) && !sourceNewer(srcRel, variantPath) {
+			next.ServeHTTP(w, r) // already generated and still fresh — plain file-serve hit
 			return
 		}
 		if !fileExists(srcRel) {
@@ -270,13 +288,18 @@ func (s *server) withDownscale(d *downscaler, next http.Handler) http.Handler {
 		lock := d.lockFor(variantPath)
 		lock.Lock()
 		defer lock.Unlock()
-		if !fileExists(variantPath) { // re-check: a queued sibling request may have just finished it
+		// Re-check under the lock: a queued sibling request may have just
+		// regenerated it (freshness included — generate rewrites atomically).
+		if !fileExists(variantPath) || sourceNewer(srcRel, variantPath) {
 			heavyGen <- struct{}{}
 			err := d.generate(srcRel, variantPath)
 			<-heavyGen
 			switch err {
 			case nil:
 			case errFitsAlready:
+				// The replaced source fits the box itself now — a variant file
+				// left from its bigger predecessor would shadow it forever.
+				_ = os.Remove(variantPath)
 				http.ServeFile(w, r, srcRel) // small enough already — the source IS the variant
 				return
 			default:
