@@ -459,7 +459,7 @@ namespace Lvn.Content
             return Lookup(map, url);
         }
 
-        private static string Lookup(Dictionary<string, string> map, string url)
+        internal static string Lookup(Dictionary<string, string> map, string url)
         {
             if (string.IsNullOrEmpty(url) || map == null || map.Count == 0) return null;
             var path = url;
@@ -471,7 +471,38 @@ namespace Lvn.Content
             var afterContent = p.StartsWith("content/") ? p.Substring("content/".Length) : p;
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
+            // Derived display variants ("X@2k.png" downscales, "X.ktx2"/"X.astc"
+            // transcodes) are deliberately absent from the index: they appear on
+            // the server lazily and versioning them made first visits reload
+            // chapters mid-play. They must inherit the version OF THE SOURCE
+            // IMAGE instead — a versionless variant gets a permanent cache key,
+            // and the encode of a photo the author has since replaced would be
+            // served from cache forever (live-hit: the heroine stayed a blurry
+            // thumbnail through three art replacements).
+            foreach (var candidate in SourceCandidates(afterContent))
+                if (map.TryGetValue(candidate, out var sv)) return sv;
             return null;
+        }
+
+        /// <summary>Index paths a derived variant may have been produced from,
+        /// in probe order. Empty for a path that isn't a variant. Pure —
+        /// internal for tests.</summary>
+        internal static IEnumerable<string> SourceCandidates(string path)
+        {
+            int dot = path.LastIndexOf('.');
+            if (dot <= 0) yield break;
+            var ext = path.Substring(dot).ToLowerInvariant();
+            var stem = path.Substring(0, dot);
+            bool transcoded = ext == ".ktx2" || ext == ".astc";
+            bool downscaled = stem.EndsWith("@2k", StringComparison.Ordinal);
+            if (!transcoded && !downscaled) yield break;
+            if (downscaled) stem = stem.Substring(0, stem.Length - "@2k".Length);
+            if (!transcoded) { yield return stem + ext; yield break; }
+            // A transcode hides the source's extension — try the same set the
+            // server's encoder probes (server/astc.go sourceExts).
+            yield return stem + ".png";
+            yield return stem + ".jpg";
+            yield return stem + ".jpeg";
         }
 
         // When the version index changes (a live content update), any in-memory sprite

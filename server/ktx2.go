@@ -101,7 +101,7 @@ func (t *ktx2Transcoder) worker() {
 				delete(t.pending, ktx2Path)
 				t.mu.Unlock()
 			}()
-			if fileExists(ktx2Path) {
+			if fileExists(ktx2Path) && !ktx2Stale(ktx2Path) {
 				return
 			}
 			src := ensureKtx2Source(t.d, ktx2Path)
@@ -137,10 +137,15 @@ func ensureKtx2Source(d *downscaler, ktx2Path string) string {
 	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
 	for _, ext := range sourceExts {
 		if p := base + ext; fileExists(p) {
+			// An on-disk @2k.png older than its original is yesterday's art —
+			// skip to the materialization loop below, which regenerates it.
+			if src := variantSource(p); src != "" && fileExists(src) && sourceNewer(src, p) {
+				break
+			}
 			return p
 		}
 	}
-	// Not on disk — maybe it's a not-yet-generated downscale variant.
+	// Not on disk (or stale) — a downscale variant to (re)generate.
 	for _, ext := range sourceExts {
 		variant := base + ext
 		src := variantSource(variant)
@@ -150,7 +155,7 @@ func ensureKtx2Source(d *downscaler, ktx2Path string) string {
 		lock := d.lockFor(variant)
 		lock.Lock()
 		err := error(nil)
-		if !fileExists(variant) {
+		if !fileExists(variant) || sourceNewer(src, variant) {
 			heavyGen <- struct{}{}
 			err = d.generate(src, variant)
 			<-heavyGen
@@ -221,6 +226,25 @@ func hasKtx2Source(ktx2Path string) bool {
 	return false
 }
 
+// ktx2Stale reports whether an encoded ktx2 is older than the image it
+// derives from. BOTH layers count: the sibling encode source ("X@2k.png" for
+// "X@2k.ktx2") and, for variant names, the ORIGINAL behind it ("X.png") —
+// replacing the original makes the whole chain stale even while the
+// intermediate @2k.png still sits on disk untouched.
+func ktx2Stale(ktx2Path string) bool {
+	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
+	for _, ext := range sourceExts {
+		p := base + ext
+		if fileExists(p) && sourceNewer(p, ktx2Path) {
+			return true
+		}
+		if src := variantSource(p); src != "" && fileExists(src) && sourceNewer(src, ktx2Path) {
+			return true
+		}
+	}
+	return false
+}
+
 // withKTX2 wraps the content handler: a ".ktx2" request whose encode is
 // already cached serves as a plain file; a cold miss answers 404 IMMEDIATELY
 // (the client's loader falls back to its PNG/JPG path, exactly as fast as a
@@ -241,8 +265,16 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 			return
 		}
 		if fileExists(ktx2Path) {
-			next.ServeHTTP(w, r) // already encoded — plain file-serve hit
-			return
+			if !ktx2Stale(ktx2Path) {
+				next.ServeHTTP(w, r) // already encoded and still fresh — plain file-serve hit
+				return
+			}
+			// The source image was replaced after this encode — serving it
+			// would show yesterday's art under today's cache key. Drop it so
+			// the static handler can't pick it up and fall through to the
+			// 404-now/re-encode-behind path: THIS request gets the fresh
+			// PNG/JPG fallback, the next session gets the fresh ktx2.
+			_ = os.Remove(ktx2Path)
 		}
 		if t.bin() != "" && hasKtx2Source(ktx2Path) {
 			t.enqueue(ktx2Path) // warm for the future; never block this request

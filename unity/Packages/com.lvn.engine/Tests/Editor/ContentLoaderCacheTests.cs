@@ -45,6 +45,66 @@ namespace Lvn.Tests
             CollectionAssert.AreEqual(new[] { "old-a", "old-b" }, evict);
         }
 
+        /// <summary>
+        /// ВЕРСИЯ ПРОИЗВОДНОГО ФАЙЛА — ЭТО ВЕРСИЯ ЕГО ИСХОДНИКА.
+        ///
+        /// <para>Индекс версий сознательно не содержит производных
+        /// (<c>@2k</c>-даунскейлы, <c>.ktx2</c>/<c>.astc</c>-перекодировки):
+        /// они появляются на сервере лениво, и их версия ломала бы игрокам
+        /// главы посреди сцены. Но «нет версии» означало «вечный ключ кэша»:
+        /// автор заменяет фотографию, а клиент продолжает доставать из кэша
+        /// перекодировку СТАРОЙ — героиня пережила три замены арта, оставаясь
+        /// мыльной миниатюрой. Производный URL обязан наследовать версию
+        /// исходной картинки.</para>
+        /// </summary>
+        [Test]
+        public void Lookup_DerivedVariantInheritsTheSourceImageVersion()
+        {
+            var map = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["sprites/hero/dress.png"] = "sha-dress",
+                ["bg/city.jpg"] = "sha-city",
+            };
+            Assert.AreEqual("sha-dress",
+                ContentLoader.Lookup(map, "/content/sprites/hero/dress@2k.ktx2"),
+                "ktx2 от @2k-варианта должен версионироваться по исходному png");
+            Assert.AreEqual("sha-dress",
+                ContentLoader.Lookup(map, "/content/sprites/hero/dress@2k.png"),
+                "@2k-даунскейл должен версионироваться по исходному png");
+            Assert.AreEqual("sha-city",
+                ContentLoader.Lookup(map, "/content/bg/city@2k.ktx2"),
+                "исходник может быть и jpg — перебираются все расширения");
+            Assert.IsNull(ContentLoader.Lookup(map, "/content/bg/unknown@2k.png"),
+                "вариант без исходника в индексе остаётся без версии, как раньше");
+        }
+
+        /// <summary>Прямая запись в индексе (вдруг когда-то появится) сильнее
+        /// выведенной: точное знание побеждает эвристику.</summary>
+        [Test]
+        public void Lookup_ADirectIndexEntryStillWins()
+        {
+            var map = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["sprites/hero/dress.png"] = "sha-dress",
+                ["sprites/hero/dress@2k.ktx2"] = "sha-exact",
+            };
+            Assert.AreEqual("sha-exact",
+                ContentLoader.Lookup(map, "/content/sprites/hero/dress@2k.ktx2"));
+        }
+
+        [Test]
+        public void SourceCandidates_OnlyDerivedPathsProduceAny()
+        {
+            CollectionAssert.IsEmpty(
+                ContentLoader.SourceCandidates("sprites/hero/dress.png").ToList(),
+                "обычный png — не вариант, наследовать нечего");
+            CollectionAssert.AreEqual(new[] { "a/b.png" },
+                ContentLoader.SourceCandidates("a/b@2k.png").ToList());
+            CollectionAssert.AreEqual(new[] { "a/b.png", "a/b.jpg", "a/b.jpeg" },
+                ContentLoader.SourceCandidates("a/b@2k.ktx2").ToList(),
+                "перекодировка прячет расширение исходника — перебираем как сервер");
+        }
+
         [Test]
         public void PickEvictions_GraceProtectsRecentlyUsed()
         {
