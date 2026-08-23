@@ -1438,7 +1438,19 @@ namespace Lvn.UI.Screens
                 if (next != null)
                     LvnProgress.SetCurrent(title, next);
                 else
+                {
                     LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
+                    // ВОРОНКА ПРОЙДЕНА — ПРЯМО ЗДЕСЬ, ФАКТОМ ФИНАЛА. Ворота в
+                    // оболочке выводили это из reached/Current и на живом
+                    // устройстве промахивались — партнёр получил «пролог по
+                    // кругу» на чистой установке. Финал последней главы
+                    // вводной — единственный надёжный свидетель.
+                    if (string.Equals(title?.type, "intro", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Lvn.UI.LvnPrefs.IntroDone = true;
+                        Debug.Log("[lvn-intro] вводная доиграна до конца — витрина открыта");
+                    }
+                }
                 SyncProgressVault();
                 // Between-chapters screen (ui.chapter_end): "Конец главы" with
                 // continue/menu. Without it chapters flow seamlessly, as before.
