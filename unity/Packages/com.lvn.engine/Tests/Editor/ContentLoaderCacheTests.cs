@@ -92,6 +92,25 @@ namespace Lvn.Tests
                 ContentLoader.Lookup(map, "/content/sprites/hero/dress@2k.ktx2"));
         }
 
+        /// <summary>Целостность НИКОГДА не наследует версию: sha исходника
+        /// описывает исходник, а не байты перекодировки. На живом прогоне
+        /// унаследованная версия в проверке целостности зациклила клиент:
+        /// «sha256 mismatch → refetching» на каждом ktx2, бесконечно.</summary>
+        [Test]
+        public void Lookup_IntegrityModeNeverInheritsFromTheSource()
+        {
+            var map = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["sprites/hero/dress.png"] = "sha-dress",
+            };
+            Assert.IsNull(
+                ContentLoader.Lookup(map, "/content/sprites/hero/dress@2k.ktx2", allowDerived: false),
+                "проверка целостности с чужим sha перекачивала бы файл вечно");
+            Assert.AreEqual("sha-dress",
+                ContentLoader.Lookup(map, "/content/sprites/hero/dress.png", allowDerived: false),
+                "точная запись работает в обоих режимах");
+        }
+
         [Test]
         public void SourceCandidates_OnlyDerivedPathsProduceAny()
         {
