@@ -409,6 +409,7 @@ namespace Lvn.UI.World
                 {
                     d.Skin();
                     d.enabled = true; // мог сам себя выключить, когда снимал скин
+                    Debug.Log($"[lvn-sfx] {actorGo.name}: слои пересобраны — эффект надет заново ({d._skinned.Count} слоёв)");
                 }
         }
 

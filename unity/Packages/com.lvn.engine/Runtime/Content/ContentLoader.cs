@@ -847,7 +847,10 @@ namespace Lvn.Content
                 if (sw.ElapsedMilliseconds > 30)
                 {
                     long queueMs = offThread ? decodeQueueMs : 0;
-                    Debug.Log($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height})");
+                    // v= — sha исходника из индекса версий (8 знаков): сразу
+                    // видно, КАКАЯ ревизия картинки играет в кадре.
+                    var v = VersionFor(url);
+                    Debug.Log($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
                 }
                 return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
             }

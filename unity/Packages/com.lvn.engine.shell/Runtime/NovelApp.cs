@@ -598,6 +598,12 @@ namespace Lvn.UI.Screens
             // device never sits on a raw black screen while boot works.
             BootVeil.Show();
             Mark("veil up (first paint)");
+            // Штамп сборки: время последней компиляции каждой Lvn-сборки.
+            // Отвечает на вечный вопрос «а этот прогон вообще на новом коде?»
+            // без раскопок в Library/ScriptAssemblies.
+            Debug.Log(Lvn.LvnBuildStamp.Line(
+                typeof(Lvn.LvnPlayer), typeof(VnStage),
+                typeof(Lvn.Content.ContentLoader), typeof(NovelApp)));
             // Let the veil actually REACH the screen before any heavier boot
             // work (PSO load, probes): on slow devices frame 1's render was
             // getting starved and the first visible percent was already 30.
