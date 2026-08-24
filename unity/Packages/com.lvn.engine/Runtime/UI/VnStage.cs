@@ -195,6 +195,7 @@ namespace Lvn.UI
             ResolveFont();
             _panelHost = null; // died with the previous panel root — recreate lazily
             _dialogue = new DialogueBox(Theme);
+            _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
             SetSayVisible(_sayUp); // the empty skinned frame must not sit on a bare stage
             _choices = new ChoiceList(Theme);
             _fx = new FxLayer();
@@ -349,6 +350,7 @@ namespace Lvn.UI
 
             ResolveFont();
             _dialogue = new DialogueBox(Theme);
+            _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             SetSayVisible(_sayUp); // a re-theme between lines must not reveal the empty frame
             _choices = new ChoiceList(Theme);
@@ -421,15 +423,24 @@ namespace Lvn.UI
             }
             if (_sndClick == null) await Clip(Theme.ClickSoundUrl, c => _sndClick = c);
             if (_sndChoice == null) await Clip(Theme.ChoiceSoundUrl, c => _sndChoice = c);
+            if (_sndType == null) await Clip(Theme.TypeSoundUrl, c => _sndType = c);
         }
 
-        // ЗВУК ОТКЛИКА НА ДЕЙСТВИЕ ИГРОКА — единственное, что осталось от
-        // прежнего набора. Блип побуквенного проявления ушёл вместе с самим
-        // проявлением: строка ставится целиком, и цокать больше нечему.
-        private AudioClip _sndClick, _sndChoice;
+        // Звук отклика на действие игрока (клик/выбор) + луп клавиатуры,
+        // который печать строки водит через RevealingChanged диалога.
+        private AudioClip _sndClick, _sndChoice, _sndType;
 
         private void PlayUiSound(AudioClip clip) =>
             _audio?.PlayUi(clip, Theme != null ? Theme.UiSoundVolume : 1f);
+
+        // Печать началась → луп клавиатуры; кончилась (естественно, тапом или
+        // сменой строки) → тишина. Клип может доехать позже первой реплики —
+        // не страшно: следующая печать его подхватит.
+        private void OnDialogueRevealing(bool on)
+        {
+            if (on) _audio?.PlayTypingLoop(_sndType, Theme != null ? Theme.UiSoundVolume : 1f);
+            else _audio?.StopTypingLoop();
+        }
 
         // Resolve the theme's typeface (manifest ui.dialogue.font) when no
         // explicit Font is assigned. Two forms:
