@@ -141,10 +141,17 @@ namespace Lvn.UI
         // Свой источник: PlayOneShot не остановить, а луп живёт ровно столько,
         // сколько строка проявляется. Канал _ui не трогаем — клик по нему
         // может щёлкнуть прямо поверх печати.
+        //
+        // ОДИН НЕПРЕРЫВНЫЙ «ТРЕК КЛАВИАТУРЫ» (правка Ильи): пауза между
+        // репликами не сбрасывает позицию — печать ПРОДОЛЖАЕТ запись с того
+        // же места и идёт по кругу (loop). Старт заново на каждой строке
+        // звучал как заикание одного и того же начала. Входы/выходы — с
+        // короткими фейдами, чтобы стук не рубился на полу-ударе.
         private AudioSource _typing;
+        private Coroutine _typingFade;
 
-        /// <summary>Клавиатура стучит, пока строка печатается. Идемпотентно:
-        /// повторный зов на игравшем лупе просто обновляет громкость.</summary>
+        /// <summary>Клавиатура стучит, пока строка печатается: продолжение с
+        /// места паузы, фейд-ин. Идемпотентно для уже стучащего лупа.</summary>
         public void PlayTypingLoop(AudioClip clip, float volume = 1f)
         {
             if (clip == null || !LvnPrefs.SoundOn) return;
@@ -153,16 +160,49 @@ namespace Lvn.UI
                 _typing = gameObject.AddComponent<AudioSource>();
                 _typing.loop = true;
                 _typing.playOnAwake = false;
+                _typing.volume = 0f;
             }
-            _typing.volume = Mathf.Clamp01(volume) * LvnPrefs.VolSfx;
-            if (_typing.clip != clip) { _typing.clip = clip; _typing.Stop(); }
-            if (!_typing.isPlaying) _typing.Play();
+            if (_typing.clip != clip)
+            {
+                _typing.clip = clip;
+                _typing.Stop();
+                _typing.volume = 0f;
+            }
+            if (!_typing.isPlaying)
+            {
+                _typing.UnPause();                    // с места паузы…
+                if (!_typing.isPlaying) _typing.Play(); // …или первый запуск
+            }
+            StartTypingFade(Mathf.Clamp01(volume) * LvnPrefs.VolSfx, 0.09f, pauseAtEnd: false);
         }
 
-        /// <summary>Строка допечаталась (или её докрутили тапом) — тишина.</summary>
+        /// <summary>Строка допечаталась (или её докрутили тапом) — фейд-аут и
+        /// ПАУЗА: позиция записи сохраняется до следующей печати.</summary>
         public void StopTypingLoop()
         {
-            if (_typing != null) _typing.Stop();
+            if (_typing == null || !_typing.isPlaying) return;
+            StartTypingFade(0f, 0.18f, pauseAtEnd: true);
+        }
+
+        private void StartTypingFade(float to, float seconds, bool pauseAtEnd)
+        {
+            if (_typingFade != null) StopCoroutine(_typingFade);
+            _typingFade = StartCoroutine(TypingFadeAsync(to, seconds, pauseAtEnd));
+        }
+
+        private IEnumerator TypingFadeAsync(float to, float seconds, bool pauseAtEnd)
+        {
+            float from = _typing.volume;
+            float t0 = Time.unscaledTime;
+            while (_typing != null)
+            {
+                float k = Mathf.Clamp01((Time.unscaledTime - t0) / Mathf.Max(0.01f, seconds));
+                _typing.volume = Mathf.Lerp(from, to, k);
+                if (k >= 1f) break;
+                yield return null;
+            }
+            if (pauseAtEnd && _typing != null) _typing.Pause();
+            _typingFade = null;
         }
 
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host
