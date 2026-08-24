@@ -1956,7 +1956,14 @@ namespace Lvn.UI.Screens
             // The owner may have CHANGED under us (a cross-title save load) —
             // the finished chapter's vars belong to the title actually playing.
             var ownerId = _currentTitle?.id ?? title?.id;
-            if (Stage.Player != null) await SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars));
+            // Сейв статов НЕ держит финал: локальная запись внутри синхронна
+            // (до первого await), а сетевые PUT — до 8 с каждый с ретраями —
+            // шли ПЕРЕД экраном «Конец главы» и читались как зависание на
+            // пустой сцене (живой репорт «при завершении главы какой-то лаг»).
+            // Тот же fire-and-forget уже канон на паузе приложения.
+            if (Stage.Player != null)
+                LvnAsync.Fire(SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars)),
+                    "SaveScopedVars@chapterEnd");
             _shell.Hud.SetProgress(1, 1);
             _shell.Hud.SetStats(null, null);
             // The chapter that actually played to the end — a cross-chapter save
@@ -1971,10 +1978,24 @@ namespace Lvn.UI.Screens
             // destroying a sprite the carousel still references leaves white
             // cards. The disk cache is intact so the next entry re-decodes fast.
             var pinned = MenuArtUrls();
+            // Уничтожение десятков 2K-текстур — один тяжёлый кадр. Синхронно он
+            // стоял ПЕРЕД экраном «Конец главы» и складывался с сетевым сейвом в
+            // видимый «лаг на финале». Три кадра спустя экран уже нарисован —
+            // хитч случается под ним, а не перед ним.
+            LvnAsync.Fire(UnloadChapterArtSoonAsync(pinned), "UnloadChapterArt");
+            return finished ? played : null;
+        }
+
+        // Отложенная выгрузка арта доигранной главы: пины меню держат ORIGINAL
+        // urls, кэш может держать @2k-варианты. Пара кадров — чтобы экран
+        // «Конец главы» успел отрисоваться; следующая глава начинает грузить
+        // свой арт много позже (сначала едет скрипт).
+        private async Task UnloadChapterArtSoonAsync(HashSet<string> pinned)
+        {
+            for (int i = 0; i < 3; i++) await Task.Yield();
             _assets.Loader.UnloadWhere(u =>
                 (u.Contains("/art/") || u.Contains("/bg/"))
-                && !pinned.Contains(u.Replace("@2k", ""))); // pins hold ORIGINAL urls; cache may hold @2k variants
-            return finished ? played : null;
+                && !pinned.Contains(u.Replace("@2k", "")));
         }
 
         // Every image url the MENU surfaces reference (covers, chapter loading
