@@ -40,6 +40,7 @@ namespace Lvn.UI
             if (!on)
             {
                 _dialogueSwapGeneration++; // cancel a pending card replacement
+                _pendingSay = null;        // отменённая реплика не должна воскреснуть у выбора
                 _choiceCommitInFlight = false;
                 _dialogueSurfaceFresh = false;
             }
@@ -288,6 +289,12 @@ namespace Lvn.UI
                 int gen = ++_dialogueSwapGeneration;
                 _awaitingTap = false; // a tap during the hand-off cannot skip the new line
                 _audio?.StopVoice();
+                // Пара «реплика + выбор» приходит одним тактом: ShowChoice будет
+                // вызван в этом же кадре и перебьёт поколение — отложенный
+                // PresentSay погибнет, а окно вернётся со СТАРЫМ текстом (живой
+                // репорт: варианты повисли под предыдущей репликой). Реплика
+                // хранится здесь, и ShowChoice доводит её показ сам.
+                _pendingSay = (who, text, style);
                 int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
                 _dialogue.DropOut(outMs, done: () =>
                 {
@@ -302,9 +309,14 @@ namespace Lvn.UI
             PresentSay(directGen, who, text, style);
         }
 
+        // Реплика, чей показ отложен анимацией падения прежней карточки —
+        // ShowChoice того же такта обязан показать её вместе с выбором.
+        private (string who, string text, string style)? _pendingSay;
+
         private void PresentSay(int gen, string who, string text, string style)
         {
             if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+            _pendingSay = null; // доехала штатно
             _dialogueSurfaceFresh = false;
             _awaitingTap = false;
             _dialogue.SetSpeaker(who, DialogueSideForCurrentSpeaker(who));
@@ -456,6 +468,29 @@ namespace Lvn.UI
             _choiceCommitInFlight = false;
 
             var kind = LvnAppear.Parse(Theme?.BoxAppear);
+            // Пара «реплика + выбор» одним тактом: ShowSay этого же кадра ещё
+            // роняет прежнюю карточку, его PresentSay отложен. Перебить
+            // поколение и просто поднять окно — значит показать выбор под
+            // СТАРОЙ репликой (вопрос съеден — живой репорт). Доводим сами:
+            // после падения ставим отложенную реплику и выбор вместе.
+            if (_pendingSay is { } ps && _dialogue != null && kind != LvnAppearKind.None)
+            {
+                _pendingSay = null;
+                int gen = ++_dialogueSwapGeneration;
+                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+                _dialogue.DropOut(outMs, done: () =>
+                {
+                    if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+                    _dialogue.style.display = DisplayStyle.None;
+                    AfterBeatPause(gen, () =>
+                    {
+                        PresentSay(gen, ps.who, ps.text, ps.style);
+                        _curChoices = options; // PresentSay их сбрасывает — выбор этого же такта
+                        PresentChoiceBeat(gen, options, kind);
+                    });
+                });
+                return;
+            }
             if (_dialogue != null && _dialogue.style.display == DisplayStyle.Flex &&
                 kind != LvnAppearKind.None)
             {
