@@ -144,6 +144,14 @@ namespace Lvn.UI.World
         // ── background ───────────────────────────────────────────────────────
         public void SetBackgroundSprite(Sprite sprite) => SetBackgroundSprite(sprite, 0f);
 
+        /// <summary>Пан по фону: поставить кадр в from и (при to≠from) плавно
+        /// доехать за seconds. 0 = левый край картинки, 1 = правый.</summary>
+        public void PanBackground(float from01, float to01, float seconds)
+        {
+            _bg.SetPan(from01);
+            if (!Mathf.Approximately(from01, to01)) _bg.PanTo(to01, seconds);
+        }
+
         public void SetBackgroundSprite(Sprite sprite, float crossfadeSeconds)
         {
             Set3DBackdrop(null); // a painted background replaces a live set

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -49,7 +50,44 @@ namespace Lvn.UI.World
             _tex = sprite.texture;
             _image.texture = _tex;
             _image.color = Color.white;
+            _panGen++; _panX = 0.5f; // новый фон = центр, прежний пан отменён
             UpdateCover();
+        }
+
+        // ── пан по фону ──────────────────────────────────────────────────────
+        // Кадр «едет» по широкой картинке: 0 = левый край, 0.5 = центр,
+        // 1 = правый. Работает на горизонтальном слаке cover-кроя: пейзажный
+        // фон 16:9 на портретном экране даёт ~68% хода — сцена начинается в
+        // левой части кадра и за десятки секунд доезжает до правой.
+        private float _panX = 0.5f;
+        private int _panGen;
+
+        public void SetPan(float x01)
+        {
+            _panGen++;
+            _panX = Mathf.Clamp01(x01);
+            UpdateCover();
+        }
+
+        public void PanTo(float x01, float seconds)
+        {
+            x01 = Mathf.Clamp01(x01);
+            int gen = ++_panGen;
+            if (seconds <= 0.01f) { _panX = x01; UpdateCover(); return; }
+            Lvn.LvnAsync.Fire(PanAsync(gen, _panX, x01, seconds), "BgPan");
+        }
+
+        private async Task PanAsync(int gen, float from, float to, float seconds)
+        {
+            float started = Time.unscaledTime;
+            while (gen == _panGen && _image != null)
+            {
+                float t = Mathf.Clamp01((Time.unscaledTime - started) / seconds);
+                _panX = Mathf.Lerp(from, to, t * t * (3f - 2f * t));
+                UpdateCover();
+                if (t >= 1f) break;
+                await Task.Yield();
+            }
         }
 
         private void BeginCrossfade(float seconds)
@@ -136,7 +174,7 @@ namespace Lvn.UI.World
             float u = 1f, v = 1f;
             if (texAspect > slotAspect) u = slotAspect / texAspect; // crop sides
             else v = texAspect / slotAspect;                        // crop top/bottom
-            _image.uvRect = new Rect((1f - u) * 0.5f, (1f - v) * 0.5f, u, v);
+            _image.uvRect = new Rect((1f - u) * _panX, (1f - v) * 0.5f, u, v);
         }
 
         private static void Stretch(RectTransform rt)

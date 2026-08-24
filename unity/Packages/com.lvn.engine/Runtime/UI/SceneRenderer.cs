@@ -20,6 +20,8 @@ namespace Lvn.UI
         void SetBackground(Sprite sprite);
         /// <summary>Смена фона с растворением прежнего кадра (0 = резко).</summary>
         void SetBackground(Sprite sprite, float crossfadeSeconds);
+        /// <summary>Пан по фону: from → to (0=левый край, 1=правый) за seconds.</summary>
+        void PanBackground(float from01, float to01, float seconds);
         /// <summary>Reset the backdrop on a stage wipe: the Canvas path keeps
         /// its own black board (its historical behaviour — the next chapter's bg
         /// paints over it).</summary>
@@ -102,6 +104,8 @@ namespace Lvn.UI
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
         public void SetBackground(Sprite sprite, float crossfadeSeconds)
             => _scene.SetBackgroundSprite(sprite, crossfadeSeconds);
+        public void PanBackground(float from01, float to01, float seconds)
+            => _scene.PanBackground(from01, to01, seconds);
         // The canvas keeps its black board for flat art (the next bg paints over
         // it), but a 3D set is a live object being filmed — leaving it standing
         // would show the previous novel's room behind the next one's scene.

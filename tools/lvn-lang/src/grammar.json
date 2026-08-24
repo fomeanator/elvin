@@ -49,7 +49,10 @@
     "bg": [
       "sprite_url",
       "id",
-      "fade"
+      "fade",
+      "pan",
+      "pan_to",
+      "pan_dur"
     ],
     "actor": [
       "id",

@@ -654,10 +654,18 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 				}
 			} else if firstWord == "bg" {
 				rest := strings.TrimSpace(line[len("bg"):])
-				if rest != "" && !strings.Contains(rest, "=") {
+				// Смешанная форма: `bg <url> [k=v …]` — адрес первым словом,
+				// дальше параметры (fade=, pan=, pan_to=, pan_dur=…). Чистый
+				// адрес и чистые k=v остаются как были.
+				urlTok := ""
+				if first, after := nextWord(rest); first != "" && !strings.Contains(first, "=") {
+					urlTok = first
+					rest = strings.TrimSpace(after)
+				}
+				if urlTok != "" && rest == "" {
 					// Terse: bg <url>  (id derived from the file name)
-					c := Cmd{"op": "bg", "sprite_url": stripQuotes(rest)}
-					base := rest
+					c := Cmd{"op": "bg", "sprite_url": stripQuotes(urlTok)}
+					base := urlTok
 					if sl := strings.LastIndexAny(base, "/\\"); sl >= 0 {
 						base = base[sl+1:]
 					}
@@ -670,9 +678,22 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 					isCommand = true
 					cmd = c
 				} else if params, err := parseKeyValue(rest); err == nil {
-					// Legacy: bg id=… sprite_url=…
+					// Legacy: bg id=… sprite_url=… — либо смешанная с url впереди.
 					isCommand = true
 					cmd = Cmd{"op": "bg"}
+					if urlTok != "" {
+						cmd["sprite_url"] = stripQuotes(urlTok)
+						base := urlTok
+						if sl := strings.LastIndexAny(base, "/\\"); sl >= 0 {
+							base = base[sl+1:]
+						}
+						if dot := strings.LastIndex(base, "."); dot >= 0 {
+							base = base[:dot]
+						}
+						if base != "" {
+							cmd["id"] = base
+						}
+					}
 					for k, v := range params {
 						cmd[k] = v
 					}

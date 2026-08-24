@@ -62,7 +62,10 @@ export const OP_FIELDS = {
   "bg": [
     "sprite_url",
     "id",
-    "fade"
+    "fade",
+    "pan",
+    "pan_to",
+    "pan_dur"
   ],
   "actor": [
     "id",
@@ -635,7 +638,7 @@ export const GROUPS = [
     "rows": [
       [
         "bg",
-        "sprite_url, id, fade"
+        "sprite_url, id, fade, pan, pan_to, pan_dur"
       ],
       [
         "actor",
