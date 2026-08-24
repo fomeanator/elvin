@@ -159,6 +159,55 @@ namespace Lvn.UI.Screens
             if (_status != null && status != null) _status.text = status;
         }
 
+        /// <summary>Вуаль ещё на экране (первый вход держит её до одетой сцены).</summary>
+        public static bool IsVisible => _go != null;
+
+        private static Label _brandTitle;
+
+        /// <summary>Брендовый режим первого входа: ни процентов, ни полосы —
+        /// только имя продукта, проявляющееся фейдом. Загрузка идёт под вуалью;
+        /// гасит её хост, когда сцена одета (RevealFromLoadingAsync) — один
+        /// кроссфейд из имени прямо в игру, юзер не видит «загрузку» вовсе.</summary>
+        public static void Brand(string title)
+        {
+            if (_root == null) return;
+            if (_pct != null) _pct.style.display = DisplayStyle.None;
+            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.None;
+            if (_status != null) _status.style.display = DisplayStyle.None;
+            _model.SnapToFull(); // FadeOutAsync не должен ждать «доезда» скрытой полосы
+            _target = 1f;
+            if (_brandTitle == null)
+            {
+                _brandTitle = new Label(title ?? "")
+                {
+                    pickingMode = PickingMode.Ignore,
+                };
+                _brandTitle.style.fontSize = 42;
+                _brandTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+                _brandTitle.style.letterSpacing = 6;
+                _brandTitle.style.unityTextAlign = TextAnchor.MiddleCenter;
+                _brandTitle.style.color = new Color(0.91f, 0.89f, 0.86f);
+                _brandTitle.style.opacity = 0f;
+                _brandTitle.style.textShadow = new TextShadow
+                {
+                    offset = new Vector2(0f, 2f),
+                    blurRadius = 6f,
+                    color = new Color(0f, 0f, 0f, 0.85f),
+                };
+                _root.Insert(0, _brandTitle);
+                float t0 = Time.realtimeSinceStartup;
+                int gen = _gen;
+                _root.schedule.Execute(() =>
+                {
+                    if (_brandTitle == null || _gen != gen) return;
+                    float k = Mathf.Clamp01((Time.realtimeSinceStartup - t0) / 1.4f);
+                    _brandTitle.style.opacity = k * k * (3f - 2f * k);
+                }).Every(16).Until(() => _brandTitle == null || _gen != gen
+                    || Time.realtimeSinceStartup - t0 > 1.6f);
+            }
+            _brandTitle.text = title ?? "";
+        }
+
         /// <summary>Glide to 100%, hold it one beat, then cross-fade out and
         /// destroy — the one screen hand-off of the whole boot. A stale call
         /// (the veil it was fading got replaced) exits without touching the
@@ -197,6 +246,7 @@ namespace Lvn.UI.Screens
         {
             if (_go != null) Object.Destroy(_go);
             _go = null; _root = null; _pct = null; _status = null; _fill = null;
+            _brandTitle = null;
             _target = 0f;
             _model.Reset();
         }

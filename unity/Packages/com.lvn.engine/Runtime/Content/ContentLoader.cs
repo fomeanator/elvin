@@ -1511,6 +1511,86 @@ namespace Lvn.Content
         // so a fixed asset is picked up on the next launch anyway).
         private readonly HashSet<string> _notFound = new();
 
+        // ── сид первого входа (StreamingAssets/lvn-seed) ─────────────────────
+        // APK везёт критичные файлы вводной: первый запуск одевает первую
+        // сцену БЕЗ сети вообще. Индекс (index.json со списком rel-путей)
+        // читается один раз; промах мимо индекса не стоит ни одного запроса.
+        // Сид хранит ОРИГИНАЛЫ: запрос @2k-варианта нормализуется к базе, а
+        // потолок декода (MobileMaxTextureSize) ужимает картинку сам.
+        private string _seedBase;
+        private HashSet<string> _seedIndex;
+        private Task _seedLoad;
+
+        /// <summary>Включить сид-источник (jar:file://…/lvn-seed или file://…).
+        /// Безопасно звать всегда: без index.json сид просто молчит.</summary>
+        public void EnableSeed(string seedBase)
+        {
+            if (string.IsNullOrEmpty(seedBase)) return;
+            _seedBase = seedBase.TrimEnd('/');
+            _seedLoad = LoadSeedIndexAsync();
+        }
+
+        private async Task LoadSeedIndexAsync()
+        {
+            try
+            {
+                var raw = await FetchLocalAsync(_seedBase + "/index.json");
+                var set = new HashSet<string>();
+                if (raw != null)
+                {
+                    var arr = Newtonsoft.Json.Linq.JArray.Parse(Encoding.UTF8.GetString(raw));
+                    foreach (var t in arr)
+                    {
+                        var s = (string)t;
+                        if (!string.IsNullOrEmpty(s)) set.Add(s.TrimStart('/'));
+                    }
+                }
+                _seedIndex = set;
+                if (set.Count > 0) Debug.Log($"[content] сид первого входа: {set.Count} файлов в APK");
+            }
+            catch { _seedIndex = new HashSet<string>(); }
+        }
+
+        // Локальное чтение (jar:/file:) через UnityWebRequest — File.IO не
+        // умеет внутрь APK.
+        private static async Task<byte[]> FetchLocalAsync(string url)
+        {
+            using var req = UnityEngine.Networking.UnityWebRequest.Get(url);
+            var op = req.SendWebRequest();
+            while (!op.isDone) await Task.Yield();
+            return req.result == UnityEngine.Networking.UnityWebRequest.Result.Success
+                ? req.downloadHandler.data : null;
+        }
+
+        private async Task<byte[]> TrySeedAsync(string url, string cachePath, CancellationToken ct)
+        {
+            if (_seedBase == null) return null;
+            if (_seedLoad != null) { try { await _seedLoad; } catch { } _seedLoad = null; }
+            if (_seedIndex == null || _seedIndex.Count == 0) return null;
+            int at = url.IndexOf("/content/", StringComparison.Ordinal);
+            if (at < 0) return null;
+            var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
+            var baseRel = rel.Replace("@2k", "");
+            string hit = _seedIndex.Contains(rel) ? rel
+                : _seedIndex.Contains(baseRel) ? baseRel : null;
+            if (hit == null) return null;
+            var bytes = await FetchLocalAsync(_seedBase + "/" + hit);
+            if (bytes == null || bytes.Length == 0) return null;
+            // Сид может отстать от живого контента (арт обновили, APK старый).
+            // При живой сети протухший сид пропускаем — качается свежее; в
+            // офлайне старый арт лучше чёрного экрана. Следующая сборка APK
+            // перевозит свежий сид сама (его кладёт серверный экспорт).
+            var expect = IntegrityVersionFor(url);
+            bool stale = expect != null && !Sha256Matches(bytes, expect);
+            if (stale && LvnNetworkStatus.IsOnline) return null;
+            if (!stale)
+            {
+                try { await WriteAllBytesAsync(cachePath, bytes, ct); }
+                catch { /* кэш — ускорение, не условие */ }
+            }
+            return bytes;
+        }
+
         private async Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
         {
             var path     = CachePath(dir, url, ".bin");
@@ -1518,6 +1598,10 @@ namespace Lvn.Content
 
             if (File.Exists(path))
                 return await ReadAllBytesAsync(path, ct);
+
+            // Сид из APK — раньше сети: первый вход не качает критичное вовсе.
+            var seeded = await TrySeedAsync(url, path, ct);
+            if (seeded != null) return seeded;
 
             lock (_notFound)
                 if (_notFound.Contains(url))

@@ -165,6 +165,11 @@ namespace Lvn.UI.Screens
             }
 
             _assets = new CachingAssets(contentBase);
+            // Сид первого входа: онлайн-сборка везёт критичные файлы вводной в
+            // APK (StreamingAssets/lvn-seed) — первая сцена одевается без сети.
+            // Без index.json в билде сид просто молчит.
+            if (!OfflineBundled)
+                _assets.Loader.EnableSeed(LocalContentBase("lvn-seed"));
 
             // Stat/var persistence: a bundled offline build keeps stats locally; a
             // server build syncs through /v1/state (local-first, so it still plays and
@@ -172,7 +177,6 @@ namespace Lvn.UI.Screens
             _state = OfflineBundled
                 ? (ILvnStateStore)new LocalStateStore()
                 : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
-            return contentBase;
             return contentBase;
         }
 
@@ -778,7 +782,19 @@ namespace Lvn.UI.Screens
                 }
                 if (ct.IsCancellationRequested) return;
                 BootVeil.Status("");
-                await BootVeil.FadeOutAsync(0.4f);
+                // ПЕРВЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЗАГРУЗКУ ВООБЩЕ. Впереди воронка —
+                // вуаль не гаснет в меню, а превращается в имя продукта фейдом
+                // и живёт, пока под ней качается и одевается первая сцена;
+                // гасит её RevealFromLoadingAsync одним кроссфейдом в игру.
+                if (_shell != null && _shell.HasPendingIntro)
+                {
+                    BootVeil.Brand(Application.productName);
+                    Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms первый вход: брендовая вуаль до одетой сцены");
+                }
+                else
+                {
+                    await BootVeil.FadeOutAsync(0.4f);
+                }
                 Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
                 // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
                 // человек смотрит на загрузку и может уйти. Без этой ступени
