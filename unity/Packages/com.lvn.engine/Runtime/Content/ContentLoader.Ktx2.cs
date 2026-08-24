@@ -161,7 +161,18 @@ namespace Lvn.Content
                 // trilinear blends between mips so minified art (shrunk actors,
                 // zoom-outs) doesn't shimmer. Bilinear when a chain is absent.
                 tex.filterMode = tex.mipmapCount > 1 ? FilterMode.Trilinear : FilterMode.Bilinear;
-                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                // РЕКТ — ПО ОРИГИНАЛУ, НЕ ПО ТЕКСТУРЕ. Блочные GPU-форматы
+                // паддятся до кратности 4: слой 1210 px становится текстурой
+                // 1212 px, и спрайт «на всю текстуру» менял аспект и смещал
+                // контент на пару пикселей против обычного пути («героиня
+                // меньше и перескакивает» — живой репорт). Контейнер KTX2
+                // помнит исходные размеры; паддинг лежит в хвосте данных
+                // (верх текстуры) — рект от низа его отрезает.
+                float w = ktx.baseWidth > 0 && ktx.baseWidth <= (uint)tex.width
+                    ? ktx.baseWidth : (uint)tex.width;
+                float h = ktx.baseHeight > 0 && ktx.baseHeight <= (uint)tex.height
+                    ? ktx.baseHeight : (uint)tex.height;
+                var sprite = Sprite.Create(tex, new Rect(0, 0, w, h),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
                 if (sw.ElapsedMilliseconds > 30)
                     Debug.Log($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format}, yflip={result.orientation.IsYFlipped()})");
