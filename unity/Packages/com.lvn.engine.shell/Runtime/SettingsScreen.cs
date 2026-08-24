@@ -92,6 +92,11 @@ namespace Lvn.UI.Screens
 
         /// <summary>(Re)build the settings rows from the current prefs/config. Called
         /// by <see cref="ShowAsync"/>; public so tests and hosts can render on demand.</summary>
+        // БЕЗ ЭТОГО ЭКРАН ПУСТ: базовый ShowAsync зовёт OnOpening, а Rebuild
+        // никто больше не вызывает — партнёр открыл «Настройки» из хаба и
+        // увидел заголовок с кнопкой Close на пустом листе.
+        protected override void OnOpening() => Rebuild();
+
         public void Rebuild()
         {
             _list.Clear();

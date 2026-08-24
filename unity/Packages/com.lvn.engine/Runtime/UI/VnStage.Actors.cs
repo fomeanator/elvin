@@ -179,7 +179,14 @@ namespace Lvn.UI
             }
             else
             {
-                cmd = new JObject { ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center" };
+                // Манекен гардероба без сценарной постановки: размер как у
+                // сценарного зеркала (0.92/1.06), а не дефолтный слот — иначе
+                // «в игре и в гардеробе героиня разного роста» (живой репорт).
+                cmd = new JObject
+                {
+                    ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center",
+                    ["width"] = 0.92f, ["height"] = 1.06f,
+                };
             }
             if (fadeOnly) cmd["enter"] = "fade";
             LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
@@ -378,6 +385,11 @@ namespace Lvn.UI
                 // the always-open wardrobe's collection grows from these.
                 foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
                 var rls = Catalog.ResolveLayers(id, axes, CatalogCond());
+                // Диагностика облика: «почему лысая/не тот наряд» решается одной
+                // строкой лога вместо круга скриншотов — видно, какие слои и из
+                // каких осей собрались.
+                Debug.Log($"[lvn-actor] {id}: слои [{string.Join(",", rls.ConvertAll(r => r.Id))}] "
+                    + $"оси {{{string.Join(", ", System.Linq.Enumerable.Select(axes, kv => kv.Key + "=" + kv.Value))}}}");
                 urls = new List<string>(rls.Count);
                 urlIds = new List<string>(rls.Count);
                 urlRects = new List<Vector4>(rls.Count);
