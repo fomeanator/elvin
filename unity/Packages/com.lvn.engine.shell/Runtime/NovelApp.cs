@@ -2014,6 +2014,56 @@ namespace Lvn.UI.Screens
             _assets.Loader.UnloadWhere(u =>
                 (u.Contains("/art/") || u.Contains("/bg/") || u.Contains("/sprites/"))
                 && !pinned.Contains(u.Replace("@2k", "")));
+            // Диск убирается тем же тактом (в пуле потоков): мёртвые версии —
+            // всегда, над квотой — давнее. Общий арт глав живёт одним файлом
+            // и не удаляется, пока его знает хоть одна глава манифеста.
+            await SweepDiskCacheAsync();
+        }
+
+        // Квота дискового кэша ассетов. Позже — настройка; 500 МБ покрывает
+        // «скачать всё» Time Romance с запасом и не даёт кэшу расти вечно.
+        private const long DiskCacheQuotaBytes = 500L << 20;
+
+        private async Task SweepDiskCacheAsync()
+        {
+            var m = _manifest;
+            if (m?.titles == null || _assets?.Loader == null) return;
+            var loader = _assets.Loader;
+            var live = new HashSet<string>();
+            var prot = new HashSet<string>();
+            void Add(HashSet<string> set, string u) => loader.AddLiveKeysFor(u, set);
+            foreach (var t in m.titles)
+            {
+                if (t == null) continue;
+                bool intro = string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase);
+                var current = LvnProgress.Current(t);
+                Add(live, t.cover_url);
+                foreach (var ch in t.ChaptersOf())
+                {
+                    if (ch == null) continue;
+                    // Вводная и глава, на которой стоит прогресс, — неприкосновенны:
+                    // им играть следующими.
+                    bool keep = intro || (current != null && ch.id == current.id);
+                    Add(live, ch.script_url);
+                    Add(live, ch.bg_url);
+                    if (keep) { Add(prot, ch.script_url); Add(prot, ch.bg_url); }
+                    if (ch.assets == null) continue;
+                    foreach (var url in ch.assets.Keys)
+                    {
+                        Add(live, url);
+                        if (keep) Add(prot, url);
+                    }
+                }
+            }
+            foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
+            var ui = m.ui;
+            Add(live, ui?.browse?.music);
+            Add(live, ui?.sounds?.click);
+            Add(live, ui?.sounds?.choice);
+            Add(live, ui?.sounds?.type);
+            var (removed, freed) = await loader.SweepAssetCacheAsync(live, prot, DiskCacheQuotaBytes);
+            if (removed > 0)
+                Debug.Log($"[content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
         }
 
         // Every image url the MENU surfaces reference (covers, chapter loading

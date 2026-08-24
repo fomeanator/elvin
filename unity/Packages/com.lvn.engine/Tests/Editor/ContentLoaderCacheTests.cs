@@ -157,6 +157,35 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void PickCacheVictims_DeadAlways_SharedNever_QuotaEvictsOldestButNotProtected()
+        {
+            // «Перс есть во второй главе — с первой его не удаляют»: общий файл
+            // живёт, пока его знает хоть одна глава. Мёртвые версии — всегда вон;
+            // над квотой уходят давние, защищённые (текущая глава) — никогда.
+            const long MB = 1 << 20;
+            var files = new System.Collections.Generic.List<(string, long, double)>
+            {
+                ("dead-old-version", 50 * MB, 100.0),
+                ("shared-actor",     50 * MB, 200.0),
+                ("old-chapter-bg",   50 * MB, 300.0),
+                ("current-chapter",  50 * MB, 400.0),
+            };
+            var live = new System.Collections.Generic.HashSet<string>
+                { "shared-actor", "old-chapter-bg", "current-chapter" };
+            var prot = new System.Collections.Generic.HashSet<string> { "current-chapter" };
+
+            // Под квотой: уходит только мёртвое.
+            var v1 = ContentLoader.PickCacheVictims(files, live, prot, 200 * MB);
+            CollectionAssert.AreEqual(new[] { "dead-old-version" }, v1);
+
+            // Над квотой (лимит 60 МБ на 150 МБ живого): к мёртвому добавляются
+            // давние живые; защищённая текущая глава остаётся при любом лимите.
+            var v2 = ContentLoader.PickCacheVictims(files, live, prot, 60 * MB);
+            CollectionAssert.AreEqual(new[] { "dead-old-version", "shared-actor", "old-chapter-bg" }, v2);
+            CollectionAssert.DoesNotContain(v2, "current-chapter");
+        }
+
+        [Test]
         public void PickEvictions_UnderBudgetEvictsNothing()
         {
             const long MB = 1 << 20;
