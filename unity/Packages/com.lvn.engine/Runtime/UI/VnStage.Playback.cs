@@ -308,6 +308,7 @@ namespace Lvn.UI
             StopAllCoroutines();
             _hotspots.Clear();
             HasBackdrop = false;
+            _lastBgCmd = null; // новая сцена применяет свой первый bg безусловно
             // A resume veil (1/255 alpha) left by an aborted restore must not
             // black out the NEXT chapter — reset it at every scene boundary.
             if (_renderer is CanvasSceneRenderer resetCanvas && resetCanvas.Root != null)
