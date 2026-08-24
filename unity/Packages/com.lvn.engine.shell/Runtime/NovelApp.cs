@@ -1090,11 +1090,26 @@ namespace Lvn.UI.Screens
                 if (!sigs.Add(sig)) return; // same character under another entity id
                 list.Add((id, string.IsNullOrEmpty(d.name) ? id : d.name));
             }
-            TryAdd(primary);
-            foreach (var id in sprites.Keys) TryAdd(id);
+            // Явный ростер (ui.wardrobe.characters) — закон: только персонажи
+            // ЭТОЙ новеллы, в авторском порядке, героиня первой. Без него —
+            // все одеваемые сущности каталога (наследие одиночных новелл).
+            var explicitRoster = _manifest?.ui?.wardrobe?.characters;
+            if (explicitRoster != null && explicitRoster.Count > 0)
+            {
+                foreach (var id in explicitRoster) TryAdd(id);
+            }
+            else
+            {
+                TryAdd(primary);
+                foreach (var id in sprites.Keys) TryAdd(id);
+            }
             // The protagonist's pill wears the name the PLAYER chose, not the
             // import's internal label (Mira/demo_main/Главный_герой are all her).
-            if (list.Count > 0 && list[0].id == primary && !string.IsNullOrEmpty(_playerName))
+            // С явным ростером первая таблетка — ГГ по контракту списка.
+            bool firstIsHeroine = list.Count > 0
+                && (list[0].id == primary
+                    || (explicitRoster != null && explicitRoster.Count > 0));
+            if (firstIsHeroine && !string.IsNullOrEmpty(_playerName))
                 list[0] = (list[0].id, _playerName);
             return list;
         }
