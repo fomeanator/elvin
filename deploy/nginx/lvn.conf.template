@@ -102,8 +102,9 @@ server {
         proxy_cache_background_update on;
         proxy_cache_lock on;
         add_header X-Cache-Status $upstream_cache_status;
-        expires 1h;
-        add_header Cache-Control "public";
+        # Cache-Control отдаёт АПСТРИМ: сервер шлёт immutable на неделю для
+        # версионного контента и no-store для .lvn/манифеста. Локальный
+        # `expires 1h` перезатирал immutable и резал кэш клиентов до часа.
 
         proxy_pass http://127.0.0.1:${PORT};
         proxy_set_header Host $host;
