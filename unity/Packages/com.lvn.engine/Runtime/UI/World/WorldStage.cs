@@ -456,12 +456,21 @@ namespace Lvn.UI.World
             {
                 LvnFade.Cancel(g);      // показ посреди ухода отменяет уход
                 if (artSwap)
-                    a.CrossfadeArtSwap(
-                        (p.WardrobeSwap ? (p.WardrobeFromTop ? 0.56f : 0.28f) : 0.20f)
-                            * VnTheme.MotionDurationScale,
-                        wardrobeFlow: p.WardrobeSwap,
-                        wardrobeFromTop: p.WardrobeFromTop);
-                else
+                {
+                    // Волосы больше НЕ идут шейдерной шторкой сверху: прерванная
+                    // шторка и её жёсткие срезы — источник «мелькнула»/«лысая»
+                    // (живые репорты). Любая смена облика в гардеробе — один и
+                    // тот же чистый кроссфейд, как обещает LvnActorComposite.
+                    float dur2 = (p.WardrobeSwap ? 0.28f : 0.20f) * VnTheme.MotionDurationScale;
+                    a.CrossfadeArtSwap(dur2, wardrobeFlow: p.WardrobeSwap && !p.WardrobeFromTop);
+                    // Барьер свапа: следующая команда актёра обязана дождаться
+                    // конца этого кроссфейда, а не срезать его в один кадр.
+                    _artSwapUntil[id] = Time.realtimeSinceStartup + dur2;
+                }
+                else if (!a.HasActiveTransitionVisual)
+                    // Визуальный no-op (Equip/ClearPreview без смены облика) не
+                    // имеет права гасить ЧУЖОЙ идущий кроссфейд — раньше это и
+                    // схлопывало шторку соседнего применения в один кадр.
                     a.EndTransitionVisual();
                 if (g != null) g.alpha = p.Opacity;
                 a.gameObject.SetActive(p.Show);
@@ -469,6 +478,15 @@ namespace Lvn.UI.World
             if (!p.Show) a.StopAll();
             return a;
         }
+
+        // Дедлайны идущих арт-кроссфейдов по актёрам — VnStage ждёт их перед
+        // новым применением, чтобы переходы стыковались, а не срезались.
+        private readonly Dictionary<string, float> _artSwapUntil = new Dictionary<string, float>();
+
+        /// <summary>Момент (realtime), когда у актёра доиграет текущий кроссфейд
+        /// облика; 0 — свободен.</summary>
+        public float ActorSwapDeadline(string id)
+            => _artSwapUntil.TryGetValue(id, out var t) ? t : 0f;
 
         /// <summary>Convert the stage-side direction into the actor slot's local
         /// X axis. WorldPlacement mirrors that slot for <c>mirror=true</c>, while

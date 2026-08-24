@@ -197,7 +197,12 @@ namespace Lvn.UI
                 doc[kv.Key] = arr;
             }
             PlayerPrefs.SetString(PSeen + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
-            PlayerPrefs.Save();
+            // Без немедленного Save(): первое открытие сюжетного листа метит
+            // ВЕСЬ каталог разом, и полный флаш prefs-файла на каждый предмет
+            // складывался в один длинный кадр прямо перед подъёмом панели
+            // (хитч «мелькнуло у гардероба»). Значение уже в памяти prefs;
+            // на диск его доносят штатные Save() соседей и пауза приложения,
+            // а серверный бэкап ведёт progress vault.
         }
 
         /// <summary>Forget an entity's equipment (tests / profile reset).</summary>
