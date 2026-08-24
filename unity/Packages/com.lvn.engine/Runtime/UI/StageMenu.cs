@@ -758,10 +758,21 @@ namespace Lvn.UI
             scroll.Add(SliderRow(L("text_speed", "Text speed"), 0.25f, 3f, LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             scroll.Add(ToggleRow(L("auto_advance", "Auto-advance"), LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
             scroll.Add(SliderRow(L("auto_delay", "Auto delay"), 0.5f, 2.5f, LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-            scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-            scroll.Add(SliderRow(L("ambient", "Ambient"), 0f, 1f, LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-            scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-            scroll.Add(SliderRow(L("voice", "Voice"), 0f, 1f, LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+            if (_theme.SimpleAudioSliders)
+            {
+                // «Музыка» и «Звук» — двухползунковый режим (ui.settings.
+                // simple_audio): звук ведёт эффекты+эмбиент+голос одним движком.
+                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                scroll.Add(SliderRow(L("sound", "Sound"), 0f, 1f, LvnPrefs.VolSfx,
+                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
+            }
+            else
+            {
+                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                scroll.Add(SliderRow(L("ambient", "Ambient"), 0f, 1f, LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                scroll.Add(SliderRow(L("voice", "Voice"), 0f, 1f, LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+            }
             scroll.Add(SliderRow(L("window_opacity", "Window opacity"), 0.2f, 1f, LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
             scroll.Add(ToggleRow(L("skip_read_only", "Skip read text only"), LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
             scroll.Add(ToggleRow(L("reduce_motion", "Reduce motion"), LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));

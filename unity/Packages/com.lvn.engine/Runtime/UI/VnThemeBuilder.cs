@@ -20,6 +20,9 @@ namespace Lvn.UI
             var t = baseline ?? new VnTheme();
             if (ui == null) return t;
 
+            if (ui.settings?.simple_audio != null)
+                t.SimpleAudioSliders = ui.settings.simple_audio.Value;
+
             var stg = ui.stage;
             if (stg != null)
             {

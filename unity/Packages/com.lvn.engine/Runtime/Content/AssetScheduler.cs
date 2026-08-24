@@ -192,9 +192,15 @@ namespace Lvn.Content
             await Task.WhenAll(tasks);
         }
 
+        // Хвост главы качается ПОД ЖИВОЙ ИГРОЙ — шёпотом, а не в 12 глоток:
+        // широкая параллельность (сеть+запись диска) на слабом устройстве
+        // отбирала кадры у сцены («начинает лагать на 30%» — живой репорт).
+        // Спешить некуда: у стрима фора чтения в десятки секунд.
+        private readonly SemaphoreSlim _deferredSlots = new(2, 2);
+
         private async Task WarmOne(Item item, bool isRequired, CancellationToken ct)
         {
-            var slot = SlotFor(item.Tier, item.Size);
+            var slot = isRequired ? SlotFor(item.Tier, item.Size) : _deferredSlots;
             await slot.WaitAsync(ct);
             try
             {

@@ -101,10 +101,22 @@ namespace Lvn.UI.Screens
         {
             _list.Clear();
             _list.Add(SoundRow());
-            _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-            _list.Add(VolumeRow("Эмбиент", () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-            _list.Add(VolumeRow("Эффекты", () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-            _list.Add(VolumeRow("Голос", () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+            if (_cfg.simple_audio ?? false)
+            {
+                // Два ползунка (решение партнёров): «Звук» ведёт разом эффекты,
+                // печать, интерфейс и эмбиент; голос — туда же (озвучки нет,
+                // а появится — канал уже слушается).
+                _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow("Звук", () => LvnPrefs.VolSfx,
+                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
+            }
+            else
+            {
+                _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow("Эмбиент", () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                _list.Add(VolumeRow("Эффекты", () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                _list.Add(VolumeRow("Голос", () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+            }
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
                 _list.Add(LanguageRow());
             _list.Add(UidRow());
