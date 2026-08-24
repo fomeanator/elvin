@@ -47,6 +47,13 @@ const downscaleMax = 2048
 // names, so a variant request can't collide with a real source file.
 const downscaleSuffix = "@2k"
 
+// Микровариант для «силуэта-проявления»: опоздавший на медленной сети арт
+// входит вовремя крошечной тёмной версией (десятки КБ), полный доезжает
+// фоном и проявляет его. Бокс сознательно мал — это заготовка силуэта, а
+// не картинка для разглядывания.
+const miniSuffix = "@mini"
+const miniMax = 256
+
 // downscaleExts are the image types a variant can be requested for. The
 // variant keeps the source's format (PNG stays PNG — alpha survives; JPEG
 // stays JPEG — no alpha to lose).
@@ -95,18 +102,27 @@ func sourceNewer(src, derived string) bool {
 	return si.ModTime().After(di.ModTime())
 }
 
-// variantSource maps a variant path back to its source: "X@2k.png" → "X.png".
-// Returns "" for a path that isn't a variant request at all.
+// variantSource maps a variant path back to its source: "X@2k.png" → "X.png",
+// "X@mini.jpg" → "X.jpg". Returns "" (and box 0) for a path that isn't a
+// variant request at all.
 func variantSource(variantPath string) string {
+	src, _ := variantSourceBox(variantPath)
+	return src
+}
+
+func variantSourceBox(variantPath string) (string, int) {
 	ext := strings.ToLower(filepath.Ext(variantPath))
 	if !downscaleExts[ext] {
-		return ""
+		return "", 0
 	}
 	base := strings.TrimSuffix(variantPath, filepath.Ext(variantPath))
-	if !strings.HasSuffix(base, downscaleSuffix) {
-		return ""
+	switch {
+	case strings.HasSuffix(base, downscaleSuffix):
+		return strings.TrimSuffix(base, downscaleSuffix) + filepath.Ext(variantPath), downscaleMax
+	case strings.HasSuffix(base, miniSuffix):
+		return strings.TrimSuffix(base, miniSuffix) + filepath.Ext(variantPath), miniMax
 	}
-	return strings.TrimSuffix(base, downscaleSuffix) + filepath.Ext(variantPath)
+	return "", 0
 }
 
 // generate decodes src, fits it inside downscaleMax (Catmull-Rom — the same
@@ -114,6 +130,14 @@ func variantSource(variantPath string) string {
 // variant. A source that already fits is NOT re-encoded — the caller serves
 // the source file directly instead (returns errFitsAlready).
 func (d *downscaler) generate(srcPath, variantPath string) error {
+	_, box := variantSourceBox(variantPath)
+	if box <= 0 {
+		box = downscaleMax
+	}
+	return d.generateBox(srcPath, variantPath, box)
+}
+
+func (d *downscaler) generateBox(srcPath, variantPath string, box int) error {
 	f, err := os.Open(srcPath)
 	if err != nil {
 		return err
@@ -127,8 +151,8 @@ func (d *downscaler) generate(srcPath, variantPath string) error {
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()
 	scale := 1.0
-	if w > downscaleMax || h > downscaleMax {
-		scale = float64(downscaleMax) / float64(max(w, h))
+	if w > box || h > box {
+		scale = float64(box) / float64(max(w, h))
 	}
 	if scale >= 1.0 {
 		return errFitsAlready
