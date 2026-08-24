@@ -41,6 +41,9 @@ namespace Lvn.UI
         /// origin — for manual hotspot hit-testing. Null when the actor doesn't
         /// exist.</summary>
         Rect? ActorScreenRect(string id);
+        /// <summary>Момент (realtime), когда у актёра доиграет идущий кроссфейд
+        /// облика; 0 — свободен. Новое применение ждёт, а не срезает.</summary>
+        float ActorSwapDeadline(string id);
         void RemoveAll();
 
         // ── per-actor animation ──
@@ -165,6 +168,8 @@ namespace Lvn.UI
             float top = 1f - Mathf.Max(c[0].y, c[2].y) / sh, bot = 1f - Mathf.Min(c[0].y, c[2].y) / sh;
             return Rect.MinMaxRect(left, top, right, bot); // normalized, top-left origin (y-up source)
         }
+
+        public float ActorSwapDeadline(string id) => _scene.ActorSwapDeadline(id);
 
         public void RemoveAll() => _scene.RemoveAll();
 

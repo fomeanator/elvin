@@ -97,6 +97,11 @@ namespace Lvn.UI.World
             else EndTransitionVisual();
         }
 
+        /// <summary>Идёт ли сейчас композитный переход (снимок-прокси активен).
+        /// Пустое пере-применение не смеет его гасить.</summary>
+        public bool HasActiveTransitionVisual
+            => _transitionComposite != null && _transitionComposite.Active;
+
         /// <summary>Return from the flat transition visual to live animated layers.</summary>
         public void EndTransitionVisual()
         {

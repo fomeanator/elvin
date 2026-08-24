@@ -604,6 +604,20 @@ namespace Lvn.UI
                 if (_actorGen.TryGetValue(id, out cur) && cur != gen) return;
             }
 
+            // Идущий кроссфейд облика ДОИГРЫВАЕТ: новое применение стыкуется за
+            // ним, а не срезает в один кадр (срез — это «героиня мелькнула» у
+            // гардероба: emotion=happy обрывал шторку смены наряда на середине).
+            // Ожидание конечно: дедлайн — фиксированный момент (≤0.3 с), а тот,
+            // кто его продлил, сначала уронил наш gen — выйдем по проверке.
+            float swapLeft;
+            while ((swapLeft = (_renderer?.ActorSwapDeadline(id) ?? 0f)
+                    - Time.realtimeSinceStartup) > 0.001f)
+            {
+                await Task.Delay(Mathf.Max(1, Mathf.CeilToInt(swapLeft * 1000f)));
+                if (!StageCurrent(epoch)) return;
+                if (_actorGen.TryGetValue(id, out cur) && cur != gen) return;
+            }
+
             // Loading may have outlived the early nominal barrier. Re-arm from
             // the frame where the renderer actually starts the entrance.
             ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);

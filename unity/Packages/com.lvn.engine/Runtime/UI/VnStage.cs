@@ -557,20 +557,31 @@ namespace Lvn.UI
         /// whatever it was already showing).</summary>
         public async Task ShowPanelAsync(VisualElement content)
         {
-            // One transaction: the old dialogue recedes while the wardrobe
-            // rises. Await both so the sheet never becomes interactive halfway
-            // through an unfinished hand-off.
-            await Task.WhenAll(FadeDialogueAsync(true), PanelHost.ShowAsync(content));
+            // Окно гардероба ПОДНИМАЕТСЯ НАД репликой, а не меняется с ней
+            // местами. Диалог и рама — один и тот же полупрозрачный скин в
+            // одном месте экрана: гаснущие одновременно, они на ~80 мс роняли
+            // суммарную плотность почти вдвое, и сквозь окно разово «вспыхивал»
+            // фон (живой репорт «фон мелькнул перед гардеробом»). Рама рисуется
+            // над диалогом — пусть встанет плотной, и только потом реплика
+            // гаснет, уже полностью укрытая.
+            if (_menu != null)
+            {
+                _menu.Close();
+                _menu.style.visibility = Visibility.Hidden;
+            }
+            await PanelHost.ShowAsync(content);
+            await FadeDialogueAsync(true);
         }
 
         /// <summary>Dismiss the shared window and bring the dialogue back.</summary>
         public async Task HidePanelAsync()
         {
-            // Keep PanelOpen/InputBlocked true until the wardrobe and restored
-            // dialogue have completed their cross-fade. Resume() is called only
-            // after this task, so the next line cannot start under stale chrome.
-            var panel = _panelHost != null ? _panelHost.HideAsync() : Task.CompletedTask;
-            await Task.WhenAll(panel, FadeDialogueAsync(false));
+            // Симметрично показу: диалог возвращается ПОД стоящей рамой, и
+            // только затем рама уходит — плотность окна не проваливается.
+            // PanelOpen/InputBlocked держатся до конца: Resume() зовётся после
+            // этой задачи, следующая реплика не стартует под чужим хромом.
+            await FadeDialogueAsync(false);
+            if (_panelHost != null) await _panelHost.HideAsync();
             ArmPanelInputGuard(0.12f);
         }
 
