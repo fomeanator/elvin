@@ -118,8 +118,34 @@ namespace Lvn.UI
             // мгновенно — под ним ещё занавес входа.
             float bgFade = NumOr(cmd["fade"], Theme?.BgCrossfadeSeconds ?? 0.35f);
             _renderer?.SetBackground(sprite, bgFade);
+            // Пан по широкому фону: `bg … pan=left pan_to=right pan_dur=30` —
+            // сцена начинается в левой части кадра и за pan_dur доезжает до
+            // правой. Работает на горизонтальном слаке cover-кроя.
+            var panFrom = ParsePan(cmd["pan"]);
+            var panTo = ParsePan(cmd["pan_to"]);
+            if (panFrom.HasValue || panTo.HasValue)
+            {
+                float from = panFrom ?? 0.5f;
+                _renderer?.PanBackground(from, panTo ?? from, NumOr(cmd["pan_dur"], 20f));
+            }
             ReleaseActive3DSet();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
+        }
+
+        // «left/center/right» или число 0..1 — куда смотрит кадр по ширине фона.
+        private static float? ParsePan(Newtonsoft.Json.Linq.JToken t)
+        {
+            if (t == null) return null;
+            var s = (string)t;
+            switch ((s ?? "").ToLowerInvariant())
+            {
+                case "left": return 0f;
+                case "center": return 0.5f;
+                case "right": return 1f;
+            }
+            return float.TryParse(s, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v)
+                ? Mathf.Clamp01(v) : (float?)null;
         }
 
         /// <summary>`bg3d` — stand a built 3D set behind the scene and frame it.

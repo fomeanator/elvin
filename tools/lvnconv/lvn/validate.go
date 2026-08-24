@@ -94,7 +94,7 @@ var KnownOps = map[string]bool{
 // carry open-ended keys (catalog-defined emotion axes, a large placement
 // vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
-	"bg":            {"id", "sprite_url"},
+	"bg":            {"id", "sprite_url", "fade", "pan", "pan_to", "pan_dur"},
 	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live"},
 	"clear":         {}, // deliberately empty: any field on `clear` is a typo
 	"fade":          {"to", "duration"},
