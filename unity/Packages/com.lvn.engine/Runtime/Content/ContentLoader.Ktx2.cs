@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -37,10 +38,40 @@ namespace Lvn.Content
     /// </summary>
     public partial class ContentLoader
     {
-        // Flips true the first time a ".ktx2" request fails — a server without
-        // basisu (or an old deploy) answers 404 for every asset; stop asking
-        // for the rest of the session. A fresh ContentLoader tries again.
+        // Раньше это была СЕССИОННАЯ защёлка «первый промах гасит весь тракт» —
+        // но сервер кодирует .ktx2 лениво, и один холодный файл (404 «ещё
+        // кодируется») ронял все ассеты в сырой RGBA до перезапуска (×4 по
+        // памяти). Теперь промах помечает ТОЛЬКО свой файл; тракт целиком
+        // сдаётся лишь после серии промахов подряд — так сервер без basisu
+        // по-прежнему не платит по лишнему запросу на каждый ассет.
         private bool _ktx2Unavailable;
+        private readonly HashSet<string> _ktx2Missing = new HashSet<string>();
+        private int _ktx2MissStreak;
+        private const int Ktx2GiveUpAfterMisses = 8;
+        private readonly object _ktx2Lock = new object();
+
+        private bool Ktx2Skipped(string ktx2Url)
+        {
+            lock (_ktx2Lock) return _ktx2Unavailable || _ktx2Missing.Contains(ktx2Url);
+        }
+
+        private void NoteKtx2Miss(string ktx2Url)
+        {
+            lock (_ktx2Lock)
+            {
+                _ktx2Missing.Add(ktx2Url);
+                if (++_ktx2MissStreak >= Ktx2GiveUpAfterMisses && !_ktx2Unavailable)
+                {
+                    _ktx2Unavailable = true;
+                    Debug.LogWarning($"[content] ktx2: {Ktx2GiveUpAfterMisses} промахов подряд — похоже, сервер без кодов; тракт выключен до перезапуска");
+                }
+            }
+        }
+
+        private void NoteKtx2Hit()
+        {
+            lock (_ktx2Lock) _ktx2MissStreak = 0;
+        }
 
 #if LVN_KTX2
         // GPU honesty probe, once per session: SystemInfo happily CLAIMS
@@ -98,9 +129,8 @@ namespace Lvn.Content
 #if !LVN_KTX2
             return (null, 0);
 #else
-            if (_ktx2Unavailable) return (null, 0);
             var ktx2Url = Ktx2UrlFor(url);
-            if (ktx2Url == null) return (null, 0);
+            if (ktx2Url == null || Ktx2Skipped(ktx2Url)) return (null, 0);
             if (!await GpuRendersKtx2Async()) { _ktx2Unavailable = true; return (null, 0); }
 
             byte[] bytes;
@@ -111,10 +141,11 @@ namespace Lvn.Content
             catch (OperationCanceledException) { throw; }
             catch
             {
-                _ktx2Unavailable = true; // steady state for a server without basisu
+                NoteKtx2Miss(ktx2Url); // этот файл — мимо; тракт живёт
                 return (null, 0);
             }
-            if (bytes == null || bytes.Length == 0) { _ktx2Unavailable = true; return (null, 0); }
+            if (bytes == null || bytes.Length == 0) { NoteKtx2Miss(ktx2Url); return (null, 0); }
+            NoteKtx2Hit();
 
             try
             {
@@ -141,11 +172,45 @@ namespace Lvn.Content
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
+                // Один битый файл ≠ сломанный транскодер: помечаем файл, тракт
+                // живёт; серию подряд добьёт общий счётчик промахов.
                 Debug.LogWarning($"[content] ktx2 decode failed for {ktx2Url}: {ex.Message}");
-                _ktx2Unavailable = true; // a broken transcoder would fail every asset — stop early
+                NoteKtx2Miss(ktx2Url);
                 return (null, 0);
             }
 #endif
+        }
+
+        /// <summary>Байтовый прогрев ТОГО ЖЕ файла, который возьмёт показ:
+        /// живой KTX2-тракт → .ktx2, иначе обычный вариант. Без декода — это
+        /// путь экрана загрузки (см. AssetScheduler.Warm).</summary>
+        public async Task PrefetchSpriteBytes(string url, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+#if LVN_KTX2
+            var ktx2Url = Ktx2UrlFor(url);
+            if (ktx2Url != null && !Ktx2Skipped(ktx2Url) && await GpuRendersKtx2Async())
+            {
+                try
+                {
+                    var b = await DownloadAssetBytes(ktx2Url, ct);
+                    if (b != null && b.Length > 0) { NoteKtx2Hit(); return; }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch { /* провалился в обычный файл ниже */ }
+                NoteKtx2Miss(ktx2Url);
+            }
+#endif
+            // Обычный путь: крупный арт показывается из @2k-варианта — греем
+            // его; нет варианта (мелкий арт / статический хост) — оригинал.
+            var variant = DownloadPolicy.DownscaleVariant(url);
+            if (variant != null)
+            {
+                try { await DownloadAssetBytes(variant, ct); return; }
+                catch (OperationCanceledException) { throw; }
+                catch { /* вариант не отдался — оригинал ниже */ }
+            }
+            await DownloadAssetBytes(url, ct);
         }
 
         // Maps a sprite url onto the KTX2 the server can serve for it. Only

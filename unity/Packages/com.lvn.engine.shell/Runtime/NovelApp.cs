@@ -1993,8 +1993,10 @@ namespace Lvn.UI.Screens
         private async Task UnloadChapterArtSoonAsync(HashSet<string> pinned)
         {
             for (int i = 0; i < 3; i++) await Task.Yield();
+            // /sprites/ здесь обязателен: послойный облик героини (~240 МБ
+            // декода) не матчился и переживал главу целиком.
             _assets.Loader.UnloadWhere(u =>
-                (u.Contains("/art/") || u.Contains("/bg/"))
+                (u.Contains("/art/") || u.Contains("/bg/") || u.Contains("/sprites/"))
                 && !pinned.Contains(u.Replace("@2k", "")));
         }
 

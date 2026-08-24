@@ -139,6 +139,24 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void PickEvictions_GraceIsNotAVeto_PinsAre()
+        {
+            // Загрузка главы трогает всё за минуту: если grace — абсолютное
+            // вето, бюджет не работает ровно тогда, когда нужен. Над бюджетом
+            // вытесняются и свежие (старейшие сначала); запиненные — никогда.
+            const long MB = 1 << 20;
+            var entries = new System.Collections.Generic.List<(string, long, long, float, bool)>
+            {
+                ("pinned-fresh", 20 * MB, 1, 999f, true),
+                ("fresh-old",    20 * MB, 2, 999f, false),
+                ("fresh-new",    20 * MB, 3, 999f, false),
+            };
+            var evict = ContentLoader.PickEvictions(entries, 25 * MB, 1000f, 60f);
+            CollectionAssert.AreEqual(new[] { "fresh-old", "fresh-new" }, evict,
+                "над бюджетом свежесть не спасает — неприкосновенны только пины");
+        }
+
+        [Test]
         public void PickEvictions_UnderBudgetEvictsNothing()
         {
             const long MB = 1 << 20;

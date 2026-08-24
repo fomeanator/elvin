@@ -217,27 +217,25 @@ namespace Lvn.Content
         // Routes to the right ContentLoader primitive so the asset lands under the
         // cache key the in-game loader looks for. Uses the SERVER's classification
         // (kind) when present, falling back to the extension guess.
+        //
+        // ТОЛЬКО БАЙТЫ НА ДИСК — БЕЗ ДЕКОДА. Раньше здесь стоял
+        // DownloadSpriteAsync, и «ничего не подтекает на камеру» означало
+        // «распакуй все 46 картинок главы до Play»: пик ~546 МБ RGBA и
+        // гарантированный OOM на слабых устройствах ещё на экране загрузки.
+        // Правило сохраняется файлами: всё лежит на диске, декод происходит
+        // окном сцены (WarmUpcomingArtAsync + сами bg/actor, скрытые вуалью).
         private async Task Warm(Item item, CancellationToken ct)
         {
             var kind = string.IsNullOrEmpty(item.Kind) ? KindOf(item.Url) : item.Kind;
             switch (kind)
             {
                 case "audio":
-                    await _loader.DownloadAudioClipAsync(item.Url, ct);
+                    await _loader.Prefetch(item.Url, "audio", ct);
                     break;
                 default:
-                    // Warm the SAME file the display path will fetch: large story
-                    // art renders from its @2k variant (CachingAssets.LoadSpriteAsync),
-                    // so warming the original would gate Play on bytes the game
-                    // never draws — and then still download the variant mid-scene.
-                    var variant = DownloadPolicy.DownscaleVariant(item.Url);
-                    if (variant != null)
-                    {
-                        try { await _loader.DownloadSpriteAsync(variant, ct); break; }
-                        catch (OperationCanceledException) { throw; }
-                        catch { /* no variant (≤2048 original / static host) — original */ }
-                    }
-                    await _loader.DownloadSpriteAsync(item.Url, ct);
+                    // Warm the SAME file the display path will fetch — the loader
+                    // resolves ktx2/@2k/original with the display path's own rule.
+                    await _loader.PrefetchSpriteBytes(item.Url, ct);
                     break;
             }
         }
