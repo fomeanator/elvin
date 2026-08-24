@@ -29,16 +29,11 @@ namespace Lvn.UI.World
         private bool _active;
         private bool _warnedTooMany;
         private int _crossfadeGeneration;
-        private readonly List<Image> _hairRevealImages = new List<Image>();
-        private readonly List<Material> _hairRevealOriginals = new List<Material>();
-        private readonly List<Material> _hairRevealMaterials = new List<Material>();
 
         private static readonly int LayerCountId = Shader.PropertyToID("_LayerCount");
         private static readonly int WardrobeModeId = Shader.PropertyToID("_WardrobeMode");
         private static readonly int WardrobeProgressId = Shader.PropertyToID("_WardrobeProgress");
         private static readonly int WardrobeFromTopId = Shader.PropertyToID("_WardrobeFromTop");
-        private static readonly int HairProgressId = Shader.PropertyToID("_Progress");
-        private static readonly int HairSpriteUvId = Shader.PropertyToID("_SpriteUv");
         private static readonly int[] TextureIds = BuildIds("_Layer");
         private static readonly int[] MapAIds = BuildIds("_MapA");
         private static readonly int[] MapBIds = BuildIds("_MapB");
@@ -126,10 +121,11 @@ namespace Lvn.UI.World
                 End();
                 return;
             }
-            // Hair has the opposite ownership: the complete OLD actor stays as
-            // the underlay while only the NEW hair is revealed above it. This
-            // prevents the new hairstyle from looking buried under the old one.
-            if (wardrobeFlow && wardrobeFromTop && BeginHairReveal(seconds)) return;
+            // Волосы раньше шли особой «шторкой» (старый облик подложкой,
+            // новые волосы проявлялись шейдером сверху). Прерванная на середине
+            // шторка оставляла волосы с прогрессом 0 — «героиня лысеет при
+            // смене цвета». Смена волос теперь тот же чистый кроссфейд, что и
+            // наряд: старый облик целиком растворяется над новым.
 
             int gen = ++_crossfadeGeneration;
             // The proxy was created after the rig and remains above it. The new
@@ -171,70 +167,11 @@ namespace Lvn.UI.World
             FinishCrossfade(gen);
         }
 
-        private bool BeginHairReveal(float seconds)
-        {
-            RestoreHairRevealMaterials();
-            var shader = Resources.Load<Shader>("LvnWardrobeHairReveal");
-            if (shader == null || !shader.isSupported) return false;
-
-            foreach (var image in _rig.GetComponentsInChildren<Image>(true))
-            {
-                if (image == null || image.sprite == null || image.transform.parent != _rig) continue;
-                var key = (image.name ?? "").ToLowerInvariant();
-                if (!key.Contains("hair") && !key.Contains("причес") && !key.Contains("волос")) continue;
-
-                var fx = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-                fx.SetFloat(HairProgressId, 0f);
-                fx.SetVector(HairSpriteUvId, DataUtility.GetOuterUV(image.sprite));
-                _hairRevealImages.Add(image);
-                _hairRevealOriginals.Add(image.material);
-                _hairRevealMaterials.Add(fx);
-                image.material = fx;
-            }
-            if (_hairRevealImages.Count == 0) return false;
-
-            int gen = ++_crossfadeGeneration;
-            _material.SetFloat(WardrobeModeId, 0f); // old proxy remains whole underneath
-            _material.SetFloat(WardrobeProgressId, 0f);
-            _rig.gameObject.SetActive(true);
-            _proxyTransform.SetAsFirstSibling();
-            Lvn.LvnAsync.Fire(HairRevealAsync(gen, Mathf.Max(0f, seconds)),
-                "WardrobeHairReveal");
-            return true;
-        }
-
-        private async Task HairRevealAsync(int gen, float seconds)
-        {
-            float oldAlpha = _proxy != null ? _proxy.color.a : 1f;
-            float started = Time.unscaledTime;
-            while (gen == _crossfadeGeneration && _active && _proxy != null)
-            {
-                float t = seconds <= 0.001f ? 1f
-                    : Mathf.Clamp01((Time.unscaledTime - started) / seconds);
-                float k = t * t * (3f - 2f * t);
-                foreach (var material in _hairRevealMaterials)
-                    if (material != null) material.SetFloat(HairProgressId, k);
-
-                // Only the portions of the old hairstyle extending outside the
-                // new silhouette remain visible by this point. Ease those away
-                // near the end instead of popping the underlay off in one frame.
-                float tail = Mathf.Clamp01((k - 0.65f) / 0.35f);
-                tail = tail * tail * (3f - 2f * tail);
-                var c = _proxy.color;
-                c.a = Mathf.Lerp(oldAlpha, 0f, tail);
-                _proxy.color = c;
-                if (t >= 1f) break;
-                await Task.Yield();
-            }
-            FinishCrossfade(gen);
-        }
-
         private void FinishCrossfade(int gen)
         {
             if (gen != _crossfadeGeneration) return;
             if (_rig != null) _rig.gameObject.SetActive(true);
             if (_proxy != null) _proxy.gameObject.SetActive(false);
-            RestoreHairRevealMaterials();
             if (_material != null)
             {
                 _material.SetFloat(WardrobeModeId, 0f);
@@ -251,7 +188,6 @@ namespace Lvn.UI.World
             _crossfadeGeneration++;
             if (_rig != null) _rig.gameObject.SetActive(true);
             if (_proxy != null) _proxy.gameObject.SetActive(false);
-            RestoreHairRevealMaterials();
             if (_material != null)
             {
                 _material.SetFloat(WardrobeModeId, 0f);
@@ -262,18 +198,6 @@ namespace Lvn.UI.World
             _active = false;
         }
 
-        private void RestoreHairRevealMaterials()
-        {
-            for (var i = 0; i < _hairRevealImages.Count; i++)
-                if (_hairRevealImages[i] != null)
-                    _hairRevealImages[i].material = i < _hairRevealOriginals.Count
-                        ? _hairRevealOriginals[i] : null;
-            foreach (var material in _hairRevealMaterials)
-                if (material != null) Destroy(material);
-            _hairRevealImages.Clear();
-            _hairRevealOriginals.Clear();
-            _hairRevealMaterials.Clear();
-        }
 
         internal bool Active => _active;
 
