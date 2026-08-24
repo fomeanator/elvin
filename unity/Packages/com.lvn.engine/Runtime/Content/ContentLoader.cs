@@ -1991,6 +1991,95 @@ namespace Lvn.Content
         }
 
         // Pure cache-key hash, exposed for tests: sha1(url) or sha1(url@version).
+        // ── умная уборка диска ───────────────────────────────────────────────
+        // Кэш ключуется по url: общий арт двух глав — ОДИН файл, и он живёт,
+        // пока его знает хоть одна глава манифеста («перс есть во второй главе
+        // — с первой его не удаляют», правило Ильи). Мёртвые ключи (старые
+        // версии после обновления арта, снятый контент) удаляются всегда; над
+        // квотой уходят самые давние, защищённые (текущая/следующая глава,
+        // вводная) — никогда.
+
+        /// <summary>Ключи кэша, под которыми может лежать этот url: сам файл и
+        /// все его варианты (@2k, @mini, .ktx2) — их и держит уборка живыми.</summary>
+        public void AddLiveKeysFor(string url, HashSet<string> into)
+        {
+            if (string.IsNullOrEmpty(url) || into == null) return;
+            void Add(string u)
+            {
+                if (!string.IsNullOrEmpty(u)) into.Add(HashKey(u, VersionFor(u)));
+            }
+            Add(url);
+            var v2k = DownloadPolicy.DownscaleVariant(url);
+            if (v2k != null)
+            {
+                Add(v2k);
+                Add(v2k.Replace("@2k", "@mini"));
+                Add(Ktx2UrlFor(url));
+            }
+        }
+
+        /// <summary>Убрать из дискового кэша ассетов мёртвое и, над квотой,
+        /// давнее. Файловый IO — на пуле потоков; спрайт-кэш RAM не трогается.</summary>
+        public Task<(int removed, long freed)> SweepAssetCacheAsync(
+            HashSet<string> liveKeys, HashSet<string> protectedKeys, long quotaBytes)
+            => Task.Run(() =>
+            {
+                int removed = 0; long freed = 0;
+                try
+                {
+                    var files = new DirectoryInfo(_assetCacheDir).GetFiles("*.bin");
+                    var list = new List<(string key, long size, double mtime)>(files.Length);
+                    var byKey = new Dictionary<string, FileInfo>(files.Length);
+                    foreach (var f in files)
+                    {
+                        var key = Path.GetFileNameWithoutExtension(f.Name);
+                        list.Add((key, f.Length, f.LastWriteTimeUtc.Ticks / (double)TimeSpan.TicksPerSecond));
+                        byKey[key] = f;
+                    }
+                    foreach (var key in PickCacheVictims(list, liveKeys, protectedKeys, quotaBytes))
+                        if (byKey.TryGetValue(key, out var f))
+                        {
+                            long sz = f.Length;
+                            try { f.Delete(); removed++; freed += sz; } catch { }
+                        }
+                }
+                catch { /* уборка — сервис, не условие */ }
+                return (removed, freed);
+            });
+
+        /// <summary>Чистая политика уборки, exposed for tests: мёртвые ключи —
+        /// всегда; над квотой — старейшие из живых незащищённых.</summary>
+        internal static List<string> PickCacheVictims(
+            List<(string key, long size, double mtime)> files,
+            HashSet<string> liveKeys, HashSet<string> protectedKeys, long quotaBytes)
+        {
+            var victims = new List<string>();
+            long total = 0;
+            foreach (var f in files) total += f.size;
+            foreach (var f in files)
+                if (liveKeys == null || !liveKeys.Contains(f.key))
+                {
+                    victims.Add(f.key);
+                    total -= f.size;
+                }
+            if (total > quotaBytes)
+            {
+                var live = new List<(string key, long size, double mtime)>();
+                foreach (var f in files)
+                    if (liveKeys != null && liveKeys.Contains(f.key)
+                        && (protectedKeys == null || !protectedKeys.Contains(f.key)))
+                        live.Add(f);
+                live.Sort((a, b) => a.mtime.CompareTo(b.mtime)); // давние первыми
+                foreach (var f in live)
+                {
+                    if (total <= quotaBytes) break;
+                    victims.Add(f.key);
+                    total -= f.size;
+                }
+            }
+            return victims;
+        }
+
         internal static string HashKey(string url, string version)
         {
             var key = version == null ? url : url + "@" + version;
