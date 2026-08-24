@@ -346,6 +346,40 @@ namespace Lvn.Content
             Directory.CreateDirectory(_scriptCacheDir);
             Directory.CreateDirectory(_assetCacheDir);
             SweepStaleParts();
+            TuneBudgetForDevice();
+            Application.lowMemory += OnLowMemory;
+        }
+
+        // Бюджет по УСТРОЙСТВУ, а не константа: 384 МБ декода на телефоне с
+        // 512 МБ RAM — это смертный приговор от системы. Шестая часть RAM в
+        // коридоре 96..384 МБ; выполняется один раз (владелец budget-поля —
+        // хост, повторные лоадеры не перетирают ручную настройку).
+        private static bool _budgetTuned;
+        private static void TuneBudgetForDevice()
+        {
+            if (_budgetTuned) return;
+            _budgetTuned = true;
+            int mb = SystemInfo.systemMemorySize;
+            if (mb <= 0) return; // тесты/неизвестное устройство — дефолт
+            long b = ((long)mb << 20) / 6;
+            long clamped = Math.Max(96L << 20, Math.Min(384L << 20, b));
+            if (clamped != SpriteCacheBudgetBytes)
+            {
+                SpriteCacheBudgetBytes = clamped;
+                Debug.Log($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
+            }
+        }
+
+        // Система кричит «мало памяти» — сбрасываем незапиненный декод до
+        // половины бюджета, невзирая на grace. Диск-кэш цел: всё вернётся
+        // ре-декодом по мере надобности. Раньше сигнал не слушался вовсе.
+        private void OnLowMemory()
+        {
+            List<SpriteEntry> victims;
+            lock (_spriteCache)
+                victims = EvictToLocked(SpriteCacheBudgetBytes / 2, graceSeconds: 0f);
+            foreach (var v in victims) DestroySprite(v.Sprite);
+            Debug.LogWarning($"[content] lowMemory: сброшено {victims.Count} спрайтов, живо {_spriteBytes >> 20} МБ");
         }
 
         // Resume files (.part) enable interrupted downloads to continue — but one
@@ -865,6 +899,16 @@ namespace Lvn.Content
         // LRU accounting and eviction stay in exactly one place.
         private Sprite CacheSprite(string url, Sprite sprite, long bytes)
         {
+            // Честная бухгалтерия вместо оценок вызывающих: w*h*4 не считал
+            // мип-цепочку (+33% у всего крупного арта), а KTX2-путь записывал
+            // размер ФАЙЛА вместо транскода в видеопамяти (×5 недоучёт).
+            // Профайлер знает настоящий размер текстуры в рантайме.
+            var tex = sprite != null ? sprite.texture : null;
+            if (tex != null)
+            {
+                long honest = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
+                if (honest > 0) bytes = honest;
+            }
             List<SpriteEntry> victims;
             lock (_spriteCache)
             {
@@ -872,7 +916,7 @@ namespace Lvn.Content
                 Touch(e);
                 _spriteCache[url] = e;
                 _spriteBytes += e.Bytes;
-                victims = EvictOverBudgetLocked();
+                victims = EvictToLocked(SpriteCacheBudgetBytes, SpriteEvictionGraceSeconds);
             }
             foreach (var v in victims) DestroySprite(v.Sprite);
             return sprite;
@@ -886,13 +930,13 @@ namespace Lvn.Content
 
         // Must run under the _spriteCache lock. Returns the evicted entries so the
         // caller destroys their textures OUTSIDE the lock.
-        private List<SpriteEntry> EvictOverBudgetLocked()
+        private List<SpriteEntry> EvictToLocked(long budgetBytes, float graceSeconds)
         {
             var victims = new List<SpriteEntry>();
-            if (_spriteBytes <= SpriteCacheBudgetBytes) return victims;
+            if (_spriteBytes <= budgetBytes) return victims;
             float now = Time.realtimeSinceStartup;
             foreach (var url in PickEvictions(
-                         SnapshotLocked(), SpriteCacheBudgetBytes, now, SpriteEvictionGraceSeconds))
+                         SnapshotLocked(), budgetBytes, now, graceSeconds))
             {
                 if (!_spriteCache.TryGetValue(url, out var e)) continue;
                 _spriteCache.Remove(url);
@@ -930,6 +974,20 @@ namespace Lvn.Content
                 if (now - e.at < graceSeconds) continue;    // recently used — protected
                 evict.Add(e.url);
                 total -= e.bytes;
+            }
+            // Grace — вежливость, а не вето. Загрузка главы трогает ВСЁ за
+            // минуту, и «свежее не вытесняем» означало «бюджет не работает
+            // ровно тогда, когда нужен». Всё ещё над бюджетом — вытесняем и
+            // свежие (кроме запиненных), по-прежнему старейшие сначала.
+            if (total > budgetBytes)
+            {
+                foreach (var e in entries)
+                {
+                    if (total <= budgetBytes) break;
+                    if (e.pinned || evict.Contains(e.url)) continue;
+                    evict.Add(e.url);
+                    total -= e.bytes;
+                }
             }
             return evict;
         }
