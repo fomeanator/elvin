@@ -137,6 +137,34 @@ namespace Lvn.UI
             _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnPrefs.VolSfx);
         }
 
+        // ── луп печати (ui.sounds.type) ──────────────────────────────────────
+        // Свой источник: PlayOneShot не остановить, а луп живёт ровно столько,
+        // сколько строка проявляется. Канал _ui не трогаем — клик по нему
+        // может щёлкнуть прямо поверх печати.
+        private AudioSource _typing;
+
+        /// <summary>Клавиатура стучит, пока строка печатается. Идемпотентно:
+        /// повторный зов на игравшем лупе просто обновляет громкость.</summary>
+        public void PlayTypingLoop(AudioClip clip, float volume = 1f)
+        {
+            if (clip == null || !LvnPrefs.SoundOn) return;
+            if (_typing == null)
+            {
+                _typing = gameObject.AddComponent<AudioSource>();
+                _typing.loop = true;
+                _typing.playOnAwake = false;
+            }
+            _typing.volume = Mathf.Clamp01(volume) * LvnPrefs.VolSfx;
+            if (_typing.clip != clip) { _typing.clip = clip; _typing.Stop(); }
+            if (!_typing.isPlaying) _typing.Play();
+        }
+
+        /// <summary>Строка допечаталась (или её докрутили тапом) — тишина.</summary>
+        public void StopTypingLoop()
+        {
+            if (_typing != null) _typing.Stop();
+        }
+
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host
         /// that ships no sound simply no-ops. <paramref name="ct"/> cancels the
         /// in-flight clip load with the chapter.</summary>

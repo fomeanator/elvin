@@ -82,9 +82,27 @@ namespace Lvn.UI
             _box.style.rotate = new Rotate(new Angle(0f, AngleUnit.Degree));
         }
 
-        /// <summary>Kept for playback API compatibility. Text is now installed
-        /// whole and revealed by the card fade, so this is always false.</summary>
+        private IVisualElementScheduledItem _tick;
+        private float _startTime;
+        private float _cps;
+        private const float AverageCharactersPerWord = 6f;
+
+        /// <summary>True while the typewriter is still revealing the line.</summary>
         public bool IsRevealing { get; private set; }
+
+        /// <summary>Печать началась (true) / кончилась (false) — хост ведёт
+        /// по этому луп звука клавиатуры, а не по-глифовый цокот.</summary>
+        public event System.Action<bool> RevealingChanged;
+
+        private void SetRevealing(bool on)
+        {
+            if (IsRevealing == on) return;
+            IsRevealing = on;
+            RevealingChanged?.Invoke(on);
+        }
+
+        /// <summary>Fires each time the reveal head visibly moves (word steps).</summary>
+        public event System.Action RevealTicked;
 
         public DialogueBox(VnTheme theme)
         {
@@ -262,6 +280,12 @@ namespace Lvn.UI
             _body.style.fontSize = _theme.BodyFontSize;
             _body.style.whiteSpace = WhiteSpace.Normal;
             LvnFonts.Apply(_body, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
+            // Typewriter = vertex post-processing: the FULL line is set once (so
+            // word-wrap and box height are final from frame 0) and each repaint
+            // ramps per-glyph tint alpha up to the reveal head. No per-tick string
+            // rebuilds, no rich-text <alpha> hacks, no re-layout — the tick only
+            // moves a float and calls MarkDirtyRepaint.
+            _body.PostProcessTextVertices += OnPostProcessGlyphs;
             _panel.Add(_body);
 
             // The genre's "line finished — tap" marker: a small pulsing ▼ in the
@@ -362,43 +386,70 @@ namespace Lvn.UI
         }
 
         /// <summary>
-        /// Install the complete line. Its appearance belongs to the dialogue
-        /// card's fixed fade, not to a length-dependent typewriter.
+        /// Begin revealing <paramref name="text"/> with the typewriter. Optional
+        /// <paramref name="cps"/> overrides the theme speed for this line.
+        /// Первые ~<see cref="VnTheme.InitialVisibleCharacters"/> символов (до
+        /// конца слова) встают МГНОВЕННО — смысл ловится сразу, печатается
+        /// только хвост.
         /// </summary>
         public void Reveal(string text, float? cps = null)
         {
             _tw.SetText(text ?? "");
+            _cps = cps.HasValue && cps.Value > TypewriterClock.MinCps ? cps.Value : _theme.CharsPerSecond;
+            _startTime = Time.realtimeSinceStartup;
+            _lastQuantum = -1;
+            _tick?.Pause();
+
+            // The budget is deliberately approximate: round it FORWARD to a word
+            // boundary so the first readable block never opens as "предложе…".
+            _initialReveal = _tw.WordEndAtOrAfter(
+                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), _tw.VisibleCount));
+            SetRevealing(_tw.VisibleCount > _initialReveal);
+            RefreshAdvanceHint(); // hidden while revealing
+            _revealProgress = _initialReveal;
+            _wordCompleteChars = _initialReveal;
+            _wordActiveEndChars = _initialReveal;
+            _wordActiveAlpha = 0f;
             _body.text = _tw.Full();
-            IsRevealing = false;
-            _body.MarkDirtyRepaint();
-            RefreshAdvanceHint();
+            if (IsRevealing)
+            {
+                _body.MarkDirtyRepaint(); // same text as the last line? still restart at 0
+                _tick = schedule.Execute(Tick).Every(16);
+            }
         }
 
-        /// <summary>How long until the card fade makes this already-complete line
-        /// fully visible. Independent of text length and never longer than the
-        /// actor transition.</summary>
+        /// <summary>How long this line's tail will take at the current reader
+        /// pace. Used to let a newly entering actor settle with the text instead
+        /// of finishing its animation in an unrelated rhythm.</summary>
         public float EstimateRevealSeconds(string text, float? cps = null)
         {
-            float card = Mathf.Max(0f, _theme.BoxAppearDuration) * VnTheme.MotionDurationScale;
-            float actor = Mathf.Max(0f, _theme.ActorTransition) * VnTheme.MotionDurationScale;
-            return actor > 0.001f ? Mathf.Min(card, actor) : card;
+            var probe = new RichTextTypewriter();
+            probe.SetText(text ?? "");
+            int initial = probe.WordEndAtOrAfter(
+                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), probe.VisibleCount));
+            int words = probe.WordsAfter(initial);
+            float pace = cps.HasValue && cps.Value > TypewriterClock.MinCps
+                ? cps.Value : _theme.CharsPerSecond;
+            float wordsPerSecond = TypewriterClock.Progress(1f, pace) / AverageCharactersPerWord;
+            return words / Mathf.Max(0.01f, wordsPerSecond);
         }
 
-        /// <summary>Snap to the full line immediately for engine-controlled fast
-        /// forward/restore. Normal player taps advance the card instead.</summary>
+        /// <summary>Snap to the full line immediately (e.g. on the first tap).</summary>
         public void Complete()
         {
-            IsRevealing = false;
-            _body.MarkDirtyRepaint();
+            _tick?.Pause();
+            SetRevealing(false);
+            _body.MarkDirtyRepaint(); // repaint with the reveal ramp inactive
             RefreshAdvanceHint();
         }
 
         /// <summary>Show a complete line with no reveal (resume / backlog).</summary>
         public void SetText(string text)
         {
+            _tick?.Pause();
             _tw.SetText(text ?? "");
             _body.text = _tw.Full();
-            IsRevealing = false;
+            SetRevealing(false);
             _body.MarkDirtyRepaint();
             RefreshAdvanceHint();
         }
@@ -471,6 +522,76 @@ namespace Lvn.UI
                     break;
             }
             ApplyPanelBackground();
+        }
+
+        // Whole-word reveal state, measured in visible characters. Every glyph
+        // of the active word shares one opacity, so the eye reads a word rather
+        // than watching individual letters crawl in.
+        private float _revealProgress;
+        private int _initialReveal;
+        private int _wordCompleteChars;
+        private int _wordActiveEndChars;
+        private float _wordActiveAlpha;
+
+        // Progress quantum of the last RevealTicked — one step per word.
+        private int _lastQuantum = -1;
+
+        private void Tick()
+        {
+            if (!IsRevealing) { _tick?.Pause(); return; }
+            float elapsed = Time.realtimeSinceStartup - _startTime;
+            float wordProgress = TypewriterClock.Progress(elapsed, _cps) / AverageCharactersPerWord;
+            _tw.WordReveal(_initialReveal, wordProgress,
+                out _wordCompleteChars, out _wordActiveEndChars, out _wordActiveAlpha);
+            if (_wordCompleteChars >= _tw.VisibleCount)
+            {
+                Complete();
+                return;
+            }
+            _revealProgress = _wordCompleteChars
+                + (_wordActiveEndChars - _wordCompleteChars) * _wordActiveAlpha;
+            _body.MarkDirtyRepaint(); // vertex-tint pass only — no layout, no strings
+            int q = Mathf.FloorToInt(wordProgress);
+            if (q == _lastQuantum) return;
+            _lastQuantum = q;
+            RevealTicked?.Invoke();
+        }
+
+        // Per-word alpha before the text mesh renders. Vertices are
+        // regenerated fresh for every repaint, so this only ever writes the
+        // CURRENT frame's fade — nothing accumulates. Inactive (IsRevealing
+        // false) it leaves the mesh untouched: the full line renders as-is.
+        private void OnPostProcessGlyphs(TextElement.GlyphsEnumerable glyphs)
+        {
+            if (!IsRevealing) return;
+            int count = glyphs.Count;
+            if (count <= 0) return;
+
+            // Boundaries are in CHARS (steps include spaces); glyphs are only
+            // rendered quads. Rescale both complete and active word ends.
+            int chars = _tw.VisibleCount;
+            float completeGlyph = chars > 0 ? _wordCompleteChars * count / (float)chars : count;
+            float activeGlyph = chars > 0 ? _wordActiveEndChars * count / (float)chars : count;
+
+            int i = 0;
+            foreach (TextElement.Glyph glyph in glyphs)
+            {
+                float midpoint = i + 0.5f;
+                i++;
+                if (midpoint <= completeGlyph) continue;
+                byte b = midpoint <= activeGlyph
+                    ? (byte)(_wordActiveAlpha * 255f + 0.5f)
+                    : (byte)0;
+                var verts = glyph.vertices;
+                for (int v = 0; v < verts.Length; v++)
+                {
+                    var vert = verts[v];
+                    var tint = vert.tint;
+                    tint.a = b == 0 ? (byte)0 : (byte)(tint.a * b / 255);
+                    vert.tint = tint;
+                    verts[v] = vert;
+                }
+            }
         }
 
         private static void SetCorner(VisualElement el, float r, bool top, bool bottom)

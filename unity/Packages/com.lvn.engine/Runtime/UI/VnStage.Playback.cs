@@ -294,6 +294,9 @@ namespace Lvn.UI
         private void ResetStage()
         {
             _stageEpoch++; // supersede any in-flight content apply from the old scene
+            // Луп печати не должен пережить сцену: жёсткая смена главы может
+            // снести диалог, не дав ему сообщить «печать кончилась».
+            _audio?.StopTypingLoop();
             // Close the quick menu FIRST: it may be mid-open (IsOpen + InputBlocked
             // set, its clean-frame screenshot coroutine pending). The StopAllCoroutines
             // below would kill that coroutine before its OpenSheetChrome callback,

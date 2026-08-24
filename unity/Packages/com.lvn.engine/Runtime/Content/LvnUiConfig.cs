@@ -267,9 +267,10 @@ namespace Lvn.Content
     {
         public string click;   // content url: tap-to-advance
         public string choice;  // content url: picking a choice button
-        // `type` (побуквенный цокот) БОЛЬШЕ НЕ ЧИТАЕТСЯ: строка ставится целиком.
-        // Ключ в манифесте молча игнорируется — старый контент не ломается.
-        public float? volume;  // 0..1 scale applied to both; default 1
+        // `type` — НЕ по-глифовый цокот, а живой луп (клавиатура/печать),
+        // играющий ровно пока строка проявляется. Пусто = печать беззвучна.
+        public string type;    // content url: looping keyboard while revealing
+        public float? volume;  // 0..1 scale applied to all; default 1
     }
 
     /// <summary>The in-game quick menu (StageMenu): floating buttons, the sheet,
