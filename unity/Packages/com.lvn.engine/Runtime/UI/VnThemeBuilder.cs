@@ -133,6 +133,14 @@ namespace Lvn.UI
                 if (m.history_jump.HasValue) t.MenuHistoryJump = m.history_jump.Value;
             }
 
+            var s = ui.sounds;
+            if (s != null)
+            {
+                if (!string.IsNullOrEmpty(s.click)) t.ClickSoundUrl = s.click;
+                if (!string.IsNullOrEmpty(s.choice)) t.ChoiceSoundUrl = s.choice;
+                if (s.volume.HasValue) t.UiSoundVolume = Mathf.Clamp01(s.volume.Value);
+            }
+
             return t;
         }
     }

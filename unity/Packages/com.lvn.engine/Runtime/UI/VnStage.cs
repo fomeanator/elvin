@@ -410,12 +410,26 @@ namespace Lvn.UI
 
             if (any && _built) RebuildChrome();
 
-            // ЗВУКОВ ИНТЕРФЕЙСА У ДВИЖКА НЕТ — СОЗНАТЕЛЬНО. Щелчок на каждой
-            // реплике и блип на каждой букве владелец забраковал: за час чтения
-            // это тысячи одинаковых цоканий, и выключить их игрок может только
-            // вместе со всем звуком. Озвучка реплик и авторские `audio`-команды
-            // остались — молчит именно ИНТЕРФЕЙС.
+            // ЗВУКИ ИНТЕРФЕЙСА (manifest ui.sounds) едут тем же ленивым путём:
+            // перестраивать оформление под них не нужно, места воспроизведения
+            // читают поля напрямую. Хост без звука просто молчит.
+            async Task Clip(string url, System.Action<AudioClip> assign)
+            {
+                if (string.IsNullOrEmpty(url)) return;
+                try { assign(await Assets.LoadAudioAsync(url, _cts.Token)); }
+                catch { /* хост может не везти звук вовсе — это не ошибка главы */ }
+            }
+            if (_sndClick == null) await Clip(Theme.ClickSoundUrl, c => _sndClick = c);
+            if (_sndChoice == null) await Clip(Theme.ChoiceSoundUrl, c => _sndChoice = c);
         }
+
+        // ЗВУК ОТКЛИКА НА ДЕЙСТВИЕ ИГРОКА — единственное, что осталось от
+        // прежнего набора. Блип побуквенного проявления ушёл вместе с самим
+        // проявлением: строка ставится целиком, и цокать больше нечему.
+        private AudioClip _sndClick, _sndChoice;
+
+        private void PlayUiSound(AudioClip clip) =>
+            _audio?.PlayUi(clip, Theme != null ? Theme.UiSoundVolume : 1f);
 
         // Resolve the theme's typeface (manifest ui.dialogue.font) when no
         // explicit Font is assigned. Two forms:

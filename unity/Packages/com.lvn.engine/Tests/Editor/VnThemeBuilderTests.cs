@@ -194,6 +194,33 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void Sounds_MapUrlsAndClampVolume()
+        {
+            var ui = new LvnUiConfig
+            {
+                sounds = new SoundsConfig
+                {
+                    click = "/content/ui/click.wav",
+                    choice = "/content/ui/choice.wav",
+                    volume = 1.7f,
+                }
+            };
+            var t = VnThemeBuilder.From(ui);
+            Assert.AreEqual("/content/ui/click.wav", t.ClickSoundUrl);
+            Assert.AreEqual("/content/ui/choice.wav", t.ChoiceSoundUrl);
+            Assert.AreEqual(1f, t.UiSoundVolume, 0.001f, "volume clamps to 0..1");
+        }
+
+        [Test]
+        public void Sounds_AbsentStaySilentAtFullVolume()
+        {
+            var t = VnThemeBuilder.From(new LvnUiConfig { sounds = new SoundsConfig() });
+            Assert.IsNull(t.ClickSoundUrl);
+            Assert.IsNull(t.ChoiceSoundUrl);
+            Assert.AreEqual(1f, t.UiSoundVolume, 0.001f);
+        }
+
+        [Test]
         public void Baseline_IsOverriddenNotReplaced()
         {
             // start from a custom baseline; only present fields change.
