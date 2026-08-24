@@ -189,6 +189,7 @@ namespace Lvn.UI
             // одну читаемую карточку.
             if (_awaitingTap)
             {
+                PlayUiSound(_sndClick);
                 _awaitingTap = false;
                 _player.Advance();
             }
