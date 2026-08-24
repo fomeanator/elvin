@@ -181,6 +181,32 @@ namespace Lvn.Content
 #endif
         }
 
+        /// <summary>Байты этого арта уже ДОСТУПНЫ ЛОКАЛЬНО (диск-кэш любого из
+        /// файлов показа — ktx2/@2k/оригинал — или сид в APK)? Решает, нужен ли
+        /// «силуэт-проявление»: локальные байты декодируются за сотни мс, и
+        /// заготовка только мигала бы; силуэт — лекарство от СЕТИ, не от декода.</summary>
+        public bool HasLocalSpriteBytes(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return true;
+            var v2k = DownloadPolicy.DownscaleVariant(url);
+            var k = Ktx2UrlFor(url);
+            if (k != null && IsAssetCached(k)) return true;
+            if (v2k != null && IsAssetCached(v2k)) return true;
+            if (IsAssetCached(url)) return true;
+            // Сид: файл лежит в APK — чтение локальное и мгновенное.
+            if (_seedIndex != null && _seedIndex.Count > 0)
+            {
+                int at = url.IndexOf("/content/", StringComparison.Ordinal);
+                if (at >= 0)
+                {
+                    var rel = url.Substring(at + 1);
+                    if (_seedIndex.Contains(rel) || _seedIndex.Contains(rel.Replace("@2k", "")))
+                        return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Байтовый прогрев ТОГО ЖЕ файла, который возьмёт показ:
         /// живой KTX2-тракт → .ktx2, иначе обычный вариант. Без декода — это
         /// путь экрана загрузки (см. AssetScheduler.Warm).</summary>

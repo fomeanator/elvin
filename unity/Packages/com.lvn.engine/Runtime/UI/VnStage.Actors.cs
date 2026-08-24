@@ -467,6 +467,10 @@ namespace Lvn.UI
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
             bool wasVisibleBeforeShow = !fresh && prevPl.Show;
             var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
+            // Силуэт — одноразовое состояние ЗАГОТОВКИ, не липкая постановка:
+            // унаследованный от прошлой команды, он затемнял бы уже полный арт
+            // на каждой следующей реплике (живой репорт «прыгает»).
+            placement.Silhouette = false;
             FillTransitionDefaults(cmd, ref placement);
             ApplyPresentationTempo(ref placement);
             bool visibilityChanged = !wasVisibleBeforeShow && placement.Show;
@@ -566,14 +570,22 @@ namespace Lvn.UI
                 for (int i = 0; i < urls.Count; i++)
                     loads[i] = LoadLayerAsync(urls[i]);
 
-                // «СИЛУЭТ-ПРОЯВЛЕНИЕ» (идея Ильи): медленная сеть не задерживает
-                // выход актёра. Полные слои не успели за первые ~250 мс — актёр
-                // входит ВОВРЕМЯ крошечной @mini-заготовкой, затемнённой тинтом
-                // (в мире TR это язык постановки: Агент и так ходит силуэтом);
-                // полный арт доезжает фоном и проявляет его штатным кроссфейдом
-                // облика. Мини-промах (нет варианта/статик-хост) — путь прежний.
+                // «СИЛУЭТ-ПРОЯВЛЕНИЕ» (идея Ильи): медленная СЕТЬ не задерживает
+                // выход актёра. Включается ТОЛЬКО когда байтов нет локально —
+                // ни в кэше (любой файл показа), ни в сиде APK: локальные байты
+                // декодируются за сотни мс, и заготовка лишь мигала бы на каждой
+                // смене эмоции (живой репорт «уменьшилась и прыгает»). Актёр
+                // входит вовремя крошечной @mini-заготовкой, затемнённой тинтом;
+                // полный арт доезжает фоном и проявляет его кроссфейдом облика.
+                bool bytesLocal = true;
                 if ((Theme?.LoadingSilhouette ?? true) && placement.Show
-                    && IsCharacterCommand(cmd) && !wardrobeSwap)
+                    && IsCharacterCommand(cmd) && !wardrobeSwap
+                    && (Assets as CachingAssets)?.Loader is Lvn.Content.ContentLoader cl)
+                {
+                    foreach (var u in urls)
+                        if (!cl.HasLocalSpriteBytes(u)) { bytesLocal = false; break; }
+                }
+                if (!bytesLocal)
                 {
                     var allLoads = Task.WhenAll(loads);
                     if (await Task.WhenAny(allLoads, Task.Delay(250)) != allLoads)
