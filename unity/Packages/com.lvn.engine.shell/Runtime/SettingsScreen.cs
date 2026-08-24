@@ -27,6 +27,14 @@ namespace Lvn.UI.Screens
         /// / platform sign-in. Null hides the button.</summary>
         public System.Func<Task> OnSignIn;
 
+        // ── хранилище (кнопка «Скачать всю игру», ELVIN-85) ──────────────────
+        // Хост (NovelApp) отдаёт оценку недокачанного, запуск батча, прогресс
+        // и очистку — экран только рисует. Null-хуки прячут секцию целиком.
+        public System.Func<Task<(long missingBytes, int missingCount, long usedBytes)>> StorageInfo;
+        public System.Func<Task> DownloadAll;
+        public System.Func<Task> ClearDownloads;
+        public System.Func<(long received, long expected, bool active)> DownloadProgress;
+
         private readonly SettingsConfig _cfg;
         private readonly ILvnAssets _assets;
         private readonly ScrollView _list;
@@ -119,6 +127,8 @@ namespace Lvn.UI.Screens
             }
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
                 _list.Add(LanguageRow());
+            if (StorageInfo != null && DownloadAll != null)
+                _list.Add(StorageRow());
             _list.Add(UidRow());
             _accountRow = Row(_cfg.account_label ?? "Account");
             _list.Add(_accountRow);
@@ -132,6 +142,72 @@ namespace Lvn.UI.Screens
         }
 
         // ── rows ──────────────────────────────────────────────────────────────
+
+        // «Скачать всю игру»: строка-автомат — оценка → загрузка с живыми
+        // мегабайтами → «Скачано» с кнопкой удаления. Играть можно и без неё
+        // (стриминг), кнопка — для самолёта и плохой сети.
+        private VisualElement StorageRow()
+        {
+            var row = Row("Загрузка игры");
+            var status = new Label("…");
+            status.style.color = _dim;
+            status.style.fontSize = 13;
+            status.style.marginRight = 8;
+            row.Add(status);
+            var btn = new Button { text = "…" };
+            StyleValueButton(btn, true);
+            btn.SetEnabled(false);
+            row.Add(btn);
+
+            bool downloaded = false;
+            IVisualElementScheduledItem ticker = null;
+
+            async Task RefreshAsync()
+            {
+                ticker?.Pause();
+                var (missing, count, used) = await StorageInfo();
+                downloaded = count == 0;
+                if (downloaded)
+                {
+                    status.text = $"скачано · занято {used >> 20} МБ";
+                    btn.text = "Удалить";
+                    btn.SetEnabled(ClearDownloads != null);
+                }
+                else
+                {
+                    status.text = $"осталось ≈{System.Math.Max(1, missing >> 20)} МБ";
+                    btn.text = "Скачать всё";
+                    btn.SetEnabled(true);
+                }
+            }
+
+            btn.clicked += () =>
+            {
+                if (!downloaded)
+                {
+                    btn.SetEnabled(false);
+                    _ = DownloadAll();
+                    // Живой прогресс в мегабайтах, пока батч активен.
+                    ticker = row.schedule.Execute(() =>
+                    {
+                        var p = DownloadProgress?.Invoke() ?? (0, 0, false);
+                        if (p.active)
+                            status.text = $"загрузка… {p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} МБ";
+                        else
+                            _ = RefreshAsync();
+                    }).Every(500);
+                }
+                else
+                {
+                    btn.SetEnabled(false);
+                    _ = Run();
+                    async Task Run() { await ClearDownloads(); await RefreshAsync(); }
+                }
+            };
+
+            _ = RefreshAsync();
+            return row;
+        }
 
         private VisualElement SoundRow()
         {

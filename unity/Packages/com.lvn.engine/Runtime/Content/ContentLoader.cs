@@ -2018,6 +2018,37 @@ namespace Lvn.Content
             }
         }
 
+        /// <summary>Занято дисковым кэшем ассетов (байты), на пуле потоков.</summary>
+        public Task<long> AssetCacheDiskUsageAsync() => Task.Run(() =>
+        {
+            long total = 0;
+            try
+            {
+                foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles("*.bin"))
+                    total += f.Length;
+            }
+            catch { }
+            return total;
+        });
+
+        /// <summary>Стереть скачанное («Удалить загруженное»): весь дисковый кэш
+        /// ассетов. Сид в APK цел, RAM-кэш доигрывает своё — дальше стриминг
+        /// пересоберёт нужное. На пуле потоков.</summary>
+        public Task<long> ClearAssetCacheAsync() => Task.Run(() =>
+        {
+            long freed = 0;
+            try
+            {
+                foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles())
+                {
+                    long sz = f.Length;
+                    try { f.Delete(); freed += sz; } catch { }
+                }
+            }
+            catch { }
+            return freed;
+        });
+
         /// <summary>Убрать из дискового кэша ассетов мёртвое и, над квотой,
         /// давнее. Файловый IO — на пуле потоков; спрайт-кэш RAM не трогается.</summary>
         public Task<(int removed, long freed)> SweepAssetCacheAsync(
