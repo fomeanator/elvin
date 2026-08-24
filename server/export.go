@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -276,6 +277,12 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// server's URL paths so the engine reads it via file:// with no network.
 	if cfg.Offline {
 		s.bundleContent(zw, folder)
+	} else {
+		// Онлайн-сборка везёт СИД: критичные файлы вводной (первая сцена) и её
+		// скрипты внутри APK — первый запуск одевает сцену без сети вообще.
+		// Сид перетирается живым контентом по версии; каждая сборка кладёт
+		// свежий сид сама — отдельного шага в конвейере не нужно.
+		s.bundleIntroSeed(zw, folder)
 	}
 
 	// a short README so the author knows what to do with the zip.
@@ -421,6 +428,79 @@ func (s *server) bundleContent(zw *zip.Writer, folder string) {
 		}
 	}
 }
+
+// bundleIntroSeed кладёт в StreamingAssets/lvn-seed критичные файлы вводной
+// новеллы (type:"intro"): script_url её глав + все ассеты с critical:true из
+// планов глав. Плюс index.json со списком rel-путей — клиент по нему решает
+// «есть в сиде» без слепых запросов внутрь APK. Файлы кладутся ОРИГИНАЛАМИ
+// (клиент нормализует @2k-запрос к базе и ужимает при декоде сам).
+func (s *server) bundleIntroSeed(zw *zip.Writer, folder string) {
+	raw, err := os.ReadFile(filepath.Join(s.content, "manifest.json"))
+	if err != nil {
+		return
+	}
+	var m map[string]any
+	if json.Unmarshal(raw, &m) != nil {
+		return
+	}
+	titles, _ := m["titles"].([]any)
+	urls := map[string]bool{}
+	for _, ti := range titles {
+		t, _ := ti.(map[string]any)
+		if t == nil || !strings.EqualFold(str(t["type"]), "intro") {
+			continue
+		}
+		for _, si := range asList(t["seasons"]) {
+			se, _ := si.(map[string]any)
+			for _, ci := range asList(se["chapters"]) {
+				ch, _ := ci.(map[string]any)
+				if ch == nil {
+					continue
+				}
+				if u := str(ch["script_url"]); u != "" {
+					urls[u] = true
+				}
+				assets, _ := ch["assets"].(map[string]any)
+				for u, mi := range assets {
+					meta, _ := mi.(map[string]any)
+					if crit, _ := meta["critical"].(bool); crit {
+						urls[u] = true
+					}
+				}
+			}
+		}
+	}
+	if len(urls) == 0 {
+		return
+	}
+	base := folder + "/Assets/StreamingAssets/lvn-seed"
+	var index []string
+	for u := range urls {
+		rel := strings.TrimPrefix(u, "/content/")
+		if rel == u { // не контент-URL — не наш файл
+			continue
+		}
+		data, rerr := os.ReadFile(filepath.Join(s.content, filepath.FromSlash(rel)))
+		if rerr != nil {
+			continue
+		}
+		entry := "content/" + rel
+		if zf, cerr := zw.Create(base + "/" + entry); cerr == nil {
+			_, _ = zf.Write(data)
+			index = append(index, entry)
+		}
+	}
+	sort.Strings(index)
+	if data, jerr := json.Marshal(index); jerr == nil {
+		if zf, cerr := zw.Create(base + "/index.json"); cerr == nil {
+			_, _ = zf.Write(data)
+		}
+	}
+}
+
+func str(v any) string { s, _ := v.(string); return s }
+
+func asList(v any) []any { l, _ := v.([]any); return l }
 
 // bootSource renders the standalone Boot.cs with the author's settings.
 func bootSource(cfg exportConfig) string {

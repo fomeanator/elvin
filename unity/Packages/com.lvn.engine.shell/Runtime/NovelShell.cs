@@ -349,6 +349,7 @@ namespace Lvn.UI.Screens
                 // fetch failed), don't strand an opaque loader over the menu.
                 Loading.Hide();
                 Title.Hide();
+                if (BootVeil.IsVisible) BootVeil.Hide(); // и брендовую вуаль первого входа
             }
         }
 
@@ -360,6 +361,10 @@ namespace Lvn.UI.Screens
         /// возвращает по выходу в меню.</summary>
         public Action OnChapterSessionStart;
         public Action OnChapterSessionEnd;
+
+        /// <summary>Первый вход ещё впереди (вводная не пройдена): хост держит
+        /// брендовую вуаль вместо полос — см. NovelApp.DriveBootVeilAsync.</summary>
+        public bool HasPendingIntro => PendingIntroTitle() != null;
 
         private LvnTitle PendingIntroTitle()
         {
@@ -412,9 +417,15 @@ namespace Lvn.UI.Screens
         {
             bool visible = Loading != null && Loading.resolvedStyle.display != DisplayStyle.None;
             Debug.Log($"[shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
-            if (!visible) return;
-            await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);
-            Loading.Hide();
+            if (visible)
+            {
+                await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);
+                Loading.Hide();
+            }
+            // Брендовая вуаль первого входа (имя продукта фейдом) живёт до
+            // одетой сцены и гаснет ЗДЕСЬ — единственный кроссфейд, который
+            // видит игрок: имя → первая сцена. Ни полос, ни экрана загрузки.
+            if (BootVeil.IsVisible) await BootVeil.FadeOutAsync(0.6f);
         }
 
         /// <summary>Float the chapter-title card over the live scene (fade in,

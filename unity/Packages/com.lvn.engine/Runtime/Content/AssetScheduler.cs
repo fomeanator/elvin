@@ -281,14 +281,18 @@ namespace Lvn.Content
                 foreach (var kv in assets)
                 {
                     if (string.IsNullOrEmpty(kv.Key) || IsScript(kv.Key)) continue;
-                    // The KR rule: NOTHING trickles in on camera — the loading
-                    // screen holds until the WHOLE chapter is on disk. Critical
-                    // now only orders the queue (the opening look lands first,
-                    // so the reveal always has its scene).
-                    required.Add(kv);
+                    // ВАЖНОЕ ДЕРЖИТ ВХОД, ОСТАЛЬНОЕ ЕДЕТ НА ЛЕТУ. Заставка
+                    // (бренд-фейд/лоадер) ждёт только critical — открывающую
+                    // сцену; хвост главы стримится фоном во время игры, впереди
+                    // читателя идёт PrefetchAhead. Прежнее «KR-правило» (ждать
+                    // ВСЮ главу) стоило минуты ожидания на сотовой сети и
+                    // вместе с декодом убивало слабые устройства.
+                    if (kv.Value?.critical ?? false) required.Add(kv);
+                    else deferred.Add(kv);
                 }
             }
-            required.Sort(CriticalThenSizeFirst);
+            required.Sort(CompareSizeFirst);
+            deferred.Sort(ComparePriority); // earliest-use first — впереди читателя
             return (required, deferred);
         }
 

@@ -21,11 +21,11 @@ namespace Lvn.Tests
 
             var (required, deferred) = AssetScheduler.OrderForDownload(set);
 
-            // The full-preload rule: EVERYTHING gates the loading screen —
-            // critical only orders the queue (opening look first).
-            Assert.AreEqual(3, required.Count);
-            Assert.AreEqual(0, deferred.Count);
-            Assert.AreEqual("/b.png", required[2].Key, "non-critical sorts after the criticals");
+            // Важное держит вход, остальное едет на лету: гейт заставки — только
+            // critical (открывающая сцена), хвост главы стримится под игрой.
+            Assert.AreEqual(2, required.Count);
+            Assert.AreEqual(1, deferred.Count);
+            Assert.AreEqual("/b.png", deferred[0].Key, "non-critical streams during play");
         }
 
         [Test]
@@ -73,10 +73,11 @@ namespace Lvn.Tests
 
             var (required, deferred) = AssetScheduler.OrderForDownload(set);
 
-            Assert.AreEqual(0, deferred.Count);
-            Assert.AreEqual("/opening.png", required[0].Key, "critical leads regardless of eta");
-            Assert.AreEqual("/early.png", required[1].Key);
-            Assert.AreEqual("/late.png", required[2].Key);
+            Assert.AreEqual(1, required.Count, "гейт входа — только critical");
+            Assert.AreEqual("/opening.png", required[0].Key);
+            // Хвост стримится в порядке появления в сюжете (eta) — впереди читателя.
+            Assert.AreEqual("/early.png", deferred[0].Key);
+            Assert.AreEqual("/late.png", deferred[1].Key);
         }
 
         [Test]
@@ -104,7 +105,7 @@ namespace Lvn.Tests
             var set = new Dictionary<string, LvnAssetMeta>
             {
                 [""] = Meta(10, critical: true),
-                ["/ok.png"] = Meta(10, critical: false),
+                ["/ok.png"] = Meta(10, critical: true),
             };
 
             var (required, deferred) = AssetScheduler.OrderForDownload(set);
