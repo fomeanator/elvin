@@ -100,6 +100,12 @@ namespace Lvn.UI
                 }
             }
             if (string.IsNullOrEmpty(url)) return;
+            // ПОВТОР ТОЙ ЖЕ КОМАНДЫ — NO-OP. Реплей восстановления (и любой
+            // двойной вызов) переустанавливал фон: кроссфейд в самого себя и
+            // рестарт пана с левого края — «фон дёргает туда-сюда» (живой
+            // репорт). Авторский повтор bg с ДРУГИМИ параметрами (новый пан)
+            // отличается содержимым команды и проходит как раньше.
+            if (_lastBgCmd != null && HasBackdrop && JToken.DeepEquals(_lastBgCmd, cmd)) return;
             // Remember the latest scene backdrop across scenes/sessions — the
             // hub wardrobe reopens "where the player last was" on this canvas.
             PlayerPrefs.SetString(LastBgKey, url);
@@ -129,8 +135,12 @@ namespace Lvn.UI
                 _renderer?.PanBackground(from, panTo ?? from, NumOr(cmd["pan_dur"], 20f));
             }
             ReleaseActive3DSet();
+            _lastBgCmd = (JObject)cmd.DeepClone();
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
+
+        // Последняя применённая bg-команда — повтор той же не трогает сцену.
+        private JObject _lastBgCmd;
 
         // «left/center/right» или число 0..1 — куда смотрит кадр по ширине фона.
         private static float? ParsePan(Newtonsoft.Json.Linq.JToken t)
