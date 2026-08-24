@@ -86,6 +86,16 @@ namespace Lvn.Content
             return url.Substring(0, dot) + "@2k" + url.Substring(dot);
         }
 
+        /// <summary>Микровариант для «силуэта-проявления»: крошечная (@mini,
+        /// бокс 256) версия того же арта — актёр на медленной сети входит
+        /// вовремя тёмной заготовкой, полный арт проявляет его следом. Null —
+        /// у url нет варианта (те же исключения, что у DownscaleVariant).</summary>
+        public static string MiniVariant(string url)
+        {
+            var v = DownscaleVariant(url);
+            return v?.Replace("@2k", "@mini");
+        }
+
         /// <summary>Classify by path segment. Order matters: script and audio win
         /// over the image buckets; among images, the path folder decides.</summary>
         public static AssetClass Classify(string url)

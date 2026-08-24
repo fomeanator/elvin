@@ -138,6 +138,9 @@ namespace Lvn.UI
         public float BgCrossfadeSeconds = 0.35f;
         [Tooltip("Long-press art view gesture (hide UI while held). ui.stage.long_press.")]
         public bool LongPressArtView = true;
+
+        [Tooltip("Опоздавший на медленной сети актёр входит вовремя тёмной @mini-заготовкой; полный арт проявляет его кроссфейдом. ui.stage.loading_silhouette.")]
+        public bool LoadingSilhouette = true;
         [Tooltip("Default obj entrance when the command has no enter=.")]
         public string ObjectEnter = "fade";
         [Tooltip("Default obj exit when the command has no exit=.")]

@@ -565,6 +565,51 @@ namespace Lvn.UI
                 var loads = new Task<Sprite>[urls.Count];
                 for (int i = 0; i < urls.Count; i++)
                     loads[i] = LoadLayerAsync(urls[i]);
+
+                // «СИЛУЭТ-ПРОЯВЛЕНИЕ» (идея Ильи): медленная сеть не задерживает
+                // выход актёра. Полные слои не успели за первые ~250 мс — актёр
+                // входит ВОВРЕМЯ крошечной @mini-заготовкой, затемнённой тинтом
+                // (в мире TR это язык постановки: Агент и так ходит силуэтом);
+                // полный арт доезжает фоном и проявляет его штатным кроссфейдом
+                // облика. Мини-промах (нет варианта/статик-хост) — путь прежний.
+                if ((Theme?.LoadingSilhouette ?? true) && placement.Show
+                    && IsCharacterCommand(cmd) && !wardrobeSwap)
+                {
+                    var allLoads = Task.WhenAll(loads);
+                    if (await Task.WhenAny(allLoads, Task.Delay(250)) != allLoads)
+                    {
+                        var mini = new List<Sprite>(urls.Count);
+                        var miniIds = layerIds != null ? new List<string>(urls.Count) : null;
+                        var miniRects = layerRects != null ? new List<Vector4>(urls.Count) : null;
+                        var miniDefs = layerDefs != null ? new List<SpriteCatalog.ResolvedLayer>(urls.Count) : null;
+                        for (int i = 0; i < urls.Count; i++)
+                        {
+                            var mu = Lvn.Content.DownloadPolicy.MiniVariant(urls[i]);
+                            if (mu == null) continue;
+                            Sprite ms = null;
+                            try { ms = await Assets.LoadSpriteAsync(mu, _cts.Token); }
+                            catch (OperationCanceledException) { return; }
+                            catch { /* мини недоступен — слой пропускается */ }
+                            if (ms == null) continue;
+                            mini.Add(ms);
+                            miniIds?.Add(i < urlIds.Count ? urlIds[i] : null);
+                            miniRects?.Add(i < urlRects.Count ? urlRects[i] : Vector4.zero);
+                            miniDefs?.Add(i < urlDefs.Count ? urlDefs[i] : default);
+                        }
+                        if (mini.Count > 0 && StageCurrent(epoch)
+                            && (!_actorGen.TryGetValue(id, out var sg) || sg == gen))
+                        {
+                            var silPl = placement;
+                            silPl.Silhouette = true;
+                            Debug.Log($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
+                            _renderer?.ApplyActor(id, mini, silPl, onClick, miniIds, miniRects, miniDefs);
+                            _placements[id] = silPl; // полный apply увидит «уже видим» → кроссфейд-проявление
+                            wasVisibleBeforeShow = true;
+                            visibilityChanged = false;
+                        }
+                    }
+                }
+
                 for (int i = 0; i < urls.Count; i++)
                 {
                     var s = await loads[i];
