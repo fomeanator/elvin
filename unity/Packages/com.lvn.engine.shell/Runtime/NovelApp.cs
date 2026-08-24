@@ -730,6 +730,22 @@ namespace Lvn.UI.Screens
             Mark("shell built");
             WireQuickMenu(manifest);
 
+            // «Скачать всю игру» в настройках: оценка/батч/прогресс/очистка —
+            // всё из лоадера, экран только рисует (ELVIN-85).
+            if (_shell.Settings != null)
+            {
+                var loader = _assets.Loader;
+                _shell.Settings.StorageInfo = StorageInfoAsync;
+                _shell.Settings.DownloadAll = DownloadEverythingAsync;
+                _shell.Settings.ClearDownloads = async () =>
+                {
+                    long freed = await loader.ClearAssetCacheAsync();
+                    Debug.Log($"[content] загруженное удалено: {freed >> 20} МБ");
+                };
+                _shell.Settings.DownloadProgress = () =>
+                    (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
+            }
+
             // The FULL library warms in the background from here on: every
             // chapter of every title lands on disk while the player browses or
             // reads — the next chapter's loading screen is then near-instant,
@@ -2038,6 +2054,69 @@ namespace Lvn.UI.Screens
         // Квота дискового кэша ассетов. Позже — настройка; 500 МБ покрывает
         // «скачать всё» Time Romance с запасом и не даёт кэшу расти вечно.
         private const long DiskCacheQuotaBytes = 500L << 20;
+
+        // ── «Скачать всю игру» (ELVIN-85) ────────────────────────────────────
+        // Полный список контента по манифесту, с ЭФФЕКТИВНЫМИ url (крупный
+        // арт живёт @2k-вариантом — качаем то, что возьмёт показ).
+        private List<(string url, string kind, long size)> CollectContentItems()
+        {
+            var seen = new HashSet<string>();
+            var items = new List<(string, string, long)>();
+            void Add(string url, string kind, long size)
+            {
+                if (string.IsNullOrEmpty(url)) return;
+                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                if (seen.Add(eff)) items.Add((eff, kind, size));
+            }
+            var m = _manifest;
+            if (m?.titles == null) return items;
+            foreach (var t in m.titles)
+            {
+                if (t == null) continue;
+                Add(t.cover_url, "sprite", 0);
+                foreach (var ch in t.ChaptersOf())
+                {
+                    if (ch == null) continue;
+                    Add(ch.script_url, "script", 0);
+                    Add(ch.bg_url, "sprite", 0);
+                    if (ch.assets == null) continue;
+                    foreach (var kv in ch.assets)
+                        Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                }
+            }
+            foreach (var u in MenuArtUrls()) Add(u, "sprite", 0);
+            var ui = m.ui;
+            Add(ui?.browse?.music, "audio", 0);
+            Add(ui?.sounds?.click, "audio", 0);
+            Add(ui?.sounds?.choice, "audio", 0);
+            Add(ui?.sounds?.type, "audio", 0);
+            return items;
+        }
+
+        private Task<(long missingBytes, int missingCount, long usedBytes)> StorageInfoAsync()
+            => Task.Run(async () =>
+            {
+                var items = CollectContentItems();
+                var loader = _assets.Loader;
+                long missing = 0; int count = 0;
+                foreach (var (url, _, size) in items)
+                    if (!loader.IsAssetCached(url))
+                    {
+                        missing += size > 0 ? size : 64 << 10; // без меты — скромная оценка
+                        count++;
+                    }
+                long used = await loader.AssetCacheDiskUsageAsync();
+                return (missing, count, used);
+            });
+
+        private Task DownloadEverythingAsync()
+        {
+            var items = new List<Lvn.Content.PreloadItem>();
+            foreach (var (url, kind, _) in CollectContentItems())
+                items.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
+            Debug.Log($"[content] «Скачать всё»: {items.Count} файлов в батч");
+            return _assets.Loader.StartPreloadBatch(items, destroyCancellationToken);
+        }
 
         private async Task SweepDiskCacheAsync()
         {
