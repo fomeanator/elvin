@@ -222,6 +222,10 @@ namespace Lvn.Content
     public sealed class SettingsConfig
     {
         public string title;           // default "Settings"
+        // Простой звук: ДВА ползунка — «Музыка» и «Звук» (печать, интерфейс,
+        // эффекты, эмбиент — одним движком). Для новелл без озвучки четыре
+        // канала — перегруз (решение партнёров TR). false/пусто — прежние 4.
+        public bool? simple_audio;
         public string scrim_color;     // default #000000b3
         public string panel_color;     // default #14141af7
         public string title_color;     // default #f4ecd8

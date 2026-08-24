@@ -268,5 +268,9 @@ namespace Lvn.UI
         [HideInInspector] public System.Collections.Generic.List<string> MenuHidden;
         // Тап по строке истории отматывает главу (ui.menu.history_jump).
         [HideInInspector] public bool MenuHistoryJump = true;
+
+        // Двухползунковый звук («Музыка»+«Звук») в плейбек-настройках квик-меню.
+        // ui.settings.simple_audio; полный экран настроек читает конфиг сам.
+        [HideInInspector] public bool SimpleAudioSliders;
     }
 }
