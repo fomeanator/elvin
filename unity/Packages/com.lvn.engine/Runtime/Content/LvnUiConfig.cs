@@ -56,6 +56,12 @@ namespace Lvn.Content
     public sealed class WardrobeConfig
     {
         public string entity;         // character to open by default (else: first with a wardrobe)
+        // Явный ростер вкладок меню-гардероба (id сущностей, порядок = порядок
+        // таблеток, первая = главная героиня — она носит имя игрока). Пусто —
+        // прежнее поведение: все одеваемые сущности каталога. Нужен, когда
+        // общий каталог держит спрайты НЕСКОЛЬКИХ новелл: без него в гардероб
+        // «вылазила» героиня чужой игры (живой репорт).
+        public List<string> characters;
         public string title;          // default "Wardrobe"
         public string scrim_color;    // default #000000b3
         public string panel_color;    // default #14141af7
