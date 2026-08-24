@@ -368,7 +368,12 @@ namespace Lvn.UI.World
                 && a.VisualWouldChange(layers, layerIds, layerRects, layerDefs)
                 && a.BeginArtSwapVisual();
             if (layers != null && layers.Count > 0)
+            {
                 a.Configure(layers, layerIds, layerRects, layerDefs);
+                // Силуэт-заготовка рисуется затемнённой; полный арт приходит со
+                // снятым флагом, и кроссфейд облика читается как «проявление».
+                a.SetSilhouette(p.Silhouette);
+            }
 
             Vector2 previousSlotBase = a.SlotBase;
             // Hiding never relocates first. If a tap interrupts an in-flight

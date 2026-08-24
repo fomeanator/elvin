@@ -346,6 +346,9 @@ namespace Lvn.Content
         // Жест «долгое нажатие = разглядывание арта» (весь интерфейс прячется,
         // пока палец на экране). false — жест выключен целиком.
         public bool? long_press;
+        // «Силуэт-проявление»: опоздавший арт входит тёмной @mini-заготовкой
+        // и проявляется полным. false — ждать полный, как раньше.
+        public bool? loading_silhouette;
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter

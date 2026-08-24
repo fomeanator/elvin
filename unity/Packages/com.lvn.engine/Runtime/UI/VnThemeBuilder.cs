@@ -38,6 +38,7 @@ namespace Lvn.UI
                 if (stg.object_transition.HasValue) t.ObjectTransition = Mathf.Max(0f, stg.object_transition.Value);
                 if (stg.bg_fade.HasValue) t.BgCrossfadeSeconds = Mathf.Max(0f, stg.bg_fade.Value);
                 if (stg.long_press.HasValue) t.LongPressArtView = stg.long_press.Value;
+                if (stg.loading_silhouette.HasValue) t.LoadingSilhouette = stg.loading_silhouette.Value;
             }
 
             var d = ui.dialogue;

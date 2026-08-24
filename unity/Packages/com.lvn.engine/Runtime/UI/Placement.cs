@@ -69,6 +69,11 @@ namespace Lvn.UI
         /// default feet-up reveal.</summary>
         public bool WardrobeFromTop;
 
+        /// <summary>«Силуэт-проявление»: слои — это @mini-заготовка опоздавшего
+        /// на медленной сети арта; рисуются затемнёнными, полный арт проявит их
+        /// штатным кроссфейдом облика.</summary>
+        public bool Silhouette;
+
         public static Placement Standing(float x) => new Placement
         {
             Show = true, X = x, Y = 1f, AnchorX = 0.5f, AnchorY = 1f, Opacity = 1f,

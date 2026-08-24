@@ -102,6 +102,17 @@ namespace Lvn.UI.World
         public bool HasActiveTransitionVisual
             => _transitionComposite != null && _transitionComposite.Active;
 
+        /// <summary>Тёмный тинт «силуэта-проявления»: @mini-заготовка рисуется
+        /// почти чёрной, полный арт возвращает слоям белый (кроссфейд облика
+        /// смешивает тёмное со светлым — актёр «проявляется»).</summary>
+        public void SetSilhouette(bool on)
+        {
+            EnsureRig();
+            var tint = on ? new Color(0.07f, 0.08f, 0.09f) : Color.white;
+            foreach (var img in _rig.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+                img.color = tint;
+        }
+
         /// <summary>Return from the flat transition visual to live animated layers.</summary>
         public void EndTransitionVisual()
         {
