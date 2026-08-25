@@ -51,6 +51,10 @@ namespace Lvn.UI.Screens
         /// and read/clear reading progress. Null → the Restart affordance hides.</summary>
         public LvnTitle Title;
 
+        /// <summary>Блок «Сохранения» на карточке (TR-32): партнёр прячет его
+        /// данными (ui.browse.detail_saves=false). Хост ставит до открытия.</summary>
+        public bool ShowSaves = true;
+
         /// <summary>Host hook for "restart the whole expedition": wipe this title's
         /// persisted stats and save slots (progress/checkpoints are cleared via
         /// <see cref="LvnProgress.ResetTitle"/>). Null → progress-only reset.</summary>
@@ -127,7 +131,7 @@ namespace Lvn.UI.Screens
             if (stats != null) body.Add(stats);
             var chapters = BuildChaptersSection();
             if (chapters != null) body.Add(chapters);
-            body.Add(BuildSavesSection());
+            if (ShowSaves) body.Add(BuildSavesSection());
 
             BuildActionBar(_actionBar);
             ApplySafeArea();

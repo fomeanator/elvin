@@ -495,7 +495,10 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnWardrobe = () => OpenWardrobeFromHubAsync();
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
                 _shell.Hub.OnProfile = () => _shell.OpenProfileAsync();
-                _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
+                // TR-25: партнёр прячет ежедневную награду данными; сама
+                // кнопка скрывается в BrowseHub по тому же конфигу.
+                if (manifest.ui?.browse?.show_daily ?? true)
+                    _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
                 _shell.Hub.PlayerName = _playerName;
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
@@ -729,6 +732,13 @@ namespace Lvn.UI.Screens
             _shell.Build(manifest, _assets);
             Mark("shell built");
             WireQuickMenu(manifest);
+
+            // Чистка витрины по данным (TR-25/32).
+            var browseCfg = manifest.ui?.browse;
+            if (_shell.Detail != null)
+                _shell.Detail.ShowSaves = browseCfg?.detail_saves ?? true;
+            if (_shell.Profile != null)
+                _shell.Profile.Minimal = !(browseCfg?.profile_full ?? true);
 
             // «Скачать всю игру» в настройках: оценка/батч/прогресс/очистка —
             // всё из лоадера, экран только рисует (ELVIN-85).
