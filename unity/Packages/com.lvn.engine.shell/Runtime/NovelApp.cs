@@ -466,18 +466,16 @@ namespace Lvn.UI.Screens
             // музыку меню не услышит вовсе, и это правильно.
             // Качество арта: настройка игрока ведёт бокс показа (@2k/@1k) —
             // синхронизируем до первой загрузки и на каждом изменении.
-            DownloadPolicy.PreferredSuffix = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+            DownloadPolicy.PreferredSuffix = "@" + EffectiveArtQuality();
             Lvn.UI.LvnPrefs.Changed += () =>
             {
-                var next = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+                var next = "@" + EffectiveArtQuality();
                 if (DownloadPolicy.PreferredSuffix != next)
                 {
                     DownloadPolicy.PreferredSuffix = next;
-                    // «Экономия» обязана ЭКОНОМИТЬ: файлы противоположного
-                    // бокса удаляются с диска, иначе переключение задваивало
-                    // кэш и настройка ничего не освобождала.
-                    LvnAsync.Fire(PurgeOtherArtBoxAsync(next == "@1k" ? "@2k" : "@1k"),
-                        "PurgeArtBox");
+                    // Смена ступени экономит место и перекачивает скачанное
+                    // (очередью центра загрузок) — оба чужих бокса вычищаются.
+                    LvnAsync.Fire(PurgeOtherArtBoxAsync(next), "PurgeArtBox");
                 }
                 ConfigureFrameRate(); // 30/60 из настроек — применяется сразу
             };
@@ -2265,16 +2263,34 @@ namespace Lvn.UI.Screens
             return _dlCenter.WhenDrainedAsync();
         }
 
+        /// <summary>Ступень качества с АВТОДЕФОЛТОМ по устройству (как App
+        /// Thinning у сторов): пока игрок не выбрал сам, ступень подбирается
+        /// по экрану и памяти — маленький/старый телефон стартует легче и
+        /// этого не замечает.</summary>
+        internal static string EffectiveArtQuality()
+        {
+            var chosen = Lvn.UI.LvnPrefs.ArtQuality;
+            if (!string.IsNullOrEmpty(chosen)) return chosen;
+            int px = Mathf.Max(Screen.width, Screen.height);
+            int ramMb = SystemInfo.systemMemorySize;
+            if (px >= 2000 && ramMb >= 4096) return "2k";
+            if (px >= 1400 && ramMb >= 3072) return "1440";
+            return "1k";
+        }
+
         // Смена качества = ПЕРЕКАЧКА (мысль Ильи: «для этого дозагрузчик и
         // пригодится»): старый бокс вычищается с диска, и ровно то, чем игрок
         // пользовался (что было скачано), встаёт в очередь центра загрузок
         // главами — в новом качестве. Не вся игра: только скачанное.
-        private async Task PurgeOtherArtBoxAsync(string otherSuffix)
+        private async Task PurgeOtherArtBoxAsync(string keepSuffix)
         {
             var loader = _assets?.Loader;
             var m = _manifest;
             if (loader == null || m?.titles == null) return;
-            string cur = DownloadPolicy.PreferredSuffix;
+            string cur = keepSuffix;
+            var others = new List<string>();
+            foreach (var sfx in new[] { "@2k", "@1440", "@1k" })
+                if (sfx != cur) others.Add(sfx);
             var redo = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
             int removed = 0;
             await Task.Run(() =>
@@ -2293,9 +2309,10 @@ namespace Lvn.UI.Screens
                             if ((kv.Value?.kind ?? "sprite") != "sprite") continue;
                             var eff = DownloadPolicy.DownscaleVariant(kv.Key);
                             if (eff == null || !seen.Add(eff)) continue;
-                            var old = eff.Replace(cur, otherSuffix);
-                            if (!loader.DeleteCachedAsset(old)) continue;
-                            removed++;
+                            bool had = false;
+                            foreach (var sfx in others)
+                                if (loader.DeleteCachedAsset(eff.Replace(cur, sfx))) { had = true; removed++; }
+                            if (!had) continue;
                             if (loader.IsAssetCached(eff)) continue;
                             items ??= new List<Lvn.Content.PreloadItem>();
                             items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite" });
@@ -2306,7 +2323,7 @@ namespace Lvn.UI.Screens
                     }
                 }
             });
-            Debug.Log($"[content] качество арта: бокс {otherSuffix} вычищен ({removed} файлов), "
+            Debug.Log($"[content] качество арта: чужие боксы вычищены ({removed} файлов), "
                 + $"перекачка {redo.Count} глав в {cur}");
             if (redo.Count == 0) return;
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);

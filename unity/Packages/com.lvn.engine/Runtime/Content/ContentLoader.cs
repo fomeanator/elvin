@@ -1608,7 +1608,7 @@ namespace Lvn.Content
             int at = url.IndexOf("/content/", StringComparison.Ordinal);
             if (at < 0) return null;
             var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
-            var baseRel = rel.Replace("@2k", "").Replace("@1k", "");
+            var baseRel = rel.Replace("@2k", "").Replace("@1440", "").Replace("@1k", "");
             string hit = _seedIndex.Contains(rel) ? rel
                 : _seedIndex.Contains(baseRel) ? baseRel : null;
             if (hit == null) return null;
@@ -2050,10 +2050,10 @@ namespace Lvn.Content
             var v = DownloadPolicy.DownscaleVariant(url);
             if (v != null)
             {
-                // Оба бокса живые: игрок может переключать «Качество арта».
-                var v2k = v.Replace(DownloadPolicy.PreferredSuffix, "@2k");
-                var v1k = v.Replace(DownloadPolicy.PreferredSuffix, "@1k");
-                Add(v2k); Add(v1k);
+                // Все ступени живые: игрок может переключать «Качество арта».
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@2k"));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@1440"));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@1k"));
                 Add(v.Replace(DownloadPolicy.PreferredSuffix, "@mini"));
                 Add(Ktx2UrlFor(url));
             }

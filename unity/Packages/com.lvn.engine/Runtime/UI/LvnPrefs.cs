@@ -40,7 +40,9 @@ namespace Lvn.UI
             _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
             _soundOn = PlayerPrefs.GetInt(P + "sound_on", 1) == 1;
             _locale = PlayerPrefs.GetString(P + "locale", "");
-            _artEco = PlayerPrefs.GetInt(P + "art_eco", 0) == 1;
+            _artQuality = PlayerPrefs.GetString(P + "art_quality", "");
+            // Миграция со старого двухпозиционного флага «Экономия».
+            if (_artQuality == "" && PlayerPrefs.GetInt(P + "art_eco", 0) == 1) _artQuality = "1k";
             _menuTrack = PlayerPrefs.GetString(P + "menu_track", "");
             _targetFps = PlayerPrefs.GetInt(P + "target_fps", 60) == 30 ? 30 : 60;
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
@@ -203,14 +205,14 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _soundOn, "sound_on", value); }
         }
 
-        /// <summary>Экономия трафика и памяти: арт едет в боксе 1024 вместо
-        /// 2048 — вчетверо легче, на телефонном экране почти неотличимо.</summary>
-        public static bool ArtEco
+        /// <summary>Ступень качества арта «как в ютубе»: "2k" | "1440" | "1k";
+        /// "" — игрок не выбирал, хост подбирает автодефолт по устройству.</summary>
+        public static string ArtQuality
         {
-            get { EnsureLoaded(); return _artEco; }
-            set { EnsureLoaded(); Set(ref _artEco, "art_eco", value); }
+            get { EnsureLoaded(); return _artQuality; }
+            set { EnsureLoaded(); Set(ref _artQuality, "art_quality", value ?? ""); }
         }
-        private static bool _artEco;
+        private static string _artQuality = "";
 
         /// <summary>Целевая частота кадров: 60 (по умолчанию) или 30 —
         /// экономия батареи; хост применяет через Application.targetFrameRate.</summary>
