@@ -2059,6 +2059,27 @@ namespace Lvn.Content
             }
         }
 
+        /// <summary>Удалить один закэшированный ассет (и его ktx2-транскод) с
+        /// диска — чистка противоположного бокса при смене «Качества арта».</summary>
+        public bool DeleteCachedAsset(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            bool any = false;
+            try
+            {
+                var path = CachePath(_assetCacheDir, url, ".bin");
+                if (File.Exists(path)) { File.Delete(path); any = true; }
+                var k = Ktx2UrlFor(url);
+                if (k != null)
+                {
+                    var kp = CachePath(_assetCacheDir, k, ".bin");
+                    if (File.Exists(kp)) { File.Delete(kp); any = true; }
+                }
+            }
+            catch { }
+            return any;
+        }
+
         /// <summary>Занято дисковым кэшем ассетов (байты), на пуле потоков.</summary>
         public Task<long> AssetCacheDiskUsageAsync() => Task.Run(() =>
         {
