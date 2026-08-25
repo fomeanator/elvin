@@ -96,10 +96,8 @@ namespace Lvn.UI.Screens
             _capsule.style.right = 14;
             _capsule.style.opacity = 0.55f; // тихий вид простоя
             var bg = LvnTokens.PanelBg;
-            // Стекло — тем же дешёвым слоем, что у вариантов выбора (UiGlass):
-            // лёгкий тон поверх размытия вместо плотной заливки.
-            _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.45f);
-            UiGlass.Apply(_capsule, 0.6f, new Color(bg.r, bg.g, bg.b, 0.55f));
+            // Просто полупрозрачный тон — блюр-стекло снято (Илья, 26.08).
+            _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
             LvnChrome.Edge(_capsule);
             _capsule.style.overflow = Overflow.Hidden;
             _capsule.style.alignItems = Align.Center;
@@ -139,7 +137,7 @@ namespace Lvn.UI.Screens
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.Add(title);
 
-            var close = new Label("✕");
+            var close = new Label("×");
             close.style.color = LvnTokens.TextDim;
             close.style.fontSize = 24;
             close.style.paddingTop = 6; close.style.paddingBottom = 6;
@@ -542,7 +540,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.marginTop = 6;
-            var mark = new Label(cached ? "✓" : "○");
+            var mark = new Label(cached ? "√" : "○");
             mark.pickingMode = PickingMode.Ignore;
             mark.style.color = cached ? LvnTokens.Accent : LvnTokens.TextDim;
             mark.style.fontSize = 20;
@@ -581,7 +579,7 @@ namespace Lvn.UI.Screens
             l.style.whiteSpace = WhiteSpace.NoWrap;
             l.style.flexShrink = 1;
             row.Add(l);
-            var x = new Label("✕");
+            var x = new Label("×");
             x.style.color = LvnTokens.TextDim;
             x.style.fontSize = 20;
             x.style.paddingLeft = 10; x.style.paddingRight = 4;
