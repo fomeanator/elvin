@@ -322,6 +322,11 @@ export const analyticsSlides = (query, title, chapter, token) =>
 
 // GET /v1/analytics/money — конверсия в платящего, ARPU, ARPPU, разбивка по
 // пакам и когортам. Сумма — оценка по прайсу каталога, не выручка из стора.
+// GET /v1/admin/stats/spend?from&to&bucket=day|month — траты ВАЛЮТ по
+// контенту (TR-28): серии для графика + тайтлы с главами и типами трат.
+export const adminSpendStats = (query, token) =>
+  adminFetch("/v1/admin/stats/spend" + (query ? "?" + query : ""), token);
+
 export const analyticsMoney = (query, token) =>
   adminFetch("/v1/analytics/money" + (query ? "?" + query : ""), token);
 

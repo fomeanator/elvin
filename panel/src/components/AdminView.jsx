@@ -210,7 +210,7 @@ function UsersPage({ token, notify }) {
       }
     >
       <LoadState loading={loading} error={error} empty={!users.length}
-                 emptyText={needle ? "Никто не совпал с поиском." : "Пользователей ещё нет."}>
+                 emptyText={needle ? "Неверный UID — игрок не найден." : "Пользователей ещё нет."}>
         <div className="adm-tablewrap">
           <table className="adm-table">
             <thead>
@@ -276,7 +276,42 @@ function UserDetail({ id, token, notify }) {
   }
 
   const wallet = data && data.wallet;
-  const currencies = [...new Set([...Object.keys((wallet && wallet.balances) || {}), "gold", "crystals", "energy"])];
+  const currencies = [...new Set([...Object.keys((wallet && wallet.balances) || {}), "crystals", "energy"])];
+  // Редактируемые балансы (TR-21): значение правится на месте, «Сохранить»
+  // превращает разницу в grant/clawback. Отрицательный баланс не вводится.
+  const [editBal, setEditBal] = useState({});
+  const [savingBal, setSavingBal] = useState(false);
+  useEffect(() => {
+    if (!wallet) return;
+    const init = {};
+    for (const c of new Set([...Object.keys(wallet.balances || {}), "crystals", "energy"]))
+      init[c] = String(wallet.balances?.[c] ?? 0);
+    setEditBal(init);
+  }, [data]);
+
+  async function saveBalances() {
+    if (!wallet) return;
+    const ops = [];
+    for (const [c, raw] of Object.entries(editBal)) {
+      const want = Number(raw);
+      if (!Number.isSafeInteger(want) || want < 0) {
+        notify(`«${c}»: нужно целое число ≥ 0`, "err");
+        return;
+      }
+      const have = Number(wallet.balances?.[c] ?? 0);
+      if (want !== have) ops.push({ currency: c, amount: want - have });
+    }
+    if (!ops.length) { notify("Изменений нет", "ok"); return; }
+    setSavingBal(true);
+    try {
+      for (const op of ops)
+        await adminGrant({ user_id: id, currency: op.currency, amount: op.amount, reason: "admin:set-balance" }, token);
+      notify("Баланс сохранён", "ok");
+      reload();
+    } catch (e) {
+      notify("✗ " + authMsg(e), "err");
+    } finally { setSavingBal(false); }
+  }
 
   return (
     <LoadState loading={loading} error={error}>
@@ -288,14 +323,17 @@ function UserDetail({ id, token, notify }) {
           </div>
 
           <div className="admin-balances">
-            {Object.entries(wallet.balances || {}).map(([c, v]) => (
+            {Object.entries(editBal).map(([c, v]) => (
               <div key={c} className="admin-balance">
-                <span className="admin-stat-num">{fmt(v)}</span>
+                <input className="field admin-balance-edit" type="number" min="0" value={v}
+                       onChange={(e) => setEditBal((b) => ({ ...b, [c]: e.target.value }))} />
                 <span className="admin-stat-label">{c}</span>
               </div>
             ))}
-            {!Object.keys(wallet.balances || {}).length && <Empty text="Кошелёк пуст." />}
           </div>
+          <button className="btn btn-primary" onClick={saveBalances} disabled={savingBal}>
+            Сохранить балансы
+          </button>
 
           <section className="adm-drawer-section">
             <h3>Начислить / списать</h3>

@@ -62,6 +62,7 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/config/", s.handleConfig)
 	mux.HandleFunc("/v1/admin/manifest/publish", s.handlePublish)
 	mux.HandleFunc("/v1/admin/history", s.handleHistory)
+	mux.HandleFunc("/v1/admin/stats/spend", s.handleSpendStats)
 	mux.HandleFunc("/v1/admin/rollback", s.handleRollback)
 	mux.HandleFunc("/v1/admin/files", s.handleFiles)
 	mux.HandleFunc("/v1/admin/import-templates", s.handleImportTemplates)
