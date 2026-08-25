@@ -58,6 +58,9 @@ namespace Lvn.UI.Screens
         private VisualElement _root;
         private LvnManifest _manifest;
         private ILvnAssets _assets;
+        /// <summary>Единый индикатор загрузок; хост навешивает на него центр
+        /// очереди и данные офлайна после Build.</summary>
+        public Lvn.UI.Screens.DownloadHud DownloadHud;
         private string _playerName;
 
         /// <summary>The shell's UIDocument. Assign
@@ -144,9 +147,9 @@ namespace Lvn.UI.Screens
             // остановилось»: батч жил, но был невидим).
             if (assets is CachingAssets ca)
             {
-                var dl = new Lvn.UI.Screens.DownloadHud();
-                Add(dl);
-                _root.schedule.Execute(() => dl.Tick(ca.Loader.Transfers())).Every(300);
+                DownloadHud = new Lvn.UI.Screens.DownloadHud();
+                Add(DownloadHud);
+                _root.schedule.Execute(() => DownloadHud.Tick(ca.Loader.Transfers())).Every(300);
             }
 
             // Wallet → HUD pills: the server's balances mirror onto the in-game

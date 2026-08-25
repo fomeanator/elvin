@@ -20,14 +20,33 @@ namespace Lvn.UI.Screens
     {
         // Геометрия двух состояний капсулы.
         private const float MiniSize = 46f;
-        private const float FullW = 460f;
-        private const float FullH = 118f;
+        private const float FullW = 520f;
+        private const float FullH = 560f;
+
+        // ── швы к хосту (NovelApp навешивает после Build) ────────────────────
+        /// <summary>Очередь глав «Скачать всё» — для списка и крестиков.</summary>
+        public DownloadCenter Center;
+        /// <summary>Сеть пропала? (LvnNetworkStatus)</summary>
+        public Func<bool> Offline;
+        /// <summary>Событий кошелька/прогресса, ждущих отправки на сервер.</summary>
+        public Func<int> PendingOps;
+        /// <summary>Главы и их офлайн-доступность (полностью в кэше?). Зовётся
+        /// при развороте попапа — проверка по диску не для каждого тика.</summary>
+        public Func<List<(string label, bool cached)>> ChaptersInfo;
+        /// <summary>«Скачать всю игру» — тот же хук, что в настройках.</summary>
+        public Func<Task> DownloadAll;
+        /// <summary>Сколько осталось скачать (байт, файлов) — подпись кнопки.</summary>
+        public Func<(long bytes, int files)> MissingInfo;
 
         private readonly VisualElement _capsule;
         private readonly ProgressRing _miniRing;
         private readonly VisualElement _full;
-        private readonly ProgressRing _fullRing;
-        private readonly Label _file, _stats;
+        private ProgressRing _fullRing;
+        private Label _file, _stats;
+        private ScrollView _sections;
+        /// <summary>Текущий качаемый url — для человеческой подписи
+        /// («Персонажи и наряды», а не имя файла).</summary>
+        public Func<string> ActiveUrl;
 
         private bool _expanded;
         private float _morph;          // 0 = мини, 1 = полная (текущее положение)
@@ -92,24 +111,51 @@ namespace Lvn.UI.Screens
             _full = new VisualElement();
             _full.pickingMode = PickingMode.Ignore;
             _full.style.position = Position.Absolute;
-            _full.style.left = 16; _full.style.right = 16;
-            _full.style.top = 0; _full.style.bottom = 0;
-            _full.style.flexDirection = FlexDirection.Row;
-            _full.style.alignItems = Align.Center;
+            _full.style.left = 18; _full.style.right = 18;
+            _full.style.top = 14; _full.style.bottom = 14;
             _full.style.opacity = 0f;
             _capsule.Add(_full);
 
-            _fullRing = new ProgressRing(26f, 4.5f, drawArrow: true);
-            _fullRing.style.width = 64; _fullRing.style.height = 64;
-            _fullRing.style.marginRight = 14;
+            var head = new VisualElement();
+            head.pickingMode = PickingMode.Ignore;
+            head.style.flexDirection = FlexDirection.Row;
+            head.style.alignItems = Align.Center;
+            head.style.justifyContent = Justify.SpaceBetween;
+            _full.Add(head);
+
+            var title = new Label("Загрузки");
+            title.pickingMode = PickingMode.Ignore;
+            title.style.color = LvnTokens.Text;
+            title.style.fontSize = 28;
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            head.Add(title);
+
+            var close = new Label("✕");
+            close.style.color = LvnTokens.TextDim;
+            close.style.fontSize = 24;
+            close.style.paddingTop = 6; close.style.paddingBottom = 6;
+            close.style.paddingLeft = 10; close.style.paddingRight = 6;
+            close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
+            head.Add(close);
+
+            var active = new VisualElement();
+            active.pickingMode = PickingMode.Ignore;
+            active.style.flexDirection = FlexDirection.Row;
+            active.style.alignItems = Align.Center;
+            active.style.marginTop = 10;
+            _full.Add(active);
+
+            _fullRing = new ProgressRing(24f, 4.5f, drawArrow: true);
+            _fullRing.style.width = 58; _fullRing.style.height = 58;
+            _fullRing.style.marginRight = 12;
             _fullRing.style.flexShrink = 0;
             _fullRing.pickingMode = PickingMode.Ignore;
-            _full.Add(_fullRing);
+            active.Add(_fullRing);
 
             var col = new VisualElement();
             col.pickingMode = PickingMode.Ignore;
             col.style.flexGrow = 1; col.style.flexShrink = 1;
-            _full.Add(col);
+            active.Add(col);
 
             _file = new Label("");
             _file.pickingMode = PickingMode.Ignore;
@@ -125,18 +171,16 @@ namespace Lvn.UI.Screens
             _stats.pickingMode = PickingMode.Ignore;
             _stats.style.color = LvnTokens.TextDim;
             _stats.style.fontSize = 19;
-            _stats.style.marginTop = 4;
+            _stats.style.marginTop = 3;
             col.Add(_stats);
 
-            var close = new Label("✕");
-            close.style.color = LvnTokens.TextDim;
-            close.style.fontSize = 22;
-            close.style.marginLeft = 12;
-            close.style.paddingTop = 6; close.style.paddingBottom = 6;
-            close.style.paddingLeft = 8; close.style.paddingRight = 8;
-            close.style.flexShrink = 0;
-            close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
-            _full.Add(close);
+            // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
+            // перестраиваются при развороте и по изменению очереди.
+            _sections = new ScrollView(ScrollViewMode.Vertical);
+            _sections.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _sections.style.flexGrow = 1;
+            _sections.style.marginTop = 10;
+            _full.Add(_sections);
 
             ApplyMorph(0f);
         }
@@ -148,6 +192,7 @@ namespace Lvn.UI.Screens
             if (_expanded == on) return;
             _expanded = on;
             _scrim.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (on) RebuildSections();
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, 260, (_, p) =>
             {
@@ -175,7 +220,13 @@ namespace Lvn.UI.Screens
         public void Tick((int inflight, int batchTotal, int batchDone, long received, long expected, string label) t)
         {
             float now = Time.realtimeSinceStartup;
-            bool active = t.inflight > 0 || (t.batchTotal > 0 && t.batchDone < t.batchTotal);
+            bool act = t.inflight > 0 || (t.batchTotal > 0 && t.batchDone < t.batchTotal);
+            bool off = Offline?.Invoke() ?? false;
+            bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);
+            int pend = PendingOps?.Invoke() ?? 0;
+            // Кружок живёт не только загрузкой: офлайн с живой очередью — «!»,
+            // несинхронизированные события — «↑» (уедут при сети).
+            bool visible = act || (off && (queued || pend > 0)) || pend > 0;
 
             if (_lastAt > 0f && t.received >= _lastBytes)
             {
@@ -190,7 +241,7 @@ namespace Lvn.UI.Screens
             _lastBytes = t.received;
             _lastAt = now;
 
-            if (active)
+            if (visible)
             {
                 _quietSince = -1f;
                 if (!_visible)
@@ -202,17 +253,43 @@ namespace Lvn.UI.Screens
                         (_, p) => _capsule.style.opacity = p);
                 }
 
-                float frac = t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
-                    : t.batchTotal > 0 ? Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal))
-                    : -1f; // неизвестен — кольцо крутится само
+                var glyph = off && (act || queued) ? RingGlyph.Alert
+                    : act ? RingGlyph.Down
+                    : RingGlyph.Up;
+                _miniRing.Glyph = glyph;
+                _fullRing.Glyph = glyph;
+
+                float frac = act
+                    ? (t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
+                        : t.batchTotal > 0 ? Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal))
+                        : -1f)
+                    : glyph == RingGlyph.Up ? -1f : 0f;
                 _miniRing.Progress = frac;
                 _fullRing.Progress = frac;
 
-                _file.text = string.IsNullOrEmpty(t.label) ? "Загрузка контента" : t.label;
-                int queued = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
-                string s = _speed > 8f * 1024f ? Speed(_speed) : "…";
-                string got = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
-                _stats.text = $"{s} · в очереди {queued} · {got}";
+                if (glyph == RingGlyph.Alert)
+                {
+                    _file.text = "Нет соединения";
+                    _stats.text = "Загрузка продолжится сама";
+                }
+                else if (glyph == RingGlyph.Up)
+                {
+                    _file.text = "Синхронизация";
+                    _stats.text = $"Событий к отправке: {pend}";
+                }
+                else
+                {
+                    var activeEntry = ActiveEntry();
+                    _file.text = activeEntry != null
+                        ? activeEntry.Label
+                        : Humanize(ActiveUrl?.Invoke(), t.label);
+                    int queuedFiles = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
+                    string sp = _speed > 8f * 1024f ? Speed(_speed) + " · " : "";
+                    string got = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
+                    _stats.text = $"{Humanize(ActiveUrl?.Invoke(), null)} · {sp}в очереди {queuedFiles} · {got}";
+                }
+
+                if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(); }
             }
             else if (_visible)
             {
@@ -232,6 +309,191 @@ namespace Lvn.UI.Screens
             }
         }
 
+        private bool _centerDirty;
+        private DownloadCenter _watched;
+
+        private DownloadCenter.Entry ActiveEntry()
+        {
+            if (Center == null) return null;
+            // Подписка на очередь — лениво, когда центр появился у хоста.
+            if (_watched != Center)
+            {
+                if (_watched != null) _watched.Changed -= MarkCenterDirty;
+                _watched = Center;
+                _watched.Changed += MarkCenterDirty;
+            }
+            foreach (var e in Center.Queue) if (e.Active) return e;
+            return null;
+        }
+
+        private void MarkCenterDirty() => _centerDirty = true;
+
+        /// <summary>Человеческая подпись того, что качается: класс файла
+        /// словами игрока, не именем файла (решение Ильи: «скачиваем героиню
+        /// и фаворитов», а не cr_transcoded_layer_0000).</summary>
+        private static string Humanize(string url, string fallback)
+        {
+            if (string.IsNullOrEmpty(url))
+                return string.IsNullOrEmpty(fallback) ? "Файлы игры" : fallback;
+            switch (Lvn.Content.DownloadPolicy.Classify(url))
+            {
+                case Lvn.Content.AssetClass.Actor: return "Персонажи и наряды";
+                case Lvn.Content.AssetClass.SceneBg: return "Фоны сцен";
+                case Lvn.Content.AssetClass.ChapterBg: return "Экраны глав";
+                case Lvn.Content.AssetClass.Cover: return "Обложки историй";
+                case Lvn.Content.AssetClass.Audio: return "Музыка и звуки";
+                case Lvn.Content.AssetClass.Script: return "Текст глав";
+                case Lvn.Content.AssetClass.Ui: return "Интерфейс";
+            }
+            if (url.Contains("/sprites/")) return "Персонажи и наряды";
+            return "Файлы игры";
+        }
+
+        // ── секции попапа ─────────────────────────────────────────────────────
+
+        private void RebuildSections()
+        {
+            if (_sections == null) return;
+            _sections.Clear();
+
+            bool off = Offline?.Invoke() ?? false;
+            int pend = PendingOps?.Invoke() ?? 0;
+
+            if (off)
+            {
+                var card = SectionCard();
+                card.Add(SectionTitle("Играть без интернета"));
+                card.Add(Hint("Доступно всё, что уже скачано: главы ниже с галочкой "
+                    + "откроются в самолёте и без сети. Скачайте игру целиком — "
+                    + "и читайте где угодно; покупки за кристаллы тоже работают "
+                    + "офлайн и синхронизируются позже."));
+                var chapters = ChaptersInfo?.Invoke();
+                if (chapters != null)
+                    foreach (var (label, cached) in chapters)
+                        card.Add(ChapterRow(label, cached));
+                _sections.Add(card);
+            }
+
+            if (pend > 0)
+            {
+                var card = SectionCard();
+                card.Add(SectionTitle("Ждут отправки"));
+                card.Add(Hint(off
+                    ? $"Событий: {pend} — покупки и прогресс сохранены на устройстве и уедут на сервер, как только появится сеть."
+                    : $"Отправляем на сервер: {pend} событий (покупки, прогресс)."));
+                _sections.Add(card);
+            }
+
+            if (Center != null && Center.Queue.Count > 0)
+            {
+                var card = SectionCard();
+                card.Add(SectionTitle("Очередь загрузки"));
+                foreach (var e in Center.Queue)
+                    card.Add(QueueRow(e));
+                _sections.Add(card);
+            }
+
+            var missing = MissingInfo?.Invoke() ?? (0, 0);
+            if (missing.Item2 > 0 && DownloadAll != null && !(Center != null && Center.Queue.Count > 0))
+            {
+                var card = SectionCard();
+                card.Add(SectionTitle("Вся игра — с собой"));
+                card.Add(Hint("Скачайте один раз и играйте без интернета: главы, арт и музыка останутся на устройстве."));
+                var btn = new Button { text = $"Скачать всё ≈{Mathf.Max(1, missing.Item1 >> 20)} МБ" };
+                btn.style.height = 52;
+                btn.style.fontSize = 22;
+                btn.style.marginTop = 8;
+                btn.style.color = LvnTokens.OnAccent;
+                btn.style.backgroundColor = LvnTokens.Accent;
+                LvnChrome.ClearBorder(btn);
+                LvnChrome.Round(btn, 14f);
+                btn.clicked += () => { btn.SetEnabled(false); _ = DownloadAll(); };
+                card.Add(btn);
+                _sections.Add(card);
+            }
+        }
+
+        private VisualElement SectionCard()
+        {
+            var card = new VisualElement();
+            card.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Round(card, 14f);
+            card.style.paddingTop = 12; card.style.paddingBottom = 12;
+            card.style.paddingLeft = 14; card.style.paddingRight = 14;
+            card.style.marginBottom = 10;
+            return card;
+        }
+
+        private Label SectionTitle(string text)
+        {
+            var l = new Label(text);
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = LvnTokens.Text;
+            l.style.fontSize = 22;
+            l.style.unityFontStyleAndWeight = FontStyle.Bold;
+            l.style.marginBottom = 4;
+            return l;
+        }
+
+        private Label Hint(string text)
+        {
+            var l = new Label(text);
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = LvnTokens.TextDim;
+            l.style.fontSize = 19;
+            l.style.whiteSpace = WhiteSpace.Normal;
+            return l;
+        }
+
+        private VisualElement ChapterRow(string label, bool cached)
+        {
+            var row = new VisualElement();
+            row.pickingMode = PickingMode.Ignore;
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = 6;
+            var mark = new Label(cached ? "✓" : "○");
+            mark.pickingMode = PickingMode.Ignore;
+            mark.style.color = cached ? LvnTokens.Accent : LvnTokens.TextDim;
+            mark.style.fontSize = 20;
+            mark.style.width = 26;
+            row.Add(mark);
+            var l = new Label(label);
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = cached ? LvnTokens.Text : LvnTokens.TextDim;
+            l.style.fontSize = 20;
+            row.Add(l);
+            return row;
+        }
+
+        private VisualElement QueueRow(DownloadCenter.Entry e)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.marginTop = 6;
+            var l = new Label((e.Active ? "▶ " : "") + e.Label
+                + (e.Bytes > 0 ? $" · {Mathf.Max(1, e.Bytes >> 20)} МБ" : ""));
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = e.Active ? LvnTokens.Text : LvnTokens.TextDim;
+            l.style.fontSize = 20;
+            l.style.overflow = Overflow.Hidden;
+            l.style.textOverflow = TextOverflow.Ellipsis;
+            l.style.whiteSpace = WhiteSpace.NoWrap;
+            l.style.flexShrink = 1;
+            row.Add(l);
+            var x = new Label("✕");
+            x.style.color = LvnTokens.TextDim;
+            x.style.fontSize = 20;
+            x.style.paddingLeft = 10; x.style.paddingRight = 4;
+            x.style.flexShrink = 0;
+            var entry = e;
+            x.RegisterCallback<ClickEvent>(ev => { ev.StopPropagation(); Center?.Remove(entry); RebuildSections(); });
+            row.Add(x);
+            return row;
+        }
+
         private static string Mb(long bytes)
             => bytes >= 100L << 20 ? $"{bytes >> 20} МБ"
              : $"{bytes / 1048576f:0.#} МБ".Replace('.', ',');
@@ -241,15 +503,27 @@ namespace Lvn.UI.Screens
                 ? $"{bytesPerSec / 1048576f:0.#} МБ/с".Replace('.', ',')
                 : $"{Mathf.RoundToInt(bytesPerSec / 1024f)} КБ/с";
 
-        /// <summary>Хромовский значок загрузки чистым painter2D: стрелка вниз с
-        /// полочкой и кольцо прогресса вокруг. Progress &lt; 0 — прогресс
-        /// неизвестен: короткая дуга крутится сама (спиннер).</summary>
+        /// <summary>Что рисуется внутри кольца: стрелка вниз (загрузка),
+        /// «!» (офлайн при живой очереди), стрелка вверх (синхронизация —
+        /// события уезжают на сервер).</summary>
+        public enum RingGlyph { Down, Alert, Up }
+
+        /// <summary>Хромовский значок загрузки чистым painter2D: глиф в центре
+        /// и кольцо прогресса вокруг. Progress &lt; 0 — прогресс неизвестен:
+        /// короткая дуга крутится сама (спиннер).</summary>
         private sealed class ProgressRing : VisualElement
         {
             private readonly float _radius, _stroke;
             private readonly bool _arrow;
             private float _progress = -1f;
             private float _spin;
+            private RingGlyph _glyph = RingGlyph.Down;
+
+            public RingGlyph Glyph
+            {
+                get => _glyph;
+                set { if (_glyph != value) { _glyph = value; MarkDirtyRepaint(); } }
+            }
 
             public float Progress
             {
@@ -294,19 +568,33 @@ namespace Lvn.UI.Screens
                 p.Stroke();
 
                 if (!_arrow) return;
-                // Стрелка: штрих вниз + шеврон + полочка (как у Chrome).
                 float a = _radius * 0.52f;
-                p.strokeColor = LvnTokens.Text;
                 p.lineWidth = Mathf.Max(2f, _stroke * 0.8f);
                 p.lineJoin = LineJoin.Round;
+                if (_glyph == RingGlyph.Alert)
+                {
+                    // «!»: штрих + точка — сеть пропала, загрузка ждёт.
+                    p.strokeColor = new Color(1f, 0.76f, 0.3f);
+                    p.BeginPath();
+                    p.MoveTo(new Vector2(c.x, c.y - a));
+                    p.LineTo(new Vector2(c.x, c.y + a * 0.35f));
+                    p.Stroke();
+                    p.BeginPath();
+                    p.Arc(new Vector2(c.x, c.y + a * 0.85f), p.lineWidth * 0.55f, 0f, 360f);
+                    p.Stroke();
+                    return;
+                }
+                // Стрелка (вниз — загрузка; вверх — синк) + полочка, как у Chrome.
+                float dirY = _glyph == RingGlyph.Up ? -1f : 1f;
+                p.strokeColor = LvnTokens.Text;
                 p.BeginPath();
-                p.MoveTo(new Vector2(c.x, c.y - a));
-                p.LineTo(new Vector2(c.x, c.y + a * 0.55f));
+                p.MoveTo(new Vector2(c.x, c.y - a * dirY));
+                p.LineTo(new Vector2(c.x, c.y + a * 0.55f * dirY));
                 p.Stroke();
                 p.BeginPath();
-                p.MoveTo(new Vector2(c.x - a * 0.6f, c.y - a * 0.05f));
-                p.LineTo(new Vector2(c.x, c.y + a * 0.62f));
-                p.LineTo(new Vector2(c.x + a * 0.6f, c.y - a * 0.05f));
+                p.MoveTo(new Vector2(c.x - a * 0.6f, c.y - a * 0.05f * dirY));
+                p.LineTo(new Vector2(c.x, c.y + a * 0.62f * dirY));
+                p.LineTo(new Vector2(c.x + a * 0.6f, c.y - a * 0.05f * dirY));
                 p.Stroke();
                 p.BeginPath();
                 p.MoveTo(new Vector2(c.x - a * 0.7f, c.y + a));

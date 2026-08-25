@@ -772,6 +772,27 @@ namespace Lvn.UI.Screens
                 };
                 _shell.Settings.DownloadProgress = () =>
                     (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
+
+                // Центр загрузок: очередь по главам + данные для попапа
+                // индикатора (офлайн-правила, синк, «скачать всё»).
+                if (_shell.DownloadHud != null)
+                {
+                    _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
+                    var hud = _shell.DownloadHud;
+                    hud.Center = _dlCenter;
+                    hud.Offline = () => Lvn.Content.LvnNetworkStatus.IsOffline;
+                    hud.PendingOps = () => Lvn.Services.LvnWallet.PendingCount;
+                    hud.ActiveUrl = () => loader.LastStartedUrl;
+                    hud.DownloadAll = DownloadEverythingAsync;
+                    hud.ChaptersInfo = ChapterAvailability;
+                    hud.MissingInfo = () =>
+                    {
+                        long bytes = 0; int files = 0;
+                        foreach (var (url, _, size) in CollectContentItems())
+                            if (!loader.IsAssetCached(url)) { bytes += size > 0 ? size : 64 << 10; files++; }
+                        return (bytes, files);
+                    };
+                }
             }
 
             // The FULL library warms in the background from here on: every
@@ -2173,13 +2194,91 @@ namespace Lvn.UI.Screens
                 return (missing, count, used);
             });
 
+        private Lvn.UI.Screens.DownloadCenter _dlCenter;
+
+        // «Скачать всё» — очередью ПО ГЛАВАМ (решение Ильи 25.08): видно, что
+        // качается и что ждёт, любую главу можно снять крестиком. Общие файлы
+        // (обложки, меню, звуки) едут первой записью — они нужны любому экрану.
         private Task DownloadEverythingAsync()
         {
-            var items = new List<Lvn.Content.PreloadItem>();
-            foreach (var (url, kind, _) in CollectContentItems())
-                items.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
-            Debug.Log($"[content] «Скачать всё»: {items.Count} файлов в батч");
-            return _assets.Loader.StartPreloadBatch(items, destroyCancellationToken);
+            var loader = _assets.Loader;
+            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
+            var m = _manifest;
+            if (m?.titles == null) return Task.CompletedTask;
+
+            var chapterUrls = new HashSet<string>();
+            var perChapter = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
+            foreach (var t in m.titles)
+            {
+                if (t == null) continue;
+                foreach (var ch in t.ChaptersOf())
+                {
+                    if (ch == null) continue;
+                    var items = new List<Lvn.Content.PreloadItem>();
+                    long bytes = 0;
+                    void Add(string url, string kind, long size)
+                    {
+                        if (string.IsNullOrEmpty(url)) return;
+                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                        if (!chapterUrls.Add(eff) || loader.IsAssetCached(eff)) return;
+                        items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
+                        bytes += size > 0 ? size : 64 << 10;
+                    }
+                    Add(ch.script_url, "script", 0);
+                    Add(ch.bg_url, "sprite", 0);
+                    if (ch.assets != null)
+                        foreach (var kv in ch.assets)
+                            Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                    if (items.Count > 0)
+                        perChapter.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
+                }
+            }
+            // Всё, что не привязано к главам (обложки, меню, интерфейсные звуки).
+            var shared = new List<Lvn.Content.PreloadItem>();
+            long sharedBytes = 0;
+            foreach (var (url, kind, size) in CollectContentItems())
+            {
+                if (chapterUrls.Contains(url) || loader.IsAssetCached(url)) continue;
+                shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
+                sharedBytes += size > 0 ? size : 64 << 10;
+            }
+            if (shared.Count > 0) _dlCenter.Enqueue("Обложки и меню", sharedBytes, shared);
+            foreach (var (label, bytes, items) in perChapter)
+                _dlCenter.Enqueue(label, bytes, items);
+            Debug.Log($"[content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
+            return _dlCenter.WhenDrainedAsync();
+        }
+
+        // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
+        // когда ВСЕ её файлы уже на диске. Зовётся при развороте попапа.
+        private List<(string label, bool cached)> ChapterAvailability()
+        {
+            var res = new List<(string, bool)>();
+            var loader = _assets?.Loader;
+            var m = _manifest;
+            if (loader == null || m?.titles == null) return res;
+            foreach (var t in m.titles)
+            {
+                if (t == null) continue;
+                foreach (var ch in t.ChaptersOf())
+                {
+                    if (ch == null) continue;
+                    bool ok = true;
+                    void Check(string url, string kind)
+                    {
+                        if (!ok || string.IsNullOrEmpty(url)) return;
+                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                        if (!loader.IsAssetCached(eff)) ok = false;
+                    }
+                    Check(ch.script_url, "script");
+                    Check(ch.bg_url, "sprite");
+                    if (ch.assets != null)
+                        foreach (var kv in ch.assets)
+                        { Check(kv.Key, kv.Value?.kind ?? "sprite"); if (!ok) break; }
+                    res.Add(($"{t.name ?? t.id} — глава {ch.number}", ok));
+                }
+            }
+            return res;
         }
 
         private async Task SweepDiskCacheAsync()
