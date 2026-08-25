@@ -251,7 +251,7 @@ namespace Lvn.UI.Screens
             arrow.style.fontSize = 30;
             arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             row.Add(arrow);
-            row.RegisterCallback<ClickEvent>(_ => OnOpenSettings?.Invoke());
+            row.RegisterCallback<ClickEvent>(_ => { Close(); OnOpenSettings?.Invoke(); });
             return row;
         }
 

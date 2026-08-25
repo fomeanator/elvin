@@ -54,6 +54,12 @@ const downscaleSuffix = "@2k"
 const miniSuffix = "@mini"
 const miniMax = 256
 
+// Экономный вариант для ручки «Качество арта»: полноценная картинка, но в
+// бокс 1024 — вчетверо легче @2k по памяти и трафику, на телефонном экране
+// разница почти не читается.
+const ecoSuffix = "@1k"
+const ecoMax = 1024
+
 // downscaleExts are the image types a variant can be requested for. The
 // variant keeps the source's format (PNG stays PNG — alpha survives; JPEG
 // stays JPEG — no alpha to lose).
@@ -121,6 +127,8 @@ func variantSourceBox(variantPath string) (string, int) {
 		return strings.TrimSuffix(base, downscaleSuffix) + filepath.Ext(variantPath), downscaleMax
 	case strings.HasSuffix(base, miniSuffix):
 		return strings.TrimSuffix(base, miniSuffix) + filepath.Ext(variantPath), miniMax
+	case strings.HasSuffix(base, ecoSuffix):
+		return strings.TrimSuffix(base, ecoSuffix) + filepath.Ext(variantPath), ecoMax
 	}
 	return "", 0
 }

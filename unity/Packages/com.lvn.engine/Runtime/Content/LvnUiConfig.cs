@@ -468,6 +468,13 @@ namespace Lvn.Content
     /// carousel selected by <c>layout = "hub"</c>. Three themeable screens: the hub
     /// (game title + collection tiles), a collection (title cards), and a title
     /// detail (image + description + Play). Every colour/label optional.</summary>
+    public sealed class MusicOption
+    {
+        public string id;
+        public string title;
+        public string url;
+    }
+
     public sealed class BrowseConfig
     {
         public string layout;            // "carousel" (default) | "hub"
@@ -475,6 +482,10 @@ namespace Lvn.Content
         /// везде, кроме самой новеллы; глушится на время главы и возвращается
         /// после. Громкость ведёт ползунок «Музыка» из настроек.</summary>
         public string music;
+        /// <summary>Выбор трека меню (как в 7HS): список {id,title,url};
+        /// настройки показывают пилюли, выбор хранится на устройстве.
+        /// Пусто — играет просто music.</summary>
+        public List<MusicOption> music_options;
         /// <summary>Тема оболочки: "midnight" (по умолчанию) | "cyber". Задаёт
         /// палитру И огранку — скругление, кромку, разрядку заголовков, фон.
         /// Отдельные *_color ниже перекрывают тему поштучно.</summary>

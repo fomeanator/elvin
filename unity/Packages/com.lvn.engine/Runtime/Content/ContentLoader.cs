@@ -1570,7 +1570,7 @@ namespace Lvn.Content
             int at = url.IndexOf("/content/", StringComparison.Ordinal);
             if (at < 0) return null;
             var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
-            var baseRel = rel.Replace("@2k", "");
+            var baseRel = rel.Replace("@2k", "").Replace("@1k", "");
             string hit = _seedIndex.Contains(rel) ? rel
                 : _seedIndex.Contains(baseRel) ? baseRel : null;
             if (hit == null) return null;
@@ -2009,11 +2009,14 @@ namespace Lvn.Content
                 if (!string.IsNullOrEmpty(u)) into.Add(HashKey(u, VersionFor(u)));
             }
             Add(url);
-            var v2k = DownloadPolicy.DownscaleVariant(url);
-            if (v2k != null)
+            var v = DownloadPolicy.DownscaleVariant(url);
+            if (v != null)
             {
-                Add(v2k);
-                Add(v2k.Replace("@2k", "@mini"));
+                // Оба бокса живые: игрок может переключать «Качество арта».
+                var v2k = v.Replace(DownloadPolicy.PreferredSuffix, "@2k");
+                var v1k = v.Replace(DownloadPolicy.PreferredSuffix, "@1k");
+                Add(v2k); Add(v1k);
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@mini"));
                 Add(Ktx2UrlFor(url));
             }
         }
