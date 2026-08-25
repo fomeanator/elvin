@@ -32,8 +32,11 @@ namespace Lvn.UI
         /// вместо внутренней (решение Ильи 26.08 — никаких двух настроек).</summary>
         public static Action ExternalSettings;
 
-        /// <summary>Открыть квик-меню извне (бургер единого навбара).</summary>
-        public void Open() => OpenSheet();
+        /// <summary>Открыть квик-меню извне (бургер единого навбара).
+        /// <paramref name="pane"/> "history" — сразу в историю.</summary>
+        public void Open(string pane = null) { _pendingPane = pane; OpenSheet(); }
+
+        private string _pendingPane;
 
         // Every chrome string resolves through the theme's label map (manifest
         // ui.menu.labels) so a novel ships its own language; English is the
@@ -172,7 +175,8 @@ namespace Lvn.UI
             });
             Add(_scrim);
 
-            ShowMain();
+            if (_pendingPane == "history") { _pendingPane = null; ShowHistory(); }
+            else ShowMain();
         }
 
         /// <summary>Close every open sheet/panel and unblock the stage.</summary>

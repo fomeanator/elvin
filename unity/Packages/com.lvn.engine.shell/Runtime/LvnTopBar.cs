@@ -33,12 +33,17 @@ namespace Lvn.UI.Screens
         public Action<string> OnCurrency;
         /// <summary>Бургер: в сцене — квик-меню, в меню — настройки.</summary>
         public Action OnBurger;
+        /// <summary>Игровые кнопки выезжающего бара (решение Ильи 26.08):
+        /// выход в меню, история, гардероб, магазин.</summary>
+        public Action OnGameExit, OnGameHistory, OnGameWardrobe, OnGameStore;
 
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
         private readonly VisualElement _miniPills; // игровые баблики валют
         private readonly VisualElement _miniProgress; // баблик прогресса главы
         private readonly Label _miniProgressLabel;
+        private VisualElement _gameRow;   // выезжающий игровой бар (4 кнопки)
+        private bool _gameBarShown;
         private readonly VisualElement _tapCatcher;
         private bool _inGame;
         private float _safeTop;
@@ -56,7 +61,15 @@ namespace Lvn.UI.Screens
             _tapCatcher.style.left = 0; _tapCatcher.style.right = 0;
             _tapCatcher.style.top = 0; _tapCatcher.style.height = 48;
             _tapCatcher.style.display = DisplayStyle.None;
-            Add(_tapCatcher); // рудимент тап-кромки; в игре бар пропал совсем
+            _tapCatcher.style.height = Length.Percent(15f); // верхние 15% экрана
+            _tapCatcher.RegisterCallback<PointerDownEvent>(e =>
+            {
+                // Тап по верхней зоне сцены НЕ листает реплику — только зовёт
+                // игровой бар (решение Ильи 26.08).
+                e.StopPropagation();
+                ToggleGameBar(true);
+            });
+            Add(_tapCatcher);
 
             _row = new VisualElement();
             var bg = LvnTokens.PanelBg;
@@ -100,24 +113,96 @@ namespace Lvn.UI.Screens
             _miniProgress.style.position = Position.Absolute;
             _miniProgress.style.top = 8;
             _miniProgress.style.left = 12;
-            _miniProgress.style.height = 34;
-            _miniProgress.style.paddingLeft = 10; _miniProgress.style.paddingRight = 10;
+            _miniProgress.style.height = 42;
+            _miniProgress.style.paddingLeft = 13; _miniProgress.style.paddingRight = 13;
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
             _miniProgress.style.backgroundColor = new Color(pbg.r, pbg.g, pbg.b, 0.72f);
             LvnChrome.Edge(_miniProgress);
-            LvnChrome.Round(_miniProgress, 17f);
+            LvnChrome.Round(_miniProgress, 21f);
             _miniProgress.style.display = DisplayStyle.None;
             _miniProgress.pickingMode = PickingMode.Ignore;
             _miniProgressLabel = new Label("0%");
             _miniProgressLabel.pickingMode = PickingMode.Ignore;
             _miniProgressLabel.style.color = LvnTokens.Text;
-            _miniProgressLabel.style.fontSize = 18;
+            _miniProgressLabel.style.fontSize = 21;
             _miniProgressLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             _miniProgress.Add(_miniProgressLabel);
             Add(_miniProgress);
 
+            // Выезжающий игровой бар: 4 кнопки — выход в меню, история,
+            // гардероб, магазин. Открывается тапом по верхней зоне сцены,
+            // закрывается повторным тапом по зоне/кнопкой.
+            _gameRow = new VisualElement();
+            var gbg = LvnTokens.PanelBg;
+            _gameRow.style.position = Position.Absolute;
+            _gameRow.style.left = 0; _gameRow.style.right = 0; _gameRow.style.top = 0;
+            _gameRow.style.backgroundColor = new Color(gbg.r, gbg.g, gbg.b, 0.9f);
+            _gameRow.style.borderBottomWidth = 1f;
+            _gameRow.style.borderBottomColor = LvnTokens.Border;
+            _gameRow.style.flexDirection = FlexDirection.Row;
+            _gameRow.style.alignItems = Align.Center;
+            _gameRow.style.justifyContent = Justify.SpaceAround;
+            _gameRow.style.paddingTop = 10; _gameRow.style.paddingBottom = 12;
+            _gameRow.style.paddingLeft = 8; _gameRow.style.paddingRight = 8;
+            _gameRow.style.display = DisplayStyle.None;
+            _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            _gameRow.Add(GameButton(LvnIcon.Home, "Выйти в меню", () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Book, "История", () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Wardrobe, "Гардероб", () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Store, "Магазин", () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
+            Add(_gameRow);
+
             RefreshBalances();
+        }
+
+        private VisualElement GameButton(LvnIcon icon, string label, Action onTap)
+        {
+            var b = new VisualElement();
+            b.style.alignItems = Align.Center;
+            b.style.paddingTop = 6; b.style.paddingBottom = 6;
+            b.style.paddingLeft = 14; b.style.paddingRight = 14;
+            LvnChrome.Round(b, 12f);
+            var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            ic.pickingMode = PickingMode.Ignore;
+            b.Add(ic);
+            var l = new Label(label);
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = LvnTokens.Text;
+            l.style.fontSize = 19;
+            l.style.marginTop = 5;
+            b.Add(l);
+            b.RegisterCallback<ClickEvent>(_ => onTap());
+            return b;
+        }
+
+        private void ToggleGameBar(bool? force = null)
+        {
+            bool show = force ?? !_gameBarShown;
+            if (show == _gameBarShown && force == null) return;
+            _gameBarShown = show;
+            if (show)
+            {
+                _gameRow.style.paddingTop = 10 + _safeTop;
+                _gameRow.style.display = DisplayStyle.Flex;
+                _gameRow.style.translate = new Translate(0f, -140f);
+                _gameRow.experimental.animation.Start(0f, 1f, 240, (r, v) =>
+                {
+                    float k = 1f - Mathf.Pow(1f - v, 3f);
+                    r.style.translate = new Translate(0f, Mathf.Lerp(-140f, 0f, k));
+                });
+                // Автоуход через 5 с тишины — сцена остаётся чистой.
+                schedule.Execute(() => { if (_gameBarShown) ToggleGameBar(false); }).ExecuteLater(5000);
+            }
+            else
+            {
+                _gameRow.experimental.animation.Start(0f, 1f, 200, (r, v) =>
+                {
+                    float k = 1f - Mathf.Pow(1f - v, 3f);
+                    r.style.translate = new Translate(0f, Mathf.Lerp(0f, -140f, k));
+                    if (v >= 1f) r.style.display = DisplayStyle.None;
+                });
+            }
         }
 
         // ── содержимое ────────────────────────────────────────────────────────
@@ -182,18 +267,18 @@ namespace Lvn.UI.Screens
                 pill.style.flexDirection = FlexDirection.Row;
                 pill.style.alignItems = Align.Center;
                 pill.style.marginLeft = compact ? 6 : 8;
-                pill.style.height = compact ? 34 : 46;
-                pill.style.paddingLeft = compact ? 9 : 12;
-                pill.style.paddingRight = compact ? 9 : 12;
+                pill.style.height = compact ? 42 : 46;
+                pill.style.paddingLeft = compact ? 12 : 12;
+                pill.style.paddingRight = compact ? 12 : 12;
                 var bg = LvnTokens.PanelBg;
                 pill.style.backgroundColor = compact
                     ? new Color(bg.r, bg.g, bg.b, 0.72f) // свой пузырёк над сценой
                     : LvnTokens.Faint;
                 LvnChrome.Edge(pill);
-                LvnChrome.Round(pill, compact ? 17f : 23f);
+                LvnChrome.Round(pill, compact ? 21f : 23f);
 
                 bool energy = cur == "energy";
-                var ic = LvnIcons.Make(energy ? LvnIcon.Energy : LvnIcon.Gem, compact ? 16f : 20f,
+                var ic = LvnIcons.Make(energy ? LvnIcon.Energy : LvnIcon.Gem, compact ? 19f : 20f,
                     energy ? LvnTokens.Accent : LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
                 ic.pickingMode = PickingMode.Ignore;
                 ic.style.marginRight = 6;
@@ -205,7 +290,7 @@ namespace Lvn.UI.Screens
                 var lbl = new Label(text);
                 lbl.pickingMode = PickingMode.Ignore;
                 lbl.style.color = LvnTokens.Text;
-                lbl.style.fontSize = compact ? 18 : 21;
+                lbl.style.fontSize = compact ? 21 : 21;
                 lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
                 pill.Add(lbl);
 
@@ -259,7 +344,8 @@ namespace Lvn.UI.Screens
             _row.style.display = inGame ? DisplayStyle.None : DisplayStyle.Flex;
             _miniPills.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
             _miniProgress.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
-            _tapCatcher.style.display = DisplayStyle.None;
+            _tapCatcher.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!inGame && _gameBarShown) ToggleGameBar(false);
         }
     }
 }
