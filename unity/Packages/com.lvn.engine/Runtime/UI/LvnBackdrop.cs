@@ -107,7 +107,7 @@ namespace Lvn.UI
             v.style.position = Position.Absolute;
             // Запас за краями: параллакс сдвигает слой, и без напуска по
             // периметру у кромки экрана показался бы «шов» фона.
-            v.style.left = -40; v.style.right = -40; v.style.top = -40; v.style.bottom = -40;
+            v.style.left = -80; v.style.right = -80; v.style.top = -80; v.style.bottom = -80;
             if (tex != null)
             {
                 v.style.backgroundImage = new StyleBackground(tex);
