@@ -68,9 +68,14 @@ namespace Lvn.UI
         public void DropOut(int ms, System.Action done = null) =>
             LvnAppear.DetachDrop(this, _box, ms, done);
 
-        /// <summary>Slide a replacement card up and settle it onto the screen.</summary>
+        /// <summary>Slide a replacement card in and settle it onto the screen.
+        /// Направление — от последнего SetSpeaker: карточка спикера слева
+        /// въезжает слева, справа — справа; рассказчик и центр — снизу
+        /// («диалог принадлежит говорящему»).</summary>
         public void SlideIn(int ms, System.Action done = null) =>
-            LvnAppear.CardArrive(this, _box, ms, done);
+            LvnAppear.CardArrive(this, _box, ms, done,
+                _lastSide == DialogueSpeakerSide.Left ? -1
+                : _lastSide == DialogueSpeakerSide.Right ? 1 : 0);
 
         /// <summary>Clear the previous exit transform before the next entrance.</summary>
         public void ResetCardVisual()
@@ -323,9 +328,13 @@ namespace Lvn.UI
             return (tx, ty);
         }
 
+        // Сторона последнего спикера — SlideIn въезжает карточкой с неё.
+        private DialogueSpeakerSide _lastSide = DialogueSpeakerSide.Unanchored;
+
         /// <summary>Set the speaker name; empty/null hides the nameplate.</summary>
         public void SetSpeaker(string who, DialogueSpeakerSide side = DialogueSpeakerSide.Unanchored)
         {
+            _lastSide = side;
             bool show = !string.IsNullOrEmpty(who);
             _plate.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             _speaker.text = show ? who : "";
