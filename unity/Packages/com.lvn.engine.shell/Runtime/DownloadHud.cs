@@ -61,7 +61,7 @@ namespace Lvn.UI.Screens
         public void SetInGame(bool inGame)
         {
             style.alignItems = inGame ? Align.FlexStart : Align.Center;
-            _capsule.style.marginLeft = inGame ? 12 : 0;
+            _capsule.style.marginLeft = inGame ? 104 : 0; // правее баблика прогресса
         }
 
         /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
