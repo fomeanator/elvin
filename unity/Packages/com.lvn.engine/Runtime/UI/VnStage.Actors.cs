@@ -42,14 +42,11 @@ namespace Lvn.UI
         // arriving late.
         private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
 
-        // The short opacity window deliberately removed the long ghostly travel,
-        // but 0.35 s made the complete entrance/exit read as a cut. The first
-        // direction pass added 40%, then another 30%; the resulting transition
-        // was later shortened by 20%: 1.4 × 1.3 × 0.8 = 1.456. The global
-        // presentation tempo is applied separately to every transition, so a
-        // default 0.35 s fade lands at ~0.382 s; actual character movement gets
-        // the additional compact scale below and lands at ~0.287 s.
-        private const float ActorVisibilityDurationScale = 1.456f;
+        // История подбора: 1.4 × 1.3 × 0.8 = 1.456, а 25.08 Илья попросил
+        // «перс должен приезжать быстрее» — минус 40%: 1.456 × 0.6 = 0.874.
+        // Вместе с фейдом на весь ход (LvnFade.OpacityProgress) вход стал
+        // короче и мягче: дефолтный drift ~0.382 s → ~0.229 s.
+        private const float ActorVisibilityDurationScale = 0.874f;
         private const float ActorMovementDurationScale = 0.75f;
 
         // Commands between two dialogue pauses are consumed in one LvnPlayer

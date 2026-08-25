@@ -288,10 +288,16 @@ namespace Lvn.UI
             CompleteLater(fadeHost, run, generation, ms, done);
         }
 
-        /// <summary>Bring the replacement card up from below and let it settle
-        /// onto the screen. This is the matching entrance for DetachDrop.</summary>
+        /// <summary>Bring the replacement card onto the screen and let it settle.
+        /// This is the matching entrance for DetachDrop.
+        ///
+        /// <para>ДИАЛОГ ПРИНАДЛЕЖИТ ГОВОРЯЩЕМУ (решение Ильи 25.08): карточка
+        /// въезжает С ТОЙ ЖЕ СТОРОНЫ, откуда входит спикер — <paramref
+        /// name="sideDir"/> −1 слева, +1 справа. 0 — прежний подъём снизу
+        /// (рассказчик/Система или актёр по центру). Фейд занимает весь ход,
+        /// как у актёрского входа, чтобы ансамбль читался одним движением.</para></summary>
         public static void CardArrive(VisualElement fadeHost, VisualElement card,
-                                      int ms, Action done = null)
+                                      int ms, Action done = null, int sideDir = 0)
         {
             if (fadeHost == null || card == null)
             {
@@ -301,22 +307,29 @@ namespace Lvn.UI
             ms = Mathf.Max(1, ms);
             var (run, generation) = Begin(fadeHost);
             float travel = Mathf.Max(24f, LvnTheme.Current.AppearShift * 1.45f);
+            // Боковой заезд заметнее вертикального: по X места больше, и та же
+            // амплитуда терялась бы на широкой карточке.
+            var from = sideDir == 0
+                ? new Vector2(0f, travel)
+                : new Vector2(sideDir * travel * 2.2f, 0f);
+            float tilt = sideDir == 0 ? -0.7f : sideDir * 0.7f;
             fadeHost.style.opacity = 0f;
-            fadeHost.style.translate = new Translate(0, travel);
+            fadeHost.style.translate = new Translate(from.x, from.y);
             card.style.scale = new Scale(new Vector2(0.975f, 0.975f));
-            card.style.rotate = new Rotate(new Angle(-0.7f, AngleUnit.Degree));
+            card.style.rotate = new Rotate(new Angle(tilt, AngleUnit.Degree));
             card.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(8));
             var animation = fadeHost.experimental.animation
                 .Start(0f, 1f, ms, (e, p) =>
                 {
                     if (!Owns(run, generation)) return;
                     float settle = 1f - Mathf.Pow(1f - p, 3f);
-                    e.style.opacity = Mathf.Clamp01(p * 1.65f);
-                    e.style.translate = new Translate(0, Mathf.Lerp(travel, 0f, settle));
+                    e.style.opacity = Mathf.Clamp01(p); // фейд на весь ход — как у актёра
+                    e.style.translate = new Translate(
+                        Mathf.Lerp(from.x, 0f, settle), Mathf.Lerp(from.y, 0f, settle));
                     float scale = Mathf.Lerp(0.975f, 1f, settle);
                     card.style.scale = new Scale(new Vector2(scale, scale));
                     card.style.rotate = new Rotate(new Angle(
-                        Mathf.Lerp(-0.7f, 0f, settle), AngleUnit.Degree));
+                        Mathf.Lerp(tilt, 0f, settle), AngleUnit.Degree));
                 });
             Keep(run, generation, animation);
             CompleteLater(fadeHost, run, generation, ms, done);
