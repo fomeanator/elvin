@@ -308,6 +308,10 @@ namespace Lvn.UI.Screens
         private void RefreshTopBar()
         {
             if (_topPills == null) return;
+            if (_profileBlock != null)
+                _profileBlock.style.display = ExternalTopBar ? DisplayStyle.None : DisplayStyle.Flex;
+            if (_settingsBtn != null)
+                _settingsBtn.style.display = ExternalTopBar ? DisplayStyle.None : DisplayStyle.Flex;
             if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
             _topPills.Clear();

@@ -23,7 +23,8 @@ namespace Lvn.UI.Screens
     {
         // Геометрия двух состояний капсулы.
         private const float MiniSize = 54f; // чуть шире (просьба Ильи 26.08)
-        private const float FullW = 520f;
+        private const float FullWMax = 720f;
+        private float _fullW = 520f; // 60% ширины экрана, считается при развороте
         private const float FullHMax = 560f;
         // Фактическая высота полной формы — АДАПТИВНАЯ (живой скрин: 560
         // не влезали, кнопка уходила за край): считается при развороте от
@@ -42,6 +43,9 @@ namespace Lvn.UI.Screens
         public Func<List<(string label, bool cached)>> ChaptersInfo;
         /// <summary>«Скачать всю игру» — тот же хук, что в настройках.</summary>
         public Func<Task> DownloadAll;
+        /// <summary>Текущая открытая глава, если её ещё можно докачать:
+        /// (подпись, старт) — кнопка «Скачать главу» в попапе.</summary>
+        public Func<(string label, Action start)?> CurrentChapterOffer;
         /// <summary>Сколько осталось скачать (байт, файлов) — подпись кнопки.</summary>
         public Func<(long bytes, int files)> MissingInfo;
         /// <summary>Есть ли работа прямо сейчас (кружок показан) — единый
@@ -50,6 +54,15 @@ namespace Lvn.UI.Screens
 
         /// <summary>Отступ safe area — кружок сидит в строке бара, ниже выреза.</summary>
         public void SetSafeTop(float units) => _capsule.style.marginTop = units + 5f;
+
+        /// <summary>Игровой режим: кружок — отдельный баблик в ЛЕВОМ верхнем
+        /// углу сцены (бар пропал, валюты справа такими же бабликами); в меню —
+        /// центр строки бара.</summary>
+        public void SetInGame(bool inGame)
+        {
+            style.alignItems = inGame ? Align.FlexStart : Align.Center;
+            _capsule.style.marginLeft = inGame ? 12 : 0;
+        }
 
         /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
         /// только на операциях, и без пинка «↑ Синхронизация» висела бы до
@@ -193,19 +206,23 @@ namespace Lvn.UI.Screens
 
             // Поля — ТАБЛИЦЕЙ, по строке на факт (не лапшой через «·»):
             // скорость, очередь, скачано, осталось — всё, что просилось.
+            // Поля — матрицей 2×2 (уточнение Ильи 26.08): компактнее, меньше
+            // высоты, читается блоком.
             var info = new VisualElement();
             info.pickingMode = PickingMode.Ignore;
             info.style.marginTop = 10;
             info.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(info);
             LvnChrome.Round(info, 14f);
-            info.style.paddingTop = 10; info.style.paddingBottom = 10;
+            info.style.paddingTop = 10; info.style.paddingBottom = 6;
             info.style.paddingLeft = 14; info.style.paddingRight = 14;
+            info.style.flexDirection = FlexDirection.Row;
+            info.style.flexWrap = Wrap.Wrap;
             _full.Add(info);
-            _vSpeed = InfoRow(info, "Скорость");
-            _vQueue = InfoRow(info, "В очереди");
-            _vGot   = InfoRow(info, "Скачано");
-            _vLeft  = InfoRow(info, "Осталось скачать");
+            _vSpeed = InfoCell(info, "Скорость");
+            _vQueue = InfoCell(info, "В очереди");
+            _vGot   = InfoCell(info, "Скачано");
+            _vLeft  = InfoCell(info, "Осталось");
 
             // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
             // перестраиваются при развороте и по изменению очереди.
@@ -234,6 +251,10 @@ namespace Lvn.UI.Screens
                 _fullH = avail > 100f
                     ? Mathf.Clamp(avail - 112f - 24f, 300f, FullHMax)
                     : FullHMax;
+                float availW = resolvedStyle.width;
+                _fullW = availW > 100f
+                    ? Mathf.Clamp(availW * 0.6f, 420f, FullWMax)
+                    : 520f;
                 _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
@@ -247,7 +268,7 @@ namespace Lvn.UI.Screens
         private void ApplyMorph(float k)
         {
             _morph = k;
-            _capsule.style.width = Mathf.Lerp(MiniSize, FullW, k);
+            _capsule.style.width = Mathf.Lerp(MiniSize, _fullW, k);
             _capsule.style.height = Mathf.Lerp(MiniSize, _fullH, k);
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
             // Верхняя кромка наливается акцентом по мере разворота — та же
@@ -302,7 +323,7 @@ namespace Lvn.UI.Screens
                 }
 
                 var glyph = off && (act || queued) ? RingGlyph.Alert
-                    : act ? RingGlyph.Down
+                    : act || queued ? RingGlyph.Down
                     : RingGlyph.Up;
                 if (glyph == RingGlyph.Up && !off && FlushPending != null
                     && now - _lastFlushKick > 5f)
@@ -346,7 +367,7 @@ namespace Lvn.UI.Screens
                     int filesLeft = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
                     int chLeft = 0;
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
-                    _vQueue.text = chLeft > 0 ? $"{chLeft} глав · {filesLeft} файлов" : $"{filesLeft} файлов";
+                    _vQueue.text = chLeft > 0 ? $"глав {chLeft} · файлов {filesLeft}" : $"файлов {filesLeft}";
                     _vGot.text = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
                     if (now - _lastMissingAt > 3f)
                     {
@@ -470,6 +491,21 @@ namespace Lvn.UI.Screens
                 var card = SectionCard();
                 card.Add(SectionTitle("Вся игра — с собой"));
                 card.Add(Hint("Скачайте один раз и играйте без интернета: главы, арт и музыка останутся на устройстве."));
+                var offer = CurrentChapterOffer?.Invoke();
+                if (offer != null)
+                {
+                    var chBtn = new Button { text = offer.Value.label };
+                    chBtn.style.height = 48;
+                    chBtn.style.fontSize = 21;
+                    chBtn.style.marginTop = 8;
+                    chBtn.style.color = LvnTokens.Accent;
+                    chBtn.style.backgroundColor = LvnTokens.Faint;
+                    LvnChrome.ClearBorder(chBtn);
+                    LvnChrome.Round(chBtn, 14f);
+                    var startCh = offer.Value.start;
+                    chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
+                    card.Add(chBtn);
+                }
                 var btn = new Button { text = $"Скачать всё ≈{Mathf.Max(1, missing.Item1 >> 20)} МБ" };
                 btn.style.height = 52;
                 btn.style.fontSize = 22;
@@ -519,28 +555,26 @@ namespace Lvn.UI.Screens
             }
         }
 
-        // Строка «подпись … значение»: подпись тусклая слева, значение
-        // ярко справа — читается таблицей, а не предложением.
-        private Label InfoRow(VisualElement host, string caption)
+        // Ячейка 2×2: подпись тускло сверху, значение жирно снизу.
+        private Label InfoCell(VisualElement host, string caption)
         {
-            var row = new VisualElement();
-            row.pickingMode = PickingMode.Ignore;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.SpaceBetween;
-            row.style.alignItems = Align.Center;
-            row.style.marginTop = 4; row.style.marginBottom = 4;
+            var cell = new VisualElement();
+            cell.pickingMode = PickingMode.Ignore;
+            cell.style.width = Length.Percent(50f);
+            cell.style.marginBottom = 8;
             var c = new Label(caption);
             c.pickingMode = PickingMode.Ignore;
             c.style.color = LvnTokens.TextDim;
-            c.style.fontSize = 20;
-            row.Add(c);
+            c.style.fontSize = 17;
+            cell.Add(c);
             var v = new Label("—");
             v.pickingMode = PickingMode.Ignore;
             v.style.color = LvnTokens.Text;
-            v.style.fontSize = 20;
+            v.style.fontSize = 21;
             v.style.unityFontStyleAndWeight = FontStyle.Bold;
-            row.Add(v);
-            host.Add(row);
+            v.style.marginTop = 1;
+            cell.Add(v);
+            host.Add(cell);
             return v;
         }
 

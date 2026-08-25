@@ -25,7 +25,7 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class LvnTopBar : VisualElement
     {
-        private const float RowH = 64f;
+        private const float RowH = 76f;
 
         /// <summary>Валюты пилюль (id кошелька), порядок = порядок на баре.</summary>
         public List<string> Currencies = new List<string>();
@@ -36,10 +36,9 @@ namespace Lvn.UI.Screens
 
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
+        private readonly VisualElement _miniPills; // игровые баблики валют
         private readonly VisualElement _tapCatcher;
         private bool _inGame;
-        private bool _held;              // показан событием (работа идёт)
-        private float _tapShownAt = -1f; // показан тапом — до таймера
         private float _safeTop;
 
         public LvnTopBar()
@@ -87,6 +86,18 @@ namespace Lvn.UI.Screens
 
             _row.Add(Burger());
 
+            // ИГРОВОЙ РЕЖИМ (уточнение Ильи 26.08): бар в сцене пропадает
+            // целиком, а валюты живут МИНИ-БАБЛИКАМИ у правого края — свой
+            // пузырёк на каждую, без общей подложки. Кружок загрузок — такой
+            // же баблик слева (DownloadHud сам).
+            _miniPills = new VisualElement();
+            _miniPills.style.position = Position.Absolute;
+            _miniPills.style.top = 8;
+            _miniPills.style.right = 12;
+            _miniPills.style.flexDirection = FlexDirection.Row;
+            _miniPills.style.display = DisplayStyle.None;
+            Add(_miniPills);
+
             RefreshBalances();
         }
 
@@ -97,15 +108,15 @@ namespace Lvn.UI.Screens
         {
             var circle = new VisualElement();
             circle.pickingMode = PickingMode.Ignore;
-            circle.style.width = 42; circle.style.height = 42;
-            LvnChrome.Round(circle, 21f);
+            circle.style.width = 50; circle.style.height = 50;
+            LvnChrome.Round(circle, 25f);
             circle.style.backgroundColor = LvnTokens.Accent;
             circle.style.alignItems = Align.Center;
             circle.style.justifyContent = Justify.Center;
             var t = new Label("Т");
             t.pickingMode = PickingMode.Ignore;
             t.style.color = LvnTokens.OnAccent;
-            t.style.fontSize = 26;
+            t.style.fontSize = 30;
             t.style.unityFontStyleAndWeight = FontStyle.Bold;
             circle.Add(t);
             return circle;
@@ -115,7 +126,7 @@ namespace Lvn.UI.Screens
         private VisualElement Burger()
         {
             var b = new VisualElement();
-            b.style.width = 46; b.style.height = 46;
+            b.style.width = 52; b.style.height = 52;
             b.style.marginLeft = 10;
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
@@ -139,21 +150,31 @@ namespace Lvn.UI.Screens
         /// тап по самой пилюле открывает магазин.</summary>
         public void RefreshBalances()
         {
-            _pills.Clear();
+            FillPills(_pills, compact: false);
+            FillPills(_miniPills, compact: true);
+        }
+
+        private void FillPills(VisualElement host, bool compact)
+        {
+            host.Clear();
             foreach (var cur in Currencies)
             {
                 var pill = new VisualElement();
                 pill.style.flexDirection = FlexDirection.Row;
                 pill.style.alignItems = Align.Center;
-                pill.style.marginLeft = 8;
-                pill.style.height = 40;
-                pill.style.paddingLeft = 12; pill.style.paddingRight = 12;
-                pill.style.backgroundColor = LvnTokens.Faint;
+                pill.style.marginLeft = compact ? 6 : 8;
+                pill.style.height = compact ? 34 : 46;
+                pill.style.paddingLeft = compact ? 9 : 12;
+                pill.style.paddingRight = compact ? 9 : 12;
+                var bg = LvnTokens.PanelBg;
+                pill.style.backgroundColor = compact
+                    ? new Color(bg.r, bg.g, bg.b, 0.72f) // свой пузырёк над сценой
+                    : LvnTokens.Faint;
                 LvnChrome.Edge(pill);
-                LvnChrome.Round(pill, 20f);
+                LvnChrome.Round(pill, compact ? 17f : 23f);
 
                 bool energy = cur == "energy";
-                var ic = LvnIcons.Make(energy ? LvnIcon.Energy : LvnIcon.Gem, 19f,
+                var ic = LvnIcons.Make(energy ? LvnIcon.Energy : LvnIcon.Gem, compact ? 16f : 20f,
                     energy ? LvnTokens.Accent : LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
                 ic.pickingMode = PickingMode.Ignore;
                 ic.style.marginRight = 6;
@@ -165,14 +186,14 @@ namespace Lvn.UI.Screens
                 var lbl = new Label(text);
                 lbl.pickingMode = PickingMode.Ignore;
                 lbl.style.color = LvnTokens.Text;
-                lbl.style.fontSize = 20;
+                lbl.style.fontSize = compact ? 18 : 21;
                 lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
                 pill.Add(lbl);
 
                 var captured = cur;
                 pill.RegisterCallback<ClickEvent>(_ => OnCurrency?.Invoke(captured));
                 pill.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-                _pills.Add(pill);
+                host.Add(pill);
             }
         }
 
@@ -185,64 +206,21 @@ namespace Lvn.UI.Screens
             if (Mathf.Approximately(_safeTop, units)) return;
             _safeTop = units;
             _row.style.marginTop = units;
+            _miniPills.style.top = units + 8f;
             _tapCatcher.style.height = 48 + units;
         }
 
-        /// <summary>Игровой режим: бар скрыт (чистый кадр), ловушка тапа активна.</summary>
+        /// <summary>Игровой режим (уточнение Ильи 26.08): бар в сцене
+        /// ПРОПАДАЕТ целиком — вместо него мини-баблики валют (справа) и
+        /// кружок загрузок (слева, DownloadHud сам). Ловушка тапа не нужна:
+        /// квик-меню открывают фабы сцены.</summary>
         public void SetInGame(bool inGame)
         {
             if (_inGame == inGame) return;
             _inGame = inGame;
-            _held = false;
-            _tapShownAt = -1f;
-            ApplyVisibility(animated: false);
-        }
-
-        /// <summary>Событие держит бар на экране (загрузка/офлайн/синк идёт).</summary>
-        public void NotifyWork(bool hasWork)
-        {
-            if (_held == hasWork) return;
-            _held = hasWork;
-            ApplyVisibility(animated: true);
-        }
-
-        /// <summary>Показать по тапу на несколько секунд.</summary>
-        public void ShowTemporarily()
-        {
-            _tapShownAt = Time.realtimeSinceStartup;
-            ApplyVisibility(animated: true);
-            schedule.Execute(() =>
-            {
-                if (_tapShownAt > 0f && Time.realtimeSinceStartup - _tapShownAt >= 3.9f)
-                {
-                    _tapShownAt = -1f;
-                    ApplyVisibility(animated: true);
-                }
-            }).ExecuteLater(4000);
-        }
-
-        private bool BarVisible => !_inGame || _held || _tapShownAt > 0f;
-
-        private void ApplyVisibility(bool animated)
-        {
-            bool show = BarVisible;
-            _tapCatcher.style.display = _inGame && !show ? DisplayStyle.Flex : DisplayStyle.None;
-            float hidden = -(RowH + _safeTop + 4f);
-            if (!animated)
-            {
-                _row.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-                _row.style.translate = new Translate(0f, show ? 0f : hidden);
-                return;
-            }
-            // Выезд/уход строкой сверху — тем же темпом, что попапы (~0,2 с).
-            _row.style.display = DisplayStyle.Flex;
-            float from = show ? hidden : 0f, to = show ? 0f : hidden;
-            _row.experimental.animation.Start(0f, 1f, 200, (r, p) =>
-            {
-                float e = 1f - Mathf.Pow(1f - p, 3f);
-                r.style.translate = new Translate(0f, Mathf.Lerp(from, to, e));
-                if (p >= 1f && !show) r.style.display = DisplayStyle.None;
-            });
+            _row.style.display = inGame ? DisplayStyle.None : DisplayStyle.Flex;
+            _miniPills.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            _tapCatcher.style.display = DisplayStyle.None;
         }
     }
 }

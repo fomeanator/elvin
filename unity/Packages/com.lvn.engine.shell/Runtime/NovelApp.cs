@@ -812,7 +812,8 @@ namespace Lvn.UI.Screens
                         if (_chapterPlaying && Stage != null) Stage.OpenQuickMenu();
                         else LvnAsync.Fire(_shell.OpenSettingsAsync(), "TopBarSettings");
                     };
-                    Lvn.UI.StageMenu.ExternalBurger = true; // фаб-дубликат не рисуем
+                    Lvn.UI.StageMenu.ExternalSettings = () =>
+                        LvnAsync.Fire(_shell.OpenSettingsAsync(), "UnifiedSettings");
                 }
 
                 // Центр загрузок: очередь по главам + данные для попапа
@@ -828,6 +829,27 @@ namespace Lvn.UI.Screens
                     hud.FlushPending = Lvn.Services.LvnWallet.FlushAsync;
                     hud.DownloadAll = DownloadEverythingAsync;
                     hud.ChaptersInfo = ChapterAvailability;
+                    hud.CurrentChapterOffer = () =>
+                    {
+                        var t = _currentTitle; var ch = _currentChapter;
+                        if (t == null || ch == null) return null;
+                        long bytes = 0; int miss = 0;
+                        void Probe(string url, string kind, long size)
+                        {
+                            if (string.IsNullOrEmpty(url)) return;
+                            var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                            if (loader.IsAssetCached(eff)) return;
+                            miss++; bytes += size > 0 ? size : 64 << 10;
+                        }
+                        Probe(ch.script_url, "script", 0);
+                        Probe(ch.bg_url, "sprite", 0);
+                        if (ch.assets != null)
+                            foreach (var kv in ch.assets)
+                                Probe(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                        if (miss == 0) return null;
+                        string label = $"Скачать главу {ch.number} · ≈{Mathf.Max(1, bytes >> 20)} МБ";
+                        return (label, () => EnqueueChapterDownload(t, ch));
+                    };
                     hud.MissingInfo = () =>
                     {
                         long bytes = 0; int files = 0;
@@ -2355,6 +2377,29 @@ namespace Lvn.UI.Screens
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
             foreach (var (label, bytes, items) in redo)
                 _dlCenter.Enqueue(label, bytes, items);
+        }
+
+        // Докачка одной главы очередью центра (кнопка «Скачать главу N»).
+        private void EnqueueChapterDownload(LvnTitle t, LvnChapter ch)
+        {
+            var loader = _assets.Loader;
+            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
+            var items = new List<Lvn.Content.PreloadItem>();
+            long bytes = 0;
+            void Add(string url, string kind, long size)
+            {
+                if (string.IsNullOrEmpty(url)) return;
+                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                if (loader.IsAssetCached(eff)) return;
+                items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
+                bytes += size > 0 ? size : 64 << 10;
+            }
+            Add(ch.script_url, "script", 0);
+            Add(ch.bg_url, "sprite", 0);
+            if (ch.assets != null)
+                foreach (var kv in ch.assets)
+                    Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+            _dlCenter.Enqueue($"{t.name ?? t.id} — глава {ch.number}", bytes, items);
         }
 
         // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
