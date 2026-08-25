@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI.Screens
@@ -24,9 +25,52 @@ namespace Lvn.UI.Screens
     {
         private TaskCompletionSource<bool> _tcs;
         private bool _open;
+        private VisualElement _sheet;
 
-        /// <summary>Длительность проявления и угасания.</summary>
-        protected virtual float FadeSeconds => 0.25f;
+        /// <summary>Длительность проявления и угасания — В ТЕМП АКТЁРОВ:
+        /// фактический вход персонажа ~0,2 с (0.35 × шкалы), и попапы дышат
+        /// той же длительностью — «дорого» читается именно из согласованности
+        /// (решение Ильи 25.08).</summary>
+        protected virtual float FadeSeconds => 0.2f;
+
+        /// <summary>ЕДИНЫЙ ВРАППЕР ЛИСТА (решение Ильи 25.08): накладные
+        /// экраны — эдакие попапы, а не экраны, и выглядели «коротким
+        /// контентом на тёмном полотне». Наследник отдаёт сюда свой лист —
+        /// и получает общий вид (стекло UiGlass, окантовка с акцентной
+        /// верхней кромкой) и общую хореографию: скрим фейдится, лист
+        /// подъезжает снизу со scale — это делает ShowAsync сам.</summary>
+        protected void AdoptSheet(VisualElement sheet)
+        {
+            _sheet = sheet;
+            if (sheet == null) return;
+            var bg = LvnTokens.PanelBg;
+            sheet.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.6f);
+            UiGlass.Apply(sheet, 0.55f, new Color(bg.r, bg.g, bg.b, 0.72f));
+            LvnChrome.Edge(sheet);
+            LvnChrome.Round(sheet, LvnTokens.Radius + 6f);
+            // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
+            // которого не хватало на тёмном полотне.
+            sheet.style.borderTopWidth = 2.5f;
+            sheet.style.borderTopColor = LvnTokens.Accent;
+        }
+
+        // Хореография листа: подъезд снизу + лёгкий scale. Скрим (сам экран)
+        // фейдится параллельно базовым FadeAsync; ждать лист отдельно не надо —
+        // длительность одна.
+        private void PlaySheet(bool opening)
+        {
+            var s = _sheet;
+            if (s == null) return;
+            int ms = Mathf.RoundToInt(FadeSeconds * 1000f * (opening ? 1f : 0.8f));
+            s.experimental.animation.Start(0f, 1f, Mathf.Max(1, ms), (_, p) =>
+            {
+                float e = 1f - Mathf.Pow(1f - p, 3f);
+                float k = opening ? e : 1f - e;
+                s.style.translate = new Translate(0f, Mathf.Lerp(26f, 0f, k));
+                float sc = Mathf.Lerp(0.965f, 1f, k);
+                s.style.scale = new Scale(new Vector2(sc, sc));
+            });
+        }
 
         /// <summary>Открыт ли экран сейчас.</summary>
         protected bool IsOpen => _open;
@@ -39,6 +83,7 @@ namespace Lvn.UI.Screens
             _open = true;
             style.display = DisplayStyle.Flex;
             OnOpening();
+            PlaySheet(opening: true);
             await ScreenFx.FadeAsync(this, 0f, 1f, FadeSeconds, ct);
             if (!_open) return false;   // закрыли прямо во время проявления
 
@@ -48,6 +93,7 @@ namespace Lvn.UI.Screens
             try { confirmed = await _tcs.Task; }
             finally
             {
+                PlaySheet(opening: false);
                 await ScreenFx.FadeAsync(this, 1f, 0f, FadeSeconds, CancellationToken.None);
                 style.display = DisplayStyle.None;
                 _open = false;
