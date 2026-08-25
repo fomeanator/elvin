@@ -44,6 +44,9 @@ namespace Lvn.Content
         /// Non-empty enables the language picker in Settings; the script's
         /// inline text (the original) is always an implicit option.</summary>
         public List<string> languages;
+        /// <summary>Код языка, на котором НАПИСАН контент ("ru"). Пилюля
+        /// оригинала в настройках носит его имя, а не слово «Оригинал».</summary>
+        public string language;
 
         /// <summary>The sprite/entity catalog, keyed by id. Scripts reference these
         /// ids (e.g. <c>actor id="mara" pose="sitting"</c>) instead of raw urls; the

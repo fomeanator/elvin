@@ -374,7 +374,7 @@ namespace Lvn.UI.Screens
         private VisualElement LanguageRow()
         {
             var row = RowEx(_cfg.language_label ?? "Язык истории",
-                "Оригинал — язык, на котором написана новелла");
+                "Текст глав; интерфейс следует за ним");
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
@@ -634,13 +634,9 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(b, _radius);
         }
 
-        private static string LocaleName(string loc) => loc switch
-        {
-            "" or null => "Оригинал",
-            "ru" => "Русский",
-            "en" => "English",
-            _ => loc.ToUpperInvariant(),
-        };
+        // Пилюля оригинала носит ИМЯ ЯЗЫКА («Русский»), а не слово «Оригинал»
+        // — «Оригинал/Русский» при русском оригинале читалось бессмыслицей.
+        private static string LocaleName(string loc) => LvnPrefs.LocaleTitle(loc);
 
         private static string Capitalize(string s) =>
             string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);

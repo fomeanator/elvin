@@ -268,6 +268,38 @@ namespace Lvn.UI
         }
         private static string _locale;
 
+        /// <summary>Выбирал ли игрок язык сам хоть раз — до этого хост вправе
+        /// подставить язык устройства (автодефолт, как у качества арта).</summary>
+        public static bool LocaleChosen => PlayerPrefs.HasKey(P + "locale");
+
+        /// <summary>Код языка ОРИГИНАЛА (manifest.language) — пилюля оригинала
+        /// зовётся именем языка («Русский»), а не словом «Оригинал».</summary>
+        public static string OriginalLocale { get; set; } = "";
+
+        /// <summary>Человеческое имя языка по коду; "" — имя оригинала.</summary>
+        public static string LocaleTitle(string code)
+        {
+            if (string.IsNullOrEmpty(code)) code = OriginalLocale;
+            switch (code)
+            {
+                case "ru": return "Русский";
+                case "en": return "English";
+                case "uk": return "Українська";
+                case "de": return "Deutsch";
+                case "fr": return "Français";
+                case "es": return "Español";
+                case "pt": return "Português";
+                case "it": return "Italiano";
+                case "tr": return "Türkçe";
+                case "pl": return "Polski";
+                case "ja": return "日本語";
+                case "ko": return "한국어";
+                case "zh": return "中文";
+                case "": return "Оригинал";
+                default: return code.ToUpperInvariant();
+            }
+        }
+
         /// <summary>Languages the running title offers, set by the host from the
         /// manifest (<c>languages</c>). The settings row shows a picker only when
         /// this is non-empty. "" (the original) is always an implicit option.</summary>
