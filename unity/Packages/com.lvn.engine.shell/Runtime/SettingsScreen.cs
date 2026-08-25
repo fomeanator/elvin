@@ -111,71 +111,102 @@ namespace Lvn.UI.Screens
         // увидел заголовок с кнопкой Close на пустом листе.
         protected override void OnOpening() => Rebuild();
 
+        // Активная вкладка настроек — простыня из ~18 строк группируется
+        // (решение Ильи 26.08: «люди будут теряться»): виден один короткий
+        // экран, переключение пилюлями сверху.
+        private string _tab = "main";
+
         public void Rebuild()
         {
             _list.Clear();
-            // ЕДИНЫЕ настройки (решение Ильи 26.08): глобальные и внутриигровые
-            // в одной панели с секциями; квик-меню сцены открывает ЕЁ ЖЕ.
-            _list.Add(SectionTitle("Основные"));
-            _list.Add(SoundRow());
-            if (_cfg.simple_audio ?? false)
-            {
-                // Два ползунка (решение партнёров): «Звуки» ведёт разом эффекты,
-                // печать, интерфейс и эмбиент; голос — туда же.
-                _list.Add(VolumeRow("Музыка", "Треки историй и главного меню",
-                    () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow("Звуки", "Выборы, эффекты сцен и атмосфера",
-                    () => LvnPrefs.VolSfx,
-                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
-            }
-            else
-            {
-                _list.Add(VolumeRow("Музыка", null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow("Эмбиент", null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                _list.Add(VolumeRow("Эффекты", null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                _list.Add(VolumeRow("Голос", null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
-            }
-            if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
-                _list.Add(LanguageRow());
-            if (MenuTracks != null && MenuTracks.Count > 1)
-                _list.Add(MenuTrackRow());
+            _list.Add(TabsRow());
 
-            // Настройки чтения — жили только во внутриигровой панели, теперь
-            // здесь: одна правда для игрока в любом контексте.
-            _list.Add(SectionTitle("Чтение"));
-            _list.Add(RangeRow("Скорость текста", "Темп печати реплик",
-                0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
-            _list.Add(SwitchRow("Авто-чтение", "Реплики листаются сами",
-                () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
-            _list.Add(RangeRow("Задержка авто", "Пауза перед следующей репликой",
-                0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-            _list.Add(RangeRow("Прозрачность окна", "Плашка диалога; текст всегда чёткий",
-                0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
-            _list.Add(SwitchRow("Скип: только прочитанное", "Перемотка стоит на новых репликах",
-                () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
-            _list.Add(SwitchRow("Меньше движения", "Без тряски камеры и вспышек",
-                () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
-
-            if (StorageInfo != null && DownloadAll != null)
+            switch (_tab)
             {
-                _list.Add(SectionTitle("Данные"));
-                _list.Add(ArtQualityRow());
-                _list.Add(FpsRow());
-                _list.Add(StorageRow());
+                case "main":
+                    _list.Add(SoundRow());
+                    if (_cfg.simple_audio ?? false)
+                    {
+                        // Два ползунка (решение партнёров): «Звуки» ведёт разом
+                        // эффекты, печать, интерфейс и эмбиент; голос — туда же.
+                        _list.Add(VolumeRow("Музыка", "Треки историй и главного меню",
+                            () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                        _list.Add(VolumeRow("Звуки", "Выборы, эффекты сцен и атмосфера",
+                            () => LvnPrefs.VolSfx,
+                            v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
+                    }
+                    else
+                    {
+                        _list.Add(VolumeRow("Музыка", null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                        _list.Add(VolumeRow("Эмбиент", null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                        _list.Add(VolumeRow("Эффекты", null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                        _list.Add(VolumeRow("Голос", null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+                    }
+                    if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
+                        _list.Add(LanguageRow());
+                    if (MenuTracks != null && MenuTracks.Count > 1)
+                        _list.Add(MenuTrackRow());
+                    break;
+
+                case "reading":
+                    _list.Add(RangeRow("Скорость текста", "Темп печати реплик",
+                        0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
+                    _list.Add(SwitchRow("Авто-чтение", "Реплики листаются сами",
+                        () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
+                    _list.Add(RangeRow("Задержка авто", "Пауза перед следующей репликой",
+                        0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
+                    _list.Add(RangeRow("Прозрачность окна", "Плашка диалога; текст всегда чёткий",
+                        0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
+                    _list.Add(SwitchRow("Скип: только прочитанное", "Перемотка стоит на новых репликах",
+                        () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
+                    _list.Add(SwitchRow("Меньше движения", "Без тряски камеры и вспышек",
+                        () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+                    break;
+
+                case "data":
+                    _list.Add(ArtQualityRow());
+                    _list.Add(FpsRow());
+                    if (StorageInfo != null && DownloadAll != null)
+                        _list.Add(StorageRow());
+                    break;
+
+                case "account":
+                    _list.Add(UidRow());
+                    _accountRow = RowEx(_cfg.account_label ?? "Аккаунт",
+                        "Хранит прогресс и покупки на сервере");
+                    _list.Add(_accountRow);
+                    SetAccountStatus("…", showSignIn: false);
+                    _list.Add(RestoreRow());
+                    _list.Add(VersionRow());
+                    var links = LinksRow();
+                    if (links != null) _list.Add(links);
+                    var socials = SocialRow();
+                    if (socials != null) _list.Add(socials);
+                    break;
             }
-            _list.Add(SectionTitle("Аккаунт"));
-            _list.Add(UidRow());
-            _accountRow = RowEx(_cfg.account_label ?? "Аккаунт",
-                "Хранит прогресс и покупки на сервере");
-            _list.Add(_accountRow);
-            SetAccountStatus("…", showSignIn: false);
-            _list.Add(RestoreRow());
-            _list.Add(SectionTitle("О приложении"));
-            _list.Add(VersionRow());
-            var links = LinksRow();
-            if (links != null) _list.Add(links);
-            var socials = SocialRow();
-            if (socials != null) _list.Add(socials);
+        }
+
+        // Пилюли-вкладки: активная — акцентом.
+        private VisualElement TabsRow()
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.marginBottom = 14;
+            foreach (var (id, label) in new[]
+            {
+                ("main", "Основные"), ("reading", "Чтение"),
+                ("data", "Данные"), ("account", "Аккаунт"),
+            })
+            {
+                var b = new Button { text = label };
+                StyleValueButton(b, _tab == id);
+                b.style.marginRight = 8;
+                b.style.flexGrow = 1;
+                var captured = id;
+                b.clicked += () => { _tab = captured; Rebuild(); };
+                row.Add(b);
+            }
+            return row;
         }
 
         // ── rows ──────────────────────────────────────────────────────────────
