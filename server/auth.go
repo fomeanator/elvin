@@ -164,6 +164,39 @@ func (s *AuthService) SnapshotUsers() map[string]authUser {
 	return out
 }
 
+// DeleteUser стирает учётку целиком: карты в памяти и хранилище (база или
+// users.json). Идемпотентно — повторное удаление уже отсутствующего игрока
+// не ошибка (клиент ретраит по таймауту). Токен перестаёт работать сразу:
+// UserFromRequest ищет по карте, записи больше нет.
+func (s *AuthService) DeleteUser(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.users[id]
+	if !ok {
+		return nil
+	}
+	delete(s.users, id)
+	delete(s.byDev, u.DeviceHash)
+	for p, sub := range u.Providers {
+		delete(s.byProv, p+":"+sub)
+	}
+	if s.db == nil {
+		return s.persistFileLocked()
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM user_providers WHERE user_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM users WHERE id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // UserFromRequest resolves the Bearer "userID.secret" token; empty when the
 // request is anonymous or the token is stale.
 func (s *AuthService) UserFromRequest(r *http.Request) string {
