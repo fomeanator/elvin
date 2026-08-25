@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty } from "./ui.jsx";
 import {
@@ -25,6 +25,7 @@ const VIEWS = [
   { key: "drops", label: "Обрывы" },
   { key: "health", label: "Здоровье" },
   { key: "money", label: "Деньги" },
+  { key: "spend", label: "Траты валют" },
 ];
 
 export default function Analytics({ token }) {
@@ -96,11 +97,123 @@ export default function Analytics({ token }) {
       {view === "drops" && <Drops token={token} q={q} titles={d.by_title || []} />}
       {view === "health" && <Health token={token} q={q} />}
       {view === "money" && <Money token={token} q={q} />}
+      {view === "spend" && <SpendStats token={token} />}
     </Page>
   );
 }
 
 const sumDays = (days, key) => (days || []).reduce((n, r) => n + (Number(r[key]) || 0), 0);
+
+// ── Траты валют по контенту (TR-28) ─────────────────────────────────────────
+// Куда уходят кристаллы и энергия: график по дням/месяцам, тайтлы («экспедиции»)
+// с раскрытием по главам и типам трат. Источник — история кошельков; тайтл
+// штампуется атрибуцией в момент траты, глава — из reason «chapter:<id>».
+const SPEND_KINDS = {
+  choice: "выборы",
+  wardrobe: "наряды",
+  chapter: "вход в главу",
+  title: "вход в тайтл",
+  other: "прочее",
+};
+
+function SpendStats({ token }) {
+  const today = todayISO();
+  const monthAgo = new Date(Date.now() - 29 * 86400e3).toISOString().slice(0, 10);
+  const [from, setFrom] = useState(monthAgo);
+  const [to, setTo] = useState(today);
+  const [bucket, setBucket] = useState("day");
+  const [open, setOpen] = useState("");
+
+  const q = `from=${from}&to=${to}&bucket=${bucket}`;
+  const { loading, error, data, reload } = useAsync(() => adminSpendStats(q, token), [q, token]);
+  const series = (data && data.series) || [];
+  const titles = (data && data.titles) || [];
+
+  const currencies = [...new Set(series.flatMap((b) => Object.keys(b.sums || {})))];
+  const maxBucket = Math.max(1, ...series.map((b) => Object.values(b.sums || {}).reduce((n, v) => n + v, 0)));
+
+  const sumsLine = (sums) =>
+    Object.entries(sums || {}).map(([c, v]) => `${fmt(v)} ${c}`).join(" · ") || "0";
+
+  return (
+    <>
+      <section className="adm-panel">
+        <div className="adm-form-grid">
+          <input type="date" className="field" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} />
+          <input type="date" className="field" value={to} onChange={(e) => e.target.value && setTo(e.target.value)} />
+          <div className="adm-seg">
+            <button className={"adm-seg-btn" + (bucket === "day" ? " on" : "")} onClick={() => setBucket("day")}>по дням</button>
+            <button className={"adm-seg-btn" + (bucket === "month" ? " on" : "")} onClick={() => setBucket("month")}>по месяцам</button>
+          </div>
+          <button className="adm-iconbtn" onClick={reload} title="обновить">⟳</button>
+        </div>
+        <LoadState loading={loading} error={error} empty={!series.length}
+                   emptyText="За период трат не было.">
+          <div className="adm-bars">
+            {series.map((b) => (
+              <div key={b.bucket} className="adm-bar-row" title={sumsLine(b.sums)}>
+                <span className="adm-bar-label">{bucket === "day" ? b.bucket.slice(5) : b.bucket}</span>
+                <div className="adm-bar-track">
+                  <div className="adm-bar-fill"
+                       style={{ width: `${Math.round(100 * Object.values(b.sums || {}).reduce((n, v) => n + v, 0) / maxBucket)}%` }} />
+                </div>
+                <span className="adm-bar-val">{sumsLine(b.sums)}</span>
+              </div>
+            ))}
+          </div>
+        </LoadState>
+      </section>
+
+      <section className="adm-panel">
+        <h3>По новеллам</h3>
+        {!titles.length ? <Empty text="Пока пусто." /> : (
+          <table className="adm-table">
+            <thead><tr><th>новелла</th><th>потрачено</th><th /></tr></thead>
+            <tbody>
+              {titles.map((t) => {
+                const id = t.title || "(вне тайтла)";
+                const opened = open === id;
+                return [
+                  <tr key={id} className="adm-row" onClick={() => setOpen(opened ? "" : id)}>
+                    <td><b>{id}</b></td>
+                    <td className="num">{sumsLine(t.sums)}</td>
+                    <td className="muted">{opened ? "▾" : "▸"}</td>
+                  </tr>,
+                  opened && (
+                    <tr key={id + ":detail"}>
+                      <td colSpan={3}>
+                        <div className="adm-subtable">
+                          <p className="adm-dim">По типам трат</p>
+                          {Object.entries(t.kinds || {}).map(([k, sums]) => (
+                            <div key={k} className="adm-bar-row">
+                              <span className="adm-bar-label">{SPEND_KINDS[k] || k}</span>
+                              <span className="adm-bar-val">{sumsLine(sums)}</span>
+                            </div>
+                          ))}
+                          {(t.chapters || []).length > 0 && <p className="adm-dim">По главам</p>}
+                          {(t.chapters || []).map((ch) => (
+                            <div key={ch.id} className="adm-bar-row">
+                              <span className="adm-bar-label">{ch.id}</span>
+                              <span className="adm-bar-val">{sumsLine(ch.sums)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                ];
+              })}
+            </tbody>
+          </table>
+        )}
+        <p className="adm-dim">
+          Валюты за период: {currencies.join(", ") || "—"}. «Свидания» появятся отдельным типом,
+          когда контент начнёт помечать их траты своим reason.
+        </p>
+      </section>
+    </>
+  );
+}
 
 function Stat({ label, value, tone }) {
   return (
