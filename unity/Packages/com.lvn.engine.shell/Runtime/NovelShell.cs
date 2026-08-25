@@ -372,7 +372,9 @@ namespace Lvn.UI.Screens
                 if (playChapter != null && chapter != null)
                 {
                     LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
-                    if (!HudChoicesOnly) Show(Hud); // "choices" mode: the stage event shows it
+                    // Полоса GameHud удалена (решение Ильи 26.08): затемнение
+                    // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
+                    // единого навбара по углам сцены.
                     OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
                     try { await playChapter(title, chapter, _playerName); }
                     catch (OperationCanceledException) { return; }

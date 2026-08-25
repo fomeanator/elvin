@@ -37,6 +37,8 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
         private readonly VisualElement _miniPills; // игровые баблики валют
+        private readonly VisualElement _miniProgress; // баблик прогресса главы
+        private readonly Label _miniProgressLabel;
         private readonly VisualElement _tapCatcher;
         private bool _inGame;
         private float _safeTop;
@@ -92,6 +94,28 @@ namespace Lvn.UI.Screens
             _miniPills.style.flexDirection = FlexDirection.Row;
             _miniPills.style.display = DisplayStyle.None;
             Add(_miniPills);
+
+            // Прогресс главы — такой же пузырёк слева (замена полосе GameHud).
+            _miniProgress = new VisualElement();
+            _miniProgress.style.position = Position.Absolute;
+            _miniProgress.style.top = 8;
+            _miniProgress.style.left = 12;
+            _miniProgress.style.height = 34;
+            _miniProgress.style.paddingLeft = 10; _miniProgress.style.paddingRight = 10;
+            _miniProgress.style.justifyContent = Justify.Center;
+            var pbg = LvnTokens.PanelBg;
+            _miniProgress.style.backgroundColor = new Color(pbg.r, pbg.g, pbg.b, 0.72f);
+            LvnChrome.Edge(_miniProgress);
+            LvnChrome.Round(_miniProgress, 17f);
+            _miniProgress.style.display = DisplayStyle.None;
+            _miniProgress.pickingMode = PickingMode.Ignore;
+            _miniProgressLabel = new Label("0%");
+            _miniProgressLabel.pickingMode = PickingMode.Ignore;
+            _miniProgressLabel.style.color = LvnTokens.Text;
+            _miniProgressLabel.style.fontSize = 18;
+            _miniProgressLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _miniProgress.Add(_miniProgressLabel);
+            Add(_miniProgress);
 
             RefreshBalances();
         }
@@ -202,6 +226,7 @@ namespace Lvn.UI.Screens
             _safeTop = units;
             _row.style.marginTop = units;
             _miniPills.style.top = units + 8f;
+            _miniProgress.style.top = units + 8f;
             _tapCatcher.style.height = 48 + units;
         }
 
@@ -215,6 +240,7 @@ namespace Lvn.UI.Screens
             _inGame = inGame;
             _row.style.display = inGame ? DisplayStyle.None : DisplayStyle.Flex;
             _miniPills.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            _miniProgress.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
             _tapCatcher.style.display = DisplayStyle.None;
         }
     }

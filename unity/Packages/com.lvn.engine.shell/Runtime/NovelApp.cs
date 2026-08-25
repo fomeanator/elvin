@@ -2142,6 +2142,7 @@ namespace Lvn.UI.Screens
                    && !destroyCancellationToken.IsCancellationRequested)
             {
                 _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
+                _shell.TopBar?.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 await Task.Yield();
             }
             bool exited = Stage.ExitRequested;
@@ -2162,6 +2163,7 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars)),
                     "SaveScopedVars@chapterEnd");
             _shell.Hud.SetProgress(1, 1);
+            _shell.TopBar?.SetProgress(1, 1);
             _shell.Hud.SetStats(null, null);
             // The chapter that actually played to the end — a cross-chapter save
             // load may have switched the stage away from the requested one.
