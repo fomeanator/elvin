@@ -328,6 +328,8 @@ namespace Lvn.UI.Screens
                 else if (useHub && Hub != null)
                 {
                     Show(Hub);
+                    Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
+                    TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
                     title = await Hub.PickTitleAsync(ct);
                     if (ct.IsCancellationRequested) return;
                     Hide(Hub);

@@ -230,6 +230,19 @@ namespace Lvn.UI.Screens
             _tapCatcher.style.height = 48 + units;
         }
 
+        /// <summary>Вход бара: строка выезжает СВЕРХУ (вызов оболочки при
+        /// показе меню) — в паре с нижней навигацией хаба.</summary>
+        public void PlayEntrance()
+        {
+            float hidden = -(RowH + _safeTop + 6f);
+            _row.style.translate = new Translate(0f, hidden);
+            _row.experimental.animation.Start(0f, 1f, 300, (r, v) =>
+            {
+                float k = 1f - Mathf.Pow(1f - v, 3f);
+                r.style.translate = new Translate(0f, Mathf.Lerp(hidden, 0f, k));
+            });
+        }
+
         /// <summary>Прогресс главы для левого баблика (та же формула Percent,
         /// что была у полосы GameHud).</summary>
         public void SetProgress(int currentIndex, int totalCommands)
