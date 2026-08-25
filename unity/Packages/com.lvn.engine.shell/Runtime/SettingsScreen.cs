@@ -108,32 +108,43 @@ namespace Lvn.UI.Screens
         public void Rebuild()
         {
             _list.Clear();
+            _list.Add(SectionTitle("Звук"));
             _list.Add(SoundRow());
             if (_cfg.simple_audio ?? false)
             {
-                // Два ползунка (решение партнёров): «Звук» ведёт разом эффекты,
-                // печать, интерфейс и эмбиент; голос — туда же (озвучки нет,
-                // а появится — канал уже слушается).
-                _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow("Звук", () => LvnPrefs.VolSfx,
+                // Два ползунка (решение партнёров): «Звуки» ведёт разом эффекты,
+                // печать, интерфейс и эмбиент; голос — туда же.
+                _list.Add(VolumeRow("Музыка", "Треки историй и главного меню",
+                    () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow("Звуки", "Выборы, эффекты сцен и атмосфера",
+                    () => LvnPrefs.VolSfx,
                     v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
             }
             else
             {
-                _list.Add(VolumeRow("Музыка", () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow("Эмбиент", () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                _list.Add(VolumeRow("Эффекты", () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                _list.Add(VolumeRow("Голос", () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+                _list.Add(VolumeRow("Музыка", null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow("Эмбиент", null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                _list.Add(VolumeRow("Эффекты", null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                _list.Add(VolumeRow("Голос", null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
             }
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
+            {
+                _list.Add(SectionTitle("Язык"));
                 _list.Add(LanguageRow());
+            }
             if (StorageInfo != null && DownloadAll != null)
+            {
+                _list.Add(SectionTitle("Данные"));
                 _list.Add(StorageRow());
+            }
+            _list.Add(SectionTitle("Аккаунт"));
             _list.Add(UidRow());
-            _accountRow = Row(_cfg.account_label ?? "Account");
+            _accountRow = RowEx(_cfg.account_label ?? "Аккаунт",
+                "Хранит прогресс и покупки на сервере");
             _list.Add(_accountRow);
             SetAccountStatus("…", showSignIn: false);
             _list.Add(RestoreRow());
+            _list.Add(SectionTitle("О приложении"));
             _list.Add(VersionRow());
             var links = LinksRow();
             if (links != null) _list.Add(links);
@@ -148,7 +159,9 @@ namespace Lvn.UI.Screens
         // (стриминг), кнопка — для самолёта и плохой сети.
         private VisualElement StorageRow()
         {
-            var row = Row("Загрузка игры");
+            var row = RowEx("Игра целиком",
+                "Скачайте истории заранее, чтобы играть без интернета. " +
+                "Пока не скачано — главы загружаются по мере чтения.");
             var status = new Label("…");
             status.style.color = _dim;
             status.style.fontSize = 13;
@@ -175,8 +188,8 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
-                    status.text = $"осталось ≈{System.Math.Max(1, missing >> 20)} МБ";
-                    btn.text = "Скачать всё";
+                    status.text = "";
+                    btn.text = $"Скачать ≈{System.Math.Max(1, missing >> 20)} МБ";
                     btn.SetEnabled(true);
                 }
             }
@@ -211,13 +224,14 @@ namespace Lvn.UI.Screens
 
         private VisualElement SoundRow()
         {
-            var row = Row(_cfg.sound_label ?? "Sound");
-            var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "On") : (_cfg.off_text ?? "Off") };
+            var row = RowEx(_cfg.sound_label ?? "Все звуки",
+                "Полностью выключает музыку и эффекты");
+            var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "Вкл") : (_cfg.off_text ?? "Выкл") };
             StyleValueButton(btn, LvnPrefs.SoundOn);
             btn.clicked += () =>
             {
                 LvnPrefs.SoundOn = !LvnPrefs.SoundOn;
-                btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "On") : (_cfg.off_text ?? "Off");
+                btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "Вкл") : (_cfg.off_text ?? "Выкл");
                 StyleValueButton(btn, LvnPrefs.SoundOn);
             };
             row.Add(btn);
@@ -226,9 +240,9 @@ namespace Lvn.UI.Screens
 
         // A per-channel volume slider (0–1) that reads the current pref and writes
         // it back live as the player drags. Sits under the master Sound toggle.
-        private VisualElement VolumeRow(string label, System.Func<float> get, System.Action<float> set)
+        private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
         {
-            var row = Row(label);
+            var row = RowEx(label, hint);
             var slider = new Slider(0f, 1f) { value = get() };
             slider.style.width = 200;
             slider.style.marginLeft = 12;
@@ -243,7 +257,8 @@ namespace Lvn.UI.Screens
         // any purchases the account already owns. (Real platform restore is host-side.)
         private VisualElement RestoreRow()
         {
-            var row = Row("Восстановить покупки");
+            var row = RowEx("Восстановить покупки",
+                "Если после переустановки пропали покупки — нажмите");
             var btn = new Button { text = "Восстановить" };
             StyleValueButton(btn, false);
             btn.clicked += () =>
@@ -258,7 +273,8 @@ namespace Lvn.UI.Screens
 
         private VisualElement LanguageRow()
         {
-            var row = Row(_cfg.language_label ?? "Language");
+            var row = RowEx(_cfg.language_label ?? "Язык истории",
+                "Оригинал — язык, на котором написана новелла");
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
@@ -287,7 +303,8 @@ namespace Lvn.UI.Screens
 
         private VisualElement UidRow()
         {
-            var row = Row(_cfg.uid_label ?? "Player ID");
+            var row = RowEx(_cfg.uid_label ?? "ID игрока",
+                "Назовите его, если обратитесь в поддержку");
             var uid = LvnBackend.UserId;
             var shortId = string.IsNullOrEmpty(uid) ? "—" : (uid.Length > 12 ? uid.Substring(0, 12) + "…" : uid);
             var val = new Label(shortId);
@@ -296,14 +313,14 @@ namespace Lvn.UI.Screens
             val.style.marginRight = 10;
             row.Add(val);
 
-            var copy = new Button { text = _cfg.copy_text ?? "Copy" };
+            var copy = new Button { text = _cfg.copy_text ?? "Копировать" };
             StyleValueButton(copy, false);
             copy.SetEnabled(!string.IsNullOrEmpty(uid));
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = uid ?? "";
-                copy.text = _cfg.copied_text ?? "Copied";
-                copy.schedule.Execute(() => copy.text = _cfg.copy_text ?? "Copy").ExecuteLater(1200);
+                copy.text = _cfg.copied_text ?? "Скопировано";
+                copy.schedule.Execute(() => copy.text = _cfg.copy_text ?? "Копировать").ExecuteLater(1200);
             };
             row.Add(copy);
             return row;
@@ -311,7 +328,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement VersionRow()
         {
-            var row = Row(_cfg.version_label ?? "Version");
+            var row = RowEx(_cfg.version_label ?? "Версия", null);
             var val = new Label(Application.version + EditorBuildStamp());
             val.style.color = _dim;
             val.style.fontSize = 22;
@@ -436,6 +453,51 @@ namespace Lvn.UI.Screens
         // ── shared bits ─────────────────────────────────────────────────────────
 
         // A label + a right-aligned value area.
+        // Заголовок смысловой группы: настройки читаются секциями, а не
+        // простынёй строк (живой репорт «непонятный экран»).
+        private VisualElement SectionTitle(string text)
+        {
+            var lbl = new Label(text.ToUpperInvariant());
+            lbl.style.color = _dim;
+            lbl.style.fontSize = 19;
+            lbl.style.letterSpacing = 2.5f;
+            lbl.style.marginTop = 18;
+            lbl.style.marginBottom = 4;
+            return lbl;
+        }
+
+        // Строка «название + пояснение» — у каждой настройки есть подпись,
+        // объясняющая, что она делает: контрол без пояснения выглядит дико
+        // («кнопка скачать игру?????» — живой репорт).
+        private VisualElement RowEx(string label, string hint)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.marginBottom = 6;
+            row.style.paddingTop = 10; row.style.paddingBottom = 10;
+            var col = new VisualElement();
+            col.style.flexGrow = 1;
+            col.style.flexShrink = 1;
+            col.style.marginRight = 12;
+            var lbl = new Label(label);
+            lbl.style.color = _text;
+            lbl.style.fontSize = 26;
+            col.Add(lbl);
+            if (!string.IsNullOrEmpty(hint))
+            {
+                var h = new Label(hint);
+                h.style.color = _dim;
+                h.style.fontSize = 19;
+                h.style.marginTop = 2;
+                h.style.whiteSpace = WhiteSpace.Normal;
+                col.Add(h);
+            }
+            row.Add(col);
+            return row;
+        }
+
         private VisualElement Row(string label)
         {
             var row = new VisualElement();
@@ -472,8 +534,13 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(b, _radius);
         }
 
-        private static string LocaleName(string loc) =>
-            string.IsNullOrEmpty(loc) ? "Orig" : loc.ToUpperInvariant();
+        private static string LocaleName(string loc) => loc switch
+        {
+            "" or null => "Оригинал",
+            "ru" => "Русский",
+            "en" => "English",
+            _ => loc.ToUpperInvariant(),
+        };
 
         private static string Capitalize(string s) =>
             string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
