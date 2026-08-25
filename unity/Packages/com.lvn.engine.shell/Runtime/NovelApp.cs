@@ -468,7 +468,19 @@ namespace Lvn.UI.Screens
             // синхронизируем до первой загрузки и на каждом изменении.
             DownloadPolicy.PreferredSuffix = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
             Lvn.UI.LvnPrefs.Changed += () =>
-                DownloadPolicy.PreferredSuffix = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+            {
+                var next = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+                if (DownloadPolicy.PreferredSuffix != next)
+                {
+                    DownloadPolicy.PreferredSuffix = next;
+                    // «Экономия» обязана ЭКОНОМИТЬ: файлы противоположного
+                    // бокса удаляются с диска, иначе переключение задваивало
+                    // кэш и настройка ничего не освобождала.
+                    LvnAsync.Fire(PurgeOtherArtBoxAsync(next == "@1k" ? "@2k" : "@1k"),
+                        "PurgeArtBox");
+                }
+                ConfigureFrameRate(); // 30/60 из настроек — применяется сразу
+            };
 
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack))
@@ -561,8 +573,11 @@ namespace Lvn.UI.Screens
         private static void ConfigureFrameRate()
         {
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate =
-                Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
+            // Настройка игрока (30 — экономия батареи), но не выше возможностей
+            // экрана: на 30-герцовой панели просить 60 бессмысленно.
+            int wanted = Lvn.UI.LvnPrefs.TargetFps;
+            int screenCap = Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
+            Application.targetFrameRate = Mathf.Min(wanted, screenCap);
         }
 
         /// <summary>
@@ -2249,6 +2264,23 @@ namespace Lvn.UI.Screens
             Debug.Log($"[content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
             return _dlCenter.WhenDrainedAsync();
         }
+
+        // Чистка кэша противоположного бокса качества — на пуле потоков, по
+        // всем спрайтовым url манифеста.
+        private Task PurgeOtherArtBoxAsync(string otherSuffix) => Task.Run(() =>
+        {
+            var loader = _assets?.Loader;
+            var m = _manifest;
+            if (loader == null || m?.titles == null) return;
+            int removed = 0;
+            var was = DownloadPolicy.PreferredSuffix;
+            foreach (var (url, kind, _) in CollectContentItems())
+            {
+                if (kind != "sprite" || !url.Contains(was)) continue;
+                if (loader.DeleteCachedAsset(url.Replace(was, otherSuffix))) removed++;
+            }
+            Debug.Log($"[content] качество арта: бокс {otherSuffix} вычищен ({removed} файлов)");
+        });
 
         // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
         // когда ВСЕ её файлы уже на диске. Зовётся при развороте попапа.

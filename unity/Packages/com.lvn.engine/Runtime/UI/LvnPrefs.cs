@@ -42,6 +42,7 @@ namespace Lvn.UI
             _locale = PlayerPrefs.GetString(P + "locale", "");
             _artEco = PlayerPrefs.GetInt(P + "art_eco", 0) == 1;
             _menuTrack = PlayerPrefs.GetString(P + "menu_track", "");
+            _targetFps = PlayerPrefs.GetInt(P + "target_fps", 60) == 30 ? 30 : 60;
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
 
@@ -210,6 +211,24 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _artEco, "art_eco", value); }
         }
         private static bool _artEco;
+
+        /// <summary>Целевая частота кадров: 60 (по умолчанию) или 30 —
+        /// экономия батареи; хост применяет через Application.targetFrameRate.</summary>
+        public static int TargetFps
+        {
+            get { EnsureLoaded(); return _targetFps; }
+            set
+            {
+                EnsureLoaded();
+                int v = value == 30 ? 30 : 60;
+                if (_targetFps == v) return;
+                _targetFps = v;
+                PlayerPrefs.SetInt(P + "target_fps", v);
+                PlayerPrefs.Save();
+                Changed?.Invoke();
+            }
+        }
+        private static int _targetFps = 60;
 
         /// <summary>Выбранный трек главного меню (id из ui.browse.music_options;
         /// пусто — базовый ui.browse.music).</summary>

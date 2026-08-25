@@ -144,6 +144,7 @@ namespace Lvn.UI.Screens
             {
                 _list.Add(SectionTitle("Данные"));
                 _list.Add(ArtQualityRow());
+                _list.Add(FpsRow());
                 _list.Add(StorageRow());
             }
             _list.Add(SectionTitle("Аккаунт"));
@@ -269,7 +270,9 @@ namespace Lvn.UI.Screens
         private VisualElement ArtQualityRow()
         {
             var row = RowEx("Качество арта",
-                "Экономия: картинки легче и быстрее, трафика меньше");
+                "Экономия — в 4 раза меньше трафика и памяти, на экране почти "
+                + "неотличимо. Действует на новые загрузки; старое качество "
+                + "удаляется с диска");
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
@@ -286,6 +289,30 @@ namespace Lvn.UI.Screens
             eco.style.marginLeft = 6;
             eco.clicked += () => { LvnPrefs.ArtEco = true; Highlight(); };
             seg.Add(hi); seg.Add(eco);
+            Highlight();
+            return row;
+        }
+
+        private VisualElement FpsRow()
+        {
+            var row = RowEx("Кадровая частота",
+                "30 кадров — дольше живёт батарея; 60 — плавнее анимации");
+            var seg = new VisualElement();
+            seg.style.flexDirection = FlexDirection.Row;
+            row.Add(seg);
+            Button f30 = null, f60 = null;
+            void Highlight()
+            {
+                StyleValueButton(f30, LvnPrefs.TargetFps == 30);
+                StyleValueButton(f60, LvnPrefs.TargetFps != 30);
+            }
+            f30 = new Button { text = "30" };
+            f30.style.marginLeft = 6;
+            f30.clicked += () => { LvnPrefs.TargetFps = 30; Highlight(); };
+            f60 = new Button { text = "60" };
+            f60.style.marginLeft = 6;
+            f60.clicked += () => { LvnPrefs.TargetFps = 60; Highlight(); };
+            seg.Add(f30); seg.Add(f60);
             Highlight();
             return row;
         }
