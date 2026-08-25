@@ -103,9 +103,11 @@ namespace Lvn.UI
         private static VisualElement Layer(VisualElement parent, Texture2D tex,
                                            bool tile, float opacity, Color tint)
         {
-            var v = new VisualElement { pickingMode = PickingMode.Ignore };
+            var v = new VisualElement { pickingMode = PickingMode.Ignore, name = "lvn-backdrop" };
             v.style.position = Position.Absolute;
-            v.style.left = 0; v.style.right = 0; v.style.top = 0; v.style.bottom = 0;
+            // Запас за краями: параллакс сдвигает слой, и без напуска по
+            // периметру у кромки экрана показался бы «шов» фона.
+            v.style.left = -40; v.style.right = -40; v.style.top = -40; v.style.bottom = -40;
             if (tex != null)
             {
                 v.style.backgroundImage = new StyleBackground(tex);
