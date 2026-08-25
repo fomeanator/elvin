@@ -86,6 +86,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingLeft = 18;
             sheet.style.paddingRight = 18;
             Add(sheet);
+            AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
             // ── top bar: back ‹ + title + currency pill ─────────────────────
             var topBar = new VisualElement();

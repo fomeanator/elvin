@@ -92,6 +92,7 @@ namespace Lvn.UI.Screens
             card.style.paddingLeft = 24;
             card.style.paddingRight = 24;
             Add(card);
+            AdoptSheet(card); // единый враппер попапа: стекло, окантовка, подъезд
 
             // ── Header: title + subtitle on the left, Close (✕) top-right ───────
             var header = new VisualElement();

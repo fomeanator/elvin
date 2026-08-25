@@ -77,6 +77,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
             Add(sheet);
+            AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
             var title = new Label(_cfg.title ?? "Settings");
             LvnChrome.Heading(title);
