@@ -143,6 +143,7 @@ namespace Lvn.UI.Screens
             _playerNameLabel.style.fontSize = 36; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             nameCol.Add(_playerNameLabel);
             _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = 26;
+            if (!(_cfg.show_level ?? true)) _playerLevelLabel.style.display = DisplayStyle.None;
             nameCol.Add(_playerLevelLabel);
             profile.Add(nameCol);
             topBar.Add(profile);
@@ -163,6 +164,8 @@ namespace Lvn.UI.Screens
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
             dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; LvnChrome.Round(dot, 5f);
             gift.Add(dot);
+            // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
+            if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
             rightGroup.Add(gift);
             var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) _ = OnMenu(); });
             gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
@@ -601,7 +604,8 @@ namespace Lvn.UI.Screens
             nav.Add(NavTab(LvnIcon.Home, _cfg.nav_home ?? "Главная", true, null));
             nav.Add(NavTab(LvnIcon.Store, _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
             nav.Add(NavTab(LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
-            nav.Add(NavTab(LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
+            if (_cfg.show_gallery ?? true)
+                nav.Add(NavTab(LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
             nav.Add(NavTab(LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
             return nav;
         }

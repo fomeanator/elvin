@@ -477,6 +477,13 @@ namespace Lvn.Content
         /// палитру И огранку — скругление, кромку, разрядку заголовков, фон.
         /// Отдельные *_color ниже перекрывают тему поштучно.</summary>
         public string theme;
+        // Чистка витрины (решения партнёров TR-25/32): всё по умолчанию как
+        // раньше, false прячет соответствующий элемент.
+        public bool? show_daily;    // 🎁 ежедневная награда в топ-баре хаба
+        public bool? show_gallery;  // кнопка Галереи в хабе
+        public bool? show_level;    // «Уровень N» под именем в топ-баре
+        public bool? detail_saves;  // блок «Сохранения» на карточке новеллы
+        public bool? profile_full;  // false: профиль = имя + ID, без уровня/статов
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name

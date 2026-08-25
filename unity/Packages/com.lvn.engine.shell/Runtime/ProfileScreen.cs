@@ -49,6 +49,10 @@ namespace Lvn.UI.Screens
 
         // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
         public string PlayerName = "Гость";
+
+        /// <summary>TR-25: минимальный профиль — только имя и ID (уровень, XP,
+        /// статы, достижения и отношения спрятаны). ui.browse.profile_full=false.</summary>
+        public bool Minimal;
         public LvnIcon AvatarIcon = LvnIcon.Profile;
         public string AvatarUrl;               // optional art; falls back to the glyph
         public int Level = 7;
@@ -158,13 +162,19 @@ namespace Lvn.UI.Screens
         {
             _body.Clear();
             _body.Add(BuildIdentityCard());
-            _body.Add(BuildStatRow());
+            if (!Minimal) _body.Add(BuildStatRow());
 
-            _body.Add(SectionHeader("Достижения"));
-            _body.Add(BuildAchievements());
+            if (!Minimal)
+            {
+                _body.Add(SectionHeader("Достижения"));
+                _body.Add(BuildAchievements());
+            }
 
-            _body.Add(SectionHeader("Отношения"));
-            _body.Add(BuildRelations());
+            if (!Minimal)
+            {
+                _body.Add(SectionHeader("Отношения"));
+                _body.Add(BuildRelations());
+            }
 
             _body.Add(BuildFooter());
         }
@@ -224,6 +234,7 @@ namespace Lvn.UI.Screens
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             col.Add(name);
 
+            if (Minimal) return card; // TR-25: профиль = имя + ID, без уровня и XP
             var level = new Label($"Уровень {Level}");
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = 26;
