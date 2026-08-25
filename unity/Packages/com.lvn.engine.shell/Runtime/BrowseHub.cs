@@ -663,7 +663,10 @@ namespace Lvn.UI.Screens
             return tab;
         }
 
-        // Staggered fade+rise entrance for the feed's rows — the premium feel.
+        // ЧИСТЫЙ ФЕЙД строк, без сдвига (решение Ильи 26.08): rise-хореография
+        // переигрывалась при асинхронных перестройках ленты по УЖЕ видимому
+        // контенту — «элементы задираются и съезжают». Фейд повторяться может
+        // безболезненно, а появление читается как у актёров и диалога.
         private void AnimateIn(VisualElement container)
         {
             int i = 0;
@@ -671,17 +674,30 @@ namespace Lvn.UI.Screens
             {
                 var el = child;
                 el.style.opacity = 0f;
-                el.style.translate = new Translate(0, 20);
-                int delay = 30 + i * 65;
+                el.style.translate = new Translate(0, 0);
+                int delay = 25 + i * 55;
                 i++;
                 el.schedule.Execute(() =>
-                    el.experimental.animation.Start(0f, 1f, 340, (e, v) =>
-                    {
-                        e.style.opacity = v;
-                        e.style.translate = new Translate(0, (1f - v) * 20f);
-                    }).Ease(UnityEngine.UIElements.Experimental.Easing.OutCubic)
+                    el.experimental.animation.Start(0f, 1f, 280, (e, v) => e.style.opacity = v)
+                        .Ease(UnityEngine.UIElements.Experimental.Easing.OutCubic)
                 ).ExecuteLater(delay);
             }
+        }
+
+        /// <summary>Вход экрана хаба: контент фейдом, нижняя навигация
+        /// ВЫЕЗЖАЕТ СНИЗУ — один раз на показ (зовёт оболочка при Show).</summary>
+        public void PlayEntrance()
+        {
+            if (_bottomNav != null)
+            {
+                _bottomNav.style.translate = new Translate(0, 140);
+                _bottomNav.experimental.animation.Start(0f, 1f, 300, (e, v) =>
+                {
+                    float k = 1f - Mathf.Pow(1f - v, 3f);
+                    e.style.translate = new Translate(0, Mathf.Lerp(140f, 0f, k));
+                });
+            }
+            AnimateIn(_hubRows);
         }
 
         // One collection as a streaming-style row: a header (name + "Все →") over
