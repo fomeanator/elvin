@@ -44,8 +44,11 @@ namespace Lvn.UI.Screens
             _sheet = sheet;
             if (sheet == null) return;
             var bg = LvnTokens.PanelBg;
-            sheet.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.6f);
-            UiGlass.Apply(sheet, 0.55f, new Color(bg.r, bg.g, bg.b, 0.72f));
+            // Тон глубокий: лёгкое стекло размывало светлые карточки хаба в
+            // грязные белёсые пятна (живой скрин магазина). Блюр остаётся
+            // намёком по краям света, а не окном в подложку.
+            sheet.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.78f);
+            UiGlass.Apply(sheet, 0.5f, new Color(bg.r, bg.g, bg.b, 0.9f));
             LvnChrome.Edge(sheet);
             LvnChrome.Round(sheet, LvnTokens.Radius + 6f);
             // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
