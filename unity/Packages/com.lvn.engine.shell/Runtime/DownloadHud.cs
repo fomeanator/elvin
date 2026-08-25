@@ -68,7 +68,10 @@ namespace Lvn.UI.Screens
             // кружок «разрастается» в попап из своей же точки.
             _capsule.style.marginTop = 64;
             var bg = LvnTokens.PanelBg;
-            _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.95f);
+            // Стекло — тем же дешёвым слоем, что у вариантов выбора (UiGlass):
+            // лёгкий тон поверх размытия вместо плотной заливки.
+            _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.45f);
+            UiGlass.Apply(_capsule, 0.6f, new Color(bg.r, bg.g, bg.b, 0.55f));
             LvnChrome.Edge(_capsule);
             _capsule.style.overflow = Overflow.Hidden;
             _capsule.style.alignItems = Align.Center;
