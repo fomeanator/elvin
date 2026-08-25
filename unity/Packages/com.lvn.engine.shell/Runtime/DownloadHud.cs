@@ -207,6 +207,10 @@ namespace Lvn.UI.Screens
             _capsule.style.width = Mathf.Lerp(MiniSize, FullW, k);
             _capsule.style.height = Mathf.Lerp(MiniSize, FullH, k);
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
+            // Верхняя кромка наливается акцентом по мере разворота — та же
+            // «крышка», что у попап-экранов оболочки (AdoptSheet).
+            _capsule.style.borderTopWidth = Mathf.Lerp(1f, 2.5f, k);
+            _capsule.style.borderTopColor = Color.Lerp(LvnTokens.Border, LvnTokens.Accent, k);
             // Кроссфейд содержимого: мини-кольцо гаснет в первой трети морфа,
             // полная карточка проявляется во второй — в середине капсула
             // «пустая», и перетекание читается формой, а не мешаниной слоёв.
@@ -393,6 +397,7 @@ namespace Lvn.UI.Screens
                 _sections.Add(card);
             }
 
+            var missingPlaceholder = 0; // (маркер позиции — каскад ниже)
             var missing = MissingInfo?.Invoke() ?? (0, 0);
             if (missing.Item2 > 0 && DownloadAll != null && !(Center != null && Center.Queue.Count > 0))
             {
@@ -411,17 +416,41 @@ namespace Lvn.UI.Screens
                 card.Add(btn);
                 _sections.Add(card);
             }
+            CascadeIn();
         }
 
         private VisualElement SectionCard()
         {
             var card = new VisualElement();
             card.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Edge(card); // тонкий бордер токеном — карточка, не пятно
             LvnChrome.Round(card, 14f);
             card.style.paddingTop = 12; card.style.paddingBottom = 12;
             card.style.paddingLeft = 14; card.style.paddingRight = 14;
             card.style.marginBottom = 10;
             return card;
+        }
+
+        // Каскад: карточки прибывают одна за другой (fade + подъём) — попап
+        // «наполняется», а не вспыхивает готовым.
+        private void CascadeIn()
+        {
+            int i = 0;
+            foreach (var child in _sections.Children())
+            {
+                var el = child;
+                el.style.opacity = 0f;
+                el.style.translate = new Translate(0f, 10f);
+                int delay = 60 + i * 55;
+                el.schedule.Execute(() =>
+                    el.experimental.animation.Start(0f, 1f, 220, (e2, t) =>
+                    {
+                        float e = 1f - Mathf.Pow(1f - t, 3f);
+                        e2.style.opacity = e;
+                        e2.style.translate = new Translate(0f, Mathf.Lerp(10f, 0f, e));
+                    })).ExecuteLater(delay);
+                i++;
+            }
         }
 
         private Label SectionTitle(string text)
@@ -473,6 +502,14 @@ namespace Lvn.UI.Screens
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.marginTop = 6;
+            if (e.Active)
+            {
+                // Активная глава помечена акцентной кромкой слева — бордер
+                // работает как маркер состояния, в языке Полуночи.
+                row.style.borderLeftWidth = 3f;
+                row.style.borderLeftColor = LvnTokens.Accent;
+                row.style.paddingLeft = 8;
+            }
             var l = new Label((e.Active ? "▶ " : "") + e.Label
                 + (e.Bytes > 0 ? $" · {Mathf.Max(1, e.Bytes >> 20)} МБ" : ""));
             l.pickingMode = PickingMode.Ignore;
@@ -489,7 +526,20 @@ namespace Lvn.UI.Screens
             x.style.paddingLeft = 10; x.style.paddingRight = 4;
             x.style.flexShrink = 0;
             var entry = e;
-            x.RegisterCallback<ClickEvent>(ev => { ev.StopPropagation(); Center?.Remove(entry); RebuildSections(); });
+            x.RegisterCallback<ClickEvent>(ev =>
+            {
+                ev.StopPropagation();
+                // Строка уезжает и схлопывается — и только потом выбывает из
+                // очереди: снятие видно, а не «мигнуло и нет».
+                float h0 = row.resolvedStyle.height;
+                row.experimental.animation.Start(0f, 1f, 180, (r, t) =>
+                {
+                    r.style.opacity = 1f - t;
+                    r.style.translate = new Translate(Mathf.Lerp(0f, 40f, t * t), 0f);
+                    if (h0 > 1f) r.style.height = Mathf.Lerp(h0, 0f, t);
+                    if (t >= 1f) { Center?.Remove(entry); RebuildSections(); }
+                });
+            });
             row.Add(x);
             return row;
         }
@@ -515,14 +565,26 @@ namespace Lvn.UI.Screens
         {
             private readonly float _radius, _stroke;
             private readonly bool _arrow;
-            private float _progress = -1f;
+            private float _progress = -1f;  // цель
+            private float _shown = -1f;     // что нарисовано: плывёт к цели
             private float _spin;
             private RingGlyph _glyph = RingGlyph.Down;
 
             public RingGlyph Glyph
             {
                 get => _glyph;
-                set { if (_glyph != value) { _glyph = value; MarkDirtyRepaint(); } }
+                set
+                {
+                    if (_glyph == value) return;
+                    _glyph = value;
+                    // Смена состояния — короткий пульс: глаз ловит перемену.
+                    this.experimental.animation.Start(0f, 1f, 240, (e, t) =>
+                    {
+                        float k = 1f + 0.14f * Mathf.Sin(t * Mathf.PI);
+                        e.style.scale = new Scale(new Vector2(k, k));
+                    });
+                    MarkDirtyRepaint();
+                }
             }
 
             public float Progress
@@ -540,6 +602,11 @@ namespace Lvn.UI.Screens
                 schedule.Execute(() =>
                 {
                     _spin = (_spin + 5f) % 360f;
+                    // Дуга не скачет между тиками данных (300 мс), а плывёт.
+                    if (_progress >= 0f)
+                        _shown = _shown < 0f ? _progress
+                            : Mathf.Lerp(_shown, _progress, 0.18f);
+                    else _shown = -1f;
                     MarkDirtyRepaint();
                 }).Every(33);
             }
@@ -561,8 +628,8 @@ namespace Lvn.UI.Screens
                 p.strokeColor = LvnTokens.Accent;
                 p.lineCap = LineCap.Round;
                 p.BeginPath();
-                if (_progress >= 0f)
-                    p.Arc(c, _radius, -90f, -90f + 360f * Mathf.Clamp01(_progress));
+                if (_shown >= 0f)
+                    p.Arc(c, _radius, -90f, -90f + 360f * Mathf.Clamp01(_shown));
                 else
                     p.Arc(c, _radius, _spin, _spin + 90f);
                 p.Stroke();
