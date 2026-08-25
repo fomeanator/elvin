@@ -60,33 +60,13 @@ namespace Lvn.UI.Screens
         public int XpNext = 2000;
         public string Uid = "u_f025ad58dc6eb656";
 
-        public List<Stat> Stats = new List<Stat>
-        {
-            new Stat("24", "Пройдено глав"),
-            new Stat("6",  "Свиданий"),
-            new Stat("11", "Концовок"),
-            new Stat("5",  "Дней подряд"),
-        };
-
-        public List<Achievement> Achievements = new List<Achievement>
-        {
-            new Achievement(LvnIcon.Star,   "Первый шаг",      true),
-            new Achievement(LvnIcon.Heart,  "Первое свидание", true),
-            new Achievement(LvnIcon.Book,   "Знаток глав",     true),
-            new Achievement(LvnIcon.Mask,   "Все концовки",    false),
-            new Achievement(LvnIcon.Flame,  "Неделя подряд",   true),
-            new Achievement(LvnIcon.Crown,  "Максимум любви",  false),
-            new Achievement(LvnIcon.Key,    "Тайный путь",     false),
-            new Achievement(LvnIcon.Trophy, "Мастер новелл",   false),
-        };
-
-        public List<Relation> Relations = new List<Relation>
-        {
-            new Relation("Алиса", 0.80f),
-            new Relation("Леонардо", 0.45f),
-            new Relation("Ада",      0.62f),
-            new Relation("Маркус",   0.30f),
-        };
+        // ФЕЙКА В ПРОФИЛЕ НЕТ (живой репорт): демонстрационные статы,
+        // достижения и отношения удалены. Отношения — РЕАЛЬНЫЕ: хост
+        // наполняет их из статов тайтлов перед открытием; пустой список
+        // прячет секцию. Достижения вернутся вместе с настоящей системой.
+        public List<Stat> Stats = new List<Stat>();
+        public List<Achievement> Achievements = new List<Achievement>();
+        public List<Relation> Relations = new List<Relation>();
 
         private readonly ILvnAssets _assets;
         private readonly ScrollView _body;
@@ -156,21 +136,28 @@ namespace Lvn.UI.Screens
             Rebuild();
         }
 
+        // Тело собирается на КАЖДОМ открытии: поля (Minimal, Relations)
+        // хост ставит после конструктора — снимок из конструктора показывал
+        // бы вечную заглушку (класс бага «пустых настроек», зеркальный).
+        protected override void OnOpening() => Rebuild();
+
         /// <summary>Tear down and rebuild the whole body from the current model.
         /// Cheap enough to call after mutating any of the public fields.</summary>
         public void Rebuild()
         {
             _body.Clear();
             _body.Add(BuildIdentityCard());
-            if (!Minimal) _body.Add(BuildStatRow());
+            if (!Minimal && Stats.Count > 0) _body.Add(BuildStatRow());
 
-            if (!Minimal)
+            if (!Minimal && Achievements.Count > 0)
             {
                 _body.Add(SectionHeader("Достижения"));
                 _body.Add(BuildAchievements());
             }
 
-            if (!Minimal)
+            // Отношения с фаворитами — реальные данные, показываются и в
+            // минимальном профиле: это то, ради чего игрок сюда заходит.
+            if (Relations.Count > 0)
             {
                 _body.Add(SectionHeader("Отношения"));
                 _body.Add(BuildRelations());
