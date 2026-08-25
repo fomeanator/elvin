@@ -51,6 +51,8 @@ namespace Lvn.UI.Screens
         public int PlayerLevel;
 
         private VisualElement _topPills; // hub HUD: currency balances
+        private VisualElement _profileBlock; // аватар+имя — скрыт при едином навбаре
+        private VisualElement _settingsBtn;  // шестерёнка — скрыта при едином навбаре
         private Label _playerNameLabel, _playerLevelLabel;
         private readonly BrowseConfig _cfg;
         private readonly ILvnAssets _assets;
@@ -128,6 +130,7 @@ namespace Lvn.UI.Screens
             topBar.style.marginBottom = 22;
 
             var profile = new VisualElement();
+            _profileBlock = profile;
             profile.style.flexDirection = FlexDirection.Row;
             profile.style.alignItems = Align.Center;
             var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) _ = OnMenu(); });
@@ -168,6 +171,7 @@ namespace Lvn.UI.Screens
             if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
             rightGroup.Add(gift);
             var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) _ = OnMenu(); });
+            _settingsBtn = gear;
             gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
             gear.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.ClearBorder(gear); LvnChrome.Round(gear, LvnTokens.RadiusSm);

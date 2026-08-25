@@ -54,12 +54,7 @@ namespace Lvn.UI.Screens
             _tapCatcher.style.left = 0; _tapCatcher.style.right = 0;
             _tapCatcher.style.top = 0; _tapCatcher.style.height = 48;
             _tapCatcher.style.display = DisplayStyle.None;
-            _tapCatcher.RegisterCallback<PointerDownEvent>(e =>
-            {
-                e.StopPropagation();
-                ShowTemporarily();
-            });
-            Add(_tapCatcher);
+            Add(_tapCatcher); // рудимент тап-кромки; в игре бар пропал совсем
 
             _row = new VisualElement();
             var bg = LvnTokens.PanelBg;
