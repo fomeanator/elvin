@@ -37,23 +37,46 @@ namespace Lvn.UI.Screens
         private float _quietSince = -1f;
         private bool _visible;
 
+        private readonly VisualElement _scrim;
+
         public DownloadHud()
         {
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
-            style.top = 64;
-            style.left = 0; style.right = 0;
-            style.alignItems = Align.Center;
+            style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            style.alignItems = Align.Center; // капсула — по центру шапки
             style.display = DisplayStyle.None;
 
+            // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
+            // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает
+            // попап обратно в кружок (решение Ильи: крестик или тап вне).
+            _scrim = new VisualElement();
+            _scrim.style.position = Position.Absolute;
+            _scrim.style.left = 0; _scrim.style.right = 0;
+            _scrim.style.top = 0; _scrim.style.bottom = 0;
+            _scrim.style.display = DisplayStyle.None;
+            _scrim.RegisterCallback<PointerDownEvent>(e =>
+            {
+                e.StopPropagation();
+                SetExpanded(false);
+            });
+            Add(_scrim);
+
             _capsule = new VisualElement();
+            // Центр шапки: и в хабе, и в сцене это свободная зона (слева имя,
+            // справа валюты/фабы), а морф из центра растёт симметрично —
+            // кружок «разрастается» в попап из своей же точки.
+            _capsule.style.marginTop = 64;
             var bg = LvnTokens.PanelBg;
             _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.95f);
             LvnChrome.Edge(_capsule);
             _capsule.style.overflow = Overflow.Hidden;
             _capsule.style.alignItems = Align.Center;
             _capsule.style.justifyContent = Justify.Center;
-            _capsule.RegisterCallback<ClickEvent>(_ => SetExpanded(!_expanded));
+            // Разворачивает клик по МИНИ; свёртывание — только крестик или
+            // тап мимо (клик по самой карточке ничего не делает — иначе любое
+            // случайное касание закрывало бы её).
+            _capsule.RegisterCallback<ClickEvent>(_ => { if (!_expanded) SetExpanded(true); });
             _capsule.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             Add(_capsule);
 
@@ -102,6 +125,16 @@ namespace Lvn.UI.Screens
             _stats.style.marginTop = 4;
             col.Add(_stats);
 
+            var close = new Label("✕");
+            close.style.color = LvnTokens.TextDim;
+            close.style.fontSize = 22;
+            close.style.marginLeft = 12;
+            close.style.paddingTop = 6; close.style.paddingBottom = 6;
+            close.style.paddingLeft = 8; close.style.paddingRight = 8;
+            close.style.flexShrink = 0;
+            close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
+            _full.Add(close);
+
             ApplyMorph(0f);
         }
 
@@ -111,6 +144,7 @@ namespace Lvn.UI.Screens
         {
             if (_expanded == on) return;
             _expanded = on;
+            _scrim.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, 260, (_, p) =>
             {
