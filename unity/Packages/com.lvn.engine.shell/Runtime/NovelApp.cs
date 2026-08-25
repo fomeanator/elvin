@@ -814,6 +814,15 @@ namespace Lvn.UI.Screens
                     };
                     Lvn.UI.StageMenu.ExternalSettings = () =>
                         LvnAsync.Fire(_shell.OpenSettingsAsync(), "UnifiedSettings");
+                    // Бургер-фаб в сцене убран (Илья 26.08): выезжающий игровой
+                    // бар по тапу верхней зоны несёт 4 кнопки.
+                    Lvn.UI.StageMenu.ExternalBurger = true;
+                    _shell.TopBar.OnGameExit = () => Stage?.RequestExit();
+                    _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
+                    _shell.TopBar.OnGameWardrobe = () =>
+                    { if (Stage != null) _ = OpenWardrobeFromMenuAsync(Stage); };
+                    _shell.TopBar.OnGameStore = () =>
+                        LvnAsync.Fire(_shell.OpenPackShopAsync(), "GameBarStore");
                 }
 
                 // Центр загрузок: очередь по главам + данные для попапа

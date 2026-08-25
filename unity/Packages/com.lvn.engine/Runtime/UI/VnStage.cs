@@ -118,8 +118,9 @@ namespace Lvn.UI
         /// <summary>Public access to the underlying player for save/load.</summary>
         public LvnPlayer Player => _player;
 
-        /// <summary>Открыть квик-меню извне (бургер единого навбара).</summary>
-        public void OpenQuickMenu() => _menu?.Open();
+        /// <summary>Открыть квик-меню извне (единый навбар); pane "history" —
+        /// сразу в историю.</summary>
+        public void OpenQuickMenu(string pane = null) => _menu?.Open(pane);
 
         private readonly List<(string who, string text, string style)> _backlog
             = new List<(string, string, string)>();
