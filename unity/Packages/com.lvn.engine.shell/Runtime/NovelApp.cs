@@ -1232,7 +1232,11 @@ namespace Lvn.UI.Screens
                 _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
                 _storySheet.SetManifest(_manifest);
                 _storySheet.OpenStore = () => _shell.OpenPackShopAsync();
-                _storySheet.ConfirmTopUp = (title, msg) => _shell.ConfirmAsync(title, msg, "Store", "Not now");
+                // Кнопки — из economy-конфига, как у энергетических ворот: жёсткий
+                // англ. хардкод здесь светился игроку («а че у нас тут инглишь»).
+                _storySheet.ConfirmTopUp = (title, msg) => _shell.ConfirmAsync(title, msg,
+                    _manifest?.economy?.gate_buy ?? "Store",
+                    _manifest?.economy?.gate_cancel ?? "Not now");
                 _storySheet.Alert = (title, msg) => _shell.AlertAsync(title, msg);
                 // Write the player's wardrobe pick back into the novel's story state
                 // (nested, like the script's own `set`). LvnWardrobe.Equip and the
