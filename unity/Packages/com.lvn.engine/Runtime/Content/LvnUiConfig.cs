@@ -359,6 +359,8 @@ namespace Lvn.Content
         // «Силуэт-проявление»: опоздавший арт входит тёмной @mini-заготовкой
         // и проявляется полным. false — ждать полный, как раньше.
         public bool? loading_silhouette;
+        // Тап-салют: "hearts" — сердечки из точки касания. Пусто = выкл.
+        public string tap_burst;
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
