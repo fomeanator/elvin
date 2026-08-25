@@ -527,6 +527,7 @@ namespace Lvn.UI.Screens
                     _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
                 _shell.Hub.PlayerName = _playerName;
                 _shell.Hub.Currencies = HubCurrencies();
+                _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
@@ -798,6 +799,21 @@ namespace Lvn.UI.Screens
                 };
                 _shell.Settings.DownloadProgress = () =>
                     (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
+
+                // Единый навбар: валюты данными, бургер по контексту
+                // (в сцене — квик-меню, в меню — настройки), пилюля — магазин.
+                if (_shell.TopBar != null)
+                {
+                    _shell.TopBar.Currencies = HubCurrencies();
+                    _shell.TopBar.RefreshBalances();
+                    _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
+                    _shell.TopBar.OnBurger = () =>
+                    {
+                        if (_chapterPlaying && Stage != null) Stage.OpenQuickMenu();
+                        else LvnAsync.Fire(_shell.OpenSettingsAsync(), "TopBarSettings");
+                    };
+                    Lvn.UI.StageMenu.ExternalBurger = true; // фаб-дубликат не рисуем
+                }
 
                 // Центр загрузок: очередь по главам + данные для попапа
                 // индикатора (офлайн-правила, синк, «скачать всё»).

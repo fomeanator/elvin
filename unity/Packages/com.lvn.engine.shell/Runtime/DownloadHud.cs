@@ -44,6 +44,13 @@ namespace Lvn.UI.Screens
         public Func<Task> DownloadAll;
         /// <summary>Сколько осталось скачать (байт, файлов) — подпись кнопки.</summary>
         public Func<(long bytes, int files)> MissingInfo;
+        /// <summary>Есть ли работа прямо сейчас (кружок показан) — единый
+        /// навбар держится на экране этим сигналом в игровом режиме.</summary>
+        public bool HasWork => _shown;
+
+        /// <summary>Отступ safe area — кружок сидит в строке бара, ниже выреза.</summary>
+        public void SetSafeTop(float units) => _capsule.style.marginTop = units + 5f;
+
         /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
         /// только на операциях, и без пинка «↑ Синхронизация» висела бы до
         /// следующего действия игрока.</summary>
@@ -75,6 +82,7 @@ namespace Lvn.UI.Screens
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            style.alignItems = Align.Center; // капсула — центр строки навбара
             style.display = DisplayStyle.None; // до первой работы кружка нет
 
             // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
@@ -93,12 +101,10 @@ namespace Lvn.UI.Screens
             Add(_scrim);
 
             _capsule = new VisualElement();
-            // СТАТИЧНЫЙ элемент шапки, справа (решение Ильи 26.08: кружок не
-            // мигает появлением/исчезновением — он живёт всегда, в простое
-            // приглушён). Якорь right/top: морф растёт влево-вниз из его точки.
-            _capsule.style.position = Position.Absolute;
-            _capsule.style.top = 112;
-            _capsule.style.right = 14;
+            // ЦЕНТР строки единого навбара (решение Ильи 26.08): кружок живёт
+            // в баре, морф попапа растёт симметрично из его же точки. Отступ
+            // сверху хост синхронизирует с safe area бара (SetSafeTop).
+            _capsule.style.marginTop = 5;
             var bg = LvnTokens.PanelBg;
             // Просто полупрозрачный тон — блюр-стекло снято (Илья, 26.08).
             _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);

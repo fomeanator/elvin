@@ -25,6 +25,12 @@ namespace Lvn.UI
 
         public bool IsOpen { get; private set; }
 
+        /// <summary>Бургер живёт во внешнем навбаре — свой фаб не рисуем.</summary>
+        public static bool ExternalBurger;
+
+        /// <summary>Открыть квик-меню извне (бургер единого навбара).</summary>
+        public void Open() => OpenSheet();
+
         // Every chrome string resolves through the theme's label map (manifest
         // ui.menu.labels) so a novel ships its own language; English is the
         // engine default.
@@ -72,7 +78,9 @@ namespace Lvn.UI
             _fabRow.Add(_modeBadge);
 
             if (_theme.MenuShowRollback) _fabRow.Add(Fab("↩", () => _stage.RollbackStep()));
-            if (_theme.MenuShowMenu) _fabRow.Add(BurgerFab(OpenSheet));
+            // Единый навбар приложения несёт бургер сам — фаб-дубликат
+            // выключается хостом (ExternalBurger).
+            if (_theme.MenuShowMenu && !ExternalBurger) _fabRow.Add(BurgerFab(OpenSheet));
             Add(_fabRow);
 
             // Cheap poll keeps the badge honest across every way a mode can flip
