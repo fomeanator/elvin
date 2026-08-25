@@ -40,6 +40,8 @@ namespace Lvn.UI
             _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
             _soundOn = PlayerPrefs.GetInt(P + "sound_on", 1) == 1;
             _locale = PlayerPrefs.GetString(P + "locale", "");
+            _artEco = PlayerPrefs.GetInt(P + "art_eco", 0) == 1;
+            _menuTrack = PlayerPrefs.GetString(P + "menu_track", "");
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
 
@@ -57,6 +59,15 @@ namespace Lvn.UI
             if (field == value) return;
             field = value;
             PlayerPrefs.SetInt(P + key, value ? 1 : 0);
+            PlayerPrefs.Save();
+            Changed?.Invoke();
+        }
+
+        private static void Set(ref string field, string key, string value)
+        {
+            if (field == value) return;
+            field = value;
+            PlayerPrefs.SetString(P + key, value);
             PlayerPrefs.Save();
             Changed?.Invoke();
         }
