@@ -213,6 +213,17 @@ func main() {
 	netSvc := NewNetService()
 	netSvc.Routes(mux)   // комнаты для игры вдвоём: сервер держит ящики, правила у клиентов
 	adminSvc.Routes(mux)
+	// «Удалить аккаунт» — стор-требование: игрок стирает свои данные сам.
+	(&accountEraser{
+		auth: authSvc,
+		userFileDirs: []string{
+			filepath.Join(servicesDir, "wallet"),
+			filepath.Join(servicesDir, "daily"),
+			filepath.Join(servicesDir, "ads"),
+			filepath.Join(servicesDir, "leaderboards"),
+		},
+		srv: srv,
+	}).Routes(mux)
 	mux.HandleFunc("/v1/admin/assets/", srv.handleAdminAsset)
 	// «Что выглядит мылом»: разрешение арта по уже опубликованным главам.
 	// Страж ловит это на входе, но прод набивался до стража.

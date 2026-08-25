@@ -506,6 +506,7 @@ namespace Lvn.UI.Screens
                 if (manifest.ui?.browse?.show_daily ?? true)
                     _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
                 _shell.Hub.PlayerName = _playerName;
+                _shell.Hub.Currencies = HubCurrencies();
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
@@ -2433,8 +2434,64 @@ namespace Lvn.UI.Screens
                     if (t != null)
                         done += Mathf.Max(0, Mathf.Min(LvnProgress.Reached(t), t.ChaptersOf().Count));
             p.ChaptersDone = done;
+            // Профиль — дом данных ИГРОКА: настоящие имя и ID (в экране зашиты
+            // демо-заглушки), живой кошелёк, удаление аккаунта. Жалоба-ориентир:
+            // «в настройках больше данных для профиля, чем в профиле».
+            p.PlayerName = _playerName;
+            var uid = Lvn.Services.LvnBackend.UserId;
+            if (!string.IsNullOrEmpty(uid)) p.Uid = uid;
+            p.Wallet = BuildWalletTiles();
+            p.OnDeleteAccount = DeleteAccountAndForgetAsync;
             p.OnOpenSettings = () => _ = _shell.OpenSettingsAsync(); // профиль закрывает себя сам
             await _shell.OpenProfileAsync();
+        }
+
+        // Единственная правда о валютах игры: ui.browse.currencies, дефолт —
+        // прежняя пара. И шапка хаба, и кошелёк профиля идут отсюда.
+        private List<string> HubCurrencies()
+        {
+            var cfg = _manifest?.ui?.browse?.currencies;
+            return cfg != null && cfg.Count > 0 ? cfg : new List<string> { "energy", "gold" };
+        }
+
+        // Плитки кошелька для профиля: те же валюты, что в шапке хаба, подписи
+        // из ui.store.currency_names (данные, не хардкод).
+        private List<Lvn.UI.Screens.ProfileScreen.Stat> BuildWalletTiles()
+        {
+            var tiles = new List<Lvn.UI.Screens.ProfileScreen.Stat>();
+            var names = _manifest?.ui?.store?.currency_names;
+            foreach (var cur in HubCurrencies())
+            {
+                long bal = Lvn.Services.LvnWallet.Balances.TryGetValue(cur, out var b) ? b : 0;
+                string value = Lvn.Services.LvnWallet.Regen.TryGetValue(cur, out var r) && r.Cap > 0
+                    ? $"{bal}/{r.Cap}" : bal.ToString("N0");
+                string caption = names != null && names.TryGetValue(cur, out var n) && !string.IsNullOrEmpty(n)
+                    ? n : cur;
+                tiles.Add(new Lvn.UI.Screens.ProfileScreen.Stat(value, caption));
+            }
+            return tiles;
+        }
+
+        // «Удалить аккаунт»: сервер стирает учётку/кошелёк/сейвы (LvnBackend),
+        // затем локальное забвение — прогресс и статы всех историй, имя,
+        // пройденность воронки. Порядок важен: локальное трём только после
+        // успешного ответа сервера, иначе отказ сети выглядел бы как удаление.
+        private async Task<bool> DeleteAccountAndForgetAsync()
+        {
+            bool ok = await Lvn.Services.LvnBackend.DeleteAccountAsync();
+            if (!ok) return false;
+            var titles = _manifest?.titles;
+            if (titles != null)
+                foreach (var t in titles)
+                    if (t != null)
+                        try { await ResetTitleProgressAsync(t); }
+                        catch (Exception e) { Debug.LogWarning($"[novelapp] wipe {t.id}: {e.Message}"); }
+            LvnPrefs.PlayerName = "";
+            LvnPrefs.IntroDone = false;
+            LvnPrefs.SeenWelcome = false;
+            _playerName = "";
+            Debug.Log("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
+            return true;
         }
 
         private async Task<bool> OpenDetailWithStatsAsync(LvnTitle t)

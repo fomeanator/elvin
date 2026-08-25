@@ -76,6 +76,16 @@ namespace Lvn.UI.Screens
         /// («звук, язык, загрузка»), это ближайшее место, где их ищут.</summary>
         public System.Action OnOpenSettings;
 
+        /// <summary>Кошелёк игрока: реальные балансы валют, плитками. Пустой
+        /// список прячет секцию. Показывается и в Minimal — это живые данные,
+        /// а не демо (жалоба «в настройках больше данных, чем в профиле»).</summary>
+        public List<Stat> Wallet = new List<Stat>();
+
+        /// <summary>«Удалить аккаунт» (стор-требование): хост стирает аккаунт
+        /// на сервере и локально. true = удалено, экран закрывается; false =
+        /// не вышло (нет сети), кнопка объясняет. null прячет строку.</summary>
+        public Func<Task<bool>> OnDeleteAccount;
+
         private readonly ILvnAssets _assets;
         private readonly ScrollView _body;
 
@@ -159,6 +169,12 @@ namespace Lvn.UI.Screens
 
             if (ChaptersDone > 0) _body.Add(ProgressLine());
 
+            if (Wallet.Count > 0)
+            {
+                _body.Add(SectionHeader("Кошелёк"));
+                _body.Add(TileRow(Wallet));
+            }
+
             if (!Minimal && Achievements.Count > 0)
             {
                 _body.Add(SectionHeader("Достижения"));
@@ -176,6 +192,7 @@ namespace Lvn.UI.Screens
                 "Они растут от ваших выборов в историях — начните главу, и полосы оживут."));
 
             if (OnOpenSettings != null) _body.Add(SettingsLink());
+            if (OnDeleteAccount != null) _body.Add(DeleteAccountRow());
 
             _body.Add(BuildFooter());
         }
@@ -346,7 +363,9 @@ namespace Lvn.UI.Screens
         }
 
         // ── Section 3: stat tiles ──────────────────────────────────────────
-        private VisualElement BuildStatRow()
+        private VisualElement BuildStatRow() => TileRow(Stats);
+
+        private VisualElement TileRow(List<Stat> stats)
         {
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
@@ -354,8 +373,91 @@ namespace Lvn.UI.Screens
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.marginBottom = 8;
 
-            foreach (var s in Stats) row.Add(StatTile(s));
+            foreach (var s in stats) row.Add(StatTile(s));
             return row;
+        }
+
+        // «Удалить аккаунт»: приглушённая строка с подтверждением в два нажатия
+        // прямо в кнопке — отдельный диалог тут был бы тяжелее самого действия.
+        private VisualElement DeleteAccountRow()
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(row);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            row.style.marginBottom = 10;
+            row.style.paddingTop = 14; row.style.paddingBottom = 14;
+            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+
+            var col = new VisualElement();
+            col.style.flexGrow = 1;
+            col.style.flexShrink = 1;
+            col.style.marginRight = 10;
+            var lbl = new Label("Удалить аккаунт");
+            lbl.style.color = LvnTokens.Text;
+            lbl.style.fontSize = 24;
+            col.Add(lbl);
+            var hint = new Label("Сотрёт прогресс, покупки и сохранения. Навсегда.");
+            hint.style.color = LvnTokens.TextDim;
+            hint.style.fontSize = 19;
+            hint.style.marginTop = 2;
+            hint.style.whiteSpace = WhiteSpace.Normal;
+            col.Add(hint);
+            row.Add(col);
+
+            var danger = new Color(0.86f, 0.28f, 0.32f);
+            var btn = new Button { text = "Удалить" };
+            btn.style.fontSize = 20;
+            btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
+            btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
+            btn.style.color = danger;
+            btn.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.ClearBorder(btn);
+            LvnChrome.Round(btn, LvnTokens.RadiusSm);
+
+            bool armed = false;
+            btn.clicked += () =>
+            {
+                if (!armed)
+                {
+                    // Первое нажатие только взводит; через 4 с кнопка остывает.
+                    armed = true;
+                    btn.text = "Точно удалить?";
+                    btn.style.backgroundColor = danger;
+                    btn.style.color = Color.white;
+                    btn.schedule.Execute(() =>
+                    {
+                        if (!armed) return;
+                        armed = false;
+                        btn.text = "Удалить";
+                        btn.style.backgroundColor = LvnTokens.Faint;
+                        btn.style.color = danger;
+                    }).ExecuteLater(4000);
+                    return;
+                }
+                armed = false;
+                btn.SetEnabled(false);
+                btn.text = "Удаляем…";
+                LvnAsync.Fire(RunDeleteAsync(btn, danger), "DeleteAccount");
+            };
+            row.Add(btn);
+            return row;
+        }
+
+        private async Task RunDeleteAsync(Button btn, Color danger)
+        {
+            bool ok = false;
+            try { ok = await OnDeleteAccount(); }
+            catch (Exception e) { Debug.LogWarning($"[profile] удаление аккаунта: {e.Message}"); }
+            if (ok) { Close(); return; }
+            btn.SetEnabled(true);
+            btn.text = "Нет сети — позже";
+            btn.style.backgroundColor = LvnTokens.Faint;
+            btn.style.color = danger;
+            btn.schedule.Execute(() => btn.text = "Удалить").ExecuteLater(2500);
         }
 
         private VisualElement StatTile(Stat s)

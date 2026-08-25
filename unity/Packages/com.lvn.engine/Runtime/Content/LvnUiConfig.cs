@@ -497,6 +497,11 @@ namespace Lvn.Content
         public bool? show_level;    // «Уровень N» под именем в топ-баре
         public bool? detail_saves;  // блок «Сохранения» на карточке новеллы
         public bool? profile_full;  // false: профиль = имя + ID, без уровня/статов
+        /// <summary>Валюты в шапке хаба (id из кошелька, порядок = порядок
+        /// пилюль). Пусто — прежний дефолт ["energy","gold"]. Тот же список
+        /// ведёт плитки кошелька в профиле — одна правда о том, чем играет
+        /// игрок (у TR это crystals, а «gold» был зашит в код).</summary>
+        public List<string> currencies;
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name

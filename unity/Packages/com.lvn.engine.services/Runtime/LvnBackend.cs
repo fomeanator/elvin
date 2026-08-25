@@ -116,6 +116,25 @@ namespace Lvn.Services
         [Serializable] private class ProviderReq { public string provider; public string token; }
         [Serializable] private class LoginResp { public string user_id; public string token; public string name; }
 
+        /// <summary>«Удалить аккаунт» (стор-требование): сервер стирает учётку,
+        /// кошелёк и сейвы; локально сбрасываются токен, имя И device-секрет —
+        /// иначе следующий /v1/auth/register с тем же device_id завёл бы
+        /// «тот же» аккаунт заново, а игрок просил забыть его совсем.
+        /// false = сервер недоступен или отказал; локально ничего не трогаем.</summary>
+        public static async Task<bool> DeleteAccountAsync()
+        {
+            var (code, _) = await PostAsync("/v1/account/delete", "{\"confirm\":\"DELETE\"}");
+            if (code != 200) return false;
+            PlayerPrefs.DeleteKey(PToken);
+            PlayerPrefs.DeleteKey(PUser);
+            PlayerPrefs.DeleteKey(PName);
+            PlayerPrefs.DeleteKey(PDevice);
+            PlayerPrefs.Save();
+            LvnWallet.ForgetLocal(); // офлайн-кошелёк не должен пережить владельца
+            SignedInChanged?.Invoke("");
+            return true;
+        }
+
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>
         public static async Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)

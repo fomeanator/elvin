@@ -311,9 +311,16 @@ namespace Lvn.UI.Screens
             if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
             _topPills.Clear();
-            _topPills.Add(CurrencyPill("energy", LvnIcon.Energy, _accent));
-            _topPills.Add(CurrencyPill("gold", LvnIcon.Gem, _theme.Gold));
+            foreach (var cur in Currencies)
+                _topPills.Add(cur == "energy"
+                    ? CurrencyPill(cur, LvnIcon.Energy, _accent)
+                    : CurrencyPill(cur, LvnIcon.Gem, _theme.Gold));
         }
+
+        /// <summary>Валюты шапки, по порядку (ui.browse.currencies). Дефолт —
+        /// прежняя пара; хост подменяет данными манифеста. «gold» был зашит в
+        /// код, и у игры с валютой «crystals» шапка вечно показывала ноль.</summary>
+        public List<string> Currencies = new List<string> { "energy", "gold" };
 
         private VisualElement CurrencyPill(string currency, LvnIcon icon, Color iconColor)
         {

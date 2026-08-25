@@ -314,6 +314,17 @@ namespace Lvn.Services
         }
 
         /// <summary>Wipe the mirror and queue (tests / account switch).</summary>
+        /// <summary>Полное локальное забвение при удалении аккаунта: зеркало,
+        /// очередь И владелец. NoteUser("") здесь не годится — он намеренно
+        /// игнорирует пустой uid.</summary>
+        internal static void ForgetLocal()
+        {
+            ResetLocal();
+            UnityEngine.PlayerPrefs.DeleteKey(POwner);
+            UnityEngine.PlayerPrefs.Save();
+            Changed?.Invoke();
+        }
+
         internal static void ResetLocal()
         {
             _balances = new Dictionary<string, long>();
