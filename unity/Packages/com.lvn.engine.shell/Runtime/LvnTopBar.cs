@@ -181,26 +181,48 @@ namespace Lvn.UI.Screens
             bool show = force ?? !_gameBarShown;
             if (show == _gameBarShown && force == null) return;
             _gameBarShown = show;
+            float slide = RowH + _safeTop + 150f;
             if (show)
             {
-                _gameRow.style.paddingTop = 10 + _safeTop;
+                // ПОЛНЫЙ навбар (лого/валюты/бургер) + строка кнопок ПОД ним —
+                // ансамблем сверху; баблики на это время прячутся (дубль).
+                _miniPills.style.display = DisplayStyle.None;
+                _miniProgress.style.display = DisplayStyle.None;
+                _row.style.display = DisplayStyle.Flex;
+                _gameRow.style.top = _safeTop + RowH;
+                _gameRow.style.paddingTop = 10;
                 _gameRow.style.display = DisplayStyle.Flex;
-                _gameRow.style.translate = new Translate(0f, -140f);
-                _gameRow.experimental.animation.Start(0f, 1f, 240, (r, v) =>
+                _row.style.translate = new Translate(0f, -slide);
+                _gameRow.style.translate = new Translate(0f, -slide);
+                _row.experimental.animation.Start(0f, 1f, 240, (r, v) =>
                 {
                     float k = 1f - Mathf.Pow(1f - v, 3f);
-                    r.style.translate = new Translate(0f, Mathf.Lerp(-140f, 0f, k));
+                    var y = Mathf.Lerp(-slide, 0f, k);
+                    r.style.translate = new Translate(0f, y);
+                    _gameRow.style.translate = new Translate(0f, y);
                 });
                 // Автоуход через 5 с тишины — сцена остаётся чистой.
                 schedule.Execute(() => { if (_gameBarShown) ToggleGameBar(false); }).ExecuteLater(5000);
             }
             else
             {
-                _gameRow.experimental.animation.Start(0f, 1f, 200, (r, v) =>
+                _row.experimental.animation.Start(0f, 1f, 200, (r, v) =>
                 {
                     float k = 1f - Mathf.Pow(1f - v, 3f);
-                    r.style.translate = new Translate(0f, Mathf.Lerp(0f, -140f, k));
-                    if (v >= 1f) r.style.display = DisplayStyle.None;
+                    var y = Mathf.Lerp(0f, -slide, k);
+                    r.style.translate = new Translate(0f, y);
+                    _gameRow.style.translate = new Translate(0f, y);
+                    if (v >= 1f)
+                    {
+                        r.style.display = DisplayStyle.None;
+                        _gameRow.style.display = DisplayStyle.None;
+                        if (_inGame)
+                        {
+                            _miniPills.style.display = DisplayStyle.Flex;
+                            _miniProgress.style.display = DisplayStyle.Flex;
+                            _row.style.translate = new Translate(0f, 0f);
+                        }
+                    }
                 });
             }
         }
