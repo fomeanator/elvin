@@ -138,6 +138,17 @@ namespace Lvn.UI.Screens
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
 
+            // Единая пилюля загрузки — поверх ВСЕГО (даже попапа): «Скачать
+            // всё», прелоад главы и стриминг видны из любого экрана, а не
+            // только пока открыты настройки (живой репорт «закрыл — и
+            // остановилось»: батч жил, но был невидим).
+            if (assets is CachingAssets ca)
+            {
+                var dl = new Lvn.UI.Screens.DownloadHud();
+                Add(dl);
+                _root.schedule.Execute(() => dl.Tick(ca.Loader.Transfers())).Every(300);
+            }
+
             // Wallet → HUD pills: the server's balances mirror onto the in-game
             // strip whenever the wallet changes (earn/spend/IAP/refresh).
             _storeUi = ui.store;

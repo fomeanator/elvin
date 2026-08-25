@@ -335,6 +335,25 @@ namespace Lvn.Content
             get { lock (_inflight) { long s = 0; foreach (var v in _bytesReceived.Values) s += v; return s; } }
         }
 
+        /// <summary>Единый снимок сетевой активности для глобального индикатора
+        /// («что сейчас качается» поверх всей оболочки): файлы в полёте,
+        /// счётчики батча и суммарные байты — всё под одним замком, чтобы
+        /// пилюля не ловила рассинхронные числа. Механика загрузки размазана
+        /// по фазам (скачать-всё, прелоад главы, стриминг) — здесь их общее
+        /// окно.</summary>
+        public (int inflight, int batchTotal, int batchDone, long received, long expected) Transfers()
+        {
+            lock (_inflight)
+            {
+                int n = 0;
+                foreach (var k in _inflight.Keys) if (k != "__preload_batch__") n++;
+                long rec = 0, exp = 0;
+                foreach (var v in _bytesReceived.Values) rec += v;
+                foreach (var v in _bytesExpected.Values) exp += v;
+                return (n, BatchTotal, BatchDone, rec, exp);
+            }
+        }
+
         public ContentLoader(string baseUrl, string cacheRoot = null)
         {
             _baseUrl = (baseUrl ?? "").TrimEnd('/');
