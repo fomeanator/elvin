@@ -321,6 +321,16 @@ namespace Lvn.UI.Screens
             // Language: the manifest declares which catalogs exist (Settings shows
             // a picker when any); the reader's persisted choice wins over the
             // inspector default, and changing it mid-story reloads the catalog.
+            // Язык — тоже по устройству (пока игрок не выбрал сам): системный
+            // язык с каталогом в манифесте включается на первом запуске.
+            if (!LvnPrefs.LocaleChosen && manifest.languages != null)
+            {
+                var sys = Lvn.UI.LvnDeviceProfile.SystemLocale;
+                if (!string.IsNullOrEmpty(sys) && sys != (manifest.language ?? "ru")
+                    && manifest.languages.Contains(sys))
+                    LvnPrefs.Locale = sys;
+            }
+            LvnPrefs.OriginalLocale = manifest.language ?? "ru";
             LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
                 ? manifest.languages : System.Array.Empty<string>();
             if (!string.IsNullOrEmpty(LvnPrefs.Locale)) Locale = LvnPrefs.Locale;
@@ -573,9 +583,8 @@ namespace Lvn.UI.Screens
             QualitySettings.vSyncCount = 0;
             // Настройка игрока (30 — экономия батареи), но не выше возможностей
             // экрана: на 30-герцовой панели просить 60 бессмысленно.
-            int wanted = Lvn.UI.LvnPrefs.TargetFps;
-            int screenCap = Screen.currentResolution.refreshRateRatio.value >= 59.0 ? 60 : 30;
-            Application.targetFrameRate = Mathf.Min(wanted, screenCap);
+            Application.targetFrameRate =
+                Mathf.Min(Lvn.UI.LvnPrefs.TargetFps, Lvn.UI.LvnDeviceProfile.FpsCap());
         }
 
         /// <summary>
@@ -776,6 +785,10 @@ namespace Lvn.UI.Screens
                     _shell.Settings.OnMenuTrack = id =>
                         LvnAsync.Fire(SwitchMenuTrackAsync(ResolveMenuTrackUrl(manifest)), "SwitchMenuTrack");
                 }
+                // Паспорт устройства → серверный профиль игрока (сегменты,
+                // саппорт «на чём играет»), как делают все крупные аналитики.
+                Lvn.Services.LvnAnalytics.Track("device", Lvn.UI.LvnDeviceProfile.Snapshot());
+
                 _shell.Settings.StorageInfo = StorageInfoAsync;
                 _shell.Settings.DownloadAll = DownloadEverythingAsync;
                 _shell.Settings.ClearDownloads = async () =>
@@ -2270,12 +2283,9 @@ namespace Lvn.UI.Screens
         internal static string EffectiveArtQuality()
         {
             var chosen = Lvn.UI.LvnPrefs.ArtQuality;
-            if (!string.IsNullOrEmpty(chosen)) return chosen;
-            int px = Mathf.Max(Screen.width, Screen.height);
-            int ramMb = SystemInfo.systemMemorySize;
-            if (px >= 2000 && ramMb >= 4096) return "2k";
-            if (px >= 1400 && ramMb >= 3072) return "1440";
-            return "1k";
+            return !string.IsNullOrEmpty(chosen)
+                ? chosen
+                : Lvn.UI.LvnDeviceProfile.RecommendedArtQuality();
         }
 
         // Смена качества = ПЕРЕКАЧКА (мысль Ильи: «для этого дозагрузчик и

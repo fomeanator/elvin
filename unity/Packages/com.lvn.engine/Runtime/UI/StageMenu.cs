@@ -791,8 +791,7 @@ namespace Lvn.UI
             card.style.alignItems = Align.Center;
             card.Add(Text(L("language", "Language"), 24, FontStyle.Normal));
 
-            string Caption(string code) =>
-                string.IsNullOrEmpty(code) ? L("language_original", "Original") : code.ToUpperInvariant();
+            string Caption(string code) => LvnPrefs.LocaleTitle(code);
 
             var btn = new Button { text = Caption(LvnPrefs.Locale) };
             btn.style.minWidth = 150;
