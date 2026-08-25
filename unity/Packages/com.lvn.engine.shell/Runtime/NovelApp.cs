@@ -783,6 +783,7 @@ namespace Lvn.UI.Screens
                     hud.Offline = () => Lvn.Content.LvnNetworkStatus.IsOffline;
                     hud.PendingOps = () => Lvn.Services.LvnWallet.PendingCount;
                     hud.ActiveUrl = () => loader.LastStartedUrl;
+                    hud.FlushPending = Lvn.Services.LvnWallet.FlushAsync;
                     hud.DownloadAll = DownloadEverythingAsync;
                     hud.ChaptersInfo = ChapterAvailability;
                     hud.MissingInfo = () =>

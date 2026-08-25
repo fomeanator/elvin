@@ -37,6 +37,11 @@ namespace Lvn.UI.Screens
         public Func<Task> DownloadAll;
         /// <summary>Сколько осталось скачать (байт, файлов) — подпись кнопки.</summary>
         public Func<(long bytes, int files)> MissingInfo;
+        /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
+        /// только на операциях, и без пинка «↑ Синхронизация» висела бы до
+        /// следующего действия игрока.</summary>
+        public Func<Task> FlushPending;
+        private float _lastFlushKick;
 
         private readonly VisualElement _capsule;
         private readonly ProgressRing _miniRing;
@@ -192,7 +197,10 @@ namespace Lvn.UI.Screens
             if (_expanded == on) return;
             _expanded = on;
             _scrim.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
-            if (on) RebuildSections();
+            // Секции собираются ПОСЛЕ старта морфа (офлайн-ветка проверяет
+            // кэш на диске — десятки миллисекунд, и они не должны съедать
+            // первые кадры разворота). Каскад — только при развороте.
+            if (on) _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, 260, (_, p) =>
             {
@@ -260,14 +268,22 @@ namespace Lvn.UI.Screens
                 var glyph = off && (act || queued) ? RingGlyph.Alert
                     : act ? RingGlyph.Down
                     : RingGlyph.Up;
+                if (glyph == RingGlyph.Up && !off && FlushPending != null
+                    && now - _lastFlushKick > 5f)
+                {
+                    _lastFlushKick = now;
+                    _ = FlushPending();
+                }
                 _miniRing.Glyph = glyph;
                 _fullRing.Glyph = glyph;
 
-                float frac = act
+                // Байтовые счётчики честны только ВНУТРИ батча (в конце он их
+                // чистит); фоновый стриминг копит их за сессию — его кольцо
+                // врало бы «почти готово». Стриминг — спиннер.
+                float frac = act && t.batchTotal > 0
                     ? (t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
-                        : t.batchTotal > 0 ? Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal))
-                        : -1f)
-                    : glyph == RingGlyph.Up ? -1f : 0f;
+                        : Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal)))
+                    : -1f;
                 _miniRing.Progress = frac;
                 _fullRing.Progress = frac;
 
@@ -290,10 +306,12 @@ namespace Lvn.UI.Screens
                     int queuedFiles = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
                     string sp = _speed > 8f * 1024f ? Speed(_speed) + " · " : "";
                     string got = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
-                    _stats.text = $"{Humanize(ActiveUrl?.Invoke(), null)} · {sp}в очереди {queuedFiles} · {got}";
+                    _stats.text = $"{Humanize(ActiveUrl?.Invoke(), null)} · {sp}файлов {queuedFiles} · {got}";
                 }
 
-                if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(); }
+                // Обновления очереди перестраивают список ТИХО — каскад на
+                // каждой завершённой главе и был бы «дёрганным».
+                if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
             }
             else if (_visible)
             {
@@ -355,7 +373,7 @@ namespace Lvn.UI.Screens
 
         // ── секции попапа ─────────────────────────────────────────────────────
 
-        private void RebuildSections()
+        private void RebuildSections(bool animate = false)
         {
             if (_sections == null) return;
             _sections.Clear();
@@ -416,7 +434,7 @@ namespace Lvn.UI.Screens
                 card.Add(btn);
                 _sections.Add(card);
             }
-            CascadeIn();
+            if (animate) CascadeIn();
         }
 
         private VisualElement SectionCard()
