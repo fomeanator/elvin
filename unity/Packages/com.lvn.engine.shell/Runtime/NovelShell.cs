@@ -65,6 +65,51 @@ namespace Lvn.UI.Screens
         public Lvn.UI.Screens.LvnTopBar TopBar;
 
         private void OnWalletPills() => TopBar?.RefreshBalances();
+
+        private VisualElement _atmosphere;
+
+        private void BuildAtmosphere()
+        {
+            _atmosphere?.RemoveFromHierarchy();
+            var t = LvnTheme.Current;
+            _atmosphere = new VisualElement { pickingMode = PickingMode.Ignore };
+            _atmosphere.style.position = Position.Absolute;
+            _atmosphere.style.left = 0; _atmosphere.style.right = 0;
+            _atmosphere.style.top = 0; _atmosphere.style.bottom = 0;
+            _atmosphere.style.backgroundColor = t.Bg;
+            LvnBackdrop.Apply(_atmosphere, t);
+            _root.Insert(0, _atmosphere);
+            OnChapterSessionStart += () => _atmosphere.style.display = DisplayStyle.None;
+            OnChapterSessionEnd += () => _atmosphere.style.display = DisplayStyle.Flex;
+
+            // Параллакс: постоянный медленный дрейф (фон ЖИВЁТ сам), плюс
+            // скролл ленты хаба и наклон телефона; слои — на разной глубине.
+            var layers = new System.Collections.Generic.List<VisualElement>();
+            _atmosphere.Query<VisualElement>("lvn-backdrop").ForEach(layers.Add);
+            if (layers.Count == 0) return;
+            Vector2 tilt = Vector2.zero;
+            _root.schedule.Execute(() =>
+            {
+                if (_atmosphere.style.display == DisplayStyle.None) return;
+                float time = Time.realtimeSinceStartup;
+                float scroll = Hub != null && Hub.style.display == DisplayStyle.Flex ? Hub.ScrollY : 0f;
+                var acc = UnityEngine.Input.acceleration;
+                var target = new Vector2(
+                    Mathf.Clamp(acc.x, -0.5f, 0.5f),
+                    Mathf.Clamp(acc.y + 0.8f, -0.5f, 0.5f));
+                tilt = Vector2.Lerp(tilt, target, 0.06f);
+                for (int i = 0; i < layers.Count; i++)
+                {
+                    float k = i + 1;
+                    float driftX = Mathf.Sin(time * 0.11f + i * 1.7f) * 9f * k;
+                    float driftY = Mathf.Cos(time * 0.09f + i * 2.3f) * 7f * k;
+                    float depth = 0.05f + 0.045f * i;
+                    layers[i].style.translate = new Translate(
+                        driftX + tilt.x * 10f * k,
+                        driftY - scroll * depth + tilt.y * 7f * k);
+                }
+            }).Every(33);
+        }
         private string _playerName;
 
         /// <summary>The shell's UIDocument. Assign
@@ -117,9 +162,14 @@ namespace Lvn.UI.Screens
             LvnFonts.ApplyDefault(_root);
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
+            // Единая атмосфера меню (решение Ильи 26.08): ОДИН живой
+            // параллакс-фон под всеми экранами оболочки. Создаётся после
+            // хаба (он выбирает тему), встаёт ПЕРВЫМ ребёнком корня; в игре
+            // прячется — сцена живёт в документе ПОД оболочкой.
             Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
             Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
             Hide(Hub); Add(Hub);
+            BuildAtmosphere();
             Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
             Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
             Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
