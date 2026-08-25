@@ -1027,7 +1027,7 @@ namespace Lvn.UI.Screens
                 _menuMusic.clip = clip;
                 _menuMusic.loop = true;
                 _menuMusic.playOnAwake = false;
-                _menuMusic.volume = Lvn.UI.LvnPrefs.VolMusic; // ползунок «Музыка» ведёт и меню
+                _menuMusic.volume = Lvn.UI.LvnPrefs.SoundOn ? Lvn.UI.LvnPrefs.VolMusic : 0f; // тумблер и ползунок ведут и меню
                 Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume;
                 if (!_chapterPlaying) _menuMusic.Play();
             }
@@ -1036,7 +1036,11 @@ namespace Lvn.UI.Screens
 
         private void SyncMenuMusicVolume()
         {
-            if (_menuMusic != null) _menuMusic.volume = Lvn.UI.LvnPrefs.VolMusic;
+            // Мастер-тумблер «Все звуки» обязан глушить и музыку меню: она
+            // живёт мимо StageAudio, и «выключаю звук — ничего не происходит»
+            // (живой репорт) было именно про неё.
+            if (_menuMusic != null)
+                _menuMusic.volume = Lvn.UI.LvnPrefs.SoundOn ? Lvn.UI.LvnPrefs.VolMusic : 0f;
         }
 
         // Системный запрос разрешения на уведомления, вызванный сценой
