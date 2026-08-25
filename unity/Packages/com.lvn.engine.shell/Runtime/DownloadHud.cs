@@ -334,13 +334,17 @@ namespace Lvn.UI.Screens
                 _miniRing.Glyph = glyph;
                 _fullRing.Glyph = glyph;
 
-                // Байтовые счётчики честны только ВНУТРИ батча (в конце он их
-                // чистит); фоновый стриминг копит их за сессию — его кольцо
-                // врало бы «почти готово». Стриминг — спиннер.
-                float frac = act && t.batchTotal > 0
-                    ? (t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
-                        : Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal)))
-                    : -1f;
+                // Кольцо и «Скачано» — ОБЩИЙ прогресс очереди (сумма глав):
+                // байты завершённых глав + текущий батч / все поставленные.
+                // Без очереди: одиночный батч как раньше; стриминг — спиннер.
+                var (qDone, qTotal) = Center?.Progress ?? (0L, 0L);
+                float frac;
+                if (qTotal > 0)
+                    frac = Mathf.Clamp01((qDone + t.received) / (float)qTotal);
+                else if (act && t.batchTotal > 0)
+                    frac = t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
+                        : Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal));
+                else frac = -1f;
                 _miniRing.Progress = frac;
                 _fullRing.Progress = frac;
 
@@ -368,7 +372,9 @@ namespace Lvn.UI.Screens
                     int chLeft = 0;
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
                     _vQueue.text = chLeft > 0 ? $"глав {chLeft} · файлов {filesLeft}" : $"файлов {filesLeft}";
-                    _vGot.text = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
+                    _vGot.text = qTotal > 0
+                        ? Mb(qDone + t.received) + " из " + Mb(qTotal)
+                        : Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
                     if (now - _lastMissingAt > 3f)
                     {
                         _lastMissingAt = now;
