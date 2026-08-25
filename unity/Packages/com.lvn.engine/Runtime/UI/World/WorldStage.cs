@@ -23,8 +23,10 @@ namespace Lvn.UI.World
     /// </summary>
     public sealed class WorldStage
     {
-        // Compact side travel: 75% of the former 4.5%-screen drift.
-        private const float ActorEnterDriftScreen = 0.03375f;
+        // Compact side travel: 75% of the former 4.5%-screen drift, затем ещё
+        // −30% (Илья 25.08: «уменьшить путь героев», табличке путь наоборот
+        // удлинили — ансамбль читается: герой встаёт коротко, карточка едет).
+        private const float ActorEnterDriftScreen = 0.03375f * 0.7f;
         // Exit is a dismissal, not a second entrance played backwards: a short
         // nudge reads cleaner once the actor is already disappearing.
         private const float ActorExitDriftScreen = ActorEnterDriftScreen * 0.5f;
