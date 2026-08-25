@@ -28,6 +28,10 @@ namespace Lvn.UI
         /// <summary>Бургер живёт во внешнем навбаре — свой фаб не рисуем.</summary>
         public static bool ExternalBurger;
 
+        /// <summary>Единая панель настроек хоста: пункт «Настройки» зовёт её
+        /// вместо внутренней (решение Ильи 26.08 — никаких двух настроек).</summary>
+        public static Action ExternalSettings;
+
         /// <summary>Открыть квик-меню извне (бургер единого навбара).</summary>
         public void Open() => OpenSheet();
 
@@ -265,7 +269,11 @@ namespace Lvn.UI
                     _stage.StartSkip(); // fast-forward until a choice or a tap
                 }));
             if (!Hidden("settings"))
-                sheet.Add(Item(L("settings", "Settings"), ShowSettings));
+                sheet.Add(Item(L("settings", "Settings"), () =>
+                {
+                    if (ExternalSettings != null) { Close(); ExternalSettings(); }
+                    else ShowSettings();
+                }));
             // Live story variables — the player's stats. Only when the running
             // story actually has some, so stat-less novels never show a dead entry.
             if (!Hidden("stats") && _theme.MenuShowStats && _stage.Player != null && _stage.Player.Vars.Count > 0)

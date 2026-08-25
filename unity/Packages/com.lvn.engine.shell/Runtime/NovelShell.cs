@@ -154,8 +154,8 @@ namespace Lvn.UI.Screens
             // строки (морф попапа растёт из центра).
             TopBar = new Lvn.UI.Screens.LvnTopBar();
             Add(TopBar);
-            OnChapterSessionStart += () => TopBar.SetInGame(true);
-            OnChapterSessionEnd += () => TopBar.SetInGame(false);
+            OnChapterSessionStart += () => { TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
+            OnChapterSessionEnd += () => { TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
             Lvn.Services.LvnWallet.Changed -= OnWalletPills;
             Lvn.Services.LvnWallet.Changed += OnWalletPills;
 
@@ -175,8 +175,6 @@ namespace Lvn.UI.Screens
                         TopBar.SetSafeTop(safe);
                         DownloadHud.SetSafeTop(safe);
                     }
-                    // Событие (загрузка/офлайн/синк) само показывает бар в игре.
-                    TopBar.NotifyWork(DownloadHud.HasWork);
                 }).Every(300);
             }
 

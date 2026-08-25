@@ -114,7 +114,9 @@ namespace Lvn.UI.Screens
         public void Rebuild()
         {
             _list.Clear();
-            _list.Add(SectionTitle("Звук"));
+            // ЕДИНЫЕ настройки (решение Ильи 26.08): глобальные и внутриигровые
+            // в одной панели с секциями; квик-меню сцены открывает ЕЁ ЖЕ.
+            _list.Add(SectionTitle("Основные"));
             _list.Add(SoundRow());
             if (_cfg.simple_audio ?? false)
             {
@@ -134,12 +136,26 @@ namespace Lvn.UI.Screens
                 _list.Add(VolumeRow("Голос", null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
             }
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
-            {
-                _list.Add(SectionTitle("Язык"));
                 _list.Add(LanguageRow());
-            }
             if (MenuTracks != null && MenuTracks.Count > 1)
                 _list.Add(MenuTrackRow());
+
+            // Настройки чтения — жили только во внутриигровой панели, теперь
+            // здесь: одна правда для игрока в любом контексте.
+            _list.Add(SectionTitle("Чтение"));
+            _list.Add(RangeRow("Скорость текста", "Темп печати реплик",
+                0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
+            _list.Add(SwitchRow("Авто-чтение", "Реплики листаются сами",
+                () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
+            _list.Add(RangeRow("Задержка авто", "Пауза перед следующей репликой",
+                0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
+            _list.Add(RangeRow("Прозрачность окна", "Плашка диалога; текст всегда чёткий",
+                0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
+            _list.Add(SwitchRow("Скип: только прочитанное", "Перемотка стоит на новых репликах",
+                () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
+            _list.Add(SwitchRow("Меньше движения", "Без тряски камеры и вспышек",
+                () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+
             if (StorageInfo != null && DownloadAll != null)
             {
                 _list.Add(SectionTitle("Данные"));
@@ -340,6 +356,42 @@ namespace Lvn.UI.Screens
 
         // A per-channel volume slider (0–1) that reads the current pref and writes
         // it back live as the player drags. Sits under the master Sound toggle.
+        // Слайдер произвольного диапазона — тем же видом, что громкости.
+        private VisualElement RangeRow(string label, string hint, float min, float max,
+            System.Func<float> get, System.Action<float> set)
+        {
+            var row = RowEx(label, hint);
+            var slider = new Slider(min, max) { value = get() };
+            slider.style.width = 200;
+            slider.style.marginLeft = 12;
+            var drag = slider.Q("unity-dragger");
+            if (drag != null) drag.style.backgroundColor = _accent;
+            slider.RegisterValueChangedCallback(evt => set(evt.newValue));
+            row.Add(slider);
+            return row;
+        }
+
+        // Булева строка пилюлями Вкл/Выкл — как «Все звуки».
+        private VisualElement SwitchRow(string label, string hint,
+            System.Func<bool> get, System.Action<bool> set)
+        {
+            var row = RowEx(label, hint);
+            var seg = new VisualElement();
+            seg.style.flexDirection = FlexDirection.Row;
+            row.Add(seg);
+            Button on = null, off = null;
+            void Highlight() { StyleValueButton(on, get()); StyleValueButton(off, !get()); }
+            on = new Button { text = "Вкл" };
+            on.style.marginLeft = 6;
+            on.clicked += () => { set(true); Highlight(); };
+            off = new Button { text = "Выкл" };
+            off.style.marginLeft = 6;
+            off.clicked += () => { set(false); Highlight(); };
+            seg.Add(on); seg.Add(off);
+            Highlight();
+            return row;
+        }
+
         private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
         {
             var row = RowEx(label, hint);
