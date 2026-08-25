@@ -71,6 +71,7 @@ namespace Lvn.UI.Screens
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            style.display = DisplayStyle.None; // до первой работы кружка нет
 
             // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
             // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает
@@ -94,7 +95,6 @@ namespace Lvn.UI.Screens
             _capsule.style.position = Position.Absolute;
             _capsule.style.top = 112;
             _capsule.style.right = 14;
-            _capsule.style.opacity = 0.55f; // тихий вид простоя
             var bg = LvnTokens.PanelBg;
             // Просто полупрозрачный тон — блюр-стекло снято (Илья, 26.08).
             _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
@@ -254,9 +254,11 @@ namespace Lvn.UI.Screens
             bool off = Offline?.Invoke() ?? false;
             bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);
             int pend = PendingOps?.Invoke() ?? 0;
-            // Кружок живёт не только загрузкой: офлайн с живой очередью — «!»,
-            // несинхронизированные события — «↑» (уедут при сети).
-            bool visible = act || (off && (queued || pend > 0)) || pend > 0;
+            // Кружок видим, пока ЕСТЬ РАБОТА: активная загрузка, непустая
+            // очередь глав (паузы между файлами и главами НЕ прячут его —
+            // «мигает», живой репорт), офлайн с очередью или несинхроненные
+            // события. Скрывается только в настоящем простое.
+            bool visible = act || queued || pend > 0;
 
             if (_lastAt > 0f && t.received >= _lastBytes)
             {
@@ -273,7 +275,14 @@ namespace Lvn.UI.Screens
 
             if (visible)
             {
-                _capsule.style.opacity = 1f;
+                _quietSince = -1f;
+                if (!_shown)
+                {
+                    _shown = true;
+                    style.display = DisplayStyle.Flex;
+                    _capsule.experimental.animation.Start(0f, 1f, 180,
+                        (_, p) => _capsule.style.opacity = p);
+                }
 
                 var glyph = off && (act || queued) ? RingGlyph.Alert
                     : act ? RingGlyph.Down
@@ -331,21 +340,27 @@ namespace Lvn.UI.Screens
                 }
                 if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
             }
-            else
+            else if (_shown && !_expanded)
             {
-                // Простой: кружок остаётся, но приглушается; попап живёт —
-                // «скачать всё» и офлайн-правила полезны в любой момент.
-                if (!_expanded) _capsule.style.opacity = 0.55f;
-                _speed = 0f;
-                _miniRing.Glyph = RingGlyph.Down;
-                _fullRing.Glyph = RingGlyph.Down;
-                _miniRing.Progress = 0f;
-                _fullRing.Progress = 0f;
-                _file.text = "Загрузки";
-                _kind.text = "Сейчас ничего не качается";
-                if (_expanded && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
+                // Настоящий простой (работы нет) — мягко уходим, с запасом
+                // против мигания на коротких паузах.
+                if (_quietSince < 0f) _quietSince = now;
+                if (now - _quietSince > 2f)
+                {
+                    _shown = false;
+                    _quietSince = -1f;
+                    _speed = 0f;
+                    _capsule.experimental.animation.Start(1f, 0f, 200, (_, p) =>
+                    {
+                        _capsule.style.opacity = p;
+                        if (p <= 0.01f) style.display = DisplayStyle.None;
+                    });
+                }
             }
         }
+
+        private bool _shown;
+        private float _quietSince = -1f;
 
         private bool _centerDirty;
         private DownloadCenter _watched;
