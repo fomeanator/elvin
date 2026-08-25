@@ -252,7 +252,14 @@ namespace Lvn.UI.Screens
                 return;
             }
             if (_tab >= _tabIds.Count || !_catalog.TryGetValue(_tabIds[_tab], out var packs)) return;
-            foreach (var p in packs) _list.Add(Card(p));
+            // Витрина, а не таблица: обычные паки — сеткой в две колонки,
+            // «герой» вкладки и наборы — широкими карточками.
+            var grid = new VisualElement();
+            grid.style.flexDirection = FlexDirection.Row;
+            grid.style.flexWrap = Wrap.Wrap;
+            grid.style.justifyContent = Justify.SpaceBetween;
+            _list.Add(grid);
+            foreach (var p in packs) grid.Add(Card(p));
         }
 
 
@@ -287,21 +294,16 @@ namespace Lvn.UI.Screens
         // ── One pack card ─────────────────────────────────────────────────────
         private VisualElement Card(Pack pack)
         {
+            bool wide = pack.Best || pack.Grants != null; // герой и наборы — во всю ширину
             var card = new VisualElement();
-            card.style.flexDirection = FlexDirection.Row;
-            card.style.alignItems = Align.Center;
+            card.style.width = Length.Percent(wide ? 100f : 48.5f);
+            card.style.marginBottom = 14;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Edge(card);
-            card.style.marginBottom = pack.Best ? 12 : 9;
-            card.style.paddingTop = pack.Best ? 14 : 11;
-            card.style.paddingBottom = pack.Best ? 14 : 11;
-            card.style.paddingLeft = 14;
-            card.style.paddingRight = 14;
             card.style.overflow = Overflow.Visible;
             if (pack.Best)
             {
-                // Accent border + a faint glow ring approximates the "hero" pack.
                 card.style.borderTopWidth = 2; card.style.borderBottomWidth = 2;
                 card.style.borderLeftWidth = 2; card.style.borderRightWidth = 2;
                 card.style.borderTopColor = LvnTokens.Accent;
@@ -310,78 +312,106 @@ namespace Lvn.UI.Screens
                 card.style.borderRightColor = LvnTokens.Accent;
                 var glow = new VisualElement { pickingMode = PickingMode.Ignore };
                 glow.style.position = Position.Absolute;
-                glow.style.left = -3; glow.style.right = -3; glow.style.top = -3; glow.style.bottom = -3;
-                glow.style.backgroundColor = new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.14f);
-                LvnChrome.Round(glow, LvnTokens.Radius + 3f);
+                glow.style.left = -4; glow.style.right = -4; glow.style.top = -4; glow.style.bottom = -4;
+                glow.style.backgroundColor = new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.12f);
+                LvnChrome.Round(glow, LvnTokens.Radius + 4f);
                 card.Add(glow);
                 glow.SendToBack();
             }
 
-            // Illustration block (tinted, rounded) with a glyph + art overlay.
-            float box = pack.Best ? 78 : 62;
+            // Арт-сцена: тонированная подложка, большая эмблема с ореолом.
             var art = new VisualElement();
-            art.style.width = box;
-            art.style.height = box;
-            art.style.marginRight = 14;
+            art.style.height = wide ? 120 : 96;
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
-            art.style.backgroundColor = pack.Tint;
-            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+            art.style.backgroundColor = new Color(pack.Tint.r, pack.Tint.g, pack.Tint.b, 0.55f);
+            art.style.borderTopLeftRadius = LvnTokens.Radius;
+            art.style.borderTopRightRadius = LvnTokens.Radius;
+            art.style.overflow = Overflow.Hidden;
+            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
             art.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            LvnChrome.Round(art, LvnTokens.RadiusSm);
-            var glyph = LvnIcons.Make(pack.Emblem, pack.Best ? 52f : 40f, LvnTokens.Text,
-                                      0f, LvnTheme.Current.IconGlow);
-            glyph.style.alignSelf = Align.Center;
+            var halo = new VisualElement { pickingMode = PickingMode.Ignore };
+            halo.style.position = Position.Absolute;
+            halo.style.width = wide ? 96 : 76; halo.style.height = wide ? 96 : 76;
+            halo.style.backgroundColor = new Color(1f, 1f, 1f, 0.07f);
+            LvnChrome.Round(halo, wide ? 48f : 38f);
+            art.Add(halo);
+            var glyph = LvnIcons.Make(pack.Emblem, wide ? 58f : 46f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
             art.Add(glyph);
             card.Add(art);
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(art, pack.Card, _assets), "AssignBg");
-            // Middle column: amount headline + gold bonus line.
-            var col = new VisualElement();
-            col.style.flexGrow = 1;
-            card.Add(col);
+            if (!string.IsNullOrEmpty(pack.Card))
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(art, pack.Card, _assets), "AssignBg");
+
+            // Текстовый этаж: количество/название, бонус и состав набора.
+            var body = new VisualElement();
+            body.style.paddingTop = 10;
+            body.style.paddingBottom = 12;
+            body.style.paddingLeft = 12;
+            body.style.paddingRight = 12;
+            body.style.alignItems = wide ? Align.FlexStart : Align.Center;
+            card.Add(body);
 
             var amount = new Label(pack.Headline ?? $"{pack.Amount:N0} {pack.Unit}");
             amount.style.color = LvnTokens.Text;
-            amount.style.fontSize = pack.Best ? 32 : 28;
+            amount.style.fontSize = wide ? 30 : 25;
             amount.style.unityFontStyleAndWeight = FontStyle.Bold;
             amount.style.whiteSpace = WhiteSpace.Normal;
-            col.Add(amount);
+            if (!wide) amount.style.unityTextAlign = TextAnchor.MiddleCenter;
+            body.Add(amount);
 
-            if (!string.IsNullOrEmpty(pack.SubLine))
+            if (pack.Grants != null && pack.Grants.Count > 0)
             {
-                var sub = new Label(pack.SubLine);
-                sub.style.color = LvnTokens.TextDim;
-                sub.style.fontSize = 22;
-                sub.style.marginTop = 4;
-                col.Add(sub);
+                // Состав набора — пилюлями: читается с одного взгляда.
+                var chips = new VisualElement();
+                chips.style.flexDirection = FlexDirection.Row;
+                chips.style.flexWrap = Wrap.Wrap;
+                chips.style.marginTop = 8;
+                foreach (var kv in pack.Grants)
+                {
+                    var chip = new VisualElement();
+                    chip.style.flexDirection = FlexDirection.Row;
+                    chip.style.alignItems = Align.Center;
+                    chip.style.backgroundColor = LvnTokens.Faint;
+                    LvnChrome.Round(chip, 12f);
+                    chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
+                    chip.style.paddingLeft = 10; chip.style.paddingRight = 12;
+                    chip.style.marginRight = 8; chip.style.marginBottom = 6;
+                    var ic = LvnIcons.Make(kv.Key == "energy" ? LvnIcon.Energy : LvnIcon.Gem,
+                        18f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+                    ic.style.marginRight = 6;
+                    chip.Add(ic);
+                    var t = new Label($"{kv.Value:N0} {UnitOf(kv.Key)}");
+                    t.style.color = LvnTokens.Text;
+                    t.style.fontSize = 20;
+                    chip.Add(t);
+                    chips.Add(chip);
+                }
+                body.Add(chips);
             }
-            if (pack.Bonus > 0)
+            else if (pack.Bonus > 0)
             {
                 var bonus = new Label($"+{pack.Bonus:N0} бонус");
                 bonus.style.color = LvnTokens.Gold;
-                bonus.style.fontSize = 24;
+                bonus.style.fontSize = 21;
                 bonus.style.marginTop = 4;
                 bonus.style.unityFontStyleAndWeight = FontStyle.Bold;
-                col.Add(bonus);
+                body.Add(bonus);
             }
 
-            // Price button (Accent) → harmless demo buying state.
             var buy = new Button { text = pack.Price };
-            buy.style.fontSize = 26;
-            buy.style.minWidth = 132;
-            buy.style.paddingTop = 14; buy.style.paddingBottom = 14;
-            buy.style.paddingLeft = 18; buy.style.paddingRight = 18;
+            buy.style.fontSize = 24;
+            buy.style.marginTop = 10;
+            buy.style.alignSelf = Align.Stretch;
+            buy.style.paddingTop = 12; buy.style.paddingBottom = 12;
             buy.style.color = LvnTokens.OnAccent;
             buy.style.backgroundColor = LvnTokens.Accent;
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnChrome.Round(buy, LvnTokens.RadiusSm);
             LvnChrome.ClearBorder(buy);
             buy.clicked += () => Buy(buy, pack);
-            card.Add(buy);
+            body.Add(buy);
 
-            // Ribbon badge (top-left), for popular / best-value packs.
             if (pack.Badge != Ribbon.None)
             {
                 bool gold = pack.Badge == Ribbon.Value || pack.Badge == Ribbon.BestPrice;
@@ -391,9 +421,10 @@ namespace Lvn.UI.Screens
                 var ribbon = new Label(txt) { pickingMode = PickingMode.Ignore };
                 ribbon.style.position = Position.Absolute;
                 ribbon.style.top = -10;
-                ribbon.style.left = 14;
-                ribbon.style.fontSize = 18;
+                ribbon.style.left = 12;
+                ribbon.style.fontSize = 17;
                 ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
+                ribbon.style.letterSpacing = 1.5f;
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
                 ribbon.style.paddingTop = 3; ribbon.style.paddingBottom = 3;
