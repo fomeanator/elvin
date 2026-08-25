@@ -60,7 +60,7 @@ namespace Lvn.UI
             _modeBadge.style.height = 44;
             _modeBadge.style.marginRight = 8;
             _modeBadge.style.paddingLeft = 12; _modeBadge.style.paddingRight = 12;
-            _modeBadge.style.fontSize = 17;
+            _modeBadge.style.fontSize = 20;
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
             _modeBadge.style.backgroundColor = _theme.MenuFabColor;
@@ -204,7 +204,7 @@ namespace Lvn.UI
             head.style.flexDirection = FlexDirection.Row;
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.marginBottom = 10;
-            var t = Text(title, 20, FontStyle.Bold);
+            var t = Text(title, 34, FontStyle.Bold);
             head.Add(t);
             var back = new Button(ShowMain) { text = "‹" };
             StyleGhost(back);
@@ -220,7 +220,7 @@ namespace Lvn.UI
             sheet.style.position = Position.Absolute;
             sheet.style.right = 12;
             sheet.style.top = Length.Percent(10);
-            sheet.style.width = 240;
+            sheet.style.width = 310;
             sheet.style.backgroundColor = _theme.MenuBgColor;
             sheet.style.paddingTop = 8; sheet.style.paddingBottom = 8;
             LvnChrome.Round(sheet, _theme.MenuCornerRadius);
@@ -303,12 +303,12 @@ namespace Lvn.UI
         private VisualElement Item(string label, Action onClick)
         {
             var b = new Button(onClick) { text = label };
-            b.style.height = 46;
-            b.style.fontSize = 19;
+            b.style.height = 64;
+            b.style.fontSize = 26;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = Color.clear;
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
-            b.style.paddingLeft = 18;
+            b.style.paddingLeft = 20;
             LvnChrome.ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
             return b;
@@ -356,7 +356,7 @@ namespace Lvn.UI
         private void ConfirmOverwrite(string label, string slotName)
         {
             var p = Panel(L("save", "Save"));
-            var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 16, FontStyle.Normal);
+            var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 26, FontStyle.Normal);
             msg.style.marginBottom = 12;
             p.Add(msg);
             p.Add(Item(L("overwrite", "Overwrite"), () =>
@@ -410,9 +410,9 @@ namespace Lvn.UI
             text.style.flexGrow = 1;
             string when = slot?.Snap == null ? L("empty", "— empty —")
                 : DateTimeOffset.FromUnixTimeMilliseconds(slot.SavedAtUnixMs).ToLocalTime().ToString("dd.MM HH:mm");
-            text.Add(Text(label + "   " + when, 15, FontStyle.Bold));
+            text.Add(Text(label + "   " + when, 24, FontStyle.Bold));
             if (!string.IsNullOrEmpty(slot?.Preview))
-                text.Add(Text("«" + Trunc(slot.Preview, 46) + "»", 13, FontStyle.Italic, dim: true));
+                text.Add(Text("«" + Trunc(slot.Preview, 46) + "»", 20, FontStyle.Italic, dim: true));
             row.Add(text);
             return row;
         }
@@ -440,7 +440,7 @@ namespace Lvn.UI
                 if (style == "choice")
                 {
                     // The branch the player took — indented, accented, arrowed.
-                    var mark = Text("▸ " + text, 14, FontStyle.Italic);
+                    var mark = Text("▸ " + text, 22, FontStyle.Italic);
                     mark.style.color = _theme.MenuFabColor;
                     line.style.marginLeft = 14;
                     line.Add(mark);
@@ -448,8 +448,8 @@ namespace Lvn.UI
                 else
                 {
                     saysAfter--;
-                    if (!string.IsNullOrEmpty(who)) line.Add(Text(who, 14, FontStyle.Bold));
-                    line.Add(Text(text, 15, FontStyle.Normal, dim: string.IsNullOrEmpty(who)));
+                    if (!string.IsNullOrEmpty(who)) line.Add(Text(who, 24, FontStyle.Bold));
+                    line.Add(Text(text, 24, FontStyle.Normal, dim: string.IsNullOrEmpty(who)));
                     // Tap-to-return: rewind to this line (the genre's history
                     // jump). Lines older than the snapshot history (or before a
                     // load, which clears it) aren't reachable — leave them inert.
@@ -520,7 +520,7 @@ namespace Lvn.UI
                         ShowCgFull(full);
                     });
                     if (!string.IsNullOrEmpty(item.name))
-                        cell.Add(Text(item.name, 12, FontStyle.Normal, dim: true));
+                        cell.Add(Text(item.name, 20, FontStyle.Normal, dim: true));
                 }
                 else frame.Add(Text("?", 30, FontStyle.Bold, dim: true));
 
@@ -785,55 +785,133 @@ namespace Lvn.UI
 
         private VisualElement LanguageRow()
         {
-            var row = new VisualElement();
-            row.style.marginBottom = 10;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.SpaceBetween;
-            row.style.alignItems = Align.Center;
-            row.Add(Text(L("language", "Language"), 14, FontStyle.Normal));
+            var card = SettingCard();
+            card.style.flexDirection = FlexDirection.Row;
+            card.style.justifyContent = Justify.SpaceBetween;
+            card.style.alignItems = Align.Center;
+            card.Add(Text(L("language", "Language"), 24, FontStyle.Normal));
 
             string Caption(string code) =>
                 string.IsNullOrEmpty(code) ? L("language_original", "Original") : code.ToUpperInvariant();
 
             var btn = new Button { text = Caption(LvnPrefs.Locale) };
-            btn.style.minWidth = 110;
-            btn.style.height = 30;
-            btn.style.color = _theme.MenuTextColor;
-            var tint = _theme.MenuTextColor;
-            btn.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+            btn.style.minWidth = 150;
+            btn.style.height = 48;
+            btn.style.fontSize = 22;
+            btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
+            btn.style.color = LvnTokens.OnAccent;
+            btn.style.backgroundColor = LvnTokens.Accent;
             LvnChrome.ClearBorder(btn);
-            LvnChrome.Round(btn, 6f);
+            LvnChrome.Round(btn, 14f);
+            if (_theme.Font != null) btn.style.unityFont = new StyleFont(_theme.Font);
             btn.clicked += () =>
             {
                 LvnPrefs.Locale = LvnPrefs.NextLocale(LvnPrefs.Locale, LvnPrefs.AvailableLocales);
                 btn.text = Caption(LvnPrefs.Locale);
             };
-            row.Add(btn);
-            return row;
+            card.Add(btn);
+            return card;
+        }
+
+        // Карточка-строка настроек: фон-плашка вместо голого лейбла на чёрном.
+        // Тон — от текста темы, акцент — из LvnTokens (та же Полночь, что и в
+        // оболочке): внутриигровые настройки выглядели «сырыми системными» на
+        // фоне отполированных экранов витрины (живой репорт со скрином).
+        private VisualElement SettingCard()
+        {
+            var card = new VisualElement();
+            var tint = _theme.MenuTextColor;
+            card.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
+            LvnChrome.Round(card, 12f);
+            card.style.paddingLeft = 16; card.style.paddingRight = 16;
+            card.style.paddingTop = 12; card.style.paddingBottom = 12;
+            card.style.marginBottom = 10;
+            return card;
         }
 
         private VisualElement SliderRow(string label, float min, float max, float value, Action<float> onChange)
         {
-            var row = new VisualElement();
-            row.style.marginBottom = 10;
-            row.Add(Text(label, 14, FontStyle.Normal));
+            var card = SettingCard();
+            card.Add(Text(label, 24, FontStyle.Normal));
+
+            var accent = LvnTokens.Accent;
+            var tint = _theme.MenuTextColor;
             var s = new Slider(min, max) { value = value };
-            s.RegisterValueChangedCallback(e => onChange(e.newValue));
-            row.Add(s);
-            return row;
+            s.style.height = 40;
+            s.style.marginTop = 6;
+            s.style.marginLeft = 0; s.style.marginRight = 0;
+
+            var tracker = s.Q("unity-tracker");
+            VisualElement fill = null;
+            if (tracker != null)
+            {
+                tracker.style.height = 8;
+                tracker.style.marginTop = 16;
+                tracker.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.18f);
+                LvnChrome.Round(tracker, 4f);
+                LvnChrome.ClearBorder(tracker);
+                fill = new VisualElement();
+                fill.style.position = Position.Absolute;
+                fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
+                fill.style.backgroundColor = accent;
+                LvnChrome.Round(fill, 4f);
+                fill.pickingMode = PickingMode.Ignore;
+                tracker.Add(fill);
+            }
+            var dragger = s.Q("unity-dragger");
+            if (dragger != null)
+            {
+                dragger.style.width = 28; dragger.style.height = 28;
+                dragger.style.top = 6;
+                dragger.style.backgroundColor = accent;
+                LvnChrome.Round(dragger, 14f);
+                LvnChrome.ClearBorder(dragger);
+            }
+            void SyncFill(float v)
+            {
+                if (fill != null)
+                    fill.style.width = Length.Percent(Mathf.Clamp01((v - min) / (max - min)) * 100f);
+            }
+            SyncFill(value);
+            s.RegisterValueChangedCallback(e => { onChange(e.newValue); SyncFill(e.newValue); });
+            card.Add(s);
+            return card;
         }
 
         private VisualElement ToggleRow(string label, bool value, Action<bool> onChange)
         {
-            var row = new VisualElement();
-            row.style.marginBottom = 10;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.SpaceBetween;
-            row.Add(Text(label, 14, FontStyle.Normal));
-            var t = new Toggle { value = value };
-            t.RegisterValueChangedCallback(e => onChange(e.newValue));
-            row.Add(t);
-            return row;
+            var card = SettingCard();
+            card.style.flexDirection = FlexDirection.Row;
+            card.style.justifyContent = Justify.SpaceBetween;
+            card.style.alignItems = Align.Center;
+            card.Add(Text(label, 24, FontStyle.Normal));
+
+            var tint = _theme.MenuTextColor;
+            var offBg = new Color(tint.r, tint.g, tint.b, 0.18f);
+            var track = new VisualElement();
+            track.style.width = 64; track.style.height = 36;
+            LvnChrome.Round(track, 18f);
+            track.style.flexDirection = FlexDirection.Row;
+            track.style.alignItems = Align.Center;
+            track.style.paddingLeft = 4; track.style.paddingRight = 4;
+            var knob = new VisualElement();
+            knob.style.width = 28; knob.style.height = 28;
+            LvnChrome.Round(knob, 14f);
+            knob.style.backgroundColor = Color.white;
+            knob.pickingMode = PickingMode.Ignore;
+            track.Add(knob);
+            bool cur = value;
+            void Paint()
+            {
+                track.style.backgroundColor = cur ? LvnTokens.Accent : offBg;
+                track.style.justifyContent = cur ? Justify.FlexEnd : Justify.FlexStart;
+            }
+            Paint();
+            // Переключает вся карточка — попадать пальцем в один тумблер
+            // на телефоне неудобно.
+            card.RegisterCallback<ClickEvent>(_ => { cur = !cur; onChange(cur); Paint(); });
+            card.Add(track);
+            return card;
         }
 
         // ── little style helpers ─────────────────────────────────────────────
@@ -853,8 +931,8 @@ namespace Lvn.UI
         {
             b.style.backgroundColor = Color.clear;
             b.style.color = _theme.MenuTextColor;
-            b.style.fontSize = 24;
-            b.style.width = 34; b.style.height = 30;
+            b.style.fontSize = 38;
+            b.style.width = 52; b.style.height = 46;
             LvnChrome.ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
         }
