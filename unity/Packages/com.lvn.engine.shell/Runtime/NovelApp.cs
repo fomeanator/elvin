@@ -2265,22 +2265,54 @@ namespace Lvn.UI.Screens
             return _dlCenter.WhenDrainedAsync();
         }
 
-        // Чистка кэша противоположного бокса качества — на пуле потоков, по
-        // всем спрайтовым url манифеста.
-        private Task PurgeOtherArtBoxAsync(string otherSuffix) => Task.Run(() =>
+        // Смена качества = ПЕРЕКАЧКА (мысль Ильи: «для этого дозагрузчик и
+        // пригодится»): старый бокс вычищается с диска, и ровно то, чем игрок
+        // пользовался (что было скачано), встаёт в очередь центра загрузок
+        // главами — в новом качестве. Не вся игра: только скачанное.
+        private async Task PurgeOtherArtBoxAsync(string otherSuffix)
         {
             var loader = _assets?.Loader;
             var m = _manifest;
             if (loader == null || m?.titles == null) return;
+            string cur = DownloadPolicy.PreferredSuffix;
+            var redo = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
             int removed = 0;
-            var was = DownloadPolicy.PreferredSuffix;
-            foreach (var (url, kind, _) in CollectContentItems())
+            await Task.Run(() =>
             {
-                if (kind != "sprite" || !url.Contains(was)) continue;
-                if (loader.DeleteCachedAsset(url.Replace(was, otherSuffix))) removed++;
-            }
-            Debug.Log($"[content] качество арта: бокс {otherSuffix} вычищен ({removed} файлов)");
-        });
+                var seen = new HashSet<string>();
+                foreach (var t in m.titles)
+                {
+                    if (t == null) continue;
+                    foreach (var ch in t.ChaptersOf())
+                    {
+                        if (ch?.assets == null) continue;
+                        List<Lvn.Content.PreloadItem> items = null;
+                        long bytes = 0;
+                        foreach (var kv in ch.assets)
+                        {
+                            if ((kv.Value?.kind ?? "sprite") != "sprite") continue;
+                            var eff = DownloadPolicy.DownscaleVariant(kv.Key);
+                            if (eff == null || !seen.Add(eff)) continue;
+                            var old = eff.Replace(cur, otherSuffix);
+                            if (!loader.DeleteCachedAsset(old)) continue;
+                            removed++;
+                            if (loader.IsAssetCached(eff)) continue;
+                            items ??= new List<Lvn.Content.PreloadItem>();
+                            items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite" });
+                            bytes += kv.Value?.size ?? 64 << 10;
+                        }
+                        if (items != null)
+                            redo.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
+                    }
+                }
+            });
+            Debug.Log($"[content] качество арта: бокс {otherSuffix} вычищен ({removed} файлов), "
+                + $"перекачка {redo.Count} глав в {cur}");
+            if (redo.Count == 0) return;
+            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
+            foreach (var (label, bytes, items) in redo)
+                _dlCenter.Enqueue(label, bytes, items);
+        }
 
         // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
         // когда ВСЕ её файлы уже на диске. Зовётся при развороте попапа.
