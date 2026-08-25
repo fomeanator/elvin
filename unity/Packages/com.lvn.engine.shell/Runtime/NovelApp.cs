@@ -843,6 +843,9 @@ namespace Lvn.UI.Screens
                     hud.ChaptersInfo = ChapterAvailability;
                     hud.CurrentChapterOffer = () =>
                     {
+                        // Только во время сессии: вне игры «текущая глава» —
+                        // хвост прошлого запуска («Скачать главу 0», скрин).
+                        if (!_chapterPlaying) return null;
                         var t = _currentTitle; var ch = _currentChapter;
                         if (t == null || ch == null) return null;
                         long bytes = 0; int miss = 0;
