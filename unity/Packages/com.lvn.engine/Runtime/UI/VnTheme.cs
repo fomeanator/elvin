@@ -141,6 +141,9 @@ namespace Lvn.UI
 
         [Tooltip("Опоздавший на медленной сети актёр входит вовремя тёмной @mini-заготовкой; полный арт проявляет его кроссфейдом. ui.stage.loading_silhouette.")]
         public bool LoadingSilhouette = true;
+
+        [Tooltip("Тап-салют: \"hearts\" — сердечки из точки касания (7HS-жанр). Пусто = выкл. ui.stage.tap_burst.")]
+        public string TapBurst = "";
         [Tooltip("Default obj entrance when the command has no enter=.")]
         public string ObjectEnter = "fade";
         [Tooltip("Default obj exit when the command has no exit=.")]

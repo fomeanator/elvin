@@ -42,6 +42,7 @@ namespace Lvn.UI
                 if (stg.bg_fade.HasValue) t.BgCrossfadeSeconds = Mathf.Max(0f, stg.bg_fade.Value);
                 if (stg.long_press.HasValue) t.LongPressArtView = stg.long_press.Value;
                 if (stg.loading_silhouette.HasValue) t.LoadingSilhouette = stg.loading_silhouette.Value;
+                if (!string.IsNullOrEmpty(stg.tap_burst)) t.TapBurst = stg.tap_burst;
             }
 
             var d = ui.dialogue;

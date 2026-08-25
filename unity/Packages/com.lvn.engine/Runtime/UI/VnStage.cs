@@ -76,6 +76,7 @@ namespace Lvn.UI
         private FxLayer _fx;
         private StageAudio _audio;
         private StageMenu _menu;
+        private TapBurstLayer _tapBurst;
         private Dictionary<string, CastEntity> _cast;
         private readonly Dictionary<string, LvnAnim> _talkAnims = new Dictionary<string, LvnAnim>(); // actor id → lip-sync anim
         private LvnPlayer _player;
@@ -223,6 +224,19 @@ namespace Lvn.UI
             _menuSafe = new SafeAreaElement();
             _menuSafe.Add(_menu);   // quick menu above even the FX veil — always reachable
             root.Add(_menuSafe);
+
+            // Тап-салют (ui.stage.tap_burst): сердечки из точки КАЖДОГО
+            // касания — trickle-down видит тап раньше кнопок и не мешает им.
+            if (!string.IsNullOrEmpty(Theme?.TapBurst))
+            {
+                _tapBurst = new TapBurstLayer();
+                root.Add(_tapBurst); // поверх всего хрома
+                root.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (_tapBurst != null && Theme?.TapBurst == "hearts")
+                        _tapBurst.Burst(_tapBurst.WorldToLocal(evt.position));
+                }, TrickleDown.TrickleDown);
+            }
             _choices.OnSelected += OnChoiceSelected;
             _choices.VisibleChanged += OnChoicesVisibleChanged;
             // Окно растёт вместе с текстом — стопка выборов сторонится его в
