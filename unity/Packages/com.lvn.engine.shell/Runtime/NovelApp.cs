@@ -818,6 +818,9 @@ namespace Lvn.UI.Screens
                     // бар по тапу верхней зоны несёт 4 кнопки.
                     Lvn.UI.StageMenu.ExternalBurger = true;
                     _shell.TopBar.OnGameExit = () => Stage?.RequestExit();
+                    // Воронка: в интро навбар полностью нем (чистое кино).
+                    _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(
+                        string.Equals(_currentTitle?.type, "intro", StringComparison.OrdinalIgnoreCase));
                     _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
                     _shell.TopBar.OnGameWardrobe = () =>
                     { if (Stage != null) _ = OpenWardrobeFromMenuAsync(Stage); };

@@ -355,6 +355,33 @@ namespace Lvn.UI.Screens
         public void SetProgress(int currentIndex, int totalCommands)
             => _miniProgressLabel.text = Lvn.Content.Percent.Text(currentIndex, totalCommands);
 
+        /// <summary>ВОРОНКА-ИНТРО: полная тишина — ни бабликов, ни тап-зоны,
+        /// ни бара. Новичок в кинематографичном прологе не должен случайно
+        /// получить «Выйти в меню», которого для него ещё не существует.</summary>
+        public void SetSilent(bool silent)
+        {
+            _silent = silent;
+            if (silent)
+            {
+                _row.style.display = DisplayStyle.None;
+                _miniPills.style.display = DisplayStyle.None;
+                _miniProgress.style.display = DisplayStyle.None;
+                _tapCatcher.style.display = DisplayStyle.None;
+                _gameRow.style.display = DisplayStyle.None;
+                _gameBarShown = false;
+            }
+            else SetInGameApply();
+        }
+        private bool _silent;
+
+        private void SetInGameApply()
+        {
+            _row.style.display = _inGame ? DisplayStyle.None : DisplayStyle.Flex;
+            _miniPills.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            _miniProgress.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            _tapCatcher.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
         /// <summary>Игровой режим (уточнение Ильи 26.08): бар в сцене
         /// ПРОПАДАЕТ целиком — вместо него мини-баблики валют (справа) и
         /// кружок загрузок (слева, DownloadHud сам). Ловушка тапа не нужна:
@@ -363,10 +390,12 @@ namespace Lvn.UI.Screens
         {
             if (_inGame == inGame) return;
             _inGame = inGame;
-            _row.style.display = inGame ? DisplayStyle.None : DisplayStyle.Flex;
-            _miniPills.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
-            _miniProgress.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
-            _tapCatcher.style.display = inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_silent)
+            {
+                if (!inGame) _silent = false; // выход в меню снимает тишину
+                else return;                   // воронка: остаёмся немыми
+            }
+            SetInGameApply();
             if (!inGame && _gameBarShown) ToggleGameBar(false);
         }
     }
