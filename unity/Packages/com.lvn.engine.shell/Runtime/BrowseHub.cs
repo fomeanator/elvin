@@ -102,10 +102,9 @@ namespace Lvn.UI.Screens
             _radius = _cfg.card_radius ?? _theme.Radius;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = _bg;
-            // Атмосфера — под всё содержимое. У темы без неё не делает ничего.
-            LvnBackdrop.Apply(this, _theme);
-            StartParallax();
+            // Фон и атмосфера живут НА КОРНЕ ОБОЛОЧКИ (решение Ильи 26.08:
+            // один параллакс-фон на все экраны меню) — хаб прозрачен.
+            style.backgroundColor = Color.clear;
             // Отклик на нажатие — на весь хаб разом. Раньше он стоял ровно на
             // карточках ленты, и всё остальное (вкладки, плашки, «+») на палец
             // не отвечало: экран читался как картинка.
@@ -482,34 +481,9 @@ namespace Lvn.UI.Screens
             catch { return false; } // a bad expression never bricks the hub
         }
 
-        // ПАРАЛЛАКС меню (решение Ильи 26.08): слои атмосферы едут с разной
-        // скоростью при скролле ленты (дальний медленнее — глубина) и чуть
-        // отзываются на наклон телефона (акселерометр с фильтром). Чистые
-        // трансформы absolute-слоёв — ни одного релейаута на кадр.
-        private void StartParallax()
-        {
-            var layers = new List<VisualElement>();
-            this.Query<VisualElement>("lvn-backdrop").ForEach(layers.Add);
-            if (layers.Count == 0) return;
-            Vector2 tilt = Vector2.zero;
-            schedule.Execute(() =>
-            {
-                if (style.display == DisplayStyle.None) return;
-                float scroll = _hubRows != null ? _hubRows.scrollOffset.y : 0f;
-                var acc = UnityEngine.Input.acceleration;
-                var target = new Vector2(
-                    Mathf.Clamp(acc.x, -0.5f, 0.5f),
-                    Mathf.Clamp(acc.y + 0.8f, -0.5f, 0.5f));
-                tilt = Vector2.Lerp(tilt, target, 0.06f);
-                for (int i = 0; i < layers.Count; i++)
-                {
-                    float depth = 0.05f + 0.045f * i; // ближний слой быстрее
-                    layers[i].style.translate = new Translate(
-                        tilt.x * 10f * (i + 1),
-                        -scroll * depth + tilt.y * 7f * (i + 1));
-                }
-            }).Every(33);
-        }
+        /// <summary>Вертикальный скролл ленты — атмосфера оболочки читает его
+        /// для параллакса.</summary>
+        public float ScrollY => _hubRows != null ? _hubRows.scrollOffset.y : 0f;
 
         // ── builders ──────────────────────────────────────────────────────────────
         private void BuildHubTiles()
