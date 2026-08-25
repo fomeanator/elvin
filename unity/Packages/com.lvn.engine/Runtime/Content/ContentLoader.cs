@@ -341,16 +341,35 @@ namespace Lvn.Content
         /// пилюля не ловила рассинхронные числа. Механика загрузки размазана
         /// по фазам (скачать-всё, прелоад главы, стриминг) — здесь их общее
         /// окно.</summary>
-        public (int inflight, int batchTotal, int batchDone, long received, long expected) Transfers()
+        public (int inflight, int batchTotal, int batchDone, long received, long expected, string label) Transfers()
         {
             lock (_inflight)
             {
                 int n = 0;
-                foreach (var k in _inflight.Keys) if (k != "__preload_batch__") n++;
+                string firstUrl = null;
+                foreach (var k in _inflight.Keys)
+                {
+                    if (k == "__preload_batch__") continue;
+                    n++;
+                    firstUrl ??= k;
+                }
                 long rec = 0, exp = 0;
                 foreach (var v in _bytesReceived.Values) rec += v;
                 foreach (var v in _bytesExpected.Values) exp += v;
-                return (n, BatchTotal, BatchDone, rec, exp);
+                // Имя для полной карточки индикатора: алиас текущего файла
+                // батча, иначе короткое имя первого файла в полёте.
+                string label = CurrentFileLabel;
+                if (string.IsNullOrEmpty(label) && firstUrl != null)
+                {
+                    label = AliasOf(firstUrl);
+                    if (string.IsNullOrEmpty(label))
+                    {
+                        var bare = LvnUrl.Bare(firstUrl);
+                        int slash = bare.LastIndexOf('/');
+                        label = slash >= 0 ? bare.Substring(slash + 1) : bare;
+                    }
+                }
+                return (n, BatchTotal, BatchDone, rec, exp, label);
             }
         }
 
