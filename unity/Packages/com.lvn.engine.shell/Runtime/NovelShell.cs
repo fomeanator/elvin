@@ -100,13 +100,16 @@ namespace Lvn.UI.Screens
                 tilt = Vector2.Lerp(tilt, target, 0.06f);
                 for (int i = 0; i < layers.Count; i++)
                 {
-                    float k = i + 1;
-                    float driftX = Mathf.Sin(time * 0.11f + i * 1.7f) * 9f * k;
-                    float driftY = Mathf.Cos(time * 0.09f + i * 2.3f) * 7f * k;
-                    float depth = 0.05f + 0.045f * i;
+                    // Сумма сдвигов ОБЯЗАНА жить в напуске слоя (80px), иначе
+                    // у кромки экрана оголяется шов: глубина ограничена тремя
+                    // ступенями, вклад скролла закэмплен.
+                    float k = Mathf.Min(i + 1, 3);
+                    float driftX = Mathf.Sin(time * 0.11f + i * 1.7f) * 6f * k;
+                    float driftY = Mathf.Cos(time * 0.09f + i * 2.3f) * 5f * k;
+                    float scrollY = Mathf.Clamp(scroll * (0.05f + 0.045f * i), 0f, 30f);
                     layers[i].style.translate = new Translate(
-                        driftX + tilt.x * 10f * k,
-                        driftY - scroll * depth + tilt.y * 7f * k);
+                        driftX + tilt.x * 8f * k,
+                        driftY - scrollY + tilt.y * 6f * k);
                 }
             }).Every(33);
         }
