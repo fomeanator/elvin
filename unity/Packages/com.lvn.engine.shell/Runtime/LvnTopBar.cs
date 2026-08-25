@@ -230,6 +230,11 @@ namespace Lvn.UI.Screens
             _tapCatcher.style.height = 48 + units;
         }
 
+        /// <summary>Прогресс главы для левого баблика (та же формула Percent,
+        /// что была у полосы GameHud).</summary>
+        public void SetProgress(int currentIndex, int totalCommands)
+            => _miniProgressLabel.text = Lvn.Content.Percent.Text(currentIndex, totalCommands);
+
         /// <summary>Игровой режим (уточнение Ильи 26.08): бар в сцене
         /// ПРОПАДАЕТ целиком — вместо него мини-баблики валют (справа) и
         /// кружок загрузок (слева, DownloadHud сам). Ловушка тапа не нужна:
