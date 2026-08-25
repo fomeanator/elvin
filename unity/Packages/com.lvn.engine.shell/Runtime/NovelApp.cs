@@ -494,7 +494,7 @@ namespace Lvn.UI.Screens
                 // data next.)
                 _shell.Hub.OnWardrobe = () => OpenWardrobeFromHubAsync();
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
-                _shell.Hub.OnProfile = () => _shell.OpenProfileAsync();
+                _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
                 // TR-25: партнёр прячет ежедневную награду данными; сама
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
@@ -2341,6 +2341,45 @@ namespace Lvn.UI.Screens
         // reads live numbers instead of the placeholder the screen falls back to
         // when nothing has seeded it. The stats fetch never blocks the open on a
         // slow/offline state store — it's best-effort, empty vars just read as 0.
+        // Профиль без фейка (живой репорт): отношения с фаворитами — из
+        // РЕАЛЬНЫХ статов. По каждому тайтлу с relationship-статами читаем
+        // сохранённые переменные и превращаем в полосы «имя → доля от max».
+        // Пустой прогресс честно прячет секцию — рисованных процентов нет.
+        private async Task OpenProfileWithRelationsAsync()
+        {
+            var p = _shell?.Profile;
+            if (p == null) return;
+            var rel = new List<Lvn.UI.Screens.ProfileScreen.Relation>();
+            var titles = _manifest?.titles;
+            if (titles != null)
+            {
+                foreach (var t in titles)
+                {
+                    if (t?.stats == null || t.id == null) continue;
+                    Newtonsoft.Json.Linq.JObject vars = null;
+                    foreach (var s in t.stats)
+                    {
+                        if (s == null || !s.relationship || string.IsNullOrEmpty(s.key)) continue;
+                        if (vars == null)
+                        {
+                            try { vars = await LoadScopedVarsAsync(t.id); }
+                            catch { vars = new Newtonsoft.Json.Linq.JObject(); }
+                        }
+                        float val = 0f;
+                        try { val = (float?)vars?.SelectToken(s.key) ?? 0f; } catch { }
+                        if (val <= 0f) continue; // не начатые романы полку не занимают
+                        float max = s.max > 0 ? s.max : 20f;
+                        rel.Add(new Lvn.UI.Screens.ProfileScreen.Relation(
+                            string.IsNullOrEmpty(s.label) ? s.key : s.label,
+                            Mathf.Clamp01(val / max)));
+                    }
+                }
+            }
+            rel.Sort((a, b) => b.Affection.CompareTo(a.Affection));
+            p.Relations = rel;
+            await _shell.OpenProfileAsync();
+        }
+
         private async Task<bool> OpenDetailWithStatsAsync(LvnTitle t)
         {
             if (_shell.Detail != null)
