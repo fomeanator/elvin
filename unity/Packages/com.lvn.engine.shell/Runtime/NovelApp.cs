@@ -2878,6 +2878,10 @@ namespace Lvn.UI.Screens
             {
                 try { Stage.Strings = await LoadCatalogAsync(_currentChapter.script_url); }
                 catch { Stage.Strings = null; } // no catalog → the inline original
+                // РЕАЛТАЙМ: реплика, уже стоящая на экране, перерисовывается
+                // новым языком сразу (штатный RerenderCurrent — тот же вариант
+                // текста, без сдвига {a|b|c}), а не со следующей строки.
+                Stage.Player?.RerenderCurrent();
             }
         }
     }
