@@ -35,6 +35,11 @@ namespace Lvn.UI.Screens
         public System.Func<Task> ClearDownloads;
         public System.Func<(long received, long expected, bool active)> DownloadProgress;
 
+        // Треки меню (ui.browse.music_options): хост отдаёт список и обработчик
+        // смены — экран рисует пилюли. Пусто — строка не показывается.
+        public System.Collections.Generic.List<(string id, string title)> MenuTracks;
+        public System.Action<string> OnMenuTrack;
+
         private readonly SettingsConfig _cfg;
         private readonly ILvnAssets _assets;
         private readonly ScrollView _list;
@@ -132,9 +137,12 @@ namespace Lvn.UI.Screens
                 _list.Add(SectionTitle("Язык"));
                 _list.Add(LanguageRow());
             }
+            if (MenuTracks != null && MenuTracks.Count > 1)
+                _list.Add(MenuTrackRow());
             if (StorageInfo != null && DownloadAll != null)
             {
                 _list.Add(SectionTitle("Данные"));
+                _list.Add(ArtQualityRow());
                 _list.Add(StorageRow());
             }
             _list.Add(SectionTitle("Аккаунт"));
@@ -219,6 +227,65 @@ namespace Lvn.UI.Screens
             };
 
             _ = RefreshAsync();
+            return row;
+        }
+
+        // Трек главного меню — как в жанровых флагманах: пилюли с выбором.
+        private VisualElement MenuTrackRow()
+        {
+            var row = RowEx("Трек меню", "Какая музыка играет на витрине");
+            var seg = new VisualElement();
+            seg.style.flexDirection = FlexDirection.Row;
+            seg.style.flexWrap = Wrap.Wrap;
+            row.Add(seg);
+            var buttons = new System.Collections.Generic.List<(Button b, string id)>();
+            void Highlight()
+            {
+                foreach (var (b, id) in buttons)
+                    StyleValueButton(b, (LvnPrefs.MenuTrack ?? "") == id
+                        || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && id == MenuTracks[0].id));
+            }
+            foreach (var (id, title) in MenuTracks)
+            {
+                var captured = id;
+                var b = new Button { text = title };
+                b.style.marginLeft = 6; b.style.marginBottom = 6;
+                b.clicked += () =>
+                {
+                    LvnPrefs.MenuTrack = captured;
+                    OnMenuTrack?.Invoke(captured);
+                    Highlight();
+                };
+                buttons.Add((b, captured));
+                seg.Add(b);
+            }
+            Highlight();
+            return row;
+        }
+
+        // Качество арта: авто-режим движка против ручного пресета конкурентов —
+        // но ручка экономии полезна на дорогом трафике.
+        private VisualElement ArtQualityRow()
+        {
+            var row = RowEx("Качество арта",
+                "Экономия: картинки легче и быстрее, трафика меньше");
+            var seg = new VisualElement();
+            seg.style.flexDirection = FlexDirection.Row;
+            row.Add(seg);
+            Button hi = null, eco = null;
+            void Highlight()
+            {
+                StyleValueButton(hi, !LvnPrefs.ArtEco);
+                StyleValueButton(eco, LvnPrefs.ArtEco);
+            }
+            hi = new Button { text = "Высокое" };
+            hi.style.marginLeft = 6;
+            hi.clicked += () => { LvnPrefs.ArtEco = false; Highlight(); };
+            eco = new Button { text = "Экономия" };
+            eco.style.marginLeft = 6;
+            eco.clicked += () => { LvnPrefs.ArtEco = true; Highlight(); };
+            seg.Add(hi); seg.Add(eco);
+            Highlight();
             return row;
         }
 

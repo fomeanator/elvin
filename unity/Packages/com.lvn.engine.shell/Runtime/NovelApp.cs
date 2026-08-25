@@ -464,7 +464,13 @@ namespace Lvn.UI.Screens
             // МУЗЫКА МЕНЮ (ui.browse.music): играет везде, кроме самой новеллы.
             // Глушится хуками сессии главы — воронка, стартующая с порога,
             // музыку меню не услышит вовсе, и это правильно.
-            var menuTrack = manifest.ui?.browse?.music;
+            // Качество арта: настройка игрока ведёт бокс показа (@2k/@1k) —
+            // синхронизируем до первой загрузки и на каждом изменении.
+            DownloadPolicy.PreferredSuffix = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+            Lvn.UI.LvnPrefs.Changed += () =>
+                DownloadPolicy.PreferredSuffix = Lvn.UI.LvnPrefs.ArtEco ? "@1k" : "@2k";
+
+            var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack))
             {
                 _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); };
@@ -745,6 +751,17 @@ namespace Lvn.UI.Screens
             if (_shell.Settings != null)
             {
                 var loader = _assets.Loader;
+                var opts = manifest.ui?.browse?.music_options;
+                if (opts != null && opts.Count > 0)
+                {
+                    var lst = new List<(string id, string title)>();
+                    foreach (var o in opts)
+                        if (o != null && !string.IsNullOrEmpty(o.id))
+                            lst.Add((o.id, string.IsNullOrEmpty(o.title) ? o.id : o.title));
+                    _shell.Settings.MenuTracks = lst;
+                    _shell.Settings.OnMenuTrack = id =>
+                        LvnAsync.Fire(SwitchMenuTrackAsync(ResolveMenuTrackUrl(manifest)), "SwitchMenuTrack");
+                }
                 _shell.Settings.StorageInfo = StorageInfoAsync;
                 _shell.Settings.DownloadAll = DownloadEverythingAsync;
                 _shell.Settings.ClearDownloads = async () =>
@@ -1032,6 +1049,34 @@ namespace Lvn.UI.Screens
                 if (!_chapterPlaying) _menuMusic.Play();
             }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] музыка меню: {ex.Message}"); }
+        }
+
+        // Трек меню: выбранный игроком из ui.browse.music_options, иначе базовый.
+        private static string ResolveMenuTrackUrl(LvnManifest manifest)
+        {
+            var b = manifest?.ui?.browse;
+            var picked = Lvn.UI.LvnPrefs.MenuTrack;
+            if (!string.IsNullOrEmpty(picked) && b?.music_options != null)
+                foreach (var o in b.music_options)
+                    if (o != null && o.id == picked && !string.IsNullOrEmpty(o.url))
+                        return o.url;
+            return b?.music;
+        }
+
+        // Смена трека из настроек: перезагрузить клип на лету.
+        private async Task SwitchMenuTrackAsync(string url)
+        {
+            if (_menuMusic == null || string.IsNullOrEmpty(url)) return;
+            try
+            {
+                var clip = await _assets.Loader.DownloadAudioClipAsync(url, destroyCancellationToken);
+                if (clip == null || _menuMusic == null) return;
+                bool was = _menuMusic.isPlaying;
+                _menuMusic.Stop();
+                _menuMusic.clip = clip;
+                if (was && !_chapterPlaying) _menuMusic.Play();
+            }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] смена трека меню: {ex.Message}"); }
         }
 
         private void SyncMenuMusicVolume()
@@ -2388,7 +2433,7 @@ namespace Lvn.UI.Screens
                     if (t != null)
                         done += Mathf.Max(0, Mathf.Min(LvnProgress.Reached(t), t.ChaptersOf().Count));
             p.ChaptersDone = done;
-            p.OnOpenSettings = () => { p.Close(); _ = _shell.OpenSettingsAsync(); };
+            p.OnOpenSettings = () => _ = _shell.OpenSettingsAsync(); // профиль закрывает себя сам
             await _shell.OpenProfileAsync();
         }
 

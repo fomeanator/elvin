@@ -71,10 +71,14 @@ namespace Lvn.Content
         /// non-raster extensions). Every phase that fetches sprites (display,
         /// preload, chapter scheduler) must agree on this mapping so they all
         /// warm/read the SAME cached file.</summary>
+        /// <summary>Бокс показа: "@2k" (высокое) или "@1k" (экономия трафика —
+        /// ручка «Качество арта»). Хост синхронизирует с настройкой игрока.</summary>
+        public static string PreferredSuffix = "@2k";
+
         public static string DownscaleVariant(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;
-            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@2k")) return null;
+            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@")) return null;
             // /spine/ pages are here because the SPINE display path also renders
             // from @2k (VnStage.Spine LoadSpineImageAsync) — warming the original
             // would download+decode a full-size page the renderer never samples.
@@ -83,7 +87,7 @@ namespace Lvn.Content
             if (dot < 0) return null;
             var ext = url.Substring(dot).ToLowerInvariant();
             if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + "@2k" + url.Substring(dot);
+            return url.Substring(0, dot) + PreferredSuffix + url.Substring(dot);
         }
 
         /// <summary>Микровариант для «силуэта-проявления»: крошечная (@mini,
@@ -93,7 +97,7 @@ namespace Lvn.Content
         public static string MiniVariant(string url)
         {
             var v = DownscaleVariant(url);
-            return v?.Replace("@2k", "@mini");
+            return v?.Replace(PreferredSuffix, "@mini");
         }
 
         /// <summary>Classify by path segment. Order matters: script and audio win

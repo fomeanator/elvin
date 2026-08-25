@@ -191,6 +191,24 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _soundOn, "sound_on", value); }
         }
 
+        /// <summary>Экономия трафика и памяти: арт едет в боксе 1024 вместо
+        /// 2048 — вчетверо легче, на телефонном экране почти неотличимо.</summary>
+        public static bool ArtEco
+        {
+            get { EnsureLoaded(); return _artEco; }
+            set { EnsureLoaded(); Set(ref _artEco, "art_eco", value); }
+        }
+        private static bool _artEco;
+
+        /// <summary>Выбранный трек главного меню (id из ui.browse.music_options;
+        /// пусто — базовый ui.browse.music).</summary>
+        public static string MenuTrack
+        {
+            get { EnsureLoaded(); return _menuTrack; }
+            set { EnsureLoaded(); Set(ref _menuTrack, "menu_track", value ?? ""); }
+        }
+        private static string _menuTrack = "";
+
         /// <summary>Dialogue window background opacity (0.2–1; text stays crisp —
         /// only the panel behind it fades).</summary>
         public static float DialogOpacity
