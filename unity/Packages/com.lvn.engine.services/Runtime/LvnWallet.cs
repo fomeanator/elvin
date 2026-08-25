@@ -166,6 +166,9 @@ namespace Lvn.Services
             public string Icon;    // optional content url
             public long Bonus;     // optional "+N bonus" share of Amount
             public string Section; // optional store section id ("currency1"/"currency2"/"bundles")
+            // Набор: несколько валют одним паком (currency → amount). Сервер
+            // начисляет по Grants, когда они есть; Currency/Amount — заголовок.
+            public Dictionary<string, long> Grants;
         }
 
         /// <summary>The purchasable packs (GET /v1/iap/catalog, server-sorted).
@@ -196,11 +199,21 @@ namespace Lvn.Services
                         Icon = (string)o["icon"] ?? "",
                         Bonus = (long?)o["bonus"] ?? 0,
                         Section = (string)o["section"] ?? "",
+                        Grants = ParseGrants(o["grants"] as JObject),
                     });
                 }
                 return packs;
             }
             catch { return null; }
+        }
+
+        private static Dictionary<string, long> ParseGrants(JObject g)
+        {
+            if (g == null) return null;
+            var map = new Dictionary<string, long>();
+            foreach (var kv in g)
+                if (!string.IsNullOrEmpty(kv.Key)) map[kv.Key] = (long?)kv.Value ?? 0;
+            return map.Count > 0 ? map : null;
         }
 
         /// <summary>Redeem a store purchase. The server validates the receipt

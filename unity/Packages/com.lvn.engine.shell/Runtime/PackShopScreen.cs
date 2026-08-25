@@ -29,8 +29,13 @@ namespace Lvn.UI.Screens
 
         private struct Pack
         {
+            public string Sku;
+            public string Currency;                     // валюта одиночного пака
+            public Dictionary<string, long> Grants;     // набор: валюта → количество
+            public string Headline; // заголовок карточки набора (title из каталога)
+            public string SubLine;  // состав набора («550 кристаллов · 5 энергии»)
             public long Amount;
-            public string Unit;   // "золота", "кристаллов", "энергии", …
+            public string Unit;   // "кристаллов", "энергии", …
             public string Price;  // "$4.99"
             public long Bonus;
             public Ribbon Badge;
@@ -40,8 +45,12 @@ namespace Lvn.UI.Screens
             public Color Tint;    // illustration block fill
         }
 
-        private static readonly string[] TabIds = { "crystals", "gold", "energy", "bundles" };
-        private static readonly string[] TabNames = { "Кристаллы", "Золото", "Энергия", "Наборы" };
+        // Вкладки строятся ИЗ ЖИВОГО КАТАЛОГА (/v1/iap/catalog): какие валюты
+        // продаются — такие и таблетки; «Наборы» появляются, когда у пака есть
+        // grants. Демо-хардкод с золотом ушёл (живой репорт «3 валюты, а надо
+        // 2, и реальные наборы»).
+        private readonly List<string> _tabIds = new List<string>();
+        private readonly List<string> _tabNames = new List<string>();
 
         private readonly ILvnAssets _assets;
         private readonly VisualElement _balances;
@@ -56,7 +65,7 @@ namespace Lvn.UI.Screens
         public PackShopScreen(ILvnAssets assets)
         {
             _assets = assets;
-            _catalog = BuildDemoCatalog();
+            _catalog = new Dictionary<string, List<Pack>>();
 
             ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Scrim;
@@ -131,6 +140,98 @@ namespace Lvn.UI.Screens
 
             RefreshBalances();
             Rebuild();
+            LvnAsync.Fire(LoadCatalogAsync(), "PackShopCatalog");
+        }
+
+        // Живой каталог: сервер — единственный источник паков и цен.
+        private async Task LoadCatalogAsync()
+        {
+            var packs = await Lvn.Services.LvnWallet.GetCatalogAsync();
+            _catalog.Clear();
+            _tabIds.Clear();
+            _tabNames.Clear();
+            if (packs != null)
+            {
+                foreach (var p in packs)
+                {
+                    bool bundle = p.Grants != null && p.Grants.Count > 0;
+                    string tab = bundle ? "bundles" : p.Currency;
+                    if (string.IsNullOrEmpty(tab)) continue;
+                    if (!_catalog.TryGetValue(tab, out var list))
+                    {
+                        _catalog[tab] = list = new List<Pack>();
+                        _tabIds.Add(tab);
+                        _tabNames.Add(TabTitle(tab));
+                    }
+                    list.Add(ToCard(p, bundle));
+                }
+                // Витринные акценты: самый крупный пак вкладки — «герой» с
+                // лучшей ценой, серединный — «популярный».
+                foreach (var list in _catalog.Values)
+                {
+                    if (list.Count >= 3)
+                    {
+                        var mid = list[list.Count / 2];
+                        mid.Badge = Ribbon.Popular;
+                        list[list.Count / 2] = mid;
+                    }
+                    if (list.Count >= 2)
+                    {
+                        var last = list[list.Count - 1];
+                        last.Badge = Ribbon.BestPrice;
+                        last.Best = true;
+                        list[list.Count - 1] = last;
+                    }
+                }
+            }
+            _tab = 0;
+            BuildTabs();
+            Rebuild();
+        }
+
+        private static string TabTitle(string tab) => tab switch
+        {
+            "crystals" => "Кристаллы",
+            "energy" => "Энергия",
+            "bundles" => "Наборы",
+            _ => char.ToUpperInvariant(tab[0]) + tab.Substring(1),
+        };
+
+        private static string UnitOf(string currency) => currency switch
+        {
+            "crystals" => "кристаллов",
+            "energy" => "энергии",
+            _ => currency,
+        };
+
+        private Pack ToCard(Lvn.Services.LvnWallet.IapPack p, bool bundle)
+        {
+            var gem = new Color(0.42f, 0.28f, 0.62f);
+            var en = new Color(0.16f, 0.34f, 0.52f);
+            var bun = new Color(0.44f, 0.20f, 0.34f);
+            string sub = null;
+            if (bundle)
+            {
+                var parts = new List<string>();
+                foreach (var kv in p.Grants)
+                    parts.Add($"{kv.Value:N0} {UnitOf(kv.Key)}");
+                sub = string.Join(" · ", parts);
+            }
+            return new Pack
+            {
+                Sku = p.Sku,
+                Currency = p.Currency,
+                Grants = p.Grants,
+                Headline = bundle ? (string.IsNullOrEmpty(p.Title) ? "Набор" : p.Title) : null,
+                SubLine = sub,
+                Amount = p.Amount,
+                Unit = UnitOf(p.Currency),
+                Price = p.Price,
+                Bonus = p.Bonus,
+                Card = string.IsNullOrEmpty(p.Icon) ? null : p.Icon,
+                Emblem = bundle ? LvnIcon.Gift : p.Currency == "energy" ? LvnIcon.Energy : LvnIcon.Gem,
+                Tint = bundle ? bun : p.Currency == "energy" ? en : gem,
+            };
         }
 
         /// <summary>Re-render the pack grid for the active tab and re-style the tab
@@ -140,7 +241,17 @@ namespace Lvn.UI.Screens
             for (int i = 0; i < _tabButtons.Count; i++) StyleTab(_tabButtons[i], i == _tab);
 
             _list.Clear();
-            if (!_catalog.TryGetValue(TabIds[_tab], out var packs)) return;
+            if (_tabIds.Count == 0)
+            {
+                var empty = new Label("Магазин сейчас закрыт");
+                empty.style.color = LvnTokens.TextDim;
+                empty.style.fontSize = 26;
+                empty.style.marginTop = 40;
+                empty.style.unityTextAlign = TextAnchor.MiddleCenter;
+                _list.Add(empty);
+                return;
+            }
+            if (_tab >= _tabIds.Count || !_catalog.TryGetValue(_tabIds[_tab], out var packs)) return;
             foreach (var p in packs) _list.Add(Card(p));
         }
 
@@ -149,10 +260,10 @@ namespace Lvn.UI.Screens
         {
             _tabsRow.Clear();
             _tabButtons.Clear();
-            for (int i = 0; i < TabNames.Length; i++)
+            for (int i = 0; i < _tabNames.Count; i++)
             {
                 int idx = i;
-                var pill = new Button(() => { _tab = idx; Rebuild(); }) { text = TabNames[i] };
+                var pill = new Button(() => { _tab = idx; Rebuild(); }) { text = _tabNames[i] };
                 pill.style.fontSize = 24;
                 pill.style.marginRight = 10;
                 pill.style.marginBottom = 8;
@@ -231,13 +342,21 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             card.Add(col);
 
-            var amount = new Label($"{pack.Amount:N0} {pack.Unit}");
+            var amount = new Label(pack.Headline ?? $"{pack.Amount:N0} {pack.Unit}");
             amount.style.color = LvnTokens.Text;
             amount.style.fontSize = pack.Best ? 32 : 28;
             amount.style.unityFontStyleAndWeight = FontStyle.Bold;
             amount.style.whiteSpace = WhiteSpace.Normal;
             col.Add(amount);
 
+            if (!string.IsNullOrEmpty(pack.SubLine))
+            {
+                var sub = new Label(pack.SubLine);
+                sub.style.color = LvnTokens.TextDim;
+                sub.style.fontSize = 22;
+                sub.style.marginTop = 4;
+                col.Add(sub);
+            }
             if (pack.Bonus > 0)
             {
                 var bonus = new Label($"+{pack.Bonus:N0} бонус");
@@ -297,9 +416,21 @@ namespace Lvn.UI.Screens
             // it lands in the server wallet (idempotent op), so bought crystals
             // exist everywhere: the wardrobe, the HUD pills, the next session.
             // Real IAP swaps only this call for the receipt flow.
-            long total = pack.Amount + pack.Bonus;
-            bool ok = await Lvn.Services.LvnWallet.EarnAsync(
-                CurrencyOf(pack), total, "packshop_test:" + pack.Amount + pack.Unit);
+            bool ok;
+            if (pack.Grants != null && pack.Grants.Count > 0)
+            {
+                ok = true;
+                foreach (var kv in pack.Grants)
+                    ok &= await Lvn.Services.LvnWallet.EarnAsync(
+                        kv.Key, kv.Value, "packshop_test:" + pack.Sku);
+            }
+            else
+            {
+                long total = pack.Amount + pack.Bonus;
+                ok = await Lvn.Services.LvnWallet.EarnAsync(
+                    string.IsNullOrEmpty(pack.Currency) ? "crystals" : pack.Currency,
+                    total, "packshop_test:" + pack.Sku);
+            }
             RefreshBalances();
             if (!ok)
             {
@@ -318,16 +449,6 @@ namespace Lvn.UI.Screens
                     _buying = false;
                 }).ExecuteLater(1100);
             }).ExecuteLater(650);
-        }
-
-        // The wallet currency a pack credits — from its display unit.
-        private static string CurrencyOf(Pack p)
-        {
-            var u = (p.Unit ?? "").ToLowerInvariant();
-            if (u.Contains("крист")) return "crystals";
-            if (u.Contains("энерг")) return "energy";
-            if (u.Contains("золот")) return "gold";
-            return "crystals";
         }
 
         // ── Balances: the REAL wallet ────────────────────────────────────────
@@ -365,48 +486,5 @@ namespace Lvn.UI.Screens
         }
 
         // ── Hardcoded demo catalog: five tiered packs per tab ─────────────────
-        private static Dictionary<string, List<Pack>> BuildDemoCatalog()
-        {
-            var gem = new Color(0.42f, 0.28f, 0.62f);
-            var au = new Color(0.55f, 0.42f, 0.16f);
-            var en = new Color(0.16f, 0.34f, 0.52f);
-            var bun = new Color(0.44f, 0.20f, 0.34f);
-
-            return new Dictionary<string, List<Pack>>
-            {
-                ["crystals"] = new List<Pack>
-                {
-                    new Pack { Amount = 80,   Unit = "кристаллов", Price = "$0.99",  Bonus = 0,    Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 250,  Unit = "кристаллов", Price = "$2.99",  Bonus = 20,   Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 550,  Unit = "кристаллов", Price = "$4.99",  Bonus = 60,   Badge = Ribbon.Popular, Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 1200, Unit = "кристаллов", Price = "$9.99",  Bonus = 200,  Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 2800, Unit = "кристаллов", Price = "$19.99", Bonus = 700,  Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Gem, Tint = gem, Card = "/content/cards/card5.png" },
-                },
-                ["gold"] = new List<Pack>
-                {
-                    new Pack { Amount = 500,    Unit = "золота", Price = "$0.99",  Bonus = 0,     Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 1500,   Unit = "золота", Price = "$2.99",  Bonus = 150,   Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 3500,   Unit = "золота", Price = "$4.99",  Bonus = 500,   Badge = Ribbon.Popular, Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 8000,   Unit = "золота", Price = "$9.99",  Bonus = 1500,  Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 20000,  Unit = "золота", Price = "$19.99", Bonus = 6000,  Badge = Ribbon.BestPrice, Best = true, Emblem = LvnIcon.Coin, Tint = au, Card = "/content/cards/card5.png" },
-                },
-                ["energy"] = new List<Pack>
-                {
-                    new Pack { Amount = 30,   Unit = "энергии", Price = "$0.99",  Bonus = 0,   Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 100,  Unit = "энергии", Price = "$2.99",  Bonus = 10,  Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 250,  Unit = "энергии", Price = "$4.99",  Bonus = 35,  Badge = Ribbon.Popular, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 600,  Unit = "энергии", Price = "$9.99",  Bonus = 120, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 1500, Unit = "энергии", Price = "$19.99", Bonus = 400, Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Energy, Tint = en, Card = "/content/cards/card5.png" },
-                },
-                ["bundles"] = new List<Pack>
-                {
-                    new Pack { Amount = 1,  Unit = "Набор новичка",   Price = "$1.99",  Bonus = 0,  Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card1.png" },
-                    new Pack { Amount = 1,  Unit = "Недельный набор", Price = "$4.99",  Bonus = 0,  Badge = Ribbon.Popular, Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card2.png" },
-                    new Pack { Amount = 1,  Unit = "Набор героя",     Price = "$9.99",  Bonus = 0,  Emblem = LvnIcon.Gift, Tint = bun, Card = "/content/cards/card3.png" },
-                    new Pack { Amount = 1,  Unit = "Королевский набор",Price = "$24.99", Bonus = 0, Badge = Ribbon.Value, Best = true, Emblem = LvnIcon.Crown, Tint = bun, Card = "/content/cards/card4.png" },
-                    new Pack { Amount = 1,  Unit = "Легендарный набор",Price = "$49.99", Bonus = 0, Badge = Ribbon.BestPrice, Emblem = LvnIcon.Crown, Tint = bun, Card = "/content/cards/card5.png" },
-                },
-            };
-        }
     }
 }
