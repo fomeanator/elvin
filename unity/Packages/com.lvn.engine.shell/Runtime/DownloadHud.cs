@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
     public sealed class DownloadHud : VisualElement
     {
         // Геометрия двух состояний капсулы.
-        private const float MiniSize = 46f;
+        private const float MiniSize = 54f; // чуть шире (просьба Ильи 26.08)
         private const float FullW = 520f;
         private const float FullH = 560f;
 
@@ -63,8 +63,6 @@ namespace Lvn.UI.Screens
         private long _lastBytes;
         private float _lastAt = -1f;
         private float _speed;          // байт/с, EMA
-        private float _quietSince = -1f;
-        private bool _visible;
 
         private readonly VisualElement _scrim;
 
@@ -73,8 +71,6 @@ namespace Lvn.UI.Screens
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
-            style.alignItems = Align.Center; // капсула — по центру шапки
-            style.display = DisplayStyle.None;
 
             // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
             // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает
@@ -92,10 +88,13 @@ namespace Lvn.UI.Screens
             Add(_scrim);
 
             _capsule = new VisualElement();
-            // Центр шапки: и в хабе, и в сцене это свободная зона (слева имя,
-            // справа валюты/фабы), а морф из центра растёт симметрично —
-            // кружок «разрастается» в попап из своей же точки.
-            _capsule.style.marginTop = 64;
+            // СТАТИЧНЫЙ элемент шапки, справа (решение Ильи 26.08: кружок не
+            // мигает появлением/исчезновением — он живёт всегда, в простое
+            // приглушён). Якорь right/top: морф растёт влево-вниз из его точки.
+            _capsule.style.position = Position.Absolute;
+            _capsule.style.top = 112;
+            _capsule.style.right = 14;
+            _capsule.style.opacity = 0.55f; // тихий вид простоя
             var bg = LvnTokens.PanelBg;
             // Стекло — тем же дешёвым слоем, что у вариантов выбора (UiGlass):
             // лёгкий тон поверх размытия вместо плотной заливки.
@@ -276,15 +275,7 @@ namespace Lvn.UI.Screens
 
             if (visible)
             {
-                _quietSince = -1f;
-                if (!_visible)
-                {
-                    _visible = true;
-                    style.display = DisplayStyle.Flex;
-                    _capsule.style.opacity = 0f;
-                    _capsule.experimental.animation.Start(0f, 1f, 180,
-                        (_, p) => _capsule.style.opacity = p);
-                }
+                _capsule.style.opacity = 1f;
 
                 var glyph = off && (act || queued) ? RingGlyph.Alert
                     : act ? RingGlyph.Down
@@ -320,8 +311,6 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
-                    // Крупно — ИМЯ ФАЙЛА, который качается прямо сейчас;
-                    // подпись под ним — класс словами игрока и глава.
                     _file.text = string.IsNullOrEmpty(t.label) ? "Загрузка контента" : t.label;
                     var activeEntry = ActiveEntry();
                     _kind.text = Humanize(ActiveUrl?.Invoke(), null)
@@ -342,26 +331,21 @@ namespace Lvn.UI.Screens
                         _vLeft.text = miss.Item2 > 0 ? $"≈{Mathf.Max(1, miss.Item1 >> 20)} МБ" : "всё скачано";
                     }
                 }
-
-                // Обновления очереди перестраивают список ТИХО — каскад на
-                // каждой завершённой главе и был бы «дёрганным».
                 if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
             }
-            else if (_visible)
+            else
             {
-                if (_quietSince < 0f) _quietSince = now;
-                if (now - _quietSince > 1.2f)
-                {
-                    _visible = false;
-                    _quietSince = -1f;
-                    _speed = 0f;
-                    if (_expanded) SetExpanded(false);
-                    _capsule.experimental.animation.Start(1f, 0f, 200, (_, p) =>
-                    {
-                        _capsule.style.opacity = p;
-                        if (p <= 0.01f) style.display = DisplayStyle.None;
-                    });
-                }
+                // Простой: кружок остаётся, но приглушается; попап живёт —
+                // «скачать всё» и офлайн-правила полезны в любой момент.
+                if (!_expanded) _capsule.style.opacity = 0.55f;
+                _speed = 0f;
+                _miniRing.Glyph = RingGlyph.Down;
+                _fullRing.Glyph = RingGlyph.Down;
+                _miniRing.Progress = 0f;
+                _fullRing.Progress = 0f;
+                _file.text = "Загрузки";
+                _kind.text = "Сейчас ничего не качается";
+                if (_expanded && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
             }
         }
 
