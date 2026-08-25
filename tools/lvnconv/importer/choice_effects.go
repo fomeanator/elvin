@@ -61,7 +61,7 @@ func AnnotateChoiceEffects(doc *articy.Doc, tpl *Template) {
 			if !ok {
 				continue
 			}
-			if effects := previewEffects(doc.Script, pos+1, tpl); len(effects) > 0 {
+			if effects := previewEffects(doc.Script, pos+1, labelPos, tpl); len(effects) > 0 {
 				opt["effects"] = effects
 			}
 		}
@@ -89,48 +89,70 @@ func gotoTarget(opt articy.Cmd) string {
 }
 
 // previewEffects sums the stat deltas a branch applies before the player's
-// NEXT choice (or a previewWindow op budget, whichever comes first — a
-// backstop against a pathologically long branch, not a real boundary; labels
-// in between are just narrative bookmarks and don't end the window). Two
-// authoring shapes both count: a plain "inc" op, and the self-referencing
-// "X = X +1" convention this project actually uses (parsed by the base
-// converter as set+expr because "X +1" isn't a literal value).
-func previewEffects(script []articy.Cmd, start int, tpl *Template) []any {
+// NEXT choice, following the FLOW, not the file: a linearized branch ends in
+// a "goto merge", and scanning past it used to read the NEXT branch's ops —
+// the partner's live bug: a "+1 Роман" chip on an option whose branch never
+// touches the stat (and the runtime honestly never awarded it). goto is a
+// jump; if/end/return/choice stop the walk — a preview must only promise what
+// this path is GUARANTEED to execute (no hint beats a wrong hint). The
+// previewWindow budget and a visited set bound loops. Two authoring shapes
+// both count: a plain "inc" op, and the self-referencing "X = X +1"
+// convention this project actually uses (parsed by the base converter as
+// set+expr because "X +1" isn't a literal value).
+func previewEffects(script []articy.Cmd, start int, labelPos map[string]int, tpl *Template) []any {
 	deltas := map[string]int{}
 	var order []string
 
-	limit := start + previewWindow
-	if limit > len(script) {
-		limit = len(script)
-	}
-	for i := start; i < limit; i++ {
+	visited := map[int]bool{}
+	i := start
+	for steps := 0; steps < previewWindow && i >= 0 && i < len(script); steps++ {
+		if visited[i] {
+			break // цикл — дальше только повторы
+		}
+		visited[i] = true
 		c := script[i]
-		if c["op"] == "choice" {
-			break // the player's next real decision — the honest boundary
+		switch c["op"] {
+		case "choice":
+			i = -1 // the player's next real decision — the honest boundary
+			continue
+		case "end", "return":
+			i = -1
+			continue
+		case "if":
+			// Развилка по условию: путь недетерминирован — превью не гадает.
+			i = -1
+			continue
+		case "goto", "jump":
+			lbl, _ := c["label"].(string)
+			pos, ok := labelPos[lbl]
+			if !ok {
+				i = -1
+				continue
+			}
+			i = pos + 1
+			continue
 		}
 		key, _ := c["key"].(string)
-		if key == "" {
-			continue
-		}
-		var delta int
-		switch c["op"] {
-		case "inc":
-			delta = asIntDelta(c["by"])
-		case "set":
-			if expr, _ := c["expr"].(string); expr != "" {
-				delta = selfRefDelta(key, expr)
+		if key != "" {
+			var delta int
+			switch c["op"] {
+			case "inc":
+				delta = asIntDelta(c["by"])
+			case "set":
+				if expr, _ := c["expr"].(string); expr != "" {
+					delta = selfRefDelta(key, expr)
+				}
+			}
+			if delta != 0 {
+				if _, ok := statLabel(key, tpl); ok {
+					if _, seen := deltas[key]; !seen {
+						order = append(order, key)
+					}
+					deltas[key] += delta
+				}
 			}
 		}
-		if delta == 0 {
-			continue
-		}
-		if _, ok := statLabel(key, tpl); !ok {
-			continue
-		}
-		if _, seen := deltas[key]; !seen {
-			order = append(order, key)
-		}
-		deltas[key] += delta
+		i++
 	}
 
 	var out []any
