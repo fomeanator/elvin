@@ -61,6 +61,10 @@ namespace Lvn.UI.Screens
         /// <summary>Единый индикатор загрузок; хост навешивает на него центр
         /// очереди и данные офлайна после Build.</summary>
         public Lvn.UI.Screens.DownloadHud DownloadHud;
+        /// <summary>Единый навбар приложения (лого, кружок, валюты, бургер).</summary>
+        public Lvn.UI.Screens.LvnTopBar TopBar;
+
+        private void OnWalletPills() => TopBar?.RefreshBalances();
         private string _playerName;
 
         /// <summary>The shell's UIDocument. Assign
@@ -145,11 +149,35 @@ namespace Lvn.UI.Screens
             // всё», прелоад главы и стриминг видны из любого экрана, а не
             // только пока открыты настройки (живой репорт «закрыл — и
             // остановилось»: батч жил, но был невидим).
+            // ЕДИНЫЙ НАВБАР — один верх на всё приложение (меню и игра);
+            // кружок загрузок — отдельный оверлей ПОВЕРХ бара, в центре его
+            // строки (морф попапа растёт из центра).
+            TopBar = new Lvn.UI.Screens.LvnTopBar();
+            Add(TopBar);
+            OnChapterSessionStart += () => TopBar.SetInGame(true);
+            OnChapterSessionEnd += () => TopBar.SetInGame(false);
+            Lvn.Services.LvnWallet.Changed -= OnWalletPills;
+            Lvn.Services.LvnWallet.Changed += OnWalletPills;
+
             if (assets is CachingAssets ca)
             {
                 DownloadHud = new Lvn.UI.Screens.DownloadHud();
                 Add(DownloadHud);
-                _root.schedule.Execute(() => DownloadHud.Tick(ca.Loader.Transfers())).Every(300);
+                _root.schedule.Execute(() =>
+                {
+                    DownloadHud.Tick(ca.Loader.Transfers());
+                    // Safe area: бар и кружок сидят ПОД вырезом камеры.
+                    float safe = Screen.height > 0
+                        ? Screen.safeArea.y / (float)Screen.height * _root.resolvedStyle.height
+                        : 0f;
+                    if (!float.IsNaN(safe))
+                    {
+                        TopBar.SetSafeTop(safe);
+                        DownloadHud.SetSafeTop(safe);
+                    }
+                    // Событие (загрузка/офлайн/синк) само показывает бар в игре.
+                    TopBar.NotifyWork(DownloadHud.HasWork);
+                }).Every(300);
             }
 
             // Wallet → HUD pills: the server's balances mirror onto the in-game

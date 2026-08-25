@@ -311,11 +311,16 @@ namespace Lvn.UI.Screens
             if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
             _topPills.Clear();
-            foreach (var cur in Currencies)
-                _topPills.Add(cur == "energy"
-                    ? CurrencyPill(cur, LvnIcon.Energy, _accent)
-                    : CurrencyPill(cur, LvnIcon.Gem, _theme.Gold));
+            if (!ExternalTopBar)
+                foreach (var cur in Currencies)
+                    _topPills.Add(cur == "energy"
+                        ? CurrencyPill(cur, LvnIcon.Energy, _accent)
+                        : CurrencyPill(cur, LvnIcon.Gem, _theme.Gold));
         }
+
+        /// <summary>Единый навбар приложения несёт валюты сам — пилюли хаба
+        /// выключаются, чтобы не дублировать (решение Ильи 26.08).</summary>
+        public bool ExternalTopBar;
 
         /// <summary>Валюты шапки, по порядку (ui.browse.currencies). Дефолт —
         /// прежняя пара; хост подменяет данными манифеста. «gold» был зашит в
