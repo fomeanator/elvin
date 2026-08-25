@@ -287,13 +287,19 @@ namespace Lvn.UI.Screens
 
             int reached = LvnProgress.Reached(Title);
             var current = LvnProgress.Current(Title);
+            // Завершённая новелла: Current снят финалом, достигнута последняя —
+            // тогда и глава на границе достигнутого честно «пройдена».
+            int last = chapterList[chapterList.Count - 1].number;
+            bool finished = current == null && reached >= last;
             foreach (var ch in chapterList)
             {
-                // state: 1 = the continue point; 0 = at/before the furthest chapter
-                // reached (covers "novel finished" too — Current clears then, so
-                // every reached chapter reads as passed); 2 = never started.
+                // state: 1 = точка продолжения; 0 = ПРОЙДЕНА (строго раньше
+                // достигнутой — сама достигнутая ещё не сыграна: партнёр прошёл
+                // гл.2, перезапустил её — и «пройденной» рисовалась гл.3);
+                // 3 = достигнута и доступна, но не пройдена; 2 = закрыта.
                 int state = current != null && ch.id == current.id ? 1
-                    : ch.number <= reached ? 0
+                    : ch.number < reached || (finished && ch.number <= reached) ? 0
+                    : ch.number <= reached ? 3
                     : 2;
                 section.Add(ChapterRow(ch.number, ChapterLabel(ch), state));
             }
@@ -345,6 +351,7 @@ namespace Lvn.UI.Screens
             // фигуркой; одного слова мало — глаз ищет метку слева от текста.
             var stateColor = state == 0 ? LvnTokens.Gold
                 : state == 1 ? LvnTokens.Accent
+                : state == 3 ? LvnTokens.Text
                 : LvnTokens.TextDim;
             var stateBox = new VisualElement();
             stateBox.style.flexDirection = FlexDirection.Row;
@@ -352,11 +359,12 @@ namespace Lvn.UI.Screens
             stateBox.style.flexShrink = 0;
             stateBox.style.marginLeft = 12;
             var stateIcon = LvnIcons.Make(
-                state == 0 ? LvnIcon.Check : state == 1 ? LvnIcon.Play : LvnIcon.Lock,
+                state == 0 ? LvnIcon.Check : state == 1 || state == 3 ? LvnIcon.Play : LvnIcon.Lock,
                 17f, stateColor, 0f, LvnTheme.Current.IconGlow);
             stateIcon.style.marginRight = 5;
             stateBox.Add(stateIcon);
-            var stateLbl = new Label(state == 0 ? "пройдено" : state == 1 ? "текущая" : "закрыто");
+            var stateLbl = new Label(state == 0 ? "пройдено" : state == 1 ? "текущая"
+                : state == 3 ? "доступна" : "закрыто");
             stateLbl.style.fontSize = 20;
             stateLbl.style.color = stateColor;
             stateBox.Add(stateLbl);
