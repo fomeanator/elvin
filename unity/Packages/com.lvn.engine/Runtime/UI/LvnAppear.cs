@@ -338,11 +338,13 @@ namespace Lvn.UI
             var (run, generation) = Begin(fadeHost);
             float travel = Mathf.Max(24f, LvnTheme.Current.AppearShift * 1.45f);
             // Боковой заезд заметнее вертикального: по X места больше, и та же
-            // амплитуда терялась бы на широкой карточке. Амплитуды +30%
-            // (просьба Ильи 25.08: путь таблички длиннее, героев — короче).
+            // амплитуда терялась бы на широкой карточке. Тюнинг Ильи 25.08:
+            // +30%, затем −20% (2.86 × 0.8 = 2.29); въезд НЕ строго сбоку, а
+            // под ~35° сверху (tan 35° ≈ 0.70) — тем же вектором едет актёр.
+            float sideX = travel * 2.29f;
             var from = sideDir == 0
                 ? new Vector2(0f, travel * 1.3f)
-                : new Vector2(sideDir * travel * 2.86f, 0f);
+                : new Vector2(sideDir * sideX, -sideX * 0.70f);
             float tilt = sideDir == 0 ? -0.7f : sideDir * 0.7f;
             fadeHost.style.opacity = 0f;
             fadeHost.style.translate = new Translate(from.x, from.y);

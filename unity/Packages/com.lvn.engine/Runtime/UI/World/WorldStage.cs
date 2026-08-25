@@ -429,8 +429,11 @@ namespace Lvn.UI.World
                     // still owns the intended screen direction; mirror only
                     // changes which way the artwork faces.
                     float dir = LocalDriftSign(p);
+                    // Вход под ~35° сверху-сбоку (tan 35° ≈ 0.70): в canvas Y
+                    // вверх положителен, поэтому старт выше дома — это +Y.
+                    float dx = _reference.x * ActorEnterDriftScreen;
                     LvnFade.Play(g, 0f, p.Opacity, dur,
-                        a.Transition, new Vector2(dir * _reference.x * ActorEnterDriftScreen, 0f),
+                        a.Transition, new Vector2(dir * dx, dx * 0.70f),
                         () => { if (a != null) a.EndTransitionVisual(); });
                 }
                 else LvnFade.Play(g, 0f, p.Opacity, dur,
