@@ -24,7 +24,11 @@ namespace Lvn.UI.Screens
         // Геометрия двух состояний капсулы.
         private const float MiniSize = 54f; // чуть шире (просьба Ильи 26.08)
         private const float FullW = 520f;
-        private const float FullH = 560f;
+        private const float FullHMax = 560f;
+        // Фактическая высота полной формы — АДАПТИВНАЯ (живой скрин: 560
+        // не влезали, кнопка уходила за край): считается при развороте от
+        // реальной высоты экрана, контент внутри скроллится.
+        private float _fullH = FullHMax;
 
         // ── швы к хосту (NovelApp навешивает после Build) ────────────────────
         /// <summary>Очередь глав «Скачать всё» — для списка и крестиков.</summary>
@@ -218,7 +222,14 @@ namespace Lvn.UI.Screens
             // Секции собираются ПОСЛЕ старта морфа (офлайн-ветка проверяет
             // кэш на диске — десятки миллисекунд, и они не должны съедать
             // первые кадры разворота). Каскад — только при развороте.
-            if (on) _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
+            if (on)
+            {
+                float avail = resolvedStyle.height;
+                _fullH = avail > 100f
+                    ? Mathf.Clamp(avail - 112f - 24f, 300f, FullHMax)
+                    : FullHMax;
+                _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
+            }
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, 260, (_, p) =>
             {
@@ -231,7 +242,7 @@ namespace Lvn.UI.Screens
         {
             _morph = k;
             _capsule.style.width = Mathf.Lerp(MiniSize, FullW, k);
-            _capsule.style.height = Mathf.Lerp(MiniSize, FullH, k);
+            _capsule.style.height = Mathf.Lerp(MiniSize, _fullH, k);
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
             // Верхняя кромка наливается акцентом по мере разворота — та же
             // «крышка», что у попап-экранов оболочки (AdoptSheet).
