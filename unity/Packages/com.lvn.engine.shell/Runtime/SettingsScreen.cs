@@ -269,26 +269,31 @@ namespace Lvn.UI.Screens
         // но ручка экономии полезна на дорогом трафике.
         private VisualElement ArtQualityRow()
         {
+            bool auto = string.IsNullOrEmpty(LvnPrefs.ArtQuality);
             var row = RowEx("Качество арта",
-                "Экономия — в 4 раза меньше трафика и памяти, на экране почти "
-                + "неотличимо. Действует на новые загрузки; старое качество "
-                + "удаляется с диска");
+                (auto ? "Подобрано под ваш экран автоматически. " : "")
+                + "Ниже ступень — меньше трафика и памяти. Скачанное "
+                + "перекачается в новом качестве само");
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
-            Button hi = null, eco = null;
+            var buttons = new List<(string q, Button b)>();
+            string Current() => string.IsNullOrEmpty(LvnPrefs.ArtQuality)
+                ? Lvn.UI.Screens.NovelApp.EffectiveArtQuality()
+                : LvnPrefs.ArtQuality;
             void Highlight()
             {
-                StyleValueButton(hi, !LvnPrefs.ArtEco);
-                StyleValueButton(eco, LvnPrefs.ArtEco);
+                foreach (var (q, b) in buttons) StyleValueButton(b, Current() == q);
             }
-            hi = new Button { text = "Высокое" };
-            hi.style.marginLeft = 6;
-            hi.clicked += () => { LvnPrefs.ArtEco = false; Highlight(); };
-            eco = new Button { text = "Экономия" };
-            eco.style.marginLeft = 6;
-            eco.clicked += () => { LvnPrefs.ArtEco = true; Highlight(); };
-            seg.Add(hi); seg.Add(eco);
+            foreach (var (q, label) in new[] { ("2k", "2K"), ("1440", "1440p"), ("1k", "1K") })
+            {
+                var btn = new Button { text = label };
+                btn.style.marginLeft = 6;
+                var quality = q;
+                btn.clicked += () => { LvnPrefs.ArtQuality = quality; Highlight(); };
+                buttons.Add((q, btn));
+                seg.Add(btn);
+            }
             Highlight();
             return row;
         }

@@ -211,7 +211,7 @@ namespace Lvn.Content
                 if (at >= 0)
                 {
                     var rel = url.Substring(at + 1);
-                    if (_seedIndex.Contains(rel) || _seedIndex.Contains(rel.Replace("@2k", "").Replace("@1k", "")))
+                    if (_seedIndex.Contains(rel) || _seedIndex.Contains(rel.Replace("@2k", "").Replace("@1440", "").Replace("@1k", "")))
                         return true;
                 }
             }

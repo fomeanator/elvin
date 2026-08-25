@@ -60,6 +60,11 @@ const miniMax = 256
 const ecoSuffix = "@1k"
 const ecoMax = 1024
 
+// Средняя ступень «как в ютубе» (2K / 1440p / 1K): бокс 1440 — вдвое легче
+// 2K по площади, заметно чётче 1K на больших экранах.
+const midSuffix = "@1440"
+const midMax = 1440
+
 // downscaleExts are the image types a variant can be requested for. The
 // variant keeps the source's format (PNG stays PNG — alpha survives; JPEG
 // stays JPEG — no alpha to lose).
@@ -129,6 +134,8 @@ func variantSourceBox(variantPath string) (string, int) {
 		return strings.TrimSuffix(base, miniSuffix) + filepath.Ext(variantPath), miniMax
 	case strings.HasSuffix(base, ecoSuffix):
 		return strings.TrimSuffix(base, ecoSuffix) + filepath.Ext(variantPath), ecoMax
+	case strings.HasSuffix(base, midSuffix):
+		return strings.TrimSuffix(base, midSuffix) + filepath.Ext(variantPath), midMax
 	}
 	return "", 0
 }
