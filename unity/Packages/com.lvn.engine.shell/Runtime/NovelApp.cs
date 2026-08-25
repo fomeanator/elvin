@@ -2381,6 +2381,14 @@ namespace Lvn.UI.Screens
             }
             rel.Sort((a, b) => b.Affection.CompareTo(a.Affection));
             p.Relations = rel;
+            // Честная цифра прогресса: пройденные главы по всем историям.
+            int done = 0;
+            if (titles != null)
+                foreach (var t in titles)
+                    if (t != null)
+                        done += Mathf.Max(0, Mathf.Min(LvnProgress.Reached(t), t.ChaptersOf().Count));
+            p.ChaptersDone = done;
+            p.OnOpenSettings = () => { p.Close(); _ = _shell.OpenSettingsAsync(); };
             await _shell.OpenProfileAsync();
         }
 

@@ -68,6 +68,14 @@ namespace Lvn.UI.Screens
         public List<Achievement> Achievements = new List<Achievement>();
         public List<Relation> Relations = new List<Relation>();
 
+        /// <summary>Реально пройдено глав по всем историям — хост считает по
+        /// прогрессу перед открытием. 0 прячет плитку.</summary>
+        public int ChaptersDone;
+
+        /// <summary>Открыть экран настроек — профиль даёт на них ссылку
+        /// («звук, язык, загрузка»), это ближайшее место, где их ищут.</summary>
+        public System.Action OnOpenSettings;
+
         private readonly ILvnAssets _assets;
         private readonly ScrollView _body;
 
@@ -149,6 +157,8 @@ namespace Lvn.UI.Screens
             _body.Add(BuildIdentityCard());
             if (!Minimal && Stats.Count > 0) _body.Add(BuildStatRow());
 
+            if (ChaptersDone > 0) _body.Add(ProgressLine());
+
             if (!Minimal && Achievements.Count > 0)
             {
                 _body.Add(SectionHeader("Достижения"));
@@ -157,13 +167,92 @@ namespace Lvn.UI.Screens
 
             // Отношения с фаворитами — реальные данные, показываются и в
             // минимальном профиле: это то, ради чего игрок сюда заходит.
-            if (Relations.Count > 0)
-            {
-                _body.Add(SectionHeader("Отношения"));
-                _body.Add(BuildRelations());
-            }
+            // Пустоту не прячем, а объясняем: игрок должен знать, что здесь
+            // вырастет и от чего (живой репорт «там пустота, смысл какой»).
+            _body.Add(SectionHeader("Отношения"));
+            if (Relations.Count > 0) _body.Add(BuildRelations());
+            else _body.Add(HintCard(
+                "Здесь появятся отношения с фаворитами. " +
+                "Они растут от ваших выборов в историях — начните главу, и полосы оживут."));
+
+            if (OnOpenSettings != null) _body.Add(SettingsLink());
 
             _body.Add(BuildFooter());
+        }
+
+        // Честная строка прогресса: единственная цифра, которую профиль
+        // может показать без выдумок на любом аккаунте.
+        private VisualElement ProgressLine()
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(row);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            row.style.marginBottom = 10;
+            row.style.paddingTop = 14; row.style.paddingBottom = 14;
+            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+            var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            ic.style.marginRight = 12;
+            row.Add(ic);
+            var lbl = new Label($"Глав пройдено: {ChaptersDone}");
+            lbl.style.color = LvnTokens.Text;
+            lbl.style.fontSize = 24;
+            row.Add(lbl);
+            return row;
+        }
+
+        // Мягкая карточка-пояснение вместо пустого места.
+        private VisualElement HintCard(string text)
+        {
+            var card = new VisualElement();
+            card.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(card);
+            LvnChrome.Round(card, LvnTokens.RadiusSm);
+            card.style.paddingTop = 16; card.style.paddingBottom = 16;
+            card.style.paddingLeft = 16; card.style.paddingRight = 16;
+            card.style.marginBottom = 10;
+            var lbl = new Label(text);
+            lbl.style.color = LvnTokens.TextDim;
+            lbl.style.fontSize = 22;
+            lbl.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(lbl);
+            return card;
+        }
+
+        // Ссылка на настройки: звук/язык/загрузку ищут в профиле — дадим путь.
+        private VisualElement SettingsLink()
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Edge(row);
+            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            row.style.marginTop = 6; row.style.marginBottom = 10;
+            row.style.paddingTop = 14; row.style.paddingBottom = 14;
+            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+            var col = new VisualElement();
+            col.style.flexGrow = 1;
+            var lbl = new Label("Настройки");
+            lbl.style.color = LvnTokens.Text;
+            lbl.style.fontSize = 24;
+            col.Add(lbl);
+            var hint = new Label("Звук, язык истории и загрузка игры целиком");
+            hint.style.color = LvnTokens.TextDim;
+            hint.style.fontSize = 19;
+            hint.style.marginTop = 2;
+            col.Add(hint);
+            row.Add(col);
+            var arrow = new Label("›");
+            arrow.style.color = LvnTokens.Accent;
+            arrow.style.fontSize = 30;
+            arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
+            row.Add(arrow);
+            row.RegisterCallback<ClickEvent>(_ => OnOpenSettings?.Invoke());
+            return row;
         }
 
         // ── Section 2: identity card ───────────────────────────────────────
