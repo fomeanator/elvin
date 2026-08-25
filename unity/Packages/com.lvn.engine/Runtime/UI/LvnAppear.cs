@@ -236,7 +236,7 @@ namespace Lvn.UI
         /// fullscreen host carries the translation so a free-positioned card
         /// keeps its authored anchor; the visible card only tilts and recedes.</summary>
         public static void DetachDrop(VisualElement fadeHost, VisualElement card,
-                                      int ms, Action done = null)
+                                      int ms, Action done = null, int sideDir = 0)
         {
             if (fadeHost == null || card == null)
             {
@@ -245,6 +245,36 @@ namespace Lvn.UI
             }
             ms = Mathf.Max(1, ms);
             var (run, generation) = Begin(fadeHost);
+            // Карточка бокового спикера УЕЗЖАЕТ В ЕГО СТОРОНУ (решение Ильи
+            // 25.08: «табличка уезжает с героем») — зеркало бокового въезда
+            // CardArrive: разгоняется прочь, фейд на весь ход. Падение вниз
+            // остаётся рассказчику и центру.
+            if (sideDir != 0)
+            {
+                float travelX = Mathf.Max(24f, LvnTheme.Current.AppearShift * 1.45f) * 2.86f;
+                float tiltAway = sideDir * 0.7f;
+                fadeHost.style.opacity = 1f;
+                fadeHost.style.translate = new Translate(0, 0);
+                card.style.scale = new Scale(Vector2.one);
+                card.style.rotate = new Rotate(new Angle(0f, AngleUnit.Degree));
+                card.style.transformOrigin = new TransformOrigin(Length.Percent(50), Length.Percent(8));
+                var slide = fadeHost.experimental.animation
+                    .Start(0f, 1f, ms, (e, p) =>
+                    {
+                        if (!Owns(run, generation)) return;
+                        float accel = p * p * p; // разгоняется прочь, как InCubic ухода
+                        e.style.opacity = 1f - p;
+                        e.style.translate = new Translate(
+                            Mathf.Lerp(0f, sideDir * travelX, accel), 0f);
+                        float s = Mathf.Lerp(1f, 0.975f, p);
+                        card.style.scale = new Scale(new Vector2(s, s));
+                        card.style.rotate = new Rotate(new Angle(
+                            Mathf.Lerp(0f, tiltAway, p), AngleUnit.Degree));
+                    });
+                Keep(run, generation, slide);
+                CompleteLater(fadeHost, run, generation, ms, done);
+                return;
+            }
             float fall = Mathf.Max(48f, LvnTheme.Current.AppearShift * 2.8f);
             fadeHost.style.opacity = 1f;
             fadeHost.style.translate = new Translate(0, 0);
@@ -308,10 +338,11 @@ namespace Lvn.UI
             var (run, generation) = Begin(fadeHost);
             float travel = Mathf.Max(24f, LvnTheme.Current.AppearShift * 1.45f);
             // Боковой заезд заметнее вертикального: по X места больше, и та же
-            // амплитуда терялась бы на широкой карточке.
+            // амплитуда терялась бы на широкой карточке. Амплитуды +30%
+            // (просьба Ильи 25.08: путь таблички длиннее, героев — короче).
             var from = sideDir == 0
-                ? new Vector2(0f, travel)
-                : new Vector2(sideDir * travel * 2.2f, 0f);
+                ? new Vector2(0f, travel * 1.3f)
+                : new Vector2(sideDir * travel * 2.86f, 0f);
             float tilt = sideDir == 0 ? -0.7f : sideDir * 0.7f;
             fadeHost.style.opacity = 0f;
             fadeHost.style.translate = new Translate(from.x, from.y);

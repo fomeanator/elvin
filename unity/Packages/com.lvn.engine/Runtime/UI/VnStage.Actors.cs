@@ -42,11 +42,11 @@ namespace Lvn.UI
         // arriving late.
         private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
 
-        // История подбора: 1.4 × 1.3 × 0.8 = 1.456, а 25.08 Илья попросил
-        // «перс должен приезжать быстрее» — минус 40%: 1.456 × 0.6 = 0.874.
-        // Вместе с фейдом на весь ход (LvnFade.OpacityProgress) вход стал
-        // короче и мягче: дефолтный drift ~0.382 s → ~0.229 s.
-        private const float ActorVisibilityDurationScale = 0.874f;
+        // История подбора: 1.4 × 1.3 × 0.8 = 1.456; 25.08 Илья попросил
+        // «быстрее» дважды — минус 40%, затем ещё минус 15%:
+        // 1.456 × 0.6 × 0.85 = 0.743. Вместе с фейдом на весь ход
+        // (LvnFade.OpacityProgress) дефолтный drift ~0.382 s → ~0.195 s.
+        private const float ActorVisibilityDurationScale = 0.743f;
         private const float ActorMovementDurationScale = 0.75f;
 
         // Commands between two dialogue pauses are consumed in one LvnPlayer

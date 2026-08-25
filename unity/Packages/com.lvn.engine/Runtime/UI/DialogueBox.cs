@@ -64,9 +64,13 @@ namespace Lvn.UI
             else _hintPulse?.Pause();
         }
 
-        /// <summary>Peel the visible card from the screen and let it fall down.</summary>
+        /// <summary>Peel the visible card from the screen: карточка бокового
+        /// спикера уезжает в его сторону («табличка уезжает с героем»),
+        /// рассказчик и центр — прежнее падение вниз.</summary>
         public void DropOut(int ms, System.Action done = null) =>
-            LvnAppear.DetachDrop(this, _box, ms, done);
+            LvnAppear.DetachDrop(this, _box, ms, done,
+                _lastSide == DialogueSpeakerSide.Left ? -1
+                : _lastSide == DialogueSpeakerSide.Right ? 1 : 0);
 
         /// <summary>Slide a replacement card in and settle it onto the screen.
         /// Направление — от последнего SetSpeaker: карточка спикера слева

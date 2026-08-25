@@ -51,7 +51,7 @@ namespace Lvn.UI
         [Tooltip("Dialogue box entrance/exit: fade|rise|pop|drop|unfold|slide_* (empty = instant).")]
         public string BoxAppear = "fade";
         [Tooltip("Dialogue box entrance duration, seconds.")]
-        public float BoxAppearDuration = 0.22f;
+        public float BoxAppearDuration = 0.286f; // +30% (Илья 25.08): табличке дали дольше ехать
         [Tooltip("Short breath between the old card fading out and the next beat appearing.")]
         public float BeatPause = 0.06f;
 
