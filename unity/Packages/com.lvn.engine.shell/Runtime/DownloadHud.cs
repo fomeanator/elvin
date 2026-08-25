@@ -42,12 +42,14 @@ namespace Lvn.UI.Screens
         /// следующего действия игрока.</summary>
         public Func<Task> FlushPending;
         private float _lastFlushKick;
+        private float _lastMissingAt = -999f;
 
         private readonly VisualElement _capsule;
         private readonly ProgressRing _miniRing;
         private readonly VisualElement _full;
         private ProgressRing _fullRing;
-        private Label _file, _stats;
+        private Label _file, _kind;
+        private Label _vSpeed, _vQueue, _vGot, _vLeft;
         private ScrollView _sections;
         /// <summary>Текущий качаемый url — для человеческой подписи
         /// («Персонажи и наряды», а не имя файла).</summary>
@@ -172,12 +174,28 @@ namespace Lvn.UI.Screens
             _file.style.whiteSpace = WhiteSpace.NoWrap;
             col.Add(_file);
 
-            _stats = new Label("");
-            _stats.pickingMode = PickingMode.Ignore;
-            _stats.style.color = LvnTokens.TextDim;
-            _stats.style.fontSize = 19;
-            _stats.style.marginTop = 3;
-            col.Add(_stats);
+            _kind = new Label("");
+            _kind.pickingMode = PickingMode.Ignore;
+            _kind.style.color = LvnTokens.TextDim;
+            _kind.style.fontSize = 19;
+            _kind.style.marginTop = 3;
+            col.Add(_kind);
+
+            // Поля — ТАБЛИЦЕЙ, по строке на факт (не лапшой через «·»):
+            // скорость, очередь, скачано, осталось — всё, что просилось.
+            var info = new VisualElement();
+            info.pickingMode = PickingMode.Ignore;
+            info.style.marginTop = 10;
+            info.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Edge(info);
+            LvnChrome.Round(info, 14f);
+            info.style.paddingTop = 10; info.style.paddingBottom = 10;
+            info.style.paddingLeft = 14; info.style.paddingRight = 14;
+            _full.Add(info);
+            _vSpeed = InfoRow(info, "Скорость");
+            _vQueue = InfoRow(info, "В очереди");
+            _vGot   = InfoRow(info, "Скачано");
+            _vLeft  = InfoRow(info, "Осталось скачать");
 
             // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
             // перестраиваются при развороте и по изменению очереди.
@@ -290,23 +308,36 @@ namespace Lvn.UI.Screens
                 if (glyph == RingGlyph.Alert)
                 {
                     _file.text = "Нет соединения";
-                    _stats.text = "Загрузка продолжится сама";
+                    _kind.text = "Загрузка продолжится сама";
                 }
                 else if (glyph == RingGlyph.Up)
                 {
                     _file.text = "Синхронизация";
-                    _stats.text = $"Событий к отправке: {pend}";
+                    _kind.text = $"Событий к отправке: {pend}";
                 }
                 else
                 {
+                    // Крупно — ИМЯ ФАЙЛА, который качается прямо сейчас;
+                    // подпись под ним — класс словами игрока и глава.
+                    _file.text = string.IsNullOrEmpty(t.label) ? "Загрузка контента" : t.label;
                     var activeEntry = ActiveEntry();
-                    _file.text = activeEntry != null
-                        ? activeEntry.Label
-                        : Humanize(ActiveUrl?.Invoke(), t.label);
-                    int queuedFiles = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
-                    string sp = _speed > 8f * 1024f ? Speed(_speed) + " · " : "";
-                    string got = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
-                    _stats.text = $"{Humanize(ActiveUrl?.Invoke(), null)} · {sp}файлов {queuedFiles} · {got}";
+                    _kind.text = Humanize(ActiveUrl?.Invoke(), null)
+                        + (activeEntry != null ? " · " + activeEntry.Label : "");
+                }
+                if (_expanded)
+                {
+                    _vSpeed.text = _speed > 1024f ? Speed(_speed) : "—";
+                    int filesLeft = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
+                    int chLeft = 0;
+                    if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
+                    _vQueue.text = chLeft > 0 ? $"{chLeft} глав · {filesLeft} файлов" : $"{filesLeft} файлов";
+                    _vGot.text = Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
+                    if (now - _lastMissingAt > 3f)
+                    {
+                        _lastMissingAt = now;
+                        var miss = MissingInfo?.Invoke() ?? (0, 0);
+                        _vLeft.text = miss.Item2 > 0 ? $"≈{Mathf.Max(1, miss.Item1 >> 20)} МБ" : "всё скачано";
+                    }
                 }
 
                 // Обновления очереди перестраивают список ТИХО — каскад на
@@ -469,6 +500,31 @@ namespace Lvn.UI.Screens
                     })).ExecuteLater(delay);
                 i++;
             }
+        }
+
+        // Строка «подпись … значение»: подпись тусклая слева, значение
+        // ярко справа — читается таблицей, а не предложением.
+        private Label InfoRow(VisualElement host, string caption)
+        {
+            var row = new VisualElement();
+            row.pickingMode = PickingMode.Ignore;
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = 4; row.style.marginBottom = 4;
+            var c = new Label(caption);
+            c.pickingMode = PickingMode.Ignore;
+            c.style.color = LvnTokens.TextDim;
+            c.style.fontSize = 20;
+            row.Add(c);
+            var v = new Label("—");
+            v.pickingMode = PickingMode.Ignore;
+            v.style.color = LvnTokens.Text;
+            v.style.fontSize = 20;
+            v.style.unityFontStyleAndWeight = FontStyle.Bold;
+            row.Add(v);
+            host.Add(row);
+            return v;
         }
 
         private Label SectionTitle(string text)
