@@ -437,7 +437,11 @@ namespace Lvn.UI.World
                         () => { if (a != null) a.EndTransitionVisual(); });
                 }
                 else LvnFade.Play(g, 0f, p.Opacity, dur,
-                    () => { if (a != null) a.EndTransitionVisual(); });
+                    () =>
+                    {
+                        Debug.Log($"[lvn-actor] {id}: вход доиграл — возвращаем живые слои");
+                        if (a != null) a.EndTransitionVisual();
+                    });
             }
             else if (fadeOut)
             {

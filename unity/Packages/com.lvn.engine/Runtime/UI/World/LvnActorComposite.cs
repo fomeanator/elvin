@@ -104,7 +104,7 @@ namespace Lvn.UI.World
             }
             _proxy.SetMaterialDirty();
             _proxy.gameObject.SetActive(true);
-            rig.gameObject.SetActive(false);
+            HideLiveLayers(layers);
             _active = true;
             // СТОРОЖ: прокси — ВРЕМЕННАЯ поверхность (самый долгий переход
             // ~0.3с). Гонка перебивающих применений могла оставить его жить
@@ -120,12 +120,44 @@ namespace Lvn.UI.World
         }
 
         private int _watchdogGen;
+        private readonly List<Image> _hidden = new List<Image>(MaxLayers);
+
+        /// <summary>Спрятать живые слои НЕ ВЫКЛЮЧАЯ РИГ. Прежде здесь стоял
+        /// <c>rig.SetActive(false)</c> — и это ломало переход, ради которого
+        /// прокси и поднимается: CanvasGroup актёра висит НА РИГЕ
+        /// (WorldActor.EnsureRig), туда же LvnFade вешает свой компонент, а
+        /// выключенный объект не тикает. Фейд входа не доигрывал, хвост
+        /// (EndTransitionVisual) не звался, и снимок оставался на экране
+        /// вместо героини — «после выхода из главы белый прямоугольник»
+        /// (Илья 26.08). Гардероб чинил это лишь потому, что снимает прокси
+        /// сам. Скрытие по слоям оставляет риг живым и тикающим.</summary>
+        private void HideLiveLayers(List<Image> layers)
+        {
+            RestoreLiveLayers(); // прошлый снимок мог не успеть вернуть свои
+            foreach (var im in layers)
+            {
+                if (im == null) continue;
+                im.enabled = false;
+                _hidden.Add(im);
+            }
+        }
+
+        private void RestoreLiveLayers()
+        {
+            foreach (var im in _hidden) if (im != null) im.enabled = true;
+            _hidden.Clear();
+        }
 
         private async System.Threading.Tasks.Task WatchdogAsync(int gen)
         {
             await System.Threading.Tasks.Task.Delay(3000);
             // Новый Begin завёл своего сторожа — этот отходит.
-            if (_active && gen == _watchdogGen) End();
+            if (_active && gen == _watchdogGen)
+            {
+                Debug.LogWarning($"[lvn-composite] {name}: СТОРОЖ снял залипший прокси через 3с "
+                                 + "— переход не вернул сцену живому ригу");
+                End();
+            }
         }
 
         /// <summary>Reveal a newly configured look against the previous opaque
@@ -151,6 +183,7 @@ namespace Lvn.UI.World
             // look is fully opaque underneath; fading the old composite reveals
             // it as one image instead of alpha-blending every clothing layer.
             _rig.gameObject.SetActive(true);
+            RestoreLiveLayers(); // новый облик уже под снимком — пусть рисуется
             _proxyTransform.SetAsLastSibling();
             _material.SetFloat(WardrobeModeId, wardrobeFlow ? 1f : 0f);
             _material.SetFloat(WardrobeProgressId, 0f);
@@ -190,6 +223,7 @@ namespace Lvn.UI.World
         {
             if (gen != _crossfadeGeneration) return;
             if (_rig != null) _rig.gameObject.SetActive(true);
+            RestoreLiveLayers();
             if (_proxy != null) _proxy.gameObject.SetActive(false);
             if (_material != null)
             {
@@ -206,6 +240,7 @@ namespace Lvn.UI.World
         {
             _crossfadeGeneration++;
             if (_rig != null) _rig.gameObject.SetActive(true);
+            RestoreLiveLayers();
             if (_proxy != null) _proxy.gameObject.SetActive(false);
             if (_material != null)
             {
