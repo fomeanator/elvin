@@ -37,6 +37,19 @@ namespace Lvn.UI.Screens
         /// выход в меню, история, гардероб, магазин.</summary>
         public Action OnGameExit, OnGameHistory, OnGameWardrobe, OnGameStore;
 
+        /// <summary>Свободна ли верхняя тап-зона: шелл живёт НАД документом
+        /// сцены, и с открытой панелью (история, квик-меню) ловушка глотала
+        /// её шапку (живой скрин «историю не закрыть»). Хост отдаёт сюда
+        /// «в сцене нет открытого UI»; синк — тиком оболочки.</summary>
+        public Func<bool> TapZoneAvailable;
+
+        public void SyncTapZone()
+        {
+            bool on = _inGame && !_silent && !_gameBarShown
+                && (TapZoneAvailable?.Invoke() ?? true);
+            _tapCatcher.pickingMode = on ? PickingMode.Position : PickingMode.Ignore;
+        }
+
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
         private readonly VisualElement _miniPills; // игровые баблики валют

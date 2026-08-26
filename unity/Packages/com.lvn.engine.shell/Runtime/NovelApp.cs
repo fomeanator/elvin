@@ -817,6 +817,8 @@ namespace Lvn.UI.Screens
                     // Бургер-фаб в сцене убран (Илья 26.08): выезжающий игровой
                     // бар по тапу верхней зоны несёт 4 кнопки.
                     Lvn.UI.StageMenu.ExternalBurger = true;
+                    _shell.TopBar.TapZoneAvailable = () =>
+                        Stage == null || (!Stage.InputBlocked && !Stage.PanelOpen);
                     _shell.TopBar.OnGameExit = () => Stage?.RequestExit();
                     // Воронка: в интро навбар полностью нем (чистое кино).
                     _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(

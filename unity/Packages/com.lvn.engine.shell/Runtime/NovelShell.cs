@@ -228,6 +228,7 @@ namespace Lvn.UI.Screens
                         TopBar.SetSafeTop(safe);
                         DownloadHud.SetSafeTop(safe);
                     }
+                    TopBar.SyncTapZone(); // зона уступает открытым панелям сцены
                 }).Every(300);
             }
 
