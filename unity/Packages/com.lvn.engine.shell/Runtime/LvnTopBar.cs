@@ -45,9 +45,18 @@ namespace Lvn.UI.Screens
 
         public void SyncTapZone()
         {
-            bool on = _inGame && !_silent && !_gameBarShown
-                && (TapZoneAvailable?.Invoke() ?? true);
+            bool free = TapZoneAvailable?.Invoke() ?? true;
+            bool on = _inGame && !_silent && !_gameBarShown && free;
             _tapCatcher.pickingMode = on ? PickingMode.Position : PickingMode.Ignore;
+            // ДОКТРИНА СЛОЁВ (решение Ильи 26.08): модаль сцены (квик-меню,
+            // история, статы) на время жизни подавляет немодальный декор
+            // оболочки — баблики прячутся, развёрнутый игровой бар сворачивается.
+            // Модали оболочки (магазин, попапы) — осознанно поверх всего.
+            bool modal = _inGame && !free;
+            if (modal && _gameBarShown) ToggleGameBar(false);
+            var vis = modal ? Visibility.Hidden : Visibility.Visible;
+            _miniPills.style.visibility = vis;
+            _miniProgress.style.visibility = vis;
         }
 
         private readonly VisualElement _row;
