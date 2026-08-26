@@ -1619,17 +1619,20 @@ namespace Lvn.UI.Screens
                 { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 });
                 return;
             }
+            // target — куда в кадре кладём точку интереса (доли высоты экрана
+            // от центра, + = выше): цифры Ильи 28.08 — украшения на 10% ниже,
+            // причёска на 30% ниже, платье на 7% выше и зум −10%.
             var k = axis.ToLowerInvariant();
-            float z, focus;
+            float z, focus, target;
             if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
-            { z = 2.05f; focus = 0.82f; }
+            { z = 2.05f; focus = 0.82f; target = 0.40f; }
             else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
                      || k.Contains("acc"))
-            { z = 1.90f; focus = 0.72f; }
-            else { z = 1.45f; focus = 0.45f; } // платье/наряд — корпус
+            { z = 1.90f; focus = 0.72f; target = 0.20f; }
+            else { z = 1.31f; focus = 0.45f; target = 0.03f; } // платье/наряд — корпус
             // Канвас сцены width-match к 1080 — его высота в юнитах канваса.
             float H = 1080f * Screen.height / Mathf.Max(1, Screen.width);
-            float panY = (0.10f - (focus - 0.5f) * z) * H;
+            float panY = (target - (focus - 0.5f) * z) * H;
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
             { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 });
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
