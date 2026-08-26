@@ -98,6 +98,7 @@ namespace Lvn.UI.Screens
             {
                 if (!_peeking || e.target != this) return;
                 SetPeek(false);
+                _sheet?.RefocusSection(); // вернуть зум раздела после «Во весь рост»
             });
         }
 
