@@ -32,6 +32,7 @@ namespace Lvn.UI.Screens
         private readonly Label _title;
         private readonly VisualElement _tabs;
         private readonly Label _itemName;
+        private Button _prevBtn, _nextBtn;
         private readonly Button _confirm;
         private readonly Button _cancel;
 
@@ -272,6 +273,7 @@ namespace Lvn.UI.Screens
 
             var prev = new Button(() => Step(-1)) { text = "" };
             var next = new Button(() => Step(+1)) { text = "" };
+            _prevBtn = prev; _nextBtn = next;
             var prevIcon = LvnIcons.Make(LvnIcon.Chevron, 22f, LvnTokens.Text);
             prevIcon.style.rotate = new Rotate(180f);
             prev.Add(prevIcon);
@@ -689,6 +691,64 @@ namespace Lvn.UI.Screens
                 if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
         }
 
+        // Что на оси надето прямо сейчас: превью → надетое → дефакт-дефолт →
+        // первый предмет. Один источник правды для шаблонных иконок и подписи.
+        private string CurrentValueOf(string axis)
+        {
+            LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var v);
+            if (v == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out v);
+            if (v == null && _def?.defaults != null) _def.defaults.TryGetValue(axis, out v);
+            if (string.IsNullOrEmpty(v) || v == LvnWardrobe.NoneValue)
+            {
+                var items = Items(axis);
+                v = items.Count > 0 ? items[0].value : "";
+            }
+            return v;
+        }
+
+        private string NameOfValue(string axis, string value)
+        {
+            foreach (var it in Items(axis))
+                if (it.value == value) return it.name ?? it.value;
+            return value;
+        }
+
+        // Подпись под каруселью описывает ВЕСЬ образ раздела — «Рыжая:
+        // Голливудские волны»: сначала выбранные поднастройки (цвет волос),
+        // затем предмет, который листают стрелки. Раньше тап по свотчу писал
+        // туда одно своё имя, и «Рыжая» читалась как то, что сейчас мотается
+        // стрелками — а мотались причёски (Илья 26.08).
+        private void RefreshLabel()
+        {
+            if (_itemName == null || _tab == null || _tab == AllTab) return;
+            var item = CurrentItem();
+            if (item == null) return;
+            var name = item.name ?? item.value;
+            string prefix = null;
+            foreach (var sub in SubAxesOf(_tab))
+            {
+                var v = CurrentValueOf(sub);
+                if (string.IsNullOrEmpty(v)) continue;
+                var n = NameOfValue(sub, v);
+                if (string.IsNullOrEmpty(n)) continue;
+                prefix = prefix == null ? n : prefix + ", " + n;
+            }
+            _itemName.text = prefix == null ? name : prefix + ": " + name;
+        }
+
+        // Стрелки листают КАРУСЕЛЬ раздела — на сборной витрине «Моё» листать
+        // нечего, и живая кнопка, которая ничего не делает, просто врёт.
+        private void RefreshArrows()
+        {
+            bool on = _tab != null && _tab != AllTab && Items(_tab).Count > 1;
+            foreach (var b in new[] { _prevBtn, _nextBtn })
+            {
+                if (b == null) continue;
+                b.SetEnabled(on);
+                b.style.opacity = on ? 1f : 0.35f;
+            }
+        }
+
         // Шаблонные иконки: `{ось}` в пути арта подменяется ТЕКУЩИМ значением
         // этой оси (превью → надетое → дефолт → первый предмет). Так карточки
         // причёсок показывают выбранный цвет: hair_rose_{hair} → hair_rose_black.
@@ -700,13 +760,7 @@ namespace Lvn.UI.Screens
             {
                 var token = "{" + kv.Key + "}";
                 if (!icon.Contains(token)) continue;
-                LvnWardrobe.Previewed(_entity).TryGetValue(kv.Key, out var v);
-                if (v == null) LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out v);
-                if (v == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out v);
-                if (string.IsNullOrEmpty(v) || v == LvnWardrobe.NoneValue)
-                    v = kv.Value?.items != null && kv.Value.items.Count > 0
-                        ? kv.Value.items[0].value : "";
-                icon = icon.Replace(token, v);
+                icon = icon.Replace(token, CurrentValueOf(kv.Key));
             }
             return icon;
         }
@@ -714,7 +768,7 @@ namespace Lvn.UI.Screens
         // Ряд поднастроек активного раздела: подпись слота + свотчи. Тап
         // примеряет на живую куклу и перестраивает ленту — шаблонные иконки
         // карточек сразу показывают, например, новый цвет волос.
-        private void RebuildSubRow()
+        private void RebuildSubRow(bool animate = true)
         {
             if (_subRow == null) return;
             _subRow.Clear();
@@ -736,7 +790,8 @@ namespace Lvn.UI.Screens
                     {
                         var sw = SubSwatch(sub, it);
                         _subRow.Add(sw);
-                        EnterSoft(sw, n++);
+                        if (animate) EnterSoft(sw, n);
+                        n++;
                     }
                     any = true;
                 }
@@ -753,8 +808,8 @@ namespace Lvn.UI.Screens
             var b = new Button(() =>
             {
                 LvnWardrobe.Preview(_entity, axis, item.value); // NoneValue = «снять»
-                _itemName.text = item.name ?? item.value;
-                RebuildStrip();   // свотчи + шаблонные иконки карточек
+                RebuildStrip(animate: false); // свотчи + шаблонные иконки карточек
+                RefreshLabel();   // «Рыжая: Голливудские волны» — цвет И причёска
                 RefreshConfirm(); // кнопка предложит купить этот цвет
             }) { text = "" };
             b.style.width = 54; b.style.height = 54;
@@ -984,7 +1039,12 @@ namespace Lvn.UI.Screens
             return (1.55f, 0.60f); // платье/наряд
         }
 
-        private void RebuildStrip()
+        // animate=false — ЛЕНТА УЖЕ НА ЭКРАНЕ и просто пересобирается после
+        // примерки (тап по свотчу цвета, тап по карточке в «Моё»): проигрывать
+        // въезд карточек заново значит дёргать неподвижный список под пальцем
+        // (Илья 26.08). Въезд принадлежит появлению ленты — смене раздела,
+        // персонажа, открытию листа.
+        private void RebuildStrip(bool animate = true)
         {
             if (_strip == null) return;
             _strip.Clear();
@@ -1006,12 +1066,13 @@ namespace Lvn.UI.Screens
                             var card = StripCard(kv.Key, -1, it);
                             _strip.Add(card);
                             _stripCards.Add(card);
-                            EnterSoft(card, shown);
+                            if (animate) EnterSoft(card, shown);
                             shown++;
                         }
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
-                RebuildSubRow(); // спрячет ряд: у «Все» поднастроек нет
+                RebuildSubRow(animate); // спрячет ряд: у «Все» поднастроек нет
+                RefreshArrows();
                 return;
             }
             var items = Items(_tab);
@@ -1021,9 +1082,10 @@ namespace Lvn.UI.Screens
                 var card = StripCard(_tab, i, items[i]);
                 _strip.Add(card);
                 _stripCards.Add(card);
-                EnterSoft(card, i);
+                if (animate) EnterSoft(card, i);
             }
-            RebuildSubRow();
+            RebuildSubRow(animate);
+            RefreshArrows();
             StyleStrip();
         }
 
@@ -1119,8 +1181,8 @@ namespace Lvn.UI.Screens
                 card.RegisterCallback<ClickEvent>(_ =>
                 {
                     LvnWardrobe.Preview(_entity, a2, v2);
+                    RebuildStrip(animate: false);
                     _itemName.text = n2;
-                    RebuildStrip();
                 });
                 return card;
             }
@@ -1216,7 +1278,7 @@ namespace Lvn.UI.Screens
             var items = Items(_tab);
             if (items.Count == 0) return;
             var item = items[Mathf.Clamp(_index.TryGetValue(_tab, out var i) ? i : 0, 0, items.Count - 1)];
-            _itemName.text = item.name ?? item.value;
+            RefreshLabel();
             bool owned = item.price <= 0
                 || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
             Debug.Log($"[lvn-wardrobe] sheet preview {_entity}.{_tab} = '{item.value}' " +
