@@ -97,7 +97,13 @@ namespace Lvn.Content
         public static string MiniVariant(string url)
         {
             var v = DownscaleVariant(url);
-            return v?.Replace(PreferredSuffix, "@mini");
+            v = v?.Replace(PreferredSuffix, "@mini");
+            // МИНИ — ВСЕГДА PNG: при ktx2-тракте вариант наследовал «.ktx2»,
+            // которого сервер для крошек не кодирует — витрина гардероба и
+            // силуэт-заготовки ловили сплошные 404 (живой скрин «одни
+            // вешалки»), а промахи ещё и валили skip-streak ktx2-тракта.
+            if (v != null && v.EndsWith(".ktx2")) v = v.Substring(0, v.Length - 5) + ".png";
+            return v;
         }
 
         /// <summary>Classify by path segment. Order matters: script and audio win
