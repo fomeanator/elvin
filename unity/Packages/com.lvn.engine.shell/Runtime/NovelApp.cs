@@ -507,6 +507,10 @@ namespace Lvn.UI.Screens
             {
                 _shell.OnMenuVisible -= ShowMenuScene;
                 _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
+                _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
+                // Смена наряда в гардеробе не должна ронять фон (живой скрин:
+                // Equip стирал полотно) — пере-ставим сцену меню следом.
+                Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
                 _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
@@ -1534,8 +1538,29 @@ namespace Lvn.UI.Screens
                 { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
             if (!string.IsNullOrEmpty(fav))
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "actor", ["id"] = fav, ["show"] = true, ["position"] = "center" });
+                {
+                    ["op"] = "actor", ["id"] = fav, ["show"] = true,
+                    ["position"] = "center",
+                    // Единый рост: липкая постановка (Вика — мелкая из старых
+                    // прогонов) перекрывается явными размерами.
+                    ["height"] = 1.06, ["y"] = 0.02,
+                });
             _menuSceneActor = fav;
+        }
+
+        // Пан полотна по вкладкам: слак cover-кроя, мягкий ход штатным
+        // PanBackground (fade=0 — тот же спрайт, без кроссфейда).
+        private void PanMenuScene(int fromTab, int toTab)
+        {
+            if (Stage == null || _chapterPlaying) return;
+            var canvas = _manifest?.ui?.browse?.canvas;
+            if (string.IsNullOrEmpty(canvas)) return;
+            float P(int t) => 0.35f + 0.1f * Mathf.Clamp(t, 0, 3);
+            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+            {
+                ["op"] = "bg", ["sprite_url"] = canvas, ["fade"] = 0,
+                ["pan"] = P(fromTab), ["pan_to"] = P(toTab), ["pan_dur"] = 0.30,
+            });
         }
 
         private void HideMenuSceneActor()
