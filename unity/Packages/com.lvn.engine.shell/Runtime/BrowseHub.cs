@@ -485,6 +485,21 @@ namespace Lvn.UI.Screens
         /// для параллакса.</summary>
         public float ScrollY => _hubRows != null ? _hubRows.scrollOffset.y : 0f;
 
+        /// <summary>Лента вкладок: хаб уезжает в сторону (dir −1 = влево) и
+        /// возвращается. Дешёвый трансформ, display не трогаем — хаб остаётся
+        /// «главной» подложкой ленты.</summary>
+        public void SlideAway(int dir, bool away)
+        {
+            float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
+            float from = away ? 0f : dir * w;
+            float to = away ? dir * w : 0f;
+            this.experimental.animation.Start(0f, 1f, 280, (e, p) =>
+            {
+                float k = 1f - Mathf.Pow(1f - p, 3f);
+                e.style.translate = new Translate(Mathf.Lerp(from, to, k), 0f);
+            });
+        }
+
         // ── builders ──────────────────────────────────────────────────────────────
         private void BuildHubTiles()
         {

@@ -66,11 +66,50 @@ namespace Lvn.UI.Screens
             sheet.style.borderTopColor = LvnTokens.Accent;
         }
 
+        /// <summary>ЛЕНТА ВКЛАДОК (решение Ильи 26.08): раздел въезжает сбоку
+        /// по направлению навигации (+1 справа, −1 слева; 0 — прежний подъезд
+        /// снизу для попапов). Закрытие — обратно в ту же сторону.</summary>
+        public int SlideDirection;
+
+        /// <summary>Пролёт промежуточной вкладки: переход «Главная → Профиль»
+        /// ПРОЕЗЖАЕТ магазин — экран проносится через кадр без остановки.</summary>
+        public async Task FlyThroughAsync(int dir, int ms = 240)
+        {
+            style.display = DisplayStyle.Flex;
+            style.opacity = 1f;
+            OnOpening();
+            float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            this.experimental.animation.Start(0f, 1f, ms, (e, p) =>
+            {
+                e.style.translate = new Translate(Mathf.Lerp(dir * w, -dir * w, p), 0f);
+                if (p >= 1f) tcs.TrySetResult(true);
+            });
+            await tcs.Task;
+            style.display = DisplayStyle.None;
+            style.translate = new Translate(0f, 0f);
+            OnClosed();
+        }
+
         // Хореография листа: подъезд снизу + лёгкий scale. Скрим (сам экран)
         // фейдится параллельно базовым FadeAsync; ждать лист отдельно не надо —
         // длительность одна.
         private void PlaySheet(bool opening)
         {
+            if (SlideDirection != 0)
+            {
+                // Слайд ВСЕГО экрана по ленте вкладок.
+                float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
+                float from2 = opening ? SlideDirection * w : 0f;
+                float to2 = opening ? 0f : SlideDirection * w;
+                this.experimental.animation.Start(0f, 1f,
+                    Mathf.RoundToInt(FadeSeconds * 1000f * 1.4f), (e, p) =>
+                {
+                    float k = 1f - Mathf.Pow(1f - p, 3f);
+                    e.style.translate = new Translate(Mathf.Lerp(from2, to2, k), 0f);
+                });
+                return;
+            }
             var s = _sheet;
             if (s == null) return;
             int ms = Mathf.RoundToInt(FadeSeconds * 1000f * (opening ? 1f : 0.8f));
