@@ -516,6 +516,12 @@ namespace Lvn.UI.Screens
             // real content, not just the hand-authored shelves.
             var orphans = OrphanTitles();
             // Feature the title the player can CONTINUE, if any; else a recommended one.
+            // Воздух сверху (Илья: «главную вниз, как гардероб») — лента
+            // стартует под героиней и скроллится поверх неё.
+            var air = new VisualElement { pickingMode = PickingMode.Ignore };
+            air.style.height = Length.Percent(30f);
+            air.style.flexShrink = 0;
+            _hubRows.Add(air);
             var resume = ResumableTitle();
             var featured = resume ?? FirstTitle();
             if (featured == null && orphans.Count > 0) _titles.TryGetValue(orphans[0], out featured);
