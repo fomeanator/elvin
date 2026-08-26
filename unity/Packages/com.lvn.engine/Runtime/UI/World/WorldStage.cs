@@ -507,6 +507,20 @@ namespace Lvn.UI.World
         public float ActorSwapDeadline(string id)
             => _artSwapUntil.TryGetValue(id, out var t) ? t : 0f;
 
+        /// <summary>Кто из стоящих на сцене остался со слоями без спрайтов —
+        /// то есть рисует сплошные прямоугольники вместо арта.</summary>
+        public List<string> ActorsWithDeadLayers()
+        {
+            List<string> dead = null;
+            foreach (var kv in _actors)
+            {
+                var a = kv.Value;
+                if (a == null || !a.gameObject.activeInHierarchy) continue;
+                if (a.HasDeadLayers()) (dead ??= new List<string>()).Add(kv.Key);
+            }
+            return dead;
+        }
+
         /// <summary>Convert the stage-side direction into the actor slot's local
         /// X axis. WorldPlacement mirrors that slot for <c>mirror=true</c>, while
         /// LvnFade moves its child transition root.</summary>

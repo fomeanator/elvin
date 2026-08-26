@@ -113,6 +113,22 @@ namespace Lvn.UI.World
                 img.color = tint;
         }
 
+        /// <summary>Слои есть, а рисовать нечем: спрайт умер уже ПОСЛЕ того,
+        /// как его поставили (LRU/выгрузка забрали текстуру из-под живой
+        /// куклы). Image без спрайта заливает свой прямоугольник сплошным
+        /// цветом — это и есть «белый прямоугольник вместо героини». Сцена
+        /// чинит такое пересборкой облика; см. VnStage.HealDeadActors.</summary>
+        public bool HasDeadLayers()
+        {
+            foreach (var pair in _layers)
+            {
+                var img = pair.Value;
+                if (img == null) continue;
+                if (img.enabled && img.sprite == null) return true;
+            }
+            return false;
+        }
+
         /// <summary>Return from the flat transition visual to live animated layers.</summary>
         public void EndTransitionVisual()
         {

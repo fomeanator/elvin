@@ -363,6 +363,13 @@ namespace Lvn.UI.Screens
 
         /// <summary>Вход бара: строка выезжает СВЕРХУ (вызов оболочки при
         /// показе меню) — в паре с нижней навигацией хаба.</summary>
+        /// <summary>Состояние бара для лога: видно ли его вообще и не застрял
+        /// ли он за верхней кромкой (вход анимирует translate).</summary>
+        public string DebugState =>
+            $"display={_row.resolvedStyle.display} translate={_row.resolvedStyle.translate} "
+            + $"opacity={_row.resolvedStyle.opacity:0.00} inGame={_inGame} silent={_silent} "
+            + $"rect=({_row.worldBound.y:0} {_row.worldBound.width:0}x{_row.worldBound.height:0})";
+
         public void PlayEntrance()
         {
             float hidden = -(RowH + _safeTop + 6f);

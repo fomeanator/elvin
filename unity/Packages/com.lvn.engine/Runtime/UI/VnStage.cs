@@ -186,6 +186,34 @@ namespace Lvn.UI
                     Debug.Log($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
                               + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
                 }
+                if (Time.unscaledTime >= _nextDeadLayerCheck)
+                {
+                    _nextDeadLayerCheck = Time.unscaledTime + 0.5f;
+                    HealDeadActors(csr);
+                }
+            }
+        }
+
+        private float _nextDeadLayerCheck;
+
+        /// <summary>САМОЛЕЧЕНИЕ КУКЛЫ. Спрайт может умереть уже ПОСЛЕ того, как
+        /// его поставили: выгрузка забирает текстуру из-под живого актёра, и
+        /// Image без спрайта заливает свой прямоугольник сплошным цветом —
+        /// «после выхода из главы героиня пропадает, остаётся белый
+        /// прямоугольник» (Илья 26.08). Раньше это чинил только игрок, руками
+        /// перевыбрав вещь в гардеробе: тот путь пере-собирает облик. Здесь тот
+        /// же реплей последней команды, но по факту опустевших слоёв — сцена
+        /// возвращает себе картинку сама, кто бы ни забрал спрайты.</summary>
+        private void HealDeadActors(CanvasSceneRenderer csr)
+        {
+            var dead = csr.ActorsWithDeadLayers();
+            if (dead == null) return;
+            foreach (var id in dead)
+            {
+                if (!_actorCmds.ContainsKey(id)) continue;
+                Debug.LogWarning($"[lvn-actor] {id}: слои остались без спрайтов "
+                                 + "(их выгрузили из-под живой куклы) — пересобираем облик");
+                RefreshWardrobeActor(id, null);
             }
         }
 

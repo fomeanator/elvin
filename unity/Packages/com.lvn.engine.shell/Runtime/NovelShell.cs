@@ -759,6 +759,7 @@ namespace Lvn.UI.Screens
             });
             if (found == 0)
                 sb.AppendLine("  — ничего светлого НЕ найдено: белое рисует сцена, а не оболочка");
+            if (TopBar != null) sb.AppendLine($"  верхний бар: {TopBar.DebugState}");
             Debug.Log(sb.ToString());
         }
 
