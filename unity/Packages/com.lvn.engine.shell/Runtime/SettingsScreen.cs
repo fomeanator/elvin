@@ -246,7 +246,10 @@ namespace Lvn.UI.Screens
                 else
                 {
                     status.text = "";
-                    btn.text = $"Скачать ≈{System.Math.Max(1, missing >> 20)} МБ";
+                    // «Докачать», когда на диске уже что-то живёт: игрок
+                    // скачал почти всё — не предлагать ему «Скачать» заново.
+                    btn.text = (used > (8L << 20) ? "Докачать" : "Скачать")
+                        + $" ≈{System.Math.Max(1, missing >> 20)} МБ";
                     btn.SetEnabled(true);
                 }
             }
