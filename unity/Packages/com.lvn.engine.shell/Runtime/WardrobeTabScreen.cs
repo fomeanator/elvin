@@ -20,6 +20,22 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly VisualElement _panel;
 
+        // ── Покупка (решение Ильи 27.08: «в меню-гардеробе прям листинг
+        // скинов, и там можно купить») ── семантика владения — как в сюжетном
+        // шите: платный предмет твой, когда его sku лежит в серверном кошельке.
+        // Тап по чужому предмету ВЗВОДИТ карточку («Купить · цена»), второй
+        // тап — покупает и надевает. Нехватка средств ведёт в быстрый магазин.
+        private string _armedSku;
+        private bool _buying;
+        /// <summary>Открыть быстрый магазин (модаль) — вешает NovelShell.</summary>
+        public System.Func<System.Threading.Tasks.Task> OpenStore;
+        /// <summary>Подтверждение «не хватает — в магазин?» — вешает NovelShell.</summary>
+        public System.Func<string, string, System.Threading.Tasks.Task<bool>> ConfirmTopUp;
+
+        private bool IsOwned(string axis, LvnWardrobeItem item) =>
+            item == null || item.price <= 0
+            || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(Entity, axis, item.value));
+
         // Текущий персонаж вкладки: фаворит меню, иначе героиня по умолчанию.
         private string Entity
         {
@@ -94,9 +110,14 @@ namespace Lvn.UI.Screens
         protected override void OnOpening() => Rebuild();
 
         // Карточка предмета — СТАРЫЙ вид шита (просьба Ильи): превью-иконка
-        // наряда, имя, цена у платных; выбранная — акцентная рамка.
+        // наряда, имя, цена у платных; выбранная — акцентная рамка; чужой
+        // взведённый — золотая рамка и «Купить».
         private VisualElement ItemCard(string axis, LvnWardrobeItem item, bool on)
         {
+            bool owned = IsOwned(axis, item);
+            string sku = LvnWardrobe.Sku(Entity, axis, item.value);
+            bool armed = !owned && sku == _armedSku;
+
             var card = new VisualElement();
             card.style.width = 132;
             card.style.marginRight = 10;
@@ -107,7 +128,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(card, 12f);
             card.style.borderTopWidth = card.style.borderBottomWidth = 2f;
             card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
-            var edge = on ? LvnTokens.Accent : LvnTokens.Border;
+            var edge = armed ? LvnTokens.Gold : on ? LvnTokens.Accent : LvnTokens.Border;
             card.style.borderTopColor = card.style.borderBottomColor = edge;
             card.style.borderLeftColor = card.style.borderRightColor = edge;
 
@@ -124,22 +145,58 @@ namespace Lvn.UI.Screens
             name.style.marginTop = 5;
             card.Add(name);
 
-            if (item.price > 0)
+            if (item.price > 0 && !owned)
             {
-                var price = new Label($"◆ {item.price}") { pickingMode = PickingMode.Ignore };
+                var price = new Label(armed ? $"Купить · ◆ {item.price}" : $"◆ {item.price}")
+                { pickingMode = PickingMode.Ignore };
                 price.style.color = LvnTokens.Gold;
                 price.style.fontSize = 18;
                 price.style.marginTop = 2;
+                if (armed) price.style.unityFontStyleAndWeight = FontStyle.Bold;
                 card.Add(price);
             }
 
             var value = item.value;
             card.RegisterCallback<ClickEvent>(_ =>
             {
-                LvnWardrobe.Equip(Entity, axis, value); // кукла обновится сама
-                Rebuild();
+                if (_buying) return;
+                if (IsOwned(axis, item))
+                {
+                    _armedSku = null;
+                    LvnWardrobe.Equip(Entity, axis, value); // кукла обновится сама
+                    Rebuild();
+                }
+                else if (sku != _armedSku) { _armedSku = sku; Rebuild(); }
+                else LvnAsync.Fire(BuyAsync(axis, item), "WardrobeBuy");
             });
             return card;
+        }
+
+        // Покупка = списание кошелька с этим sku (владение приезжает в
+        // Inventory тем же ответом) → надеть. Нехватка — предложить быстрый
+        // магазин и после него попробовать ровно ещё раз, как сюжетный шит.
+        private async System.Threading.Tasks.Task BuyAsync(string axis, LvnWardrobeItem item)
+        {
+            _buying = true;
+            try
+            {
+                string sku = LvnWardrobe.Sku(Entity, axis, item.value);
+                bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+                if (!ok && ConfirmTopUp != null && OpenStore != null)
+                {
+                    string title = item.name ?? item.value;
+                    if (await ConfirmTopUp("Не хватает кристаллов",
+                            $"{title}: ◆ {item.price:N0}"))
+                    {
+                        await OpenStore();
+                        ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
+                    }
+                }
+                _armedSku = null;
+                if (ok) LvnWardrobe.Equip(Entity, axis, item.value);
+                Rebuild();
+            }
+            finally { _buying = false; }
         }
 
         public void Rebuild()

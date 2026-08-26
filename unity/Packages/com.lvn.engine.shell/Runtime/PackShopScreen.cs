@@ -62,32 +62,55 @@ namespace Lvn.UI.Screens
         private bool _buying;
         private int _tab;
 
-        public PackShopScreen(ILvnAssets assets)
+        /// <summary>ДВА МАГАЗИНА ИЗ ОДНОГО КОНТЕНТА (решение Ильи 27.08):
+        /// вкладка ленты — прозрачная страница на общей сцене меню; быстрый
+        /// модальный (плюсик валют, гейт энергии, ext store_show) — лист-окно
+        /// со СВОИМ фоном, открывается поверх ЛЮБОЙ страницы и в игре.
+        /// Каталог, вкладки и карточки — общие; флаг меняет только обёртку.</summary>
+        public PackShopScreen(ILvnAssets assets, bool modal = false)
         {
             _assets = assets;
             _catalog = new Dictionary<string, List<Pack>>();
 
             ScreenUi.Stretch(this);
-            // ВКЛАДКА, точь-в-точь как главная (решение Ильи 26.08): никакого
-            // враппера-листа и скрима — контент прямо на общей атмосфере;
-            // сверху навбар, снизу дырка под нижнее меню хаба (оно живёт и
-            // кликается — root не ловит тапы).
-            style.backgroundColor = Color.clear;
             style.opacity = 0f;
             style.display = DisplayStyle.None;
-            pickingMode = PickingMode.Ignore;
 
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
-            sheet.style.left = 0; sheet.style.right = 0;
-            // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
-            // верх экрана — воздух с героиней и полотном.
-            sheet.style.top = Length.Percent(36f);    // под строкой навбара
-            sheet.style.bottom = 132; // дырка нижнего меню
-            sheet.style.paddingTop = 6;
-            sheet.style.paddingBottom = 6;
-            sheet.style.paddingLeft = 20;
-            sheet.style.paddingRight = 20;
+            if (modal)
+            {
+                // Скрим ловит тап мимо листа = закрыть (как попап загрузок).
+                style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
+                pickingMode = PickingMode.Position;
+                RegisterCallback<ClickEvent>(e => { if (e.target == this) Cancel(); });
+                sheet.style.left = 16; sheet.style.right = 16;
+                sheet.style.top = Length.Percent(12f);
+                sheet.style.bottom = Length.Percent(5f);
+                sheet.style.paddingTop = 18;
+                sheet.style.paddingBottom = 14;
+                sheet.style.paddingLeft = 20;
+                sheet.style.paddingRight = 20;
+                AdoptSheet(sheet); // общий вид листа: фон, окантовка, подъезд
+            }
+            else
+            {
+                // ВКЛАДКА, точь-в-точь как главная (решение Ильи 26.08): никакого
+                // враппера-листа и скрима — контент прямо на общей атмосфере;
+                // сверху навбар, снизу дырка под нижнее меню хаба (оно живёт и
+                // кликается — root не ловит тапы).
+                style.backgroundColor = Color.clear;
+                pickingMode = PickingMode.Ignore;
+                sheet.style.left = 0; sheet.style.right = 0;
+                // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
+                // верх экрана — воздух с героиней и полотном.
+                sheet.style.top = Length.Percent(36f);    // под строкой навбара
+                sheet.style.bottom = 132; // дырка нижнего меню
+                sheet.style.paddingTop = 6;
+                sheet.style.paddingBottom = 6;
+                sheet.style.paddingLeft = 20;
+                sheet.style.paddingRight = 20;
+            }
             Add(sheet);
 
             // ── Top bar: back ‹ · title · balances ────────────────────────────
@@ -104,6 +127,18 @@ namespace Lvn.UI.Screens
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.flexGrow = 1;
             top.Add(title);
+
+            if (modal)
+            {
+                var close = new Button(Cancel) { text = "×" };
+                close.style.width = 52; close.style.height = 52;
+                close.style.fontSize = 34;
+                close.style.color = LvnTokens.TextDim;
+                close.style.backgroundColor = LvnTokens.Faint;
+                LvnChrome.ClearBorder(close);
+                LvnChrome.Round(close, 26f);
+                top.Add(close);
+            }
 
             // Балансы в шапке удалены — валюты несёт единый навбар (дубль).
             _balances = new VisualElement();

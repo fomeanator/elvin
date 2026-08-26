@@ -49,8 +49,11 @@ namespace Lvn.UI.Screens
         public DailyRewardsScreen Daily { get; private set; }
         /// <summary>The wardrobe / skin shop.</summary>
         public SkinShopScreen SkinShop { get; private set; }
-        /// <summary>The currency-pack shop.</summary>
+        /// <summary>The currency-pack shop — ВКЛАДКА ленты (прозрачная страница).</summary>
         public PackShopScreen PackShop { get; private set; }
+        /// <summary>Быстрый магазин — МОДАЛЬ со своим фоном: плюсик валют, гейт
+        /// энергии, ext store_show; открывается поверх любой страницы и в игре.</summary>
+        public PackShopScreen PackShopModal { get; private set; }
         /// <summary>The universal modal popup (alerts/confirms), topmost overlay.</summary>
         public PopupScreen Popup { get; private set; }
 
@@ -92,6 +95,51 @@ namespace Lvn.UI.Screens
             3 => (Profile, Profile),
             _ => (null, null),
         };
+
+        // ── РОУТЕР МОДАЛЕЙ (решение Ильи 27.08: «стейт как в реакте») ──
+        // ДОКТРИНА ДВУХ СЛОТОВ: страница — ровно ОДНА, живёт в tabsLayer и
+        // меняется только TabGoTo; модаль — СТЕК в popupLayer, каждая обязана
+        // нести свой фон (скрим+лист), открывается только через ShowModalAsync.
+        // Тогда «одно поверх другого» невозможно физически: страницы не
+        // складываются, модали не просвечивают.
+        private readonly List<LvnOverlayScreen> _modals = new List<LvnOverlayScreen>();
+
+        /// <summary>Единственная дверь модалей: ведёт стек (системная «назад»
+        /// закрывает верхнюю) и глушит Escape-обработчик сцены на время показа.</summary>
+        public async Task<bool> ShowModalAsync(LvnOverlayScreen screen, CancellationToken ct = default)
+        {
+            if (screen == null) return false;
+            _modals.Add(screen);
+            Lvn.UI.LvnModalGuard.Depth = _modals.Count;
+            try { return await screen.ShowAsync(ct); }
+            finally
+            {
+                _modals.Remove(screen);
+                Lvn.UI.LvnModalGuard.Depth = _modals.Count;
+            }
+        }
+
+        /// <summary>Закрыть верхнюю модаль (системная «назад»). false — стек пуст.</summary>
+        public bool CloseTopModal()
+        {
+            if (_modals.Count == 0) return false;
+            _modals[_modals.Count - 1].RequestCancel();
+            return true;
+        }
+
+        private bool _inChapter; // «назад» в игре принадлежит сцене, не ленте
+
+        // Системная «назад» ВНЕ сцены: сначала верхняя модаль, затем — домой по
+        // ленте. Алерт (Popup) закрывается только своими кнопками — решение
+        // должно быть осознанным.
+        private void Update()
+        {
+            if (!UnityEngine.Input.GetKeyDown(KeyCode.Escape)) return;
+            if (Popup != null && Popup.style.display == DisplayStyle.Flex) return;
+            if (CloseTopModal()) return;
+            if (_inChapter) return; // сюжетные панели и квик-меню закрывает VnStage
+            if (_tab != 0 && !_tabBusy) LvnAsync.Fire(TabGoTo(0), "BackHome");
+        }
 
         /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>
         public Action<int, int> OnTabTravel;
@@ -359,6 +407,7 @@ namespace Lvn.UI.Screens
             Daily = new DailyRewardsScreen(assets); Daily.Hide(); Add(Daily);
             SkinShop = new SkinShopScreen(assets); SkinShop.Hide(); Add(SkinShop);
             PackShop = new PackShopScreen(assets); PackShop.Hide(); Add(PackShop);
+            PackShopModal = new PackShopScreen(assets, modal: true); PackShopModal.Hide(); Add(PackShopModal);
             // The popup sits ABOVE everything so a "not enough currency → buy?"
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
@@ -377,6 +426,10 @@ namespace Lvn.UI.Screens
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
             WardrobeTab = new WardrobeTabScreen(_manifest, _assets);
             WardrobeTab.Hide();
+            // Покупка в меню-гардеробе идёт через кошелёк; нехватка средств
+            // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
+            WardrobeTab.OpenStore = () => OpenPackShopAsync();
+            WardrobeTab.ConfirmTopUp = (t, m) => ConfirmAsync(t, m, "В магазин", "Отмена");
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);
             Reparent(Profile, tabsLayer);
@@ -386,6 +439,7 @@ namespace Lvn.UI.Screens
             Reparent(Gallery, popupLayer);
             Reparent(Daily, popupLayer);
             Reparent(SkinShop, popupLayer);
+            Reparent(PackShopModal, popupLayer);
             _root.Add(tabsLayer);
             _root.Add(popupLayer);
             Popup.RemoveFromHierarchy();
@@ -400,8 +454,8 @@ namespace Lvn.UI.Screens
             // строки (морф попапа растёт из центра).
             TopBar = new Lvn.UI.Screens.LvnTopBar();
             Add(TopBar);
-            OnChapterSessionStart += () => { TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
-            OnChapterSessionEnd += () => { TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
+            OnChapterSessionStart += () => { _inChapter = true; TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
+            OnChapterSessionEnd += () => { _inChapter = false; TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
             Lvn.Services.LvnWallet.Changed -= OnWalletPills;
             Lvn.Services.LvnWallet.Changed += OnWalletPills;
 
@@ -458,22 +512,26 @@ namespace Lvn.UI.Screens
         /// <summary>Open the app-level settings overlay (sound, language, account,
         /// version, socials, legal). Completes when the player closes it.</summary>
         public Task OpenSettingsAsync(CancellationToken ct = default)
-            => Settings != null ? Settings.ShowAsync(ct) : Task.CompletedTask;
+            => ShowModalAsync(Settings, ct);
 
         /// <summary>Open the rich detail page for a title; returns true if the player
         /// pressed Play/Continue. Configure Detail's fields before calling.</summary>
         public Task<bool> OpenDetailAsync(CancellationToken ct = default)
-            => Detail != null ? Detail.ShowAsync(ct) : Task.FromResult(false);
+            => ShowModalAsync(Detail, ct);
+        // Галерея — со своим циклом (не LvnOverlayScreen): в стек роутера не
+        // входит, но фон у неё свой и «назад» она обрабатывает сама.
         public Task OpenGalleryAsync(CancellationToken ct = default)
             => Gallery != null ? Gallery.ShowAsync(ct) : Task.CompletedTask;
         public Task OpenProfileAsync(CancellationToken ct = default)
-            => Profile != null ? Profile.ShowAsync(ct) : Task.CompletedTask;
+            => ShowModalAsync(Profile, ct);
         public Task OpenDailyAsync(CancellationToken ct = default)
-            => Daily != null ? Daily.ShowAsync(ct) : Task.CompletedTask;
+            => ShowModalAsync(Daily, ct);
         public Task OpenSkinShopAsync(CancellationToken ct = default)
-            => SkinShop != null ? SkinShop.ShowAsync(ct) : Task.CompletedTask;
+            => ShowModalAsync(SkinShop, ct);
+        /// <summary>Быстрый магазин — модаль со своим фоном (вкладка ленты —
+        /// отдельный инстанс, её открывает TabGoTo(1)).</summary>
         public Task OpenPackShopAsync(CancellationToken ct = default)
-            => PackShop != null ? PackShop.ShowAsync(ct) : Task.CompletedTask;
+            => ShowModalAsync(PackShopModal, ct);
 
         /// <summary>Show a single-button notice over everything (a warning / info
         /// box). Completes when the player dismisses it. Safe from any main-thread
@@ -798,7 +856,7 @@ namespace Lvn.UI.Screens
             Auth?.Hide();
             Settings?.Hide();
             Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
-            SkinShop?.Hide(); PackShop?.Hide();
+            SkinShop?.Hide(); PackShop?.Hide(); PackShopModal?.Hide();
         }
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }
