@@ -539,6 +539,35 @@ namespace Lvn.UI.Screens
                 _tabs.Add(b);
             }
 
+            // «ВСЕ» (Илья 27.08): купленные скины со всех осей одной витриной,
+            // кадр без зума — вся фигура.
+            if (_def.wardrobe.Count > 1)
+            {
+                var all = new Button(() => SelectTab(AllTab)) { text = "" };
+                all.style.height = 56;
+                all.style.flexDirection = FlexDirection.Row;
+                all.style.alignItems = Align.Center;
+                all.style.marginLeft = 6; all.style.marginRight = 6;
+                all.style.paddingLeft = 18; all.style.paddingRight = 20;
+                LvnChrome.Round(all, 28f);
+                all.userData = AllTab;
+                var offA = LvnIcons.Make(LvnIcon.Star, 24f, _text);
+                offA.name = "ax-ic-off"; offA.pickingMode = PickingMode.Ignore;
+                offA.style.marginRight = 10;
+                var onA = LvnIcons.Make(LvnIcon.Star, 24f, _accentText);
+                onA.name = "ax-ic-on"; onA.pickingMode = PickingMode.Ignore;
+                onA.style.marginRight = 10;
+                onA.style.display = DisplayStyle.None;
+                all.Add(offA); all.Add(onA);
+                var lblA = new Label("Все") { pickingMode = PickingMode.Ignore };
+                lblA.name = "ax-label";
+                lblA.style.fontSize = 22;
+                lblA.style.whiteSpace = WhiteSpace.NoWrap;
+                lblA.style.color = _text;
+                all.Add(lblA);
+                _tabs.Add(all);
+            }
+
             // The hero must OPEN the sheet already dressed from THIS sheet: an
             // axis whose worn value isn't among the scene's items previews its
             // FIRST item right away, for every axis — not just the active tab.
@@ -676,16 +705,56 @@ namespace Lvn.UI.Screens
         }
 
         // ── лента карточек: второй руль карусели ─────────────────────────────
+        /// <summary>Сборный таб «Все»: купленные скины со всех осей одной
+        /// лентой, кадр без зума — фигура целиком (просьба Ильи 27.08).</summary>
+        private const string AllTab = "__all__";
+
+        private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
+            item == null || item.price <= 0
+            || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, item.value));
+
+        // Кадр витрины по разделу (цифры Ильи 27.08): причёска и цвет — к
+        // голове, украшения — к шее, платья — к корпусу; «Все» — фигура
+        // целиком без зума.
+        private (float zoom, float anchorY) StripFraming(string axis)
+        {
+            if (axis == AllTab) return (1f, 0.5f);
+            var k = (axis ?? "").ToLowerInvariant();
+            if (IsHairAxis(k)) return (1.60f, 0.13f);
+            if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
+                || k.Contains("acc")) return (1.77f, 0.30f);
+            return (1.55f, 0.60f); // платье/наряд
+        }
+
         private void RebuildStrip()
         {
             if (_strip == null) return;
             _strip.Clear();
             _stripCards.Clear();
+            if (_tab == AllTab)
+            {
+                // Сборная витрина: пары (ось, предмет) — тап примеряет в СВОЮ
+                // ось; подсветка по надетому каждой оси.
+                int shown = 0;
+                if (_def?.wardrobe != null)
+                    foreach (var kv in _def.wardrobe)
+                        foreach (var it in Items(kv.Key))
+                        {
+                            if (it.value == LvnWardrobe.NoneValue || !IsOwnedIn(kv.Key, it)) continue;
+                            var card = StripCard(kv.Key, -1, it);
+                            _strip.Add(card);
+                            _stripCards.Add(card);
+                            shown++;
+                        }
+                _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
+                return;
+            }
             var items = Items(_tab);
             _strip.style.display = items.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             for (int i = 0; i < items.Count; i++)
             {
-                var card = StripCard(i, items[i]);
+                var card = StripCard(_tab, i, items[i]);
                 _strip.Add(card);
                 _stripCards.Add(card);
             }
@@ -694,9 +763,9 @@ namespace Lvn.UI.Screens
 
         // Карточка: арт скина во всю плитку, цена бейджем ПРЯМО на арте
         // (у купленных и бесплатных бейджа нет), имя на серой подложке снизу.
-        private VisualElement StripCard(int i, LvnWardrobeItem item)
+        private VisualElement StripCard(string axis, int i, LvnWardrobeItem item)
         {
-            bool owned = IsOwned(item);
+            bool owned = IsOwnedIn(axis, item);
             // Крупнее (Илья 27.08): плитка подросла, арт занимает почти всю
             // её площадь (~+70%), имя заметно больше (~+50%).
             var card = new VisualElement();
@@ -709,16 +778,16 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(card, _radius);
             card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
 
-            // ЗУМ ВИТРИНЫ (Илья 27.08): холст скина несёт воздух вокруг фигуры —
-            // в окне карточки арт увеличен в 1.5 раза, окно смотрит в точку
-            // (50% X, 30% Y) — голова и грудь, где скин и читается. Элемент
-            // больше карточки, карточка клипует (overflow Hidden выше).
+            // ЗУМ ВИТРИНЫ ПО РАЗДЕЛУ (Илья 27.08): причёска кадрируется к
+            // голове, украшения — к шее, платье — к корпусу; «Все» — фигура
+            // целиком. Элемент больше карточки, карточка клипует излишек.
+            var (zoom, ay) = StripFraming(axis);
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
-            art.style.width = Length.Percent(150f);
-            art.style.height = Length.Percent(150f);
-            art.style.left = Length.Percent(50f - 150f * 0.50f);  // якорь X в центре окна
-            art.style.top = Length.Percent(50f - 150f * 0.30f);   // якорь Y в центре окна
+            art.style.width = Length.Percent(zoom * 100f);
+            art.style.height = Length.Percent(zoom * 100f);
+            art.style.left = Length.Percent(50f - zoom * 100f * 0.50f); // якорь X в центре окна
+            art.style.top = Length.Percent(50f - zoom * 100f * ay);    // якорь Y в центре окна
             art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             card.Add(art);
@@ -770,13 +839,38 @@ namespace Lvn.UI.Screens
             }
 
             int at = i;
+            if (at < 0)
+            {
+                // Сборный таб «Все»: тап примеряет предмет в ЕГО ось; подсветка
+                // и имя обновляются перестройкой (кэш делает её мгновенной).
+                bool worn = IsWornIn(axis, item.value);
+                LvnChrome.Border(card, worn ? _accent : new Color(1f, 1f, 1f, 0.12f),
+                    worn ? 2.5f : 1.5f);
+                var a2 = axis; var v2 = item.value; var n2 = item.name ?? item.value;
+                card.RegisterCallback<ClickEvent>(_ =>
+                {
+                    LvnWardrobe.Preview(_entity, a2, v2);
+                    _itemName.text = n2;
+                    RebuildStrip();
+                });
+                return card;
+            }
             card.RegisterCallback<ClickEvent>(_ =>
             {
-                if (_tab == null) return;
+                if (_tab == null || _tab == AllTab) return;
                 _index[_tab] = at;
                 ShowItem(); // примерка + имя в карусели + подсветка — одно состояние
             });
             return card;
+        }
+
+        // Носится ли значение на оси прямо сейчас (превью сильнее надетого).
+        private bool IsWornIn(string axis, string value)
+        {
+            LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var cur);
+            if (cur == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out cur);
+            if (cur == null && _def?.defaults != null) _def.defaults.TryGetValue(axis, out cur);
+            return cur == value;
         }
 
         // Арт карточки — МИНИ-ВЕРСИЯ (Илья 27.08: «не тянуть огромные, если
