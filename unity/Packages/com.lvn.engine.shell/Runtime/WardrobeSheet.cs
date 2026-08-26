@@ -590,14 +590,14 @@ namespace Lvn.UI.Screens
                 onA.style.marginRight = 10;
                 onA.style.display = DisplayStyle.None;
                 all.Add(offA); all.Add(onA);
-                var lblA = new Label("Все") { pickingMode = PickingMode.Ignore };
+                var lblA = new Label("Моё") { pickingMode = PickingMode.Ignore };
                 lblA.name = "ax-label";
                 lblA.style.fontSize = 22;
                 lblA.style.whiteSpace = WhiteSpace.NoWrap;
                 lblA.style.color = _text;
                 Smooth(lblA, 180, "color");
                 all.Add(lblA);
-                _tabs.Add(all);
+                _tabs.Insert(0, all); // «Моё» — первым (Илья 28.08)
             }
 
             // The hero must OPEN the sheet already dressed from THIS sheet: an
