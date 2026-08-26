@@ -228,12 +228,15 @@ namespace Lvn.UI.Screens
             _emotions.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _emotions.style.position = Position.Absolute;
             _emotions.style.right = 0;
-            _emotions.style.bottom = Length.Percent(100f);
-            _emotions.style.marginBottom = 12;
-            _emotions.style.maxHeight = 520;
             _emotions.style.display = DisplayStyle.None;
             _emotions.contentContainer.style.alignItems = Align.FlexEnd;
             Add(_emotions);
+            // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
+            // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
+            // неё, когда лиц больше, чем зазора. Теперь верх колонки прибит к
+            // низу навбара, а высота ограничена зазором до плашки — лишнее
+            // скроллится внутри, перекрытий не бывает по построению.
+            RegisterCallback<GeometryChangedEvent>(_ => PlaceEmotions());
 
             // ЛЕНТА КАРТОЧЕК СКИНОВ (решение Ильи 27.08: единый гардероб —
             // «взял бы плашку из игры, а карусель слить с карточками»): все
@@ -785,6 +788,23 @@ namespace Lvn.UI.Screens
                 b.Add(dot);
             }
             return b;
+        }
+
+        // Колонка эмоций стоит от низа НАВБАРА до верха плашки — в координатах
+        // листа, потому пересчёт на каждый layout: лист живёт на разной высоте
+        // в меню и в игре, а safe area у каждого устройства своя.
+        private void PlaceEmotions()
+        {
+            if (_emotions == null || panel == null) return;
+            float sheetTop = worldBound.yMin;
+            if (float.IsNaN(sheetTop) || sheetTop <= 0f) return;
+            float rootH = panel.visualTree.layout.height;
+            float safeTop = Screen.height > 0 && !float.IsNaN(rootH)
+                ? (Screen.height - Screen.safeArea.yMax) / Screen.height * rootH : 0f;
+            float navBottom = safeTop + LvnTopBar.RowH + 10f;
+            _emotions.style.top = navBottom - sheetTop;
+            _emotions.style.bottom = StyleKeyword.Auto;
+            _emotions.style.maxHeight = Mathf.Max(120f, sheetTop - navBottom - 12f);
         }
 
         // ── баблики эмоций: примерка лица на живую куклу ─────────────────────
