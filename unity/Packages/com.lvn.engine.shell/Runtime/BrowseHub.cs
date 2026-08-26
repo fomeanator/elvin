@@ -763,15 +763,11 @@ namespace Lvn.UI.Screens
             int i = 0;
             foreach (var child in container.Children())
             {
+                // РАЗОМ, БЕЗ ВОЛНЫ (Илья 26.08): каскад по строкам читался как
+                // «интерфейс скачет», особенно когда лента пересобиралась.
                 var el = child;
-                el.style.opacity = 0f;
-                el.style.translate = new Translate(0, 0);
-                int delay = 25 + i * 55;
                 i++;
-                el.schedule.Execute(() =>
-                    el.experimental.animation.Start(0f, 1f, 280, (e, v) => e.style.opacity = v)
-                        .Ease(UnityEngine.UIElements.Experimental.Easing.OutCubic)
-                ).ExecuteLater(delay);
+                Lvn.UI.LvnMotion.FadeIn(el);
             }
         }
 
@@ -779,14 +775,12 @@ namespace Lvn.UI.Screens
         /// ВЫЕЗЖАЕТ СНИЗУ — один раз на показ (зовёт оболочка при Show).</summary>
         public void PlayEntrance()
         {
+            // Навигация ПРОЯВЛЯЕТСЯ на месте: въезд снизу дёргал весь низ
+            // экрана на каждый показ хаба (Илья 26.08).
             if (_bottomNav != null)
             {
-                _bottomNav.style.translate = new Translate(0, 140);
-                _bottomNav.experimental.animation.Start(0f, 1f, 300, (e, v) =>
-                {
-                    float k = 1f - Mathf.Pow(1f - v, 3f);
-                    e.style.translate = new Translate(0, Mathf.Lerp(140f, 0f, k));
-                });
+                _bottomNav.style.translate = new Translate(0, 0);
+                Lvn.UI.LvnMotion.FadeIn(_bottomNav);
             }
             AnimateIn(_hubRows);
         }
@@ -852,20 +846,22 @@ namespace Lvn.UI.Screens
             // Фиксированная высота ниже иначе зарезервировала бы полэкрана
             // пустоты под заголовком, который не о чем.
             if (entering.Count == 0) return null;
-            // Высота считается от карточки, а не подбирается: постер 320,
-            // отступ 12, название в две строки ~62, подпись ~26. Ставится
-            // только теперь, когда точно известно, что карточки есть.
-            strip.style.height = 320f + 12f + 62f + 26f;
-            Lvn.UI.LvnMotion.Stagger(entering);
+            // Подпись теперь живёт на собственном матовом цоколе, а не поверх
+            // шумного полотна меню. Высота считается от постера и этой плашки:
+            // ни буквы, ни нижняя кромка не могут провалиться под навигацию.
+            strip.style.height = 292f + 112f;
+            // Плитки просто проступают: волна с въездом и пружиной читалась
+            // как дёрганье списка (Илья 26.08).
+            Lvn.UI.LvnMotion.FadeInAll(entering);
             row.Add(strip);
             return row;
         }
 
         // A poster card inside a slider: gradient depth, a cost/lock chip top-right,
         // the title + a "Подробнее" button at the bottom. Whole card opens detail.
-        // A Spotify-style shelf card: a rounded poster on top, the title and a
-        // dimmed subtitle below it (no overlaid text, no "more" button — the whole
-        // card is the tap target).
+        // A shelf card with a poster and its own dark caption plinth. Before this
+        // the title sat naked on the heroine/canvas behind it, so a bright raindrop
+        // or a pale sleeve could erase a word at a glance.
         private VisualElement SliderCard(LvnTitle t, LvnCollection from, bool hero)
         {
             bool locked = IsLocked(t);
@@ -874,14 +870,21 @@ namespace Lvn.UI.Screens
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
             card.style.marginRight = 18;
             card.style.opacity = locked ? 0.5f : 1f;
+            var plinth = LvnTokens.PanelBg;
+            card.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.93f);
+            card.style.overflow = Overflow.Hidden;
+            LvnChrome.Round(card, _radius + 2f);
+            LvnChrome.Border(card, new Color(_border.r, _border.g, _border.b, _border.a * 0.85f), 1f);
 
-            // poster — rounded, art fills it (portrait crop reads best for character art)
+            // Poster has only the top rounding; the caption below is visibly part
+            // of the same physical card rather than loose text under an image.
             var poster = new VisualElement();
             poster.style.width = Length.Percent(100f);
-            poster.style.height = 320;
+            poster.style.height = 292;
             poster.style.overflow = Overflow.Hidden;
             poster.style.backgroundColor = _card;
-            LvnChrome.Round(poster, _radius);
+            poster.style.borderTopLeftRadius = _radius + 2f;
+            poster.style.borderTopRightRadius = _radius + 2f;
 
             string art = t.card?.image ?? t.cover_url;
             if (!string.IsNullOrEmpty(art))
@@ -901,13 +904,6 @@ namespace Lvn.UI.Screens
                     ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.5f))
                     : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.3f));
             }
-            // Кромка идёт НА ЛЮБУЮ обложку, а не только на заглушку. Сначала я
-            // повесил её лишь туда, где картинки нет, — и на живом каталоге
-            // подпись темы исчезла: обложки лежали голыми прямоугольниками, а
-            // светилась только пустота. Рамка вокруг кадра — то, что делает его
-            // частью интерфейса, а не картинкой, положенной сверху.
-            Edge(poster);
-
             // cost / lock chip, small, floated on the poster
             var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)
                 : (t.cost != null && t.cost.amount > 0 ? Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy) : null);
@@ -918,26 +914,33 @@ namespace Lvn.UI.Screens
             }
             card.Add(poster);
 
-            // title + subtitle, below the poster (Spotify-style)
+            // A solid caption field is the readability contract for a shelf:
+            // title and chapter metadata must never compete with the moving scene.
+            var caption = new VisualElement { pickingMode = PickingMode.Ignore };
+            caption.style.paddingTop = 13; caption.style.paddingBottom = 12;
+            caption.style.paddingLeft = 14; caption.style.paddingRight = 14;
+            caption.style.flexGrow = 1;
+            caption.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.98f);
+
             var name = new Label(t.name ?? t.id);
-            name.style.color = _text; name.style.fontSize = 36;
+            name.style.color = _text; name.style.fontSize = 32;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
-            name.style.marginTop = 12;
-            name.style.maxHeight = 62;      // две строки: третья вытолкнула бы подпись
+            name.style.maxHeight = 54;      // две строки не съедают метаданные
             name.style.overflow = Overflow.Hidden;
-            card.Add(name);
+            caption.Add(name);
 
             string sub = t.subtitle ?? t.card?.description;
             if (!string.IsNullOrEmpty(sub))
             {
                 var subLbl = new Label(sub);
-                subLbl.style.color = _dim; subLbl.style.fontSize = 26; subLbl.style.marginTop = 4;
+                subLbl.style.color = _dim; subLbl.style.fontSize = 22; subLbl.style.marginTop = 4;
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
                 subLbl.style.textOverflow = TextOverflow.Ellipsis;
-                card.Add(subLbl);
+                caption.Add(subLbl);
             }
+            card.Add(caption);
 
             LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
@@ -1170,7 +1173,7 @@ namespace Lvn.UI.Screens
             foreach (var v in new[] { _hubView, _collectionView, _detailView })
                 if (v != null) v.style.display = ReferenceEquals(v, target)
                     ? DisplayStyle.Flex : DisplayStyle.None;
-            LvnMotion.SlideIn(target, 26f);
+            LvnMotion.FadeIn(target); // без въезда снизу — только проявление
         }
 
         /// <summary>Светящаяся кромка по контуру — подпись технической темы.
