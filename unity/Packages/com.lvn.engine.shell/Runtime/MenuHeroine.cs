@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
 
         // Значение оси: надетое из гардероба, иначе дефолт манифеста, иначе
         // первый вариант оси.
-        private string AxisValue(LvnSpriteDef def, string axis)
+        private string AxisValue(LvnSpriteEntity def, string axis)
         {
             var eq = Lvn.UI.LvnWardrobe.Equipped(_entity);
             if (eq != null && eq.TryGetValue(axis, out var v) && !string.IsNullOrEmpty(v)) return v;
