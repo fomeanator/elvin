@@ -93,12 +93,16 @@ namespace Lvn.UI.Screens
             _ => (null, null),
         };
 
+        /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>
+        public Action<int, int> OnTabTravel;
+
         public async Task TabGoTo(int target)
         {
             if (_tabBusy || target == _tab) return;
             var to = TabPage(target);
             if (to.el == null) return;
             _tabBusy = true;
+            OnTabTravel?.Invoke(_tab, target);
             try
             {
                 var from = TabPage(_tab);
