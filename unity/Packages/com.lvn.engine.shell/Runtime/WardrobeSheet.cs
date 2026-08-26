@@ -230,6 +230,7 @@ namespace Lvn.UI.Screens
             _emotions.style.right = 0;
             _emotions.style.display = DisplayStyle.None;
             _emotions.contentContainer.style.alignItems = Align.FlexEnd;
+            MakeDragScrollable(_emotions); // тянется рукой, а не только колесом
             Add(_emotions);
             // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
             // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
@@ -626,7 +627,8 @@ namespace Lvn.UI.Screens
             }
 
             RebuildEmotions();
-            SelectTab(_tab);
+            // «Моё» — вкладка по умолчанию (Илья 28.08), когда она есть.
+            SelectTab(_def.wardrobe.Count > 1 ? AllTab : _tab);
         }
 
         // Ось про волосы? — зеркало правила сцены (её вариант приватный).
@@ -790,6 +792,41 @@ namespace Lvn.UI.Screens
             return b;
         }
 
+        // Перетаскивание ScrollView указателем (Илья 28.08: «надо их скролабл
+        // сделать»): штатно UITK тянет список только колесом/тач-жестом.
+        // Нажатие на чип отдаёт захват чипу; после порога 8px жест признаётся
+        // скроллом — захват перехватываем себе, чип получает CaptureOut и клик
+        // не срабатывает (тап без движения работает как раньше).
+        private static void MakeDragScrollable(ScrollView sv)
+        {
+            bool down = false, dragging = false;
+            int pid = -1;
+            Vector2 startPos = default, startOff = default;
+            sv.RegisterCallback<PointerDownEvent>(e =>
+            {
+                down = true; dragging = false; pid = e.pointerId;
+                startPos = e.position; startOff = sv.scrollOffset;
+            }, TrickleDown.TrickleDown);
+            sv.RegisterCallback<PointerMoveEvent>(e =>
+            {
+                if (!down || e.pointerId != pid) return;
+                var d = (Vector2)e.position - startPos;
+                if (!dragging && Mathf.Abs(d.y) > 8f)
+                {
+                    dragging = true;
+                    sv.CapturePointer(pid);
+                }
+                if (dragging)
+                    sv.scrollOffset = new Vector2(startOff.x, startOff.y - d.y);
+            });
+            sv.RegisterCallback<PointerUpEvent>(e =>
+            {
+                if (e.pointerId == pid && sv.HasPointerCapture(pid))
+                    sv.ReleasePointer(pid);
+                down = false; dragging = false; pid = -1;
+            });
+        }
+
         // Колонка эмоций стоит от низа НАВБАРА до верха плашки — в координатах
         // листа, потому пересчёт на каждый layout: лист живёт на разной высоте
         // в меню и в игре, а safe area у каждого устройства своя.
@@ -835,7 +872,10 @@ namespace Lvn.UI.Screens
                 var chip = new Button(() =>
                 {
                     LvnWardrobe.Preview(_entity, _emotionAxis, value); // лицо — живьём
-                    StyleEmotions();
+                    // reveal:false — подвоз выбранного СДВИГАЛ список из-под
+                    // пальца сразу после тапа, читалось как «не применилось,
+                    // жми второй раз» (живой репорт 28.08).
+                    StyleEmotions(reveal: false);
                 }) { text = EmotionRu.TryGetValue(v, out var ru) ? ru : v };
                 chip.name = "emo-" + v;
                 chip.style.height = 44;
@@ -850,7 +890,9 @@ namespace Lvn.UI.Screens
             StyleEmotions();
         }
 
-        private void StyleEmotions()
+        // reveal — подвезти выбранный чип в кадр: только при перестройке
+        // колонки (открытие, смена персонажа), НИКОГДА после тапа.
+        private void StyleEmotions(bool reveal = true)
         {
             if (_emotionAxis == null) return;
             LvnWardrobe.Previewed(_entity).TryGetValue(_emotionAxis, out var current);
@@ -862,7 +904,7 @@ namespace Lvn.UI.Screens
                 if (b == null) continue;
                 bool on = b.name == "emo-" + current;
                 SkinButton(b, on);
-                if (on) _emotions.schedule.Execute(() =>
+                if (on && reveal) _emotions.schedule.Execute(() =>
                 {
                     if (b.panel != null && b.parent == _emotions.contentContainer)
                         _emotions.ScrollTo(b);
@@ -928,7 +970,7 @@ namespace Lvn.UI.Screens
         // целиком без зума.
         private (float zoom, float anchorY) StripFraming(string axis)
         {
-            if (axis == AllTab) return (1f, 0.5f);
+            if (axis == AllTab) return (1.07f, 0.5f); // лёгкий зум (Илья 28.08)
             var k = (axis ?? "").ToLowerInvariant();
             if (IsHairAxis(k)) return (1.60f, 0.35f);
             // Украшения показывают КРОП-ИКОНКИ (вырезаны по содержимому при
