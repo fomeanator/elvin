@@ -68,26 +68,25 @@ namespace Lvn.UI.Screens
             _catalog = new Dictionary<string, List<Pack>>();
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = LvnTokens.Scrim;
+            // ВКЛАДКА, точь-в-точь как главная (решение Ильи 26.08): никакого
+            // враппера-листа и скрима — контент прямо на общей атмосфере;
+            // сверху навбар, снизу дырка под нижнее меню хаба (оно живёт и
+            // кликается — root не ловит тапы).
+            style.backgroundColor = Color.clear;
             style.opacity = 0f;
             style.display = DisplayStyle.None;
-            // tap the scrim (not the sheet) to close
-            RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
+            pickingMode = PickingMode.Ignore;
 
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(5f);
-            sheet.style.right = Length.Percent(5f);
-            sheet.style.top = Length.Percent(7f);
-            sheet.style.bottom = Length.Percent(7f);
-            sheet.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
-            sheet.style.paddingTop = 20;
-            sheet.style.paddingBottom = 18;
+            sheet.style.left = 0; sheet.style.right = 0;
+            sheet.style.top = 96;    // под строкой навбара
+            sheet.style.bottom = 132; // дырка нижнего меню
+            sheet.style.paddingTop = 6;
+            sheet.style.paddingBottom = 6;
             sheet.style.paddingLeft = 20;
             sheet.style.paddingRight = 20;
             Add(sheet);
-            AdoptSheet(sheet, fullscreen: true); // раздел, не модалка (Илья 26.08)
 
             // ── Top bar: back ‹ · title · balances ────────────────────────────
             var top = new VisualElement();
@@ -96,32 +95,17 @@ namespace Lvn.UI.Screens
             top.style.marginBottom = 16;
             sheet.Add(top);
 
-            var back = new Button(Close) { text = "‹" };
-            back.style.fontSize = 34;
-            back.style.width = 52;
-            back.style.height = 52;
-            back.style.marginRight = 6;
-            back.style.paddingTop = 0; back.style.paddingBottom = 0;
-            back.style.paddingLeft = 0; back.style.paddingRight = 0;
-            back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = LvnTokens.Faint;
-            back.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnChrome.Round(back, LvnTokens.RadiusSm);
-            LvnChrome.ClearBorder(back);
-            top.Add(back);
-
             var title = new Label("Магазин");
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.marginLeft = 6;
             title.style.flexGrow = 1;
             top.Add(title);
 
+            // Балансы в шапке удалены — валюты несёт единый навбар (дубль).
             _balances = new VisualElement();
-            _balances.style.flexDirection = FlexDirection.Row;
-            _balances.style.alignItems = Align.Center;
+            _balances.style.display = DisplayStyle.None;
             top.Add(_balances);
 
             // ── Category tabs ─────────────────────────────────────────────────
