@@ -116,6 +116,7 @@ namespace Lvn.UI.Screens
             _sheet = new WardrobeSheet(ui?.wardrobe, ui?.dialogue, ui?.choices, _assets);
             _sheet.SetManifest(_manifest);
             _sheet.HideBalances = true;    // валюты уже в навбаре
+            _sheet.TabMode = true;         // уйти можно навбаром — «Отменить» вправе гаснуть
             _sheet.OnlySeen = false;       // ВИТРИНА: весь каталог скинов
             _sheet.MarkSeenOnShow = false; // …но коллекцию игры не раскрывает
             _sheet.OnPeek = on => SetPeek(on);
