@@ -507,6 +507,13 @@ namespace Lvn.UI.Screens
                 ConfigureFrameRate(); // 30/60 из настроек — применяется сразу
             };
 
+            // Зум к зоне скина (Илья 28.08: «как к лицу фаворитов в прологе»):
+            // лист гардероба сообщает активный раздел — камера наезжает на
+            // голову/шею/корпус куклы; «Все», «Во весь рост» и закрытие
+            // возвращают общий план.
+            Lvn.UI.Screens.WardrobeSheet.SectionFocus -= OnWardrobeSection;
+            Lvn.UI.Screens.WardrobeSheet.SectionFocus += OnWardrobeSection;
+
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack))
             {
@@ -1486,6 +1493,7 @@ namespace Lvn.UI.Screens
             try { await done; }
             finally
             {
+                OnWardrobeSection(null);                // глава продолжается общим планом
                 ++_storyActorSwitchGeneration;          // no late switch may show an old pill
                 var cur = _storySheet.CurrentEntity ?? entity;
                 if (!wasOn.Contains(cur))
@@ -1596,6 +1604,36 @@ namespace Lvn.UI.Screens
                 ["pan"] = P(fromTab), ["pan_to"] = P(toTab), ["pan_dur"] = 0.30,
             });
             _menuBgSet = true; // канвас стоит — стражу его больше не трогать
+        }
+
+        // ── камера гардероба: наезд на зону выбираемого скина ────────────────
+        // Кукла меню: ноги у низа, рост 0.91 высоты сцены → голова ~0.82H от
+        // низа, шея ~0.72H, корпус ~0.45H. Скейл GameRoot идёт вокруг центра,
+        // пан возвращает точку интереса чуть выше центра кадра (+0.10H).
+        private void OnWardrobeSection(string axis)
+        {
+            if (Stage == null) return;
+            if (axis == null)
+            {
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 });
+                return;
+            }
+            var k = axis.ToLowerInvariant();
+            float z, focus;
+            if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
+            { z = 2.05f; focus = 0.82f; }
+            else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
+                     || k.Contains("acc"))
+            { z = 1.90f; focus = 0.72f; }
+            else { z = 1.45f; focus = 0.45f; } // платье/наряд — корпус
+            // Канвас сцены width-match к 1080 — его высота в юнитах канваса.
+            float H = 1080f * Screen.height / Mathf.Max(1, Screen.width);
+            float panY = (0.10f - (focus - 0.5f) * z) * H;
+            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+            { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 });
+            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+            { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 });
         }
 
         private void HideMenuSceneActor()

@@ -74,6 +74,15 @@ namespace Lvn.UI.Screens
         /// Set before every ShowAsync — the instance is shared between paths.</summary>
         public bool OnlySeen;
 
+        /// <summary>Какую зону куклы смотрит игрок: ось активного раздела
+        /// (null — общий план: таб «Все», «Во весь рост», закрытие). Хост со
+        /// сценой (NovelApp) наводит по нему камеру — тот же приём, что зум к
+        /// лицам фаворитов в прологе (просьба Ильи 28.08).</summary>
+        public static event Action<string> SectionFocus;
+        private void FireSectionFocus(string axis) => SectionFocus?.Invoke(axis);
+        /// <summary>Вернуть зум активного раздела (возврат из «Во весь рост»).</summary>
+        public void RefocusSection() => FireSectionFocus(_tab == AllTab ? null : _tab);
+
         private LvnManifest _manifest;
         private string _entity;
         private LvnSpriteEntity _def;
@@ -169,7 +178,9 @@ namespace Lvn.UI.Screens
             // интерфейс, чтобы наряд было видно целиком; примерка при этом не
             // прерывается, любое касание возвращает панель. Выход из примерки
             // переехал вниз, к «Выбрать», отдельной кнопкой «Отменить».
-            var peek = new Button(() => OnPeek?.Invoke(true)) { text = "" };
+            // «Во весь рост» обязан показать фигуру ЦЕЛИКОМ — зум раздела
+            // снимается вместе с панелью; возврат наводит его заново (хост).
+            var peek = new Button(() => { FireSectionFocus(null); OnPeek?.Invoke(true); }) { text = "" };
             peek.style.position = Position.Absolute;
             peek.style.right = 0;
             peek.style.flexDirection = FlexDirection.Row;
@@ -407,6 +418,7 @@ namespace Lvn.UI.Screens
             LvnWallet.Changed -= OnWalletChanged;
             if (!string.IsNullOrEmpty(_entity)) LvnWardrobe.ClearPreview(_entity);
             _open = false;
+            FireSectionFocus(null); // жёсткое закрытие возвращает общий план
             _tcs?.TrySetResult(false);
         }
 
@@ -520,6 +532,8 @@ namespace Lvn.UI.Screens
                 b.style.marginLeft = 6; b.style.marginRight = 6;
                 b.style.paddingLeft = 18; b.style.paddingRight = 20;
                 LvnChrome.Round(b, 28f);
+                Smooth(b, 180, "background-color", "border-top-color",
+                    "border-right-color", "border-bottom-color", "border-left-color");
                 b.userData = axis;
                 if (!string.IsNullOrEmpty(slot?.icon))
                 {
@@ -549,6 +563,7 @@ namespace Lvn.UI.Screens
                 lbl.style.fontSize = 22;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
                 lbl.style.color = _text;
+                Smooth(lbl, 180, "color");
                 b.Add(lbl);
                 _tabs.Add(b);
             }
@@ -564,6 +579,8 @@ namespace Lvn.UI.Screens
                 all.style.marginLeft = 6; all.style.marginRight = 6;
                 all.style.paddingLeft = 18; all.style.paddingRight = 20;
                 LvnChrome.Round(all, 28f);
+                Smooth(all, 180, "background-color", "border-top-color",
+                    "border-right-color", "border-bottom-color", "border-left-color");
                 all.userData = AllTab;
                 var offA = LvnIcons.Make(LvnIcon.Star, 24f, _text);
                 offA.name = "ax-ic-off"; offA.pickingMode = PickingMode.Ignore;
@@ -578,6 +595,7 @@ namespace Lvn.UI.Screens
                 lblA.style.fontSize = 22;
                 lblA.style.whiteSpace = WhiteSpace.NoWrap;
                 lblA.style.color = _text;
+                Smooth(lblA, 180, "color");
                 all.Add(lblA);
                 _tabs.Add(all);
             }
@@ -613,6 +631,42 @@ namespace Lvn.UI.Screens
         {
             var key = (axis ?? "").ToLowerInvariant();
             return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
+        }
+
+        // ── плавный UI (Илья 28.08: «всё прыгает — надо чтобы плавно
+        // переезжал») ─────────────────────────────────────────────────────────
+        // Декларативные transition'ы UITK: после подключения любая смена
+        // значения (подсветка выбранного, перекраска пилюли) едет кривой сама.
+        private static void Smooth(VisualElement el, int ms, params string[] props)
+        {
+            var list = new List<StylePropertyName>(props.Length);
+            foreach (var p in props) list.Add(new StylePropertyName(p));
+            el.style.transitionProperty = list;
+            el.style.transitionDuration = new List<TimeValue>
+                { new TimeValue(ms, TimeUnit.Millisecond) };
+            el.style.transitionTimingFunction = new List<EasingFunction>
+                { new EasingFunction(EasingMode.EaseOutCubic) };
+        }
+
+        private static readonly string[] CardGlide =
+        {
+            "opacity", "translate", "border-top-color", "border-right-color",
+            "border-bottom-color", "border-left-color",
+        };
+
+        // Въезд элемента: лёгкий подъём + проявление, каскадом по позиции —
+        // перестройка ленты «переезжает», а не мигает. Transition вешается
+        // ВНУТРИ отложки: повешенный сразу, он анимировал бы сам старт в ноль.
+        private static void EnterSoft(VisualElement el, int i)
+        {
+            el.style.opacity = 0f;
+            el.style.translate = new Translate(0f, 12f);
+            el.schedule.Execute(() =>
+            {
+                Smooth(el, 240, CardGlide);
+                el.style.opacity = 1f;
+                el.style.translate = new Translate(0f, 0f);
+            }).ExecuteLater(16 + Mathf.Min(i, 10) * 26);
         }
 
         // ── поднастройки: ось-уточнение внутри таба родителя ─────────────────
@@ -672,7 +726,13 @@ namespace Lvn.UI.Screens
                     lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
                     lbl.style.marginRight = 10;
                     _subRow.Add(lbl);
-                    foreach (var it in items) _subRow.Add(SubSwatch(sub, it));
+                    int n = 0;
+                    foreach (var it in items)
+                    {
+                        var sw = SubSwatch(sub, it);
+                        _subRow.Add(sw);
+                        EnterSoft(sw, n++);
+                    }
                     any = true;
                 }
             _subRow.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
@@ -764,6 +824,7 @@ namespace Lvn.UI.Screens
                 chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
                 chip.style.fontSize = 19;
                 LvnChrome.Round(chip, 22f);
+                Smooth(chip, 180, "background-color", "color");
                 _emotions.Add(chip);
             }
             StyleEmotions();
@@ -792,6 +853,9 @@ namespace Lvn.UI.Screens
         private void SelectTab(string axis)
         {
             _tab = axis;
+            // Камера хоста едет к зоне раздела: причёска — к голове, украшения
+            // — к шее, платье — к корпусу; «Все» — общий план.
+            FireSectionFocus(_tab == AllTab ? null : _tab);
             foreach (var c in _tabs.Children())
             {
                 var b = c as Button;
@@ -873,6 +937,7 @@ namespace Lvn.UI.Screens
                             var card = StripCard(kv.Key, -1, it);
                             _strip.Add(card);
                             _stripCards.Add(card);
+                            EnterSoft(card, shown);
                             shown++;
                         }
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -887,6 +952,7 @@ namespace Lvn.UI.Screens
                 var card = StripCard(_tab, i, items[i]);
                 _strip.Add(card);
                 _stripCards.Add(card);
+                EnterSoft(card, i);
             }
             RebuildSubRow();
             StyleStrip();

@@ -64,6 +64,10 @@ namespace Lvn.UI.World
             Zoom(1f, seconds);
         }
 
+        // Наезды и паны идут smoothstep'ом: линейный ход читался механическим
+        // рывком на старте и стопе (жалоба «прыгает» на зуме гардероба).
+        private static float Ease(float p) => p * p * (3f - 2f * p);
+
         private Vector2 ShakeOffset()
         {
             if (_shakeStart < 0f) return Vector2.zero;
@@ -82,14 +86,14 @@ namespace Lvn.UI.World
             if (_panStart >= 0f)
             {
                 float p = Mathf.Clamp01((Now - _panStart) / Mathf.Max(0.0001f, _panDur));
-                _panBase = Vector2.LerpUnclamped(_panFrom, _panTo, p);
+                _panBase = Vector2.LerpUnclamped(_panFrom, _panTo, Ease(p));
                 if (p >= 1f) _panStart = -1f;
             }
 
             if (_zoomStart >= 0f)
             {
                 float p = Mathf.Clamp01((Now - _zoomStart) / Mathf.Max(0.0001f, _zoomDur));
-                float s = Mathf.LerpUnclamped(_zoomFrom, _zoomTo, p);
+                float s = Mathf.LerpUnclamped(_zoomFrom, _zoomTo, Ease(p));
                 _t.localScale = new Vector3(s, s, 1f);
                 if (p >= 1f) _zoomStart = -1f;
             }
