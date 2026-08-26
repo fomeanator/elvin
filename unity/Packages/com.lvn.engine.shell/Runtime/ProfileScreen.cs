@@ -104,15 +104,16 @@ namespace Lvn.UI.Screens
 
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
-            sheet.style.left = 0; sheet.style.right = 0;
+            sheet.style.left = 10; sheet.style.right = 10;
             // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
             // верх экрана — воздух с героиней и полотном.
-            sheet.style.top = Length.Percent(36f);
+            sheet.style.top = Length.Percent(39f);
             sheet.style.bottom = 132;
-            sheet.style.paddingTop = 6;
-            sheet.style.paddingBottom = 6;
-            sheet.style.paddingLeft = 20;
-            sheet.style.paddingRight = 20;
+            sheet.style.paddingTop = 18;
+            sheet.style.paddingBottom = 14;
+            sheet.style.paddingLeft = 18;
+            sheet.style.paddingRight = 18;
+            ScreenUi.SceneSheet(sheet, 0.92f);
             Add(sheet);
 
             // ── Top bar: back (‹) + "Профиль" ─────────────────────────────
@@ -122,12 +123,20 @@ namespace Lvn.UI.Screens
             top.style.marginBottom = 14;
             sheet.Add(top);
 
+            var titleBlock = new VisualElement();
+            var eyebrow = new Label("ЛИЧНОЕ ДЕЛО");
+            eyebrow.style.color = LvnTokens.Gold;
+            eyebrow.style.fontSize = 18;
+            eyebrow.style.letterSpacing = 2.2f;
+            eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
+            titleBlock.Add(eyebrow);
             var title = new Label("Профиль");
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = 42;
+            title.style.fontSize = 44;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            top.Add(title);
+            titleBlock.Add(title);
+            top.Add(titleBlock);
 
             // ── Scrollable body ───────────────────────────────────────────
             _body = new ScrollView(ScrollViewMode.Vertical);
@@ -173,8 +182,7 @@ namespace Lvn.UI.Screens
             _body.Add(SectionHeader("Отношения"));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
-                "Здесь появятся отношения с фаворитами. " +
-                "Они растут от ваших выборов в историях — начните главу, и полосы оживут."));
+                "Первый выбор уже меняет историю. Начните главу — и здесь появятся ваши связи."));
 
             if (OnOpenSettings != null) _body.Add(SettingsLink());
             if (OnDeleteAccount != null) _body.Add(DeleteAccountRow());
@@ -190,7 +198,8 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(row);
+            var rowEdge = LvnTokens.Border;
+            LvnChrome.Border(row, new Color(rowEdge.r, rowEdge.g, rowEdge.b, rowEdge.a * 0.7f), 1f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -198,7 +207,7 @@ namespace Lvn.UI.Screens
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
             ic.style.marginRight = 12;
             row.Add(ic);
-            var lbl = new Label($"Глав пройдено: {ChaptersDone}");
+            var lbl = new Label($"В истории: {ChaptersDone} {ChapterWord(ChaptersDone)}");
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             row.Add(lbl);
@@ -209,8 +218,9 @@ namespace Lvn.UI.Screens
         private VisualElement HintCard(string text)
         {
             var card = new VisualElement();
-            card.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(card);
+            card.style.backgroundColor = new Color(LvnTokens.Surface.r, LvnTokens.Surface.g, LvnTokens.Surface.b, 0.88f);
+            var cardEdge = LvnTokens.Border;
+            LvnChrome.Border(card, new Color(cardEdge.r, cardEdge.g, cardEdge.b, cardEdge.a * 0.64f), 1f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
             card.style.paddingTop = 16; card.style.paddingBottom = 16;
             card.style.paddingLeft = 16; card.style.paddingRight = 16;
@@ -230,8 +240,9 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(row);
+            row.style.backgroundColor = new Color(LvnTokens.Surface.r, LvnTokens.Surface.g, LvnTokens.Surface.b, 0.88f);
+            var rowEdge = LvnTokens.Border;
+            LvnChrome.Border(row, new Color(rowEdge.r, rowEdge.g, rowEdge.b, rowEdge.a * 0.64f), 1f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginTop = 6; row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -261,16 +272,29 @@ namespace Lvn.UI.Screens
         private VisualElement BuildIdentityCard()
         {
             var card = new VisualElement();
-            card.style.flexDirection = FlexDirection.Row;
-            card.style.alignItems = Align.Center;
-            card.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(card);
-            LvnChrome.Round(card, LvnTokens.Radius);
+            card.style.flexDirection = FlexDirection.Column;
+            card.style.backgroundColor = LvnTokens.SurfaceHi;
+            LvnChrome.Round(card, LvnTokens.Radius + 2f);
+            var cardEdge = LvnTokens.Border;
+            LvnChrome.Border(card, new Color(cardEdge.r, cardEdge.g, cardEdge.b, cardEdge.a * 0.8f), 1f);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
             card.style.paddingRight = 18;
             card.style.marginBottom = 16;
+
+            var dossier = new Label("ПАСПОРТ ИСТОРИИ");
+            dossier.style.color = LvnTokens.Gold;
+            dossier.style.fontSize = 17;
+            dossier.style.letterSpacing = 1.9f;
+            dossier.style.unityFontStyleAndWeight = FontStyle.Bold;
+            dossier.style.marginBottom = 12;
+            card.Add(dossier);
+
+            var identity = new VisualElement();
+            identity.style.flexDirection = FlexDirection.Row;
+            identity.style.alignItems = Align.Center;
+            card.Add(identity);
 
             // Circular avatar with an Accent ring.
             const float avatarSize = 96f;
@@ -299,12 +323,12 @@ namespace Lvn.UI.Screens
                 avatar.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(avatar, AvatarUrl, _assets), "AssignBg");
             }
-            card.Add(avatar);
+            identity.Add(avatar);
 
             // Name + level + XP.
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            card.Add(col);
+            identity.Add(col);
 
             var name = new Label(string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName);
             name.style.color = LvnTokens.Text;
@@ -371,7 +395,8 @@ namespace Lvn.UI.Screens
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(row);
+            var deleteEdge = LvnTokens.Border;
+            LvnChrome.Border(row, new Color(deleteEdge.r, deleteEdge.g, deleteEdge.b, deleteEdge.a * 0.55f), 1f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -455,7 +480,8 @@ namespace Lvn.UI.Screens
             tile.style.marginRight = 8;
             tile.style.alignItems = Align.Center;
             tile.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(tile);
+            var tileEdge = LvnTokens.Border;
+            LvnChrome.Border(tile, new Color(tileEdge.r, tileEdge.g, tileEdge.b, tileEdge.a * 0.64f), 1f);
             LvnChrome.Round(tile, LvnTokens.RadiusSm);
             tile.style.paddingTop = 16;
             tile.style.paddingBottom = 16;
@@ -539,7 +565,8 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(row);
+            var relationEdge = LvnTokens.Border;
+            LvnChrome.Border(row, new Color(relationEdge.r, relationEdge.g, relationEdge.b, relationEdge.a * 0.64f), 1f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.paddingTop = 14;
             row.style.paddingBottom = 14;
@@ -643,6 +670,20 @@ namespace Lvn.UI.Screens
 
         private static string Shorten(string id)
             => id != null && id.Length > 12 ? id.Substring(0, 12) + "…" : id;
+
+        private static string ChapterWord(int count)
+        {
+            int lastTwo = count % 100;
+            if (lastTwo >= 11 && lastTwo <= 14) return "глав";
+            switch (count % 10)
+            {
+                case 1: return "глава";
+                case 2:
+                case 3:
+                case 4: return "главы";
+                default: return "глав";
+            }
+        }
 
         // Жизненный цикл накладного экрана — в базовом классе
         // (LvnOverlayScreen): проявление, ожидание, угасание и отмена открытия

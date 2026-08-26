@@ -77,6 +77,12 @@ server/content/.cache/
 # On-demand KTX2/BasisU encodes (server/ktx2.go) — same regenerable-sidecar rule.
 *.ktx2
 
+# Root-level texture-compressor probes. These are temporary variants emitted by
+# local asset experiments; their source assets live elsewhere and nothing in
+# the project references these files directly.
+/cr_transcoded_*.dds
+/cr_transcoded_*.ktx
+
 # Licensed heroine art pack — LOCAL TESTING ONLY, never publish (dist/Перс.rar)
 server/content/sprites/hill/
 

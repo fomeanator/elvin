@@ -594,7 +594,7 @@ namespace Lvn.UI.Screens
         {
             bool locked = IsLocked(t);
             var b = new VisualElement();
-            b.style.height = 340; b.style.flexShrink = 0; b.style.marginBottom = 30;
+            b.style.height = 370; b.style.flexShrink = 0; b.style.marginBottom = 30;
             b.style.overflow = Overflow.Hidden;
             LvnChrome.Round(b, _radius + 2f);
 
@@ -617,10 +617,12 @@ namespace Lvn.UI.Screens
                 b.style.backgroundImage = Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f));
             else
                 b.style.backgroundImage = Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
-            Edge(b);
+            // У витринного кадра есть тонкая рамка, но не тяжёлая неоновая
+            // обводка: контраст должен остаться у одной кнопки «Играть».
+            LvnChrome.Border(b, new Color(_accent.r, _accent.g, _accent.b, 0.52f), 1f);
 
             b.style.justifyContent = Justify.FlexEnd;
-            b.style.paddingLeft = 22; b.style.paddingRight = 22; b.style.paddingBottom = 20;
+            b.style.paddingLeft = 24; b.style.paddingRight = 24; b.style.paddingBottom = 24;
 
             var eyebrow = new Label((resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.featured_text ?? "Рекомендуем")).ToUpperInvariant());
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;

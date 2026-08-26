@@ -26,6 +26,24 @@ namespace Lvn.UI.Screens
             return el;
         }
 
+        /// <summary>
+        /// The substantial lower sheet used by menu sections that live over the
+        /// heroine and the scene canvas. This is deliberately not a glowing card:
+        /// the sheet is the one object allowed to have a strong edge, while its
+        /// contents stay quiet and let the scene remain the hero.
+        /// </summary>
+        public static void SceneSheet(VisualElement el, float opacity = 0.94f)
+        {
+            if (el == null) return;
+            var bg = LvnTokens.PanelBg;
+            el.style.backgroundColor = new Color(bg.r, bg.g, bg.b, opacity);
+            LvnChrome.Round(el, LvnTokens.Radius + 4f);
+            var edge = LvnTokens.Accent;
+            LvnChrome.Border(el, new Color(edge.r, edge.g, edge.b, 0.30f), 1f);
+            el.style.borderTopWidth = 2f;
+            el.style.borderTopColor = new Color(edge.r, edge.g, edge.b, 0.72f);
+        }
+
         /// <summary>Load a sprite by url and set it as the element's background
         /// image. Missing art is non-fatal — the element keeps whatever it had.</summary>
         public static async Task AssignBgAsync(VisualElement el, string url, ILvnAssets assets)

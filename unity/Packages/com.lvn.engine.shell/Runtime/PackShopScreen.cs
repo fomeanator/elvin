@@ -101,15 +101,16 @@ namespace Lvn.UI.Screens
                 // кликается — root не ловит тапы).
                 style.backgroundColor = Color.clear;
                 pickingMode = PickingMode.Ignore;
-                sheet.style.left = 0; sheet.style.right = 0;
+                sheet.style.left = 10; sheet.style.right = 10;
                 // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
                 // верх экрана — воздух с героиней и полотном.
-                sheet.style.top = Length.Percent(36f);    // под строкой навбара
+                sheet.style.top = Length.Percent(39f);    // лицо героини остаётся в чистой зоне
                 sheet.style.bottom = 132; // дырка нижнего меню
-                sheet.style.paddingTop = 6;
-                sheet.style.paddingBottom = 6;
-                sheet.style.paddingLeft = 20;
-                sheet.style.paddingRight = 20;
+                sheet.style.paddingTop = 18;
+                sheet.style.paddingBottom = 14;
+                sheet.style.paddingLeft = 18;
+                sheet.style.paddingRight = 18;
+                ScreenUi.SceneSheet(sheet, 0.92f);
             }
             Add(sheet);
 
@@ -120,13 +121,21 @@ namespace Lvn.UI.Screens
             top.style.marginBottom = 16;
             sheet.Add(top);
 
+            var titleBlock = new VisualElement();
+            titleBlock.style.flexGrow = 1;
+            var eyebrow = new Label("ПОПОЛНИТЬ КОШЕЛЁК");
+            eyebrow.style.color = LvnTokens.Gold;
+            eyebrow.style.fontSize = 18;
+            eyebrow.style.letterSpacing = 2.2f;
+            eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
+            titleBlock.Add(eyebrow);
             var title = new Label("Магазин");
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = 40;
+            title.style.fontSize = 44;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.flexGrow = 1;
-            top.Add(title);
+            titleBlock.Add(title);
+            top.Add(titleBlock);
 
             if (modal)
             {
@@ -228,9 +237,12 @@ namespace Lvn.UI.Screens
 
         private Pack ToCard(Lvn.Services.LvnWallet.IapPack p, bool bundle)
         {
-            var gem = new Color(0.42f, 0.28f, 0.62f);
-            var en = new Color(0.16f, 0.34f, 0.52f);
-            var bun = new Color(0.44f, 0.20f, 0.34f);
+            // Витрина Time Romance живёт в ночном стекле и золоте, а не в
+            // случайной фиолетовой палитре. Сливовый остаётся только у редких
+            // наборов как у запечатанного личного дела.
+            var gem = new Color(0.06f, 0.27f, 0.31f);
+            var en = new Color(0.08f, 0.20f, 0.29f);
+            var bun = new Color(0.19f, 0.12f, 0.23f);
             string sub = null;
             if (bundle)
             {
@@ -322,31 +334,27 @@ namespace Lvn.UI.Screens
             card.style.marginBottom = 14;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             LvnChrome.Round(card, LvnTokens.Radius);
-            LvnChrome.Edge(card);
-            card.style.overflow = Overflow.Visible;
+            var quietEdge = LvnTokens.Border;
+            LvnChrome.Border(card, new Color(quietEdge.r, quietEdge.g, quietEdge.b, quietEdge.a * 0.9f), 1f);
+            card.style.overflow = Overflow.Hidden;
             if (pack.Best)
             {
-                card.style.borderTopWidth = 2; card.style.borderBottomWidth = 2;
-                card.style.borderLeftWidth = 2; card.style.borderRightWidth = 2;
+                card.style.borderTopWidth = 2; card.style.borderBottomWidth = 1;
+                card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
                 card.style.borderTopColor = LvnTokens.Accent;
-                card.style.borderBottomColor = LvnTokens.Accent;
-                card.style.borderLeftColor = LvnTokens.Accent;
-                card.style.borderRightColor = LvnTokens.Accent;
-                var glow = new VisualElement { pickingMode = PickingMode.Ignore };
-                glow.style.position = Position.Absolute;
-                glow.style.left = -4; glow.style.right = -4; glow.style.top = -4; glow.style.bottom = -4;
-                glow.style.backgroundColor = new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.12f);
-                LvnChrome.Round(glow, LvnTokens.Radius + 4f);
-                card.Add(glow);
-                glow.SendToBack();
+                card.style.borderBottomColor = quietEdge;
+                card.style.borderLeftColor = quietEdge;
+                card.style.borderRightColor = quietEdge;
             }
 
-            // Арт-сцена: тонированная подложка, большая эмблема с ореолом.
+            // Арт-сцена: не фиолетовая шапка, а тихий стол витрины. Реальная
+            // иконка каталога может заполнить её целиком; без неё остаётся
+            // аккуратный знак валюты и подпись категории.
             var art = new VisualElement();
-            art.style.height = wide ? 120 : 96;
+            art.style.height = wide ? 112 : 82;
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
-            art.style.backgroundColor = new Color(pack.Tint.r, pack.Tint.g, pack.Tint.b, 0.55f);
+            art.style.backgroundColor = new Color(pack.Tint.r, pack.Tint.g, pack.Tint.b, 0.88f);
             art.style.borderTopLeftRadius = LvnTokens.Radius;
             art.style.borderTopRightRadius = LvnTokens.Radius;
             art.style.overflow = Overflow.Hidden;
@@ -355,12 +363,21 @@ namespace Lvn.UI.Screens
             art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             var halo = new VisualElement { pickingMode = PickingMode.Ignore };
             halo.style.position = Position.Absolute;
-            halo.style.width = wide ? 96 : 76; halo.style.height = wide ? 96 : 76;
+            halo.style.width = wide ? 78 : 60; halo.style.height = wide ? 78 : 60;
             halo.style.backgroundColor = new Color(1f, 1f, 1f, 0.07f);
-            LvnChrome.Round(halo, wide ? 48f : 38f);
+            LvnChrome.Round(halo, wide ? 39f : 30f);
             art.Add(halo);
-            var glyph = LvnIcons.Make(pack.Emblem, wide ? 58f : 46f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
+            var glyph = LvnIcons.Make(pack.Emblem, wide ? 46f : 36f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow * 0.55f);
             art.Add(glyph);
+            var category = new Label(pack.Grants != null ? "НАБОР ДЛЯ ИСТОРИИ" : TabTitle(pack.Currency).ToUpperInvariant())
+            { pickingMode = PickingMode.Ignore };
+            category.style.position = Position.Absolute;
+            category.style.left = 12; category.style.bottom = 9;
+            category.style.color = new Color(LvnTokens.Text.r, LvnTokens.Text.g, LvnTokens.Text.b, 0.72f);
+            category.style.fontSize = 15;
+            category.style.letterSpacing = 1.4f;
+            category.style.unityFontStyleAndWeight = FontStyle.Bold;
+            art.Add(category);
             card.Add(art);
             if (!string.IsNullOrEmpty(pack.Card))
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(art, pack.Card, _assets), "AssignBg");
@@ -426,11 +443,14 @@ namespace Lvn.UI.Screens
             buy.style.marginTop = 10;
             buy.style.alignSelf = Align.Stretch;
             buy.style.paddingTop = 12; buy.style.paddingBottom = 12;
-            buy.style.color = LvnTokens.OnAccent;
-            buy.style.backgroundColor = LvnTokens.Accent;
+            buy.style.color = pack.Best ? LvnTokens.OnAccent : LvnTokens.Text;
+            buy.style.backgroundColor = pack.Best
+                ? LvnTokens.Accent
+                : new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.15f);
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnChrome.Round(buy, LvnTokens.RadiusSm);
-            LvnChrome.ClearBorder(buy);
+            if (pack.Best) LvnChrome.ClearBorder(buy);
+            else LvnChrome.Border(buy, new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.36f), 1f);
             buy.clicked += () => Buy(buy, pack);
             body.Add(buy);
 
@@ -442,7 +462,7 @@ namespace Lvn.UI.Screens
                            : "ЛУЧШАЯ ЦЕНА";
                 var ribbon = new Label(txt) { pickingMode = PickingMode.Ignore };
                 ribbon.style.position = Position.Absolute;
-                ribbon.style.top = -10;
+                ribbon.style.top = 10;
                 ribbon.style.left = 12;
                 ribbon.style.fontSize = 17;
                 ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
