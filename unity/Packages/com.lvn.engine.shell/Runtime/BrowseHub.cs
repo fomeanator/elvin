@@ -294,6 +294,9 @@ namespace Lvn.UI.Screens
             dActions.Add(_detailChips);
             _detailView.Add(dActions);
             Add(_detailView);
+            // Меню создано раньше вьюх — поднять НАД ними, иначе полноразмерный
+            // _hubView глотает клики по нему (живой скрин «меню не кликается»).
+            _bottomNav.BringToFront();
 
             // Keep the top-bar balances live with the wallet while on screen.
             RegisterCallback<AttachToPanelEvent>(_ => { Lvn.Services.LvnWallet.Changed += RefreshTopBar; RefreshTopBar(); });
