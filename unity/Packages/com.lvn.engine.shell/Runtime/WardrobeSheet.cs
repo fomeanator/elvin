@@ -1425,14 +1425,39 @@ namespace Lvn.UI.Screens
             return (null, null);
         }
 
+        /// <summary>Лист живёт ВКЛАДКОЙ (уйти можно навбаром), а не модалкой.
+        /// Тогда «Отменить» — не единственный выход, и его честно гасить,
+        /// когда отменять нечего; в сюжетном листе он гаснуть не смеет.</summary>
+        public bool TabMode;
+
+        // Есть ли НЕСОХРАНЁННАЯ примерка: превью, отличающееся от надетого, по
+        // ГАРДЕРОБНОЙ оси. Лицо примеряется мимо гардероба («Выбрать» его не
+        // коммитит) и в счёт не идёт, иначе тап по эмоции оживлял бы кнопки.
+        private bool HasPendingLook()
+        {
+            if (_def?.wardrobe == null) return false;
+            foreach (var kv in LvnWardrobe.Previewed(_entity))
+            {
+                if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
+                LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out var worn);
+                if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out worn);
+                if (kv.Value != worn) return true;
+            }
+            return false;
+        }
+
         private void RefreshConfirm()
         {
-            // Self-healing: any refresh (browse, wallet change, reopen) revives
-            // the button unless a confirm is genuinely in flight — a missed
-            // delayed-enable can never leave it dead again.
-            if (!_buying) _confirm.SetEnabled(true);
-
             var (axis, item) = PendingBuy();
+            // Кнопки честны, как стрелки (Илья 26.08): «Выбрать» живёт, пока
+            // есть что купить или что применить, «Отменить» — пока есть что
+            // отменять. Живая кнопка, которая ничего не сделает, врёт.
+            bool pending = HasPendingLook();
+            if (!_buying) _confirm.SetEnabled(item != null || pending);
+            _cancel?.SetEnabled(pending || !TabMode);
+            _confirm.style.opacity = _confirm.enabledSelf ? 1f : 0.4f;
+            if (_cancel != null) _cancel.style.opacity = _cancel.enabledSelf ? 1f : 0.4f;
+
             if (item != null)
             {
                 var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
