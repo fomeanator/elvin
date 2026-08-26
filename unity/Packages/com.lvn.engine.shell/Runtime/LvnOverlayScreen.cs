@@ -195,6 +195,10 @@ namespace Lvn.UI.Screens
         /// <summary>Отменить: крестик, «назад», системная кнопка возврата.</summary>
         protected void Cancel() => _tcs?.TrySetResult(false);
 
+        /// <summary>Отмена СНАРУЖИ — роутер оболочки закрывает верхнюю модаль
+        /// по системной «назад». Семантика ровно как у <see cref="Cancel"/>.</summary>
+        public void RequestCancel() => Cancel();
+
         /// <summary>Наследник может подготовить данные перед проявлением.</summary>
         protected virtual void OnOpening() { }
 

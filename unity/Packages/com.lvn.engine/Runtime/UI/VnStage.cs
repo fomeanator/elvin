@@ -153,8 +153,10 @@ namespace Lvn.UI
             if (!_built) Build();
             // The platform BACK (Android back = Escape in Unity): close the
             // TOPMOST surface — the story panel (wardrobe…) first, then the
-            // quick menu. The reader itself never exits on back.
-            if (Input.GetKeyDown(KeyCode.Escape))
+            // quick menu. The reader itself never exits on back. Модаль
+            // оболочки поверх сцены (магазин из гейта) забирает «назад» себе —
+            // см. LvnModalGuard.
+            if (Input.GetKeyDown(KeyCode.Escape) && !LvnModalGuard.AnyOpen)
             {
                 if (_panelHost != null && _panelHost.IsOpen)
                     PanelCancelRequested?.Invoke();
