@@ -1606,7 +1606,11 @@ namespace Lvn.UI.Screens
             if (Stage == null || _chapterPlaying) return;
             var canvas = _manifest?.ui?.browse?.canvas;
             if (string.IsNullOrEmpty(canvas)) return;
-            float P(int t) => 0.35f + 0.1f * Mathf.Clamp(t, 0, 3);
+            // Шаг 0.14 вместо 0.10 (Илья 26.08: «сдвиг бг неудачно подобран,
+            // героев не видно — сильнее вправо процентов на 40 за шаг»):
+            // прежний увозил полотно на четверть кадра за четыре вкладки, и
+            // фигуры на нём так и не выходили из-за края.
+            float P(int t) => 0.35f + 0.14f * Mathf.Clamp(t, 0, 3);
             _menuPanFrom = P(fromTab);
             _menuPanTo = P(toTab);
             _menuBgSet = true; // канвас стоит — стражу его больше не трогать
