@@ -153,7 +153,16 @@ namespace Lvn.Content
                 using var data = new NativeArray<byte>(bytes, Allocator.Persistent);
                 var ktx = new KtxTexture();
                 var result = await ktx.LoadFromBytes(data.AsReadOnly(), linear: false);
-                if (result?.texture == null) return (null, 0);
+                if (result?.texture == null)
+                {
+                    // Байты не декодятся — в кэше обрезок (скачан, пока сервер
+                    // ещё кодировал): выбрасываем, следующий заход перекачает
+                    // целый. Битое не должно залипать («данные восстановить» —
+                    // самолечением, Илья 27.08).
+                    DeleteCachedAsset(ktx2Url);
+                    NoteKtx2Miss(ktx2Url);
+                    return (null, 0);
+                }
 
                 var tex = result.texture;
                 tex.wrapMode = TextureWrapMode.Clamp;
@@ -175,7 +184,11 @@ namespace Lvn.Content
                 var sprite = Sprite.Create(tex, new Rect(0, 0, w, h),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
                 if (sw.ElapsedMilliseconds > 30)
-                    Debug.Log($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format}, yflip={result.orientation.IsYFlipped()})");
+                    // БЕЗ orientation в логе: result.orientation бывает null, и
+                    // NRE в ЛОГ-СТРОКЕ ронял весь декод уже ПОСЛЕ успешного
+                    // транскода — целый файл читался как «битый» (живой стек
+                    // 27.08, hair_orchid_red@2k).
+                    Debug.Log($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format})");
                 // Budget the LRU by the COMPRESSED size — that's what actually
                 // occupies VRAM; charging width*height*4 would evict 4-8× early.
                 return (sprite, bytes.LongLength);
@@ -184,8 +197,10 @@ namespace Lvn.Content
             catch (Exception ex)
             {
                 // Один битый файл ≠ сломанный транскодер: помечаем файл, тракт
-                // живёт; серию подряд добьёт общий счётчик промахов.
+                // живёт; серию подряд добьёт общий счётчик промахов. Битые
+                // байты выбрасываются из кэша — перекачаются целыми.
                 Debug.LogWarning($"[content] ktx2 decode failed for {ktx2Url}: {ex.Message}");
+                DeleteCachedAsset(ktx2Url);
                 NoteKtx2Miss(ktx2Url);
                 return (null, 0);
             }
