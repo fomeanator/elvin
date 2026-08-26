@@ -353,7 +353,7 @@ namespace Lvn.UI.Screens
             ScreenUi.Stretch(popupLayer);
             void Reparent(VisualElement el, VisualElement layer)
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
-            WardrobeTab = new WardrobeTabScreen(_manifest);
+            WardrobeTab = new WardrobeTabScreen(_manifest, _assets);
             WardrobeTab.Hide();
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);

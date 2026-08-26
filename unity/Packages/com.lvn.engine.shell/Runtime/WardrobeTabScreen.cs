@@ -16,12 +16,14 @@ namespace Lvn.UI.Screens
     public sealed class WardrobeTabScreen : LvnOverlayScreen
     {
         private readonly LvnManifest _manifest;
+        private readonly ILvnAssets _assets;
         private readonly string _entity;
         private readonly VisualElement _panel;
 
-        public WardrobeTabScreen(LvnManifest manifest)
+        public WardrobeTabScreen(LvnManifest manifest, ILvnAssets assets)
         {
             _manifest = manifest;
+            _assets = assets;
             _entity = manifest?.ui?.wardrobe?.entity;
             ScreenUi.Stretch(this);
             style.backgroundColor = Color.clear;
@@ -49,6 +51,55 @@ namespace Lvn.UI.Screens
         }
 
         protected override void OnOpening() => Rebuild();
+
+        // Карточка предмета — СТАРЫЙ вид шита (просьба Ильи): превью-иконка
+        // наряда, имя, цена у платных; выбранная — акцентная рамка.
+        private VisualElement ItemCard(string axis, LvnWardrobeItem item, bool on)
+        {
+            var card = new VisualElement();
+            card.style.width = 132;
+            card.style.marginRight = 10;
+            card.style.alignItems = Align.Center;
+            card.style.paddingTop = 8; card.style.paddingBottom = 8;
+            var bg = LvnTokens.PanelBg;
+            card.style.backgroundColor = on ? LvnTokens.SurfaceHi : new Color(bg.r, bg.g, bg.b, 0.6f);
+            LvnChrome.Round(card, 12f);
+            card.style.borderTopWidth = card.style.borderBottomWidth = 2f;
+            card.style.borderLeftWidth = card.style.borderRightWidth = 2f;
+            var edge = on ? LvnTokens.Accent : LvnTokens.Border;
+            card.style.borderTopColor = card.style.borderBottomColor = edge;
+            card.style.borderLeftColor = card.style.borderRightColor = edge;
+
+            var icon = new VisualElement { pickingMode = PickingMode.Ignore };
+            icon.style.width = 96; icon.style.height = 116;
+            icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+            if (!string.IsNullOrEmpty(item.icon))
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, item.icon, _assets), "WardrobeIcon");
+            card.Add(icon);
+
+            var name = new Label(item.name ?? item.value) { pickingMode = PickingMode.Ignore };
+            name.style.color = on ? LvnTokens.Text : LvnTokens.TextDim;
+            name.style.fontSize = 19;
+            name.style.marginTop = 5;
+            card.Add(name);
+
+            if (item.price > 0)
+            {
+                var price = new Label($"◆ {item.price}") { pickingMode = PickingMode.Ignore };
+                price.style.color = LvnTokens.Gold;
+                price.style.fontSize = 18;
+                price.style.marginTop = 2;
+                card.Add(price);
+            }
+
+            var value = item.value;
+            card.RegisterCallback<ClickEvent>(_ =>
+            {
+                LvnWardrobe.Equip(_entity, axis, value); // кукла обновится сама
+                Rebuild();
+            });
+            return card;
+        }
 
         public void Rebuild()
         {
@@ -94,23 +145,7 @@ namespace Lvn.UI.Screens
                 foreach (var item in slot.items)
                 {
                     if (item == null || string.IsNullOrEmpty(item.value)) continue;
-                    bool on = item.value == current;
-                    var pill = new Button { text = item.name ?? item.value };
-                    pill.style.height = 46;
-                    pill.style.fontSize = 21;
-                    pill.style.marginRight = 8;
-                    pill.style.paddingLeft = 16; pill.style.paddingRight = 16;
-                    pill.style.color = on ? LvnTokens.OnAccent : LvnTokens.Text;
-                    pill.style.backgroundColor = on ? LvnTokens.Accent : LvnTokens.Faint;
-                    LvnChrome.ClearBorder(pill);
-                    LvnChrome.Round(pill, 14f);
-                    var value = item.value;
-                    pill.clicked += () =>
-                    {
-                        LvnWardrobe.Equip(_entity, axis, value); // кукла меню обновится сама
-                        Rebuild();
-                    };
-                    row.Add(pill);
+                    row.Add(ItemCard(axis, item, item.value == current));
                 }
             }
         }
