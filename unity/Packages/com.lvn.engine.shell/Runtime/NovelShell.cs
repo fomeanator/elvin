@@ -227,7 +227,6 @@ namespace Lvn.UI.Screens
             // скролл ленты хаба и наклон телефона; слои — на разной глубине.
             var layers = new System.Collections.Generic.List<VisualElement>();
             _atmosphere.Query<VisualElement>("lvn-backdrop").ForEach(layers.Add);
-            if (layers.Count == 0) return;
             Vector2 tilt = Vector2.zero;
             _root.schedule.Execute(() =>
             {
@@ -239,8 +238,9 @@ namespace Lvn.UI.Screens
                     Mathf.Clamp(acc.x, -0.5f, 0.5f),
                     Mathf.Clamp(acc.y + 0.8f, -0.5f, 0.5f));
                 tilt = Vector2.Lerp(tilt, target, 0.06f);
-                float baseX = -_tabCanvasX;
-                _atmosphere.style.translate = new Translate(baseX, 0f);
+                // ПОЛОТНО ЕДЕТ ВСЕГДА (грабля: с фото-артом слоёв нет, и ранний
+                // выход оставлял его неподвижным при переездах вкладок).
+                _atmosphere.style.translate = new Translate(-_tabCanvasX, 0f);
                 for (int i = 0; i < layers.Count; i++)
                 {
                     // Сумма сдвигов ОБЯЗАНА жить в напуске слоя (80px), иначе
