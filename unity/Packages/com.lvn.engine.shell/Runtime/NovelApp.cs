@@ -1552,8 +1552,14 @@ namespace Lvn.UI.Screens
 
         private void ShowMenuScene()
         {
-            if (Stage == null || _chapterPlaying) return;
+            if (Stage == null || _chapterPlaying)
+            {
+                Debug.Log($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={_chapterPlaying}");
+                return;
+            }
             var canvas = _manifest?.ui?.browse?.canvas;
+            Debug.Log($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
+                      + $"bgSet={_menuBgSet} → полотно {(!string.IsNullOrEmpty(canvas) && !_menuBgSet ? "СТАВИМ" : "не трогаем")}");
             if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
             {
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
@@ -1575,6 +1581,8 @@ namespace Lvn.UI.Screens
             // а повторная actor-команда только передёргивала куклу. Но если
             // кукла ПРОПАЛА (оборванная загрузка, сеть) — страж самолечится
             // и шлёт показ заново.
+            Debug.Log($"[lvn-menu] кукла: фаворит={fav ?? "-"}, стоявший={_menuSceneActor ?? "-"}, "
+                      + $"на сцене={(string.IsNullOrEmpty(fav) ? false : Stage.ActorVisibleOrPending(fav))}");
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.

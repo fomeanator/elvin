@@ -105,7 +105,12 @@ namespace Lvn.UI
             // рестарт пана с левого края — «фон дёргает туда-сюда» (живой
             // репорт). Авторский повтор bg с ДРУГИМИ параметрами (новый пан)
             // отличается содержимым команды и проходит как раньше.
-            if (_lastBgCmd != null && HasBackdrop && JToken.DeepEquals(_lastBgCmd, cmd)) return;
+            if (_lastBgCmd != null && HasBackdrop && JToken.DeepEquals(_lastBgCmd, cmd))
+            {
+                Debug.Log($"[lvn-bg] bg no-op (та же команда): {url}");
+                return;
+            }
+            Debug.Log($"[lvn-bg] bg ставим: {url} (epoch={_stageEpoch}, HasBackdrop={HasBackdrop})");
             // Remember the latest scene backdrop across scenes/sessions — the
             // hub wardrobe reopens "where the player last was" on this canvas.
             PlayerPrefs.SetString(LastBgKey, url);
@@ -117,8 +122,13 @@ namespace Lvn.UI
             int gen = ++_bgGen;
             var sprite = await LoadSceneSpriteAsync(url, "bg",
                 () => StageCurrent(epoch) && _bgGen == gen);
-            if (sprite == null) return;
-            if (!StageCurrent(epoch) || _bgGen != gen) return; // a chapter change / newer bg won
+            if (sprite == null) { Debug.Log($"[lvn-bg] bg НЕ ЗАГРУЗИЛСЯ: {url}"); return; }
+            if (!StageCurrent(epoch) || _bgGen != gen)
+            {
+                Debug.Log($"[lvn-bg] bg отменён на подлёте: {url} " +
+                          $"(epoch {epoch}→{_stageEpoch}, gen {gen}→{_bgGen})");
+                return; // a chapter change / newer bg won
+            }
             // Смена фона растворяет прежний кадр (тема ui.stage.bg_fade;
             // авторское `fade=` на команде сильнее). Первый фон сцены проходит
             // мгновенно — под ним ещё занавес входа.
