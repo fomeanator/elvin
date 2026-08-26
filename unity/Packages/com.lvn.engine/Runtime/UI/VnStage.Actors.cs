@@ -203,9 +203,24 @@ namespace Lvn.UI
                     if (s != null) { cl.PinSprite(s, true); keep.Add(s); }
             }
             if (_scenePins.TryGetValue(slot, out var prev) && prev != null)
-                foreach (var s in prev) cl.PinSprite(s, false);
+            {
+                // Анпин ПРЕЖНИХ — С ЗАДЕРЖКОЙ: прокси смены облика ещё
+                // показывает старые слои весь кроссфейд, и мгновенный анпин
+                // отдавал их LRU прямо под ним — актёр вставал БЕЛЫМ
+                // прямоугольником (живой скрин 27.08). Две секунды покрывают
+                // самый длинный своп с запасом.
+                LvnAsync.Fire(UnpinLaterAsync(prev), "UnpinLater");
+            }
             if (keep == null) _scenePins.Remove(slot);
             else _scenePins[slot] = keep;
+        }
+
+        private async Task UnpinLaterAsync(List<Sprite> sprites)
+        {
+            await Task.Delay(2000);
+            var cl = (Assets as CachingAssets)?.Loader;
+            if (cl == null) return;
+            foreach (var s in sprites) cl.PinSprite(s, false);
         }
 
         private void UnpinAllSceneSprites()
