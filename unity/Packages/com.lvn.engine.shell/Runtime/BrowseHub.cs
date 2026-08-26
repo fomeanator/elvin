@@ -200,6 +200,11 @@ namespace Lvn.UI.Screens
             _hubRows = new ScrollView(ScrollViewMode.Vertical);
             _hubRows.style.flexGrow = 1;
             _hubRows.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel, no track/arrows
+            // Контент ленты ПРИЖАТ К НИЗУ В УПОР (Илья 27.08): контейнер
+            // скролла минимум во весь вьюпорт — воздух-растяжка сверху (см.
+            // BuildHubTiles) отжимает ряды к нижнему меню, а не оставляет
+            // пустоту под ними.
+            _hubRows.contentContainer.style.minHeight = Length.Percent(100f);
             _hubView.Add(_hubRows);
             // Нижнее меню — В КОРНЕ хаба, не в контенте: контент уезжает
             // лентой вкладок, а меню стоит поверх разделов и переключает их
@@ -517,9 +522,13 @@ namespace Lvn.UI.Screens
             var orphans = OrphanTitles();
             // Feature the title the player can CONTINUE, if any; else a recommended one.
             // Воздух сверху (Илья: «главную вниз, как гардероб») — лента
-            // стартует под героиней и скроллится поверх неё.
+            // стартует под героиней и скроллится поверх неё. РАСТЯЖКА, а не
+            // фикс: при коротком контенте воздух добирает всё свободное место
+            // и прижимает ряды вниз В УПОР к нижнему меню (Илья 27.08); при
+            // длинном — сжимается до минимума в 30%.
             var air = new VisualElement { pickingMode = PickingMode.Ignore };
-            air.style.height = Length.Percent(30f);
+            air.style.minHeight = Length.Percent(30f);
+            air.style.flexGrow = 1;
             air.style.flexShrink = 0;
             _hubRows.Add(air);
             var resume = ResumableTitle();
@@ -537,6 +546,10 @@ namespace Lvn.UI.Screens
                 var libRow = CollectionRow(lib, hero: _collections.Count == 0);
                 if (libRow != null) _hubRows.Add(libRow);
             }
+            // Последний ряд — вплотную к нижнему меню: его штатная маржа 30px
+            // оставляла зазор под «упором».
+            var cc = _hubRows.contentContainer;
+            if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = 0;
             AnimateIn(_hubRows); // staggered entrance
         }
 
