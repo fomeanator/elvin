@@ -219,6 +219,10 @@ namespace Lvn.UI
 
         private bool _bgWasBlankWhite;
 
+        /// <summary>Картинка на полотне ЕСТЬ (факт, не флаг). Хост держит этим
+        /// инвариант «в меню всегда есть фон».</summary>
+        public bool BackdropHasArt => (_renderer as CanvasSceneRenderer)?.BackdropHasArt ?? false;
+
         /// <summary>Диагностика «белого прямоугольника» ПО СЦЕНЕ: дерево
         /// оболочки уже показало, что светлого в нём нет, значит пятно рисует
         /// UGUI. Печатаем каждую видимую поверхность, которая рисует СПЛОШНОЙ
