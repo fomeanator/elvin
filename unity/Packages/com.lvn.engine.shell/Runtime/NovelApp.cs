@@ -511,7 +511,7 @@ namespace Lvn.UI.Screens
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
                 Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
-                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); HideMenuSceneActor(); };
+                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
                     _chapterPlaying = false;
@@ -1524,16 +1524,34 @@ namespace Lvn.UI.Screens
         // слои, наши fx, смена наряда обновляет его штатно). UITK-шелл поверх
         // держит только панели.
         private string _menuSceneActor;
+        // Канвас меню ставится ОДИН РАЗ за менюшную сессию: повторные bg-команды
+        // (страж наряда стрелял на каждую примерку) конкурировали с пан-командой
+        // вкладок — фон «елозил туда-сюда» и пан сбивался (живой репорт 27.08).
+        // Фоном меню рулят только: первая постановка здесь и PanMenuScene.
+        private bool _menuBgSet;
 
         private void ShowMenuScene()
         {
             if (Stage == null || _chapterPlaying) return;
             var canvas = _manifest?.ui?.browse?.canvas;
-            if (!string.IsNullOrEmpty(canvas))
+            if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
+            {
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "bg", ["sprite_url"] = canvas });
+                {
+                    ["op"] = "bg", ["sprite_url"] = canvas,
+                    // Стартовая четверть полотна — вкладка «Главная» (меню
+                    // всегда открывается с неё): та же точка, что у P(0) в
+                    // PanMenuScene, чтобы первый переезд не прыгал.
+                    ["pan"] = 0.35,
+                });
+                _menuBgSet = true;
+            }
             var fav = MenuFavoriteEntity();
-            if (fav != _menuSceneActor && !string.IsNullOrEmpty(_menuSceneActor))
+            // Тот же фаворит уже стоит — НИЧЕГО не слать: смену наряда сцена
+            // применяет сама (подписка на LvnWardrobe.Changed), а повторная
+            // actor-команда только передёргивала куклу.
+            if (fav == _menuSceneActor) return;
+            if (!string.IsNullOrEmpty(_menuSceneActor))
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
                 { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
             if (!string.IsNullOrEmpty(fav))
@@ -1565,6 +1583,7 @@ namespace Lvn.UI.Screens
                 ["op"] = "bg", ["sprite_url"] = canvas, ["fade"] = 0,
                 ["pan"] = P(fromTab), ["pan_to"] = P(toTab), ["pan_dur"] = 0.30,
             });
+            _menuBgSet = true; // канвас стоит — стражу его больше не трогать
         }
 
         private void HideMenuSceneActor()
