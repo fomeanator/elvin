@@ -1183,6 +1183,11 @@ namespace Lvn.Content
             lock (_inflight)
             {
                 if (_inflight.ContainsKey(batchKey)) return _inflight[batchKey];
+                // Чистый старт: словари байтов копят и одиночные фетчи
+                // (фоновый стриминг), и их мусор въезжал в прогресс батча —
+                // «Скачано 131 из 135» при пустой очереди (живой скрин).
+                _bytesReceived.Clear();
+                _bytesExpected.Clear();
                 BatchTotal     = pending.Count;
                 BatchDone      = 0;
                 batchTask      = RunBatchAsync(pending, ct);
