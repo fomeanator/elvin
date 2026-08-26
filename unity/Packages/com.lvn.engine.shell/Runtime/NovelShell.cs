@@ -155,6 +155,7 @@ namespace Lvn.UI.Screens
         }
 
         private VisualElement _atmosphere;
+        private bool _sceneMenu; // меню рисуется сценой: оболочка прозрачна
         /// <summary>Кукла героини поверх полотна меню (все вкладки).</summary>
         public Lvn.UI.Screens.MenuHeroine MenuHeroineView;
         /// <summary>Вкладка гардероба — UI вокруг общей героини.</summary>
@@ -177,7 +178,16 @@ namespace Lvn.UI.Screens
             _atmosphere.style.width = Length.Percent(125f); // запас под сдвиг 3×0.067W
             _atmosphere.style.backgroundColor = t.Bg;
             var canvasUrl = _manifest?.ui?.browse?.canvas;
-            if (!string.IsNullOrEmpty(canvasUrl))
+            _sceneMenu = !string.IsNullOrEmpty(canvasUrl);
+            bool sceneMenu = _sceneMenu;
+            if (sceneMenu)
+            {
+                // МЕНЮ ВНУТРИ ИГРЫ: полотно и героиню рисует СЦЕНА (канвас под
+                // панелью) — оболочка прозрачна, атмосфера мертва совсем.
+                _atmosphere.style.display = DisplayStyle.None;
+                _atmosphere.style.backgroundColor = Color.clear;
+            }
+            else if (!sceneMenu && canvasUrl != null)
             {
                 // Арт-полотно партнёра: фото на всю ширину 4 экранов + тёмная
                 // вуаль (текст обязан читаться) + тинт вкладки поверх.
@@ -207,14 +217,18 @@ namespace Lvn.UI.Screens
 
             // Героиня — НЕПОДВИЖНЫЙ передний план меню: полотно и контент едут,
             // она стоит (слой между полотном и вкладками).
-            MenuHeroineView = new Lvn.UI.Screens.MenuHeroine(_manifest, _assets);
-            _root.Insert(1, MenuHeroineView);
+            if (!sceneMenu)
+            {
+                MenuHeroineView = new Lvn.UI.Screens.MenuHeroine(_manifest, _assets);
+                _root.Insert(1, MenuHeroineView);
+            }
             // ВИДИМОСТЬ ПО ПРАВИЛУ «виден экран меню», а не «нет главы»:
             // гардероб из хаба прячет хаб и живёт в документе СЦЕНЫ — атмосфера
             // с событийной подпиской оставалась поверх и заслоняла его целиком
             // (живой скрин «гардероб сломан»). Тик ниже держит правило сам.
             _root.schedule.Execute(() =>
             {
+                if (_sceneMenu) return; // сцена рисует меню — атмосфера мертва
                 bool menuVisible =
                     (Boot != null && Boot.style.display == DisplayStyle.Flex) ||
                     (Carousel != null && Carousel.style.display == DisplayStyle.Flex) ||

@@ -306,7 +306,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void PrepareStage(LvnManifest manifest)
         {
-            if (Stage == null) Stage = CreateStage();
+            if (Stage == null) { Stage = CreateStage(); ShowMenuScene(); }
             _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
             Stage.Catalog = new SpriteCatalog(manifest.sprites);
@@ -479,6 +479,7 @@ namespace Lvn.UI.Screens
             DownloadPolicy.PreferredSuffix = "@" + EffectiveArtQuality();
             Lvn.UI.LvnPrefs.Changed += () =>
             {
+                if (!_chapterPlaying) ShowMenuScene(); // смена фаворита — живьём
                 var next = "@" + EffectiveArtQuality();
                 if (DownloadPolicy.PreferredSuffix != next)
                 {
@@ -493,10 +494,11 @@ namespace Lvn.UI.Screens
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack))
             {
-                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); };
+                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
                     _chapterPlaying = false;
+                    ShowMenuScene(); // меню-сцена возвращается после главы
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
                 };
                 LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
@@ -1501,6 +1503,47 @@ namespace Lvn.UI.Screens
         // Builds a VnStage on a child GameObject with its own UIDocument + panel
         // (sortingOrder below the shell's 30) so dropping a single NovelApp on an
         // empty object is enough to run the whole flow.
+        // ── МЕНЮ ВНУТРИ ИГРЫ (решение Ильи 26.08) ── меню рисуется НАСТОЯЩЕЙ
+        // сценой: полотно — команда bg, фаворит — сценический актёр (живые
+        // слои, наши fx, смена наряда обновляет его штатно). UITK-шелл поверх
+        // держит только панели.
+        private string _menuSceneActor;
+
+        private void ShowMenuScene()
+        {
+            if (Stage == null || _chapterPlaying) return;
+            var canvas = _manifest?.ui?.browse?.canvas;
+            if (!string.IsNullOrEmpty(canvas))
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "bg", ["sprite_url"] = canvas });
+            var fav = MenuFavoriteEntity();
+            if (fav != _menuSceneActor && !string.IsNullOrEmpty(_menuSceneActor))
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
+            if (!string.IsNullOrEmpty(fav))
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "actor", ["id"] = fav, ["show"] = true, ["position"] = "center" });
+            _menuSceneActor = fav;
+        }
+
+        private void HideMenuSceneActor()
+        {
+            if (Stage == null || string.IsNullOrEmpty(_menuSceneActor)) return;
+            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+            { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
+            _menuSceneActor = null;
+        }
+
+        private string MenuFavoriteEntity()
+        {
+            var fav = Lvn.UI.LvnPrefs.MenuFavorite;
+            if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
+                && _manifest.sprites.ContainsKey(fav)) return fav;
+            var def = _manifest?.ui?.wardrobe?.entity;
+            return !string.IsNullOrEmpty(def) && _manifest?.sprites != null
+                && _manifest.sprites.ContainsKey(def) ? def : null;
+        }
+
         private VnStage CreateStage()
         {
             var go = new GameObject("VnStage");
