@@ -118,6 +118,18 @@ namespace Lvn.UI
             // whether the sprite itself loads (a cache miss doesn't unsee the CG).
             UnlockGalleryFor(url);
             if (Assets == null) return;
+            // СЦЕНА МОЖЕТ БЫТЬ ЕЩЁ НЕ ПОСТРОЕНА. Build идёт в первом Update, а
+            // хост ставит полотно меню сразу — команда уходила в никуда
+            // (_renderer?.SetBackground у null), но флаг «фон стоит» всё равно
+            // вставал ниже. Итог: чёрный экран, который сам не чинился, и
+            // вернуть картинку мог только новый показ — заход в главу и выход
+            // (Илья 26.08). Ждём рождения рендерера, а не молчим.
+            for (int f = 0; _renderer == null && f < 300; f++) await Task.Yield();
+            if (_renderer == null)
+            {
+                Debug.LogWarning($"[lvn-bg] сцена не построилась — полотно не поставлено: {url}");
+                return; // БЕЗ HasBackdrop: врать про фон нельзя, страж досылает
+            }
             int epoch = _stageEpoch;
             int gen = ++_bgGen;
             var sprite = await LoadSceneSpriteAsync(url, "bg",

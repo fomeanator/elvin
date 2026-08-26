@@ -1701,14 +1701,22 @@ namespace Lvn.UI.Screens
             if (Time.unscaledTime < _nextMenuGuard) return;
             _nextMenuGuard = Time.unscaledTime + 1f;
             if (string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)) return;
-            if (Stage.HasBackdrop) return;
-            if (!_menuBgSet) return;      // постановка ещё в полёте — не мешаем
+            // ПО ФАКТУ КАРТИНКИ, А НЕ ПО ФЛАГУ: флаг «фон стоит» врал, когда
+            // команда приходила до рождения рендерера, и страж молчал вместе с
+            // ним. Смотрим на само полотно.
+            if (Stage.BackdropHasArt) { _menuBgMissingSince = 0f; return; }
+            // Даём постановке доехать (крупный канвас декодится ~0.6с) и только
+            // потом вмешиваемся — иначе страж перебивал бы живую загрузку.
+            if (_menuBgMissingSince <= 0f) { _menuBgMissingSince = Time.unscaledTime; return; }
+            if (Time.unscaledTime - _menuBgMissingSince < 2f) return;
+            _menuBgMissingSince = 0f;
             Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
             _menuBgSet = false;
             ShowMenuScene();
         }
 
         private float _nextMenuGuard;
+        private float _menuBgMissingSince;
 
         private async System.Threading.Tasks.Task DumpSceneSoonAsync()
         {

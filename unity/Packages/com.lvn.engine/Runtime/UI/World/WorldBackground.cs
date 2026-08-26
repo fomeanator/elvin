@@ -160,6 +160,11 @@ namespace Lvn.UI.World
         /// фона color=white. Значит выгруженная (или так и не приехавшая)
         /// текстура превращает полотно в белое пятно во весь кадр. Возвращает
         /// true ровно в этот момент — вызывающий пишет это в лог.</summary>
+        /// <summary>На полотне ЕСТЬ картинка — единственный честный признак
+        /// «фон стоит». Флаг у сцены может врать: команда, применённая до
+        /// рождения рендерера, ничего не рисует.</summary>
+        public bool HasArt => _image != null && _image.texture != null;
+
         public bool IsBlankWhite =>
             _image != null && _image.texture == null && _image.color.maxColorComponent > 0.5f;
 

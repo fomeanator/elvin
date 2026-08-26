@@ -108,6 +108,7 @@ namespace Lvn.UI
         /// охоты на белый прямоугольник после выхода из главы.</summary>
         public bool BackdropBlankWhite => _scene.Background != null && _scene.Background.IsBlankWhite;
         public string BackdropState => _scene.Background?.DebugState ?? "нет";
+        public bool BackdropHasArt => _scene.Background != null && _scene.Background.HasArt;
 
         /// <summary>Актёры, чьи слои остались без спрайтов (рисуют сплошные
         /// прямоугольники вместо арта) — сцена лечит их пересборкой облика.</summary>
