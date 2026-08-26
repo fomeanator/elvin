@@ -140,6 +140,13 @@ namespace Lvn.UI
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
 
+        /// <summary>Прямая установка пана стоящего фона (0..1) БЕЗ анимации —
+        /// хост ведёт полотно меню в такт СВОЕЙ UI-анимации, кадр в кадр.
+        /// Собственный пан-таймер фона (bg-команда) стартует позже async-тракта
+        /// и едет другой кривой — рассинхрон с переездом вкладок бросался в
+        /// глаза (живой репорт 28.08).</summary>
+        public void SetBackgroundPan(float pan01) => _renderer?.PanBackground(pan01, pan01, 0f);
+
         // Последняя применённая bg-команда — повтор той же не трогает сцену.
         private JObject _lastBgCmd;
 
