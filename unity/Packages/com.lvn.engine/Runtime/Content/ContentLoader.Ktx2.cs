@@ -145,7 +145,6 @@ namespace Lvn.Content
                 return (null, 0);
             }
             if (bytes == null || bytes.Length == 0) { NoteKtx2Miss(ktx2Url); return (null, 0); }
-            NoteKtx2Hit();
 
             try
             {
@@ -177,12 +176,20 @@ namespace Lvn.Content
                 // меньше и перескакивает» — живой репорт). Контейнер KTX2
                 // помнит исходные размеры; паддинг лежит в хвосте данных
                 // (верх текстуры) — рект от низа его отрезает.
-                float w = ktx.baseWidth > 0 && ktx.baseWidth <= (uint)tex.width
-                    ? ktx.baseWidth : (uint)tex.width;
-                float h = ktx.baseHeight > 0 && ktx.baseHeight <= (uint)tex.height
-                    ? ktx.baseHeight : (uint)tex.height;
+                // Размеры — ИЗ ЗАГОЛОВКА КОНТЕЙНЕРА (pixelWidth/pixelHeight,
+                // little-endian u32 по смещениям 20/24 спеки KTX2), не из
+                // ktx.baseWidth: LoadFromBytes сам делает Dispose() в конце,
+                // и обращение к свойству после него кидало NRE — уже
+                // транскоженная текстура выбрасывалась, файл стирался из
+                // кэша как «битый», и каждый показ платил полный PNG-декод
+                // (живой лог 26.08).
+                uint origW = bytes.Length >= 28 ? BitConverter.ToUInt32(bytes, 20) : 0;
+                uint origH = bytes.Length >= 28 ? BitConverter.ToUInt32(bytes, 24) : 0;
+                float w = origW > 0 && origW <= (uint)tex.width ? origW : (uint)tex.width;
+                float h = origH > 0 && origH <= (uint)tex.height ? origH : (uint)tex.height;
                 var sprite = Sprite.Create(tex, new Rect(0, 0, w, h),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+                NoteKtx2Hit(); // «жив» = ДЕКОД прошёл: сброс до декода прятал серию битых файлов от общего счётчика
                 if (sw.ElapsedMilliseconds > 30)
                     // БЕЗ orientation в логе: result.orientation бывает null, и
                     // NRE в ЛОГ-СТРОКЕ ронял весь декод уже ПОСЛЕ успешного
