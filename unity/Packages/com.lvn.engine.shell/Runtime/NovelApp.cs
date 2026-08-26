@@ -512,7 +512,7 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnLockedHint = (name, hint) =>
                     _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
                 _shell.Hub.OnMenu = () => _shell.OpenSettingsAsync(); // avatar → account/settings
-                _shell.Hub.OnStore = () => TabTravelAsync(1);   // currency "+" / Магазин → pack shop
+                _shell.Hub.OnStore = () => _shell.TabGoTo(1);   // вкладка ленты
                 // Гардероб → the REAL, wallet-synced wardrobe for the game's main
                 // heroine (title.hero ?? manifest.hero). Ownership lives in the
                 // shared LvnWallet.Inventory, so it stays in sync with the in-story
@@ -521,9 +521,15 @@ namespace Lvn.UI.Screens
                 // ЛЕНТА ВКЛАДОК (Илья 26.08): Главная(0) → Магазин(1) →
                 // Гардероб(2) → Профиль(3). Переход едет по ленте: хаб уезжает,
                 // промежуточные вкладки ПРОЛЕТАЮТ через кадр, цель въезжает.
-                _shell.Hub.OnWardrobe = () => TabTravelAsync(2);
+                _shell.Hub.OnWardrobe = async () =>
+                {
+                    _shell.TabReset();
+                    _shell.Hub.SetActiveTab(2);
+                    await OpenWardrobeFromHubAsync();
+                    _shell.Hub.SetActiveTab(0);
+                };
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
-                _shell.Hub.OnProfile = () => TabTravelAsync(3);
+                _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
                 // TR-25: партнёр прячет ежедневную награду данными; сама
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
@@ -531,13 +537,7 @@ namespace Lvn.UI.Screens
                 _shell.Hub.PlayerName = _playerName;
                 _shell.Hub.Currencies = HubCurrencies();
                 _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
-                _shell.Hub.OnHomeNav = () =>
-                {
-                    // «Главная» из нижнего меню: открытая вкладка закрывается
-                    // (её ShowAsync вернётся и вернёт ленту домой сам).
-                    _shell.PackShop?.Hide();
-                    _shell.Profile?.Hide();
-                };
+                _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(0), "TabHome");
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
@@ -1347,52 +1347,6 @@ namespace Lvn.UI.Screens
         // the stage dresses itself with the last scene the player saw (or the
         // engine's dark), the hero steps on, the sheet fades in. Closing plays
         // it all back. ONE wardrobe everywhere; the old fullscreen screen died.
-        // Проезд по ленте вкладок: 0 — главная, 1 — магазин, 2 — гардероб,
-        // 3 — профиль. Контент хаба уезжает (нижнее меню живёт), промежуточные
-        // пролетают; повторный выбор вкладки из нижнего меню закрывает прежнюю.
-        private int _currentTab;
-
-        private async Task TabTravelAsync(int target)
-        {
-            var hub = _shell?.Hub;
-            if (hub == null || target == _currentTab) return;
-            int from = _currentTab;
-            int dir = target > from ? +1 : -1;
-            // Открытая вкладка уступает мгновенно — едем из «дома».
-            _shell.PackShop?.Hide();
-            _shell.Profile?.Hide();
-            if (from == 0) hub.SlideAway(-dir, away: true);
-            _currentTab = target;
-            try
-            {
-                // Пролёт магазина, когда он строго МЕЖДУ from и target.
-                bool passShop = (from < 1 && target > 1) || (from > 1 && target < 1);
-                if (passShop && _shell.PackShop != null)
-                    await _shell.PackShop.FlyThroughAsync(dir);
-                switch (target)
-                {
-                    case 1:
-                        _shell.PackShop.SlideDirection = dir;
-                        try { await _shell.OpenPackShopAsync(); }
-                        finally { _shell.PackShop.SlideDirection = 0; }
-                        break;
-                    case 2:
-                        await OpenWardrobeFromHubAsync();
-                        break;
-                    case 3:
-                        _shell.Profile.SlideDirection = dir;
-                        try { await OpenProfileWithRelationsAsync(); }
-                        finally { _shell.Profile.SlideDirection = 0; }
-                        break;
-                }
-            }
-            finally
-            {
-                _currentTab = 0;
-                hub.SlideAway(-dir, away: false);
-            }
-        }
-
         private async Task OpenWardrobeFromHubAsync()
         {
             var stage = Stage;
@@ -2790,8 +2744,8 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(uid)) p.Uid = uid;
             p.Wallet = BuildWalletTiles();
             p.OnDeleteAccount = DeleteAccountAndForgetAsync;
-            p.OnOpenSettings = () => _ = _shell.OpenSettingsAsync(); // профиль закрывает себя сам
-            await _shell.OpenProfileAsync();
+            p.OnOpenSettings = () => _ = _shell.OpenSettingsAsync();
+            await _shell.TabGoTo(3); // вкладка ленты, не модалка
         }
 
         // Единственная правда о валютах игры: ui.browse.currencies, дефолт —

@@ -153,6 +153,22 @@ namespace Lvn.UI.Screens
             return confirmed;
         }
 
+        /// <summary>ВКЛАДОЧНЫЙ режим (навигатор ленты): показать/спрятать как
+        /// страницу — без модального ожидания Close. Анимацию везёт навигатор.</summary>
+        public void ShowAsTab()
+        {
+            style.display = DisplayStyle.Flex;
+            style.opacity = 1f;
+            OnOpening();
+        }
+
+        public void HideAsTab()
+        {
+            style.display = DisplayStyle.None;
+            style.translate = new Translate(0f, 0f);
+            OnClosed();
+        }
+
         /// <summary>Убрать немедленно, без угасания: смена главы, выход в меню.</summary>
         public virtual void Hide()
         {
