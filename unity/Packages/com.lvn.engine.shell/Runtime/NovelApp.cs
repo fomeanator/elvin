@@ -520,6 +520,11 @@ namespace Lvn.UI.Screens
                 _shell.OnMenuVisible -= ShowMenuScene;
                 _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
                 _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
+                _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
+                {
+                    if (_chapterPlaying || Stage == null || !_menuBgSet) return;
+                    Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
+                };
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
                 Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
@@ -1590,19 +1595,20 @@ namespace Lvn.UI.Screens
             _menuSceneActor = fav;
         }
 
-        // Пан полотна по вкладкам: слак cover-кроя, мягкий ход штатным
-        // PanBackground (fade=0 — тот же спрайт, без кроссфейда).
+        // Пан полотна по вкладкам: полотно ведёт ТИК UI-анимации
+        // (OnTabTravelTick) — кадр в кадр и той же кривой, что переезд
+        // страниц. Собственный пан-таймер фона (bg-команда, 0.30с smoothstep)
+        // стартовал позже async-тракта и ехал иначе — «рассинхрон в глаза
+        // бросается» (Илья 28.08). Здесь запоминаются только конечные точки.
+        private float _menuPanFrom, _menuPanTo;
         private void PanMenuScene(int fromTab, int toTab)
         {
             if (Stage == null || _chapterPlaying) return;
             var canvas = _manifest?.ui?.browse?.canvas;
             if (string.IsNullOrEmpty(canvas)) return;
             float P(int t) => 0.35f + 0.1f * Mathf.Clamp(t, 0, 3);
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            {
-                ["op"] = "bg", ["sprite_url"] = canvas, ["fade"] = 0,
-                ["pan"] = P(fromTab), ["pan_to"] = P(toTab), ["pan_dur"] = 0.30,
-            });
+            _menuPanFrom = P(fromTab);
+            _menuPanTo = P(toTab);
             _menuBgSet = true; // канвас стоит — стражу его больше не трогать
         }
 

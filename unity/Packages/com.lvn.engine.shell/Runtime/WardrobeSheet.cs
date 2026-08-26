@@ -841,7 +841,9 @@ namespace Lvn.UI.Screens
             float navBottom = safeTop + LvnTopBar.RowH + 10f;
             _emotions.style.top = navBottom - sheetTop;
             _emotions.style.bottom = StyleKeyword.Auto;
-            _emotions.style.maxHeight = Mathf.Max(120f, sheetTop - navBottom - 12f);
+            // ПОЛОВИНА зазора (Илья 28.08: «слишком много — сократи в 2 раза»):
+            // колонка на всю высоту закрывала куклу; остальные лица скроллятся.
+            _emotions.style.maxHeight = Mathf.Max(120f, (sheetTop - navBottom - 12f) * 0.5f);
         }
 
         // ── баблики эмоций: примерка лица на живую куклу ─────────────────────

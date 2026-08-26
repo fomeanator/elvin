@@ -143,6 +143,10 @@ namespace Lvn.UI.Screens
 
         /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>
         public Action<int, int> OnTabTravel;
+        /// <summary>Тик переезда вкладок: eased-прогресс 0..1 КАЖДЫЙ кадр
+        /// анимации — хост ведёт полотно сцены той же кривой, кадр в кадр с UI
+        /// (свой таймер фона запаздывал — рассинхрон, живой репорт 28.08).</summary>
+        public Action<float> OnTabTravelTick;
 
         public async Task TabGoTo(int target)
         {
@@ -173,6 +177,7 @@ namespace Lvn.UI.Screens
                     if (fromEl != null)
                         fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
                     _tabCanvasX = Mathf.Lerp(canvasFrom, canvasTo, k); // полотно едет с нами
+                    OnTabTravelTick?.Invoke(k); // сцена меню — той же кривой
                     if (_canvasTint != null)
                         _canvasTint.style.backgroundColor = Color.Lerp(
                             TabTints[Mathf.Clamp(_tab, 0, 3)], TabTints[Mathf.Clamp(target, 0, 3)], k);
