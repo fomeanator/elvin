@@ -703,14 +703,22 @@ namespace Lvn.UI.Screens
             card.style.width = 150; card.style.height = 208;
             card.style.marginRight = 10;
             card.style.flexShrink = 0;
-            card.style.backgroundColor = new Color(0f, 0f, 0f, 0.30f);
+            // Светло-серая плитка (Илья: «не чёрный фон») — арт скинов тёмный,
+            // на чёрном сливался.
+            card.style.backgroundColor = new Color(0.30f, 0.31f, 0.35f, 0.62f);
             LvnChrome.Round(card, _radius);
             card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
 
+            // ЗУМ ВИТРИНЫ (Илья 27.08): холст скина несёт воздух вокруг фигуры —
+            // в окне карточки арт увеличен в 1.5 раза, окно смотрит в точку
+            // (50% X, 30% Y) — голова и грудь, где скин и читается. Элемент
+            // больше карточки, карточка клипует (overflow Hidden выше).
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
-            art.style.left = 3; art.style.right = 3;
-            art.style.top = 3; art.style.bottom = 40;
+            art.style.width = Length.Percent(150f);
+            art.style.height = Length.Percent(150f);
+            art.style.left = Length.Percent(50f - 150f * 0.50f);  // якорь X в центре окна
+            art.style.top = Length.Percent(50f - 150f * 0.30f);   // якорь Y в центре окна
             art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             card.Add(art);
