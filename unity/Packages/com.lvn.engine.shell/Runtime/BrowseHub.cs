@@ -201,7 +201,14 @@ namespace Lvn.UI.Screens
             _hubRows.style.flexGrow = 1;
             _hubRows.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel, no track/arrows
             _hubView.Add(_hubRows);
-            _hubView.Add(BottomNav()); // Home / Store / Wardrobe / Profile
+            // Нижнее меню — В КОРНЕ хаба, не в контенте: контент уезжает
+            // лентой вкладок, а меню стоит поверх разделов и переключает их
+            // (живой скрин «в магазине нижнего меню нету»).
+            var navRoot = BottomNav();
+            navRoot.style.position = Position.Absolute;
+            navRoot.style.left = 0; navRoot.style.right = 0; navRoot.style.bottom = 0;
+            Add(navRoot);
+            _hubView.style.paddingBottom = 124; // лента не ныряет под меню
             Add(_hubView);
 
             // ── COLLECTION ──
