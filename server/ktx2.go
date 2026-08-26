@@ -26,8 +26,11 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"image"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -231,6 +234,10 @@ func hasKtx2Source(ktx2Path string) bool {
 // "X@2k.ktx2") and, for variant names, the ORIGINAL behind it ("X.png") —
 // replacing the original makes the whole chain stale even while the
 // intermediate @2k.png still sits on disk untouched.
+//
+// Mtime alone is not enough: an encode made from art that has since been
+// REPLACED IN PLACE (same name, same or older timestamp) keeps serving
+// yesterday's pixels forever. So geometry counts too — see ktx2Misshapen.
 func ktx2Stale(ktx2Path string) bool {
 	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
 	for _, ext := range sourceExts {
@@ -242,7 +249,94 @@ func ktx2Stale(ktx2Path string) bool {
 			return true
 		}
 	}
+	return ktx2Misshapen(ktx2Path)
+}
+
+// ktx2Dims reads the container's own pixelWidth/pixelHeight — the KTX2 header
+// is a fixed layout, so this is a 28-byte read, not an image decode.
+func ktx2Dims(ktx2Path string) (int, int, bool) {
+	f, err := os.Open(ktx2Path)
+	if err != nil {
+		return 0, 0, false
+	}
+	defer f.Close()
+	var head [28]byte
+	if _, err := io.ReadFull(f, head[:]); err != nil {
+		return 0, 0, false
+	}
+	if string(head[:12]) != ktx2Identifier {
+		return 0, 0, false
+	}
+	return int(binary.LittleEndian.Uint32(head[20:24])),
+		int(binary.LittleEndian.Uint32(head[24:28])), true
+}
+
+// ktx2Identifier is the fixed 12-byte magic every KTX2 file opens with.
+const ktx2Identifier = "\xabKTX 20\xbb\r\n\x1a\n"
+
+// ktx2Misshapen reports whether an encode's picture is a different SIZE than
+// the art it claims to represent — the signature of an encode made from a
+// source that was later replaced by differently-shaped art under the same
+// name. Live case (26.08): 37 of Victoria's layers were 1210×2048 encodes of
+// long-gone art while the PNGs beside them were 1600×2048, so every layer the
+// KTX2 path served was squeezed horizontally AND carried the old source's
+// coarse detail — the "pixels on the necklace" report. Nothing in the
+// mtime-only staleness test could see it: the bad encodes were NEWER than the
+// art. Both dimensions are compared against what the downscaler would produce
+// (a source inside the box passes through at its own size), with a couple of
+// pixels of slack for rounding.
+func ktx2Misshapen(ktx2Path string) bool {
+	w, h, ok := ktx2Dims(ktx2Path)
+	if !ok || w <= 0 || h <= 0 {
+		return true // unreadable header — no reason to trust the payload
+	}
+	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
+	for _, ext := range sourceExts {
+		p := base + ext
+		src, box := p, downscaleMax
+		if s, b := variantSourceBox(p); s != "" {
+			if fileExists(p) {
+				src, box = p, 0 // the encode source itself is on disk — measure THAT
+			} else {
+				src, box = s, b
+			}
+		}
+		if !fileExists(src) {
+			continue
+		}
+		sw, sh, err := imageDims(src)
+		if err != nil {
+			return false // can't measure — leave the encode alone
+		}
+		ew, eh := sw, sh
+		if box > 0 && (sw > box || sh > box) {
+			scale := float64(box) / float64(max(sw, sh))
+			ew, eh = max(1, int(float64(sw)*scale+0.5)), max(1, int(float64(sh)*scale+0.5))
+		}
+		return abs(w-ew) > 2 || abs(h-eh) > 2
+	}
 	return false
+}
+
+// imageDims reads just the header of an image file.
+func imageDims(path string) (int, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, 0, err
+	}
+	return cfg.Width, cfg.Height, nil
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // withKTX2 wraps the content handler: a ".ktx2" request whose encode is
