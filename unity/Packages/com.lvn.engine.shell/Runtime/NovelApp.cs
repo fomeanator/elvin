@@ -309,9 +309,14 @@ namespace Lvn.UI.Screens
             if (Stage == null)
             {
                 Stage = CreateStage();
-                _shell.OnMenuVisible -= ShowMenuScene;
-                _shell.OnMenuVisible += ShowMenuScene; // по факту показа хаба
-                ShowMenuScene();
+                // Шелл на этой стадии может ещё не существовать (PrepareStage
+                // зовётся из Start до Build) — подписка лениво, при первом
+                // живом шелле.
+                if (_shell != null)
+                {
+                    _shell.OnMenuVisible -= ShowMenuScene;
+                    _shell.OnMenuVisible += ShowMenuScene;
+                }
             }
             _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
@@ -500,6 +505,8 @@ namespace Lvn.UI.Screens
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack))
             {
+                _shell.OnMenuVisible -= ShowMenuScene;
+                _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
                 _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
