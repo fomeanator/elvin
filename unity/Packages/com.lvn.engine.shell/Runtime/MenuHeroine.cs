@@ -21,6 +21,9 @@ namespace Lvn.UI.Screens
         private readonly string _entity;
         private int _gen;
 
+        /// <summary>Есть ли у игры героиня (иначе слой мёртв навсегда).</summary>
+        public bool HasEntity { get; private set; }
+
         public MenuHeroine(LvnManifest manifest, ILvnAssets assets)
         {
             _manifest = manifest;
@@ -39,6 +42,7 @@ namespace Lvn.UI.Screens
                 style.display = DisplayStyle.None; // игра без героини — слоя нет
                 return;
             }
+            HasEntity = true;
             Lvn.UI.LvnWardrobe.Changed += OnWardrobeChanged;
             RegisterCallback<DetachFromPanelEvent>(_ => Lvn.UI.LvnWardrobe.Changed -= OnWardrobeChanged);
             RegisterCallback<GeometryChangedEvent>(_ => FitWidth());
