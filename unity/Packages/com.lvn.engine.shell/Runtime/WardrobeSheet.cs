@@ -720,9 +720,12 @@ namespace Lvn.UI.Screens
         {
             if (axis == AllTab) return (1f, 0.5f);
             var k = (axis ?? "").ToLowerInvariant();
-            if (IsHairAxis(k)) return (1.60f, 0.50f);
+            if (IsHairAxis(k)) return (1.60f, 0.35f);
+            // Украшения показывают КРОП-ИКОНКИ (вырезаны по содержимому при
+            // импорте) — зум витрины им не нужен, Contain даёт ожерелье во
+            // всю плитку без мыла.
             if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
-                || k.Contains("acc")) return (1.90f, 0.30f);
+                || k.Contains("acc")) return (1f, 0.5f);
             return (1.55f, 0.60f); // платье/наряд
         }
 
@@ -804,7 +807,10 @@ namespace Lvn.UI.Screens
             ph.style.opacity = 0.55f;
             card.Add(ph);
             if (!string.IsNullOrEmpty(item.icon))
-                LvnAsync.Fire(AssignCardArtAsync(art, ph, item.icon), "WardrobeCard");
+                // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
+                // берёт чёткий арт (@2k) сразу.
+                LvnAsync.Fire(AssignCardArtAsync(art, ph, item.icon, sharp: zoom >= 3f),
+                    "WardrobeCard");
 
             var plate = new VisualElement { pickingMode = PickingMode.Ignore };
             plate.style.position = Position.Absolute;
@@ -877,10 +883,11 @@ namespace Lvn.UI.Screens
         // юзер даже не тыкнет»): витрина живёт на @mini, полноразмер грузит
         // только примерка на кукле. Пока не доехал (или мини нет и доезжает
         // полный) — стоит плейсхолдер-вешалка.
-        private async Task AssignCardArtAsync(VisualElement art, VisualElement ph, string icon)
+        private async Task AssignCardArtAsync(VisualElement art, VisualElement ph, string icon,
+            bool sharp = false)
         {
             Sprite s = null;
-            var mini = Lvn.Content.DownloadPolicy.MiniVariant(icon);
+            var mini = sharp ? null : Lvn.Content.DownloadPolicy.MiniVariant(icon);
             string via = "mini";
             try { if (!string.IsNullOrEmpty(mini)) s = await _assets.LoadSpriteAsync(mini, CancellationToken.None); }
             catch (Exception ex) { Debug.LogWarning($"[lvn-card-art] mini {mini}: {ex.Message}"); }
