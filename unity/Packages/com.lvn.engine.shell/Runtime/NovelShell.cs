@@ -228,7 +228,9 @@ namespace Lvn.UI.Screens
                         TopBar.SetSafeTop(safe);
                         DownloadHud.SetSafeTop(safe);
                     }
-                    TopBar.SyncTapZone(); // зона уступает открытым панелям сцены
+                    TopBar.SyncTapZone(); // зона и декор уступают модали сцены
+                    DownloadHud.SetSceneModal(
+                        !(TopBar.TapZoneAvailable?.Invoke() ?? true));
                 }).Every(300);
             }
 

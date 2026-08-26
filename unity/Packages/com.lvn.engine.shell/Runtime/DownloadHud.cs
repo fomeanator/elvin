@@ -55,6 +55,12 @@ namespace Lvn.UI.Screens
         /// <summary>Отступ safe area — кружок сидит в строке бара, ниже выреза.</summary>
         public void SetSafeTop(float units) => _capsule.style.marginTop = units + 5f;
 
+        /// <summary>Модаль сцены открыта: мини-кружок прячется (декор уступает),
+        /// развёрнутый попап — модаль оболочки и остаётся поверх.</summary>
+        public void SetSceneModal(bool modal)
+            => _capsule.style.visibility = modal && !_expanded
+                ? Visibility.Hidden : Visibility.Visible;
+
         /// <summary>Игровой режим: кружок — отдельный баблик в ЛЕВОМ верхнем
         /// углу сцены (бар пропал, валюты справа такими же бабликами); в меню —
         /// центр строки бара.</summary>
