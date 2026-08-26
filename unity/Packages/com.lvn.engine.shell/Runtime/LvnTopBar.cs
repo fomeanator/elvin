@@ -25,7 +25,9 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class LvnTopBar : VisualElement
     {
-        private const float RowH = 76f;
+        /// <summary>Высота ряда навбара — публична: экраны, встающие «под
+        /// навбаром» (колонка эмоций гардероба), считают от неё.</summary>
+        public const float RowH = 76f;
 
         /// <summary>Валюты пилюль (id кошелька), порядок = порядок на баре.</summary>
         public List<string> Currencies = new List<string>();
