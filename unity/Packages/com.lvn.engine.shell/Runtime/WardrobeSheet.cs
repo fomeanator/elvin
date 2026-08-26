@@ -1150,6 +1150,11 @@ namespace Lvn.UI.Screens
                 int shown = 0;
                 if (_def?.wardrobe != null)
                     foreach (var kv in _def.wardrobe)
+                    {
+                        // Поднастройка — не самостоятельный скин: цвет волос
+                        // выбирается только внутри «Причёски», и в витрине
+                        // покупок ему делать нечего (Илья 26.08).
+                        if (IsSubAxis(kv.Key)) continue;
                         foreach (var it in Items(kv.Key))
                         {
                             // Только КУПЛЕННЫЕ платные (Илья 28.08): бесплатная
@@ -1163,6 +1168,7 @@ namespace Lvn.UI.Screens
                             if (animate) EnterSoft(card, shown);
                             shown++;
                         }
+                    }
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
                 RebuildSubRow(animate); // спрячет ряд: у «Все» поднастроек нет
@@ -1194,9 +1200,9 @@ namespace Lvn.UI.Screens
             card.style.width = 150; card.style.height = 208;
             card.style.marginRight = 10;
             card.style.flexShrink = 0;
-            // Светло-серая плитка (Илья: «не чёрный фон») — арт скинов тёмный,
-            // на чёрном сливался.
-            card.style.backgroundColor = new Color(0.30f, 0.31f, 0.35f, 0.62f);
+            // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
+            // арт скинов тёмный, и светлый задник держит его силуэт.
+            card.style.backgroundColor = UiColor.Parse("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
             LvnChrome.Round(card, _radius);
             card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
 
@@ -1217,7 +1223,10 @@ namespace Lvn.UI.Screens
             // плитка читалась как «не грузит». Пункт «Нет» живёт с постоянным
             // глифом «×» — у снятия арта нет по определению.
             bool none = item.value == LvnWardrobe.NoneValue;
-            var ph = LvnIcons.Make(none ? LvnIcon.Close : LvnIcon.Wardrobe, 42f, LvnTokens.TextDim);
+            // Тёмный глиф: задник плитки светлый (платина), светлый значок на
+            // нём растворялся бы.
+            var ph = LvnIcons.Make(none ? LvnIcon.Close : LvnIcon.Wardrobe, 42f,
+                new Color(0.18f, 0.18f, 0.22f));
             ph.pickingMode = PickingMode.Ignore;
             ph.style.position = Position.Absolute;
             ph.style.left = Length.Percent(50f);
