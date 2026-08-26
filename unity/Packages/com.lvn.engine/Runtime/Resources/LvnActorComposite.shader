@@ -177,9 +177,11 @@ Shader "Hidden/LvnActorComposite"
 
                     if (!hairFlow)
                     {
-                        float rim = 1.0 - smoothstep(0.008, 0.05, abs(field - threshold));
-                        fixed3 accent = fixed3(0.04, 0.82, 0.78);
-                        color.rgb += accent * rim * 0.12 * color.a;
+                        // Кромка потока — НЕЙТРАЛЬНЫЙ шёлковый блик: цветной
+                        // (бирюзовый) акцент на быстрой смене проносился по
+                        // актёру «синим миганием» (живой репорт 27.08).
+                        float rim = 1.0 - smoothstep(0.008, 0.06, abs(field - threshold));
+                        color.rgb += rim * 0.05 * color.a;
                     }
                     color.a *= keep;
                 }
