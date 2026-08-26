@@ -204,16 +204,23 @@ namespace Lvn.UI.Screens
             _tabs.style.marginTop = 24; // breathing room under the title before the tabs
             Add(_tabs);
 
-            // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): ряд лиц
-            // персонажа; тап примеряет эмоцию на живую куклу через Preview той
-            // же оси `emotion`. В гардеробные слоты ось не входит — «Выбрать»
-            // её не коммитит, закрытие листа возвращает лицо по умолчанию.
-            _emotions = new ScrollView(ScrollViewMode.Horizontal);
+            // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): колонка
+            // лиц СПРАВА ОТ ГЕРОИНИ, над листом (как пилюли кошелька слева —
+            // тот же приём bottom:100%). Тап примеряет эмоцию на живую куклу
+            // через Preview оси `emotion`. В гардеробные слоты ось не входит —
+            // «Выбрать» её не коммитит, закрытие листа возвращает лицо по
+            // умолчанию. Горизонтальный ряд в листе «странно скроллился»
+            // (живой репорт) — вертикаль у правого края читается сама.
+            _emotions = new ScrollView(ScrollViewMode.Vertical);
             _emotions.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _emotions.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-            _emotions.style.marginTop = 10;
+            _emotions.style.position = Position.Absolute;
+            _emotions.style.right = 0;
+            _emotions.style.bottom = Length.Percent(100f);
+            _emotions.style.marginBottom = 12;
+            _emotions.style.maxHeight = 520;
             _emotions.style.display = DisplayStyle.None;
-            _emotions.contentContainer.style.flexDirection = FlexDirection.Row;
+            _emotions.contentContainer.style.alignItems = Align.FlexEnd;
             Add(_emotions);
 
             // ЛЕНТА КАРТОЧЕК СКИНОВ (решение Ильи 27.08: единый гардероб —
@@ -596,12 +603,12 @@ namespace Lvn.UI.Screens
                     StyleEmotions();
                 }) { text = EmotionRu.TryGetValue(v, out var ru) ? ru : v };
                 chip.name = "emo-" + v;
-                chip.style.height = 46;
-                chip.style.marginRight = 8;
+                chip.style.height = 44;
+                chip.style.marginBottom = 8;
                 chip.style.flexShrink = 0;
                 chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
                 chip.style.fontSize = 19;
-                LvnChrome.Round(chip, 23f);
+                LvnChrome.Round(chip, 22f);
                 _emotions.Add(chip);
             }
             StyleEmotions();

@@ -166,8 +166,19 @@ namespace Lvn.UI
             // актёра доедет с его следующим показом, а реплей hide с новым gen
             // убивал летящий показ соседней команды.
             if (!BoolOr(cmd["show"], true)) return;
-            await ApplyActorAsync(cmd, wardrobeSwap: true,
-                wardrobeFromTop: IsHairWardrobeAxis(LvnWardrobe.LastChangedAxis(id)));
+            var axis = LvnWardrobe.LastChangedAxis(id);
+            // ЭМОЦИЯ — НЕ НАРЯД (Илья 27.08: «плавно одно в другое, будто
+            // живые»): смена лица идёт обычным кроссфейдом облика, как
+            // сценарное emotion=, а не гардеробным свопом.
+            bool emotion = IsEmotionAxis(axis);
+            await ApplyActorAsync(cmd, wardrobeSwap: !emotion,
+                wardrobeFromTop: !emotion && IsHairWardrobeAxis(axis));
+        }
+
+        private static bool IsEmotionAxis(string axis)
+        {
+            var key = (axis ?? "").ToLowerInvariant();
+            return key.Contains("emo") || key.Contains("эмо") || key == "mood" || key == "face";
         }
 
         // ── ЖИВЫЕ СПРАЙТЫ СЦЕНЫ ЗАКРЕПЛЕНЫ (27.08): LRU стримингового окна
@@ -645,8 +656,12 @@ namespace Lvn.UI
                 // входит вовремя крошечной @mini-заготовкой, затемнённой тинтом;
                 // полный арт доезжает фоном и проявляет его кроссфейдом облика.
                 bool bytesLocal = true;
+                // Силуэт — только для ПЕРВОГО входа: на уже видимом актёре
+                // затемнённая заготовка читается как «вспышка» посреди смены
+                // лица/наряда (живой репорт) — видимый держит прежний облик,
+                // пока едет новый, и меняется одним кроссфейдом.
                 if ((Theme?.LoadingSilhouette ?? true) && placement.Show
-                    && IsCharacterCommand(cmd) && !wardrobeSwap
+                    && IsCharacterCommand(cmd) && !wardrobeSwap && !wasVisibleBeforeShow
                     && (Assets as CachingAssets)?.Loader is Lvn.Content.ContentLoader cl)
                 {
                     foreach (var u in urls)
