@@ -1547,12 +1547,14 @@ namespace Lvn.Content
             return missing;
         }
 
-        // Session-long negative cache: a url the server answered 4xx for will
-        // 4xx again — refetching it on every screen build spams the log and the
-        // wire. Warn ONCE, then fast-fail silently for the rest of the session
-        // (a content re-deploy bumps versions, which changes the cache key path,
-        // so a fixed asset is picked up on the next launch anyway).
-        private readonly HashSet<string> _notFound = new();
+        // Negative cache С TTL: url, на который сервер ответил 4xx, не
+        // передёргивается на каждую перестройку экрана — но и не хоронится на
+        // всю сессию. Сервер ГЕНЕРИТ варианты (@2k/@mini/ktx2) лениво: первый
+        // запрос честно 404, файл готов через секунды — вечный кэш оставлял
+        // витрину на полноразмерах до перезапуска (живой лог «ok via full»
+        // при готовых mini). Две минуты — с запасом на самое долгое кодирование.
+        private readonly Dictionary<string, float> _notFound = new();
+        private const float NotFoundTtlSeconds = 120f;
 
         // ── сид первого входа (StreamingAssets/lvn-seed) ─────────────────────
         // APK везёт критичные файлы вводной: первый запуск одевает первую
@@ -1647,8 +1649,12 @@ namespace Lvn.Content
             if (seeded != null) return seeded;
 
             lock (_notFound)
-                if (_notFound.Contains(url))
-                    throw new LvnFetchException(404, "http_404", url + " (cached 404)");
+                if (_notFound.TryGetValue(url, out var at))
+                {
+                    if (Time.realtimeSinceStartup - at < NotFoundTtlSeconds)
+                        throw new LvnFetchException(404, "http_404", url + " (cached 404)");
+                    _notFound.Remove(url); // TTL вышел — пробуем сеть снова
+                }
 
             return await TrackedFetch(url, async () =>
             {
@@ -1694,7 +1700,11 @@ namespace Lvn.Content
                     catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
                     {
                         bool first;
-                        lock (_notFound) first = _notFound.Add(url);
+                        lock (_notFound)
+                        {
+                            first = !_notFound.ContainsKey(url);
+                            _notFound[url] = Time.realtimeSinceStartup;
+                        }
                         // Info, not warning: a 4xx here is usually the EXPECTED
                         // steady state of an optional probe (.ktx2/.astc/@2k
                         // variants, demo-stub art) — a yellow triangle per asset
