@@ -52,9 +52,50 @@ namespace Lvn.UI.Screens
             try
             {
                 var sprite = await assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null) el.style.backgroundImage = new StyleBackground(sprite);
+                if (sprite != null)
+                {
+                    el.style.backgroundImage = new StyleBackground(sprite);
+                    PinBg(el, sprite, assets);
+                }
             }
             catch { /* missing art is non-fatal */ }
+        }
+
+        // ── ЖИВЫЕ ФОНЫ UI ЗАКРЕПЛЕНЫ (27.08): LRU спрайт-кэша уничтожал
+        // текстуры, которые элементы ещё показывают, — обложки новелл в хабе
+        // белели после прогулки по гардеробу, арт героини после главы (живые
+        // репорты). Правило то же, что у сцены: что на экране — не трогать.
+        // Пин живёт, пока элемент в панели; замена арта и уход из иерархии
+        // снимают его.
+        private static readonly System.Collections.Generic.Dictionary<
+            VisualElement, (Lvn.Content.ContentLoader loader, Sprite sprite)> _bgPins
+            = new System.Collections.Generic.Dictionary<
+                VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
+
+        private static void PinBg(VisualElement el, Sprite sprite, ILvnAssets assets)
+        {
+            var loader = (assets as Lvn.UI.CachingAssets)?.Loader;
+            if (loader == null || sprite == null) return;
+            if (_bgPins.TryGetValue(el, out var old))
+            {
+                if (ReferenceEquals(old.sprite, sprite)) return;
+                old.loader?.PinSprite(old.sprite, false);
+                loader.PinSprite(sprite, true);
+                _bgPins[el] = (loader, sprite);
+                return;
+            }
+            loader.PinSprite(sprite, true);
+            _bgPins[el] = (loader, sprite);
+            el.RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                // Guard по словарю: дубль-колбэк после повторного Attach
+                // становится no-op — пин снимается ровно один раз.
+                if (_bgPins.TryGetValue(el, out var cur))
+                {
+                    cur.loader?.PinSprite(cur.sprite, false);
+                    _bgPins.Remove(el);
+                }
+            });
         }
 
         /// <summary>Load a sprite and apply it as the element's 9-sliced frame —
@@ -67,6 +108,7 @@ namespace Lvn.UI.Screens
                 var sprite = await assets.LoadSpriteAsync(url, CancellationToken.None);
                 if (sprite == null) return;
                 el.style.backgroundImage = new StyleBackground(sprite);
+                PinBg(el, sprite, assets);
                 el.style.backgroundColor = Color.clear;
                 if (slice > 0)
                 {
