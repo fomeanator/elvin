@@ -66,6 +66,75 @@ namespace Lvn.UI.Screens
 
         private void OnWalletPills() => TopBar?.RefreshBalances();
 
+        // ── НАВИГАТОР ЛЕНТЫ (решение Ильи 26.08: «один уезжает — другой
+        // приезжает») ── ОДНО состояние _tab; страница «уехала» = display:none
+        // (translate — только анимация, никогда не состояние). Гонки отрезаны
+        // флагом занятости.
+        private int _tab;
+        private bool _tabBusy;
+
+        private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
+        {
+            0 => (Hub?.ContentRoot, null),
+            1 => (PackShop, PackShop),
+            3 => (Profile, Profile),
+            _ => (null, null),
+        };
+
+        public async Task TabGoTo(int target)
+        {
+            if (_tabBusy || target == _tab) return;
+            var to = TabPage(target);
+            if (to.el == null) return;
+            _tabBusy = true;
+            try
+            {
+                var from = TabPage(_tab);
+                int dir = target > _tab ? 1 : -1;
+                float w = _root.resolvedStyle.width;
+                if (w <= 0f || float.IsNaN(w)) w = 1080f;
+
+                to.scr?.ShowAsTab();
+                to.el.style.display = DisplayStyle.Flex;
+                to.el.style.translate = new Translate(dir * w, 0f);
+                Hub?.SetActiveTab(target);
+
+                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var fromEl = from.el;
+                to.el.experimental.animation.Start(0f, 1f, 260, (e, p) =>
+                {
+                    float k = 1f - Mathf.Pow(1f - p, 3f);
+                    e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);
+                    if (fromEl != null)
+                        fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
+                    if (p >= 1f) tcs.TrySetResult(true);
+                });
+                await tcs.Task;
+
+                if (from.scr != null) from.scr.HideAsTab();
+                else if (fromEl != null) fromEl.style.display = DisplayStyle.None;
+                if (fromEl != null) fromEl.style.translate = new Translate(0f, 0f);
+                to.el.style.translate = new Translate(0f, 0f);
+                _tab = target;
+            }
+            finally { _tabBusy = false; }
+        }
+
+        /// <summary>Мгновенно домой (гардероб/старт главы): без анимации.</summary>
+        public void TabReset()
+        {
+            var from = TabPage(_tab);
+            if (from.scr != null) from.scr.HideAsTab();
+            var home = TabPage(0);
+            if (home.el != null)
+            {
+                home.el.style.display = DisplayStyle.Flex;
+                home.el.style.translate = new Translate(0f, 0f);
+            }
+            _tab = 0;
+            Hub?.SetActiveTab(0, instant: true);
+        }
+
         private VisualElement _atmosphere;
 
         private void BuildAtmosphere()

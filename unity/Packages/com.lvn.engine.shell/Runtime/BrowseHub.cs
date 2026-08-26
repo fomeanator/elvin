@@ -502,22 +502,9 @@ namespace Lvn.UI.Screens
         /// вкладку-раздел (магазин/профиль) и возвращает ленту домой.</summary>
         public System.Action OnHomeNav;
 
-        /// <summary>Лента вкладок: КОНТЕНТ хаба уезжает в сторону (dir −1 =
-        /// влево) и возвращается; нижнее меню остаётся на месте и живёт —
-        /// вкладки переключаются из него (решение Ильи 26.08).</summary>
-        public void SlideAway(int dir, bool away)
-        {
-            var el = _hubView;
-            if (el == null) return;
-            float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
-            float from = away ? 0f : dir * w;
-            float to = away ? dir * w : 0f;
-            el.experimental.animation.Start(0f, 1f, 280, (e, p) =>
-            {
-                float k = 1f - Mathf.Pow(1f - p, 3f);
-                e.style.translate = new Translate(Mathf.Lerp(from, to, k), 0f);
-            });
-        }
+        /// <summary>Контент-страница хаба для навигатора ленты (нижнее меню —
+        /// отдельный слой в корне хаба и никуда не едет).</summary>
+        public VisualElement ContentRoot => _hubView;
 
         // ── builders ──────────────────────────────────────────────────────────────
         private void BuildHubTiles()
@@ -659,17 +646,59 @@ namespace Lvn.UI.Screens
             nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab(LvnIcon.Home, _cfg.nav_home ?? "Главная", true,
+            nav.Add(NavTab(0, LvnIcon.Home, _cfg.nav_home ?? "Главная",
                 () => OnHomeNav?.Invoke()));
-            nav.Add(NavTab(LvnIcon.Store, _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
-            nav.Add(NavTab(LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
+            nav.Add(NavTab(1, LvnIcon.Store, _cfg.nav_store ?? "Магазин", () => { if (OnStore != null) _ = OnStore(); }));
+            nav.Add(NavTab(2, LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
             if (_cfg.show_gallery ?? true)
-                nav.Add(NavTab(LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", false, () => { if (OnGallery != null) _ = OnGallery(); }));
-            nav.Add(NavTab(LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", false, () => { if (OnProfile != null) _ = OnProfile(); }));
+                nav.Add(NavTab(4, LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", () => { if (OnGallery != null) _ = OnGallery(); }));
+            nav.Add(NavTab(3, LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", () => { if (OnProfile != null) _ = OnProfile(); }));
+            SetActiveTab(0, instant: true);
             return nav;
         }
 
-        private VisualElement NavTab(LvnIcon icon, string label, bool active, System.Action onTap)
+        // Табы с живой подсветкой: прошлый гаснет фейдом, новый загорается
+        // (решение Ильи 26.08 — раньше «активная» была захардкожена).
+        private sealed class TabRef
+        {
+            public int Index;
+            public LvnIcon Icon;
+            public VisualElement Root, Mark, IconSlot;
+            public Label Label;
+        }
+        private readonly List<TabRef> _navTabs = new List<TabRef>();
+        private int _activeTab;
+
+        /// <summary>Подсветить вкладку: прошлая гаснет фейдом, новая
+        /// загорается. Зовёт навигатор ленты оболочки.</summary>
+        public void SetActiveTab(int index, bool instant = false)
+        {
+            _activeTab = index;
+            foreach (var t in _navTabs)
+            {
+                bool on = t.Index == index;
+                void Paint()
+                {
+                    var color = on ? _accent : _dim;
+                    t.Mark.style.backgroundColor = on ? _accent : Color.clear;
+                    t.Label.style.color = color;
+                    t.Label.style.unityFontStyleAndWeight = on ? FontStyle.Bold : FontStyle.Normal;
+                    t.IconSlot.Clear();
+                    t.IconSlot.Add(LvnIcons.Make(t.Icon, 30f, color, 0f, on ? _theme.IconGlow : 0f));
+                }
+                if (instant) { Paint(); continue; }
+                var el = t.Root;
+                el.experimental.animation.Start(0f, 1f, 220, (e, p) =>
+                {
+                    // Полфейда вниз → перекраска → полфейда вверх.
+                    if (p < 0.5f) e.style.opacity = 1f - p;
+                    else { if (e.style.opacity.value < 0.55f) Paint(); e.style.opacity = p; }
+                    if (p >= 1f) { Paint(); e.style.opacity = 1f; }
+                });
+            }
+        }
+
+        private VisualElement NavTab(int index, LvnIcon icon, string label, System.Action onTap)
         {
             var tab = new VisualElement();
             // РАВНЫЕ ДОЛИ, а не распределение по содержимому. Раньше здесь стояло
@@ -681,24 +710,26 @@ namespace Lvn.UI.Screens
             tab.style.alignItems = Align.Center;
             tab.style.justifyContent = Justify.FlexStart;
             tab.style.paddingTop = 6; tab.style.paddingBottom = 6;
-            var color = active ? _accent : _dim;
+            const bool active = false; // подсветку ведёт SetActiveTab
 
             // Активную вкладку помечает ЧЕРТА СВЕРХУ, а не только цвет: черта
             // читается боковым зрением и не теряется у тех, кто не различает
             // акцент и приглушённый на глаз.
             var mark = new VisualElement { pickingMode = PickingMode.Ignore };
             mark.style.height = 3; mark.style.width = 26;
-            mark.style.backgroundColor = active ? _accent : Color.clear;
+            mark.style.backgroundColor = Color.clear;
             mark.style.marginBottom = 6;
             tab.Add(mark);
 
-            tab.Add(LvnIcons.Make(icon, 30f, color, 0f, active ? _theme.IconGlow : 0f));
+            var iconSlot = new VisualElement { pickingMode = PickingMode.Ignore };
+            iconSlot.Add(LvnIcons.Make(icon, 30f, _dim, 0f, 0f));
+            tab.Add(iconSlot);
             var lb = new Label(_theme.Heading(label)) { pickingMode = PickingMode.Ignore };
-            lb.style.fontSize = 26; lb.style.color = color; lb.style.marginTop = 5;
+            lb.style.fontSize = 26; lb.style.color = _dim; lb.style.marginTop = 5;
             lb.style.letterSpacing = _theme.Tracking;
-            lb.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
             tab.Add(lb);
             if (onTap != null) { tab.AddManipulator(new Clickable(onTap)); LvnMotion.Tappable(tab); }
+            _navTabs.Add(new TabRef { Index = index, Icon = icon, Root = tab, Mark = mark, IconSlot = iconSlot, Label = lb });
             return tab;
         }
 
