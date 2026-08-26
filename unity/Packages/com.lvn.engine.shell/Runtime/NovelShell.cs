@@ -645,6 +645,7 @@ namespace Lvn.UI.Screens
                 {
                     Show(Hub);
                     Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
+                    TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
                     TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
                     OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
                     // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам

@@ -223,13 +223,27 @@ namespace Lvn.UI
             foreach (var s in sprites) cl.PinSprite(s, false);
         }
 
+        /// <summary>Актёр, чьи слои НЕ отпускаются при уборке сцены. Кукла меню
+        /// стоит между главами всё время, и выгружать её арт на вход в главу
+        /// значит перезагружать его на выходе — а пока он едет, слои рисуют
+        /// сплошные прямоугольники («белый квадрат вместо героини»). Дешевле
+        /// удержать один облик в памяти, чем каждый раз собирать заново
+        /// (мысль Ильи 26.08: «нахера очищать героиню — её надо переодевать»).
+        /// Хост ставит сюда своего фаворита меню.</summary>
+        public string KeepActorAlive { get; set; }
+
         private void UnpinAllSceneSprites()
         {
             var cl = (Assets as CachingAssets)?.Loader;
-            if (cl != null)
-                foreach (var list in _scenePins.Values)
-                    foreach (var s in list) cl.PinSprite(s, false);
-            _scenePins.Clear();
+            string keep = string.IsNullOrEmpty(KeepActorAlive) ? null : "actor:" + KeepActorAlive;
+            List<string> drop = null;
+            foreach (var kv in _scenePins)
+            {
+                if (keep != null && kv.Key == keep) continue; // этот облик остаётся жить
+                if (cl != null) foreach (var s in kv.Value) cl.PinSprite(s, false);
+                (drop ??= new List<string>()).Add(kv.Key);
+            }
+            if (drop != null) foreach (var k in drop) _scenePins.Remove(k);
         }
 
         /// <summary>Актёр виден ИЛИ его показ уже в полёте (слои грузятся).
