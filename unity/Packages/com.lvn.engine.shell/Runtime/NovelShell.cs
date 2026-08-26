@@ -77,12 +77,11 @@ namespace Lvn.UI.Screens
 
         // Настроение каждой вкладки на полотне (пока тинтом; настоящие fx —
         // после переноса полотна на канвас, где живут наши шейдеры).
+        // «Реализм на все» (Илья 26.08): цветные настроения вкладок сняты —
+        // фото чистое на всех экранах. Слоты оставлены под будущие пресеты.
         private static readonly Color[] TabTints =
         {
-            new Color(0.05f, 0.35f, 0.40f, 0.16f), // главная — фирменная бирюза
-            new Color(0.55f, 0.35f, 0.05f, 0.18f), // магазин — тёплое золото
-            new Color(0.45f, 0.15f, 0.45f, 0.16f), // гардероб — розовый свет
-            new Color(0.10f, 0.15f, 0.55f, 0.18f), // профиль — глубокая синь
+            Color.clear, Color.clear, Color.clear, Color.clear,
         };
 
         private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
@@ -193,7 +192,9 @@ namespace Lvn.UI.Screens
                 veil.style.position = Position.Absolute;
                 veil.style.left = 0; veil.style.right = 0;
                 veil.style.top = 0; veil.style.bottom = 0;
-                veil.style.backgroundColor = new Color(t.Bg.r, t.Bg.g, t.Bg.b, 0.55f);
+                // «Реализм» (Илья): фото почти как есть — лишь лёгкая вуаль,
+                // чтобы текст поверх оставался читабельным.
+                veil.style.backgroundColor = new Color(t.Bg.r, t.Bg.g, t.Bg.b, 0.22f);
                 _atmosphere.Add(veil);
                 _canvasTint = new VisualElement { pickingMode = PickingMode.Ignore };
                 _canvasTint.style.position = Position.Absolute;
