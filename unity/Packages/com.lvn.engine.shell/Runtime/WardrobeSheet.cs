@@ -33,6 +33,10 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _tabs;
         private readonly Label _itemName;
         private Button _prevBtn, _nextBtn;
+        private VisualElement _emoBar, _emoThumb;
+        private const float EmoBarWidth = 6f;    // сама дорожка
+        private const float EmoBarLane = 16f;    // полоса, которую колонка ей уступает
+        private const int EmoBarSegments = 4;
         private readonly Button _confirm;
         private readonly Button _cancel;
 
@@ -157,21 +161,18 @@ namespace Lvn.UI.Screens
             _balances.style.alignItems = Align.Center;
             Add(_balances);
 
+            // ОДНА СТРОКА ВМЕСТО ТРЁХ (Илья 26.08): заголовка «Гардероб» нет —
+            // и так видно, куда попал; герои переехали колонкой к левому краю,
+            // зеркально лицам справа; разделы и «Во весь рост» делят эту
+            // строку. Лист от этого стал на две строки ниже — куклу видно
+            // больше, а лишнего места не осталось.
             var headRow = new VisualElement();
             headRow.style.flexDirection = FlexDirection.Row;
             headRow.style.alignItems = Align.Center;
-            headRow.style.justifyContent = Justify.Center;
             Add(headRow);
 
             _title = new Label(_cfg.title ?? "Wardrobe");
-            _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
-            _title.style.fontSize = 28;
-            _title.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _title.style.paddingLeft = 24; _title.style.paddingRight = 24;
-            _title.style.paddingTop = 4; _title.style.paddingBottom = 4;
-            _title.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            LvnChrome.Round(_title, _radius);
-            headRow.Add(_title);
+            _title.style.display = DisplayStyle.None; // подпись убрана, поле живо для хоста
 
             // ВО ВЕСЬ РОСТ. Раньше этот шеврон ЗАКРЫВАЛ примерку, и игроки его
             // не понимали: фигура «свернуть вниз» обещает свернуть, а не выйти.
@@ -182,8 +183,7 @@ namespace Lvn.UI.Screens
             // «Во весь рост» обязан показать фигуру ЦЕЛИКОМ — зум раздела
             // снимается вместе с панелью; возврат наводит его заново (хост).
             var peek = new Button(() => { FireSectionFocus(null); OnPeek?.Invoke(true); }) { text = "" };
-            peek.style.position = Position.Absolute;
-            peek.style.right = 0;
+            peek.style.flexShrink = 0; // разделы жмутся, кнопка — никогда
             peek.style.flexDirection = FlexDirection.Row;
             peek.style.alignItems = Align.Center;
             peek.style.justifyContent = Justify.Center;
@@ -198,24 +198,30 @@ namespace Lvn.UI.Screens
             peek.style.paddingLeft = 14; peek.style.paddingRight = 14;
             peek.style.paddingTop = 6; peek.style.paddingBottom = 6;
             SkinButton(peek, false);
-            headRow.Add(peek);
 
             // Character pills — ONLY the always-open wardrobe shows them, and
             // only when several dressable characters have a collection. A story
             // moment dresses exactly who the author says.
+            //
+            // Колонка У ЛЕВОГО КРАЯ, поверх куклы (Илья 26.08: «героев надо
+            // перечислять слева сбоку, как эмоции»): строка в листе съедала
+            // место и повторяла то, что и так читается по кукле.
             _rosterRow = new VisualElement();
-            _rosterRow.style.flexDirection = FlexDirection.Row;
-            _rosterRow.style.flexWrap = Wrap.Wrap;
-            _rosterRow.style.justifyContent = Justify.Center;
-            _rosterRow.style.marginTop = 14;
+            _rosterRow.style.position = Position.Absolute;
+            _rosterRow.style.left = 0;
+            _rosterRow.style.flexDirection = FlexDirection.Column;
+            _rosterRow.style.alignItems = Align.FlexStart;
             _rosterRow.style.display = DisplayStyle.None;
             Add(_rosterRow);
 
             _tabs = new VisualElement();
             _tabs.style.flexDirection = FlexDirection.Row;
             _tabs.style.justifyContent = Justify.Center;
-            _tabs.style.marginTop = 24; // breathing room under the title before the tabs
-            Add(_tabs);
+            _tabs.style.flexGrow = 1;    // разделы занимают строку, кнопка справа
+            _tabs.style.flexShrink = 1;
+            _tabs.style.flexWrap = Wrap.Wrap;
+            headRow.Add(_tabs);
+            headRow.Add(peek); // строка: разделы — по центру, «Во весь рост» — справа
 
             // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): колонка
             // лиц СПРАВА ОТ ГЕРОИНИ, над листом (как пилюли кошелька слева —
@@ -228,11 +234,42 @@ namespace Lvn.UI.Screens
             _emotions.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _emotions.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _emotions.style.position = Position.Absolute;
-            _emotions.style.right = 0;
+            _emotions.style.right = EmoBarLane; // полоса у самого края — под индикатор
             _emotions.style.display = DisplayStyle.None;
             _emotions.contentContainer.style.alignItems = Align.FlexEnd;
             MakeDragScrollable(_emotions); // тянется рукой, а не только колесом
             Add(_emotions);
+
+            // ГДЕ МЫ В СПИСКЕ ЛИЦ (Илья 26.08: «показывать кружками скролл —
+            // полупрозрачными прямоугольниками модными, справа место есть»):
+            // сегментированная дорожка у правого края, по ней плавно скользит
+            // бегунок. Своя, а не штатный скроллбар: колонка живёт поверх
+            // куклы, и серая полоса Unity выбивалась бы из оболочки.
+            _emoBar = new VisualElement { pickingMode = PickingMode.Ignore };
+            _emoBar.style.position = Position.Absolute;
+            _emoBar.style.right = 4;
+            _emoBar.style.width = EmoBarWidth;
+            _emoBar.style.display = DisplayStyle.None;
+            Add(_emoBar);
+            for (int s = 0; s < EmoBarSegments; s++)
+            {
+                var seg = new VisualElement { pickingMode = PickingMode.Ignore };
+                seg.style.flexGrow = 1;
+                seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
+                seg.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
+                LvnChrome.Round(seg, EmoBarWidth * 0.5f);
+                _emoBar.Add(seg);
+            }
+            _emoThumb = new VisualElement { pickingMode = PickingMode.Ignore };
+            _emoThumb.style.position = Position.Absolute;
+            _emoThumb.style.left = 0; _emoThumb.style.right = 0;
+            _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
+            LvnChrome.Round(_emoThumb, EmoBarWidth * 0.5f);
+            Smooth(_emoThumb, 130, "top", "height");
+            _emoBar.Add(_emoThumb);
+            // Скроллеры спрятаны, но живут — их значение и есть позиция.
+            _emotions.verticalScroller.valueChanged += _ => UpdateEmoScrollBar();
+            _emotions.RegisterCallback<GeometryChangedEvent>(_ => UpdateEmoScrollBar());
             // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
             // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
             // неё, когда лиц больше, чем зазора. Теперь верх колонки прибит к
@@ -351,10 +388,10 @@ namespace Lvn.UI.Screens
                     if (OnlySeen && id != _entity && !HasAnyCollected(id)) continue;
                     var pid = id;
                     var b = new Button(() => SwitchTo(pid)) { text = name };
-                    b.style.height = 44;
-                    b.style.marginLeft = 4; b.style.marginRight = 4; b.style.marginBottom = 6;
-                    b.style.paddingLeft = 16; b.style.paddingRight = 16;
-                    b.style.fontSize = 20;
+                    b.style.height = 40;
+                    b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginBottom = 8;
+                    b.style.paddingLeft = 14; b.style.paddingRight = 14;
+                    b.style.fontSize = 19;
                     bool active = pid == _entity;
                     SkinButton(b, active);
                     LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
@@ -862,9 +899,20 @@ namespace Lvn.UI.Screens
                 down = true; dragging = false; pid = e.pointerId;
                 startPos = e.position; startOff = sv.scrollOffset;
             }, TrickleDown.TrickleDown);
+            void EndGesture()
+            {
+                if (pid != -1 && sv.HasPointerCapture(pid)) sv.ReleasePointer(pid);
+                down = false; dragging = false; pid = -1;
+            }
             sv.RegisterCallback<PointerMoveEvent>(e =>
             {
                 if (!down || e.pointerId != pid) return;
+                // Кнопка уже отпущена, а PointerUp до нас не дошёл. Это штатно:
+                // тап по чипу перестраивает колонку, элемент под курсором
+                // исчезает — и событие отпускания уходит вместе с ним. Без
+                // этой проверки жест оставался «нажатым» навсегда и список
+                // ехал за курсором без нажатия (Илья 26.08).
+                if (e.pressedButtons == 0) { EndGesture(); return; }
                 var d = (Vector2)e.position - startPos;
                 if (!dragging && Mathf.Abs(d.y) > 8f)
                 {
@@ -874,12 +922,14 @@ namespace Lvn.UI.Screens
                 if (dragging)
                     sv.scrollOffset = new Vector2(startOff.x, startOff.y - d.y);
             });
+            // TrickleDown: отпускание должно дойти до нас ДО того, как обработчик
+            // чипа пересоберёт колонку и заберёт с собой цель события.
             sv.RegisterCallback<PointerUpEvent>(e =>
             {
-                if (e.pointerId == pid && sv.HasPointerCapture(pid))
-                    sv.ReleasePointer(pid);
-                down = false; dragging = false; pid = -1;
-            });
+                if (e.pointerId == pid) EndGesture();
+            }, TrickleDown.TrickleDown);
+            // Захват потерян не нами (перестройка, другой элемент) — жест мёртв.
+            sv.RegisterCallback<PointerCaptureOutEvent>(_ => { down = false; dragging = false; pid = -1; });
         }
 
         // Колонка эмоций стоит от низа НАВБАРА до верха плашки — в координатах
@@ -894,11 +944,51 @@ namespace Lvn.UI.Screens
             float safeTop = Screen.height > 0 && !float.IsNaN(rootH)
                 ? (Screen.height - Screen.safeArea.yMax) / Screen.height * rootH : 0f;
             float navBottom = safeTop + LvnTopBar.RowH + 10f;
-            _emotions.style.top = navBottom - sheetTop;
+            float gap = Mathf.Max(0f, sheetTop - navBottom - 12f);
+            // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
+            // на 10 процентов»), высота — та же половина зазора плюс 15%.
+            float top = navBottom + gap * 0.10f;
+            float height = Mathf.Max(120f, gap * 0.575f);
+            _emotions.style.top = top - sheetTop;
             _emotions.style.bottom = StyleKeyword.Auto;
             // ПОЛОВИНА зазора (Илья 28.08: «слишком много — сократи в 2 раза»):
             // колонка на всю высоту закрывала куклу; остальные лица скроллятся.
-            _emotions.style.maxHeight = Mathf.Max(120f, (sheetTop - navBottom - 12f) * 0.5f);
+            _emotions.style.maxHeight = height;
+            if (_emoBar != null)
+            {
+                _emoBar.style.top = top - sheetTop;
+                _emoBar.style.height = height;
+            }
+            // Герои — та же полка у левого края: две колонки читаются как пара.
+            if (_rosterRow != null)
+            {
+                _rosterRow.style.top = top - sheetTop;
+                _rosterRow.style.maxHeight = height;
+            }
+            UpdateEmoScrollBar();
+        }
+
+        // Бегунок дорожки: длина — доля видимого списка, положение — доля
+        // прокрутки. Дорожка прячется целиком, когда лица помещаются разом:
+        // индикатор, который нечего индицировать, — просто шум.
+        private void UpdateEmoScrollBar()
+        {
+            if (_emoBar == null || _emoThumb == null || _emotions == null) return;
+            float view = _emotions.contentViewport.layout.height;
+            float content = _emotions.contentContainer.layout.height;
+            bool visible = _emotions.style.display != DisplayStyle.None;
+            if (!visible || float.IsNaN(view) || float.IsNaN(content) || content <= view + 1f)
+            {
+                _emoBar.style.display = DisplayStyle.None;
+                return;
+            }
+            _emoBar.style.display = DisplayStyle.Flex;
+            float barH = _emoBar.layout.height;
+            if (float.IsNaN(barH) || barH <= 1f) return;
+            float thumbH = Mathf.Clamp(barH * (view / content), 26f, barH);
+            float p = Mathf.Clamp01(_emotions.scrollOffset.y / Mathf.Max(1f, content - view));
+            _emoThumb.style.height = thumbH;
+            _emoThumb.style.top = (barH - thumbH) * p;
         }
 
         // ── баблики эмоций: примерка лица на живую куклу ─────────────────────
@@ -920,7 +1010,11 @@ namespace Lvn.UI.Screens
             if (_emotionAxis != null && _def.wardrobe != null
                 && _def.wardrobe.ContainsKey(_emotionAxis)) _emotionAxis = null;
             _emotions.style.display = _emotionAxis == null ? DisplayStyle.None : DisplayStyle.Flex;
-            if (_emotionAxis == null) return;
+            if (_emotionAxis == null)
+            {
+                if (_emoBar != null) _emoBar.style.display = DisplayStyle.None;
+                return;
+            }
 
             foreach (var v in vals)
             {
