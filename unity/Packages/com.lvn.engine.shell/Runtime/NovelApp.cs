@@ -1583,6 +1583,9 @@ namespace Lvn.UI.Screens
             // и шлёт показ заново.
             Debug.Log($"[lvn-menu] кукла: фаворит={fav ?? "-"}, стоявший={_menuSceneActor ?? "-"}, "
                       + $"на сцене={(string.IsNullOrEmpty(fav) ? false : Stage.ActorVisibleOrPending(fav))}");
+            // Через 1.5с (после входа куклы) перечислить сплошные светлые
+            // поверхности сцены — охота на белый прямоугольник (26.08).
+            LvnAsync.Fire(DumpSceneSoonAsync(), "DumpScene");
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.
@@ -1669,6 +1672,12 @@ namespace Lvn.UI.Screens
             { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 });
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
             { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 });
+        }
+
+        private async System.Threading.Tasks.Task DumpSceneSoonAsync()
+        {
+            await System.Threading.Tasks.Task.Delay(1500);
+            if (!_chapterPlaying) Stage?.DumpOpaqueGraphics();
         }
 
         private void HideMenuSceneActor()

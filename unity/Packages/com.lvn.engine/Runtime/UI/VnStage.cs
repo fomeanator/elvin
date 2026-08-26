@@ -191,6 +191,44 @@ namespace Lvn.UI
 
         private bool _bgWasBlankWhite;
 
+        /// <summary>Диагностика «белого прямоугольника» ПО СЦЕНЕ: дерево
+        /// оболочки уже показало, что светлого в нём нет, значит пятно рисует
+        /// UGUI. Печатаем каждую видимую поверхность, которая рисует СПЛОШНОЙ
+        /// светлый цвет без картинки — Image без спрайта и RawImage без
+        /// текстуры выглядят именно так.</summary>
+        public void DumpOpaqueGraphics()
+        {
+            var root = (_renderer as CanvasSceneRenderer)?.Root;
+            if (root == null) { Debug.Log("[lvn-white] сцена: корня нет"); return; }
+            var sb = new StringBuilder("[lvn-white] сплошные светлые поверхности СЦЕНЫ:\n");
+            int found = 0;
+            foreach (var g in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(false))
+            {
+                if (g == null || !g.isActiveAndEnabled) continue;
+                var c = g.color;
+                if (c.a < 0.35f) continue;
+                bool hasArt = (g is UnityEngine.UI.Image im && im.sprite != null)
+                              || (g is UnityEngine.UI.RawImage ri && ri.texture != null);
+                if (hasArt) continue;                       // с картинкой — не наш случай
+                if ((c.r + c.g + c.b) / 3f < 0.55f) continue; // тёмное пятно не заметить
+                var rt = g.rectTransform;
+                var size = rt.rect.size;
+                if (size.x < 80f || size.y < 80f) continue;
+                found++;
+                sb.AppendLine($"  {g.GetType().Name} '{HierarchyPath(g.transform)}' "
+                              + $"цвет=#{ColorUtility.ToHtmlStringRGBA(c)} размер={size.x:0}x{size.y:0}");
+            }
+            if (found == 0) sb.AppendLine("  — сплошных светлых поверхностей нет");
+            Debug.Log(sb.ToString());
+        }
+
+        private static string HierarchyPath(Transform t)
+        {
+            var sb = new StringBuilder(t.name);
+            for (var p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
+            return sb.ToString();
+        }
+
         private void Build()
         {
             if (_built) return;
