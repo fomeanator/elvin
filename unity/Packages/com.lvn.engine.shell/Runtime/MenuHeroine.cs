@@ -18,8 +18,17 @@ namespace Lvn.UI.Screens
     {
         private readonly ILvnAssets _assets;
         private readonly LvnManifest _manifest;
-        private readonly string _entity;
+        private string _entity;
         private int _gen;
+
+        // Фаворит из гардероба, иначе героиня по умолчанию.
+        private string PickEntity()
+        {
+            var fav = Lvn.UI.LvnPrefs.MenuFavorite;
+            if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
+                && _manifest.sprites.ContainsKey(fav)) return fav;
+            return _manifest?.ui?.wardrobe?.entity;
+        }
 
         /// <summary>Есть ли у игры героиня (иначе слой мёртв навсегда).</summary>
         public bool HasEntity { get; private set; }
@@ -28,7 +37,7 @@ namespace Lvn.UI.Screens
         {
             _manifest = manifest;
             _assets = assets;
-            _entity = manifest?.ui?.wardrobe?.entity;
+            _entity = PickEntity();
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
             // ПО ЦЕНТРУ и крупно (Илья 26.08), ногами к нижнему меню:
@@ -46,12 +55,25 @@ namespace Lvn.UI.Screens
             }
             HasEntity = true;
             Lvn.UI.LvnWardrobe.Changed += OnWardrobeChanged;
-            RegisterCallback<DetachFromPanelEvent>(_ => Lvn.UI.LvnWardrobe.Changed -= OnWardrobeChanged);
+            Lvn.UI.LvnPrefs.Changed += OnPrefsChanged; // смена фаворита
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                Lvn.UI.LvnWardrobe.Changed -= OnWardrobeChanged;
+                Lvn.UI.LvnPrefs.Changed -= OnPrefsChanged;
+            });
             RegisterCallback<GeometryChangedEvent>(_ => FitWidth());
             LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
         }
 
         private void OnWardrobeChanged(string _) => LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
+
+        private void OnPrefsChanged()
+        {
+            var next = PickEntity();
+            if (next == _entity) return;
+            _entity = next;
+            LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
+        }
 
         private void FitWidth()
         {
