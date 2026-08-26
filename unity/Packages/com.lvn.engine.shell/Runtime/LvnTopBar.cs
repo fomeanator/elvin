@@ -372,13 +372,11 @@ namespace Lvn.UI.Screens
 
         public void PlayEntrance()
         {
-            float hidden = -(RowH + _safeTop + 6f);
-            _row.style.translate = new Translate(0f, hidden);
-            _row.experimental.animation.Start(0f, 1f, 300, (r, v) =>
-            {
-                float k = 1f - Mathf.Pow(1f - v, 3f);
-                r.style.translate = new Translate(0f, Mathf.Lerp(hidden, 0f, k));
-            });
+            // ПРОЯВЛЕНИЕ НА МЕСТЕ вместо въезда сверху (Илья 26.08: «прыжки
+            // убери везде»). Съезжающая строка дёргала верх экрана на каждый
+            // показ хаба, а при обрыве анимации бар оставался за кромкой.
+            _row.style.translate = new Translate(0f, 0f);
+            Lvn.UI.LvnMotion.FadeIn(_row);
         }
 
         /// <summary>Прогресс главы для левого баблика (та же формула Percent,

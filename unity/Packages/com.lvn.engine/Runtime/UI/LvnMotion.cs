@@ -107,6 +107,32 @@ namespace Lvn.UI
             }, DampingSoft);
         }
 
+        /// <summary>ТОЛЬКО ПРОЯВЛЕНИЕ, без сдвига и пружины (Илья 26.08:
+        /// «убери эту убогую анимацию, делай фейд, прыжки убери везде»).
+        /// Плитка, которая едет и пружинит, на списке читается как дёрганье —
+        /// содержимое должно проступать, а не прыгать.</summary>
+        public static void FadeIn(VisualElement el, int delayMs = 0, int ms = 160)
+        {
+            if (el == null) return;
+            el.style.opacity = 0f;
+            el.style.translate = new Translate(0, 0); // хвост прежних въездов
+            el.schedule.Execute(() =>
+            {
+                el.style.transitionProperty = new List<StylePropertyName> { "opacity" };
+                el.style.transitionDuration = new List<TimeValue> { new TimeValue(ms, TimeUnit.Millisecond) };
+                el.style.transitionTimingFunction =
+                    new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutSine) };
+                el.style.opacity = 1f;
+            }).ExecuteLater(Mathf.Max(0, delayMs) + 16);
+        }
+
+        /// <summary>Проявить набор разом — без «волны» по элементам.</summary>
+        public static void FadeInAll(IEnumerable<VisualElement> items, int ms = 160)
+        {
+            if (items == null) return;
+            foreach (var el in items) FadeIn(el, 0, ms);
+        }
+
         /// <summary>
         /// Хореография: те же появления, но со сдвигом по времени. Первый
         /// элемент идёт сразу, каждый следующий — на <paramref name="stepMs"/>
