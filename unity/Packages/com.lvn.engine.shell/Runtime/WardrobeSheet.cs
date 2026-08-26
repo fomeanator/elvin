@@ -720,9 +720,9 @@ namespace Lvn.UI.Screens
         {
             if (axis == AllTab) return (1f, 0.5f);
             var k = (axis ?? "").ToLowerInvariant();
-            if (IsHairAxis(k)) return (1.60f, 0.13f);
+            if (IsHairAxis(k)) return (1.60f, 0.50f);
             if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
-                || k.Contains("acc")) return (1.77f, 0.30f);
+                || k.Contains("acc")) return (1.90f, 0.30f);
             return (1.55f, 0.60f); // платье/наряд
         }
 
