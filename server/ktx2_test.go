@@ -123,3 +123,74 @@ func TestKtx2MissesAre404(t *testing.T) {
 		t.Fatalf("traversal: status = %d, want 404", rec.Code)
 	}
 }
+
+// writeKtx2Header writes a minimal KTX2 file whose header claims w×h. Enough
+// for the geometry guard, which only ever reads the first 28 bytes.
+func writeKtx2Header(t *testing.T, path string, w, h int) {
+	t.Helper()
+	buf := make([]byte, 28)
+	copy(buf, ktx2Magic)
+	binary.LittleEndian.PutUint32(buf[20:24], uint32(w))
+	binary.LittleEndian.PutUint32(buf[24:28], uint32(h))
+	if err := os.WriteFile(path, buf, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// An encode whose picture is a different SIZE than the art beside it was made
+// from art that has since been replaced under the same name — mtime can't see
+// it (the bad encode is NEWER), so geometry has to. Live case 26.08: 37 of the
+// heroine's layers served 1210×2048 encodes of long-gone art next to 1600×2048
+// PNGs, squeezing every KTX2-served layer and coarsening its detail.
+func TestKtx2MisshapenEncodeIsStale(t *testing.T) {
+	dir := t.TempDir()
+	art := filepath.Join(dir, "hero.png")
+	writeTestPNG(t, art, 1600, 800)
+
+	matching := filepath.Join(dir, "hero.ktx2")
+	writeKtx2Header(t, matching, 1600, 800)
+	if ktx2Stale(matching) {
+		t.Error("encode matching its source must stay fresh")
+	}
+
+	wrong := filepath.Join(dir, "hero2.ktx2")
+	writeTestPNG(t, filepath.Join(dir, "hero2.png"), 1600, 800)
+	writeKtx2Header(t, wrong, 1210, 800)
+	if !ktx2Stale(wrong) {
+		t.Error("encode of differently-shaped art must be treated as stale")
+	}
+}
+
+// A variant encode ("X@2k.ktx2") with no @2k.png on disk is measured against
+// the ORIGINAL through the downscale box: art inside the box passes through at
+// its own size, art above it is compared to the resized dimensions.
+func TestKtx2MisshapenVariantUsesDownscaleBox(t *testing.T) {
+	dir := t.TempDir()
+	writeTestPNG(t, filepath.Join(dir, "big.png"), 4096, 2048)
+	ok := filepath.Join(dir, "big@2k.ktx2")
+	writeKtx2Header(t, ok, 2048, 1024) // what the downscaler would produce
+	if ktx2Stale(ok) {
+		t.Error("variant encode at the downscaled size must stay fresh")
+	}
+
+	writeTestPNG(t, filepath.Join(dir, "small.png"), 1600, 2048)
+	fits := filepath.Join(dir, "small@2k.ktx2")
+	writeKtx2Header(t, fits, 1600, 2048) // inside the box — encoded from the original
+	if ktx2Stale(fits) {
+		t.Error("variant encode of art already inside the box must stay fresh")
+	}
+}
+
+// A truncated or non-KTX2 payload is never trusted: the client must fall back
+// to the PNG path rather than hand torn bytes to the transcoder.
+func TestKtx2UnreadableHeaderIsStale(t *testing.T) {
+	dir := t.TempDir()
+	writeTestPNG(t, filepath.Join(dir, "x.png"), 64, 64)
+	torn := filepath.Join(dir, "x.ktx2")
+	if err := os.WriteFile(torn, ktx2Magic[:8], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !ktx2Stale(torn) {
+		t.Error("truncated encode must be treated as stale")
+	}
+}

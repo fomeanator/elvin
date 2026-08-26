@@ -528,8 +528,26 @@ namespace Lvn.Content
         {
             Dictionary<string, string> map;
             lock (_versionsLock) map = _versions;
-            return Lookup(map, url);
+            var v = Lookup(map, url);
+            // Транскод наследует версию ИСХОДНИКА — значит перекодировка на
+            // сервере (починенный кодировщик, выброшенный битый файл) для
+            // клиента невидима: картинка-источник не менялась, ключ прежний, и
+            // старый .ktx2 едет из кэша вечно. Живой случай 26.08: слои
+            // Виктории лежали закодированными из давно заменённого арта —
+            // сжатые по горизонтали и с раскрошенной мелкой деталью
+            // («пиксели на украшении»). Поколение в ключе — способ разом
+            // объявить все прежние транскоды недействительными; поднимать
+            // всякий раз, когда меняется контракт кодирования.
+            if (v != null && IsTranscodeUrl(url)) return v + "+k" + Ktx2CacheEpoch;
+            return v;
         }
+
+        private const int Ktx2CacheEpoch = 2;
+
+        private static bool IsTranscodeUrl(string url) =>
+            !string.IsNullOrEmpty(url) &&
+            (url.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase) ||
+             url.EndsWith(".astc", StringComparison.OrdinalIgnoreCase));
 
         // Version for INTEGRITY checks: exact index entries only. A derived
         // variant inherits its source's version (see Lookup) — right for cache

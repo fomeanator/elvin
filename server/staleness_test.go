@@ -120,12 +120,11 @@ func TestWithKTX2_AStaleEncodeIs404edAndRemoved(t *testing.T) {
 		t.Fatal("stale ktx2 left on disk — the next request would serve yesterday's art again")
 	}
 
-	// And a FRESH encode keeps serving statically.
+	// And a FRESH encode keeps serving statically. Its header must state the
+	// art's real size — the geometry guard rejects an encode of other art.
 	fresh := filepath.Join(dir, "fresh@2k.ktx2")
 	writeSolidPNG(t, filepath.Join(dir, "fresh.png"), 100, 100, color.NRGBA{G: 255, A: 255})
-	if err := os.WriteFile(fresh, []byte("encode of the CURRENT art"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeKtx2Header(t, fresh, 100, 100)
 	if rec := get(t, h, "/content/fresh@2k.ktx2"); rec.Code != http.StatusOK {
 		t.Fatalf("fresh ktx2 must serve statically, got %d", rec.Code)
 	}
@@ -137,9 +136,9 @@ func TestKtx2Stale_TheOriginalBehindTheVariantChainCounts(t *testing.T) {
 	intermediate := filepath.Join(dir, "hero@2k.png")
 	original := filepath.Join(dir, "hero.png")
 
-	if err := os.WriteFile(ktx2, []byte("k"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	// A real header at the encode source's size: this test is about the MTIME
+	// chain, so the geometry guard (ktx2Misshapen) must have nothing to say.
+	writeKtx2Header(t, ktx2, 50, 50)
 	writeSolidPNG(t, intermediate, 50, 50, color.NRGBA{R: 255, A: 255})
 	// Explicit, well-separated mtimes — the strict After() comparison must not
 	// hinge on how many microseconds apart two test writes landed.
