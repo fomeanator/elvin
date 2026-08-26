@@ -430,6 +430,7 @@ namespace Lvn.UI.Screens
             // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
             WardrobeTab.OpenStore = () => OpenPackShopAsync();
             WardrobeTab.ConfirmTopUp = (t, m) => ConfirmAsync(t, m, "В магазин", "Отмена");
+            WardrobeTab.Alert = (t, m) => AlertAsync(t, m);
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);
             Reparent(Profile, tabsLayer);

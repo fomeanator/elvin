@@ -79,6 +79,18 @@ namespace Lvn.UI.Screens
         private LvnSpriteEntity _def;
         private string _tab;
         private readonly Dictionary<string, int> _index = new Dictionary<string, int>(); // axis → carousel pos
+        private ScrollView _strip;                 // лента карточек активной оси
+        private readonly List<VisualElement> _stripCards = new List<VisualElement>();
+
+        /// <summary>Меню-режим: пилюли кошелька прячутся — валюты уже несёт
+        /// единый навбар, дубль над плашкой только шумит.</summary>
+        public bool HideBalances;
+
+        /// <summary>Сюжетный показ (true, по умолчанию) метит весь предложенный
+        /// каталог «встреченным» — он вошёл в путь игрока. Меню-магазин скинов
+        /// ставит false: там ВЕСЬ каталог виден как витрина, но коллекцию
+        /// игрового гардероба листание витрины раскрывать не должно.</summary>
+        public bool MarkSeenOnShow = true;
 
         private TaskCompletionSource<bool> _tcs;
         private bool _open;
@@ -177,6 +189,18 @@ namespace Lvn.UI.Screens
             _tabs.style.justifyContent = Justify.Center;
             _tabs.style.marginTop = 24; // breathing room under the title before the tabs
             Add(_tabs);
+
+            // ЛЕНТА КАРТОЧЕК СКИНОВ (решение Ильи 27.08: единый гардероб —
+            // «взял бы плашку из игры, а карусель слить с карточками»): все
+            // варианты оси видны разом — арт, цена ПРЯМО на картинке (бейдж в
+            // углу), имя на серой подложке снизу. Тап = примерка; лента и
+            // карусель ниже — два руля одного состояния (_index).
+            _strip = new ScrollView(ScrollViewMode.Horizontal);
+            _strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _strip.style.marginTop = 12;
+            _strip.contentContainer.style.flexDirection = FlexDirection.Row;
+            Add(_strip);
 
             // ◀ item name ▶
             var carousel = new VisualElement();
@@ -312,7 +336,7 @@ namespace Lvn.UI.Screens
             BuildFor(entityId);
             // A story wardrobe moment IS the outfits crossing the player's path —
             // everything it offers joins the always-open wardrobe's collection.
-            if (!OnlySeen && _def?.wardrobe != null)
+            if (!OnlySeen && MarkSeenOnShow && _def?.wardrobe != null)
                 foreach (var kv in _def.wardrobe)
                     if (kv.Value?.items != null)
                         foreach (var it in kv.Value.items)
@@ -341,12 +365,16 @@ namespace Lvn.UI.Screens
         }
 
         private void Cancel() => _tcs?.TrySetResult(false);
-        private void OnWalletChanged() { RefreshBalances(); RefreshConfirm(); }
+        // Кошелёк сменился (покупка/начисление) — бейджи цен на карточках
+        // обязаны пересчитаться: купленный скин тут же теряет ценник.
+        private void OnWalletChanged() { RefreshBalances(); RebuildStrip(); RefreshConfirm(); }
 
         // Every currency the wardrobe charges in + everything the player holds.
         private void RefreshBalances()
         {
             _balances.Clear();
+            _balances.style.display = HideBalances ? DisplayStyle.None : DisplayStyle.Flex;
+            if (HideBalances) return;
             var currencies = new List<string>();
             if (_def?.wardrobe != null)
                 foreach (var slot in _def.wardrobe.Values)
@@ -423,6 +451,7 @@ namespace Lvn.UI.Screens
             if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
             {
                 _itemName.text = _cfg.empty_text ?? "The wardrobe is empty";
+                RebuildStrip(); // не показывать карточки прошлого персонажа
                 RefreshConfirm();
                 return;
             }
@@ -492,7 +521,13 @@ namespace Lvn.UI.Screens
             }
 
             var items = Items(_tab);
-            if (items.Count == 0) { _itemName.text = ""; RefreshConfirm(); return; }
+            if (items.Count == 0)
+            {
+                _itemName.text = "";
+                RebuildStrip();
+                RefreshConfirm();
+                return;
+            }
             if (!_index.ContainsKey(_tab))
             {
                 // start the carousel on what's worn (previewed beats equipped)
@@ -502,7 +537,108 @@ namespace Lvn.UI.Screens
                 for (int i = 0; i < items.Count; i++) if (items[i].value == current) { at = i; break; }
                 _index[_tab] = at;
             }
+            RebuildStrip();
             ShowItem(); // also previews it, so the carousel and the actor agree
+        }
+
+        // ── лента карточек: второй руль карусели ─────────────────────────────
+        private void RebuildStrip()
+        {
+            if (_strip == null) return;
+            _strip.Clear();
+            _stripCards.Clear();
+            var items = Items(_tab);
+            _strip.style.display = items.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var card = StripCard(i, items[i]);
+                _strip.Add(card);
+                _stripCards.Add(card);
+            }
+            StyleStrip();
+        }
+
+        // Карточка: арт скина во всю плитку, цена бейджем ПРЯМО на арте
+        // (у купленных и бесплатных бейджа нет), имя на серой подложке снизу.
+        private VisualElement StripCard(int i, LvnWardrobeItem item)
+        {
+            bool owned = IsOwned(item);
+            var card = new VisualElement();
+            card.style.width = 112; card.style.height = 150;
+            card.style.marginRight = 10;
+            card.style.flexShrink = 0;
+            card.style.backgroundColor = new Color(0f, 0f, 0f, 0.30f);
+            LvnChrome.Round(card, _radius);
+            card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
+
+            var art = new VisualElement { pickingMode = PickingMode.Ignore };
+            art.style.position = Position.Absolute;
+            art.style.left = 4; art.style.right = 4;
+            art.style.top = 4; art.style.bottom = 32;
+            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+            art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            card.Add(art);
+            if (!string.IsNullOrEmpty(item.icon))
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(art, item.icon, _assets), "WardrobeCard");
+
+            var plate = new VisualElement { pickingMode = PickingMode.Ignore };
+            plate.style.position = Position.Absolute;
+            plate.style.left = 0; plate.style.right = 0; plate.style.bottom = 0;
+            plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
+            plate.style.paddingTop = 5; plate.style.paddingBottom = 6;
+            plate.style.paddingLeft = 4; plate.style.paddingRight = 4;
+            card.Add(plate);
+
+            var name = new Label(item.name ?? item.value) { pickingMode = PickingMode.Ignore };
+            name.style.color = _text;
+            name.style.fontSize = 17;
+            name.style.unityTextAlign = TextAnchor.MiddleCenter;
+            name.style.overflow = Overflow.Hidden;
+            name.style.textOverflow = TextOverflow.Ellipsis;
+            name.style.whiteSpace = WhiteSpace.NoWrap;
+            plate.Add(name);
+
+            if (!owned)
+            {
+                var badge = new Label($"◆ {item.price:N0}") { pickingMode = PickingMode.Ignore };
+                badge.style.position = Position.Absolute;
+                badge.style.top = 5; badge.style.right = 5;
+                badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
+                badge.style.color = LvnTokens.Gold;
+                badge.style.fontSize = 16;
+                badge.style.unityFontStyleAndWeight = FontStyle.Bold;
+                badge.style.paddingLeft = 7; badge.style.paddingRight = 7;
+                badge.style.paddingTop = 2; badge.style.paddingBottom = 2;
+                LvnChrome.Round(badge, 9f);
+                card.Add(badge);
+            }
+
+            int at = i;
+            card.RegisterCallback<ClickEvent>(_ =>
+            {
+                if (_tab == null) return;
+                _index[_tab] = at;
+                ShowItem(); // примерка + имя в карусели + подсветка — одно состояние
+            });
+            return card;
+        }
+
+        // Подсветка текущего и доводка ленты: выбранная карточка всегда в кадре
+        // (стрелки карусели листают — лента едет следом).
+        private void StyleStrip()
+        {
+            int cur = _tab != null && _index.TryGetValue(_tab, out var i) ? i : 0;
+            for (int k = 0; k < _stripCards.Count; k++)
+            {
+                bool on = k == cur;
+                LvnChrome.Border(_stripCards[k],
+                    on ? _accent : new Color(1f, 1f, 1f, 0.12f), on ? 2.5f : 1.5f);
+            }
+            if (cur >= 0 && cur < _stripCards.Count)
+            {
+                var target = _stripCards[cur];
+                _strip.schedule.Execute(() => _strip.ScrollTo(target)); // после лейаута
+            }
         }
 
         internal void Step(int dir)
@@ -524,6 +660,7 @@ namespace Lvn.UI.Screens
             Debug.Log($"[lvn-wardrobe] sheet preview {_entity}.{_tab} = '{item.value}' " +
                       $"(price={item.price} {item.currency ?? "-"}, owned={owned})");
             LvnWardrobe.Preview(_entity, _tab, item.value); // the live actor is the mirror
+            StyleStrip(); // лента подсвечивает и довозит выбранную карточку
             RefreshConfirm();
         }
 
