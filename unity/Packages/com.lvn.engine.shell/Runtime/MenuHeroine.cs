@@ -49,7 +49,7 @@ namespace Lvn.UI.Screens
             LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
         }
 
-        private void OnWardrobeChanged() => LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
+        private void OnWardrobeChanged(string _) => LvnAsync.Fire(RebuildAsync(), "MenuHeroine");
 
         private void FitWidth()
         {
