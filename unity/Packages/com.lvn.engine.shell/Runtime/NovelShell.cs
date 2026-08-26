@@ -79,8 +79,19 @@ namespace Lvn.UI.Screens
             _atmosphere.style.backgroundColor = t.Bg;
             LvnBackdrop.Apply(_atmosphere, t);
             _root.Insert(0, _atmosphere);
-            OnChapterSessionStart += () => _atmosphere.style.display = DisplayStyle.None;
-            OnChapterSessionEnd += () => _atmosphere.style.display = DisplayStyle.Flex;
+            // ВИДИМОСТЬ ПО ПРАВИЛУ «виден экран меню», а не «нет главы»:
+            // гардероб из хаба прячет хаб и живёт в документе СЦЕНЫ — атмосфера
+            // с событийной подпиской оставалась поверх и заслоняла его целиком
+            // (живой скрин «гардероб сломан»). Тик ниже держит правило сам.
+            _root.schedule.Execute(() =>
+            {
+                bool menuVisible =
+                    (Boot != null && Boot.style.display == DisplayStyle.Flex) ||
+                    (Carousel != null && Carousel.style.display == DisplayStyle.Flex) ||
+                    (Hub != null && Hub.style.display == DisplayStyle.Flex);
+                var want = menuVisible ? DisplayStyle.Flex : DisplayStyle.None;
+                if (_atmosphere.style.display != want) _atmosphere.style.display = want;
+            }).Every(100);
 
             // Параллакс: постоянный медленный дрейф (фон ЖИВЁТ сам), плюс
             // скролл ленты хаба и наклон телефона; слои — на разной глубине.
