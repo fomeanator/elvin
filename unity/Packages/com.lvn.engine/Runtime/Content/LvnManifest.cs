@@ -217,6 +217,10 @@ namespace Lvn.Content
         /// only (no write-back). JSON key is "var" (a C# keyword, hence the alias).</summary>
         [Newtonsoft.Json.JsonProperty("var")]
         public string storyVar;
+        /// <summary>Axis this slot REFINES (e.g. hair colour's
+        /// <c>subOf: "hairstyle"</c>): the slot loses its own tab and renders
+        /// inside the parent's tab as a row of round swatches. Optional.</summary>
+        public string subOf;
         public List<LvnWardrobeItem> items;
     }
 
@@ -230,6 +234,9 @@ namespace Lvn.Content
         public string currency; // price currency; with price>0 the item is bought
         public long price;
         public string rarity;   // optional tint key ("rare"/"epic"/…) → WardrobeConfig.rarity_colors
+        /// <summary>Swatch fill ("#a93a2b") for sub-slot pickers (hair colour
+        /// dots). Without it the swatch falls back to the item's icon.</summary>
+        public string color;
     }
 
     /// <summary>A Spine export reference: content urls of the three files the
