@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
 
                 var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var fromEl = from.el;
-                float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.2f;
+                float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
                 to.el.experimental.animation.Start(0f, 1f, 260, (e, p) =>
                 {
                     float k = 1f - Mathf.Pow(1f - p, 3f);
@@ -174,7 +174,7 @@ namespace Lvn.UI.Screens
             // ПАРАЛЛАКС-ГЛУБИНА (уточнение Ильи): фон ОДИН, шириной 160%
             // экрана — за вкладку он сдвигается на долю (излишек ширины /3),
             // отставая от страниц: страницы едут на экран, фон — на пятую.
-            _atmosphere.style.width = Length.Percent(160f);
+            _atmosphere.style.width = Length.Percent(125f); // запас под сдвиг 3×0.067W
             _atmosphere.style.backgroundColor = t.Bg;
             var canvasUrl = _manifest?.ui?.browse?.canvas;
             if (!string.IsNullOrEmpty(canvasUrl))
