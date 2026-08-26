@@ -111,24 +111,20 @@ namespace Lvn.UI.Screens
                 if (!url.Contains("{")) urls.Add(url); // неразрешённый шаблон — слой молчит
             }
 
-            var sprites = new List<Sprite>(urls.Count);
+            // Рисуем backgroundImage'ом — тем же путём, что превью-иконки
+            // гардероба: Image.sprite в UITK отдавал белый прямоугольник на
+            // ktx2-спрайтах (живой скрин).
+            Clear();
             foreach (var url in urls)
             {
-                var sp = await _assets.LoadSpriteAsync(url, default);
+                var layerEl = new VisualElement { pickingMode = PickingMode.Ignore };
+                layerEl.style.position = Position.Absolute;
+                layerEl.style.left = 0; layerEl.style.right = 0;
+                layerEl.style.top = 0; layerEl.style.bottom = 0;
+                layerEl.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                Add(layerEl);
+                await ScreenUi.AssignBgAsync(layerEl, url, _assets);
                 if (gen != _gen) return; // наряд сменили быстрее, чем доехал арт
-                sprites.Add(sp);
-            }
-
-            Clear();
-            foreach (var sp in sprites)
-            {
-                if (sp == null) continue;
-                var img = new Image { sprite = sp, scaleMode = ScaleMode.ScaleToFit };
-                img.pickingMode = PickingMode.Ignore;
-                img.style.position = Position.Absolute;
-                img.style.left = 0; img.style.right = 0;
-                img.style.top = 0; img.style.bottom = 0;
-                Add(img);
             }
             FitWidth();
         }

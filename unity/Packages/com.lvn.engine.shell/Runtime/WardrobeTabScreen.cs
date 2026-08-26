@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Lvn.Content;
+using Lvn.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -63,6 +64,23 @@ namespace Lvn.UI.Screens
             title.style.fontSize = 40;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             Add(title);
+
+            // «Во весь рост» — прячет панель, оставляя героиню (фича шита).
+            var peek = new Button { text = _manifest?.ui?.wardrobe?.peek_text ?? "Во весь рост" };
+            peek.style.position = Position.Absolute;
+            peek.style.top = 108; peek.style.right = 20;
+            peek.style.height = 46; peek.style.fontSize = 20;
+            peek.style.paddingLeft = 16; peek.style.paddingRight = 16;
+            peek.style.color = LvnTokens.Text;
+            peek.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.ClearBorder(peek); LvnChrome.Round(peek, 14f);
+            peek.clicked += () =>
+            {
+                bool hidden = _panel.style.display == DisplayStyle.None;
+                _panel.style.display = hidden ? DisplayStyle.Flex : DisplayStyle.None;
+                peek.text = hidden ? (_manifest?.ui?.wardrobe?.peek_text ?? "Во весь рост") : "Наряды";
+            };
+            Add(peek);
 
             // Панель осей — снизу, над нижним меню; героиня видна за ней.
             _panel = new VisualElement();
