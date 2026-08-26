@@ -142,6 +142,22 @@ namespace Lvn.UI
         // Последняя применённая bg-команда — повтор той же не трогает сцену.
         private JObject _lastBgCmd;
 
+        /// <summary>Смена КАЧЕСТВА арта (настройки 2K/1440p/1K): пере-применить
+        /// сцену — фон и все видимые актёры перезагружают спрайты, уже с новым
+        /// суффиксом (его подставляет тракт загрузки). Без этого выбор качества
+        /// действовал только на будущие показы, а видимая сцена жила в старом
+        /// («героиню не перекачала», живой репорт 27.08).</summary>
+        public void RefreshArtQuality()
+        {
+            if (_lastBgCmd != null)
+            {
+                var cmd = (JObject)_lastBgCmd.DeepClone();
+                _lastBgCmd = null; // иначе дедуп «та же команда» съест повтор
+                _ = ApplyBgAsync(cmd);
+            }
+            foreach (var id in ActorsOnStage()) RefreshActor(id);
+        }
+
         // «left/center/right» или число 0..1 — куда смотрит кадр по ширине фона.
         private static float? ParsePan(Newtonsoft.Json.Linq.JToken t)
         {

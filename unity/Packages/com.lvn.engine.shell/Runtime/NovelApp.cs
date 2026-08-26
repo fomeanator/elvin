@@ -498,6 +498,11 @@ namespace Lvn.UI.Screens
                     // Смена ступени экономит место и перекачивает скачанное
                     // (очередью центра загрузок) — оба чужих бокса вычищаются.
                     LvnAsync.Fire(PurgeOtherArtBoxAsync(next), "PurgeArtBox");
+                    // ВИДИМАЯ сцена перекачивается сразу: фон и актёры заново
+                    // грузят спрайты с новым суффиксом (репорт «героиню не
+                    // перекачала» — раньше качество действовало лишь на
+                    // будущие показы).
+                    Stage?.RefreshArtQuality();
                 }
                 ConfigureFrameRate(); // 30/60 из настроек — применяется сразу
             };
@@ -1547,11 +1552,15 @@ namespace Lvn.UI.Screens
                 _menuBgSet = true;
             }
             var fav = MenuFavoriteEntity();
-            // Тот же фаворит уже стоит — НИЧЕГО не слать: смену наряда сцена
-            // применяет сама (подписка на LvnWardrobe.Changed), а повторная
-            // actor-команда только передёргивала куклу.
-            if (fav == _menuSceneActor) return;
-            if (!string.IsNullOrEmpty(_menuSceneActor))
+            // Тот же фаворит уже стоит ИЛИ его показ в полёте — ничего не
+            // слать: смену наряда сцена применяет сама (LvnWardrobe.Changed),
+            // а повторная actor-команда только передёргивала куклу. Но если
+            // кукла ПРОПАЛА (оборванная загрузка, сеть) — страж самолечится
+            // и шлёт показ заново.
+            if (fav == _menuSceneActor
+                && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
+            // Самолечение того же фаворита не прячет его перед повтором show.
+            if (!string.IsNullOrEmpty(_menuSceneActor) && _menuSceneActor != fav)
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
                 { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
             if (!string.IsNullOrEmpty(fav))

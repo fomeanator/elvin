@@ -140,16 +140,42 @@ namespace Lvn.UI
         /// the actor isn't on stage.</summary>
         public void RefreshActor(string id)
         {
-            if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
-                LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
+            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var cmd)) return;
+            if (!BoolOr(cmd["show"], true)) return; // скрытого не воскрешать
+            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
+
+        // Реплеи гардероба СХЛОПЫВАЮТСЯ до одного на кадр: открытие листа
+        // превьюит несколько осей подряд, и каждый реплей перезапускал полную
+        // загрузку слоёв — на сети это серия оборванных показов («очень часто
+        // пропадает», живой репорт 27.08).
+        private readonly HashSet<string> _wardrobeRefreshPending = new HashSet<string>();
 
         private void RefreshWardrobeActor(string id, string wardrobeAxis)
         {
-            if (!string.IsNullOrEmpty(id) && _actorCmds.TryGetValue(id, out var cmd))
-                LvnAsync.Fire(ApplyActorAsync(cmd, wardrobeSwap: true,
-                    wardrobeFromTop: IsHairWardrobeAxis(wardrobeAxis)), "WardrobeActor");
+            if (string.IsNullOrEmpty(id) || !_wardrobeRefreshPending.Add(id)) return;
+            LvnAsync.Fire(RefreshWardrobeActorSoonAsync(id), "WardrobeActor");
         }
+
+        private async Task RefreshWardrobeActorSoonAsync(string id)
+        {
+            await Task.Yield(); // каскад Preview этого кадра схлопнулся в один реплей
+            _wardrobeRefreshPending.Remove(id);
+            if (!_actorCmds.TryGetValue(id, out var cmd)) return;
+            // Реплей НИКОГДА не воспроизводит hide: смена наряда скрытого
+            // актёра доедет с его следующим показом, а реплей hide с новым gen
+            // убивал летящий показ соседней команды.
+            if (!BoolOr(cmd["show"], true)) return;
+            await ApplyActorAsync(cmd, wardrobeSwap: true,
+                wardrobeFromTop: IsHairWardrobeAxis(LvnWardrobe.LastChangedAxis(id)));
+        }
+
+        /// <summary>Актёр виден ИЛИ его показ уже в полёте (слои грузятся).
+        /// Хосту меню это отличает «кукла есть/едет» от «пропала — переслать».</summary>
+        public bool ActorVisibleOrPending(string id)
+            => !string.IsNullOrEmpty(id)
+               && ((_placements.TryGetValue(id, out var p) && p.Show)
+                   || (_actorTargets.TryGetValue(id, out var t) && t.Show));
 
         private static bool IsHairWardrobeAxis(string axis)
         {
@@ -521,6 +547,13 @@ namespace Lvn.UI
             }
 
             _actorTargets[id] = placement;
+            // Команда запоминается ДО асинхронной загрузки слоёв: реплей
+            // гардероба (Preview во время входа) обязан видеть ЭТУ команду.
+            // Пока запись жила в конце апплая, реплей брал предыдущую — а после
+            // переключения персонажа там лежал hide: свап прятал актёра и
+            // новее-gen убивал летящий показ («Виктория на место не встаёт»,
+            // живой скрин 27.08).
+            _actorCmds[id] = cmd;
 
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
@@ -680,7 +713,9 @@ namespace Lvn.UI
             placement.WardrobeSwap = false;
             placement.WardrobeFromTop = false;
             _placements[id] = placement; // the sticky base for the next command
-            _actorCmds[id] = cmd;        // wardrobe changes replay this in place
+            // _actorCmds записана в синхронной части (см. выше): поздняя запись
+            // здесь могла бы затереть более новую команду, прилетевшую пока
+            // грузились слои.
 
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
