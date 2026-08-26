@@ -179,6 +179,10 @@ namespace Lvn.UI.Screens
                     (Hub != null && Hub.style.display == DisplayStyle.Flex);
                 var want = menuVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 if (_atmosphere.style.display != want) _atmosphere.style.display = want;
+                // Героиня — часть меню-полотна: живёт и гаснет вместе с ним
+                // (иначе кукла торчала бы поверх сцены в игре).
+                if (MenuHeroineView != null && MenuHeroineView.HasEntity)
+                    MenuHeroineView.style.display = want;
             }).Every(100);
 
             // Параллакс: постоянный медленный дрейф (фон ЖИВЁТ сам), плюс
