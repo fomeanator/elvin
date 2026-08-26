@@ -81,6 +81,20 @@ namespace Lvn.UI.Screens
         private readonly Dictionary<string, int> _index = new Dictionary<string, int>(); // axis → carousel pos
         private ScrollView _strip;                 // лента карточек активной оси
         private readonly List<VisualElement> _stripCards = new List<VisualElement>();
+        private ScrollView _emotions;              // баблики эмоций (ось emotion)
+        private string _emotionAxis;               // имя оси лиц текущего персонажа
+
+        // Русские подписи известных эмоций articy-палитры; незнакомая — как есть.
+        private static readonly Dictionary<string, string> EmotionRu = new Dictionary<string, string>
+        {
+            ["idle"] = "Спокойно", ["medium"] = "Нейтрально", ["happy"] = "Радость",
+            ["sad"] = "Грусть", ["anger"] = "Злость", ["flirt"] = "Флирт",
+            ["delight"] = "Восторг", ["surprised"] = "Удивление", ["fear"] = "Страх",
+            ["boredom"] = "Скука", ["discontent"] = "Недовольство", ["dreamy"] = "Мечтательно",
+            ["horny"] = "Страсть", ["offence"] = "Обида", ["sarcasm"] = "Сарказм",
+            ["shame"] = "Смущение", ["sleep"] = "Сон", ["smirk"] = "Ухмылка",
+            ["tears"] = "Слёзы", ["thoughtfulness"] = "Задумчивость",
+        };
 
         /// <summary>Меню-режим: пилюли кошелька прячутся — валюты уже несёт
         /// единый навбар, дубль над плашкой только шумит.</summary>
@@ -189,6 +203,18 @@ namespace Lvn.UI.Screens
             _tabs.style.justifyContent = Justify.Center;
             _tabs.style.marginTop = 24; // breathing room under the title before the tabs
             Add(_tabs);
+
+            // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): ряд лиц
+            // персонажа; тап примеряет эмоцию на живую куклу через Preview той
+            // же оси `emotion`. В гардеробные слоты ось не входит — «Выбрать»
+            // её не коммитит, закрытие листа возвращает лицо по умолчанию.
+            _emotions = new ScrollView(ScrollViewMode.Horizontal);
+            _emotions.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _emotions.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _emotions.style.marginTop = 10;
+            _emotions.style.display = DisplayStyle.None;
+            _emotions.contentContainer.style.flexDirection = FlexDirection.Row;
+            Add(_emotions);
 
             // ЛЕНТА КАРТОЧЕК СКИНОВ (решение Ильи 27.08: единый гардероб —
             // «взял бы плашку из игры, а карусель слить с карточками»): все
@@ -462,24 +488,47 @@ namespace Lvn.UI.Screens
                 if (Items(axis).Count == 0) continue; // nothing collected here yet
                 if (_tab == null) _tab = axis;
                 var slot = kv.Value;
-                var b = new Button(() => SelectTab(axis));
-                b.style.width = 92; b.style.height = 92;
+                // ПИЛЮЛЯ В ОДНУ СТРОКУ С ИКОНКОЙ (Илья 27.08): квадрат 92×92
+                // ломал «Платье» переносом («Плать/е», живой скрин). Иконка —
+                // из манифеста (slot.icon), иначе вектор по смыслу оси: волосы —
+                // корона, наряд — вешалка.
+                var b = new Button(() => SelectTab(axis)) { text = "" };
+                b.style.height = 56;
+                b.style.flexDirection = FlexDirection.Row;
+                b.style.alignItems = Align.Center;
                 b.style.marginLeft = 6; b.style.marginRight = 6;
-                LvnChrome.Round(b, _radius);
+                b.style.paddingLeft = 18; b.style.paddingRight = 20;
+                LvnChrome.Round(b, 28f);
                 b.userData = axis;
                 if (!string.IsNullOrEmpty(slot?.icon))
                 {
-                    b.text = "";
-                    b.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                    b.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                    LvnAsync.Fire(ScreenUi.AssignBgAsync(b, slot.icon, _assets), "AssignBg");
+                    var img = new VisualElement { pickingMode = PickingMode.Ignore };
+                    img.style.width = 30; img.style.height = 30;
+                    img.style.marginRight = 10;
+                    img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                    LvnAsync.Fire(ScreenUi.AssignBgAsync(img, slot.icon, _assets), "AssignBg");
+                    b.Add(img);
                 }
                 else
                 {
-                    b.text = slot?.name ?? axis;
-                    b.style.fontSize = 20;
-                    b.style.whiteSpace = WhiteSpace.Normal;
+                    var icon = IsHairAxis(axis) ? LvnIcon.Crown : LvnIcon.Wardrobe;
+                    // Два глифа под оба фона пилюли: SelectTab переключает их
+                    // display (вектор не перекрашивается на месте).
+                    var off = LvnIcons.Make(icon, 24f, _text);
+                    off.name = "ax-ic-off"; off.pickingMode = PickingMode.Ignore;
+                    off.style.marginRight = 10;
+                    var on = LvnIcons.Make(icon, 24f, _accentText);
+                    on.name = "ax-ic-on"; on.pickingMode = PickingMode.Ignore;
+                    on.style.marginRight = 10;
+                    on.style.display = DisplayStyle.None;
+                    b.Add(off); b.Add(on);
                 }
+                var lbl = new Label(slot?.name ?? axis) { pickingMode = PickingMode.Ignore };
+                lbl.name = "ax-label";
+                lbl.style.fontSize = 22;
+                lbl.style.whiteSpace = WhiteSpace.NoWrap;
+                lbl.style.color = _text;
+                b.Add(lbl);
                 _tabs.Add(b);
             }
 
@@ -505,7 +554,77 @@ namespace Lvn.UI.Screens
                 }
             }
 
+            RebuildEmotions();
             SelectTab(_tab);
+        }
+
+        // Ось про волосы? — зеркало правила сцены (её вариант приватный).
+        private static bool IsHairAxis(string axis)
+        {
+            var key = (axis ?? "").ToLowerInvariant();
+            return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
+        }
+
+        // ── баблики эмоций: примерка лица на живую куклу ─────────────────────
+        private void RebuildEmotions()
+        {
+            if (_emotions == null) return;
+            _emotions.Clear();
+            _emotionAxis = null;
+            List<string> vals = null;
+            if (_def?.axes != null)
+                foreach (var kv in _def.axes)
+                {
+                    var k = (kv.Key ?? "").ToLowerInvariant();
+                    if ((k.Contains("emo") || k.Contains("эмо") || k == "mood" || k == "face")
+                        && kv.Value != null && kv.Value.Count > 1)
+                    { _emotionAxis = kv.Key; vals = kv.Value; break; }
+                }
+            // Ось, оформленная гардеробным слотом, — наряд, а не лицо.
+            if (_emotionAxis != null && _def.wardrobe != null
+                && _def.wardrobe.ContainsKey(_emotionAxis)) _emotionAxis = null;
+            _emotions.style.display = _emotionAxis == null ? DisplayStyle.None : DisplayStyle.Flex;
+            if (_emotionAxis == null) return;
+
+            foreach (var v in vals)
+            {
+                if (string.IsNullOrEmpty(v)) continue;
+                var value = v;
+                var chip = new Button(() =>
+                {
+                    LvnWardrobe.Preview(_entity, _emotionAxis, value); // лицо — живьём
+                    StyleEmotions();
+                }) { text = EmotionRu.TryGetValue(v, out var ru) ? ru : v };
+                chip.name = "emo-" + v;
+                chip.style.height = 46;
+                chip.style.marginRight = 8;
+                chip.style.flexShrink = 0;
+                chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
+                chip.style.fontSize = 19;
+                LvnChrome.Round(chip, 23f);
+                _emotions.Add(chip);
+            }
+            StyleEmotions();
+        }
+
+        private void StyleEmotions()
+        {
+            if (_emotionAxis == null) return;
+            LvnWardrobe.Previewed(_entity).TryGetValue(_emotionAxis, out var current);
+            if (current == null && _def?.defaults != null)
+                _def.defaults.TryGetValue(_emotionAxis, out current);
+            foreach (var c in _emotions.contentContainer.Children())
+            {
+                var b = c as Button;
+                if (b == null) continue;
+                bool on = b.name == "emo-" + current;
+                SkinButton(b, on);
+                if (on) _emotions.schedule.Execute(() =>
+                {
+                    if (b.panel != null && b.parent == _emotions.contentContainer)
+                        _emotions.ScrollTo(b);
+                });
+            }
         }
 
         private void SelectTab(string axis)
@@ -518,6 +637,14 @@ namespace Lvn.UI.Screens
                 bool active = (string)b.userData == _tab;
                 SkinButton(b, active);
                 LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                // Дети пилюли (лейбл и пара глифов) красятся вручную — кнопочный
+                // skin их не достаёт.
+                var lbl = b.Q<Label>("ax-label");
+                if (lbl != null) lbl.style.color = active ? _accentText : _text;
+                var icOff = b.Q<VisualElement>("ax-ic-off");
+                var icOn = b.Q<VisualElement>("ax-ic-on");
+                if (icOff != null) icOff.style.display = active ? DisplayStyle.None : DisplayStyle.Flex;
+                if (icOn != null) icOn.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
             var items = Items(_tab);
@@ -563,8 +690,10 @@ namespace Lvn.UI.Screens
         private VisualElement StripCard(int i, LvnWardrobeItem item)
         {
             bool owned = IsOwned(item);
+            // Крупнее (Илья 27.08): плитка подросла, арт занимает почти всю
+            // её площадь (~+70%), имя заметно больше (~+50%).
             var card = new VisualElement();
-            card.style.width = 112; card.style.height = 150;
+            card.style.width = 150; card.style.height = 208;
             card.style.marginRight = 10;
             card.style.flexShrink = 0;
             card.style.backgroundColor = new Color(0f, 0f, 0f, 0.30f);
@@ -573,8 +702,8 @@ namespace Lvn.UI.Screens
 
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
-            art.style.left = 4; art.style.right = 4;
-            art.style.top = 4; art.style.bottom = 32;
+            art.style.left = 3; art.style.right = 3;
+            art.style.top = 3; art.style.bottom = 40;
             art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             card.Add(art);
@@ -585,13 +714,13 @@ namespace Lvn.UI.Screens
             plate.style.position = Position.Absolute;
             plate.style.left = 0; plate.style.right = 0; plate.style.bottom = 0;
             plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
-            plate.style.paddingTop = 5; plate.style.paddingBottom = 6;
-            plate.style.paddingLeft = 4; plate.style.paddingRight = 4;
+            plate.style.paddingTop = 6; plate.style.paddingBottom = 8;
+            plate.style.paddingLeft = 6; plate.style.paddingRight = 6;
             card.Add(plate);
 
             var name = new Label(item.name ?? item.value) { pickingMode = PickingMode.Ignore };
             name.style.color = _text;
-            name.style.fontSize = 17;
+            name.style.fontSize = 25;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
             name.style.overflow = Overflow.Hidden;
             name.style.textOverflow = TextOverflow.Ellipsis;
@@ -602,14 +731,14 @@ namespace Lvn.UI.Screens
             {
                 var badge = new Label($"◆ {item.price:N0}") { pickingMode = PickingMode.Ignore };
                 badge.style.position = Position.Absolute;
-                badge.style.top = 5; badge.style.right = 5;
+                badge.style.top = 6; badge.style.right = 6;
                 badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
                 badge.style.color = LvnTokens.Gold;
-                badge.style.fontSize = 16;
+                badge.style.fontSize = 19;
                 badge.style.unityFontStyleAndWeight = FontStyle.Bold;
-                badge.style.paddingLeft = 7; badge.style.paddingRight = 7;
-                badge.style.paddingTop = 2; badge.style.paddingBottom = 2;
-                LvnChrome.Round(badge, 9f);
+                badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
+                badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
+                LvnChrome.Round(badge, 10f);
                 card.Add(badge);
             }
 
