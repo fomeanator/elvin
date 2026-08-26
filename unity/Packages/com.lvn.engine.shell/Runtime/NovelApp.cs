@@ -306,7 +306,13 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void PrepareStage(LvnManifest manifest)
         {
-            if (Stage == null) { Stage = CreateStage(); ShowMenuScene(); }
+            if (Stage == null)
+            {
+                Stage = CreateStage();
+                _shell.OnMenuVisible -= ShowMenuScene;
+                _shell.OnMenuVisible += ShowMenuScene; // по факту показа хаба
+                ShowMenuScene();
+            }
             _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
             Stage.Catalog = new SpriteCatalog(manifest.sprites);
@@ -498,7 +504,6 @@ namespace Lvn.UI.Screens
                 _shell.OnChapterSessionEnd += () =>
                 {
                     _chapterPlaying = false;
-                    ShowMenuScene(); // меню-сцена возвращается после главы
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
                 };
                 LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");

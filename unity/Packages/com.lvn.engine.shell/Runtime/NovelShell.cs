@@ -575,6 +575,7 @@ namespace Lvn.UI.Screens
                     Show(Hub);
                     Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
                     TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
+                    OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
                     title = await Hub.PickTitleAsync(ct);
                     if (ct.IsCancellationRequested) return;
                     Hide(Hub);
@@ -650,6 +651,9 @@ namespace Lvn.UI.Screens
         /// возвращает по выходу в меню.</summary>
         public Action OnChapterSessionStart;
         public Action OnChapterSessionEnd;
+        /// <summary>Хаб показан на экране — хост ставит сцену меню (после
+        /// всех уборок конца главы, а не до них).</summary>
+        public Action OnMenuVisible;
 
         /// <summary>Первый вход ещё впереди (вводная не пройдена): хост держит
         /// брендовую вуаль вместо полос — см. NovelApp.DriveBootVeilAsync.</summary>
