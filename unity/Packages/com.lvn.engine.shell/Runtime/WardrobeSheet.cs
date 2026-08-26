@@ -933,7 +933,11 @@ namespace Lvn.UI.Screens
                     foreach (var kv in _def.wardrobe)
                         foreach (var it in Items(kv.Key))
                         {
-                            if (it.value == LvnWardrobe.NoneValue || !IsOwnedIn(kv.Key, it)) continue;
+                            // Только КУПЛЕННЫЕ платные (Илья 28.08): бесплатная
+                            // база есть у всех — витрина «Все» показывает именно
+                            // коллекцию покупок.
+                            if (it.value == LvnWardrobe.NoneValue || it.price <= 0
+                                || !IsOwnedIn(kv.Key, it)) continue;
                             var card = StripCard(kv.Key, -1, it);
                             _strip.Add(card);
                             _stripCards.Add(card);
