@@ -1625,7 +1625,7 @@ namespace Lvn.UI.Screens
             var k = axis.ToLowerInvariant();
             float z, focus, target;
             if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
-            { z = 2.05f; focus = 0.82f; target = 0.30f; } // Илья 28.08: дважды по +5% выше
+            { z = 1.91f; focus = 0.82f; target = 0.30f; } // Илья 28.08: 2×5% выше, зум −7%
             else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
                      || k.Contains("acc"))
             { z = 1.90f; focus = 0.72f; target = 0.20f; }
