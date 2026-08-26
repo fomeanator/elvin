@@ -31,10 +31,12 @@ namespace Lvn.UI.Screens
             _entity = manifest?.ui?.wardrobe?.entity;
             pickingMode = PickingMode.Ignore;
             style.position = Position.Absolute;
-            // Справа, ногами к нижнему меню — контент хаба живёт слева.
-            style.right = -20;
+            // ПО ЦЕНТРУ и крупно (Илья 26.08), ногами к нижнему меню:
+            // якорь — середина экрана, сдвиг на половину собственной ширины.
+            style.left = Length.Percent(50f);
+            style.translate = new Translate(Length.Percent(-50f), 0f);
             style.bottom = 118;
-            style.top = Length.Percent(24f);
+            style.top = Length.Percent(12f);
             style.justifyContent = Justify.FlexEnd;
             if (string.IsNullOrEmpty(_entity)
                 || _manifest?.sprites == null || !_manifest.sprites.ContainsKey(_entity))
