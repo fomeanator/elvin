@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
             = new System.Collections.Generic.Dictionary<
                 VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
 
-        private static void PinBg(VisualElement el, Sprite sprite, ILvnAssets assets)
+        internal static void PinBg(VisualElement el, Sprite sprite, ILvnAssets assets)
         {
             var loader = (assets as Lvn.UI.CachingAssets)?.Loader;
             if (loader == null || sprite == null) return;
