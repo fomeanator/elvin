@@ -777,14 +777,25 @@ namespace Lvn.UI.Screens
         {
             Sprite s = null;
             var mini = Lvn.Content.DownloadPolicy.MiniVariant(icon);
+            string via = "mini";
             try { if (!string.IsNullOrEmpty(mini)) s = await _assets.LoadSpriteAsync(mini, CancellationToken.None); }
-            catch { /* мини недоступен — ниже полный */ }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-card-art] mini {mini}: {ex.Message}"); }
             if (s == null)
             {
+                via = "full";
                 try { s = await _assets.LoadSpriteAsync(icon, CancellationToken.None); }
-                catch { /* совсем нет арта — плейсхолдер честнее пустоты */ }
+                catch (Exception ex) { Debug.LogWarning($"[lvn-card-art] full {icon}: {ex.Message}"); }
             }
-            if (s == null || art.panel == null) return;
+            // Полный файловый след тракта витрины: какой url пробовали, чем
+            // кончилось — «одни вешалки» разбираются по этому логу, а не
+            // догадками (просьба Ильи 27.08).
+            if (s == null)
+            {
+                Debug.LogWarning($"[lvn-card-art] ПУСТО: mini={mini ?? "-"} и full={icon} не дали спрайта");
+                return;
+            }
+            Debug.Log($"[lvn-card-art] ok via {via}: {(via == "mini" ? mini : icon)} ({s.texture?.width}x{s.texture?.height})");
+            if (art.panel == null) return; // карточку уже перестроили
             art.style.backgroundImage = new StyleBackground(s);
             ScreenUi.PinBg(art, s, _assets); // видимый арт LRU не трогает
             ph.style.display = DisplayStyle.None;
