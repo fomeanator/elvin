@@ -714,8 +714,18 @@ namespace Lvn.UI.Screens
             art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             card.Add(art);
+            // Плейсхолдер-вешалка, пока арт едет (Илья 27.08): пустая чёрная
+            // плитка читалась как «не грузит».
+            var ph = LvnIcons.Make(LvnIcon.Wardrobe, 42f, LvnTokens.TextDim);
+            ph.pickingMode = PickingMode.Ignore;
+            ph.style.position = Position.Absolute;
+            ph.style.left = Length.Percent(50f);
+            ph.style.top = Length.Percent(38f);
+            ph.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f));
+            ph.style.opacity = 0.55f;
+            card.Add(ph);
             if (!string.IsNullOrEmpty(item.icon))
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(art, item.icon, _assets), "WardrobeCard");
+                LvnAsync.Fire(AssignCardArtAsync(art, ph, item.icon), "WardrobeCard");
 
             var plate = new VisualElement { pickingMode = PickingMode.Ignore };
             plate.style.position = Position.Absolute;
@@ -757,6 +767,27 @@ namespace Lvn.UI.Screens
                 ShowItem(); // примерка + имя в карусели + подсветка — одно состояние
             });
             return card;
+        }
+
+        // Арт карточки — МИНИ-ВЕРСИЯ (Илья 27.08: «не тянуть огромные, если
+        // юзер даже не тыкнет»): витрина живёт на @mini, полноразмер грузит
+        // только примерка на кукле. Пока не доехал (или мини нет и доезжает
+        // полный) — стоит плейсхолдер-вешалка.
+        private async Task AssignCardArtAsync(VisualElement art, VisualElement ph, string icon)
+        {
+            Sprite s = null;
+            var mini = Lvn.Content.DownloadPolicy.MiniVariant(icon);
+            try { if (!string.IsNullOrEmpty(mini)) s = await _assets.LoadSpriteAsync(mini, CancellationToken.None); }
+            catch { /* мини недоступен — ниже полный */ }
+            if (s == null)
+            {
+                try { s = await _assets.LoadSpriteAsync(icon, CancellationToken.None); }
+                catch { /* совсем нет арта — плейсхолдер честнее пустоты */ }
+            }
+            if (s == null || art.panel == null) return;
+            art.style.backgroundImage = new StyleBackground(s);
+            ScreenUi.PinBg(art, s, _assets); // видимый арт LRU не трогает
+            ph.style.display = DisplayStyle.None;
         }
 
         // Подсветка текущего и доводка ленты: выбранная карточка всегда в кадре
