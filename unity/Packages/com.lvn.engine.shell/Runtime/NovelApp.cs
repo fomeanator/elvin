@@ -1001,6 +1001,17 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
+                    // ВУАЛЬ ДЕРЖИТСЯ, ПОКА ПОЛОТНО НЕ ВСТАЛО (Илья 26.08: «при
+                    // первом запуске бг чёрный»). Канвас меню — крупный кадр,
+                    // его декод занимает полсекунды, и вуаль, снятая раньше,
+                    // открывала пустую сцену: под ней чёрный. Ждём факт —
+                    // но не дольше секунды с небольшим, иначе сорванная
+                    // загрузка держала бы игрока в заставке.
+                    var wait = System.Diagnostics.Stopwatch.StartNew();
+                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < 1200)
+                        await System.Threading.Tasks.Task.Yield();
+                    if (Stage != null && !Stage.HasBackdrop)
+                        Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
                     await BootVeil.FadeOutAsync(0.4f);
                 }
                 Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
@@ -1676,6 +1687,28 @@ namespace Lvn.UI.Screens
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
             { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 });
         }
+
+        // СТРАЖ СЦЕНЫ МЕНЮ. Постановка полотна и куклы — это последовательность
+        // шагов, и любой из них может не доехать: оборвалась загрузка, уборка
+        // главы пришла следом, промахнулся флаг. Держать инвариант шагами
+        // хрупко («как-то хлипко» — Илья 26.08), поэтому раз в секунду сцена
+        // сверяется с фактом: мы в меню, канвас объявлен — значит полотно
+        // ОБЯЗАНО стоять. Нет — ставим заново. Кукла лечится своим стражем в
+        // VnStage; вместе они делают меню самовосстанавливающимся.
+        private void Update()
+        {
+            if (Stage == null || _chapterPlaying) return;
+            if (Time.unscaledTime < _nextMenuGuard) return;
+            _nextMenuGuard = Time.unscaledTime + 1f;
+            if (string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)) return;
+            if (Stage.HasBackdrop) return;
+            if (!_menuBgSet) return;      // постановка ещё в полёте — не мешаем
+            Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
+            _menuBgSet = false;
+            ShowMenuScene();
+        }
+
+        private float _nextMenuGuard;
 
         private async System.Threading.Tasks.Task DumpSceneSoonAsync()
         {
