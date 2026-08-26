@@ -512,15 +512,18 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnLockedHint = (name, hint) =>
                     _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
                 _shell.Hub.OnMenu = () => _shell.OpenSettingsAsync(); // avatar → account/settings
-                _shell.Hub.OnStore = () => _shell.OpenPackShopAsync();   // currency "+" / Магазин → pack shop
+                _shell.Hub.OnStore = () => TabTravelAsync(1);   // currency "+" / Магазин → pack shop
                 // Гардероб → the REAL, wallet-synced wardrobe for the game's main
                 // heroine (title.hero ?? manifest.hero). Ownership lives in the
                 // shared LvnWallet.Inventory, so it stays in sync with the in-story
                 // wardrobe. (The prettier SkinShop screen gets wired to this same
                 // data next.)
-                _shell.Hub.OnWardrobe = () => OpenWardrobeFromHubAsync();
+                // ЛЕНТА ВКЛАДОК (Илья 26.08): Главная(0) → Магазин(1) →
+                // Гардероб(2) → Профиль(3). Переход едет по ленте: хаб уезжает,
+                // промежуточные вкладки ПРОЛЕТАЮТ через кадр, цель въезжает.
+                _shell.Hub.OnWardrobe = () => TabTravelAsync(2);
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
-                _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
+                _shell.Hub.OnProfile = () => TabTravelAsync(3);
                 // TR-25: партнёр прячет ежедневную награду данными; сама
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
@@ -1317,6 +1320,39 @@ namespace Lvn.UI.Screens
         // the stage dresses itself with the last scene the player saw (or the
         // engine's dark), the hero steps on, the sheet fades in. Closing plays
         // it all back. ONE wardrobe everywhere; the old fullscreen screen died.
+        // Проезд по ленте вкладок из хаба к цели: 1 — магазин, 2 — гардероб,
+        // 3 — профиль. Промежуточные пролетают, не останавливаясь.
+        private async Task TabTravelAsync(int target)
+        {
+            var hub = _shell?.Hub;
+            if (hub == null) return;
+            hub.SlideAway(-1, away: true);
+            try
+            {
+                if (target >= 2 && _shell.PackShop != null)
+                    await _shell.PackShop.FlyThroughAsync(+1);
+                switch (target)
+                {
+                    case 1:
+                        _shell.PackShop.SlideDirection = +1;
+                        try { await _shell.OpenPackShopAsync(); }
+                        finally { _shell.PackShop.SlideDirection = 0; }
+                        break;
+                    case 2:
+                        await OpenWardrobeFromHubAsync();
+                        break;
+                    case 3:
+                        // Гардероб — сценический, по ленте он «стеклянный»:
+                        // пролетаем только магазин.
+                        _shell.Profile.SlideDirection = +1;
+                        try { await OpenProfileWithRelationsAsync(); }
+                        finally { _shell.Profile.SlideDirection = 0; }
+                        break;
+                }
+            }
+            finally { hub.SlideAway(-1, away: false); }
+        }
+
         private async Task OpenWardrobeFromHubAsync()
         {
             var stage = Stage;
