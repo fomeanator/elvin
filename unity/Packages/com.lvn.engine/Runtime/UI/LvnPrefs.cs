@@ -44,6 +44,7 @@ namespace Lvn.UI
             // Миграция со старого двухпозиционного флага «Экономия».
             if (_artQuality == "" && PlayerPrefs.GetInt(P + "art_eco", 0) == 1) _artQuality = "1k";
             _menuTrack = PlayerPrefs.GetString(P + "menu_track", "");
+            _menuFavorite = PlayerPrefs.GetString(P + "menu_favorite", "");
             _targetFps = PlayerPrefs.GetInt(P + "target_fps", 60) == 30 ? 30 : 60;
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
@@ -231,6 +232,16 @@ namespace Lvn.UI
             }
         }
         private static int _targetFps = 60;
+
+        /// <summary>ФАВОРИТ на переднем плане меню (id сущности из гардероба);
+        /// пусто — героиня по умолчанию (ui.wardrobe.entity). Выбирается в
+        /// гардеробе — «прикол» Ильи 26.08.</summary>
+        public static string MenuFavorite
+        {
+            get { EnsureLoaded(); return _menuFavorite; }
+            set { EnsureLoaded(); Set(ref _menuFavorite, "menu_favorite", value ?? ""); }
+        }
+        private static string _menuFavorite = "";
 
         /// <summary>Выбранный трек главного меню (id из ui.browse.music_options;
         /// пусто — базовый ui.browse.music).</summary>

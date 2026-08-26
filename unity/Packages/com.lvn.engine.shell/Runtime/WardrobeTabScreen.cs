@@ -17,14 +17,37 @@ namespace Lvn.UI.Screens
     {
         private readonly LvnManifest _manifest;
         private readonly ILvnAssets _assets;
-        private readonly string _entity;
         private readonly VisualElement _panel;
+
+        // Текущий персонаж вкладки: фаворит меню, иначе героиня по умолчанию.
+        private string Entity
+        {
+            get
+            {
+                var fav = LvnPrefs.MenuFavorite;
+                if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
+                    && _manifest.sprites.ContainsKey(fav)) return fav;
+                return _manifest?.ui?.wardrobe?.entity;
+            }
+        }
+
+        // Ростер фаворитов: явный ui.wardrobe.characters, иначе одна героиня.
+        private List<string> Roster()
+        {
+            var list = new List<string>();
+            var explicitRoster = _manifest?.ui?.wardrobe?.characters;
+            if (explicitRoster != null)
+                foreach (var id in explicitRoster)
+                    if (!string.IsNullOrEmpty(id) && _manifest.sprites != null
+                        && _manifest.sprites.ContainsKey(id)) list.Add(id);
+            if (list.Count == 0 && !string.IsNullOrEmpty(Entity)) list.Add(Entity);
+            return list;
+        }
 
         public WardrobeTabScreen(LvnManifest manifest, ILvnAssets assets)
         {
             _manifest = manifest;
             _assets = assets;
-            _entity = manifest?.ui?.wardrobe?.entity;
             ScreenUi.Stretch(this);
             style.backgroundColor = Color.clear;
             style.opacity = 0f;
@@ -95,7 +118,7 @@ namespace Lvn.UI.Screens
             var value = item.value;
             card.RegisterCallback<ClickEvent>(_ =>
             {
-                LvnWardrobe.Equip(_entity, axis, value); // кукла обновится сама
+                LvnWardrobe.Equip(Entity, axis, value); // кукла обновится сама
                 Rebuild();
             });
             return card;
@@ -104,10 +127,42 @@ namespace Lvn.UI.Screens
         public void Rebuild()
         {
             _panel.Clear();
-            if (string.IsNullOrEmpty(_entity)
-                || _manifest?.sprites == null
-                || !_manifest.sprites.TryGetValue(_entity, out var def)
-                || def?.wardrobe == null) return;
+            var entity = Entity;
+            if (string.IsNullOrEmpty(entity) || _manifest?.sprites == null
+                || !_manifest.sprites.TryGetValue(entity, out var def)) return;
+
+            // ФАВОРИТЫ (прикол Ильи 26.08): выбери, кто стоит на главной —
+            // выбранный тут же встаёт на передний план всего меню.
+            var roster = Roster();
+            if (roster.Count > 1)
+            {
+                var favRow = new VisualElement();
+                favRow.style.flexDirection = FlexDirection.Row;
+                favRow.style.marginTop = 10;
+                _panel.Add(favRow);
+                foreach (var id in roster)
+                {
+                    bool on = id == entity;
+                    var b = new Button
+                    { text = _manifest.sprites[id]?.name ?? id };
+                    b.style.height = 48;
+                    b.style.fontSize = 21;
+                    b.style.marginRight = 8;
+                    b.style.paddingLeft = 16; b.style.paddingRight = 16;
+                    b.style.color = on ? LvnTokens.OnAccent : LvnTokens.Text;
+                    b.style.backgroundColor = on ? LvnTokens.Accent : LvnTokens.Faint;
+                    LvnChrome.ClearBorder(b);
+                    LvnChrome.Round(b, 14f);
+                    var captured = id;
+                    b.clicked += () =>
+                    {
+                        LvnPrefs.MenuFavorite = captured; // кукла меню сменится сама
+                        Rebuild();
+                    };
+                    favRow.Add(b);
+                }
+            }
+            if (def?.wardrobe == null) return;
 
             foreach (var kv in def.wardrobe)
             {
@@ -137,7 +192,7 @@ namespace Lvn.UI.Screens
                 row.style.flexDirection = FlexDirection.Row;
                 card.Add(row);
 
-                var eq = LvnWardrobe.Equipped(_entity);
+                var eq = LvnWardrobe.Equipped(entity);
                 string current = eq != null && eq.TryGetValue(axis, out var cv) ? cv : null;
                 if (string.IsNullOrEmpty(current)
                     && def.defaults != null && def.defaults.TryGetValue(axis, out var dv)) current = dv;
