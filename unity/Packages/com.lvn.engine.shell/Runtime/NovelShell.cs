@@ -73,6 +73,17 @@ namespace Lvn.UI.Screens
         private int _tab;
         private bool _tabBusy;
         private float _tabCanvasX; // смещение полотна: четверть на вкладку
+        private VisualElement _canvasTint; // «шейдер-лайт»: тон вкладки поверх фото
+
+        // Настроение каждой вкладки на полотне (пока тинтом; настоящие fx —
+        // после переноса полотна на канвас, где живут наши шейдеры).
+        private static readonly Color[] TabTints =
+        {
+            new Color(0.05f, 0.35f, 0.40f, 0.16f), // главная — фирменная бирюза
+            new Color(0.55f, 0.35f, 0.05f, 0.18f), // магазин — тёплое золото
+            new Color(0.45f, 0.15f, 0.45f, 0.16f), // гардероб — розовый свет
+            new Color(0.10f, 0.15f, 0.55f, 0.18f), // профиль — глубокая синь
+        };
 
         private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
         {
@@ -111,6 +122,9 @@ namespace Lvn.UI.Screens
                     if (fromEl != null)
                         fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
                     _tabCanvasX = Mathf.Lerp(canvasFrom, canvasTo, k); // полотно едет с нами
+                    if (_canvasTint != null)
+                        _canvasTint.style.backgroundColor = Color.Lerp(
+                            TabTints[Mathf.Clamp(_tab, 0, 3)], TabTints[Mathf.Clamp(target, 0, 3)], k);
                     if (p >= 1f) tcs.TrySetResult(true);
                 });
                 await tcs.Task;
@@ -160,7 +174,31 @@ namespace Lvn.UI.Screens
             _atmosphere.style.left = 0; _atmosphere.style.top = 0; _atmosphere.style.bottom = 0;
             _atmosphere.style.width = Length.Percent(400f);
             _atmosphere.style.backgroundColor = t.Bg;
-            LvnBackdrop.Apply(_atmosphere, t);
+            var canvasUrl = _manifest?.ui?.browse?.canvas;
+            if (!string.IsNullOrEmpty(canvasUrl))
+            {
+                // Арт-полотно партнёра: фото на всю ширину 4 экранов + тёмная
+                // вуаль (текст обязан читаться) + тинт вкладки поверх.
+                var photo = new VisualElement { pickingMode = PickingMode.Ignore };
+                photo.style.position = Position.Absolute;
+                photo.style.left = 0; photo.style.right = 0;
+                photo.style.top = 0; photo.style.bottom = 0;
+                photo.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                _atmosphere.Add(photo);
+                LvnAsync.Fire(ScreenUi.AssignBgAsync(photo, canvasUrl, _assets), "MenuCanvas");
+                var veil = new VisualElement { pickingMode = PickingMode.Ignore };
+                veil.style.position = Position.Absolute;
+                veil.style.left = 0; veil.style.right = 0;
+                veil.style.top = 0; veil.style.bottom = 0;
+                veil.style.backgroundColor = new Color(t.Bg.r, t.Bg.g, t.Bg.b, 0.55f);
+                _atmosphere.Add(veil);
+                _canvasTint = new VisualElement { pickingMode = PickingMode.Ignore };
+                _canvasTint.style.position = Position.Absolute;
+                _canvasTint.style.left = 0; _canvasTint.style.right = 0;
+                _canvasTint.style.top = 0; _canvasTint.style.bottom = 0;
+                _atmosphere.Add(_canvasTint);
+            }
+            else LvnBackdrop.Apply(_atmosphere, t);
             _root.Insert(0, _atmosphere);
 
             // Героиня — НЕПОДВИЖНЫЙ передний план меню: полотно и контент едут,
