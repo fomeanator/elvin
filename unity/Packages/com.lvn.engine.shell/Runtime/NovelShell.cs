@@ -72,11 +72,13 @@ namespace Lvn.UI.Screens
         // флагом занятости.
         private int _tab;
         private bool _tabBusy;
+        private float _tabCanvasX; // смещение полотна: четверть на вкладку
 
         private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
         {
             0 => (Hub?.ContentRoot, null),
             1 => (PackShop, PackShop),
+            2 => (WardrobeTab, WardrobeTab),
             3 => (Profile, Profile),
             _ => (null, null),
         };
@@ -101,15 +103,18 @@ namespace Lvn.UI.Screens
 
                 var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var fromEl = from.el;
+                float canvasFrom = _tabCanvasX, canvasTo = target * w;
                 to.el.experimental.animation.Start(0f, 1f, 260, (e, p) =>
                 {
                     float k = 1f - Mathf.Pow(1f - p, 3f);
                     e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);
                     if (fromEl != null)
                         fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
+                    _tabCanvasX = Mathf.Lerp(canvasFrom, canvasTo, k); // полотно едет с нами
                     if (p >= 1f) tcs.TrySetResult(true);
                 });
                 await tcs.Task;
+                _tabCanvasX = canvasTo;
 
                 if (from.scr != null) from.scr.HideAsTab();
                 else if (fromEl != null) fromEl.style.display = DisplayStyle.None;
@@ -132,22 +137,36 @@ namespace Lvn.UI.Screens
                 home.el.style.translate = new Translate(0f, 0f);
             }
             _tab = 0;
+            _tabCanvasX = 0f;
             Hub?.SetActiveTab(0, instant: true);
         }
 
         private VisualElement _atmosphere;
+        /// <summary>Кукла героини поверх полотна меню (все вкладки).</summary>
+        public Lvn.UI.Screens.MenuHeroine MenuHeroineView;
+        /// <summary>Вкладка гардероба — UI вокруг общей героини.</summary>
+        public WardrobeTabScreen WardrobeTab;
 
         private void BuildAtmosphere()
         {
             _atmosphere?.RemoveFromHierarchy();
             var t = LvnTheme.Current;
+            // ПОЛОТНО В 4 ЭКРАНА (концепция Ильи и партнёра): один большой фон
+            // по горизонтали; каждая вкладка меню смотрит в свою четверть,
+            // переезд вкладок плавно везёт полотно (TabGoTo). Пока полотно —
+            // атмосфера темы; арт-полотно партнёра ляжет сюда же данными.
             _atmosphere = new VisualElement { pickingMode = PickingMode.Ignore };
             _atmosphere.style.position = Position.Absolute;
-            _atmosphere.style.left = 0; _atmosphere.style.right = 0;
-            _atmosphere.style.top = 0; _atmosphere.style.bottom = 0;
+            _atmosphere.style.left = 0; _atmosphere.style.top = 0; _atmosphere.style.bottom = 0;
+            _atmosphere.style.width = Length.Percent(400f);
             _atmosphere.style.backgroundColor = t.Bg;
             LvnBackdrop.Apply(_atmosphere, t);
             _root.Insert(0, _atmosphere);
+
+            // Героиня — НЕПОДВИЖНЫЙ передний план меню: полотно и контент едут,
+            // она стоит (слой между полотном и вкладками).
+            MenuHeroineView = new Lvn.UI.Screens.MenuHeroine(_manifest, _assets);
+            _root.Insert(1, MenuHeroineView);
             // ВИДИМОСТЬ ПО ПРАВИЛУ «виден экран меню», а не «нет главы»:
             // гардероб из хаба прячет хаб и живёт в документе СЦЕНЫ — атмосфера
             // с событийной подпиской оставалась поверх и заслоняла его целиком
@@ -178,6 +197,8 @@ namespace Lvn.UI.Screens
                     Mathf.Clamp(acc.x, -0.5f, 0.5f),
                     Mathf.Clamp(acc.y + 0.8f, -0.5f, 0.5f));
                 tilt = Vector2.Lerp(tilt, target, 0.06f);
+                float baseX = -_tabCanvasX;
+                _atmosphere.style.translate = new Translate(baseX, 0f);
                 for (int i = 0; i < layers.Count; i++)
                 {
                     // Сумма сдвигов ОБЯЗАНА жить в напуске слоя (80px), иначе
@@ -290,7 +311,10 @@ namespace Lvn.UI.Screens
             ScreenUi.Stretch(popupLayer);
             void Reparent(VisualElement el, VisualElement layer)
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
+            WardrobeTab = new WardrobeTabScreen(_manifest);
+            WardrobeTab.Hide();
             Reparent(PackShop, tabsLayer);
+            Reparent(WardrobeTab, tabsLayer);
             Reparent(Profile, tabsLayer);
             Reparent(Hub, tabsLayer); // хаб ПОСЛЕДНИМ — его нав поверх вкладок
             Reparent(Settings, popupLayer);

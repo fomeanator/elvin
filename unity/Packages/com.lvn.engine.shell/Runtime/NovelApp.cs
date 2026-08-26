@@ -521,13 +521,9 @@ namespace Lvn.UI.Screens
                 // ЛЕНТА ВКЛАДОК (Илья 26.08): Главная(0) → Магазин(1) →
                 // Гардероб(2) → Профиль(3). Переход едет по ленте: хаб уезжает,
                 // промежуточные вкладки ПРОЛЕТАЮТ через кадр, цель въезжает.
-                _shell.Hub.OnWardrobe = async () =>
-                {
-                    _shell.TabReset();
-                    _shell.Hub.SetActiveTab(2);
-                    await OpenWardrobeFromHubAsync();
-                    _shell.Hub.SetActiveTab(0);
-                };
+                // ГАРДЕРОБ ОДИН: в меню — вкладка вокруг общей героини,
+                // в игре — прежний сценический шит (квик-меню/оп wardrobe_show).
+                _shell.Hub.OnWardrobe = () => _shell.TabGoTo(2);
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
                 _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
                 // TR-25: партнёр прячет ежедневную награду данными; сама
