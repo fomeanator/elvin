@@ -344,9 +344,10 @@ namespace Lvn.UI.Screens
                 // байты завершённых глав + текущий батч / все поставленные.
                 // Без очереди: одиночный батч как раньше; стриминг — спиннер.
                 var (qDone, qTotal) = Center?.Progress ?? (0L, 0L);
+                long batchRec = t.batchTotal > 0 ? t.received : 0; // вне батча — мусор стриминга
                 float frac;
                 if (qTotal > 0)
-                    frac = Mathf.Clamp01((qDone + t.received) / (float)qTotal);
+                    frac = Mathf.Clamp01((qDone + batchRec) / (float)qTotal);
                 else if (act && t.batchTotal > 0)
                     frac = t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
                         : Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal));
@@ -379,7 +380,7 @@ namespace Lvn.UI.Screens
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
                     _vQueue.text = chLeft > 0 ? $"глав {chLeft} · файлов {filesLeft}" : $"файлов {filesLeft}";
                     _vGot.text = qTotal > 0
-                        ? Mb(qDone + t.received) + " из " + Mb(qTotal)
+                        ? Mb(qDone + batchRec) + " из " + Mb(qTotal)
                         : Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
                     if (now - _lastMissingAt > 3f)
                     {
