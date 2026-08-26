@@ -647,6 +647,11 @@ namespace Lvn.UI.Screens
                     Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
                     TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
                     OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
+                    // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
+                    // ставит и полотно, и куклу — значит светлое пятно рисует
+                    // сама оболочка. Через секунду после показа перечисляем
+                    // ВСЕ крупные светлые непрозрачные поверхности дерева.
+                    _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
                     title = await Hub.PickTitleAsync(ct);
                     if (ct.IsCancellationRequested) return;
                     Hide(Hub);
@@ -729,6 +734,33 @@ namespace Lvn.UI.Screens
         /// <summary>Первый вход ещё впереди (вводная не пройдена): хост держит
         /// брендовую вуаль вместо полос — см. NovelApp.DriveBootVeilAsync.</summary>
         public bool HasPendingIntro => PendingIntroTitle() != null;
+
+        /// <summary>Диагностика «белого прямоугольника»: перечислить крупные
+        /// СВЕТЛЫЕ и НЕПРОЗРАЧНЫЕ поверхности дерева оболочки. Пустой список
+        /// значит, что светлое пятно рисует сцена (UGUI), а не оболочка.</summary>
+        private void DumpOpaqueSurfaces()
+        {
+            if (_root == null) return;
+            var sb = new System.Text.StringBuilder("[lvn-white] светлые поверхности оболочки:\n");
+            int found = 0;
+            _root.Query<VisualElement>().ForEach(el =>
+            {
+                if (el.resolvedStyle.display == DisplayStyle.None) return;
+                var c = el.resolvedStyle.backgroundColor;
+                if (c.a < 0.35f) return;
+                if ((c.r + c.g + c.b) / 3f < 0.55f) return;   // светлое, а не «Полночь»
+                var wb = el.worldBound;
+                if (wb.width < 80f || wb.height < 80f) return; // крупное пятно, не чип
+                found++;
+                sb.AppendLine($"  <{el.GetType().Name}> name='{el.name}' "
+                              + $"классы=[{string.Join(",", el.GetClasses())}] "
+                              + $"rect=({wb.x:0},{wb.y:0} {wb.width:0}x{wb.height:0}) "
+                              + $"цвет=#{ColorUtility.ToHtmlStringRGBA(c)} opacity={el.resolvedStyle.opacity:0.00}");
+            });
+            if (found == 0)
+                sb.AppendLine("  — ничего светлого НЕ найдено: белое рисует сцена, а не оболочка");
+            Debug.Log(sb.ToString());
+        }
 
         private LvnTitle PendingIntroTitle()
         {
