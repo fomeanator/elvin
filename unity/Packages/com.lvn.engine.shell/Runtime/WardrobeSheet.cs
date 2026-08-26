@@ -1286,6 +1286,7 @@ namespace Lvn.UI.Screens
                     LvnWardrobe.Preview(_entity, a2, v2);
                     RebuildStrip(animate: false);
                     _itemName.text = n2;
+                    RefreshConfirm(); // примерка состоялась — кнопкам ожить
                 });
                 return card;
             }
