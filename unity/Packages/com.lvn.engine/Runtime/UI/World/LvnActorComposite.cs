@@ -106,7 +106,26 @@ namespace Lvn.UI.World
             _proxy.gameObject.SetActive(true);
             rig.gameObject.SetActive(false);
             _active = true;
+            // СТОРОЖ: прокси — ВРЕМЕННАЯ поверхность (самый долгий переход
+            // ~0.3с). Гонка перебивающих применений могла оставить его жить
+            // вечно с уже уничтоженными текстурами — гигантский белый
+            // прямоугольник вместо актёра (живые скрины 27.08). Через 3с
+            // прокси обязан отдать сцену живому ригу, чем бы ни кончился
+            // его кроссфейд.
+            // Свой счётчик: _crossfadeGeneration поднимает каждый штатный фейд,
+            // и сторож на нём стал бы холостым; тут важен последний Begin.
+            int watch = ++_watchdogGen;
+            Lvn.LvnAsync.Fire(WatchdogAsync(watch), "CompositeWatchdog");
             return true;
+        }
+
+        private int _watchdogGen;
+
+        private async System.Threading.Tasks.Task WatchdogAsync(int gen)
+        {
+            await System.Threading.Tasks.Task.Delay(3000);
+            // Новый Begin завёл своего сторожа — этот отходит.
+            if (_active && gen == _watchdogGen) End();
         }
 
         /// <summary>Reveal a newly configured look against the previous opaque
