@@ -472,7 +472,12 @@ namespace Lvn.UI.World
                     // (живые репорты). Любая смена облика в гардеробе — один и
                     // тот же чистый кроссфейд, как обещает LvnActorComposite.
                     float dur2 = (p.WardrobeSwap ? 0.28f : 0.20f) * VnTheme.MotionDurationScale;
-                    a.CrossfadeArtSwap(dur2, wardrobeFlow: p.WardrobeSwap && !p.WardrobeFromTop);
+                    // ПО-ПРОСТОМУ (решение Ильи 27.08): всякая смена облика —
+                    // чистый кроссфейд «старое растворяется над новым», без
+                    // шейдерной шторки-потока (её кромка мелькала на смене
+                    // платья). Ветка потока в шейдере остаётся мёртвой до
+                    // лучших времён.
+                    a.CrossfadeArtSwap(dur2, wardrobeFlow: false);
                     // Барьер свапа: следующая команда актёра обязана дождаться
                     // конца этого кроссфейда, а не срезать его в один кадр.
                     _artSwapUntil[id] = Time.realtimeSinceStartup + dur2;
