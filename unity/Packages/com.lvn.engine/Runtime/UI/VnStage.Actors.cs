@@ -170,6 +170,42 @@ namespace Lvn.UI
                 wardrobeFromTop: IsHairWardrobeAxis(LvnWardrobe.LastChangedAxis(id)));
         }
 
+        // ── ЖИВЫЕ СПРАЙТЫ СЦЕНЫ ЗАКРЕПЛЕНЫ (27.08): LRU стримингового окна
+        // уничтожал текстуры прямо на экране — кукла меню становилась белым
+        // квадратом, канвас серел («переключение актёров фон убивает»). Grace
+        // окна считается от последнего ЗАПРОСА, а показанному давно арту
+        // запросы не приходят. Всё, что сцена сейчас рисует, пиннится в
+        // лоадере; замена или уход снимает пин. Слоты: "bg", "actor:<id>".
+        private readonly Dictionary<string, List<Sprite>> _scenePins
+            = new Dictionary<string, List<Sprite>>();
+
+        private void RepinSceneSprites(string slot, IReadOnlyList<Sprite> next)
+        {
+            var cl = (Assets as CachingAssets)?.Loader;
+            if (cl == null) return;
+            List<Sprite> keep = null;
+            if (next != null && next.Count > 0)
+            {
+                keep = new List<Sprite>(next.Count);
+                foreach (var s in next)
+                    // pin ДО unpin прежних: общий слой переживает замену
+                    if (s != null) { cl.PinSprite(s, true); keep.Add(s); }
+            }
+            if (_scenePins.TryGetValue(slot, out var prev) && prev != null)
+                foreach (var s in prev) cl.PinSprite(s, false);
+            if (keep == null) _scenePins.Remove(slot);
+            else _scenePins[slot] = keep;
+        }
+
+        private void UnpinAllSceneSprites()
+        {
+            var cl = (Assets as CachingAssets)?.Loader;
+            if (cl != null)
+                foreach (var list in _scenePins.Values)
+                    foreach (var s in list) cl.PinSprite(s, false);
+            _scenePins.Clear();
+        }
+
         /// <summary>Актёр виден ИЛИ его показ уже в полёте (слои грузятся).
         /// Хосту меню это отличает «кукла есть/едет» от «пропала — переслать».</summary>
         public bool ActorVisibleOrPending(string id)
@@ -384,6 +420,7 @@ namespace Lvn.UI
                     _renderer?.PlaceActor(id, hidePl);
                     _renderer?.ApplyActor(id, null, hidePl, null, null, null);
                 }
+                RepinSceneSprites("actor:" + id, null); // ушёл — окно свободно
                 if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
                 _placements[id] = hidePl;
                 _actorCmds[id] = cmd;
@@ -645,6 +682,7 @@ namespace Lvn.UI
                             silPl.Silhouette = true;
                             Debug.Log($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
                             _renderer?.ApplyActor(id, mini, silPl, onClick, miniIds, miniRects, miniDefs);
+                            RepinSceneSprites("actor:" + id, mini); // заготовка на экране — держим
                             _placements[id] = silPl; // полный apply увидит «уже видим» → кроссфейд-проявление
                             wasVisibleBeforeShow = true;
                             visibilityChanged = false;
@@ -709,6 +747,7 @@ namespace Lvn.UI
             // the frame where the renderer actually starts the entrance.
             ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
+            RepinSceneSprites("actor:" + id, layers); // что на экране — LRU не трогает
             placement.SmoothPosition = false;
             placement.WardrobeSwap = false;
             placement.WardrobeFromTop = false;

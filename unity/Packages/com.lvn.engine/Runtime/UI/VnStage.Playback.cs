@@ -323,6 +323,7 @@ namespace Lvn.UI
             _renderer?.ResetCamera(0f);
             _talkAnims.Clear();
             _renderer?.ClearBackground();
+            UnpinAllSceneSprites(); // сцена пуста — окно памяти свободно
             ReleaseActive3DSet();
             _particles?.Set("rain", false);
             _particles?.Set("snow", false);

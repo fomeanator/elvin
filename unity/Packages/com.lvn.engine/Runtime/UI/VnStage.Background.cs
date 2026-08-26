@@ -124,6 +124,7 @@ namespace Lvn.UI
             // мгновенно — под ним ещё занавес входа.
             float bgFade = NumOr(cmd["fade"], Theme?.BgCrossfadeSeconds ?? 0.35f);
             _renderer?.SetBackground(sprite, bgFade);
+            RepinSceneSprites("bg", new[] { sprite }); // фон на экране — LRU не трогает
             // Пан по широкому фону: `bg … pan=left pan_to=right pan_dur=30` —
             // сцена начинается в левой части кадра и за pan_dur доезжает до
             // правой. Работает на горизонтальном слаке cover-кроя.
