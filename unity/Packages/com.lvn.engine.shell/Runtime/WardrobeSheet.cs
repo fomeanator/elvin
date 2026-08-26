@@ -637,7 +637,14 @@ namespace Lvn.UI.Screens
             if (cur >= 0 && cur < _stripCards.Count)
             {
                 var target = _stripCards[cur];
-                _strip.schedule.Execute(() => _strip.ScrollTo(target)); // после лейаута
+                // Отложенно — после лейаута; к этому моменту ленту могли уже
+                // перестроить (смена оси, покупка, переоткрытие листа), и чужая
+                // карточка роняет ScrollTo ArgumentException'ом (живой лог).
+                _strip.schedule.Execute(() =>
+                {
+                    if (target.panel == null || target.parent != _strip.contentContainer) return;
+                    _strip.ScrollTo(target);
+                });
             }
         }
 
