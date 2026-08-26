@@ -48,6 +48,8 @@ namespace Lvn.UI.Screens
         public Func<(string label, Action start)?> CurrentChapterOffer;
         /// <summary>Сколько осталось скачать (байт, файлов) — подпись кнопки.</summary>
         public Func<(long bytes, int files)> MissingInfo;
+        /// <summary>Что-то уже на диске → кнопка говорит «Докачать».</summary>
+        public Func<bool> HasSomeDownloaded;
         /// <summary>Есть ли работа прямо сейчас (кружок показан) — единый
         /// навбар держится на экране этим сигналом в игровом режиме.</summary>
         public bool HasWork => _shown;
@@ -519,7 +521,9 @@ namespace Lvn.UI.Screens
                     chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
                     card.Add(chBtn);
                 }
-                var btn = new Button { text = $"Скачать всё ≈{Mathf.Max(1, missing.Item1 >> 20)} МБ" };
+                bool partial = HasSomeDownloaded?.Invoke() ?? false;
+                var btn = new Button { text =
+                    (partial ? "Докачать" : "Скачать всё") + $" ≈{Mathf.Max(1, missing.Item1 >> 20)} МБ" };
                 btn.style.height = 52;
                 btn.style.fontSize = 22;
                 btn.style.marginTop = 8;

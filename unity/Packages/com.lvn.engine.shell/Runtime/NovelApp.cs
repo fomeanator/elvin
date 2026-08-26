@@ -877,11 +877,31 @@ namespace Lvn.UI.Screens
                         string label = $"Скачать главу {ch.number} · ≈{Mathf.Max(1, bytes >> 20)} МБ";
                         return (label, () => EnqueueChapterDownload(t, ch));
                     };
+                    hud.HasSomeDownloaded = () =>
+                    {
+                        foreach (var (url, _, _) in CollectContentItems())
+                            if (loader.IsAssetCached(url)) return true;
+                        return false;
+                    };
                     hud.MissingInfo = () =>
                     {
                         long bytes = 0; int files = 0;
+                        var sample = new List<string>();
                         foreach (var (url, _, size) in CollectContentItems())
-                            if (!loader.IsAssetCached(url)) { bytes += size > 0 ? size : 64 << 10; files++; }
+                            if (!loader.IsAssetCached(url))
+                            {
+                                bytes += size > 0 ? size : 64 << 10;
+                                files++;
+                                if (sample.Count < 8) sample.Add(url);
+                            }
+                        // Диагностика хвоста: если «скачал всё, а остаток не 0» —
+                        // консоль называет виновников поимённо.
+                        if (files != _lastMissingCount)
+                        {
+                            _lastMissingCount = files;
+                            if (files > 0 && files <= 24)
+                                Debug.Log($"[content] недокачано {files}: {string.Join(", ", sample)}");
+                        }
                         return (bytes, files);
                     };
                 }
@@ -2335,6 +2355,7 @@ namespace Lvn.UI.Screens
             });
 
         private Lvn.UI.Screens.DownloadCenter _dlCenter;
+        private int _lastMissingCount = -1;
 
         // «Скачать всё» — очередью ПО ГЛАВАМ (решение Ильи 25.08): видно, что
         // качается и что ждёт, любую главу можно снять крестиком. Общие файлы
