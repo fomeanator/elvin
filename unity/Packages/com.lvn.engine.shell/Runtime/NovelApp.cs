@@ -531,6 +531,13 @@ namespace Lvn.UI.Screens
                 _shell.Hub.PlayerName = _playerName;
                 _shell.Hub.Currencies = HubCurrencies();
                 _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
+                _shell.Hub.OnHomeNav = () =>
+                {
+                    // «Главная» из нижнего меню: открытая вкладка закрывается
+                    // (её ShowAsync вернётся и вернёт ленту домой сам).
+                    _shell.PackShop?.Hide();
+                    _shell.Profile?.Hide();
+                };
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
@@ -1320,21 +1327,32 @@ namespace Lvn.UI.Screens
         // the stage dresses itself with the last scene the player saw (or the
         // engine's dark), the hero steps on, the sheet fades in. Closing plays
         // it all back. ONE wardrobe everywhere; the old fullscreen screen died.
-        // Проезд по ленте вкладок из хаба к цели: 1 — магазин, 2 — гардероб,
-        // 3 — профиль. Промежуточные пролетают, не останавливаясь.
+        // Проезд по ленте вкладок: 0 — главная, 1 — магазин, 2 — гардероб,
+        // 3 — профиль. Контент хаба уезжает (нижнее меню живёт), промежуточные
+        // пролетают; повторный выбор вкладки из нижнего меню закрывает прежнюю.
+        private int _currentTab;
+
         private async Task TabTravelAsync(int target)
         {
             var hub = _shell?.Hub;
-            if (hub == null) return;
-            hub.SlideAway(-1, away: true);
+            if (hub == null || target == _currentTab) return;
+            int from = _currentTab;
+            int dir = target > from ? +1 : -1;
+            // Открытая вкладка уступает мгновенно — едем из «дома».
+            _shell.PackShop?.Hide();
+            _shell.Profile?.Hide();
+            if (from == 0) hub.SlideAway(-dir, away: true);
+            _currentTab = target;
             try
             {
-                if (target >= 2 && _shell.PackShop != null)
-                    await _shell.PackShop.FlyThroughAsync(+1);
+                // Пролёт магазина, когда он строго МЕЖДУ from и target.
+                bool passShop = (from < 1 && target > 1) || (from > 1 && target < 1);
+                if (passShop && _shell.PackShop != null)
+                    await _shell.PackShop.FlyThroughAsync(dir);
                 switch (target)
                 {
                     case 1:
-                        _shell.PackShop.SlideDirection = +1;
+                        _shell.PackShop.SlideDirection = dir;
                         try { await _shell.OpenPackShopAsync(); }
                         finally { _shell.PackShop.SlideDirection = 0; }
                         break;
@@ -1342,15 +1360,17 @@ namespace Lvn.UI.Screens
                         await OpenWardrobeFromHubAsync();
                         break;
                     case 3:
-                        // Гардероб — сценический, по ленте он «стеклянный»:
-                        // пролетаем только магазин.
-                        _shell.Profile.SlideDirection = +1;
+                        _shell.Profile.SlideDirection = dir;
                         try { await OpenProfileWithRelationsAsync(); }
                         finally { _shell.Profile.SlideDirection = 0; }
                         break;
                 }
             }
-            finally { hub.SlideAway(-1, away: false); }
+            finally
+            {
+                _currentTab = 0;
+                hub.SlideAway(-dir, away: false);
+            }
         }
 
         private async Task OpenWardrobeFromHubAsync()

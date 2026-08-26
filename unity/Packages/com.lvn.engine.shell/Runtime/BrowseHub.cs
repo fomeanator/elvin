@@ -485,15 +485,21 @@ namespace Lvn.UI.Screens
         /// для параллакса.</summary>
         public float ScrollY => _hubRows != null ? _hubRows.scrollOffset.y : 0f;
 
-        /// <summary>Лента вкладок: хаб уезжает в сторону (dir −1 = влево) и
-        /// возвращается. Дешёвый трансформ, display не трогаем — хаб остаётся
-        /// «главной» подложкой ленты.</summary>
+        /// <summary>Тап «Главная» в нижнем меню — хост закрывает открытую
+        /// вкладку-раздел (магазин/профиль) и возвращает ленту домой.</summary>
+        public System.Action OnHomeNav;
+
+        /// <summary>Лента вкладок: КОНТЕНТ хаба уезжает в сторону (dir −1 =
+        /// влево) и возвращается; нижнее меню остаётся на месте и живёт —
+        /// вкладки переключаются из него (решение Ильи 26.08).</summary>
         public void SlideAway(int dir, bool away)
         {
+            var el = _hubView;
+            if (el == null) return;
             float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
             float from = away ? 0f : dir * w;
             float to = away ? dir * w : 0f;
-            this.experimental.animation.Start(0f, 1f, 280, (e, p) =>
+            el.experimental.animation.Start(0f, 1f, 280, (e, p) =>
             {
                 float k = 1f - Mathf.Pow(1f - p, 3f);
                 e.style.translate = new Translate(Mathf.Lerp(from, to, k), 0f);
@@ -640,7 +646,8 @@ namespace Lvn.UI.Screens
             nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab(LvnIcon.Home, _cfg.nav_home ?? "Главная", true, null));
+            nav.Add(NavTab(LvnIcon.Home, _cfg.nav_home ?? "Главная", true,
+                () => OnHomeNav?.Invoke()));
             nav.Add(NavTab(LvnIcon.Store, _cfg.nav_store ?? "Магазин", false, () => { if (OnStore != null) _ = OnStore(); }));
             nav.Add(NavTab(LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", false, () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
             if (_cfg.show_gallery ?? true)

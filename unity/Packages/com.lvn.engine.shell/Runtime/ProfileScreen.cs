@@ -95,26 +95,23 @@ namespace Lvn.UI.Screens
             _assets = assets;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = LvnTokens.Scrim;
+            // ВКЛАДКА как главная (Илья 26.08): без листа и скрима, контент на
+            // общей атмосфере, дырка под нижнее меню, root не ловит тапы.
+            style.backgroundColor = Color.clear;
             style.opacity = 0f;
             style.display = DisplayStyle.None;
-            // tap the scrim (not the sheet) to close
-            RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
+            pickingMode = PickingMode.Ignore;
 
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(5f);
-            sheet.style.right = Length.Percent(5f);
-            sheet.style.top = Length.Percent(7f);
-            sheet.style.bottom = Length.Percent(7f);
-            sheet.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
-            sheet.style.paddingTop = 20;
-            sheet.style.paddingBottom = 16;
+            sheet.style.left = 0; sheet.style.right = 0;
+            sheet.style.top = 96;
+            sheet.style.bottom = 132;
+            sheet.style.paddingTop = 6;
+            sheet.style.paddingBottom = 6;
             sheet.style.paddingLeft = 20;
             sheet.style.paddingRight = 20;
             Add(sheet);
-            AdoptSheet(sheet, fullscreen: true); // раздел, не модалка (Илья 26.08)
 
             // ── Top bar: back (‹) + "Профиль" ─────────────────────────────
             var top = new VisualElement();
@@ -122,21 +119,6 @@ namespace Lvn.UI.Screens
             top.style.alignItems = Align.Center;
             top.style.marginBottom = 14;
             sheet.Add(top);
-
-            var back = new Button(Close) { text = "‹" };
-            back.style.fontSize = 36;
-            back.style.width = 48;
-            back.style.height = 48;
-            back.style.marginRight = 8;
-            back.style.paddingTop = 0;
-            back.style.paddingBottom = 0;
-            back.style.paddingLeft = 0;
-            back.style.paddingRight = 0;
-            back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(back);
-            LvnChrome.Round(back, LvnTokens.RadiusSm);
-            top.Add(back);
 
             var title = new Label("Профиль");
             LvnChrome.Heading(title);
