@@ -171,7 +171,25 @@ namespace Lvn.UI
             if (dt > 0.15f && Time.frameCount > 10)
                 Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {Time.frameCount}"
                           + (_spineLoading.Count > 0 ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : ""));
+
+            // СТОРОЖ БЕЛОГО ПОЛОТНА (охота 26.08). RawImage фона рисует свой
+            // color сплошняком, когда текстуры нет, а после первой постановки
+            // color=white — выгруженная текстура превращает кадр в белое пятно.
+            // Логируем ПЕРЕХОД в это состояние (не каждый кадр), чтобы в логе
+            // было видно, ЧТО случилось прямо перед ним.
+            if (_renderer is CanvasSceneRenderer csr)
+            {
+                bool blank = csr.BackdropBlankWhite;
+                if (blank != _bgWasBlankWhite)
+                {
+                    _bgWasBlankWhite = blank;
+                    Debug.Log($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
+                              + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
+                }
+            }
         }
+
+        private bool _bgWasBlankWhite;
 
         private void Build()
         {

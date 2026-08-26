@@ -104,6 +104,11 @@ namespace Lvn.UI
         /// VnStage.RestoreSnapshot).</summary>
         public GameObject Root => _scene.Root;
 
+        /// <summary>Диагностика полотна: «пусто и белым» + состав — для лога
+        /// охоты на белый прямоугольник после выхода из главы.</summary>
+        public bool BackdropBlankWhite => _scene.Background != null && _scene.Background.IsBlankWhite;
+        public string BackdropState => _scene.Background?.DebugState ?? "нет";
+
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
         public void SetBackground(Sprite sprite, float crossfadeSeconds)
             => _scene.SetBackgroundSprite(sprite, crossfadeSeconds);

@@ -155,6 +155,20 @@ namespace Lvn.UI.World
             _image.uvRect = new Rect(0f, 0f, 1f, 1f);
         }
 
+        /// <summary>ДИАГНОСТИКА «белого прямоугольника»: RawImage рисует свой
+        /// color сплошняком, когда текстуры нет, а после первой же постановки
+        /// фона color=white. Значит выгруженная (или так и не приехавшая)
+        /// текстура превращает полотно в белое пятно во весь кадр. Возвращает
+        /// true ровно в этот момент — вызывающий пишет это в лог.</summary>
+        public bool IsBlankWhite =>
+            _image != null && _image.texture == null && _image.color.maxColorComponent > 0.5f;
+
+        /// <summary>Что сейчас на полотне — для лога.</summary>
+        public string DebugState =>
+            _image == null ? "нет" :
+            $"tex={(_image.texture != null ? _image.texture.width + "x" + _image.texture.height : "НЕТ")} " +
+            $"color={ColorUtility.ToHtmlStringRGBA(_image.color)} tile={(_tilePx > 0f ? "да" : "нет")}";
+
         /// <summary>Recompute the cover-crop uv rect for the current slot size —
         /// call when the canvas resizes. Cheap and safe to call every layout.</summary>
         public void UpdateCover()
