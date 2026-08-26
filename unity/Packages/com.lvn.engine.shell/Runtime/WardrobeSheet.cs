@@ -715,8 +715,10 @@ namespace Lvn.UI.Screens
             art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             card.Add(art);
             // Плейсхолдер-вешалка, пока арт едет (Илья 27.08): пустая чёрная
-            // плитка читалась как «не грузит».
-            var ph = LvnIcons.Make(LvnIcon.Wardrobe, 42f, LvnTokens.TextDim);
+            // плитка читалась как «не грузит». Пункт «Нет» живёт с постоянным
+            // глифом «×» — у снятия арта нет по определению.
+            bool none = item.value == LvnWardrobe.NoneValue;
+            var ph = LvnIcons.Make(none ? LvnIcon.Close : LvnIcon.Wardrobe, 42f, LvnTokens.TextDim);
             ph.pickingMode = PickingMode.Ignore;
             ph.style.position = Position.Absolute;
             ph.style.left = Length.Percent(50f);
@@ -795,7 +797,10 @@ namespace Lvn.UI.Screens
                 return;
             }
             Debug.Log($"[lvn-card-art] ok via {via}: {(via == "mini" ? mini : icon)} ({s.texture?.width}x{s.texture?.height})");
-            if (art.panel == null) return; // карточку уже перестроили
+            // НЕ проверять art.panel: мгновенный кэш-хит завершается ДО того,
+            // как RebuildStrip добавил карточку в панель, и страж по panel
+            // молча выбрасывал арт — «показались, а при возврате на таб
+            // пропали» (живой скрин 27.08).
             art.style.backgroundImage = new StyleBackground(s);
             ScreenUi.PinBg(art, s, _assets); // видимый арт LRU не трогает
             ph.style.display = DisplayStyle.None;
@@ -1005,10 +1010,33 @@ namespace Lvn.UI.Screens
             var list = new List<LvnWardrobeItem>();
             if (axis != null && _def?.wardrobe != null
                 && _def.wardrobe.TryGetValue(axis, out var slot) && slot?.items != null)
+            {
+                // Съёмный слот (украшения) открывается пунктом «Нет»: снятие —
+                // такой же выбор, с примеркой (NoneValue) и коммитом (Equip
+                // трактует его как «снять»). Просьба Ильи 27.08.
+                if (slot.removable == true)
+                    list.Add(new LvnWardrobeItem { value = LvnWardrobe.NoneValue, name = "Нет" });
                 foreach (var it in slot.items)
                     if (it != null && !string.IsNullOrEmpty(it.value)
                         && (!OnlySeen || Encountered(axis, it.value)))
                         list.Add(it);
+            }
+            // ТЕКУЩЕЕ — ПЕРВЫМ (Илья: «по умолчанию должно отображаться
+            // первым, а не скакать при входе»): надетое (или дефолт; для
+            // съёмного пустого — «Нет») переезжает в голову списка. Порядок
+            // стабилен на всю примерку — Equip меняет его только по «Выбрать».
+            LvnWardrobe.Equipped(_entity).TryGetValue(axis ?? "", out var worn);
+            if (worn == null && _def?.defaults != null && axis != null)
+                _def.defaults.TryGetValue(axis, out worn);
+            if (worn == null && list.Count > 0 && list[0].value == LvnWardrobe.NoneValue)
+                worn = LvnWardrobe.NoneValue; // пусто и снимаемо — текущее «Нет»
+            int cur = worn == null ? -1 : list.FindIndex(i => i.value == worn);
+            if (cur > 0)
+            {
+                var it = list[cur];
+                list.RemoveAt(cur);
+                list.Insert(0, it);
+            }
             return list;
         }
 

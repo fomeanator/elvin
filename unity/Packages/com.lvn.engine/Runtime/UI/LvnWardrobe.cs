@@ -40,6 +40,13 @@ namespace Lvn.UI
             Changed?.Invoke(entity);
         }
 
+        /// <summary>Маркер «ничего не надето» для съёмных слотов (украшения):
+        /// как ЗНАЧЕНИЕ он живёт в превью и в пунктах витрины («Нет»), а
+        /// <see cref="Equip"/> и слияние осей трактуют его как снятие. Пустая
+        /// строка не годится: Preview("") исторически означает «убрать
+        /// превью-ось», а не «примерить пусто».</summary>
+        public const string NoneValue = "__none__";
+
         /// <summary>The wallet inventory sku for a wardrobe item — deterministic,
         /// so ownership survives reinstalls via the server wallet.</summary>
         public static string Sku(string entity, string axis, string value)
@@ -56,7 +63,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(entity) || string.IsNullOrEmpty(axis)) return;
             var map = Load(entity);
-            bool remove = string.IsNullOrEmpty(value);
+            bool remove = string.IsNullOrEmpty(value) || value == NoneValue;
             if (remove ? !map.Remove(axis) : (map.TryGetValue(axis, out var cur) && cur == value))
                 return; // no change
             if (!remove) map[axis] = value;
@@ -117,13 +124,21 @@ namespace Lvn.UI
             ICollection<string> previewOverridable = null)
         {
             if (axes == null) return;
+            // Примерка «снять» (NoneValue): ось остаётся ПУСТОЙ — надетое её
+            // не добирает, и слой без значения молчит (украшение исчезает
+            // живьём, пока игрок смотрит на пункт «Нет»).
+            HashSet<string> cleared = null;
             foreach (var kv in Previewed(entity))
-                if (!string.IsNullOrEmpty(kv.Value)
-                    && (!axes.ContainsKey(kv.Key)
-                        || (previewOverridable != null && previewOverridable.Contains(kv.Key))))
-                    axes[kv.Key] = kv.Value;
+            {
+                bool overridable = !axes.ContainsKey(kv.Key)
+                    || (previewOverridable != null && previewOverridable.Contains(kv.Key));
+                if (!overridable || string.IsNullOrEmpty(kv.Value)) continue;
+                if (kv.Value == NoneValue) (cleared ??= new HashSet<string>()).Add(kv.Key);
+                else axes[kv.Key] = kv.Value;
+            }
             foreach (var kv in Load(entity))
-                if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value))
+                if (!axes.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value)
+                    && (cleared == null || !cleared.Contains(kv.Key)))
                     axes[kv.Key] = kv.Value;
         }
 
