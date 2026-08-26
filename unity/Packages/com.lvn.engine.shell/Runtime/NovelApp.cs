@@ -1624,7 +1624,9 @@ namespace Lvn.UI.Screens
             // причёска на 30% ниже, платье на 7% выше и зум −10%.
             var k = axis.ToLowerInvariant();
             float z, focus, target;
-            if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
+            if (axis == Lvn.UI.Screens.WardrobeSheet.AllTab)
+            { z = 1.07f; focus = 0.5f; target = 0f; } // «Моё»: лёгкий наезд по центру
+            else if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
             { z = 1.91f; focus = 0.82f; target = 0.30f; } // Илья 28.08: 2×5% выше, зум −7%
             else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
                      || k.Contains("acc"))

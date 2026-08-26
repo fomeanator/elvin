@@ -81,7 +81,7 @@ namespace Lvn.UI.Screens
         public static event Action<string> SectionFocus;
         private void FireSectionFocus(string axis) => SectionFocus?.Invoke(axis);
         /// <summary>Вернуть зум активного раздела (возврат из «Во весь рост»).</summary>
-        public void RefocusSection() => FireSectionFocus(_tab == AllTab ? null : _tab);
+        public void RefocusSection() => FireSectionFocus(_tab);
 
         private LvnManifest _manifest;
         private string _entity;
@@ -916,8 +916,8 @@ namespace Lvn.UI.Screens
         {
             _tab = axis;
             // Камера хоста едет к зоне раздела: причёска — к голове, украшения
-            // — к шее, платье — к корпусу; «Все» — общий план.
-            FireSectionFocus(_tab == AllTab ? null : _tab);
+            // — к шее, платье — к корпусу; «Моё» — лёгкий наезд по центру.
+            FireSectionFocus(_tab);
             foreach (var c in _tabs.Children())
             {
                 var b = c as Button;
@@ -957,9 +957,10 @@ namespace Lvn.UI.Screens
         }
 
         // ── лента карточек: второй руль карусели ─────────────────────────────
-        /// <summary>Сборный таб «Все»: купленные скины со всех осей одной
-        /// лентой, кадр без зума — фигура целиком (просьба Ильи 27.08).</summary>
-        private const string AllTab = "__all__";
+        /// <summary>Сборный таб «Моё»: купленные скины со всех осей одной
+        /// лентой. Публичен: камера хоста узнаёт его в SectionFocus (лёгкий
+        /// наезд вместо общего плана).</summary>
+        public const string AllTab = "__all__";
 
         private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
             item == null || item.price <= 0
