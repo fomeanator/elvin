@@ -80,6 +80,7 @@ namespace Lvn.UI.Screens
         private string _tab;
         private readonly Dictionary<string, int> _index = new Dictionary<string, int>(); // axis → carousel pos
         private ScrollView _strip;                 // лента карточек активной оси
+        private VisualElement _subRow;             // свотчи осей-поднастроек (subOf)
         private readonly List<VisualElement> _stripCards = new List<VisualElement>();
         private ScrollView _emotions;              // баблики эмоций (ось emotion)
         private string _emotionAxis;               // имя оси лиц текущего персонажа
@@ -234,6 +235,18 @@ namespace Lvn.UI.Screens
             _strip.style.marginTop = 12;
             _strip.contentContainer.style.flexDirection = FlexDirection.Row;
             Add(_strip);
+
+            // ПОДНАСТРОЙКА РАЗДЕЛА (Илья 28.08: «прическа и цвет волос по
+            // отдельности не нравится»): слот с subOf живёт не своим табом, а
+            // рядом круглых свотчей под лентой родителя — причёска и её цвет
+            // выбираются в одном разделе.
+            _subRow = new VisualElement();
+            _subRow.style.flexDirection = FlexDirection.Row;
+            _subRow.style.alignItems = Align.Center;
+            _subRow.style.justifyContent = Justify.Center;
+            _subRow.style.marginTop = 10;
+            _subRow.style.display = DisplayStyle.None;
+            Add(_subRow);
 
             // ◀ item name ▶
             var carousel = new VisualElement();
@@ -493,6 +506,7 @@ namespace Lvn.UI.Screens
             {
                 var axis = kv.Key;
                 if (Items(axis).Count == 0) continue; // nothing collected here yet
+                if (IsSubAxis(axis)) continue; // поднастройка живёт в табе родителя
                 if (_tab == null) _tab = axis;
                 var slot = kv.Value;
                 // ПИЛЮЛЯ В ОДНУ СТРОКУ С ИКОНКОЙ (Илья 27.08): квадрат 92×92
@@ -599,6 +613,118 @@ namespace Lvn.UI.Screens
         {
             var key = (axis ?? "").ToLowerInvariant();
             return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
+        }
+
+        // ── поднастройки: ось-уточнение внутри таба родителя ─────────────────
+        // Слот с subOf (цвет волос → subOf:"hairstyle") своего таба не имеет:
+        // он рисуется рядом круглых свотчей под лентой родительского раздела.
+        private bool IsSubAxis(string axis) =>
+            axis != null && _def?.wardrobe != null
+            && _def.wardrobe.TryGetValue(axis, out var s)
+            && !string.IsNullOrEmpty(s?.subOf) && _def.wardrobe.ContainsKey(s.subOf);
+
+        private IEnumerable<string> SubAxesOf(string parent)
+        {
+            if (parent == null || _def?.wardrobe == null) yield break;
+            foreach (var kv in _def.wardrobe)
+                if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
+        }
+
+        // Шаблонные иконки: `{ось}` в пути арта подменяется ТЕКУЩИМ значением
+        // этой оси (превью → надетое → дефолт → первый предмет). Так карточки
+        // причёсок показывают выбранный цвет: hair_rose_{hair} → hair_rose_black.
+        private string ResolveIcon(string icon)
+        {
+            if (string.IsNullOrEmpty(icon) || icon.IndexOf('{') < 0
+                || _def?.wardrobe == null) return icon;
+            foreach (var kv in _def.wardrobe)
+            {
+                var token = "{" + kv.Key + "}";
+                if (!icon.Contains(token)) continue;
+                LvnWardrobe.Previewed(_entity).TryGetValue(kv.Key, out var v);
+                if (v == null) LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out v);
+                if (v == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out v);
+                if (string.IsNullOrEmpty(v) || v == LvnWardrobe.NoneValue)
+                    v = kv.Value?.items != null && kv.Value.items.Count > 0
+                        ? kv.Value.items[0].value : "";
+                icon = icon.Replace(token, v);
+            }
+            return icon;
+        }
+
+        // Ряд поднастроек активного раздела: подпись слота + свотчи. Тап
+        // примеряет на живую куклу и перестраивает ленту — шаблонные иконки
+        // карточек сразу показывают, например, новый цвет волос.
+        private void RebuildSubRow()
+        {
+            if (_subRow == null) return;
+            _subRow.Clear();
+            bool any = false;
+            if (_tab != null && _tab != AllTab)
+                foreach (var sub in SubAxesOf(_tab))
+                {
+                    var items = Items(sub);
+                    if (items.Count == 0) continue;
+                    var slot = _def.wardrobe[sub];
+                    var lbl = new Label(slot?.name ?? sub);
+                    lbl.style.color = _dim;
+                    lbl.style.fontSize = 21;
+                    lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
+                    lbl.style.marginRight = 10;
+                    _subRow.Add(lbl);
+                    foreach (var it in items) _subRow.Add(SubSwatch(sub, it));
+                    any = true;
+                }
+            _subRow.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // Свотч: круг цвета из манифеста (item.color), иначе — мини-арт;
+        // непринадлежащий помечен «◆», текущий обведён акцентом. Покупку
+        // непринадлежащего цвета предлагает кнопка «Выбрать» (PendingBuy).
+        private VisualElement SubSwatch(string axis, LvnWardrobeItem item)
+        {
+            bool worn = IsWornIn(axis, item.value);
+            bool none = item.value == LvnWardrobe.NoneValue;
+            var b = new Button(() =>
+            {
+                LvnWardrobe.Preview(_entity, axis, item.value); // NoneValue = «снять»
+                _itemName.text = item.name ?? item.value;
+                RebuildStrip();   // свотчи + шаблонные иконки карточек
+                RefreshConfirm(); // кнопка предложит купить этот цвет
+            }) { text = "" };
+            b.style.width = 54; b.style.height = 54;
+            b.style.marginLeft = 5; b.style.marginRight = 5;
+            b.style.paddingLeft = 0; b.style.paddingRight = 0;
+            b.style.paddingTop = 0; b.style.paddingBottom = 0;
+            b.style.alignItems = Align.Center;
+            b.style.justifyContent = Justify.Center;
+            LvnChrome.Round(b, 27f);
+            var fallback = new Color(0.30f, 0.31f, 0.35f, 0.9f);
+            b.style.backgroundColor = string.IsNullOrEmpty(item.color)
+                ? fallback : UiColor.Parse(item.color, fallback);
+            if (none)
+                b.Add(LvnIcons.Make(LvnIcon.Close, 22f, _text));
+            else if (string.IsNullOrEmpty(item.color) && !string.IsNullOrEmpty(item.icon))
+            {
+                var art = new VisualElement { pickingMode = PickingMode.Ignore };
+                art.style.width = 44; art.style.height = 44;
+                art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                LvnAsync.Fire(AssignCardArtAsync(art, new VisualElement(),
+                    ResolveIcon(item.icon)), "WardrobeSwatch");
+                b.Add(art);
+            }
+            LvnChrome.Border(b, worn ? _accent : new Color(1f, 1f, 1f, 0.28f),
+                worn ? 3f : 1.5f);
+            if (!IsOwnedIn(axis, item))
+            {
+                var dot = new Label("◆") { pickingMode = PickingMode.Ignore };
+                dot.style.position = Position.Absolute;
+                dot.style.top = -6; dot.style.right = -6;
+                dot.style.color = LvnTokens.Gold;
+                dot.style.fontSize = 17;
+                b.Add(dot);
+            }
+            return b;
         }
 
         // ── баблики эмоций: примерка лица на живую куклу ─────────────────────
@@ -751,6 +877,7 @@ namespace Lvn.UI.Screens
                         }
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
+                RebuildSubRow(); // спрячет ряд: у «Все» поднастроек нет
                 return;
             }
             var items = Items(_tab);
@@ -761,6 +888,7 @@ namespace Lvn.UI.Screens
                 _strip.Add(card);
                 _stripCards.Add(card);
             }
+            RebuildSubRow();
             StyleStrip();
         }
 
@@ -809,7 +937,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(item.icon))
                 // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
                 // берёт чёткий арт (@2k) сразу.
-                LvnAsync.Fire(AssignCardArtAsync(art, ph, item.icon, sharp: zoom >= 3f),
+                LvnAsync.Fire(AssignCardArtAsync(art, ph, ResolveIcon(item.icon), sharp: zoom >= 3f),
                     "WardrobeCard");
 
             var plate = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -979,6 +1107,24 @@ namespace Lvn.UI.Screens
             item == null || item.price <= 0
             || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
 
+        // Что кнопке предлагать купить: предмет карусели, а если он свой —
+        // непринадлежащая примерка из ПОДНАСТРОЕК раздела (цвет волос тоже
+        // товар, но своей карусели у него нет).
+        private (string axis, LvnWardrobeItem item) PendingBuy()
+        {
+            var cur = CurrentItem();
+            if (cur != null && !IsOwned(cur)) return (_tab, cur);
+            if (_tab != null && _tab != AllTab)
+                foreach (var sub in SubAxesOf(_tab))
+                {
+                    LvnWardrobe.Previewed(_entity).TryGetValue(sub, out var v);
+                    if (v == null) continue;
+                    var it = Find(sub, v);
+                    if (it != null && !IsOwnedIn(sub, it)) return (sub, it);
+                }
+            return (null, null);
+        }
+
         private void RefreshConfirm()
         {
             // Self-healing: any refresh (browse, wallet change, reopen) revives
@@ -986,12 +1132,12 @@ namespace Lvn.UI.Screens
             // delayed-enable can never leave it dead again.
             if (!_buying) _confirm.SetEnabled(true);
 
-            var item = CurrentItem();
-            if (item != null && !IsOwned(item))
+            var (axis, item) = PendingBuy();
+            if (item != null)
             {
                 var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
                 _confirm.text = $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {cur}";
-                Debug.Log($"[lvn-wardrobe] sheet buy offer {_entity}.{_tab}='{item.value}' " +
+                Debug.Log($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
             else _confirm.text = _cfg.confirm_text ?? "Choose";
@@ -1011,10 +1157,10 @@ namespace Lvn.UI.Screens
                 // an already-bought item could be charged twice.
                 await LvnWallet.RefreshAsync();
 
-                var current = CurrentItem();
-                if (current != null && !IsOwned(current))
+                var (buyAxis, buyItem) = PendingBuy();
+                if (buyItem != null)
                 {
-                    await BuyCurrentAsync(current);
+                    await BuyCurrentAsync(buyAxis, buyItem);
                     return; // the sheet stays open — buying is not choosing
                 }
 
@@ -1062,9 +1208,9 @@ namespace Lvn.UI.Screens
         // Buy exactly the browsed item; on success the button flips to the
         // plain "choose" (RefreshConfirm sees it owned) and the player keeps
         // shopping — the next tab's piece is one more press away.
-        private async Task BuyCurrentAsync(LvnWardrobeItem item)
+        private async Task BuyCurrentAsync(string axis, LvnWardrobeItem item)
         {
-            var sku = LvnWardrobe.Sku(_entity, _tab, item.value);
+            var sku = LvnWardrobe.Sku(_entity, axis, item.value);
             Debug.Log($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
             bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
             Debug.Log($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
@@ -1074,6 +1220,7 @@ namespace Lvn.UI.Screens
             if (ok)
             {
                 _buying = false;
+                RebuildStrip(); // бейджи «◆» на карточках и свотчах устарели
                 RefreshConfirm();
                 return;
             }
