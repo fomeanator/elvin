@@ -109,6 +109,11 @@ namespace Lvn.UI
         public bool BackdropBlankWhite => _scene.Background != null && _scene.Background.IsBlankWhite;
         public string BackdropState => _scene.Background?.DebugState ?? "нет";
 
+        /// <summary>Актёры, чьи слои остались без спрайтов (рисуют сплошные
+        /// прямоугольники вместо арта) — сцена лечит их пересборкой облика.</summary>
+        public System.Collections.Generic.List<string> ActorsWithDeadLayers()
+            => _scene.ActorsWithDeadLayers();
+
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
         public void SetBackground(Sprite sprite, float crossfadeSeconds)
             => _scene.SetBackgroundSprite(sprite, crossfadeSeconds);
