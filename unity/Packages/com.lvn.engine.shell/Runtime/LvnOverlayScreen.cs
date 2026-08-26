@@ -39,16 +39,27 @@ namespace Lvn.UI.Screens
         /// и получает общий вид (стекло UiGlass, окантовка с акцентной
         /// верхней кромкой) и общую хореографию: скрим фейдится, лист
         /// подъезжает снизу со scale — это делает ShowAsync сам.</summary>
-        protected void AdoptSheet(VisualElement sheet)
+        protected void AdoptSheet(VisualElement sheet) => AdoptSheet(sheet, fullscreen: false);
+
+        /// <summary>Полноэкранный режим (решение Ильи 26.08: «магазин и профиль
+        /// не модалки»): лист занимает весь экран под навбаром — раздел, а не
+        /// окно; атмосфера меню дышит сквозь полупрозрачный тон.</summary>
+        protected void AdoptSheet(VisualElement sheet, bool fullscreen)
         {
             _sheet = sheet;
             if (sheet == null) return;
+            if (fullscreen)
+            {
+                sheet.style.left = 0; sheet.style.right = 0;
+                sheet.style.top = 96; // под строкой единого навбара
+                sheet.style.bottom = 0;
+            }
             var bg = LvnTokens.PanelBg;
             // Просто полупрозрачная Полночь (решение Ильи 26.08): блюр-стекло
             // на живом контенте давало грязь и на попапах снято совсем.
             sheet.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
             LvnChrome.Edge(sheet);
-            LvnChrome.Round(sheet, LvnTokens.Radius + 6f);
+            LvnChrome.Round(sheet, fullscreen ? 0f : LvnTokens.Radius + 6f);
             // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
             // которого не хватало на тёмном полотне.
             sheet.style.borderTopWidth = 2.5f;
