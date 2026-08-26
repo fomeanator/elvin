@@ -209,6 +209,31 @@ namespace Lvn.UI.Screens
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
 
+            // ── СЛОИ (решение Ильи 26.08: «расставь нормально слои») ──
+            // Порядок add'ов истории — не архитектура: настройки оказывались
+            // ПОД магазином. Теперь явные слои: ВКЛАДКИ (магазин/профиль), над
+            // ними ХАБ (его нижнее меню живёт поверх разделов и переключает
+            // их), затем ПОПАПЫ, затем алерты; навбар и кружок — выше всех
+            // (добавляются после).
+            var tabsLayer = new VisualElement { name = "lvn-layer-tabs", pickingMode = PickingMode.Ignore };
+            ScreenUi.Stretch(tabsLayer);
+            var popupLayer = new VisualElement { name = "lvn-layer-popups", pickingMode = PickingMode.Ignore };
+            ScreenUi.Stretch(popupLayer);
+            void Reparent(VisualElement el, VisualElement layer)
+            { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
+            Reparent(PackShop, tabsLayer);
+            Reparent(Profile, tabsLayer);
+            Reparent(Hub, tabsLayer); // хаб ПОСЛЕДНИМ — его нав поверх вкладок
+            Reparent(Settings, popupLayer);
+            Reparent(Detail, popupLayer);
+            Reparent(Gallery, popupLayer);
+            Reparent(Daily, popupLayer);
+            Reparent(SkinShop, popupLayer);
+            _root.Add(tabsLayer);
+            _root.Add(popupLayer);
+            Popup.RemoveFromHierarchy();
+            _root.Add(Popup); // алерты — над попапами
+
             // Единая пилюля загрузки — поверх ВСЕГО (даже попапа): «Скачать
             // всё», прелоад главы и стриминг видны из любого экрана, а не
             // только пока открыты настройки (живой репорт «закрыл — и
