@@ -114,7 +114,7 @@ namespace Lvn.UI.Screens
 
                 var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var fromEl = from.el;
-                float canvasFrom = _tabCanvasX, canvasTo = target * w;
+                float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.2f;
                 to.el.experimental.animation.Start(0f, 1f, 260, (e, p) =>
                 {
                     float k = 1f - Mathf.Pow(1f - p, 3f);
@@ -172,7 +172,10 @@ namespace Lvn.UI.Screens
             _atmosphere = new VisualElement { pickingMode = PickingMode.Ignore };
             _atmosphere.style.position = Position.Absolute;
             _atmosphere.style.left = 0; _atmosphere.style.top = 0; _atmosphere.style.bottom = 0;
-            _atmosphere.style.width = Length.Percent(400f);
+            // ПАРАЛЛАКС-ГЛУБИНА (уточнение Ильи): фон ОДИН, шириной 160%
+            // экрана — за вкладку он сдвигается на долю (излишек ширины /3),
+            // отставая от страниц: страницы едут на экран, фон — на пятую.
+            _atmosphere.style.width = Length.Percent(160f);
             _atmosphere.style.backgroundColor = t.Bg;
             var canvasUrl = _manifest?.ui?.browse?.canvas;
             if (!string.IsNullOrEmpty(canvasUrl))
