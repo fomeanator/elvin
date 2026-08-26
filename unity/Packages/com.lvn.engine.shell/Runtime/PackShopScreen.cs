@@ -80,7 +80,9 @@ namespace Lvn.UI.Screens
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
             sheet.style.left = 0; sheet.style.right = 0;
-            sheet.style.top = 96;    // под строкой навбара
+            // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
+            // верх экрана — воздух с героиней и полотном.
+            sheet.style.top = Length.Percent(36f);    // под строкой навбара
             sheet.style.bottom = 132; // дырка нижнего меню
             sheet.style.paddingTop = 6;
             sheet.style.paddingBottom = 6;
