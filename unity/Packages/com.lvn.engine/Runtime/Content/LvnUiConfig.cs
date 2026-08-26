@@ -502,6 +502,9 @@ namespace Lvn.Content
         /// ведёт плитки кошелька в профиле — одна правда о том, чем играет
         /// игрок (у TR это crystals, а «gold» был зашит в код).</summary>
         public List<string> currencies;
+        /// <summary>Арт-ПОЛОТНО меню: один широкий фон на все вкладки (4
+        /// экрана по горизонтали), камера едет по нему с вкладками.</summary>
+        public string canvas;
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name
