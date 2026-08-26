@@ -455,7 +455,10 @@ namespace Lvn.UI.Screens
             // строки (морф попапа растёт из центра).
             TopBar = new Lvn.UI.Screens.LvnTopBar();
             Add(TopBar);
-            OnChapterSessionStart += () => { _inChapter = true; TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
+            // TabReset: глава всегда возвращает ленту на «Главную» — стартовая
+            // четверть полотна (pan 0.35 в ShowMenuScene) обязана совпадать с
+            // фактической вкладкой после выхода из главы.
+            OnChapterSessionStart += () => { _inChapter = true; TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
             OnChapterSessionEnd += () => { _inChapter = false; TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
             Lvn.Services.LvnWallet.Changed -= OnWalletPills;
             Lvn.Services.LvnWallet.Changed += OnWalletPills;
