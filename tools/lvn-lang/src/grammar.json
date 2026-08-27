@@ -16,6 +16,7 @@
     "flash",
     "tint",
     "blur",
+    "portal",
     "camera",
     "particles",
     "fx",
@@ -339,6 +340,14 @@
       "off",
       "zoom",
       "dur"
+    ],
+    "portal": [
+      "open",
+      "x",
+      "y",
+      "radius",
+      "color",
+      "dur"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",
@@ -370,7 +379,8 @@
     "save",
     "load",
     "wardrobe_show",
-    "label"
+    "label",
+    "portal"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
   "enums": {

@@ -157,7 +157,9 @@ namespace Lvn.UI
         // Смена фона: прежний кадр растворяется над новым (резкий своп читался
         // как склейка). 0 — прежнее поведение, мгновенно.
         [Tooltip("Background crossfade on change, seconds (0 = hard cut).")]
-        public float BgCrossfadeSeconds = 0.35f;
+        // Полсекунды — столько живёт смена фона. Треть была слишком резкой:
+        // кадр не сменялся, а дёргался (Илья, живой просмотр перехода).
+        public float BgCrossfadeSeconds = 0.5f;
         [Tooltip("Long-press art view gesture (hide UI while held). ui.stage.long_press.")]
         public bool LongPressArtView = true;
 

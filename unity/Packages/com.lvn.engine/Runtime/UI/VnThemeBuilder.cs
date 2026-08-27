@@ -28,6 +28,11 @@ namespace Lvn.UI
             {
                 if (stg.actor_y.HasValue) t.ActorBaselineY = stg.actor_y.Value;
                 if (stg.actor_scale.HasValue) t.ActorScale = stg.actor_scale.Value;
+                // ШКАЛА МИРА. Высота кадра в метрах — свойство сцены, и она
+                // одна на всю новеллу: из неё и роста персонажа считается
+                // высота фигуры, кто бы её ни ставил (см. LvnScale).
+                if (stg.meters.HasValue && stg.meters.Value > 0.05f)
+                    LvnScale.SceneMeters = stg.meters.Value;
                 if (stg.actor_spread.HasValue) t.ActorSpread = stg.actor_spread.Value;
                 if (!string.IsNullOrEmpty(stg.speaker_focus)) t.SpeakerFocus = stg.speaker_focus;
                 // Пустая строка здесь ЗНАЧИМА: это «мгновенно, без перехода».

@@ -183,13 +183,11 @@ namespace Lvn.UI
                 Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {Time.frameCount}"
                           + (_spineLoading.Count > 0 ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : ""));
 
-            // СТОРОЖ БЕЛОГО ПОЛОТНА (охота 26.08). RawImage фона рисует свой
-            // color сплошняком, когда текстуры нет, а после первой постановки
-            // color=white — выгруженная текстура превращает кадр в белое пятно.
-            // Логируем ПЕРЕХОД в это состояние (не каждый кадр), чтобы в логе
-            // было видно, ЧТО случилось прямо перед ним.
             if (_renderer is CanvasSceneRenderer csr)
             {
+                // Переход полотна в «пусто и бело» логируем СОБЫТИЕМ, а не
+                // каждый кадр: в логе должно быть видно, что случилось прямо
+                // перед ним. Лечит это Лекарь (см. HireHealer).
                 bool blank = csr.BackdropBlankWhite;
                 if (blank != _bgWasBlankWhite)
                 {
@@ -197,79 +195,13 @@ namespace Lvn.UI
                     LvnLog.Trace($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
                               + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
                 }
-                if (Time.unscaledTime >= _nextDeadLayerCheck)
+                Healer.Tick(Time.unscaledTime);
+                if (Time.unscaledTime >= _nextDriftCheck)
                 {
-                    _nextDeadLayerCheck = Time.unscaledTime + 0.5f;
-                    HealDeadActors(csr);
+                    _nextDriftCheck = Time.unscaledTime + 0.5f;
+                    CompareFrameToScreen();
                 }
             }
-        }
-
-        private float _nextDeadLayerCheck;
-
-        /// <summary>САМОЛЕЧЕНИЕ КУКЛЫ. Спрайт может умереть уже ПОСЛЕ того, как
-        /// его поставили: выгрузка забирает текстуру из-под живого актёра, и
-        /// Image без спрайта заливает свой прямоугольник сплошным цветом —
-        /// «после выхода из главы героиня пропадает, остаётся белый
-        /// прямоугольник» (Илья 26.08). Раньше это чинил только игрок, руками
-        /// перевыбрав вещь в гардеробе: тот путь пере-собирает облик. Здесь тот
-        /// же реплей последней команды, но по факту опустевших слоёв — сцена
-        /// возвращает себе картинку сама, кто бы ни забрал спрайты.</summary>
-        private void HealDeadActors(CanvasSceneRenderer csr)
-        {
-            var dead = csr.ActorsWithDeadLayers();
-            if (dead == null) return;
-            foreach (var id in dead)
-            {
-                if (!_actorCmds.ContainsKey(id)) continue;
-                Debug.LogWarning($"[lvn-actor] {id}: слои остались без спрайтов "
-                                 + "(их выгрузили из-под живой куклы) — пересобираем облик");
-                RefreshWardrobeActor(id, null);
-            }
-        }
-
-        private bool _bgWasBlankWhite;
-
-        /// <summary>Картинка на полотне ЕСТЬ (факт, не флаг). Хост держит этим
-        /// инвариант «в меню всегда есть фон».</summary>
-        public bool BackdropHasArt => (_renderer as CanvasSceneRenderer)?.BackdropHasArt ?? false;
-
-        /// <summary>Диагностика «белого прямоугольника» ПО СЦЕНЕ: дерево
-        /// оболочки уже показало, что светлого в нём нет, значит пятно рисует
-        /// UGUI. Печатаем каждую видимую поверхность, которая рисует СПЛОШНОЙ
-        /// светлый цвет без картинки — Image без спрайта и RawImage без
-        /// текстуры выглядят именно так.</summary>
-        public void DumpOpaqueGraphics()
-        {
-            var root = (_renderer as CanvasSceneRenderer)?.Root;
-            if (root == null) { LvnLog.Trace("[lvn-white] сцена: корня нет"); return; }
-            var sb = new StringBuilder("[lvn-white] сплошные светлые поверхности СЦЕНЫ:\n");
-            int found = 0;
-            foreach (var g in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(false))
-            {
-                if (g == null || !g.isActiveAndEnabled) continue;
-                var c = g.color;
-                if (c.a < 0.35f) continue;
-                bool hasArt = (g is UnityEngine.UI.Image im && im.sprite != null)
-                              || (g is UnityEngine.UI.RawImage ri && ri.texture != null);
-                if (hasArt) continue;                       // с картинкой — не наш случай
-                if ((c.r + c.g + c.b) / 3f < 0.55f) continue; // тёмное пятно не заметить
-                var rt = g.rectTransform;
-                var size = rt.rect.size;
-                if (size.x < 80f || size.y < 80f) continue;
-                found++;
-                sb.AppendLine($"  {g.GetType().Name} '{HierarchyPath(g.transform)}' "
-                              + $"цвет=#{ColorUtility.ToHtmlStringRGBA(c)} размер={size.x:0}x{size.y:0}");
-            }
-            if (found == 0) sb.AppendLine("  — сплошных светлых поверхностей нет");
-            Debug.Log(sb.ToString());
-        }
-
-        private static string HierarchyPath(Transform t)
-        {
-            var sb = new StringBuilder(t.name);
-            for (var p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
-            return sb.ToString();
         }
 
         private void Build()
@@ -297,6 +229,7 @@ namespace Lvn.UI
                 _renderer = new CanvasSceneRenderer(scene);
                 LvnAsync.Fire(ApplyDefaultBackdropAsync(scene), "ApplyDefaultBackdrop"); // seamless tiled filler instead of flat black
             }
+            HireHealer();   // недуги сцены — под наблюдение с первого кадра
 
             _particles = new ParticleField();
             ResolveFont();
@@ -569,62 +502,6 @@ namespace Lvn.UI
         // downloaded into the disk cache (offline-safe like every other asset),
         // loaded from the file, applied via a chrome rebuild, and warmed with
         // the current chapter's glyph corpus so the late arrival doesn't hitch.
-        private string _fontUrlLoading; // content url already being fetched (dedup)
-
-        private void ResolveFont()
-        {
-            if (Theme == null || Theme.Font != null || string.IsNullOrEmpty(Theme.FontResourcePath)) return;
-            var src = Theme.FontResourcePath;
-            if (src.StartsWith("/"))
-            {
-                if (_fontUrlLoading == src) return; // fetch already in flight / done
-                _fontUrlLoading = src;
-                LvnAsync.Fire(LoadContentFontAsync(src), "LoadContentFont");
-                return;
-            }
-            Theme.Font = Resources.Load<Font>(src);
-        }
-
-        private async Task LoadContentFontAsync(string url)
-        {
-            try
-            {
-                var ca = Assets as CachingAssets;
-                if (ca == null) return;
-                var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
-                var font = LvnFonts.FromFile(path);
-                // The theme may have been swapped while the font downloaded —
-                // only apply if it still asks for this exact url.
-                if (font == null || Theme == null || Theme.FontResourcePath != url) return;
-                Theme.Font = font;
-                LvnFonts.Prewarm(font, _prewarmCorpus); // chapter may already be playing
-                RebuildChrome(); // dialogue/choices re-skin with the new face
-            }
-            catch { /* best-effort: the panel default font keeps rendering */ }
-            // Release the dedup guard: per-chapter theme rebuilds null out
-            // Theme.Font, and the NEXT ResolveFont must be able to re-apply —
-            // by then it's a cache hit (file on disk + LvnFonts path cache).
-            finally { _fontUrlLoading = null; }
-        }
-
-        // A content-served font for ONE element (`text … font="/content/…"`):
-        // fetched into the cache, applied when ready. A cached font lands the
-        // same frame; a cold one swaps the face a moment after the label shows.
-        private async Task ApplyContentFontAsync(VisualElement el, string url)
-        {
-            try
-            {
-                var ca = Assets as CachingAssets;
-                if (ca == null) return;
-                var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
-                var font = LvnFonts.FromFile(path);
-                if (font == null || el == null || el.panel == null) return;
-                LvnFonts.Apply(el, font);
-                LvnFonts.Prewarm(font, _prewarmCorpus);
-            }
-            catch { /* label keeps the theme face */ }
-        }
-
         private void OnDisable()
         {
             _cts?.Cancel();
@@ -671,99 +548,6 @@ namespace Lvn.UI
             if (_pendingThumb != null) Destroy(_pendingThumb);
         }
 
-        // ── the shared bottom window (VnPanelHost) ───────────────────────────
-        // One dialogue-skinned frame on the dialogue layer that hosts ANY
-        // content (wardrobe, shop, minigames): showing it fades the dialogue
-        // out and slides the frame up; new content cross-fades inside the same
-        // frame. Lazily created; dropped with the chrome on rebuild.
-        private VnPanelHost _panelHost;
-
-        /// <summary>The stage's shared content window (created on demand, on
-        /// the dialogue layer, wearing the dialogue's exact skin).</summary>
-        public VnPanelHost PanelHost
-        {
-            get
-            {
-                if (_panelHost == null)
-                {
-                    _panelHost = new VnPanelHost(Theme);
-                    var root = GetComponent<UIDocument>()?.rootVisualElement;
-                    if (root != null)
-                    {
-                        int fxIndex = _fx != null ? root.IndexOf(_fx) : -1;
-                        root.Insert(fxIndex < 0 ? root.childCount : fxIndex, _panelHost);
-                    }
-                }
-                return _panelHost;
-            }
-        }
-
-        /// <summary>Show host content in the shared window: the dialogue fades
-        /// out and the same-skinned frame takes its place (or cross-fades from
-        /// whatever it was already showing).</summary>
-        public async Task ShowPanelAsync(VisualElement content)
-        {
-            // Окно гардероба ПОДНИМАЕТСЯ НАД репликой, а не меняется с ней
-            // местами. Диалог и рама — один и тот же полупрозрачный скин в
-            // одном месте экрана: гаснущие одновременно, они на ~80 мс роняли
-            // суммарную плотность почти вдвое, и сквозь окно разово «вспыхивал»
-            // фон (живой репорт «фон мелькнул перед гардеробом»). Рама рисуется
-            // над диалогом — пусть встанет плотной, и только потом реплика
-            // гаснет, уже полностью укрытая.
-            if (_menu != null)
-            {
-                _menu.Close();
-                _menu.style.visibility = Visibility.Hidden;
-            }
-            await PanelHost.ShowAsync(content);
-            await FadeDialogueAsync(true);
-        }
-
-        /// <summary>Dismiss the shared window and bring the dialogue back.</summary>
-        public async Task HidePanelAsync()
-        {
-            // Симметрично показу: диалог возвращается ПОД стоящей рамой, и
-            // только затем рама уходит — плотность окна не проваливается.
-            // PanelOpen/InputBlocked держатся до конца: Resume() зовётся после
-            // этой задачи, следующая реплика не стартует под чужим хромом.
-            await FadeDialogueAsync(false);
-            if (_panelHost != null) await _panelHost.HideAsync();
-            ArmPanelInputGuard(0.12f);
-        }
-
-        /// <summary>Fade the dialogue box (and choices) out/in — the shared
-        /// window replaces it visually, so both never fight for the bottom.</summary>
-        public void SetDialogueFaded(bool faded)
-            => LvnAsync.Fire(FadeDialogueAsync(faded), "PanelDialogueFade");
-
-        private async Task FadeDialogueAsync(bool faded)
-        {
-            float to = faded ? 0f : 1f;
-            float seconds = VnTheme.Motion(0.18f);
-            // The story panel OWNS the screen while it's up (the genre rule):
-            // the quick-menu chrome hides with the dialogue — no burger over
-            // the wardrobe, no half-working Exit under a held story.
-            if (_menu != null)
-            {
-                if (faded) _menu.Close();
-                _menu.style.visibility = faded ? Visibility.Hidden : Visibility.Visible;
-            }
-            var dialogue = _dialogue != null
-                ? ScreenFx.FadeAsync(_dialogue, faded ? 1f : 0f, to, seconds, _cts?.Token ?? default)
-                : Task.CompletedTask;
-            var choices = _choices != null
-                ? ScreenFx.FadeAsync(_choices, faded ? 1f : 0f, to, seconds, _cts?.Token ?? default)
-                : Task.CompletedTask;
-            await Task.WhenAll(dialogue, choices);
-        }
-
-        /// <summary>The platform back pressed while the shared story panel is
-        /// open — the panel's OWNER dismisses its content (the wardrobe sheet's
-        /// cancel). The stage can't: it only hosts the frame.</summary>
-        public Action PanelCancelRequested;
-
-        /// <summary>Close the quick menu if it's open (host screens that take
-        /// over from a menu tap call this so the scrim doesn't linger).</summary>
         public void CloseQuickMenu() => _menu?.Close();
 
         /// <summary>True while the shared story panel (wardrobe…) is up — the

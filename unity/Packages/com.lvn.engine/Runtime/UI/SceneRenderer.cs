@@ -45,6 +45,10 @@ namespace Lvn.UI
         /// облика; 0 — свободен. Новое применение ждёт, а не срезает.</summary>
         void RemoveAll();
 
+        /// <summary>Кто переживает уборку ЖИВЬЁМ (не пересобираясь): героиня
+        /// одна и та же в меню и в главе. Пусто — уборка сносит всех.</summary>
+        string KeepAlive { get; set; }
+
         // ── per-actor animation ──
         void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames);
         void EnsureIdle(string id, LvnAnim idle);
@@ -117,6 +121,24 @@ namespace Lvn.UI
         public System.Collections.Generic.List<string> ActorsWithDeadLayers()
             => _scene.ActorsWithDeadLayers();
 
+        /// <summary>Фигура на месте и цела — показать её можно как есть.</summary>
+        public bool ActorArtAlive(string id) => _scene.ActorArtAlive(id);
+
+        /// <summary>Погасить всё, чему нечем рисовать: слои фигур без спрайтов
+        /// и полотно без текстуры. Возвращает, сколько поверхностей замолчало —
+        /// Лекарю на журнал.</summary>
+        public int HushBlankSurfaces()
+        {
+            int hushed = _scene.HushDeadLayers();
+            if (_scene.Background != null && _scene.Background.HushIfBlank()) hushed++;
+            return hushed;
+        }
+
+        /// <summary>Спрайты, надетые на фигуру сейчас — Кладовщику, чтобы
+        /// закрепить их заново после показа без пересборки.</summary>
+        public System.Collections.Generic.List<Sprite> ActorSprites(string id)
+            => _scene.ActorSprites(id);
+
         public void SetBackground(Sprite sprite) => _scene.SetBackgroundSprite(sprite);
         public void SetBackground(Sprite sprite, float crossfadeSeconds)
             => _scene.SetBackgroundSprite(sprite, crossfadeSeconds);
@@ -184,6 +206,12 @@ namespace Lvn.UI
 
 
         public void RemoveAll() => _scene.RemoveAll();
+
+        public string KeepAlive
+        {
+            get => _scene.KeepAlive;
+            set => _scene.KeepAlive = value;
+        }
 
         public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames) => _scene.SetFrames(id, frames);
         public void EnsureIdle(string id, LvnAnim idle) => _scene.EnsureIdle(id, idle);

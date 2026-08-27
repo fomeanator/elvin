@@ -388,65 +388,6 @@ namespace Lvn.UI.Screens
         public void SetManifest(LvnManifest manifest) => _manifest = manifest;
 
         private VisualElement _rosterRow;
-        private List<(string id, string name)> _roster;
-
-        /// <summary>Give the sheet a character roster (menu/hub mode). Null or a
-        /// single entry hides the pills. Call before ShowAsync — cleared state
-        /// persists on the shared instance otherwise.</summary>
-        public void SetRoster(List<(string id, string name)> roster) => _roster = roster;
-
-        private void RebuildRoster()
-        {
-            if (_rosterRow == null) return;
-            _rosterRow.Clear();
-            int shown = 0;
-            if (_roster != null && _roster.Count > 1)
-            {
-                foreach (var (id, name) in _roster)
-                {
-                    if (OnlySeen && id != _entity && !HasAnyCollected(id)) continue;
-                    var pid = id;
-                    var b = new Button(() => SwitchTo(pid)) { text = name };
-                    b.style.height = 40;
-                    b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginBottom = 8;
-                    b.style.paddingLeft = 14; b.style.paddingRight = 14;
-                    b.style.fontSize = 19;
-                    bool active = pid == _entity;
-                    SkinButton(b, active);
-                    LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
-                    _rosterRow.Add(b);
-                    shown++;
-                }
-            }
-            _rosterRow.style.display = shown > 1 ? DisplayStyle.Flex : DisplayStyle.None;
-        }
-
-        private void SwitchTo(string id)
-        {
-            if (string.IsNullOrEmpty(id) || id == _entity) return;
-            var from = _entity;
-            LvnWardrobe.ClearPreview(from); // the outgoing look blends back
-            OnCharacterPicked?.Invoke(from, id);
-            BuildFor(id);
-            RefreshBalances();
-        }
-
-        // Does this entity have anything to show in collection mode? Mirrors
-        // Items()' Encountered rule without switching the sheet to it.
-        private bool HasAnyCollected(string id)
-        {
-            if (_manifest?.sprites == null || !_manifest.sprites.TryGetValue(id, out var d)
-                || d?.wardrobe == null) return false;
-            foreach (var kv in d.wardrobe)
-                if (kv.Value?.items != null)
-                    foreach (var it in kv.Value.items)
-                        if (it != null && !string.IsNullOrEmpty(it.value) && Encountered(id, kv.Key, it.value))
-                            return true;
-            return false;
-        }
-
-        /// <summary>Open the sheet for a character; resolves when the player
-        /// confirms or collapses it. The story op awaits this.</summary>
         public async Task ShowAsync(string entityId, CancellationToken ct = default)
         {
             if (_open) return;
@@ -689,44 +630,6 @@ namespace Lvn.UI.Screens
         // ── поднастройки: ось-уточнение внутри таба родителя ─────────────────
         // Слот с subOf (цвет волос → subOf:"hairstyle") своего таба не имеет:
         // он рисуется рядом круглых свотчей под лентой родительского раздела.
-        private bool IsSubAxis(string axis) =>
-            axis != null && _def?.wardrobe != null
-            && _def.wardrobe.TryGetValue(axis, out var s)
-            && !string.IsNullOrEmpty(s?.subOf) && _def.wardrobe.ContainsKey(s.subOf);
-
-        private IEnumerable<string> SubAxesOf(string parent)
-        {
-            if (parent == null || _def?.wardrobe == null) yield break;
-            foreach (var kv in _def.wardrobe)
-                if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
-        }
-
-        // Что на оси надето прямо сейчас — спрашиваем Костюмера; здесь только
-        // витринный хвост: пустой слот показывает первый предмет, иначе
-        // шаблонной иконке и подписи было бы нечего показать.
-        private string CurrentValueOf(string axis)
-        {
-            var v = LvnCostumer.Chosen(_entity, axis, _def?.defaults);
-            if (LvnCostumer.Bare(v))
-            {
-                var items = Items(axis);
-                v = items.Count > 0 ? items[0].value : "";
-            }
-            return v;
-        }
-
-        private string NameOfValue(string axis, string value)
-        {
-            foreach (var it in Items(axis))
-                if (it.value == value) return it.name ?? it.value;
-            return value;
-        }
-
-        // Подпись под каруселью описывает ВЕСЬ образ раздела — «Рыжая:
-        // Голливудские волны»: сначала выбранные поднастройки (цвет волос),
-        // затем предмет, который листают стрелки. Раньше тап по свотчу писал
-        // туда одно своё имя, и «Рыжая» читалась как то, что сейчас мотается
-        // стрелками — а мотались причёски (Илья 26.08).
         private void RefreshLabel()
         {
             if (_itemName == null || _tab == null || _tab == AllTab) return;

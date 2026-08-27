@@ -1,0 +1,506 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Lvn.Content;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Lvn.UI.Screens
+{
+    /// <summary>
+    /// ПОДЪЁМ ПРИЛОЖЕНИЯ — порядок первых секунд и то, что происходит на
+    /// границах жизни: свернули, вернули, закрыли.
+    ///
+    /// <para>Порядок здесь не формальность, а список выученных уроков. Тема
+    /// ложится на панель ДО вуали: панель без темы не имеет шрифта, и каждая
+    /// надпись на вуали рисуется как ничто — «чёрный экран без текста». Первый
+    /// кадр рисуется ДО первого сетевого запроса, иначе устройство сидит на
+    /// голом чёрном, пока идёт подъём. Между вуалью и тяжёлой работой стоят два
+    /// пропуска кадра: на медленных телефонах рендер первого кадра голодал, и
+    /// первый видимый процент был уже тридцатым.</para>
+    ///
+    /// <para>Здесь же телеметрия подъёма: один секундомер и метка на фазу —
+    /// <c>[lvn-boot]</c> читается как профиль запуска, и всё, что в нём растёт,
+    /// это регрессия, которую видно до жалоб.</para>
+    ///
+    /// <para>Отдельным домом, потому что подъём — единственная часть, которая
+    /// исполняется РОВНО ОДИН РАЗ и в строгом порядке. Внутри
+    /// двухтысячестрочного класса этот порядок терялся между функциями, которые
+    /// вызываются когда угодно.</para>
+    /// </summary>
+    public sealed partial class NovelApp
+    {
+        private async void Start()
+        {
+            ConfigureFrameRate();
+
+            // Boot telemetry: one stopwatch, a mark per phase — `adb logcat -s
+            // Unity | grep lvn-boot` (or the editor console) reads as a boot
+            // profile. Anything that grows here is a regression to hunt.
+            var bootClock = System.Diagnostics.Stopwatch.StartNew();
+            void Mark(string phase) => Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms {phase}");
+
+            // Мост к хост-приложению. Поднимаем ВСЕГДА: в самостоятельной
+            // сборке он молчит (отправка никуда не подключена), а когда движок
+            // собран библиотекой — хост должен найти его сразу, не дожидаясь
+            // первой главы. Иначе первые сообщения уходят в пустоту, и «Unity
+            // не отвечает» выглядит как поломка канала, а не как гонка.
+            LvnHostBridge.Ensure(this);
+
+            // Test-lane server override (Development builds only): device
+            // automation points this install at a throwaway server via
+            // `am start … -e lvn_server <url>` (or LVN_SERVER for CI players)
+            // instead of re-exporting. Must land before ANYTHING derives from
+            // ServerUrl — the log shipper, content base and state store all do.
+            var serverOverride = LvnLaunchOverrides.ServerUrl();
+
+            // The theme must land on the shared panel BEFORE the veil: a panel
+            // without a ThemeStyleSheet has no default font, so every veil
+            // label renders as NOTHING — the "black screen with no text" class
+            // of bug. (The shell used to set it only after the manifest.)
+            if (ShellTheme == null && !string.IsNullOrEmpty(ThemeResourcePath))
+                ShellTheme = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
+            LvnPanel.SetTheme(ShellTheme);
+
+            // First paint THIS frame — before any network round-trip — so the
+            // device never sits on a raw black screen while boot works.
+            BootVeil.Show();
+            Mark("veil up (first paint)");
+            // Штамп сборки: время последней компиляции каждой Lvn-сборки.
+            // Отвечает на вечный вопрос «а этот прогон вообще на новом коде?»
+            // без раскопок в Library/ScriptAssemblies.
+            Debug.Log(Lvn.LvnBuildStamp.Line(
+                typeof(Lvn.LvnPlayer), typeof(VnStage),
+                typeof(Lvn.Content.ContentLoader), typeof(NovelApp)));
+            // Let the veil actually REACH the screen before any heavier boot
+            // work (PSO load, probes): on slow devices frame 1's render was
+            // getting starved and the first visible percent was already 30.
+            await Task.Yield();
+            await Task.Yield();
+
+            if (serverOverride != null)
+            {
+                // Test-lane override always wins — it exists so device automation
+                // can point an install at a throwaway server without re-exporting.
+                ServerUrl = serverOverride;
+                Debug.Log($"[novelapp] server override (dev): {ServerUrl}");
+            }
+            else
+            {
+                // CS-1.6-style server pick, over the veil: unchecked (default),
+                // the known servers race a /healthz ping and the first live one
+                // wins — invisible unless nothing answers in time. Checked
+                // (persisted), a small browser lists them plus a free-text field
+                // for the player's own host, and waits for an explicit Connect.
+                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, destroyCancellationToken);
+                Debug.Log($"[novelapp] server resolved: {ServerUrl}");
+            }
+            Mark("server resolved");
+
+            // Field diagnostics BEFORE the first mark: errors, exceptions and
+            // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
+            // device's crash is readable via /v1/admin/client-logs, no adb.
+            Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            Lvn.Services.LvnLogShip.Boot();
+
+            // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
+            // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
+            // и главе умеет только оболочка. Дедупликация по адресу: одна
+            // пропавшая картинка в цикле показа даёт сотни попыток, и без неё
+            // очередь событий забьётся одним и тем же.
+            SubscribeStoryDiagnostics();
+
+            // PSO precook: warms last session's traced pipeline states behind
+            // the boot screen (first launch traces instead) — kills the
+            // first-show shader-compile hitches. Fire-and-forget, self-paced.
+            LvnPsoWarmup.Boot();
+
+            var contentBase = InstallProductServices();
+            // Connectivity gate (Liminal-style): probe the server with a hard 3s
+            // deadline so an unreachable server falls straight through to the offline
+            // path instead of hanging on a stuck socket. A local/bundled origin is
+            // always reachable. The probe pins the global offline flag so every later
+            // fetch fast-fails into the disk cache.
+            //
+            // All three boot round-trips fly TOGETHER — healthz, the version
+            // index and the manifest are independent GETs, and running them
+            // serially was the single biggest boot cost on device (3 × mobile
+            // RTT; the old worst case even ate the probe's full 3s deadline
+            // before the first byte of manifest moved).
+            var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
+            var versionsTask = _assets.WarmVersionsAsync();
+            var manifestTask = FetchManifestAsync();
+            BootVeil.Progress(10, "подключение…");
+
+            bool online = await probeTask;
+            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
+            Mark($"connectivity → {(online ? "online" : "offline")}");
+            BootVeil.Progress(30, "загрузка данных…");
+
+            try { await versionsTask; } catch { /* offline: last-known index */ }
+            Mark("version index");
+
+            var boot = await ResolveManifestAsync(manifestTask, online, Mark);
+            var manifest = boot.manifest;
+            online = boot.online;
+            // The awaits above outlive a destroyed host (scene switch, embedder
+            // teardown) — never keep booting on a dead component. Пустой манифест
+            // означает ровно это: ожидание сети прервали сносом компонента.
+            if (destroyCancellationToken.IsCancellationRequested || manifest == null) return;
+            Debug.Log($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
+
+            PrepareStage(manifest);
+            Mark("stage + theme ready");
+            _downloads = new DownloadManager(_assets.Loader);
+            var prefetch = SafeBootPrefetch(manifest, online);
+            _ = prefetch.ContinueWith(_ => Debug.Log(
+                $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
+                TaskScheduler.FromCurrentSynchronizationContext());
+
+            // Progress vault: a VIRGIN install (corrupted prefs, a reinstall
+            // under the same identity) gets the player's progress re-planted —
+            // file home first (instant, offline), then the server backup —
+            // BEFORE the hub renders, so «Продолжить» is right from frame one.
+            try
+            {
+                if (ProgressVault.IsVirgin(manifest))
+                {
+                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
+                    if (ProgressVault.IsVirgin(manifest) && _state != null)
+                        ProgressVault.Apply(
+                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                            manifest);
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+
+            _shell = NovelShell.Create(transform, 30, ShellTheme);
+            _shell.Build(manifest, _assets);
+            Mark("shell built");
+            WireQuickMenu(manifest);
+
+            // Чистка витрины по данным (TR-25/32).
+            var browseCfg = manifest.ui?.browse;
+            if (_shell.Detail != null)
+                _shell.Detail.ShowSaves = browseCfg?.detail_saves ?? true;
+            if (_shell.Profile != null)
+                _shell.Profile.Minimal = !(browseCfg?.profile_full ?? true);
+
+            // «Скачать всю игру» в настройках: оценка/батч/прогресс/очистка —
+            // всё из лоадера, экран только рисует (ELVIN-85).
+            if (_shell.Settings != null)
+            {
+                var loader = _assets.Loader;
+                var opts = manifest.ui?.browse?.music_options;
+                if (opts != null && opts.Count > 0)
+                {
+                    var lst = new List<(string id, string title)>();
+                    foreach (var o in opts)
+                        if (o != null && !string.IsNullOrEmpty(o.id))
+                            lst.Add((o.id, string.IsNullOrEmpty(o.title) ? o.id : o.title));
+                    _shell.Settings.MenuTracks = lst;
+                    _shell.Settings.OnMenuTrack = id =>
+                        LvnAsync.Fire(SwitchMenuTrackAsync(ResolveMenuTrackUrl(manifest)), "SwitchMenuTrack");
+                }
+                // Паспорт устройства → серверный профиль игрока (сегменты,
+                // саппорт «на чём играет»), как делают все крупные аналитики.
+                Lvn.Services.LvnAnalytics.Track("device", Lvn.UI.LvnDeviceProfile.Snapshot());
+
+                _shell.Settings.StorageInfo = StorageInfoAsync;
+                _shell.Settings.DownloadAll = DownloadEverythingAsync;
+                _shell.Settings.ClearDownloads = async () =>
+                {
+                    long freed = await loader.ClearAssetCacheAsync();
+                    Debug.Log($"[content] загруженное удалено: {freed >> 20} МБ");
+                };
+                _shell.Settings.DownloadProgress = () =>
+                    (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
+
+                // Единый навбар: валюты данными, бургер по контексту
+                // (в сцене — квик-меню, в меню — настройки), пилюля — магазин.
+                if (_shell.TopBar != null)
+                {
+                    _shell.TopBar.Currencies = HubCurrencies();
+                    _shell.TopBar.RefreshBalances();
+                    _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
+                    _shell.TopBar.OnBurger = () =>
+                    {
+                        if (_chapterPlaying && Stage != null) Stage.OpenQuickMenu();
+                        else LvnAsync.Fire(_shell.OpenSettingsAsync(), "TopBarSettings");
+                    };
+                    Lvn.UI.StageMenu.ExternalSettings = () =>
+                        LvnAsync.Fire(_shell.OpenSettingsAsync(), "UnifiedSettings");
+                    // Бургер-фаб в сцене убран (Илья 26.08): выезжающий игровой
+                    // бар по тапу верхней зоны несёт 4 кнопки.
+                    Lvn.UI.StageMenu.ExternalBurger = true;
+                    _shell.TopBar.TapZoneAvailable = () =>
+                        Stage == null || (!Stage.InputBlocked && !Stage.PanelOpen);
+                    _shell.TopBar.OnGameExit = () => Stage?.RequestExit();
+                    // Воронка: в интро навбар полностью нем (чистое кино).
+                    _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(
+                        string.Equals(_currentTitle?.type, "intro", StringComparison.OrdinalIgnoreCase));
+                    _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
+                    _shell.TopBar.OnGameWardrobe = () =>
+                    { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };
+                    _shell.TopBar.OnGameStore = () =>
+                        LvnAsync.Fire(_shell.OpenPackShopAsync(), "GameBarStore");
+                }
+
+                // Центр загрузок: очередь по главам + данные для попапа
+                // индикатора (офлайн-правила, синк, «скачать всё»).
+                if (_shell.DownloadHud != null)
+                {
+                    _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
+                    var hud = _shell.DownloadHud;
+                    hud.Center = _dlCenter;
+                    hud.Offline = () => Lvn.Content.LvnNetworkStatus.IsOffline;
+                    hud.PendingOps = () => Lvn.Services.LvnWallet.PendingCount;
+                    hud.ActiveUrl = () => loader.LastStartedUrl;
+                    hud.FlushPending = Lvn.Services.LvnWallet.FlushAsync;
+                    hud.DownloadAll = DownloadEverythingAsync;
+                    hud.ChaptersInfo = ChapterAvailability;
+                    hud.CurrentChapterOffer = () =>
+                    {
+                        // Только во время сессии: вне игры «текущая глава» —
+                        // хвост прошлого запуска («Скачать главу 0», скрин).
+                        if (!_chapterPlaying) return null;
+                        var t = _currentTitle; var ch = _currentChapter;
+                        if (t == null || ch == null) return null;
+                        long bytes = 0; int miss = 0;
+                        void Probe(string url, string kind, long size)
+                        {
+                            if (string.IsNullOrEmpty(url)) return;
+                            var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                            if (loader.IsAssetCached(eff)) return;
+                            miss++; bytes += size > 0 ? size : 64 << 10;
+                        }
+                        Probe(ch.script_url, "script", 0);
+                        Probe(ch.bg_url, "sprite", 0);
+                        if (ch.assets != null)
+                            foreach (var kv in ch.assets)
+                                Probe(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                        if (miss == 0) return null;
+                        string label = $"Скачать главу {ch.number} · ≈{Mathf.Max(1, bytes >> 20)} МБ";
+                        return (label, () => EnqueueChapterDownload(t, ch));
+                    };
+                    hud.HasSomeDownloaded = () =>
+                    {
+                        foreach (var (url, _, _) in CollectContentItems())
+                            if (loader.IsAssetCached(url)) return true;
+                        return false;
+                    };
+                    hud.MissingInfo = () =>
+                    {
+                        long bytes = 0; int files = 0;
+                        var sample = new List<string>();
+                        foreach (var (url, _, size) in CollectContentItems())
+                            if (!loader.IsAssetCached(url))
+                            {
+                                bytes += size > 0 ? size : 64 << 10;
+                                files++;
+                                if (sample.Count < 8) sample.Add(url);
+                            }
+                        // Диагностика хвоста: если «скачал всё, а остаток не 0» —
+                        // консоль называет виновников поимённо.
+                        if (files != _lastMissingCount)
+                        {
+                            _lastMissingCount = files;
+                            if (files > 0 && files <= 24)
+                                Debug.Log($"[content] недокачано {files}: {string.Join(", ", sample)}");
+                        }
+                        return (bytes, files);
+                    };
+                }
+            }
+
+            // The FULL library warms in the background from here on: every
+            // chapter of every title lands on disk while the player browses or
+            // reads — the next chapter's loading screen is then near-instant,
+            // and nothing EVER trickles in on camera. Yields to an active
+            // chapter gate so it never steals that bandwidth.
+            LvnAsync.Fire(WarmLibraryAsync(manifest, destroyCancellationToken), "WarmLibrary");
+            // The veil OWNS the whole app boot — one continuous surface from
+            // the first frame to the first interactive screen. The shell's own
+            // boot splash is suppressed (bootSplash: false): a second loading
+            // screen under the veil would flash a second bar at the hand-off.
+            // The veil walks 60→100% with the real boot-prefetch progress and
+            // cross-fades into the menu.
+            LvnAsync.Fire(DriveBootVeilAsync(prefetch, bootClock), "DriveBootVeil");
+            // Диплинк В КОНТЕНТ: ссылка вида …?title=cold открывает новеллу
+            // сразу, минуя хаб. Шов RequestPlay заведён ровно для этого и до
+            // сих пор пустовал. Ссылку, нажатую при уже запущенной игре, ловим
+            // тем же обработчиком.
+            ApplyDeepLink(Lvn.Services.LvnAttribution.LaunchUrl);
+            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
+            Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink;
+
+            var run = _shell.RunAsync(
+                bootReady: () => prefetch.IsCompleted,
+                chapterReady: BeginChapterLoading,
+                chapterProgress: ch => ChapterLoadProgress,
+                playChapter: PlayChapterAsync,
+                askName: AskName,
+                ct: destroyCancellationToken,
+                bootSplash: false);
+            await run;
+        }
+
+        // Walks the boot veil's last stretch (60→100%) with the real boot
+        // prefetch, then cross-fades the veil into the first interactive screen.
+        // Catch-all by design: this is fire-and-forget, and an exception here
+        // would otherwise leave an opaque veil over the app forever.
+        private async Task DriveBootVeilAsync(Task prefetch, System.Diagnostics.Stopwatch bootClock)
+        {
+            try
+            {
+                var l = _assets?.Loader;
+                var ct = destroyCancellationToken;
+                while (!prefetch.IsCompleted && !ct.IsCancellationRequested)
+                {
+                    float p = l != null && l.BatchTotal > 0
+                        ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
+                    BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
+                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : "загрузка…");
+                    await Task.Yield();
+                }
+                if (ct.IsCancellationRequested) return;
+                BootVeil.Status("");
+                // ПЕРВЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЗАГРУЗКУ ВООБЩЕ. Впереди воронка —
+                // вуаль не гаснет в меню, а превращается в имя продукта фейдом
+                // и живёт, пока под ней качается и одевается первая сцена;
+                // гасит её RevealFromLoadingAsync одним кроссфейдом в игру.
+                if (_shell != null && _shell.HasPendingIntro)
+                {
+                    BootVeil.Brand(Application.productName);
+                    Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms первый вход: брендовая вуаль до одетой сцены");
+                }
+                else
+                {
+                    // ВУАЛЬ ДЕРЖИТСЯ, ПОКА ПОЛОТНО НЕ ВСТАЛО (Илья 26.08: «при
+                    // первом запуске бг чёрный»). Канвас меню — крупный кадр,
+                    // его декод занимает полсекунды, и вуаль, снятая раньше,
+                    // открывала пустую сцену: под ней чёрный. Ждём факт —
+                    // но не дольше секунды с небольшим, иначе сорванная
+                    // загрузка держала бы игрока в заставке.
+                    var wait = System.Diagnostics.Stopwatch.StartNew();
+                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
+                        await System.Threading.Tasks.Task.Yield();
+                    if (Stage != null && !Stage.HasBackdrop)
+                        Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
+                    await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
+                }
+                Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
+                // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
+                // человек смотрит на загрузку и может уйти. Без этой ступени
+                // воронка первой сессии начинается сразу с «начал главу», и
+                // потери на загрузке выглядят так, будто игра никому не нужна.
+                // Длительность здесь же: «долго грузилось» — самая частая
+                // причина уйти, не начав.
+                Lvn.Services.LvnAnalytics.Track("first_screen",
+                    ("boot_ms", bootClock.ElapsedMilliseconds),
+                    ("offline", LvnNetworkStatus.IsOffline));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                BootVeil.Hide();
+            }
+        }
+
+        private void OnApplicationQuit() => OnApplicationPause(true);
+
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
+                LvnAsync.Fire(SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars)), "SaveScopedVars");
+            if (paused) SyncProgressVault();
+            // Position too, not just stats — so a suspended app resumes on the same
+            // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
+            if (paused) Stage?.AutosaveNow();
+        }
+
+        // Server content changed: refresh the version index, re-apply the manifest
+        // (carousel rebuilds), and hot-reload the open chapter if its script moved.
+        private async void OnContentChanged()
+        {
+            Debug.Log("[novelapp] content changed — reloading");
+            try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
+
+            LvnManifest manifest;
+            try { manifest = await FetchManifestAsync(); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] live manifest fetch failed: {ex.Message}"); return; }
+            CacheManifest(manifest); // keep the offline copy fresh on every live update
+            // Pull the changed boot-set bytes and re-warm replaced covers BEFORE the
+            // carousel rebuilds — otherwise it re-renders from the stale in-memory
+            // sprites and a cover swap on the server never shows up.
+            try { await _downloads.MenuRefreshAsync(manifest, default); }
+            catch { /* best-effort; never blocks the live update */ }
+            _shell?.ApplyLiveUpdate(manifest);
+            _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
+            _globalUi = manifest.ui;
+            _manifest = manifest; // cross-chapter routing follows the live manifest
+            ApplyMenuStaging(manifest);
+            _assets.Set3DSetCatalog(manifest.sets3d);
+            if (Stage != null)
+            {
+                Stage.Catalog = new SpriteCatalog(manifest.sprites);
+                // Re-theme live — rebuilt fresh from the NEW manifest: engine
+                // defaults → global ui → the playing title's ui override (matched
+                // by id in the new manifest, so per-title edits take effect). Safe
+                // mid-line: VnStage.ApplyTheme restores the visible line/choices.
+                var theme = VnThemeBuilder.From(manifest.ui, new VnTheme());
+                LvnTitle liveTitle = null;
+                if (_currentTitle != null && manifest.titles != null)
+                    liveTitle = manifest.titles.Find(t => t != null && t.id == _currentTitle.id);
+                if (liveTitle?.ui != null) theme = VnThemeBuilder.From(liveTitle.ui, theme);
+                Stage.ApplyTheme(theme);
+            }
+
+            // ОБНОВЛЕНИЕ МЕНЯЕТ ФАЙЛЫ ПОД ТЕМИ ЖЕ ИМЕНАМИ. Сцена помнит надетый
+            // облик по СПИСКУ СЛОЁВ — и после обновления сочла бы его прежним,
+            // оставив на экране старый арт. Забываем надетое: реплей ниже
+            // пересоберёт фигуры уже из новых файлов.
+            Stage?.ForgetLooks();
+
+            if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
+                return;
+
+            // Fetch the script FRESH (not the version-pinned disk cache, which can
+            // hand back the old text when reacting to a live edit — the whole point
+            // here is to apply what just changed). The disk cache is refreshed in
+            // the background so an offline replay of the new version still works.
+            string json;
+            try { json = await _assets.Loader.DownloadScriptText(_currentChapter.script_url); }
+            catch { return; }
+            if (string.IsNullOrEmpty(json)) return;
+            if (json == _currentScriptJson)
+            {
+                // The script didn't change — only assets did (a replaced sprite or
+                // background). Re-apply the visible stage in place so the new art shows
+                // live, without restarting the chapter. The version index was just
+                // re-warmed, so each sprite reloads under its new content hash.
+                if (Stage.Player != null && !Stage.Player.Finished)
+                    Stage.Player.ReplayVisuals(Stage.Player.Index + 1);
+                return;
+            }
+            _assets.Loader.RefreshScriptInBackground(_currentChapter.script_url);
+
+            _currentScriptJson = json;
+            // A non-structural edit (reworded line, tweaked emotion/position) keeps
+            // the chapter playing exactly where it is; only a changed command
+            // structure forces a restart from the top.
+            if (Stage.TryHotSwap(json))
+            {
+                Debug.Log($"[novelapp] hot-swapped chapter '{_currentChapter.id}' in place (kept position)");
+            }
+            else
+            {
+                Stage.Play(json);
+                if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
+                    Stage.Player.Vars["player"] = _playerName;
+                Debug.Log($"[novelapp] reloaded chapter '{_currentChapter.id}' (structure changed — restarted)");
+            }
+        }
+    }
+}

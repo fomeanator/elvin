@@ -52,6 +52,7 @@ namespace Lvn
             "ui",
             "cutscene",
             "fade", "dim", "flash", "tint", "blur",
+            "portal",
             "camera", "particles", "anim", "text_pace", "hint", "save",
             "fx", "sfx",
             // part of the language, implemented in com.lvn.engine.shell

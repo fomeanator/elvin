@@ -154,7 +154,7 @@ namespace Lvn.UI.Screens
             // Новелла отыграна (или игрок ушёл) — кадр переходит меню тем же
             // непрерывным движением, что и по кнопке выхода: героиня
             // возвращается с миссии, а не появляется заново на пустой сцене.
-            HandOverToMenu();
+            await ReturnToMenuAsync();
             // Back to the menu — stop the chapter scheduler so its deferred
             // downloads don't keep competing with the menu's own refresh.
             _downloads?.EndChapter();

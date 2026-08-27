@@ -22,6 +22,9 @@ namespace Lvn.UI
         internal static readonly HashSet<string> ReservedActorFields = new HashSet<string>
         {
             "op", "id", "show", "position", "x", "y", "width", "height", "scale",
+            // Рост в метрах — постановка, а не ось каста: без этого `meters=1.7`
+            // ушло бы в шаблон слоя как значение оси и молча не нашло файла.
+            "meters", "height_m",
             "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
             "transition", "transition_duration", "enter", "exit", "play",
@@ -35,6 +38,22 @@ namespace Lvn.UI
         // finishes loading. Dialogue uses this small staging view so a freshly
         // entering speaker's name is on the correct side from the first frame.
         private readonly Dictionary<string, Placement> _actorTargets = new Dictionary<string, Placement>();
+
+        /// <summary>Кто поставил актёра в последний раз. Нужен ровно для одного
+        /// правила Помрежа: авторская команда не наследует позу, поставленную
+        /// витриной, катсценой или гардеробом.</summary>
+        private readonly Dictionary<string, LvnSender> _poseSender = new Dictionary<string, LvnSender>();
+
+        /// <summary>ЧЕЙ ОБЛИК СЕЙЧАС НАДЕТ — список слоёв, собранных на фигуре.
+        /// Пока его не было, «покажи» означало «собери человека заново»: сцена
+        /// разрешала слои, качала, декодировала и складывала их при каждом
+        /// показе. Героиню же прячут и показывают десятки раз за сессию — её
+        /// ход кончился, катсцена расчистила кадр, глава кончилась, — и каждый
+        /// такой показ стоил полной сборки: заготовка-силуэт, шум растворения,
+        /// белый прямоугольник, «бац — и встала» (живая запись Ильи 27.08).
+        /// Один и тот же облик на целой фигуре — это НАСТРОЙКА (виден, где
+        /// стоит, какого роста), а не новый человек.</summary>
+        private readonly Dictionary<string, string> _actorLook = new Dictionary<string, string>();
 
         // Поколение показа у каждого актёра — дорожка Хронометриста: быстрый
         // перебор нарядов запускает несколько ApplyActorAsync, чьи загрузки
@@ -106,257 +125,9 @@ namespace Lvn.UI
             }
         }
 
-        /// <summary>Re-apply an on-screen actor from its last command (art
-        /// re-resolves against the current variables + wardrobe). No-op when
-        /// the actor isn't on stage.</summary>
-        public void RefreshActor(string id)
-        {
-            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var cmd)) return;
-            if (!BoolOr(cmd["show"], true)) return; // скрытого не воскрешать
-            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
-        }
-
-
-
-
-
-        // ── ЖИВЫЕ СПРАЙТЫ СЦЕНЫ ЗАКРЕПЛЕНЫ (27.08): LRU стримингового окна
-        // уничтожал текстуры прямо на экране — кукла меню становилась белым
-        // квадратом, канвас серел («переключение актёров фон убивает»). Grace
-        // окна считается от последнего ЗАПРОСА, а показанному давно арту
-        // запросы не приходят. Всё, что сцена сейчас рисует, пиннится в
-        // лоадере; замена или уход снимает пин. Слоты: "bg", "actor:<id>".
-        private readonly Dictionary<string, List<Sprite>> _scenePins
-            = new Dictionary<string, List<Sprite>>();
-
-        private void RepinSceneSprites(string slot, IReadOnlyList<Sprite> next)
-        {
-            var cl = (Assets as CachingAssets)?.Loader;
-            if (cl == null) return;
-            List<Sprite> keep = null;
-            if (next != null && next.Count > 0)
-            {
-                keep = new List<Sprite>(next.Count);
-                foreach (var s in next)
-                    // pin ДО unpin прежних: общий слой переживает замену
-                    if (s != null) { cl.PinSprite(s, true); keep.Add(s); }
-            }
-            if (_scenePins.TryGetValue(slot, out var prev) && prev != null)
-            {
-                // Анпин ПРЕЖНИХ — С ЗАДЕРЖКОЙ: прокси смены облика ещё
-                // показывает старые слои весь кроссфейд, и мгновенный анпин
-                // отдавал их LRU прямо под ним — актёр вставал БЕЛЫМ
-                // прямоугольником (живой скрин 27.08). Две секунды покрывают
-                // самый длинный своп с запасом.
-                LvnAsync.Fire(UnpinLaterAsync(prev), "UnpinLater");
-            }
-            if (keep == null) _scenePins.Remove(slot);
-            else _scenePins[slot] = keep;
-        }
-
-        private async Task UnpinLaterAsync(List<Sprite> sprites)
-        {
-            await Task.Delay(2000);
-            var cl = (Assets as CachingAssets)?.Loader;
-            if (cl == null) return;
-            foreach (var s in sprites) cl.PinSprite(s, false);
-        }
-
-        /// <summary>Актёр, чьи слои НЕ отпускаются при уборке сцены. Кукла меню
-        /// стоит между главами всё время, и выгружать её арт на вход в главу
-        /// значит перезагружать его на выходе — а пока он едет, слои рисуют
-        /// сплошные прямоугольники («белый квадрат вместо героини»). Дешевле
-        /// удержать один облик в памяти, чем каждый раз собирать заново
-        /// (мысль Ильи 26.08: «нахера очищать героиню — её надо переодевать»).
-        /// Хост ставит сюда своего фаворита меню.</summary>
-        public string KeepActorAlive { get; set; }
-
-        private void UnpinAllSceneSprites()
-        {
-            var cl = (Assets as CachingAssets)?.Loader;
-            string keep = string.IsNullOrEmpty(KeepActorAlive) ? null : "actor:" + KeepActorAlive;
-            List<string> drop = null;
-            foreach (var kv in _scenePins)
-            {
-                if (keep != null && kv.Key == keep) continue; // этот облик остаётся жить
-                if (cl != null) foreach (var s in kv.Value) cl.PinSprite(s, false);
-                (drop ??= new List<string>()).Add(kv.Key);
-            }
-            if (drop != null) foreach (var k in drop) _scenePins.Remove(k);
-        }
-
-        /// <summary>Актёр виден ИЛИ его показ уже в полёте (слои грузятся).
-        /// Хосту меню это отличает «кукла есть/едет» от «пропала — переслать».</summary>
-        public bool ActorVisibleOrPending(string id)
-            => !string.IsNullOrEmpty(id)
-               && ((_placements.TryGetValue(id, out var p) && p.Show)
-                   || (_actorTargets.TryGetValue(id, out var t) && t.Show));
-
-        /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
-        /// always has the active hero to dress, even when the beat left the stage empty
-        /// (imported novels open the wardrobe without staging anyone). Replays the
-        /// actor's last pose forcing it visible, or stages it fresh (centred) from its
-        /// catalog entity. No-op for an empty id.</summary>
-        public void EnsureActorShown(string id, bool fadeOnly = false)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            // Already on stage (the story/import staged her) → do NOTHING. Re-applying
-            // would reload the whole layered composite and lag the wardrobe open.
-            if (_placements.TryGetValue(id, out var pl) && pl.Show) return;
-            JObject cmd;
-            if (_actorCmds.TryGetValue(id, out var last) && (string)last["op"] == "actor")
-            {
-                cmd = (JObject)last.DeepClone();
-                cmd["show"] = true; // in case the last op hid her
-            }
-            else
-            {
-                // Манекен гардероба без сценарной постановки: размер как у
-                // сценарного зеркала (0.92/1.06), а не дефолтный слот — иначе
-                // «в игре и в гардеробе героиня разного роста» (живой репорт).
-                cmd = new JObject
-                {
-                    ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center",
-                    ["width"] = 0.92f, ["height"] = 1.06f,
-                };
-            }
-            if (fadeOnly) cmd["enter"] = "fade";
-            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
-        }
-
-        /// <summary>
-        /// ЗАБЫТЬ АКТЁРА — сцена больше не помнит ни его последней команды, ни
-        /// постановки, будто его в этой главе не ставили.
-        ///
-        /// <para>Нужно тому, кто выводил АКТЁРА НЕ ПО СЦЕНАРИЮ: гардероб,
-        /// открытый посреди реплик, показывает манекен своей синтетической
-        /// командой (центр, 0.92×1.06). Команда липкая — следующая авторская
-        /// без position наследует от неё место и размер, и героиня остаётся
-        /// стоять по центру до конца главы (живой репорт партнёра 28.08:
-        /// «открыл гардероб, нажал полный рост, вернулся — ГГ по центру»).
-        /// Спрятать манекен мало: память сцены о нём тоже должна уйти.</para>
-        /// </summary>
-        public void ForgetActor(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            _actorCmds.Remove(id);
-            _placements.Remove(id);
-            _actorTargets.Remove(id);
-        }
-
-        /// <summary>Стояла ли эта роль на сцене по СЦЕНАРИЮ — то есть помнит ли
-        /// сцена её команду. Хост спрашивает перед примеркой, чтобы понимать,
-        /// свой это актёр или приведённый гардеробом манекен.</summary>
-        public bool RememberedByScript(string id)
-            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
-
-        /// <summary>Ids of actors currently VISIBLE on stage — hosts use it to
-        /// pick who an always-open wardrobe should dress.</summary>
-        public List<string> ActorsOnStage()
-        {
-            var list = new List<string>();
-            foreach (var kv in _placements)
-                if (kv.Value.Show) list.Add(kv.Key);
-            return list;
-        }
-
-
-
-        /// <summary>
-        /// ПЕРЕСТАВИТЬ, НЕ ПЕРЕОДЕВАЯ.
-        ///
-        /// <para>Героиня в меню и героиня в главе — ОДНА И ТА ЖЕ: она уходит на
-        /// миссию и возвращается. Значит наряд и эмоция, с которыми кончилась
-        /// глава, обязаны пережить переход — их нельзя пересобирать из
-        /// умолчаний. Меню знает только МЕСТО (центр, рост куклы), а во что она
-        /// одета — знает последняя команда сцены.</para>
-        ///
-        /// <para>Поэтому здесь берётся последняя авторская команда актёра и
-        /// накрываются только поля размещения. Оси — наряд, эмоция, поза — не
-        /// трогаются вовсе. Если актёра на сцене не было, ставить нечего:
-        /// звонящий отправит обычный показ.</para>
-        /// </summary>
-        public bool Restage(string id, JObject placement)
-        {
-            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var last)) return false;
-            var cmd = (JObject)last.DeepClone();
-            if (placement != null)
-                foreach (var prop in placement.Properties())
-                    cmd[prop.Name] = prop.Value.DeepClone();
-            cmd["id"] = id;
-            cmd["show"] = true;
-            LvnLog.Trace($"[lvn-actor] {id}: перестановка без переодевания → "
-                       + $"{string.Join(", ", System.Linq.Enumerable.Select(AxesFrom(cmd), kv => kv.Key + "=" + kv.Value))}");
-            ApplyStage(cmd);
-            return true;
-        }
-
-        /// <summary>Помнит ли сцена, во что этот актёр был одет (последняя
-        /// авторская команда). По этому решают: перетекает облик или его
-        /// собирают заново.</summary>
-        public bool KnowsLook(string id)
-            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
-
-        /// <summary>Take an actor off stage — the counterpart of
-        /// <see cref="EnsureActorShown"/> for a host that staged someone
-        /// temporarily (the menu wardrobe) and wants the scene back as it was.</summary>
-        public void HideActor(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            string op = "actor";
-            if (_actorCmds.TryGetValue(id, out var staged)
-                && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
-                op = "obj";
-            // Без exit=: уход возьмётся из темы (drift/fade/что выбрала
-            // новелла). Жёсткий "fade" здесь затирал бы дефолт постановки.
-            LvnAsync.Fire(ApplyActorAsync(new JObject
-            {
-                ["op"] = op, ["id"] = id, ["show"] = false,
-            }), "ApplyActor");
-        }
-
-        /// <summary>Temporarily remove a wardrobe mannequin and wait until its
-        /// fade is fully finished. Preserve the actor's last authored show
-        /// command, so restoring it later keeps art axes, emotion and placement
-        /// instead of replaying the synthetic hide command.</summary>
-        public async Task HideActorTemporarilyAndWaitAsync(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return;
-            int epoch = _stageEpoch;
-            HideActorTemporarily(id);
-            await WaitForActorExitsAsync(epoch);
-        }
-
-        private void HideActorTemporarily(string id)
-        {
-            JObject replay = _actorCmds.TryGetValue(id, out var current)
-                ? (JObject)current.DeepClone() : null;
-            HideActor(id);
-            if (replay != null) _actorCmds[id] = replay;
-        }
-
-
-        private int _wardrobeFocusGen;
-
-
-        /// <summary>The `clear` op: take every actor and obj off stage in one
-        /// command, leaving the backdrop, effects and HUD exactly as they are.
-        ///
-        /// <para>Each one goes through the ORDINARY hide, so nothing here needs
-        /// to know how hiding works: placement stays remembered (a later
-        /// `actor id=…` with no position returns her to the slot she left),
-        /// hotspots and draggables are dropped, and the exit is the same fade a
-        /// hand-written `show=false` would have played. The list is snapshotted
-        /// first — <see cref="ActorsOnStage"/> builds a new list — because the
-        /// hides mutate the placement map as they run.</para></summary>
-        private void ApplyClear()
-        {
-            foreach (var id in ActorsOnStage()) HideActor(id);
-        }
-
-
         private async Task ApplyActorAsync(JObject cmd, bool wardrobeSwap = false,
-                                           bool wardrobeFromTop = false)
+                                           bool wardrobeFromTop = false,
+                                           LvnSender sender = LvnSender.Story)
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
@@ -397,10 +168,19 @@ namespace Lvn.UI
                     _renderer?.PlaceActor(id, hidePl);
                     _renderer?.ApplyActor(id, null, hidePl, null, null, null);
                 }
-                RepinSceneSprites("actor:" + id, null); // ушёл — окно свободно
+                // Ушёл — окно свободно. КРОМЕ ТОЙ, ЧТО ЖИВЁТ МЕЖДУ ГЛАВАМИ:
+                // героиня уходит со сцены десять раз за сессию (её ход кончился,
+                // катсцена расчистила кадр), и каждый уход отдавал её слои кэшу.
+                // Показать снова значило качать и декодировать их заново — а
+                // пока они летят, Image рисует свой прямоугольник сплошняком:
+                // «появляется с промелькнувшим серым квадратом» (Илья, 27.08).
+                // Её арт держим постоянно: он всё равно понадобится через миг.
+                if (!string.Equals(id, KeepActorAlive, StringComparison.Ordinal))
+                    RepinSceneSprites("actor:" + id, null);
                 if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
                 _placements[id] = hidePl;
                 _actorCmds[id] = cmd;
+                _poseSender[id] = sender;
                 _hotspots.RemoveAll(h => h.id == id);
                 _draggables.Remove(id); // a hidden object must not be draggable
                 return;
@@ -508,6 +288,23 @@ namespace Lvn.UI
             }
 
             bool fresh = !_placements.TryGetValue(id, out var prevPl);
+            // АВТОРСКАЯ КОМАНДА НЕ НАСЛЕДУЕТ ЧУЖУЮ ПОЗУ. Липкость размещения —
+            // договор ИСТОРИИ с самой собой: следующая её команда без position=
+            // продолжает предыдущую. Витрина, катсцена и гардероб ставят актёра
+            // по своим правилам (центр, рост витрины, крупный план), и когда
+            // история наследовала их мизансцену, героиня выходила в сцену
+            // стоящей по-менюшному — «не встраивается в игру, хотя её реплика».
+            if (!fresh && LvnStageManager.Sticky(sender)
+                && _poseSender.TryGetValue(id, out var was) && !LvnStageManager.Sticky(was))
+            {
+                LvnLog.Trace($"[lvn-cmd] {id}: поза от {was} истории не наследуется — ставим заново");
+                fresh = true;
+            }
+            // ЧИСТЫЙ ЛИСТ — ЗНАЧИТ И ПОРЯДОК СЛОЯ ЧИСТЫЙ. Явный z живёт у сцены
+            // до следующего явного значения: катсцена ставит героиню перед
+            // всеми (z=100), и без сброса эта «сотка» тащилась бы за ней всю
+            // главу — она стояла бы поверх любого собеседника.
+            if (fresh && cmd["z"] == null) cmd["z"] = 0;
             bool wasVisibleBeforeShow = !fresh && prevPl.Show;
             var placement = fresh ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevPl, SlotsOf(id));
             // Силуэт — одноразовое состояние ЗАГОТОВКИ, не липкая постановка:
@@ -561,6 +358,32 @@ namespace Lvn.UI
                 placement.ContentW = box.w; placement.ContentH = box.h;
             }
 
+            // РОСТ В МЕТРАХ СИЛЬНЕЕ ЛЮБОЙ ДОЛИ ЭКРАНА. Рост — свойство самого
+            // персонажа, а долю экрана называет тот, кто его ставит: сценарий
+            // одну, меню другую, гардероб третью. Пока побеждала доля, один и
+            // тот же человек менял рост на каждом переходе. Теперь: назвал
+            // метры в команде — считаем по ним; молчит команда, но рост есть у
+            // персонажа — считаем по нему; нет ни того ни другого — всё как
+            // раньше, доли экрана и тема.
+            // РОСТ В МЕТРАХ — СВОЙСТВО МИРА СЦЕНЫ, А НЕ ВИТРИНЫ. В кадре истории
+            // человек ростом 1.7 при потолке 2 занимает 85% экрана, и это верно:
+            // там он стоит в комнате. Но витрина меню — не комната, а полка: её
+            // кукла стоит за карточками и меряется рамкой витрины
+            // (ui.browse.doll_height). Когда шкала мира дотянулась и до неё,
+            // героиня выросла во весь экран и оказалась обрезанной по грудь
+            // (живая запись Ильи, 27.08). Витрина по-прежнему может назвать
+            // метры явно — тогда она сама этого захотела.
+            float meters = LvnScale.MetersIn(cmd);
+            if (meters <= 0f && aspectEntity != null && LvnStageManager.Sticky(sender))
+                meters = aspectEntity.meters;
+            if (meters > 0f && LvnScale.Sane)
+            {
+                if (!Mathf.Approximately(placement.Meters, meters))
+                    LvnLog.Trace($"[lvn-scale] {id}: рост {meters:0.00} м при сцене "
+                               + $"{LvnScale.SceneMeters:0.00} м → {LvnScale.Fraction(meters):0.000} кадра");
+                placement.Meters = meters;
+            }
+
             // Smart slots: never draw two actors standing inside each other.
             if (placement.Show)
             {
@@ -580,7 +403,19 @@ namespace Lvn.UI
             // переключения персонажа там лежал hide: свап прятал актёра и
             // новее-gen убивал летящий показ («Виктория на место не встаёт»,
             // живой скрин 27.08).
+            //
+            // ЗАПИСЫВАЕТСЯ ВСЕГДА, КЕМ БЫ КОМАНДА НИ БЫЛА ПОДПИСАНА. Это память
+            // «ЧЕМ ПЕРЕСОБРАТЬ АКТЁРА», и от неё живут трое: самолечение
+            // (слои умерли — собрать заново), гардероб (сменился наряд —
+            // переиграть ту же позу) и перестановка без переодевания. Стоило
+            // ограничить эту запись подписью — и кукла витрины осталась без
+            // команды: чинить её стало нечем, и на главной повис белый
+            // прямоугольник (живой скрин Ильи).
+            //
+            // ЛИПКОСТЬ — ДРУГОЕ И ЖИВЁТ НИЖЕ, в _placements: там решается, чью
+            // позу наследует следующая авторская команда.
             _actorCmds[id] = cmd;
+            _poseSender[id] = sender;
 
             // Place first so the slot exists before the (async) art arrives — a
             // no-op on renderers that apply placement together with the art.
@@ -605,6 +440,47 @@ namespace Lvn.UI
                     };
                 else
                     _draggables.Remove(id);
+            }
+
+            // ── ФИГУРА НЕДЕЛИМА ─────────────────────────────────────────────
+            // Человек на сцене — не картинка, которую рисуют заново на каждый
+            // показ, а ОДНА фигура, которой меняют настройки. Если облик тот же
+            // (те же слои) и фигура цела, показать её — значит включить её:
+            // рендерер умеет применить размещение поверх уже надетых слоёв
+            // (layers = null оставляет арт нетронутым). Ни загрузки, ни декода,
+            // ни заготовки-силуэта — а значит и «шум → белое пятно → бац», из
+            // которого состоял каждый выход из главы, просто не с чего играть.
+            //
+            // Пересборка остаётся ровно там, где она и есть работа: сменился
+            // наряд или эмоция (другой набор слоёв), фигуру разобрали, или её
+            // слои умерли под LRU.
+            string look = urls != null ? string.Join("|", urls) : "";
+            bool sameLook = placement.Show && !wardrobeSwap
+                            && _actorLook.TryGetValue(id, out var wornLook)
+                            && string.Equals(wornLook, look, StringComparison.Ordinal)
+                            && ActorArtAlive(id);
+            if (sameLook)
+            {
+                ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
+                if (!wasVisibleBeforeShow && IsCharacterCommand(cmd))
+                {
+                    await WaitForActorExitsAsync(epoch);
+                    if (!_clock.MayTouch(epoch, lane, gen)) return;
+                }
+                LvnLog.Trace($"[lvn-actor] {id}: облик тот же и цел — показываем как есть, без пересборки");
+                _renderer?.ApplyActor(id, null, placement, onClick, null, null);
+                // ЗАКРЕПИТЬ ЗАНОВО. Уход снимает пин со слоёв, и показ без
+                // пересборки не приносит новых спрайтов — вернуть на экран
+                // незакреплённый арт значило бы отдать его LRU прямо под живой
+                // картинкой (белый прямоугольник вместо героини).
+                if (_renderer is CanvasSceneRenderer pin)
+                    RepinSceneSprites("actor:" + id, pin.ActorSprites(id));
+                placement.SmoothPosition = false;
+                placement.WardrobeSwap = false;
+                placement.WardrobeFromTop = false;
+                _placements[id] = placement;
+                await ApplyActorAnimsAsync(id, cmd, placement, epoch, lane, gen);
+                return;
             }
 
             // Now load the layer sprites (async) and set them on the placed actor.
@@ -738,6 +614,10 @@ namespace Lvn.UI
             ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
             RepinSceneSprites("actor:" + id, layers); // что на экране — LRU не трогает
+            // Что НАДЕТО на фигуре — с этого мгновения и до следующей сборки.
+            // Отсюда живёт правило «тот же облик — не пересобирать».
+            if (layers != null && layers.Count > 0) _actorLook[id] = look;
+            else _actorLook.Remove(id);
             placement.SmoothPosition = false;
             placement.WardrobeSwap = false;
             placement.WardrobeFromTop = false;
@@ -746,34 +626,47 @@ namespace Lvn.UI
             // здесь могла бы затереть более новую команду, прилетевшую пока
             // грузились слои.
 
+            await ApplyActorAnimsAsync(id, cmd, placement, epoch, lane, gen);
+        }
+
+        /// <summary>
+        /// СОБСТВЕННАЯ ЖИЗНЬ ФИГУРЫ: дыхание, моргание и разовый жест.
+        ///
+        /// <para>Отдельным методом, потому что зовут его ДВА пути показа —
+        /// полная сборка облика и показ уже готовой фигуры. Спрятанный актёр
+        /// останавливает всё своё движение (<c>StopAll</c>), и вернуть его в
+        /// кадр без этого шага значило бы вернуть неподвижную куклу.</para>
+        /// </summary>
+        private async Task ApplyActorAnimsAsync(string id, JObject cmd, Placement placement,
+                                                int epoch, string lane, int gen)
+        {
             // Animations (rigged entities): idle (whole-actor) + blink (a layer)
             // auto-run on show; play="name" fires a one-shot gesture; an
             // auto:"speaking" anim is remembered for lip-sync while this actor talks.
             var animEntity = Catalog != null ? Catalog.Get(id) : null;
-            if (animEntity != null && animEntity.anim != null && animEntity.anim.Count > 0)
+            if (animEntity == null || animEntity.anim == null || animEntity.anim.Count == 0) return;
+
+            await PreloadFramesAsync(id, animEntity);
+            // The frame preload awaited network — a chapter change or a newer
+            // apply may own the actor now; stale anim state must not leak in.
+            if (!_clock.MayTouch(epoch, lane, gen)) return;
+
+            LvnAnim idle = null, blink = null, talk = null;
+            foreach (var kv in animEntity.anim)
             {
-                await PreloadFramesAsync(id, animEntity);
-                // The frame preload awaited network — a chapter change or a newer
-                // apply may own the actor now; stale anim state must not leak in.
-                if (!_clock.MayTouch(epoch, lane, gen)) return;
-
-                LvnAnim idle = null, blink = null, talk = null;
-                foreach (var kv in animEntity.anim)
-                {
-                    var a = kv.Value;
-                    if (a == null) continue;
-                    if (a.auto == "speaking") { talk = a; continue; }
-                    if (a.auto == "true") { if (HasLayerTrack(a)) blink = blink ?? a; else idle = idle ?? a; }
-                }
-                _talkAnims[id] = talk; // null clears it
-
-                var playName = (string)cmd["play"];
-                if (!string.IsNullOrEmpty(playName) && animEntity.anim.TryGetValue(playName, out var gesture))
-                    ScenePlayGesture(id, gesture, idle);
-                else if (placement.Show && idle != null)
-                    SceneEnsureIdle(id, idle);
-                if (placement.Show && blink != null) SceneEnsureBlink(id, blink);
+                var a = kv.Value;
+                if (a == null) continue;
+                if (a.auto == "speaking") { talk = a; continue; }
+                if (a.auto == "true") { if (HasLayerTrack(a)) blink = blink ?? a; else idle = idle ?? a; }
             }
+            _talkAnims[id] = talk; // null clears it
+
+            var playName = (string)cmd["play"];
+            if (!string.IsNullOrEmpty(playName) && animEntity.anim.TryGetValue(playName, out var gesture))
+                ScenePlayGesture(id, gesture, idle);
+            else if (placement.Show && idle != null)
+                SceneEnsureIdle(id, idle);
+            if (placement.Show && blink != null) SceneEnsureBlink(id, blink);
         }
 
         private static bool HasLayerTrack(LvnAnim a)

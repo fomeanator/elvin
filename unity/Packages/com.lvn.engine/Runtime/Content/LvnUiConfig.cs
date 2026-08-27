@@ -395,6 +395,13 @@ namespace Lvn.Content
     {
         public float? actor_y;      // bottom-anchored feet baseline (screen fraction); 1 = screen bottom, >1 sinks
         public float? actor_scale;  // multiplier on the default actor size; 1 = default
+        /// <summary>ВЫСОТА КАДРА В МЕТРАХ — шкала мира сцены (по умолчанию 2,
+        /// потолок комнаты). Персонаж объявляет свой рост (<c>sprites.&lt;id&gt;.meters</c>),
+        /// и высота на экране получается делением: 1.7 при потолке 2 = 0.85 экрана.
+        /// Меньше — камера ближе, все фигуры крупнее; больше — общий план.
+        /// Одно число задаёт масштаб всей сцены, и рост перестаёт зависеть от
+        /// того, кто ставит фигуру — сценарий, меню или гардероб.</summary>
+        public float? meters;
         public float? actor_spread; // multiplier on left/right offset from centre; 1 = default, <1 = closer to centre
         /// <summary>Speaker focus mode: "dim" (default — everyone stays, non-speakers
         /// darken) or "solo" (novel mode — only the CURRENT speaker is visible; other

@@ -66,6 +66,11 @@ var KnownOps = map[string]bool{
 	"camera": true, "particles": true,
 	// Мультиэффект кадра и спрайтовые эффекты актёра (Canvas-путь движка).
 	"fx": true, "sfx": true,
+	// Створ портала — СЛОЙ сцены между фоном и актёрами (не постэффект: тот
+	// живёт на камере, и лечь ПОД героиню не может в принципе). Движок умел
+	// его с 27.08, а язык — нет: страж соответствия нашёл это расхождение в
+	// тот же день, ради чего он и написан.
+	"portal": true,
 	// дерево интерфейса; поля лежат ВНУТРИ tree, поэтому набор верхнего
 	// уровня открытый — закрывать его значило бы проверять дважды и разное
 	"ui": true,
@@ -102,6 +107,7 @@ var OpFields = map[string][]string{
 	"flash":         {"color", "duration"},
 	"tint":          {"color", "alpha", "duration"},
 	"blur":          {"alpha", "duration"},
+	"portal":        {"open", "x", "y", "radius", "color", "dur"},
 	"camera":        {"action", "amplitude", "factor", "x", "y", "duration", "mode"},
 	"particles":     {"type", "on"},
 	"audio":         {"channel", "url", "action", "fade", "volume", "loop"},

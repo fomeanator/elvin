@@ -73,10 +73,17 @@ namespace Lvn.UI
             // защищал предикат, который передавал только один вызывающий: путь
             // ОТКРЫТИЯ гардероба звал без него, а именно во время открытия и
             // жмут первую «таблетку».
-            int gen = ++_wardrobeFocusGen;
+            int gen = _clock.Claim(LvnStageClock.WardrobeFocusLane);
+            // ПРЕДМЕТ ЗАНЯТ ГАРДЕРОБОМ. Пока игрок листает наряды, героиня
+            // принадлежит ему: команда истории или витрины к ней получит отказ,
+            // а не перебьёт примерку на полпути.
+            Commands.Hold("actor:" + keepId, LvnSender.Wardrobe);
             HideEveryoneExcept(keepId);
             await WaitForActorExitsAsync(epoch);
-            if (gen != _wardrobeFocusGen) return;   // нас перебили — показывает он
+            // Нас перебили — показывает он. Поколение спрашиваем у Хронометриста:
+            // «чья работа устарела» — его вопрос, и он же отвечает на него для
+            // фона, актёров и ожиданий.
+            if (!_clock.MayTouch(epoch, LvnStageClock.WardrobeFocusLane, gen)) return;
             if (!StageCurrent(epoch) || (canShow != null && !canShow())) return;
             // Пока ждали, кто-то мог успеть показаться: пересобрать и убрать.
             HideEveryoneExcept(keepId);
@@ -85,13 +92,18 @@ namespace Lvn.UI
 
         private void HideEveryoneExcept(string keepId)
         {
-            foreach (var id in ActorsOnStage())
+            // В КАДРЕ ИЛИ В ПОЛЁТЕ: тот, чей показ ещё грузился, в списке
+            // видимых не значился — и проявлялся уже поверх примеряемой куклы.
+            foreach (var id in ActorsInFrame())
             {
                 if (id == keepId) continue;
                 if (_actorCmds.TryGetValue(id, out var cmd) && !IsCharacterCommand(cmd)) continue;
-                HideActorTemporarily(id);
+                HideActorTemporarily(id, LvnSender.Wardrobe);
             }
         }
+
+        /// <summary>Лист гардероба закрылся — кукла возвращается истории.</summary>
+        public void ReleaseWardrobeFocus() => Commands.ReleaseAll(LvnSender.Wardrobe);
 
         private void OnWardrobeChanged(string entity)
             => RefreshWardrobeActor(entity, LvnWardrobe.LastChangedAxis(entity));

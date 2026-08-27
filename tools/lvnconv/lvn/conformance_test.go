@@ -262,7 +262,11 @@ func scrapeCSharp(t *testing.T, root string) csharpDispatch {
 		player: caseLabels(t, filepath.Join(root,
 			"unity/Packages/com.lvn.engine/Runtime/LvnPlayer.cs"), "public void Advance()"),
 		stage: caseLabels(t, filepath.Join(root,
-			"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Commands.cs"), "public void ApplyStage(JObject command)"),
+			"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Commands.cs"), // Коммутатор опов переехал из двери в исполнение: у двери теперь решается
+			// спор отправителей (Помреж), а раздача по обработчикам живёт отдельно.
+			// Страж смотрит туда, где switch действительно есть, — иначе он ловил бы
+			// не «оп потерял обработчик», а «метод переименовали».
+			"private void ApplyDispatch(JObject command, LvnSender sender)"),
 		// Хост-опы регистрируются НЕ ТОЛЬКО в оболочке: сервисный слой
 		// (кошелёк, реклама, лидерборды, аналитика) — такой же хост и
 		// поставляется тем же пакетом продуктов. Искать только в shell значит

@@ -52,6 +52,7 @@ namespace Lvn.Editor
             // first closing-brace-semicolon it meets.
             "clear",
             "fade", "dim", "flash", "tint", "blur",
+            "portal",
             "camera", "particles",
             "fx", "sfx", // мультиэффект кадра и спрайтовые эффекты — зеркально Go
             "audio", "wait", "preload", "text_pace",
