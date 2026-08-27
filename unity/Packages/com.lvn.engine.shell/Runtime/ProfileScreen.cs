@@ -19,6 +19,11 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class ProfileScreen : LvnOverlayScreen
     {
+        /// <summary>Сколько кнопка удаления остаётся «взведённой» и ждёт второго
+        /// нажатия. Дольше прочих ответов интерфейса намеренно: человек должен
+        /// успеть передумать, а не промахнуться дважды подряд.</summary>
+        private const int ArmedWindowMs = 4000;
+
         /// <summary>One earned/locked achievement badge.</summary>
         public struct Achievement
         {
@@ -445,7 +450,7 @@ namespace Lvn.UI.Screens
                         btn.text = "Удалить";
                         btn.style.backgroundColor = LvnTokens.Faint;
                         btn.style.color = danger;
-                    }).ExecuteLater(4000);
+                    }).ExecuteLater(LvnMotion.Ms(ArmedWindowMs));
                     return;
                 }
                 armed = false;
@@ -464,10 +469,10 @@ namespace Lvn.UI.Screens
             catch (Exception e) { Debug.LogWarning($"[profile] удаление аккаунта: {e.Message}"); }
             if (ok) { Close(); return; }
             btn.SetEnabled(true);
-            btn.text = "Нет сети — позже";
             btn.style.backgroundColor = LvnTokens.Faint;
             btn.style.color = danger;
-            btn.schedule.Execute(() => btn.text = "Удалить").ExecuteLater(2500);
+            btn.text = "Удалить";
+            LvnMotion.FlashText(btn, "Нет сети — позже", LvnMotion.NoticeLong);
         }
 
         private VisualElement StatTile(Stat s)
@@ -648,9 +653,7 @@ namespace Lvn.UI.Screens
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = id;
-                var was = copy.text;
-                copy.text = "Скопировано";
-                copy.schedule.Execute(() => copy.text = was).ExecuteLater(1400);
+                LvnMotion.FlashText(copy, "Скопировано");
             };
             footer.Add(copy);
 

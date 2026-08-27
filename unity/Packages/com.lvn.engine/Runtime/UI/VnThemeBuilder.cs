@@ -43,6 +43,14 @@ namespace Lvn.UI
                 if (stg.long_press.HasValue) t.LongPressArtView = stg.long_press.Value;
                 if (stg.loading_silhouette.HasValue) t.LoadingSilhouette = stg.loading_silhouette.Value;
                 if (!string.IsNullOrEmpty(stg.tap_burst)) t.TapBurst = stg.tap_burst;
+                // Ритм постановки — статический: его читает и рендерер сцены, у
+                // которого экземпляра темы под рукой нет.
+                if (stg.motion_scale.HasValue)
+                    VnTheme.MotionDurationScale = Mathf.Clamp(stg.motion_scale.Value, 0.1f, 4f);
+                if (stg.look_swap.HasValue)
+                    VnTheme.LookSwapSeconds = Mathf.Max(0f, stg.look_swap.Value);
+                if (stg.wardrobe_swap.HasValue)
+                    VnTheme.WardrobeSwapSeconds = Mathf.Max(0f, stg.wardrobe_swap.Value);
             }
 
             var d = ui.dialogue;

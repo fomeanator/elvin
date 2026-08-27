@@ -75,7 +75,7 @@ namespace Lvn.UI
         private static void ApplyPresentationTempo(ref Placement p)
         {
             if (p.TransitionDuration > 0.001f)
-                p.TransitionDuration *= VnTheme.MotionDurationScale;
+                p.TransitionDuration = VnTheme.Motion(p.TransitionDuration);
         }
 
         /// <summary>Side entrances and changes between stage positions should
@@ -172,7 +172,7 @@ namespace Lvn.UI
             // сценарное emotion=, а не гардеробным свопом.
             bool emotion = IsEmotionAxis(axis);
             await ApplyActorAsync(cmd, wardrobeSwap: !emotion,
-                wardrobeFromTop: !emotion && IsHairWardrobeAxis(axis));
+                wardrobeFromTop: !emotion && LvnWardrobeStage.IsHair(axis));
         }
 
         private static bool IsEmotionAxis(string axis)
@@ -252,12 +252,6 @@ namespace Lvn.UI
             => !string.IsNullOrEmpty(id)
                && ((_placements.TryGetValue(id, out var p) && p.Show)
                    || (_actorTargets.TryGetValue(id, out var t) && t.Show));
-
-        private static bool IsHairWardrobeAxis(string axis)
-        {
-            var key = (axis ?? "").ToLowerInvariant();
-            return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
-        }
 
         /// <summary>Ensure an actor is ON stage — used by the in-story wardrobe so it
         /// always has the active hero to dress, even when the beat left the stage empty

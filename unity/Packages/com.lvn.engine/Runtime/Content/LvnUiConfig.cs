@@ -96,6 +96,21 @@ namespace Lvn.Content
 
         public Dictionary<string, string> rarity_colors; // rarity key → hex (card ring tint)
         public Dictionary<string, string> currency_icons; // currency → content url (balance pills)
+        /// <summary>Кадр витрины по осям: ось → насколько приблизить фигуру на
+        /// плитке и на какую её часть навестись. Движок и без этого кадрирует
+        /// разумно (голова для причёски, корпус для платья), но у каждого арта
+        /// своя анатомия — здесь новелла подводит кадр под СВОЮ героиню.</summary>
+        public Dictionary<string, FramingConfig> framing;
+    }
+
+    /// <summary>Кадр витрины для одной оси гардероба.</summary>
+    public sealed class FramingConfig
+    {
+        /// <summary>Во сколько раз фигура крупнее плитки (1 = целиком).</summary>
+        public float? zoom;
+        /// <summary>Какая высота фигуры окажется в середине плитки:
+        /// 0 — макушка, 0.5 — пояс, 1 — ступни.</summary>
+        public float? y;
     }
 
     /// <summary>The boot auth screen — the game's customizable face over the
@@ -361,6 +376,15 @@ namespace Lvn.Content
         public bool? loading_silhouette;
         // Тап-салют: "hearts" — сердечки из точки касания. Пусто = выкл.
         public string tap_burst;
+        /// <summary>Темп постановки: множитель на ВСЕ сценические длительности
+        /// (0.75 по умолчанию — сцена играет собранно, не меняя соотношений).
+        /// Меньше = живее, больше = вальяжнее.</summary>
+        public float? motion_scale;
+        /// <summary>Смена облика (эмоция, поза) — секунды кроссфейда; 0.20.</summary>
+        public float? look_swap;
+        /// <summary>Смена наряда в гардеробе — секунды кроссфейда; 0.28: наряд
+        /// меняет силуэт целиком, и глазу нужно чуть больше времени.</summary>
+        public float? wardrobe_swap;
     }
 
     /// <summary>In-game dialogue box: colours, fonts, padding and the typewriter
@@ -505,6 +529,17 @@ namespace Lvn.Content
         /// <summary>Арт-ПОЛОТНО меню: один широкий фон на все вкладки (4
         /// экрана по горизонтали), камера едет по нему с вкладками.</summary>
         public string canvas;
+        /// <summary>Где стоит камера полотна на первой вкладке (0..1 картины);
+        /// движковый дефолт 0.35.</summary>
+        public float? canvas_pan;
+        /// <summary>Сколько полотна проезжает камера за вкладку; дефолт 0.14.
+        /// Больше — вкладки читаются как разные комнаты.</summary>
+        public float? canvas_pan_step;
+        /// <summary>Рост куклы героини в меню, доля высоты кадра; дефолт 0.91.</summary>
+        public float? doll_height;
+        /// <summary>Ширина, в которую вписывается фигура куклы (доля кадра);
+        /// дефолт 1 — «шире экрана не станет, но и не ужмётся ради полей».</summary>
+        public float? doll_width;
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name

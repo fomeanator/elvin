@@ -265,7 +265,7 @@ namespace Lvn.UI.Screens
             _emoThumb.style.left = 0; _emoThumb.style.right = 0;
             _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
             LvnChrome.Round(_emoThumb, EmoBarWidth * 0.5f);
-            Smooth(_emoThumb, 130, "top", "height");
+            Smooth(_emoThumb, LvnMotion.Quick, "top", "height");
             _emoBar.Add(_emoThumb);
             // Скроллеры спрятаны, но живут — их значение и есть позиция.
             _emotions.verticalScroller.valueChanged += _ => UpdateEmoScrollBar();
@@ -618,7 +618,7 @@ namespace Lvn.UI.Screens
                 b.style.marginLeft = 6; b.style.marginRight = 6;
                 b.style.paddingLeft = 18; b.style.paddingRight = 20;
                 LvnChrome.Round(b, 28f);
-                Smooth(b, 180, "background-color", "border-top-color",
+                Smooth(b, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
                 b.userData = axis;
                 if (!string.IsNullOrEmpty(slot?.icon))
@@ -632,7 +632,7 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
-                    var icon = IsHairAxis(axis) ? LvnIcon.Crown : LvnIcon.Wardrobe;
+                    var icon = LvnWardrobeStage.IconFor(axis);
                     // Два глифа под оба фона пилюли: SelectTab переключает их
                     // display (вектор не перекрашивается на месте).
                     var off = LvnIcons.Make(icon, 24f, _text);
@@ -649,7 +649,7 @@ namespace Lvn.UI.Screens
                 lbl.style.fontSize = 22;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
                 lbl.style.color = _text;
-                Smooth(lbl, 180, "color");
+                Smooth(lbl, LvnMotion.Normal, "color");
                 b.Add(lbl);
                 _tabs.Add(b);
             }
@@ -665,7 +665,7 @@ namespace Lvn.UI.Screens
                 all.style.marginLeft = 6; all.style.marginRight = 6;
                 all.style.paddingLeft = 18; all.style.paddingRight = 20;
                 LvnChrome.Round(all, 28f);
-                Smooth(all, 180, "background-color", "border-top-color",
+                Smooth(all, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
                 all.userData = AllTab;
                 var offA = LvnIcons.Make(LvnIcon.Star, 24f, _text);
@@ -681,7 +681,7 @@ namespace Lvn.UI.Screens
                 lblA.style.fontSize = 22;
                 lblA.style.whiteSpace = WhiteSpace.NoWrap;
                 lblA.style.color = _text;
-                Smooth(lblA, 180, "color");
+                Smooth(lblA, LvnMotion.Normal, "color");
                 all.Add(lblA);
                 _tabs.Insert(0, all); // «Моё» — первым (Илья 28.08)
             }
@@ -733,33 +733,12 @@ namespace Lvn.UI.Screens
             SelectTab(_def.wardrobe.Count > 1 ? AllTab : _tab);
         }
 
-        // Ось про волосы? — зеркало правила сцены (её вариант приватный).
-        private static bool IsHairAxis(string axis)
-        {
-            var key = (axis ?? "").ToLowerInvariant();
-            return key.Contains("hair") || key.Contains("причес") || key.Contains("волос");
-        }
-
-        // ── плавный UI (Илья 28.08: «всё прыгает — надо чтобы плавно
-        // переезжал») ─────────────────────────────────────────────────────────
-        // Декларативные transition'ы UITK: после подключения любая смена
-        // значения (подсветка выбранного, перекраска пилюли) едет кривой сама.
+        // Плавная смена стиля и набор свойств «карточка переезжает» живут в
+        // LvnMotion: понятие общее для всей оболочки, а не для этого листа.
         private static void Smooth(VisualElement el, int ms, params string[] props)
-        {
-            var list = new List<StylePropertyName>(props.Length);
-            foreach (var p in props) list.Add(new StylePropertyName(p));
-            el.style.transitionProperty = list;
-            el.style.transitionDuration = new List<TimeValue>
-                { new TimeValue(ms, TimeUnit.Millisecond) };
-            el.style.transitionTimingFunction = new List<EasingFunction>
-                { new EasingFunction(EasingMode.EaseOutCubic) };
-        }
+            => LvnMotion.Smooth(el, ms, props);
 
-        private static readonly string[] CardGlide =
-        {
-            "opacity", "translate", "border-top-color", "border-right-color",
-            "border-bottom-color", "border-left-color",
-        };
+        private static readonly string[] CardGlide = LvnMotion.CardGlide;
 
         // Въезд элемента: лёгкий подъём + проявление, каскадом по позиции —
         // перестройка ленты «переезжает», а не мигает. Transition вешается
@@ -770,7 +749,7 @@ namespace Lvn.UI.Screens
             el.style.translate = new Translate(0f, 12f);
             el.schedule.Execute(() =>
             {
-                Smooth(el, 240, CardGlide);
+                Smooth(el, LvnMotion.Calm, CardGlide);
                 el.style.opacity = 1f;
                 el.style.translate = new Translate(0f, 0f);
             }).ExecuteLater(16 + Mathf.Min(i, 10) * 26);
@@ -1010,8 +989,8 @@ namespace Lvn.UI.Screens
             float gap = Mathf.Max(0f, sheetTop - navBottom - 12f);
             // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
             // на 10 процентов»), высота — та же половина зазора плюс 15%.
-            float top = navBottom + gap * 0.10f;
-            float height = Mathf.Max(120f, gap * 0.575f);
+            float top = navBottom + gap * LvnWardrobeStage.EmotionsTopFraction;
+            float height = Mathf.Max(120f, gap * LvnWardrobeStage.EmotionsHeightFraction);
             _emotions.style.top = top - sheetTop;
             _emotions.style.bottom = StyleKeyword.Auto;
             // ПОЛОВИНА зазора (Илья 28.08: «слишком много — сократи в 2 раза»):
@@ -1098,7 +1077,7 @@ namespace Lvn.UI.Screens
                 chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
                 chip.style.fontSize = 19;
                 LvnChrome.Round(chip, 22f);
-                Smooth(chip, 180, "background-color", "color");
+                Smooth(chip, LvnMotion.Normal, "background-color", "color");
                 _emotions.Add(chip);
             }
             StyleEmotions();
@@ -1176,28 +1155,13 @@ namespace Lvn.UI.Screens
         // ── лента карточек: второй руль карусели ─────────────────────────────
         /// <summary>Сборный таб «Моё»: купленные скины со всех осей одной
         /// лентой. Публичен: камера хоста узнаёт его в SectionFocus (лёгкий
-        /// наезд вместо общего плана).</summary>
-        public const string AllTab = "__all__";
+        /// наезд вместо общего плана). Значение — из витрины гардероба: кадр
+        /// для этой вкладки выбирается там же.</summary>
+        public const string AllTab = LvnWardrobeStage.AllAxis;
 
         private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
             item == null || item.price <= 0
             || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, item.value));
-
-        // Кадр витрины по разделу (цифры Ильи 27.08): причёска и цвет — к
-        // голове, украшения — к шее, платья — к корпусу; «Все» — фигура
-        // целиком без зума.
-        private (float zoom, float anchorY) StripFraming(string axis)
-        {
-            if (axis == AllTab) return (1.07f, 0.5f); // лёгкий зум (Илья 28.08)
-            var k = (axis ?? "").ToLowerInvariant();
-            if (IsHairAxis(k)) return (1.60f, 0.35f);
-            // Украшения показывают КРОП-ИКОНКИ (вырезаны по содержимому при
-            // импорте) — зум витрины им не нужен, Contain даёт ожерелье во
-            // всю плитку без мыла.
-            if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
-                || k.Contains("acc")) return (1f, 0.5f);
-            return (1.55f, 0.60f); // платье/наряд
-        }
 
         // animate=false — ЛЕНТА УЖЕ НА ЭКРАНЕ и просто пересобирается после
         // примерки (тап по свотчу цвета, тап по карточке в «Моё»): проигрывать
@@ -1275,7 +1239,7 @@ namespace Lvn.UI.Screens
             // ЗУМ ВИТРИНЫ ПО РАЗДЕЛУ (Илья 27.08): причёска кадрируется к
             // голове, украшения — к шее, платье — к корпусу; «Все» — фигура
             // целиком. Элемент больше карточки, карточка клипует излишек.
-            var (zoom, ay) = StripFraming(axis);
+            var (zoom, ay) = LvnWardrobeStage.Framing(axis);
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
             art.style.width = Length.Percent(zoom * 100f);
@@ -1659,7 +1623,7 @@ namespace Lvn.UI.Screens
             {
                 _confirm.SetEnabled(true);
                 RefreshConfirm();
-            }).ExecuteLater(1800);
+            }).ExecuteLater(LvnMotion.Ms(LvnMotion.NoticeLong));
         }
 
         private static IEnumerable<string> ToPairs<T>(IReadOnlyDictionary<string, T> map)
