@@ -56,6 +56,32 @@ namespace Lvn.UI
             return el;
         }
 
+        /// <summary>ЗНАЧОК ВАЛЮТЫ — один на всю оболочку. Кошелёк показывают
+        /// минимум три места (строка состояния, магазин, гардероб), и пока
+        /// каждое решало само, гардероб писал «13 060 crystals» словом там, где
+        /// строка состояния рисовала кристалл: одна и та же валюта выглядела
+        /// двумя разными вещами. Имя валюты придумывает автор новеллы, поэтому
+        /// узнаём по смыслу, а незнакомое считаем самоцветом.</summary>
+        public static LvnIcon ForCurrency(string currency)
+        {
+            var c = (currency ?? "").ToLowerInvariant();
+            if (c.Contains("energy") || c.Contains("stamina") || c.Contains("энерг")) return LvnIcon.Energy;
+            if (c.Contains("crystal") || c.Contains("gem") || c.Contains("кристалл")) return LvnIcon.Gem;
+            if (c.Contains("gold") || c.Contains("coin") || c.Contains("золот") || c.Contains("монет")) return LvnIcon.Coin;
+            if (c.Contains("ticket") || c.Contains("key") || c.Contains("ключ")) return LvnIcon.Key;
+            if (c.Contains("heart") || c.Contains("серд")) return LvnIcon.Heart;
+            return LvnIcon.Gem;   // незнакомая валюта — всё-таки ценность
+        }
+
+        /// <summary>Цвет значка валюты: энергия — акцентом темы, всё
+        /// ценное — золотом.</summary>
+        public static Color CurrencyColor(string currency)
+            => ForCurrency(currency) == LvnIcon.Energy ? LvnTokens.Accent : LvnTokens.Gold;
+
+        /// <summary>Готовый значок валюты нужного размера.</summary>
+        public static VisualElement MakeCurrency(string currency, float size)
+            => Make(ForCurrency(currency), size, CurrencyColor(currency), 0f, LvnTheme.Current.IconGlow);
+
         /// <summary>Рисует иконку в уже существующем элементе — когда размер
         /// задаёт раскладка, а не мы.</summary>
         public static void Paint(VisualElement el, LvnIcon icon, Color color,

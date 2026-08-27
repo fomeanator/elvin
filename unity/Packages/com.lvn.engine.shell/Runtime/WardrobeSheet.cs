@@ -363,8 +363,40 @@ namespace Lvn.UI.Screens
             _confirm.style.paddingTop = 14;
             _confirm.style.paddingBottom = 14;
             SkinButton(_confirm, true);
+            // Цена стоит НА кнопке, поэтому подпись у кнопки составная: слово,
+            // число и значок валюты. Собственный text у Button остаётся пустым —
+            // иначе он рисовался бы поверх строки.
+            _confirmRow = new VisualElement { pickingMode = PickingMode.Ignore };
+            _confirmRow.style.flexDirection = FlexDirection.Row;
+            _confirmRow.style.justifyContent = Justify.Center;
+            _confirmRow.style.alignItems = Align.Center;
+            _confirmRow.style.flexGrow = 1;
+            _confirmLabel = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
+            _confirmLabel.style.fontSize = 28;
+            _confirmRow.Add(_confirmLabel);
+            _confirm.Add(_confirmRow);
             actions.Add(_confirm);
         }
+
+        private VisualElement _confirmRow;
+        private Label _confirmLabel;
+        private VisualElement _confirmCoin;
+
+        /// <summary>Подпись кнопки подтверждения. <paramref name="currency"/> —
+        /// валюта цены: её значок встаёт справа от числа вместо служебного имени
+        /// («Купить: 20 crystals» игроку ничего не говорит).</summary>
+        private void SetConfirmText(string text, string currency = null)
+        {
+            if (_confirmLabel == null) { _confirm.text = text; return; }
+            _confirmLabel.text = text;
+            if (_confirmCoin != null) { _confirmCoin.RemoveFromHierarchy(); _confirmCoin = null; }
+            if (string.IsNullOrEmpty(currency)) return;
+            _confirmCoin = LvnIcons.MakeCurrency(currency, 26f);
+            _confirmCoin.style.marginLeft = 8;
+            _confirmRow.Add(_confirmCoin);
+        }
+
+        private string ConfirmText => _confirmLabel != null ? _confirmLabel.text : _confirm.text;
 
         public void SetManifest(LvnManifest manifest) => _manifest = manifest;
 
@@ -510,7 +542,18 @@ namespace Lvn.UI.Screens
                     pill.Add(icon);
                     LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, iconUrl, _assets), "AssignBg");
                 }
-                var label = new Label(amount.ToString("N0") + (iconUrl == null ? " " + cur : ""));
+                else
+                {
+                    // Своей картинки у валюты нет — берём тот же вектор, которым
+                    // кошелёк подписан в строке состояния. Раньше здесь вместо
+                    // значка стояло служебное имя валюты («13 060 crystals»):
+                    // единственное место в оболочке, где игроку показывали её
+                    // внутренний идентификатор.
+                    var icon = LvnIcons.MakeCurrency(cur, 24f);
+                    icon.style.marginRight = 6;
+                    pill.Add(icon);
+                }
+                var label = new Label(amount.ToString("N0"));
                 label.style.color = _text;
                 label.style.fontSize = 22;
                 pill.Add(label);
@@ -1461,21 +1504,26 @@ namespace Lvn.UI.Screens
 
             if (item != null)
             {
-                var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
-                _confirm.text = $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {cur}";
+                // Слово вместо значка — только если новелла сама его назвала
+                // (currency_label). Иначе игрок читал внутренний идентификатор.
+                bool named = !string.IsNullOrEmpty(_cfg.currency_label);
+                SetConfirmText(named
+                        ? $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {_cfg.currency_label}"
+                        : $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0}",
+                    named ? null : item.currency);
                 Debug.Log($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
-            else _confirm.text = _cfg.confirm_text ?? "Choose";
+            else SetConfirmText(_cfg.confirm_text ?? "Choose");
         }
 
         internal async Task ConfirmAsync()
         {
             if (_buying) return;
             _buying = true;
-            var label = _confirm.text;
+            var label = ConfirmText;
             _confirm.SetEnabled(false);
-            _confirm.text = "…";
+            SetConfirmText("…");
             try
             {
                 // Re-sync the wallet FIRST: ownership decisions below must run
@@ -1526,8 +1574,8 @@ namespace Lvn.UI.Screens
             finally
             {
                 _buying = false;
-                if (_confirm.enabledSelf == false && _confirm.text == "…")
-                { _confirm.SetEnabled(true); _confirm.text = label; }
+                if (_confirm.enabledSelf == false && ConfirmText == "…")
+                { _confirm.SetEnabled(true); SetConfirmText(label); }
             }
         }
 
@@ -1551,9 +1599,12 @@ namespace Lvn.UI.Screens
                 return;
             }
 
-            var cur = string.IsNullOrEmpty(_cfg.currency_label) ? item.currency : _cfg.currency_label;
+            // В попапе значок не нарисуешь — но и служебное имя валюты
+            // показывать нельзя: без названного currency_label остаётся цена.
             string title = _cfg.insufficient_text ?? "Not enough";
-            string msg = $"{title}: {item.price:N0} {cur}";
+            string msg = string.IsNullOrEmpty(_cfg.currency_label)
+                ? $"{title}: {item.price:N0}"
+                : $"{title}: {item.price:N0} {_cfg.currency_label}";
 
             // Offer the store and retry once — same pattern as the chapter/title
             // entry gates. Falls back to just flashing the reason on the button
@@ -1574,7 +1625,7 @@ namespace Lvn.UI.Screens
             }
 
             // No popup hooks wired — fall back to flashing the reason on the button.
-            _confirm.text = msg;
+            SetConfirmText(msg);
             _confirm.schedule.Execute(() =>
             {
                 _confirm.SetEnabled(true);
