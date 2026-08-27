@@ -166,17 +166,11 @@ namespace Lvn.UI.Screens
         // countdown to the next refill; otherwise just the amount.
         private void ApplyPillValue(Pill p, string currency, long amount)
         {
+            p.Label.text = LvnWallet.Display(currency);
             if (LvnWallet.Regen.TryGetValue(currency, out var r)
                 && r.Cap > 0 && amount < r.Cap && r.NextRefillUnix > 0)
-            {
-                p.Label.text = amount + "/" + r.Cap;
                 UpdateTimer(p, r.NextRefillUnix);
-            }
-            else
-            {
-                p.Label.text = amount.ToString("N0");
-                if (p.Timer != null) p.Timer.style.display = DisplayStyle.None;
-            }
+            else if (p.Timer != null) p.Timer.style.display = DisplayStyle.None;
         }
 
         private void UpdateTimer(Pill p, long nextRefillUnix)

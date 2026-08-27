@@ -45,6 +45,24 @@ namespace Lvn.Services
             public bool Full => NextRefillUnix <= 0 || Balance >= Cap;
         }
 
+        /// <summary>
+        /// КАК ПОКАЗАТЬ БАЛАНС ИГРОКУ. Обычная валюта — просто число с
+        /// разрядами; восполняемая (энергия) — «есть/предел», пока она ниже
+        /// потолка: игроку важно не сколько у него энергии, а сколько до
+        /// полного бака.
+        ///
+        /// <para>Правило простое, и именно поэтому оно было написано четырьмя
+        /// разными способами в четырёх экранах — строка кошелька выглядела
+        /// чуть по-разному в зависимости от того, где на неё смотреть.</para>
+        /// </summary>
+        public static string Display(string currency)
+        {
+            long amount = Balances.TryGetValue(currency ?? "", out var b) ? b : 0;
+            return Regen.TryGetValue(currency ?? "", out var r) && r.Cap > 0 && amount < r.Cap
+                ? amount + "/" + r.Cap
+                : amount.ToString("N0");
+        }
+
         /// <summary>Raised whenever the mirrored state changes.</summary>
         public static event Action Changed;
 
