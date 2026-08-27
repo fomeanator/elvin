@@ -1635,7 +1635,7 @@ namespace Lvn.Content
             int at = url.IndexOf("/content/", StringComparison.Ordinal);
             if (at < 0) return null;
             var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
-            var baseRel = rel.Replace("@2k", "").Replace("@1440", "").Replace("@1k", "");
+            var baseRel = DownloadPolicy.StripVariant(rel);
             string hit = _seedIndex.Contains(rel) ? rel
                 : _seedIndex.Contains(baseRel) ? baseRel : null;
             if (hit == null) return null;

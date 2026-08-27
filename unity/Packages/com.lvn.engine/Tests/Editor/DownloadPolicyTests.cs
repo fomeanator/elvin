@@ -59,6 +59,23 @@ namespace Lvn.Tests
             Assert.IsFalse(DownloadPolicy.WarmToMemory(AssetClass.Audio));
         }
 
+        // «Это тот же самый арт?» спрашивают сид, дисковый кэш и выгрузка
+        // главы. Перечень суффиксов, размазанный по вызовам, однажды разъедется
+        // с тем, что реально кодирует сервер.
+        [Test]
+        public void StripVariant_BringsEveryEncodeBackToTheOriginal()
+        {
+            Assert.AreEqual("/content/bg/x.jpg", DownloadPolicy.StripVariant("/content/bg/x@2k.jpg"));
+            Assert.AreEqual("/content/bg/x.jpg", DownloadPolicy.StripVariant("/content/bg/x@1440.jpg"));
+            Assert.AreEqual("/content/bg/x.jpg", DownloadPolicy.StripVariant("/content/bg/x@1k.jpg"));
+            Assert.AreEqual("/content/art/a.png", DownloadPolicy.StripVariant("/content/art/a@mini.png"));
+            Assert.AreEqual("/content/bg/x.jpg", DownloadPolicy.StripVariant("/content/bg/x.jpg"),
+                "исходник остаётся собой");
+            Assert.IsNull(DownloadPolicy.StripVariant(null));
+            CollectionAssert.Contains(DownloadPolicy.Variants, DownloadPolicy.PreferredSuffix,
+                "бокс показа обязан быть среди известных вариантов — иначе кэш не узнает свой же файл");
+        }
+
         [Test]
         public void NeededAtBoot_ExcludesChapterScopedArt()
         {
