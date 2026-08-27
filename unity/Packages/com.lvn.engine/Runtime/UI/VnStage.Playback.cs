@@ -340,7 +340,7 @@ namespace Lvn.UI
             _fx?.ClearBlur(0f);
             _backlog.Clear();
             _prefetched.Clear(); // the next chapter/load re-warms from scratch
-            SetChromeHidden(false); // never carry a hidden UI across a reset
+            ShowChromeAll(); // скрытый интерфейс не переживает сцену, что бы его ни держало
             StopSkip();             // fast-forward dies with the scene it was skipping
             _awaitingTap = false;
             _awaitingWait = false;

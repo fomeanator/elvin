@@ -194,7 +194,8 @@ namespace Lvn.UI
         private void ApplyCutscene(JObject cmd)
         {
             bool on = !(BoolOr(cmd["off"], false) || !BoolOr(cmd["on"], true));
-            SetChromeHidden(on);
+            if (on) HideChrome(LvnScreenDirector.CutsceneReason);
+            else ShowChrome(LvnScreenDirector.CutsceneReason);
 
             // Наезд — необязательная часть: `cutscene on=1 zoom=1.12 dur=3`.
             var zoom = NumOrNull(cmd["zoom"]);

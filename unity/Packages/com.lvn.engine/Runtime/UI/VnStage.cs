@@ -774,7 +774,8 @@ namespace Lvn.UI
             PanelPeeking = on;
             if (_panelHost != null)
                 _panelHost.style.visibility = on ? Visibility.Hidden : Visibility.Visible;
-            SetChromeHidden(on);
+            if (on) HideChrome(LvnScreenDirector.PeekReason);
+            else ShowChrome(LvnScreenDirector.PeekReason);
         }
     }
 }

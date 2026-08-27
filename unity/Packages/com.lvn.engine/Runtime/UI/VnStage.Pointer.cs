@@ -38,8 +38,35 @@ namespace Lvn.UI
         /// the host mirrors it onto its own HUD.</summary>
         public event Action<bool> ChromeHiddenChanged;
 
-        internal void SetChromeHidden(bool hidden)
+        /// <summary>Просьба убрать интерфейс, с ПРИЧИНОЙ. Решает Режиссёр
+        /// (LvnScreenDirector): интерфейс скрыт, пока держит хоть одна причина,
+        /// и своя отмена не снимает чужую — катсцена не кончается оттого, что
+        /// игрок отпустил палец.</summary>
+        internal void HideChrome(string reason)
         {
+            LvnScreenDirector.Current.HideChrome(reason);
+            ApplyChromeVisibility();
+        }
+
+        /// <summary>Причина отпала. Интерфейс вернётся, только если держать его
+        /// больше некому.</summary>
+        internal void ShowChrome(string reason)
+        {
+            LvnScreenDirector.Current.ShowChrome(reason);
+            ApplyChromeVisibility();
+        }
+
+        /// <summary>Снять все причины — сцену убрали, скрытый интерфейс не
+        /// имеет права пережить главу, в которой его спрятали.</summary>
+        internal void ShowChromeAll()
+        {
+            LvnScreenDirector.Current.ShowChromeAll();
+            ApplyChromeVisibility();
+        }
+
+        private void ApplyChromeVisibility()
+        {
+            bool hidden = LvnScreenDirector.Current.ChromeHidden;
             if (_chromeHidden == hidden) return;
             _chromeHidden = hidden;
             var vis = hidden ? Visibility.Hidden : Visibility.Visible;
@@ -90,7 +117,7 @@ namespace Lvn.UI
                 {
                     if (!_pressTracking || _dragId != null) return;
                     _suppressTap = true;      // this press is an art view, not a tap
-                    SetChromeHidden(true);
+                    HideChrome(LvnScreenDirector.ArtViewReason);
                 });
                 _longPress?.ExecuteLater(LongPressMs);
             }
@@ -114,7 +141,15 @@ namespace Lvn.UI
             _dragCandidate = null;
 
             if (_dragId != null) { DragEnd(evt.position); return; }
-            if (_chromeHidden) { SetChromeHidden(false); return; } // release restores, swallows the tap
+            // Отпустили палец: снимаем ТОЛЬКО свою причину. Если интерфейс
+            // держит ещё и катсцена или «во весь рост» — он остаётся скрытым,
+            // а касание всё равно съедается (игрок разглядывал арт).
+            if (_chromeHidden)
+            {
+                bool mine = LvnScreenDirector.Current.HiddenBecause(LvnScreenDirector.ArtViewReason);
+                ShowChrome(LvnScreenDirector.ArtViewReason);
+                if (mine) return;
+            }
             if (!wasTracking || _suppressTap) return;
             if (Skipping) { StopSkip(); return; } // a tap during fast-forward just stops it
             HandleTap(evt.position);
@@ -128,7 +163,7 @@ namespace Lvn.UI
             _dragCandidate = null;
             if (_dragId != null) DragEnd(_pressPos);
             _longPress?.Pause();
-            SetChromeHidden(false);
+            ShowChrome(LvnScreenDirector.ArtViewReason);
         }
 
         // Диагностика проглоченных касаний: «ничего не тыкается» на устройстве
