@@ -687,10 +687,20 @@ namespace Lvn.UI.Screens
             }
 
             // The hero must OPEN the sheet already dressed from THIS sheet: an
-            // axis whose worn value isn't among the scene's items previews its
-            // FIRST item right away, for every axis — not just the active tab.
-            // Otherwise she stands in last chapter's (possibly retired) outfit
-            // until the player taps that tab, and the swap lands as a jump.
+            // axis whose worn value isn't among the scene's items puts on its
+            // first OWNED item right away, for every axis — not just the active
+            // tab. Otherwise she stands in last chapter's (possibly retired)
+            // outfit until the player taps that tab, and the swap lands as a jump.
+            //
+            // Это ОДЕВАНИЕ, а не примерка, и потому три условия. Надетым
+            // считается и дефолт каталога — иначе у игрока, который ещё ничего
+            // не выбирал, «надето» пусто, и лист переодевал героиню при каждом
+            // открытии. Берётся первый предмет, которым игрок ВЛАДЕЕТ: молча
+            // надевать неоплаченное нельзя. И пишется в надетое, а не в
+            // превью — превью означает «есть что подтвердить», из-за чего
+            // «Выбрать» и «Отменить» горели всегда, хотя игрок ничего не
+            // трогал (живой скрин 27.08; в APK, где героиня уже одета из
+            // листа, они честно гасли).
             foreach (var kv in _def.wardrobe)
             {
                 var axis = kv.Key;
@@ -698,14 +708,24 @@ namespace Lvn.UI.Screens
                 if (items.Count == 0) continue;
                 LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var worn);
                 if (worn == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out worn);
+                if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(axis, out worn);
+                // Съёмный слот без дефолта (украшения): «ничего не надето» —
+                // это и есть пункт «Нет», а не пробел, который надо заполнить.
+                if (worn == null && items.Count > 0 && items[0].value == LvnWardrobe.NoneValue)
+                    worn = LvnWardrobe.NoneValue;
                 bool inList = false;
                 foreach (var it in items)
                     if (it.value == worn) { inList = true; break; }
-                if (!inList)
-                {
-                    _index[axis] = 0;
-                    LvnWardrobe.Preview(_entity, axis, items[0].value);
-                }
+                if (inList) continue;
+                int owned = -1;
+                for (int n = 0; n < items.Count && owned < 0; n++)
+                    if (IsOwnedIn(axis, items[n])) owned = n;
+                if (owned < 0) continue; // всё платное — пусть остаётся как есть
+                _index[axis] = owned;
+                Debug.Log($"[lvn-wardrobe] лист одевает {_entity}.{axis}: '{worn ?? "-"}' не из этого листа → '{items[owned].value}'");
+                LvnWardrobe.Equip(_entity, axis, items[owned].value);
+                if (!string.IsNullOrEmpty(kv.Value?.storyVar))
+                    OnEquip?.Invoke(_entity, kv.Value.storyVar, items[owned].value);
             }
 
             RebuildEmotions();
@@ -1139,9 +1159,12 @@ namespace Lvn.UI.Screens
             }
             if (!_index.ContainsKey(_tab))
             {
-                // start the carousel on what's worn (previewed beats equipped)
+                // start the carousel on what's worn (previewed beats equipped;
+                // ничего не выбирали — надет дефолт каталога, и карусель должна
+                // открыться на нём, иначе показ примеряет чужое)
                 LvnWardrobe.Previewed(_entity).TryGetValue(_tab, out var current);
                 if (current == null) LvnWardrobe.Equipped(_entity).TryGetValue(_tab, out current);
+                if (current == null && _def?.defaults != null) _def.defaults.TryGetValue(_tab, out current);
                 int at = 0;
                 for (int i = 0; i < items.Count; i++) if (items[i].value == current) { at = i; break; }
                 _index[_tab] = at;
@@ -1485,10 +1508,16 @@ namespace Lvn.UI.Screens
                 if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
                 LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out var worn);
                 if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out worn);
+                // «Ничего не надето» и примерка пункта «Нет» — одно состояние:
+                // подтверждать в нём нечего, и кнопки не должны оживать.
+                if (Bare(kv.Value) && Bare(worn)) continue;
                 if (kv.Value != worn) return true;
             }
             return false;
         }
+
+        private static bool Bare(string value)
+            => string.IsNullOrEmpty(value) || value == LvnWardrobe.NoneValue;
 
         private void RefreshConfirm()
         {
