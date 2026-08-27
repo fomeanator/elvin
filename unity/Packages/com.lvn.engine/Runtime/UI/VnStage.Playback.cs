@@ -355,7 +355,6 @@ namespace Lvn.UI
             _placements.Clear();
             _actorCmds.Clear();
             _actorTargets.Clear();
-            _clock.Reset(); // барьеры и дорожки прошлой сцены
             _spokenIds.Clear();
             _soloHidden.Clear();
             _dragId = null;
