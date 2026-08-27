@@ -354,9 +354,7 @@ namespace Lvn.UI.Screens
                 tab.style.paddingLeft = 18; tab.style.paddingRight = 18;
                 tab.style.paddingTop = 9; tab.style.paddingBottom = 9;
                 tab.style.unityTextAlign = TextAnchor.MiddleCenter;
-                LvnChrome.Round(tab, 20f);
-                tab.style.backgroundColor = active ? LvnTokens.Accent : LvnTokens.Faint;
-                tab.style.color = active ? LvnTokens.OnAccent : LvnTokens.Text;
+                LvnStyler.Choice(tab, active, 20f);
                 if (active) tab.style.unityFontStyleAndWeight = FontStyle.Bold;
 
                 tab.AddManipulator(new Clickable(() =>

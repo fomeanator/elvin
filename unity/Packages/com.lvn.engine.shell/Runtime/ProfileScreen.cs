@@ -319,18 +319,12 @@ namespace Lvn.UI.Screens
             int next = XpNext > 0 ? XpNext : 1;
             float frac = Mathf.Clamp01((float)Xp / next);
 
-            var track = new VisualElement();
-            track.style.height = 16;
-            track.style.backgroundColor = LvnTokens.SurfaceHi;
-            LvnChrome.Round(track, 8f);
-            track.style.overflow = Overflow.Hidden;
+            var track = LvnStyler.Track(new VisualElement(), 16f, LvnTokens.SurfaceHi);
             col.Add(track);
 
-            var fill = new VisualElement();
+            var fill = LvnStyler.Fill(new VisualElement(), 8f);
             fill.style.height = 16;
             fill.style.width = Length.Percent(frac * 100f);
-            fill.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.Round(fill, 8f);
             track.Add(fill);
 
             var xpLabel = new Label($"{Xp:N0} / {next:N0} XP");
@@ -489,17 +483,12 @@ namespace Lvn.UI.Screens
             head.Add(pct);
 
             var track = new VisualElement();
-            track.style.height = 14;
-            track.style.backgroundColor = LvnTokens.SurfaceHi;
-            LvnChrome.Round(track, 7f);
-            track.style.overflow = Overflow.Hidden;
+            LvnStyler.Track(track, 14f, LvnTokens.SurfaceHi);
             row.Add(track);
 
-            var fill = new VisualElement();
+            var fill = LvnStyler.Fill(new VisualElement(), 7f);
             fill.style.height = 14;
             fill.style.width = Length.Percent(r.Affection * 100f);
-            fill.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.Round(fill, 7f);
             track.Add(fill);
 
             return row;

@@ -320,8 +320,7 @@ namespace Lvn.UI.Screens
 
         private static void StyleTab(Button b, bool active)
         {
-            b.style.color = active ? LvnTokens.OnAccent : LvnTokens.TextDim;
-            b.style.backgroundColor = active ? LvnTokens.Accent : LvnTokens.Faint;
+            LvnStyler.Choice(b, active);
             b.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
         }
 
