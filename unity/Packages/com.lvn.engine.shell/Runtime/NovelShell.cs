@@ -329,6 +329,7 @@ namespace Lvn.UI.Screens
             ScreenUi.Stretch(tabsLayer);
             var popupLayer = new VisualElement { name = "lvn-layer-popups", pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(popupLayer);
+            _tabsLayer = tabsLayer; _popupLayer = popupLayer;
             void Reparent(VisualElement el, VisualElement layer)
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
             WardrobeTab = new WardrobeTabScreen(_manifest, _assets);
@@ -369,8 +370,8 @@ namespace Lvn.UI.Screens
             // TabReset: глава всегда возвращает ленту на «Главную» — стартовая
             // четверть полотна (pan 0.35 в ShowMenuScene) обязана совпадать с
             // фактической вкладкой после выхода из главы.
-            OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
-            OnChapterSessionEnd += () => { Lvn.UI.LvnScreenDirector.Current.LeaveChapter(); TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
+            OnChapterSessionStart += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.EnterChapter(); TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
+            OnChapterSessionEnd += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.LeaveChapter(); TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
             Lvn.Services.LvnWallet.Changed -= OnWalletPills;
             Lvn.Services.LvnWallet.Changed += OnWalletPills;
 
@@ -481,6 +482,32 @@ namespace Lvn.UI.Screens
         /// возвращает по выходу в меню.</summary>
         public Action OnChapterSessionStart;
         public Action OnChapterSessionEnd;
+
+        /// <summary>
+        /// УБРАТЬ ИНТЕРФЕЙС МЕНЮ С КАДРА на время ухода в створ. Героиня
+        /// растворяется на живой сцене, и кнопки поверх неё превратили бы уход
+        /// в «экран закрылся». Уходит всё, что стоит между игроком и сценой:
+        /// лента, навбар, кружок загрузок и слои страниц с попапами — «играть»
+        /// жмут с открытой карточки новеллы, и переход играл бы ЗА ней.
+        /// </summary>
+        public void HideMenuChrome()
+        {
+            if (Hub != null) Hub.style.display = DisplayStyle.None;
+            if (TopBar != null) TopBar.style.display = DisplayStyle.None;
+            if (DownloadHud != null) DownloadHud.style.display = DisplayStyle.None;
+            if (_tabsLayer != null) _tabsLayer.style.display = DisplayStyle.None;
+            if (_popupLayer != null) _popupLayer.style.display = DisplayStyle.None;
+        }
+
+        public void ShowMenuChrome()
+        {
+            if (TopBar != null) TopBar.style.display = DisplayStyle.Flex;
+            if (DownloadHud != null) DownloadHud.style.display = DisplayStyle.Flex;
+            if (_tabsLayer != null) _tabsLayer.style.display = DisplayStyle.Flex;
+            if (_popupLayer != null) _popupLayer.style.display = DisplayStyle.Flex;
+        }
+
+        private VisualElement _tabsLayer, _popupLayer;
 
         /// <summary>Игрок пошёл в главу: хост доигрывает уход в створ на сцене
         /// и только потом отдаёт кадр главе.</summary>
