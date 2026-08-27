@@ -54,7 +54,7 @@ partial-файлами с общим именем: искать нужное п�
 
 | Класс | Файлы |
 |---|---|
-| `NovelApp` | `.Menu` витрина, `.Chapter` вход в главу, `.Wardrobe` два входа в лист, `.Storage` мегабайты, `.Music` трек меню |
+| `NovelApp` | `.Menu` витрина, `.Chapter` вход в главу, `.Wardrobe` два входа в лист, `.Storage` мегабайты, `.Music` трек меню, `.Player` профиль и кошелёк игрока, `.State` переменные и сейвы |
 | `NovelShell` | `.Navigation` вкладки и модалки, `.Flow` главный цикл игры |
 | `WardrobeSheet` | `.Buy` выбор и покупка, `.Strip` витрина и колонка эмоций |
 | `StageMenu` | `.Saves`, `.Gallery` (галерея и история), `.Stats`, `.Settings` |
