@@ -323,9 +323,7 @@ namespace Lvn.UI.Screens
                 LvnChrome.Edge(pill);
                 LvnChrome.Round(pill, compact ? 21f : 23f);
 
-                bool energy = cur == "energy";
-                var ic = LvnIcons.Make(energy ? LvnIcon.Energy : LvnIcon.Gem, compact ? 19f : 20f,
-                    energy ? LvnTokens.Accent : LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
+                var ic = LvnIcons.MakeCurrency(cur, compact ? 19f : 20f);
                 ic.pickingMode = PickingMode.Ignore;
                 ic.style.marginRight = 6;
                 pill.Add(ic);
