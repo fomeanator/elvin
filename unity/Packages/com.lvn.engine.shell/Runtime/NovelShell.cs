@@ -91,7 +91,10 @@ namespace Lvn.UI.Screens
 
 
 
-        private bool _inChapter; // «назад» в игре принадлежит сцене, не ленте
+        // «Идёт ли глава» знал каждый файл своей копией; теперь это ОДНА
+        // правда Режиссёра, а здесь — окно в неё («назад» в игре принадлежит
+        // сцене, не ленте).
+        private bool _inChapter => Lvn.UI.LvnScreenDirector.Current.InChapter;
 
 
         /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>
@@ -352,11 +355,15 @@ namespace Lvn.UI.Screens
             // строки (морф попапа растёт из центра).
             TopBar = new Lvn.UI.Screens.LvnTopBar();
             Add(TopBar);
+            // Приложение поднимается — экран чист. Режиссёр статический, и в
+            // редакторе Stop→Play его память переживает прогон: без сброса
+            // «глава идёт» досталась бы в наследство от прошлого запуска.
+            Lvn.UI.LvnScreenDirector.Current.Reset();
             // TabReset: глава всегда возвращает ленту на «Главную» — стартовая
             // четверть полотна (pan 0.35 в ShowMenuScene) обязана совпадать с
             // фактической вкладкой после выхода из главы.
-            OnChapterSessionStart += () => { _inChapter = true; TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
-            OnChapterSessionEnd += () => { _inChapter = false; TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
+            OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
+            OnChapterSessionEnd += () => { Lvn.UI.LvnScreenDirector.Current.LeaveChapter(); TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
             Lvn.Services.LvnWallet.Changed -= OnWalletPills;
             Lvn.Services.LvnWallet.Changed += OnWalletPills;
 

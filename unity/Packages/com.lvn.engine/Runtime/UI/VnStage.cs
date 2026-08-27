@@ -150,17 +150,21 @@ namespace Lvn.UI
         private void Update()
         {
             if (!_built) Build();
-            // The platform BACK (Android back = Escape in Unity): close the
-            // TOPMOST surface — the story panel (wardrobe…) first, then the
-            // quick menu. The reader itself never exits on back. Модаль
-            // оболочки поверх сцены (магазин из гейта) забирает «назад» себе —
-            // см. LvnModalGuard.
-            if (Input.GetKeyDown(KeyCode.Escape) && !LvnModalGuard.AnyOpen)
+            // The platform BACK (Android back = Escape in Unity): closes the
+            // TOPMOST surface. Кто именно наверху — не дело сцены: у неё была
+            // своя лесенка условий, а теперь есть Режиссёр. Сама сцена никогда
+            // не выходит из главы по «назад», а модаль оболочки (магазин из
+            // гейта) забирает «назад» себе — её стек ведёт NovelShell.
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (_panelHost != null && _panelHost.IsOpen)
-                    PanelCancelRequested?.Invoke();
-                else if (_menu != null && _menu.IsOpen)
-                    _menu.Close();
+                // Кто наверху — знает Режиссёр; сцена лишь исполняет «назад»
+                // для СВОИХ поверхностей. Модаль оболочки наверху — «назад»
+                // её, и сцена молчит.
+                switch (LvnScreenDirector.Current.BackTarget)
+                {
+                    case LvnScreenDirector.StoryPanel: PanelCancelRequested?.Invoke(); break;
+                    case LvnScreenDirector.QuickMenu: _menu?.Close(); break;
+                }
             }
             // [lvn-perf] frame-hitch watchdog: any frame past 150 ms is a felt
             // freeze — log it with the in-flight spine work so a hitch can be

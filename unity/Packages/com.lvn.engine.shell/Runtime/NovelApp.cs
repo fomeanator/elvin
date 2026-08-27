@@ -504,10 +504,10 @@ namespace Lvn.UI.Screens
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
                 Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
-                _shell.OnChapterSessionStart += () => { _chapterPlaying = true; _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
+                _shell.OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
-                    _chapterPlaying = false;
+                    Lvn.UI.LvnScreenDirector.Current.LeaveChapter();
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
                 };
                 LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
@@ -1202,7 +1202,8 @@ namespace Lvn.UI.Screens
             finally { ctx.Resume(); }
         }
 
-        private bool _chapterPlaying;
+        // Окно в Режиссёра: своей копии режима у приложения больше нет.
+        private bool _chapterPlaying => Lvn.UI.LvnScreenDirector.Current.InChapter;
 
 
 

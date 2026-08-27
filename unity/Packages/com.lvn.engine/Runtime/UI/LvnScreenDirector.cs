@@ -51,6 +51,13 @@ namespace Lvn.UI
             Note();
         }
 
+        /// <summary>Поставить режим булевым — так его отдают хосты, у которых
+        /// на руках уже есть ответ «идёт ли глава».</summary>
+        public void SetChapter(bool inChapter)
+        {
+            if (inChapter) EnterChapter(); else LeaveChapter();
+        }
+
         // ── скрытие интерфейса: по причинам, а не флагом ──────────────────────
 
         private readonly HashSet<string> _hidden = new HashSet<string>(StringComparer.Ordinal);
@@ -120,15 +127,29 @@ namespace Lvn.UI
         public bool IsOpen(string surface)
             => !string.IsNullOrEmpty(surface) && _stack.Contains(surface);
 
+        /// <summary>Открыта ли поверхность, принадлежащая СЦЕНЕ (лист истории,
+        /// квик-меню). Отдельно от <see cref="AnyOpen"/> намеренно: сценная
+        /// поверхность — часть главы, она держит ввод сцены и подавляет декор
+        /// оболочки; модаль оболочки (магазин, попап) идёт ПОВЕРХ всего и
+        /// баблики валют не прячет — иначе магазин скрывает то, что продаёт.</summary>
+        public bool SceneSurfaceOpen => IsOpen(StoryPanel) || IsOpen(QuickMenu);
+
         /// <summary>Что закрывает «назад»: верхняя поверхность, а если экран
         /// чист — null (сцена сама решает, что значит назад в главе).</summary>
         public string BackTarget => Top;
 
-        /// <summary>Забыть всё: смена главы, пересборка панели. Скрытый
-        /// интерфейс и открытые поверхности прошлой сцены не переносятся.</summary>
+        /// <summary>Забыть всё: приложение поднимается заново. Режим, скрытый
+        /// интерфейс и открытые поверхности прошлого запуска не переносятся.
+        ///
+        /// <para>Зовётся при сборке оболочки, и это НЕ перестраховка: режиссёр
+        /// статический, а в редакторе Stop→Play при выключенном Domain Reload
+        /// статику не трогает. Без сброса «глава идёт» пережила бы прошлый
+        /// прогон, и меню не поставилось бы — те, кто читает режим, увидели бы
+        /// главу там, где её нет.</para></summary>
         public void Reset()
         {
-            bool had = _hidden.Count > 0 || _stack.Count > 0;
+            bool had = InChapter || _hidden.Count > 0 || _stack.Count > 0;
+            InChapter = false;
             _hidden.Clear();
             _stack.Clear();
             if (had) Note();
