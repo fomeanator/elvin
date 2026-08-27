@@ -224,6 +224,10 @@ namespace Lvn.Tests
 
             public void OnEnd() => Stops.Add(new Stop { Kind = StopKind.End });
 
+            // Подписанная дверь: заглушке различать отправителей незачем —
+            // она просто записывает команду, как и раньше.
+            public void ApplyStage(JObject c, Lvn.LvnSender sender) => ApplyStage(c);
+
             public void ApplyStage(JObject c)
             {
                 Staged.Add(c);

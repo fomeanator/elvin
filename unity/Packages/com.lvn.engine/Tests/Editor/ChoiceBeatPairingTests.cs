@@ -22,6 +22,9 @@ namespace Lvn.Tests
             public readonly List<string> Events = new List<string>();
             public void ShowSay(string who, string text, string style) => Events.Add("say:" + text);
             public void ShowChoice(IReadOnlyList<LvnOption> options) => Events.Add("choice");
+            public void ApplyStage(Newtonsoft.Json.Linq.JObject command, Lvn.LvnSender sender)
+                => ApplyStage(command);
+
             public void ApplyStage(Newtonsoft.Json.Linq.JObject command) { }
             public void OnEnd() { }
         }

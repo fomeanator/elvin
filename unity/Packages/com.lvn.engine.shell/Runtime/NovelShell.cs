@@ -114,8 +114,6 @@ namespace Lvn.UI.Screens
 
         private VisualElement _atmosphere;
         private bool _sceneMenu; // меню рисуется сценой: оболочка прозрачна
-        /// <summary>Кукла героини поверх полотна меню (все вкладки).</summary>
-        public Lvn.UI.Screens.MenuHeroine MenuHeroineView;
         /// <summary>Вкладка гардероба — UI вокруг общей героини.</summary>
         public WardrobeTabScreen WardrobeTab;
 
@@ -173,13 +171,11 @@ namespace Lvn.UI.Screens
             else LvnBackdrop.Apply(_atmosphere, t);
             _root.Insert(0, _atmosphere);
 
-            // Героиня — НЕПОДВИЖНЫЙ передний план меню: полотно и контент едут,
-            // она стоит (слой между полотном и вкладками).
-            if (!sceneMenu)
-            {
-                MenuHeroineView = new Lvn.UI.Screens.MenuHeroine(_manifest, _assets);
-                _root.Insert(1, MenuHeroineView);
-            }
+            // ГЕРОИНЮ РИСУЕТ СЦЕНА — ВСЕГДА И ТОЛЬКО ОНА. Здесь стояла вторая
+            // кукла: те же слои, собранные оболочкой в UI-элементе. Двух
+            // реализаций одного человека хватало, чтобы каждый вопрос «почему
+            // она такая» начинался с «а кто её сейчас рисует», и чтобы всякая
+            // правка делалась дважды. Фигура одна, дом у неё один (VnStage).
             // ВИДИМОСТЬ ПО ПРАВИЛУ «виден экран меню», а не «нет главы»:
             // гардероб из хаба прячет хаб и живёт в документе СЦЕНЫ — атмосфера
             // с событийной подпиской оставалась поверх и заслоняла его целиком
@@ -193,10 +189,6 @@ namespace Lvn.UI.Screens
                     (Hub != null && Hub.style.display == DisplayStyle.Flex);
                 var want = menuVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 if (_atmosphere.style.display != want) _atmosphere.style.display = want;
-                // Героиня — часть меню-полотна: живёт и гаснет вместе с ним
-                // (иначе кукла торчала бы поверх сцены в игре).
-                if (MenuHeroineView != null && MenuHeroineView.HasEntity)
-                    MenuHeroineView.style.display = want;
             }).Every(100);
 
             // Параллакс: постоянный медленный дрейф (фон ЖИВЁТ сам), плюс

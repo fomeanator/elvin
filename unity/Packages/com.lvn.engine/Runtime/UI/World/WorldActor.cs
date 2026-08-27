@@ -120,13 +120,86 @@ namespace Lvn.UI.World
         /// чинит такое пересборкой облика; см. VnStage.HealDeadActors.</summary>
         public bool HasDeadLayers()
         {
+            // ПОГАШЕННЫЙ СЛОЙ — ВСЁ ЕЩЁ БОЛЬНОЙ. Гашение убирает пятно с
+            // экрана, но выключенный Image перестаёт попадать в проверку ниже
+            // (она смотрит на enabled), и Лекарь считал фигуру здоровой — а
+            // героини на экране не было вовсе: погасили пять слоёв и не
+            // пересобрали ни одного (живой лог Ильи 28.08). Гашение обязано
+            // ЗВАТЬ лечение, а не заменять его.
+            if (_hushed.Count > 0) return true;
             foreach (var pair in _layers)
             {
                 var img = pair.Value;
                 if (img == null) continue;
-                if (img.enabled && img.sprite == null) return true;
+                // Спрайт может пережить свою ТЕКСТУРУ: выгружается атлас, а
+                // ссылка на спрайт остаётся живой. Рисуется при этом ровно тот
+                // же сплошной прямоугольник, поэтому смотрим до конца.
+                if (img.enabled && (img.sprite == null || img.sprite.texture == null)) return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// НЕЧЕМ РИСОВАТЬ — НЕ РИСУЕМ. Image без спрайта заливает свой
+        /// прямоугольник сплошным цветом: белым в кадре, серым под вуалью
+        /// перехода — «серый спрайт при выходе из новеллы» (Илья 28.08).
+        ///
+        /// <para>Это не сокрытие поломки: слой, потерявший спрайт, ПУСТ, и
+        /// честно нарисовать пустоту значит не рисовать ничего. Сама поломка
+        /// никуда не девается — тем же признаком её видит Лекарь, пишет в
+        /// журнал и пересобирает облик. Разница в том, кто это видит: лог или
+        /// игрок.</para>
+        ///
+        /// <para>Возвращает, сколько слоёв пришлось погасить.</para>
+        /// </summary>
+        public int HideDeadLayers()
+        {
+            int hushed = 0;
+            foreach (var pair in _layers)
+            {
+                var img = pair.Value;
+                if (img == null || !img.enabled) continue;
+                if (img.sprite != null && img.sprite.texture != null) continue;
+                img.enabled = false;
+                _hushed.Add(pair.Key);   // помним: этот слой ждёт лечения
+                hushed++;
+            }
+            return hushed;
+        }
+
+        /// <summary>Слои, погашенные за неимением картинки. Пока список не
+        /// пуст, фигура НЕ ЦЕЛА, сколько бы живых слоёв на ней ни осталось.</summary>
+        private readonly System.Collections.Generic.HashSet<string> _hushed
+            = new System.Collections.Generic.HashSet<string>();
+
+        /// <summary>Что на фигуре надето — спрайты живых слоёв. Кладовщик
+        /// закрепляет их заново, когда фигуру показали без пересборки.</summary>
+        public System.Collections.Generic.List<Sprite> Sprites()
+        {
+            System.Collections.Generic.List<Sprite> list = null;
+            foreach (var pair in _layers)
+            {
+                var img = pair.Value;
+                if (img == null || img.sprite == null) continue;
+                (list ??= new System.Collections.Generic.List<Sprite>()).Add(img.sprite);
+            }
+            return list;
+        }
+
+        /// <summary>Фигура ЦЕЛА: слои на месте и каждому есть чем рисовать.
+        /// Показать такую — значит включить её, а не собирать заново.</summary>
+        public bool ArtAlive()
+        {
+            if (_hushed.Count > 0) return false;   // дырявую фигуру не показываем как есть
+            bool any = false;
+            foreach (var pair in _layers)
+            {
+                var img = pair.Value;
+                if (img == null) continue;
+                if (img.sprite == null || img.sprite.texture == null) return false;
+                any = true;
+            }
+            return any;
         }
 
         /// <summary>Return from the flat transition visual to live animated layers.</summary>
@@ -194,10 +267,27 @@ namespace Lvn.UI.World
             // перестраивала канвас и кормила сборщик мусора. Это и есть те
             // микрозадержки на показе и скрытии.
             var signature = VisualSignature(sprites, layerIds, layerRects, layerDefs);
-            if (signature == _signature && _rig.childCount > 0) return;
+            if (signature == _signature && _rig.childCount > 0)
+            {
+                // ТОТ ЖЕ ОБЛИК, НО СЛОИ МОГЛИ БЫТЬ ПОГАШЕНЫ. Слой, потерявший
+                // спрайт, замолкает (HideDeadLayers), и если спрайт вернулся —
+                // а сюда мы попали именно потому, что набор прежний, — его
+                // нужно снова дать рисовать. Иначе фигура осталась бы навсегда
+                // с дырой вместо погашенного слоя.
+                foreach (var pair in _layers)
+                {
+                    var img0 = pair.Value;
+                    if (img0 == null || img0.enabled) continue;
+                    if (img0.sprite == null || img0.sprite.texture == null) continue;
+                    img0.enabled = true;
+                    _hushed.Remove(pair.Key);   // слой вернулся — он больше не болен
+                }
+                return;
+            }
             _signature = signature;
             for (int i = _rig.childCount - 1; i >= 0; i--) Destroy(_rig.GetChild(i).gameObject);
             _layers.Clear(); _baseSprite.Clear(); _bones.Clear();
+            _hushed.Clear();   // фигуру собирают заново — прежние жалобы неактуальны
             if (sprites == null) { _signature = 0; return; }
             // A layer is a bone when it has bone data OR when someone attaches to it.
             HashSet<string> boneParents = null;

@@ -65,6 +65,15 @@ wait ms=400
 The beam catches the dust in the air.
 blur alpha=0 duration=0.4
 
+// ─── Портал: СЛОЙ сцены, а не эффект кадра ───
+// Створ рисуется между фоном и актёрами — поэтому Ида стоит ПЕРЕД ним, и он
+// может её забрать. Постэффекту такое не под силу: он живёт на камере и
+// работает с кадром, где она уже нарисована.
+portal open=0.3 x=0.72 y=0.52 radius=0.28 color="#7ad7ff" dur=0.5
+The air folds where the light thickens.
+portal open=1 dur=0.7
+portal open=0 dur=0.8
+
 // ─── Animation: one property per lane, so these three play at once ───
 anim id=ida prop=rotation keys="0:-3 1:3 2:-3" loop=yoyo ease=inOutSine
 anim ida scale to=1.04 dur=0.6 ease=outBack

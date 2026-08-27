@@ -53,6 +53,7 @@ namespace Lvn.Tests
             { "tint", "{\"op\":\"tint\",\"color\":\"red\",\"alpha\":0.3}" },
             { "flash", "{\"op\":\"flash\",\"color\":\"white\"}" },
             { "blur", "{\"op\":\"blur\",\"alpha\":0.4}" },
+            { "portal", "{\"op\":\"portal\",\"open\":1,\"radius\":0.3,\"dur\":0}" },
             { "camera", "{\"op\":\"camera\",\"action\":\"shake\",\"amplitude\":2}" },
             { "particles", "{\"op\":\"particles\",\"type\":\"rain\",\"on\":true}" },
             { "anim", "{\"op\":\"anim\",\"id\":\"a\",\"anim\":\"wave\"}" },
@@ -83,6 +84,10 @@ namespace Lvn.Tests
 
             public void ShowSay(string who, string text, string style) => Lines.Add(text);
             public void ShowChoice(IReadOnlyList<LvnOption> options) => ChoiceShown = true;
+            // Подписанная дверь: заглушке различать отправителей незачем —
+            // она просто записывает команду, как и раньше.
+            public void ApplyStage(JObject command, Lvn.LvnSender sender) => ApplyStage(command);
+
             public void ApplyStage(JObject command) => Forwarded.Add(command);
             public void OnEnd() => Ended = true;
         }

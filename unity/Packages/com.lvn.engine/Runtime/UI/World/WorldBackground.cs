@@ -49,9 +49,42 @@ namespace Lvn.UI.World
             _tile = null; _tilePx = 0f;
             _tex = sprite.texture;
             _image.texture = _tex;
-            _image.color = Color.white;
+            _wantsArt = true;
+            _image.enabled = true;   // картинка приехала — полотну снова есть чем рисовать
             _panGen++; _panX = 0.5f; // новый фон = центр, прежний пан отменён
             UpdateCover();
+            // ПЕРВАЯ КАРТИНКА ТОЖЕ ПРИХОДИТ ПЕРЕХОДОМ. Кроссфейд умеет только
+            // «из прежнего кадра в новый», а когда прежнего нет — картинка
+            // вставала щелчком: пустое полотно, и вдруг мир. Именно так
+            // выглядит опоздавшая загрузка («фона нет… а позже появляется» —
+            // Илья 27.08): чёрная витрина, затем хлопок. Проявление из черноты
+            // читается как включение света, а не как сбой.
+            if (crossfadeSeconds > 0.01f && !hadArt) FadeIn(crossfadeSeconds);
+            else { _fadeGen++; _image.color = Color.white; }
+        }
+
+        // Проявление полотна: своё поколение, чтобы следующая постановка
+        // (цвет, плитка, живая текстура) обрывала начатое, а не спорила с ним.
+        private int _fadeGen;
+
+        private void FadeIn(float seconds)
+        {
+            int gen = ++_fadeGen;
+            _image.color = new Color(1f, 1f, 1f, 0f);
+            Lvn.LvnAsync.Fire(FadeInAsync(gen, seconds), "BgFadeIn");
+        }
+
+        private async Task FadeInAsync(int gen, float seconds)
+        {
+            float started = Time.unscaledTime;
+            while (gen == _fadeGen && _image != null)
+            {
+                float t = Mathf.Clamp01((Time.unscaledTime - started) / seconds);
+                _image.color = new Color(1f, 1f, 1f, t * t * (3f - 2f * t));
+                if (t >= 1f) break;
+                await Task.Yield();
+            }
+            if (gen == _fadeGen && _image != null) _image.color = Color.white;
         }
 
         // ── пан по фону ──────────────────────────────────────────────────────
@@ -117,6 +150,9 @@ namespace Lvn.UI.World
 
         public void SetColor(Color color)
         {
+            _fadeGen++;   // начатое проявление отменено: полотно теперь цвет
+            _wantsArt = false;       // цвет — это намерение, а не потерянная картинка
+            _image.enabled = true;
             _tile = null; _tilePx = 0f;
             _tex = null;
             _image.texture = null;
@@ -131,6 +167,9 @@ namespace Lvn.UI.World
         public void SetTile(Texture tex, float tilePx)
         {
             if (tex == null) return;
+            _fadeGen++;   // плитка встаёт сразу — проявление к ней не относится
+            _wantsArt = true;
+            _image.enabled = true;
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Bilinear;
             _tex = null;
@@ -148,6 +187,9 @@ namespace Lvn.UI.World
         /// a 3D set. Passing null hands the background back to flat art.</summary>
         public void SetLiveTexture(Texture tex)
         {
+            _fadeGen++;   // кадр 3D-набора ставится как есть
+            _wantsArt = tex != null;
+            _image.enabled = true;
             _tile = null; _tilePx = 0f;
             _tex = null; // skip cover-crop: the frame is already the right shape
             _image.texture = tex;
@@ -164,6 +206,31 @@ namespace Lvn.UI.World
         /// «фон стоит». Флаг у сцены может врать: команда, применённая до
         /// рождения рендерера, ничего не рисует.</summary>
         public bool HasArt => _image != null && _image.texture != null;
+
+        /// <summary>
+        /// ПОЛОТНУ НЕЧЕМ РИСОВАТЬ — ПУСТЬ НЕ РИСУЕТ.
+        ///
+        /// <para>RawImage без текстуры заливает кадр своим цветом, а после
+        /// первой постановки цвет белый: выгруженная из-под живой картинки
+        /// текстура превращается в белое пятно во весь экран, под затемнением
+        /// катсцены — в «серый экран». Поломку это не прячет: тем же признаком
+        /// её видит Лекарь, пишет в журнал и ставит фон заново. Пятно перестаёт
+        /// быть тем, что видит игрок, и остаётся тем, что видит лог.</para>
+        ///
+        /// <para>Цвет БЕЗ картинки (SetColor — чёрная заливка сцены) — это не
+        /// беда, а намерение: гасим только то, что осталось без обещанной
+        /// картинки.</para>
+        /// </summary>
+        public bool HushIfBlank()
+        {
+            if (_image == null || !_image.enabled) return false;
+            if (_image.texture != null || !_wantsArt) return false;
+            _image.enabled = false;
+            return true;
+        }
+
+        // Полотну ОБЕЩАНА картинка (спрайт или плитка), а не просто цвет.
+        private bool _wantsArt;
 
         public bool IsBlankWhite =>
             _image != null && _image.texture == null && _image.color.maxColorComponent > 0.5f;

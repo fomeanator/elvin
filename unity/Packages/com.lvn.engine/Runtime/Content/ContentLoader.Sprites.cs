@@ -9,46 +9,22 @@ using UnityEngine.Networking;
 namespace Lvn.Content
 {
     /// <summary>
-    /// СПРАЙТЫ В ПАМЯТИ — часть <see cref="ContentLoader"/>: декод в текстуру,
-    /// кэш с бюджетом, пины и вытеснение.
+    /// ОТ БАЙТОВ К КАРТИНКЕ — декод в текстуру и сборка спрайта.
     ///
-    /// <para>Самая дорогая часть загрузчика: не байты с диска, а живые
-    /// текстуры, которых на телефоне помещается ограниченное число. Здесь
-    /// решается, что держать и что отпустить, — и здесь же ловится «арт
-    /// пропал» и «памяти нет».</para>
+    /// <para>Самое дорогое место загрузчика по времени: JPEG в две тысячи
+    /// пикселей декодится дольше секунды, поэтому декод уходит на рабочие
+    /// потоки, ограничен по числу одновременных и делится между теми, кто
+    /// попросил один и тот же адрес, — иначе гонка оставляет за собой лишние
+    /// текстуры.</para>
+    ///
+    /// <para>Сколько всего этого держать в памяти и что вытеснять — другая
+    /// тема и другой дом: <c>ContentLoader.SpriteCache.cs</c>.</para>
     /// </summary>
     public sealed partial class ContentLoader
     {
         private readonly Dictionary<string, SpriteEntry> _spriteCache = new();
 
         private readonly Dictionary<string, Task<Sprite>> _decoding = new();
-
-        private static void TuneBudgetForDevice()
-        {
-            if (_budgetTuned) return;
-            _budgetTuned = true;
-            int mb = SystemInfo.systemMemorySize;
-            if (mb <= 0) return; // тесты/неизвестное устройство — дефолт
-            long b = ((long)mb << 20) / 6;
-            long clamped = Math.Max(96L << 20, Math.Min(384L << 20, b));
-            if (clamped != SpriteCacheBudgetBytes)
-            {
-                SpriteCacheBudgetBytes = clamped;
-                Debug.Log($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
-            }
-        }
-
-        // Система кричит «мало памяти» — сбрасываем незапиненный декод до
-        // половины бюджета, невзирая на grace. Диск-кэш цел: всё вернётся
-        // ре-декодом по мере надобности. Раньше сигнал не слушался вовсе.
-        private void OnLowMemory()
-        {
-            List<SpriteEntry> victims;
-            lock (_spriteCache)
-                victims = EvictToLocked(SpriteCacheBudgetBytes / 2, graceSeconds: 0f);
-            foreach (var v in victims) DestroySprite(v.Sprite);
-            Debug.LogWarning($"[content] lowMemory: сброшено {victims.Count} спрайтов, живо {_spriteBytes >> 20} МБ");
-        }
 
         // When the version index changes (a live content update), any in-memory sprite
         // whose content hash moved is stale — the memory cache is url-keyed, so it would
@@ -256,179 +232,5 @@ namespace Lvn.Content
             }
         }
 
-        // Inserts a freshly decoded sprite into the cache, evicting over-budget
-        // entries. Shared by every DecodeSpriteAsync path (ASTC and PNG/JPG) so
-        // LRU accounting and eviction stay in exactly one place.
-        private Sprite CacheSprite(string url, Sprite sprite, long bytes)
-        {
-            // Честная бухгалтерия вместо оценок вызывающих: w*h*4 не считал
-            // мип-цепочку (+33% у всего крупного арта), а KTX2-путь записывал
-            // размер ФАЙЛА вместо транскода в видеопамяти (×5 недоучёт).
-            // Профайлер знает настоящий размер текстуры в рантайме.
-            var tex = sprite != null ? sprite.texture : null;
-            if (tex != null)
-            {
-                long honest = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
-                if (honest > 0) bytes = honest;
-            }
-            List<SpriteEntry> victims;
-            lock (_spriteCache)
-            {
-                var e = new SpriteEntry { Sprite = sprite, Bytes = bytes };
-                Touch(e);
-                _spriteCache[url] = e;
-                _spriteBytes += e.Bytes;
-                victims = EvictToLocked(SpriteCacheBudgetBytes, SpriteEvictionGraceSeconds);
-            }
-            foreach (var v in victims) DestroySprite(v.Sprite);
-            return sprite;
-        }
-
-        private void Touch(SpriteEntry e)
-        {
-            e.Seq = ++_spriteSeq;
-            e.At = Time.realtimeSinceStartup;
-        }
-
-        // Must run under the _spriteCache lock. Returns the evicted entries so the
-        // caller destroys their textures OUTSIDE the lock.
-        private List<SpriteEntry> EvictToLocked(long budgetBytes, float graceSeconds)
-        {
-            var victims = new List<SpriteEntry>();
-            if (_spriteBytes <= budgetBytes) return victims;
-            float now = Time.realtimeSinceStartup;
-            foreach (var url in PickEvictions(
-                         SnapshotLocked(), budgetBytes, now, graceSeconds))
-            {
-                if (!_spriteCache.TryGetValue(url, out var e)) continue;
-                _spriteCache.Remove(url);
-                _spriteBytes -= e.Bytes;
-                victims.Add(e);
-            }
-            return victims;
-        }
-
-        private List<(string url, long bytes, long seq, float at, bool pinned)> SnapshotLocked()
-        {
-            var list = new List<(string, long, long, float, bool)>(_spriteCache.Count);
-            foreach (var kv in _spriteCache)
-                list.Add((kv.Key, kv.Value.Bytes, kv.Value.Seq, kv.Value.At, kv.Value.Pins > 0));
-            return list;
-        }
-
-        /// <summary>Pure eviction policy, exposed for tests: evict oldest-requested
-        /// first until the total fits the budget, skipping anything requested within
-        /// the grace window (it's very likely still on screen) or pinned (a live
-        /// consumer, e.g. a built Spine skeleton, still references its texture).</summary>
-        internal static List<string> PickEvictions(
-            List<(string url, long bytes, long seq, float at, bool pinned)> entries,
-            long budgetBytes, float now, float graceSeconds)
-        {
-            var evict = new List<string>();
-            long total = 0;
-            foreach (var e in entries) total += e.bytes;
-            if (total <= budgetBytes) return evict;
-            entries.Sort((a, b) => a.seq.CompareTo(b.seq)); // oldest request first
-            foreach (var e in entries)
-            {
-                if (total <= budgetBytes) break;
-                if (e.pinned) continue;                     // in use by a live skeleton — never evict
-                if (now - e.at < graceSeconds) continue;    // recently used — protected
-                evict.Add(e.url);
-                total -= e.bytes;
-            }
-            // Grace — вежливость, а не вето. Загрузка главы трогает ВСЁ за
-            // минуту, и «свежее не вытесняем» означало «бюджет не работает
-            // ровно тогда, когда нужен». Всё ещё над бюджетом — вытесняем и
-            // свежие (кроме запиненных), по-прежнему старейшие сначала.
-            if (total > budgetBytes)
-            {
-                foreach (var e in entries)
-                {
-                    if (total <= budgetBytes) break;
-                    if (e.pinned || evict.Contains(e.url)) continue;
-                    evict.Add(e.url);
-                    total -= e.bytes;
-                }
-            }
-            return evict;
-        }
-
-        /// <summary>Pin/unpin the cache entry backing <paramref name="sprite"/> so
-        /// the LRU never destroys a texture still in use by a live consumer — a
-        /// built Spine skeleton whose atlas/material references these page textures
-        /// (an evicted page turns the skeleton black/pink with no way to recover
-        /// short of a full rebuild). Balanced: each Pin(true) needs a Pin(false).
-        /// No-op if the sprite isn't cached (already gone / never went through here).</summary>
-        public void PinSprite(Sprite sprite, bool pinned)
-        {
-            if (sprite == null) return;
-            lock (_spriteCache)
-                foreach (var e in _spriteCache.Values)
-                    if (ReferenceEquals(e.Sprite, sprite))
-                    {
-                        e.Pins += pinned ? 1 : -1;
-                        if (e.Pins < 0) e.Pins = 0;
-                        return;
-                    }
-        }
-
-        /// <summary>Releases the in-memory sprite cached for a single url and
-        /// destroys its texture. Safe to call if the url was never loaded. The
-        /// disk cache is left intact (a later load re-decodes from disk).</summary>
-        public void Unload(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return;
-            SpriteEntry entry;
-            lock (_spriteCache)
-            {
-                if (!_spriteCache.TryGetValue(url, out entry)) return;
-                _spriteCache.Remove(url);
-                _spriteBytes -= entry.Bytes;
-            }
-            DestroySprite(entry.Sprite);
-        }
-
-        /// <summary>Releases every cached sprite whose url matches — e.g. a chapter's
-        /// art/backgrounds on chapter exit, keeping UI covers/skins warm.</summary>
-        public void UnloadWhere(Func<string, bool> match)
-        {
-            if (match == null) return;
-            var victims = new List<SpriteEntry>();
-            lock (_spriteCache)
-            {
-                var keys = new List<string>(_spriteCache.Keys);
-                foreach (var k in keys)
-                {
-                    if (!match(k)) continue;
-                    victims.Add(_spriteCache[k]);
-                    _spriteBytes -= _spriteCache[k].Bytes;
-                    _spriteCache.Remove(k);
-                }
-            }
-            foreach (var v in victims) DestroySprite(v.Sprite);
-        }
-
-        /// <summary>Releases every in-memory sprite and destroys its texture. Call
-        /// on a scene transition or app exit to free GPU memory. The disk cache is
-        /// untouched.</summary>
-        public void UnloadAll()
-        {
-            List<SpriteEntry> entries;
-            lock (_spriteCache)
-            {
-                entries = new List<SpriteEntry>(_spriteCache.Values);
-                _spriteCache.Clear();
-                _spriteBytes = 0;
-            }
-            foreach (var e in entries) DestroySprite(e.Sprite);
-        }
-
-        private static void DestroySprite(Sprite sprite)
-        {
-            if (sprite == null) return;
-            if (sprite.texture != null) UnityEngine.Object.Destroy(sprite.texture);
-            UnityEngine.Object.Destroy(sprite);
-        }
     }
 }

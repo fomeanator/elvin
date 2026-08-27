@@ -30,6 +30,11 @@ namespace Lvn
         /// </summary>
         void ApplyStage(JObject command);
 
+        /// <summary>Та же дверь, но С ПОДПИСЬЮ отправителя: спор за один
+        /// предмет разрешает Помреж — по старшинству, а не по тому, чей
+        /// <c>await</c> вернулся позже.</summary>
+        void ApplyStage(JObject command, LvnSender sender);
+
         /// <summary>
         /// Даёт сцене доступ к истории: чтение переменных и прыжок по метке.
         ///

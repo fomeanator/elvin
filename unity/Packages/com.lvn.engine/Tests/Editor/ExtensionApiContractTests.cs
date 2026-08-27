@@ -28,6 +28,10 @@ namespace Lvn.Tests
             public int Says, Ends;
             public void ShowSay(string who, string text, string style) => Says++;
             public void ShowChoice(IReadOnlyList<LvnOption> options) { }
+            // Подписанная дверь: заглушке различать отправителей незачем —
+            // она просто записывает команду, как и раньше.
+            public void ApplyStage(JObject command, Lvn.LvnSender sender) => ApplyStage(command);
+
             public void ApplyStage(JObject command) { }
             public void OnEnd() => Ends++;
         }

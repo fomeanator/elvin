@@ -150,7 +150,24 @@ namespace Lvn.UI.World
 
         private async System.Threading.Tasks.Task WatchdogAsync(int gen)
         {
-            await System.Threading.Tasks.Task.Delay(3000);
+            // ТЕКСТУРЫ МОГУТ УМЕРЕТЬ РАНЬШЕ СРОКА. Прокси рисует белой
+            // текстурой, а картинку даёт материал из текстур слоёв: заберёт их
+            // выгрузка — и на экране остаётся сплошной прямоугольник в форме
+            // фигуры (под вуалью перехода — серый). Ждать полных трёх секунд в
+            // этом случае значит показывать пятно всё это время, поэтому
+            // сторож просыпается чаще и проверяет, есть ли ещё чем рисовать.
+            for (int i = 0; i < 12; i++)
+            {
+                await System.Threading.Tasks.Task.Delay(250);
+                if (!_active || gen != _watchdogGen) return;
+                if (LayersLost())
+                {
+                    Debug.LogWarning($"[lvn-composite] {name}: у снимка отобрали текстуры "
+                                     + "— возвращаем сцену живым слоям");
+                    End();
+                    return;
+                }
+            }
             // Новый Begin завёл своего сторожа — этот отходит.
             if (_active && gen == _watchdogGen)
             {
@@ -158,6 +175,18 @@ namespace Lvn.UI.World
                                  + "— переход не вернул сцену живому ригу");
                 End();
             }
+        }
+
+        /// <summary>Осталось ли снимку чем рисовать: хоть один спрятанный слой
+        /// потерял спрайт или текстуру — значит и в материале её больше нет.</summary>
+        private bool LayersLost()
+        {
+            foreach (var im in _hidden)
+            {
+                if (im == null) return true;
+                if (im.sprite == null || im.sprite.texture == null) return true;
+            }
+            return false;
         }
 
         /// <summary>Reveal a newly configured look against the previous opaque

@@ -1,0 +1,288 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+namespace Lvn.UI
+{
+    /// <summary>
+    /// РАСПОРЯДИТЕЛЬ СЦЕНЫ — единственный, кто расчищает кадр под катсцену и
+    /// возвращает его истории.
+    ///
+    /// <para>Эту работу делали трое и по-разному: гардероб оставлял одного
+    /// своим способом, приход в главу — своим циклом по актёрам, уход в меню —
+    /// третьим. Каждый умел УБРАТЬ и никто — ВЕРНУТЬ, потому что возвращать
+    /// было нечем: сценарий свои команды уже отдал, а «кто стоял в кадре
+    /// минуту назад» не помнил никто.</para>
+    ///
+    /// <para>Отсюда три живых дефекта, и у каждого свой корень:</para>
+    /// <list type="bullet">
+    ///   <item><b>Агент пропадал на несколько ходов.</b> Его увели ради
+    ///   катсцены, а история про это не знает и заново ставить не собирается —
+    ///   пока сама не дойдёт до следующей своей команды о нём. Лечится тем, что
+    ///   уведённые ЗАПОМИНАЮТСЯ и возвращаются своей же авторской командой
+    ///   (<see cref="EndSolo"/>).</item>
+    ///   <item><b>Героиню рисовало на нём.</b> Расталкивали по списку ВИДИМЫХ,
+    ///   а показ актёра асинхронный: между командой и картинкой лежит загрузка
+    ///   слоёв. Кто был в этом промежутке — расталкивание не видело, и он
+    ///   всплывал уже посреди катсцены. Лечится списком
+    ///   <see cref="ActorsInFrame"/> — «кого зритель увидит через миг».</item>
+    ///   <item><b>Героиня на сером фоне.</b> Кадр катсцены брали как есть, со
+    ///   всеми следами главы: чужой вуалью, недогруженным фоном, оставшимся на
+    ///   героине шейдером из предыдущей сцены. Катсцене нужен ИЗВЕСТНЫЙ кадр, а
+    ///   не тот, в котором её застали.</item>
+    /// </list>
+    ///
+    /// <para>Правило одно: вернуть — значит переиграть авторскую команду, а не
+    /// придумать свою.</para>
+    /// </summary>
+    public sealed partial class VnStage
+    {
+        /// <summary>
+        /// КАДР ИСТОРИИ — то, что построил сценарий, записанное явно.
+        ///
+        /// <para>Раньше этого не было: состояние сцены существовало только как
+        /// след от последовательности команд, и после чужого вмешательства
+        /// (катсцена, витрина, гардероб) история переставала знать, каким она
+        /// оставила кадр. Возврат приходилось изобретать каждый раз заново —
+        /// «запомнить перед и вернуть после», — и каждый раз в нём чего-то не
+        /// хватало: то грима, то порядка слоя, то самой героини.</para>
+        ///
+        /// <para>Теперь кадр истории — данные (<see cref="LvnFrame"/>), и
+        /// вернуть его значит просто взять записанное. Пишет сюда только
+        /// история и её реплей: чужие команды меняют экран, но не то, каким
+        /// сценарий считает свой кадр.</para>
+        /// </summary>
+        public LvnFrame StoryFrame => Score.Layer(LvnSender.Story);
+
+        /// <summary>
+        /// ПАРТИТУРА — слои владения кадром: у истории свой, у катсцены,
+        /// гардероба и витрины — свои, поверх. Кадр на экране складывается из
+        /// них по старшинству, и «вернуть как было» перестаёт быть отдельной
+        /// работой: наложение закрывается, и кадр под ним проступает сам.
+        /// </summary>
+        public LvnStageScore Score { get; } = new LvnStageScore();
+
+        /// <summary>
+        /// ПРИМА — постоянная фигура сцены (героиня): та, что живёт дольше
+        /// главы и переходит из витрины в игру и обратно ОДНИМ человеком.
+        /// Ставившие её раньше собирали команду каждый по-своему; теперь она
+        /// принимает настройки, а команду знает одно место (<see cref="LvnPrima"/>).
+        /// </summary>
+        private LvnPrima _prima;
+        public LvnPrima Prima => _prima ??= new LvnPrima(this);
+
+        /// <summary>Что сейчас НА ЭКРАНЕ — по мнению сцены. Сравнивается с
+        /// партитурой, чтобы вернуть только разошедшееся: пересборка кадра
+        /// целиком теряет начатые переходы и перезагружает арт.</summary>
+        private readonly LvnFrame _onScreen = new LvnFrame();
+
+        /// <summary>
+        /// ПРИВЕСТИ ЭКРАН К ПАРТИТУРЕ. Единственный способ поменять состав
+        /// кадра: раньше это делали пятеро вразнобой, и каждый следующий
+        /// стирал следы предыдущего.
+        /// </summary>
+        public void Reconcile(string why)
+        {
+            var changes = Score.DiffAgainst(_onScreen);
+            if (changes.Count == 0) return;
+            LvnLog.Trace($"[lvn-frame] {why}: приводим кадр — {changes.Count} изменени(й)");
+
+            foreach (var ch in changes)
+            {
+                if (!ch.Show)
+                {
+                    HideActor(ch.Id, LvnSender.Story);
+                    _onScreen.Actors.TryGetValue(ch.Id, out var was);
+                    was.Visible = false;
+                    _onScreen.Actors[ch.Id] = was;
+                    continue;
+                }
+                if (ch.Pose == null) continue;      // показывать нечем — команды не было
+                var pose = (JObject)ch.Pose.DeepClone();
+                pose["show"] = true;
+                ApplyDispatch(pose, LvnSender.Story);
+                if (ch.Fx != null) ApplyDispatch((JObject)ch.Fx.DeepClone(), LvnSender.Story);
+                _onScreen.Actors[ch.Id] = new LvnFrame.Actor
+                {
+                    Pose = (JObject)ch.Pose.DeepClone(),
+                    Fx = ch.Fx == null ? null : (JObject)ch.Fx.DeepClone(),
+                    Visible = true,
+                };
+            }
+        }
+
+        /// <summary>Записать авторскую команду в кадр истории. Зовётся из
+        /// двери сцены — там же, где решается спор отправителей.</summary>
+        private void RememberInStoryFrame(JObject cmd, LvnSender sender)
+        {
+            if (LvnStageManager.Sticky(sender)) StoryFrame.Absorb(cmd);
+        }
+
+        /// <summary>Грим записывается в кадр истории вместе с позой — раньше он
+        /// жил отдельным словарём и терялся на каждом возврате: автор
+        /// показывает Агента тёмным силуэтом, а возвращался обычный человек в
+        /// белой рубашке.</summary>
+        private void RememberFx(JObject cmd) { }
+
+        /// <summary>Идёт ли катсцена: пока идёт, кадром распоряжается она.</summary>
+        public bool SoloActive { get; private set; }
+
+        /// <summary>Окно реплики сейчас на экране. Катсцене оно мешает, а
+        /// снаружи «висит ли карточка поверх ухода» иначе не спросить.</summary>
+        public bool DialogueOnScreen =>
+            _dialogue != null && _dialogue.style.display == UnityEngine.UIElements.DisplayStyle.Flex;
+
+        /// <summary>
+        /// РАСЧИСТИТЬ КАДР ПОД КАТСЦЕНУ: остаётся только <paramref name="keep"/>.
+        ///
+        /// <para>Уходят все, кто в кадре ИЛИ летит в него, — и каждый со своей
+        /// авторской командой в кармане, чтобы <see cref="EndSolo"/> вернул его
+        /// тем же самым: тот же наряд, та же эмоция, то же место.</para>
+        ///
+        /// <para><paramref name="clearFrame"/> снимает и следы главы на самом
+        /// кадре: окно реплики, эффекты кадра и шейдеры, оставшиеся на том, кто
+        /// остаётся. Катсцена должна начинаться с известного кадра.</para>
+        /// </summary>
+        public async Task BeginSoloAsync(string keep, bool clearFrame = true)
+        {
+            SoloActive = true;
+
+            // НАЛОЖЕНИЕ ВМЕСТО УВОДА. Раньше здесь шёл цикл по кадру: каждого
+            // спрятать и каждого запомнить, — а в конце катсцены столь же
+            // вручную вернуть. Список того, что надо не забыть, рос от бага к
+            // багу: сперва уведённых, потом остающуюся, потом её грим, потом
+            // порядок слоя. Теперь катсцена ОБЪЯВЛЯЕТ СВОЙ КАДР — «в нём только
+            // keep», — а кадр истории под наложением цел и проступит сам, когда
+            // наложение закроется. Возвращать нечего, значит и забыть нечего.
+            var mine = Score.Layer(LvnSender.Cutscene);
+            mine.Actors.Clear();
+            mine.Exclusive = true;
+            if (!string.IsNullOrEmpty(keep))
+                // Оставшегося катсцена не переставляет: позу и облик ему
+                // дополнит кадр под наложением.
+                mine.Actors[keep] = new LvnFrame.Actor { Visible = true };
+
+            var story = Score.Layer(LvnSender.Story);
+            LvnLog.Trace($"[lvn-solo] кадр катсцены: остаётся {keep ?? "-"}, "
+                       + $"под наложением история держит [{string.Join(", ", story.Visible())}], "
+                       + $"полотно={(BackdropHasArt ? "есть" : "ПУСТО")}");
+
+            Reconcile("катсцена началась");
+
+            if (clearFrame)
+            {
+                // Следы главы на самом кадре снимает по-прежнему катсцена: окно
+                // реплики, эффекты и занавес — это не состав кадра, а его
+                // покрытие, и слоями оно не описывается.
+                SetSayVisible(false);
+                ApplyStage(new JObject { ["op"] = "fx", ["off"] = 1 }, LvnSender.Cutscene);
+                ApplyStage(new JObject
+                {
+                    ["op"] = "fade", ["to"] = "clear", ["duration"] = 0f,
+                }, LvnSender.Cutscene);
+                if (!string.IsNullOrEmpty(keep))
+                    ApplyStage(new JObject { ["op"] = "sfx", ["id"] = keep, ["off"] = 1 }, LvnSender.Cutscene);
+            }
+
+            Commands.Hold("veil", LvnSender.Cutscene);
+            Commands.Hold("say", LvnSender.Cutscene);
+            await WaitForExitsAsync();
+        }
+
+        /// <summary>
+        /// КАТСЦЕНА КОНЧИЛАСЬ — наложение снимается, и кадр истории проступает
+        /// сам. Ни списка уведённых, ни ручного возврата: то, чего не стирали,
+        /// возвращать не нужно.
+        /// </summary>
+        public void EndSolo()
+        {
+            SoloActive = false;
+            Commands.ReleaseAll(LvnSender.Cutscene);
+            Score.Close(LvnSender.Cutscene);
+            Reconcile("катсцена кончилась");
+        }
+
+        /// <summary>Ждёт ли этого актёра история — стоит ли он в её слое.
+        /// Катсцена спрашивает перед тем, как увести героиню в конце: если
+        /// история её показывает, уводить незачем — наложение снимется, и она
+        /// останется стоять сама.</summary>
+        public bool SoloReturns(string id)
+            => !string.IsNullOrEmpty(id)
+               && Score.Layer(LvnSender.Story).Actors.TryGetValue(id, out var a) && a.Visible;
+
+        /// <summary>
+        /// ДОЖДАТЬСЯ, ПОКА У АКТЁРА ПОЯВИТСЯ АРТ.
+        ///
+        /// <para>Показ асинхронный: между командой и картинкой лежит загрузка
+        /// слоёв. Всё это время объект уже в кадре — пустой, — и любой эффект,
+        /// наложенный на него, играет по пустоте: растворение шумит на весь
+        /// экран, а когда кончается, остаётся белый прямоугольник, потому что
+        /// <c>Image</c> без спрайта заливает себя сплошняком (живая запись
+        /// Ильи, 27.08: шум → белое пятно → «бац», и она встала).</para>
+        ///
+        /// <para>Поэтому катсцена ждёт готовности, прежде чем играть приход.
+        /// Ожидание с потолком: если арт не приедет (сеть, битый адрес),
+        /// катсцена обязана доиграть без него — застрять она права не имеет.</para>
+        /// </summary>
+        public async Task WaitForActorArtAsync(string id, float timeoutSeconds = 2.5f)
+        {
+            if (string.IsNullOrEmpty(id) || !(_renderer is CanvasSceneRenderer csr)) return;
+            float until = Time.unscaledTime + Mathf.Max(0.1f, timeoutSeconds);
+            while (Time.unscaledTime < until)
+            {
+                bool pending = !ActorVisibleOrPending(id);
+                var dead = csr.ActorsWithDeadLayers();
+                bool empty = dead != null && dead.Contains(id);
+                if (!pending && !empty) return;      // арт на месте
+                await Task.Yield();
+            }
+            LvnLog.Trace($"[lvn-frame] {id}: арт не приехал за {timeoutSeconds:0.0}с — играем без него");
+        }
+
+        /// <summary>
+        /// ВИТРИНА МЕНЮ СТАВИТ КУКЛУ СВОИМ СЛОЕМ — и «в кадре только она».
+        ///
+        /// <para>Прежде витрина слала обычную команду актёра, и та смешивалась
+        /// с кадром истории: героиня выходила в главу стоящей по-менюшному, а
+        /// её поза оказывалась липкой. Слой снимает обе беды разом: пока меню
+        /// на экране, кадр её, а стоит его закрыть — история получает свой кадр
+        /// нетронутым.</para>
+        /// </summary>
+        public void ShowMenuDoll(string id, JObject pose)
+        {
+            if (string.IsNullOrEmpty(id) || pose == null) return;
+            var layer = Score.Layer(LvnSender.Menu);
+            layer.Actors.Clear();
+            layer.Exclusive = true;
+            layer.Actors[id] = new LvnFrame.Actor
+            {
+                Pose = (JObject)pose.DeepClone(),
+                Visible = true,
+            };
+            Reconcile("витрина ставит куклу");
+        }
+
+        /// <summary>Меню уходит — витрина снимает свой слой. Кадр главы, если
+        /// он под ним есть, проступает сам.</summary>
+        public void CloseMenuLayer()
+        {
+            if (!Score.HasLayer(LvnSender.Menu)) return;
+            Score.Close(LvnSender.Menu);
+            Reconcile("витрина закрылась");
+        }
+
+        /// <summary>Кадр уходит целиком (выход в меню, смена главы): наложение
+        /// снимается, но приводить нечего — сцену сейчас сменят.</summary>
+        public void DropSolo()
+        {
+            SoloActive = false;
+            Score.Close(LvnSender.Cutscene);
+            Commands.ReleaseAll(LvnSender.Cutscene);
+        }
+
+        /// </summary>
+        public const int SoloFrontZ = 100;
+    }
+}

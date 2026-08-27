@@ -111,7 +111,7 @@ namespace Lvn.UI.Screens
                 var bg = Lvn.UI.VnStage.LastSceneBgUrl;
                 if (!string.IsNullOrEmpty(bg))
                     stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                    { ["op"] = "bg", ["sprite_url"] = bg });
+                    { ["op"] = "bg", ["sprite_url"] = bg }, LvnSender.Wardrobe);
                 await ShowStorySheetAsync(entity,
                     onlySeen: _manifest?.ui?.wardrobe?.collection_only ?? true,
                     roster: BuildWardrobeRoster(entity));
@@ -205,15 +205,19 @@ namespace Lvn.UI.Screens
                     borrowed.Add(id);
             }
             NoteBorrowed(entity);
-            ++_storyActorSwitchGeneration; // invalidate a task from an older open
             _storySheet.OnCharacterPicked = (_, to) =>
             {
                 if (st == null) return;
                 NoteBorrowed(to);
-                int gen = ++_storyActorSwitchGeneration;
+                // ОТСТАВШИЙ ВЫБОР ОТМЕНЯЕТ САМА СЦЕНА — у неё для этого полоса
+                // Хронометриста (WardrobeFocusLane): игрок жмёт таблетки
+                // быстрее, чем грузятся слои, и приземлиться имеет право только
+                // самый новый показ. Здесь оболочке остаётся её собственная
+                // правда: открыт ли ещё лист и та ли на нём таблетка. Свой
+                // счётчик поколений тут был ВТОРОЙ реализацией того же правила
+                // — ровно тот случай, из-за которого и заводились роли.
                 LvnAsync.Fire(st.FocusWardrobeActorAsync(to,
-                    () => gen == _storyActorSwitchGeneration
-                          && _storySheet != null && _storySheet.CurrentEntity == to),
+                    () => _storySheet != null && _storySheet.CurrentEntity == to),
                     "FocusWardrobeActor");
             };
             // Engine invariant: before the wardrobe becomes visible, remove every
@@ -225,8 +229,12 @@ namespace Lvn.UI.Screens
             try { await done; }
             finally
             {
+                // ЛИСТ ЗАКРЫТ — КУКЛА ВОЗВРАЩАЕТСЯ ИСТОРИИ. Пока он был открыт,
+                // героиня принадлежала игроку: его примерку не вправе перебить
+                // ни реплика, ни витрина. Забыть отпустить — значит оставить
+                // историю без её же героя до истечения срока держания.
+                st.ReleaseWardrobeFocus();
                 OnWardrobeSection(null);                // глава продолжается общим планом
-                ++_storyActorSwitchGeneration;          // no late switch may show an old pill
                 var cur = _storySheet.CurrentEntity ?? entity;
                 if (!wasOn.Contains(cur))
                     await st.HideActorTemporarilyAndWaitAsync(cur);

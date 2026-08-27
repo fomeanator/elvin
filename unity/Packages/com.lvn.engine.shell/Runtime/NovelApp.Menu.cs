@@ -46,6 +46,19 @@ namespace Lvn.UI.Screens
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
         }
 
+        /// <summary>Полотно витрины греется, как только известен манифест.
+        /// Меню открывается всегда — им начинается запуск и им кончается каждая
+        /// глава, — а его фон качался и декодился по месту показа: витрина
+        /// стояла чёрной, героиня в ней уже была, картинка доезжала «позже»
+        /// (Илья 27.08). Одна известная картинка, прогретая заранее, снимает
+        /// это целиком.</summary>
+        private void WarmMenuCanvas()
+        {
+            var canvas = _manifest?.ui?.browse?.canvas;
+            if (Stage == null || string.IsNullOrEmpty(canvas)) return;
+            LvnAsync.Fire(Stage.WarmMenuCanvasAsync(canvas), "WarmMenuCanvas");
+        }
+
         /// <summary>
         /// ГЛАВА КОНЧИЛАСЬ — КАДР ПЕРЕХОДИТ МЕНЮ.
         ///
@@ -82,22 +95,10 @@ namespace Lvn.UI.Screens
             // тот, кто в него вернулся. Появиться одновременно значит смазать
             // оба события в одно мельтешение.
             LvnAsync.Fire(PlaceMenuHeroineSoonAsync(), "MenuHeroine");
-            return;
-
-            // Переставить, не переодевая: место — витрины, облик — из главы.
-            if (!string.IsNullOrEmpty(fav) && Stage.Restage(fav, new Newtonsoft.Json.Linq.JObject
-            {
-                ["position"] = "center",
-                ["width"] = LvnMenuStage.DollWidth,
-                ["height"] = LvnMenuStage.DollHeight,
-            }))
-            {
-                _menuSceneActor = fav;
-            }
         }
 
         /// <summary>Сколько длится возвращение: кроссфейд полотна меню.</summary>
-        private const float MenuReturnFadeSeconds = 1.5f;
+        private const float MenuReturnFadeSeconds = 0.5f;
 
         /// <summary>Пауза перед выходом героини — доля фейда фона. Мир должен
         /// успеть проступить.</summary>
@@ -108,26 +109,37 @@ namespace Lvn.UI.Screens
             await System.Threading.Tasks.Task.Delay(
                 (int)(MenuReturnFadeSeconds * MenuHeroineDelay * 1000f));
             if (_chapterPlaying) return;   // успели уйти обратно в главу
+            // КАТСЦЕНА УЖЕ МОГЛА ЕЁ ПОСТАВИТЬ. Возвращение из главы ставит куклу
+            // трижды: портал (по центру, перед всеми), эта отложенная
+            // перестановка и витрина меню. Каждая двигала её заново — героиня
+            // прыгала на месте, и это читалось как «их снова две». Стоит на
+            // своём месте — не трогаем.
+            var fav = MenuFavoriteEntity();
+            if (!string.IsNullOrEmpty(fav) && fav == _menuSceneActor
+                && Stage != null && Stage.ActorVisibleOrPending(fav))
+            {
+                LvnLog.Trace("[lvn-menu] героиня уже стоит — отложенную перестановку пропускаем");
+                return;
+            }
             PlaceMenuHeroine();
         }
 
         /// <summary>Героиня встаёт так, как стоит в меню: место — витрины,
-        /// облик — тот, с которым она пришла (Restage не переодевает).</summary>
-        private bool PlaceMenuHeroine()
+        /// облик — тот, с которым она пришла (Restage не переодевает).
+        /// <paramref name="z"/> задаётся только катсценами: там она обязана
+        /// стоять перед всеми, а не по старшинству рождения.</summary>
+        private bool PlaceMenuHeroine(int? z = null, LvnSender sender = LvnSender.Menu)
         {
             var fav = MenuFavoriteEntity();
             if (Stage == null || string.IsNullOrEmpty(fav)) return false;
-            var place = new Newtonsoft.Json.Linq.JObject
-            {
-                ["position"] = "center",
-                ["width"] = LvnMenuStage.DollWidth,
-                ["height"] = LvnMenuStage.DollHeight,
-            };
-            if (!Stage.Restage(fav, place))
-            {
-                place["op"] = "actor"; place["id"] = fav; place["show"] = true;
-                Stage.ApplyStage(place);
-            }
+            // ФИГУРА ОДНА, И НАСТРОЙКИ ЕЙ ШЛЮТ, А НЕ СОБИРАЮТ КОМАНДУ НА МЕСТЕ.
+            // Здесь стоял десяток полей — место, рамка витрины, порядок слоя, —
+            // и ровно такой же набор лежал ещё в трёх местах (две катсцены и
+            // гардероб). Разница в одном поле у одного из четырёх вызовов
+            // означала другого человека на экране; из этого и состояла неделя
+            // дефектов «героинь две / встаёт по-менюшному / рост скачет».
+            Stage.Prima.Cast(fav);
+            if (!Stage.Prima.Stand(sender, z)) return false;
             _menuSceneActor = fav;
             return true;
         }
@@ -154,13 +166,19 @@ namespace Lvn.UI.Screens
                     // полотно встаёт СРАЗУ на её точку, иначе первый же тик
                     // дёрнул бы его через полкадра.
                     ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                });
+                }, LvnSender.Menu);
                 _menuBgSet = true;
             }
             var fav = MenuFavoriteEntity();
+            // ГЕРОИНЯ ОДНА, И РИСУЕТ ЕЁ СЦЕНА. Рисовать её умели двое — сцена
+            // (актёр на канвасе, тот же, что в главе) и оболочка (своя кукла из
+            // тех же слоёв в UI-элементе), — и первым вопросом о любой её
+            // странности было «а кто её сейчас рисует». Второй реализации
+            // больше нет; здесь остаётся один хозяин и один путь.
             // Кукла меню живёт между главами — её арт не отпускаем на уборке
             // сцены, иначе выход из главы каждый раз ждёт перезагрузку слоёв.
-            Stage.KeepActorAlive = fav;
+            Stage.Prima.Cast(fav);
+            Stage.Prima.Keep();
             // Тот же фаворит уже стоит ИЛИ его показ в полёте — ничего не
             // слать: смену наряда сцена применяет сама (LvnWardrobe.Changed),
             // а повторная actor-команда только передёргивала куклу. Но если
@@ -171,25 +189,24 @@ namespace Lvn.UI.Screens
             // Через 1.5с (после входа куклы) перечислить сплошные светлые
             // поверхности сцены — охота на белый прямоугольник (26.08).
             LvnAsync.Fire(DumpSceneSoonAsync(), "DumpScene");
+            // ПОТОК КОМАНД — первое, что стоит спросить, когда «на экране не
+            // то»: кто просил, что приняли, что отклонили и кем занят предмет.
+            LvnLog.Trace(Stage.Commands.Journal());
+            // ЧТО ЧИНИЛОСЬ САМО — второе. Каждое лечение это дефект, которого
+            // игрок не увидел: пустой журнал значит, что сцена собралась как
+            // задумана, непустой — список настоящих поломок со счётчиками.
+            LvnLog.Trace(Stage.Healer.Journal());
             ShowMenuPortal();   // врата — часть главной, а не всплывающий эффект
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.
             if (!string.IsNullOrEmpty(_menuSceneActor) && _menuSceneActor != fav)
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
-            if (!string.IsNullOrEmpty(fav))
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                {
-                    ["op"] = "actor", ["id"] = fav, ["show"] = true,
-                    ["position"] = "center",
-                    // Рост куклы — настройка витрины, а не число на месте
-                    // (LvnMenuStage; ui.browse.doll_height). Y НЕ задавать:
-                    // якорь ног, 1 = низ (y=0.02 уводил за кадр).
-                    ["width"] = LvnMenuStage.DollWidth,
-                    ["height"] = LvnMenuStage.DollHeight,
-                });
-            _menuSceneActor = fav;
+                { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false }, LvnSender.Menu);
+            // Тем же путём, что и штатная постановка: рост и место куклы —
+            // настройки витрины, и знать их обязано ОДНО место. Здесь стояла
+            // вторая копия тех же полей, и расходились они молча.
+            if (!PlaceMenuHeroine()) _menuSceneActor = null;   // игра без героини
         }
 
         // Пан полотна по вкладкам: полотно ведёт ТИК UI-анимации
@@ -228,7 +245,7 @@ namespace Lvn.UI.Screens
             if (axis == null)
             {
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 });
+                { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 }, LvnSender.Menu);
                 return;
             }
             // target — куда в кадре кладём точку интереса (доли высоты экрана
@@ -248,40 +265,43 @@ namespace Lvn.UI.Screens
             float H = 1080f * Screen.height / Mathf.Max(1, Screen.width);
             float panY = (target - (focus - 0.5f) * z) * H;
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 });
+            { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 }, LvnSender.Menu);
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 });
+            { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 }, LvnSender.Menu);
         }
 
-        // СТРАЖ СЦЕНЫ МЕНЮ. Постановка полотна и куклы — это последовательность
-        // шагов, и любой из них может не доехать: оборвалась загрузка, уборка
-        // главы пришла следом, промахнулся флаг. Держать инвариант шагами
-        // хрупко («как-то хлипко» — Илья 26.08), поэтому раз в секунду сцена
-        // сверяется с фактом: мы в меню, канвас объявлен — значит полотно
-        // ОБЯЗАНО стоять. Нет — ставим заново. Кукла лечится своим стражем в
-        // VnStage; вместе они делают меню самовосстанавливающимся.
-        private void Update()
+        /// <summary>
+        /// НЕДУГ ВИТРИНЫ — «мы в меню, а полотна нет».
+        ///
+        /// <para>Постановка полотна и куклы — последовательность шагов, и любой
+        /// из них может не доехать: оборвалась загрузка, уборка главы пришла
+        /// следом, промахнулся флаг. Держать инвариант шагами хрупко («как-то
+        /// хлипко» — Илья 26.08), поэтому смотрим на ФАКТ КАРТИНКИ, а не на
+        /// флаг: флаг «фон стоит» врал, когда команда приходила до рождения
+        /// рендерера, и страж молчал вместе с ним.</para>
+        ///
+        /// <para>Свой таймер и своё терпение здесь больше не живут: и то и
+        /// другое — работа Лекаря, у которого этот недуг стоит рядом с
+        /// остальными и попадает в общий журнал. Терпение обязательно: крупный
+        /// канвас декодится ~0.6с, и лечить живую загрузку значит перебивать
+        /// её.</para>
+        /// </summary>
+        private void WatchMenuBackdrop()
         {
-            if (Stage == null || _chapterPlaying) return;
-            if (Time.unscaledTime < _nextMenuGuard) return;
-            _nextMenuGuard = Time.unscaledTime + LvnMenuStage.GuardPeriodSeconds;
-            if (string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)) return;
-            // ПО ФАКТУ КАРТИНКИ, А НЕ ПО ФЛАГУ: флаг «фон стоит» врал, когда
-            // команда приходила до рождения рендерера, и страж молчал вместе с
-            // ним. Смотрим на само полотно.
-            if (Stage.BackdropHasArt) { _menuBgMissingSince = 0f; return; }
-            // Даём постановке доехать (крупный канвас декодится ~0.6с) и только
-            // потом вмешиваемся — иначе страж перебивал бы живую загрузку.
-            if (_menuBgMissingSince <= 0f) { _menuBgMissingSince = Time.unscaledTime; return; }
-            if (Time.unscaledTime - _menuBgMissingSince < LvnMenuStage.GuardPatienceSeconds) return;
-            _menuBgMissingSince = 0f;
-            Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
-            _menuBgSet = false;
-            ShowMenuScene();
+            if (Stage == null) return;
+            Stage.Healer.Watch("полотно витрины",
+                () => !_chapterPlaying
+                      && !string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)
+                      && !Stage.BackdropHasArt,
+                () =>
+                {
+                    Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
+                    _menuBgSet = false;
+                    ShowMenuScene();
+                },
+                period: LvnMenuStage.GuardPeriodSeconds,
+                patience: LvnMenuStage.GuardPatienceSeconds);
         }
-
-        private float _nextMenuGuard;
-        private float _menuBgMissingSince;
 
         // Перечисление сплошных светлых поверхностей сцены — снасть охоты на
         // «белый прямоугольник вместо героини» (26.08). Держится в коде,
@@ -295,11 +315,13 @@ namespace Lvn.UI.Screens
             if (!_chapterPlaying) Stage?.DumpOpaqueGraphics();
         }
 
+        /// <summary>Витрина уходит с экрана — снимает свой слой. Не «прячет
+        /// куклу командой»: команда осталась бы в кадре главы чужой записью, а
+        /// снятый слой не оставляет следов вовсе.</summary>
         private void HideMenuSceneActor()
         {
-            if (Stage == null || string.IsNullOrEmpty(_menuSceneActor)) return;
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
+            if (Stage == null) return;
+            Stage.CloseMenuLayer();
             _menuSceneActor = null;
         }
 

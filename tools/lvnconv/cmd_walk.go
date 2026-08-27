@@ -44,7 +44,16 @@ type walkReport struct {
 	ForksTaken int    `json:"forks_taken"`
 	Paths      int    `json:"paths_completed"`
 	CutDepth   int    `json:"cut_by_depth"`
-	Err        string `json:"error,omitempty"`
+	// РАСПИСАНИЕ КАДРА: что обход узнал про сцену, а не только про
+	// достижимость. Ходим по главе всё равно — и знать, кто в кадре, стоит тех
+	// же шагов; а вопрос «почему герой говорит, когда его нет на экране»
+	// иначе всплывает только на живом прогоне, у игрока.
+	FrameIssues []lvn.FrameIssue `json:"frame_issues,omitempty"`
+	// FrameUncertain — узлы, где кадр зависит от пути. Не беда: в ветвистой
+	// главе это норма, и точный ответ там даёт трасса сохранения. Но число
+	// полезно видеть — оно говорит, насколько сцена вообще предсказуема.
+	FrameUncertain int `json:"frame_uncertain"`
+	Err            string `json:"error,omitempty"`
 }
 
 func cmdWalk(args []string) {
@@ -116,6 +125,9 @@ func walkFile(path string, depth int) walkReport {
 	rep.UncalledFuncs, rep.DeadOpts = r.UncalledFuncs, r.DeadOptions
 	rep.Forks, rep.ForksTaken = r.Forks, r.ForksTaken
 	rep.Paths, rep.CutDepth = r.Paths, r.CutByDepth
+
+	f := lvn.Schedule(doc, depth)
+	rep.FrameIssues, rep.FrameUncertain = f.Issues, f.Uncertain
 	return rep
 }
 
@@ -167,6 +179,16 @@ func printWalkReports(reports []walkReport, quiet bool, depth int) {
 			// разные новости.
 			fmt.Printf("  ⚠ обход не дошёл до конца %d раз(а): покрытие НЕПОЛНОЕ, повторите с -depth больше %d\n",
 				r.CutDepth, depth)
+		}
+		if len(r.FrameIssues) > 0 {
+			fmt.Printf("  сцена (%d):\n", len(r.FrameIssues))
+			for _, is := range r.FrameIssues {
+				fmt.Printf("    #%d %s\n", is.Cmd, is.Note)
+			}
+		}
+		if r.FrameUncertain > 0 {
+			fmt.Printf("  кадр зависит от пути в %d команд(ах) — там сцену знает только трасса\n",
+				r.FrameUncertain)
 		}
 		if len(r.UncalledFuncs) > 0 {
 			fmt.Printf("  функции без вызова (%d): %s\n", len(r.UncalledFuncs), strings.Join(r.UncalledFuncs, ", "))

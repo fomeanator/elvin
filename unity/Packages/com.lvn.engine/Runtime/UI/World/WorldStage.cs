@@ -337,7 +337,17 @@ namespace Lvn.UI.World
         /// <summary>Get (or create) the <see cref="WorldActor"/> for an id.</summary>
         public WorldActor EnsureActor(string id)
         {
-            if (_actors.TryGetValue(id, out var a) && a != null) return a;
+            if (_actors.TryGetValue(id, out var a) && a != null)
+            {
+                // ВОЗРАСТ ВЫДАЁТСЯ ЗАНОВО ТОМУ, КТО ПЕРЕЖИЛ УБОРКУ. Порядок слоёв
+                // без явного z решает старшинство рождения, а героиня теперь
+                // старше всех в новой главе — и молча оказалась бы за спинами у
+                // всех, кого сцена покажет после неё. Уборка её возраст забыла;
+                // здесь он назначается по первому показу в новой сцене, ровно
+                // как у остальных.
+                if (!_birth.ContainsKey(id)) _birth[id] = _nextSibling++;
+                return a;
+            }
             var go = new GameObject("vn-obj-" + id, typeof(RectTransform), typeof(CanvasGroup));
             // Рождается СПРЯТАННЫМ. Переход входа играет на смене видимости, а
             // новый GameObject активен по умолчанию — из-за этого самый первый
@@ -386,6 +396,38 @@ namespace Lvn.UI.World
             var a = ActorFor(id);
             return a != null && a.Rig != null
                 && a.Rig.GetComponentsInChildren<Graphic>(true).Length > 0;
+        }
+
+        /// <summary>ФИГУРА ЦЕЛА — её можно показать как есть, не пересобирая.
+        /// Спрятанный актёр тоже отвечает честно: <see cref="ActorsWithDeadLayers"/>
+        /// смотрит только на стоящих в кадре, а спросить «жив ли арт» нужно
+        /// именно про того, кого сейчас показывают заново.</summary>
+        public bool ActorArtAlive(string id)
+        {
+            var a = ActorFor(id);
+            return a != null && a.ArtAlive();
+        }
+
+        /// <summary>Спрайты, НАДЕТЫЕ на фигуру прямо сейчас. Нужны Кладовщику:
+        /// показ без пересборки не приносит новых спрайтов, но закрепить надо
+        /// именно те, что снова оказались на экране, — иначе LRU заберёт их
+        /// из-под живой картинки.</summary>
+        /// <summary>Погасить у всех фигур слои, которым нечем рисовать, и
+        /// сказать, сколько их было. Зовётся Лекарем в тот же миг, когда он
+        /// заметил беду: пересборка облика займёт кадры, а сплошной
+        /// прямоугольник виден игроку уже сейчас.</summary>
+        public int HushDeadLayers()
+        {
+            int hushed = 0;
+            foreach (var kv in _actors)
+                if (kv.Value != null) hushed += kv.Value.HideDeadLayers();
+            return hushed;
+        }
+
+        public List<Sprite> ActorSprites(string id)
+        {
+            var a = ActorFor(id);
+            return a?.Sprites();
         }
 
         /// <summary>Place / update / show an object as a stack of layer sprites —
@@ -709,10 +751,32 @@ namespace Lvn.UI.World
             // раз». `if (Fx)` — единственная проверка, которая видит смерть
             // объекта.
             if (Fx) Fx.ResetImmediate();
-            foreach (var a in _actors.Values) if (a != null) Object.Destroy(a.gameObject);
-            _actors.Clear();
-            _slotGroups.Clear();
-            _baseOpacity.Clear();
+            // ГЕРОИНЯ ПЕРЕЖИВАЕТ УБОРКУ ЖИВЬЁМ. Она одна и та же в меню и в
+            // игре — уходит на миссию и возвращается, — но уборка убивала её
+            // вместе со всеми, и по ту сторону перехода собиралась ВТОРАЯ:
+            // новый объект, новые слои, новая загрузка. Отсюда «героинь две» и
+            // «героиня пропадает» — зазор между смертью одной и рождением
+            // другой (Илья, 27.08). Кто остаётся — решает сцена (KeepAlive);
+            // его размещение, порядок слоя и возраст рождения остаются с ним.
+            foreach (var kv in _actors)
+            {
+                if (Keeps(kv.Key))
+                {
+                    // ОСТАЁТСЯ ЖИТЬ, НО УХОДИТ СО СЦЕНЫ. Кадр новой главы обязан
+                    // быть чистым: иначе кукла из витрины меню так и стоит в нём
+                    // до первой команды о ней. Объект и его слои целы —
+                    // показать её снова стоит ноль загрузок.
+                    if (kv.Value != null) kv.Value.gameObject.SetActive(false);
+                    continue;
+                }
+                if (kv.Value != null) Object.Destroy(kv.Value.gameObject);
+            }
+            Prune(_actors); Prune(_slotGroups); Prune(_baseOpacity);
+            // ПОЗА НЕ ПЕРЕЖИВАЕТ УБОРКУ ДАЖЕ У НЕЁ. Живой объект — это про
+            // спрайты и материал, а порядок слоя и возраст рождения — про
+            // мизансцену уходящей главы: оставь их, и героиня войдёт в новую
+            // сцену с чужим z=100 из катсцены или окажется старше всех и потому
+            // за их спинами. Возраст ей выдаст первый показ (EnsureActor).
             _zExplicit.Clear();
             _birth.Clear();
             _nextSibling = 0;
@@ -722,6 +786,27 @@ namespace Lvn.UI.World
             // и декодируется: раньше эту дыру прикрывал непрозрачный экран
             // загрузки, а без него она видна. Прежний кадр стоит до последнего
             // и уходит кроссфейдом под новый — команда bg меняет картинку сама.
+        }
+
+        /// <summary>
+        /// КТО ОДИН И ТОТ ЖЕ ПО ОБЕ СТОРОНЫ ПЕРЕХОДА — героиня. Её объект не
+        /// пересобирается на границе меню и главы: тот же спрайт, те же слои,
+        /// тот же материал с его эффектами.
+        /// </summary>
+        public string KeepAlive { get; set; }
+
+        private bool Keeps(string id)
+            => !string.IsNullOrEmpty(KeepAlive)
+               && string.Equals(id, KeepAlive, System.StringComparison.Ordinal);
+
+        /// <summary>Вычистить всё, кроме того, кто остаётся жить.</summary>
+        private void Prune<T>(Dictionary<string, T> map)
+        {
+            if (map.Count == 0) return;
+            List<string> drop = null;
+            foreach (var key in map.Keys)
+                if (!Keeps(key)) (drop ??= new List<string>()).Add(key);
+            if (drop != null) foreach (var k in drop) map.Remove(k);
         }
 
         /// <summary>Tear the whole canvas down (chapter teardown / disable).</summary>

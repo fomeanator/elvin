@@ -19,134 +19,6 @@ namespace Lvn.UI
     /// </summary>
     public sealed partial class VnStage
     {
-        // A persistent reactive text label (`text id=… x= y= anchor= «{expr}»`): a
-        // HUD/stat readout placed like an actor but living in the UITK overlay. Its
-        // {expr} template is re-evaluated on the reactive tick, so the shown value
-        // tracks the variable. Re-issuing the same id updates it; `hide` removes it.
-        private void ApplyText(JObject cmd)
-        {
-            var id = (string)cmd["id"];
-            if (string.IsNullOrEmpty(id) || _labelLayer == null) return;
-
-            if (BoolOr(cmd["hide"], false))
-            {
-                if (_labelEls.TryGetValue(id, out var old)) { old.RemoveFromHierarchy(); _labelEls.Remove(id); }
-                _labelTmpl.Remove(id);
-                return;
-            }
-
-            bool fresh = !_labelEls.TryGetValue(id, out var el);
-            if (fresh)
-            {
-                el = new Label { name = "lbl-" + id, pickingMode = PickingMode.Ignore };
-                el.style.position = Position.Absolute;
-                el.style.whiteSpace = WhiteSpace.Normal;
-                _labelLayer.Add(el);
-                _labelEls[id] = el;
-            }
-
-            // A repeat `text <id>` MERGES into the live label — omitted fields keep
-            // their current values (actor-op semantics: later fields win). So a
-            // label is styled ONCE and then driven with bare `text code «…»`
-            // updates, instead of re-stating x/y/size/color on every beat.
-            // Save/load is safe: ReplayVisuals re-runs text ops in order, so the
-            // styled declaration always lands before its bare updates.
-
-            // placement: x/y are screen percents; anchor picks the label's reference point
-            var xN = NumOrNull(cmd["x"]);
-            if (fresh || xN != null) el.style.left = Length.Percent(Mathf.Clamp(xN ?? 3f, 0f, 100f));
-            var yN = NumOrNull(cmd["y"]);
-            if (fresh || yN != null) el.style.top = Length.Percent(Mathf.Clamp(yN ?? 3f, 0f, 100f));
-            // width: explicit `w` (screen %), else capped at the right screen edge —
-            // an absolute label otherwise grows past the screen instead of wrapping.
-            var wN = NumOrNull(cmd["w"]);
-            if (fresh || wN != null || xN != null)
-                el.style.maxWidth = Length.Percent(Mathf.Clamp(wN ?? (97f - (xN ?? 3f)), 1f, 100f));
-            if (fresh || cmd["anchor"] != null)
-            {
-                var (tx, ty) = LabelAnchor((string)cmd["anchor"]);
-                el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
-            }
-
-            // look: per-label font / size / colour, falling back to the theme
-            if (fresh || cmd["color"] != null)
-                el.style.color = UiColor.Parse((string)cmd["color"], Theme.TextColor);
-            if (fresh || cmd["size"] != null)
-                el.style.fontSize = (int)NumOr(cmd["size"], Theme.BodyFontSize);
-            var fontPath = (string)cmd["font"];
-            if (fresh || !string.IsNullOrEmpty(fontPath))
-            {
-                // Same dual form as the theme font: "/content/…" = a font served
-                // with the content (fetched into the cache, applied when ready);
-                // anything else = a Resources name baked into the build.
-                if (!string.IsNullOrEmpty(fontPath) && fontPath.StartsWith("/"))
-                    LvnAsync.Fire(ApplyContentFontAsync(el, fontPath), "ApplyContentFont");
-                else
-                {
-                    Font font = !string.IsNullOrEmpty(fontPath) ? Resources.Load<Font>(fontPath) : Theme.Font;
-                    LvnFonts.Apply(el, font); // SDF path; no-op when null (theme default)
-                }
-            }
-
-            if (fresh || cmd["text"] != null)
-            {
-                var tmpl = (string)cmd["text"] ?? "";
-                if (tmpl.Length != 0 && _strings != null && _strings.TryGetValue(tmpl, out var trTmpl))
-                    tmpl = trTmpl; // localization catalog, keyed by the source template
-                _labelTmpl[id] = tmpl;
-                el.text = TextInterpolation.Apply(tmpl, _player?.Vars); // immediate paint; tick keeps it live
-            }
-        }
-
-        // Re-evaluate every live label's template against the current variables.
-        private void RefreshLabels()
-        {
-            if (_labelTmpl.Count == 0) return;
-            var vars = _player?.Vars;
-            foreach (var kv in _labelTmpl)
-                if (_labelEls.TryGetValue(kv.Key, out var el))
-                {
-                    var t = TextInterpolation.Apply(kv.Value, vars);
-                    if (el.text != t) el.text = t;
-                }
-        }
-
-        private static float NumOr(JToken t, float dflt) => NumOrNull(t) ?? dflt;
-
-        // Что считается числом — решает Lvn.LvnNum: там же живёт разбор
-        // процентов, и там же он покрыт тестом.
-        private static float? NumOrNull(JToken t) => LvnNum.Parse(t);
-
-        private static int? IntOrNull(JToken t)
-        {
-            var f = NumOrNull(t);
-            return f == null ? (int?)null : (int)Mathf.Round(f.Value);
-        }
-
-        // Tolerant boolean read: absent → dflt, and true/false/1/0 written as a
-        // string or number are all accepted rather than throwing an invalid cast.
-        private static bool BoolOr(JToken t, bool dflt)
-        {
-            if (t == null) return dflt;
-            try { return (bool)t; } catch { }   // поле не разобралось — идём с прежним значением
-            switch (t.ToString().Trim().ToLowerInvariant())
-            {
-                case "true": case "1": case "yes": return true;
-                case "false": case "0": case "no": return false;
-                default: return dflt;
-            }
-        }
-
-        // Translate fractions for a label anchor (default top-left, so x/y read as an
-        // inset from the corner). center → -50%, right/bottom → -100%.
-        private static (float, float) LabelAnchor(string anchor)
-        {
-            string a = string.IsNullOrEmpty(anchor) ? "top-left" : anchor.ToLowerInvariant();
-            float tx = a.Contains("left") ? 0f : a.Contains("right") ? -100f : -50f;
-            float ty = a.Contains("top") ? 0f : a.Contains("bottom") ? -100f : -50f;
-            return (tx, ty);
-        }
-
         // A script-driven `anim` command: deserialize its LvnAnim payload and play
         // it on the named channel (default "script") of an already-shown entity, so
         // .lvns can tween any prop/layer or move a sprite along a path live.
@@ -318,15 +190,60 @@ namespace Lvn.UI
             else ScenePlayAnim(id, channel, anim);
         }
 
-        public void ApplyStage(JObject command)
+        /// <summary>ПОМРЕЖ — ведёт поток команд: кто отдаёт, о чём, чья
+        /// побеждает. Публичен, потому что отправители снаружи (витрина,
+        /// гардероб, катсцены) объявляют ему свои держания.</summary>
+        public LvnStageManager Commands => _commands ??= NewStageManager();
+        private LvnStageManager _commands;
+
+        /// <summary>Помреж решает, ЧЬЯ команда играет, а исполняет её сцена:
+        /// отложенное на занятый предмет он отдаёт обратно сюда, когда предмет
+        /// освободится. Без этого обратного хода команда автора, пришедшая во
+        /// время катсцены, просто пропадала бы — сценарий её второй раз не
+        /// отдаст.</summary>
+        private LvnStageManager NewStageManager()
+            => new LvnStageManager { Apply = (cmd, sender) => ApplyDispatch(cmd, sender) };
+
+        /// <summary>Дверь на сцену БЕЗ ПОДПИСИ — значит от истории: так писал
+        /// сценарий с первого дня, и менять его смысла нет. Все остальные
+        /// подписываются явно.</summary>
+        public void ApplyStage(JObject command) => ApplyStage(command, LvnSender.Story);
+
+        /// <summary>
+        /// ЕДИНСТВЕННАЯ ДВЕРЬ НА СЦЕНУ — теперь с подписью отправителя.
+        ///
+        /// <para>Раньше она была коммутатором: смотрела <c>op</c> и раздавала
+        /// по обработчикам, не зная, кто прислал команду. Присылают шестеро, и
+        /// в споре за один предмет побеждал тот, чей <c>await</c> вернулся
+        /// позже. Теперь спор разрешает <see cref="Commands"/> — по старшинству
+        /// и занятости, а не по случайности, и каждое решение попадает в
+        /// журнал.</para>
+        /// </summary>
+        public void ApplyStage(JObject command, LvnSender sender)
+        {
+            if (command == null) return;
+            if (!Commands.Admit(command, sender, out _)) return;
+            // Кадр истории ведётся ЗДЕСЬ, у единственной двери: любая другая
+            // точка записи однажды осталась бы без обновления, и модель начала
+            // бы расходиться с экраном — а расходящаяся модель хуже, чем её
+            // отсутствие.
+            RememberInStoryFrame(command, sender);
+            ApplyDispatch(command, sender);
+        }
+
+        /// <summary>Исполнение команды, УЖЕ разрешённой Помрежем: сюда приходят
+        /// и свежие команды, и отложенные, доигранные после освобождения
+        /// предмета. Спор решается один раз — второй проверки быть не должно,
+        /// иначе отложенное упёрлось бы в то же держание.</summary>
+        private void ApplyDispatch(JObject command, LvnSender sender)
         {
             switch ((string)command["op"])
             {
                 case "bg": LvnAsync.Fire(ApplyBgAsync(command), "ApplyBg"); break;
                 case "bg3d": LvnAsync.Fire(ApplyBg3DAsync(command), "ApplyBg3D"); break;
-                case "actor": LvnAsync.Fire(ApplyActorAsync(command), "ApplyActor"); break;
-                case "obj": LvnAsync.Fire(ApplyActorAsync(command), "ApplyActor"); break; // any placeable sprite
-                case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
+                case "actor": LvnAsync.Fire(ApplyActorAsync(command, sender: sender), "ApplyActor"); break;
+                case "obj": LvnAsync.Fire(ApplyActorAsync(command, sender: sender), "ApplyActor"); break; // any placeable sprite
+                case "clear": ApplyClear(sender); break; // everyone off stage, scenery untouched
                 case "ui": ApplyUi(command); break;  // дерево интерфейса из сценария
                 case "cutscene": ApplyCutscene(command); break;  // кадр без интерфейса
                 case "anim": ApplyAnim(command); break; // script-driven tween / path
@@ -337,6 +254,7 @@ namespace Lvn.UI
                 case "blur": ApplyBlur(command); break;
                 case "sfx":
                     // Спрайтовый эффект по id актёра; вне канвас-пути — no-op.
+                    RememberFx(command);
                     _renderer?.TrySpriteFx((string)command["id"], command);
                     break;
                 case "portal":
@@ -550,132 +468,5 @@ namespace Lvn.UI
             await Task.WhenAll(tasks);
         }
 
-        // ── stage command helpers ─────────────────────────────────────────────
-
-        private void ApplyFade(JObject cmd)
-        {
-            var to = (string)cmd["to"] ?? "black";
-            float dur = NumOr(cmd["duration"], 0.5f);
-            if (to == "clear" || to == "none") _fx.Clear(dur);
-            else _fx.Fade(to == "white" ? Color.white : Color.black, dur);
-        }
-
-        private void ApplyDim(JObject cmd)
-        {
-            float alpha = NumOr(cmd["alpha"], 0.4f);
-            float dur = NumOr(cmd["duration"], 0.5f);
-            _fx.Dim(alpha, dur);
-        }
-
-        private void ApplyFlash(JObject cmd)
-        {
-            if (LvnPrefs.ReduceMotion) return; // vestibular/photosensitivity comfort
-            var colour = ParseColor((string)cmd["color"], Color.white);
-            float dur = NumOr(cmd["duration"], 0.2f);
-            _fx.Flash(colour, dur);
-        }
-
-        private void ApplyTint(JObject cmd)
-        {
-            var colour = ParseColor((string)cmd["color"], Color.white);
-            float alpha = NumOr(cmd["alpha"], 0.3f);
-            float dur = NumOr(cmd["duration"], 0.5f);
-            _fx.Tint(colour, alpha, dur);
-        }
-
-        private void ApplyBlur(JObject cmd)
-        {
-            float alpha = NumOr(cmd["alpha"], 0.5f);
-            float dur = NumOr(cmd["duration"], 0.5f);
-            // Real gaussian of the scene frame when the renderer can (canvas
-            // path + built-in pipeline); the FxLayer white veil is the fallback
-            // for platforms without a camera hook. Never both.
-            if (_renderer != null && _renderer.TryBlur(Mathf.Clamp01(alpha), dur))
-            {
-                _fx.ClearBlur(0f);
-                return;
-            }
-            if (alpha <= 0f) _fx.ClearBlur(dur);
-            else _fx.Blur(alpha, dur);
-        }
-
-        private void ApplyTextPace(JObject cmd)
-        {
-            float cps = NumOr(cmd["cps"], 0f);
-            TypewriterClock.GlobalCps = cps;
-        }
-
-        internal static TransitionType ParseTransition(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return TransitionType.None;
-            switch (name.ToLowerInvariant())
-            {
-                case "fade": return TransitionType.Fade;
-                case "slide_left": return TransitionType.SlideLeft;
-                case "slide_right": return TransitionType.SlideRight;
-                case "pop": return TransitionType.Pop;
-                // Виды из общего набора движка (LvnAppear): персонаж всплывает
-                // из-под стекла и утопает обратно, как и любая панель.
-                case "rise": case "sink": return TransitionType.Rise;
-                case "drop": return TransitionType.Drop;
-                case "unfold": return TransitionType.Unfold;
-                case "dissolve": case "burn": return TransitionType.Dissolve;
-                case "drift": case "side": return TransitionType.Drift;
-                default: return TransitionType.None;
-            }
-        }
-
-        internal static Color ParseColor(string name, Color fallback)
-        {
-            if (string.IsNullOrEmpty(name)) return fallback;
-            switch (name.ToLowerInvariant())
-            {
-                case "white": return Color.white;
-                case "black": return Color.black;
-                case "red": return Color.red;
-                case "blue": return Color.blue;
-                case "green": return Color.green;
-                case "yellow": return Color.yellow;
-                case "cyan": return Color.cyan;
-                case "magenta": return Color.magenta;
-                case "cold":
-                case "tint_cold": return new Color(0.6f, 0.7f, 1f, 1f);
-                case "warm":
-                case "tint_warm": return new Color(1f, 0.85f, 0.7f, 1f);
-                case "sepia": return new Color(0.76f, 0.6f, 0.42f, 1f);
-                default: return fallback;
-            }
-        }
-
-        private void ApplyCamera(JObject cmd)
-        {
-            float dur = NumOr(cmd["duration"], 0.3f);
-            switch ((string)cmd["action"])
-            {
-                case "shake":
-                {
-                    if (LvnPrefs.ReduceMotion) break; // comfort setting: no screen shake
-                    float amp = NumOr(cmd["amplitude"], 8f);
-                    _renderer?.Shake(amp, dur);
-                    break;
-                }
-                case "zoom":
-                {
-                    float factor = NumOr(cmd["factor"], 1.2f);
-                    _renderer?.Zoom(factor, dur);
-                    break;
-                }
-                case "pan":
-                {
-                    float px = NumOr(cmd["x"], 0f);
-                    float py = NumOr(cmd["y"], 0f);
-                    _renderer?.Pan(px, py, dur);
-                    break;
-                }
-                case "reset":
-                    _renderer?.ResetCamera(dur);
-                    break;
-            }
-        }
     }
 }

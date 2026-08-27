@@ -107,6 +107,10 @@
       "owner": "engine",
       "csharp": "stage"
     },
+    "portal": {
+      "owner": "engine",
+      "csharp": "stage"
+    },
     "camera": {
       "owner": "engine",
       "csharp": "stage"

@@ -56,6 +56,21 @@ namespace Lvn.UI.World
                 w = boxH * a;
                 h = boxH;
             }
+
+            // РОСТ В МЕТРАХ РЕШАЕТ ВСЁ САМ — и здесь, а не раньше, потому что
+            // только здесь известен размер кадра. Доля кадра, которую занимает
+            // ФИГУРА, — это метры ÷ высота сцены в метрах; холст под ней больше
+            // ровно на воздух над головой (FigureH). Ширину при этом не даём
+            // ограничивать рост: чужой w= из меню или гардероба поджимал бы
+            // фигуру, и рост опять зависел бы от того, кто ставит.
+            if (p.Meters > 0f && LvnScale.Sane)
+            {
+                float figure = LvnScale.Fraction(p.Meters) * size.y; // фигура в пикселях
+                h = figure / Mathf.Max(0.01f, p.FigureH);            // холст под фигуру
+                w = p.BoxAspect is float ar && ar > 0f
+                    ? h * ar                                          // холст заперт своим аспектом
+                    : (p.Width ?? DefaultWidth) * size.x;             // без аспекта — ширина как была
+            }
             slot.sizeDelta = new Vector2(w, h);
             // uGUI pivot is measured from the bottom-left; the placement anchor is
             // from the top-left — flip Y. Якорь («ноги», «центр») ищется ВНУТРИ

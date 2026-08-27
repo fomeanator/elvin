@@ -23,6 +23,10 @@ namespace Lvn.Tests
         public void ShowChoice(IReadOnlyList<LvnOption> options) => LastOptions = options;
         public void OnEnd() { }
 
+        // Подписанная дверь: заглушке различать отправителей незачем —
+        // она просто записывает команду, как и раньше.
+        public void ApplyStage(JObject c, Lvn.LvnSender sender) => ApplyStage(c);
+
         public void ApplyStage(JObject c)
         {
             switch ((string)c["op"])
