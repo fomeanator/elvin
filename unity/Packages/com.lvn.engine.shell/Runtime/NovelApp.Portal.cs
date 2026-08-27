@@ -44,6 +44,7 @@ namespace Lvn.UI.Screens
             var fav = MenuFavoriteEntity();
             bool inFrame = !string.IsNullOrEmpty(fav) && Stage.ActorVisibleOrPending(fav);
             LvnLog.Trace($"[lvn-portal] уход в главу: героиня={fav ?? "-"}, в кадре={inFrame}");
+            _shell?.HideMenuChrome();   // кадр остаётся сценой, а не витриной с кнопками
 
             Stage.ApplyStage(PortalCmd(portal, 1f, 0.75f));
             await Task.Delay(280);

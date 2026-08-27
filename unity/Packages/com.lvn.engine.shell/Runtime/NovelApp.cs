@@ -585,6 +585,12 @@ namespace Lvn.UI.Screens
                 await Task.Yield();
             Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
                       $"waited={(Time.realtimeSinceStartup - revealStart) * 1000f:F0}ms resuming={resuming}");
+            // СТВОР ЗАКРЫВАЕТСЯ ИМЕННО ЗДЕСЬ, а не сразу после Play. Между Play
+            // и этим местом сцена убирается ЕЩЁ РАЗ — восстановление автосейва
+            // делает свой сброс, — и створ, поставленный раньше, не доживает.
+            // Здесь фон главы уже на экране и уборок больше не будет: героиня
+            // выходит из портала в готовый кадр.
+            ArriveInChapter();
             try
             {
                 if (_shell != null)

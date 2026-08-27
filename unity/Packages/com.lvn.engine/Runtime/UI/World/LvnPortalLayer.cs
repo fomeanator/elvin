@@ -82,21 +82,27 @@ namespace Lvn.UI.World
         private void Update()
         {
             if (_speed > 0f && !Mathf.Approximately(_open, _target))
-            {
                 _open = Mathf.MoveTowards(_open, _target, Time.unscaledDeltaTime * _speed);
-                Apply();
-            }
-            // Закрытый створ не тратит ни кадра: слой гасится целиком.
-            if (_open <= 0.001f && _target <= 0.001f && _image != null && _image.enabled)
-                _image.enabled = false;
+
+            // ГЕОМЕТРИЯ ПЕРЕСЧИТЫВАЕТСЯ КАЖДЫЙ КАДР, пока створ виден. В первом
+            // кадре у родителя ещё нет размера (rect = 0), и слой, посчитанный
+            // один раз, остаётся нулевым навсегда: «в главе портал есть, а при
+            // первом заходе в меню — нет». Пересчёт стоит несколько
+            // присваиваний, а размер кадра всё равно меняется от поворота
+            // экрана и смены безопасной зоны.
+            if (_open > 0.001f || _target > 0.001f) Apply();
+            else if (_image != null && _image.enabled) _image.enabled = false;
         }
 
         private void Apply()
         {
             if (_rt == null || _image == null) return;
             var parent = _rt.parent as RectTransform;
-            float w = parent != null ? parent.rect.width : Screen.width;
-            float h = parent != null ? parent.rect.height : Screen.height;
+            float w = parent != null ? parent.rect.width : 0f;
+            float h = parent != null ? parent.rect.height : 0f;
+            // Родитель ещё не размечен — берём экран: нулевой кадр не должен
+            // превращать створ в точку, которую потом никто не пересчитает.
+            if (w <= 1f || h <= 1f) { w = Screen.width; h = Screen.height; }
             // Сторона слоя — по МЕНЬШЕЙ стороне кадра: радиус 1 означает «во всю
             // ширину телефона», и это одинаково читается на любом экране.
             float side = Mathf.Min(w, h) * 2f * _radius;
