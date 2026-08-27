@@ -148,14 +148,29 @@ namespace Lvn.UI.Screens
         {
             var panel = el?.panel;
             if (panel == null || Screen.height <= 0) return Vector2.zero;
-            float panelH = panel.visualTree.layout.height;
-            if (float.IsNaN(panelH) || panelH <= 0) return Vector2.zero;
-            float scale = panelH / Screen.height;
             var safe = Screen.safeArea;
-            float topPx = Screen.height - safe.yMax;
-            float bottomPx = safe.yMin;
-            return new Vector2(Mathf.Max(0f, topPx * scale), Mathf.Max(0f, bottomPx * scale));
+            return new Vector2(ToPanel(panel, Screen.height - safe.yMax),
+                               ToPanel(panel, safe.yMin));
         }
+
+        /// <summary>ОТСТУП СВЕРХУ — сколько единиц панели занимает вырез камеры
+        /// (чёлка, «остров», статус-бар).
+        ///
+        /// <para>Считался в четырёх местах и ДВУМЯ разными формулами: одни
+        /// переводили пиксели через RuntimePanelUtils, другие — множителем
+        /// «высота панели / высота экрана». На обычном телефоне это одно и то
+        /// же число, но стоит панели получить нестандартный масштаб, и элементы,
+        /// которые обязаны стоять на одной линии (бар, колонка эмоций, шапка
+        /// хаба), разъезжаются.</para></summary>
+        public static float SafeTop(VisualElement el)
+            => el?.panel == null || Screen.height <= 0
+                ? 0f : ToPanel(el.panel, Screen.height - Screen.safeArea.yMax);
+
+        // Экранные пиксели по вертикали → единицы панели. ScreenToPanel
+        // отображает позиции, но для scale-only рантайм-панели это ровно тот
+        // масштаб, который нужен и для расстояний.
+        private static float ToPanel(IPanel panel, float pixels)
+            => Mathf.Max(0f, RuntimePanelUtils.ScreenToPanel(panel, new Vector2(0f, pixels)).y);
 
         /// <summary>Build a horizontal progress bar centred on (<paramref name="xFrac"/>,
         /// <paramref name="yFrac"/>) of its parent, sized <paramref name="wFrac"/>×

@@ -107,9 +107,7 @@ namespace Lvn.UI.Screens
             void FitSafeArea()
             {
                 if (panel == null) return;
-                float topPx = Screen.height - Screen.safeArea.yMax; // screen px above the safe area
-                float inset = Mathf.Max(0f, RuntimePanelUtils.ScreenToPanel(
-                    panel, new Vector2(0f, topPx)).y);
+                float inset = ScreenUi.SafeTop(this); // вырез камеры, единицы панели
                 if (Mathf.Approximately(inset, _safeTop)) return;
                 _safeTop = inset;
                 style.paddingTop = inset;
