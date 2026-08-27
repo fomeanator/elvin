@@ -94,9 +94,7 @@ namespace Lvn.UI.Screens
             if (_emotions == null || panel == null) return;
             float sheetTop = worldBound.yMin;
             if (float.IsNaN(sheetTop) || sheetTop <= 0f) return;
-            float rootH = panel.visualTree.layout.height;
-            float safeTop = Screen.height > 0 && !float.IsNaN(rootH)
-                ? (Screen.height - Screen.safeArea.yMax) / Screen.height * rootH : 0f;
+            float safeTop = ScreenUi.SafeTop(this);
             float navBottom = safeTop + LvnTopBar.RowH + 10f;
             float gap = Mathf.Max(0f, sheetTop - navBottom - 12f);
             // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
