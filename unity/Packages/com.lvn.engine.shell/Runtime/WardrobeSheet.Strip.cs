@@ -383,12 +383,7 @@ namespace Lvn.UI.Screens
 
         // Носится ли значение на оси прямо сейчас (превью сильнее надетого).
         private bool IsWornIn(string axis, string value)
-        {
-            LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var cur);
-            if (cur == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out cur);
-            if (cur == null && _def?.defaults != null) _def.defaults.TryGetValue(axis, out cur);
-            return cur == value;
-        }
+            => LvnCostumer.Wearing(_entity, axis, value, _def?.defaults);
 
         // Арт карточки — МИНИ-ВЕРСИЯ (Илья 27.08: «не тянуть огромные, если
         // юзер даже не тыкнет»): витрина живёт на @mini, полноразмер грузит

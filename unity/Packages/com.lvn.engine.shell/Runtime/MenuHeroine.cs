@@ -82,13 +82,14 @@ namespace Lvn.UI.Screens
             style.width = resolvedStyle.height * aspect;
         }
 
-        // Значение оси: надетое из гардероба, иначе дефолт манифеста, иначе
-        // первый вариант оси.
+        // Значение оси: ЗАФИКСИРОВАННОЕ (Костюмер знает лесенку «надетое →
+        // дефолт»), иначе первый вариант оси — кукле меню нельзя остаться без
+        // слоя. Примерка сюда намеренно не доходит: её показывает актёр сцены,
+        // на которого игрок и смотрит, пока крутит карусель.
         private string AxisValue(LvnSpriteEntity def, string axis)
         {
-            var eq = Lvn.UI.LvnWardrobe.Equipped(_entity);
-            if (eq != null && eq.TryGetValue(axis, out var v) && !string.IsNullOrEmpty(v)) return v;
-            if (def.defaults != null && def.defaults.TryGetValue(axis, out var d) && !string.IsNullOrEmpty(d)) return d;
+            var v = Lvn.UI.LvnCostumer.Committed(_entity, axis, def.defaults);
+            if (!string.IsNullOrEmpty(v)) return v;
             if (def.axes != null && def.axes.TryGetValue(axis, out var vals) && vals != null && vals.Count > 0)
                 return vals[0];
             return "";

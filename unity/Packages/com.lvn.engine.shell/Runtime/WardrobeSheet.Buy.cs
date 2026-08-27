@@ -87,8 +87,7 @@ namespace Lvn.UI.Screens
             {
                 if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
                 if (_autoDressed.TryGetValue(kv.Key, out var auto) && auto == kv.Value) continue;
-                LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out var worn);
-                if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out worn);
+                var worn = LvnCostumer.Committed(_entity, kv.Key, _def.defaults);
                 // «Ничего не надето» и примерка пункта «Нет» — одно состояние:
                 // подтверждать в нём нечего, и кнопки не должны оживать.
                 if (Bare(kv.Value) && Bare(worn)) continue;
@@ -97,8 +96,7 @@ namespace Lvn.UI.Screens
             return false;
         }
 
-        private static bool Bare(string value)
-            => string.IsNullOrEmpty(value) || value == LvnWardrobe.NoneValue;
+        private static bool Bare(string value) => LvnCostumer.Bare(value);
 
         private void RefreshConfirm()
         {

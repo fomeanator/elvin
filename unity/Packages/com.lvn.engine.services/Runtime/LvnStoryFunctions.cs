@@ -67,12 +67,9 @@ namespace Lvn.Services
                     string axis = args.Count > 1 ? S(1) : S(0);
                     if (string.IsNullOrEmpty(entity) || string.IsNullOrEmpty(axis)) return "";
                     // Примеренное важнее надетого: игрок стоит в гардеробе и
-                    // крутит варианты — сцена обязана показывать то, что он
-                    // видит на экране прямо сейчас.
-                    if (Lvn.UI.LvnWardrobe.Previewed(entity).TryGetValue(axis, out var preview) &&
-                        !string.IsNullOrEmpty(preview))
-                        return preview;
-                    return Lvn.UI.LvnWardrobe.Equipped(entity).TryGetValue(axis, out var v) ? v : "";
+                    // крутит варианты — условие обязано видеть то же, что он
+                    // видит на экране. Лесенку знает Костюмер, здесь её нет.
+                    return Lvn.UI.LvnCostumer.Chosen(entity, axis);
                 }
             }
             return Lvn.LvnExpression.NotHandled;
