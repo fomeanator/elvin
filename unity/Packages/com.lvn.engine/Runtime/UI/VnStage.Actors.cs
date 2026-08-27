@@ -610,6 +610,13 @@ namespace Lvn.UI
             var aspectEntity = Catalog != null ? Catalog.Get(id) : null;
             if (aspectEntity != null && aspectEntity.aspect > 0f)
                 placement.BoxAspect = aspectEntity.aspect;
+            // …и где внутри этого холста стоит сама фигура: рост героя не должен
+            // зависеть от того, сколько прозрачных полей оставил художник.
+            if (aspectEntity?.content is LvnBox box && box.w > 0f && box.h > 0f)
+            {
+                placement.ContentX = box.x; placement.ContentY = box.y;
+                placement.ContentW = box.w; placement.ContentH = box.h;
+            }
 
             // Smart slots: never draw two actors standing inside each other.
             if (placement.Show)

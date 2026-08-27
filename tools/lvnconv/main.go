@@ -62,6 +62,8 @@ func main() {
 		cmdWalk(os.Args[2:])
 	case "optimize":
 		cmdOptimize(os.Args[2:])
+	case "figure":
+		cmdFigure(os.Args[2:])
 	case "locale":
 		cmdLocale(os.Args[2:])
 	case "deps":
@@ -87,6 +89,7 @@ usage:
   lvnconv probe    <in.lvn>
   lvnconv walk     [-depth N] [-strict] [-json] <in.lvn|in.lvns>…
   lvnconv optimize -i <content-dir> [-max 2560] [-quality 85] [-apply] [-rewrite-refs]
+  lvnconv figure   -i <content-dir> [-apply]
   lvnconv locale   -lang <code>[,<code>…] [-check] [-prune] <script.lvns|.lvn>…
   lvnconv deps     sync|update|list [-C <dir>]
   lvnconv deps     add <@scope/pkg> <github:owner/repo@tag[#subdir] | file:path> [-C <dir>]
@@ -113,6 +116,11 @@ optimize shrink oversized images (cap + PNG/JPEG recompress); Spine atlas pages
          only get losslessly recompressed, never resized (frame-packed atlases
          bleed under any resample). Dry run by default; -apply writes; add
          -rewrite-refs to fix manifest.json/.lvns after a png→jpg conversion.
+figure   measure where each paper doll actually stands inside its canvas (the
+         union of the opaque pixels of every layer variant) and record it as
+         "content" in manifest.json, so the runtime sizes the CHARACTER, not
+         the file: without it a generously padded png makes a hero half as
+         tall as a tightly cropped one at the same w=/h=. Dry run by default.
 locale   build/refresh the per-language string catalogs the runtime loads
          beside a script (<script>.<lang>.json): say lines and speaker names,
          choice options, input prompts, "text" labels. Existing translations

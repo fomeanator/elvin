@@ -37,18 +37,32 @@ namespace Lvn.UI.World
             // Top-left anchor so Y grows downward in canvas units, matching the
             // top-down coordinate the language uses (y=0 — верх экрана).
             slot.anchorMin = slot.anchorMax = new Vector2(0f, 1f);
-            // uGUI pivot is measured from the bottom-left; the placement anchor is
-            // from the top-left — flip Y.
-            slot.pivot = new Vector2(p.AnchorX, 1f - p.AnchorY);
             float w = (p.Width ?? DefaultWidth) * size.x;
             float h = (p.Height ?? DefaultHeight) * size.y;
             // Aspect-locked box (layered/boned art): fit within the placed bounds.
+            //
+            // ШИРИНА МЕРИТ ФИГУРУ, ВЫСОТА — КАДР. Это не прихоть, а два разных
+            // смысла у полей файла. Воздух ПО БОКАМ ничего не значит: художник
+            // одному герою оставил 1%, другому — 23%, и пока ширину мерил холст,
+            // второй выходил на четверть ниже первого при тех же w=/h= («героиня
+            // маленькая»). Воздух СВЕРХУ, наоборот, и есть рост: персонажей рисуют
+            // в общем кадре, ребёнок занимает половину холста — по холсту он и
+            // должен быть вдвое ниже взрослого, а нормализация по фигуре сравняла
+            // бы их. Поэтому ширина ограничивает ФИГУРУ, а высота остаётся долей
+            // экрана, как её и писал автор.
             if (p.BoxAspect is float a && a > 0f)
             {
-                if (w / h > a) w = h * a;
-                else h = w / a;
+                float boxH = Mathf.Min(h, w / (p.FigureW * a));
+                w = boxH * a;
+                h = boxH;
             }
             slot.sizeDelta = new Vector2(w, h);
+            // uGUI pivot is measured from the bottom-left; the placement anchor is
+            // from the top-left — flip Y. Якорь («ноги», «центр») ищется ВНУТРИ
+            // ФИГУРЫ: у арта с воздухом под ногами низ холста — это не пол.
+            slot.pivot = new Vector2(
+                p.FigureX + p.AnchorX * p.FigureW,
+                1f - (p.FigureY + p.AnchorY * p.FigureH));
             slot.anchoredPosition = new Vector2(p.X * size.x, -p.Y * size.y);
             // Flip mirrors on X; rotation negated so positive degrees read clockwise
             // (UITK's convention) on the Canvas.

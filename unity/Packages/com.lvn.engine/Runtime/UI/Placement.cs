@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Lvn.UI
 {
     public enum TransitionType
@@ -73,6 +75,28 @@ namespace Lvn.UI
         /// на медленной сети арта; рисуются затемнёнными, полный арт проявит их
         /// штатным кроссфейдом облика.</summary>
         public bool Silhouette;
+
+        /// <summary>ГДЕ ВНУТРИ ХОЛСТА ЖИВЁТ САМА ФИГУРА — доли холста
+        /// (x/y от левого-верхнего угла, w/h — размер), из <c>content</c>
+        /// каталога. Холст персонажа почти никогда не равен персонажу: художник
+        /// оставляет воздух по бокам, и у одного героя его 1%, а у другого 23%.
+        /// Пока ширину мерил холст, один и тот же <c>w=</c> давал разный рост —
+        /// «героиня маленькая» это не поза, это поля в png. По ширине размер и
+        /// зажим у края считаются по фигуре, а якорь («ноги», «центр») ищется
+        /// внутри неё, чтобы персонаж с полем под ногами не висел над полом.
+        /// Высота намеренно остаётся долей КАДРА: воздух над головой — это рост,
+        /// см. WorldPlacement. Ноль/пусто = данных нет, фигурой считается весь
+        /// холст (прежнее поведение).</summary>
+        public float ContentX, ContentY, ContentW, ContentH;
+
+        /// <summary>Доля холста, занятая фигурой по ширине (1, когда данных нет).</summary>
+        public float FigureW => ContentW > 0f && ContentW <= 1f ? ContentW : 1f;
+        /// <summary>Доля холста, занятая фигурой по высоте (1, когда данных нет).</summary>
+        public float FigureH => ContentH > 0f && ContentH <= 1f ? ContentH : 1f;
+        /// <summary>Отступ фигуры от левого края холста в долях холста.</summary>
+        public float FigureX => ContentW > 0f && ContentW <= 1f ? Mathf.Clamp01(ContentX) : 0f;
+        /// <summary>Отступ фигуры от верха холста в долях холста.</summary>
+        public float FigureY => ContentH > 0f && ContentH <= 1f ? Mathf.Clamp01(ContentY) : 0f;
 
         public static Placement Standing(float x) => new Placement
         {

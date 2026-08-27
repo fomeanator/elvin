@@ -52,6 +52,115 @@ namespace Lvn.Tests
             Object.DestroyImmediate(go);
         }
 
+        // ── Габарит фигуры внутри холста ───────────────────────────────────────
+        // Рост персонажа задаётся ростом персонажа, а не тем, сколько воздуха
+        // художник оставил вокруг него в png.
+
+        [Test]
+        public void Placement_AspectLock_WithoutFigureData_FitsTheWholeCanvas()
+        {
+            var go = new GameObject("slot", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            var p = Placement.Standing(0.5f);
+            p.Width = 0.69f; p.Height = 0.93f;
+            p.BoxAspect = 0.5f; // холст 1:2
+
+            WorldPlacement.Apply(rt, p, new Vector2(1080f, 1920f));
+
+            // Прежнее правило: коробка вписана в заказ, ширина здесь у́же.
+            Assert.AreEqual(0.69f * 1080f, rt.sizeDelta.x, 0.5f, "ширина осталась заказанной");
+            Assert.AreEqual(0.69f * 1080f / 0.5f, rt.sizeDelta.y, 0.5f, "высота follows the aspect");
+            Assert.AreEqual(0.5f, rt.pivot.x, 0.001f, "без данных о фигуре якорь как был");
+            Assert.AreEqual(0f, rt.pivot.y, 0.001f);
+
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Placement_SidePadding_DoesNotStealHeight()
+        {
+            var go = new GameObject("slot", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            var p = Placement.Standing(0.5f);
+            p.Width = 0.9f; p.Height = 1f;
+            p.BoxAspect = 0.8f;                    // ШИРОКИЙ холст…
+            p.ContentX = 0.25f; p.ContentY = 0f;   // …в котором фигура — половина
+            p.ContentW = 0.5f; p.ContentH = 1f;
+
+            WorldPlacement.Apply(rt, p, new Vector2(1000f, 2000f));
+
+            // 900 заказанной ширины хватает на фигуру шириной до 900/0.5 = 1800
+            // единиц холста, то есть на всю заказанную высоту. Пока ширину мерил
+            // холст, тот же заказ ронял высоту до 900/0.8 = 1125.
+            Assert.AreEqual(2000f, rt.sizeDelta.y, 0.5f, "высота осталась заказанной");
+            Assert.AreEqual(1600f, rt.sizeDelta.x, 0.5f, "холст с полями шире заказа — и это нормально");
+            Assert.AreEqual(800f, rt.sizeDelta.x * p.ContentW, 0.5f, "фигура при этом у́же экрана");
+
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Placement_SidePadding_StillClampsTheFigureToTheOrderedWidth()
+        {
+            var go = new GameObject("slot", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            var p = Placement.Standing(0.5f);
+            p.Width = 0.4f; p.Height = 1f;          // узкий заказ по ширине
+            p.BoxAspect = 0.8f;
+            p.ContentX = 0.25f; p.ContentY = 0f;
+            p.ContentW = 0.5f; p.ContentH = 1f;
+
+            WorldPlacement.Apply(rt, p, new Vector2(1000f, 2000f));
+
+            Assert.AreEqual(400f, rt.sizeDelta.x * p.ContentW, 0.5f, "ширину ограничивает ФИГУРА…");
+            Assert.AreEqual(1000f, rt.sizeDelta.y, 0.5f, "…и высота идёт за ней по аспекту холста");
+
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Placement_TopPadding_IsHeight_NotPadding()
+        {
+            var go = new GameObject("slot", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            var p = Placement.Standing(0.5f);
+            p.Width = 1f; p.Height = 0.9f;
+            p.BoxAspect = 0.25f;                    // узкий высокий кадр
+            p.ContentX = 0f; p.ContentY = 0.5f;     // ребёнок в нижней половине кадра
+            p.ContentW = 1f; p.ContentH = 0.5f;
+
+            WorldPlacement.Apply(rt, p, new Vector2(1000f, 2000f));
+
+            // Кадр остаётся кадром: персонаж, нарисованный в его нижней половине,
+            // и на экране вдвое ниже — нормализуй мы высоту по фигуре, ребёнок
+            // сравнялся бы ростом со взрослым.
+            Assert.AreEqual(1800f, rt.sizeDelta.y, 0.5f, "высота = заказанная доля экрана");
+            Assert.AreEqual(900f, rt.sizeDelta.y * p.ContentH, 0.5f, "фигура — половина кадра");
+
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Placement_FigureBox_PutsTheFeetOnTheBaseline()
+        {
+            var go = new GameObject("slot", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            var p = Placement.Standing(0.5f);       // AnchorY = 1 — ноги
+            p.Width = 1f; p.Height = 1f;
+            p.BoxAspect = 1f;
+            p.ContentX = 0.25f; p.ContentY = 0.1f;  // воздух сверху И снизу
+            p.ContentW = 0.5f; p.ContentH = 0.6f;
+
+            WorldPlacement.Apply(rt, p, new Vector2(1000f, 2000f));
+
+            // Пивот стоит на нижней кромке ФИГУРЫ (0.1+0.6 = 0.7 сверху),
+            // иначе персонаж висел бы над полом на высоту прозрачного поля.
+            Assert.AreEqual(0.5f, rt.pivot.x, 0.001f, "по горизонтали — середина фигуры");
+            Assert.AreEqual(0.3f, rt.pivot.y, 0.001f, "по вертикали — подошвы, не низ файла");
+
+            Object.DestroyImmediate(go);
+        }
+
         [Test]
         public void Stage_BuildsCanvasHierarchyAndPlacesActor()
         {
