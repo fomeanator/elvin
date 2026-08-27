@@ -200,7 +200,7 @@ namespace Lvn.UI
             // и честно жалуемся в лог. Порог 1.5с не даёт сработать на
             // штатной передаче «уход карточки → пауза → приход».
             else if (_sayUp && Time.realtimeSinceStartup - _sayUpSince > 1.5f
-                     && Time.realtimeSinceStartup >= _actorVisibilityBarrierUntil)
+                     && _clock.Passed(LvnStageClock.ActorVisibilityBarrier))
             {
                 LvnLog.Trace("[lvn-input] такт не ждал касания при видимой строке — самоисцеление тапом");
                 _player.Advance();

@@ -43,7 +43,6 @@ namespace Lvn.UI
         Rect? ActorScreenRect(string id);
         /// <summary>Момент (realtime), когда у актёра доиграет идущий кроссфейд
         /// облика; 0 — свободен. Новое применение ждёт, а не срезает.</summary>
-        float ActorSwapDeadline(string id);
         void RemoveAll();
 
         // ── per-actor animation ──
@@ -180,7 +179,6 @@ namespace Lvn.UI
             return Rect.MinMaxRect(left, top, right, bot); // normalized, top-left origin (y-up source)
         }
 
-        public float ActorSwapDeadline(string id) => _scene.ActorSwapDeadline(id);
 
         public void RemoveAll() => _scene.RemoveAll();
 

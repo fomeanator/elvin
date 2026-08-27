@@ -494,10 +494,10 @@ namespace Lvn.UI
 
         private IEnumerator WaitCoroutine(JObject cmd)
         {
-            int gen = ++_waitGen; // this wait owns the timer until something cancels it
+            int gen = _clock.Claim(LvnStageClock.WaitLane); // таймер мой, пока его не отменят
             float ms = NumOr(cmd["ms"], 1000f);
             yield return new WaitForSecondsRealtime(ms / 1000f);
-            if (gen != _waitGen) yield break; // cancelled by a hotspot jump / newer wait
+            if (!_clock.IsNewest(LvnStageClock.WaitLane, gen)) yield break; // отменён тапом или новым ожиданием
             _awaitingWait = false;
             if (_player != null && !_player.Finished)
                 _player.Advance();
@@ -507,7 +507,7 @@ namespace Lvn.UI
         // deferred Advance() lands mid-flight somewhere else and skips a beat.
         private void CancelPendingWait()
         {
-            _waitGen++;
+            _clock.Cancel(LvnStageClock.WaitLane);
             _awaitingWait = false;
         }
 

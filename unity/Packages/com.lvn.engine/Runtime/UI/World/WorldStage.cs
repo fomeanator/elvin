@@ -50,6 +50,12 @@ namespace Lvn.UI.World
         private readonly Dictionary<string, int> _birth = new Dictionary<string, int>();
         private int _nextSibling;
 
+        /// <summary>ХРОНОМЕТРИСТ сцены. Рендерер знает, СКОЛЬКО длится его
+        /// кроссфейд облика, но «кто кого ждёт» — не его забота: он лишь
+        /// сообщает срок, а очередь держит Хронометрист. Null допустим —
+        /// рендерер без часов просто никого не задерживает.</summary>
+        public LvnStageClock Clock;
+
         public GameObject Root => _canvasGo;
         public WorldBackground Background => _bg;
 
@@ -485,7 +491,7 @@ namespace Lvn.UI.World
                     a.CrossfadeArtSwap(dur2, wardrobeFlow: false);
                     // Барьер свапа: следующая команда актёра обязана дождаться
                     // конца этого кроссфейда, а не срезать его в один кадр.
-                    _artSwapUntil[id] = Time.realtimeSinceStartup + dur2;
+                    Clock?.Hold(LvnStageClock.SwapBarrier(id), dur2);
                 }
                 else if (!a.HasActiveTransitionVisual)
                     // Визуальный no-op (Equip/ClearPreview без смены облика) не
@@ -498,15 +504,6 @@ namespace Lvn.UI.World
             if (!p.Show) a.StopAll();
             return a;
         }
-
-        // Дедлайны идущих арт-кроссфейдов по актёрам — VnStage ждёт их перед
-        // новым применением, чтобы переходы стыковались, а не срезались.
-        private readonly Dictionary<string, float> _artSwapUntil = new Dictionary<string, float>();
-
-        /// <summary>Момент (realtime), когда у актёра доиграет текущий кроссфейд
-        /// облика; 0 — свободен.</summary>
-        public float ActorSwapDeadline(string id)
-            => _artSwapUntil.TryGetValue(id, out var t) ? t : 0f;
 
         /// <summary>Кто из стоящих на сцене остался со слоями без спрайтов —
         /// то есть рисует сплошные прямоугольники вместо арта.</summary>
