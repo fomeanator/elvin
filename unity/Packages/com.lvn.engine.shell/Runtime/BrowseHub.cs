@@ -336,9 +336,30 @@ namespace Lvn.UI.Screens
                 _settingsBtn.style.display = ExternalTopBar ? DisplayStyle.None : DisplayStyle.Flex;
             if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
-            _topPills.Clear();
-            if (!ExternalTopBar)
-                foreach (var cur in Currencies) _topPills.Add(CurrencyPill(cur));
+
+            // ПИЛЮЛИ НЕ ПЕРЕСОБИРАЮТСЯ НА КАЖДОЕ СОБЫТИЕ. Раньше здесь стоял
+            // Clear() и полная сборка заново — с новой загрузкой значков. Вход
+            // в хаб дёргает LvnWallet.RefreshAsync(), ответ приходит через
+            // секунду, и шапка на ровном месте перерисовывалась у игрока на
+            // глазах. Пилюля умеет обновлять своё число сама (LvnWalletPill
+            // тикает раз в секунду), поэтому событие кошелька — это Refresh,
+            // а не пересборка. Собираем заново, только если сменился САМ СПИСОК
+            // валют или шапку выключили/включили.
+            var want = ExternalTopBar ? EmptyCurrencies : Currencies;
+            if (!SameCurrencies(_pillsFor, want))
+            {
+                _topPills.Clear();
+                _pills.Clear();
+                foreach (var cur in want)
+                {
+                    var pill = CurrencyPill(cur);
+                    _pills.Add(pill);
+                    _topPills.Add(pill);
+                }
+                _pillsFor = new List<string>(want);
+                return;
+            }
+            foreach (var pill in _pills) pill.Refresh();
         }
 
         /// <summary>Единый навбар приложения несёт валюты сам — пилюли хаба
@@ -359,7 +380,21 @@ namespace Lvn.UI.Screens
         // сразу — форматом числа, выбором значка по «currency == "energy"»,
         // кеглем 33 и «плюсом» из лейбла. Кошелёк должен выглядеть одинаково
         // везде, где его показывают.
-        private VisualElement CurrencyPill(string currency)
+        // Что сейчас висит в шапке: список валют, под который пилюли собраны,
+        // и сами пилюли — чтобы обновлять их, а не рождать заново.
+        private List<string> _pillsFor;
+        private readonly List<LvnWalletPill> _pills = new List<LvnWalletPill>();
+        private static readonly List<string> EmptyCurrencies = new List<string>();
+
+        private static bool SameCurrencies(List<string> a, IReadOnlyList<string> b)
+        {
+            if (a == null || b == null || a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+                if (!string.Equals(a[i], b[i], System.StringComparison.Ordinal)) return false;
+            return true;
+        }
+
+        private LvnWalletPill CurrencyPill(string currency)
             => new LvnWalletPill(currency, new LvnWalletPill.Look
             {
                 MarginLeft = 8,
