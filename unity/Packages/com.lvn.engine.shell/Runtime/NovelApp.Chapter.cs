@@ -138,7 +138,12 @@ namespace Lvn.UI.Screens
                 SyncProgressVault();
                 // Between-chapters screen (ui.chapter_end): "Конец главы" with
                 // continue/menu. Without it chapters flow seamlessly, as before.
-                if (_shell?.ChapterEnd != null)
+                // ВВОДНАЯ НЕ СПРАШИВАЕТ «в меню?». Ей некуда больше вести:
+                // пролог кончился, витрина открылась, и кнопка между ними —
+                // лишний щелчок на месте перехода, который должен быть
+                // непрерывным (героиня выходит из главы прямо в меню).
+                bool intro = string.Equals(title?.type, "intro", StringComparison.OrdinalIgnoreCase);
+                if (_shell?.ChapterEnd != null && !(intro && next == null))
                 {
                     bool goNext = await _shell.ChapterEnd.ShowAsync(finished.name, hasNext: next != null);
                     if (!goNext || next == null) break;
@@ -146,6 +151,10 @@ namespace Lvn.UI.Screens
                 else if (next == null) break;
                 chapter = next;
             }
+            // Новелла отыграна (или игрок ушёл) — кадр переходит меню тем же
+            // непрерывным движением, что и по кнопке выхода: героиня
+            // возвращается с миссии, а не появляется заново на пустой сцене.
+            HandOverToMenu();
             // Back to the menu — stop the chapter scheduler so its deferred
             // downloads don't keep competing with the menu's own refresh.
             _downloads?.EndChapter();
