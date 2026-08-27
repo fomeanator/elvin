@@ -175,13 +175,18 @@ namespace Lvn.Tests
             StringAssert.Contains("B two", doc.rootVisualElement.Q<Label>("vn-body").text);
         }
 
-        /// <summary>СТРОКА СТАВИТСЯ ЦЕЛИКОМ. Побуквенное проявление убрано:
-        /// карточка реплики появляется своим ходом, а текст на ней с первого
-        /// кадра полный. Раньше здесь сторожили «первый читаемый кусок» —
-        /// теперь сторожим, что читаемо ВСЁ и длина строки ни на что не влияет,
-        /// иначе типографирование вернётся тихо, «мелким улучшением».</summary>
+        /// <summary>ТЕКСТ НИКОГДА НЕ РЕЖЕТСЯ. Проявление вернулось, но другое:
+        /// строка стоит в лейбле ЦЕЛИКОМ с первого кадра, а проступает
+        /// прозрачностью вершин, по словам.
+        ///
+        /// <para>Тест раньше сторожил прежнее решение — «никакого проявления
+        /// вовсе» — и с приходом вершинного typewriter стал красным, охраняя
+        /// замысел, который движок уже пересмотрел. Сторожим теперь то, что
+        /// в этом решении действительно важно: подстроки в <c>Label.text</c>
+        /// не возвращаются (иначе рвутся разметка, перенос и доступность), а
+        /// ритм считается по СЛОВАМ, а не по буквам.</para></summary>
         [UnityTest]
-        public IEnumerator Dialogue_ShowsTheWholeLineAtOnce()
+        public IEnumerator Dialogue_RevealsWithoutEverCuttingTheText()
         {
             const string longLine = "Один два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать";
             _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"" + longLine + "\"}]}");
@@ -194,18 +199,52 @@ namespace Lvn.Tests
             var body = doc.rootVisualElement.Q<Label>("vn-body");
 
             Assert.AreEqual(longLine, body.text, "длинная строка обязана стоять целиком с первого кадра");
-            Assert.IsFalse(dialogue.IsRevealing, "побуквенного проявления больше нет");
+            Assert.IsTrue(dialogue.IsRevealing, "длинной строке положено проступать — это и есть typewriter");
 
-            // Время появления карточки — постоянное: оно принадлежит виду, а не
-            // количеству букв. Длинная и короткая реплики держат один ритм.
-            float longCard = dialogue.EstimateRevealSeconds(longLine);
-            float shortCard = dialogue.EstimateRevealSeconds("Короткая строка");
-            Assert.AreEqual(longCard, shortCard, 0.0001f,
-                "длительность появления зависит от длины текста — вернулся счёт по буквам");
+            // Середина проявления: текст в лейбле тот же самый. Именно здесь
+            // старое побуквенное решение показало бы обрезок.
+            yield return new WaitForSecondsRealtime(0.15f);
+            Assert.AreEqual(longLine, body.text,
+                "текст режется по ходу проявления — вернулась подстрока вместо прозрачности");
 
-            _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"Короткая строка\"}]}");
+            // Тап по экрану дочитывает строку разом.
+            dialogue.Complete();
+            Assert.IsFalse(dialogue.IsRevealing, "Complete обязан закончить проявление");
+            Assert.AreEqual(longLine, body.text);
+
+            // Короткая реплика умещается в первый читаемый блок — ей проступать
+            // нечем, и она появляется сразу.
+            const string shortLine = "Короткая строка";
+            _stage.Play("{\"script\":[{\"op\":\"say\",\"text\":\"" + shortLine + "\"}]}");
             yield return null;
-            Assert.IsFalse(dialogue.IsRevealing);
+            Assert.AreEqual(shortLine, body.text);
+            Assert.IsFalse(dialogue.IsRevealing, "строке короче первого блока проявлять нечего");
+            Assert.AreEqual(0f, dialogue.EstimateRevealSeconds(shortLine), 1e-4f,
+                "у неё нет хвоста, значит и времени на него — ноль");
+        }
+
+        /// <summary>РИТМ СЧИТАЕТСЯ ПО СЛОВАМ. Слова той же длины, но вдвое
+        /// длиннее буквами, не имеют права занять вдвое больше времени: это
+        /// вернулся бы счёт по глифам, от которого мы и уходили. Разница
+        /// остаётся только за счёт первого читаемого блока — он отмеряется в
+        /// символах, и у длинных слов их туда влезает меньше.</summary>
+        [UnityTest]
+        public IEnumerator Dialogue_PacesByWordsNotByGlyphs()
+        {
+            var dialogue = (DialogueBox)typeof(VnStage)
+                .GetField("_dialogue", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(_stage);
+            yield return null;
+
+            var shortWords = string.Join(" ", System.Linq.Enumerable.Repeat("абвг", 20));
+            var longWords = string.Join(" ", System.Linq.Enumerable.Repeat("абвгабвг", 20));
+
+            float shortly = dialogue.EstimateRevealSeconds(shortWords);
+            float longly = dialogue.EstimateRevealSeconds(longWords);
+
+            Assert.Greater(shortly, 0f, "sanity: у двадцати слов есть хвост");
+            Assert.Less(longly, shortly * 1.6f,
+                "вдвое длиннее буквами — почти столько же времени; иначе вернулся счёт по глифам");
         }
 
         [UnityTest]

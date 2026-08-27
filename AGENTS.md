@@ -29,8 +29,20 @@ go run . convert  -i ../../examples/hello.lvns -o /tmp/hello.lvn
 go run . validate /tmp/hello.lvn      # target: "OK ... 0 warning(s)"
 ```
 
-`gofmt -l .` must print nothing. The Unity package and its EditMode tests are run
-inside the Unity Editor (Test Runner), not from the CLI.
+`gofmt -l .` must print nothing.
+
+Unity tests run headless, and **both platforms are the cycle** — one command
+after every change:
+
+```sh
+qa/run-all.sh              # EditMode (unit + contract + soak) AND PlayMode (scene, boot)
+qa/run-all.sh --editmode   # quick iteration while writing
+```
+
+EditMode never brings up a scene or a UI panel, so a whole class of regressions
+is visible only in PlayMode — a red PlayMode test once sat unnoticed for weeks
+precisely because the loop skipped it. An open Editor does not block the run:
+`unity/TestHost` is a separate project.
 
 ## Project structure
 
