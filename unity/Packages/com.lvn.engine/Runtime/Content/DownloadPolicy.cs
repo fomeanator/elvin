@@ -75,6 +75,22 @@ namespace Lvn.Content
         /// ручка «Качество арта»). Хост синхронизирует с настройкой игрока.</summary>
         public static string PreferredSuffix = "@2k";
 
+        /// <summary>ИСХОДНЫЙ url без суффикса варианта: «bg/x@2k.jpg» → «bg/x.jpg».
+        ///
+        /// <para>Один и тот же файл живёт под несколькими именами (полный,
+        /// @2k, @1440, @1k, @mini), и «а это тот же самый арт?» спрашивают
+        /// сид, дисковый кэш и стриминг. Перечень суффиксов, размазанный по
+        /// вызовам, однажды разъедется с тем, что реально кодирует сервер.</para></summary>
+        public static string StripVariant(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+            foreach (var s in Variants) url = url.Replace(s, "");
+            return url;
+        }
+
+        /// <summary>Все суффиксы вариантов, которые встречаются в контенте.</summary>
+        public static readonly string[] Variants = { "@2k", "@1440", "@1k", "@mini" };
+
         public static string DownscaleVariant(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;

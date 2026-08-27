@@ -1807,7 +1807,7 @@ namespace Lvn.UI.Screens
             // декода) не матчился и переживал главу целиком.
             _assets.Loader.UnloadWhere(u =>
                 (u.Contains("/art/") || u.Contains("/bg/") || u.Contains("/sprites/"))
-                && !pinned.Contains(u.Replace("@2k", "")));
+                && !pinned.Contains(Lvn.Content.DownloadPolicy.StripVariant(u)));
             // Диск убирается тем же тактом (в пуле потоков): мёртвые версии —
             // всегда, над квотой — давнее. Общий арт глав живёт одним файлом
             // и не удаляется, пока его знает хоть одна глава манифеста.
