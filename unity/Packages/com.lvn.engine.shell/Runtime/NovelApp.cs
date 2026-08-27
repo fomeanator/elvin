@@ -504,6 +504,9 @@ namespace Lvn.UI.Screens
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
                 Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
+                // Сцена перехода: панель ведёт экран, створ и героиню — хост.
+                _shell.OnPortalOpening = OpenPortalScene;
+                _shell.OnPortalEnter = EnterPortalAsync;
                 _shell.OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {

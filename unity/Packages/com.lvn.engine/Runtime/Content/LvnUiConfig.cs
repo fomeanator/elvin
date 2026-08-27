@@ -35,6 +35,49 @@ namespace Lvn.Content
         public WardrobeConfig wardrobe;
         public TransitionsConfig transitions;
         public ChapterEndConfig chapter_end;
+        public PortalConfig portal;
+    }
+
+    /// <summary>
+    /// ВХОД В ГЛАВУ КАК СОБЫТИЕ МИРА, а не экран загрузки.
+    ///
+    /// <para>Когда этот блок задан, между выбором истории и её началом встаёт
+    /// сцена перехода: героиня стоит у створа, рядом — что за миссия и
+    /// насколько створ готов; «готовность портала» и есть прогресс загрузки,
+    /// только названный на языке игры. Кнопка входа оживает, когда глава
+    /// готова, и тогда створ забирает героиню.</para>
+    ///
+    /// <para>Блока нет — движок ведёт себя как раньше: обычный экран загрузки.
+    /// Портал принадлежит миру конкретной новеллы, и навязывать его всем
+    /// историям движок не вправе.</para>
+    /// </summary>
+    public sealed class PortalConfig
+    {
+        /// <summary>Включить сцену перехода вместо экрана загрузки.</summary>
+        public bool? enabled;
+
+        /// <summary>Свечение створа (#RRGGBB). Цвет — половина смысла: холодный
+        /// читается как расстояние, тёплый как встреча.</summary>
+        public string color;
+
+        /// <summary>Где стоит створ, в долях кадра (y вниз, как везде в
+        /// авторских координатах).</summary>
+        public float? x, y;
+
+        /// <summary>Во что створ раскрывается — доля ширины кадра.</summary>
+        public float? radius;
+
+        /// <summary>Насколько тускл створ, пока глава не готова: 0 — не виден
+        /// вовсе, 1 — уже раскрыт. Это и есть «заряжается».</summary>
+        public float? idle;
+
+        /// <summary>Рост героини у створа и где она стоит — доли кадра. У
+        /// портала она мельче, чем в витрине: рядом со створом важен масштаб
+        /// перехода, а не её лицо.</summary>
+        public float? doll_height, doll_x;
+
+        /// <summary>Подписи. Пустое — движковые умолчания.</summary>
+        public string enter_label, waiting_label, locked_label, title_label;
     }
 
     /// <summary>Between-screen choreography: how the shell's surfaces hand off
