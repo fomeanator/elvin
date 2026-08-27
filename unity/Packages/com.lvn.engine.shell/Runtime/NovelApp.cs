@@ -1710,7 +1710,10 @@ namespace Lvn.UI.Screens
             }
             bool exited = Stage.ExitRequested;
             Stage.ClearExitRequest();
-            if (exited) Stage.ClearStage(); // leave nothing behind under the carousel
+            // Вышли из главы — кадр ПЕРЕХОДИТ меню, а не стирается: полотно
+            // меняется кроссфейдом, героиня остаётся стоять в том наряде и с
+            // той эмоцией, с какими кончилась глава.
+            if (exited) HandOverToMenu();
             // Persist the chapter's ending state so the next chapter (and the next
             // session) resume with the same stats — whether it finished or the player
             // left mid-chapter (the loop also breaks on cancellation).

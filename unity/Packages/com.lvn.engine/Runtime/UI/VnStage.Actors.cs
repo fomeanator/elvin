@@ -262,6 +262,41 @@ namespace Lvn.UI
 
 
 
+        /// <summary>
+        /// ПЕРЕСТАВИТЬ, НЕ ПЕРЕОДЕВАЯ.
+        ///
+        /// <para>Героиня в меню и героиня в главе — ОДНА И ТА ЖЕ: она уходит на
+        /// миссию и возвращается. Значит наряд и эмоция, с которыми кончилась
+        /// глава, обязаны пережить переход — их нельзя пересобирать из
+        /// умолчаний. Меню знает только МЕСТО (центр, рост куклы), а во что она
+        /// одета — знает последняя команда сцены.</para>
+        ///
+        /// <para>Поэтому здесь берётся последняя авторская команда актёра и
+        /// накрываются только поля размещения. Оси — наряд, эмоция, поза — не
+        /// трогаются вовсе. Если актёра на сцене не было, ставить нечего:
+        /// звонящий отправит обычный показ.</para>
+        /// </summary>
+        public bool Restage(string id, JObject placement)
+        {
+            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var last)) return false;
+            var cmd = (JObject)last.DeepClone();
+            if (placement != null)
+                foreach (var prop in placement.Properties())
+                    cmd[prop.Name] = prop.Value.DeepClone();
+            cmd["id"] = id;
+            cmd["show"] = true;
+            LvnLog.Trace($"[lvn-actor] {id}: перестановка без переодевания → "
+                       + $"{string.Join(", ", System.Linq.Enumerable.Select(AxesFrom(cmd), kv => kv.Key + "=" + kv.Value))}");
+            ApplyStage(cmd);
+            return true;
+        }
+
+        /// <summary>Помнит ли сцена, во что этот актёр был одет (последняя
+        /// авторская команда). По этому решают: перетекает облик или его
+        /// собирают заново.</summary>
+        public bool KnowsLook(string id)
+            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
+
         /// <summary>Take an actor off stage — the counterpart of
         /// <see cref="EnsureActorShown"/> for a host that staged someone
         /// temporarily (the menu wardrobe) and wants the scene back as it was.</summary>

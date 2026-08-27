@@ -305,12 +305,50 @@ namespace Lvn.UI
         /// touching the stage once it's stale.</summary>
         private bool StageCurrent(int epoch) => _clock.IsCurrent(epoch);
 
-        private void ResetStage()
+        /// <summary>
+        /// ПЕРЕДАЧА КАДРА — глава кончилась, но сцена продолжается.
+        ///
+        /// <para>Меню — не отдельный экран, а состояние ЭТОЙ сцены: полотно оно
+        /// ставит той же командой <c>bg</c>, куклу — той же <c>actor</c>. Разрыв
+        /// был искусственный: выход из главы стирал сцену в ноль, а меню
+        /// собирало её заново — с белым кадром на месте полотна и перезагрузкой
+        /// слоёв героини. Отсюда же росли костыли вроде «держать арт куклы
+        /// живым» и «страж самолечится».</para>
+        ///
+        /// <para>Здесь снимается только то, что принадлежало ГЛАВЕ: реплики,
+        /// выборы, ввод, метки, эффекты, скип, ожидания. Декорация остаётся
+        /// стоять, <paramref name="keepActor"/> остаётся стоять тоже — если он
+        /// уже на сцене, его не трогают вовсе, и «героиня осталась» получается
+        /// само собой, без единого перезагруженного слоя. Новый фон приходит
+        /// обычной командой и потому меняется кроссфейдом, а не через
+        /// черноту.</para>
+        /// </summary>
+        public void HandOver(JObject bg = null, string keepActor = null)
+        {
+            if (!_built) return;
+            LvnLog.Trace($"[lvn-stage] HandOver → фон={(bg != null ? "новый" : "прежний")}, "
+                       + $"остаётся={keepActor ?? "-"}");
+            EndChapterFrame();
+            if (!string.IsNullOrEmpty(keepActor)) KeepActorAlive = keepActor;
+            foreach (var id in ActorsOnStage())
+                if (!string.Equals(id, keepActor, StringComparison.Ordinal))
+                    HideActor(id);
+            if (bg != null) ApplyStage(bg);
+            // Память главы отпускается ЗДЕСЬ, а не откладывается «до уборки»:
+            // окно стриминга не должно нести чужие фоны через всё меню. Облик
+            // остающегося переживает это — механизм пинов умеет щадить одного
+            // (KeepActorAlive), ради него он и заведён.
+            UnpinAllSceneSprites();
+            _prefetched.Clear();
+        }
+
+        /// <summary>Снять всё, что принадлежит УХОДЯЩЕЙ ГЛАВЕ, не трогая
+        /// декорацию и актёров. Общая часть уборки сцены и передачи кадра:
+        /// разница между ними ровно в том, что уборка идёт дальше и стирает
+        /// саму сцену.</summary>
+        private void EndChapterFrame()
         {
             _clock.NewEpoch(); // работа прошлой сцены теряет право рисовать (и барьеры с ней)
-            // Кто и когда стирает сцену — ключ к «белому полотну после главы»:
-            // уборка, пришедшая ПОСЛЕ постановки меню, снимает его фон.
-            LvnLog.Trace($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
             // Луп печати не должен пережить сцену: жёсткая смена главы может
             // снести диалог, не дав ему сообщить «печать кончилась».
             _audio?.StopTypingLoop();
@@ -324,8 +362,6 @@ namespace Lvn.UI
             // on the fresh chapter when its old timer elapses.
             StopAllCoroutines();
             _hotspots.Clear();
-            HasBackdrop = false;
-            _lastBgCmd = null; // новая сцена применяет свой первый bg безусловно
             // A resume veil (1/255 alpha) left by an aborted restore must not
             // black out the NEXT chapter — reset it at every scene boundary.
             if (_renderer is CanvasSceneRenderer resetCanvas && resetCanvas.Root != null)
@@ -336,12 +372,7 @@ namespace Lvn.UI
             // A story panel (wardrobe sheet…) left open across a chapter change
             // would float over the new scene — dismiss it with the old one.
             if (_panelHost != null) LvnAsync.Fire(_panelHost.HideAsync(), "Hide");
-            _renderer?.RemoveAll();
-            _renderer?.ResetCamera(0f);
             _talkAnims.Clear();
-            _renderer?.ClearBackground();
-            UnpinAllSceneSprites(); // сцена пуста — окно памяти свободно
-            ReleaseActive3DSet();
             _particles?.Set("rain", false);
             _particles?.Set("snow", false);
             _fx?.Clear(0f);
@@ -360,18 +391,10 @@ namespace Lvn.UI
             _awaitingInput = false;
             _audio?.StopVoice();
             _draggables.Clear();
-            _placements.Clear();
-            _actorCmds.Clear();
-            _actorTargets.Clear();
             _spokenIds.Clear();
             _soloHidden.Clear();
             _dragId = null;
             _dragCandidate = null;
-            foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
-            UnpinAllSpinePages(); // release page-texture pins so the LRU can reclaim them
-            _spineActors.Clear();
-            _spineLoading.Clear();
-            _spinePendingPlay.Clear();
             _choices?.Dismiss(); // clear any on-screen choice buttons (avoid stale clicks)
             _labelLayer?.Clear();
             _uiLayer?.Clear();   // деревья `ui` — того же срока жизни, что метки
@@ -379,6 +402,30 @@ namespace Lvn.UI
             _labelTmpl.Clear();
             _hintHide?.Pause(); _hintHide = null;
             _hintHost = null; _hintCard = null; _hintLabel = null; // detached by the Clear above
+        }
+
+        private void ResetStage()
+        {
+            // Кто и когда стирает сцену — ключ к «белому полотну после главы»:
+            // уборка, пришедшая ПОСЛЕ постановки меню, снимает его фон.
+            LvnLog.Trace($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
+            EndChapterFrame();
+            // ── дальше — то, что уборка сносит, а передача кадра оставляет ──
+            HasBackdrop = false;
+            _lastBgCmd = null; // новая сцена применяет свой первый bg безусловно
+            _renderer?.RemoveAll();
+            _renderer?.ResetCamera(0f);
+            _renderer?.ClearBackground();
+            UnpinAllSceneSprites(); // сцена пуста — окно памяти свободно
+            ReleaseActive3DSet();
+            _placements.Clear();
+            _actorCmds.Clear();
+            _actorTargets.Clear();
+            foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
+            UnpinAllSpinePages(); // release page-texture pins so the LRU can reclaim them
+            _spineActors.Clear();
+            _spineLoading.Clear();
+            _spinePendingPlay.Clear();
         }
 
         private void RecordSay(string who, string text, string style)

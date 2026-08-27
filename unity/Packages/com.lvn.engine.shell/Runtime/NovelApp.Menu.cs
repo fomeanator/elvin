@@ -46,6 +46,47 @@ namespace Lvn.UI.Screens
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
         }
 
+        /// <summary>
+        /// ГЛАВА КОНЧИЛАСЬ — КАДР ПЕРЕХОДИТ МЕНЮ.
+        ///
+        /// <para>Раньше здесь сцена стиралась в ноль, и меню собирало её
+        /// заново: белый кадр на месте полотна, перезагрузка слоёв героини,
+        /// костыли вроде «держать арт куклы живым». Меню — не другой экран, а
+        /// состояние этой же сцены, поэтому переход к нему — смена фона и
+        /// уход лишних, а не уборка.</para>
+        ///
+        /// <para>Героиня меню и героиня главы — ОДНА И ТА ЖЕ: она уходит на
+        /// миссию и возвращается. Поэтому она не ставится заново, а
+        /// ПЕРЕСТАВЛЯЕТСЯ: место берётся у витрины меню, а наряд и эмоция
+        /// остаются те, с которыми кончилась глава.</para>
+        /// </summary>
+        private void HandOverToMenu()
+        {
+            if (Stage == null) return;
+            var canvas = _manifest?.ui?.browse?.canvas;
+            var fav = MenuFavoriteEntity();
+            var bg = string.IsNullOrEmpty(canvas) ? null : new Newtonsoft.Json.Linq.JObject
+            {
+                ["op"] = "bg", ["sprite_url"] = canvas,
+                ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
+            };
+            LvnLog.Trace($"[lvn-menu] передача кадра: полотно={(bg != null ? "меню" : "прежнее")}, "
+                       + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.KnowsLook(fav))}");
+            Stage.HandOver(bg, fav);
+            _menuBgSet = bg != null;   // полотно уже стоит — второй раз его не ставим
+
+            // Переставить, не переодевая: место — витрины, облик — из главы.
+            if (!string.IsNullOrEmpty(fav) && Stage.Restage(fav, new Newtonsoft.Json.Linq.JObject
+            {
+                ["position"] = "center",
+                ["width"] = LvnMenuStage.DollWidth,
+                ["height"] = LvnMenuStage.DollHeight,
+            }))
+            {
+                _menuSceneActor = fav;
+            }
+        }
+
         private void ShowMenuScene()
         {
             if (Stage == null || _chapterPlaying)
