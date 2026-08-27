@@ -125,7 +125,7 @@ namespace Lvn.Services
                 if (mainThread) Persist(); // the crash's own trace must survive the crash
                 else _dirty = true;
             }
-            if (_queue.Count >= FlushAt && mainThread) _ = FlushAsync();
+            if (_queue.Count >= FlushAt && mainThread) LvnAsync.Fire(FlushAsync(), "Flush");
         }
 
         /// <summary>Send everything queued; keeps the queue on failure.</summary>
@@ -211,7 +211,7 @@ namespace Lvn.Services
 
             private void OnApplicationPause(bool paused)
             {
-                if (paused) { Persist(); _ = FlushAsync(); }
+                if (paused) { Persist(); LvnAsync.Fire(FlushAsync(), "Flush"); }
             }
 
             private void OnApplicationQuit() => Persist();

@@ -589,7 +589,7 @@ namespace Lvn.UI.Screens
             panel.Add(msg);
 
             panel.Add(ModalButton("Перезапустить всю экспедицию", primary: true,
-                () => _ = RestartWholeAsync()));
+                () => LvnAsync.Fire(RestartWholeAsync(), "RestartWhole")));
             if (chapters.Count > 1)
                 panel.Add(ModalButton("Перезапустить с главы…", primary: false,
                     () => ShowChapterPicker(chapters)));
@@ -614,7 +614,7 @@ namespace Lvn.UI.Screens
                 // a restart must not jump ahead of where the player has actually been.
                 bool unlocked = ch.number <= reached || ch.number == firstNumber;
                 var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  закрыто"), primary: false,
-                    () => { if (unlocked) _ = RestartFromChapterAsync(ch); });
+                    () => { if (unlocked) LvnAsync.Fire(RestartFromChapterAsync(ch), "RestartFromChapter"); });
                 row.SetEnabled(unlocked);
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 scroll.Add(row);

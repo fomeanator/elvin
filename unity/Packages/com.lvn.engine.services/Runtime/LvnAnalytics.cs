@@ -81,7 +81,7 @@ namespace Lvn.Services
             }
             Persist();
             Runner.Ensure();
-            if (_queue.Count >= FlushAt) _ = FlushAsync();
+            if (_queue.Count >= FlushAt) LvnAsync.Fire(FlushAsync(), "Flush");
         }
 
         /// <summary>Send everything queued; keeps the queue on failure.</summary>
@@ -152,7 +152,7 @@ namespace Lvn.Services
 
             private void OnApplicationPause(bool paused)
             {
-                if (paused) _ = FlushAsync();
+                if (paused) LvnAsync.Fire(FlushAsync(), "Flush");
             }
 
             private void OnApplicationQuit() => Persist();

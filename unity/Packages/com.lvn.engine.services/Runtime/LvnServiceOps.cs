@@ -29,13 +29,13 @@ namespace Lvn.Services
             LvnOps.Register("wallet_earn", (cmd, ctx) =>
             {
                 var (cur, amt) = MoneyArgs(cmd, ctx.Vars);
-                if (amt > 0) _ = LvnWallet.EarnAsync(cur, amt, (string)cmd["reason"] ?? "script");
+                if (amt > 0) LvnAsync.Fire(LvnWallet.EarnAsync(cur, amt, (string)cmd["reason"] ?? "script"), "Earn");
             });
 
             LvnOps.Register("wallet_spend", (cmd, ctx) =>
             {
                 var (cur, amt) = MoneyArgs(cmd, ctx.Vars);
-                if (amt > 0) _ = LvnWallet.SpendAsync(cur, amt, (string)cmd["reason"] ?? "script", (string)cmd["sku"]);
+                if (amt > 0) LvnAsync.Fire(LvnWallet.SpendAsync(cur, amt, (string)cmd["reason"] ?? "script", (string)cmd["sku"]), "Spend");
             });
 
             LvnOps.Register("leaderboard_submit", (cmd, ctx) =>
@@ -50,7 +50,7 @@ namespace Lvn.Services
                 LvnAsync.Fire(LvnLeaderboard.SubmitAsync(board, score, name), "Submit");
             });
 
-            LvnOps.Register("daily_claim", (cmd, ctx) => _ = LvnDaily.ClaimAsync());
+            LvnOps.Register("daily_claim", (cmd, ctx) => LvnAsync.Fire(LvnDaily.ClaimAsync(), "Claim"));
 
             // ext ad_reward placement=gold_small — a story-placed rewarded ad
             // (the wall between chapters, the "double your loot" beat). Holds
@@ -69,7 +69,7 @@ namespace Lvn.Services
             // (дуэль), и ход по очереди (карты), и гонка «кто первый». Новая
             // игра не требует ни строчки в движке: меняется ключ ящика и
             // правило, а не код.
-            LvnOps.Register("net_open", (cmd, ctx) => { ctx.Hold(); _ = NetOpenAsync(ctx); });
+            LvnOps.Register("net_open", (cmd, ctx) => { ctx.Hold(); LvnAsync.Fire(NetOpenAsync(ctx), "NetOpen"); });
 
             LvnOps.Register("net_join", (cmd, ctx) =>
             {
@@ -97,7 +97,7 @@ namespace Lvn.Services
             // Держит скрипт, пока ящик не откроется. Это НЕ недостаток:
             // одновременный выбор тем и держится, что чужое не видно раньше
             // времени, а значит кто-то обязан ждать.
-            LvnOps.Register("net_get", (cmd, ctx) => { ctx.Hold(); _ = NetGetAsync(cmd, ctx); });
+            LvnOps.Register("net_get", (cmd, ctx) => { ctx.Hold(); LvnAsync.Fire(NetGetAsync(cmd, ctx), "NetGet"); });
 
             // ext net_rng — ОДИН ПОТОК СЛУЧАЙНОСТИ НА ВСЮ КОМНАТУ.
             //

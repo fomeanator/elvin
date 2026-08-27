@@ -288,7 +288,7 @@ namespace Lvn.UI.Screens
             dActions.style.flexDirection = FlexDirection.Row;
             dActions.style.alignItems = Align.Center;
             dActions.style.marginTop = 14;
-            _detailPlay = AccentButton(_cfg.play_text ?? "Играть", () => _ = PlayTappedAsync());
+            _detailPlay = AccentButton(_cfg.play_text ?? "Играть", () => LvnAsync.Fire(PlayTappedAsync(), "PlayTapped"));
             _detailPlay.style.flexGrow = 1;
             _detailPlay.style.marginTop = 0;
             dActions.Add(_detailPlay);
@@ -459,7 +459,7 @@ namespace Lvn.UI.Screens
                 ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
             var img = art?.image ?? t.cover_url;
-            if (!string.IsNullOrEmpty(img)) _ = ScreenUi.AssignBgAsync(_detailImage, img, _assets);
+            if (!string.IsNullOrEmpty(img)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_detailImage, img, _assets), "AssignBg");
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
             _detailPlay.text = locked ? (_cfg.locked_text ?? "Закрыто")
@@ -607,7 +607,7 @@ namespace Lvn.UI.Screens
                 img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                b.Add(img); _ = ScreenUi.AssignBgAsync(img, art, _assets);
+                b.Add(img); LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
                 var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(scrim);
                 scrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.05f), new Color(0.03f, 0.01f, 0.03f, 0.92f));
@@ -984,7 +984,7 @@ namespace Lvn.UI.Screens
             thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             var art = t.card?.image ?? t.cover_url;
-            if (!string.IsNullOrEmpty(art)) _ = ScreenUi.AssignBgAsync(thumb, art, _assets);
+            if (!string.IsNullOrEmpty(art)) LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, art, _assets), "AssignBg");
             card.Add(thumb);
 
             // text column (right)

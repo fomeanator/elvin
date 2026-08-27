@@ -356,7 +356,7 @@ namespace Lvn.UI.Screens
             SkinButton(_cancel, false);
             actions.Add(_cancel);
 
-            _confirm = new Button(() => _ = ConfirmAsync());
+            _confirm = new Button(() => LvnAsync.Fire(ConfirmAsync(), "Confirm"));
             _confirm.style.fontSize = 28;
             _confirm.style.flexGrow = 1;
             _confirm.style.flexBasis = 0;

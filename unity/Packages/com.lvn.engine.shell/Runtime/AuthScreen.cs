@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
                     if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Confirm();
                 });
                 panel.Add(_field);
-                if (!string.IsNullOrEmpty(_cfg.field_url)) _ = ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets);
+                if (!string.IsNullOrEmpty(_cfg.field_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets), "AssignBg");
             }
 
             var start = new Button(Confirm) { text = _cfg.start_text ?? "Start" };
@@ -127,7 +127,7 @@ namespace Lvn.UI.Screens
             start.style.borderBottomLeftRadius = 12;
             start.style.borderBottomRightRadius = 12;
             panel.Add(start);
-            if (!string.IsNullOrEmpty(_cfg.button_url)) _ = ScreenUi.AssignBgAsync(start, _cfg.button_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.button_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(start, _cfg.button_url, _assets), "AssignBg");
 
             // Platform sign-in — a button per provider the HOST actually
             // plugged into LvnPlatformAuth (no SDK, no button). Signing in
@@ -184,7 +184,7 @@ namespace Lvn.UI.Screens
             }
             // Fire-and-forget: the name lands on the account when the network
             // allows; Start never waits on the round-trip.
-            if (!string.IsNullOrEmpty(name)) _ = Lvn.Services.LvnBackend.SetDisplayNameAsync(name);
+            if (!string.IsNullOrEmpty(name)) LvnAsync.Fire(Lvn.Services.LvnBackend.SetDisplayNameAsync(name), "SetDisplayName");
             return name;
         }
 

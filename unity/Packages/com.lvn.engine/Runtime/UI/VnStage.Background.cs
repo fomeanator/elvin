@@ -183,7 +183,7 @@ namespace Lvn.UI
             {
                 var cmd = (JObject)_lastBgCmd.DeepClone();
                 _lastBgCmd = null; // иначе дедуп «та же команда» съест повтор
-                _ = ApplyBgAsync(cmd);
+                LvnAsync.Fire(ApplyBgAsync(cmd), "ApplyBg");
             }
             foreach (var id in ActorsOnStage()) RefreshActor(id);
         }

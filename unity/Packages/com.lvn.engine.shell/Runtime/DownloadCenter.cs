@@ -53,7 +53,7 @@ namespace Lvn.UI.Screens
             _queue.Add(new Entry { Label = label, Bytes = bytes, Items = items });
             _totalBytes += bytes;
             Changed?.Invoke();
-            if (!_running) _ = RunAsync();
+            if (!_running) LvnAsync.Fire(RunAsync(), "Run");
         }
 
         /// <summary>Снять главу: активная отменяется своим токеном (очередь

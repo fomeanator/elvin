@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// with a <see cref="VnStage"/> (its own UIDocument, a lower panel
     /// <c>sortingOrder</c> than the shell) assigned to <see cref="Stage"/>.</para>
     /// </summary>
-    public sealed class NovelApp : MonoBehaviour
+    public sealed partial class NovelApp : MonoBehaviour
     {
         /// <summary>Shell lifecycle for the embedding game: a chapter is about
         /// to play (analytics, music ducking, achievements). Args: title, chapter.</summary>
@@ -367,7 +367,7 @@ namespace Lvn.UI.Screens
             // the story holds while the shop is open, then rolls on.
             var storeCfg = manifest.ui?.store;
             if (storeCfg != null && (storeCfg.show_menu_item ?? true))
-                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => _ = _shell.OpenPackShopAsync());
+                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -383,7 +383,7 @@ namespace Lvn.UI.Screens
             if ((wardrobeCfg != null || AnyWardrobeEntity())
                 && (wardrobeCfg?.show_menu_item ?? true))
                 StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
-                    stage => _ = OpenWardrobeFromMenuAsync(stage));
+                    stage => LvnAsync.Fire(OpenWardrobeFromMenuAsync(stage), "OpenWardrobeFromMenu"));
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -421,7 +421,7 @@ namespace Lvn.UI.Screens
             // surface this fuller screen there too).
             var settingsCfg = manifest.ui?.settings;
             if (settingsCfg != null && (settingsCfg.show_menu_item ?? false))
-                StageMenu.AddMenuItem(settingsCfg.menu_label ?? "Settings", stage => _ = _shell.OpenSettingsAsync());
+                StageMenu.AddMenuItem(settingsCfg.menu_label ?? "Settings", stage => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings"));
 
             // Wallet-priced choices (imported "[premium]" options carry
             // wallet_cost): route the spend through the product wallet. A failed
@@ -437,7 +437,7 @@ namespace Lvn.UI.Screens
             {
                 int amount = faucet.amount ?? 100;
                 string label = faucet.label ?? $"Получить {amount}";
-                StageMenu.AddMenuItem(label, stage => _ = GrantFaucetAsync(faucet.currency, amount));
+                StageMenu.AddMenuItem(label, stage => LvnAsync.Fire(GrantFaucetAsync(faucet.currency, amount), "GrantFaucet"));
             }
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>
             {
@@ -867,7 +867,7 @@ namespace Lvn.UI.Screens
                         string.Equals(_currentTitle?.type, "intro", StringComparison.OrdinalIgnoreCase));
                     _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
                     _shell.TopBar.OnGameWardrobe = () =>
-                    { if (Stage != null) _ = OpenWardrobeFromMenuAsync(Stage); };
+                    { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };
                     _shell.TopBar.OnGameStore = () =>
                         LvnAsync.Fire(_shell.OpenPackShopAsync(), "GameBarStore");
                 }
@@ -1549,211 +1549,6 @@ namespace Lvn.UI.Screens
         // Builds a VnStage on a child GameObject with its own UIDocument + panel
         // (sortingOrder below the shell's 30) so dropping a single NovelApp on an
         // empty object is enough to run the whole flow.
-        // ── МЕНЮ ВНУТРИ ИГРЫ (решение Ильи 26.08) ── меню рисуется НАСТОЯЩЕЙ
-        // сценой: полотно — команда bg, фаворит — сценический актёр (живые
-        // слои, наши fx, смена наряда обновляет его штатно). UITK-шелл поверх
-        // держит только панели.
-        private string _menuSceneActor;
-        // Канвас меню ставится ОДИН РАЗ за менюшную сессию: повторные bg-команды
-        // (страж наряда стрелял на каждую примерку) конкурировали с пан-командой
-        // вкладок — фон «елозил туда-сюда» и пан сбивался (живой репорт 27.08).
-        // Фоном меню рулят только: первая постановка здесь и PanMenuScene.
-        private bool _menuBgSet;
-        // Знаем ли, на какой вкладке стоит полотно (был хоть один переезд).
-        private bool _menuPanSet;
-
-        /// <summary>Настройки ВИТРИН из манифеста: рост куклы и переезд
-        /// полотна в меню (<c>ui.browse</c>), кадр плиток гардероба
-        /// (<c>ui.wardrobe.framing</c>). Отдельным методом, потому что зовётся
-        /// из двух мест — при загрузке и при живом обновлении, — и «поменять на
-        /// лету» должно означать именно это, а не перезапуск.</summary>
-        private static void ApplyMenuStaging(LvnManifest manifest)
-        {
-            var b = manifest?.ui?.browse;
-            if (b != null)
-                LvnMenuStage.Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step);
-            LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
-        }
-
-        private void ShowMenuScene()
-        {
-            if (Stage == null || _chapterPlaying)
-            {
-                LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={_chapterPlaying}");
-                return;
-            }
-            var canvas = _manifest?.ui?.browse?.canvas;
-            LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
-                      + $"bgSet={_menuBgSet} → полотно {(!string.IsNullOrEmpty(canvas) && !_menuBgSet ? "СТАВИМ" : "не трогаем")}");
-            if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
-            {
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                {
-                    ["op"] = "bg", ["sprite_url"] = canvas,
-                    // Стартовая четверть полотна — вкладка «Главная» (меню
-                    // всегда открывается с неё): та же точка, что у P(0) в
-                    // PanMenuScene, чтобы первый переезд не прыгал. Но если
-                    // переезды уже были (возврат из главы на своей вкладке) —
-                    // полотно встаёт СРАЗУ на её точку, иначе первый же тик
-                    // дёрнул бы его через полкадра.
-                    ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                });
-                _menuBgSet = true;
-            }
-            var fav = MenuFavoriteEntity();
-            // Кукла меню живёт между главами — её арт не отпускаем на уборке
-            // сцены, иначе выход из главы каждый раз ждёт перезагрузку слоёв.
-            Stage.KeepActorAlive = fav;
-            // Тот же фаворит уже стоит ИЛИ его показ в полёте — ничего не
-            // слать: смену наряда сцена применяет сама (LvnWardrobe.Changed),
-            // а повторная actor-команда только передёргивала куклу. Но если
-            // кукла ПРОПАЛА (оборванная загрузка, сеть) — страж самолечится
-            // и шлёт показ заново.
-            LvnLog.Trace($"[lvn-menu] кукла: фаворит={fav ?? "-"}, стоявший={_menuSceneActor ?? "-"}, "
-                      + $"на сцене={(string.IsNullOrEmpty(fav) ? false : Stage.ActorVisibleOrPending(fav))}");
-            // Через 1.5с (после входа куклы) перечислить сплошные светлые
-            // поверхности сцены — охота на белый прямоугольник (26.08).
-            LvnAsync.Fire(DumpSceneSoonAsync(), "DumpScene");
-            if (fav == _menuSceneActor
-                && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
-            // Самолечение того же фаворита не прячет его перед повтором show.
-            if (!string.IsNullOrEmpty(_menuSceneActor) && _menuSceneActor != fav)
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
-            if (!string.IsNullOrEmpty(fav))
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                {
-                    ["op"] = "actor", ["id"] = fav, ["show"] = true,
-                    ["position"] = "center",
-                    // Рост куклы — настройка витрины, а не число на месте
-                    // (LvnMenuStage; ui.browse.doll_height). Y НЕ задавать:
-                    // якорь ног, 1 = низ (y=0.02 уводил за кадр).
-                    ["width"] = LvnMenuStage.DollWidth,
-                    ["height"] = LvnMenuStage.DollHeight,
-                });
-            _menuSceneActor = fav;
-        }
-
-        // Пан полотна по вкладкам: полотно ведёт ТИК UI-анимации
-        // (OnTabTravelTick) — кадр в кадр и той же кривой, что переезд
-        // страниц. Собственный пан-таймер фона (bg-команда, 0.30с smoothstep)
-        // стартовал позже async-тракта и ехал иначе — «рассинхрон в глаза
-        // бросается» (Илья 28.08). Здесь запоминаются только конечные точки.
-        private float _menuPanFrom, _menuPanTo;
-        private void PanMenuScene(int fromTab, int toTab)
-        {
-            if (Stage == null || _chapterPlaying) return;
-            var canvas = _manifest?.ui?.browse?.canvas;
-            if (string.IsNullOrEmpty(canvas)) return;
-            // Куда едет камера полотна — знает витрина (LvnMenuStage.PanFor;
-            // ui.browse.canvas_pan / canvas_pan_step). Здесь только откуда и
-            // куда: сам переезд ведёт тик анимации вкладок.
-            _menuPanFrom = LvnMenuStage.PanFor(fromTab);
-            _menuPanTo = LvnMenuStage.PanFor(toTab);
-            _menuPanSet = true;
-            // ФЛАГ «канвас стоит» ЗДЕСЬ НЕ ВЫСТАВЛЯЕТСЯ. Пока пан жил
-            // собственной bg-командой, этот метод сам ставил полотно и имел
-            // право на такое заявление. Теперь он только запоминает точки — а
-            // флаг заставлял ShowMenuScene пропустить постановку канваса, и
-            // после выхода из главы (где флаг сбрасывается) меню оставалось
-            // с пустым полотном: Image без спрайта — тот самый белый квадрат
-            // на месте героини (Илья 26.08).
-        }
-
-        // ── камера гардероба: наезд на зону выбираемого скина ────────────────
-        // Кукла меню: ноги у низа, рост 0.91 высоты сцены → голова ~0.82H от
-        // низа, шея ~0.72H, корпус ~0.45H. Скейл GameRoot идёт вокруг центра,
-        // пан возвращает точку интереса чуть выше центра кадра (+0.10H).
-        private void OnWardrobeSection(string axis)
-        {
-            if (Stage == null) return;
-            if (axis == null)
-            {
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 });
-                return;
-            }
-            // target — куда в кадре кладём точку интереса (доли высоты экрана
-            // от центра, + = выше): цифры Ильи 28.08 — украшения на 10% ниже,
-            // причёска на 30% ниже, платье на 7% выше и зум −10%.
-            var k = axis.ToLowerInvariant();
-            float z, focus, target;
-            if (axis == Lvn.UI.Screens.WardrobeSheet.AllTab)
-            { z = 1.07f; focus = 0.5f; target = 0f; } // «Моё»: лёгкий наезд по центру
-            else if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
-            { z = 1.91f; focus = 0.82f; target = 0.30f; } // Илья 28.08: 2×5% выше, зум −7%
-            else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
-                     || k.Contains("acc"))
-            { z = 1.90f; focus = 0.72f; target = 0.20f; }
-            else { z = 1.31f; focus = 0.45f; target = 0.03f; } // платье/наряд — корпус
-            // Канвас сцены width-match к 1080 — его высота в юнитах канваса.
-            float H = 1080f * Screen.height / Mathf.Max(1, Screen.width);
-            float panY = (target - (focus - 0.5f) * z) * H;
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 });
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 });
-        }
-
-        // СТРАЖ СЦЕНЫ МЕНЮ. Постановка полотна и куклы — это последовательность
-        // шагов, и любой из них может не доехать: оборвалась загрузка, уборка
-        // главы пришла следом, промахнулся флаг. Держать инвариант шагами
-        // хрупко («как-то хлипко» — Илья 26.08), поэтому раз в секунду сцена
-        // сверяется с фактом: мы в меню, канвас объявлен — значит полотно
-        // ОБЯЗАНО стоять. Нет — ставим заново. Кукла лечится своим стражем в
-        // VnStage; вместе они делают меню самовосстанавливающимся.
-        private void Update()
-        {
-            if (Stage == null || _chapterPlaying) return;
-            if (Time.unscaledTime < _nextMenuGuard) return;
-            _nextMenuGuard = Time.unscaledTime + LvnMenuStage.GuardPeriodSeconds;
-            if (string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)) return;
-            // ПО ФАКТУ КАРТИНКИ, А НЕ ПО ФЛАГУ: флаг «фон стоит» врал, когда
-            // команда приходила до рождения рендерера, и страж молчал вместе с
-            // ним. Смотрим на само полотно.
-            if (Stage.BackdropHasArt) { _menuBgMissingSince = 0f; return; }
-            // Даём постановке доехать (крупный канвас декодится ~0.6с) и только
-            // потом вмешиваемся — иначе страж перебивал бы живую загрузку.
-            if (_menuBgMissingSince <= 0f) { _menuBgMissingSince = Time.unscaledTime; return; }
-            if (Time.unscaledTime - _menuBgMissingSince < LvnMenuStage.GuardPatienceSeconds) return;
-            _menuBgMissingSince = 0f;
-            Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
-            _menuBgSet = false;
-            ShowMenuScene();
-        }
-
-        private float _nextMenuGuard;
-        private float _menuBgMissingSince;
-
-        // Перечисление сплошных светлых поверхностей сцены — снасть охоты на
-        // «белый прямоугольник вместо героини» (26.08). Держится в коде,
-        // потому что баг был не один и тракт тот же; но обходить иерархию на
-        // каждый показ меню в живой игре незачем — только при включённой
-        // подробной диагностике.
-        private async System.Threading.Tasks.Task DumpSceneSoonAsync()
-        {
-            if (!LvnLog.Verbose) return;
-            await System.Threading.Tasks.Task.Delay(1500);
-            if (!_chapterPlaying) Stage?.DumpOpaqueGraphics();
-        }
-
-        private void HideMenuSceneActor()
-        {
-            if (Stage == null || string.IsNullOrEmpty(_menuSceneActor)) return;
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false });
-            _menuSceneActor = null;
-        }
-
-        private string MenuFavoriteEntity()
-        {
-            var fav = Lvn.UI.LvnPrefs.MenuFavorite;
-            if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
-                && _manifest.sprites.ContainsKey(fav)) return fav;
-            var def = _manifest?.ui?.wardrobe?.entity;
-            return !string.IsNullOrEmpty(def) && _manifest?.sprites != null
-                && _manifest.sprites.ContainsKey(def) ? def : null;
-        }
 
         private VnStage CreateStage()
         {
@@ -2504,310 +2299,6 @@ namespace Lvn.UI.Screens
         // «скачать всё» Time Romance с запасом и не даёт кэшу расти вечно.
         private const long DiskCacheQuotaBytes = 500L << 20;
 
-        // ── «Скачать всю игру» (ELVIN-85) ────────────────────────────────────
-        // Полный список контента по манифесту, с ЭФФЕКТИВНЫМИ url (крупный
-        // арт живёт @2k-вариантом — качаем то, что возьмёт показ).
-        private List<(string url, string kind, long size)> CollectContentItems()
-        {
-            var seen = new HashSet<string>();
-            var items = new List<(string, string, long)>();
-            void Add(string url, string kind, long size)
-            {
-                if (string.IsNullOrEmpty(url)) return;
-                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
-                if (seen.Add(eff)) items.Add((eff, kind, size));
-            }
-            var m = _manifest;
-            if (m?.titles == null) return items;
-            foreach (var t in m.titles)
-            {
-                if (t == null) continue;
-                Add(t.cover_url, "sprite", 0);
-                foreach (var ch in t.ChaptersOf())
-                {
-                    if (ch == null) continue;
-                    Add(ch.script_url, "script", 0);
-                    Add(ch.bg_url, "sprite", 0);
-                    if (ch.assets == null) continue;
-                    foreach (var kv in ch.assets)
-                        Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
-                }
-            }
-            foreach (var u in MenuArtUrls()) Add(u, "sprite", 0);
-            var ui = m.ui;
-            Add(ui?.browse?.music, "audio", 0);
-            Add(ui?.sounds?.click, "audio", 0);
-            Add(ui?.sounds?.choice, "audio", 0);
-            Add(ui?.sounds?.type, "audio", 0);
-            return items;
-        }
-
-        private Task<(long missingBytes, int missingCount, long usedBytes)> StorageInfoAsync()
-            => Task.Run(async () =>
-            {
-                var items = CollectContentItems();
-                var loader = _assets.Loader;
-                long missing = 0; int count = 0;
-                foreach (var (url, _, size) in items)
-                    if (!loader.IsAssetCached(url))
-                    {
-                        missing += size > 0 ? size : 64 << 10; // без меты — скромная оценка
-                        count++;
-                    }
-                long used = await loader.AssetCacheDiskUsageAsync();
-                return (missing, count, used);
-            });
-
-        private Lvn.UI.Screens.DownloadCenter _dlCenter;
-        private int _lastMissingCount = -1;
-
-        // «Скачать всё» — очередью ПО ГЛАВАМ (решение Ильи 25.08): видно, что
-        // качается и что ждёт, любую главу можно снять крестиком. Общие файлы
-        // (обложки, меню, звуки) едут первой записью — они нужны любому экрану.
-        private Task DownloadEverythingAsync()
-        {
-            var loader = _assets.Loader;
-            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
-            var m = _manifest;
-            if (m?.titles == null) return Task.CompletedTask;
-
-            var chapterUrls = new HashSet<string>();
-            var perChapter = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
-            foreach (var t in m.titles)
-            {
-                if (t == null) continue;
-                foreach (var ch in t.ChaptersOf())
-                {
-                    if (ch == null) continue;
-                    var items = new List<Lvn.Content.PreloadItem>();
-                    long bytes = 0;
-                    void Add(string url, string kind, long size)
-                    {
-                        if (string.IsNullOrEmpty(url)) return;
-                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
-                        if (!chapterUrls.Add(eff) || loader.IsAssetCached(eff)) return;
-                        items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
-                        bytes += size > 0 ? size : 64 << 10;
-                    }
-                    Add(ch.script_url, "script", 0);
-                    Add(ch.bg_url, "sprite", 0);
-                    if (ch.assets != null)
-                        foreach (var kv in ch.assets)
-                            Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
-                    if (items.Count > 0)
-                        perChapter.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
-                }
-            }
-            // Всё, что не привязано к главам (обложки, меню, интерфейсные звуки).
-            var shared = new List<Lvn.Content.PreloadItem>();
-            long sharedBytes = 0;
-            foreach (var (url, kind, size) in CollectContentItems())
-            {
-                if (chapterUrls.Contains(url) || loader.IsAssetCached(url)) continue;
-                shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
-                sharedBytes += size > 0 ? size : 64 << 10;
-            }
-            if (shared.Count > 0) _dlCenter.Enqueue("Обложки и меню", sharedBytes, shared);
-            foreach (var (label, bytes, items) in perChapter)
-                _dlCenter.Enqueue(label, bytes, items);
-            Debug.Log($"[content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
-            return _dlCenter.WhenDrainedAsync();
-        }
-
-        /// <summary>Ступень качества с АВТОДЕФОЛТОМ по устройству (как App
-        /// Thinning у сторов): пока игрок не выбрал сам, ступень подбирается
-        /// по экрану и памяти — маленький/старый телефон стартует легче и
-        /// этого не замечает.</summary>
-        internal static string EffectiveArtQuality()
-        {
-            var chosen = Lvn.UI.LvnPrefs.ArtQuality;
-            return !string.IsNullOrEmpty(chosen)
-                ? chosen
-                : Lvn.UI.LvnDeviceProfile.RecommendedArtQuality();
-        }
-
-        // Смена качества = ПЕРЕКАЧКА (мысль Ильи: «для этого дозагрузчик и
-        // пригодится»): старый бокс вычищается с диска, и ровно то, чем игрок
-        // пользовался (что было скачано), встаёт в очередь центра загрузок
-        // главами — в новом качестве. Не вся игра: только скачанное.
-        private async Task PurgeOtherArtBoxAsync(string keepSuffix)
-        {
-            var loader = _assets?.Loader;
-            var m = _manifest;
-            if (loader == null || m?.titles == null) return;
-            string cur = keepSuffix;
-            var others = new List<string>();
-            foreach (var sfx in new[] { "@2k", "@1440", "@1k" })
-                if (sfx != cur) others.Add(sfx);
-            var redo = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
-            int removed = 0;
-            await Task.Run(() =>
-            {
-                var seen = new HashSet<string>();
-                foreach (var t in m.titles)
-                {
-                    if (t == null) continue;
-                    foreach (var ch in t.ChaptersOf())
-                    {
-                        if (ch?.assets == null) continue;
-                        List<Lvn.Content.PreloadItem> items = null;
-                        long bytes = 0;
-                        foreach (var kv in ch.assets)
-                        {
-                            if ((kv.Value?.kind ?? "sprite") != "sprite") continue;
-                            var eff = DownloadPolicy.DownscaleVariant(kv.Key);
-                            if (eff == null || !seen.Add(eff)) continue;
-                            bool had = false;
-                            foreach (var sfx in others)
-                                if (loader.DeleteCachedAsset(eff.Replace(cur, sfx))) { had = true; removed++; }
-                            if (!had) continue;
-                            if (loader.IsAssetCached(eff)) continue;
-                            items ??= new List<Lvn.Content.PreloadItem>();
-                            items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite" });
-                            bytes += kv.Value?.size ?? 64 << 10;
-                        }
-                        if (items != null)
-                            redo.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
-                    }
-                }
-            });
-            Debug.Log($"[content] качество арта: чужие боксы вычищены ({removed} файлов), "
-                + $"перекачка {redo.Count} глав в {cur}");
-            if (redo.Count == 0) return;
-            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
-            foreach (var (label, bytes, items) in redo)
-                _dlCenter.Enqueue(label, bytes, items);
-        }
-
-        // Докачка одной главы очередью центра (кнопка «Скачать главу N»).
-        private void EnqueueChapterDownload(LvnTitle t, LvnChapter ch)
-        {
-            var loader = _assets.Loader;
-            _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
-            var items = new List<Lvn.Content.PreloadItem>();
-            long bytes = 0;
-            void Add(string url, string kind, long size)
-            {
-                if (string.IsNullOrEmpty(url)) return;
-                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
-                if (loader.IsAssetCached(eff)) return;
-                items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
-                bytes += size > 0 ? size : 64 << 10;
-            }
-            Add(ch.script_url, "script", 0);
-            Add(ch.bg_url, "sprite", 0);
-            if (ch.assets != null)
-                foreach (var kv in ch.assets)
-                    Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
-            _dlCenter.Enqueue($"{t.name ?? t.id} — глава {ch.number}", bytes, items);
-        }
-
-        // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
-        // когда ВСЕ её файлы уже на диске. Зовётся при развороте попапа.
-        private List<(string label, bool cached)> ChapterAvailability()
-        {
-            var res = new List<(string, bool)>();
-            var loader = _assets?.Loader;
-            var m = _manifest;
-            if (loader == null || m?.titles == null) return res;
-            foreach (var t in m.titles)
-            {
-                if (t == null) continue;
-                foreach (var ch in t.ChaptersOf())
-                {
-                    if (ch == null) continue;
-                    bool ok = true;
-                    void Check(string url, string kind)
-                    {
-                        if (!ok || string.IsNullOrEmpty(url)) return;
-                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
-                        if (!loader.IsAssetCached(eff)) ok = false;
-                    }
-                    Check(ch.script_url, "script");
-                    Check(ch.bg_url, "sprite");
-                    if (ch.assets != null)
-                        foreach (var kv in ch.assets)
-                        { Check(kv.Key, kv.Value?.kind ?? "sprite"); if (!ok) break; }
-                    res.Add(($"{t.name ?? t.id} — глава {ch.number}", ok));
-                }
-            }
-            return res;
-        }
-
-        private async Task SweepDiskCacheAsync()
-        {
-            var m = _manifest;
-            if (m?.titles == null || _assets?.Loader == null) return;
-            var loader = _assets.Loader;
-            var live = new HashSet<string>();
-            var prot = new HashSet<string>();
-            void Add(HashSet<string> set, string u) => loader.AddLiveKeysFor(u, set);
-            foreach (var t in m.titles)
-            {
-                if (t == null) continue;
-                bool intro = string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase);
-                var current = LvnProgress.Current(t);
-                Add(live, t.cover_url);
-                foreach (var ch in t.ChaptersOf())
-                {
-                    if (ch == null) continue;
-                    // Вводная и глава, на которой стоит прогресс, — неприкосновенны:
-                    // им играть следующими.
-                    bool keep = intro || (current != null && ch.id == current.id);
-                    Add(live, ch.script_url);
-                    Add(live, ch.bg_url);
-                    if (keep) { Add(prot, ch.script_url); Add(prot, ch.bg_url); }
-                    if (ch.assets == null) continue;
-                    foreach (var url in ch.assets.Keys)
-                    {
-                        Add(live, url);
-                        if (keep) Add(prot, url);
-                    }
-                }
-            }
-            foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
-            var ui = m.ui;
-            Add(live, ui?.browse?.music);
-            Add(live, ui?.sounds?.click);
-            Add(live, ui?.sounds?.choice);
-            Add(live, ui?.sounds?.type);
-            var (removed, freed) = await loader.SweepAssetCacheAsync(live, prot, DiskCacheQuotaBytes);
-            if (removed > 0)
-                Debug.Log($"[content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
-        }
-
-        // Every image url the MENU surfaces reference (covers, chapter loading
-        // backdrops, collection art) — the chapter-end unload must never destroy
-        // these while the carousel/hub still draw them. Rebuilt lazily per
-        // manifest (content live-reload swaps the manifest object).
-        private HashSet<string> _menuArt;
-        private LvnManifest _menuArtFor;
-
-        private HashSet<string> MenuArtUrls()
-        {
-            if (_menuArt != null && ReferenceEquals(_menuArtFor, _manifest)) return _menuArt;
-            var set = new HashSet<string>();
-            void Take(string u) { if (!string.IsNullOrEmpty(u)) set.Add(u); }
-            if (_manifest?.titles != null)
-                foreach (var t in _manifest.titles)
-                {
-                    if (t == null) continue;
-                    Take(t.cover_url);
-                    Take(t.card?.image); // detail-screen hero art
-                    if (t.seasons == null) continue;
-                    foreach (var s in t.seasons)
-                    {
-                        if (s?.chapters == null) continue;
-                        foreach (var c in s.chapters) Take(c?.bg_url);
-                    }
-                }
-            if (_manifest?.collections != null)
-                foreach (var col in _manifest.collections)
-                    Take(col?.card?.image);
-            _menuArt = set;
-            _menuArtFor = _manifest;
-            return set;
-        }
 
         // Cross-chapter save routing: a slot taken in another chapter resolves to
         // its chapter by script url, fetches that script, plays it and restores —
@@ -2968,7 +2459,9 @@ namespace Lvn.UI.Screens
                             catch { vars = new Newtonsoft.Json.Linq.JObject(); }
                         }
                         float val = 0f;
-                        try { val = (float?)vars?.SelectToken(s.key) ?? 0f; } catch { }
+                        // Путь статы может не существовать или указывать на объект —
+                // тогда стата просто показывает ноль, а не роняет экран.
+                try { val = (float?)vars?.SelectToken(s.key) ?? 0f; } catch { }
                         if (val <= 0f) continue; // не начатые романы полку не занимают
                         float max = s.max > 0 ? s.max : 20f;
                         rel.Add(new Lvn.UI.Screens.ProfileScreen.Relation(
@@ -2994,7 +2487,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(uid)) p.Uid = uid;
             p.Wallet = BuildWalletTiles();
             p.OnDeleteAccount = DeleteAccountAndForgetAsync;
-            p.OnOpenSettings = () => _ = _shell.OpenSettingsAsync();
+            p.OnOpenSettings = () => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings");
             await _shell.TabGoTo(3); // вкладка ленты, не модалка
         }
 
@@ -3120,7 +2613,7 @@ namespace Lvn.UI.Screens
             {
                 var bundle = ProgressVault.Collect(_manifest);
                 ProgressVault.WriteLocal(bundle);
-                if (_state != null) _ = _state.SaveVarsAsync(ProgressVault.Scope, bundle, default);
+                if (_state != null) LvnAsync.Fire(_state.SaveVarsAsync(ProgressVault.Scope, bundle, default), "SaveVars");
             }
             catch (Exception e) { Debug.LogWarning("[vault] sync failed: " + e.Message); }
         }

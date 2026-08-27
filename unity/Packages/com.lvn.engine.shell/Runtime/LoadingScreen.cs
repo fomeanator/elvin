@@ -109,7 +109,7 @@ namespace Lvn.UI.Screens
             LvnAsync.Fire(ScreenUi.AssignBgAsync(track, _cfg.bar_track_url, _assets), "AssignBg");
             LvnAsync.Fire(ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets), "AssignBg");
             LvnAsync.Fire(ScreenUi.AssignBgAsync(frame, _cfg.bar_frame_url, _assets), "AssignBg");
-            if (!string.IsNullOrEmpty(_cfg.bg_url)) _ = ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.bg_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_bg, _cfg.bg_url, _assets), "AssignBg");
         }
 
         /// <summary>Drives the loading bar until <paramref name="isDone"/> returns
@@ -148,7 +148,7 @@ namespace Lvn.UI.Screens
             _chapterTitle.style.opacity = 0f;
             _chapterSubtitle.style.opacity = 0f;
 
-            if (!string.IsNullOrEmpty(bgUrl)) _ = ScreenUi.AssignBgAsync(_bg, bgUrl, _assets);
+            if (!string.IsNullOrEmpty(bgUrl)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_bg, bgUrl, _assets), "AssignBg");
 
             var tips = _cfg.tips;
             float minSeconds = minSecondsOverride ?? _cfg.min_seconds ?? 0f;
