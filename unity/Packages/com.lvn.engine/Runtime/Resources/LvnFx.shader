@@ -52,13 +52,16 @@ Shader "Hidden/LvnFx"
                   _Frost, _Blink, _Invert, _Fog, _Rain, _Snow, _Embers,
                   _Blood, _Poison, _Shockwave, _Speedlines, _Dream, _Sepia,
                   _Posterize, _Letterbox, _Space, _SpaceRadius,
-                  _Sketch, _Halftone, _Heat, _Ripple, _Dust, _Ink;
+                  _Sketch, _Halftone, _Heat, _Ripple, _Dust, _Ink,
+                  _Portal, _PortalRadius;
             float4 _Tint;      // rgb множитель (1,1,1 = нет)
             float4 _RayCenter; // xy — источник лучей в uv
             float4 _FxCenter;  // xy — эпицентр удара в uv
             float4 _SpaceCenter; // xy — центр пространственной линзы
             float4 _FogColor, _EmberColor, _BloodColor, _PoisonColor, _InkColor;
             float4 _SpaceColor;
+            float4 _PortalCenter; // xy — центр портала в uv
+            float4 _PortalColor;  // свечение створа
 
             fixed4 frag(v2f i) : SV_Target
             {
@@ -70,6 +73,16 @@ Shader "Hidden/LvnFx"
                                             uv.y - _SpaceCenter.y);
                 float spaceDistance = length(spaceDelta);
                 float spaceR = max(_SpaceRadius, 0.05);
+
+                // ПОРТАЛ. Створ раскрывается из точки: _Portal — доля
+                // раскрытия (0 закрыт, 1 раскрыт), _PortalRadius — во что он
+                // раскрывается. Считаем в аспект-корректных координатах,
+                // иначе на телефоне круг станет яйцом.
+                float2 portalDelta = float2((uv.x - _PortalCenter.x) * screenAspect,
+                                             uv.y - _PortalCenter.y);
+                float portalDistance = length(portalDelta);
+                float portalAngle = atan2(portalDelta.y, portalDelta.x);
+                float portalR = max(_PortalRadius, 0.03) * saturate(_Portal);
 
                 // Ударная волна: значение 0→1 — фаза расширения кольца.
                 // Автор двигает её через dur, поэтому эффект не зависит от FPS.
@@ -128,6 +141,25 @@ Shader "Hidden/LvnFx"
                         * sin(t * 0.34 + spaceDistance * 31.0) * 0.018;
                 }
 
+                // Створ портала затягивает кадр внутрь и закручивает его:
+                // мир не «переключается», он УХОДИТ в проём. Снаружи створа
+                // остаётся лёгкая линза — воздух вокруг тоже ведёт.
+                if (_Portal > 0.001)
+                {
+                    float2 pdir = portalDelta / max(portalDistance, 0.0001);
+                    float2 pDirUv = float2(pdir.x / screenAspect, pdir.y);
+                    float2 pTanUv = float2(-pdir.y / screenAspect, pdir.x);
+                    float inner = 1.0 - saturate(portalDistance / max(portalR, 0.0001));
+                    float halo = (1.0 - smoothstep(portalR, portalR * 2.1, portalDistance))
+                               * (1.0 - inner);
+                    float pull = inner * inner;
+                    uv -= pDirUv * pull * _Portal * 0.10;
+                    uv += pTanUv * (pull * 0.85 + halo * 0.25) * _Portal
+                        * (0.55 + 0.45 * sin(t * 1.6 + portalDistance * 18.0)) * 0.06;
+                    uv += pDirUv * halo * _Portal
+                        * sin(portalDistance * 40.0 - t * 2.2) * 0.006;
+                }
+
                 // Сон/видение: медленный плавающий объектив. Сам soft-focus
                 // накладывается после основного сэмпла.
                 if (_Dream > 0.001)
@@ -182,6 +214,22 @@ Shader "Hidden/LvnFx"
                     col.rgb *= 1.0 - saturate(core * 0.98 + shadow * 0.30 * _Space);
                     col.rgb += _SpaceColor.rgb * ring * ringTexture * _Space * 0.78;
                     col.rgb += ring * ring * _Space * 0.24;
+                }
+
+                // Свет портала: горловина светится изнутри, кромка — резкая
+                // и живая. Внутри створа кадр вымывается в свет: туда уже
+                // «ушло» то, что было в кадре.
+                if (_Portal > 0.001)
+                {
+                    float throat = 1.0 - smoothstep(portalR * 0.55, portalR * 0.98, portalDistance);
+                    float rim = 1.0 - smoothstep(portalR * 0.02, portalR * 0.16,
+                                                 abs(portalDistance - portalR));
+                    float swirlTex = 0.62 + noise2(float2(portalAngle * 3.0 - t * 0.9,
+                                                          portalDistance * 6.0 + t * 0.4)) * 0.38;
+                    float mouth = throat * swirlTex;
+                    col.rgb = lerp(col.rgb, _PortalColor.rgb, saturate(mouth * _Portal * 0.92));
+                    col.rgb += _PortalColor.rgb * rim * (0.75 + 0.25 * swirlTex) * _Portal;
+                    col.rgb += rim * rim * _Portal * 0.30;   // добела на самом краю
                 }
 
                 // Мягкий фокус сна: четыре соседних сэмпла. Не включён —

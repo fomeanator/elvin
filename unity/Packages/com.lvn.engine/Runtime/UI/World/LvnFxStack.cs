@@ -31,7 +31,7 @@ namespace Lvn.UI.World
                       _glitch, _bloom, _rays, _distort, _frost, _blink, _invert,
                       _fog, _rain, _snow, _embers, _blood, _poison, _shockwave,
                       _speedlines, _dream, _sepia, _posterize, _letterbox, _space,
-                      _sketch, _halftone, _heat, _ripple, _dust, _ink;
+                      _sketch, _halftone, _heat, _ripple, _dust, _ink, _portal;
         private float _saturation = 1f, _contrast = 1f;
         // Цели tween'а (op-поле dur): без dur цели применяются мгновенно.
         private float _tVignette, _tCinematic, _tChromatic, _tScanlines, _tPixelate,
@@ -39,9 +39,16 @@ namespace Lvn.UI.World
                       _tFog, _tRain, _tSnow, _tEmbers, _tBlood, _tPoison, _tShockwave,
                       _tSpeedlines, _tDream, _tSepia, _tPosterize, _tLetterbox, _tSpace,
                       // стилизация и атмосфера второй волны
-                      _tSketch, _tHalftone, _tHeat, _tRipple, _tDust, _tInk;
+                      _tSketch, _tHalftone, _tHeat, _tRipple, _tDust, _tInk,
+                      // ПОРТАЛ — переход как событие мира, а не смена экрана.
+                      // Створ раскрывается из точки, кадр уходит в него;
+                      // обратный ход — то же значение в другую сторону.
+                      _tPortal;
         private float _tSaturation = 1f, _tContrast = 1f;
         private float _speed; // 1/dur; 0 = мгновенно
+        private Vector2 _portalCenter = new Vector2(0.5f, 0.52f);
+        private float _portalRadius = 0.34f;
+        private Color _portalColor = new Color(0.62f, 0.86f, 1f);
         private Vector2 _rayCenter = new Vector2(0.5f, 0.3f);
         private Vector2 _fxCenter = new Vector2(0.5f, 0.5f);
         private Vector2 _spaceCenter = new Vector2(0.5f, 0.45f);
@@ -114,7 +121,8 @@ namespace Lvn.UI.World
                     _tInvert = _tFog = _tRain = _tSnow = _tEmbers = _tBlood =
                     _tPoison = _tShockwave = _tSpeedlines = _tDream = _tSepia =
                     _tPosterize = _tLetterbox = _tSpace =
-                    _tSketch = _tHalftone = _tHeat = _tRipple = _tDust = _tInk = 0f;
+                    _tSketch = _tHalftone = _tHeat = _tRipple = _tDust = _tInk =
+                    _tPortal = 0f;
                 _tSaturation = 1f; _tContrast = 1f; _tint = Color.white;
                 if (_speed <= 0f) SnapToTargets();
                 enabled = true;
@@ -160,6 +168,7 @@ namespace Lvn.UI.World
             _tRipple     = F(cmd, "ripple", _tRipple);
             _tDust       = F(cmd, "dust", _tDust);
             _tInk        = F(cmd, "ink", _tInk);
+            _tPortal     = F(cmd, "portal", _tPortal);
             _tSaturation = F(cmd, "saturation", _tSaturation);
             _tContrast   = F(cmd, "contrast", _tContrast);
             _rayCenter  = new Vector2(F(cmd, "rays_x", _rayCenter.x), F(cmd, "rays_y", _rayCenter.y));
@@ -167,6 +176,9 @@ namespace Lvn.UI.World
             _spaceCenter = new Vector2(F(cmd, "space_x", _spaceCenter.x),
                                        F(cmd, "space_y", _spaceCenter.y));
             _spaceRadius = Mathf.Clamp(F(cmd, "space_radius", _spaceRadius), 0.05f, 0.7f);
+            _portalCenter = new Vector2(F(cmd, "portal_x", _portalCenter.x),
+                                        F(cmd, "portal_y", _portalCenter.y));
+            _portalRadius = Mathf.Clamp(F(cmd, "portal_radius", _portalRadius), 0.05f, 1.2f);
             var tint = (string)cmd["tint"];
             if (!string.IsNullOrEmpty(tint) && ColorUtility.TryParseHtmlString(tint, out var c)) _tint = c;
             ParseColor(cmd, "fog_color", ref _fogColor);
@@ -175,6 +187,7 @@ namespace Lvn.UI.World
             ParseColor(cmd, "ink_color", ref _inkColor);
             ParseColor(cmd, "poison_color", ref _poisonColor);
             ParseColor(cmd, "space_color", ref _spaceColor);
+            ParseColor(cmd, "portal_color", ref _portalColor);
 
             if (_speed <= 0f) SnapToTargets();
             enabled = true;
@@ -193,6 +206,7 @@ namespace Lvn.UI.World
             _space = _tSpace;
             _sketch = _tSketch; _halftone = _tHalftone; _heat = _tHeat;
             _ripple = _tRipple; _dust = _tDust; _ink = _tInk;
+            _portal = _tPortal;
             _saturation = _tSaturation; _contrast = _tContrast;
         }
 
@@ -249,6 +263,7 @@ namespace Lvn.UI.World
             _ripple = Mathf.MoveTowards(_ripple, _tRipple, k);
             _dust = Mathf.MoveTowards(_dust, _tDust, k);
             _ink = Mathf.MoveTowards(_ink, _tInk, k);
+            _portal = Mathf.MoveTowards(_portal, _tPortal, k);
             _saturation = Mathf.MoveTowards(_saturation, _tSaturation, k);
             _contrast = Mathf.MoveTowards(_contrast, _tContrast, k);
         }
@@ -346,6 +361,8 @@ namespace Lvn.UI.World
             _mat.SetFloat("_Ripple", _ripple);
             _mat.SetFloat("_Dust", _dust);
             _mat.SetFloat("_Ink", _ink);
+            _mat.SetFloat("_Portal", _portal);
+            _mat.SetFloat("_PortalRadius", _portalRadius);
             _mat.SetFloat("_Letterbox", _letterbox);
             _mat.SetFloat("_Space", _space);
             _mat.SetFloat("_SpaceRadius", _spaceRadius);
@@ -358,6 +375,9 @@ namespace Lvn.UI.World
             _mat.SetColor("_InkColor", _inkColor);
             _mat.SetColor("_PoisonColor", _poisonColor);
             _mat.SetColor("_SpaceColor", _spaceColor);
+            _mat.SetColor("_PortalColor", _portalColor);
+            _mat.SetVector("_PortalCenter",   // авторская y вниз → uv вверх, как у прочих центров
+                new Vector4(_portalCenter.x, 1f - _portalCenter.y, 0f, 0f));
             _mat.SetVector("_RayCenter", new Vector4(_rayCenter.x, 1f - _rayCenter.y, 0, 0)); // авторская y вниз → uv вверх
             _mat.SetVector("_FxCenter", new Vector4(_fxCenter.x, 1f - _fxCenter.y, 0, 0));
             _mat.SetVector("_SpaceCenter",
