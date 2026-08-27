@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
             float barH = _cfg.bar_height ?? 0.014f;
             var bar = ScreenUi.ProgressBar(
                 0.5f, barY, barW, barH,
-                UiColor.Parse(_cfg.bar_track_color, new Color(1f, 1f, 1f, 0.13f)),
+                UiColor.Parse(_cfg.bar_track_color, LvnTokens.Track),
                 UiColor.Parse(_cfg.bar_fill_color, LvnTokens.Accent),
                 out _, out _fill);
             Add(bar);

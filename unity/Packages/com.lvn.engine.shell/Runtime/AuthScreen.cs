@@ -67,7 +67,7 @@ namespace Lvn.UI.Screens
             panel.style.paddingBottom = 22;
             panel.style.paddingLeft = 26;
             panel.style.paddingRight = 26;
-            panel.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0f, 0f, 0f, 0.65f));
+            panel.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.Veil(0.65f));
             panel.style.borderTopLeftRadius = 16;
             panel.style.borderTopRightRadius = 16;
             panel.style.borderBottomLeftRadius = 16;

@@ -28,6 +28,9 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _dots;
         private readonly List<VisualElement> _dotEls = new List<VisualElement>();
         private readonly Color _dotColor, _dotActiveColor;
+        // Цвет кнопки «Играть»: дефолт писался литералом в трёх местах —
+        // три шанса разойтись. Считается один раз, из темы.
+        private readonly Color _playBg;
 
         private readonly float _cardWFrac, _cardHFrac, _gapFrac;
         private float _stride = 1f;
@@ -60,7 +63,8 @@ namespace Lvn.UI.Screens
             _cardWFrac = _cfg.card_width ?? 0.62f;
             _cardHFrac = _cfg.card_height ?? 0.62f;
             _gapFrac = _cfg.card_gap ?? 0.06f;
-            _dotColor = UiColor.Parse(_cfg.dot_color, new Color(1f, 1f, 1f, 0.33f));
+            _playBg = UiColor.Parse(_cfg.play_bg_color, LvnTokens.SurfaceHi);
+            _dotColor = UiColor.Parse(_cfg.dot_color, LvnTokens.Track);
             _dotActiveColor = UiColor.Parse(_cfg.dot_active_color, LvnTokens.Text);
 
             ScreenUi.Stretch(this);
@@ -103,7 +107,7 @@ namespace Lvn.UI.Screens
             _play.style.height = Length.Percent(8f);
             _play.style.fontSize = 30;
             _play.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
-            _play.style.backgroundColor = UiColor.Parse(_cfg.play_bg_color, new Color(0.23f, 0.23f, 0.27f));
+            _play.style.backgroundColor = _playBg;
             _play.style.borderTopLeftRadius = 12; _play.style.borderTopRightRadius = 12;
             _play.style.borderBottomLeftRadius = 12; _play.style.borderBottomRightRadius = 12;
             _play.clicked += () => OnPlay?.Invoke(_index);
@@ -392,7 +396,7 @@ namespace Lvn.UI.Screens
                 cont.style.flexDirection = FlexDirection.Column;
                 cont.style.justifyContent = Justify.Center;
                 cont.style.alignItems = Align.FlexStart;
-                cont.style.backgroundColor = UiColor.Parse(_cfg.play_bg_color, new Color(0.23f, 0.23f, 0.27f));
+                cont.style.backgroundColor = _playBg;
                 cont.style.borderTopLeftRadius = 10; cont.style.borderTopRightRadius = 10;
                 cont.style.borderBottomLeftRadius = 10; cont.style.borderBottomRightRadius = 10;
 
@@ -443,7 +447,7 @@ namespace Lvn.UI.Screens
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 row.style.paddingLeft = 14;
                 row.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
-                var bg = UiColor.Parse(_cfg.play_bg_color, new Color(0.23f, 0.23f, 0.27f));
+                var bg = _playBg;
                 row.style.backgroundColor = new Color(bg.r, bg.g, bg.b, unlocked ? bg.a : bg.a * 0.35f);
                 row.style.borderTopLeftRadius = 10; row.style.borderTopRightRadius = 10;
                 row.style.borderBottomLeftRadius = 10; row.style.borderBottomRightRadius = 10;

@@ -42,6 +42,11 @@ namespace Lvn.UI
         public Color Faint = new Color(1f, 1f, 1f, 0.08f);
         /// <summary>Затемнение под модальными окнами.</summary>
         public Color Scrim = new Color(0f, 0f, 0f, 0.72f);
+        /// <summary>ДОРОЖКА шкалы: незаполненная часть полосы загрузки,
+        /// прогресса главы, ползунка. Отдельно от <see cref="Faint"/>: заливка
+        /// кнопки-призрака должна едва читаться, а дорожка обязана быть видна
+        /// пустой — иначе полоса выглядит обрезанной, а не незаполненной.</summary>
+        public Color Track = new Color(1f, 1f, 1f, 0.13f);
         /// <summary>Фон панели диалога и нижних листов.</summary>
         public Color PanelBg = new Color(0.086f, 0.063f, 0.094f, 0.97f);
         /// <summary>Тревога и «новое». ОТДЕЛЬНЫЙ цвет, а не акцент: если
@@ -207,6 +212,7 @@ namespace Lvn.UI
             Gold = Hex("#FFC46B"),
             Warn = Hex("#FF2E88"),
             Faint = new Color(0.18f, 0.90f, 0.84f, 0.07f),
+            Track = new Color(0.18f, 0.90f, 0.84f, 0.16f),
             Scrim = new Color(0.02f, 0.04f, 0.07f, 0.82f),
             PanelBg = new Color(0.039f, 0.055f, 0.086f, 0.96f),
             Radius = 14f,
@@ -254,6 +260,7 @@ namespace Lvn.UI
             Gold = Hex("#f0d9a0"),
             Warn = Hex("#ff5c7a"),
             Faint = new Color(1f, 1f, 1f, 0.07f),
+            Track = new Color(1f, 1f, 1f, 0.12f),
             Scrim = new Color(0.05f, 0.03f, 0.06f, 0.80f),
             PanelBg = new Color(0.09f, 0.07f, 0.11f, 0.96f),
             Radius = 18f,

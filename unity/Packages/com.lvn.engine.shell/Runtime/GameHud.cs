@@ -37,7 +37,7 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new HudConfig();
             _assets = assets;
-            _pillBg = UiColor.Parse(_cfg.pill_bg_color, new Color(0f, 0f, 0f, 0.4f));
+            _pillBg = UiColor.Parse(_cfg.pill_bg_color, LvnTokens.Veil(0.40f));
             _pillText = UiColor.Parse(_cfg.pill_text_color, LvnTokens.Text);
 
             // Designed bar height in REFERENCE pixels (panel units track the
@@ -56,7 +56,7 @@ namespace Lvn.UI.Screens
             style.alignItems = Align.Center;
             style.justifyContent = Justify.SpaceBetween;
             style.paddingLeft = 24; style.paddingRight = 24;
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(0f, 0f, 0f, 0.53f));
+            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Veil(0.53f));
             pickingMode = PickingMode.Ignore;
 
             // left: progress
