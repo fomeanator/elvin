@@ -29,9 +29,7 @@ namespace Lvn.UI.Screens
         private List<LvnStatDef> _stats;
         private System.Func<string, JToken> _getVar;
 
-        private sealed class Pill { public VisualElement Root; public Label Label; public Label Timer; }
-        private readonly Dictionary<string, Pill> _pills = new Dictionary<string, Pill>();
-        private float _nextRegenRefresh; // throttle the auto-refresh when a timer hits 0
+        private readonly Dictionary<string, LvnWalletPill> _pills = new Dictionary<string, LvnWalletPill>();
         private float _baseHeight;       // designed bar height (reference px)
         private float _safeTop = -1f;    // applied top inset, to write styles only on change
 
@@ -118,9 +116,6 @@ namespace Lvn.UI.Screens
                 style.height = _baseHeight + inset;
             }
 
-            // Tick the energy/lives refill countdowns once a second (activates
-            // when the HUD attaches to its panel).
-            schedule.Execute(TickRegen).Every(1000);
         }
 
         /// <summary>Update the chapter-progress percent (current command / total).</summary>
@@ -159,112 +154,31 @@ namespace Lvn.UI.Screens
                 p = SpawnPill(iconUrl ?? _cfg.default_currency_icon_url, currency);
                 _pills[currency] = p;
             }
-            ApplyPillValue(p, currency, amount);
+            // Число и отсчёт плашка знает сама — она читает кошелёк напрямую.
+            p.Refresh();
         }
 
-        // A regenerating currency below its cap shows "amount/cap" plus a live
-        // countdown to the next refill; otherwise just the amount.
-        private void ApplyPillValue(Pill p, string currency, long amount)
+        // Плашка кошелька — общий компонент оболочки (LvnWalletPill): здесь
+        // только метрика игрового HUD. Своя копия жила тут вместе с отсчётом
+        // восполнения, форматом времени и троттлингом дозапроса баланса — а
+        // всё это свойства кошелька, а не полоски над сценой.
+        private LvnWalletPill SpawnPill(string iconUrl, string currency = null)
         {
-            p.Label.text = LvnWallet.Display(currency);
-            if (LvnWallet.Regen.TryGetValue(currency, out var r)
-                && r.Cap > 0 && amount < r.Cap && r.NextRefillUnix > 0)
-                UpdateTimer(p, r.NextRefillUnix);
-            else if (p.Timer != null) p.Timer.style.display = DisplayStyle.None;
-        }
-
-        private void UpdateTimer(Pill p, long nextRefillUnix)
-        {
-            if (p.Timer == null) return;
-            long remaining = nextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (remaining <= 0)
+            var pill = new LvnWalletPill(currency, new LvnWalletPill.Look
             {
-                // The refill is due — pull the server's fresh balance (throttled).
-                p.Timer.text = _cfg.regen_ready_text ?? "…";
-                RequestRegenRefresh();
-            }
-            else p.Timer.text = FormatDuration(remaining);
-            p.Timer.style.display = DisplayStyle.Flex;
-        }
-
-        // Re-run the countdowns every second without touching balances.
-        private void TickRegen()
-        {
-            foreach (var kv in _pills)
-            {
-                if (LvnWallet.Regen.TryGetValue(kv.Key, out var r) && r.Cap > 0 && r.NextRefillUnix > 0
-                    && LvnWallet.Balances.TryGetValue(kv.Key, out var bal) && bal < r.Cap)
-                    UpdateTimer(kv.Value, r.NextRefillUnix);
-                else if (kv.Value.Timer != null)
-                    kv.Value.Timer.style.display = DisplayStyle.None;
-            }
-        }
-
-        private void RequestRegenRefresh()
-        {
-            if (Time.realtimeSinceStartup < _nextRegenRefresh) return;
-            _nextRegenRefresh = Time.realtimeSinceStartup + 15f; // avoid hammering the server at 0
-            LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
-        }
-
-        private static string FormatDuration(long seconds)
-        {
-            long h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
-            return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
-        }
-
-        private Pill SpawnPill(string iconUrl, string currency = null)
-        {
-            var pill = new VisualElement { pickingMode = PickingMode.Ignore };
-            pill.style.flexDirection = FlexDirection.Row;
-            pill.style.alignItems = Align.Center;
-            pill.style.marginLeft = 10;
-            pill.style.paddingLeft = 12; pill.style.paddingRight = 12;
-            pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
-            pill.style.backgroundColor = _pillBg;
-            pill.style.borderTopLeftRadius = 14; pill.style.borderTopRightRadius = 14;
-            pill.style.borderBottomLeftRadius = 14; pill.style.borderBottomRightRadius = 14;
-
-            if (!string.IsNullOrEmpty(iconUrl))
-            {
-                var icon = new VisualElement { pickingMode = PickingMode.Ignore };
-                icon.style.width = 22; icon.style.height = 22; icon.style.marginRight = 6;
-                icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                icon.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                icon.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                pill.Add(icon);
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, iconUrl, _assets), "AssignBg");
-            }
-            else
-            {
-                // Без картинки в манифесте плашка показывала ГОЛОЕ ЧИСЛО: в
-                // строке «40 3 4 000» не разобрать, где кристаллы, а где
-                // энергия. Векторная иконка по названию валюты стоит ноль
-                // файлов и снимает вопрос.
-                // Какой значок у какой валюты — знает LvnIcons: у строки
-                // состояния, гардероба и этого HUD один словарь на троих.
-                var ic = LvnIcons.Make(LvnIcons.ForCurrency(currency), 22f, _pillText, 0f, LvnTheme.Current.IconGlow);
-                ic.style.marginRight = 6;
-                pill.Add(ic);
-            }
-
-            var label = new Label("0") { pickingMode = PickingMode.Ignore };
-            label.style.color = _pillText;
-            label.style.fontSize = 22;
-            pill.Add(label);
-
-            // Refill countdown for regenerating currencies (hidden until needed).
-            var timer = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
-            timer.style.color = _pillText;
-            timer.style.fontSize = 17;
-            timer.style.marginLeft = 6;
-            timer.style.opacity = 0.7f;
-            timer.style.display = DisplayStyle.None;
-            pill.Add(timer);
-
+                MarginLeft = 10,
+                Radius = 14f,
+                IconSize = 22f,
+                FontSize = 22f,
+                Background = _pillBg,
+                TextColor = _pillText,
+                IconUrl = iconUrl,
+                IconTint = _pillText,
+                ShowTimer = true,
+                TimerReadyText = _cfg.regen_ready_text ?? "…",
+            }, _assets);
             _pillsRow.Add(pill);
-            return new Pill { Root = pill, Label = label, Timer = timer };
+            return pill;
         }
     }
 }

@@ -307,38 +307,23 @@ namespace Lvn.UI.Screens
         private void FillPills(VisualElement host, bool compact)
         {
             host.Clear();
+            var bg = LvnTokens.PanelBg;
             foreach (var cur in Currencies)
             {
-                var pill = new VisualElement();
-                pill.style.flexDirection = FlexDirection.Row;
-                pill.style.alignItems = Align.Center;
-                pill.style.marginLeft = compact ? 6 : 8;
-                pill.style.height = compact ? 42 : 46;
-                pill.style.paddingLeft = compact ? 12 : 12;
-                pill.style.paddingRight = compact ? 12 : 12;
-                var bg = LvnTokens.PanelBg;
-                pill.style.backgroundColor = compact
-                    ? new Color(bg.r, bg.g, bg.b, 0.72f) // свой пузырёк над сценой
-                    : LvnTokens.Faint;
-                LvnChrome.Edge(pill);
-                LvnChrome.Round(pill, compact ? 21f : 23f);
-
-                var ic = LvnIcons.MakeCurrency(cur, compact ? 19f : 20f);
-                ic.pickingMode = PickingMode.Ignore;
-                ic.style.marginRight = 6;
-                pill.Add(ic);
-
-                var lbl = new Label(Lvn.Services.LvnWallet.Display(cur));
-                lbl.pickingMode = PickingMode.Ignore;
-                lbl.style.color = LvnTokens.Text;
-                lbl.style.fontSize = compact ? 21 : 21;
-                lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
-                pill.Add(lbl);
-
                 var captured = cur;
-                pill.RegisterCallback<ClickEvent>(_ => OnCurrency?.Invoke(captured));
-                pill.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-                host.Add(pill);
+                host.Add(new LvnWalletPill(cur, new LvnWalletPill.Look
+                {
+                    MarginLeft = compact ? 6 : 8,
+                    Height = compact ? 42 : 46,
+                    Radius = compact ? 21f : 23f,
+                    IconSize = compact ? 19f : 20f,
+                    FontSize = 21f,
+                    Bold = true,
+                    Edge = true,
+                    // Над сценой у каждой валюты свой пузырёк, в меню — общий
+                    // ряд на приглушённой подложке бара.
+                    Background = compact ? new Color(bg.r, bg.g, bg.b, 0.72f) : LvnTokens.Faint,
+                }, onTap: () => OnCurrency?.Invoke(captured)));
             }
         }
 

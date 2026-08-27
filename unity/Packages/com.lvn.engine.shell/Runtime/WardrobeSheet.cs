@@ -526,56 +526,22 @@ namespace Lvn.UI.Screens
 
             foreach (var cur in currencies)
             {
-                LvnWallet.Balances.TryGetValue(cur, out var amount);
-                var pill = new VisualElement();
-                pill.style.flexDirection = FlexDirection.Row;
-                pill.style.alignItems = Align.Center;
-                pill.style.marginRight = 8;
-                pill.style.paddingLeft = 12; pill.style.paddingRight = 6;
-                pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
-                pill.style.backgroundColor = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f));
-                LvnChrome.Round(pill, 16f);
-
-                string iconUrl = _cfg.currency_icons != null
-                                 && _cfg.currency_icons.TryGetValue(cur, out var u) ? u : null;
-                if (!string.IsNullOrEmpty(iconUrl))
+                // Плашка — общий компонент оболочки: здесь только метрика листа
+                // и кнопка «+». Раньше лист собирал её сам и единственный во
+                // всей игре писал вместо значка служебное имя валюты.
+                _balances.Add(new LvnWalletPill(cur, new LvnWalletPill.Look
                 {
-                    var icon = new VisualElement { pickingMode = PickingMode.Ignore };
-                    icon.style.width = 26; icon.style.height = 26; icon.style.marginRight = 6;
-                    icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                    icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                    pill.Add(icon);
-                    LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, iconUrl, _assets), "AssignBg");
-                }
-                else
-                {
-                    // Своей картинки у валюты нет — берём тот же вектор, которым
-                    // кошелёк подписан в строке состояния. Раньше здесь вместо
-                    // значка стояло служебное имя валюты («13 060 crystals»):
-                    // единственное место в оболочке, где игроку показывали её
-                    // внутренний идентификатор.
-                    var icon = LvnIcons.MakeCurrency(cur, 24f);
-                    icon.style.marginRight = 6;
-                    pill.Add(icon);
-                }
-                var label = new Label(amount.ToString("N0"));
-                label.style.color = _text;
-                label.style.fontSize = 22;
-                pill.Add(label);
-
-                if (OpenStore != null)
-                {
-                    var plus = new Button(() => _ = OpenStore()) { text = "+" };
-                    plus.style.fontSize = 22;
-                    plus.style.marginLeft = 8;
-                    plus.style.paddingLeft = 10; plus.style.paddingRight = 10;
-                    plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
-                    plus.style.color = _accentText;
-                    plus.style.backgroundColor = _accent;
-                    LvnChrome.Round(plus, 12f);
-                    pill.Add(plus);
-                }
-                _balances.Add(pill);
+                    MarginLeft = 0,
+                    PadLeft = 12, PadRight = 6,
+                    Radius = 16f,
+                    IconSize = 24f,
+                    FontSize = 22f,
+                    Background = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f)),
+                    TextColor = _text,
+                    IconUrl = _cfg.currency_icons != null
+                              && _cfg.currency_icons.TryGetValue(cur, out var url) ? url : null,
+                }, _assets, onPlus: OpenStore != null ? () => _ = OpenStore() : (System.Action)null)
+                { style = { marginRight = 8 } });
             }
         }
 
