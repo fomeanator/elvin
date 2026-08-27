@@ -99,14 +99,10 @@ namespace Lvn.UI
         // "…/page.png" → "…/page@2k.png"; null when the url has no downscalable
         // image extension. Must mirror server/downscale.go's naming exactly.
         internal static string SpineVariantUrl(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            int dot = url.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = url.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + "@2k" + url.Substring(dot);
-        }
+            // Имя варианта знает СНАБЖЕНЕЦ: здесь оно было второй копией той же
+            // строки, и переименование бокса на сервере разошлось бы молча.
+            => Lvn.Content.DownloadPolicy.WithVariant(
+                   url, Lvn.Content.DownloadPolicy.DisplayVariant);
 
         // Loads a Spine image (atlas page or container bg) preferring the
         // server's 2K variant, falling back to the full-size original.

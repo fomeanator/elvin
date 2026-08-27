@@ -152,7 +152,7 @@ namespace Lvn.UI.Screens
             if (loader == null || m?.titles == null) return;
             string cur = keepSuffix;
             var others = new List<string>();
-            foreach (var sfx in new[] { "@2k", "@1440", "@1k" })
+            foreach (var sfx in Lvn.Content.DownloadPolicy.QualityVariants)
                 if (sfx != cur) others.Add(sfx);
             var redo = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
             int removed = 0;

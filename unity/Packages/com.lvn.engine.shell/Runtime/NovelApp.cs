@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -293,6 +294,17 @@ namespace Lvn.UI.Screens
             // the shell screens read manifest.ui — so the whole game is themeable.
             // (A title can override this per-game; applied in PlayChapterAsync.)
             _globalUi = manifest.ui;
+            // ЦЕННИК узнаёт, как называются деньги ЭТОЙ игры: слова
+            // принадлежат автору, движок знает только форму показа.
+            Lvn.UI.LvnPriceTag.Learn(manifest.ui?.currency_look);
+            // И как игра зовёт безымянного игрока — тоже слово автора.
+            if (!string.IsNullOrEmpty(manifest.ui?.guest_name))
+                Lvn.UI.LvnPlayerName.GuestLabel = manifest.ui.guest_name;
+            // …и как она зовёт главу: «Глава», «Эпизод», «Дело».
+            if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
+                Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
+            // Словарь оболочки: всё, что движок пишет на экране сам.
+            Lvn.UI.LvnWords.Learn(manifest.ui?.words);
             _manifest = manifest;
             ApplyMenuStaging(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
@@ -330,6 +342,22 @@ namespace Lvn.UI.Screens
             // float the chapter title over it. A resume skips the title card (the
             // player is mid-scene, not at the opening). Chapter 2+ in a seamless
             // chain: the loader is already hidden (no-op), the title still shows.
+            // ЗАНАВЕС ПЕРЕХОДА СНИМАЕТСЯ ЗДЕСЬ, А НЕ В КАТСЦЕНЕ ПРИБЫТИЯ.
+            // Реплей автосейва честно восстанавливает кадр целиком — вместе с
+            // затемнением, которое стояло в точке сохранения («Replay fade veil»
+            // в потоке команд). Катсцена его снимала, но лишь через сотни
+            // миллисекунд — ровно столько игрок и видел чёрный экран посреди
+            // перехода (живой репорт 28.08). Сцену он ещё увидит; чернота между
+            // мирами — нет.
+            if (Portal != null)
+            {
+                Stage?.ApplyStage(new JObject
+                {
+                    ["op"] = "fade", ["to"] = "clear", ["duration"] = 0f,
+                }, LvnSender.Cutscene);
+                Stage?.ApplyStage(new JObject { ["op"] = "fx", ["off"] = 1 }, LvnSender.Cutscene);
+            }
+
             float revealStart = Time.realtimeSinceStartup;
             float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
             while (Stage != null && !Stage.HasBackdrop && Time.realtimeSinceStartup < revealDeadline)

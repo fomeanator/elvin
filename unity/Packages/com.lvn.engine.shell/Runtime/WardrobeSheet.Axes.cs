@@ -20,10 +20,38 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class WardrobeSheet
     {
+        /// <summary>
+        /// Ось-поднастройка: живёт не своей вкладкой, а рядом свотчей под
+        /// лентой родителя (цвет волос под причёской).
+        ///
+        /// <para>Родителем может быть и сборная вкладка «Моё»
+        /// (<see cref="AllTab"/>) — так на неё попадает ОСНОВА фигуры: выбор
+        /// запад/север не наряд, отдельной вкладки не заслуживает, но под общей
+        /// витриной ему самое место (просьба Ильи 28.08).</para>
+        /// </summary>
         private bool IsSubAxis(string axis) =>
             axis != null && _def?.wardrobe != null
             && _def.wardrobe.TryGetValue(axis, out var s)
-            && !string.IsNullOrEmpty(s?.subOf) && _def.wardrobe.ContainsKey(s.subOf);
+            && !string.IsNullOrEmpty(s?.subOf)
+            && (s.subOf == AllTab || _def.wardrobe.ContainsKey(s.subOf));
+
+        /// <summary>
+        /// Чем листает карусель вкладки «Моё».
+        ///
+        /// <para>Собственных предметов у неё нет — она собирает покупки других
+        /// осей, поэтому стрелки на ней всегда стояли мёртвыми, а подпись
+        /// говорила «Мои скины», то есть ничего. Зато на этой вкладке живёт
+        /// ОСНОВА фигуры: её и отдаём рулю — стрелки листают основы, подпись
+        /// называет выбранную (просьба Ильи 28.08).</para>
+        /// </summary>
+        private string AllTabAxis
+        {
+            get
+            {
+                foreach (var sub in SubAxesOf(AllTab)) return sub;
+                return null;
+            }
+        }
 
         private IEnumerable<string> SubAxesOf(string parent)
         {

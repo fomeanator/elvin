@@ -145,13 +145,7 @@ namespace Lvn.UI.Screens
         /// Zero before the element is attached (or on notchless screens) — call it
         /// from a <see cref="GeometryChangedEvent"/> so it re-resolves once real.</summary>
         public static Vector2 SafeVerticalInsets(VisualElement el)
-        {
-            var panel = el?.panel;
-            if (panel == null || Screen.height <= 0) return Vector2.zero;
-            var safe = Screen.safeArea;
-            return new Vector2(ToPanel(panel, Screen.height - safe.yMax),
-                               ToPanel(panel, safe.yMin));
-        }
+            => Lvn.UI.LvnEdges.Insets(el);   // окно в Кромочника
 
         /// <summary>ОТСТУП СВЕРХУ — сколько единиц панели занимает вырез камеры
         /// (чёлка, «остров», статус-бар).
@@ -162,9 +156,7 @@ namespace Lvn.UI.Screens
         /// же число, но стоит панели получить нестандартный масштаб, и элементы,
         /// которые обязаны стоять на одной линии (бар, колонка эмоций, шапка
         /// хаба), разъезжаются.</para></summary>
-        public static float SafeTop(VisualElement el)
-            => el?.panel == null || Screen.height <= 0
-                ? 0f : ToPanel(el.panel, Screen.height - Screen.safeArea.yMax);
+        public static float SafeTop(VisualElement el) => Lvn.UI.LvnEdges.Insets(el).x;
 
         // Экранные пиксели по вертикали → единицы панели. ScreenToPanel
         // отображает позиции, но для scale-only рантайм-панели это ровно тот

@@ -104,10 +104,13 @@ namespace Lvn.UI.Screens
 
             LvnAsync.Fire(ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets), "AssignBg");
             // (see the height comment in the constructor)
+            // Кромку ведёт КРОМОЧНИК: он же помнит применённое и будит на
+            // повороте — своё поле и своё сравнение здесь были третьей копией
+            // одного механизма.
             void FitSafeArea()
             {
                 if (panel == null) return;
-                float inset = ScreenUi.SafeTop(this); // вырез камеры, единицы панели
+                float inset = Lvn.UI.LvnEdges.Insets(this).x;
                 if (Mathf.Approximately(inset, _safeTop)) return;
                 _safeTop = inset;
                 style.paddingTop = inset;

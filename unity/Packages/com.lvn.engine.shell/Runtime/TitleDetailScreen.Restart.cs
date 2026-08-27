@@ -167,9 +167,9 @@ namespace Lvn.UI.Screens
             foreach (var c in chapters)
             {
                 var ch = c;
-                // The first chapter is always open; later ones unlock as reached —
-                // a restart must not jump ahead of where the player has actually been.
-                bool unlocked = ch.number <= reached || ch.number == firstNumber;
+                // Перезапуск не вправе прыгнуть дальше пройденного — правило
+                // спрашиваем у Привратника, а не повторяем здесь.
+                bool unlocked = Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber);
                 var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  закрыто"), primary: false,
                     () => { if (unlocked) LvnAsync.Fire(RestartFromChapterAsync(ch), "RestartFromChapter"); });
                 row.SetEnabled(unlocked);
@@ -263,8 +263,6 @@ namespace Lvn.UI.Screens
             return b;
         }
 
-        private static string ChapterLabel(LvnChapter c) =>
-            !string.IsNullOrEmpty(c?.name) ? c.name
-            : (c != null && c.number > 0 ? "Глава " + c.number : c?.id ?? "");
+        private static string ChapterLabel(LvnChapter c) => Lvn.Content.LvnCaptions.Chapter(c);
     }
 }

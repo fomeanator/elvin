@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
             var all = new VisualElement();
             all.style.flexDirection = FlexDirection.Row;
             all.style.alignItems = Align.Center;
-            var allText = new Label(_theme.Heading(_cfg.all_text ?? "Все")) { pickingMode = PickingMode.Ignore };
+            var allText = new Label(_theme.Heading(_cfg.all_text ?? LvnWords.Of("hub.all", "All"))) { pickingMode = PickingMode.Ignore };
             allText.style.color = _accent; allText.style.fontSize = 36;
             allText.style.unityFontStyleAndWeight = FontStyle.Bold;
             allText.style.letterSpacing = _theme.Tracking;

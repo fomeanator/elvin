@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -70,6 +71,44 @@ namespace Lvn.UI
             TypewriterClock.GlobalCps = cps;
         }
 
+
+        // Какой адрес уже стоит в ядре створа: команда портала приходит по
+        // десятку раз за переход (раскрыть, подержать, закрыть), и грузить
+        // одну и ту же картинку на каждую — значит платить декодом за то, что
+        // и так на месте.
+        private string _portalCoreUrl;
+
+        /// <summary>
+        /// ЯДРО СТВОРА ИЗ КАРТИНКИ. Адрес приходит настройкой портала
+        /// (<c>ui.browse.portal.sprite</c>); пусто — остаётся процедурный вихрь
+        /// движка, и новелла без картинки играет как раньше.
+        /// </summary>
+        private void ApplyPortalCore(string url)
+        {
+            if (string.Equals(url, _portalCoreUrl, StringComparison.Ordinal)) return;
+            _portalCoreUrl = url;
+            if (string.IsNullOrEmpty(url))
+            {
+                (_renderer as CanvasSceneRenderer)?.SetPortalCore(null);
+                return;
+            }
+            LvnAsync.Fire(LoadPortalCoreAsync(url), "PortalCore");
+        }
+
+        private async Task LoadPortalCoreAsync(string url)
+        {
+            if (Assets == null) return;
+            Sprite core = null;
+            try { core = await Assets.LoadSpriteAsync(url, _cts?.Token ?? default); }
+            catch (OperationCanceledException) { return; }
+            catch (Exception e) { Debug.LogWarning($"[lvn-portal] ядро не загрузилось ({url}): {e.Message}"); }
+            // Адрес мог смениться, пока картинка ехала.
+            if (core == null || !string.Equals(url, _portalCoreUrl, StringComparison.Ordinal)) return;
+            (_renderer as CanvasSceneRenderer)?.SetPortalCore(core.texture);
+            // Ядро на экране — LRU его не трогает, пока стоит створ.
+            RepinSceneSprites(PortalCoreSlot, new[] { core });
+            LvnLog.Trace($"[lvn-portal] ядро створа: {url} ({core.texture.width}x{core.texture.height})");
+        }
 
         private void ApplyCamera(JObject cmd)
         {

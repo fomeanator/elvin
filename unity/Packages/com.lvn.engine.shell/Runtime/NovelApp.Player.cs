@@ -160,13 +160,10 @@ namespace Lvn.UI.Screens
         {
             if (_shell.Detail != null)
             {
-                _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
-                var img = t?.card?.image ?? t?.cover_url;
-                if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
-                if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
-                _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
-                // Real title behind the page → the Restart menu lists its
-                // actual chapters and reads/clears this title's progress.
+                // КАРТОЧКЕ ДАЮТ НОВЕЛЛУ, а не её разобранные поля: имя,
+                // обложку, синопсис и цену она достаёт из неё сама. Раньше
+                // здесь стояли четыре присваивания рядом с этой же строкой —
+                // и держались на памяти того, кто их пишет.
                 _shell.Detail.Title = t;
                 _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
                 Newtonsoft.Json.Linq.JObject vars = null;

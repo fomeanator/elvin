@@ -16,6 +16,25 @@ namespace Lvn.Content
     /// </summary>
     public sealed class LvnUiConfig
     {
+        /// <summary>ОБЛИК ВАЛЮТ: id → как её называть и чем рисовать. Слова
+        /// принадлежат автору (docs/language-policy.md): движок знает форму
+        /// («сумма, значок, цвет»), а «Кристаллы»/«кристаллов» приходят
+        /// отсюда. Раньше эти слова стояли switch'ем в коде магазина — и любая
+        /// другая новелла получала их насильно. Читает <c>LvnPriceTag</c>.</summary>
+        public Dictionary<string, CurrencyLook> currency_look;
+        /// <summary>Как игра зовёт игрока, пока он не назвался («Гость»).
+        /// Движковое умолчание — английское «Guest»: слова игры приходят
+        /// отсюда. Читает <c>LvnPlayerName</c>.</summary>
+        public string guest_name;
+        /// <summary>Как новелла зовёт главу: «Глава», «Эпизод», «Дело», «День».
+        /// Движковое умолчание английское («Chapter»). Читает
+        /// <c>LvnCaptions</c>.</summary>
+        public string chapter_word;
+        /// <summary>СЛОВАРЬ ОБОЛОЧКИ: ключ → подпись, которой новелла заменяет
+        /// движковую («daily.title», «profile.title»…). Умолчания движка
+        /// английские; здесь игра говорит своим языком, не трогая код.
+        /// Читает <c>LvnWords</c>.</summary>
+        public Dictionary<string, string> words;
         public LoadingScreenConfig loading;
         public TitleCardConfig title;
         public NameInputConfig name_input;
@@ -67,6 +86,11 @@ namespace Lvn.Content
         /// <summary>Во что створ раскрывается — доля ширины кадра.</summary>
         public float? radius;
 
+        /// <summary>КАРТИНКА ЯДРА (url): шар, воронка, свет — что угодно с
+        /// прозрачным фоном. Растёт вместе с раскрытием и медленно вращается.
+        /// Пусто — рисуется процедурный вихрь движка.</summary>
+        public string sprite;
+
         /// <summary>Насколько тускл створ, пока глава не готова: 0 — не виден
         /// вовсе, 1 — уже раскрыт. Это и есть «заряжается».</summary>
         public float? idle;
@@ -96,6 +120,19 @@ namespace Lvn.Content
     /// plus slot tabs with buy/equip cards. The ITEMS live with the character
     /// (<c>sprites.&lt;id&gt;.wardrobe</c>); this block is only the screen's
     /// look and strings. Every field optional.</summary>
+    /// <summary>Как выглядит валюта в интерфейсе (см. <c>LvnPriceTag</c>).</summary>
+    public sealed class CurrencyLook
+    {
+        /// <summary>Название («Кристаллы»). Пусто — показывается сам id.</summary>
+        public string name;
+        /// <summary>Форма при сумме («кристаллов»): «1 200 кристаллов».</summary>
+        public string unit;
+        /// <summary>Значок из набора движка («Gem», «Energy», «Gift»…).</summary>
+        public string icon;
+        /// <summary>Цвет значка и суммы («#f0c860»).</summary>
+        public string color;
+    }
+
     public sealed class WardrobeConfig
     {
         public string entity;         // character to open by default (else: first with a wardrobe)

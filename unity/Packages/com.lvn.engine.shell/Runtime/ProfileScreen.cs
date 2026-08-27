@@ -53,7 +53,9 @@ namespace Lvn.UI.Screens
         }
 
         // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
-        public string PlayerName = "Гость";
+        /// <summary>Имя для показа. Пусто — спросим у роли: она знает и имя,
+        /// и подпись безымянного (её задаёт новелла, а не движок).</summary>
+        public string PlayerName;
 
         /// <summary>TR-25: минимальный профиль — только имя и ID (уровень, XP,
         /// статы, достижения и отношения спрятаны). ui.browse.profile_full=false.</summary>
@@ -129,13 +131,13 @@ namespace Lvn.UI.Screens
             sheet.Add(top);
 
             var titleBlock = new VisualElement();
-            var eyebrow = new Label("ЛИЧНОЕ ДЕЛО");
+            var eyebrow = new Label(LvnWords.Of("profile.eyebrow", "PROFILE"));
             eyebrow.style.color = LvnTokens.Gold;
             eyebrow.style.fontSize = 18;
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
-            var title = new Label("Профиль");
+            var title = new Label(LvnWords.Of("profile.title", "Profile"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 44;
@@ -254,7 +256,7 @@ namespace Lvn.UI.Screens
             card.style.paddingRight = 18;
             card.style.marginBottom = 16;
 
-            var dossier = new Label("ПАСПОРТ ИСТОРИИ");
+            var dossier = new Label(LvnWords.Of("profile.dossier", "STORY RECORD"));
             dossier.style.color = LvnTokens.Gold;
             dossier.style.fontSize = 17;
             dossier.style.letterSpacing = 1.9f;
@@ -301,14 +303,15 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             identity.Add(col);
 
-            var name = new Label(string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName);
+            var name = new Label(string.IsNullOrEmpty(PlayerName)
+                ? Lvn.UI.LvnPlayerName.Display : PlayerName);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = 34;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             col.Add(name);
 
             if (Minimal) return card; // TR-25: профиль = имя + ID, без уровня и XP
-            var level = new Label($"Уровень {Level}");
+            var level = new Label(LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = 26;
             level.style.marginTop = 2;

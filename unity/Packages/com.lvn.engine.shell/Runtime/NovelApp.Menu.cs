@@ -144,7 +144,19 @@ namespace Lvn.UI.Screens
             return true;
         }
 
-        private void ShowMenuScene()
+        /// <summary>
+        /// СЦЕНА ГЛАВНОЙ: полотно, героиня и — по случаю — врата.
+        ///
+        /// <para><paramref name="withPortal"/> отделяет ПОЯВЛЕНИЕ МЕНЮ от его
+        /// ПЕРЕСБОРКИ. Пересобирают сцену часто: сменил наряд в гардеробе,
+        /// сменил фаворита — кукла встаёт заново. Врата к этому отношения не
+        /// имеют: они — событие ухода на миссию, и вспыхивать на каждую юбку им
+        /// незачем («смена одежды в гардеробе портал тригерит, там не надо» —
+        /// Илья 28.08).</para>
+        /// </summary>
+        private void ShowMenuScene() => ShowMenuScene(withPortal: true);
+
+        private void ShowMenuScene(bool withPortal)
         {
             if (Stage == null || _chapterPlaying)
             {
@@ -196,7 +208,7 @@ namespace Lvn.UI.Screens
             // игрок не увидел: пустой журнал значит, что сцена собралась как
             // задумана, непустой — список настоящих поломок со счётчиками.
             LvnLog.Trace(Stage.Healer.Journal());
-            ShowMenuPortal();   // врата — часть главной, а не всплывающий эффект
+            if (withPortal) ShowMenuPortal();   // врата — событие, а не пересборка
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.
@@ -297,7 +309,7 @@ namespace Lvn.UI.Screens
                 {
                     Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
                     _menuBgSet = false;
-                    ShowMenuScene();
+                    ShowMenuScene(withPortal: false);   // лечение полотна — не приход в меню
                 },
                 period: LvnMenuStage.GuardPeriodSeconds,
                 patience: LvnMenuStage.GuardPatienceSeconds);

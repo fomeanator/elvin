@@ -247,6 +247,10 @@ namespace Lvn.UI
             return true;
         }
 
+        /// <summary>Картинка ядра створа (может быть null — вернётся
+        /// процедурный вихрь).</summary>
+        public void SetPortalCore(Texture core) => _scene.Portal?.SetCore(core);
+
         public bool TryPortal(Newtonsoft.Json.Linq.JObject cmd)
         {
             var portal = _scene.Portal;

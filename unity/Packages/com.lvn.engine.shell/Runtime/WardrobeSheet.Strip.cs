@@ -223,10 +223,13 @@ namespace Lvn.UI.Screens
         private void RebuildStrip(bool animate = true)
         {
             if (_strip == null) return;
-            _strip.Clear();
-            _stripCards.Clear();
             if (_tab == AllTab)
             {
+                // Сборная витрина собирается заново: её состав — это покупки
+                // всех осей разом, и устойчивого ключа у пары (ось, предмет)
+                // между показами нет.
+                _strip.Clear();
+                _stripCards.Clear();
                 // Сборная витрина: пары (ось, предмет) — тап примеряет в СВОЮ
                 // ось; подсветка по надетому каждой оси.
                 int shown = 0;
@@ -252,23 +255,94 @@ namespace Lvn.UI.Screens
                         }
                     }
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-                _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
-                RebuildSubRow(animate); // спрячет ряд: у «Все» поднастроек нет
+                // Подпись отдана основе (RefreshLabel ниже); своё слово витрина
+                // говорит, только когда основы нет и показывать нечего.
+                if (AllTabAxis == null)
+                    _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
+                RebuildSubRow(animate); // на «Моё» это ряд основы
+                RefreshLabel();
                 RefreshArrows();
                 return;
             }
             var items = Items(_tab);
             _strip.style.display = items.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            for (int i = 0; i < items.Count; i++)
-            {
-                var card = StripCard(_tab, i, items[i]);
-                _strip.Add(card);
-                _stripCards.Add(card);
-                if (animate) EnterSoft(card, i);
-            }
+            // ЛЕНТА СВЕРЯЕТСЯ, А НЕ ПЕРЕСОБИРАЕТСЯ (правило Монтажёра). Её
+            // трогают на каждый чих: тап свотча, покупка, ответ кошелька, смена
+            // персонажа. Пересборка стоила дорого не тактами, а видом: карточка
+            // рождалась заново, вместе с ней заново ехал арт, и лента моргала
+            // ровно там, где ничего не изменилось. Тот же предмет остаётся ТЕМ
+            // ЖЕ элементом — с ним переживают загруженная картинка, скролл и
+            // начатая анимация; меняется только то, что действительно менялось.
+            var axis = _tab;
+            Lvn.UI.LvnMontage.Sync(_strip.contentContainer, items,
+                key: it => axis + "/" + it.value,
+                create: it =>
+                {
+                    var card = StripCard(axis, items.IndexOf(it), it);
+                    if (animate) EnterSoft(card, items.IndexOf(it));
+                    return card;
+                },
+                update: (el, it) => RefreshCard(el, axis, it));
+            _stripCards.Clear();
+            foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
             RebuildSubRow(animate);
             RefreshArrows();
             StyleStrip();
+        }
+
+        /// <summary>
+        /// ОБНОВИТЬ ЖИВУЮ КАРТОЧКУ вместо рождения новой.
+        ///
+        /// <para>От состояния в ней зависят ровно три вещи: бейдж цены (пока не
+        /// куплено), арт (у шаблонной иконки он меняется вместе с соседней
+        /// осью — причёска показывает выбранный цвет) и подпись. Всё остальное
+        /// — геометрия, кадрирование, обработчик тапа — от состояния не зависит
+        /// и переживает обновление вместе с элементом.</para>
+        /// </summary>
+        private void RefreshCard(VisualElement card, string axis, LvnWardrobeItem item)
+        {
+            if (card == null) return;
+            bool owned = IsOwnedIn(axis, item);
+
+            var badge = card.Q<Label>("card-price");
+            if (owned) badge?.RemoveFromHierarchy();
+            else if (badge == null) card.Add(PriceBadge(item));
+            else badge.text = $"◆ {item.price:N0}";
+
+            var name = card.Q<Label>("card-name");
+            if (name != null) name.text = item.name ?? item.value;
+
+            // Арт переназначается, ТОЛЬКО если сменился адрес: иначе каждая
+            // сверка снова гоняла бы загрузку и гасила плитку под плейсхолдер.
+            var art = card.Q<VisualElement>("card-art");
+            var ph = card.Q<VisualElement>("card-ph");
+            var url = ResolveIcon(item.icon);
+            if (art != null && !string.IsNullOrEmpty(url) && (string)art.userData != url)
+            {
+                art.userData = url;
+                var (zoom, _) = LvnWardrobeStage.Framing(axis);
+                LvnAsync.Fire(AssignCardArtAsync(art, ph ?? new VisualElement(), url, sharp: zoom >= 3f),
+                    "WardrobeCard");
+            }
+        }
+
+        /// <summary>Бейдж цены — общий для рождения карточки и её обновления:
+        /// два одинаковых бейджа в двух местах разъезжаются на первой же
+        /// правке стиля.</summary>
+        private Label PriceBadge(LvnWardrobeItem item)
+        {
+            var badge = new Label($"◆ {item.price:N0}") { pickingMode = PickingMode.Ignore };
+            badge.name = "card-price";
+            badge.style.position = Position.Absolute;
+            badge.style.top = 6; badge.style.right = 6;
+            badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
+            badge.style.color = LvnTokens.Gold;
+            badge.style.fontSize = 19;
+            badge.style.unityFontStyleAndWeight = FontStyle.Bold;
+            badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
+            badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
+            LvnChrome.Round(badge, 10f);
+            return badge;
         }
 
         // Карточка: арт скина во всю плитку, цена бейджем ПРЯМО на арте
@@ -293,6 +367,7 @@ namespace Lvn.UI.Screens
             // целиком. Элемент больше карточки, карточка клипует излишек.
             var (zoom, ay) = LvnWardrobeStage.Framing(axis);
             var art = new VisualElement { pickingMode = PickingMode.Ignore };
+            art.name = "card-art";
             art.style.position = Position.Absolute;
             art.style.width = Length.Percent(zoom * 100f);
             art.style.height = Length.Percent(zoom * 100f);
@@ -310,6 +385,7 @@ namespace Lvn.UI.Screens
             var ph = LvnIcons.Make(none ? LvnIcon.Close : LvnIcon.Wardrobe, 42f,
                 new Color(0.18f, 0.18f, 0.22f));
             ph.pickingMode = PickingMode.Ignore;
+            ph.name = "card-ph";
             ph.style.position = Position.Absolute;
             ph.style.left = Length.Percent(50f);
             ph.style.top = Length.Percent(38f);
@@ -317,10 +393,14 @@ namespace Lvn.UI.Screens
             ph.style.opacity = 0.55f;
             card.Add(ph);
             if (!string.IsNullOrEmpty(item.icon))
+            {
                 // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
-                // берёт чёткий арт (@2k) сразу.
-                LvnAsync.Fire(AssignCardArtAsync(art, ph, ResolveIcon(item.icon), sharp: zoom >= 3f),
-                    "WardrobeCard");
+                // берёт чёткий арт (@2k) сразу. Адрес запоминаем на элементе:
+                // по нему сверка узнаёт, менялся ли арт вообще.
+                var url = ResolveIcon(item.icon);
+                art.userData = url;
+                LvnAsync.Fire(AssignCardArtAsync(art, ph, url, sharp: zoom >= 3f), "WardrobeCard");
+            }
 
             var plate = new VisualElement { pickingMode = PickingMode.Ignore };
             plate.style.position = Position.Absolute;
@@ -331,6 +411,7 @@ namespace Lvn.UI.Screens
             card.Add(plate);
 
             var name = new Label(item.name ?? item.value) { pickingMode = PickingMode.Ignore };
+            name.name = "card-name";
             name.style.color = _text;
             name.style.fontSize = 25;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -339,20 +420,7 @@ namespace Lvn.UI.Screens
             name.style.whiteSpace = WhiteSpace.NoWrap;
             plate.Add(name);
 
-            if (!owned)
-            {
-                var badge = new Label($"◆ {item.price:N0}") { pickingMode = PickingMode.Ignore };
-                badge.style.position = Position.Absolute;
-                badge.style.top = 6; badge.style.right = 6;
-                badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
-                badge.style.color = LvnTokens.Gold;
-                badge.style.fontSize = 19;
-                badge.style.unityFontStyleAndWeight = FontStyle.Bold;
-                badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
-                badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
-                LvnChrome.Round(badge, 10f);
-                card.Add(badge);
-            }
+            if (!owned) card.Add(PriceBadge(item));
 
             int at = i;
             if (at < 0)
@@ -448,6 +516,24 @@ namespace Lvn.UI.Screens
 
         internal void Step(int dir)
         {
+            if (_tab == AllTab)
+            {
+                // На сборной витрине стрелки листают ОСНОВУ: примерка идёт в её
+                // ось, поэтому и свотчи под лентой, и кукла соглашаются сами.
+                var basis = AllTabAxis;
+                if (basis == null) return;
+                var list = Items(basis);
+                if (list.Count == 0) return;
+                var now = CurrentValueOf(basis);
+                int at = 0;
+                for (int k = 0; k < list.Count; k++) if (list[k].value == now) { at = k; break; }
+                var next = list[(at + dir + list.Count) % list.Count];
+                LvnWardrobe.Preview(_entity, basis, next.value);
+                RebuildSubRow(animate: false);
+                RefreshLabel();
+                RefreshConfirm();
+                return;
+            }
             var items = Items(_tab);
             if (items.Count == 0) return;
             _index[_tab] = ((_index.TryGetValue(_tab, out var i) ? i : 0) + dir + items.Count) % items.Count;
