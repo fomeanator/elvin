@@ -59,6 +59,8 @@ partial-файлами с общим именем: искать нужное п�
 | `WardrobeSheet` | `.Buy` выбор и покупка, `.Strip` витрина и колонка эмоций |
 | `StageMenu` | `.Saves`, `.Gallery` (галерея и история), `.Stats`, `.Settings` |
 | `SettingsScreen` | `.Device` диск, качество арта, кадры, покупки; `.Account` кто вошёл, что за сборка, ссылки |
+| `TitleDetailScreen` | `.Restart` сохранения, переигровка и выбор главы заново |
+| `ProfileScreen` | `.Account` идентификатор, ссылка в настройки, удаление аккаунта |
 | `VnStage` | `.Actors` тракт показа, `.Actors.Placement` разбор команды, `.Actors.Wardrobe` примерка на сцене, `.Background`, `.Commands`, `.Dialogue`, `.Playback`, `.Pointer`, `.Preload`, `.Spine` |
 
 Правило простое: тема уезжает в свой файл, когда её можно описать одной
