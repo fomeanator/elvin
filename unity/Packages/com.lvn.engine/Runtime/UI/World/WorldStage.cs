@@ -573,7 +573,10 @@ namespace Lvn.UI.World
             // describe a side of the stage, not permission to crop a wide actor.
             // Use the fitted box and its actual anchor: the outer edge lands
             // exactly on the screen edge, while the actor extends toward centre.
-            float width01 = a.Slot.sizeDelta.x / Mathf.Max(1f, lw);
+            // Считается по ФИГУРЕ: холст с широкими прозрачными полями «шире
+            // экрана» лишь на бумаге, а зажим по нему сгонял всех в центр —
+            // position=left переставал существовать.
+            float width01 = a.Slot.sizeDelta.x * p.FigureW / Mathf.Max(1f, lw);
             float visualAnchorX = p.Flip ? 1f - p.AnchorX : p.AnchorX;
             float minX = visualAnchorX * width01;
             float maxX = 1f - (1f - visualAnchorX) * width01;

@@ -183,6 +183,14 @@ namespace Lvn.Content
         /// pixel-exact registration on every screen instead of each layer
         /// letterboxing differently. Unset (0) = legacy percent box.</summary>
         public float aspect;
+        /// <summary>ГАБАРИТ ФИГУРЫ ВНУТРИ ХОЛСТА — доли холста, объединение
+        /// непрозрачных областей всех слоёв всех вариантов (<c>lvnconv figure</c>).
+        /// Художник оставляет вокруг персонажа воздух, и его доля у разных героев
+        /// разная: пока постановка мерила холст, одинаковые <c>w=/h=</c> давали
+        /// разный рост. С этим полем числа в скрипте означают размер видимой
+        /// фигуры. Объединение (а не бокс текущего наряда) держит рост
+        /// неподвижным при смене одежды и причёски. Пусто = мерим весь холст.</summary>
+        public LvnBox content;
         /// <summary>Named animations (name → tracks). A <c>rigged</c> entity plays
         /// these via <c>actor play="name"</c>; <c>auto:true</c> animations loop on
         /// show. See <see cref="LvnAnim"/>.</summary>
@@ -199,6 +207,13 @@ namespace Lvn.Content
         /// wardrobe screen; the layers themselves already handle "nothing
         /// equipped" (an unset axis skips its layer). Optional.</summary>
         public Dictionary<string, LvnWardrobeSlot> wardrobe;
+    }
+
+    /// <summary>Прямоугольник в долях (0..1) — левый-верхний угол и размер.
+    /// Пока служит габаритом фигуры внутри холста (<see cref="LvnSpriteEntity.content"/>).</summary>
+    public sealed class LvnBox
+    {
+        public float x, y, w, h;
     }
 
     /// <summary>One wardrobe slot — a themed group of items behind one axis
