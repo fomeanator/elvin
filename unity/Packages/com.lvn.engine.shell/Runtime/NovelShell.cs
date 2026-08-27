@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// actual chapter (e.g. drives a <c>VnStage</c>) and returns when it ends.
     /// Everything visual is themed from <c>manifest.ui</c>.
     /// </summary>
-    public sealed class NovelShell : MonoBehaviour
+    public sealed partial class NovelShell : MonoBehaviour
     {
         public BootScreen Boot { get; private set; }
         public TitleCarousel Carousel { get; private set; }
@@ -87,59 +87,12 @@ namespace Lvn.UI.Screens
             Color.clear, Color.clear, Color.clear, Color.clear,
         };
 
-        private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
-        {
-            0 => (Hub?.ContentRoot, null),
-            1 => (PackShop, PackShop),
-            2 => (WardrobeTab, WardrobeTab),
-            3 => (Profile, Profile),
-            _ => (null, null),
-        };
 
-        // ── РОУТЕР МОДАЛЕЙ (решение Ильи 27.08: «стейт как в реакте») ──
-        // ДОКТРИНА ДВУХ СЛОТОВ: страница — ровно ОДНА, живёт в tabsLayer и
-        // меняется только TabGoTo; модаль — СТЕК в popupLayer, каждая обязана
-        // нести свой фон (скрим+лист), открывается только через ShowModalAsync.
-        // Тогда «одно поверх другого» невозможно физически: страницы не
-        // складываются, модали не просвечивают.
-        private readonly List<LvnOverlayScreen> _modals = new List<LvnOverlayScreen>();
 
-        /// <summary>Единственная дверь модалей: ведёт стек (системная «назад»
-        /// закрывает верхнюю) и глушит Escape-обработчик сцены на время показа.</summary>
-        public async Task<bool> ShowModalAsync(LvnOverlayScreen screen, CancellationToken ct = default)
-        {
-            if (screen == null) return false;
-            _modals.Add(screen);
-            Lvn.UI.LvnModalGuard.Depth = _modals.Count;
-            try { return await screen.ShowAsync(ct); }
-            finally
-            {
-                _modals.Remove(screen);
-                Lvn.UI.LvnModalGuard.Depth = _modals.Count;
-            }
-        }
 
-        /// <summary>Закрыть верхнюю модаль (системная «назад»). false — стек пуст.</summary>
-        public bool CloseTopModal()
-        {
-            if (_modals.Count == 0) return false;
-            _modals[_modals.Count - 1].RequestCancel();
-            return true;
-        }
 
         private bool _inChapter; // «назад» в игре принадлежит сцене, не ленте
 
-        // Системная «назад» ВНЕ сцены: сначала верхняя модаль, затем — домой по
-        // ленте. Алерт (Popup) закрывается только своими кнопками — решение
-        // должно быть осознанным.
-        private void Update()
-        {
-            if (!UnityEngine.Input.GetKeyDown(KeyCode.Escape)) return;
-            if (Popup != null && Popup.style.display == DisplayStyle.Flex) return;
-            if (CloseTopModal()) return;
-            if (_inChapter) return; // сюжетные панели и квик-меню закрывает VnStage
-            if (_tab != 0 && !_tabBusy) LvnAsync.Fire(TabGoTo(0), "BackHome");
-        }
 
         /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>
         public Action<int, int> OnTabTravel;
@@ -148,68 +101,7 @@ namespace Lvn.UI.Screens
         /// (свой таймер фона запаздывал — рассинхрон, живой репорт 28.08).</summary>
         public Action<float> OnTabTravelTick;
 
-        public async Task TabGoTo(int target)
-        {
-            if (_tabBusy || target == _tab) return;
-            var to = TabPage(target);
-            if (to.el == null) return;
-            _tabBusy = true;
-            OnTabTravel?.Invoke(_tab, target);
-            try
-            {
-                var from = TabPage(_tab);
-                int dir = target > _tab ? 1 : -1;
-                float w = _root.resolvedStyle.width;
-                if (w <= 0f || float.IsNaN(w)) w = 1080f;
 
-                to.scr?.ShowAsTab();
-                to.el.style.display = DisplayStyle.Flex;
-                to.el.style.translate = new Translate(dir * w, 0f);
-                Hub?.SetActiveTab(target);
-
-                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var fromEl = from.el;
-                float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
-                to.el.experimental.animation.Start(0f, 1f, 338, (e, p) => // 260 + 30% — «чуть медленнее» (26.08)
-                {
-                    float k = 1f - Mathf.Pow(1f - p, 3f);
-                    e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);
-                    if (fromEl != null)
-                        fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
-                    _tabCanvasX = Mathf.Lerp(canvasFrom, canvasTo, k); // полотно едет с нами
-                    OnTabTravelTick?.Invoke(k); // сцена меню — той же кривой
-                    if (_canvasTint != null)
-                        _canvasTint.style.backgroundColor = Color.Lerp(
-                            TabTints[Mathf.Clamp(_tab, 0, 3)], TabTints[Mathf.Clamp(target, 0, 3)], k);
-                    if (p >= 1f) tcs.TrySetResult(true);
-                });
-                await tcs.Task;
-                _tabCanvasX = canvasTo;
-
-                if (from.scr != null) from.scr.HideAsTab();
-                else if (fromEl != null) fromEl.style.display = DisplayStyle.None;
-                if (fromEl != null) fromEl.style.translate = new Translate(0f, 0f);
-                to.el.style.translate = new Translate(0f, 0f);
-                _tab = target;
-            }
-            finally { _tabBusy = false; }
-        }
-
-        /// <summary>Мгновенно домой (гардероб/старт главы): без анимации.</summary>
-        public void TabReset()
-        {
-            var from = TabPage(_tab);
-            if (from.scr != null) from.scr.HideAsTab();
-            var home = TabPage(0);
-            if (home.el != null)
-            {
-                home.el.style.display = DisplayStyle.Flex;
-                home.el.style.translate = new Translate(0f, 0f);
-            }
-            _tab = 0;
-            _tabCanvasX = 0f;
-            Hub?.SetActiveTab(0, instant: true);
-        }
 
         private VisualElement _atmosphere;
         private bool _sceneMenu; // меню рисуется сценой: оболочка прозрачна
@@ -566,160 +458,6 @@ namespace Lvn.UI.Screens
             Hub?.SetData(manifest.collections, manifest.titles);
         }
 
-        /// <summary>Run the whole loop. <paramref name="bootReady"/> gates the boot
-        /// splash; <paramref name="chapterReady"/> (optional) gates each chapter's
-        /// loading bar; <paramref name="playChapter"/> plays the chosen chapter and
-        /// returns when it finishes. Loops back to the carousel after each chapter.</summary>
-        public async Task RunAsync(
-            Func<bool> bootReady = null,
-            Func<LvnChapter, Func<bool>> chapterReady = null,
-            Func<LvnChapter, Func<float>> chapterProgress = null,
-            Func<LvnTitle, LvnChapter, string, Task> playChapter = null,
-            bool askName = true,
-            CancellationToken ct = default,
-            Func<float> bootProgress = null,
-            bool bootSplash = true)
-        {
-            if (_root == null) throw new InvalidOperationException("Call Build() before RunAsync().");
-
-            Boot.Hide();
-            ShowOnly(); // hide all
-            // ── boot splash ──
-            // bootSplash=false: the host's own boot surface (NovelApp's engine
-            // veil) already covers this wait — showing a SECOND loading screen
-            // under it would flash a second bar at the hand-off. Wait silently.
-            if (bootSplash)
-            {
-                Show(Boot);
-                await Boot.RunAsync(bootReady ?? (() => true), bootProgress, ct);
-                Hide(Boot);
-            }
-            else
-            {
-                var ready = bootReady ?? (() => true);
-                while (!ready() && !ct.IsCancellationRequested)
-                    await Task.Yield();
-                if (ct.IsCancellationRequested) return;
-            }
-
-            // The player's name persists across launches — nobody re-asks it.
-            _playerName = Lvn.UI.LvnPrefs.PlayerName;
-
-            // ── welcome/auth screen: the FIRST launch only ──
-            // Later launches go straight in; the device sign-in runs silently
-            // either way. A nickname entered here seeds the player name.
-            // ВВОДНАЯ ГЛАВА ИДЁТ ПЕРВОЙ И БЕЗ ВОПРОСОВ. Пока она не пройдена, у
-            // игрока не спрашивают ни имени, ни новеллы: он попадает прямо в
-            // историю, а она сама и знакомится, и объясняет правила. Витрина
-            // ждёт своей очереди — см. IntroTitle ниже.
-            var introTitle = PendingIntroTitle();
-            if (Auth != null && !Lvn.UI.LvnPrefs.SeenWelcome && introTitle == null)
-            {
-                try
-                {
-                    var nick = await Auth.AskAsync(ct);
-                    Lvn.UI.LvnPrefs.SeenWelcome = true;
-                    if (!string.IsNullOrEmpty(nick))
-                    {
-                        _playerName = nick;
-                        Lvn.UI.LvnPrefs.PlayerName = nick;
-                    }
-                }
-                catch (OperationCanceledException) { return; }
-            }
-
-            // Hub browse (collections → cards → detail) vs the default carousel.
-            bool useHub = _manifest.ui?.browse?.layout == "hub"
-                          && _manifest.collections != null && _manifest.collections.Count > 0;
-
-            while (!ct.IsCancellationRequested)
-            {
-                // ── choose a title: hub flow or the carousel ──
-                LvnTitle title;
-                var intro = PendingIntroTitle();
-                if (intro != null)
-                {
-                    title = intro;   // выбора нет — и это намеренно
-                }
-                else if (useHub && Hub != null)
-                {
-                    Show(Hub);
-                    Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
-                    TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
-                    TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
-                    OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
-                    // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
-                    // ставит и полотно, и куклу — значит светлое пятно рисует
-                    // сама оболочка. Через секунду после показа перечисляем
-                    // ВСЕ крупные светлые непрозрачные поверхности дерева.
-                    if (Lvn.UI.LvnLog.Verbose)
-                        _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
-                    title = await Hub.PickTitleAsync(ct);
-                    if (ct.IsCancellationRequested) return;
-                    Hide(Hub);
-                    if (title == null) continue; // never picked → re-enter the hub
-                }
-                else
-                {
-                    Carousel.RefreshProgress(); // progress moved while a chapter played
-                    Show(Carousel);
-                    int idx = await WaitForPlay(ct);
-                    if (ct.IsCancellationRequested) return;
-                    Hide(Carousel);
-                    title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
-                        ? _manifest.titles[idx] : null;
-                }
-                // "Играть" continues from the furthest STARTED chapter (started
-                // ch2 → the button opens ch2); a fresh/finished title starts at
-                // chapter one. PlayChapterAsync applies the same resume rule —
-                // resolving it HERE too makes the loading screen show the right
-                // chapter's backdrop and preload the right asset plan.
-                var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
-
-                // The name ask lives INSIDE the chapter entry now (after the
-                // title card, over the live scene) — the host owns it.
-
-                // ── chapter loading (Liminal-style entry) ──
-                // The loader stays OPAQUE while the chapter boots BEHIND it —
-                // the host fades it out via RevealFromLoadingAsync() once the
-                // scene has its first background, then floats the chapter title
-                // over the LIVE scene (ShowChapterTitleAsync). No frame of raw
-                // stage ever shows between screens.
-                Show(Loading);
-                var ready = chapterReady?.Invoke(chapter) ?? (() => true);
-                var prog = chapterProgress?.Invoke(chapter);
-                bool cached = ready();
-                await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
-                    minSecondsOverride: cached
-                        ? (Transitions?.loading_floor ?? 0.25f)
-                        : (float?)null);
-
-                // ── play ──
-                if (playChapter != null && chapter != null)
-                {
-                    LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
-                    // Полоса GameHud удалена (решение Ильи 26.08): затемнение
-                    // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
-                    // единого навбара по углам сцены.
-                    OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
-                    try { await playChapter(title, chapter, _playerName); }
-                    catch (OperationCanceledException) { return; }
-                    catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
-                    OnChapterSessionEnd?.Invoke();   // вернулись в меню — и его звук тоже
-                    Hide(Hud);
-                }
-                // Вводная считается пройденной, когда доиграна до конца: бросил
-                // на середине — при следующем запуске снова попадёт в неё, а не
-                // на витрину, которую ещё не заслужил.
-                if (intro != null && IsTitleFinished(intro)) Lvn.UI.LvnPrefs.IntroDone = true;
-
-                // Safety: if play bailed before revealing (charge refused, script
-                // fetch failed), don't strand an opaque loader over the menu.
-                Loading.Hide();
-                Title.Hide();
-                if (BootVeil.IsVisible) BootVeil.Hide(); // и брендовую вуаль первого входа
-            }
-        }
 
         /// <summary>Вводная новелла, которую ещё не прошли, или null. Новелла
         /// объявляет себя вводной полем <c>type: "intro"</c> в манифесте — как и
@@ -733,9 +471,6 @@ namespace Lvn.UI.Screens
         /// всех уборок конца главы, а не до них).</summary>
         public Action OnMenuVisible;
 
-        /// <summary>Первый вход ещё впереди (вводная не пройдена): хост держит
-        /// брендовую вуаль вместо полос — см. NovelApp.DriveBootVeilAsync.</summary>
-        public bool HasPendingIntro => PendingIntroTitle() != null;
 
         /// <summary>Диагностика «белого прямоугольника»: перечислить крупные
         /// СВЕТЛЫЕ и НЕПРОЗРАЧНЫЕ поверхности дерева оболочки. Пустой список
@@ -765,44 +500,7 @@ namespace Lvn.UI.Screens
             Debug.Log(sb.ToString());
         }
 
-        private LvnTitle PendingIntroTitle()
-        {
-            if (Lvn.UI.LvnPrefs.IntroDone)
-            {
-                Debug.Log("[lvn-intro] ворота: IntroDone=true (метка устройства) — витрина");
-                return null;
-            }
-            if (_manifest?.titles == null) return null;
-            foreach (var t in _manifest.titles)
-                if (t != null && string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase))
-                {
-                    bool done = IsTitleFinished(t);
-                    // Диагностический след: «почему не стартанула воронка» иначе
-                    // выясняется раскопками PlayerPrefs на чужом устройстве.
-                    Debug.Log($"[lvn-intro] ворота: '{t.id}' reached={LvnProgress.Reached(t)} "
-                        + $"current={(LvnProgress.Current(t)?.id ?? "-")} → "
-                        + (done ? "пройдена, витрина" : "играем воронку"));
-                    return done ? null : t;
-                }
-            Debug.Log("[lvn-intro] ворота: intro-тайтла в манифесте нет — витрина");
-            return null;
-        }
 
-        /// <summary>Новелла пройдена, если дошли до её последней главы и она
-        /// закончилась: продолжения нет, а самая дальняя достигнутая — последняя.</summary>
-        private static bool IsTitleFinished(LvnTitle t)
-        {
-            var chapters = t.ChaptersOf();
-            if (chapters.Count == 0) return false;
-            int reached = LvnProgress.Reached(t);
-            // НЕ НАЧАТА — ЗНАЧИТ НЕ ПРОЙДЕНА. Без этой строки новелла, чья
-            // первая глава имеет номер 0, считалась пройденной на чистом
-            // устройстве: «дошёл до 0» ≥ «последняя 0». Воронка не включалась
-            // ни разу, и игрок сразу видел витрину.
-            if (reached <= 0) return false;
-            return LvnProgress.Current(t) == null
-                && reached >= chapters[chapters.Count - 1].number;
-        }
 
         /// <summary>Fade the (still opaque) chapter loader into whatever is on
         /// stage now. The host calls this once the scene is dressed — the swap
@@ -838,72 +536,11 @@ namespace Lvn.UI.Screens
             Title.Hide();
         }
 
-        /// <summary>Auto-start a title by id without racing the boot splash — the
-        /// request is honoured the moment the carousel takes control. Returns false
-        /// if no title carries that id. Pairs with <see cref="TitleCarousel.RequestPlay"/>.</summary>
-        public bool RequestPlay(string titleId)
-        {
-            if (_manifest?.titles == null || Carousel == null) return false;
-            for (int i = 0; i < _manifest.titles.Count; i++)
-                if (_manifest.titles[i]?.id == titleId) { Carousel.RequestPlay(i); return true; }
-            return false;
-        }
 
-        private Task<int> WaitForPlay(CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            void Handler(int i) { Carousel.OnPlay -= Handler; tcs.TrySetResult(i); }
-            Carousel.OnPlay += Handler;
-            // Honour a play requested before we got here (auto-start / deep-link fired
-            // during the boot splash, when OnPlay had no subscriber yet).
-            if (Carousel.TryConsumePendingPlay(out int pending))
-            {
-                Carousel.OnPlay -= Handler;
-                tcs.TrySetResult(pending);
-                return tcs.Task;
-            }
-            ct.Register(() => { Carousel.OnPlay -= Handler; tcs.TrySetCanceled(); });
-            return tcs.Task;
-        }
 
-        /// <summary>The first playable chapter of a title (lowest non-negative
-        /// chapter number across its seasons), or null.</summary>
-        internal static LvnChapter FirstChapter(LvnTitle title)
-        {
-            if (title?.seasons == null) return null;
-            LvnChapter best = null;
-            foreach (var s in title.seasons)
-            {
-                if (s?.chapters == null) continue;
-                foreach (var c in s.chapters)
-                {
-                    if (c == null) continue;
-                    if (best == null || c.number < best.number) best = c;
-                }
-            }
-            return best;
-        }
 
-        private static string ChapterLine(LvnChapter c) =>
-            c == null ? "" : (c.number > 0 ? $"Chapter {c.number}" : "");
 
-        private void Add(VisualElement el)
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
-            _root.Add(el);
-        }
 
-        private void ShowOnly()
-        {
-            Hide(Boot); Hide(Carousel); Hide(Hub); Hide(Loading); Hide(Title); Hide(Hud);
-            Auth?.Hide();
-            Settings?.Hide();
-            Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
-            SkinShop?.Hide(); PackShop?.Hide(); PackShopModal?.Hide();
-        }
 
-        private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }
-        private static void Hide(VisualElement el) { if (el != null) el.style.display = DisplayStyle.None; }
     }
 }
