@@ -374,10 +374,13 @@ namespace Lvn.UI.Screens
                 _root.schedule.Execute(() =>
                 {
                     DownloadHud.Tick(ca.Loader.Transfers());
-                    // Safe area: бар и кружок сидят ПОД вырезом камеры.
-                    float safe = Screen.height > 0
-                        ? Screen.safeArea.y / (float)Screen.height * _root.resolvedStyle.height
-                        : 0f;
+                    // Safe area: бар и кружок сидят ПОД вырезом камеры. Число
+                    // берётся у КРОМОЧНИКА. Здесь стояла третья формула в
+                    // движке — и вдобавок неверная: `Screen.safeArea.y` это
+                    // НИЖНЯЯ граница безопасной области, то есть домашняя
+                    // полоса, а не чёлка. На телефонах, где оба выреза
+                    // ненулевые, это «почти работало» и потому не замечалось.
+                    float safe = Lvn.UI.LvnEdges.Insets(_root).x;
                     if (!float.IsNaN(safe))
                     {
                         TopBar.SetSafeTop(safe);

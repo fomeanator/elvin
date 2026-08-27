@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
     /// <see cref="SetSafeTop"/>), поэтому вырез камеры всегда ВЫШЕ бара и
     /// центр строки безопасен — как делают все крупные мобильные игры.</para>
     /// </summary>
-    public sealed class LvnTopBar : VisualElement
+    public sealed class LvnTopBar : VisualElement, ILvnEntrance
     {
         /// <summary>Высота ряда навбара — публична: экраны, встающие «под
         /// навбаром» (колонка эмоций гардероба), считают от неё.</summary>
@@ -351,14 +351,38 @@ namespace Lvn.UI.Screens
             + $"opacity={_row.resolvedStyle.opacity:0.00} inGame={_inGame} silent={_silent} "
             + $"rect=({_row.worldBound.y:0} {_row.worldBound.width:0}x{_row.worldBound.height:0})";
 
+        /// <summary>
+        /// ВЕРХНИЙ БАР ВЪЕЗЖАЕТ СВЕРХУ — зеркало нижней навигации, той же
+        /// длительности (<see cref="Lvn.UI.LvnMotion.Curtain"/>): меню
+        /// раскрывается двумя кромками одновременно.
+        ///
+        /// <para>26.08 въезд отсюда убрали по двум причинам: он играл на каждый
+        /// показ хаба, и при обрыве анимации бар оставался за кромкой. Первая
+        /// ушла — точка вызова теперь только старт и возврат из главы; от
+        /// второй стоит страховка ниже: чем бы анимация ни кончилась, через её
+        /// срок бар возвращается на место принудительно.</para>
+        /// </summary>
+        /// <summary>Зарядить вход: бар уведён за верхнюю кромку ещё до показа
+        /// меню — иначе он успевает мелькнуть на месте.</summary>
+        public void ArmEntrance()
+        {
+            _row.style.translate = new Translate(0f, Length.Percent(-120f));
+        }
+
         public void PlayEntrance()
         {
-            // ПРОЯВЛЕНИЕ НА МЕСТЕ вместо въезда сверху (Илья 26.08: «прыжки
-            // убери везде»). Съезжающая строка дёргала верх экрана на каждый
-            // показ хаба, а при обрыве анимации бар оставался за кромкой.
-            _row.style.translate = new Translate(0f, 0f);
-            Lvn.UI.LvnMotion.FadeIn(_row);
+            void Put(float k) => _row.style.translate = new Translate(0f, Length.Percent(-120f * (1f - k)));
+            Put(0f);
+            _row.style.opacity = 1f;
+            int ms = Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Curtain);
+            _row.experimental.animation
+                .Start(0f, 1f, ms, (e, p) => Put(p * p * p))   // медленно → разгон
+                .OnCompleted(RestoreEntrance);
         }
+
+        /// <summary>Встать на место немедленно — зовёт Швейцар, если вход
+        /// сорвался (пересборка документа, смена темы посреди движения).</summary>
+        public void RestoreEntrance() => _row.style.translate = new Translate(0f, 0f);
 
         /// <summary>Прогресс главы для левого баблика (та же формула Percent,
         /// что была у полосы GameHud).</summary>

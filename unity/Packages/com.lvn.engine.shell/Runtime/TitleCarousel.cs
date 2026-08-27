@@ -302,8 +302,9 @@ namespace Lvn.UI.Screens
 
         // ── continue / chapter picker ───────────────────────────────────────
 
-        private static string ChapterLabel(LvnChapter c) =>
-            !string.IsNullOrEmpty(c?.name) ? c.name : (c != null && c.number > 0 ? "Chapter " + c.number : c?.id ?? "");
+        // Имя главы — у ТИТРОВАЛЬЩИКА: здесь стояла копия правила со СВОИМ
+        // словом («Chapter»), пока соседние экраны писали «Глава».
+        private static string ChapterLabel(LvnChapter c) => Lvn.Content.LvnCaptions.Chapter(c);
 
         /// <summary>Re-read the selected title's saved progress into the Play
         /// button ("Continue" + the episode) and the chapter-picker visibility.
@@ -428,8 +429,10 @@ namespace Lvn.UI.Screens
             foreach (var c in chapters)
             {
                 var ch = c;
-                // The first chapter is always open; later ones unlock as reached.
-                bool unlocked = ch.number <= reached || ch.number == firstNumber;
+                // Правило доступности главы — у ПРИВРАТНИКА: та же строка
+                // стояла дословно на карточке новеллы, и первая же правка
+                // правила разошлась бы между экранами.
+                bool unlocked = Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber);
                 var row = new Button(() =>
                 {
                     // An explicit pick means "start THIS chapter from its top,

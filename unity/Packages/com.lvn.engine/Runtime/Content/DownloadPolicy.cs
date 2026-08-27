@@ -91,6 +91,29 @@ namespace Lvn.Content
         /// <summary>Все суффиксы вариантов, которые встречаются в контенте.</summary>
         public static readonly string[] Variants = { "@2k", "@1440", "@1k", "@mini" };
 
+        /// <summary>ИМЯ КРУПНОГО ВАРИАНТА — «@2k». Одно слово, но зашито оно
+        /// было в четырёх местах: спайн лепил суффикс своей строкой, разбор
+        /// имени файла на диске сравнивал с литералом, уборка чужих боксов
+        /// перечисляла варианты списком. Стоит серверу переименовать бокс — и
+        /// расходятся ровно те места, которые никто не свяжет.</summary>
+        public const string DisplayVariant = "@2k";
+
+        /// <summary>Навесить конкретный вариант на url (те же исключения, что у
+        /// <see cref="DownscaleVariant"/>): «bg/x.jpg» + «@1k» → «bg/x@1k.jpg».</summary>
+        public static string WithVariant(string url, string variant)
+        {
+            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(variant)) return null;
+            int dot = url.LastIndexOf('.');
+            if (dot < 0) return null;
+            var ext = url.Substring(dot).ToLowerInvariant();
+            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
+            return url.Substring(0, dot) + variant + url.Substring(dot);
+        }
+
+        /// <summary>Варианты ПОКАЗА (без «@mini»): их держит на диске центр
+        /// загрузок, между ними переключается настройка качества.</summary>
+        public static readonly string[] QualityVariants = { "@2k", "@1440", "@1k" };
+
         public static string DownscaleVariant(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;

@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// and only then resolves. <see cref="PickTitleAsync"/> returns the chosen,
     /// unlocked, paid-for title (or null if cancelled).
     /// </summary>
-    public sealed partial class BrowseHub : VisualElement
+    public sealed partial class BrowseHub : VisualElement, ILvnEntrance
     {
         /// <summary>Loads the player's global stat flags (the <c>__global</c> blob)
         /// so <c>unlock</c> conditions can be evaluated. Null → everything unlocked.</summary>
@@ -314,15 +314,21 @@ namespace Lvn.UI.Screens
             ShowHub();
         }
 
-        // Notch / home-indicator insets: the hub keeps its bigger brand offset,
-        // the sub-screens keep a smaller one, and the bottom nav grows a bottom pad.
+        // Вырез камеры и домашняя полоса: числа и повод пересчитать держит
+        // КРОМОЧНИК (LvnEdges) — хаб только говорит, какая поверхность чем
+        // является: главная с крупной шапкой, внутренние страницы, нижняя
+        // панель. Раньше здесь стояли свои Max(52,…)/Max(28,…)/+6, а ловился
+        // только GeometryChanged: поворот экрана эту формулу не будил.
         private void ApplySafeArea()
         {
-            var insets = ScreenUi.SafeVerticalInsets(this);
-            _hubView.style.paddingTop = Mathf.Max(52f, insets.x + 12f);
-            _collectionView.style.paddingTop = Mathf.Max(28f, insets.x + 12f);
-            _detailView.style.paddingTop = Mathf.Max(28f, insets.x + 12f);
-            if (_bottomNav != null) _bottomNav.style.paddingBottom = 6f + insets.y;
+            _hubView.style.paddingTop =
+                LvnEdges.Top(this, LvnEdges.HomeTopMin, LvnEdges.PageTopAir);
+            _collectionView.style.paddingTop =
+                LvnEdges.Top(this, LvnEdges.PageTopMin, LvnEdges.PageTopAir);
+            _detailView.style.paddingTop =
+                LvnEdges.Top(this, LvnEdges.PageTopMin, LvnEdges.PageTopAir);
+            if (_bottomNav != null)
+                _bottomNav.style.paddingBottom = LvnEdges.Bottom(this, LvnEdges.NavBottomAir);
         }
 
         // The two currencies, top-right, each with a "+" to buy (like every F2P
@@ -334,7 +340,11 @@ namespace Lvn.UI.Screens
                 _profileBlock.style.display = ExternalTopBar ? DisplayStyle.None : DisplayStyle.Flex;
             if (_settingsBtn != null)
                 _settingsBtn.style.display = ExternalTopBar ? DisplayStyle.None : DisplayStyle.Flex;
-            if (_playerNameLabel != null) _playerNameLabel.text = string.IsNullOrEmpty(PlayerName) ? "Гость" : PlayerName;
+            // Подпись безымянного игрока — у роли: здесь стояло русское слово
+            // прямо в движке, и другая игра получала его насильно.
+            if (_playerNameLabel != null)
+                _playerNameLabel.text = string.IsNullOrEmpty(PlayerName)
+                    ? Lvn.UI.LvnPlayerName.Display : PlayerName;
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
 
             // ПИЛЮЛИ НЕ ПЕРЕСОБИРАЮТСЯ НА КАЖДОЕ СОБЫТИЕ. Раньше здесь стоял
@@ -513,16 +523,9 @@ namespace Lvn.UI.Screens
             LvnAsync.Fire(OnLockedHint(name, hint), "LockedHint");
         }
 
-        private bool IsLocked(LvnTitle t)
-        {
-            if (t == null || string.IsNullOrEmpty(t.unlock)) return false;
-            try
-            {
-                var vars = new Dictionary<string, JToken> { ["global"] = _globalVars };
-                return !Lvn.LvnExpression.EvaluateBool(t.unlock, vars);
-            }
-            catch { return false; } // a bad expression never bricks the hub
-        }
+        // Закрыта ли новелла, решает ПРИВРАТНИК; хаб только приносит ему
+        // кросс-новелльные статы, которые сам же и кэширует.
+        private bool IsLocked(LvnTitle t) => Lvn.Content.LvnGatekeeper.TitleLocked(t, _globalVars);
 
         /// <summary>Вертикальный скролл ленты — атмосфера оболочки читает его
         /// для параллакса.</summary>
@@ -730,18 +733,122 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>Сколько едет нижняя навигация. Общий срок с верхним баром
+        /// живёт в моторике движка — полосы обязаны ехать в один такт.</summary>
+        public const int NavEntranceMs = Lvn.UI.LvnMotion.Curtain;
+
         /// <summary>Вход экрана хаба: контент фейдом, нижняя навигация
         /// ВЫЕЗЖАЕТ СНИЗУ — один раз на показ (зовёт оболочка при Show).</summary>
+        /// <summary>
+        /// ЗАРЯДИТЬ ВХОД: контент главной погашен, нижнее меню уведено за
+        /// кромку — ЕЩЁ ДО ПОКАЗА экрана.
+        ///
+        /// <para>Гасить их в момент старта движения поздно: на старте
+        /// приложения хаб показывается под брендовой вуалью и ждёт её ухода уже
+        /// нарисованным, а при возврате из главы между показом и первым кадром
+        /// анимации остаётся щель. В обоих случаях заголовок успевал мелькнуть
+        /// готовым и только потом начинал проявляться («заголовки тоже opacity
+        /// 0 должны по умолчанию» — Илья 28.08).</para>
+        /// </summary>
+        /// <summary>Экран заряжен на вход: уведён за кромку и ждёт своего
+        /// движения. Пока флаг стоит, никакой обычный показ вида его не
+        /// выставляет — иначе меню появляется раньше собственного входа.</summary>
+        private bool _entranceArmed;
+
+        public void ArmEntrance()
+        {
+            _entranceArmed = true;
+            if (_hubView != null)
+                _hubView.style.translate = new Translate(EntranceOffset(), 0f);
+            if (_bottomNav != null)
+                _bottomNav.style.translate = new Translate(0f, Length.Percent(120f));
+            // Предохранители держит ШВЕЙЦАР: он один знает, когда движение
+            // должно было начаться и когда закончиться. Поверхность знает
+            // только своё движение — иначе сроки разъезжаются по файлам.
+        }
+
+        /// <summary>Поставить меню на место — зовёт Швейцар, когда вход не
+        /// состоялся.</summary>
+        public void RestoreEntrance()
+        {
+            _entranceArmed = false;
+            if (_hubView != null) _hubView.style.translate = new Translate(0f, 0f);
+            if (_bottomNav != null) _bottomNav.style.translate = new Translate(0f, 0f);
+        }
+
         public void PlayEntrance()
         {
-            // Навигация ПРОЯВЛЯЕТСЯ на месте: въезд снизу дёргал весь низ
-            // экрана на каждый показ хаба (Илья 26.08).
-            if (_bottomNav != null)
-            {
-                _bottomNav.style.translate = new Translate(0, 0);
-                Lvn.UI.LvnMotion.FadeIn(_bottomNav);
-            }
-            AnimateIn(_hubRows);
+            _entranceArmed = false;
+            SlideNavFromBelow();
+            SlideContentIn();
+        }
+
+        /// <summary>Откуда приезжает страница: ширина экрана ВЛЕВО (Илья
+        /// 28.08). Считаем от живого корня, а не от Screen — на планшете и в
+        /// редакторе окно шире кадра игры, и лишний запас превратился бы в
+        /// паузу перед приездом.</summary>
+        private float EntranceOffset()
+        {
+            float w = resolvedStyle.width;
+            if (w <= 1f || float.IsNaN(w)) w = Screen.width;
+            return -w;
+        }
+
+        /// <summary>
+        /// СТРАНИЦА ГЛАВНОЙ ПРИЕЗЖАЕТ СБОКУ — ровно как при смене вкладки
+        /// (уточнение Ильи 28.08: «контент не фейдом, а сбоку приезжать, как при
+        /// смене таба»).
+        ///
+        /// <para>Тот же приём, что у <c>TabGoTo</c>: страница живёт в одном
+        /// слое и ездит по X. Отличается только сроком — вход меню идёт в такт
+        /// с полосами (<see cref="Lvn.UI.LvnMotion.Curtain"/>), а переезд
+        /// вкладок остаётся быстрым, иначе листание становится вязким.</para>
+        /// </summary>
+        private void SlideContentIn()
+        {
+            if (_hubView == null) return;
+            float from = EntranceOffset();
+            _hubView.style.translate = new Translate(from, 0f);
+            _hubView.experimental.animation
+                // ВДВОЕ БЫСТРЕЕ ПОЛОС (Илья 28.08): страница идёт длинный путь
+                // через весь экран, и на общем сроке этот путь читался как
+                // медленное ползание, тогда как полосы проходят свою кромку за
+                // то же время почти мгновенно.
+                .Start(0f, 1f, Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Curtain / 2), (e, p) =>
+                    // Та же кривая, что у полос: медленно трогается, разгоняется.
+                    e.style.translate = new Translate(Mathf.Lerp(from, 0f, p * p * p), 0f))
+                .OnCompleted(() => _hubView.style.translate = new Translate(0f, 0f));
+        }
+
+        /// <summary>
+        /// НИЖНЯЯ НАВИГАЦИЯ ВЫЕЗЖАЕТ СНИЗУ ЗА 0.9 с.
+        ///
+        /// <para>26.08 въезд отсюда убрали — тогда он играл на каждый показ
+        /// хаба и низ экрана дёргался постоянно. Сейчас эта точка зовётся ровно
+        /// дважды: на старте приложения и на возврате из главы (переключение
+        /// вкладок живёт внутри PickTitleAsync и сюда не заходит), поэтому
+        /// движение читается как появление меню, а не как тик интерфейса.</para>
+        ///
+        /// <para>Сдвиг задан В ПРОЦЕНТАХ от высоты самой панели: в первом кадре
+        /// её высота ещё не посчитана, и любое значение в пикселях означало бы
+        /// «выезд из ниоткуда» — панель стартовала бы с середины экрана.</para>
+        /// </summary>
+        private void SlideNavFromBelow()
+        {
+            var nav = _bottomNav;
+            if (nav == null) return;
+            nav.style.opacity = 1f;
+            // 120%, а не 100%: под панелью ещё живёт отступ безопасной зоны,
+            // и на «сотне» её кромка остаётся видна у нижнего края.
+            void Put(float k) => nav.style.translate = new Translate(0f, Length.Percent(120f * (1f - k)));
+            Put(0f);
+            nav.experimental.animation
+               .Start(0f, 1f, Lvn.UI.LvnMotion.Ms(NavEntranceMs), (e, p) =>
+                   // Ease-IN (просьба Ильи 28.08: «в начале медленно, в конце
+                   // сильнее»): панель трогается еле заметно и разгоняется к
+                   // месту — движение читается как подъём, а не как выброс.
+                   Put(p * p * p))
+               .OnCompleted(() => nav.style.translate = new Translate(0f, 0f));
         }
 
         // One collection as a streaming-style row: a header (name + "Все →") over
@@ -823,6 +930,13 @@ namespace Lvn.UI.Screens
             foreach (var v in new[] { _hubView, _collectionView, _detailView })
                 if (v != null) v.style.display = ReferenceEquals(v, target)
                     ? DisplayStyle.Flex : DisplayStyle.None;
+            // ЗАРЯЖЕННЫЙ ВХОД СИЛЬНЕЕ ОБЫЧНОГО ПОКАЗА. FadeIn проявляет вид за
+            // 160 мс и попутно обнуляет translate («хвост прежних въездов») —
+            // на старте это выдавало готовое меню ДО его входа, а следом
+            // приходил вход и уводил его влево: «повисело и резко исчезло»
+            // (Илья 28.08). Пока экран заряжен, вид только переключается;
+            // показывать его будет вход, и он же снимет заряд.
+            if (_entranceArmed && ReferenceEquals(target, _hubView)) return;
             LvnMotion.FadeIn(target); // без въезда снизу — только проявление
         }
 

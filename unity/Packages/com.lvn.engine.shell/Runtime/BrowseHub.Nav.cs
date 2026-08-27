@@ -32,13 +32,13 @@ namespace Lvn.UI.Screens
             nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab(0, LvnIcon.Home, _cfg.nav_home ?? "Главная",
+            nav.Add(NavTab(0, LvnIcon.Home, _cfg.nav_home ?? LvnWords.Of("nav.home", "Home"),
                 () => OnHomeNav?.Invoke()));
-            nav.Add(NavTab(1, LvnIcon.Store, _cfg.nav_store ?? "Магазин", () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
-            nav.Add(NavTab(2, LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
+            nav.Add(NavTab(1, LvnIcon.Store, _cfg.nav_store ?? LvnWords.Of("nav.store", "Store"), () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
+            nav.Add(NavTab(2, LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? LvnWords.Of("nav.wardrobe", "Wardrobe"), () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
             if (_cfg.show_gallery ?? true)
-                nav.Add(NavTab(4, LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
-            nav.Add(NavTab(3, LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
+                nav.Add(NavTab(4, LvnIcon.Gallery, _cfg.nav_gallery ?? LvnWords.Of("nav.gallery", "Gallery"), () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
+            nav.Add(NavTab(3, LvnIcon.Profile, _cfg.nav_profile ?? LvnWords.Of("nav.profile", "Profile"), () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
             SetActiveTab(0, instant: true);
             return nav;
         }

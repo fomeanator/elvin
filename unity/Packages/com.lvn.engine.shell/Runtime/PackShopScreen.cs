@@ -220,20 +220,27 @@ namespace Lvn.UI.Screens
             Rebuild();
         }
 
-        private static string TabTitle(string tab) => tab switch
+        // Названия валют держит ЦЕННИК — они приходят из манифеста новеллы.
+        // Здесь стояли два switch с русскими словами: «Кристаллы», «энергии».
+        // Движку они не принадлежат (docs/language-policy.md) — любая другая
+        // игра получала чужую валюту насильно. Осталась только вкладка
+        // «Наборы»: это раздел витрины, а не деньги.
+        private string TabTitle(string tab)
         {
-            "crystals" => "Кристаллы",
-            "energy" => "Энергия",
-            "bundles" => "Наборы",
-            _ => char.ToUpperInvariant(tab[0]) + tab.Substring(1),
-        };
+            // «Наборы» — раздел витрины, а не валюта: он остаётся подписью
+            // движка, пока у магазина нет своего блока в манифесте.
+            if (tab == "bundles") return "Наборы";
+            var name = Lvn.UI.LvnPriceTag.Of(tab).Name;
+            return string.IsNullOrEmpty(name)
+                ? char.ToUpperInvariant(tab[0]) + tab.Substring(1) : name;
+        }
 
-        private static string UnitOf(string currency) => currency switch
+        private static string UnitOf(string currency)
         {
-            "crystals" => "кристаллов",
-            "energy" => "энергии",
-            _ => currency,
-        };
+            var look = Lvn.UI.LvnPriceTag.Of(currency);
+            return !string.IsNullOrEmpty(look.Unit) ? look.Unit
+                 : !string.IsNullOrEmpty(look.Name) ? look.Name : currency;
+        }
 
         private Pack ToCard(Lvn.Services.LvnWallet.IapPack p, bool bundle)
         {
@@ -263,8 +270,10 @@ namespace Lvn.UI.Screens
                 Price = p.Price,
                 Bonus = p.Bonus,
                 Card = string.IsNullOrEmpty(p.Icon) ? null : p.Icon,
-                Emblem = bundle ? LvnIcon.Gift : p.Currency == "energy" ? LvnIcon.Energy : LvnIcon.Gem,
-                Tint = bundle ? bun : p.Currency == "energy" ? en : gem,
+                // Значок и цвет — у Ценника: раньше «энергия или самоцвет»
+                // решалось сравнением с зашитым идентификатором.
+                Emblem = bundle ? LvnIcon.Gift : Lvn.UI.LvnPriceTag.Of(p.Currency).Icon,
+                Tint = bundle ? bun : Lvn.UI.LvnPriceTag.Of(p.Currency).Tint,
             };
         }
 
@@ -417,7 +426,7 @@ namespace Lvn.UI.Screens
                     chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
                     chip.style.paddingLeft = 10; chip.style.paddingRight = 12;
                     chip.style.marginRight = 8; chip.style.marginBottom = 6;
-                    var ic = LvnIcons.Make(kv.Key == "energy" ? LvnIcon.Energy : LvnIcon.Gem,
+                    var ic = LvnIcons.Make(Lvn.UI.LvnPriceTag.Of(kv.Key).Icon,
                         18f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
                     ic.style.marginRight = 6;
                     chip.Add(ic);

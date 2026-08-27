@@ -386,9 +386,9 @@ namespace Lvn.Content
             var ext = path.Substring(dot).ToLowerInvariant();
             var stem = path.Substring(0, dot);
             bool transcoded = ext == ".ktx2" || ext == ".astc";
-            bool downscaled = stem.EndsWith("@2k", StringComparison.Ordinal);
+            bool downscaled = stem.EndsWith(DownloadPolicy.DisplayVariant, StringComparison.Ordinal);
             if (!transcoded && !downscaled) yield break;
-            if (downscaled) stem = stem.Substring(0, stem.Length - "@2k".Length);
+            if (downscaled) stem = stem.Substring(0, stem.Length - DownloadPolicy.DisplayVariant.Length);
             if (!transcoded) { yield return stem + ext; yield break; }
             // A transcode hides the source's extension — try the same set the
             // server's encoder probes (server/astc.go sourceExts).

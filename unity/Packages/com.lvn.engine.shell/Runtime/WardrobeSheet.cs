@@ -632,7 +632,20 @@ namespace Lvn.UI.Screens
         // он рисуется рядом круглых свотчей под лентой родительского раздела.
         private void RefreshLabel()
         {
-            if (_itemName == null || _tab == null || _tab == AllTab) return;
+            if (_itemName == null || _tab == null) return;
+            if (_tab == AllTab)
+            {
+                // «Моё» подписывается выбранной основой, а не собой.
+                var basis = AllTabAxis;
+                if (basis == null) return;
+                var slot = _def.wardrobe[basis];
+                var val = CurrentValueOf(basis);
+                var nm = NameOfValue(basis, val);
+                _itemName.text = string.IsNullOrEmpty(nm)
+                    ? (slot?.name ?? basis)
+                    : (slot?.name ?? basis) + ": " + nm;
+                return;
+            }
             var item = CurrentItem();
             if (item == null) return;
             var name = item.name ?? item.value;
@@ -648,11 +661,13 @@ namespace Lvn.UI.Screens
             _itemName.text = prefix == null ? name : prefix + ": " + name;
         }
 
-        // Стрелки листают КАРУСЕЛЬ раздела — на сборной витрине «Моё» листать
-        // нечего, и живая кнопка, которая ничего не делает, просто врёт.
+        // Стрелки листают КАРУСЕЛЬ раздела; на вкладке «Моё» каруселью служит
+        // основа фигуры. Кнопка, которая ничего не делает, просто врёт —
+        // поэтому включается ровно тогда, когда есть что листать.
         private void RefreshArrows()
         {
-            bool on = _tab != null && _tab != AllTab && Items(_tab).Count > 1;
+            var axis = _tab == AllTab ? AllTabAxis : _tab;
+            bool on = axis != null && Items(axis).Count > 1;
             foreach (var b in new[] { _prevBtn, _nextBtn })
             {
                 if (b == null) continue;
@@ -685,7 +700,9 @@ namespace Lvn.UI.Screens
             if (_subRow == null) return;
             _subRow.Clear();
             bool any = false;
-            if (_tab != null && _tab != AllTab)
+            // Вкладка «Моё» тоже носит свои поднастройки — там живёт основа
+            // фигуры (запад/север). Раньше ряд молчал на ней целиком.
+            if (_tab != null)
                 foreach (var sub in SubAxesOf(_tab))
                 {
                     var items = Items(sub);

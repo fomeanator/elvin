@@ -260,6 +260,7 @@ namespace Lvn.UI
                 case "portal":
                     // Створ — СЛОЙ сцены: рисуется всегда, живёт за актёрами и
                     // переживает уборку эффектов (в отличие от `fx portal`).
+                    ApplyPortalCore((string)command["sprite_url"]);
                     _renderer?.TryPortal(command);
                     break;
                 case "fx":

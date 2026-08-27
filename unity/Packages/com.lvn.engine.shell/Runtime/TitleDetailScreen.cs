@@ -66,6 +66,28 @@ namespace Lvn.UI.Screens
         public string HeroImageUrl = "/content/cards/card0.png";
         public int EnergyCost = 1;
         public string TitleName = "";
+
+        // ── КАРТОЧКА ЧИТАЕТ НОВЕЛЛУ САМА ────────────────────────────────────
+        // Хост кормил экран шестью присваиваниями подряд: имя, картинка,
+        // синопсис, цена — и ТУТ ЖЕ сам объект новеллы, где всё это уже есть.
+        // Дублирование держалось на памяти вызывающего: забыл одну строчку —
+        // и карточка показывает имя от прошлой новеллы. Теперь поля —
+        // ПЕРЕОПРЕДЕЛЕНИЯ: заполнены хостом (встраивающая игра вправе показать
+        // своё) — берём их, пусты — спрашиваем саму новеллу.
+        private string ShownName
+            => !string.IsNullOrEmpty(TitleName) ? TitleName : (Title?.name ?? Title?.id ?? "");
+        private string ShownHero
+        {
+            get
+            {
+                var own = Title?.card?.image ?? Title?.cover_url;
+                return !string.IsNullOrEmpty(own) ? own : HeroImageUrl;
+            }
+        }
+        private string ShownSynopsis
+            => !string.IsNullOrEmpty(Title?.card?.description) ? Title.card.description : Synopsis;
+        private int ShownCost
+            => Title?.cost?.amount > 0 ? (int)Title.cost.amount : EnergyCost;
         public string Chips = "";
         public string Synopsis = "";
 
@@ -165,7 +187,7 @@ namespace Lvn.UI.Screens
                 float w = e.newRect.width;
                 if (w > 1f) hero.style.height = Mathf.Round(w * HeroAspect);
             });
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(hero, HeroImageUrl, _assets), "AssignBg");
+            LvnAsync.Fire(ScreenUi.AssignBgAsync(hero, ShownHero, _assets), "AssignBg");
             // bottom gradient scrim so the overlaid title reads (a real gradient —
             // a flat half-black band leaves an ugly hard edge across the art)
             var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -177,7 +199,7 @@ namespace Lvn.UI.Screens
             scrim.style.backgroundImage = BottomScrim();
             hero.Add(scrim);
 
-            var overTitle = new Label(TitleName);
+            var overTitle = new Label(ShownName);
             overTitle.style.position = Position.Absolute;
             overTitle.style.left = 30;
             overTitle.style.right = 30;
@@ -249,7 +271,7 @@ namespace Lvn.UI.Screens
         // ── 3. synopsis paragraph ────────────────────────────────────────────
         private VisualElement BuildSynopsis()
         {
-            var p = new Label(Synopsis);
+            var p = new Label(ShownSynopsis);
             p.style.flexShrink = 0;
             p.style.color = LvnTokens.TextDim;
             p.style.fontSize = 24;
@@ -450,7 +472,7 @@ namespace Lvn.UI.Screens
             var costIcon = LvnIcons.Make(LvnIcon.Energy, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
             costIcon.style.marginRight = 6;
             cost.Add(costIcon);
-            var costLbl = new Label(EnergyCost.ToString());
+            var costLbl = new Label(ShownCost.ToString());
             costLbl.style.color = LvnTokens.Gold;
             costLbl.style.fontSize = 26;
             costLbl.style.unityFontStyleAndWeight = FontStyle.Bold;

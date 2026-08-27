@@ -37,7 +37,7 @@ namespace Lvn.UI.Screens
             column.style.width = Length.Percent(82f);
             Add(column);
 
-            _title = new Label(_cfg.title ?? "Конец главы");
+            _title = new Label(_cfg.title ?? LvnWords.Of("chapter_end.title", "End of chapter"));
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
             _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             _title.style.fontSize = _cfg.title_size ?? 64f;
@@ -52,12 +52,12 @@ namespace Lvn.UI.Screens
             _chapter.style.whiteSpace = WhiteSpace.Normal;
             column.Add(_chapter);
 
-            _continue = MakeButton(_cfg.continue_label ?? "Продолжить", primary: true);
+            _continue = MakeButton(_cfg.continue_label ?? LvnWords.Of("chapter_end.continue", "Continue"), primary: true);
             _continue.style.marginTop = 72;
             _continue.clicked += () => Resolve(true);
             column.Add(_continue);
 
-            _menu = MakeButton(_cfg.menu_label ?? "В меню", primary: false);
+            _menu = MakeButton(_cfg.menu_label ?? LvnWords.Of("chapter_end.menu", "To menu"), primary: false);
             _menu.style.marginTop = 20;
             _menu.clicked += () => Resolve(false);
             column.Add(_menu);

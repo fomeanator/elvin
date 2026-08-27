@@ -42,11 +42,29 @@ namespace Lvn.UI.World
             layer._image = go.GetComponent<RawImage>();
             layer._image.raycastTarget = false;
 
-            var shader = Shader.Find("Hidden/LvnPortalDisk");
-            if (shader != null)
+            // Загрузка ИМЕННО ИЗ Resources — как у всех шейдеров движка
+            // (LvnFx, LvnBlur, LvnActorComposite, LvnSpriteFx). Shader.Find
+            // ищет по имени среди уже загруженного и в билде честно находит
+            // только то, что кто-то потянул за собой; файл лежит здесь же, в
+            // Runtime/Resources, и просить его по имени файла надёжнее.
+            var shader = Resources.Load<Shader>("LvnPortalDisk")
+                      ?? Shader.Find("Hidden/LvnPortalDisk");
+            // ШЕЙДЕР ЛИБО РАБОТАЕТ, ЛИБО СТВОРА НЕТ. Материал с несобравшимся
+            // шейдером Unity рисует ЯДОВИТО-РОЗОВЫМ, и при радиусе во весь
+            // экран это заливка всей сцены (живой репорт Ильи 28.08). Пустой
+            // проём честнее испорченного кадра, а причина уходит в лог.
+            if (shader != null && shader.isSupported)
             {
                 layer._mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
                 layer._image.material = layer._mat;
+            }
+            else
+            {
+                Lvn.UI.LvnLog.Warn(shader == null
+                    ? "[lvn-portal] шейдер Hidden/LvnPortalDisk не найден — створ не рисуется"
+                    : "[lvn-portal] шейдер Hidden/LvnPortalDisk не собрался — створ не рисуется");
+                layer._image.enabled = false;
+                layer.enabled = false;
             }
             // Слой квадратный и центрируется по точке створа: круг остаётся
             // кругом на любом экране, без аспект-поправок в шейдере.
@@ -69,6 +87,20 @@ namespace Lvn.UI.World
                               + $"радиус={_radius:0.00}, центр=({_center.x:0.00},{_center.y:0.00}), dur={seconds:0.00}");
         }
 
+        /// <summary>
+        /// ЯДРО СТВОРА КАРТИНКОЙ. Процедурный вихрь дешёв и работает без
+        /// единого файла, но читается «ломаными линиями»; готовый шар энергии
+        /// читается тем, чем он и является. Картинка растёт вместе с
+        /// раскрытием и медленно вращается — то есть ведёт себя как ядро, а не
+        /// как наклейка. Null возвращает процедурный вид.
+        /// </summary>
+        public void SetCore(Texture core)
+        {
+            if (_mat == null) return;
+            _mat.SetTexture("_CoreTex", core);
+            _mat.SetFloat("_HasCore", core != null ? 1f : 0f);
+        }
+
         /// <summary>Где стоит створ (доли кадра, y вниз — как в авторских
         /// координатах) и во что раскрывается (доля МЕНЬШЕЙ стороны).</summary>
         public void Place(Vector2 center, float radius, Color color)
@@ -79,8 +111,44 @@ namespace Lvn.UI.World
             Apply();
         }
 
+        /// <summary>
+        /// ДЫХАНИЕ СТВОРА — медленное «вдох-выдох» в пределах десятой доли
+        /// (просьба Ильи 28.08). Портал в меню стоит открытым подолгу, и
+        /// неподвижный круг читается как наклейка; чуть живущий размер — как
+        /// проём, за которым что-то происходит. Ходит вокруг ЗАДАННОГО
+        /// раскрытия, поэтому не спорит ни с открытием, ни с закрытием.
+        /// </summary>
+        public const float BreathAmount = 0.10f;   // ±10% от текущего раскрытия
+        public const float BreathPeriod = 7f;      // секунд на полный цикл
+
+        // Раз в секунду спрашиваем материал, ЧЕМ он собирается рисовать.
+        // Розовый прямоугольник во весь экран (живой репорт 28.08) — это
+        // подставленный Unity error-шейдер, и снаружи причина неотличима от
+        // «портал сломался вообще». Пусть створ говорит сам и не портит кадр:
+        // пустой проём честнее ядовитой заливки.
+        private float _nextAudit;
+
+        private void AuditMaterial()
+        {
+            if (Time.unscaledTime < _nextAudit) return;
+            _nextAudit = Time.unscaledTime + 1f;
+            if (_image == null) return;
+            var m = _image.material;
+            bool ok = m != null && m.shader != null && m.shader.isSupported
+                   && m.shader.name == "Hidden/LvnPortalDisk";
+            if (ok) return;
+            string what = m == null ? "материала НЕТ"
+                        : m.shader == null ? "шейдер NULL"
+                        : m.shader.name + (m.shader.isSupported ? "" : " (НЕ ПОДДЕРЖАН)");
+            Lvn.UI.LvnLog.Warn($"[lvn-portal] СТВОР РИСУЕТ НЕ ТЕМ: {what}, "
+                             + $"раскрытие={_open:0.00}, сторона={_rt?.sizeDelta.x:0} — гашу слой");
+            _image.enabled = false;
+            enabled = false;
+        }
+
         private void Update()
         {
+            AuditMaterial();
             if (_speed > 0f && !Mathf.Approximately(_open, _target))
                 _open = Mathf.MoveTowards(_open, _target, Time.unscaledDeltaTime * _speed);
 
@@ -111,7 +179,14 @@ namespace Lvn.UI.World
             _rt.anchoredPosition = new Vector2((_center.x - 0.5f) * w, (0.5f - _center.y) * h);
 
             _image.enabled = _open > 0.001f || _target > 0.001f;
-            if (_mat != null) _mat.SetFloat("_Open", _open);
+            if (_mat != null)
+            {
+                // Дышит ПОКАЗЫВАЕМОЕ раскрытие, а само _open остаётся тем, что
+                // задали: иначе вдох посреди закрытия оставил бы створ приоткрытым.
+                float breath = 1f + BreathAmount
+                             * Mathf.Sin(Time.unscaledTime * (2f * Mathf.PI / BreathPeriod));
+                _mat.SetFloat("_Open", Mathf.Clamp01(_open * breath));
+            }
         }
 
         private void OnDestroy()

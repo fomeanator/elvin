@@ -97,10 +97,14 @@ namespace Lvn.UI.Screens
                 }
                 else if (useHub && Hub != null)
                 {
-                    Show(Hub);
-                    Hub.PlayEntrance();      // контент фейдом, нижняя навигация снизу
+                    // ВПУСКАЕТ ШВЕЙЦАР. Цикл только называет участников и
+                    // условие «дверь закрыта»; порядок (зарядить → дождаться →
+                    // показать → двинуть) и предохранители — его забота.
                     TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
-                    TopBar?.PlayEntrance();  // верхний бар сверху — один ансамбль
+                    LvnAsync.Fire(LvnUsher.OpenAsync(
+                        hold: () => BootVeil.IsVisible,
+                        show: () => Show(Hub),
+                        Hub, TopBar), "ShellEntrance");
                     OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
                     // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
                     // ставит и полотно, и куклу — значит светлое пятно рисует
@@ -109,6 +113,7 @@ namespace Lvn.UI.Screens
                     if (Lvn.UI.LvnLog.Verbose)
                         _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
                     title = await Hub.PickTitleAsync(ct);
+                    // (вход полос играет сам по себе — ждать его незачем)
                     if (ct.IsCancellationRequested) return;
                     Hide(Hub);
                     if (title == null) continue; // never picked → re-enter the hub
@@ -275,14 +280,13 @@ namespace Lvn.UI.Screens
             return best;
         }
 
-        private static string ChapterLine(LvnChapter c) =>
-            c == null ? "" : (c.number > 0 ? $"Chapter {c.number}" : "");
+        // ТИТР ГЛАВЫ — только номер: название эпизода стоит в титре отдельной
+        // строкой, и дублировать его в подзаголовке незачем.
+        private static string ChapterLine(LvnChapter c) => Lvn.Content.LvnCaptions.ChapterNumberOnly(c);
 
         /// <summary>Подпись главы для сцены перехода: имя эпизода, иначе его
         /// номер. Пустая строка честнее выдуманного заголовка.</summary>
-        private static string PortalChapterLabel(LvnChapter c) =>
-            c == null ? "" : (!string.IsNullOrEmpty(c.name) ? c.name
-                : (c.number > 0 ? "Глава " + c.number : c.id ?? ""));
+        private static string PortalChapterLabel(LvnChapter c) => Lvn.Content.LvnCaptions.Chapter(c);
 
     }
 }

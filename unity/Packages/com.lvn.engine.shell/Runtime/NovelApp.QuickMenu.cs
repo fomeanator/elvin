@@ -163,7 +163,7 @@ namespace Lvn.UI.Screens
             DownloadPolicy.PreferredSuffix = "@" + EffectiveArtQuality();
             Lvn.UI.LvnPrefs.Changed += () =>
             {
-                if (!_chapterPlaying) ShowMenuScene(); // смена фаворита — живьём
+                if (!_chapterPlaying) ShowMenuScene(withPortal: false); // смена фаворита — живьём, без врат
                 var next = "@" + EffectiveArtQuality();
                 if (DownloadPolicy.PreferredSuffix != next)
                 {
@@ -202,13 +202,20 @@ namespace Lvn.UI.Screens
                 };
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
-                Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
+                // …БЕЗ ВРАТ: смена наряда — пересборка куклы, а не приход в
+                // меню. Со створом это выглядело так, будто каждая юбка
+                // открывает портал (живой репорт 28.08).
+                Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
                 // Сцена перехода: панель ведёт экран, створ и героиню — хост.
                 _shell.OnPortalEnter = EnterPortalAsync;
-                _shell.OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
+                // РЕЖИМ ОБЪЯВЛЯЕТ ОБОЛОЧКА, а не хост: она владеет сессией
+                // главы и уже говорит об этом Режиссёру. Здесь стоял второй
+                // такой же вызов — оба идемпотентны, поэтому дубль не ломался,
+                // но «кто объявляет режим» имело два ответа, а это ровно то,
+                // от чего роль Режиссёра и заводилась.
+                _shell.OnChapterSessionStart += () => { _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
-                    Lvn.UI.LvnScreenDirector.Current.LeaveChapter();
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
                 };
             }

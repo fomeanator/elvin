@@ -106,7 +106,7 @@ namespace Lvn.UI.Screens
             titleCol.style.flexGrow = 1;
             header.Add(titleCol);
 
-            var title = new Label("Ежедневная награда");
+            var title = new Label(LvnWords.Of("daily.title", "Daily reward"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;
@@ -143,7 +143,7 @@ namespace Lvn.UI.Screens
             card.Add(_grid);
 
             // ── The primary claim call to action ───────────────────────────────
-            _claim = new Button(ClaimToday) { text = "Забрать" };
+            _claim = new Button(ClaimToday) { text = LvnWords.Of("daily.claim", "Claim") };
             _claim.style.fontSize = 28;
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             _claim.style.marginTop = 22;
@@ -174,7 +174,7 @@ namespace Lvn.UI.Screens
         /// from the current streak state. Safe to call any number of times.</summary>
         public void Rebuild()
         {
-            _subtitle.text = $"День {_currentDay}";
+            _subtitle.text = LvnWords.Of("daily.day", "Day {0}", _currentDay);
 
             _grid.Clear();
             for (int i = 0; i < Ladder.Length; i++)
@@ -188,7 +188,8 @@ namespace Lvn.UI.Screens
             }
 
             bool canClaim = !_claimed;
-            _claim.text = _claimed ? "Награда получена" : "Забрать";
+            _claim.text = _claimed ? LvnWords.Of("daily.claimed", "Claimed")
+                                   : LvnWords.Of("daily.claim", "Claim");
             _claim.SetEnabled(canClaim);
             _claim.style.opacity = canClaim ? 1f : 0.5f;
         }
@@ -250,7 +251,7 @@ namespace Lvn.UI.Screens
             labelRow.style.alignItems = Align.Center;
             labelRow.style.justifyContent = Justify.Center;
             labelRow.style.marginBottom = 8;
-            var label = new Label($"День {day}");
+            var label = new Label(LvnWords.Of("daily.day", "Day {0}", day));
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
             label.style.fontSize = 20;
             label.style.unityFontStyleAndWeight = premium ? FontStyle.Bold : FontStyle.Normal;
@@ -290,7 +291,7 @@ namespace Lvn.UI.Screens
             }
             else if (state == State.Today)
             {
-                var badge = new Label("сегодня");
+                var badge = new Label(LvnWords.Of("daily.today", "today"));
                 badge.style.position = Position.Absolute;
                 badge.style.top = 6;
                 badge.style.right = 8;

@@ -23,13 +23,34 @@ namespace Lvn.UI.Screens
     {
         private PortalConfig Portal => _shell?.Portal;
 
-        /// <summary>Створ виден на главной постоянно — тускло, вполсилы: это
-        /// часть мира, а не всплывающий эффект.</summary>
+        /// <summary>Сколько створ живёт на главной, прежде чем схлопнуться в
+        /// точку (решение Ильи 28.08: врата — событие, а не деталь фона; вечно
+        /// висеть за героиней им незачем).</summary>
+        private const float MenuPortalLifetime = 4f;
+
+        /// <summary>Створ виден на главной первые секунды — тускло, вполсилы:
+        /// это часть мира, а не всплывающий эффект. Потом гаснет сам.</summary>
         private void ShowMenuPortal()
         {
             var portal = Portal;
             if (Stage == null || portal == null) return;
             Stage.ApplyStage(PortalCmd(portal, portal.idle ?? 0.34f, 0.6f), LvnSender.Cutscene);
+            LvnAsync.Fire(FadeMenuPortalAsync(++_menuPortalGeneration), "MenuPortalIdle");
+        }
+
+        /// <summary>Поколение показа: уход в главу или новый показ отменяет
+        /// прежнее схлопывание — иначе таймер прошлого захода закрыл бы
+        /// створ посреди перехода.</summary>
+        private int _menuPortalGeneration;
+
+        private async Task FadeMenuPortalAsync(int generation)
+        {
+            await Task.Delay((int)(MenuPortalLifetime * 1000f));
+            var portal = Portal;
+            if (Stage == null || portal == null) return;
+            if (generation != _menuPortalGeneration) return;   // показ уже сменился
+            LvnLog.Trace($"[lvn-portal] створ на главной отжил {MenuPortalLifetime:0}с — схлопываем в точку");
+            Stage.ApplyStage(PortalCmd(portal, 0f, 2.5f), LvnSender.Cutscene);
         }
 
         /// <summary>
@@ -51,6 +72,7 @@ namespace Lvn.UI.Screens
             if (Stage == null || portal == null) return;
             var fav = MenuFavoriteEntity();
             LvnLog.Trace($"[lvn-portal] уход с миссии: героиня={fav ?? "-"}");
+            _menuPortalGeneration++;   // таймер главной больше не властен над створом
 
             // 1. Кадр расчищает РАСПОРЯДИТЕЛЬ: остаётся она одна, и вместе с
             //    людьми уходят следы главы — окно реплики, вуали, чужой грим.
@@ -60,7 +82,21 @@ namespace Lvn.UI.Screens
             // 2. Она встаёт по центру и ПЕРЕД всеми: где её оставила глава,
             //    значения не имеет. Если её в главе не было вовсе — ставим,
             //    иначе створу некого забирать.
+            bool wasInFrame = !string.IsNullOrEmpty(fav) && Stage.ActorVisibleOrPending(fav);
             PlaceMenuHeroine(VnStage.SoloFrontZ, LvnSender.Cutscene);
+            if (!wasInFrame && !string.IsNullOrEmpty(fav))
+            {
+                // ЕЁ НЕ БЫЛО В КАДРЕ — значит арт ещё едет, и обычный вход
+                // отыграет НА ПУСТОЙ КУКЛЕ: растворение кончится раньше, чем
+                // приедут слои, и героиня просто возникнет готовой («без
+                // анимации нашей стандартной» — Илья 28.08). Тот же порядок,
+                // что на прибытии: сперва спрятать, дождаться слоёв, и только
+                // потом играть появление.
+                Stage.ApplyStage(Hidden(fav), LvnSender.Cutscene);
+                await Stage.WaitForActorArtAsync(fav);
+                Stage.ApplyStage(Revealed(fav, 0.5f), LvnSender.Cutscene);
+                await Task.Delay(220);
+            }
             await Task.Delay(340);
 
             // 3. Створ раскрывается и забирает её.
@@ -72,12 +108,12 @@ namespace Lvn.UI.Screens
             }
             await Task.Delay(520);
 
-            // 4. Кадр уходит в фейд — по ту сторону будет уже меню.
-            Stage.ApplyStage(new JObject
-            {
-                ["op"] = "fade", ["to"] = "black", ["duration"] = 0.45f,
-            }, LvnSender.Cutscene);
-            await Task.Delay(480);
+            // 4. ЧЕРНОТЫ МЕЖДУ МИРАМИ НЕТ. Раньше кадр уходил в фейд, и переход
+            //    состоял из трёх событий подряд: створ, чернота, новый кадр —
+            //    чернота читалась как мигание («фейд не надо, чтобы мелькал» —
+            //    Илья 28.08). Створ раскрыт во весь экран и САМ закрывает мир:
+            //    по ту сторону он же и закроется, и шва не видно.
+            await Task.Delay(180);
             // Возвращать уведённых некому: глава закончилась вместе с кадром.
             Stage.DropSolo();
         }
@@ -133,12 +169,8 @@ namespace Lvn.UI.Screens
             Stage.ApplyStage(PortalCmd(portal, 1f, 0f), LvnSender.Cutscene);   // створ ЗДЕСЬ ещё открыт
             await Task.Delay(120);
 
-            // И меню проявляется: свет возвращается, героиня выходит из створа,
-            // створ закрывается за ней.
-            Stage.ApplyStage(new JObject
-            {
-                ["op"] = "fade", ["to"] = "clear", ["duration"] = 0.5f,
-            }, LvnSender.Cutscene);
+            // Меню принимает створ ОТКРЫТЫМ: героиня выходит из него, и створ
+            // закрывается за ней. Проявлять свет неоткуда — черноты не было.
             if (!string.IsNullOrEmpty(fav)) Stage.ApplyStage(Revealed(fav, 0.6f), LvnSender.Cutscene);
             Stage.ApplyStage(PortalCmd(portal, 0f, 0.8f), LvnSender.Cutscene);
             _shell?.ShowMenuChrome();
@@ -157,6 +189,7 @@ namespace Lvn.UI.Screens
             var fav = MenuFavoriteEntity();
             bool inFrame = !string.IsNullOrEmpty(fav) && Stage.ActorVisibleOrPending(fav);
             LvnLog.Trace($"[lvn-portal] уход в главу: героиня={fav ?? "-"}, в кадре={inFrame}");
+            _menuPortalGeneration++;   // таймер главной больше не властен над створом
             _shell?.HideMenuChrome();   // кадр остаётся сценой, а не витриной с кнопками
 
             Stage.ApplyStage(PortalCmd(portal, 1f, 0.75f), LvnSender.Cutscene);
@@ -273,12 +306,19 @@ namespace Lvn.UI.Screens
             {
                 ["op"] = "portal",
                 ["open"] = open,
-                ["x"] = p.x ?? 0.72f,
-                ["y"] = p.y ?? 0.52f,
-                ["radius"] = p.radius ?? 0.30f,
+                // ЦЕНТР КАДРА И ВДВОЕ ШИРЕ (Илья 28.08). Створ сбоку читался
+                // как «дырка в углу»; из центра он читается как то, во что
+                // входят. Радиус — доля МЕНЬШЕЙ стороны, 0.6 даёт круг чуть
+                // шире экрана телефона по вертикали.
+                ["x"] = p.x ?? 0.5f,
+                ["y"] = p.y ?? 0.5f,
+                ["radius"] = p.radius ?? 0.60f,
                 ["dur"] = dur,
             };
             if (!string.IsNullOrEmpty(p.color)) cmd["color"] = p.color;
+            // Ядро створа картинкой: процедурный вихрь читается «ломаными
+            // линиями», а готовый шар энергии — тем, чем он и должен быть.
+            if (!string.IsNullOrEmpty(p.sprite)) cmd["sprite_url"] = p.sprite;
             return cmd;
         }
     }
