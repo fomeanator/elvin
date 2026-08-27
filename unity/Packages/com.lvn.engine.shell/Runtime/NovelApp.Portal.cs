@@ -6,77 +6,81 @@ using Newtonsoft.Json.Linq;
 namespace Lvn.UI.Screens
 {
     /// <summary>
-    /// СЦЕНА ПЕРЕХОДА со стороны хоста: створ и героиня у него.
+    /// СТВОР НА ГЛАВНОЙ — врата, в которые героиня уходит на миссию.
     ///
-    /// <para>Панель с описанием миссии рисует <see cref="PortalScreen"/>, а всё,
-    /// что происходит НА СЦЕНЕ, — здесь: это одна и та же непрерывная сцена, на
-    /// которой только что было меню (см. <c>VnStage.HandOver</c>), и относиться
-    /// к ней надо как к сцене, а не как к заставке.</para>
+    /// <para>Отдельного экрана перехода нет: игрок уже нажал «играть», и ещё
+    /// одна остановка между его решением и историей — это задержка, а не
+    /// подготовка. Створ живёт прямо в витрине меню, рядом с героиней, и
+    /// открывается там же, где она стоит.</para>
     ///
-    /// <para>Героиня у створа не ставится заново — она ПЕРЕСТАВЛЯЕТСЯ
-    /// (<c>VnStage.Restage</c>): к порталу она приходит в том же наряде и с той
-    /// же эмоцией, в которых стояла в меню. Мельче — потому что рядом со
-    /// створом важен масштаб перехода, а не её лицо.</para>
+    /// <para>Он — СЛОЙ СЦЕНЫ (<c>op portal</c>), а не полноэкранный эффект.
+    /// Постэффект живёт на камере: без неё он молча не рисуется, уборка сцены
+    /// сбрасывает его посреди перехода, и лечь ПОД героиню он не может —
+    /// работает с кадром, где она уже нарисована. Слой рисуется всегда, стоит
+    /// за актёрами и ничьей уборки не боится.</para>
     /// </summary>
     public partial class NovelApp
     {
-        /// <summary>Створ открылся: ставим его на сцену тусклым и подводим к
-        /// нему героиню. Готовность (и яркость) дальше ведёт экран.</summary>
-        private void OpenPortalScene(LvnTitle title, LvnChapter chapter)
+        private PortalConfig Portal => _shell?.Portal;
+
+        /// <summary>Створ виден на главной постоянно — тускло, вполсилы: это
+        /// часть мира, а не всплывающий эффект.</summary>
+        private void ShowMenuPortal()
         {
-            var portal = _shell?.Portal;
+            var portal = Portal;
             if (Stage == null || portal == null) return;
-
-            var fav = MenuFavoriteEntity();
-            if (!string.IsNullOrEmpty(fav))
-                Stage.Restage(fav, new JObject
-                {
-                    ["x"] = portal.DollX,
-                    ["height"] = portal.DollHeight,
-                });
-
-            Stage.ApplyStage(PortalFx(portal, portal.Idle, 0.5f));
-            // Экран двигает готовность — створ разгорается вместе с ней.
-            portal.Readiness = r => Stage.ApplyStage(PortalFx(portal, r, 0.35f));
-            LvnLog.Trace($"[lvn-portal] створ открыт: миссия={title?.id}, глава={chapter?.id}, "
-                       + $"героиня={fav ?? "-"}");
+            Stage.ApplyStage(PortalCmd(portal, portal.idle ?? 0.34f, 0.6f));
         }
 
-        /// <summary>Игрок шагнул в створ: портал раскрывается во весь кадр, а
-        /// героиня уходит в него растворением. Ждём, пока это доиграет, —
-        /// глава начнётся ПОСЛЕ перехода, а не поверх него.</summary>
+        /// <summary>
+        /// УХОД В ГЛАВУ. Створ раскрывается во весь свой рост, героиня уходит в
+        /// него растворением — и только потом кадр забирает глава.
+        /// </summary>
         private async Task EnterPortalAsync()
         {
-            var portal = _shell?.Portal;
+            var portal = Portal;
             if (Stage == null || portal == null) return;
 
             var fav = MenuFavoriteEntity();
-            if (!string.IsNullOrEmpty(fav))
+            bool inFrame = !string.IsNullOrEmpty(fav) && Stage.ActorVisibleOrPending(fav);
+            LvnLog.Trace($"[lvn-portal] уход в главу: героиня={fav ?? "-"}, в кадре={inFrame}");
+
+            Stage.ApplyStage(PortalCmd(portal, 1f, 0.75f));
+            await Task.Delay(280);
+            // РАСТВОРЯЕМ ТОЛЬКО ТОГО, КТО В КАДРЕ: команда для отсутствующего
+            // актёра не теряется — она ждёт его рождения и срабатывает на том,
+            // кто появится позже, уже в другом месте.
+            if (inFrame)
                 Stage.ApplyStage(new JObject
                 {
-                    ["op"] = "sfx", ["id"] = fav, ["dissolve"] = 1f, ["dur"] = 0.55f,
+                    ["op"] = "sfx", ["id"] = fav, ["dissolve"] = 1f, ["dur"] = 0.45f,
                 });
-            Stage.ApplyStage(PortalFx(portal, 1f, 0.55f));
-            portal.Readiness = null;   // экран уходит — двигать больше нечего
-            await Task.Delay(620);
-            // Створ гасится ЗДЕСЬ, до первого кадра главы: эффект живёт в
-            // стеке, а стек переживает смену сцены — иначе глава открылась бы
-            // под воронкой предыдущего перехода.
-            Stage.ApplyStage(new JObject { ["op"] = "fx", ["off"] = true, ["dur"] = 0.25f });
+            await Task.Delay(520);
         }
 
-        private static JObject PortalFx(PortalScreen p, float open, float dur)
+        /// <summary>Глава поставила первый кадр — створ закрывается: героиня из
+        /// него вышла. Своей же командой, а не сбросом всего стека эффектов:
+        /// чужие эффекты новой главы гасить незачем.</summary>
+        private void ArriveInChapter()
+        {
+            var portal = Portal;
+            if (Stage == null || portal == null) return;
+            Stage.ApplyStage(PortalCmd(portal, 1f, 0f));
+            Stage.ApplyStage(PortalCmd(portal, 0f, 0.7f));
+        }
+
+        private static JObject PortalCmd(PortalConfig p, float open, float dur)
         {
             var cmd = new JObject
             {
-                ["op"] = "fx",
-                ["portal"] = open,
-                ["portal_x"] = p.CenterX,
-                ["portal_y"] = p.CenterY,
-                ["portal_radius"] = p.Radius,
+                ["op"] = "portal",
+                ["open"] = open,
+                ["x"] = p.x ?? 0.72f,
+                ["y"] = p.y ?? 0.52f,
+                ["radius"] = p.radius ?? 0.30f,
                 ["dur"] = dur,
             };
-            if (!string.IsNullOrEmpty(p.Color)) cmd["portal_color"] = p.Color;
+            if (!string.IsNullOrEmpty(p.color)) cmd["color"] = p.color;
             return cmd;
         }
     }

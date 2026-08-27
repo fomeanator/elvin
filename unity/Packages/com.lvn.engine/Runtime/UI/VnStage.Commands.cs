@@ -339,6 +339,11 @@ namespace Lvn.UI
                     // Спрайтовый эффект по id актёра; вне канвас-пути — no-op.
                     _renderer?.TrySpriteFx((string)command["id"], command);
                     break;
+                case "portal":
+                    // Створ — СЛОЙ сцены: рисуется всегда, живёт за актёрами и
+                    // переживает уборку эффектов (в отличие от `fx portal`).
+                    _renderer?.TryPortal(command);
+                    break;
                 case "fx":
                     // Мультиэффект кадра; без камеры (overlay-канвас, UITK-путь)
                     // честный no-op — сцена просто остаётся чистой.

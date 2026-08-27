@@ -144,16 +144,10 @@ namespace Lvn.UI.Screens
                 bool cached = ready();
                 if (Portal != null)
                 {
-                    // ПЕРЕХОД ВМЕСТО ЗАГРУЗКИ. Заслонки нет: за панелью живая
-                    // сцена, где героиня стоит у створа. Ожидание кончается не
-                    // тогда, когда докачался файл, а когда игрок сам шагнёт в
-                    // портал — техническое ожидание стало решением игрока.
-                    OnPortalOpening?.Invoke(title, chapter);
-                    bool entered = await Portal.RunAsync(
-                        title?.name ?? title?.id, PortalChapterLabel(chapter),
-                        ready, prog, locked: false, ct: ct);
-                    Hide(Portal);
-                    if (!entered || ct.IsCancellationRequested) continue; // передумал — обратно к витрине
+                    // ПЕРЕХОД БЕЗ ЭКРАНА. Игрок уже нажал «играть» — между его
+                    // решением и историей не должно быть ещё одной остановки.
+                    // Створ стоит на главной, героиня уходит в него, и следом
+                    // кадр забирает глава.
                     if (OnPortalEnter != null) await OnPortalEnter();
                 }
                 else

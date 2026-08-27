@@ -69,11 +69,20 @@ namespace Lvn.UI.Screens
             {
                 ["op"] = "bg", ["sprite_url"] = canvas,
                 ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
+                // ВОЗВРАЩЕНИЕ — ДЛИННЫЙ ВЫДОХ, а не переключение. Полторы
+                // секунды кроссфейда: мир главы отпускает, полотно меню
+                // проступает. Короткий фейд читался как сбой картинки.
+                ["fade"] = MenuReturnFadeSeconds,
             };
             LvnLog.Trace($"[lvn-menu] передача кадра: полотно={(bg != null ? "меню" : "прежнее")}, "
                        + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.KnowsLook(fav))}");
             Stage.HandOver(bg, fav);
             _menuBgSet = bg != null;   // полотно уже стоит — второй раз его не ставим
+            // Героиня выходит ПОСЛЕ фона, а не вместе с ним: сначала мир, потом
+            // тот, кто в него вернулся. Появиться одновременно значит смазать
+            // оба события в одно мельтешение.
+            LvnAsync.Fire(PlaceMenuHeroineSoonAsync(), "MenuHeroine");
+            return;
 
             // Переставить, не переодевая: место — витрины, облик — из главы.
             if (!string.IsNullOrEmpty(fav) && Stage.Restage(fav, new Newtonsoft.Json.Linq.JObject
@@ -85,6 +94,42 @@ namespace Lvn.UI.Screens
             {
                 _menuSceneActor = fav;
             }
+        }
+
+        /// <summary>Сколько длится возвращение: кроссфейд полотна меню.</summary>
+        private const float MenuReturnFadeSeconds = 1.5f;
+
+        /// <summary>Пауза перед выходом героини — доля фейда фона. Мир должен
+        /// успеть проступить.</summary>
+        private const float MenuHeroineDelay = 0.55f;
+
+        private async System.Threading.Tasks.Task PlaceMenuHeroineSoonAsync()
+        {
+            await System.Threading.Tasks.Task.Delay(
+                (int)(MenuReturnFadeSeconds * MenuHeroineDelay * 1000f));
+            if (_chapterPlaying) return;   // успели уйти обратно в главу
+            PlaceMenuHeroine();
+        }
+
+        /// <summary>Героиня встаёт так, как стоит в меню: место — витрины,
+        /// облик — тот, с которым она пришла (Restage не переодевает).</summary>
+        private bool PlaceMenuHeroine()
+        {
+            var fav = MenuFavoriteEntity();
+            if (Stage == null || string.IsNullOrEmpty(fav)) return false;
+            var place = new Newtonsoft.Json.Linq.JObject
+            {
+                ["position"] = "center",
+                ["width"] = LvnMenuStage.DollWidth,
+                ["height"] = LvnMenuStage.DollHeight,
+            };
+            if (!Stage.Restage(fav, place))
+            {
+                place["op"] = "actor"; place["id"] = fav; place["show"] = true;
+                Stage.ApplyStage(place);
+            }
+            _menuSceneActor = fav;
+            return true;
         }
 
         private void ShowMenuScene()
@@ -126,6 +171,7 @@ namespace Lvn.UI.Screens
             // Через 1.5с (после входа куклы) перечислить сплошные светлые
             // поверхности сцены — охота на белый прямоугольник (26.08).
             LvnAsync.Fire(DumpSceneSoonAsync(), "DumpScene");
+            ShowMenuPortal();   // врата — часть главной, а не всплывающий эффект
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.

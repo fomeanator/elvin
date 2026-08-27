@@ -37,7 +37,10 @@ namespace Lvn.UI.World
         private readonly WorldBackground _bg;
         private readonly WorldCameraRig _camera;
         private readonly Vector2 _reference;
-        private readonly Camera _canvasCamera;
+        private Camera _canvasCamera;
+        // Камера, которую сцена завела САМА (в проекте её не было). Чужую
+        // трогать нельзя, свою — обязаны убрать за собой.
+        private GameObject _ownCameraGo;
         private readonly float _canvasCameraDepthBefore;
         private readonly float _canvasCameraDepthForced;
 
@@ -61,10 +64,15 @@ namespace Lvn.UI.World
 
         /// <summary>The real camera-frame blur, when this platform supports it
         /// (built-in pipeline + a scene camera). Null → caller uses its veil.</summary>
-        public LvnBlurEffect Blur { get; }
+        public LvnBlurEffect Blur { get; private set; }
 
         /// <summary>Мультиэффект кадра (op `fx`); null там же, где null Blur.</summary>
-        public LvnFxStack Fx { get; }
+        public LvnFxStack Fx { get; private set; }
+
+        /// <summary>Створ портала — слой сцены за актёрами. В отличие от
+        /// полноэкранного стека существует ВСЕГДА: ему не нужна камера, и его
+        /// не сбрасывает уборка эффектов.</summary>
+        public LvnPortalLayer Portal { get; private set; }
 
         /// <summary>Размытая копия кадра для «матового стекла» интерфейса; null
         /// там же, где null Blur.</summary>
@@ -99,6 +107,21 @@ namespace Lvn.UI.World
             // there the canvas stays overlay and blur falls back to the veil.
             var cam = Camera.main;
             if (cam == null) cam = Object.FindAnyObjectByType<Camera>();
+            // КАМЕРЫ МОЖЕТ НЕ БЫТЬ ВОВСЕ. Приложение из одного UIDocument живёт
+            // без неё — и тогда канвас остаётся overlay, OnRenderImage никто не
+            // зовёт, а весь стек эффектов (`fx`, `blur`) молча превращается в
+            // no-op. Наружу это выглядит как «эффект то есть, то нет».
+            if (cam == null && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null)
+            {
+                var camGo = new GameObject("vn-stage-camera", typeof(Camera));
+                camGo.transform.SetParent(parent, false);
+                cam = camGo.GetComponent<Camera>();
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = Color.black;
+                cam.orthographic = true;
+                cam.depth = -50f;
+                _ownCameraGo = camGo;
+            }
             if (cam != null && UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null)
             {
                 // A content/demo scene may bring its own enabled screen camera.
@@ -143,6 +166,10 @@ namespace Lvn.UI.World
 
             _gameRoot = NewStretch("game-root", _canvasGo.transform);
             _bg = new WorldBackground(_gameRoot);
+            // СТВОР — МЕЖДУ ФОНОМ И АКТЁРАМИ. Порядок в иерархии и есть ответ
+            // на «портал должен быть под героиней»: постэффектом такое не
+            // делается в принципе, а слоем — само собой.
+            Portal = LvnPortalLayer.Create(_gameRoot, siblingIndex: -1);
             _content = NewStretch("content", _gameRoot);
 
             _camera = _canvasGo.AddComponent<WorldCameraRig>();
@@ -672,7 +699,16 @@ namespace Lvn.UI.World
         {
             // RemoveAll is the renderer half of VnStage.ResetStage.  Camera FX
             // are sticky within a chapter, but never across chapter/load bounds.
-            Fx?.ResetImmediate();
+            //
+            // ЗДЕСЬ НЕЛЬЗЯ `Fx?.` — И ЭТО НЕ ПРИДИРКА. Оператор `?.` проверяет
+            // ссылку по правилам C#, а не по правилам Unity: у УНИЧТОЖЕННОГО
+            // объекта ссылка не пуста, и вызов кидает MissingReference. Стек
+            // эффектов живёт на камере, камера умирает раньше сцены — и
+            // исключение рвало уборку ПОСРЕДИ, так что всё после неё молча не
+            // выполнялось. Наружу это выглядело как серый кадр и «эффект через
+            // раз». `if (Fx)` — единственная проверка, которая видит смерть
+            // объекта.
+            if (Fx) Fx.ResetImmediate();
             foreach (var a in _actors.Values) if (a != null) Object.Destroy(a.gameObject);
             _actors.Clear();
             _slotGroups.Clear();
@@ -691,12 +727,26 @@ namespace Lvn.UI.World
             // `?.` не видит уничтоженных UnityEngine.Object (fake-null) — при
             // выходе из Play камера уже мертва, и FadeTo кидал
             // MissingReferenceException на каждом Stop. Только перегруженный !=.
-            if (Blur != null) Blur.FadeTo(0f, 0f);
-            if (Fx != null) Fx.ResetImmediate();
+            // ЭФФЕКТЫ ЖИВУТ НА КАМЕРЕ, а камера может умереть раньше сцены
+            // (смена сцены Unity, пересборка панели). Ссылка тогда висячая, и
+            // обращение к ней кидает MissingReference ПОСРЕДИ УБОРКИ — всё, что
+            // должно было выполниться после, молча не выполняется. Отсюда и
+            // серый кадр, и «эффект через раз»: виноват был не эффект, а
+            // оборванная на нём уборка.
+            try
+            {
+                if (Blur) Blur.FadeTo(0f, 0f);
+                if (Fx) Fx.ResetImmediate();
+            }
+            catch (MissingReferenceException)
+            {
+                Blur = null; Fx = null;   // камеры больше нет — и стека тоже
+            }
             // Respect a later owner that deliberately changed the depth.
             if (_canvasCamera != null &&
                 Mathf.Approximately(_canvasCamera.depth, _canvasCameraDepthForced))
                 _canvasCamera.depth = _canvasCameraDepthBefore;
+            if (_ownCameraGo != null) { Object.Destroy(_ownCameraGo); _ownCameraGo = null; }
             if (_canvasGo != null)
             {
                 if (Application.isPlaying) Object.Destroy(_canvasGo);
