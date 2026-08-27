@@ -58,6 +58,20 @@ namespace Lvn.UI
             _frame.style.borderBottomRightRadius = t.PanelCornerRadius;
             UiStyle.ApplyBackground(_frame, t.PanelSprite, t.PanelSlice); // the dialogue's own art
             Add(_frame);
+
+            // Поверхность не имеет права пережить свой элемент. Сцену снесли с
+            // открытым листом — Режиссёр обязан узнать об этом сам, иначе
+            // «лист истории на экране» останется правдой навсегда и ввод сцены
+            // не разблокируется (софт-локк). Вернули в дерево — вернули и
+            // поверхность: лист-то всё ещё открыт.
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                if (IsOpen) LvnScreenDirector.Current.Close(LvnScreenDirector.StoryPanel);
+            });
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                if (IsOpen) LvnScreenDirector.Current.Open(LvnScreenDirector.StoryPanel);
+            });
         }
 
         /// <summary>Show <paramref name="content"/> in the shared frame. Closed →
@@ -71,6 +85,7 @@ namespace Lvn.UI
             if (!IsOpen)
             {
                 IsOpen = true;
+                LvnScreenDirector.Current.Open(LvnScreenDirector.StoryPanel);
                 _content = content;
                 _frame.Clear();
                 _frame.Add(content);
@@ -158,6 +173,7 @@ namespace Lvn.UI
             // недорисованной — второе и было софтлоком.
             if (gen != _gen) return;
             IsOpen = false;
+            LvnScreenDirector.Current.Close(LvnScreenDirector.StoryPanel);
             _frame.Clear();
             _content = null;
             style.display = DisplayStyle.None;

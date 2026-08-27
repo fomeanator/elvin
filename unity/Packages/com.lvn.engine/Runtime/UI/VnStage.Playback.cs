@@ -74,7 +74,13 @@ namespace Lvn.UI
         /// in-script screen can't be tapped/auto-advanced through.</summary>
         public bool InputBlocked
         {
-            get => _inputBlockedFlag || (_panelHost != null && _panelHost.IsOpen)
+            // ВЫВОДИТСЯ, а не хранится: ввод держит любая поверхность, которую
+            // Режиссёр видит на экране (лист истории, квик-меню, модаль
+            // оболочки), плюс короткий хвост после закрытия панели. Флаг
+            // остаётся хосту, который держит историю по своей причине.
+            get => _inputBlockedFlag
+                || LvnScreenDirector.Current.SceneSurfaceOpen
+                || (_panelHost != null && _panelHost.IsOpen)
                 || Time.unscaledTime < _panelInputGuardUntil;
             set => _inputBlockedFlag = value;
         }

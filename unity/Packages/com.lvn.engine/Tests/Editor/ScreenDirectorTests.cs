@@ -147,9 +147,39 @@ namespace Lvn.Tests
             Assert.IsTrue(_d.AnyOpen);
         }
 
+        // Ввод сцены держат СВОИ поверхности, а модаль оболочки идёт поверх
+        // всего: магазин, открытый из гейта посреди главы, не имеет права
+        // прятать баблики валют — он ровно про них.
+        [Test]
+        public void ShellModal_IsNotASceneSurface()
+        {
+            _d.Open(LvnScreenDirector.ShellModal);
+            Assert.IsTrue(_d.AnyOpen);
+            Assert.IsFalse(_d.SceneSurfaceOpen);
+
+            _d.Open(LvnScreenDirector.QuickMenu);
+            Assert.IsTrue(_d.SceneSurfaceOpen);
+            _d.Close(LvnScreenDirector.QuickMenu);
+            Assert.IsFalse(_d.SceneSurfaceOpen, "закрылась сценная — модаль оболочки тут ни при чём");
+        }
+
+        [Test]
+        public void SetChapter_IsTheSameTruthAsEnterLeave()
+        {
+            _d.SetChapter(true);
+            Assert.IsTrue(_d.InChapter);
+            int seen = _changes;
+            _d.SetChapter(true);
+            Assert.AreEqual(seen, _changes, "повтор того же режима — не событие");
+
+            _d.SetChapter(false);
+            Assert.IsFalse(_d.InChapter);
+        }
+
         [Test]
         public void Reset_ClearsBothChromeAndSurfaces()
         {
+            _d.EnterChapter();
             _d.HideChrome(LvnScreenDirector.PeekReason);
             _d.Open(LvnScreenDirector.StoryPanel);
 
@@ -157,6 +187,8 @@ namespace Lvn.Tests
 
             Assert.IsFalse(_d.ChromeHidden);
             Assert.IsFalse(_d.AnyOpen);
+            Assert.IsFalse(_d.InChapter,
+                "запуск начинается с меню — режим прошлого прогона не наследуется");
         }
     }
 }

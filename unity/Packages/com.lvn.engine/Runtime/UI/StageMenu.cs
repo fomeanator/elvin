@@ -54,6 +54,7 @@ namespace Lvn.UI
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
             pickingMode = PickingMode.Ignore; // the closed layer never eats stage taps
+            WatchDetach();
 
             // Floating buttons, top-right under the shell HUD strip. Which ones
             // exist — and every colour below — comes from the theme (manifest.ui.menu).
@@ -149,11 +150,27 @@ namespace Lvn.UI
 
         // ── sheet ────────────────────────────────────────────────────────────
 
+        // Та же страховка, что у листа истории: снесли сцену с открытым
+        // квик-меню — поверхность уходит вместе с элементом.
+        private void WatchDetach()
+        {
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                if (IsOpen) LvnScreenDirector.Current.Close(LvnScreenDirector.QuickMenu);
+            });
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                if (IsOpen) LvnScreenDirector.Current.Open(LvnScreenDirector.QuickMenu);
+            });
+        }
+
         private void OpenSheet()
         {
             if (IsOpen) return;
             IsOpen = true;
-            _stage.InputBlocked = true;
+            // Ввод больше не гасится флагом вручную: экран знает, что квик-меню
+            // на нём стоит, и держит ввод сам (см. VnStage.InputBlocked).
+            LvnScreenDirector.Current.Open(LvnScreenDirector.QuickMenu);
             // Snapshot the CLEAN frame first — it becomes the thumbnail of any
             // save made from this menu. The scrim waits one frame for it.
             _stage.CaptureMenuThumb(OpenSheetChrome);
@@ -184,7 +201,7 @@ namespace Lvn.UI
         {
             if (!IsOpen) return;
             IsOpen = false;
-            _stage.InputBlocked = false;
+            LvnScreenDirector.Current.Close(LvnScreenDirector.QuickMenu);
             _scrim?.RemoveFromHierarchy();
             _scrim = null;
             DestroyThumbs();

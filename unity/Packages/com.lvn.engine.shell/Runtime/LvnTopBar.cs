@@ -69,7 +69,8 @@ namespace Lvn.UI.Screens
         private VisualElement _gameRow;   // выезжающий игровой бар (4 кнопки)
         private bool _gameBarShown;
         private readonly VisualElement _tapCatcher;
-        private bool _inGame;
+        // Режим не хранится: одна правда у Режиссёра, бар лишь одевается по ней.
+        private bool _inGame => Lvn.UI.LvnScreenDirector.Current.InChapter;
         private float _safeTop;
 
         public LvnTopBar()
@@ -402,7 +403,7 @@ namespace Lvn.UI.Screens
             // Apply не дошёл. Флаг совпал — а бар остался скрытым, и меню
             // открывалось без верхней строки (Илья 26.08). Теперь вызов
             // «мы в меню» всегда доводит вид до состояния.
-            _inGame = inGame;
+            Lvn.UI.LvnScreenDirector.Current.SetChapter(inGame);
             if (_silent)
             {
                 if (!inGame) _silent = false; // выход в меню снимает тишину

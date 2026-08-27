@@ -10,7 +10,22 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnModalGuard
     {
-        public static int Depth;
-        public static bool AnyOpen => Depth > 0;
+        /// <summary>Сколько модальных экранов оболочки открыто. Теперь это
+        /// ОКНО в Режиссёра, а не своя правда: «кто сейчас на экране» знает он
+        /// один, а этот класс остаётся ради хостов, которые уже на него
+        /// смотрят.</summary>
+        public static int Depth
+        {
+            get => _depth;
+            set
+            {
+                _depth = value < 0 ? 0 : value;
+                if (_depth > 0) LvnScreenDirector.Current.Open(LvnScreenDirector.ShellModal);
+                else LvnScreenDirector.Current.Close(LvnScreenDirector.ShellModal);
+            }
+        }
+        private static int _depth;
+
+        public static bool AnyOpen => LvnScreenDirector.Current.IsOpen(LvnScreenDirector.ShellModal);
     }
 }
