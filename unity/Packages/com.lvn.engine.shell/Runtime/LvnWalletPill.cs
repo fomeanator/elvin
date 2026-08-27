@@ -35,7 +35,7 @@ namespace Lvn.UI.Screens
             public float IconSize = 22f;
             public float FontSize = 22f;
             public bool Bold;
-            public bool Edge;                    // тонкая кромка поверх фона
+            public bool Edge;                    // тонкая кромка акцентом (огранка темы)
             public Color Background = new Color(0f, 0f, 0f, 0.4f);
             public Color TextColor = LvnTokens.Text;
             /// <summary>Показывать обратный отсчёт до восполнения (энергия).</summary>

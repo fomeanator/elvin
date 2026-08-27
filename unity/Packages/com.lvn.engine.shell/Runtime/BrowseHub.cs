@@ -136,7 +136,7 @@ namespace Lvn.UI.Screens
             _profileBlock = profile;
             profile.style.flexDirection = FlexDirection.Row;
             profile.style.alignItems = Align.Center;
-            var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) _ = OnMenu(); });
+            var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             avatar.style.width = 56; avatar.style.height = 56;
             avatar.style.backgroundColor = _theme.SurfaceHi;
             avatar.style.marginRight = 12;
@@ -162,7 +162,7 @@ namespace Lvn.UI.Screens
             _topPills.style.alignItems = Align.Center;
             rightGroup.Add(_topPills);
             // daily-rewards gift (badge dot hints there's something to claim)
-            var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) _ = OnDaily(); });
+            var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
             gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = 10;
             gift.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.ClearBorder(gift); LvnChrome.Round(gift, LvnTokens.RadiusSm);
@@ -173,7 +173,7 @@ namespace Lvn.UI.Screens
             // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
             if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
             rightGroup.Add(gift);
-            var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) _ = OnMenu(); });
+            var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             _settingsBtn = gear;
             gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
             gear.style.backgroundColor = LvnTokens.Faint;
@@ -338,10 +338,7 @@ namespace Lvn.UI.Screens
             if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
             _topPills.Clear();
             if (!ExternalTopBar)
-                foreach (var cur in Currencies)
-                    _topPills.Add(cur == "energy"
-                        ? CurrencyPill(cur, LvnIcon.Energy, _accent)
-                        : CurrencyPill(cur, LvnIcon.Gem, _theme.Gold));
+                foreach (var cur in Currencies) _topPills.Add(CurrencyPill(cur));
         }
 
         /// <summary>Единый навбар приложения несёт валюты сам — пилюли хаба
@@ -353,42 +350,26 @@ namespace Lvn.UI.Screens
         /// код, и у игры с валютой «crystals» шапка вечно показывала ноль.</summary>
         public List<string> Currencies = new List<string> { "energy", "gold" };
 
-        private VisualElement CurrencyPill(string currency, LvnIcon icon, Color iconColor)
-        {
-            long bal = Lvn.Services.LvnWallet.Balances.TryGetValue(currency, out var b) ? b : 0;
-            string amount = (Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) && r.Cap > 0 && bal < r.Cap)
-                ? bal + "/" + r.Cap : bal.ToString("N0");
-
-            var pill = new VisualElement();
-            pill.style.flexDirection = FlexDirection.Row;
-            pill.style.alignItems = Align.Center;
-            pill.style.marginLeft = 8;
-            pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
-            pill.style.borderTopWidth = 1; pill.style.borderBottomWidth = 1;
-            pill.style.borderLeftWidth = 1; pill.style.borderRightWidth = 1; SetBorderColor(pill, _border);
-            LvnChrome.Round(pill, _theme.RoundPills ? 18f : _radius);
-            pill.style.paddingLeft = 12; pill.style.paddingTop = 5; pill.style.paddingBottom = 5;
-
-            var ic = LvnIcons.Make(icon, 20f, iconColor, 0f, _theme.IconGlow);
-            ic.style.marginRight = 5;
-            pill.Add(ic);
-            var amt = new Label(amount); amt.style.color = _text; amt.style.fontSize = 33;
-            amt.style.unityFontStyleAndWeight = FontStyle.Bold;
-            pill.Add(amt);
-
-            // the "+" — a small accent disc that opens the store
-            var plus = new Label("+");
-            plus.style.color = _accentText; plus.style.backgroundColor = _accent;
-            plus.style.fontSize = 30; plus.style.unityFontStyleAndWeight = FontStyle.Bold;
-            plus.style.unityTextAlign = TextAnchor.MiddleCenter;
-            plus.style.width = 26; plus.style.height = 26; plus.style.marginLeft = 8;
-            LvnChrome.Round(plus, 13f);
-            pill.Add(plus);
-
-            pill.RegisterCallback<ClickEvent>(evt => { if (OnStore != null) _ = OnStore(); });
-            LvnMotion.Tappable(pill);
-            return pill;
-        }
+        // Плашка кошелька — общий элемент оболочки (LvnWalletPill). Своя копия
+        // жила здесь пятой по счёту: свой формат числа, свой выбор значка по
+        // «currency == "energy"», свой «плюс» лейблом вместо кнопки. Осталась
+        // только метрика шапки хаба.
+        // Плашка кошелька — общий элемент оболочки (LvnWalletPill), общими же
+        // значениями: своя копия жила здесь пятой по счёту и отличалась всем
+        // сразу — форматом числа, выбором значка по «currency == "energy"»,
+        // кеглем 33 и «плюсом» из лейбла. Кошелёк должен выглядеть одинаково
+        // везде, где его показывают.
+        private VisualElement CurrencyPill(string currency)
+            => new LvnWalletPill(currency, new LvnWalletPill.Look
+            {
+                MarginLeft = 8,
+                Radius = _theme.RoundPills ? 18f : _radius,
+                Edge = true,
+                Background = LvnTokens.Veil(0.40f),
+                TextColor = _text,
+            }, _assets,
+            onTap: OnStore != null ? () => LvnAsync.Fire(OnStore(), "OpenStore") : (System.Action)null,
+            onPlus: OnStore != null ? () => LvnAsync.Fire(OnStore(), "OpenStore") : (System.Action)null);
 
         public void SetData(List<LvnCollection> collections, List<LvnTitle> titles)
         {
@@ -488,6 +469,15 @@ namespace Lvn.UI.Screens
         }
 
         // ── unlock ──────────────────────────────────────────────────────────────
+        // Подсказка «почему закрыто» — задача, и она под присмотром; хук
+        // может быть не подключён (хост без подсказок), поэтому проверка на
+        // null здесь, а не в трёх местах вызова.
+        private void FireLockedHint(string name, string hint)
+        {
+            if (OnLockedHint == null) return;
+            LvnAsync.Fire(OnLockedHint(name, hint), "LockedHint");
+        }
+
         private bool IsLocked(LvnTitle t)
         {
             if (t == null || string.IsNullOrEmpty(t.unlock)) return false;
@@ -635,7 +625,7 @@ namespace Lvn.UI.Screens
             var actions = new VisualElement();
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
             actions.style.marginTop = 12;
-            var play = new Button(() => { if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
+            var play = new Button(() => { if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
             { text = locked ? (_cfg.locked_text ?? "Закрыто") : (resume ? (_cfg.continue_text ?? "Продолжить") : (_cfg.play_text ?? "Играть")) };
             play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
@@ -669,11 +659,11 @@ namespace Lvn.UI.Screens
             // this is built, so capturing the field value here would capture null.
             nav.Add(NavTab(0, LvnIcon.Home, _cfg.nav_home ?? "Главная",
                 () => OnHomeNav?.Invoke()));
-            nav.Add(NavTab(1, LvnIcon.Store, _cfg.nav_store ?? "Магазин", () => { if (OnStore != null) _ = OnStore(); }));
-            nav.Add(NavTab(2, LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", () => { if (OnWardrobe != null) _ = OnWardrobe(); }));
+            nav.Add(NavTab(1, LvnIcon.Store, _cfg.nav_store ?? "Магазин", () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
+            nav.Add(NavTab(2, LvnIcon.Wardrobe, _cfg.nav_wardrobe ?? "Гардероб", () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
             if (_cfg.show_gallery ?? true)
-                nav.Add(NavTab(4, LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", () => { if (OnGallery != null) _ = OnGallery(); }));
-            nav.Add(NavTab(3, LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", () => { if (OnProfile != null) _ = OnProfile(); }));
+                nav.Add(NavTab(4, LvnIcon.Gallery, _cfg.nav_gallery ?? "Галерея", () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
+            nav.Add(NavTab(3, LvnIcon.Profile, _cfg.nav_profile ?? "Профиль", () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
             SetActiveTab(0, instant: true);
             return nav;
         }
@@ -945,7 +935,7 @@ namespace Lvn.UI.Screens
             LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
-                if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); }
+                if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); }
                 else OpenDetail(t, from);
             });
             return card;
@@ -1025,7 +1015,7 @@ namespace Lvn.UI.Screens
             LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
-                if (locked) { _ = OnLockedHint?.Invoke(t.name ?? t.id, t.locked_hint ?? ""); }
+                if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); }
                 else OpenDetail(t, CurrentCollectionOf(t));
             });
             return card;
