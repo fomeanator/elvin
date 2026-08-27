@@ -400,7 +400,13 @@ namespace Lvn.UI
             }
             else if (_cast != null && _cast.TryGetValue(id, out var entity))
             {
-                var axes = AxesFrom(cmd);
+                // ЧЕРЕЗ КОСТЮМЕРА, как и путь каталога. Раньше здесь брались
+                // СЫРЫЕ оси команды: на персонажа из блока `cast` не
+                // действовали ни переменные ({var} уезжал в имя файла как
+                // есть), ни гардероб — примерка и надетое до него просто не
+                // доходили. Два пути одевали героя по разным правилам, и
+                // отличались они одной буквой в имени метода.
+                var axes = AxesOf(cmd);
                 foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
                 urls = SpriteComposer.Resolve(entity, axes);
             }

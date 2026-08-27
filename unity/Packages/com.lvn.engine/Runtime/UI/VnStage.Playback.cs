@@ -81,11 +81,14 @@ namespace Lvn.UI
             get => _inputBlockedFlag
                 || LvnScreenDirector.Current.SceneSurfaceOpen
                 || (_panelHost != null && _panelHost.IsOpen)
-                || Time.unscaledTime < _panelInputGuardUntil;
+                || !_clock.Passed(PanelGuardBarrier);
             set => _inputBlockedFlag = value;
         }
         private bool _inputBlockedFlag;
-        private float _panelInputGuardUntil;
+
+        /// <summary>«Не принимать ввод до этого момента» — обычный барьер, и
+        /// держит его Хронометрист, как все прочие сроки сцены.</summary>
+        private const string PanelGuardBarrier = "panel-guard";
 
         /// <summary>Closing an overlay and releasing its button happen in the
         /// same physical gesture. Keep that release away from the newly restored
@@ -93,8 +96,7 @@ namespace Lvn.UI
         /// spent inside the wardrobe.</summary>
         private void ArmPanelInputGuard(float seconds)
         {
-            _panelInputGuardUntil = Mathf.Max(_panelInputGuardUntil,
-                Time.unscaledTime + Mathf.Max(0f, seconds));
+            _clock.Hold(PanelGuardBarrier, seconds); // барьер продлевается, а не переустанавливается
             _autoRevealDoneAt = -1f;
             _pressTracking = false;
             _suppressTap = true;
