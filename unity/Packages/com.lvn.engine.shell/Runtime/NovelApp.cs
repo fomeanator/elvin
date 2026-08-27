@@ -97,32 +97,7 @@ namespace Lvn.UI.Screens
             public Newtonsoft.Json.Linq.JObject game;
             public Newtonsoft.Json.Linq.JObject chapter;
         }
-        private readonly Dictionary<string, TitleVars> _titleVarsCache = new Dictionary<string, TitleVars>();
 
-        private async Task<TitleVars> LoadTitleVarsAsync(LvnTitle title)
-        {
-            if (string.IsNullOrEmpty(title?.vars_url)) return null;
-            if (_titleVarsCache.TryGetValue(title.id, out var hit)) return hit;
-            TitleVars tv = null;
-            try
-            {
-                var json = await _assets.Loader.DownloadScriptText(title.vars_url, destroyCancellationToken);
-                var root = Newtonsoft.Json.Linq.JObject.Parse(json);
-                tv = new TitleVars
-                {
-                    game = root["game"] as Newtonsoft.Json.Linq.JObject,
-                    chapter = root["chapter"] as Newtonsoft.Json.Linq.JObject,
-                };
-            }
-            catch (Exception e)
-            {
-                // Declarations are an optimization, never a gate: chapters keep
-                // playing on their own (older content carries inline defaults).
-                Debug.LogWarning($"[novelapp] vars_url '{title.vars_url}' failed: {e.Message}");
-            }
-            _titleVarsCache[title.id] = tv; // cache the miss too — no refetch storm
-            return tv;
-        }
 
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
@@ -1412,14 +1387,6 @@ namespace Lvn.UI.Screens
 
 
 
-        // The debug faucet's grant: credit the wallet (EarnAsync fires
-        // LvnWallet.Changed — the shell's HUD pill updates itself) and
-        // reconcile with the server so the balance survives restarts.
-        private async Task GrantFaucetAsync(string currency, int amount)
-        {
-            await Lvn.Services.LvnWallet.EarnAsync(currency, amount, "debug_faucet");
-            await Lvn.Services.LvnWallet.RefreshAsync();
-        }
 
         // Charge the chapter-entry currency (typically the regenerating "energy")
         // before a fresh chapter loads. Returns true when the player may enter:
@@ -1439,22 +1406,6 @@ namespace Lvn.UI.Screens
                 "chapter:" + chapter?.id, "You need more to open this chapter.");
         }
 
-        // The next chapter by number, or null when this was the last one.
-        private static LvnChapter NextChapterOf(LvnTitle title, LvnChapter current)
-        {
-            if (title?.seasons == null || current == null) return null;
-            LvnChapter best = null;
-            foreach (var s in title.seasons)
-            {
-                if (s?.chapters == null) continue;
-                foreach (var c in s.chapters)
-                {
-                    if (c == null || c.number <= current.number) continue;
-                    if (best == null || c.number < best.number) best = c;
-                }
-            }
-            return best;
-        }
 
         // Stream one chapter's script and run it through the VnStage, driving the
         // HUD until it ends. Returns the chapter that actually FINISHED (it can
@@ -1819,126 +1770,10 @@ namespace Lvn.UI.Screens
         private const long DiskCacheQuotaBytes = 500L << 20;
 
 
-        // Cross-chapter save routing: a slot taken in another chapter resolves to
-        // its chapter by script url, fetches that script, plays it and restores —
-        // all in place, while the shell's play-loop keeps driving whatever player
-        // the stage currently holds. Wired into VnStage.CrossChapterLoader.
-        private async Task<bool> CrossChapterLoadAsync(LvnSaveSlot slot)
-        {
-            var url = slot?.Snap?.ScriptUrl;
-            if (string.IsNullOrEmpty(url) || Stage == null) return false;
-            var (title, chapter) = FindChapterByScriptUrl(url);
-            if (chapter == null)
-            {
-                Debug.LogWarning($"[novelapp] save points at unknown chapter: {url}");
-                return false;
-            }
 
-            string json;
-            try { json = await _assets.Loader.DownloadScriptCached(url); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] cross-chapter fetch failed: {ex.Message}"); return false; }
-            if (string.IsNullOrEmpty(json)) return false;
 
-            Stage.ClearStage();
-            Stage.Strings = await LoadCatalogAsync(url);
-            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
-            Stage.SetSaveContext(title?.id, chapter.id, url);
-            Stage.Gallery = title?.gallery;
-            Stage.EntryGate = null; // a save-load lands mid-scene — no entry choreography
-            Stage.Play(json, warmIntroSpine: false); // the restore below advances
-            if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
-                Stage.Player.Vars["player"] = _playerName;
-            Stage.RestoreSnapshot(slot.Snap);
-            _currentChapter = chapter;
-            _currentTitle = title ?? _currentTitle;
-            _currentScriptJson = json;
-            LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
-            Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
-            return true;
-        }
 
-        // "Restart the whole expedition": wipe this title's persisted stats and
-        // drop every save slot, then clear its reading progress/checkpoints so the
-        // next play starts from chapter one, clean. The cross-novel `global` stats
-        // are LEFT intact — they belong to the player, not this one expedition.
-        // Wired into TitleDetailScreen.OnResetProgress.
-        private async Task ResetTitleProgressAsync(LvnTitle title)
-        {
-            if (title == null) return;
-            // LOCAL state first — a kill mid-network-await must not leave a
-            // "continue" that resumes the middle of the novel with zeroed stats.
-            foreach (var slot in new System.Collections.Generic.List<string>(LvnSaveStore.Slots(title.id).Keys))
-                LvnSaveStore.Delete(title.id, slot);
-            LvnProgress.ResetTitle(title.id);
-            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
-            Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
-            SyncProgressVault(); // the wipe is progress too — all homes agree
-        }
 
-        // Write a dotted path ("Wardrobe.mainCh_Clothes") into a seed JObject,
-        // creating intermediate objects — mirrors the player's SetVar nesting.
-        // Numeric strings store as numbers so conditions compare numerically.
-        private static void SetVarPath(Newtonsoft.Json.Linq.JObject vars, string key, string value)
-        {
-            Newtonsoft.Json.Linq.JToken jv =
-                long.TryParse(value, out var n) ? new Newtonsoft.Json.Linq.JValue(n)
-                : double.TryParse(value, System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var d)
-                    ? new Newtonsoft.Json.Linq.JValue(d)
-                    : (Newtonsoft.Json.Linq.JToken)new Newtonsoft.Json.Linq.JValue(value);
-            var parts = key.Split('.');
-            var cur = vars;
-            for (int i = 0; i < parts.Length - 1; i++)
-            {
-                if (!(cur[parts[i]] is Newtonsoft.Json.Linq.JObject next))
-                {
-                    next = new Newtonsoft.Json.Linq.JObject();
-                    cur[parts[i]] = next;
-                }
-                cur = next;
-            }
-            cur[parts[parts.Length - 1]] = jv;
-        }
-
-        private (LvnTitle title, LvnChapter chapter) FindChapterByScriptUrl(string scriptUrl)
-        {
-            if (_manifest?.titles == null) return (null, null);
-            foreach (var t in _manifest.titles)
-            {
-                if (t?.seasons == null) continue;
-                foreach (var s in t.seasons)
-                {
-                    if (s?.chapters == null) continue;
-                    foreach (var c in s.chapters)
-                        if (c != null && c.script_url == scriptUrl)
-                            return (t, c);
-                }
-            }
-            return (null, null);
-        }
-
-        // The save identity for /v1/state. An explicit UserId (an account) wins; else
-        // a per-device id generated once and kept in PlayerPrefs.
-        private string ResolveUserId()
-        {
-            if (!string.IsNullOrEmpty(UserId)) return UserId;
-            // Double-homed identity: PlayerPrefs AND a plain file. The id is the
-            // key to every server-side possession (wallet, stats, progress
-            // backup) — a corrupted prefs blob must never orphan them.
-            var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
-            var id = PlayerPrefs.GetString("lvn_user", "");
-            if (string.IsNullOrEmpty(id))
-            {
-                try { if (System.IO.File.Exists(idFile)) id = System.IO.File.ReadAllText(idFile).Trim(); }
-                catch { /* unreadable second home — fall through */ }
-            }
-            if (string.IsNullOrEmpty(id)) id = System.Guid.NewGuid().ToString("N");
-            PlayerPrefs.SetString("lvn_user", id);
-            PlayerPrefs.Save();
-            try { System.IO.File.WriteAllText(idFile, id); } catch { /* prefs copy still holds */ }
-            return id;
-        }
 
         // The cross-novel player-stat namespace. Stats under the `global` var
         // (scripts: `set/inc key="global.<stat>"`, read `global.<stat>`) persist to
@@ -1948,173 +1783,13 @@ namespace Lvn.UI.Screens
         private const string GlobalVar = "global";
         private const string GlobalScopeId = "__global";
 
-        // Seed the rich detail page with the real title (name/art/synopsis/cost),
-        // then its player-facing stat vars, before showing it — so "Твои статы"
-        // reads live numbers instead of the placeholder the screen falls back to
-        // when nothing has seeded it. The stats fetch never blocks the open on a
-        // slow/offline state store — it's best-effort, empty vars just read as 0.
-        // Профиль без фейка (живой репорт): отношения с фаворитами — из
-        // РЕАЛЬНЫХ статов. По каждому тайтлу с relationship-статами читаем
-        // сохранённые переменные и превращаем в полосы «имя → доля от max».
-        // Пустой прогресс честно прячет секцию — рисованных процентов нет.
-        private async Task OpenProfileWithRelationsAsync()
-        {
-            var p = _shell?.Profile;
-            if (p == null) return;
-            var rel = new List<Lvn.UI.Screens.ProfileScreen.Relation>();
-            var titles = _manifest?.titles;
-            if (titles != null)
-            {
-                foreach (var t in titles)
-                {
-                    if (t?.stats == null || t.id == null) continue;
-                    Newtonsoft.Json.Linq.JObject vars = null;
-                    foreach (var s in t.stats)
-                    {
-                        if (s == null || !s.relationship || string.IsNullOrEmpty(s.key)) continue;
-                        if (vars == null)
-                        {
-                            try { vars = await LoadScopedVarsAsync(t.id); }
-                            catch { vars = new Newtonsoft.Json.Linq.JObject(); }
-                        }
-                        float val = 0f;
-                        // Путь статы может не существовать или указывать на объект —
-                // тогда стата просто показывает ноль, а не роняет экран.
-                try { val = (float?)vars?.SelectToken(s.key) ?? 0f; } catch { }
-                        if (val <= 0f) continue; // не начатые романы полку не занимают
-                        float max = s.max > 0 ? s.max : 20f;
-                        rel.Add(new Lvn.UI.Screens.ProfileScreen.Relation(
-                            string.IsNullOrEmpty(s.label) ? s.key : s.label,
-                            Mathf.Clamp01(val / max)));
-                    }
-                }
-            }
-            rel.Sort((a, b) => b.Affection.CompareTo(a.Affection));
-            p.Relations = rel;
-            // Честная цифра прогресса: пройденные главы по всем историям.
-            int done = 0;
-            if (titles != null)
-                foreach (var t in titles)
-                    if (t != null)
-                        done += Mathf.Max(0, Mathf.Min(LvnProgress.Reached(t), t.ChaptersOf().Count));
-            p.ChaptersDone = done;
-            // Профиль — дом данных ИГРОКА: настоящие имя и ID (в экране зашиты
-            // демо-заглушки), живой кошелёк, удаление аккаунта. Жалоба-ориентир:
-            // «в настройках больше данных для профиля, чем в профиле».
-            p.PlayerName = _playerName;
-            var uid = Lvn.Services.LvnBackend.UserId;
-            if (!string.IsNullOrEmpty(uid)) p.Uid = uid;
-            p.Wallet = BuildWalletTiles();
-            p.OnDeleteAccount = DeleteAccountAndForgetAsync;
-            p.OnOpenSettings = () => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings");
-            await _shell.TabGoTo(3); // вкладка ленты, не модалка
-        }
 
-        // Единственная правда о валютах игры: ui.browse.currencies, дефолт —
-        // прежняя пара. И шапка хаба, и кошелёк профиля идут отсюда.
-        private List<string> HubCurrencies()
-        {
-            var cfg = _manifest?.ui?.browse?.currencies;
-            return cfg != null && cfg.Count > 0 ? cfg : new List<string> { "energy", "gold" };
-        }
 
-        // Плитки кошелька для профиля: те же валюты, что в шапке хаба, подписи
-        // из ui.store.currency_names (данные, не хардкод).
-        private List<Lvn.UI.Screens.ProfileScreen.Stat> BuildWalletTiles()
-        {
-            var tiles = new List<Lvn.UI.Screens.ProfileScreen.Stat>();
-            var names = _manifest?.ui?.store?.currency_names;
-            foreach (var cur in HubCurrencies())
-            {
-                string value = Lvn.Services.LvnWallet.Display(cur);
-                string caption = names != null && names.TryGetValue(cur, out var n) && !string.IsNullOrEmpty(n)
-                    ? n : cur;
-                tiles.Add(new Lvn.UI.Screens.ProfileScreen.Stat(value, caption));
-            }
-            return tiles;
-        }
 
-        // «Удалить аккаунт»: сервер стирает учётку/кошелёк/сейвы (LvnBackend),
-        // затем локальное забвение — прогресс и статы всех историй, имя,
-        // пройденность воронки. Порядок важен: локальное трём только после
-        // успешного ответа сервера, иначе отказ сети выглядел бы как удаление.
-        private async Task<bool> DeleteAccountAndForgetAsync()
-        {
-            bool ok = await Lvn.Services.LvnBackend.DeleteAccountAsync();
-            if (!ok) return false;
-            var titles = _manifest?.titles;
-            if (titles != null)
-                foreach (var t in titles)
-                    if (t != null)
-                        try { await ResetTitleProgressAsync(t); }
-                        catch (Exception e) { Debug.LogWarning($"[novelapp] wipe {t.id}: {e.Message}"); }
-            LvnPrefs.PlayerName = "";
-            LvnPrefs.IntroDone = false;
-            LvnPrefs.SeenWelcome = false;
-            _playerName = "";
-            Debug.Log("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
-            return true;
-        }
 
-        private async Task<bool> OpenDetailWithStatsAsync(LvnTitle t)
-        {
-            if (_shell.Detail != null)
-            {
-                _shell.Detail.TitleName = t?.name ?? t?.id ?? "";
-                var img = t?.card?.image ?? t?.cover_url;
-                if (!string.IsNullOrEmpty(img)) _shell.Detail.HeroImageUrl = img;
-                if (!string.IsNullOrEmpty(t?.card?.description)) _shell.Detail.Synopsis = t.card.description;
-                _shell.Detail.EnergyCost = t?.cost?.amount ?? 0;
-                // Real title behind the page → the Restart menu lists its
-                // actual chapters and reads/clears this title's progress.
-                _shell.Detail.Title = t;
-                _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
-                Newtonsoft.Json.Linq.JObject vars = null;
-                if (t?.id != null)
-                {
-                    try { vars = await LoadScopedVarsAsync(t.id); }
-                    catch (Exception e) { Debug.LogWarning($"[novelapp] stat vars load failed: {e.Message}"); }
-                }
-                _shell.Detail.StatVars = vars ?? new Newtonsoft.Json.Linq.JObject();
-                _shell.Detail.Rebuild();
-            }
-            return await _shell.OpenDetailAsync();
-        }
 
-        // Load a title's stats plus the player's global stats, merged into one seed
-        // (global stats land under the `global` var). Two blobs, one per scope.
-        private async Task<Newtonsoft.Json.Linq.JObject> LoadScopedVarsAsync(string titleId)
-        {
-            var vars = await _state.LoadVarsAsync(titleId, default) ?? new Newtonsoft.Json.Linq.JObject();
-            var global = await _state.LoadVarsAsync(GlobalScopeId, default);
-            if (global != null && global.Count > 0) vars[GlobalVar] = global;
-            return vars;
-        }
 
-        // Persist ending stats, splitting the `global` namespace out to its own
-        // per-player blob so it survives beyond this novel.
-        private async Task SaveScopedVarsAsync(string titleId, Newtonsoft.Json.Linq.JObject vars)
-        {
-            if (vars == null) return;
-            if (vars[GlobalVar] is Newtonsoft.Json.Linq.JObject global)
-            {
-                vars = (Newtonsoft.Json.Linq.JObject)vars.DeepClone(); // don't mutate the caller's live vars
-                vars.Remove(GlobalVar);
-                await _state.SaveVarsAsync(GlobalScopeId, global, default);
-            }
-            await _state.SaveVarsAsync(titleId, vars, default);
-        }
 
-        // Snapshot the player's live variables as a JObject the state store persists.
-        private static Newtonsoft.Json.Linq.JObject VarsToJObject(
-            System.Collections.Generic.IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JToken> vars)
-        {
-            var jo = new Newtonsoft.Json.Linq.JObject();
-            if (vars != null)
-                foreach (var kv in vars)
-                    jo[kv.Key] = kv.Value?.DeepClone();
-            return jo;
-        }
 
         // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
         // Fire-and-forget — the store writes its LOCAL cache synchronously before the
@@ -2123,19 +1798,6 @@ namespace Lvn.UI.Screens
         // background — otherwise the last lines and unsynced vars are lost.
         private void OnApplicationQuit() => OnApplicationPause(true);
 
-        // The vault sync: collect the bundle, write the atomic file home and
-        // push the server backup (offline-first store queues it when offline).
-        private void SyncProgressVault()
-        {
-            if (_manifest == null) return;
-            try
-            {
-                var bundle = ProgressVault.Collect(_manifest);
-                ProgressVault.WriteLocal(bundle);
-                if (_state != null) LvnAsync.Fire(_state.SaveVarsAsync(ProgressVault.Scope, bundle, default), "SaveVars");
-            }
-            catch (Exception e) { Debug.LogWarning("[vault] sync failed: " + e.Message); }
-        }
 
         private void OnApplicationPause(bool paused)
         {
