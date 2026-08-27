@@ -1628,6 +1628,8 @@ namespace Lvn.Content
         private async Task<byte[]> TrySeedAsync(string url, string cachePath, CancellationToken ct)
         {
             if (_seedBase == null) return null;
+            // Сид мог не прочитаться (нет файла, битый zip) — это не повод
+            // валить загрузку: без него просто пойдём в сеть.
             if (_seedLoad != null) { try { await _seedLoad; } catch { } _seedLoad = null; }
             if (_seedIndex == null || _seedIndex.Count == 0) return null;
             int at = url.IndexOf("/content/", StringComparison.Ordinal);
@@ -2109,7 +2111,7 @@ namespace Lvn.Content
                     if (File.Exists(kp)) { File.Delete(kp); any = true; }
                 }
             }
-            catch { }
+            catch { } // файл держит другой процесс или его уже нет — забыть
             return any;
         }
 
@@ -2122,7 +2124,7 @@ namespace Lvn.Content
                 foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles("*.bin"))
                     total += f.Length;
             }
-            catch { }
+            catch { } // папки ещё нет или её читают — покажем ноль, это лишь справка
             return total;
         });
 
@@ -2137,10 +2139,12 @@ namespace Lvn.Content
                 foreach (var f in new DirectoryInfo(_assetCacheDir).GetFiles())
                 {
                     long sz = f.Length;
+                    // Занятый файл пропускаем: чистка — не транзакция, что
+                    // не удалилось сейчас, удалится в следующий раз.
                     try { f.Delete(); freed += sz; } catch { }
                 }
             }
-            catch { }
+            catch { } // папки нет — стирать нечего
             return freed;
         });
 
@@ -2166,7 +2170,7 @@ namespace Lvn.Content
                         if (byKey.TryGetValue(key, out var f))
                         {
                             long sz = f.Length;
-                            try { f.Delete(); removed++; freed += sz; } catch { }
+                            try { f.Delete(); removed++; freed += sz; } catch { } // занят — оставим до следующей уборки
                         }
                 }
                 catch { /* уборка — сервис, не условие */ }

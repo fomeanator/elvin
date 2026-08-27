@@ -152,7 +152,7 @@ namespace Lvn.UI
         /// first line may still rasterize a few glyphs on-reveal, but never the
         /// whole alphabet at once. Missing glyphs cascade into the same fallback
         /// assets the renderer will pick at draw time.</summary>
-        public static void Prewarm(Font font, string text) => _ = PrewarmSpreadAsync(font, text);
+        public static void Prewarm(Font font, string text) => LvnAsync.Fire(PrewarmSpreadAsync(font, text), "PrewarmSpread");
 
         private static async System.Threading.Tasks.Task PrewarmSpreadAsync(Font font, string text, int charsPerFrame = 48)
         {

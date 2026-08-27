@@ -90,7 +90,11 @@ func itoa(n int) string {
 // Все переведены на Lvn.LvnAsync.Fire(task, "что делали"): он ждёт задачу в
 // стороне, отмену считает нормальным концом, а падение называет вслух. Страж
 // держит счёт на нуле.
-var fireAndForget = regexp.MustCompile(`^\s*_\s*=\s*[\w\.]+Async\s*\(`)
+// Задача, брошенная без присмотра. Якорь начала строки убран: правило
+// соблюдалось ровно наполовину — «case "bg": _ = ApplyBgAsync(...)» и
+// «if (x) _ = FooAsync()» страж не видел, и таких мест накопилось три
+// десятка при чистом тесте.
+var fireAndForget = regexp.MustCompile(`_\s*=\s*[\w\.]+Async\s*\(`)
 
 func TestBackgroundTasksAreWatched(t *testing.T) {
 	root := capsRepoRoot()

@@ -321,7 +321,7 @@ namespace Lvn.UI
             }
             // A story panel (wardrobe sheet…) left open across a chapter change
             // would float over the new scene — dismiss it with the old one.
-            if (_panelHost != null) _ = _panelHost.HideAsync();
+            if (_panelHost != null) LvnAsync.Fire(_panelHost.HideAsync(), "Hide");
             _renderer?.RemoveAll();
             _renderer?.ResetCamera(0f);
             _talkAnims.Clear();

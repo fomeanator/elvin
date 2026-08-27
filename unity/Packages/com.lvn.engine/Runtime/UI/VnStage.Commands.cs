@@ -321,10 +321,10 @@ namespace Lvn.UI
         {
             switch ((string)command["op"])
             {
-                case "bg": _ = ApplyBgAsync(command); break;
-                case "bg3d": _ = ApplyBg3DAsync(command); break;
-                case "actor": _ = ApplyActorAsync(command); break;
-                case "obj": _ = ApplyActorAsync(command); break; // any placeable sprite
+                case "bg": LvnAsync.Fire(ApplyBgAsync(command), "ApplyBg"); break;
+                case "bg3d": LvnAsync.Fire(ApplyBg3DAsync(command), "ApplyBg3D"); break;
+                case "actor": LvnAsync.Fire(ApplyActorAsync(command), "ApplyActor"); break;
+                case "obj": LvnAsync.Fire(ApplyActorAsync(command), "ApplyActor"); break; // any placeable sprite
                 case "clear": ApplyClear(); break; // everyone off stage, scenery untouched
                 case "ui": ApplyUi(command); break;  // дерево интерфейса из сценария
                 case "cutscene": ApplyCutscene(command); break;  // кадр без интерфейса
@@ -347,7 +347,7 @@ namespace Lvn.UI
                 case "particles":
                     _particles.Set((string)command["type"], BoolOr(command["on"], true));
                     break;
-                case "audio": _ = _audio.ApplyAsync(command, Assets, _cts.Token); break;
+                case "audio": LvnAsync.Fire(_audio.ApplyAsync(command, Assets, _cts.Token), "Apply"); break;
                 case "text": ApplyText(command); break; // reactive HUD/stat label
                 case "save": SaveSlot(command); break;
                 case "load": LoadSlot(command); break;

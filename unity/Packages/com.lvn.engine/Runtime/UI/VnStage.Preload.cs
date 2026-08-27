@@ -123,8 +123,8 @@ namespace Lvn.UI
             }
             if (sprites != null && sprites.Count > maxSprites) sprites.RemoveRange(maxSprites, sprites.Count - maxSprites);
             if (audio != null && audio.Count > maxAudio) audio.RemoveRange(maxAudio, audio.Count - maxAudio);
-            if (sprites != null) _ = Assets.PreloadAsync(sprites, "sprite", _cts.Token);
-            if (audio != null) _ = Assets.PreloadAsync(audio, "audio", _cts.Token);
+            if (sprites != null) LvnAsync.Fire(Assets.PreloadAsync(sprites, "sprite", _cts.Token), "Preload");
+            if (audio != null) LvnAsync.Fire(Assets.PreloadAsync(audio, "audio", _cts.Token), "Preload");
         }
 
         private async Task Warm3DSetBestEffortAsync(string id)

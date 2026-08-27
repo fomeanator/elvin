@@ -267,18 +267,18 @@ namespace Lvn.UI.Screens
                         if (p.active)
                             status.text = $"загрузка… {p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} МБ";
                         else
-                            _ = RefreshAsync();
+                            LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
                     }).Every(500);
                 }
                 else
                 {
                     btn.SetEnabled(false);
-                    _ = Run();
+                    LvnAsync.Fire(Run(), "ClearDownloads");
                     async Task Run() { await ClearDownloads(); await RefreshAsync(); }
                 }
             };
 
-            _ = RefreshAsync();
+            LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
             return row;
         }
 
