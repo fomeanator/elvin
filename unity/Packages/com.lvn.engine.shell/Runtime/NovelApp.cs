@@ -3014,9 +3014,7 @@ namespace Lvn.UI.Screens
             var names = _manifest?.ui?.store?.currency_names;
             foreach (var cur in HubCurrencies())
             {
-                long bal = Lvn.Services.LvnWallet.Balances.TryGetValue(cur, out var b) ? b : 0;
-                string value = Lvn.Services.LvnWallet.Regen.TryGetValue(cur, out var r) && r.Cap > 0
-                    ? $"{bal}/{r.Cap}" : bal.ToString("N0");
+                string value = Lvn.Services.LvnWallet.Display(cur);
                 string caption = names != null && names.TryGetValue(cur, out var n) && !string.IsNullOrEmpty(n)
                     ? n : cur;
                 tiles.Add(new Lvn.UI.Screens.ProfileScreen.Stat(value, caption));

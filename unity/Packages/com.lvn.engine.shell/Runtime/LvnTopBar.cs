@@ -328,10 +328,7 @@ namespace Lvn.UI.Screens
                 ic.style.marginRight = 6;
                 pill.Add(ic);
 
-                long bal = Lvn.Services.LvnWallet.Balances.TryGetValue(cur, out var b) ? b : 0;
-                string text = Lvn.Services.LvnWallet.Regen.TryGetValue(cur, out var r) && r.Cap > 0 && bal < r.Cap
-                    ? $"{bal}/{r.Cap}" : bal.ToString("N0");
-                var lbl = new Label(text);
+                var lbl = new Label(Lvn.Services.LvnWallet.Display(cur));
                 lbl.pickingMode = PickingMode.Ignore;
                 lbl.style.color = LvnTokens.Text;
                 lbl.style.fontSize = compact ? 21 : 21;
