@@ -224,6 +224,32 @@ namespace Lvn.UI
             LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
+        /// <summary>
+        /// ЗАБЫТЬ АКТЁРА — сцена больше не помнит ни его последней команды, ни
+        /// постановки, будто его в этой главе не ставили.
+        ///
+        /// <para>Нужно тому, кто выводил АКТЁРА НЕ ПО СЦЕНАРИЮ: гардероб,
+        /// открытый посреди реплик, показывает манекен своей синтетической
+        /// командой (центр, 0.92×1.06). Команда липкая — следующая авторская
+        /// без position наследует от неё место и размер, и героиня остаётся
+        /// стоять по центру до конца главы (живой репорт партнёра 28.08:
+        /// «открыл гардероб, нажал полный рост, вернулся — ГГ по центру»).
+        /// Спрятать манекен мало: память сцены о нём тоже должна уйти.</para>
+        /// </summary>
+        public void ForgetActor(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            _actorCmds.Remove(id);
+            _placements.Remove(id);
+            _actorTargets.Remove(id);
+        }
+
+        /// <summary>Стояла ли эта роль на сцене по СЦЕНАРИЮ — то есть помнит ли
+        /// сцена её команду. Хост спрашивает перед примеркой, чтобы понимать,
+        /// свой это актёр или приведённый гардеробом манекен.</summary>
+        public bool RememberedByScript(string id)
+            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
+
         /// <summary>Ids of actors currently VISIBLE on stage — hosts use it to
         /// pick who an always-open wardrobe should dress.</summary>
         public List<string> ActorsOnStage()
