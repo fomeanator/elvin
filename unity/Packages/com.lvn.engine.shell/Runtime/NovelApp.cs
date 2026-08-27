@@ -986,7 +986,7 @@ namespace Lvn.UI.Screens
                     float p = l != null && l.BatchTotal > 0
                         ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
                     BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
-                        LvnNetworkStatus.IsOffline ? "нет сети — переподключение…" : "загрузка…");
+                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : "загрузка…");
                     await Task.Yield();
                 }
                 if (ct.IsCancellationRequested) return;
