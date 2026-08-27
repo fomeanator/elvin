@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # qa/run-all.sh — ОДНА команда после изменений: «ничего не сломалось?»
 #
-#   qa/run-all.sh            полный EditMode-прогон (все фикстуры + соук-бот)
+#   qa/run-all.sh            ОБА набора: EditMode (юнит+контракт+соук) и
+#                            PlayMode (сцена, бут, смоук) — цикл после правок
+#   qa/run-all.sh --editmode только EditMode: быстрая итерация, пока пишешь
+#   qa/run-all.sh --playmode только PlayMode
 #   qa/run-all.sh --device   + сборка dev-APK и смоук на эмуляторе против
 #                            локального сервера :8099 (медленно, ~15 мин)
 #   qa/run-all.sh --filter "Fixture1;Fixture2"   только выбранные фикстуры
 #
 # Выход 0 = зелёно. Отчёты в qa/reports/<штамп>-runall/.
-# Требует закрытый редактор Unity (batchmode берёт проект целиком).
+#
+# ОТКРЫТЫЙ РЕДАКТОР НЕ МЕШАЕТ: TestHost — отдельный проект, и игра, открытая
+# в редакторе, батчу не помеха. Мешают только двое: другой batchmode на том же
+# TestHost (его ждём) и редактор, открытый НА САМОМ TestHost (тогда выходим с
+# объяснением — batchmode такой проект не возьмёт).
 set -u -o pipefail
 
 UNITY="/Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity"
@@ -18,9 +25,13 @@ mkdir -p "$OUT"
 
 DEVICE=0
 FILTER=""
+RUN_EDIT=1
+RUN_PLAY=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --device) DEVICE=1; shift ;;
+    --editmode) RUN_PLAY=0; shift ;;
+    --playmode) RUN_EDIT=0; shift ;;
     --filter) FILTER="$2"; shift 2 ;;
     *) echo "неизвестный аргумент: $1"; exit 2 ;;
   esac
@@ -29,8 +40,18 @@ done
 fail=0
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
-if pgrep -x Unity >/dev/null 2>&1; then
-  echo "FAIL: редактор Unity открыт — batchmode-прогон невозможен"; exit 1
+# Другой batchmode на TestHost — ждём его: прогон-в-прогон роняет оба.
+waited=0
+while pgrep -f "batchmode.*TestHost" >/dev/null 2>&1; do
+  [ "$waited" = 0 ] && log "TestHost занят другим прогоном — жду…"
+  sleep 5; waited=$((waited + 5))
+  if [ "$waited" -ge 1800 ]; then
+    echo "FAIL: TestHost занят полчаса — что-то повисло"; exit 1
+  fi
+done
+
+if [ -f "$REPO_ROOT/unity/TestHost/Temp/UnityLockfile" ] && pgrep -x Unity >/dev/null 2>&1; then
+  echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
 fi
 
 # ── 0. Go-сервер для PlayMode-смоука (BootSmokeTests поднимает его сам) ─────
@@ -57,6 +78,7 @@ PY
 }
 
 # ── 1. EditMode: вся пирамида (юнит + контракт + соук) ──────────────────────
+if [ "$RUN_EDIT" = 1 ]; then
 log "EditMode-прогон…"
 args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
       -runTests -testPlatform EditMode
@@ -64,8 +86,13 @@ args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
 "$UNITY" "${args[@]}" >/dev/null 2>&1
 report_platform editmode "$OUT/editmode.xml" || fail=1
+fi
 
-# ── 1b. PlayMode: интеграция (бут NovelApp против живого локального сервера) ─
+# ── 1b. PlayMode: интеграция (сцена, бут NovelApp против живого сервера) ─────
+# НЕ опционально и не «когда вспомним»: EditMode не поднимает ни сцену, ни
+# UI-панель, поэтому целый класс регрессий виден только здесь. Красный
+# PlayMode-тест простоял незамеченным ровно потому, что цикл его не гонял.
+if [ "$RUN_PLAY" = 1 ]; then
 log "PlayMode-прогон…"
 args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
       -runTests -testPlatform PlayMode
@@ -73,6 +100,7 @@ args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
 "$UNITY" "${args[@]}" >/dev/null 2>&1
 report_platform playmode "$OUT/playmode.xml" || fail=1
+fi
 
 # ── 2. Девайс-смоук (опционально) ───────────────────────────────────────────
 if [ "$DEVICE" = 1 ]; then
