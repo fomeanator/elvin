@@ -323,6 +323,16 @@ namespace Lvn.UI
         /// обычной командой и потому меняется кроссфейдом, а не через
         /// черноту.</para>
         /// </summary>
+        /// <summary>Доедут ли команды <c>fx</c> до кадра. Полноэкранный стек
+        /// живёт на КАМЕРЕ (OnRenderImage), и без неё команда уходит в никуда:
+        /// диагностике важно отличать «не сработало» от «некому было
+        /// работать».</summary>
+        public bool FxAvailable => _renderer != null && _renderer.TryFx(new JObject());
+
+        /// <summary>Дождаться, пока уходящие актёры доиграют свой уход — тот же
+        /// приём, что у гардероба, где на сцене обязан остаться ровно один.</summary>
+        public Task WaitForExitsAsync() => WaitForActorExitsAsync(_clock.Epoch);
+
         public void HandOver(JObject bg = null, string keepActor = null)
         {
             if (!_built) return;
@@ -333,11 +343,17 @@ namespace Lvn.UI
             foreach (var id in ActorsOnStage())
                 if (!string.Equals(id, keepActor, StringComparison.Ordinal))
                     HideActor(id);
-            if (bg != null) ApplyStage(bg);
-            // Память главы отпускается ЗДЕСЬ, а не откладывается «до уборки»:
-            // окно стриминга не должно нести чужие фоны через всё меню. Облик
-            // остающегося переживает это — механизм пинов умеет щадить одного
-            // (KeepActorAlive), ради него он и заведён.
+            if (bg == null)
+            {
+                // Кадр остаётся тем же — трогать память НЕЛЬЗЯ. Открепить
+                // спрайты значит разрешить кэшу выгрузить ровно то, что сейчас
+                // на экране: сцена гасла в пустоту, а потом меню грузилось
+                // заново, с задержкой.
+                return;
+            }
+            ApplyStage(bg);
+            // Новый фон уже поехал — прежний груз можно отпустить. Облик
+            // остающегося это переживает (KeepActorAlive).
             UnpinAllSceneSprites();
             _prefetched.Clear();
         }

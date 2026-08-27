@@ -81,6 +81,9 @@ namespace Lvn.UI
         /// camera hook as TryBlur. False → no camera, the op is a no-op.</summary>
         bool TryFx(Newtonsoft.Json.Linq.JObject cmd);
 
+        /// <summary>Створ портала (слой сцены, не постэффект).</summary>
+        bool TryPortal(Newtonsoft.Json.Linq.JObject cmd);
+
         /// <summary>Спрайтовые эффекты актёра (op `sfx`: обводка/свечение/
         /// растворение). False → у актёра нет материала, op молчит.</summary>
         bool TrySpriteFx(string id, Newtonsoft.Json.Linq.JObject cmd);
@@ -213,6 +216,20 @@ namespace Lvn.UI
         {
             if (_scene.Fx == null) return false;
             _scene.Fx.Apply(cmd);
+            return true;
+        }
+
+        public bool TryPortal(Newtonsoft.Json.Linq.JObject cmd)
+        {
+            var portal = _scene.Portal;
+            if (portal == null) return false;
+            float F(string key, float fallback)
+                => cmd[key] != null ? (float)cmd[key] : fallback;
+            var color = new UnityEngine.Color(0.48f, 0.84f, 1f);
+            var hex = (string)cmd["color"];
+            if (!string.IsNullOrEmpty(hex)) UnityEngine.ColorUtility.TryParseHtmlString(hex, out color);
+            portal.Place(new UnityEngine.Vector2(F("x", 0.5f), F("y", 0.5f)), F("radius", 0.3f), color);
+            portal.Set(F("open", 0f), F("dur", 0f));
             return true;
         }
 

@@ -490,8 +490,10 @@ namespace Lvn.UI.Screens
             Lvn.UI.Screens.WardrobeSheet.SectionFocus -= OnWardrobeSection;
             Lvn.UI.Screens.WardrobeSheet.SectionFocus += OnWardrobeSection;
 
-            var menuTrack = ResolveMenuTrackUrl(manifest);
-            if (!string.IsNullOrEmpty(menuTrack))
+            // СЦЕНА МЕНЮ НЕ ЗАВИСИТ ОТ МУЗЫКИ. Весь этот блок — витрина,
+            // панорама полотна, переход в главу — стоял ВНУТРИ «если у меню есть
+            // трек»: новелла без музыки оставалась без сцены меню и без
+            // перехода вовсе, а связи между этими вещами нет никакой.
             {
                 _shell.OnMenuVisible -= ShowMenuScene;
                 _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
@@ -505,7 +507,6 @@ namespace Lvn.UI.Screens
                 // Equip стирал полотно) — пере-ставим сцену меню следом.
                 Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(); };
                 // Сцена перехода: панель ведёт экран, створ и героиню — хост.
-                _shell.OnPortalOpening = OpenPortalScene;
                 _shell.OnPortalEnter = EnterPortalAsync;
                 _shell.OnChapterSessionStart += () => { Lvn.UI.LvnScreenDirector.Current.EnterChapter(); _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
@@ -513,8 +514,9 @@ namespace Lvn.UI.Screens
                     Lvn.UI.LvnScreenDirector.Current.LeaveChapter();
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
                 };
-                LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
             }
+            var menuTrack = ResolveMenuTrackUrl(manifest);
+            if (!string.IsNullOrEmpty(menuTrack)) LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
 
             // Hub browse flow (ui.browse.layout = "hub"): unlock conditions read the
             // player's global stat flags; Play charges the title's entry cost; a
@@ -1716,7 +1718,10 @@ namespace Lvn.UI.Screens
             // Вышли из главы — кадр ПЕРЕХОДИТ меню, а не стирается: полотно
             // меняется кроссфейдом, героиня остаётся стоять в том наряде и с
             // той эмоцией, с какими кончилась глава.
-            if (exited) HandOverToMenu();
+            // ПЕРЕХОД В МЕНЮ ЗДЕСЬ НЕ ИГРАЕТСЯ: он один на все пути выхода и
+            // живёт там, где кончается цикл глав (NovelApp.Chapter). Второй
+            // вызов отсюда проигрывал его ДВАЖДЫ — второй раз по уже пустой
+            // сцене.
             // Persist the chapter's ending state so the next chapter (and the next
             // session) resume with the same stats — whether it finished or the player
             // left mid-chapter (the loop also breaks on cancellation).
