@@ -320,7 +320,9 @@ namespace Lvn.UI.Screens
 
         private static void StyleTab(Button b, bool active)
         {
-            LvnStyler.Choice(b, active);
+            // Скругление у вкладки своё (чуть круглее мелкого из темы) — роль
+            // не имеет права его переопределять безымянным умолчанием.
+            LvnStyler.Choice(b, active, LvnTokens.RadiusSm + 4f);
             b.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
         }
 

@@ -142,7 +142,15 @@ namespace Lvn.UI
         // asset load uses. Build() is gated by `_built`, so without this a
         // disable/enable cycle would leave the source cancelled (from OnDisable)
         // and every bg/actor/audio load would throw immediately → a blank stage.
-        private void OnEnable() { _cts?.Dispose(); _cts = new CancellationTokenSource(); Build(); }
+        private void OnEnable()
+        {
+            _cts?.Dispose(); _cts = new CancellationTokenSource();
+            // Скрытие интерфейса просят и не через сцену (это общая роль), а
+            // видимость слоёв ставит она. Без подписки чужая просьба доехала
+            // бы до Режиссёра и осталась там.
+            LvnScreenDirector.Current.Changed += ApplyChromeVisibility;
+            Build();
+        }
         private void Start() => Build();
         // Start runs once per component lifetime — after a disable/enable cycle
         // it can't retry a Build whose panel wasn't ready yet, so keep a cheap
@@ -385,7 +393,7 @@ namespace Lvn.UI
             // with the old panel WITHOUT running Close() — its input block must
             // not orphan (the panel-host block re-derives from IsOpen anyway).
             _inputBlockedFlag = false;
-            _panelInputGuardUntil = 0f;
+            _clock.Release(PanelGuardBarrier);
 
             if (_player != null)
             {
@@ -620,6 +628,7 @@ namespace Lvn.UI
         private void OnDisable()
         {
             _cts?.Cancel();
+            LvnScreenDirector.Current.Changed -= ApplyChromeVisibility;
             if (_player != null) _player.OnSay -= RecordSay;
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
             LvnPrefs.Changed -= OnPrefsChanged;
