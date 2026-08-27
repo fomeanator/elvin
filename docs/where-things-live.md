@@ -61,6 +61,7 @@ partial-файлами с общим именем: искать нужное п�
 | `SettingsScreen` | `.Device` диск, качество арта, кадры, покупки; `.Account` кто вошёл, что за сборка, ссылки |
 | `TitleDetailScreen` | `.Restart` сохранения, переигровка и выбор главы заново |
 | `ProfileScreen` | `.Account` идентификатор, ссылка в настройки, удаление аккаунта |
+| `ContentLoader` | `.Fetch` доставка байтов и офлайн, `.Sprites` память и вытеснение, `.Ktx2`/`.Astc` транскоды |
 | `VnStage` | `.Actors` тракт показа, `.Actors.Placement` разбор команды, `.Actors.Wardrobe` примерка на сцене, `.Background`, `.Commands`, `.Dialogue`, `.Playback`, `.Pointer`, `.Preload`, `.Spine` |
 
 Правило простое: тема уезжает в свой файл, когда её можно описать одной

@@ -48,13 +48,6 @@ namespace Lvn.Content
         private readonly object _versionsLock = new();
         private const string VersionsPath = "/content/asset-versions.json";
 
-        // Caps simultaneous in-flight downloads. HTTP/2 MULTIPLEXES many
-        // concurrent requests over a SINGLE TLS connection — so a wider cap
-        // doesn't open more sockets, it fills more h2 streams. 12 lets a burst of
-        // small files (UI/script/actors) all fly at once without the
-        // request-per-file round-trip tax a 6-cap (the HTTP/1.1 socket limit)
-        // imposed.
-        private static readonly SemaphoreSlim _downloadSlots = new(12, 12);
 
         // Hard per-request timeout. Deliberately short: a dead/blackhole socket
         // must fail fast so chapter loading degrades to cache instead of hanging
@@ -85,162 +78,17 @@ namespace Lvn.Content
         /// </summary>
         public static event Action<string, long> AssetFailed;
 
-        private void NoteFetchFailure(UnityWebRequest req)
-        {
-            try { AssetFailed?.Invoke(req.url, req.responseCode); }
-            catch { /* диагностика не смеет ронять загрузку */ }
-            var err = req.error ?? "";
-            bool transient = req.downloadedBytes > 0
-                || err.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0
-                || err.IndexOf("abort", StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!transient) MarkOfflineUnlessLocal("content fetch network error");
-        }
 
-        // Await a UnityWebRequest via its `completed` callback instead of polling
-        // isDone once per frame. Polling quantizes every await to frame
-        // boundaries — and on a busy main thread it inflated the PERCEIVED cost
-        // of every concurrent decode at once (each "finished" only when the next
-        // frame ran the poll). `completed` fires the same frame the native op
-        // ends. Cancellation aborts the request, which completes the op; the
-        // OperationCanceledException follows. NOT used by the download loops
-        // that publish per-frame byte progress — those need the poll.
-        private static async Task AwaitRequest(UnityWebRequest req, UnityWebRequestAsyncOperation op, CancellationToken ct)
-        {
-            if (!op.isDone)
-            {
-                var tcs = new TaskCompletionSource<bool>();
-                op.completed += _ => tcs.TrySetResult(true);
-                using (ct.CanBeCanceled
-                           ? ct.Register(() => { LvnQuiet.Try(req.Abort); })
-                           : default)
-                    await tcs.Task;
-            }
-            ct.ThrowIfCancellationRequested();
-        }
 
-        // Fast-fail when we already know we're offline: skip the wire entirely so
-        // callers fall straight back to the on-disk cache. Code "network" →
-        // callers/retry-loops treat it as a connectivity miss.
-        private void ThrowIfOffline()
-        {
-            if (_local) return; // local bundle is always available
-            if (LvnNetworkStatus.IsOffline)
-            {
-                // Whoever pinned the flag may not have started the recovery probe
-                // (the host's boot healthz calls MarkOffline directly). Without
-                // this re-arm the app is wedged: every fetch fast-fails HERE,
-                // before the wire, so the fetch-failure path that normally starts
-                // the probe never runs — offline becomes permanent for the session.
-                EnsureRecoveryLoop();
-                throw new LvnFetchException(0, "network", "offline (global status)");
-            }
-        }
 
-        // MarkOffline only when reading from a real network origin; a missing
-        // local file must not poison the global offline status. Going offline also
-        // starts the recovery probe so the app self-heals when the wire returns.
-        private void MarkOfflineUnlessLocal(string reason)
-        {
-            if (_local) return;
-            LvnNetworkStatus.MarkOffline(reason);
-            EnsureRecoveryLoop();
-        }
 
         // 1 while the background recovery probe is running (guards against starting
         // a second one on every subsequent failed fetch).
         private int _recovering;
 
-        // Once we've gone offline, nothing else re-probes connectivity — every
-        // fetch just fast-fails on the global flag — so a single network blip would
-        // wedge the app offline for the whole session (dead live-sync, no new
-        // chapters, dropped saves). This loop probes /healthz with backoff while
-        // offline and flips the flag back on the moment the server answers, which
-        // unblocks the next fetch/sync automatically. HealthzAsync MarkOnlines on a
-        // 2xx (and never MarkOffline), so a failed probe just waits and retries.
-        private void EnsureRecoveryLoop()
-        {
-            if (_local || LvnNetworkStatus.ForceOffline) return; // never probe a local bundle / a test kill-switch
-            if (Interlocked.Exchange(ref _recovering, 1) == 1) return; // already probing
-            LvnAsync.Fire(RecoveryLoopAsync(), "RecoveryLoop");
-        }
 
-        private async Task RecoveryLoopAsync()
-        {
-            try
-            {
-                int attempt = 2; // start at the first non-zero backoff step
-                while (LvnNetworkStatus.IsOffline && !LvnNetworkStatus.ForceOffline)
-                {
-                    var delay = LvnBackoff.DelaySeconds(attempt++);
-                    // Wake the sleep early on ANY status change (recovered via another
-                    // path, or ForceOffline set) so the loop reacts at once instead of
-                    // idling out the full backoff. A fresh token per iteration avoids a
-                    // stale-cancelled-token hot spin.
-                    using (var wake = new CancellationTokenSource())
-                    {
-                        Action<bool> onChange = _ => { LvnQuiet.Try(wake.Cancel); };
-                        LvnNetworkStatus.Changed += onChange;
-                        try { await Task.Delay((int)(delay * 1000f) + 500, wake.Token); }
-                        catch (OperationCanceledException) { /* status changed — re-check now */ }
-                        finally { LvnNetworkStatus.Changed -= onChange; }
-                    }
-                    if (LvnNetworkStatus.IsOnline || LvnNetworkStatus.ForceOffline) break;
-                    try { if (await HealthzAsync()) break; } // MarkOnlines on success
-                    catch { /* probe failed — keep waiting */ }
-                }
-            }
-            finally { Interlocked.Exchange(ref _recovering, 0); }
-        }
 
-        // A backoff sleep that wakes EARLY the moment the global status flips
-        // back online — so a retry loop parked on the offline flag resumes the
-        // instant the recovery probe finds the server, instead of idling out
-        // its full delay. Cancellation of `ct` still propagates as usual.
-        private static async Task DelayOrOnlineAsync(float seconds, CancellationToken ct)
-        {
-            using var wake = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            Action<bool> onChange = online => { if (online) { LvnQuiet.Try(wake.Cancel); } };
-            LvnNetworkStatus.Changed += onChange;
-            try { await Task.Delay(Math.Max(1, (int)(seconds * 1000f)), wake.Token); }
-            catch (OperationCanceledException) { ct.ThrowIfCancellationRequested(); }
-            finally { LvnNetworkStatus.Changed -= onChange; }
-        }
 
-        /// <summary>Ensure the url's bytes exist as a plain local FILE and return
-        /// its path — for consumers that need a real file rather than decoded
-        /// content (runtime fonts: <c>new Font(path)</c> has no bytes overload).
-        /// Server origin → the versioned disk cache; local file:// bundle → the
-        /// file itself; Android jar bundle → copied out to the cache once.</summary>
-        public async Task<string> EnsureCachedFile(string url, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (_local)
-            {
-                var resolved = ResolveUrl(url);
-                if (resolved.StartsWith("file://"))
-                {
-                    var direct = resolved.Substring("file://".Length);
-                    return File.Exists(direct) ? direct : null;
-                }
-                // jar:file:// (StreamingAssets inside the APK) has no plain path —
-                // read through UnityWebRequest and stage a cache copy once.
-                var staged = CachePath(_assetCacheDir, url, ".bin");
-                if (!File.Exists(staged))
-                {
-                    var data = await DownloadAssetBytes(url, ct);
-                    if (data == null || data.Length == 0) return null;
-                    AtomicWriteAllBytes(staged, data);
-                }
-                return staged;
-            }
-            var path = CachePath(_assetCacheDir, url, ".bin");
-            if (!File.Exists(path))
-            {
-                var bytes = await DownloadBytes(url, _assetCacheDir, ct); // writes the cache file
-                if (bytes == null || bytes.Length == 0) return null;
-            }
-            return File.Exists(path) ? path : null;
-        }
 
         // Dedup tracker for in-flight fetches. Key = url, value = the running
         // task. Lets two callers (a preload + a later regular download) await the
@@ -280,8 +128,6 @@ namespace Lvn.Content
                                // whose atlas references this texture) forbids eviction
         }
 
-        private readonly Dictionary<string, SpriteEntry> _spriteCache = new();
-        private readonly Dictionary<string, Task<Sprite>> _decoding = new();
         private long _spriteSeq;
         private long _spriteBytes;
 
@@ -393,32 +239,7 @@ namespace Lvn.Content
         // коридоре 96..384 МБ; выполняется один раз (владелец budget-поля —
         // хост, повторные лоадеры не перетирают ручную настройку).
         private static bool _budgetTuned;
-        private static void TuneBudgetForDevice()
-        {
-            if (_budgetTuned) return;
-            _budgetTuned = true;
-            int mb = SystemInfo.systemMemorySize;
-            if (mb <= 0) return; // тесты/неизвестное устройство — дефолт
-            long b = ((long)mb << 20) / 6;
-            long clamped = Math.Max(96L << 20, Math.Min(384L << 20, b));
-            if (clamped != SpriteCacheBudgetBytes)
-            {
-                SpriteCacheBudgetBytes = clamped;
-                Debug.Log($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
-            }
-        }
 
-        // Система кричит «мало памяти» — сбрасываем незапиненный декод до
-        // половины бюджета, невзирая на grace. Диск-кэш цел: всё вернётся
-        // ре-декодом по мере надобности. Раньше сигнал не слушался вовсе.
-        private void OnLowMemory()
-        {
-            List<SpriteEntry> victims;
-            lock (_spriteCache)
-                victims = EvictToLocked(SpriteCacheBudgetBytes / 2, graceSeconds: 0f);
-            foreach (var v in victims) DestroySprite(v.Sprite);
-            Debug.LogWarning($"[content] lowMemory: сброшено {victims.Count} спрайтов, живо {_spriteBytes >> 20} МБ");
-        }
 
         // Resume files (.part) enable interrupted downloads to continue — but one
         // abandoned mid-download (its version has moved on, so its cache key will
@@ -436,38 +257,6 @@ namespace Lvn.Content
             catch { /* best-effort housekeeping */ }
         }
 
-        /// <summary>Lightweight connectivity probe: GET <c>&lt;baseUrl&gt;/healthz</c>.
-        /// Returns true and marks the process online on a 2xx; returns false on any
-        /// error, non-2xx or cancellation WITHOUT flipping the global flag (the
-        /// caller decides whether to <see cref="LvnNetworkStatus.MarkOffline"/>), so
-        /// a cancelled probe never poisons a still-good connection. A local
-        /// (<c>file://</c>) origin is always reachable → true.
-        ///
-        /// <para>Pass a token with a hard deadline (e.g. <c>CancelAfter(3s)</c>):
-        /// <c>UnityWebRequest.timeout</c> alone doesn't reliably interrupt a stall at
-        /// DNS/TLS setup (a dead VPN), so the loop aborts on the token instead — the
-        /// difference between an instant offline fallback and a ~30s boot hang.</para></summary>
-        public async Task<bool> HealthzAsync(string path = "/healthz", CancellationToken ct = default)
-        {
-            if (_local) return true;
-            try
-            {
-                using var req = UnityWebRequest.Get(ResolveUrl(path));
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = RequestTimeoutSeconds;
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                try { await AwaitRequest(req, req.SendWebRequest(), ct); }
-                catch (OperationCanceledException) { return false; }
-                bool ok = req.result is not (UnityWebRequest.Result.ConnectionError
-                                          or UnityWebRequest.Result.DataProcessingError)
-                          && req.responseCode is >= 200 and < 300;
-                if (ok) LvnNetworkStatus.MarkOnline("healthz ok");
-                return ok;
-            }
-            catch { return false; }
-        }
 
         /// <summary>Fetches the server's content-version index (path → sha256) and
         /// folds it into the disk-cache key, so changed assets auto-invalidate.
@@ -608,21 +397,6 @@ namespace Lvn.Content
             yield return stem + ".jpeg";
         }
 
-        // When the version index changes (a live content update), any in-memory sprite
-        // whose content hash moved is stale — the memory cache is url-keyed, so it would
-        // otherwise keep handing back the OLD art forever. Evict exactly those, so the
-        // next load (e.g. a live ReplayVisuals) decodes the replaced file.
-        private void EvictStaleSprites(Dictionary<string, string> oldMap, Dictionary<string, string> newMap)
-        {
-            List<string> stale = null;
-            lock (_spriteCache)
-            {
-                foreach (var url in _spriteCache.Keys)
-                    if (Lookup(oldMap, url) != Lookup(newMap, url))
-                        (stale ??= new List<string>()).Add(url);
-            }
-            if (stale != null) foreach (var u in stale) Unload(u);
-        }
 
         // Scripts ship from the server and change often — skip the on-disk cache
         // and refetch every time (a few KB, cheap; stale copies cause "why is the
@@ -747,43 +521,6 @@ namespace Lvn.Content
         public Task<byte[]> DownloadAssetBytes(string assetUrl, CancellationToken ct = default) =>
             DownloadBytes(assetUrl, _assetCacheDir, ct);
 
-        /// <summary>Loads (or fetches and caches) the URL, decodes the bytes into
-        /// a texture, and wraps it as a Sprite. Returns null on missing data.
-        /// Concurrent requests for the same url share ONE decode (no leaked
-        /// Texture2D from a lost race), and the cache is LRU-bounded by
-        /// <see cref="SpriteCacheBudgetBytes"/>.</summary>
-        public Task<Sprite> DownloadSpriteAsync(string url, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(url)) return Task.FromResult<Sprite>(null);
-            lock (_spriteCache)
-            {
-                if (_spriteCache.TryGetValue(url, out var hit) && hit.Sprite != null)
-                {
-                    Touch(hit);
-                    return Task.FromResult(hit.Sprite);
-                }
-                // Someone is already decoding this url — share their result instead
-                // of decoding a second texture and leaking the loser.
-                if (_decoding.TryGetValue(url, out var inflight)) return inflight;
-                var task = DecodeSpriteAsync(url, ct);
-                _decoding[url] = task;
-                // Self-clean via a continuation, NOT a finally inside the async
-                // body: a decode that throws BEFORE its first await (e.g. an
-                // offline guard) runs its finally synchronously — i.e. before the
-                // `_decoding[url] = task` above — so a finally-based remove would
-                // delete nothing and then leave the faulted task wedged in the map
-                // forever (every later request returns the dead task). The
-                // continuation runs strictly after this insert. Guard on identity
-                // so we never evict a newer in-flight decode of the same url.
-                task.ContinueWith(t =>
-                {
-                    lock (_spriteCache)
-                        if (_decoding.TryGetValue(url, out var cur) && ReferenceEquals(cur, t))
-                            _decoding.Remove(url);
-                }, System.Threading.Tasks.TaskScheduler.Default);
-                return task;
-            }
-        }
 
         /// <summary>The longest texture side kept on mobile. Art above it is
         /// GPU-resampled once at load; typical phone screens are ≤ ~2400 px, so
@@ -798,332 +535,19 @@ namespace Lvn.Content
         /// exempted the shipping WebGL build, the worst place to spend it).</summary>
         internal const int DesktopMaxTextureSize = 4096;
 
-        /// <summary>Fit (w, h) within <paramref name="cap"/> on the longest side,
-        /// preserving aspect. Identity when already within. Pure — unit-tested.</summary>
-        internal static Vector2Int FitWithin(int w, int h, int cap)
-        {
-            int m = Mathf.Max(w, h);
-            if (m <= cap) return new Vector2Int(w, h);
-            float k = (float)cap / m;
-            return new Vector2Int(Mathf.Max(1, Mathf.RoundToInt(w * k)),
-                                  Mathf.Max(1, Mathf.RoundToInt(h * k)));
-        }
 
-        // PNG/JPG decode OFF the main thread. UnityWebRequestTexture's native
-        // DownloadHandlerTexture buffers, decompresses and creates the texture
-        // on a worker thread — unlike Texture2D.LoadImage, which blocks the
-        // main thread 75-400 ms per 2K Spine page (the "prefetch still
-        // hitches" stutter). Bytes land in the same disk cache first (offline
-        // policy unchanged); the request then reads them back via file://.
-        // Returns null wherever the trick can't work — WebGL has no file://,
-        // and any request failure just falls back to the synchronous decode.
-        private async Task<(Texture2D tex, long queueMs)> DecodeTextureOffThreadAsync(string url, CancellationToken ct)
-        {
-            if (Application.platform == RuntimePlatform.WebGLPlayer) return (null, 0);
-            string reqUrl;
-            try
-            {
-                if (_local) reqUrl = ResolveUrl(url); // file:// or jar:file:// already
-                else
-                {
-                    var path = CachePath(_assetCacheDir, url, ".bin");
-                    if (!File.Exists(path))
-                    {
-                        var bytes = await DownloadBytes(url, _assetCacheDir, ct); // writes the cache file
-                        if (bytes == null || bytes.Length == 0) return (null, 0);
-                    }
-                    if (!File.Exists(path)) return (null, 0);
-                    reqUrl = "file://" + path;
-                }
-            }
-            catch (OperationCanceledException) { throw; }
-            catch { return (null, 0); }
 
-            // Bound concurrent native decodes: a burst (boot warm, chapter warm)
-            // otherwise completes many textures in the same frame and their GPU
-            // uploads stack into one visible hitch. Three in flight keeps the
-            // pipeline busy while spreading uploads across frames.
-            // The wait is timed separately: in a burst the queue dominates, and a
-            // perf log that folds it into "decode" reads as a decoder regression.
-            var queueSw = System.Diagnostics.Stopwatch.StartNew();
-            await _textureDecodes.WaitAsync(ct);
-            long queueMs = queueSw.ElapsedMilliseconds;
-            try
-            {
-                using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
-                await AwaitRequest(req, req.SendWebRequest(), ct);
-                if (req.result != UnityWebRequest.Result.Success) return (null, queueMs);
-                try { return (DownloadHandlerTexture.GetContent(req), queueMs); }
-                catch { return (null, queueMs); }
-            }
-            finally { _textureDecodes.Release(); }
-        }
 
-        // See DecodeTextureOffThreadAsync: bounds concurrent UWR texture decodes
-        // so completion (and the GPU upload inside GetContent) spreads over
-        // frames instead of landing as one burst.
-        private static readonly SemaphoreSlim _textureDecodes = new(3, 3);
 
-        private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
-        {
-            try
-            {
-                // GPU-native compressed texture, when the device supports it and the
-                // server has a transcoded variant: the ONE encoding that actually cuts
-                // runtime VRAM (the GPU samples the compressed bytes directly), not
-                // just download size. Never a hard dependency — any miss (unsupported
-                // GPU, no server-side astcenc, corrupt data) falls through to the
-                // normal PNG/JPG decode below untouched. See ContentLoader.Astc.cs.
-                var (astcSprite, astcBytes) = await TryDecodeAstcAsync(url, ct);
-                if (astcSprite != null)
-                {
-                    // ASTC's whole point is using far fewer bytes than raw RGBA — charge
-                    // the cache budget the texture's ACTUAL compressed size, not
-                    // width*height*4, or the LRU would evict as if every hit here were
-                    // still full-size and erase most of the memory win.
-                    return CacheSprite(url, astcSprite, astcBytes);
-                }
 
-                // KTX2/BasisU (see ContentLoader.Ktx2.cs) — the raw-ASTC path's
-                // successor: same VRAM win, official transcoder, every platform.
-                var (ktx2Sprite, ktx2Bytes) = await TryDecodeKtx2Async(url, ct);
-                if (ktx2Sprite != null)
-                    return CacheSprite(url, ktx2Sprite, ktx2Bytes);
 
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                var (tex, decodeQueueMs) = await DecodeTextureOffThreadAsync(url, ct);
-                bool offThread = tex != null;
-                if (!offThread)
-                {
-                    var bytes = await DownloadAssetBytes(url, ct);
-                    if (bytes == null || bytes.Length == 0) return null;
-                    sw.Restart();
-                    tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
-                    if (!tex.LoadImage(bytes))
-                    {
-                        UnityEngine.Object.Destroy(tex);
-                        return null;
-                    }
-                }
-                long decodeMs = sw.ElapsedMilliseconds;
-                // No platform pays full price for oversized art: phones must not
-                // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
-                // even desktop/WebGL must not upload a raw 8K Spine page. Cap
-                // the longest side and let the GPU resample once at load.
-                tex = AssetMemory.DownscaleIfOversized(tex,
-                    Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize,
-                    finalize: false);   // финализирует вызывающий, ниже
-                // Крупный арт получает мип-уровни: фигуру в 1600 пикселей рисуют
-                // примерно в 900, и без них край фигуры идёт ступеньками.
-                tex = AssetMemory.WithMipmaps(tex, finalize: false);
-                tex.wrapMode   = TextureWrapMode.Clamp;
-                if (tex.mipmapCount <= 1) tex.filterMode = FilterMode.Bilinear;
-                // Nothing reads pixels back — free the CPU copy (halves the
-                // memory of every loaded sprite). The off-thread texture is born
-                // non-readable (no CPU copy to free — Apply would throw).
-                if (tex.isReadable)
-                    tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-                long resizeMs = sw.ElapsedMilliseconds - decodeMs;
-                // FullRect, explicitly: Sprite.Create's DEFAULT mesh type is
-                // Tight — it walks the whole texture's alpha on the main thread
-                // to trace an outline (hundreds of ms for a 2K Spine page), and
-                // full-frame VN art gains nothing from a tight mesh anyway.
-                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
-                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
-                // [lvn-perf] main-thread hitch map. Off-thread decodes log wall
-                // time (mostly worker-thread, not a hitch); the LoadImage
-                // fallback is a true main-thread stall. Only meaningful ones —
-                // the console stays quiet for icons and thumbnails.
-                if (sw.ElapsedMilliseconds > 30)
-                {
-                    long queueMs = offThread ? decodeQueueMs : 0;
-                    // v= — sha исходника из индекса версий (8 знаков): сразу
-                    // видно, КАКАЯ ревизия картинки играет в кадре.
-                    var v = VersionFor(url);
-                    Debug.Log($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
-                }
-                return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
-            }
-            finally
-            {
-                lock (_spriteCache) _decoding.Remove(url);
-            }
-        }
 
-        // Inserts a freshly decoded sprite into the cache, evicting over-budget
-        // entries. Shared by every DecodeSpriteAsync path (ASTC and PNG/JPG) so
-        // LRU accounting and eviction stay in exactly one place.
-        private Sprite CacheSprite(string url, Sprite sprite, long bytes)
-        {
-            // Честная бухгалтерия вместо оценок вызывающих: w*h*4 не считал
-            // мип-цепочку (+33% у всего крупного арта), а KTX2-путь записывал
-            // размер ФАЙЛА вместо транскода в видеопамяти (×5 недоучёт).
-            // Профайлер знает настоящий размер текстуры в рантайме.
-            var tex = sprite != null ? sprite.texture : null;
-            if (tex != null)
-            {
-                long honest = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
-                if (honest > 0) bytes = honest;
-            }
-            List<SpriteEntry> victims;
-            lock (_spriteCache)
-            {
-                var e = new SpriteEntry { Sprite = sprite, Bytes = bytes };
-                Touch(e);
-                _spriteCache[url] = e;
-                _spriteBytes += e.Bytes;
-                victims = EvictToLocked(SpriteCacheBudgetBytes, SpriteEvictionGraceSeconds);
-            }
-            foreach (var v in victims) DestroySprite(v.Sprite);
-            return sprite;
-        }
 
-        private void Touch(SpriteEntry e)
-        {
-            e.Seq = ++_spriteSeq;
-            e.At = Time.realtimeSinceStartup;
-        }
 
-        // Must run under the _spriteCache lock. Returns the evicted entries so the
-        // caller destroys their textures OUTSIDE the lock.
-        private List<SpriteEntry> EvictToLocked(long budgetBytes, float graceSeconds)
-        {
-            var victims = new List<SpriteEntry>();
-            if (_spriteBytes <= budgetBytes) return victims;
-            float now = Time.realtimeSinceStartup;
-            foreach (var url in PickEvictions(
-                         SnapshotLocked(), budgetBytes, now, graceSeconds))
-            {
-                if (!_spriteCache.TryGetValue(url, out var e)) continue;
-                _spriteCache.Remove(url);
-                _spriteBytes -= e.Bytes;
-                victims.Add(e);
-            }
-            return victims;
-        }
 
-        private List<(string url, long bytes, long seq, float at, bool pinned)> SnapshotLocked()
-        {
-            var list = new List<(string, long, long, float, bool)>(_spriteCache.Count);
-            foreach (var kv in _spriteCache)
-                list.Add((kv.Key, kv.Value.Bytes, kv.Value.Seq, kv.Value.At, kv.Value.Pins > 0));
-            return list;
-        }
 
-        /// <summary>Pure eviction policy, exposed for tests: evict oldest-requested
-        /// first until the total fits the budget, skipping anything requested within
-        /// the grace window (it's very likely still on screen) or pinned (a live
-        /// consumer, e.g. a built Spine skeleton, still references its texture).</summary>
-        internal static List<string> PickEvictions(
-            List<(string url, long bytes, long seq, float at, bool pinned)> entries,
-            long budgetBytes, float now, float graceSeconds)
-        {
-            var evict = new List<string>();
-            long total = 0;
-            foreach (var e in entries) total += e.bytes;
-            if (total <= budgetBytes) return evict;
-            entries.Sort((a, b) => a.seq.CompareTo(b.seq)); // oldest request first
-            foreach (var e in entries)
-            {
-                if (total <= budgetBytes) break;
-                if (e.pinned) continue;                     // in use by a live skeleton — never evict
-                if (now - e.at < graceSeconds) continue;    // recently used — protected
-                evict.Add(e.url);
-                total -= e.bytes;
-            }
-            // Grace — вежливость, а не вето. Загрузка главы трогает ВСЁ за
-            // минуту, и «свежее не вытесняем» означало «бюджет не работает
-            // ровно тогда, когда нужен». Всё ещё над бюджетом — вытесняем и
-            // свежие (кроме запиненных), по-прежнему старейшие сначала.
-            if (total > budgetBytes)
-            {
-                foreach (var e in entries)
-                {
-                    if (total <= budgetBytes) break;
-                    if (e.pinned || evict.Contains(e.url)) continue;
-                    evict.Add(e.url);
-                    total -= e.bytes;
-                }
-            }
-            return evict;
-        }
 
-        /// <summary>Pin/unpin the cache entry backing <paramref name="sprite"/> so
-        /// the LRU never destroys a texture still in use by a live consumer — a
-        /// built Spine skeleton whose atlas/material references these page textures
-        /// (an evicted page turns the skeleton black/pink with no way to recover
-        /// short of a full rebuild). Balanced: each Pin(true) needs a Pin(false).
-        /// No-op if the sprite isn't cached (already gone / never went through here).</summary>
-        public void PinSprite(Sprite sprite, bool pinned)
-        {
-            if (sprite == null) return;
-            lock (_spriteCache)
-                foreach (var e in _spriteCache.Values)
-                    if (ReferenceEquals(e.Sprite, sprite))
-                    {
-                        e.Pins += pinned ? 1 : -1;
-                        if (e.Pins < 0) e.Pins = 0;
-                        return;
-                    }
-        }
 
-        /// <summary>Releases the in-memory sprite cached for a single url and
-        /// destroys its texture. Safe to call if the url was never loaded. The
-        /// disk cache is left intact (a later load re-decodes from disk).</summary>
-        public void Unload(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return;
-            SpriteEntry entry;
-            lock (_spriteCache)
-            {
-                if (!_spriteCache.TryGetValue(url, out entry)) return;
-                _spriteCache.Remove(url);
-                _spriteBytes -= entry.Bytes;
-            }
-            DestroySprite(entry.Sprite);
-        }
-
-        /// <summary>Releases every cached sprite whose url matches — e.g. a chapter's
-        /// art/backgrounds on chapter exit, keeping UI covers/skins warm.</summary>
-        public void UnloadWhere(Func<string, bool> match)
-        {
-            if (match == null) return;
-            var victims = new List<SpriteEntry>();
-            lock (_spriteCache)
-            {
-                var keys = new List<string>(_spriteCache.Keys);
-                foreach (var k in keys)
-                {
-                    if (!match(k)) continue;
-                    victims.Add(_spriteCache[k]);
-                    _spriteBytes -= _spriteCache[k].Bytes;
-                    _spriteCache.Remove(k);
-                }
-            }
-            foreach (var v in victims) DestroySprite(v.Sprite);
-        }
-
-        /// <summary>Releases every in-memory sprite and destroys its texture. Call
-        /// on a scene transition or app exit to free GPU memory. The disk cache is
-        /// untouched.</summary>
-        public void UnloadAll()
-        {
-            List<SpriteEntry> entries;
-            lock (_spriteCache)
-            {
-                entries = new List<SpriteEntry>(_spriteCache.Values);
-                _spriteCache.Clear();
-                _spriteBytes = 0;
-            }
-            foreach (var e in entries) DestroySprite(e.Sprite);
-        }
-
-        private static void DestroySprite(Sprite sprite)
-        {
-            if (sprite == null) return;
-            if (sprite.texture != null) UnityEngine.Object.Destroy(sprite.texture);
-            UnityEngine.Object.Destroy(sprite);
-        }
 
         /// <summary>Downloads an audio asset through UnityWebRequestMultimedia so
         /// the engine decodes the format streaming-style on the main thread (the
@@ -1372,94 +796,7 @@ namespace Lvn.Content
             return null;
         }
 
-        // Silent prefetch variant: does NOT update the byte counters so the
-        // progress bar doesn't see the parallel warm-start and jump backward.
-        private async Task<byte[]> FetchToMemoryPrefetch(string url, CancellationToken ct)
-        {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                using var req = UnityWebRequest.Get(full);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    await Task.Yield();
-                }
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-                return req.downloadHandler.data ?? Array.Empty<byte>();
-            }
-            finally { _downloadSlots.Release(); }
-        }
 
-        // Downloads url into memory, updating byte-progress counters. No disk I/O
-        // — used by RunBatchAsync so disk writes can be pipelined.
-        private async Task<byte[]> FetchToMemory(string url, CancellationToken ct)
-        {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected[url] = 0; }
-
-                using var req = UnityWebRequest.Get(full);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
-                    if (_bytesExpected.GetValueOrDefault(url) == 0)
-                    {
-                        var cl = req.GetResponseHeader("Content-Length");
-                        if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                            lock (_inflight) _bytesExpected[url] = sz;
-                    }
-                    await Task.Yield();
-                }
-
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-
-                var body = req.downloadHandler.data ?? Array.Empty<byte>();
-                lock (_inflight) { _bytesReceived[url] = body.Length; _bytesExpected[url] = body.Length; }
-                return body;
-            }
-            finally { _downloadSlots.Release(); }
-        }
 
         /// <summary>Waits until either the listed urls finish prefetching, or (if
         /// <paramref name="urls"/> is null) until the whole batch settles — no
@@ -1614,16 +951,6 @@ namespace Lvn.Content
             catch { _seedIndex = new HashSet<string>(); }
         }
 
-        // Локальное чтение (jar:/file:) через UnityWebRequest — File.IO не
-        // умеет внутрь APK.
-        private static async Task<byte[]> FetchLocalAsync(string url)
-        {
-            using var req = UnityEngine.Networking.UnityWebRequest.Get(url);
-            var op = req.SendWebRequest();
-            while (!op.isDone) await Task.Yield();
-            return req.result == UnityEngine.Networking.UnityWebRequest.Result.Success
-                ? req.downloadHandler.data : null;
-        }
 
         private async Task<byte[]> TrySeedAsync(string url, string cachePath, CancellationToken ct)
         {
@@ -1656,295 +983,11 @@ namespace Lvn.Content
             return bytes;
         }
 
-        private async Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
-        {
-            var path     = CachePath(dir, url, ".bin");
-            var partPath = path + ".part";
 
-            if (File.Exists(path))
-                return await ReadAllBytesAsync(path, ct);
 
-            // Сид из APK — раньше сети: первый вход не качает критичное вовсе.
-            var seeded = await TrySeedAsync(url, path, ct);
-            if (seeded != null) return seeded;
 
-            lock (_notFound)
-                if (_notFound.TryGetValue(url, out var at))
-                {
-                    if (Time.realtimeSinceStartup - at < NotFoundTtlSeconds)
-                        throw new LvnFetchException(404, "http_404", url + " (cached 404)");
-                    _notFound.Remove(url); // TTL вышел — пробуем сеть снова
-                }
 
-            return await TrackedFetch(url, async () =>
-            {
-                const int MaxAttempts = 10;
-                lock (_inflight) _attempts[url] = 1;
 
-                while (true)
-                {
-                    try
-                    {
-                        // Each retry reads the current .part size → resumes from there.
-                        long resumeFrom = 0;
-                        if (File.Exists(partPath))
-                            resumeFrom = LvnQuiet.Try(() => new FileInfo(partPath).Length, 0L);
-
-                        var bytes = await FetchResumable(url, partPath, resumeFrom, ct);
-
-                        // Integrity: the version index carries each asset's sha256.
-                        // A torn resume (server changed the file between two Range
-                        // requests) would otherwise cache spliced bytes as valid
-                        // forever. Mismatch → drop the .part and refetch clean.
-                        // Exact entries only — a derived variant's inherited
-                        // version describes its SOURCE, not these bytes.
-                        var expect = IntegrityVersionFor(url);
-                        if (expect != null && !Sha256Matches(bytes, expect))
-                        {
-                            LvnQuiet.Try(() => File.Delete(partPath));
-                            throw new LvnFetchException(0, "integrity",
-                                "sha256 mismatch for " + url + " — refetching");
-                        }
-
-                        lock (_inflight) _attempts.Remove(url);
-
-                        if (File.Exists(path)) File.Delete(path);
-                        File.Move(partPath, path);
-                        return bytes;
-                    }
-                    catch (OperationCanceledException) { throw; }
-                    catch (LvnFetchException ex) when (ex.Code == "network" && LvnNetworkStatus.IsOffline)
-                    {
-                        throw; // offline — retrying is pointless; caller falls back to cache
-                    }
-                    catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
-                    {
-                        bool first;
-                        lock (_notFound)
-                        {
-                            first = !_notFound.ContainsKey(url);
-                            _notFound[url] = Time.realtimeSinceStartup;
-                        }
-                        // Info, not warning: a 4xx here is usually the EXPECTED
-                        // steady state of an optional probe (.ktx2/.astc/@2k
-                        // variants, demo-stub art) — a yellow triangle per asset
-                        // per session reads like breakage and drowns real ones.
-                        if (first) Debug.Log($"[content] {url} permanent {ex.Status} (silenced for this session)");
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        int attempt;
-                        lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
-                        if (attempt > MaxAttempts)
-                        {
-                            Debug.LogWarning($"[content] {url} gave up after {MaxAttempts} attempts");
-                            throw;
-                        }
-                        var backoff = LvnBackoff.DelaySeconds(attempt);
-                        Debug.LogWarning($"[content] {url} attempt {attempt} failed, resume in {backoff:F1}s: {ex.Message}");
-                        try { await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct); }
-                        catch (OperationCanceledException) { throw; }
-                    }
-                }
-            });
-        }
-
-        // Single streaming GET for the whole file. If resumeFrom > 0 sends
-        // Range: bytes=N- so the server picks up from that offset. One HTTP
-        // request per file — no chunk loop, no extra round-trips.
-        private async Task<byte[]> FetchResumable(string url, string partPath, long resumeFrom, CancellationToken ct)
-        {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = resumeFrom; }
-
-                using var req = UnityWebRequest.Get(full);
-                if (resumeFrom > 0)
-                    req.SetRequestHeader("Range", $"bytes={resumeFrom}-");
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = resumeFrom + (long)req.downloadedBytes;
-                    if (_bytesExpected.GetValueOrDefault(url) <= resumeFrom)
-                    {
-                        var cl = req.GetResponseHeader("Content-Length");
-                        if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                            lock (_inflight) _bytesExpected[url] = resumeFrom + sz;
-                    }
-                    await Task.Yield();
-                }
-
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-
-                var body = req.downloadHandler.data ?? Array.Empty<byte>();
-                // Server returned 200 when we asked for 206 → no resume support,
-                // overwrite .part with the full fresh response.
-                bool overwrite = resumeFrom == 0 || (int)req.responseCode == 200;
-                await AppendBytesAsync(partPath, body, overwrite, ct);
-
-                lock (_inflight)
-                {
-                    var total = resumeFrom + body.Length;
-                    _bytesReceived[url] = total;
-                    _bytesExpected[url] = total;
-                }
-                return await ReadAllBytesAsync(partPath, ct);
-            }
-            finally { _downloadSlots.Release(); }
-        }
-
-        private static async Task AppendBytesAsync(string path, byte[] data, bool overwrite, CancellationToken ct)
-        {
-            await Task.Run(() =>
-            {
-                var mode = overwrite ? FileMode.Create : FileMode.Append;
-                using var fs = new FileStream(path, mode, FileAccess.Write, FileShare.None);
-                fs.Write(data, 0, data.Length);
-            }, ct);
-        }
-
-        // Wraps the actual network work in the in-flight tracker so any cache-miss
-        // shows up in the BatchTotal/BatchDone counters. Dedups duplicate calls to
-        // the same url — second caller awaits the first one's task.
-        private Task<T> TrackedFetch<T>(string url, Func<Task<T>> work)
-        {
-            lock (_inflight)
-            {
-                if (_inflight.TryGetValue(url, out var existing) && existing is Task<T> typed)
-                    return typed;
-            }
-            var task = work();
-            lock (_inflight)
-            {
-                _inflight[url] = task;
-                BatchTotal++;
-                LastStartedUrl = url;
-            }
-            _ = task.ContinueWith(_ =>
-            {
-                lock (_inflight)
-                {
-                    _inflight.Remove(url);
-                    BatchDone++;
-                    if (BatchDone >= BatchTotal)
-                    {
-                        BatchTotal = 0;
-                        BatchDone = 0;
-                        LastStartedUrl = null;
-                        _attempts.Clear();
-                        _bytesExpected.Clear();
-                        _bytesReceived.Clear();
-                    }
-                }
-            }, TaskScheduler.Default);
-            return task;
-        }
-
-        // Retries with exponential backoff until the asset arrives or the token
-        // fires. FetchOnce (private) does the single request with a short timeout
-        // so a stuck connection can't hang the whole batch.
-        private async Task<byte[]> Fetch(string url, CancellationToken ct)
-        {
-            lock (_inflight) _attempts[url] = 1;
-            const int MaxAttempts = 5;
-            while (true)
-            {
-                try
-                {
-                    var bytes = await FetchOnce(url, ct);
-                    lock (_inflight) _attempts.Remove(url);
-                    return bytes;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (LvnFetchException ex) when (ex.Code == "network" && LvnNetworkStatus.IsOffline)
-                {
-                    throw; // offline — retrying is pointless; caller falls back to cache
-                }
-                catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
-                {
-                    Debug.LogWarning($"[content] {url} permanent {ex.Status}: {ex.Message}");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    int attempt;
-                    lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
-                    if (attempt > MaxAttempts)
-                    {
-                        Debug.LogWarning($"[content] {url} gave up after {MaxAttempts} attempts: {ex.Message}");
-                        throw;
-                    }
-                    var backoff = LvnBackoff.DelaySeconds(attempt);
-                    Debug.LogWarning($"[content] {url} failed (was attempt {attempt - 1}): {ex.Message}; retry #{attempt} in {backoff:F1}s");
-                    try { await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct); }
-                    catch (OperationCanceledException) { throw; }
-                }
-            }
-        }
-
-        // Single attempt — downloads url into memory, no disk writes. Used for
-        // text (scripts, version index) and on-demand bytes not worth persisting.
-        private async Task<byte[]> FetchOnce(string url, CancellationToken ct)
-        {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = 0; }
-
-                using var req = UnityWebRequest.Get(full);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
-                    await Task.Yield();
-                }
-
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-
-                return req.downloadHandler.data ?? Array.Empty<byte>();
-            }
-            finally { _downloadSlots.Release(); }
-        }
 
         private string ResolveUrl(string url)
         {
