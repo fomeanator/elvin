@@ -160,18 +160,9 @@ namespace Lvn.UI.Screens
             style.display = DisplayStyle.Flex;
             OnOpening();   // экраны пересобирают тут своё тело: Clear + сборка
 
-            // ПОКАЗЫВАЕМ ПОСЛЕ ПЕРВОЙ РАСКЛАДКИ. Пересобранное тело в первом
-            // кадре ещё не измерено — UITK рисует его в нуле, и переход по
-            // разделам моргает: кнопки «гаснут на микросекунду». Ждём кадр,
-            // когда геометрия посчитана, и только тогда проявляем.
-            style.opacity = 0f;
-            EventCallback<GeometryChangedEvent> shown = null;
-            shown = _ => { style.opacity = 1f; UnregisterCallback(shown); };
-            RegisterCallback(shown);
-            // Страховка: пустому телу геометрию считать не на чем, и события
-            // может не быть вовсе — тогда вкладка осталась бы невидимой.
-            schedule.Execute(() => { if (style.display == DisplayStyle.Flex) style.opacity = 1f; })
-                    .ExecuteLater(64);
+            // Показываем ПОСЛЕ первой раскладки: правило и страховку держит
+            // Монтажёр, здесь только просьба.
+            Lvn.UI.LvnMontage.RevealWhenLaidOut(this);
         }
 
         public void HideAsTab()

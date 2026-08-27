@@ -709,8 +709,11 @@ namespace Lvn.UI.Screens
         {
             public int Index;
             public LvnIcon Icon;
-            public VisualElement Root, Mark, IconSlot;
+            public VisualElement Root, Mark, IconSlot, IconEl;
             public Label Label;
+            /// <summary>Каким цветом вкладка покрашена сейчас — переход идёт
+            /// ОТ него, иначе каждый переезд начинался бы с чужого цвета.</summary>
+            public Color Painted;
         }
         private readonly List<TabRef> _navTabs = new List<TabRef>();
         private int _activeTab;
@@ -723,23 +726,30 @@ namespace Lvn.UI.Screens
             foreach (var t in _navTabs)
             {
                 bool on = t.Index == index;
-                void Paint()
+                var to = on ? _accent : _dim;
+                var from = t.Painted;
+                t.Painted = to;
+                t.Mark.style.backgroundColor = on ? _accent : Color.clear;
+                t.Label.style.unityFontStyleAndWeight = on ? FontStyle.Bold : FontStyle.Normal;
+                float glow = on ? _theme.IconGlow : 0f;
+
+                // ВКЛАДКА БОЛЬШЕ НЕ МИГАЕТ. Раньше здесь стояло «полфейда вниз
+                // → перекраска → полфейда вверх»: значок нельзя было
+                // перекрасить, его пересоздавали, и подмену прикрывали
+                // гашением всей вкладки. Игрок видел не переход, а моргание.
+                // Теперь значок перекрашивается НА МЕСТЕ (LvnIcons.Tint), и
+                // переход — это переход цвета, а не исчезновение кнопки.
+                if (instant || from == to)
                 {
-                    var color = on ? _accent : _dim;
-                    t.Mark.style.backgroundColor = on ? _accent : Color.clear;
-                    t.Label.style.color = color;
-                    t.Label.style.unityFontStyleAndWeight = on ? FontStyle.Bold : FontStyle.Normal;
-                    t.IconSlot.Clear();
-                    t.IconSlot.Add(LvnIcons.Make(t.Icon, 30f, color, 0f, on ? _theme.IconGlow : 0f));
+                    t.Label.style.color = to;
+                    LvnIcons.Tint(t.IconEl, to, glow);
+                    continue;
                 }
-                if (instant) { Paint(); continue; }
-                var el = t.Root;
-                el.experimental.animation.Start(0f, 1f, 220, (e, p) =>
+                t.Root.experimental.animation.Start(0f, 1f, 180, (e, p) =>
                 {
-                    // Полфейда вниз → перекраска → полфейда вверх.
-                    if (p < 0.5f) e.style.opacity = 1f - p;
-                    else { if (e.style.opacity.value < 0.55f) Paint(); e.style.opacity = p; }
-                    if (p >= 1f) { Paint(); e.style.opacity = 1f; }
+                    var c = Color.Lerp(from, to, p);
+                    t.Label.style.color = c;
+                    LvnIcons.Tint(t.IconEl, c, glow);
                 });
             }
         }
@@ -768,14 +778,19 @@ namespace Lvn.UI.Screens
             tab.Add(mark);
 
             var iconSlot = new VisualElement { pickingMode = PickingMode.Ignore };
-            iconSlot.Add(LvnIcons.Make(icon, 30f, _dim, 0f, 0f));
+            var iconEl = LvnIcons.Make(icon, 30f, _dim, 0f, 0f);
+            iconSlot.Add(iconEl);
             tab.Add(iconSlot);
             var lb = new Label(_theme.Heading(label)) { pickingMode = PickingMode.Ignore };
             lb.style.fontSize = 26; lb.style.color = _dim; lb.style.marginTop = 5;
             lb.style.letterSpacing = _theme.Tracking;
             tab.Add(lb);
             if (onTap != null) { tab.AddManipulator(new Clickable(onTap)); LvnMotion.Tappable(tab); }
-            _navTabs.Add(new TabRef { Index = index, Icon = icon, Root = tab, Mark = mark, IconSlot = iconSlot, Label = lb });
+            _navTabs.Add(new TabRef
+            {
+                Index = index, Icon = icon, Root = tab, Mark = mark,
+                IconSlot = iconSlot, IconEl = iconEl, Label = lb, Painted = _dim,
+            });
             return tab;
         }
 
