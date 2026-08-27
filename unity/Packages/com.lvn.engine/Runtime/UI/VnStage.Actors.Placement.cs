@@ -202,35 +202,16 @@ namespace Lvn.UI
                 HoverOpacity = 1f,
             };
 
-        // Like AxesFrom but with {var} interpolation against the player's variables,
-        // so equipment can be data-driven: `actor hero armor={arm} weapon={wpn}`.
-        // An axis that resolves to empty or stays unresolved is DROPPED, leaving its
-        // {axis} token unfilled → that layer is skipped (the "nothing equipped" case).
+        // Во что актёр одет в этой команде — вопрос КОСТЮМЕРА: сцена лишь
+        // приносит ему оси, как их написал автор, и умение развернуть {var}
+        // по переменным игрока. Правило (шаблон ведёт переменная и примерка
+        // вправе его перебить, литерал автора — сюжетный и неприкосновенен,
+        // неразрешённая ось выпадает) живёт в одном месте и там же проверяется.
         private Dictionary<string, string> AxesOf(JObject cmd)
         {
-            var axes = AxesFrom(cmd);
             var vars = _player?.Vars;
-            // Axes whose raw value was a {var} template (e.g. the imported protagonist's
-            // outfit={Wardrobe.mainCh_Clothes}) are variable-DRIVEN, not story-forced
-            // literals — a live wardrobe preview may override those in realtime, while a
-            // literal costume the writer pinned stays put. Track them for MergeInto.
-            var templated = new HashSet<string>();
-            foreach (var k in new List<string>(axes.Keys))
-            {
-                var v = axes[k];
-                bool wasTemplate = !string.IsNullOrEmpty(v) && v.IndexOf('{') >= 0;
-                if (wasTemplate)
-                {
-                    templated.Add(k);
-                    if (vars != null) v = TextInterpolation.Apply(v, vars);
-                }
-                if (string.IsNullOrEmpty(v) || v.IndexOf('{') >= 0) axes.Remove(k); // no value → no layer
-                else axes[k] = v;
-            }
-            // The player's wardrobe fills axes the script left unset — a story-forced
-            // literal still wins, but a preview overrides a variable-driven axis.
-            LvnWardrobe.MergeInto(axes, (string)cmd["id"], templated);
-            return axes;
+            return LvnCostumer.Look(AxesFrom(cmd), (string)cmd["id"],
+                vars != null ? (Func<string, string>)(v => TextInterpolation.Apply(v, vars)) : null);
         }
 
         // Множитель размера. Работает и когда ширина с высотой не заданы: тогда

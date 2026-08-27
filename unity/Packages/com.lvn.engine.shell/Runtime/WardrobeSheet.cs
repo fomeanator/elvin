@@ -658,12 +658,10 @@ namespace Lvn.UI.Screens
                 var axis = kv.Key;
                 var items = Items(axis);
                 if (items.Count == 0) continue;
-                LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var worn);
-                if (worn == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out worn);
-                if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(axis, out worn);
+                var worn = LvnCostumer.Chosen(_entity, axis, _def.defaults);
                 // Съёмный слот без дефолта (украшения): «ничего не надето» —
                 // это и есть пункт «Нет», а не пробел, который надо заполнить.
-                if (worn == null && items.Count > 0 && items[0].value == LvnWardrobe.NoneValue)
+                if (string.IsNullOrEmpty(worn) && items.Count > 0 && items[0].value == LvnWardrobe.NoneValue)
                     worn = LvnWardrobe.NoneValue;
                 bool inList = false;
                 foreach (var it in items)
@@ -703,14 +701,13 @@ namespace Lvn.UI.Screens
                 if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
         }
 
-        // Что на оси надето прямо сейчас: превью → надетое → дефакт-дефолт →
-        // первый предмет. Один источник правды для шаблонных иконок и подписи.
+        // Что на оси надето прямо сейчас — спрашиваем Костюмера; здесь только
+        // витринный хвост: пустой слот показывает первый предмет, иначе
+        // шаблонной иконке и подписи было бы нечего показать.
         private string CurrentValueOf(string axis)
         {
-            LvnWardrobe.Previewed(_entity).TryGetValue(axis, out var v);
-            if (v == null) LvnWardrobe.Equipped(_entity).TryGetValue(axis, out v);
-            if (v == null && _def?.defaults != null) _def.defaults.TryGetValue(axis, out v);
-            if (string.IsNullOrEmpty(v) || v == LvnWardrobe.NoneValue)
+            var v = LvnCostumer.Chosen(_entity, axis, _def?.defaults);
+            if (LvnCostumer.Bare(v))
             {
                 var items = Items(axis);
                 v = items.Count > 0 ? items[0].value : "";
@@ -900,9 +897,7 @@ namespace Lvn.UI.Screens
                 // start the carousel on what's worn (previewed beats equipped;
                 // ничего не выбирали — надет дефолт каталога, и карусель должна
                 // открыться на нём, иначе показ примеряет чужое)
-                LvnWardrobe.Previewed(_entity).TryGetValue(_tab, out var current);
-                if (current == null) LvnWardrobe.Equipped(_entity).TryGetValue(_tab, out current);
-                if (current == null && _def?.defaults != null) _def.defaults.TryGetValue(_tab, out current);
+                var current = LvnCostumer.Chosen(_entity, _tab, _def?.defaults);
                 int at = 0;
                 for (int i = 0; i < items.Count; i++) if (items[i].value == current) { at = i; break; }
                 _index[_tab] = at;
@@ -961,12 +956,12 @@ namespace Lvn.UI.Screens
             // первым, а не скакать при входе»): надетое (или дефолт; для
             // съёмного пустого — «Нет») переезжает в голову списка. Порядок
             // стабилен на всю примерку — Equip меняет его только по «Выбрать».
-            LvnWardrobe.Equipped(_entity).TryGetValue(axis ?? "", out var worn);
-            if (worn == null && _def?.defaults != null && axis != null)
-                _def.defaults.TryGetValue(axis, out worn);
-            if (worn == null && list.Count > 0 && list[0].value == LvnWardrobe.NoneValue)
+            // ЗАФИКСИРОВАННОЕ, а не примеренное: порядок ленты обязан стоять
+            // на месте, пока игрок крутит варианты.
+            var worn = LvnCostumer.Committed(_entity, axis, _def?.defaults);
+            if (string.IsNullOrEmpty(worn) && list.Count > 0 && list[0].value == LvnWardrobe.NoneValue)
                 worn = LvnWardrobe.NoneValue; // пусто и снимаемо — текущее «Нет»
-            int cur = worn == null ? -1 : list.FindIndex(i => i.value == worn);
+            int cur = string.IsNullOrEmpty(worn) ? -1 : list.FindIndex(i => i.value == worn);
             if (cur > 0)
             {
                 var it = list[cur];
