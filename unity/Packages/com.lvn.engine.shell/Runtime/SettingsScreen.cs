@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// <see cref="LvnWebView"/> seam; "Sign in" is delegated to the host via
     /// <see cref="OnSignIn"/>.
     /// </summary>
-    public sealed class SettingsScreen : LvnOverlayScreen
+    public sealed partial class SettingsScreen : LvnOverlayScreen
     {
         /// <summary>Host hook for the "Sign in" button — route to the auth screen
         /// / platform sign-in. Null hides the button.</summary>
@@ -211,76 +211,6 @@ namespace Lvn.UI.Screens
 
         // ── rows ──────────────────────────────────────────────────────────────
 
-        // «Скачать всю игру»: строка-автомат — оценка → загрузка с живыми
-        // мегабайтами → «Скачано» с кнопкой удаления. Играть можно и без неё
-        // (стриминг), кнопка — для самолёта и плохой сети.
-        private VisualElement StorageRow()
-        {
-            var row = RowEx("Игра целиком",
-                "Скачайте истории заранее, чтобы играть без интернета. " +
-                "Пока не скачано — главы загружаются по мере чтения.");
-            var status = new Label("…");
-            status.style.color = _dim;
-            status.style.fontSize = 13;
-            status.style.marginRight = 8;
-            row.Add(status);
-            var btn = new Button { text = "…" };
-            StyleValueButton(btn, true);
-            btn.SetEnabled(false);
-            row.Add(btn);
-
-            bool downloaded = false;
-            IVisualElementScheduledItem ticker = null;
-
-            async Task RefreshAsync()
-            {
-                ticker?.Pause();
-                var (missing, count, used) = await StorageInfo();
-                downloaded = count == 0;
-                if (downloaded)
-                {
-                    status.text = $"скачано · занято {used >> 20} МБ";
-                    btn.text = "Удалить";
-                    btn.SetEnabled(ClearDownloads != null);
-                }
-                else
-                {
-                    status.text = "";
-                    // «Докачать», когда на диске уже что-то живёт: игрок
-                    // скачал почти всё — не предлагать ему «Скачать» заново.
-                    btn.text = (used > (8L << 20) ? "Докачать" : "Скачать")
-                        + $" ≈{System.Math.Max(1, missing >> 20)} МБ";
-                    btn.SetEnabled(true);
-                }
-            }
-
-            btn.clicked += () =>
-            {
-                if (!downloaded)
-                {
-                    btn.SetEnabled(false);
-                    _ = DownloadAll();
-                    // Живой прогресс в мегабайтах, пока батч активен.
-                    ticker = row.schedule.Execute(() =>
-                    {
-                        var p = DownloadProgress?.Invoke() ?? (0, 0, false);
-                        if (p.active)
-                            status.text = $"загрузка… {p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} МБ";
-                        else
-                            LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
-                    }).Every(500);
-                }
-                else
-                {
-                    btn.SetEnabled(false);
-                    LvnAsync.Fire(Run(), "ClearDownloads");
-                    async Task Run() { await ClearDownloads(); await RefreshAsync(); }
-                }
-            };
-
-            LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
-            return row;
-        }
 
         // Трек главного меню — как в жанровых флагманах: пилюли с выбором.
         private VisualElement MenuTrackRow()
@@ -315,62 +245,7 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        // Качество арта: авто-режим движка против ручного пресета конкурентов —
-        // но ручка экономии полезна на дорогом трафике.
-        private VisualElement ArtQualityRow()
-        {
-            bool auto = string.IsNullOrEmpty(LvnPrefs.ArtQuality);
-            var row = RowEx("Качество арта",
-                (auto ? "Подобрано под ваш экран автоматически. " : "")
-                + "Ниже ступень — меньше трафика и памяти. Скачанное "
-                + "перекачается в новом качестве само");
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-            var buttons = new List<(string q, Button b)>();
-            string Current() => string.IsNullOrEmpty(LvnPrefs.ArtQuality)
-                ? Lvn.UI.Screens.NovelApp.EffectiveArtQuality()
-                : LvnPrefs.ArtQuality;
-            void Highlight()
-            {
-                foreach (var (q, b) in buttons) StyleValueButton(b, Current() == q);
-            }
-            foreach (var (q, label) in new[] { ("2k", "2K"), ("1440", "1440p"), ("1k", "1K") })
-            {
-                var btn = new Button { text = label };
-                btn.style.marginLeft = 6;
-                var quality = q;
-                btn.clicked += () => { LvnPrefs.ArtQuality = quality; Highlight(); };
-                buttons.Add((q, btn));
-                seg.Add(btn);
-            }
-            Highlight();
-            return row;
-        }
 
-        private VisualElement FpsRow()
-        {
-            var row = RowEx("Кадровая частота",
-                "30 кадров — дольше живёт батарея; 60 — плавнее анимации");
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-            Button f30 = null, f60 = null;
-            void Highlight()
-            {
-                StyleValueButton(f30, LvnPrefs.TargetFps == 30);
-                StyleValueButton(f60, LvnPrefs.TargetFps != 30);
-            }
-            f30 = new Button { text = "30" };
-            f30.style.marginLeft = 6;
-            f30.clicked += () => { LvnPrefs.TargetFps = 30; Highlight(); };
-            f60 = new Button { text = "60" };
-            f60.style.marginLeft = 6;
-            f60.clicked += () => { LvnPrefs.TargetFps = 60; Highlight(); };
-            seg.Add(f30); seg.Add(f60);
-            Highlight();
-            return row;
-        }
 
         private VisualElement SoundRow()
         {
@@ -439,23 +314,6 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        // "Restore purchases": re-syncs the wallet from the server, which re-grants
-        // any purchases the account already owns. (Real platform restore is host-side.)
-        private VisualElement RestoreRow()
-        {
-            var row = RowEx("Восстановить покупки",
-                "Если после переустановки пропали покупки — нажмите");
-            var btn = new Button { text = "Восстановить" };
-            StyleValueButton(btn, false);
-            btn.clicked += () =>
-            {
-                LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
-                btn.text = "…";
-                btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
-            };
-            row.Add(btn);
-            return row;
-        }
 
         private VisualElement LanguageRow()
         {
@@ -487,153 +345,14 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        private VisualElement UidRow()
-        {
-            var row = RowEx(_cfg.uid_label ?? "ID игрока",
-                "Назовите его, если обратитесь в поддержку");
-            var uid = LvnBackend.UserId;
-            var shortId = string.IsNullOrEmpty(uid) ? "—" : (uid.Length > 12 ? uid.Substring(0, 12) + "…" : uid);
-            var val = new Label(shortId);
-            val.style.color = _dim;
-            val.style.fontSize = 22;
-            val.style.marginRight = 10;
-            row.Add(val);
 
-            var copy = new Button { text = _cfg.copy_text ?? "Копировать" };
-            StyleValueButton(copy, false);
-            copy.SetEnabled(!string.IsNullOrEmpty(uid));
-            copy.clicked += () =>
-            {
-                GUIUtility.systemCopyBuffer = uid ?? "";
-                LvnMotion.FlashText(copy, _cfg.copied_text ?? "Скопировано");
-            };
-            row.Add(copy);
-            return row;
-        }
 
-        private VisualElement VersionRow()
-        {
-            var row = RowEx(_cfg.version_label ?? "Версия", null);
-            var val = new Label(Application.version + EditorBuildStamp());
-            val.style.color = _dim;
-            val.style.fontSize = 22;
-            row.Add(val);
-            return row;
-        }
 
-        /// <summary>В РЕДАКТОРЕ — время сборки движка рядом с версией.
-        /// Unity не пересобирает C# на ходу: правка, сделанная во время Play,
-        /// доедет только после Stop→Play, и снаружи это неотличимо от «фича не
-        /// работает». Штамп отвечает на вопрос «я вообще на свежем коде?» за
-        /// пять секунд, без консоли. В собранной игре строки нет.</summary>
-        private static string EditorBuildStamp()
-        {
-#if UNITY_EDITOR
-            try
-            {
-                var path = typeof(Lvn.UI.VnStage).Assembly.Location;
-                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return "";
-                return "  · движок " + System.IO.File.GetLastWriteTime(path).ToString("HH:mm:ss");
-            }
-            catch { return ""; }
-#else
-            return "";
-#endif
-        }
 
-        private VisualElement LinksRow()
-        {
-            bool hasTerms = !string.IsNullOrEmpty(_cfg.terms_url);
-            bool hasPrivacy = !string.IsNullOrEmpty(_cfg.privacy_url);
-            if (!hasTerms && !hasPrivacy) return null;
-
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.Center;
-            row.style.marginTop = 8; row.style.marginBottom = 6;
-            if (hasTerms) row.Add(LinkLabel(_cfg.terms_text ?? "Terms of Use", _cfg.terms_url));
-            if (hasTerms && hasPrivacy)
-            {
-                var dot = new Label("·"); dot.style.color = _dim; dot.style.marginLeft = 10; dot.style.marginRight = 10;
-                row.Add(dot);
-            }
-            if (hasPrivacy) row.Add(LinkLabel(_cfg.privacy_text ?? "Privacy Policy", _cfg.privacy_url));
-            return row;
-        }
-
-        private VisualElement SocialRow()
-        {
-            if (_cfg.social == null || _cfg.social.Count == 0) return null;
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.justifyContent = Justify.Center;
-            row.style.marginTop = 12;
-            foreach (var s in _cfg.social)
-            {
-                if (s == null || string.IsNullOrEmpty(s.url)) continue;
-                VisualElement el;
-                if (!string.IsNullOrEmpty(s.icon))
-                {
-                    var icon = new VisualElement();
-                    icon.style.width = 44; icon.style.height = 44;
-                    icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                    icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-                    LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, s.icon, _assets), "AssignBg");
-                    el = icon;
-                }
-                else
-                {
-                    var lbl = new Label(s.name ?? "link");
-                    lbl.style.color = _accent;
-                    lbl.style.fontSize = 24;
-                    el = lbl;
-                }
-                el.style.marginLeft = 10; el.style.marginRight = 10;
-                var url = s.url;
-                el.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
-                row.Add(el);
-            }
-            return row;
-        }
 
         // ── account status (async from /v1/auth/me) ─────────────────────────────
 
-        private async Task RefreshAccountAsync()
-        {
-            var providers = await LvnBackend.GetProvidersAsync();
-            if (!IsOpen || _accountRow == null) return;
-            if (providers != null && providers.Length > 0)
-            {
-                string via = string.Join(", ", System.Array.ConvertAll(providers, Capitalize));
-                SetAccountStatus((_cfg.signed_in_text ?? "Signed in") + " · " + via, showSignIn: false);
-            }
-            else
-            {
-                // A device-only (or offline) account — offer to link Google/Apple.
-                string via = _cfg.device_text ?? "device";
-                SetAccountStatus((_cfg.signed_in_text ?? "Signed in") + " · " + via, showSignIn: OnSignIn != null);
-            }
-        }
 
-        private void SetAccountStatus(string text, bool showSignIn)
-        {
-            if (_accountRow == null) return;
-            // Rebuild the row's value side (keep the label at index 0).
-            for (int i = _accountRow.childCount - 1; i >= 1; i--)
-                _accountRow.RemoveAt(i);
-            var val = new Label(text);
-            val.style.color = _dim;
-            val.style.fontSize = 22;
-            val.style.marginRight = 10;
-            _accountRow.Add(val);
-            if (showSignIn)
-            {
-                var btn = new Button { text = _cfg.sign_in_text ?? "Sign in" };
-                StyleValueButton(btn, true);
-                btn.clicked += () => { if (OnSignIn != null) _ = OnSignIn(); };
-                _accountRow.Add(btn);
-            }
-        }
 
         // ── shared bits ─────────────────────────────────────────────────────────
 
