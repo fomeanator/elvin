@@ -359,7 +359,7 @@ namespace Lvn.UI.Screens
 
                 if (glyph == RingGlyph.Alert)
                 {
-                    _file.text = "Нет соединения";
+                    _file.text = Lvn.Content.LvnOfflineText.Title;
                     _kind.text = "Загрузка продолжится сама";
                 }
                 else if (glyph == RingGlyph.Up)

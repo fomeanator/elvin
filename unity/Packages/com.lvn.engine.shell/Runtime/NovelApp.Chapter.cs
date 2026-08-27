@@ -56,7 +56,7 @@ namespace Lvn.UI.Screens
                 if (!await EnsureChapterScriptAsync(chapter))
                 {
                     var eco = _manifest?.economy;
-                    await _shell.AlertAsync(eco?.gate_title ?? "Нет соединения",
+                    await _shell.AlertAsync(eco?.gate_title ?? LvnOfflineText.Title,
                         "Глава недоступна без сети. Проверь подключение и попробуй ещё раз.");
                     break;
                 }

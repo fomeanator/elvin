@@ -69,6 +69,32 @@ namespace Lvn.Content
     }
 
     /// <summary>
+    /// КАК СКАЗАТЬ ИГРОКУ, ЧТО СЕТИ НЕТ.
+    ///
+    /// <para>Состояние одно, а формулировок было три: «нет сети —
+    /// переподключение…» на бут-экране, «Нет сети — позже» на кнопке профиля,
+    /// «Нет соединения» в заголовке отказа. Игрок читает их в одном сеансе и
+    /// не должен гадать, три ли это разные беды.</para>
+    ///
+    /// <para>Строки, а не константы: их перекрывает локализация — и на лету,
+    /// без пересборки.</para>
+    /// </summary>
+    public static class LvnOfflineText
+    {
+        /// <summary>Внутри фразы, со строчной: «…{0} — переподключение…».</summary>
+        public static string Word = "нет сети";
+
+        /// <summary>Заголовком сообщения.</summary>
+        public static string Title = "Нет соединения";
+
+        /// <summary>Пока пытаемся дотянуться до сервера.</summary>
+        public static string Reconnecting = "нет сети — переподключение…";
+
+        /// <summary>Действие не вышло и его стоит повторить позже.</summary>
+        public static string TryLater = "Нет сети — позже";
+    }
+
+    /// <summary>
     /// Exponential backoff for retrying a failed fetch. Attempt 1 has no delay;
     /// every subsequent attempt doubles (capped) so a flaky link recovers
     /// quickly without hammering a dead one.

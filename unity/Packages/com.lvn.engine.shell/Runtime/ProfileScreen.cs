@@ -472,7 +472,7 @@ namespace Lvn.UI.Screens
             btn.style.backgroundColor = LvnTokens.Faint;
             btn.style.color = danger;
             btn.text = "Удалить";
-            LvnMotion.FlashText(btn, "Нет сети — позже", LvnMotion.NoticeLong);
+            LvnMotion.FlashText(btn, Lvn.Content.LvnOfflineText.TryLater, LvnMotion.NoticeLong);
         }
 
         private VisualElement StatTile(Stat s)
