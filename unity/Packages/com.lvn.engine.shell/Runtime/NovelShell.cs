@@ -35,6 +35,10 @@ namespace Lvn.UI.Screens
         /// <summary>The between-chapters screen — null unless ui.chapter_end is
         /// configured (the chapter loop checks before pausing on it).</summary>
         public ChapterEndScreen ChapterEnd { get; private set; }
+
+        /// <summary>Сцена перехода вместо экрана загрузки — если новелла её
+        /// завела (ui.portal). Нет блока — вход в главу идёт как раньше.</summary>
+        public PortalScreen Portal { get; private set; }
         /// <summary>The boot auth screen; null unless manifest ui.auth enables it.</summary>
         public AuthScreen Auth { get; private set; }
         /// <summary>The app-level settings overlay (open via <see cref="OpenSettingsAsync"/>).</summary>
@@ -293,6 +297,12 @@ namespace Lvn.UI.Screens
             // Between-chapters screen: opt-in via manifest ui.chapter_end (absent
             // → chapters flow seamlessly, the historical behaviour).
             if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }
+            if (ui.portal != null && (ui.portal.enabled ?? true))
+            {
+                Portal = new PortalScreen(ui.portal);
+                Add(Portal);
+                Portal.style.display = DisplayStyle.None;
+            }
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
             Settings = new SettingsScreen(ui.settings, assets);
@@ -474,6 +484,14 @@ namespace Lvn.UI.Screens
         /// возвращает по выходу в меню.</summary>
         public Action OnChapterSessionStart;
         public Action OnChapterSessionEnd;
+
+        /// <summary>Открылась сцена перехода: хост ставит на сцене створ и
+        /// героиню у него (панель — дело экрана).</summary>
+        public Action<LvnTitle, LvnChapter> OnPortalOpening;
+
+        /// <summary>Игрок шагнул в портал: хост доигрывает всасывание и только
+        /// потом отдаёт кадр главе.</summary>
+        public Func<Task> OnPortalEnter;
         /// <summary>Хаб показан на экране — хост ставит сцену меню (после
         /// всех уборок конца главы, а не до них).</summary>
         public Action OnMenuVisible;

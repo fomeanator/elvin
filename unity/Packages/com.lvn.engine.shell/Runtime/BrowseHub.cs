@@ -537,9 +537,49 @@ namespace Lvn.UI.Screens
         public VisualElement ContentRoot => _hubView;
 
         // ── builders ──────────────────────────────────────────────────────────────
+        // Отпечаток того, ЧТО лента показывает: сборники с их составом,
+        // одиночные новеллы, витринная и её кнопка, плюс замки (они зависят от
+        // глобальных статов, а те приезжают по сети). Совпал — пересобирать
+        // нечего.
+        private string TilesStamp()
+        {
+            var sb = new System.Text.StringBuilder();
+            var resume = ResumableTitle();
+            sb.Append(resume?.id).Append('|');
+            sb.Append((ResumableTitle() ?? FirstTitle())?.id).Append('|');
+            foreach (var c in _collections)
+            {
+                sb.Append(c?.id).Append(':');
+                if (c?.titles != null)
+                    foreach (var id in c.titles)
+                    {
+                        sb.Append(id);
+                        if (_titles.TryGetValue(id, out var t)) sb.Append(IsLocked(t) ? '#' : '.');
+                        sb.Append(',');
+                    }
+                sb.Append(';');
+            }
+            foreach (var id in OrphanTitles())
+            {
+                sb.Append(id);
+                if (_titles.TryGetValue(id, out var t)) sb.Append(IsLocked(t) ? '#' : '.');
+                sb.Append(',');
+            }
+            return sb.ToString();
+        }
+        private string _tilesStamp;
+
         private void BuildHubTiles()
         {
             if (_hubRows == null) return;
+            // ЛЕНТА НЕ ПЕРЕСОБИРАЕТСЯ ВПУСТУЮ. Вход в хаб звал сборку дважды
+            // (SetData и следом PickTitleAsync — «обновить замки по свежим
+            // флагам»), и вторая сборка не просто повторяла работу: она заново
+            // проигрывала ВХОДНУЮ АНИМАЦИЮ по уже видимому контенту. Игрок
+            // видел, как хаб разок мигает на ровном месте.
+            var stamp = TilesStamp();
+            if (_tilesStamp == stamp) return;
+            _tilesStamp = stamp;
             _hubRows.Clear();
             // Any title not curated into a collection (e.g. a freshly imported novel)
             // still shows — grouped into an auto "library" row so the hub reflects the

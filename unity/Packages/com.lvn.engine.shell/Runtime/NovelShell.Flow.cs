@@ -139,14 +139,31 @@ namespace Lvn.UI.Screens
                 // scene has its first background, then floats the chapter title
                 // over the LIVE scene (ShowChapterTitleAsync). No frame of raw
                 // stage ever shows between screens.
-                Show(Loading);
                 var ready = chapterReady?.Invoke(chapter) ?? (() => true);
                 var prog = chapterProgress?.Invoke(chapter);
                 bool cached = ready();
-                await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
-                    minSecondsOverride: cached
-                        ? (Transitions?.loading_floor ?? 0.25f)
-                        : (float?)null);
+                if (Portal != null)
+                {
+                    // ПЕРЕХОД ВМЕСТО ЗАГРУЗКИ. Заслонки нет: за панелью живая
+                    // сцена, где героиня стоит у створа. Ожидание кончается не
+                    // тогда, когда докачался файл, а когда игрок сам шагнёт в
+                    // портал — техническое ожидание стало решением игрока.
+                    OnPortalOpening?.Invoke(title, chapter);
+                    bool entered = await Portal.RunAsync(
+                        title?.name ?? title?.id, PortalChapterLabel(chapter),
+                        ready, prog, locked: false, ct: ct);
+                    Hide(Portal);
+                    if (!entered || ct.IsCancellationRequested) continue; // передумал — обратно к витрине
+                    if (OnPortalEnter != null) await OnPortalEnter();
+                }
+                else
+                {
+                    Show(Loading);
+                    await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
+                        minSecondsOverride: cached
+                            ? (Transitions?.loading_floor ?? 0.25f)
+                            : (float?)null);
+                }
 
                 // ── play ──
                 if (playChapter != null && chapter != null)
@@ -266,5 +283,12 @@ namespace Lvn.UI.Screens
 
         private static string ChapterLine(LvnChapter c) =>
             c == null ? "" : (c.number > 0 ? $"Chapter {c.number}" : "");
+
+        /// <summary>Подпись главы для сцены перехода: имя эпизода, иначе его
+        /// номер. Пустая строка честнее выдуманного заголовка.</summary>
+        private static string PortalChapterLabel(LvnChapter c) =>
+            c == null ? "" : (!string.IsNullOrEmpty(c.name) ? c.name
+                : (c.number > 0 ? "Глава " + c.number : c.id ?? ""));
+
     }
 }
