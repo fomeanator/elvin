@@ -475,7 +475,8 @@ namespace Lvn.UI.World
                     // шторка и её жёсткие срезы — источник «мелькнула»/«лысая»
                     // (живые репорты). Любая смена облика в гардеробе — один и
                     // тот же чистый кроссфейд, как обещает LvnActorComposite.
-                    float dur2 = (p.WardrobeSwap ? 0.28f : 0.20f) * VnTheme.MotionDurationScale;
+                    float dur2 = VnTheme.Motion(p.WardrobeSwap
+                        ? VnTheme.WardrobeSwapSeconds : VnTheme.LookSwapSeconds);
                     // ПО-ПРОСТОМУ (решение Ильи 27.08): всякая смена облика —
                     // чистый кроссфейд «старое растворяется над новым», без
                     // шейдерной шторки-потока (её кромка мелькала на смене

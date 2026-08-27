@@ -451,7 +451,7 @@ namespace Lvn.UI.Screens
             {
                 LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
                 btn.text = "…";
-                btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(1200);
+                btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
             };
             row.Add(btn);
             return row;
@@ -505,8 +505,7 @@ namespace Lvn.UI.Screens
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = uid ?? "";
-                copy.text = _cfg.copied_text ?? "Скопировано";
-                copy.schedule.Execute(() => copy.text = _cfg.copy_text ?? "Копировать").ExecuteLater(1200);
+                LvnMotion.FlashText(copy, _cfg.copied_text ?? "Скопировано");
             };
             row.Add(copy);
             return row;

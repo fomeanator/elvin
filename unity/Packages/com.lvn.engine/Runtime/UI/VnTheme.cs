@@ -14,9 +14,31 @@ namespace Lvn.UI
     [Serializable]
     public class VnTheme
     {
-        /// <summary>Global presentation tempo. 0.75 makes unskippable screen
-        /// transitions finish 25% sooner without changing their relative rhythm.</summary>
-        public const float MotionDurationScale = 0.75f;
+        /// <summary>ТЕМП ПОСТАНОВКИ. 0.75 — сцена играет свои переходы на
+        /// четверть быстрее заявленных секунд, не трогая их соотношений: автор
+        /// пишет привычные 0.35, а на экране они читаются собранно.
+        ///
+        /// <para>Это характер СЦЕНЫ; общий темп всего движения — ручка
+        /// <see cref="LvnMotion.Tempo"/>, и <see cref="Motion"/> учитывает
+        /// обе. Настраивается из <c>ui.stage.motion_scale</c>.</para></summary>
+        public static float MotionDurationScale = 0.75f;
+
+        /// <summary>Сколько на самом деле длится сценическое движение,
+        /// заявленное как <paramref name="seconds"/>. Единственное место, где
+        /// темп применяется: раньше на каждое движение приходилось помнить про
+        /// умножение, и половина мест про него забывала.</summary>
+        public static float Motion(float seconds) => LvnMotion.Sec(seconds * MotionDurationScale);
+
+        /// <summary>То же в миллисекундах — для UITK-переходов сцены.</summary>
+        public static int MotionMs(float seconds) => Mathf.Max(1, Mathf.RoundToInt(Motion(seconds) * 1000f));
+
+        /// <summary>СМЕНА ОБЛИКА: старый вид растворяется над новым. Эмоция и
+        /// поза — короче (0.20), примерка одежды — чуть длиннее (0.28): наряд
+        /// меняет силуэт целиком, и глазу нужно время его прочесть. Оба жили
+        /// числами внутри рендерера, хотя это ритм постановки. Ключи манифеста:
+        /// <c>ui.stage.look_swap</c> и <c>ui.stage.wardrobe_swap</c>.</summary>
+        public static float LookSwapSeconds = 0.20f;
+        public static float WardrobeSwapSeconds = 0.28f;
 
         // Defaults derive from the "Полночь" design tokens (LvnTokens) so the whole
         // app is one coherent look out of the box; any field is still overridable.

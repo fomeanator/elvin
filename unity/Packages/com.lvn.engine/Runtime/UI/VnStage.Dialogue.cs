@@ -24,10 +24,8 @@ namespace Lvn.UI
         /// never outlive it.</summary>
         private float DialogueFadeSeconds()
         {
-            float card = Mathf.Max(0f, Theme?.BoxAppearDuration ?? 0.22f)
-                * VnTheme.MotionDurationScale;
-            float actor = Mathf.Max(0f, Theme?.ActorTransition ?? 0.35f)
-                * VnTheme.MotionDurationScale;
+            float card = VnTheme.Motion(Mathf.Max(0f, Theme?.BoxAppearDuration ?? 0.22f));
+            float actor = VnTheme.Motion(Mathf.Max(0f, Theme?.ActorTransition ?? 0.35f));
             return actor > 0.001f ? Mathf.Min(card, actor) : card;
         }
 
@@ -210,8 +208,7 @@ namespace Lvn.UI
         private void AfterBeatPause(int generation, Action next)
         {
             if (generation != _dialogueSwapGeneration || next == null) return;
-            int ms = Mathf.RoundToInt(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f)
-                * VnTheme.MotionDurationScale * 1000f);
+            int ms = VnTheme.MotionMs(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f));
             if (ms <= 0 || _dialogue == null) { next(); return; }
             _dialogue.schedule.Execute(() =>
             {

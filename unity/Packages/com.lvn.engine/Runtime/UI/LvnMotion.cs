@@ -23,6 +23,61 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnMotion
     {
+        // ── ПРАЙС-ЛИСТ ВРЕМЕНИ ────────────────────────────────────────────────
+        // Одно место, где решено, СКОЛЬКО ДЛИТСЯ движение в интерфейсе. Раньше
+        // длительность подбиралась на месте — 130 здесь, 180 там, 240 в
+        // соседнем экране, — и разница читалась не как замысел, а как
+        // небрежность: соседние элементы одного экрана двигались вразнобой.
+        // Значения именованы по НАЗНАЧЕНИЮ, а не по числу: правка одного имени
+        // меняет ритм всей оболочки разом.
+
+        /// <summary>Мелкая смена состояния на месте: подсветка, цвет чипа.
+        /// Быстрее 90 мс глаз не успевает прочесть переход как движение.</summary>
+        public const int Instant = 90;
+        /// <summary>Мелкий элемент едет: ползунок, бейдж, значок.</summary>
+        public const int Quick = 130;
+        /// <summary>Обычная смена вида: вкладки, кнопки, панели. Базовый ритм.</summary>
+        public const int Normal = 180;
+        /// <summary>Содержимое проступает (плитки, карточки, строки).</summary>
+        public const int Reveal = 160;
+        /// <summary>Крупный переезд: лента довозит карточку, панель меняет высоту.</summary>
+        public const int Calm = 240;
+        /// <summary>«Сказал и вернул»: кнопка на секунду отвечает делом
+        /// («Готово», «Скопировано») и возвращает свою надпись.</summary>
+        public const int Notice = 1200;
+        /// <summary>То же, но для ответа, который надо успеть прочесть и
+        /// осмыслить («Точно удалить?»).</summary>
+        public const int NoticeLong = 2500;
+
+        /// <summary>ГЛОБАЛЬНЫЙ ТЕМП — единственная ручка «быстрее/медленнее» для
+        /// всего движения сразу. 1 = как задумано, 0.5 = вдвое живее, 2 = вдвое
+        /// вальяжнее. Меняется на лету (настройки, режим демонстрации,
+        /// отладка): всё, что считает длительность через <see cref="Ms"/> и
+        /// <see cref="Sec"/>, подхватывает новое значение со следующей
+        /// анимации.</summary>
+        public static float Tempo
+        {
+            get => _tempo;
+            set
+            {
+                float v = Mathf.Clamp(value, 0.05f, 4f);
+                if (Mathf.Approximately(v, _tempo)) return;
+                _tempo = v;
+                TempoChanged?.Invoke();
+            }
+        }
+        private static float _tempo = 1f;
+
+        /// <summary>Темп сменили — тем, кто закешировал длительности, пора
+        /// пересчитать (в основном это декларативные USS-переходы).</summary>
+        public static event Action TempoChanged;
+
+        /// <summary>Длительность в миллисекундах с учётом темпа.</summary>
+        public static int Ms(int ms) => Mathf.Max(1, Mathf.RoundToInt(ms * _tempo));
+
+        /// <summary>Длительность в секундах с учётом темпа.</summary>
+        public static float Sec(float seconds) => Mathf.Max(0f, seconds * _tempo);
+
         /// <summary>
         /// Насколько «живой» пружина. Затухание 1 — без проскока (для того, что
         /// уходит), 0,55–0,7 — заметный, но не клоунский проскок (для того, что
@@ -111,7 +166,7 @@ namespace Lvn.UI
         /// «убери эту убогую анимацию, делай фейд, прыжки убери везде»).
         /// Плитка, которая едет и пружинит, на списке читается как дёрганье —
         /// содержимое должно проступать, а не прыгать.</summary>
-        public static void FadeIn(VisualElement el, int delayMs = 0, int ms = 160)
+        public static void FadeIn(VisualElement el, int delayMs = 0, int ms = Reveal)
         {
             if (el == null) return;
             el.style.opacity = 0f;
@@ -119,7 +174,7 @@ namespace Lvn.UI
             el.schedule.Execute(() =>
             {
                 el.style.transitionProperty = new List<StylePropertyName> { "opacity" };
-                el.style.transitionDuration = new List<TimeValue> { new TimeValue(ms, TimeUnit.Millisecond) };
+                el.style.transitionDuration = new List<TimeValue> { new TimeValue(Ms(ms), TimeUnit.Millisecond) };
                 el.style.transitionTimingFunction =
                     new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutSine) };
                 el.style.opacity = 1f;
@@ -127,10 +182,59 @@ namespace Lvn.UI
         }
 
         /// <summary>Проявить набор разом — без «волны» по элементам.</summary>
-        public static void FadeInAll(IEnumerable<VisualElement> items, int ms = 160)
+        public static void FadeInAll(IEnumerable<VisualElement> items, int ms = Reveal)
         {
             if (items == null) return;
             foreach (var el in items) FadeIn(el, 0, ms);
+        }
+
+        /// <summary>
+        /// ПЛАВНАЯ СМЕНА СТИЛЯ. Подключает элементу декларативные переходы UITK:
+        /// после этого любое присваивание перечисленных свойств (подсветка
+        /// выбранного, перекраска пилюли, новая высота) едет кривой само, без
+        /// единой строчки анимации на месте изменения.
+        ///
+        /// <para>Жило приватным методом внутри одного экрана, поэтому «плавно»
+        /// умел ровно он: соседние экраны меняли цвет скачком. Дом у понятия
+        /// один — здесь.</para>
+        /// </summary>
+        public static void Smooth(VisualElement el, int ms, params string[] props)
+        {
+            if (el == null || props == null || props.Length == 0) return;
+            var list = new List<StylePropertyName>(props.Length);
+            foreach (var p in props) list.Add(new StylePropertyName(p));
+            el.style.transitionProperty = list;
+            el.style.transitionDuration = new List<TimeValue>
+                { new TimeValue(Ms(ms), TimeUnit.Millisecond) };
+            el.style.transitionTimingFunction = new List<EasingFunction>
+                { new EasingFunction(EasingMode.EaseOutCubic) };
+        }
+
+        /// <summary>Свойства, которыми карточка «переезжает» на новое место:
+        /// прозрачность, сдвиг и цвет кромки. Набор общий, чтобы ленты в разных
+        /// экранах вели себя одинаково.</summary>
+        public static readonly string[] CardGlide =
+        {
+            "opacity", "translate", "border-top-color", "border-right-color",
+            "border-bottom-color", "border-left-color",
+        };
+
+        /// <summary>
+        /// «СКАЗАЛ И ВЕРНУЛ» — кнопка отвечает делом и через паузу возвращает
+        /// свою надпись («Скопировать» → «Готово» → «Скопировать»).
+        ///
+        /// <para>Приём повторялся в шести экранах, каждый раз со своей паузой —
+        /// от 1,2 до 4 секунд, — то есть один и тот же ответ интерфейса
+        /// выглядел в разных местах по-разному. Пауза теперь из прайс-листа, а
+        /// возврат берёт надпись, которая стояла на кнопке в момент вызова.</para>
+        /// </summary>
+        public static void FlashText(TextElement el, string message, int ms = Notice)
+        {
+            if (el == null) return;
+            var was = el.text;
+            el.text = message;
+            el.schedule.Execute(() => { if (el.text == message) el.text = was; })
+              .ExecuteLater(Ms(ms));
         }
 
         /// <summary>

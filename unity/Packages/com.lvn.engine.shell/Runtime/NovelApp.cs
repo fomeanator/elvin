@@ -326,6 +326,7 @@ namespace Lvn.UI.Screens
             // (A title can override this per-game; applied in PlayChapterAsync.)
             _globalUi = manifest.ui;
             _manifest = manifest;
+            ApplyMenuStaging(manifest);
             Stage.ApplyTheme(VnThemeBuilder.From(manifest.ui, Stage.Theme));
             Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
@@ -1008,11 +1009,11 @@ namespace Lvn.UI.Screens
                     // но не дольше секунды с небольшим, иначе сорванная
                     // загрузка держала бы игрока в заставке.
                     var wait = System.Diagnostics.Stopwatch.StartNew();
-                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < 1200)
+                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
                         await System.Threading.Tasks.Task.Yield();
                     if (Stage != null && !Stage.HasBackdrop)
                         Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
-                    await BootVeil.FadeOutAsync(0.4f);
+                    await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
                 }
                 Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
                 // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
@@ -1561,6 +1562,19 @@ namespace Lvn.UI.Screens
         // Знаем ли, на какой вкладке стоит полотно (был хоть один переезд).
         private bool _menuPanSet;
 
+        /// <summary>Настройки ВИТРИН из манифеста: рост куклы и переезд
+        /// полотна в меню (<c>ui.browse</c>), кадр плиток гардероба
+        /// (<c>ui.wardrobe.framing</c>). Отдельным методом, потому что зовётся
+        /// из двух мест — при загрузке и при живом обновлении, — и «поменять на
+        /// лету» должно означать именно это, а не перезапуск.</summary>
+        private static void ApplyMenuStaging(LvnManifest manifest)
+        {
+            var b = manifest?.ui?.browse;
+            if (b != null)
+                LvnMenuStage.Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step);
+            LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
+        }
+
         private void ShowMenuScene()
         {
             if (Stage == null || _chapterPlaying)
@@ -1582,7 +1596,7 @@ namespace Lvn.UI.Screens
                     // переезды уже были (возврат из главы на своей вкладке) —
                     // полотно встаёт СРАЗУ на её точку, иначе первый же тик
                     // дёрнул бы его через полкадра.
-                    ["pan"] = _menuPanSet ? _menuPanTo : 0.35f,
+                    ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
                 });
                 _menuBgSet = true;
             }
@@ -1611,13 +1625,11 @@ namespace Lvn.UI.Screens
                 {
                     ["op"] = "actor", ["id"] = fav, ["show"] = true,
                     ["position"] = "center",
-                    // РОСТ КУКЛЫ МЕНЮ. Ширина мерит ФИГУРУ, а не холст с
-                    // прозрачными полями (см. WorldPlacement) — здесь она
-                    // просто не мешает, рост держит height. Раньше на её месте
-                    // стояло 1.26: холст выпускали за края экрана вручную,
-                    // чтобы ширина не задушила высоту. Y НЕ задавать: якорь
-                    // ног, 1 = низ (y=0.02 уводил за кадр).
-                    ["width"] = 1.0, ["height"] = 0.91,
+                    // Рост куклы — настройка витрины, а не число на месте
+                    // (LvnMenuStage; ui.browse.doll_height). Y НЕ задавать:
+                    // якорь ног, 1 = низ (y=0.02 уводил за кадр).
+                    ["width"] = LvnMenuStage.DollWidth,
+                    ["height"] = LvnMenuStage.DollHeight,
                 });
             _menuSceneActor = fav;
         }
@@ -1633,13 +1645,11 @@ namespace Lvn.UI.Screens
             if (Stage == null || _chapterPlaying) return;
             var canvas = _manifest?.ui?.browse?.canvas;
             if (string.IsNullOrEmpty(canvas)) return;
-            // Шаг 0.14 вместо 0.10 (Илья 26.08: «сдвиг бг неудачно подобран,
-            // героев не видно — сильнее вправо процентов на 40 за шаг»):
-            // прежний увозил полотно на четверть кадра за четыре вкладки, и
-            // фигуры на нём так и не выходили из-за края.
-            float P(int t) => 0.35f + 0.14f * Mathf.Clamp(t, 0, 3);
-            _menuPanFrom = P(fromTab);
-            _menuPanTo = P(toTab);
+            // Куда едет камера полотна — знает витрина (LvnMenuStage.PanFor;
+            // ui.browse.canvas_pan / canvas_pan_step). Здесь только откуда и
+            // куда: сам переезд ведёт тик анимации вкладок.
+            _menuPanFrom = LvnMenuStage.PanFor(fromTab);
+            _menuPanTo = LvnMenuStage.PanFor(toTab);
             _menuPanSet = true;
             // ФЛАГ «канвас стоит» ЗДЕСЬ НЕ ВЫСТАВЛЯЕТСЯ. Пока пан жил
             // собственной bg-командой, этот метод сам ставил полотно и имел
@@ -1696,7 +1706,7 @@ namespace Lvn.UI.Screens
         {
             if (Stage == null || _chapterPlaying) return;
             if (Time.unscaledTime < _nextMenuGuard) return;
-            _nextMenuGuard = Time.unscaledTime + 1f;
+            _nextMenuGuard = Time.unscaledTime + LvnMenuStage.GuardPeriodSeconds;
             if (string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)) return;
             // ПО ФАКТУ КАРТИНКИ, А НЕ ПО ФЛАГУ: флаг «фон стоит» врал, когда
             // команда приходила до рождения рендерера, и страж молчал вместе с
@@ -1705,7 +1715,7 @@ namespace Lvn.UI.Screens
             // Даём постановке доехать (крупный канвас декодится ~0.6с) и только
             // потом вмешиваемся — иначе страж перебивал бы живую загрузку.
             if (_menuBgMissingSince <= 0f) { _menuBgMissingSince = Time.unscaledTime; return; }
-            if (Time.unscaledTime - _menuBgMissingSince < 2f) return;
+            if (Time.unscaledTime - _menuBgMissingSince < LvnMenuStage.GuardPatienceSeconds) return;
             _menuBgMissingSince = 0f;
             Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
             _menuBgSet = false;
@@ -3141,6 +3151,7 @@ namespace Lvn.UI.Screens
             _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
+            ApplyMenuStaging(manifest);
             _assets.Set3DSetCatalog(manifest.sets3d);
             if (Stage != null)
             {
