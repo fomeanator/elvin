@@ -284,16 +284,22 @@ namespace Lvn.UI
         // bails if it changed — otherwise a slow load from the PREVIOUS chapter
         // resolves after the reset and paints the new one (ghost actor, wrong bg,
         // wrong music). The shared _cts only cancels on OnDisable, not here.
-        private int _stageEpoch;
+        /// <summary>ХРОНОМЕТРИСТ — кто чего ждёт и чья работа устарела. Пять
+        /// счётчиков порядка (эпоха, поколения актёра/фона/ожидания, два
+        /// барьера) жили порознь в трёх файлах; правило одно, и живёт оно
+        /// теперь в одном месте, проверяемом тестом без сцены.</summary>
+        private readonly LvnStageClock _clock = new LvnStageClock();
+
+        private int _stageEpoch => _clock.Epoch;
 
         /// <summary>True if <paramref name="epoch"/> is still the current stage
         /// generation — a content apply calls this after each await and stops
         /// touching the stage once it's stale.</summary>
-        private bool StageCurrent(int epoch) => _stageEpoch == epoch;
+        private bool StageCurrent(int epoch) => _clock.IsCurrent(epoch);
 
         private void ResetStage()
         {
-            _stageEpoch++; // supersede any in-flight content apply from the old scene
+            _clock.NewEpoch(); // работа прошлой сцены теряет право рисовать (и барьеры с ней)
             // Кто и когда стирает сцену — ключ к «белому полотну после главы»:
             // уборка, пришедшая ПОСЛЕ постановки меню, снимает его фон.
             LvnLog.Trace($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
@@ -349,8 +355,7 @@ namespace Lvn.UI
             _placements.Clear();
             _actorCmds.Clear();
             _actorTargets.Clear();
-            _actorExitBarrierUntil = 0f;
-            _actorVisibilityBarrierUntil = 0f;
+            _clock.Reset(); // барьеры и дорожки прошлой сцены
             _spokenIds.Clear();
             _soloHidden.Clear();
             _dragId = null;

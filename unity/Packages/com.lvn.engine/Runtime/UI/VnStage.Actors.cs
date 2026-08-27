@@ -36,11 +36,10 @@ namespace Lvn.UI
         // entering speaker's name is on the correct side from the first frame.
         private readonly Dictionary<string, Placement> _actorTargets = new Dictionary<string, Placement>();
 
-        // Per-actor apply generation: rapid wardrobe browsing fires overlapping
-        // ApplyActorAsync calls whose sprite loads finish out of order — only
-        // the NEWEST may touch the renderer, or an older outfit "wins" by
-        // arriving late.
-        private readonly Dictionary<string, int> _actorGen = new Dictionary<string, int>();
+        // Поколение показа у каждого актёра — дорожка Хронометриста: быстрый
+        // перебор нарядов запускает несколько ApplyActorAsync, чьи загрузки
+        // финишируют вразнобой, и трогать рендерер имеет право только самый
+        // новый (иначе прежний наряд «выигрывает», приехав позже).
 
         // История подбора: 1.4 × 1.3 × 0.8 = 1.456; 25.08 Илья попросил
         // «быстрее» дважды — минус 40%, затем ещё минус 15%:
@@ -54,10 +53,10 @@ namespace Lvn.UI
         // transitions in the same frame.  Keep asset loading parallel, but gate
         // the next ACTOR reveal until every already-started actor exit has used
         // its full realtime duration. Objects are deliberately excluded.
-        private float _actorExitBarrierUntil;
-        // Input uses the same clock to keep a rapid tap from replacing a card
-        // while the actor belonging to that beat is still entering or leaving.
-        private float _actorVisibilityBarrierUntil;
+        // Барьеры уходов и видимости — тоже у Хронометриста
+        // (LvnStageClock.ActorExitBarrier / ActorVisibilityBarrier): уходящий
+        // доигрывает уход прежде, чем войдёт следующий, а тап не меняет
+        // реплику, пока актёр этой реплики ещё летит.
 
 
 
@@ -66,8 +65,7 @@ namespace Lvn.UI
         private void ArmActorExitBarrier(Placement p)
         {
             if (p.ExitTransition == TransitionType.None || p.TransitionDuration <= 0.001f) return;
-            _actorExitBarrierUntil = Mathf.Max(_actorExitBarrierUntil,
-                Time.realtimeSinceStartup + p.TransitionDuration);
+            _clock.Hold(LvnStageClock.ActorExitBarrier, p.TransitionDuration);
         }
 
         private void ArmActorVisibilityBarrier(JObject cmd, bool visibilityChanged, Placement p)
@@ -76,8 +74,7 @@ namespace Lvn.UI
                 || p.TransitionDuration <= 0.001f) return;
             var transition = p.Show ? p.EnterTransition : p.ExitTransition;
             if (transition == TransitionType.None) return;
-            _actorVisibilityBarrierUntil = Mathf.Max(_actorVisibilityBarrierUntil,
-                Time.realtimeSinceStartup + p.TransitionDuration);
+            _clock.Hold(LvnStageClock.ActorVisibilityBarrier, p.TransitionDuration);
             // A cold asset can begin its real entrance after the nominal early
             // barrier already unlocked the line. Reclaim input immediately and
             // let the same generation-aware gate reopen it at the new deadline.
@@ -101,7 +98,7 @@ namespace Lvn.UI
         {
             while (StageCurrent(epoch))
             {
-                float left = _actorExitBarrierUntil - Time.realtimeSinceStartup;
+                float left = _clock.Remaining(LvnStageClock.ActorExitBarrier);
                 if (left <= 0.001f) return;
                 // LvnFade also runs on realtime, so this barrier finishes on the
                 // same clock even when game time is paused or accelerated.
@@ -303,8 +300,8 @@ namespace Lvn.UI
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
             int epoch = _stageEpoch; // the scene this apply belongs to (see ResetStage)
-            int gen = (_actorGen.TryGetValue(id, out var g) ? g : 0) + 1;
-            _actorGen[id] = gen; // this call owns the actor until a newer one starts
+            var lane = LvnStageClock.ActorLane(id);
+            int gen = _clock.Claim(lane); // показ мой, пока не начнётся новее
 
             // Spine entities render through the optional spine-unity bridge —
             // a different pipeline entirely (runtime skeleton, own animations).
@@ -605,8 +602,7 @@ namespace Lvn.UI
                             miniRects?.Add(i < urlRects.Count ? urlRects[i] : Vector4.zero);
                             miniDefs?.Add(i < urlDefs.Count ? urlDefs[i] : default);
                         }
-                        if (mini.Count > 0 && StageCurrent(epoch)
-                            && (!_actorGen.TryGetValue(id, out var sg) || sg == gen))
+                        if (mini.Count > 0 && _clock.MayTouch(epoch, lane, gen))
                         {
                             var silPl = placement;
                             silPl.Silhouette = true;
@@ -644,10 +640,10 @@ namespace Lvn.UI
             // THIS apply is still the actor's newest — a faceless/bodyless actor
             // must not survive a 2-second connectivity blip.
             Task<Sprite> LoadLayerAsync(string u) => LoadSceneSpriteAsync(u, "actor layer",
-                () => StageCurrent(epoch) && (!_actorGen.TryGetValue(id, out var curGen) || curGen == gen));
+                () => _clock.MayTouch(epoch, lane, gen));
             // A newer apply started while our sprites loaded — ITS art must win;
             // this stale pass may not touch the renderer (late-arrival outfit bug).
-            if (_actorGen.TryGetValue(id, out var cur) && cur != gen) return;
+            if (!_clock.IsNewest(lane, gen)) return;
 
             // The outgoing actor is already fading while this actor's layers load.
             // Only the visual reveal is serialized; cached/network work remains
@@ -655,8 +651,7 @@ namespace Lvn.UI
             if (!wasVisibleBeforeShow && IsCharacterCommand(cmd))
             {
                 await WaitForActorExitsAsync(epoch);
-                if (!StageCurrent(epoch)) return;
-                if (_actorGen.TryGetValue(id, out cur) && cur != gen) return;
+                if (!_clock.MayTouch(epoch, lane, gen)) return;
             }
 
             // Идущий кроссфейд облика ДОИГРЫВАЕТ: новое применение стыкуется за
@@ -665,12 +660,10 @@ namespace Lvn.UI
             // Ожидание конечно: дедлайн — фиксированный момент (≤0.3 с), а тот,
             // кто его продлил, сначала уронил наш gen — выйдем по проверке.
             float swapLeft;
-            while ((swapLeft = (_renderer?.ActorSwapDeadline(id) ?? 0f)
-                    - Time.realtimeSinceStartup) > 0.001f)
+            while ((swapLeft = _clock.Remaining(LvnStageClock.SwapBarrier(id))) > 0.001f)
             {
                 await Task.Delay(Mathf.Max(1, Mathf.CeilToInt(swapLeft * 1000f)));
-                if (!StageCurrent(epoch)) return;
-                if (_actorGen.TryGetValue(id, out cur) && cur != gen) return;
+                if (!_clock.MayTouch(epoch, lane, gen)) return;
             }
 
             // Loading may have outlived the early nominal barrier. Re-arm from
@@ -695,8 +688,7 @@ namespace Lvn.UI
                 await PreloadFramesAsync(id, animEntity);
                 // The frame preload awaited network — a chapter change or a newer
                 // apply may own the actor now; stale anim state must not leak in.
-                if (!StageCurrent(epoch)) return;
-                if (_actorGen.TryGetValue(id, out var animGen) && animGen != gen) return;
+                if (!_clock.MayTouch(epoch, lane, gen)) return;
 
                 LvnAnim idle = null, blink = null, talk = null;
                 foreach (var kv in animEntity.anim)

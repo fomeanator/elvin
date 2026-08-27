@@ -351,7 +351,7 @@ namespace Lvn.UI
         {
             if (gen != _dialogueSwapGeneration || !_sayUp || _dialogue == null) return;
             if (_curChoices != null && _curChoices.Count > 0) return;
-            float left = _actorVisibilityBarrierUntil - Time.realtimeSinceStartup;
+            float left = _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
             if (left > 0.001f)
             {
                 _dialogue.schedule.Execute(() => UnlockSayWhenChoreographyReady(gen))
@@ -532,7 +532,7 @@ namespace Lvn.UI
         {
             if (gen != _dialogueSwapGeneration || _choices == null
                 || _curChoices == null || _curChoices.Count == 0) return;
-            float left = _actorVisibilityBarrierUntil - Time.realtimeSinceStartup;
+            float left = _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
             if (left > 0.001f)
             {
                 _choices.schedule.Execute(() => EnableChoiceWhenChoreographyReady(gen))

@@ -98,10 +98,9 @@ namespace Lvn.UI
             }
         }
         private bool _awaitingWait;
-        // Wait generation: a hotspot jump mid-`wait` cancels the pending timer —
-        // otherwise WaitCoroutine's deferred Advance() fired AFTER the jump and
-        // swallowed a beat somewhere else (the timed-hotspot-screen pattern).
-        private int _waitGen;
+        // Ожидание живёт дорожкой Хронометриста (LvnStageClock.WaitLane): прыжок
+        // по горячей точке посреди `wait` отменяет таймер — иначе отложенный
+        // Advance срабатывал ПОСЛЕ прыжка и съедал реплику в другом месте.
         // Current on-screen beat — restored after a live theme rebuild so ApplyTheme
         // is safe to call mid-line (realtime theming keeps the line/choices visible).
         private bool _sayUp;
@@ -281,6 +280,7 @@ namespace Lvn.UI
             {
                 // sortingOrder below the panel (10) so the UITK chrome composites on top.
                 var scene = new World.WorldStage(transform, sortingOrder: 0);
+                scene.Clock = _clock;   // сроки своих кроссфейдов рендерер сдаёт Хронометристу
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);
                 LvnAsync.Fire(ApplyDefaultBackdropAsync(scene), "ApplyDefaultBackdrop"); // seamless tiled filler instead of flat black

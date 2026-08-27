@@ -327,7 +327,7 @@ namespace Lvn.UI
                     // have re-created a slot with this same id, so a null-check
                     // isn't enough — this stale build would parent a SECOND
                     // skeleton into the new scene and orphan/leak one. Bail on a
-                    // superseded epoch. (Sprites are fenced by _actorGen; spine
+                    // superseded epoch. (Спрайты сторожит дорожка актёра; spine
                     // had no equivalent.)
                     if (!StageCurrent(epoch)) return;
                     slot = canvas.RigFor(id);

@@ -75,7 +75,6 @@ namespace Lvn.UI
 
         // Monotonic backdrop generation: a retrying older bg must never paint
         // over a newer one that already landed (or is in flight).
-        private int _bgGen;
         private Lvn3DSetAsset _active3DSet;
         private string _active3DSetId;
 
@@ -131,14 +130,14 @@ namespace Lvn.UI
                 return; // БЕЗ HasBackdrop: врать про фон нельзя, страж досылает
             }
             int epoch = _stageEpoch;
-            int gen = ++_bgGen;
+            int gen = _clock.Claim(LvnStageClock.BackgroundLane);
             var sprite = await LoadSceneSpriteAsync(url, "bg",
-                () => StageCurrent(epoch) && _bgGen == gen);
+                () => _clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen));
             if (sprite == null) { LvnLog.Trace($"[lvn-bg] bg НЕ ЗАГРУЗИЛСЯ: {url}"); return; }
-            if (!StageCurrent(epoch) || _bgGen != gen)
+            if (!_clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen))
             {
                 LvnLog.Trace($"[lvn-bg] bg отменён на подлёте: {url} " +
-                          $"(epoch {epoch}→{_stageEpoch}, gen {gen}→{_bgGen})");
+                          $"(epoch {epoch}→{_clock.Epoch}, поколение фона {gen} устарело)");
                 return; // a chapter change / newer bg won
             }
             // Смена фона растворяет прежний кадр (тема ui.stage.bg_fade;
@@ -216,7 +215,7 @@ namespace Lvn.UI
         {
             if (BoolOr(cmd["off"], false) || (string)cmd["id"] == "off")
             {
-                ++_bgGen; // supersede a bundle still downloading
+                _clock.Cancel(LvnStageClock.BackgroundLane); // отменяем ещё качающийся бандл
                 _renderer?.Set3DBackdrop(null);
                 ReleaseActive3DSet();
                 return;
@@ -245,7 +244,7 @@ namespace Lvn.UI
                 {
                     if (Assets == null) return;
                     int epoch = _stageEpoch;
-                    int gen = ++_bgGen;
+                    int gen = _clock.Claim(LvnStageClock.BackgroundLane);
                     Lvn3DSetAsset loaded = null;
                     try { loaded = await Assets.Load3DSetAsync(id, _cts.Token); }
                     catch (OperationCanceledException) { return; }
@@ -254,7 +253,7 @@ namespace Lvn.UI
                         Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}");
                     }
                     if (loaded?.Prefab == null) { loaded?.Dispose(); return; } // keep the flat background
-                    if (!StageCurrent(epoch) || _bgGen != gen)
+                    if (!_clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen))
                     {
                         loaded.Dispose(); // a newer background won while this downloaded
                         return;
