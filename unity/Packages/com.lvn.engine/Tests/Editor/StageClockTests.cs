@@ -86,6 +86,38 @@ namespace Lvn.Tests
             Assert.IsFalse(_clock.MayTouch(epoch, lane, fresh));
         }
 
+        // Регресс первой версии Хронометриста: сброс сцены обнулял ДОРОЖКИ
+        // вместе с барьерами, и работа, начатая до сброса, снова оказывалась
+        // «новейшей» — счётчик возвращался к её номеру. Единственная защита от
+        // опоздавшего в том, что его номер уже никогда не повторится.
+        [Test]
+        public void NewScene_DoesNotRewindLaneNumbers()
+        {
+            var lane = LvnStageClock.ActorLane("hill");
+            int old = _clock.Claim(lane);      // показ поехал за артом
+
+            _clock.NewEpoch();                 // сменилась глава
+            int fresh = _clock.Claim(lane);    // новая сцена ставит того же актёра
+
+            Assert.AreNotEqual(old, fresh, "номер на дорожке обязан только расти");
+            Assert.IsFalse(_clock.IsNewest(lane, old),
+                "работа прошлой сцены не смеет снова стать новейшей");
+        }
+
+        [Test]
+        public void ReleaseAll_DropsBarriersButKeepsLaneNumbers()
+        {
+            var lane = LvnStageClock.WaitLane;
+            int ticket = _clock.Claim(lane);
+            _clock.Claim(lane);                 // ticket устарел
+            _clock.Hold(LvnStageClock.ActorExitBarrier, 3f);
+
+            _clock.ReleaseAll();
+
+            Assert.IsTrue(_clock.Passed(LvnStageClock.ActorExitBarrier), "барьеры сняты");
+            Assert.IsFalse(_clock.IsNewest(lane, ticket), "а память дорожек цела");
+        }
+
         [Test]
         public void Cancel_RetiresAWaitWithoutStartingOne()
         {
