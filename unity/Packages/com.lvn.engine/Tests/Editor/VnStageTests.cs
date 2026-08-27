@@ -26,6 +26,32 @@ namespace Lvn.Tests
             Assert.AreEqual(0.3f, p.TransitionDuration, 0.001f);
         }
 
+        // Манекен гардероба приходит своей синтетической командой (центр,
+        // 0.92×1.06). Она ЛИПКАЯ: следующая авторская команда без position
+        // наследует место и размер от предыдущей — и героиня, единожды
+        // показанная гардеробом, осталась бы по центру до конца главы (живой
+        // репорт партнёра). Тест держит саму липкость честной: наследование
+        // работает, поэтому память о госте обязана уходить вместе с ним.
+        [Test]
+        public void StickyMerge_InheritsPlaceFromThePreviousCommand()
+        {
+            var mannequin = new JObject
+            {
+                ["op"] = "actor", ["id"] = "hill", ["show"] = true,
+                ["position"] = "center", ["width"] = 0.92f, ["height"] = 1.06f,
+            };
+            var placed = VnStage.PlacementFrom(mannequin);
+            Assert.AreEqual(0.5f, placed.X, 0.001f, "манекен встал по центру");
+
+            // Следующая авторская команда говорит только про эмоцию.
+            var next = new JObject { ["op"] = "actor", ["id"] = "hill", ["emotion"] = "happy" };
+            var merged = VnStage.PlacementFrom(next, placed);
+
+            Assert.AreEqual(0.5f, merged.X, 0.001f,
+                "без position место наследуется — потому гостя и нельзя оставлять в памяти");
+            Assert.AreEqual(0.92f, merged.Width ?? 0f, 0.001f, "и размер тоже");
+        }
+
         [Test]
         public void PlacementFromExplicitPosition()
         {

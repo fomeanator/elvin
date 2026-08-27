@@ -195,10 +195,21 @@ namespace Lvn.UI.Screens
             // Who stood on stage BEFORE the fitting. The wardrobe temporarily
             // shows exactly one mannequin; this original cast returns at close.
             var wasOn = new HashSet<string>(st != null ? st.ActorsOnStage() : new List<string>());
+            // Кого сцена НЕ помнит по сценарию: их гардероб выводит своим
+            // манекеном, и после примерки о них надо забыть — вместе с местом
+            // и размером, которые манекен принёс с собой.
+            var borrowed = new HashSet<string>();
+            void NoteBorrowed(string id)
+            {
+                if (st != null && !string.IsNullOrEmpty(id) && !st.RememberedByScript(id))
+                    borrowed.Add(id);
+            }
+            NoteBorrowed(entity);
             ++_storyActorSwitchGeneration; // invalidate a task from an older open
             _storySheet.OnCharacterPicked = (_, to) =>
             {
                 if (st == null) return;
+                NoteBorrowed(to);
                 int gen = ++_storyActorSwitchGeneration;
                 LvnAsync.Fire(st.FocusWardrobeActorAsync(to,
                     () => gen == _storyActorSwitchGeneration
@@ -221,6 +232,12 @@ namespace Lvn.UI.Screens
                     await st.HideActorTemporarilyAndWaitAsync(cur);
                 foreach (var original in wasOn)
                     st.EnsureActorShown(original, fadeOnly: true);
+                // Манекен, которого в сцене не было, уходит БЕЗ СЛЕДА: его
+                // синтетическая команда (центр, 0.92×1.06) липкая, и следующая
+                // авторская без position приклеилась бы к ней — героиня так и
+                // осталась бы стоять по центру до конца главы.
+                foreach (var guest in borrowed)
+                    if (!wasOn.Contains(guest)) st.ForgetActor(guest);
                 await st.HidePanelAsync();              // frame leaves, dialogue returns
             }
         }
