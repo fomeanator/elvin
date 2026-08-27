@@ -48,12 +48,53 @@ namespace Lvn.UI
         public static VisualElement Make(LvnIcon icon, float size, Color color,
                                          float stroke = 0f, float glow = 0f)
         {
-            var el = new VisualElement { pickingMode = PickingMode.Ignore };
+            var el = new Drawn { pickingMode = PickingMode.Ignore };
             el.style.width = size;
             el.style.height = size;
             el.style.flexShrink = 0;   // иначе в тесной строке иконка схлопнется в ноль
             Paint(el, icon, color, stroke, glow);
             return el;
+        }
+
+        /// <summary>
+        /// ЗНАЧОК, КОТОРЫЙ МОЖНО ПЕРЕКРАСИТЬ, не пересоздавая.
+        ///
+        /// <para>Рисование подписывается на <c>generateVisualContent</c>, и
+        /// подписка держит цвет в замыкании: позвать <see cref="Paint"/> второй
+        /// раз значило бы нарисовать значок ДВАЖДЫ — старым цветом и новым. Из
+        /// этого и выросло «пересоздать иконку», а из пересоздания — мигание
+        /// вкладок, которым подмену прикрывали.</para>
+        ///
+        /// <para>Здесь подписка одна, а цвет — поле: сменить его и попросить
+        /// перерисовку. Значок остаётся тем же элементом, и менять его можно
+        /// хоть каждый кадр.</para>
+        /// </summary>
+        private sealed class Drawn : VisualElement
+        {
+            public LvnIcon Icon;
+            public Color Color;
+            public float Stroke, Glow;
+            public bool Subscribed;
+        }
+
+        /// <summary>Перекрасить значок НА МЕСТЕ. Не значок (чужой элемент) —
+        /// молча ничего: звонящий не обязан знать, что ему досталось.</summary>
+        public static void Tint(VisualElement el, Color color, float glow = 0f)
+        {
+            if (el is not Drawn drawn) return;
+            if (drawn.Color == color && Mathf.Approximately(drawn.Glow, glow)) return;
+            drawn.Color = color;
+            drawn.Glow = glow;
+            drawn.MarkDirtyRepaint();
+        }
+
+        /// <summary>Сменить сам значок на месте (иконка вкладки, значок
+        /// валюты после смены новеллы).</summary>
+        public static void Retarget(VisualElement el, LvnIcon icon)
+        {
+            if (el is not Drawn drawn || drawn.Icon == icon) return;
+            drawn.Icon = icon;
+            drawn.MarkDirtyRepaint();
         }
 
         /// <summary>ЗНАЧОК ВАЛЮТЫ — один на всю оболочку. Кошелёк показывают
@@ -88,8 +129,21 @@ namespace Lvn.UI
                                  float stroke = 0f, float glow = 0f)
         {
             if (el == null) return;
+            if (el is Drawn own)
+            {
+                own.Icon = icon; own.Color = color; own.Stroke = stroke; own.Glow = glow;
+                if (own.Subscribed) { own.MarkDirtyRepaint(); return; }
+                own.Subscribed = true;
+                // Дальше идёт та же отрисовка, но читает она ПОЛЯ элемента, а
+                // не замыкание, поэтому подписка нужна одна на всю его жизнь.
+                icon = own.Icon; color = own.Color; stroke = own.Stroke; glow = own.Glow;
+            }
             el.generateVisualContent += ctx =>
             {
+                if (ctx.visualElement is Drawn d)
+                {
+                    icon = d.Icon; color = d.Color; stroke = d.Stroke; glow = d.Glow;
+                }
                 var r = ctx.visualElement.contentRect;
                 // До первой раскладки размер — NaN. Рисовать по нему значит
                 // получить мусор в буфере вершин, а не пустоту.
