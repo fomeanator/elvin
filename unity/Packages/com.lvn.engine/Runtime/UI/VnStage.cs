@@ -183,7 +183,7 @@ namespace Lvn.UI
                 if (blank != _bgWasBlankWhite)
                 {
                     _bgWasBlankWhite = blank;
-                    Debug.Log($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
+                    LvnLog.Trace($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
                               + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
                 }
                 if (Time.unscaledTime >= _nextDeadLayerCheck)
@@ -231,7 +231,7 @@ namespace Lvn.UI
         public void DumpOpaqueGraphics()
         {
             var root = (_renderer as CanvasSceneRenderer)?.Root;
-            if (root == null) { Debug.Log("[lvn-white] сцена: корня нет"); return; }
+            if (root == null) { LvnLog.Trace("[lvn-white] сцена: корня нет"); return; }
             var sb = new StringBuilder("[lvn-white] сплошные светлые поверхности СЦЕНЫ:\n");
             int found = 0;
             foreach (var g in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(false))

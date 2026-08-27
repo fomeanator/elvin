@@ -396,7 +396,12 @@ namespace Lvn.UI.Screens
             _confirmRow.Add(_confirmCoin);
         }
 
-        private string ConfirmText => _confirmLabel != null ? _confirmLabel.text : _confirm.text;
+        /// <summary>Что сейчас предлагает кнопка подтверждения («Выбрать»,
+        /// «Купить: 300»). Своё свойство, потому что подпись составная: у
+        /// Button.text её больше нет — там дочерняя строка со значком валюты.</summary>
+        public string ConfirmCaption => _confirmLabel != null ? _confirmLabel.text : _confirm?.text;
+
+        private string ConfirmText => ConfirmCaption;
 
         public void SetManifest(LvnManifest manifest) => _manifest = manifest;
 
@@ -587,6 +592,7 @@ namespace Lvn.UI.Screens
             _def = _entity != null && _manifest?.sprites != null
                    && _manifest.sprites.TryGetValue(_entity, out var d) ? d : null;
             _index.Clear();
+            _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
             _tab = null;
             _title.text = _cfg.title ?? "Wardrobe";
@@ -692,15 +698,16 @@ namespace Lvn.UI.Screens
             // tab. Otherwise she stands in last chapter's (possibly retired)
             // outfit until the player taps that tab, and the swap lands as a jump.
             //
-            // Это ОДЕВАНИЕ, а не примерка, и потому три условия. Надетым
-            // считается и дефолт каталога — иначе у игрока, который ещё ничего
-            // не выбирал, «надето» пусто, и лист переодевал героиню при каждом
-            // открытии. Берётся первый предмет, которым игрок ВЛАДЕЕТ: молча
-            // надевать неоплаченное нельзя. И пишется в надетое, а не в
-            // превью — превью означает «есть что подтвердить», из-за чего
-            // «Выбрать» и «Отменить» горели всегда, хотя игрок ничего не
-            // трогал (живой скрин 27.08; в APK, где героиня уже одета из
-            // листа, они честно гасли).
+            // Три условия, каждое закрывает свою щель. Надетым считается и
+            // дефолт каталога — иначе у игрока, который ещё ничего не выбирал,
+            // «надето» пусто, и лист переодевал героиню при каждом открытии.
+            // Берётся первый предмет, которым игрок ВЛАДЕЕТ: примерять
+            // неоплаченное лист не вправе. И примерка ПОМЕЧАЕТСЯ системной
+            // (_autoDressed): подтверждать в ней нечего, пока игрок сам ничего
+            // не выбрал, — иначе «Выбрать» и «Отменить» горят всегда, хотя он
+            // только открыл гардероб (живой скрин 27.08). Надеть по-настоящему
+            // тоже нельзя: покупка и выбор — раздельные акты, а тихий equip на
+            // открытии листа сделал бы выбор за игрока.
             foreach (var kv in _def.wardrobe)
             {
                 var axis = kv.Key;
@@ -722,10 +729,9 @@ namespace Lvn.UI.Screens
                     if (IsOwnedIn(axis, items[n])) owned = n;
                 if (owned < 0) continue; // всё платное — пусть остаётся как есть
                 _index[axis] = owned;
-                Debug.Log($"[lvn-wardrobe] лист одевает {_entity}.{axis}: '{worn ?? "-"}' не из этого листа → '{items[owned].value}'");
-                LvnWardrobe.Equip(_entity, axis, items[owned].value);
-                if (!string.IsNullOrEmpty(kv.Value?.storyVar))
-                    OnEquip?.Invoke(_entity, kv.Value.storyVar, items[owned].value);
+                LvnLog.Trace($"[lvn-wardrobe] лист одевает {_entity}.{axis}: '{worn ?? "-"}' не из этого листа → '{items[owned].value}'");
+                LvnWardrobe.Preview(_entity, axis, items[owned].value);
+                _autoDressed[axis] = items[owned].value;
             }
 
             RebuildEmotions();
@@ -1413,9 +1419,8 @@ namespace Lvn.UI.Screens
             if (items.Count == 0) return;
             var item = items[Mathf.Clamp(_index.TryGetValue(_tab, out var i) ? i : 0, 0, items.Count - 1)];
             RefreshLabel();
-            bool owned = item.price <= 0
-                || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
-            Debug.Log($"[lvn-wardrobe] sheet preview {_entity}.{_tab} = '{item.value}' " +
+            bool owned = IsOwned(item);
+            LvnLog.Trace($"[lvn-wardrobe] sheet preview {_entity}.{_tab} = '{item.value}' " +
                       $"(price={item.price} {item.currency ?? "-"}, owned={owned})");
             LvnWardrobe.Preview(_entity, _tab, item.value); // the live actor is the mirror
             StyleStrip(); // лента подсвечивает и довозит выбранную карточку
@@ -1434,9 +1439,12 @@ namespace Lvn.UI.Screens
             return items[Mathf.Clamp(_index.TryGetValue(_tab, out var i) ? i : 0, 0, items.Count - 1)];
         }
 
-        private bool IsOwned(LvnWardrobeItem item) =>
-            item == null || item.price <= 0
-            || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, _tab, item.value));
+        // Предмет уже принадлежит игроку: бесплатный или лежит в инвентаре
+        // кошелька. Правило одно и живёт в IsOwnedIn; здесь — «на активной
+        // вкладке». Тело этой проверки было списано в пяти местах листа, и
+        // любая правка (скидка, подарок, отладочная выдача) требовала найти
+        // все пять.
+        private bool IsOwned(LvnWardrobeItem item) => IsOwnedIn(_tab, item);
 
         // Что кнопке предлагать купить: предмет карусели, а если он свой —
         // непринадлежащая примерка из ПОДНАСТРОЕК раздела (цвет волос тоже
@@ -1464,12 +1472,18 @@ namespace Lvn.UI.Screens
         // Есть ли НЕСОХРАНЁННАЯ примерка: превью, отличающееся от надетого, по
         // ГАРДЕРОБНОЙ оси. Лицо примеряется мимо гардероба («Выбрать» его не
         // коммитит) и в счёт не идёт, иначе тап по эмоции оживлял бы кнопки.
+        // Оси, которые лист примерил САМ при открытии (надетое «не из этого
+        // листа»): ось → что примерено. Пока превью совпадает с этим значением,
+        // выбор игрока в нём не участвует, и кнопкам нечего подтверждать.
+        private readonly Dictionary<string, string> _autoDressed = new Dictionary<string, string>();
+
         private bool HasPendingLook()
         {
             if (_def?.wardrobe == null) return false;
             foreach (var kv in LvnWardrobe.Previewed(_entity))
             {
                 if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
+                if (_autoDressed.TryGetValue(kv.Key, out var auto) && auto == kv.Value) continue;
                 LvnWardrobe.Equipped(_entity).TryGetValue(kv.Key, out var worn);
                 if (worn == null && _def.defaults != null) _def.defaults.TryGetValue(kv.Key, out worn);
                 // «Ничего не надето» и примерка пункта «Нет» — одно состояние:
@@ -1504,7 +1518,7 @@ namespace Lvn.UI.Screens
                         ? $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {_cfg.currency_label}"
                         : $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0}",
                     named ? null : item.currency);
-                Debug.Log($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
+                LvnLog.Trace($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
             else SetConfirmText(_cfg.confirm_text ?? "Choose");
@@ -1536,7 +1550,7 @@ namespace Lvn.UI.Screens
                 // never bought — snap it back rather than silently charging.
                 var previewed = new Dictionary<string, string>();
                 foreach (var kv in LvnWardrobe.Previewed(_entity)) previewed[kv.Key] = kv.Value;
-                Debug.Log($"[lvn-wardrobe] sheet CHOOSE: previewed [{string.Join(", ", ToPairs(previewed))}], " +
+                LvnLog.Trace($"[lvn-wardrobe] sheet CHOOSE: previewed [{string.Join(", ", ToPairs(previewed))}], " +
                           $"inventory [{string.Join(", ", LvnWallet.Inventory.Keys)}]");
                 foreach (var kv in previewed)
                 {
@@ -1546,8 +1560,7 @@ namespace Lvn.UI.Screens
                         Debug.LogWarning($"[lvn-wardrobe] previewed {kv.Key}='{kv.Value}' has NO catalog item — skipped");
                         continue;
                     }
-                    bool owned = item.price <= 0
-                        || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, kv.Key, item.value));
+                    bool owned = IsOwnedIn(kv.Key, item);
                     if (!owned)
                     {
                         LvnWardrobe.Preview(_entity, kv.Key, null); // browsed, not bought
@@ -1560,7 +1573,7 @@ namespace Lvn.UI.Screens
                         ? slot.storyVar : null;
                     if (!string.IsNullOrEmpty(sv)) OnEquip?.Invoke(_entity, sv, kv.Value);
                 }
-                Debug.Log($"[lvn-wardrobe] sheet choose DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]");
+                LvnLog.Trace($"[lvn-wardrobe] sheet choose DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]");
                 LvnWardrobe.ClearPreview(_entity); // equips now cover the look
                 _tcs?.TrySetResult(true);
             }
@@ -1578,9 +1591,9 @@ namespace Lvn.UI.Screens
         private async Task BuyCurrentAsync(string axis, LvnWardrobeItem item)
         {
             var sku = LvnWardrobe.Sku(_entity, axis, item.value);
-            Debug.Log($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
+            LvnLog.Trace($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
             bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
-            Debug.Log($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
+            LvnLog.Trace($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
                       $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
             LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
                 ("entity", _entity), ("sku", sku));

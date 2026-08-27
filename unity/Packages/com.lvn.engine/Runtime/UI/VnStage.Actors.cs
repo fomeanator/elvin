@@ -482,7 +482,7 @@ namespace Lvn.UI
                 // Диагностика облика: «почему лысая/не тот наряд» решается одной
                 // строкой лога вместо круга скриншотов — видно, какие слои и из
                 // каких осей собрались.
-                Debug.Log($"[lvn-actor] {id}: слои [{string.Join(",", rls.ConvertAll(r => r.Id))}] "
+                LvnLog.Trace($"[lvn-actor] {id}: слои [{string.Join(",", rls.ConvertAll(r => r.Id))}] "
                     + $"оси {{{string.Join(", ", System.Linq.Enumerable.Select(axes, kv => kv.Key + "=" + kv.Value))}}}");
                 urls = new List<string>(rls.Count);
                 urlIds = new List<string>(rls.Count);
@@ -619,7 +619,7 @@ namespace Lvn.UI
                     _placements, SlotsOf(id), out var slotOwner);
                 if (slotOwner != null && !Mathf.Approximately(arbX, placement.X))
                 {
-                    Debug.Log($"[lvn-slot] '{id}' → {placement.X:0.00} занято '{slotOwner}' — авто-сдвиг в {arbX:0.00}");
+                    LvnLog.Trace($"[lvn-slot] '{id}' → {placement.X:0.00} занято '{slotOwner}' — авто-сдвиг в {arbX:0.00}");
                     placement.X = arbX;
                 }
             }
@@ -725,7 +725,7 @@ namespace Lvn.UI
                         {
                             var silPl = placement;
                             silPl.Silhouette = true;
-                            Debug.Log($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
+                            LvnLog.Trace($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
                             _renderer?.ApplyActor(id, mini, silPl, onClick, miniIds, miniRects, miniDefs);
                             RepinSceneSprites("actor:" + id, mini); // заготовка на экране — держим
                             _placements[id] = silPl; // полный apply увидит «уже видим» → кроссфейд-проявление

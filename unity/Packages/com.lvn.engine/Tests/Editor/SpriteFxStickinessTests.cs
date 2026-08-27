@@ -110,14 +110,23 @@ namespace Lvn.Tests
                     new System.Collections.Generic.List<string> { "body", "face" });
 
                 Assert.IsTrue(actor.BeginTransitionVisual(), "sanity: переход ушёл в композит");
-                Assert.IsFalse(actor.Rig.gameObject.activeSelf, "sanity: живые слои спрятаны прокси");
+                // Слои гасятся ПОРИСОВОЧНО, а сам риг остаётся включённым:
+                // выключенный GameObject не тикает, и фейд его CanvasGroup
+                // замирал вместе с ним — прокси висел на экране навсегда
+                // («белый прямоугольник вместо героини», 26.08).
+                Assert.IsTrue(actor.Rig.gameObject.activeSelf, "sanity: риг живой — иначе фейду нечем тикать");
+                foreach (var img in actor.Rig.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+                    Assert.IsFalse(img.enabled, "sanity: живые слои спрятаны прокси");
 
                 LvnSpriteFxDriver.Apply(actor.gameObject, new JObject { ["dark"] = 0.88f });
 
-                Assert.IsTrue(actor.Rig.gameObject.activeSelf,
-                    "эффект одел спрятанный риг — на экране остался светлый прокси на весь фейд");
+                Assert.IsTrue(actor.Rig.gameObject.activeSelf, "риг остаётся живым");
                 foreach (var img in actor.Rig.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+                {
+                    Assert.IsTrue(img.enabled,
+                        "эффект одел спрятанные слои — иначе на экране остался бы светлый прокси на весь фейд");
                     Assert.IsNotNull(img.material, "вернувшийся слой обязан выйти уже одетым");
+                }
             }
             finally { Object.DestroyImmediate(host); }
         }

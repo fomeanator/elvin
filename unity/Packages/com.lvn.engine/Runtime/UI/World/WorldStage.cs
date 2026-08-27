@@ -417,7 +417,7 @@ namespace Lvn.UI.World
                 bool viaComposite = a.BeginTransitionVisual();
                 // След пути перехода: полдня охоты на «вспышку» стоило именно
                 // незнание, композитом герой гаснет или живыми слоями.
-                Debug.Log($"[lvn-actor] {id}: вход {p.EnterTransition} {dur:0.00}s — "
+                LvnLog.Trace($"[lvn-actor] {id}: вход {p.EnterTransition} {dur:0.00}s — "
                     + (viaComposite ? "композит" : "живые слои")
                     + (LvnSpriteFxDriver.WearsAuthoredFx(a.gameObject) ? " (sfx надет)" : ""));
                 if (p.EnterTransition == TransitionType.Drift)
@@ -439,14 +439,14 @@ namespace Lvn.UI.World
                 else LvnFade.Play(g, 0f, p.Opacity, dur,
                     () =>
                     {
-                        Debug.Log($"[lvn-actor] {id}: вход доиграл — возвращаем живые слои");
+                        LvnLog.Trace($"[lvn-actor] {id}: вход доиграл — возвращаем живые слои");
                         if (a != null) a.EndTransitionVisual();
                     });
             }
             else if (fadeOut)
             {
                 bool viaComposite = a.BeginTransitionVisual();
-                Debug.Log($"[lvn-actor] {id}: уход {p.ExitTransition} {dur:0.00}s — "
+                LvnLog.Trace($"[lvn-actor] {id}: уход {p.ExitTransition} {dur:0.00}s — "
                     + (viaComposite ? "композит" : "живые слои")
                     + (LvnSpriteFxDriver.WearsAuthoredFx(a.gameObject) ? " (sfx надет)" : ""));
                 // Уходящий остаётся видимым, пока идёт переход, и прячется его

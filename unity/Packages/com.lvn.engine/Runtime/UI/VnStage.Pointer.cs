@@ -140,7 +140,7 @@ namespace Lvn.UI
         {
             if (Time.realtimeSinceStartup - _lastSwallowLog < 1f) return;
             _lastSwallowLog = Time.realtimeSinceStartup;
-            Debug.Log($"[lvn-input] тап проглочен: {reason} (say={_sayUp} awaitingTap={_awaitingTap})");
+            LvnLog.Trace($"[lvn-input] тап проглочен: {reason} (say={_sayUp} awaitingTap={_awaitingTap})");
         }
 
         private void HandleTap(Vector2 pos)
@@ -202,7 +202,7 @@ namespace Lvn.UI
             else if (_sayUp && Time.realtimeSinceStartup - _sayUpSince > 1.5f
                      && Time.realtimeSinceStartup >= _actorVisibilityBarrierUntil)
             {
-                Debug.Log("[lvn-input] такт не ждал касания при видимой строке — самоисцеление тапом");
+                LvnLog.Trace("[lvn-input] такт не ждал касания при видимой строке — самоисцеление тапом");
                 _player.Advance();
             }
             else LogSwallow("такт не ждёт касания (передача карточки/барьер видимости)");
