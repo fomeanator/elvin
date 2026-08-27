@@ -73,7 +73,7 @@ namespace Lvn.UI.Screens
             b.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.Text);
             b.style.backgroundColor = primary
                 ? UiColor.Parse(_cfg.button_color, LvnTokens.Accent)
-                : UiColor.Parse(_cfg.button_secondary_color, new Color(1f, 1f, 1f, 0.10f));
+                : UiColor.Parse(_cfg.button_secondary_color, LvnTokens.Faint);
             b.style.borderTopWidth = 0; b.style.borderBottomWidth = 0;
             b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;
             float r = _cfg.button_radius ?? 26f;

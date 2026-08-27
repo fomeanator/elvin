@@ -40,6 +40,18 @@ namespace Lvn.UI
         // Перекрытия.
         public static Color Scrim   => LvnTheme.Current.Scrim;
         public static Color PanelBg => LvnTheme.Current.PanelBg;
+        public static Color Track   => LvnTheme.Current.Track;
+
+        /// <summary>ЗАТЕМНЕНИЕ нужной плотности — тон берётся у темы, alpha
+        /// задаёт вызывающий. Плотностей в оболочке много (подложка панели,
+        /// пилюля над сценой, полоса HUD), и каждая писалась своим
+        /// <c>new Color(0,0,0,0.5f)</c> — то есть мимо темы: на светлой или
+        /// холодной палитре такие места остаются чёрными пятнами.</summary>
+        public static Color Veil(float alpha)
+        {
+            var s = LvnTheme.Current.Scrim;
+            return new Color(s.r, s.g, s.b, Mathf.Clamp01(alpha));
+        }
 
         // Скругления. Были const; стали свойствами — константа не может
         // зависеть от темы, а зависеть обязана.

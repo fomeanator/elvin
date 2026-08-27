@@ -1669,7 +1669,7 @@ namespace Lvn.UI.Screens
             b.style.color = accent ? _accentText : UiColor.Parse(_ch?.text_color, _text);
             b.style.backgroundColor = accent
                 ? _accent
-                : UiColor.Parse(_ch?.color, new Color(1f, 1f, 1f, 0.07f));
+                : UiColor.Parse(_ch?.color, LvnTokens.Faint);
             LvnChrome.Round(b, _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
                 LvnAsync.Fire(ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0), "ApplyNineSlice");
