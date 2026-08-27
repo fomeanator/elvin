@@ -296,7 +296,7 @@ namespace Lvn.UI
             _stageEpoch++; // supersede any in-flight content apply from the old scene
             // Кто и когда стирает сцену — ключ к «белому полотну после главы»:
             // уборка, пришедшая ПОСЛЕ постановки меню, снимает его фон.
-            Debug.Log($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
+            LvnLog.Trace($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
             // Луп печати не должен пережить сцену: жёсткая смена главы может
             // снести диалог, не дав ему сообщить «печать кончилась».
             _audio?.StopTypingLoop();

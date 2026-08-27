@@ -652,7 +652,8 @@ namespace Lvn.UI.Screens
                     // ставит и полотно, и куклу — значит светлое пятно рисует
                     // сама оболочка. Через секунду после показа перечисляем
                     // ВСЕ крупные светлые непрозрачные поверхности дерева.
-                    _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
+                    if (Lvn.UI.LvnLog.Verbose)
+                        _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
                     title = await Hub.PickTitleAsync(ct);
                     if (ct.IsCancellationRequested) return;
                     Hide(Hub);

@@ -192,8 +192,9 @@ namespace Lvn.Tests
                 sheet.BuildFor(Entity);
                 sheet.Step(+1); // leather (free) → chain (300 gold, unowned)
 
-                string cta = null;
-                Walk(sheet, el => { if (el is Button b && (b.text.StartsWith("Купить") || b.text.StartsWith("Выбрать"))) cta = b.text; });
+                // Подпись читается свойством, а не обходом дерева: она составная
+                // (слово, цена, значок валюты), и у самой Button текста больше нет.
+                string cta = sheet.ConfirmCaption;
                 StringAssert.StartsWith("Купить", cta, "an unowned item offers a purchase, not a choose");
                 StringAssert.Contains("300", cta, "the buy button carries THIS item's price");
                 StringAssert.Contains("◆", cta, "currency_label replaces the raw currency id");

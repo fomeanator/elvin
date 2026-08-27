@@ -1579,11 +1579,11 @@ namespace Lvn.UI.Screens
         {
             if (Stage == null || _chapterPlaying)
             {
-                Debug.Log($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={_chapterPlaying}");
+                LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={_chapterPlaying}");
                 return;
             }
             var canvas = _manifest?.ui?.browse?.canvas;
-            Debug.Log($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
+            LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
                       + $"bgSet={_menuBgSet} → полотно {(!string.IsNullOrEmpty(canvas) && !_menuBgSet ? "СТАВИМ" : "не трогаем")}");
             if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
             {
@@ -1609,7 +1609,7 @@ namespace Lvn.UI.Screens
             // а повторная actor-команда только передёргивала куклу. Но если
             // кукла ПРОПАЛА (оборванная загрузка, сеть) — страж самолечится
             // и шлёт показ заново.
-            Debug.Log($"[lvn-menu] кукла: фаворит={fav ?? "-"}, стоявший={_menuSceneActor ?? "-"}, "
+            LvnLog.Trace($"[lvn-menu] кукла: фаворит={fav ?? "-"}, стоявший={_menuSceneActor ?? "-"}, "
                       + $"на сцене={(string.IsNullOrEmpty(fav) ? false : Stage.ActorVisibleOrPending(fav))}");
             // Через 1.5с (после входа куклы) перечислить сплошные светлые
             // поверхности сцены — охота на белый прямоугольник (26.08).
@@ -1725,8 +1725,14 @@ namespace Lvn.UI.Screens
         private float _nextMenuGuard;
         private float _menuBgMissingSince;
 
+        // Перечисление сплошных светлых поверхностей сцены — снасть охоты на
+        // «белый прямоугольник вместо героини» (26.08). Держится в коде,
+        // потому что баг был не один и тракт тот же; но обходить иерархию на
+        // каждый показ меню в живой игре незачем — только при включённой
+        // подробной диагностике.
         private async System.Threading.Tasks.Task DumpSceneSoonAsync()
         {
+            if (!LvnLog.Verbose) return;
             await System.Threading.Tasks.Task.Delay(1500);
             if (!_chapterPlaying) Stage?.DumpOpaqueGraphics();
         }
@@ -2072,7 +2078,7 @@ namespace Lvn.UI.Screens
                             }
                         }
                     }
-                Debug.Log($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
+                LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
             }
             catch (System.OperationCanceledException) { /* teardown */ }
         }

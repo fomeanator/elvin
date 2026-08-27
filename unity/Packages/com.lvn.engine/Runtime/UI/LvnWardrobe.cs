@@ -68,7 +68,7 @@ namespace Lvn.UI
                 return; // no change
             if (!remove) map[axis] = value;
             Persist(entity, map);
-            Debug.Log($"[lvn-wardrobe] equip {entity}.{axis} = {(remove ? "(off)" : value)}");
+            LvnLog.Trace($"[lvn-wardrobe] equip {entity}.{axis} = {(remove ? "(off)" : value)}");
             PublishChanged(entity, axis);
         }
 
