@@ -390,11 +390,9 @@ namespace Lvn.UI
 
         private void StyleGhost(Button b)
         {
-            b.style.backgroundColor = Color.clear;
-            b.style.color = _theme.MenuTextColor;
+            LvnStyler.Ghost(b, _theme.MenuTextColor);
             b.style.fontSize = 38;
             b.style.width = 52; b.style.height = 46;
-            LvnChrome.ClearBorder(b);
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
         }
 

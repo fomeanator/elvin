@@ -259,10 +259,7 @@ namespace Lvn.UI.Screens
             b.style.paddingTop = 14; b.style.paddingBottom = 14;
             b.style.paddingLeft = 16; b.style.paddingRight = 16;
             b.style.whiteSpace = WhiteSpace.Normal;
-            b.style.color = primary ? LvnTokens.OnAccent : LvnTokens.Text;
-            b.style.backgroundColor = primary ? LvnTokens.Accent : LvnTokens.Faint;
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, LvnTokens.RadiusSm);
+            LvnStyler.Choice(b, primary, LvnTokens.RadiusSm);
             return b;
         }
 

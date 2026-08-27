@@ -992,11 +992,10 @@ namespace Lvn.UI.Screens
         // so the wardrobe's controls read as the game's own buttons.
         private void SkinButton(Button b, bool accent)
         {
-            b.style.color = accent ? _accentText : UiColor.Parse(_ch?.text_color, _text);
-            b.style.backgroundColor = accent
-                ? _accent
-                : UiColor.Parse(_ch?.color, LvnTokens.Faint);
-            LvnChrome.Round(b, _ch?.corner_radius ?? _radius);
+            LvnStyler.Skinned(b,
+                accent ? _accent : UiColor.Parse(_ch?.color, LvnTokens.Faint),
+                accent ? _accentText : UiColor.Parse(_ch?.text_color, _text),
+                _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
                 LvnAsync.Fire(ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0), "ApplyNineSlice");
             else

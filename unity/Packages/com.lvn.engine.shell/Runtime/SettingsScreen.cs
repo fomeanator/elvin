@@ -432,10 +432,11 @@ namespace Lvn.UI.Screens
             b.style.fontSize = 24;
             b.style.paddingTop = 8; b.style.paddingBottom = 8;
             b.style.paddingLeft = 16; b.style.paddingRight = 16;
-            b.style.color = active ? LvnTokens.OnAccent : _text;
-            b.style.backgroundColor = active ? _accent : LvnTokens.Faint;
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, _radius);
+            // Роль — «один из вариантов», но палитру приносит новелла
+            // (accent_color/text_color в манифесте), поэтому не Choice, а Plate.
+            LvnStyler.Plate(b,
+                active ? _accent : LvnTokens.Faint,
+                active ? LvnTokens.OnAccent : _text, _radius);
         }
 
         // Пилюля оригинала носит ИМЯ ЯЗЫКА («Русский»), а не слово «Оригинал»
