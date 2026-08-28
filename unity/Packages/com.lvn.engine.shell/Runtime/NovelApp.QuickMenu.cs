@@ -271,7 +271,16 @@ namespace Lvn.UI.Screens
                 // TR-25: партнёр прячет ежедневную награду данными; сама
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
+                {
                     _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
+                    // НАГРАДУ НАДО ЕЩЁ И НАЧИСЛИТЬ. Экран поднимал OnClaim и
+                    // помечал день забранным, но подключить это к кошельку
+                    // должен хост — а он не подключал: игрок жал «Забрать»,
+                    // ячейка гасла, денег не приходило. Начисление живёт у
+                    // сервиса (он же обновляет кошелёк), здесь только провод.
+                    if (_shell.Daily != null)
+                        _shell.Daily.OnClaim = day => LvnAsync.Fire(ClaimDailyAsync(day), "ClaimDaily");
+                }
                 _shell.Hub.Currencies = HubCurrencies();
                 _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
                 _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(0), "TabHome");
@@ -312,6 +321,24 @@ namespace Lvn.UI.Screens
                 if (entries.Count > 0) _shell.Gallery.SetEntries(entries);
             }
             return _shell.OpenGalleryAsync();
+        }
+
+        /// <summary>
+        /// Забрать ежедневную награду: начисляет сервер, он же обновляет
+        /// кошелёк. Отказ показываем — молча погасшая ячейка без денег
+        /// неотличима от удачи, а спросить не у кого.
+        /// </summary>
+        private async Task ClaimDailyAsync(int day)
+        {
+            bool ok = false;
+            try { ok = await Lvn.Services.LvnDaily.ClaimAsync(); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] ежедневная награда: {ex.Message}"); }
+            if (ok) return;
+            Debug.LogWarning($"[novelapp] день {day}: награда не начислена");
+            if (_shell != null)
+                await _shell.AlertAsync(
+                    Lvn.Content.LvnWords.Of("daily.failed_title", "Reward not claimed"),
+                    Lvn.Content.LvnWords.Of("daily.failed", "The server did not confirm it — try again later."));
         }
 
         private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
