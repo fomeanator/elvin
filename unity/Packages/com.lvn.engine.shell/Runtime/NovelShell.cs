@@ -77,8 +77,6 @@ namespace Lvn.UI.Screens
         /// <summary>Единый навбар приложения (лого, кружок, валюты, бургер).</summary>
         public Lvn.UI.Screens.LvnTopBar TopBar;
 
-        private void OnWalletPills() => TopBar?.RefreshBalances();
-
         private readonly LvnLeash _leash = new LvnLeash();
 
         /// <summary>Отпустить всё, на что подписана оболочка. Зовёт хост при
@@ -398,12 +396,9 @@ namespace Lvn.UI.Screens
             // бар, и кружок оставался с игровым отступом поверх меню.
             OnChapterSessionStart += () => { ShowMenuChrome(); TabReset(); TopBar.SetInGame(true); };
             OnChapterSessionEnd += () => { ShowMenuChrome(); TopBar.SetInGame(false); };
-            // Было `-=` перед `+=` — защита от двойной подписки, но НЕ отписка:
-            // обработчик метод экземпляра, и у пересозданной оболочки делегат
-            // другой, так что прежняя подписка оставалась висеть навсегда и
-            // дёргала мёртвое дерево на каждое движение денег.
-            _leash.Hold(() => Lvn.Services.LvnWallet.Changed += OnWalletPills,
-                        () => Lvn.Services.LvnWallet.Changed -= OnWalletPills);
+            // Пилюли валют бар слушает сам (подписка в его конструкторе, снятие
+            // — на уходе с панели). Здесь стояла подписка ЗА него: оболочка
+            // знала, что бару нужно знать о деньгах.
 
             if (assets is CachingAssets ca)
             {
@@ -412,27 +407,19 @@ namespace Lvn.UI.Screens
                 _root.schedule.Execute(() =>
                 {
                     DownloadHud.Tick(ca.Loader.Transfers());
-                    // Safe area: бар и кружок сидят ПОД вырезом камеры. Число
-                    // берётся у КРОМОЧНИКА. Здесь стояла третья формула в
-                    // движке — и вдобавок неверная: `Screen.safeArea.y` это
-                    // НИЖНЯЯ граница безопасной области, то есть домашняя
-                    // полоса, а не чёлка. На телефонах, где оба выреза
-                    // ненулевые, это «почти работало» и потому не замечалось.
-                    float safe = Lvn.UI.LvnEdges.Insets(_root).x;
-                    if (!float.IsNaN(safe))
-                    {
-                        TopBar.SetSafeTop(safe);
-                        DownloadHud.SetSafeTop(safe);
-                    }
+                    // Safe area здесь больше не раздаётся: бар и кружок следят
+                    // за кромкой сами (LvnEdges.Follow в их конструкторах).
+                    // Хост мерил её раз в 300 мс и кормил двоих — то есть знал
+                    // за них, где у экрана край.
                     TopBar.SyncTapZone(); // зона и декор уступают модали сцены
                     DownloadHud.SetSceneModal(
                         !(TopBar.TapZoneAvailable?.Invoke() ?? true));
                 }).Every(300);
             }
 
-            // Кошелёк → пилюли навбара: подписка живёт выше (OnWalletPills).
-            // Здесь была ВТОРАЯ подписка — в полосу GameHud, которую убрали
-            // 26.08 и которая с тех пор ни разу не показывалась.
+            // Кошелёк → пилюли навбара: бар подписан на деньги сам. Здесь была
+            // ВТОРАЯ подписка — в полосу GameHud, которую убрали 26.08 и
+            // которая с тех пор ни разу не показывалась.
             _storeUi = ui.store;
         }
 
