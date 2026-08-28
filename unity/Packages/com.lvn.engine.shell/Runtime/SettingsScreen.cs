@@ -290,10 +290,10 @@ namespace Lvn.UI.Screens
             row.Add(seg);
             Button on = null, off = null;
             void Highlight() { StyleValueButton(on, get()); StyleValueButton(off, !get()); }
-            on = new Button { text = "Вкл" };
+            on = new Button { text = LvnWords.Of("common.on", "On") };
             on.style.marginLeft = 6;
             on.clicked += () => { set(true); Highlight(); };
-            off = new Button { text = "Выкл" };
+            off = new Button { text = LvnWords.Of("common.off", "Off") };
             off.style.marginLeft = 6;
             off.clicked += () => { set(false); Highlight(); };
             seg.Add(on); seg.Add(off);

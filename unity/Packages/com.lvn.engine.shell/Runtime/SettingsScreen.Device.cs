@@ -43,8 +43,8 @@ namespace Lvn.UI.Screens
                 downloaded = count == 0;
                 if (downloaded)
                 {
-                    status.text = $"скачано · занято {used >> 20} МБ";
-                    btn.text = "Удалить";
+                    status.text = LvnWords.Of("device.stored", "downloaded · {0} MB used", used >> 20);
+                    btn.text = LvnWords.Of("device.erase", "Erase");
                     btn.SetEnabled(ClearDownloads != null);
                 }
                 else
@@ -52,7 +52,7 @@ namespace Lvn.UI.Screens
                     status.text = "";
                     // «Докачать», когда на диске уже что-то живёт: игрок
                     // скачал почти всё — не предлагать ему «Скачать» заново.
-                    btn.text = (used > (8L << 20) ? "Докачать" : "Скачать")
+                    btn.text = (used > (8L << 20) ? LvnWords.Of("device.finish", "Finish download") : LvnWords.Of("device.download", "Download"))
                         + $" ≈{System.Math.Max(1, missing >> 20)} МБ";
                     btn.SetEnabled(true);
                 }
@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
                     {
                         var p = DownloadProgress?.Invoke() ?? (0, 0, false);
                         if (p.active)
-                            status.text = $"загрузка… {p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} МБ";
+                            status.text = LvnWords.Of("device.downloading", "downloading… {0}", $"{p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} " + LvnWords.Of("unit.mb", "MB"));
                         else
                             LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
                     }).Every(500);
@@ -149,13 +149,13 @@ namespace Lvn.UI.Screens
         {
             var row = RowEx("Восстановить покупки",
                 "Если после переустановки пропали покупки — нажмите");
-            var btn = new Button { text = "Восстановить" };
+            var btn = new Button { text = LvnWords.Of("device.restore", "Restore") };
             StyleValueButton(btn, false);
             btn.clicked += () =>
             {
                 LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
                 btn.text = "…";
-                btn.schedule.Execute(() => btn.text = "Готово").ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
+                btn.schedule.Execute(() => btn.text = LvnWords.Of("common.done", "Done")).ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
             };
             row.Add(btn);
             return row;

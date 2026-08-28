@@ -298,7 +298,9 @@ namespace Lvn.UI.Screens
             var ch = _chars[_char];
             _previewName.text = ch.Name;
             var worn = EquippedName(_char, _cat);
-            _previewWearing.text = worn != null ? "надето: " + worn : "ничего не надето";
+            _previewWearing.text = worn != null
+                ? LvnWords.Of("skinshop.worn", "worn: {0}", worn)
+                : LvnWords.Of("skinshop.worn_none", "nothing worn");
             LvnAsync.Fire(ScreenUi.AssignBgAsync(_previewImage, ch.Preview, _assets), "AssignBg");
         }
 
@@ -412,7 +414,7 @@ namespace Lvn.UI.Screens
 
             // Лента «Надето» появляется и исчезает при обновлении — держим её
             // место готовым, чтобы не трогать миниатюру под ней.
-            var ribbon = new Label("Надето") { viewDataKey = "ribbon" };
+            var ribbon = new Label(LvnWords.Of("skinshop.equipped", "Equipped")) { viewDataKey = "ribbon" };
             ribbon.style.position = Position.Absolute;
             ribbon.style.top = 10; ribbon.style.left = 10;
             ribbon.style.fontSize = 18;
@@ -468,7 +470,7 @@ namespace Lvn.UI.Screens
 
             if (equipped)
             {
-                var state = new Label("Активно");
+                var state = new Label(LvnWords.Of("skinshop.active", "Active"));
                 state.style.color = LvnTokens.Accent;
                 state.style.fontSize = 18;
                 state.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -476,7 +478,7 @@ namespace Lvn.UI.Screens
             }
             else if (skin.State == SkinState.Owned)
             {
-                var equip = new Button(() => Equip(skin)) { text = "Надеть" };
+                var equip = new Button(() => Equip(skin)) { text = LvnWords.Of("skinshop.equip", "Equip") };
                 equip.style.flexGrow = 1;
                 equip.style.fontSize = 20;
                 equip.style.paddingTop = 8; equip.style.paddingBottom = 8;

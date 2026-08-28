@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
-            var title = new Label("Галерея");
+            var title = new Label(LvnWords.Of("nav.gallery", "Gallery"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;
@@ -256,7 +256,7 @@ namespace Lvn.UI.Screens
                     el.RemoveFromHierarchy();
                     _grid.Insert(Mathf.Clamp(at, 0, _grid.childCount), fresh);
                 });
-            _counter.text = $"{unlocked} / {_entries.Count} открыто";
+            _counter.text = LvnWords.Of("gallery.counter", "{0} unlocked", $"{unlocked} / {_entries.Count}");
         }
 
         private void Close() => _tcs?.TrySetResult(true);

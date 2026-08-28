@@ -258,7 +258,9 @@ namespace Lvn.UI.Screens
                 // Подпись отдана основе (RefreshLabel ниже); своё слово витрина
                 // говорит, только когда основы нет и показывать нечего.
                 if (AllTabAxis == null)
-                    _itemName.text = shown > 0 ? "Мои скины" : "Пока пусто — загляни в разделы";
+                    _itemName.text = shown > 0
+                ? LvnWords.Of("wardrobe.my_skins", "My skins")
+                : LvnWords.Of("wardrobe.nothing_yet", "Nothing yet — look through the sections");
                 RebuildSubRow(animate); // на «Моё» это ряд основы
                 RefreshLabel();
                 RefreshArrows();
