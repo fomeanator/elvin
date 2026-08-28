@@ -29,7 +29,8 @@ namespace Lvn.UI.Screens
                 _menuMusic.loop = true;
                 _menuMusic.playOnAwake = false;
                 _menuMusic.volume = Lvn.UI.LvnVolumes.Of(Lvn.UI.LvnVolumes.Music); // тумблер и ползунок ведут и меню
-                Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume;
+                _leash.Hold(() => Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume,
+                            () => Lvn.UI.LvnPrefs.Changed -= SyncMenuMusicVolume);
                 if (!_chapterPlaying) _menuMusic.Play();
             }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] музыка меню: {ex.Message}"); }

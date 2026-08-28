@@ -355,7 +355,8 @@ namespace Lvn.UI.Screens
                 ? manifest.languages : System.Array.Empty<string>();
             if (!string.IsNullOrEmpty(LvnPrefs.Locale)) Locale = LvnPrefs.Locale;
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
-            LvnPrefs.Changed += OnPrefsMaybeLocale;
+            _leash.Hold(() => LvnPrefs.Changed += OnPrefsMaybeLocale,
+                        () => LvnPrefs.Changed -= OnPrefsMaybeLocale);
         }
 
         private async Task RevealChapterEntryAsync(LvnTitle title, LvnChapter chapter,
@@ -610,14 +611,18 @@ namespace Lvn.UI.Screens
             await Lvn.Services.LvnExperiments.RefreshAsync();
         }
 
+        /// <summary>Всё, на что подписан хост. Отписка была списком того, что
+        /// надо не забыть: из пяти подписок в нём числились две, а одна была
+        /// лямбдой, которую отписать нечем. Событие статическое, обработчик —
+        /// метод экземпляра: пересозданный NovelApp оставлял позади себя живой
+        /// объект, ссылающийся на уничтоженную оболочку.</summary>
+        private readonly LvnLeash _leash = new LvnLeash();
+
         private void OnDestroy()
         {
             _sync?.Stop();
-            LvnPrefs.Changed -= OnPrefsMaybeLocale;
-            // Событие статическое, а обработчик — метод экземпляра: без этой
-            // отписки пересозданный NovelApp оставил бы позади себя живой
-            // объект, ссылающийся на уничтоженную оболочку.
-            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
+            _leash.Release();
+            _shell?.ReleaseSubscriptions();
             // The veil is a root GameObject (it outlives this component by
             // design during boot) — a host tearing NovelApp down mid-boot must
             // not be left with an opaque, input-eating veil over its own UI.

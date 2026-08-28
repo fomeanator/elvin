@@ -349,7 +349,8 @@ namespace Lvn.UI.Screens
             // тем же обработчиком.
             ApplyDeepLink(Lvn.Services.LvnAttribution.LaunchUrl);
             Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
-            Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink;
+            _leash.Hold(() => Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink,
+                        () => Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink);
 
             var run = _shell.RunAsync(
                 bootReady: () => prefetch.IsCompleted,
