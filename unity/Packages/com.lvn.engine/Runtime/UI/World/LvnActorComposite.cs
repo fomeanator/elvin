@@ -288,13 +288,11 @@ namespace Lvn.UI.World
         {
             if (_material == null)
             {
-                var shader = Resources.Load<Shader>("LvnActorComposite");
-                if (shader == null || !shader.isSupported)
-                {
-                    Debug.LogWarning("[lvn-fade] LvnActorComposite shader is missing/unsupported; using live layers");
-                    return false;
-                }
-                _material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+                // Своё сообщение убрано: о пропаже говорит LvnShaders, и
+                // говорит одинаково для всех эффектов. Здесь остаётся то, что
+                // знает только это место, — чем заменить эффект.
+                _material = LvnShaders.Material("LvnActorComposite");
+                if (_material == null) return false;   // рисуем живыми слоями
             }
 
             if (_proxy != null)
