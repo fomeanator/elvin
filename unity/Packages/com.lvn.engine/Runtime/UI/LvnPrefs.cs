@@ -65,6 +65,14 @@ namespace Lvn.UI
             Changed?.Invoke();
         }
 
+        private static void Set(ref int field, string key, int value)
+        {
+            if (field == value) return;
+            field = value;
+            LvnKeep.Put(P + key, value);
+            Changed?.Invoke();
+        }
+
         private static void Set(ref string field, string key, string value)
         {
             if (field == value) return;
@@ -82,6 +90,15 @@ namespace Lvn.UI
             get => LvnKeep.Get(P + "player_name", "");
             set { LvnKeep.Put(P + "player_name", value ?? ""); Changed?.Invoke(); }
         }
+
+        // ── ЗАПИСИ БЕЗ ОПОВЕЩЕНИЯ ────────────────────────────────────────────
+        // Ниже — настройки, которые НАРОЧНО не поднимают Changed, и это не
+        // забывчивость: их читают на следующем витке оболочки или при следующем
+        // запуске, а живого экрана они не меняют. Событие настроек летит на
+        // каждое присваивание — в том числе на каждый кадр перетаскивания
+        // ползунка, — и подписчики на нём пересобирают сцену меню; будить их
+        // ради флага «вводная пройдена» значит платить пересборкой за то, чего
+        // никто не увидит. Отличать от общего Set, который оповещает всегда.
 
         /// <summary>Has the boot welcome/auth screen been shown already? It
         /// greets the player exactly once — never again on later launches.</summary>
@@ -217,15 +234,7 @@ namespace Lvn.UI
         public static int TargetFps
         {
             get { EnsureLoaded(); return _targetFps; }
-            set
-            {
-                EnsureLoaded();
-                int v = value == 30 ? 30 : 60;
-                if (_targetFps == v) return;
-                _targetFps = v;
-                LvnKeep.Put(P + "target_fps", v);
-                Changed?.Invoke();
-            }
+            set { EnsureLoaded(); Set(ref _targetFps, "target_fps", value == 30 ? 30 : 60); }
         }
         private static int _targetFps = 60;
 
@@ -262,15 +271,7 @@ namespace Lvn.UI
         public static string Locale
         {
             get { EnsureLoaded(); return _locale; }
-            set
-            {
-                EnsureLoaded();
-                var v = value ?? "";
-                if (_locale == v) return;
-                _locale = v;
-                LvnKeep.Put(P + "locale", v);
-                Changed?.Invoke();
-            }
+            set { EnsureLoaded(); Set(ref _locale, "locale", value ?? ""); }
         }
         private static string _locale;
 
