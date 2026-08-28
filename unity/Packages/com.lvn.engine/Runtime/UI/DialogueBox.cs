@@ -408,15 +408,14 @@ namespace Lvn.UI
         public void Reveal(string text, float? cps = null)
         {
             _tw.SetText(text ?? "");
-            _cps = cps.HasValue && cps.Value > TypewriterClock.MinCps ? cps.Value : _theme.CharsPerSecond;
+            _cps = PaceFor(cps);
             _startTime = Time.realtimeSinceStartup;
             _lastQuantum = -1;
             _tick?.Pause();
 
             // The budget is deliberately approximate: round it FORWARD to a word
             // boundary so the first readable block never opens as "предложе…".
-            _initialReveal = _tw.WordEndAtOrAfter(
-                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), _tw.VisibleCount));
+            _initialReveal = _tw.WordEndAtOrAfter(InitialFor(_tw.VisibleCount));
             SetRevealing(_tw.VisibleCount > _initialReveal);
             RefreshAdvanceHint(); // hidden while revealing
             _revealProgress = _initialReveal;
@@ -438,14 +437,30 @@ namespace Lvn.UI
         {
             var probe = new RichTextTypewriter();
             probe.SetText(text ?? "");
-            int initial = probe.WordEndAtOrAfter(
-                Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), probe.VisibleCount));
+            int initial = probe.WordEndAtOrAfter(InitialFor(probe.VisibleCount));
             int words = probe.WordsAfter(initial);
-            float pace = cps.HasValue && cps.Value > TypewriterClock.MinCps
-                ? cps.Value : _theme.CharsPerSecond;
+            float pace = PaceFor(cps);
             float wordsPerSecond = TypewriterClock.Progress(1f, pace) / AverageCharactersPerWord;
             return words / Mathf.Max(0.01f, wordsPerSecond);
         }
+
+        /// <summary>
+        /// ТЕМП ЭТОЙ СТРОКИ: скорость из команды, если автор её задал и она
+        /// осмысленна, иначе тема.
+        ///
+        /// <para>Правило стояло дважды — в самой печати и в её ОЦЕНКЕ, — а они
+        /// обязаны совпадать: по оценке входящий актёр рассчитывает, когда
+        /// осесть вместе с текстом. Разойдись они на строке с авторской
+        /// скоростью, и герой заканчивал бы движение в чужом ритме. Дублировать
+        /// правило, обе половины которого сверяются друг с другом, — верный
+        /// способ однажды их рассинхронизировать.</para>
+        /// </summary>
+        private float PaceFor(float? cps)
+            => cps.HasValue && cps.Value > TypewriterClock.MinCps ? cps.Value : _theme.CharsPerSecond;
+
+        /// <summary>Сколько символов встаёт мгновенно — не больше, чем есть.</summary>
+        private int InitialFor(int visibleCount)
+            => Mathf.Min(Mathf.Max(0, _theme.InitialVisibleCharacters), visibleCount);
 
         /// <summary>Snap to the full line immediately (e.g. on the first tap).</summary>
         public void Complete()
