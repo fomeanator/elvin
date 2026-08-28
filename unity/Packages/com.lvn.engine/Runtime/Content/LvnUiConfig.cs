@@ -26,6 +26,9 @@ namespace Lvn.Content
         /// Движковое умолчание — английское «Guest»: слова игры приходят
         /// отсюда. Читает <c>LvnPlayerName</c>.</summary>
         public string guest_name;
+        // Переменная истории, в которую игрок вписывает своё имя ("name" в Time
+        // Romance). Оболочка берёт из неё имя для хаба, профиля и гардероба.
+        public string player_name_var;
         /// <summary>Как новелла зовёт главу: «Глава», «Эпизод», «Дело», «День».
         /// Движковое умолчание английское («Chapter»). Читает
         /// <c>LvnCaptions</c>.</summary>

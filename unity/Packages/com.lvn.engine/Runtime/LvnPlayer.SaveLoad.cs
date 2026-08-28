@@ -265,9 +265,15 @@ namespace Lvn
                 at = _script.Count - 1;
             // The replay path is only truthful against the EXACT script it was
             // recorded on — an edited/re-imported script falls back to legacy.
-            _trace = snapshot.Trace != null && snapshot.CommandCount == _script.Count
-                ? new List<int>(snapshot.Trace)
-                : new List<int>();
+            bool traceFits = snapshot.Trace != null && snapshot.CommandCount == _script.Count;
+            if (!traceFits && snapshot.Trace != null && snapshot.Trace.Length > 0)
+                // Молча отброшенный след — самый дорогой из тихих отказов: сцена
+                // восстанавливается линейным префиксом, то есть по ЧУЖОЙ ветке,
+                // и игрок видит «персонаж пропал, а через три реплики появился».
+                Log?.Invoke($"restore: след исполнения ({snapshot.Trace.Length} шагов) записан " +
+                            $"для скрипта из {snapshot.CommandCount} команд, а этот — из {_script.Count}; " +
+                            "картинка восстановится линейным проходом, ветвления в нём не учтены");
+            _trace = traceFits ? new List<int>(snapshot.Trace) : new List<int>();
             // Put the dice back where the save left them. A save from before this
             // field existed carries nothing, and a stream is not something we can
             // guess: reseeding to some constant would make EVERY old save re-roll

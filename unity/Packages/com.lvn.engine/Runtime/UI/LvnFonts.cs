@@ -107,7 +107,7 @@ namespace Lvn.UI
         {
             get
             {
-                var path = LvnTheme.Current != null ? LvnTheme.Current.FontPath : null;
+                var path = LvnFonts.PathFor(LvnTheme.Current != null ? LvnTheme.Current.FontPath : null);
                 if (string.IsNullOrEmpty(path)) return null;
                 if (_default != null && _defaultPath == path) return _default;
                 _defaultPath = path;
@@ -128,10 +128,79 @@ namespace Lvn.UI
         /// заметно сразу, а искать пришлось бы в двух файлах, где написано одно
         /// и то же.</para>
         /// </summary>
-        public const string DefaultPath = "Fonts/Onest-Regular";
+        public const string EngineFontPath = "Fonts/Onest-Regular";
 
         /// <summary>Заголовочное начертание того же семейства.</summary>
-        public const string DefaultDisplayPath = "Fonts/Onest-ExtraBold";
+        public const string EngineDisplayPath = "Fonts/Onest-ExtraBold";
+
+        // ── гарнитуры на выбор игрока ────────────────────────────────────────
+
+        /// <summary>Гарнитура из каталога: чем набирать и как её назвать
+        /// игроку.</summary>
+        public readonly struct Family
+        {
+            public readonly string Id;       // ключ в настройках
+            public readonly string Title;    // подпись в списке
+            public readonly string Path;     // текст
+            public readonly string Display;  // заголовки
+            public Family(string id, string title, string path, string display)
+            { Id = id; Title = title; Path = path; Display = display; }
+        }
+
+        /// <summary>
+        /// ПЯТЬ ГАРНИТУР, И КАЖДАЯ ЗАЧЕМ-ТО.
+        ///
+        /// <para>Набор не «побольше вариантов», а разные ответы на «чем читать
+        /// длинный текст с телефона»: нейтральный гротеск, интерфейсный,
+        /// русский по происхождению, книжный засечный и геометричный. Все — с
+        /// родной кириллицей и по свободной лицензии (OFL, тексты в
+        /// Third-Party-Notices.md): шрифт без кириллицы в русской новелле
+        /// показывает не текст, а квадраты.</para>
+        ///
+        /// <para>Заголовочное начертание есть только у Onest — у остальных
+        /// заголовки набираются тем же файлом: переменные шрифты Google несут
+        /// все веса в одном файле, и отдельный «жирный» им не нужен.</para>
+        /// </summary>
+        public static readonly Family[] Families =
+        {
+            new Family("onest",   "Onest",      "Fonts/Onest-Regular", "Fonts/Onest-ExtraBold"),
+            new Family("inter",   "Inter",      "Fonts/Inter",         "Fonts/Inter"),
+            new Family("golos",   "Golos Text", "Fonts/GolosText",     "Fonts/GolosText"),
+            new Family("literata","Literata",   "Fonts/Literata",      "Fonts/Literata"),
+            new Family("manrope", "Manrope",    "Fonts/Manrope",       "Fonts/Manrope"),
+        };
+
+        /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —
+        /// первая (шрифт движка из коробки).</summary>
+        public static Family FamilyOf(string id)
+        {
+            if (!string.IsNullOrEmpty(id))
+                foreach (var f in Families)
+                    if (f.Id == id) return f;
+            return Families[0];
+        }
+
+        /// <summary>Что выбрал игрок. Пусто — гарнитура НОВЕЛЛЫ (тема), иначе
+        /// выбор перекрывает её: подогнать шрифт под свои глаза важнее
+        /// авторского вкуса, и это ровно та настройка, ради которой её
+        /// просили.</summary>
+        public static Family Chosen => FamilyOf(LvnPrefs.FontFamily);
+
+        /// <summary>Выбрал ли игрок гарнитуру сам.</summary>
+        public static bool PlayerPicked => !string.IsNullOrEmpty(LvnPrefs.FontFamily);
+
+        /// <summary>Путь текстового шрифта с учётом выбора игрока: тема
+        /// спрашивает ЗДЕСЬ, а не читает своё поле напрямую.</summary>
+        public static string PathFor(string themePath)
+            => PlayerPicked ? Chosen.Path : (string.IsNullOrEmpty(themePath) ? EngineFontPath : themePath);
+
+        /// <summary>То же для заголовков.</summary>
+        public static string DisplayPathFor(string themePath)
+            => PlayerPicked ? Chosen.Display : (string.IsNullOrEmpty(themePath) ? EngineDisplayPath : themePath);
+
+        /// <summary>Прежние имена умолчаний — их читают темы при сборке.</summary>
+        public const string DefaultPath = EngineFontPath;
+        public const string DefaultDisplayPath = EngineDisplayPath;
 
         private static Font _display;
         private static string _displayPath;
@@ -139,7 +208,7 @@ namespace Lvn.UI
         {
             get
             {
-                var path = LvnTheme.Current != null ? LvnTheme.Current.FontDisplayPath : null;
+                var path = LvnFonts.DisplayPathFor(LvnTheme.Current != null ? LvnTheme.Current.FontDisplayPath : null);
                 if (string.IsNullOrEmpty(path)) return null;
                 if (_display != null && _displayPath == path) return _display;
                 _displayPath = path;

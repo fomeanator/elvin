@@ -51,8 +51,22 @@ namespace Lvn.UI
         public static void Set(string name) => LvnPrefs.PlayerName = name ?? string.Empty;
 
         /// <summary>Как игрока зовут ВНУТРИ истории: переменная новеллы, по
-        /// которой автор пишет «{player}» и ветвит реплики.</summary>
-        public const string Var = "player";
+        /// которой автор пишет «{player}» и ветвит реплики. Имя переменной
+        /// принадлежит АВТОРУ (<c>ui.player_name_var</c>): в Time Romance оно
+        /// <c>name</c>, и пока движок знал только «player», игрок называл себя
+        /// в прологе, а гардероб и хаб продолжали звать его каталожным именем
+        /// героини.</summary>
+        public static string Var = DefaultVar;
+
+        /// <summary>Умолчание, когда новелла своего имени переменной не
+        /// назвала.</summary>
+        public const string DefaultVar = "player";
+
+        /// <summary>Та ли это переменная, в которую игрок вписывает своё имя.
+        /// Сравнение через ключ имени: «Name» и «name» — одно и то же, и
+        /// юникодные записи одной буквы тоже.</summary>
+        public static bool IsNameVar(string varName)
+            => !string.IsNullOrEmpty(varName) && Lvn.LvnKey.Normalize(varName) == Lvn.LvnKey.Normalize(Var);
 
         /// <summary>
         /// ПОСЕЯТЬ ИМЯ В ИСТОРИЮ. Правило «положить имя в переменную player,

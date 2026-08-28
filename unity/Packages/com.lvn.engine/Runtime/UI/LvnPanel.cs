@@ -60,10 +60,34 @@ namespace Lvn.UI
                     // 64px — never enter the atlas, so story art stays out.)
                     if (_shared.dynamicAtlasSettings != null)
                         _shared.dynamicAtlasSettings.maxAtlasSize = 2048;
+                    ApplyUiScale();
+                    LvnPrefs.Changed -= ApplyUiScale;
+                    LvnPrefs.Changed += ApplyUiScale;
                     EnsureWatcher();
                 }
                 return _shared;
             }
+        }
+
+        /// <summary>
+        /// МАСШТАБ ИНТЕРФЕЙСА ИГРОКА — через опорное разрешение панели.
+        ///
+        /// <para>Опора меньше — элементы крупнее: интерфейс считается в долях
+        /// от неё, поэтому одна цифра увеличивает ВСЁ разом (шрифты, отступы,
+        /// иконки, зоны нажатия), а не только текст. Растянуть один кегль было
+        /// бы дешевле, но подписи выехали бы из своих кнопок.</para>
+        ///
+        /// <para>Сцена НЕ масштабируется вместе с оболочкой: её опора остаётся
+        /// на месте (<see cref="RegisterScaler"/>), потому что фон и люди — это
+        /// картина, а не интерфейс. Увеличить её значило бы обрезать кадр,
+        /// который автор построил.</para>
+        /// </summary>
+        public static void ApplyUiScale()
+        {
+            if (_shared == null) return;
+            float k = Mathf.Clamp(LvnPrefs.UiScale, 0.85f, 1.3f);
+            _shared.referenceResolution = new Vector2Int(
+                Mathf.RoundToInt(ReferenceWidth / k), Mathf.RoundToInt(ReferenceHeight / k));
         }
 
         /// <summary>Width-driven in portrait, height-driven in landscape — the

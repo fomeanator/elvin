@@ -223,7 +223,7 @@ namespace Lvn.UI
             }
             _speaker = new Label { name = "vn-speaker" };
             _speaker.style.color = _theme.SpeakerColor;
-            _speaker.style.fontSize = _theme.SpeakerFontSize;
+            _speaker.style.fontSize = SpeakerSize;
             _speaker.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnFonts.Apply(_speaker, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             _plate.Add(_speaker);
@@ -286,7 +286,7 @@ namespace Lvn.UI
             _panelShell.Add(_speakerPointer); // above the clipped glass surface
             _body = new Label { name = "vn-body" };
             _body.style.color = _theme.TextColor;
-            _body.style.fontSize = _theme.BodyFontSize;
+            _body.style.fontSize = BodySize;
             _body.style.whiteSpace = WhiteSpace.Normal;
             LvnFonts.Apply(_body, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
             // Typewriter = vertex post-processing: the FULL line is set once (so
@@ -304,7 +304,7 @@ namespace Lvn.UI
             _advanceHint.style.position = Position.Absolute;
             _advanceHint.style.right = 10;
             _advanceHint.style.bottom = 4;
-            _advanceHint.style.fontSize = Mathf.RoundToInt(_theme.BodyFontSize * 0.55f);
+            _advanceHint.style.fontSize = Mathf.RoundToInt(BodySize * 0.55f);
             _advanceHint.style.color = _theme.SpeakerColor;
             _advanceHint.style.display = DisplayStyle.None;
             LvnFonts.Apply(_advanceHint, _theme.Font); // SDF path (unityFontDefinition), legacy fallback inside
@@ -491,6 +491,16 @@ namespace Lvn.UI
 
         /// <summary>Scale the dialogue window's background opacity (0.2–1) — the
         /// player's comfort setting. Text stays fully opaque.</summary>
+        /// <summary>Кегль реплики С УЧЁТОМ ВЫБОРА ИГРОКА. Авторский размер —
+        /// постановка новеллы, множитель — его глаза и его телефон; спорить им
+        /// не о чем, поэтому размер один и считается здесь, а не в пяти местах
+        /// показа.</summary>
+        private int BodySize => Mathf.RoundToInt(_theme.BodyFontSize * LvnPrefs.TextScale);
+
+        /// <summary>Имя говорящего растёт вместе с репликой: разъехавшись, они
+        /// читались бы как разные экраны.</summary>
+        private int SpeakerSize => Mathf.RoundToInt(_theme.SpeakerFontSize * LvnPrefs.TextScale);
+
         public void SetUserOpacity(float value)
         {
             _userOpacity = Mathf.Clamp(value, 0.2f, 1f);
@@ -526,7 +536,7 @@ namespace Lvn.UI
         public void ApplyStyle(string style)
         {
             _body.style.unityFontStyleAndWeight = FontStyle.Normal;
-            _body.style.fontSize = _theme.BodyFontSize;
+            _body.style.fontSize = BodySize;
             _body.style.unityTextAlign = TextAnchor.UpperLeft;
             _styleBgScale = 1f;
 
@@ -537,10 +547,10 @@ namespace Lvn.UI
                     break;
                 case "shout":
                     _body.style.unityFontStyleAndWeight = FontStyle.Bold;
-                    _body.style.fontSize = Mathf.RoundToInt(_theme.BodyFontSize * 1.2f);
+                    _body.style.fontSize = Mathf.RoundToInt(BodySize * 1.2f);
                     break;
                 case "narration":
-                    _body.style.fontSize = Mathf.RoundToInt(_theme.BodyFontSize * 1.15f);
+                    _body.style.fontSize = Mathf.RoundToInt(BodySize * 1.15f);
                     _body.style.unityTextAlign = TextAnchor.MiddleCenter;
                     _styleBgScale = 0f; // no panel behind pure narration — text stays visible
                     break;

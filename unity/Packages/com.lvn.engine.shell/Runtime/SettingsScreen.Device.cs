@@ -18,75 +18,127 @@ namespace Lvn.UI.Screens
         // «Скачать всю игру»: строка-автомат — оценка → загрузка с живыми
         // мегабайтами → «Скачано» с кнопкой удаления. Играть можно и без неё
         // (стриминг), кнопка — для самолёта и плохой сети.
+        /// <summary>
+        /// ИГРА ЦЕЛИКОМ — понятная строка вместо загадочной кнопки.
+        ///
+        /// <para>Было: заголовок «Игра целиком» и кнопка «Докачать ≈111 МБ» —
+        /// игрок видел число, но не понимал ни что скачается, ни зачем, ни что
+        /// будет, если не скачивать (снимок партнёра 28.08). Теперь строка
+        /// отвечает на три вопроса сразу: сколько уже на устройстве, сколько
+        /// осталось и что даёт скачивание. Пока идёт закачка — полоса и
+        /// мегабайты, а не замершая кнопка.</para>
+        /// </summary>
         private VisualElement StorageRow()
         {
-            var row = RowEx(LvnWords.Of("settings.full_game", "The whole game"),
-                LvnWords.Of("settings.full_game_hint", "Download the stories up front to play offline. Until then chapters load as you read."));
+            var box = new VisualElement();
+
             var status = new Label("…");
             status.style.color = _dim;
-            status.style.fontSize = 13;
-            status.style.marginRight = 8;
-            row.Add(status);
+            status.style.fontSize = LvnTokens.TextSm;
+            status.style.whiteSpace = WhiteSpace.Normal;
+            status.style.marginBottom = 8;
+            box.Add(status);
+
+            // Полоса: «сколько уже у меня» видно глазом, а не арифметикой.
+            var track = Lvn.UI.LvnStyler.Track(new VisualElement(), 8f);
+            track.style.marginBottom = 12;
+            track.style.display = DisplayStyle.None;
+            var fill = Lvn.UI.LvnStyler.Fill(new VisualElement(), 4f, _accent);
+            fill.style.height = 8;
+            fill.style.width = new Length(0, LengthUnit.Percent);
+            track.Add(fill);
+            box.Add(track);
+
+            var buttons = new VisualElement();
+            buttons.style.flexDirection = FlexDirection.Row;
+            buttons.style.flexWrap = Wrap.Wrap;
             var btn = new Button { text = "…" };
             StyleValueButton(btn, true);
+            btn.style.marginRight = 8;
+            btn.style.marginBottom = 8;
             btn.SetEnabled(false);
-            row.Add(btn);
+            buttons.Add(btn);
+            var erase = new Button { text = LvnWords.Of("device.erase", "Erase") };
+            StyleValueButton(erase, false);
+            erase.style.marginBottom = 8;
+            erase.style.display = DisplayStyle.None;
+            buttons.Add(erase);
+            box.Add(buttons);
 
             bool downloaded = false;
             IVisualElementScheduledItem ticker = null;
+
+            void ShowBar(long got, long total)
+            {
+                track.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                if (total <= 0) return;
+                float part = Mathf.Clamp01((float)got / total);
+                fill.style.width = new Length(part * 100f, LengthUnit.Percent);
+            }
 
             async Task RefreshAsync()
             {
                 ticker?.Pause();
                 var (missing, count, used) = await StorageInfo();
                 downloaded = count == 0;
+                long total = used + missing;
+                ShowBar(used, total);
+                erase.style.display = ClearDownloads != null && used > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 if (downloaded)
                 {
-                    status.text = LvnWords.Of("device.stored", "downloaded · {0} MB used", used >> 20);
-                    btn.text = LvnWords.Of("device.erase", "Erase");
-                    btn.SetEnabled(ClearDownloads != null);
+                    // Всё на устройстве — говорим именно это, а не «скачано».
+                    status.text = LvnWords.Of("device.stored_all",
+                        "The whole game is on this device ({0} MB) — it plays without the internet.",
+                        used >> 20);
+                    btn.style.display = DisplayStyle.None;
                 }
                 else
                 {
-                    status.text = "";
-                    // «Докачать», когда на диске уже что-то живёт: игрок
-                    // скачал почти всё — не предлагать ему «Скачать» заново.
+                    btn.style.display = DisplayStyle.Flex;
+                    status.text = used > 0
+                        ? LvnWords.Of("device.partial",
+                            "{0} MB on the device, {1} MB left. Chapters load as you read; download them up front to play offline.",
+                            used >> 20, System.Math.Max(1, missing >> 20))
+                        : LvnWords.Of("device.nothing_yet",
+                            "Nothing downloaded yet — chapters load as you read. Download {0} MB up front to play offline.",
+                            System.Math.Max(1, missing >> 20));
                     btn.text = (used > (8L << 20) ? LvnWords.Of("device.finish", "Finish download") : LvnWords.Of("device.download", "Download"))
-                        + " ≈" + System.Math.Max(1, missing >> 20) + " " + LvnWords.Of("unit.mb", "MB");
+                        + " " + System.Math.Max(1, missing >> 20) + " " + LvnWords.Of("unit.mb", "MB");
                     btn.SetEnabled(true);
                 }
             }
 
             btn.clicked += () =>
             {
-                if (!downloaded)
+                if (downloaded) return;
+                btn.SetEnabled(false);
+                _ = DownloadAll();
+                // Живой прогресс: полоса и мегабайты, пока батч активен.
+                ticker = box.schedule.Execute(() =>
                 {
-                    btn.SetEnabled(false);
-                    _ = DownloadAll();
-                    // Живой прогресс в мегабайтах, пока батч активен.
-                    ticker = row.schedule.Execute(() =>
+                    var p = DownloadProgress?.Invoke() ?? (0, 0, false);
+                    if (p.active)
                     {
-                        var p = DownloadProgress?.Invoke() ?? (0, 0, false);
-                        if (p.active)
-                            status.text = LvnWords.Of("device.downloading", "downloading… {0}", $"{p.received >> 20} / {System.Math.Max(p.expected, p.received) >> 20} " + LvnWords.Of("unit.mb", "MB"));
-                        else
-                            LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
-                    }).Every(500);
-                }
-                else
-                {
-                    // Через дом занятости: очистка ждёт диск, и сорванное
-                    // ожидание оставляло кнопку мёртвой до перезахода в
-                    // настройки. Состояние в конце расставляет RefreshAsync —
-                    // поэтому при успехе кнопку не трогаем.
-                    LvnAsync.Fire(Lvn.UI.LvnBusy.RunAsync(btn, Run, busyText: null,
-                        releaseOnSuccess: false, what: "ClearDownloads"), "ClearDownloads");
-                    async Task Run() { await ClearDownloads(); await RefreshAsync(); }
-                }
+                        long expect = System.Math.Max(p.expected, p.received);
+                        status.text = LvnWords.Of("device.downloading", "downloading… {0}",
+                            $"{p.received >> 20} / {expect >> 20} " + LvnWords.Of("unit.mb", "MB"));
+                        ShowBar(p.received, expect);
+                    }
+                    else LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
+                }).Every(500);
+            };
+
+            erase.clicked += () =>
+            {
+                // Через дом занятости: очистка ждёт диск, и сорванное ожидание
+                // оставляло кнопку мёртвой до перезахода в настройки.
+                LvnAsync.Fire(Lvn.UI.LvnBusy.RunAsync(erase, Run, busyText: null,
+                    releaseOnSuccess: false, what: "ClearDownloads"), "ClearDownloads");
+                async Task Run() { await ClearDownloads(); await RefreshAsync(); }
             };
 
             LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
-            return row;
+            return WideRow(LvnWords.Of("settings.full_game", "The whole game"), null, box);
         }
 
         // Качество арта: авто-режим движка против ручного пресета конкурентов —
@@ -94,55 +146,32 @@ namespace Lvn.UI.Screens
         private VisualElement ArtQualityRow()
         {
             bool auto = string.IsNullOrEmpty(LvnPrefs.ArtQuality);
-            var row = RowEx(LvnWords.Of("settings.art_quality", "Art quality"),
-                (auto ? LvnWords.Of("settings.art_quality_auto", "Picked for your screen automatically. ") : "")
-                + LvnWords.Of("settings.art_quality_hint", "A lower step means less traffic and memory. Anything downloaded re-fetches itself in the new quality."));
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-            var buttons = new List<(string q, Button b)>();
             string Current() => string.IsNullOrEmpty(LvnPrefs.ArtQuality)
                 ? Lvn.UI.Screens.NovelApp.EffectiveArtQuality()
                 : LvnPrefs.ArtQuality;
-            void Highlight()
-            {
-                foreach (var (q, b) in buttons) StyleValueButton(b, Current() == q);
-            }
-            foreach (var (q, label) in new[] { ("2k", "2K"), ("1440", "1440p"), ("1k", "1K") })
-            {
-                var btn = new Button { text = label };
-                btn.style.marginLeft = 6;
-                var quality = q;
-                btn.clicked += () => { LvnPrefs.ArtQuality = quality; Highlight(); };
-                buttons.Add((q, btn));
-                seg.Add(btn);
-            }
-            Highlight();
-            return row;
+            // Через дом рядов: третья ступень («1K») уезжала за край экрана —
+            // строка настроек вбок не прокручивается, и варианта для игрока
+            // просто не существовало (TR-55).
+            return WideRow(LvnWords.Of("settings.art_quality", "Art quality"),
+                (auto ? LvnWords.Of("settings.art_quality_auto", "Picked for your screen automatically. ") : "")
+                + LvnWords.Of("settings.art_quality_hint", "A lower step means less traffic and memory. Anything downloaded re-fetches itself in the new quality."),
+                Lvn.UI.LvnSegment.Of(
+                    new[] { ("2k", "2K"), ("1440", "1440p"), ("1k", "1K") },
+                    o => o.Item2,
+                    o => Current() == o.Item1,
+                    o => LvnPrefs.ArtQuality = o.Item1,
+                    StyleValueButton));
         }
 
         private VisualElement FpsRow()
         {
-            var row = RowEx(LvnWords.Of("settings.frame_rate", "Frame rate"),
-                LvnWords.Of("settings.frame_rate_hint", "30 fps saves battery; 60 animates smoother"));
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-            Button f30 = null, f60 = null;
-            void Highlight()
-            {
-                StyleValueButton(f30, LvnPrefs.TargetFps == 30);
-                StyleValueButton(f60, LvnPrefs.TargetFps != 30);
-            }
-            f30 = new Button { text = "30" };
-            f30.style.marginLeft = 6;
-            f30.clicked += () => { LvnPrefs.TargetFps = 30; Highlight(); };
-            f60 = new Button { text = "60" };
-            f60.style.marginLeft = 6;
-            f60.clicked += () => { LvnPrefs.TargetFps = 60; Highlight(); };
-            seg.Add(f30); seg.Add(f60);
-            Highlight();
-            return row;
+            return WideRow(LvnWords.Of("settings.frame_rate", "Frame rate"),
+                LvnWords.Of("settings.frame_rate_hint", "30 fps saves battery; 60 animates smoother"),
+                Lvn.UI.LvnSegment.Of(new[] { 30, 60 },
+                    fps => fps.ToString(),
+                    fps => (LvnPrefs.TargetFps == 30) == (fps == 30),
+                    fps => LvnPrefs.TargetFps = fps,
+                    StyleValueButton));
         }
 
         // "Restore purchases": re-syncs the wallet from the server, which re-grants

@@ -59,9 +59,27 @@ namespace Lvn.UI
         /// then the selected mannequin is faded in. Props are not cast and stay.
         /// A generation predicate lets a host discard a rapid stale selection
         /// before it can show the wrong actor.</summary>
+        // ЧТО СЦЕНА ПОМНИЛА ДО ПРИМЕРКИ. Манекен гардероба — синтетическая
+        // команда (центр, 0.92×1.06), и она ложится в ту же память, из которой
+        // СЛЕДУЮЩАЯ АВТОРСКАЯ команда без position наследует место и размер.
+        // Поэтому после «открыл гардероб посреди главы» героиня оставалась
+        // стоять по центру до конца сцены (репорт партнёра 28.08, TR-56):
+        // забыть манекен мало, если авторскую постановку он уже затёр.
+        private readonly Dictionary<string, (JObject cmd, Placement pl, bool hadCmd, bool hadPl)> _preWardrobe
+            = new Dictionary<string, (JObject, Placement, bool, bool)>();
+
+        private void RememberBeforeWardrobe(string id)
+        {
+            if (string.IsNullOrEmpty(id) || _preWardrobe.ContainsKey(id)) return;
+            bool hadCmd = _actorCmds.TryGetValue(id, out var cmd);
+            bool hadPl = _placements.TryGetValue(id, out var pl);
+            _preWardrobe[id] = (hadCmd ? (JObject)cmd.DeepClone() : null, pl, hadCmd, hadPl);
+        }
+
         public async Task FocusWardrobeActorAsync(string keepId, Func<bool> canShow = null)
         {
             if (string.IsNullOrEmpty(keepId)) return;
+            RememberBeforeWardrobe(keepId);
             int epoch = _stageEpoch;
             // НОВЫЙ ВЫБОР ОТМЕНЯЕТ ПРЕДЫДУЩИЙ, И ЭТО ЗАБОТА САМОЙ ОПЕРАЦИИ.
             // Список «кого убрать» считается ДО ожидания ухода, а показ идёт
@@ -100,8 +118,21 @@ namespace Lvn.UI
             }
         }
 
-        /// <summary>Лист гардероба закрылся — кукла возвращается истории.</summary>
-        public void ReleaseWardrobeFocus() => Commands.ReleaseAll(LvnSender.Wardrobe);
+        /// <summary>Лист гардероба закрылся — кукла возвращается истории вместе
+        /// с ПАМЯТЬЮ о том, как её поставил сценарий. Экран здесь не трогается:
+        /// его перерисует следующая авторская команда или уход манекена, а вот
+        /// липкость обязана наследоваться от автора, а не от примерки.</summary>
+        public void ReleaseWardrobeFocus()
+        {
+            Commands.ReleaseAll(LvnSender.Wardrobe);
+            foreach (var kv in _preWardrobe)
+            {
+                var (cmd, pl, hadCmd, hadPl) = kv.Value;
+                if (hadCmd) _actorCmds[kv.Key] = cmd; else _actorCmds.Remove(kv.Key);
+                if (hadPl) _placements[kv.Key] = pl;
+            }
+            _preWardrobe.Clear();
+        }
 
         private void OnWardrobeChanged(string entity)
             => RefreshWardrobeActor(entity, LvnWardrobe.LastChangedAxis(entity));
