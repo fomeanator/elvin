@@ -47,6 +47,21 @@ namespace Lvn.UI.Screens
             return id;
         }
 
+        // Забыть идентификатор — ОБА его дома: он ключ ко всему серверному, и
+        // переживший файл вернул бы игрока в удалённую учётку следующим стартом.
+        private static void ForgetUserId()
+        {
+            // Поле UserId экземпляра не трогаем: это НАСТРОЙКА хоста (заданная
+            // в инспекторе учётка), а не то, что игра узнала об игроке.
+            LvnKeep.Drop("lvn_user");
+            try
+            {
+                var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
+                if (System.IO.File.Exists(idFile)) System.IO.File.Delete(idFile);
+            }
+            catch (Exception e) { Debug.LogWarning($"[novelapp] id wipe: {e.Message}"); }
+        }
+
         // Seed the rich detail page with the real title (name/art/synopsis/cost),
         // then its player-facing stat vars, before showing it — so "Твои статы"
         // reads live numbers instead of the placeholder the screen falls back to
@@ -144,14 +159,39 @@ namespace Lvn.UI.Screens
             var titles = _manifest?.titles;
             if (titles != null)
                 foreach (var t in titles)
-                    if (t != null)
-                        try { await ResetTitleProgressAsync(t); }
+                    if (t?.id != null)
+                        try { await _state.SaveVarsAsync(t.id, new Newtonsoft.Json.Linq.JObject(), default); }
                         catch (Exception e) { Debug.LogWarning($"[novelapp] wipe {t.id}: {e.Message}"); }
-            Lvn.UI.LvnPlayerName.Set("");
-            LvnPrefs.IntroDone = false;
-            LvnPrefs.SeenWelcome = false;
+            // Всё локальное — одним обрядом: перечисление здесь знало сейвы,
+            // прогресс, имя и два флага, но не галерею, прочитанное, гардероб,
+            // миниатюры и статы игрока.
+            Lvn.UI.LvnForget.All(TitleIds(), WardrobeEntities());
             Debug.Log("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
             return true;
+        }
+
+        // Кого забывать: все новеллы каталога и всех, кого игрок мог одевать.
+        // Хранилища личного адресуются по ключу и списка своих ключей не ведут —
+        // перечень приходит из манифеста, единственного, кто знает состав.
+        private List<string> TitleIds()
+        {
+            var ids = new List<string>();
+            var titles = _manifest?.titles;
+            if (titles != null)
+                foreach (var t in titles)
+                    if (!string.IsNullOrEmpty(t?.id)) ids.Add(t.id);
+            return ids;
+        }
+
+        private List<string> WardrobeEntities()
+        {
+            var ids = new List<string>();
+            var sprites = _manifest?.sprites;
+            if (sprites != null)
+                foreach (var kv in sprites)
+                    if (kv.Value?.wardrobe != null && kv.Value.wardrobe.Count > 0)
+                        ids.Add(kv.Key);
+            return ids;
         }
 
         private async Task<bool> OpenDetailWithStatsAsync(LvnTitle t)

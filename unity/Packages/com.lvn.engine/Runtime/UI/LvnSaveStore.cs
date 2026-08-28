@@ -160,9 +160,23 @@ namespace Lvn.UI
 
         public static void Delete(string titleId, string slot)
         {
+            // Миниатюра уходит ВСЕГДА, даже если записи слота уже нет: PNG живёт
+            // отдельным файлом, и «слот снесли, картинка осталась» — это и мусор
+            // на диске, и кадр чужой игры, всплывающий в следующем сохранении.
+            WriteThumb(titleId, slot, null);
             var all = Raw(titleId);
             if (!all.Remove(slot ?? "")) return;
             Write(titleId, all);
+        }
+
+        /// <summary>Снести все слоты новеллы вместе с их миниатюрами.
+        /// Для забвения (<c>LvnForget</c>): перечислять слоты снаружи значит
+        /// каждый раз вспоминать, что у слота есть ещё и файл.</summary>
+        public static void DeleteAll(string titleId)
+        {
+            foreach (var slot in new List<string>(Raw(titleId).Keys))
+                Delete(titleId, slot);
+            LvnKeep.Drop(Key(titleId));
         }
 
         private static bool Write(string titleId, Dictionary<string, LvnSaveSlot> all)

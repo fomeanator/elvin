@@ -34,6 +34,18 @@ namespace Lvn.Content
     {
         internal static string Key(string titleId) => "lvn_state_" + (titleId ?? "");
 
+        /// <summary>Забыть переменные новеллы вместе с базой синхронизации.
+        /// База уходит обязательно: оставшись, она объявила бы стёртые значения
+        /// «нашей правкой» и вернула бы их с ближайшего слияния с сервером.</summary>
+        public static void Forget(string titleId)
+        {
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(Key(titleId));
+                LvnKeep.Drop(BaseKey(titleId));
+            }
+        }
+
         public Task<JObject> LoadVarsAsync(string titleId, CancellationToken ct)
         {
             var doc = ReadDoc(titleId);

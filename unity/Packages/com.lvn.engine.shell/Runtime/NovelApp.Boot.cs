@@ -36,6 +36,12 @@ namespace Lvn.UI.Screens
         // в логе, и на самой вуали.
         private async void Start()
         {
+            // Хранилища оболочки объявляют себя ЗАБВЕНИЮ: движок их не видит
+            // (Engine не знает про Shell), а забывать их надо вместе со всеми.
+            Lvn.UI.LvnForget.Register("прогресс", LvnProgress.ResetTitle, null);
+            Lvn.UI.LvnForget.Register("сейф прогресса", null, ProgressVault.Forget);
+            Lvn.UI.LvnForget.Register("идентификатор", null, ForgetUserId);
+
             try { await StartAsync(); }
             catch (Exception e)
             {
