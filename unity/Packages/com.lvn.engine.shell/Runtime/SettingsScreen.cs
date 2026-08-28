@@ -106,86 +106,123 @@ namespace Lvn.UI.Screens
         // увидел заголовок с кнопкой Close на пустом листе.
         protected override void OnOpening() => Rebuild();
 
-        // Активная вкладка настроек — простыня из ~18 строк группируется
-        // (решение Ильи 26.08: «люди будут теряться»): виден один короткий
-        // экран, переключение пилюлями сверху.
+        // ЛЕНТА, А НЕ ЧЕТЫРЕ ЭКРАНА. Вкладки прятали три четверти настроек за
+        // переключателем: игрок, ищущий «размер текста», обязан был угадать, в
+        // каком из четырёх разделов он лежит. Теперь всё лежит одной прокруткой
+        // с заголовками, а пилюли сверху стали БЫСТРЫМ ПЕРЕХОДОМ — и заодно
+        // показывают, в каком разделе игрок сейчас.
+        private readonly Dictionary<string, VisualElement> _anchors = new Dictionary<string, VisualElement>();
+        private readonly List<(string id, Button b)> _tabButtons = new List<(string, Button)>();
         private string _tab = "main";
 
         public void Rebuild()
         {
             _list.Clear();
+            _anchors.Clear();
             _list.Add(TabsRow());
 
-            switch (_tab)
+            Section("main", LvnWords.Of("settings.tab_main", "General"));
+            _list.Add(SoundRow());
+            if (_cfg.simple_audio ?? false)
             {
-                case "main":
-                    _list.Add(SoundRow());
-                    if (_cfg.simple_audio ?? false)
-                    {
-                        // Два ползунка (решение партнёров): «Звуки» ведёт разом
-                        // эффекты, печать, интерфейс и эмбиент; голос — туда же.
-                        _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), LvnWords.Of("settings.music_hint", "Story and menu tracks"),
-                            () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                        _list.Add(VolumeRow(LvnWords.Of("settings.sounds", "Sounds"), LvnWords.Of("settings.sounds_hint", "Choices, scene effects and ambience"),
-                            () => LvnPrefs.VolSfx,
-                            v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
-                    }
-                    else
-                    {
-                        _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                        _list.Add(VolumeRow(LvnWords.Of("settings.ambient", "Ambience"), null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                        _list.Add(VolumeRow(LvnWords.Of("settings.sfx", "Effects"), null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                        _list.Add(VolumeRow(LvnWords.Of("settings.voice", "Voice"), null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
-                    }
-                    if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
-                        _list.Add(LanguageRow());
-                    if (MenuTracks != null && MenuTracks.Count > 1)
-                        _list.Add(MenuTrackRow());
-                    break;
-
-                case "reading":
-                    _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
-                        0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
-                    _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
-                        () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
-                    _list.Add(RangeRow(LvnWords.Of("settings.auto_delay", "Auto delay"), LvnWords.Of("settings.auto_delay_hint", "Pause before the next line"),
-                        0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-                    _list.Add(RangeRow(LvnWords.Of("settings.box_opacity", "Box opacity"), LvnWords.Of("settings.box_opacity_hint", "The dialogue plate; text stays crisp"),
-                        0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
-                    _list.Add(SwitchRow(LvnWords.Of("settings.skip_read", "Skip read only"), LvnWords.Of("settings.skip_read_hint", "Fast-forward stops at new lines"),
-                        () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
-                    _list.Add(SwitchRow(LvnWords.Of("settings.reduce_motion", "Reduce motion"), LvnWords.Of("settings.reduce_motion_hint", "No camera shake or flashes"),
-                        () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
-                    break;
-
-                case "data":
-                    _list.Add(ArtQualityRow());
-                    _list.Add(FpsRow());
-                    if (StorageInfo != null && DownloadAll != null)
-                        _list.Add(StorageRow());
-                    break;
-
-                case "account":
-                    _list.Add(UidRow());
-                    _accountRow = RowEx(_cfg.account_label ?? LvnWords.Of("settings.account", "Account"),
-                        LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
-                    _list.Add(_accountRow);
-                    SetAccountStatus("…", showSignIn: false);
-                    _list.Add(RestoreRow());
-                    _list.Add(VersionRow());
-                    var links = LinksRow();
-                    if (links != null) _list.Add(links);
-                    var socials = SocialRow();
-                    if (socials != null) _list.Add(socials);
-                    break;
+                // Два ползунка (решение партнёров): «Звуки» ведёт разом
+                // эффекты, печать, интерфейс и эмбиент; голос — туда же.
+                _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), LvnWords.Of("settings.music_hint", "Story and menu tracks"),
+                    () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow(LvnWords.Of("settings.sounds", "Sounds"), LvnWords.Of("settings.sounds_hint", "Choices, scene effects and ambience"),
+                    () => LvnPrefs.VolSfx,
+                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
             }
+            else
+            {
+                _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                _list.Add(VolumeRow(LvnWords.Of("settings.ambient", "Ambience"), null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                _list.Add(VolumeRow(LvnWords.Of("settings.sfx", "Effects"), null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                _list.Add(VolumeRow(LvnWords.Of("settings.voice", "Voice"), null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+            }
+            if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
+                _list.Add(LanguageRow());
+            if (MenuTracks != null && MenuTracks.Count > 1)
+                _list.Add(MenuTrackRow());
+
+            Section("reading", LvnWords.Of("settings.tab_reading", "Reading"));
+            _list.Add(FontRow());
+            _list.Add(TextScaleRow());
+            _list.Add(UiScaleRow());
+            _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
+                0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
+            _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
+                () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
+            _list.Add(RangeRow(LvnWords.Of("settings.auto_delay", "Auto delay"), LvnWords.Of("settings.auto_delay_hint", "Pause before the next line"),
+                0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
+            _list.Add(RangeRow(LvnWords.Of("settings.box_opacity", "Box opacity"), LvnWords.Of("settings.box_opacity_hint", "The dialogue plate; text stays crisp"),
+                0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
+            _list.Add(SwitchRow(LvnWords.Of("settings.skip_read", "Skip read only"), LvnWords.Of("settings.skip_read_hint", "Fast-forward stops at new lines"),
+                () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
+            _list.Add(SwitchRow(LvnWords.Of("settings.reduce_motion", "Reduce motion"), LvnWords.Of("settings.reduce_motion_hint", "No camera shake or flashes"),
+                () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+
+            Section("data", LvnWords.Of("settings.tab_data", "Data"));
+            _list.Add(ArtQualityRow());
+            _list.Add(FpsRow());
+            if (StorageInfo != null && DownloadAll != null)
+                _list.Add(StorageRow());
+
+            Section("account", LvnWords.Of("settings.tab_account", "Account"));
+            _list.Add(UidRow());
+            _accountRow = RowEx(_cfg.account_label ?? LvnWords.Of("settings.account", "Account"),
+                LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
+            _list.Add(_accountRow);
+            SetAccountStatus("…", showSignIn: false);
+            _list.Add(RestoreRow());
+            _list.Add(VersionRow());
+            var links = LinksRow();
+            if (links != null) _list.Add(links);
+            var socials = SocialRow();
+            if (socials != null) _list.Add(socials);
+
+            // Пока лента не измерена, прыгать некуда — подсветку и переходы
+            // включаем после первой раскладки.
+            _list.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => SyncActiveTab());
+            _list.verticalScroller.valueChanged += _ => SyncActiveTab();
         }
 
-        // Пилюли-вкладки: активная — акцентом.
+        // Заголовок раздела — он же якорь для быстрого перехода.
+        private void Section(string id, string title)
+        {
+            var lbl = SectionTitle(title, LvnTokens.TextLg);
+            lbl.style.marginTop = _anchors.Count == 0 ? 8 : 26;
+            lbl.style.marginBottom = 8;
+            _anchors[id] = lbl;
+            _list.Add(lbl);
+        }
+
+        // Какой раздел игрок сейчас читает: верхний из тех, что уже проехали
+        // верхнюю кромку. Подсветка следует за лентой, а не за последним
+        // нажатием — иначе она врёт ровно в тот момент, когда на неё смотрят.
+        private void SyncActiveTab()
+        {
+            if (_anchors.Count == 0 || _tabButtons.Count == 0) return;
+            float top = _list.scrollOffset.y + 24f;
+            string cur = null;
+            foreach (var kv in _anchors)
+            {
+                var y = kv.Value.layout.y;
+                if (float.IsNaN(y)) continue;
+                if (y <= top || cur == null) cur = kv.Key;
+            }
+            if (cur == null || cur == _tab) return;
+            _tab = cur;
+            foreach (var (id, b) in _tabButtons) StyleValueButton(b, id == _tab);
+        }
+
+        // Пилюли-вкладки: быстрый переход к разделу, активная — акцентом.
         private VisualElement TabsRow()
         {
+            _tabButtons.Clear();
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
+            row.style.flexWrap = Wrap.Wrap;
             row.style.marginBottom = 14;
             foreach (var (id, label) in new[]
             {
@@ -196,9 +233,17 @@ namespace Lvn.UI.Screens
                 var b = new Button { text = label };
                 StyleValueButton(b, _tab == id);
                 b.style.marginRight = 8;
+                b.style.marginBottom = 8;
                 b.style.flexGrow = 1;
                 var captured = id;
-                b.clicked += () => { _tab = captured; Rebuild(); };
+                b.clicked += () =>
+                {
+                    if (!_anchors.TryGetValue(captured, out var anchor)) return;
+                    _list.ScrollTo(anchor);
+                    _tab = captured;
+                    foreach (var (tid, tb) in _tabButtons) StyleValueButton(tb, tid == _tab);
+                };
+                _tabButtons.Add((captured, b));
                 row.Add(b);
             }
             return row;
@@ -210,37 +255,70 @@ namespace Lvn.UI.Screens
         // Трек главного меню — как в жанровых флагманах: пилюли с выбором.
         private VisualElement MenuTrackRow()
         {
-            var row = RowEx(LvnWords.Of("settings.menu_track", "Menu track"), LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"));
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            seg.style.flexWrap = Wrap.Wrap;
-            row.Add(seg);
-            var buttons = new System.Collections.Generic.List<(Button b, string id)>();
-            void Highlight()
-            {
-                foreach (var (b, id) in buttons)
-                    StyleValueButton(b, (LvnPrefs.MenuTrack ?? "") == id
-                        || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && id == MenuTracks[0].id));
-            }
-            foreach (var (id, title) in MenuTracks)
-            {
-                var captured = id;
-                var b = new Button { text = title };
-                b.style.marginLeft = 6; b.style.marginBottom = 6;
-                b.clicked += () =>
-                {
-                    LvnPrefs.MenuTrack = captured;
-                    OnMenuTrack?.Invoke(captured);
-                    Highlight();
-                };
-                buttons.Add((b, captured));
-                seg.Add(b);
-            }
-            Highlight();
-            return row;
+            return WideRow(LvnWords.Of("settings.menu_track", "Menu track"),
+                LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"),
+                Lvn.UI.LvnSegment.Of(MenuTracks,
+                t => t.title,
+                t => (LvnPrefs.MenuTrack ?? "") == t.id
+                     || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && t.id == MenuTracks[0].id),
+                t => { LvnPrefs.MenuTrack = t.id; OnMenuTrack?.Invoke(t.id); },
+                StyleValueButton));
         }
 
 
+
+        // ── шрифт и размеры ──────────────────────────────────────────────────
+        // Просьба партнёра (TR-58): «в пункт „чтение“ просится выбор размера
+        // шрифта». Сделано шире и по правилу «у понятия один дом»: гарнитура,
+        // размер реплик и размер интерфейса — три разные величины, и путать их
+        // нельзя. Читать длинный текст и попадать пальцем в кнопку — разные
+        // задачи, и решаются они разными ручками.
+        private VisualElement FontRow()
+        {
+            var options = new List<string> { "" };
+            foreach (var f in Lvn.UI.LvnFonts.Families) options.Add(f.Id);
+            return WideRow(LvnWords.Of("settings.font", "Font"),
+                LvnWords.Of("settings.font_hint", "The typeface for lines and menus"),
+                Lvn.UI.LvnSegment.Of(options,
+                id => string.IsNullOrEmpty(id)
+                    ? LvnWords.Of("settings.font_author", "As authored")
+                    : Lvn.UI.LvnFonts.FamilyOf(id).Title,
+                id => (LvnPrefs.FontFamily ?? "") == id,
+                id => { LvnPrefs.FontFamily = id; Rebuild(); },
+                StyleValueButton));
+        }
+
+        // Ступени, а не ползунок: у размера текста нет «чуть-чуть» — есть
+        // «читается» и «не читается», и пять названных ступеней игрок проходит
+        // за пять нажатий вместо ловли доли на полоске.
+        private static readonly (float k, string key, string en)[] ScaleSteps =
+        {
+            (0.85f, "settings.size_xs", "XS"), (0.92f, "settings.size_s", "S"),
+            (1f, "settings.size_m", "M"), (1.15f, "settings.size_l", "L"),
+            (1.3f, "settings.size_xl", "XL"),
+        };
+
+        private VisualElement TextScaleRow()
+        {
+            return WideRow(LvnWords.Of("settings.text_size", "Text size"),
+                LvnWords.Of("settings.text_size_hint", "Dialogue lines only — the scene stays as authored"),
+                Lvn.UI.LvnSegment.Of(ScaleSteps,
+                st => LvnWords.Of(st.key, st.en),
+                st => Mathf.Abs(LvnPrefs.TextScale - st.k) < 0.01f,
+                st => LvnPrefs.TextScale = st.k,
+                StyleValueButton));
+        }
+
+        private VisualElement UiScaleRow()
+        {
+            return WideRow(LvnWords.Of("settings.ui_size", "Interface size"),
+                LvnWords.Of("settings.ui_size_hint", "Menus, buttons and panels — the scene keeps its framing"),
+                Lvn.UI.LvnSegment.Of(ScaleSteps,
+                st => LvnWords.Of(st.key, st.en),
+                st => Mathf.Abs(LvnPrefs.UiScale - st.k) < 0.01f,
+                st => { LvnPrefs.UiScale = st.k; Lvn.UI.LvnPanel.ApplyUiScale(); },
+                StyleValueButton));
+        }
 
         private VisualElement SoundRow()
         {
@@ -280,19 +358,11 @@ namespace Lvn.UI.Screens
             System.Func<bool> get, System.Action<bool> set)
         {
             var row = RowEx(label, hint);
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-            Button on = null, off = null;
-            void Highlight() { StyleValueButton(on, get()); StyleValueButton(off, !get()); }
-            on = new Button { text = LvnWords.Of("common.on", "On") };
-            on.style.marginLeft = 6;
-            on.clicked += () => { set(true); Highlight(); };
-            off = new Button { text = LvnWords.Of("common.off", "Off") };
-            off.style.marginLeft = 6;
-            off.clicked += () => { set(false); Highlight(); };
-            seg.Add(on); seg.Add(off);
-            Highlight();
+            row.Add(Lvn.UI.LvnSegment.Of(new[] { true, false },
+                v => v ? LvnWords.Of("common.on", "On") : LvnWords.Of("common.off", "Off"),
+                v => get() == v,
+                v => set(v),
+                StyleValueButton));
             return row;
         }
 
@@ -312,32 +382,18 @@ namespace Lvn.UI.Screens
 
         private VisualElement LanguageRow()
         {
-            var row = RowEx(_cfg.language_label ?? LvnWords.Of("settings.language", "Story language"),
-                LvnWords.Of("settings.language_hint", "Chapter text; the interface follows it"));
-            var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            row.Add(seg);
-
+            var label = _cfg.language_label ?? LvnWords.Of("settings.language", "Story language");
             // The script's inline language, then each localized catalog.
             var options = new List<string> { "" };
             options.AddRange(LvnPrefs.AvailableLocales);
-            var buttons = new List<(Button b, string loc)>();
-            void Highlight() { foreach (var (b, loc) in buttons) StyleValueButton(b, LvnPrefs.Locale == loc); }
-            foreach (var loc in options)
-            {
-                var captured = loc;
-                var b = new Button { text = LocaleName(loc) };
-                b.style.marginLeft = 6;
-                b.clicked += () =>
-                {
-                    LvnPrefs.Locale = captured; // NovelApp reloads the string catalog live
-                    Highlight();
-                };
-                buttons.Add((b, captured));
-                seg.Add(b);
-            }
-            Highlight();
-            return row;
+            // Через дом рядов: сколько у новеллы каталогов, столько и кнопок —
+            // без переноса четвёртый язык уехал бы за край, как ступень арта.
+            return WideRow(label, LvnWords.Of("settings.language_hint", "Chapter text; the interface follows it"),
+                Lvn.UI.LvnSegment.Of(options,
+                    LocaleName,
+                    loc => LvnPrefs.Locale == loc,
+                    loc => LvnPrefs.Locale = loc,   // NovelApp перечитает каталог сам
+                    StyleValueButton));
         }
 
 
@@ -368,6 +424,42 @@ namespace Lvn.UI.Screens
         // Строка «название + пояснение» — у каждой настройки есть подпись,
         // объясняющая, что она делает: контрол без пояснения выглядит дико
         // («кнопка скачать игру?????» — живой репорт).
+        /// <summary>
+        /// ШИРОКИЙ РЯД — подпись сверху, управление во всю ширину под ней.
+        ///
+        /// <para>Обычная строка делит ширину между текстом и управлением, и на
+        /// телефоне вариантам достаётся треть: три ступени качества арта
+        /// переносились в столбик по краю, а «1K» на снимке партнёра выглядел
+        /// оторванным от своего ряда. Там, где вариантов больше двух, подпись и
+        /// выбор не спорят за место — они стоят друг под другом.</para>
+        /// </summary>
+        private VisualElement WideRow(string label, string hint, VisualElement control)
+        {
+            var row = new VisualElement();
+            row.style.marginBottom = 8;
+            row.style.paddingTop = 12;
+            row.style.paddingBottom = 12;
+            var lbl = new Label(label);
+            lbl.style.color = _text;
+            lbl.style.fontSize = LvnTokens.TextBase;
+            row.Add(lbl);
+            if (!string.IsNullOrEmpty(hint))
+            {
+                var h = new Label(hint);
+                h.style.color = _dim;
+                h.style.fontSize = LvnTokens.TextSm;
+                h.style.marginTop = 8;
+                h.style.whiteSpace = WhiteSpace.Normal;
+                row.Add(h);
+            }
+            if (control != null)
+            {
+                control.style.marginTop = 12;
+                row.Add(control);
+            }
+            return row;
+        }
+
         private VisualElement RowEx(string label, string hint)
         {
             var row = new VisualElement();

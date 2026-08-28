@@ -38,6 +38,9 @@ namespace Lvn.UI
             _reduceMotion = LvnKeep.Get(P + "reduce_motion", 0) == 1;
             _skipReadOnly = LvnKeep.Get(P + "skip_read_only", 0) == 1;
             _dialogOpacity = LvnKeep.Get(P + "dialog_opacity", 1f);
+            _textScale = LvnKeep.Get(P + "text_scale", 1f);
+            _uiScale = LvnKeep.Get(P + "ui_scale", 1f);
+            _fontFamily = LvnKeep.Get(P + "font_family", "");
             _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
             _locale = LvnKeep.Get(P + "locale", "");
             _artQuality = LvnKeep.Get(P + "art_quality", "");
@@ -264,6 +267,39 @@ namespace Lvn.UI
             get { EnsureLoaded(); return _dialogOpacity; }
             set { EnsureLoaded(); Set(ref _dialogOpacity, "dialog_opacity", Mathf.Clamp(value, 0.2f, 1f)); }
         }
+
+        /// <summary>РАЗМЕР ТЕКСТА РЕПЛИК — множитель к авторскому кеглю
+        /// (0,85–1,4; 1 — как задумал автор). Не абсолютное число: кегль
+        /// принадлежит постановке новеллы, игрок лишь подгоняет его под свои
+        /// глаза и свой телефон. Просьба партнёра (TR-58): «в пункт „чтение“
+        /// просится выбор размера шрифта».</summary>
+        public static float TextScale
+        {
+            get { EnsureLoaded(); return _textScale; }
+            set { EnsureLoaded(); Set(ref _textScale, "text_scale", Mathf.Clamp(value, 0.85f, 1.4f)); }
+        }
+        private static float _textScale = 1f;
+
+        /// <summary>МАСШТАБ ИНТЕРФЕЙСА — множитель к размеру всей оболочки
+        /// (0,85–1,3; 1 — как нарисовано). Крайние ступени намеренно не шире:
+        /// мельче 0,85 кнопки перестают попадать под палец, крупнее 1,3 списки
+        /// перестают помещаться в экран — и то и другое читается как поломка,
+        /// а не как настройка.</summary>
+        public static float UiScale
+        {
+            get { EnsureLoaded(); return _uiScale; }
+            set { EnsureLoaded(); Set(ref _uiScale, "ui_scale", Mathf.Clamp(value, 0.85f, 1.3f)); }
+        }
+        private static float _uiScale = 1f;
+
+        /// <summary>ГАРНИТУРА — ключ из каталога <c>LvnFonts.Families</c>.
+        /// Пусто — та, что выбрала новелла.</summary>
+        public static string FontFamily
+        {
+            get { EnsureLoaded(); return _fontFamily; }
+            set { EnsureLoaded(); Set(ref _fontFamily, "font_family", value ?? ""); }
+        }
+        private static string _fontFamily = "";
 
         /// <summary>The reader's language code ("ru", "en", …); "" = the script's
         /// inline text (the original). The host (NovelApp) reloads the string

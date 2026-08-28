@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Lvn.Content
@@ -81,6 +82,24 @@ namespace Lvn.Content
             return string.IsNullOrEmpty(pattern) ? pattern
                  : pattern.Contains("{0}") ? string.Format(pattern, arg0)
                  : pattern + " " + arg0;
+        }
+
+        /// <summary>Шаблон с ДВУМЯ подстановками: «{0} МБ на устройстве, ещё
+        /// {1} МБ». Склеивать такие фразы нельзя вовсе: в другом языке числа
+        /// стоят в другом порядке, и склейка даёт бессмыслицу, которую автор
+        /// не может поправить словарём.</summary>
+        public static string Of(string key, string fallback, object arg0, object arg1)
+        {
+            var pattern = Of(key, fallback);
+            if (string.IsNullOrEmpty(pattern)) return pattern;
+            try { return string.Format(pattern, arg0, arg1); }
+            catch (FormatException)
+            {
+                // Кривой шаблон из манифеста не повод показать пустую строку:
+                // жалуемся один раз именем ключа и отдаём как есть.
+                UnityEngine.Debug.LogWarning($"[lvn-words] шаблон «{key}» не понят — показан без подстановки");
+                return pattern;
+            }
         }
 
         /// <summary>

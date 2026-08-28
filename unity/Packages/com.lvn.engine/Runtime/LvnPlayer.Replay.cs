@@ -43,6 +43,12 @@ namespace Lvn
                 path = lin;
             }
             ReplayPath(path);
+            // Штамп восстановления: без него «персонаж пропал после возврата в
+            // главу» невозможно отличить от «его и не ставили» — а это разные
+            // поломки, в разных местах (репорт партнёра TR-60).
+            Log?.Invoke($"replay: {(path == _trace ? "след" : "линейный проход")} " +
+                        $"{path.Count} шаг(ов) → в кадре {_replayShown.Count} актёр(ов)" +
+                        (_replayShown.Count > 0 ? ": " + string.Join(", ", _replayShown) : ""));
             }
             finally { _replaying = false; }
         }
@@ -57,8 +63,12 @@ namespace Lvn
             "flip", "mirror", "anchor", "opacity", "hover_opacity",
         };
 
+        // Кого реплей вывел в кадр — для штампа восстановления.
+        private readonly List<string> _replayShown = new List<string>();
+
         private void ReplayPath(IReadOnlyList<int> path)
         {
+            _replayShown.Clear();
             // Three replay classes. Structural ops (bg/obj/anim/text) accumulate,
             // so they re-run in path order. FX/audio are stateful overlays where
             // only the LAST setting matters — they collapse to the final value per
@@ -112,6 +122,7 @@ namespace Lvn
                         if (m[prop.Name] == null)
                             m[prop.Name] = prop.Value.DeepClone();
                     StageApply(m);
+                    _replayShown.Add(aid);
                     continue;
                 }
                 if (IsReapplyable(op)) { StageApply(c); continue; }

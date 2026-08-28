@@ -355,6 +355,10 @@ namespace Lvn.UI.Screens
             // И как игра зовёт безымянного игрока — тоже слово автора.
             if (!string.IsNullOrEmpty(manifest.ui?.guest_name))
                 Lvn.UI.LvnPlayerName.GuestLabel = manifest.ui.guest_name;
+            // …и в какую переменную истории игрок вписывает своё имя: без этого
+            // назвавшийся в прологе игрок оставался для оболочки безымянным.
+            Lvn.UI.LvnPlayerName.Var = string.IsNullOrEmpty(manifest.ui?.player_name_var)
+                ? Lvn.UI.LvnPlayerName.DefaultVar : manifest.ui.player_name_var;
             // …и как она зовёт главу: «Глава», «Эпизод», «Дело».
             if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;

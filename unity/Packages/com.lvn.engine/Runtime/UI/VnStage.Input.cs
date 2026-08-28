@@ -203,7 +203,15 @@ namespace Lvn.UI
             if (!_awaitingInput) return;
             _awaitingInput = false;
             if (_player != null && !string.IsNullOrEmpty(_inputVar))
+            {
                 _player.Vars[_inputVar] = value ?? string.Empty;
+                // Игрок назвался — об этом обязана узнать и ОБОЛОЧКА. Раньше имя
+                // оставалось внутри истории: в прологе игрок вводил своё, а хаб,
+                // профиль и гардероб продолжали звать его каталожным именем
+                // героини, потому что смотрели в настройки устройства (TR-59).
+                if (Lvn.UI.LvnPlayerName.IsNameVar(_inputVar) && !string.IsNullOrEmpty(value))
+                    Lvn.UI.LvnPlayerName.Set(value);
+            }
             CloseInput();
             _player?.Advance();
             AutosaveNow(); // the entered value is exactly what a crash must not lose
