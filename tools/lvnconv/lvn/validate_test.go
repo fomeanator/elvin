@@ -580,9 +580,16 @@ func TestGeneratedLabelsDoNotDrownTheRealFindings(t *testing.T) {
 	]}`)
 	issues := Validate(d)
 
+	// Молчать надо о ШУМЕ РАЗМЕТКИ — «провал в метку» и «метка никем не нужна».
+	// Дефекты ПОТОКА (петля без выхода, недостижимость) машинная метка не
+	// оправдывает: в главах Cold именно на таких метках замкнут гардероб, и
+	// промолчать о софтлоке было бы хуже, чем шуметь.
 	for _, is := range issues {
-		if is.Sev == SevWarning && contains(is.Msg, "n17_000000") {
-			t.Fatalf("метка импортёра не должна давать предупреждений: %s", is.Msg)
+		if is.Sev != SevWarning || !contains(is.Msg, "n17_000000") {
+			continue
+		}
+		if contains(is.Msg, "fall-through") || contains(is.Msg, "never targeted") {
+			t.Fatalf("шум разметки на метке импортёра: %s", is.Msg)
 		}
 	}
 	// Авторская метка с тем же провалом — предупреждение на месте.
@@ -616,5 +623,54 @@ func TestSuppressionIsSaidOutLoudAsANote(t *testing.T) {
 	}
 	if note.Sev == SevWarning || note.Sev == SevError {
 		t.Fatal("заметка не должна валить -strict")
+	}
+}
+
+// ПЕТЛЯ БЕЗ ВЫХОДА — игрок застрянет навсегда.
+//
+// Находка не теоретическая: в главах Cold так замкнут гардероб — открыть,
+// поставить флаг, вернуться на метку, открыть снова (тридцать таких мест в
+// восемнадцати файлах). Прежняя диагностика видела лишь СЛЕДСТВИЕ («дальше
+// недостижимо»), да и то не всегда: если в хвост главы вёл ещё один переход,
+// петля проходила молча — ровно так молчал cold-ch01.
+func TestLoopWithoutExitWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"label","id":"ловушка"},
+	 {"op":"say","text":"крутимся"},
+	 {"op":"goto","label":"ловушка"},
+	 {"op":"say","text":"сюда не попасть"}
+	]}`)
+	if !hasWarn(Validate(d), "has no way out") {
+		t.Fatalf("вечная петля должна быть замечена: %+v", Validate(d))
+	}
+}
+
+// Игровой цикл — норма: из него уводит выбор, ветвление или возврат.
+func TestGameLoopsAreNotFlagged(t *testing.T) {
+	cases := map[string]string{
+		"выбор уводит наружу": `{"scene":"t","script":[
+		 {"op":"label","id":"loop"},
+		 {"op":"choice","options":[{"text":"ещё","goto":"loop"},{"text":"хватит","goto":"end"}]},
+		 {"op":"goto","label":"loop"},
+		 {"op":"label","id":"end"},
+		 {"op":"say","text":"конец"}]}`,
+		"ветвление уводит наружу": `{"scene":"t","script":[
+		 {"op":"label","id":"loop"},
+		 {"op":"inc","key":"n"},
+		 {"op":"if","expr":"n > 3","then":"end","else":"loop"},
+		 {"op":"goto","label":"loop"},
+		 {"op":"label","id":"end"},
+		 {"op":"say","text":"конец"}]}`,
+		"возврат из вызова": `{"scene":"t","script":[
+		 {"op":"label","id":"sub"},
+		 {"op":"say","text":"работа"},
+		 {"op":"return"},
+		 {"op":"goto","label":"sub"}]}`,
+	}
+	for name, src := range cases {
+		d := parse(t, src)
+		if hasWarn(Validate(d), "has no way out") {
+			t.Fatalf("%s: законный цикл не должен предупреждать: %+v", name, Validate(d))
+		}
 	}
 }

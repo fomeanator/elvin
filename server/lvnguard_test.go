@@ -123,9 +123,15 @@ func TestAssetPutRejectsNonDocumentShapes(t *testing.T) {
 // A host op (LvnOps.Register / `ext`) is legal content. It must WRITE, and it
 // must be reported — blocking it would break every embedding game, staying
 // silent would defeat the "the compiler owns unknown ops" decision.
+//
+// Операция взята ЗАВЕДОМО ЧУЖАЯ. Раньше здесь стоял `leaderboard_submit`, но с
+// 28.08 движок объявляет свои сервисные операции сам (встроенная грамматика в
+// валидаторе), и первопартийная операция больше не шумит — ради этого правка и
+// делалась. Проверять на ней «предупреждение о неизвестной команде» значит
+// закреплять как раз то, что чинили.
 func TestAssetPutUnknownOpWarnsButWrites(t *testing.T) {
 	s := guardServer(t)
-	const hostOp = `{"scene":"s","script":[{"op":"leaderboard_submit","board":"quiz","score":10},
+	const hostOp = `{"scene":"s","script":[{"op":"my_minigame","board":"quiz","score":10},
 	 {"op":"say","text":"done"}]}`
 	rec, out := putAsset(t, s, "scripts/host.lvn", hostOp)
 	if rec.Code != http.StatusOK {
@@ -135,7 +141,7 @@ func TestAssetPutUnknownOpWarnsButWrites(t *testing.T) {
 		t.Fatalf("host-op script was not written: %v", err)
 	}
 	warns := strings.Join(strList(out["warnings"]), "|")
-	if !strings.Contains(warns, "leaderboard_submit") {
+	if !strings.Contains(warns, "my_minigame") {
 		t.Fatalf("want the unknown op reported as a warning, got %q", warns)
 	}
 }
