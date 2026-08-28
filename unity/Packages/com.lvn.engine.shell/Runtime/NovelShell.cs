@@ -75,6 +75,12 @@ namespace Lvn.UI.Screens
 
         private void OnWalletPills() => TopBar?.RefreshBalances();
 
+        private readonly LvnLeash _leash = new LvnLeash();
+
+        /// <summary>Отпустить всё, на что подписана оболочка. Зовёт хост при
+        /// сносе: у оболочки своего OnDestroy нет — она не MonoBehaviour.</summary>
+        public void ReleaseSubscriptions() => _leash.Release();
+
         // ── НАВИГАТОР ЛЕНТЫ (решение Ильи 26.08: «один уезжает — другой
         // приезжает») ── ОДНО состояние _tab; страница «уехала» = display:none
         // (translate — только анимация, никогда не состояние). Гонки отрезаны
@@ -364,8 +370,12 @@ namespace Lvn.UI.Screens
             // фактической вкладкой после выхода из главы.
             OnChapterSessionStart += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.EnterChapter(); TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
             OnChapterSessionEnd += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.LeaveChapter(); TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
-            Lvn.Services.LvnWallet.Changed -= OnWalletPills;
-            Lvn.Services.LvnWallet.Changed += OnWalletPills;
+            // Было `-=` перед `+=` — защита от двойной подписки, но НЕ отписка:
+            // обработчик метод экземпляра, и у пересозданной оболочки делегат
+            // другой, так что прежняя подписка оставалась висеть навсегда и
+            // дёргала мёртвое дерево на каждое движение денег.
+            _leash.Hold(() => Lvn.Services.LvnWallet.Changed += OnWalletPills,
+                        () => Lvn.Services.LvnWallet.Changed -= OnWalletPills);
 
             if (assets is CachingAssets ca)
             {
