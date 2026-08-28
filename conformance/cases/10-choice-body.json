@@ -2,32 +2,83 @@
   "id": "choice-body",
   "title": "An option body runs its set/inc and then falls through past the choice",
   "why": "Inline bodies are how the compiler lowers short branches. The data ops must apply exactly once, and a body with no goto must continue at the command AFTER the choice — not re-enter it.",
-  "runtimes": ["csharp"],
-  "picks": [0],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
+  "picks": [
+    0
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "say", "text": "Сундук." },
-      { "op": "choice", "options": [
-        { "text": "Открыть", "body": [
-          { "op": "set", "key": "opened", "value": true },
-          { "op": "inc", "key": "gold", "by": 10 }
-        ] },
-        { "text": "Пройти мимо", "goto": "past" }
-      ] },
-      { "op": "say", "text": "Ты идёшь дальше." },
-      { "op": "goto", "label": "__end" },
-      { "op": "label", "id": "past" },
-      { "op": "say", "text": "Ты прошёл мимо." }
+      {
+        "op": "say",
+        "text": "Сундук."
+      },
+      {
+        "op": "choice",
+        "options": [
+          {
+            "text": "Открыть",
+            "body": [
+              {
+                "op": "set",
+                "key": "opened",
+                "value": true
+              },
+              {
+                "op": "inc",
+                "key": "gold",
+                "by": 10
+              }
+            ]
+          },
+          {
+            "text": "Пройти мимо",
+            "goto": "past"
+          }
+        ]
+      },
+      {
+        "op": "say",
+        "text": "Ты идёшь дальше."
+      },
+      {
+        "op": "goto",
+        "label": "__end"
+      },
+      {
+        "op": "label",
+        "id": "past"
+      },
+      {
+        "op": "say",
+        "text": "Ты прошёл мимо."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Сундук." },
-      { "choice": ["Открыть", "Пройти мимо"] },
-      { "say": "Ты идёшь дальше." },
-      { "end": true }
+      {
+        "say": "Сундук."
+      },
+      {
+        "choice": [
+          "Открыть",
+          "Пройти мимо"
+        ]
+      },
+      {
+        "say": "Ты идёшь дальше."
+      },
+      {
+        "end": true
+      }
     ],
-    "vars": { "opened": true, "gold": 10 }
+    "vars": {
+      "opened": true,
+      "gold": 10
+    }
   }
 }
