@@ -152,16 +152,10 @@ namespace Lvn.Content
         // is generated once.
         private readonly string _key;
 
-        internal static string DeviceKey()
-        {
-            var k = LvnKeep.Get("lvn_state_key", "");
-            if (string.IsNullOrEmpty(k))
-            {
-                k = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-                LvnKeep.Put("lvn_state_key", k);
-            }
-            return k;
-        }
+        // Постоянная метка — у ПАСПОРТИСТА (Lvn.LvnMark): потеря секрета
+        // означает, что сервер не отдаст блоб (ключ заявлен при первой
+        // записи), поэтому у него, как и у метки игрока, второй дом.
+        internal static string DeviceKey() => Lvn.LvnMark.Steady("lvn_state_key");
 
         /// <param name="stateKey">Shared secret for the user's blobs. REQUIRED to
         /// be the same across devices when <paramref name="userId"/> is an account

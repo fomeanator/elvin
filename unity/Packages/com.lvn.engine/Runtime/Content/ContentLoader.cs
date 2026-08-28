@@ -782,7 +782,7 @@ namespace Lvn.Content
         {
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            var tmp = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            var tmp = path + ".tmp-" + Lvn.LvnMark.Once();
             try
             {
                 File.WriteAllBytes(tmp, bytes);

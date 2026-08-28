@@ -785,7 +785,7 @@ func (s *AnalyticsService) gaps(m *dayRollup) []analyticsGap {
 		{
 			Event: "props.sid", Seen: len(m.Sessions),
 			Blind:  "no session id on events: session-level metrics fall back to per-player ones, and analytics cannot be joined to /v1/log/client, which DOES carry a session",
-			Client: "stamp the same session guid the log shipper uses onto every LvnAnalytics event (props.sid)",
+			Client: "stamp LvnMark.Run — the SAME mark the log shipper puts on its batches — onto every LvnAnalytics event (props.sid); that identity is what makes the join possible",
 		},
 		{
 			Event: "props.title on boot", Seen: m.Events - titleless(m),

@@ -38,12 +38,9 @@ namespace Lvn.Services
         public static async Task<bool> EnsureRegisteredAsync()
         {
             if (string.IsNullOrEmpty(BaseUrl)) return SignedIn;
-            var device = LvnKeep.Get(PDevice, "");
-            if (string.IsNullOrEmpty(device))
-            {
-                device = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-                LvnKeep.Put(PDevice, device);
-            }
+            // Метка устройства — у ПАСПОРТИСТА: её потеря регистрирует НОВУЮ
+            // учётку, то есть отнимает кошелёк и покупки, поэтому дома два.
+            var device = LvnMark.Steady(PDevice);
             var body = JsonUtility.ToJson(new RegisterReq { device_id = device });
             var (code, json) = await PostAsync("/v1/auth/register", body, auth: false);
             if (code != 200 || string.IsNullOrEmpty(json)) return SignedIn;

@@ -162,7 +162,7 @@ namespace Lvn.Services
             // op_id is born WITH the operation and rides every retry/replay of
             // it — the server applies exactly once even when a response is lost.
             var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
-                ["op_id"] = System.Guid.NewGuid().ToString("N") };
+                ["op_id"] = Lvn.LvnMark.Once() };
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/earn", payload.ToString());
             if (LvnBackend.Ok(code)) return Apply(body);
             if (code != 0) return false; // the server SAW it and refused — not an offline case
@@ -180,7 +180,7 @@ namespace Lvn.Services
             EnsureLoaded();
             await FlushAsync(); // offline earnings must land before this spend is judged
             var payload = new JObject { ["op"] = "spend", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
-                ["op_id"] = System.Guid.NewGuid().ToString("N") };
+                ["op_id"] = Lvn.LvnMark.Once() };
             if (!string.IsNullOrEmpty(sku)) payload["sku"] = sku;
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/spend", payload.ToString());
             if (LvnBackend.Ok(code)) return Apply(body);
