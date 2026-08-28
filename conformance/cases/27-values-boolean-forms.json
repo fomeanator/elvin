@@ -1,0 +1,72 @@
+{
+  "id": "values-boolean-forms",
+  "title": "A boolean field accepts the forms an author actually writes: true/1/yes/on/да and false/0/no/off/нет",
+  "why": "The compiler does NOT normalise booleans — `default=no` reaches the runtime as the string \"no\", `default=0` as a number. Every runtime therefore decides for itself what counts as consent, and the C# side used to decide it in SIX places with FIVE different answers: scene commands knew true/1/yes, audio knew only real booleans (so `loop=no` silently looped the music), player variables the same, the UI layer also knew off/нет, and the frame model threw on a string. Nothing warned — the author wrote a form that works one line above and got different behaviour. This case pins the shared dictionary through the one boolean field whose effect is visible in state: `set default=`, which means initialise-only.",
+  "runtimes": ["csharp"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "score", "value": 5 },
+      { "op": "set", "key": "score", "value": 9, "default": "yes" },
+
+      { "op": "set", "key": "hp", "value": 3 },
+      { "op": "set", "key": "hp", "value": 7, "default": "да" },
+
+      { "op": "set", "key": "gold", "value": 1 },
+      { "op": "set", "key": "gold", "value": 2, "default": "on" },
+
+      { "op": "set", "key": "keys", "value": 4 },
+      { "op": "set", "key": "keys", "value": 8, "default": 1 },
+
+      { "op": "set", "key": "mp", "value": 1 },
+      { "op": "set", "key": "mp", "value": 4, "default": "no" },
+
+      { "op": "set", "key": "ammo", "value": 2 },
+      { "op": "set", "key": "ammo", "value": 6, "default": "off" },
+
+      { "op": "set", "key": "food", "value": 3 },
+      { "op": "set", "key": "food", "value": 7, "default": "нет" },
+
+      { "op": "set", "key": "wood", "value": 1 },
+      { "op": "set", "key": "wood", "value": 9, "default": 0 },
+
+      { "op": "set", "key": "iron", "value": 1 },
+      { "op": "set", "key": "iron", "value": 9, "default": "не знаю" },
+
+      { "op": "say", "text": "Готово." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Готово." },
+      { "end": true }
+    ],
+    "vars": {
+      "score": 5,
+      "hp": 3,
+      "gold": 1,
+      "keys": 4,
+      "mp": 4,
+      "ammo": 6,
+      "food": 7,
+      "wood": 9,
+      "iron": 9
+    },
+    "expr_true": [
+      "score == 5",
+      "hp == 3",
+      "gold == 1",
+      "keys == 4",
+      "mp == 4",
+      "ammo == 6",
+      "food == 7",
+      "wood == 9",
+      "iron == 9"
+    ],
+    "expr_false": [
+      "score == 9",
+      "hp == 7",
+      "mp == 1"
+    ]
+  }
+}

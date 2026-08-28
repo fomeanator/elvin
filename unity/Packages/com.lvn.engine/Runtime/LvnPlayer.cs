@@ -1030,12 +1030,7 @@ namespace Lvn
 
         // Tolerant boolean read: malformed content (a string "да", null) degrades to
         // the default instead of throwing out of Advance and killing the chapter.
-        private static bool BoolOr(JToken t, bool def)
-        {
-            if (t == null) return def;
-            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
-            try { return t.Value<bool>(); } catch { return def; }
-        }
+        private static bool BoolOr(JToken t, bool def) => Lvn.LvnBool.Of(t, def);
 
         private static double Num(JToken t, double def)
         {

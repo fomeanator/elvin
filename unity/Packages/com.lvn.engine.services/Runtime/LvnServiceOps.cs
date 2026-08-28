@@ -224,27 +224,13 @@ namespace Lvn.Services
         /// сравнение со строкой молча не срабатывало бы. Принимаем все три
         /// формы, в которых автор может это написать.
         /// </summary>
-        private static bool On(JObject cmd, string name)
-        {
-            var t = cmd[name];
-            if (t == null || t.Type == JTokenType.Null) return false;
-            if (t.Type == JTokenType.Boolean) return t.Value<bool>();
-            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<double>() != 0d;
-            var s = t.ToString().Trim().ToLowerInvariant();
-            return s == "1" || s == "true" || s == "yes" || s == "on" || s == "да";
-        }
+        // Этот словарь и был самым полным из шести — он переехал в
+        // Lvn.LvnBool и стал общим для всего движка.
+        private static bool On(JObject cmd, string name) => Lvn.LvnBool.On(cmd[name]);
 
         /// <summary>Явно выключено. Отсутствие поля — НЕ выключено: у wait
         /// умолчание «ждать», и написать надо ровно <c>wait=0</c>.</summary>
-        private static bool Off(JObject cmd, string name)
-        {
-            var t = cmd[name];
-            if (t == null || t.Type == JTokenType.Null) return false;
-            if (t.Type == JTokenType.Boolean) return !t.Value<bool>();
-            if (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) return t.Value<double>() == 0d;
-            var s = t.ToString().Trim().ToLowerInvariant();
-            return s == "0" || s == "false" || s == "no" || s == "off" || s == "нет";
-        }
+        private static bool Off(JObject cmd, string name) => Lvn.LvnBool.Off(cmd[name]);
 
 
         private static async System.Threading.Tasks.Task NetCheckAsync(JObject cmd, ILvnOpContext ctx)
