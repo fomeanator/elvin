@@ -45,6 +45,18 @@ namespace Lvn.UI.Screens
         /// не модалки»): лист занимает весь экран под навбаром — раздел, а не
         /// окно; атмосфера меню дышит сквозь полупрозрачный тон.</summary>
         protected void AdoptSheet(VisualElement sheet, bool fullscreen)
+            => AdoptSheet(sheet, fullscreen, null);
+
+        /// <summary>
+        /// То же, но с ЦВЕТОМ ОТ ЭКРАНА — когда новелла назвала свой
+        /// (<c>panel_color</c>).
+        ///
+        /// <para>Без этого параметра авторский цвет молча пропадал: экран
+        /// настроек ставил его строкой выше, а обёртка тут же перекрывала своим
+        /// — «полупрозрачная Полночь». Настройка в манифесте есть, работает
+        /// наполовину: попап её слушает, лист настроек нет.</para>
+        /// </summary>
+        protected void AdoptSheet(VisualElement sheet, bool fullscreen, Color? tint)
         {
             _sheet = sheet;
             if (sheet == null) return;
@@ -54,16 +66,48 @@ namespace Lvn.UI.Screens
                 sheet.style.top = 96; // под строкой единого навбара
                 sheet.style.bottom = 0;
             }
-            var bg = LvnTokens.PanelBg;
             // Просто полупрозрачная Полночь (решение Ильи 26.08): блюр-стекло
-            // на живом контенте давало грязь и на попапах снято совсем.
-            sheet.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
+            // на живом контенте давало грязь и на попапах снято совсем. Цвет от
+            // новеллы берём КАК ЕСТЬ, вместе с его прозрачностью: раз автор его
+            // назвал, он знает, чего хочет.
+            var bg = tint ?? LvnTokens.PanelBg;
+            sheet.style.backgroundColor = tint.HasValue
+                ? bg : new Color(bg.r, bg.g, bg.b, 0.94f);
             LvnChrome.Edge(sheet);
             LvnChrome.Round(sheet, fullscreen ? 0f : LvnTokens.Radius + 6f);
             // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
             // которого не хватало на тёмном полотне.
             sheet.style.borderTopWidth = 2.5f;
             sheet.style.borderTopColor = LvnTokens.Accent;
+        }
+
+        /// <summary>
+        /// ЛИСТ НАКЛАДНОГО ЭКРАНА: положение, поля, вид — одним вызовом.
+        ///
+        /// <para>Собирался в четырёх экранах руками, и числа разошлись: 5%/6%,
+        /// 6%/8%, 4%/5%. Разница не задумана — нигде нет ни слова, почему
+        /// настройки уже витрины скинов; это ровно «подобранное на месте
+        /// число», от которого предостерегает карта домов.</para>
+        ///
+        /// <para>Хуже: экраны задавали ещё и ВИД — фон, скругление, кромку, — а
+        /// <see cref="AdoptSheet"/> строкой ниже перекрывал его своим. Эти
+        /// строки ничего не делали, но выглядели работающими: правишь
+        /// скругление в экране — ничего не меняется.</para>
+        ///
+        /// <para>Отступы остаются у экрана: сколько воздуха внутри — вопрос его
+        /// содержимого, а не общего облика.</para>
+        /// </summary>
+        protected VisualElement Sheet(float sideInset = 5f, float topInset = 6f, Color? tint = null)
+        {
+            var sheet = new VisualElement();
+            sheet.style.position = Position.Absolute;
+            sheet.style.left = Length.Percent(sideInset);
+            sheet.style.right = Length.Percent(sideInset);
+            sheet.style.top = Length.Percent(topInset);
+            sheet.style.bottom = Length.Percent(topInset);
+            Add(sheet);
+            AdoptSheet(sheet, fullscreen: false, tint);
+            return sheet;
         }
 
         /// <summary>ЛЕНТА ВКЛАДОК (решение Ильи 26.08): раздел въезжает сбоку
