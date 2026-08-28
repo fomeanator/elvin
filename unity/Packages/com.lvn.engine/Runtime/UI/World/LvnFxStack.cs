@@ -184,8 +184,7 @@ namespace Lvn.UI.World
             // Потолок вдвое больше кадра: створ должен успевать ПЕРЕРАСТИ
             // экран, иначе на широком телефоне видны его края.
             _portalRadius = Mathf.Clamp(F(cmd, "portal_radius", _portalRadius), 0.05f, 2.4f);
-            var tint = (string)cmd["tint"];
-            if (!string.IsNullOrEmpty(tint) && ColorUtility.TryParseHtmlString(tint, out var c)) _tint = c;
+            ParseColor(cmd, "tint", ref _tint);
             ParseColor(cmd, "fog_color", ref _fogColor);
             ParseColor(cmd, "embers_color", ref _emberColor);
             ParseColor(cmd, "blood_color", ref _bloodColor);

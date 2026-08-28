@@ -297,10 +297,8 @@ namespace Lvn.UI
         public static void Use(string name) => Current = ByName(name);
         public static void Use(LvnTheme t) { if (t != null) Current = t; }
 
-        private static Color Hex(string s)
-        {
-            ColorUtility.TryParseHtmlString(s, out var c);
-            return c;
-        }
+        // Через UiColor.Parse, но НЕ через UiColor.Token: токены достаёт отсюда,
+        // и обращение назад замкнуло бы круг.
+        private static Color Hex(string s) => UiColor.Parse(s, Color.white);
     }
 }

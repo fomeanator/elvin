@@ -80,7 +80,9 @@ jobs:
         # именно так три стража браузерного тракта не работали на CI вовсе.
         env:
           LVN_REQUIRE_NODE: "1"
-        run: go test ./...
+        # -count=1: стражи читают дерево репозитория (C#, JS, манифесты), а кэш
+        # go test считает входами только .go-файлы и молча отдаёт «ok».
+        run: go test -count=1 ./...
 
   smoke:
     name: lvnconv end-to-end
