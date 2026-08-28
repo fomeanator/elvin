@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -265,7 +266,7 @@ namespace Lvn.UI.Screens
             name.style.maxWidth = first ? 138 : 112;
             col.Add(name);
 
-            var score = new Label(e.Score.ToString("N0"));
+            var score = new Label(LvnPriceTag.Amount(e.Score));
             score.style.color = first ? LvnTokens.Gold : LvnTokens.TextDim;
             score.style.fontSize = first ? 26f : 18f;
             score.style.unityFontStyleAndWeight = first ? FontStyle.Bold : FontStyle.Normal;
@@ -346,7 +347,7 @@ namespace Lvn.UI.Screens
                 nameCol.Add(you);
             }
 
-            var score = new Label(e.Score.ToString("N0"));
+            var score = new Label(LvnPriceTag.Amount(e.Score));
             score.style.color = e.IsYou ? LvnTokens.Text : LvnTokens.TextDim;
             score.style.fontSize = 24;
             score.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;

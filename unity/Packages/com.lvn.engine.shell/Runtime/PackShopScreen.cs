@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using Lvn.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -465,7 +466,7 @@ namespace Lvn.UI.Screens
             }
             else if (pack.Bonus > 0)
             {
-                var bonus = new Label(LvnWords.Of("shop.bonus", "+{0} bonus", pack.Bonus.ToString("N0")));
+                var bonus = new Label(LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
                 bonus.style.color = LvnTokens.Gold;
                 bonus.style.fontSize = 21;
                 bonus.style.marginTop = 4;
@@ -584,8 +585,8 @@ namespace Lvn.UI.Screens
             var bal = Lvn.Services.LvnWallet.Balances;
             long crystals = bal.TryGetValue("crystals", out var c) ? c : 0;
             long energy = bal.TryGetValue("energy", out var e) ? e : 0;
-            _balances.Add(BalancePill(LvnIcon.Gem, crystals.ToString("N0"), LvnTokens.Gold));
-            _balances.Add(BalancePill(LvnIcon.Energy, energy.ToString("N0"), LvnTokens.Accent));
+            _balances.Add(BalancePill(LvnIcon.Gem, LvnPriceTag.Amount(crystals), LvnTokens.Gold));
+            _balances.Add(BalancePill(LvnIcon.Energy, LvnPriceTag.Amount(energy), LvnTokens.Accent));
         }
 
         private static VisualElement BalancePill(LvnIcon glyph, string value, Color glyphColor)
