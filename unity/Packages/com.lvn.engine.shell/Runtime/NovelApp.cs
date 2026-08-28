@@ -336,6 +336,49 @@ namespace Lvn.UI.Screens
         /// иначе игра выглядела бы двумя разными продуктами: оболочка одной
         /// темы, диалог другой.</para>
         /// </summary>
+        /// <summary>
+        /// ЧЕМУ ДОМА УЧАТСЯ У МАНИФЕСТА — одним списком, а не двумя.
+        ///
+        /// <para>Слова автора живут не только на экранах: как зовут деньги, как
+        /// зовут безымянного игрока, каким словом называть главу, что писать на
+        /// кнопках движка, кто есть кто среди актёров. Всё это раздавалось по
+        /// домам при старте — и НЕ раздавалось при живом обновлении контента.
+        /// Автор правил «Кристаллы» на «Осколки», выкатывал — и у игрока с живой
+        /// сессией валюта оставалась прежней, хотя карточки новелл уже
+        /// обновились.</para>
+        ///
+        /// <para>Список получателей вёлся руками в двух местах и разошёлся, как
+        /// и список экранов в <c>ApplyLiveUpdate</c> (роль 197). Теперь он один,
+        /// и добавить в него нового ученика можно только здесь.</para>
+        /// </summary>
+        private void TeachHousesFrom(LvnManifest manifest)
+        {
+            // КАКИЕ ЯЗЫКИ У НОВЕЛЛЫ ЕСТЬ. Список объявлялся только при старте, и
+            // доложенный автором перевод не появлялся в настройках, пока игрок
+            // не перезапустит игру: ряд языков строится ровно по этому списку.
+            LvnPrefs.OriginalLocale = manifest.language ?? "ru";
+            LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
+                ? manifest.languages : System.Array.Empty<string>();
+            // ЦЕННИК узнаёт, как называются деньги ЭТОЙ игры: слова
+            // принадлежат автору, движок знает только форму показа.
+            Lvn.UI.LvnPriceTag.Learn(manifest.ui?.currency_look);
+            // И как игра зовёт безымянного игрока — тоже слово автора.
+            if (!string.IsNullOrEmpty(manifest.ui?.guest_name))
+                Lvn.UI.LvnPlayerName.GuestLabel = manifest.ui.guest_name;
+            // …и в какую переменную истории игрок вписывает своё имя: без этого
+            // назвавшийся в прологе игрок оставался для оболочки безымянным.
+            Lvn.UI.LvnPlayerName.Var = string.IsNullOrEmpty(manifest.ui?.player_name_var)
+                ? Lvn.UI.LvnPlayerName.DefaultVar : manifest.ui.player_name_var;
+            // …и как она зовёт главу: «Глава», «Эпизод», «Дело».
+            if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
+                Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
+            // Словарь оболочки: всё, что движок пишет на экране сам.
+            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels);
+            // …и кто есть кто: имя говорящего в сцене — та же строка, что имя
+            // героя в гардеробе, только приходит она из скрипта, а не по id.
+            Lvn.Content.LvnWords.LearnActors(manifest.sprites);
+        }
+
         private void PrepareStage(LvnManifest manifest)
         {
             if (Stage == null)
@@ -358,24 +401,7 @@ namespace Lvn.UI.Screens
             // the shell screens read manifest.ui — so the whole game is themeable.
             // (A title can override this per-game; applied in PlayChapterAsync.)
             _globalUi = manifest.ui;
-            // ЦЕННИК узнаёт, как называются деньги ЭТОЙ игры: слова
-            // принадлежат автору, движок знает только форму показа.
-            Lvn.UI.LvnPriceTag.Learn(manifest.ui?.currency_look);
-            // И как игра зовёт безымянного игрока — тоже слово автора.
-            if (!string.IsNullOrEmpty(manifest.ui?.guest_name))
-                Lvn.UI.LvnPlayerName.GuestLabel = manifest.ui.guest_name;
-            // …и в какую переменную истории игрок вписывает своё имя: без этого
-            // назвавшийся в прологе игрок оставался для оболочки безымянным.
-            Lvn.UI.LvnPlayerName.Var = string.IsNullOrEmpty(manifest.ui?.player_name_var)
-                ? Lvn.UI.LvnPlayerName.DefaultVar : manifest.ui.player_name_var;
-            // …и как она зовёт главу: «Глава», «Эпизод», «Дело».
-            if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
-                Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
-            // Словарь оболочки: всё, что движок пишет на экране сам.
-            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels);
-            // …и кто есть кто: имя говорящего в сцене — та же строка, что имя
-            // героя в гардеробе, только приходит она из скрипта, а не по id.
-            Lvn.Content.LvnWords.LearnActors(manifest.sprites);
+            TeachHousesFrom(manifest);
             _manifest = manifest;
             ApplyMenuStaging(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
@@ -392,9 +418,9 @@ namespace Lvn.UI.Screens
             // ничего не меняла: подстановка случалась однажды в жизни установки.
             // Теперь решает дом (LvnLocale.Effective), и «авто» — обычный
             // вариант в ряду настроек.
-            LvnPrefs.OriginalLocale = manifest.language ?? "ru";
-            LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
-                ? manifest.languages : System.Array.Empty<string>();
+            // Языки объявляет дом обучения (TeachHousesFrom): их список тоже
+            // меняется вместе с контентом — автор доложил перевод, и он обязан
+            // появиться в настройках без перезапуска.
             // ЯЗЫК ПЕРЕЖИВАЕТ ПЕРЕЗАПУСК. Перевод накладывался только по СМЕНЕ
             // языка, а выбор хранится на устройстве: после перезапуска игрок
             // видел выбранный английский в списке — и русское меню вокруг

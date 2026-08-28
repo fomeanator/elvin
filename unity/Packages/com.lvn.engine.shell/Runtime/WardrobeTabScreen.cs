@@ -19,7 +19,22 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class WardrobeTabScreen : LvnOverlayScreen
     {
-        private readonly LvnManifest _manifest;
+        // НЕ readonly: контент обновляется на лету (ApplyLiveUpdate), и вкладка
+        // обязана узнать об этом наравне с каруселью и хабом. Пока поле было
+        // неизменяемым, гардероб после обновления показывал ПРЕЖНИЙ каталог:
+        // новых нарядов нет, снятые с продажи остались — и объяснить это игроку
+        // нечем, потому что на соседних экранах всё уже новое.
+        private LvnManifest _manifest;
+
+        /// <summary>Принять свежий манифест. Лист пересоберётся при следующем
+        /// открытии: перестраивать его сейчас значило бы дёрнуть примерку из-под
+        /// игрока, если вкладка открыта.</summary>
+        public void SetManifest(LvnManifest manifest)
+        {
+            if (manifest == null) return;
+            _manifest = manifest;
+            _sheet?.SetManifest(manifest);
+        }
         private readonly ILvnAssets _assets;
         private readonly VisualElement _panel;
         private WardrobeSheet _sheet;

@@ -465,6 +465,10 @@ namespace Lvn.UI.Screens
             catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
             _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
+            // Дома учатся заново тем же списком, что и при старте: слова автора
+            // (валюты, «Глава», подписи движка, имена актёров) меняются вместе с
+            // контентом, и без этой строки они оставались от прошлой выкладки.
+            TeachHousesFrom(manifest);
             _globalUi = manifest.ui;
             _manifest = manifest; // cross-chapter routing follows the live manifest
             ApplyMenuStaging(manifest);
