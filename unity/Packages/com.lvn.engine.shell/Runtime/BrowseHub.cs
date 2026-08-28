@@ -706,7 +706,10 @@ namespace Lvn.UI.Screens
             b.style.justifyContent = Justify.FlexEnd;
             b.style.paddingLeft = 24; b.style.paddingRight = 24; b.style.paddingBottom = 24;
 
-            var eyebrow = new Label((resume ? (LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")) : (LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured"))).ToUpperInvariant());
+            bool res0 = resume;
+            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () =>
+                (res0 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
+                      : LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured")).ToUpperInvariant());
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
@@ -718,7 +721,12 @@ namespace Lvn.UI.Screens
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
             actions.style.marginTop = 12;
             var play = new Button(() => { if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
-            { text = locked ? (LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")) : (resume ? (LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")) : (LvnWords.Pick("hub.play", _cfg.play_text, "Play"))) };
+            { };
+            bool lock0 = locked, res1 = resume;
+            Lvn.UI.LvnRedress.Bind(play, () =>
+                lock0 ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
+                      : res1 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
+                             : LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
             play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;

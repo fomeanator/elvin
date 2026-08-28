@@ -186,7 +186,7 @@ namespace Lvn.UI.Screens
             head.style.justifyContent = Justify.SpaceBetween;
             _full.Add(head);
 
-            var title = new Label(LvnWords.Of("downloads.title", "Downloads"));
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("downloads.title", "Downloads"));
             title.pickingMode = PickingMode.Ignore;
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 28;

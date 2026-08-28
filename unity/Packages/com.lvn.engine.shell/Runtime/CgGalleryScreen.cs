@@ -98,7 +98,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
-            var title = new Label(LvnWords.Of("nav.gallery", "Gallery"));
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 42;

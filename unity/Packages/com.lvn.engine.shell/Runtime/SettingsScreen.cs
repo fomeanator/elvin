@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
 
-            _titleLabel = new Label(LvnWords.Pick("settings.title", _cfg.title, "Settings"));
+            _titleLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             var title = _titleLabel;
             LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
@@ -293,51 +293,6 @@ namespace Lvn.UI.Screens
             (1f,   "settings.weight_bold",   "Bold"),
         };
 
-        /// <summary>
-        /// ВИД ПОЛЗУНКА — как в сценном меню: тонкая дорожка, заливка акцентом,
-        /// круглый бегунок. Стандартный ползунок UITK на тёмной панели выглядит
-        /// системным элементом из другой программы; тот же вид был уже сделан
-        /// для меню в главе, и второй раз его придумывать незачем.
-        /// </summary>
-        private Slider StyleSlider(Slider s, float min, float max)
-        {
-            s.style.height = 40;
-            s.style.marginTop = 6;
-            var tracker = s.Q("unity-tracker");
-            VisualElement fill = null;
-            if (tracker != null)
-            {
-                tracker.style.height = 8;
-                tracker.style.marginTop = 16;
-                tracker.style.backgroundColor = LvnTokens.Track;
-                LvnChrome.Round(tracker, 4f);
-                LvnChrome.ClearBorder(tracker);
-                fill = new VisualElement { pickingMode = PickingMode.Ignore };
-                fill.style.position = Position.Absolute;
-                fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
-                fill.style.backgroundColor = _accent;
-                LvnChrome.Round(fill, 4f);
-                tracker.Add(fill);
-            }
-            var dragger = s.Q("unity-dragger");
-            if (dragger != null)
-            {
-                dragger.style.width = 28; dragger.style.height = 28;
-                dragger.style.top = 6;
-                dragger.style.backgroundColor = _accent;
-                LvnChrome.Round(dragger, 14f);
-                LvnChrome.ClearBorder(dragger);
-            }
-            void Sync(float v)
-            {
-                if (fill != null)
-                    fill.style.width = Length.Percent(Mathf.Clamp01((v - min) / (max - min)) * 100f);
-            }
-            Sync(s.value);
-            s.RegisterValueChangedCallback(e => Sync(e.newValue));
-            return s;
-        }
-
         private VisualElement WeightRow(string label, string hint,
                                         System.Func<float> get, System.Action<float> set)
             => WideRow(label, hint, Lvn.UI.LvnSegment.Of(WeightSteps,
@@ -348,7 +303,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement TextScaleRow()
         {
-            var sample = new Label(LvnWords.Of("settings.text_sample",
+            var sample = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.text_sample",
                 "— And you came anyway. I knew you would."));
             sample.style.whiteSpace = WhiteSpace.Normal;
             sample.style.color = _text;
@@ -417,7 +372,7 @@ namespace Lvn.UI.Screens
             System.Func<float> get, System.Action<float> set)
         {
             var row = RowEx(label, hint);
-            var slider = StyleSlider(new Slider(min, max) { value = get() }, min, max);
+            var slider = Lvn.UI.LvnSlider.Make(min, max, get(), v => set(v), accent: _accent);
             slider.style.width = 200;
             slider.style.marginLeft = 12;
             var drag = slider.Q("unity-dragger");
@@ -443,7 +398,9 @@ namespace Lvn.UI.Screens
         private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
         {
             var row = RowEx(label, hint);
-            var slider = StyleSlider(new Slider(0f, 1f) { value = get() }, 0f, 1f);
+            // Громкость слышна только вживую — предпросмотр обязателен, а
+            // запись настройки случается при отпускании.
+            var slider = Lvn.UI.LvnSlider.Make(0f, 1f, get(), v => set(v), onPreview: v => set(v), accent: _accent);
             slider.style.width = 200;
             slider.style.marginLeft = 12;
             var drag = slider.Q("unity-dragger");

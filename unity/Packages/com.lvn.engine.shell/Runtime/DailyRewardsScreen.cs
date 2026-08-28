@@ -251,7 +251,7 @@ namespace Lvn.UI.Screens
             labelRow.style.alignItems = Align.Center;
             labelRow.style.justifyContent = Justify.Center;
             labelRow.style.marginBottom = 8;
-            var label = new Label(LvnWords.Of("daily.day", "Day {0}", day));
+            var label = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.day", "Day {0}", day));
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
             label.style.fontSize = 20;
             label.style.unityFontStyleAndWeight = premium ? FontStyle.Bold : FontStyle.Normal;
@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             }
             else if (state == State.Today)
             {
-                var badge = new Label(LvnWords.Of("daily.today", "today"));
+                var badge = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.today", "today"));
                 badge.style.position = Position.Absolute;
                 badge.style.top = 6;
                 badge.style.right = 8;

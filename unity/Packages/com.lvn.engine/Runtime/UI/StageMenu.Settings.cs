@@ -157,48 +157,14 @@ namespace Lvn.UI
         {
             var card = SettingCard();
             card.Add(Text(label, 24, FontStyle.Normal));
-
-            var accent = LvnTokens.Accent;
-            var tint = _theme.MenuTextColor;
-            var s = new Slider(min, max) { value = value };
-            s.style.height = 40;
-            s.style.marginTop = 6;
-            s.style.marginLeft = 0; s.style.marginRight = 0;
-
-            var tracker = s.Q("unity-tracker");
-            VisualElement fill = null;
-            if (tracker != null)
-            {
-                tracker.style.height = 8;
-                tracker.style.marginTop = 16;
-                tracker.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.18f);
-                LvnChrome.Round(tracker, 4f);
-                LvnChrome.ClearBorder(tracker);
-                fill = new VisualElement();
-                fill.style.position = Position.Absolute;
-                fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
-                fill.style.backgroundColor = accent;
-                LvnChrome.Round(fill, 4f);
-                fill.pickingMode = PickingMode.Ignore;
-                tracker.Add(fill);
-            }
-            var dragger = s.Q("unity-dragger");
-            if (dragger != null)
-            {
-                dragger.style.width = 28; dragger.style.height = 28;
-                dragger.style.top = 6;
-                dragger.style.backgroundColor = accent;
-                LvnChrome.Round(dragger, 14f);
-                LvnChrome.ClearBorder(dragger);
-            }
-            void SyncFill(float v)
-            {
-                if (fill != null)
-                    fill.style.width = Length.Percent(Mathf.Clamp01((v - min) / (max - min)) * 100f);
-            }
-            SyncFill(value);
-            s.RegisterValueChangedCallback(e => { onChange(e.newValue); SyncFill(e.newValue); });
-            card.Add(s);
+            // Ползунок — из дома: вид и правило «применяем при отпускании» были
+            // записаны здесь и в настройках оболочки по отдельности и успели
+            // разойтись. Громкость слышна только вживую, поэтому у неё есть
+            // предпросмотр.
+            card.Add(LvnSlider.Make(min, max, value, onChange, onPreview: onChange,
+                accent: LvnTokens.Accent,
+                track: new Color(_theme.MenuTextColor.r, _theme.MenuTextColor.g,
+                                 _theme.MenuTextColor.b, 0.18f)));
             return card;
         }
 
