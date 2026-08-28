@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
                         void Probe(string url, string kind, long size)
                         {
                             if (string.IsNullOrEmpty(url)) return;
-                            var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                            var eff = DownloadPolicy.Effective(kind, url);
                             if (loader.IsAssetCached(eff)) return;
                             miss++; bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                         }

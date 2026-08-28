@@ -45,19 +45,10 @@ namespace Lvn.Content
         // ends. Cancellation aborts the request, which completes the op; the
         // OperationCanceledException follows. NOT used by the download loops
         // that publish per-frame byte progress — those need the poll.
-        private static async Task AwaitRequest(UnityWebRequest req, UnityWebRequestAsyncOperation op, CancellationToken ct)
-        {
-            if (!op.isDone)
-            {
-                var tcs = new TaskCompletionSource<bool>();
-                op.completed += _ => tcs.TrySetResult(true);
-                using (ct.CanBeCanceled
-                           ? ct.Register(() => { LvnQuiet.Try(req.Abort); })
-                           : default)
-                    await tcs.Task;
-            }
-            ct.ThrowIfCancellationRequested();
-        }
+        // Ожидание живёт в доме (LvnNetWait): и опросом — для тех, кто считает
+        // байты и следит за молчанием, — и событием, как здесь.
+        private static Task AwaitRequest(UnityWebRequest req, UnityWebRequestAsyncOperation op, CancellationToken ct)
+            => LvnNetWait.CompletedAsync(req, op, ct);
 
         // Fast-fail when we already know we're offline: skip the wire entirely so
         // callers fall straight back to the on-disk cache. Code "network" →
@@ -203,9 +194,7 @@ namespace Lvn.Content
 #endif
                 try { await AwaitRequest(req, req.SendWebRequest(), ct); }
                 catch (OperationCanceledException) { return false; }
-                bool ok = req.result is not (UnityWebRequest.Result.ConnectionError
-                                          or UnityWebRequest.Result.DataProcessingError)
-                          && req.responseCode is >= 200 and < 300;
+                bool ok = !LvnNetWait.Failed(req) && req.responseCode is >= 200 and < 300;
                 if (ok) LvnNetworkStatus.MarkOnline("healthz ok");
                 return ok;
             }
@@ -228,17 +217,9 @@ namespace Lvn.Content
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    await Task.Yield();
-                }
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds))
+                    throw new OperationCanceledException(ct);
+                if (LvnNetWait.Failed(req))
                 {
                     NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
@@ -268,25 +249,21 @@ namespace Lvn.Content
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
+                // Ждёт ДОМ; здесь остаётся только то, что принадлежит очереди
+                // загрузок: сколько байт пришло и сколько их всего.
+                bool waited = await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, r =>
                 {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
+                    lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes;
                     if (_bytesExpected.GetValueOrDefault(url) == 0)
                     {
-                        var cl = req.GetResponseHeader("Content-Length");
+                        var cl = r.GetResponseHeader("Content-Length");
                         if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
                             lock (_inflight) _bytesExpected[url] = sz;
                     }
-                    await Task.Yield();
-                }
+                });
+                if (!waited) throw new OperationCanceledException(ct);
 
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                if (LvnNetWait.Failed(req))
                 {
                     NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
@@ -430,25 +407,19 @@ namespace Lvn.Content
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
+                bool waited = await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, r =>
                 {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = resumeFrom + (long)req.downloadedBytes;
+                    lock (_inflight) _bytesReceived[url] = resumeFrom + (long)r.downloadedBytes;
                     if (_bytesExpected.GetValueOrDefault(url) <= resumeFrom)
                     {
-                        var cl = req.GetResponseHeader("Content-Length");
+                        var cl = r.GetResponseHeader("Content-Length");
                         if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
                             lock (_inflight) _bytesExpected[url] = resumeFrom + sz;
                     }
-                    await Task.Yield();
-                }
+                });
+                if (!waited) throw new OperationCanceledException(ct);
 
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                if (LvnNetWait.Failed(req))
                 {
                     NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
@@ -580,19 +551,11 @@ namespace Lvn.Content
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
-                ulong seen = 0;
-                var stall = System.Diagnostics.Stopwatch.StartNew();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); throw new OperationCanceledException(ct); }
-                    if (req.downloadedBytes != seen) { seen = req.downloadedBytes; stall.Restart(); }
-                    else if (stall.Elapsed.TotalSeconds > StallTimeoutSeconds) { req.Abort(); break; }
-                    lock (_inflight) _bytesReceived[url] = (long)req.downloadedBytes;
-                    await Task.Yield();
-                }
+                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds,
+                        r => { lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes; }))
+                    throw new OperationCanceledException(ct);
 
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                if (LvnNetWait.Failed(req))
                 {
                     NoteFetchFailure(req);
                     throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
