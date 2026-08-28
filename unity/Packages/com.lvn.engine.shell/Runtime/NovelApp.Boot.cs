@@ -303,7 +303,7 @@ namespace Lvn.UI.Screens
                         if (miss == 0) return null;
                         string label = LvnWords.Of("download.chapter", "Download chapter {n} · ≈{mb} MB")
                     .Replace("{n}", ch.number.ToString())
-                    .Replace("{mb}", Mathf.Max(1, bytes >> 20).ToString());
+                    .Replace("{mb}", Lvn.Content.LvnBytes.Short(bytes));
                         return (label, () => EnqueueChapterDownload(t, ch));
                     };
                     hud.HasSomeDownloaded = () =>

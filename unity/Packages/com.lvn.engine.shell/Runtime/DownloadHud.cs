@@ -369,7 +369,7 @@ namespace Lvn.UI.Screens
                     {
                         _lastMissingAt = now;
                         var miss = MissingInfo?.Invoke() ?? (0, 0);
-                        _vLeft.text = miss.Item2 > 0 ? $"≈{Mathf.Max(1, miss.Item1 >> 20)} " + LvnWords.Of("unit.mb", "MB")
+                        _vLeft.text = miss.Item2 > 0 ? Lvn.Content.LvnBytes.Approx(miss.Item1)
                             : LvnWords.Of("downloads.all_done", "everything downloaded");
                     }
                 }
@@ -437,14 +437,12 @@ namespace Lvn.UI.Screens
             return LvnWords.Of("dl.class_other", "Game files");
         }
 
-        private static string Mb(long bytes)
-            => bytes >= 100L << 20 ? (bytes >> 20) + " " + LvnWords.Of("unit.mb", "MB")
-             : LvnNumberFormat.Decimals(bytes / 1048576f) + " " + LvnWords.Of("unit.mb", "MB");
+        // Правило показа размера переехало в дом (LvnBytes): здесь оно было
+        // самым разумным из трёх — его и записали как общее.
+        private static string Mb(long bytes) => Lvn.Content.LvnBytes.Short(bytes);
 
-        private static string Speed(float bytesPerSec)
-            => bytesPerSec >= 1048576f
-                ? LvnNumberFormat.Decimals(bytesPerSec / 1048576f) + " " + LvnWords.Of("unit.mbs", "MB/s")
-                : Mathf.RoundToInt(bytesPerSec / 1024f) + " " + LvnWords.Of("unit.kbs", "KB/s");
+        // Правило скорости — там же, где правило размера: величина одна.
+        private static string Speed(float bytesPerSec) => Lvn.Content.LvnBytes.Speed(bytesPerSec);
 
         /// <summary>Что рисуется внутри кольца: стрелка вниз (загрузка),
         /// «!» (офлайн при живой очереди), стрелка вверх (синхронизация —
