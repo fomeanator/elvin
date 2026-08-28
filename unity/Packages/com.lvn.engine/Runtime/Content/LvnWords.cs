@@ -123,7 +123,25 @@ namespace Lvn.Content
         {
             if (!string.IsNullOrEmpty(kind) && !string.IsNullOrEmpty(id)
                 && TryTranslated(kind + "." + id, out var tr)) return tr;
-            return string.IsNullOrEmpty(authored) ? id : authored;
+            return Readable(string.IsNullOrEmpty(authored) ? id : authored);
+        }
+
+        /// <summary>
+        /// ЧТО ДЕЛАТЬ С НЕПЕРЕВЕДЁННЫМ. Пока игрок читает на своём языке —
+        /// ничего: авторское имя и есть правильное. Как только он перешёл на
+        /// латиницу, кириллическое имя посреди английской фразы читается как
+        /// ошибка, а не как выбор — и его транслитерируют.
+        ///
+        /// <para>Транслит не выдаёт себя за перевод: это способ прочитать имя
+        /// вслух. Он включается ТОЛЬКО когда перевод для языка вообще есть —
+        /// иначе игра без переводов начала бы латинизировать сама себя.</para>
+        /// </summary>
+        public static string Readable(string authored)
+        {
+            if (string.IsNullOrEmpty(authored)) return authored;
+            if (_translated == null) return authored;          // язык оригинала
+            if (!LvnTranslit.HasCyrillic(authored)) return authored;
+            return LvnTranslit.ToLatin(authored);
         }
 
         /// <summary>Есть ли ПЕРЕВОД для ключа. Спрашивают те, у кого свой

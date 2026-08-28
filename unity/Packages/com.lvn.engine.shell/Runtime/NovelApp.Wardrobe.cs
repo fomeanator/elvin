@@ -55,7 +55,9 @@ namespace Lvn.UI.Screens
                 vars.Sort();
                 var sig = vars.Count > 0 ? string.Join("|", vars) : "id:" + id;
                 if (!sigs.Add(sig)) return; // same character under another entity id
-                list.Add((id, string.IsNullOrEmpty(d.name) ? id : d.name));
+                // Имя персонажа — тоже подпись: игрок читает его рядом с
+                // переведёнными репликами.
+                list.Add((id, Lvn.Content.LvnWords.Name("actor", id, d.name)));
             }
             // Явный ростер (ui.wardrobe.characters) — закон: только персонажи
             // ЭТОЙ новеллы, в авторском порядке, героиня первой. Без него —
