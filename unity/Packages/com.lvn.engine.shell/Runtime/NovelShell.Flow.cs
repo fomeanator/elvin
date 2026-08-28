@@ -106,7 +106,8 @@ namespace Lvn.UI.Screens
                         // ВПУСКАЕТ ШВЕЙЦАР. Цикл только называет участников и
                         // условие «дверь закрыта»; порядок (зарядить → дождаться →
                         // показать → двинуть) и предохранители — его забота.
-                        TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
+                        // Хаб на экране — значит глава не идёт; вид доведут подписчики.
+                        Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(false);
                         LvnAsync.Fire(LvnUsher.OpenAsync(
                             hold: () => BootVeil.IsVisible,
                             show: () => Show(Hub),
@@ -173,7 +174,7 @@ namespace Lvn.UI.Screens
                     // ── play ──
                     if (playChapter != null && chapter != null)
                     {
-                        LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
+                        LvnAsync.Fire(Lvn.Services.LvnWallet.NudgeAsync(), "Refresh"); // свежие баблики к игре
                         // Полоса GameHud удалена (решение Ильи 26.08): затемнение
                         // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
                         // единого навбара по углам сцены.

@@ -423,7 +423,7 @@ namespace Lvn.UI.Screens
                                 LvnWardrobe.MarkSeen(_entity, kv.Key, it.value);
             RefreshBalances();
             LvnWallet.Changed += OnWalletChanged;
-            LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
+            LvnAsync.Fire(LvnWallet.NudgeAsync(), "Refresh");
             try { await _gate.WaitAsync(ct); }
             finally
             {

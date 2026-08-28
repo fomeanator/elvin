@@ -80,6 +80,15 @@ namespace Lvn.UI.Screens
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0;
 
+            // РЕЖИМ ЭКРАНА — у Режиссёра, как и у кружка загрузок.
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                _modeLeash.Hold(() => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
+                                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode);
+                ApplyChapterMode();
+            });
+            RegisterCallback<DetachFromPanelEvent>(_ => _modeLeash.Release());
+
             // ДЕНЬГИ БАР СЛУШАЕТ САМ — как это делает витрина хаба. Подписку
             // держал хост (LvnWallet.Changed → TopBar.RefreshBalances), и
             // правило выходило разное для двух соседних поверхностей: одна
@@ -448,6 +457,7 @@ namespace Lvn.UI.Screens
             else SetInGameApply();
         }
         private bool _silent;
+        private readonly Lvn.LvnLeash _modeLeash = new Lvn.LvnLeash();
 
         private void SetInGameApply()
         {
@@ -462,13 +472,16 @@ namespace Lvn.UI.Screens
         /// кружок загрузок (слева, DownloadHud сам). Ловушка тапа не нужна:
         /// квик-меню открывают фабы сцены.</summary>
         public void SetInGame(bool inGame)
+            => Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(inGame);
+
+        // ВИД ПРИХОДИТ СИГНАЛОМ. Раньше правда о режиме текла ЧЕРЕЗ бар: хост
+        // говорил бару, бар — Режиссёру, Режиссёр — всем остальным (кружку
+        // загрузок, сцене). Виджет оказывался источником состояния приложения,
+        // и без него — сцена без оболочки, другой хост — Режиссёр не узнавал о
+        // главе вовсе, а подписчики оставались в режиме меню.
+        private void ApplyChapterMode()
         {
-            // БЕЗ РАННЕГО ВЫХОДА ПО ФЛАГУ. «Уже не в игре» не значит «бар на
-            // экране»: его прячет ещё и тишина воронки, и любой путь, где
-            // Apply не дошёл. Флаг совпал — а бар остался скрытым, и меню
-            // открывалось без верхней строки (Илья 26.08). Теперь вызов
-            // «мы в меню» всегда доводит вид до состояния.
-            Lvn.UI.LvnScreenDirector.Current.SetChapter(inGame);
+            bool inGame = _inGame;
             if (_silent)
             {
                 if (!inGame) _silent = false; // выход в меню снимает тишину

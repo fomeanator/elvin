@@ -443,7 +443,7 @@ namespace Lvn.UI.Screens
         public async Task<LvnTitle> PickTitleAsync(CancellationToken ct = default)
         {
             _globalVars = (GlobalStatsProvider != null ? await GlobalStatsProvider() : null) ?? new JObject();
-            LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh top-bar balances
+            LvnAsync.Fire(Lvn.Services.LvnWallet.NudgeAsync(), "Refresh"); // свежие балансы навбара
             RefreshTopBar();
             ShowHub();
             BuildHubTiles(); // refresh lock states against the latest flags
