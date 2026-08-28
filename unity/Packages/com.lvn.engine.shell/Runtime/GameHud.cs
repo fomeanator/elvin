@@ -45,7 +45,6 @@ namespace Lvn.UI.Screens
 
         private readonly Dictionary<string, LvnWalletPill> _pills = new Dictionary<string, LvnWalletPill>();
         private float _baseHeight;       // designed bar height (reference px)
-        private float _safeTop = -1f;    // applied top inset, to write styles only on change
 
         public GameHud(HudConfig cfg, ILvnAssets assets)
         {
@@ -63,9 +62,15 @@ namespace Lvn.UI.Screens
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0;
             style.height = _baseHeight;
-            RegisterCallback<AttachToPanelEvent>(_ => FitSafeArea());
-            RegisterCallback<GeometryChangedEvent>(_ => FitSafeArea());
-            schedule.Execute(FitSafeArea).Every(500); // rotation raises no UITK event
+            // Кромку ведёт КРОМОЧНИК — и повод пересчитать тоже. Здесь стояли
+            // три подписки и своё поле «что уже применено»: третья копия того
+            // же механизма, причём собственный комментарий ниже уже утверждал
+            // обратное.
+            Lvn.UI.LvnEdges.Follow(this, insets =>
+            {
+                style.paddingTop = insets.x;
+                style.height = _baseHeight + insets.x;
+            });
             style.flexDirection = FlexDirection.Row;
             style.alignItems = Align.Center;
             style.justifyContent = Justify.SpaceBetween;
@@ -114,20 +119,6 @@ namespace Lvn.UI.Screens
             Add(_pillsRow);
 
             LvnAsync.Fire(ScreenUi.AssignBgAsync(_progressIcon, _cfg.progress_icon_url, _assets), "AssignBg");
-            // (see the height comment in the constructor)
-            // Кромку ведёт КРОМОЧНИК: он же помнит применённое и будит на
-            // повороте — своё поле и своё сравнение здесь были третьей копией
-            // одного механизма.
-            void FitSafeArea()
-            {
-                if (panel == null) return;
-                float inset = Lvn.UI.LvnEdges.Insets(this).x;
-                if (Mathf.Approximately(inset, _safeTop)) return;
-                _safeTop = inset;
-                style.paddingTop = inset;
-                style.height = _baseHeight + inset;
-            }
-
         }
 
         /// <summary>Update the chapter-progress percent (current command / total).</summary>

@@ -51,5 +51,35 @@ namespace Lvn
 
         /// <summary>Сколько подписок держим — для диагностики и тестов.</summary>
         public int Count => _release.Count;
+
+        /// <summary>
+        /// ПОДПИСКА ЖИВЁТ РОВНО СТОЛЬКО, СКОЛЬКО ЭЛЕМЕНТ НА ЭКРАНЕ.
+        ///
+        /// <para>Связку писали пятеро одинаково и вручную: подписаться на
+        /// <c>AttachToPanelEvent</c>, отписаться на <c>DetachFromPanelEvent</c>,
+        /// не забыть позвать обновление сразу — иначе экран открывается с
+        /// прошлым балансом. Три строки, из которых забыть можно любую, и
+        /// забытая отписка не проявляется никак: пересозданная оболочка просто
+        /// продолжает дёргать мёртвое дерево на каждое движение денег.</para>
+        ///
+        /// <para>Поводок уже умел отпускать разом — не хватало ПОВОДА взять и
+        /// отпустить. Теперь он тоже здесь: владельцу остаётся сказать, на что
+        /// подписаться и чем обновиться.</para>
+        /// </summary>
+        public static void WhileOnScreen(UnityEngine.UIElements.VisualElement el,
+                                         Action subscribe, Action unsubscribe, Action refresh = null)
+        {
+            if (el == null || subscribe == null || unsubscribe == null) return;
+            var leash = new LvnLeash();
+            el.RegisterCallback<UnityEngine.UIElements.AttachToPanelEvent>(_ =>
+            {
+                leash.Hold(subscribe, unsubscribe);
+                refresh?.Invoke();
+            });
+            el.RegisterCallback<UnityEngine.UIElements.DetachFromPanelEvent>(_ => leash.Release());
+            // Элемент, УЖЕ стоящий в панели, события привязки больше не увидит:
+            // подписка тогда не случилась бы никогда.
+            if (el.panel != null) { leash.Hold(subscribe, unsubscribe); refresh?.Invoke(); }
+        }
     }
 }

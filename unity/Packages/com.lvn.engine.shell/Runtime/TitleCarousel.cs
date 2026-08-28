@@ -108,7 +108,17 @@ namespace Lvn.UI.Screens
             // английским И НЕПЕРЕВОДИМЫМ — ui.words их не видел, оставался только
             // browse-конфиг. Один и тот же ярлык в двух обозревателях брался по
             // разным правилам.
-            _play = new Button { text = LvnWords.Pick("hub.play", _cfg.play_text, "Play") };
+            // Подпись знает и язык, и состояние: «Продолжить» у начатой
+            // новеллы, «Играть» у нетронутой. Одним источником, иначе смена
+            // языка на витрине оставляла бы кнопку на прежнем.
+            _play = new Button();
+            Lvn.UI.LvnRedress.Bind(_play, () =>
+            {
+                var t = Current;
+                return t != null && LvnProgress.Current(t) != null
+                    ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
+                    : LvnWords.Pick("hub.play", _cfg.play_text, "Play");
+            });
             _play.style.position = Position.Absolute;
             _play.style.left = Length.Percent(30f);
             _play.style.right = Length.Percent(30f);
@@ -317,16 +327,8 @@ namespace Lvn.UI.Screens
         {
             var t = Current;
             var cur = t != null ? LvnProgress.Current(t) : null;
-            if (cur != null)
-            {
-                _play.text = LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue");
-                _progressLabel.text = ChapterLabel(cur);
-            }
-            else
-            {
-                _play.text = LvnWords.Pick("hub.play", _cfg.play_text, "Play");
-                _progressLabel.text = "";
-            }
+            Lvn.UI.LvnRedress.Refresh(_play);
+            _progressLabel.text = cur != null ? ChapterLabel(cur) : "";
             var chapters = t.ChaptersOf();
             _chaptersBtn.style.display = chapters.Count > 1 ? DisplayStyle.Flex : DisplayStyle.None;
         }

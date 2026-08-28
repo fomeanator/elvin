@@ -63,7 +63,11 @@ namespace Lvn.UI.Screens
         // Fallback text for a title the host hasn't seeded yet — real values
         // (TitleName/HeroImageUrl/Synopsis) are overwritten by NovelApp from
         // the actual LvnTitle before every Rebuild().
-        public string HeroImageUrl = "/content/cards/card0.png";
+        // Пусто — значит обложки нет: экран покажет подложку. Здесь стоял
+        // «/content/cards/card0.png» — файл из демо-набора, которого в живом
+        // контенте не существует, и новелла без своей обложки уходила за ним в
+        // сеть (permanent 404 на каждом открытии карточки).
+        public string HeroImageUrl;
         /// <summary>Экономика новеллы (гейт входа в главу) — нужна ценнику на
         /// кнопке: без неё он показывал выдуманную единицу.</summary>
         public Lvn.Content.LvnEconomyConfig Economy;
@@ -123,9 +127,9 @@ namespace Lvn.UI.Screens
             _actionBar.style.flexShrink = 0;
             Add(_actionBar);
 
-            // Safe-area: keep the back button below the notch and the action bar
-            // above the home indicator. Re-resolves whenever geometry changes.
-            RegisterCallback<GeometryChangedEvent>(_ => ApplySafeArea());
+            // Кромка — у Кромочника: он же будит на повороте, которого смена
+            // геометрии не замечает.
+            Lvn.UI.LvnEdges.Follow(this, _ => ApplySafeArea());
 
             Rebuild();
         }
@@ -169,10 +173,13 @@ namespace Lvn.UI.Screens
 
         private void ApplySafeArea()
         {
-            var insets = ScreenUi.SafeVerticalInsets(this);
-            if (_backBtn != null) _backBtn.style.top = 16 + insets.x;
-            _actionBar.style.paddingBottom = 18 + insets.y;
+            if (_backBtn != null) _backBtn.style.top = Lvn.UI.LvnEdges.Top(this, air: BackAir);
+            _actionBar.style.paddingBottom = Lvn.UI.LvnEdges.Bottom(this, BarBottomAir);
         }
+
+        // Воздух вокруг кромки — свой у страницы новеллы: кнопка «назад» стоит
+        // на картинке, панель действия прижата к домашней полосе.
+        private const float BackAir = 16f, BarBottomAir = 18f;
 
         // ── 1. hero image: full-bleed cover, gradient scrim, title + back over it ──
         private VisualElement BuildHero()

@@ -133,7 +133,7 @@ namespace Lvn.UI.Screens
             titleCol.style.flexGrow = 1;
             header.Add(titleCol);
 
-            var title = SectionTitle(LvnWords.Of("daily.title", "Daily reward"));
+            var title = SectionTitle(() => LvnWords.Of("daily.title", "Daily reward"));
             titleCol.Add(title);
 
             _subtitle = new Label();

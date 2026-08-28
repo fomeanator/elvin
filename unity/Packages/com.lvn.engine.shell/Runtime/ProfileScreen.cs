@@ -150,7 +150,7 @@ namespace Lvn.UI.Screens
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
-            var title = SectionTitle(LvnWords.Of("profile.title", "Profile"));
+            var title = SectionTitle(() => LvnWords.Of("profile.title", "Profile"));
             titleBlock.Add(title);
             top.Add(titleBlock);
 

@@ -95,7 +95,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
-            var title = SectionTitle(LvnWords.Of("leaderboard.title", "Leaderboard"));
+            var title = SectionTitle(() => LvnWords.Of("leaderboard.title", "Leaderboard"));
             title.style.flexGrow = 1;
             header.Add(title);
 
@@ -165,12 +165,10 @@ namespace Lvn.UI.Screens
             StyleTab(_tabAll, !_weekly);
         }
 
-        private static void StyleTab(Button tab, bool active)
-        {
-            tab.style.color = active ? LvnTokens.OnAccent : LvnTokens.TextDim;
-            tab.style.backgroundColor = active ? LvnTokens.Accent : Color.clear;
-            tab.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
-        }
+        // Вид вкладки — у Стилизатора: здесь стояло СВОЁ правило, и невыбранная
+        // вкладка выходила прозрачной, а не приглушённой, как в магазине и на
+        // витрине скинов.
+        private static void StyleTab(Button tab, bool active) => LvnStyler.Tab(tab, active);
 
         private Button Pill(string text, System.Action onClick)
         {

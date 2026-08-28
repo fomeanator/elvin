@@ -87,17 +87,13 @@ namespace Lvn.UI.Screens
             _capsule.style.marginLeft = inGame ? 104 : 0; // правее баблика прогресса
         }
 
-        private readonly Lvn.LvnLeash _modeLeash = new Lvn.LvnLeash();
 
         private void FollowChapterMode()
         {
-            RegisterCallback<AttachToPanelEvent>(_ =>
-            {
-                _modeLeash.Hold(() => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
-                                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode);
-                ApplyChapterMode();
-            });
-            RegisterCallback<DetachFromPanelEvent>(_ => _modeLeash.Release());
+            Lvn.LvnLeash.WhileOnScreen(this,
+                () => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
+                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode,
+                ApplyChapterMode);
         }
 
         /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
@@ -258,10 +254,10 @@ namespace Lvn.UI.Screens
             info.style.flexDirection = FlexDirection.Row;
             info.style.flexWrap = Wrap.Wrap;
             _full.Add(info);
-            _vSpeed = InfoCell(info, LvnWords.Of("dl.speed", "Speed"));
-            _vQueue = InfoCell(info, LvnWords.Of("dl.queued", "Queued"));
-            _vGot   = InfoCell(info, LvnWords.Of("dl.done", "Downloaded"));
-            _vLeft  = InfoCell(info, LvnWords.Of("dl.left", "Left"));
+            _vSpeed = InfoCell(info, () => LvnWords.Of("dl.speed", "Speed"));
+            _vQueue = InfoCell(info, () => LvnWords.Of("dl.queued", "Queued"));
+            _vGot   = InfoCell(info, () => LvnWords.Of("dl.done", "Downloaded"));
+            _vLeft  = InfoCell(info, () => LvnWords.Of("dl.left", "Left"));
 
             // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
             // перестраиваются при развороте и по изменению очереди.

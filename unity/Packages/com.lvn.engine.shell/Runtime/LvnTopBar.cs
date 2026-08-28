@@ -81,13 +81,10 @@ namespace Lvn.UI.Screens
             style.left = 0; style.right = 0; style.top = 0;
 
             // РЕЖИМ ЭКРАНА — у Режиссёра, как и у кружка загрузок.
-            RegisterCallback<AttachToPanelEvent>(_ =>
-            {
-                _modeLeash.Hold(() => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
-                                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode);
-                ApplyChapterMode();
-            });
-            RegisterCallback<DetachFromPanelEvent>(_ => _modeLeash.Release());
+            Lvn.LvnLeash.WhileOnScreen(this,
+                () => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
+                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode,
+                ApplyChapterMode);
 
             // ДЕНЬГИ БАР СЛУШАЕТ САМ — как это делает витрина хаба. Подписку
             // держал хост (LvnWallet.Changed → TopBar.RefreshBalances), и
@@ -96,13 +93,10 @@ namespace Lvn.UI.Screens
             // Отписка на снятии с панели обязательна: делегат метода экземпляра
             // у пересозданной оболочки другой, и прежняя подписка дёргала бы
             // мёртвое дерево на каждое движение денег.
-            RegisterCallback<AttachToPanelEvent>(_ =>
-            {
-                Lvn.Services.LvnWallet.Changed += RefreshBalances;
-                RefreshBalances();
-            });
-            RegisterCallback<DetachFromPanelEvent>(_ =>
-                Lvn.Services.LvnWallet.Changed -= RefreshBalances);
+            Lvn.LvnLeash.WhileOnScreen(this,
+                () => Lvn.Services.LvnWallet.Changed += RefreshBalances,
+                () => Lvn.Services.LvnWallet.Changed -= RefreshBalances,
+                RefreshBalances);
 
             // ВЫРЕЗ КАМЕРЫ БАР СПРАШИВАЕТ САМ. Раньше его кормил хост: раз в
             // 300 мс мерил кромку и раздавал двум жильцам вызовом SetSafeTop.
@@ -206,16 +200,19 @@ namespace Lvn.UI.Screens
             _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             // Подписи игровой панели — через словарь: зашитые по-русски, они делали
             // английскую сборку невозможной, хотя дом для слов давно есть.
-            _gameRow.Add(GameButton(LvnIcon.Home, LvnWords.Of("game.exit", "Menu"), () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Book, LvnWords.Of("game.history", "History"), () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Wardrobe, LvnWords.Of("game.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Store, LvnWords.Of("game.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Home, () => LvnWords.Of("game.exit", "Menu"), () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Book, () => LvnWords.Of("game.history", "History"), () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Wardrobe, () => LvnWords.Of("game.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Store, () => LvnWords.Of("game.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
             Add(_gameRow);
 
             RefreshBalances();
         }
 
-        private VisualElement GameButton(LvnIcon icon, string label, Action onTap)
+        // Подпись кнопки берётся ИСТОЧНИКОМ: игровой ряд шапки собирается один
+        // раз и живёт всю игру, поэтому строка в нём застыла бы на языке,
+        // который стоял в момент сборки.
+        private VisualElement GameButton(LvnIcon icon, Func<string> label, Action onTap)
         {
             var b = new VisualElement();
             b.style.alignItems = Align.Center;
@@ -225,7 +222,7 @@ namespace Lvn.UI.Screens
             var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
             ic.pickingMode = PickingMode.Ignore;
             b.Add(ic);
-            var l = new Label(label);
+            var l = Lvn.UI.LvnRedress.Bind(new Label(), label);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
             l.style.fontSize = 19;
@@ -459,7 +456,6 @@ namespace Lvn.UI.Screens
             else SetInGameApply();
         }
         private bool _silent;
-        private readonly Lvn.LvnLeash _modeLeash = new Lvn.LvnLeash();
 
         private void SetInGameApply()
         {

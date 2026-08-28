@@ -60,6 +60,27 @@ namespace Lvn.UI
         public static T Choice<T>(T el, bool chosen, float radius = -1f) where T : VisualElement
             => chosen ? Primary(el, radius) : Quiet(el, radius);
 
+        /// <summary>
+        /// ВКЛАДКА — тот же выбор, но с ЖИРНЫМ активным.
+        ///
+        /// <para>Правил на одну вкладку было три. Магазин звал <see cref="Choice{T}"/>
+        /// и добавлял жирность отдельной строкой; витрина скинов — то же, но
+        /// жирность только включала и никогда не снимала; таблица лидеров
+        /// красила все три свойства сама, и невыбранная вкладка у неё выходила
+        /// ПРОЗРАЧНОЙ, а не приглушённой. Игрок ходит между разделами и видит,
+        /// что одинаковые на вид ряды ведут себя по-разному.</para>
+        ///
+        /// <para>Жирность здесь не украшение: вкладка меняет и цвет, и вес — на
+        /// солнце и на дешёвом экране цвета мало.</para>
+        /// </summary>
+        public static T Tab<T>(T el, bool active, float radius = -1f) where T : VisualElement
+        {
+            if (el == null) return null;
+            Choice(el, active, radius);
+            el.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
+            return el;
+        }
+
         /// <summary>РОЛЬ С ЧУЖОЙ ПАЛИТРОЙ: новелла вправе переопределить цвета
         /// в манифесте (<c>accent_color</c>, <c>text_color</c>), и тогда экран
         /// приносит их сам — но собирает вид всё равно стилизатор, а не

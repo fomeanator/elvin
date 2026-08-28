@@ -132,13 +132,16 @@ namespace Lvn.UI.Screens
         }
 
         // Ячейка 2×2: подпись тускло сверху, значение жирно снизу.
-        private Label InfoCell(VisualElement host, string caption)
+        // Подпись ячейки берётся источником: сведения о загрузке обновляются
+        // каждый тик, а вот их НАЗВАНИЯ ставились один раз при сборке панели и
+        // смену языка не переживали.
+        private Label InfoCell(VisualElement host, System.Func<string> caption)
         {
             var cell = new VisualElement();
             cell.pickingMode = PickingMode.Ignore;
             cell.style.width = Length.Percent(50f);
             cell.style.marginBottom = 8;
-            var c = new Label(caption);
+            var c = Lvn.UI.LvnRedress.Bind(new Label(), caption);
             c.pickingMode = PickingMode.Ignore;
             c.style.color = LvnTokens.TextDim;
             c.style.fontSize = 17;
