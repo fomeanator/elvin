@@ -493,6 +493,10 @@ namespace Lvn.UI.Screens
             _manifest = manifest;
             Carousel?.SetTitles(manifest.titles);
             Hub?.SetData(manifest.collections, manifest.titles);
+            // Вкладка гардероба тоже живёт манифестом (каталог нарядов, ростер
+            // персонажей) — без этой строки она одна оставалась на прежнем
+            // содержимом, пока соседние экраны показывали новое.
+            WardrobeTab?.SetManifest(manifest);
         }
 
 
