@@ -25,13 +25,20 @@ namespace Lvn.Services
         private const float FlushEverySec = 15f;
         private const int QueueCap = 300;
 
-        private static readonly List<JObject> _queue = new List<JObject>();
         private static readonly string _session = Guid.NewGuid().ToString("N").Substring(0, 12);
-        private static bool _booted, _flushing, _dirty;
+        private static bool _booted;
         private static int _mainThreadId;
-        private static float _lastFlush;
         private static string _lastMsg;
         private static JObject _lastLine;
+
+        // Устройство очереди — у ЯЩИКА. Здесь остаётся диагностическое: какие
+        // уровни лога ехать достойны, как схлопывать повтор и что приложить к
+        // пачке от устройства.
+        private static readonly LvnOutbox _box = new LvnOutbox(
+            "logship", PQueue, cap: QueueCap, flushAt: FlushAt, everySec: FlushEverySec,
+            durable: true,       // набело: след падения обязан пережить падение
+            batchMax: 200,
+            send: SendAsync);
 
         /// <summary>Start capturing. Call once, as early as possible.</summary>
         /// <summary>
@@ -46,16 +53,16 @@ namespace Lvn.Services
         public static string Tail(int lines = 40)
         {
             var sb = new System.Text.StringBuilder();
-            lock (_queue)
+            _box.Modify(q =>
             {
-                int from = _queue.Count - lines;
+                int from = q.Count - lines;
                 if (from < 0) from = 0;
-                for (int i = from; i < _queue.Count; i++)
+                for (int i = from; i < q.Count; i++)
                 {
-                    var msg = _queue[i]["msg"];
+                    var msg = q[i]["msg"];
                     if (msg != null) sb.Append(msg.ToString()).Append('\n');
                 }
-            }
+            });
             return sb.ToString();
         }
 
@@ -64,11 +71,10 @@ namespace Lvn.Services
             if (_booted || string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
             _booted = true;
             _mainThreadId = Environment.CurrentManagedThreadId;
-            LoadPersisted();
+            _box.Load();
             // Threaded variant: exceptions on worker threads (asset decodes,
             // tasks) are exactly the ones a main-thread hook would miss.
             Application.logMessageReceivedThreaded += OnLog;
-            Runner.Ensure();
             Enqueue("info", $"session start · {SystemInfo.deviceModel} · {SystemInfo.operatingSystem} " +
                             $"· app {Application.version} · mem {SystemInfo.systemMemorySize}MB " +
                             $"· gpu {SystemInfo.graphicsDeviceName}", null, persist: false);
@@ -96,126 +102,59 @@ namespace Lvn.Services
 
         private static void Enqueue(string level, string msg, string stack, bool persist)
         {
-            lock (_queue)
+            bool collapsed = false;
+            JObject line = null;
+            _box.Modify(q =>
             {
                 // A stuck loop logging the same line must not flood the wire —
                 // consecutive repeats collapse into a counter on the first one.
-                if (msg == _lastMsg && _lastLine != null)
+                if (msg == _lastMsg && _lastLine != null && q.Contains(_lastLine))
                 {
                     _lastLine["n"] = ((int?)_lastLine["n"] ?? 1) + 1;
+                    collapsed = true;
                     return;
                 }
-                var line = new JObject
+                line = new JObject
                 {
                     ["ts"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
                     ["level"] = level,
                     ["msg"] = msg,
                 };
                 if (stack != null) line["stack"] = stack;
-                _queue.Add(line);
-                _lastMsg = msg; _lastLine = line;
-                while (_queue.Count > QueueCap) _queue.RemoveAt(0);
-            }
+            });
+            if (collapsed) return;
+
             // PlayerPrefs and UnityWebRequest are main-thread-only; a worker
             // thread (threaded log callback) just marks the queue dirty and
-            // the Runner's next Update persists/flushes on the main thread.
+            // the shared pump persists/flushes on the main thread.
             bool mainThread = Environment.CurrentManagedThreadId == _mainThreadId;
-            if (persist)
-            {
-                if (mainThread) Persist(); // the crash's own trace must survive the crash
-                else _dirty = true;
-            }
-            if (_queue.Count >= FlushAt && mainThread) LvnAsync.Fire(FlushAsync(), "Flush");
+            _box.Add(line, persistNow: persist, mainThread: mainThread);
+            _lastMsg = msg; _lastLine = line;
         }
 
-        /// <summary>Send everything queued; keeps the queue on failure.</summary>
-        public static async Task FlushAsync()
+        /// <summary>Отправить накопленное; при отказе очередь остаётся.</summary>
+        public static Task FlushAsync() => _box.FlushAsync();
+
+        // Тело пачки: от устройства — то, без чего строка лога не читается на
+        // той стороне (какой телефон, какая сессия, какая сборка).
+        private static async Task<long> SendAsync(JArray lines)
         {
-            if (_flushing) return;
-            JArray lines;
-            lock (_queue)
+            var body = new JObject
             {
-                if (_queue.Count == 0) return;
-                lines = new JArray(_queue.GetRange(0, Math.Min(_queue.Count, 200)));
-            }
-            _flushing = true;
-            try
-            {
-                var body = new JObject
+                ["device"] = new JObject
                 {
-                    ["device"] = new JObject
-                    {
-                        ["id"] = SystemInfo.deviceUniqueIdentifier,
-                        ["session"] = _session,
-                        ["model"] = SystemInfo.deviceModel,
-                        ["os"] = SystemInfo.operatingSystem,
-                        ["app"] = Application.version,
-                    },
-                    ["lines"] = lines,
-                };
-                var (code, _) = await LvnBackend.PostAsync("/v1/log/client", body.ToString(Newtonsoft.Json.Formatting.None));
-                if (code == 200)
-                {
-                    lock (_queue)
-                    {
-                        _queue.RemoveRange(0, Math.Min(_queue.Count, lines.Count));
-                        if (_queue.Count == 0) { _lastMsg = null; _lastLine = null; }
-                    }
-                    Persist();
-                }
-            }
-            catch { /* offline — the queue holds until the next flush tick */ }
-            finally { _flushing = false; _lastFlush = Time.realtimeSinceStartup; }
-        }
-
-        private static void LoadPersisted()
-        {
-            try
-            {
-                var raw = LvnKeep.Get(PQueue, "");
-                if (!string.IsNullOrEmpty(raw))
-                    foreach (var t in JArray.Parse(raw))
-                        if (t is JObject o) _queue.Add(o);
-            }
-            catch { /* a corrupt queue is not worth crashing diagnostics over */ }
-        }
-
-        private static void Persist()
-        {
-            try
-            {
-                // Набело: очередь диагностики обязана пережить именно жёсткое
-                // снятие процесса — ради него она и ведётся.
-                lock (_queue) LvnKeep.Put(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
-            }
-            catch { }   // отправка диагностики упала — сообщать о ней некому и незачем
-        }
-
-        private sealed class Runner : MonoBehaviour
-        {
-            private static Runner _inst;
-
-            public static void Ensure()
-            {
-                if (_inst != null || !Application.isPlaying) return;
-                var go = new GameObject("LvnLogShip") { hideFlags = HideFlags.HideAndDontSave };
-                DontDestroyOnLoad(go);
-                _inst = go.AddComponent<Runner>();
-            }
-
-            private void Update()
-            {
-                if (_dirty) { _dirty = false; Persist(); }
-                if (Time.realtimeSinceStartup - _lastFlush > FlushEverySec && _queue.Count > 0)
-                    LvnAsync.Fire(FlushAsync(), "Flush");
-            }
-
-            private void OnApplicationPause(bool paused)
-            {
-                if (paused) { Persist(); LvnAsync.Fire(FlushAsync(), "Flush"); }
-            }
-
-            private void OnApplicationQuit() => Persist();
+                    ["id"] = SystemInfo.deviceUniqueIdentifier,
+                    ["session"] = _session,
+                    ["model"] = SystemInfo.deviceModel,
+                    ["os"] = SystemInfo.operatingSystem,
+                    ["app"] = Application.version,
+                },
+                ["lines"] = lines,
+            };
+            var (code, _) = await LvnBackend.PostAsync("/v1/log/client",
+                body.ToString(Newtonsoft.Json.Formatting.None));
+            if (code >= 200 && code < 300) { _lastMsg = null; _lastLine = null; }
+            return code;
         }
     }
 }

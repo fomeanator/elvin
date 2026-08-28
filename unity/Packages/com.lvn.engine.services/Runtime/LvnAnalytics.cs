@@ -21,9 +21,18 @@ namespace Lvn.Services
         private const float FlushEverySec = 30f;
         internal const int QueueCap = 500;
 
-        private static readonly List<JObject> _queue = new List<JObject>();
-        private static bool _loaded, _flushing;
-        private static float _lastFlush;
+        // Устройство очереди — у ЯЩИКА: накопление, копия на устройстве,
+        // пачка, правило ответа сервера и общий насос. Здесь остаётся
+        // аналитическое: что считать событием и какие поля к нему приложить.
+        private static readonly LvnOutbox _box = new LvnOutbox(
+            "analytics", PQueue, cap: QueueCap, flushAt: FlushAt, everySec: FlushEverySec,
+            durable: false,      // карандашом: теряется разве что хвост
+            batchMax: 100,
+            send: async batch =>
+            {
+                var (code, _) = await LvnBackend.PostAsync("/v1/analytics/events", batch.ToString());
+                return code;
+            });
 
         /// <summary>
         /// Метка запуска игры. Без неё отчёт о здоровье умеет считать только
@@ -60,7 +69,6 @@ namespace Lvn.Services
         {
             if (string.IsNullOrEmpty(name)) return;
             if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return; // pure-offline game: no queue growth
-            EnsureLoaded();
             var ev = new JObject
             {
                 ["name"] = name,
@@ -82,90 +90,13 @@ namespace Lvn.Services
                         p[key] = value == null ? JValue.CreateNull() : JToken.FromObject(value);
             }
             ev["props"] = p;
-            lock (_queue)
-            {
-                _queue.Add(ev);
-                while (_queue.Count > QueueCap) _queue.RemoveAt(0);
-            }
-            Persist();
-            Runner.Ensure();
-            if (_queue.Count >= FlushAt) LvnAsync.Fire(FlushAsync(), "Flush");
+            _box.Add(ev);
         }
 
-        /// <summary>Send everything queued; keeps the queue on failure.</summary>
-        public static async Task FlushAsync()
-        {
-            if (_flushing) return;
-            EnsureLoaded();
-            JArray batch;
-            lock (_queue)
-            {
-                if (_queue.Count == 0) return;
-                batch = new JArray(_queue.GetRange(0, Math.Min(_queue.Count, 100)));
-            }
-            _flushing = true;
-            try
-            {
-                var (code, _) = await LvnBackend.PostAsync("/v1/analytics/events", batch.ToString());
-                if (code == 200)
-                {
-                    lock (_queue) _queue.RemoveRange(0, Math.Min(_queue.Count, batch.Count));
-                    Persist();
-                }
-            }
-            finally { _flushing = false; _lastFlush = Time.realtimeSinceStartup; }
-        }
+        /// <summary>Отправить накопленное; при отказе очередь остаётся.</summary>
+        public static Task FlushAsync() => _box.FlushAsync();
 
-        private static void EnsureLoaded()
-        {
-            if (_loaded) return;
-            _loaded = true;
-            try
-            {
-                var raw = LvnKeep.Get(PQueue, "");
-                if (!string.IsNullOrEmpty(raw))
-                    foreach (var t in JArray.Parse(raw))
-                        if (t is JObject o) _queue.Add(o);
-            }
-            catch { /* a corrupt queue is not worth crashing analytics over */ }
-        }
-
-        private static void Persist()
-        {
-            try
-            {
-                // Карандашом: очередь переписывается на КАЖДОЕ событие, а теряется
-                // разве что хвост — фиксация приедет с уходом в фон.
-                lock (_queue) LvnKeep.Jot(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
-            }
-            catch { }   // аналитика не отправилась — это НИКОГДА не повод мешать игре
-        }
-
-        // The invisible pump: flush on a timer and when the app pauses/quits.
-        private sealed class Runner : MonoBehaviour
-        {
-            private static Runner _inst;
-
-            public static void Ensure()
-            {
-                if (_inst != null || !Application.isPlaying) return;
-                var go = new GameObject("LvnAnalytics") { hideFlags = HideFlags.HideAndDontSave };
-                DontDestroyOnLoad(go);
-                _inst = go.AddComponent<Runner>();
-            }
-
-            private void Update()
-            {
-                if (Time.realtimeSinceStartup - _lastFlush > FlushEverySec && _queue.Count > 0)
-                    LvnAsync.Fire(FlushAsync(), "Flush");
-            }
-
-            private void OnApplicationPause(bool paused)
-            {
-                if (paused) LvnAsync.Fire(FlushAsync(), "Flush");
-            }
-
-            private void OnApplicationQuit() => Persist();
-        }
+        /// <summary>Сколько событий ждёт отправки — для диагностики.</summary>
+        internal static int Pending => _box.Count;
     }
 }
