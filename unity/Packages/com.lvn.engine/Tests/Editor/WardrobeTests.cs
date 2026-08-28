@@ -17,15 +17,6 @@ namespace Lvn.Tests
     {
         private const string Entity = "test_wardrobe_hero";
 
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
-
         [TearDown]
         public void Cleanup() => LvnWardrobe.Clear(Entity);
 
@@ -157,7 +148,7 @@ namespace Lvn.Tests
         [Test]
         public void Sheet_BrowsingPreviewsOnTheLiveActor()
         {
-            var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать наряд" }, new NoAssets());
+            var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать наряд" }, new TestAssets());
             sheet.SetManifest(Manifest());
             try
             {
@@ -185,7 +176,7 @@ namespace Lvn.Tests
         public void Sheet_UnownedItemOffersBuy_NotChoose()
         {
             var sheet = new WardrobeSheet(new WardrobeConfig
-            { confirm_text = "Выбрать", buy_text = "Купить", currency_label = "◆" }, new NoAssets());
+            { confirm_text = "Выбрать", buy_text = "Купить", currency_label = "◆" }, new TestAssets());
             sheet.SetManifest(Manifest());
             try
             {
@@ -209,7 +200,7 @@ namespace Lvn.Tests
             Lvn.Services.LvnBackend.BaseUrl = ""; // offline wallet: pure local mirror
             Lvn.Services.LvnWallet.ResetLocal();
             var sheet = new WardrobeSheet(new WardrobeConfig
-            { confirm_text = "Выбрать", buy_text = "Купить" }, new NoAssets());
+            { confirm_text = "Выбрать", buy_text = "Купить" }, new TestAssets());
             sheet.SetManifest(Manifest());
             try
             {

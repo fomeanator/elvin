@@ -85,8 +85,13 @@ namespace Lvn.Content
             }
         }
 
-        /// <summary>Fired once the required set is fully on disk. The host (loading
-        /// screen) uses it to enable the Play button.</summary>
+        /// <summary>
+        /// Готов обязательный набор. ШОВ ДЛЯ ВНЕШНЕГО ХОСТА: наш опрашивает
+        /// <see cref="RequiredReady"/> предикатом, потому что ждёт ДВА условия
+        /// сразу (скрипт главы и ассеты), и событие пришлось бы складывать с
+        /// другим ожиданием вручную. Раньше здесь было написано, что по этому
+        /// событию хост включает кнопку Play, — слово расходилось с делом.
+        /// </summary>
         public event Action OnRequiredReady;
         /// <summary>Fired once when the entire set (required + deferred) is on disk.
         /// The host uses it to auto-start the chapter if the player waited.</summary>

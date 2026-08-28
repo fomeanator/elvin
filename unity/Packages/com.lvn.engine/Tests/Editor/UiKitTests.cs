@@ -11,15 +11,6 @@ namespace Lvn.Tests
 {
     public class UiKitTests
     {
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
-
         [Test]
         public void UiColor_ParsesHexWithFallback()
         {
@@ -36,14 +27,14 @@ namespace Lvn.Tests
         [Test]
         public void LoadingScreen_BuildsWithDefaultConfig()
         {
-            var s = new LoadingScreen(null, new NoAssets());
+            var s = new LoadingScreen(null, new TestAssets());
             Assert.Greater(s.childCount, 0, "loader should build its element tree");
         }
 
         [Test]
         public void TitleCard_BuildsAndSetsText()
         {
-            var card = new TitleCard(new TitleCardConfig { chapter_size = 50f }, new NoAssets());
+            var card = new TitleCard(new TitleCardConfig { chapter_size = 50f }, new TestAssets());
             card.Set("Chapter 1", "The Last Guest");
             Assert.Greater(card.childCount, 0);
         }
