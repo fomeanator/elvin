@@ -258,8 +258,9 @@ namespace Lvn.UI
             float F(string key, float fallback)
                 => cmd[key] != null ? (float)cmd[key] : fallback;
             var color = new UnityEngine.Color(0.48f, 0.84f, 1f);
-            var hex = (string)cmd["color"];
-            if (!string.IsNullOrEmpty(hex)) UnityEngine.ColorUtility.TryParseHtmlString(hex, out color);
+            // Мимо UiColor опечатка гасила умолчание в прозрачность: створ
+            // «открывался», но его не было видно.
+            color = UiColor.FromCmd(cmd, "color", color);
             portal.Place(new UnityEngine.Vector2(F("x", 0.5f), F("y", 0.5f)), F("radius", 0.3f), color);
             portal.Set(F("open", 0f), F("dur", 0f));
             return true;

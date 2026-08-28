@@ -65,12 +65,15 @@ fi
 # молча; без node они честно скипнутся сами.
 if command -v go >/dev/null 2>&1; then
   for mod in tools/lvnconv server; do
+    # -count=1 обязателен: стражи читают C#, JS и манифесты — файлы, которых
+    # кэш go test не видит. Без флага правка в Unity ломает инвариант, а прогон
+    # отвечает «ok (cached)»: страж молчит ровно тогда, когда должен кричать.
     log "go test $mod"
     if command -v node >/dev/null 2>&1; then
-      (cd "$REPO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test ./... >/dev/null 2>&1) \
+      (cd "$REPO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test -count=1 ./... >/dev/null 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
     else
-      (cd "$REPO_ROOT/$mod" && go test ./... >/dev/null 2>&1) \
+      (cd "$REPO_ROOT/$mod" && go test -count=1 ./... >/dev/null 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
     fi
   done

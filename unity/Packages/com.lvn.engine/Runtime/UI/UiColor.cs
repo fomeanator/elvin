@@ -19,12 +19,22 @@ namespace Lvn.UI
     {
         /// <summary>Hex вида #rrggbb / #rrggbbaa. Мусор и пустота — fallback.</summary>
         public static Color Parse(string hex, Color fallback)
+            => TryParse(hex, out var c) ? c : fallback;
+
+        /// <summary>
+        /// Разбор с ответом «получилось или нет». Отдельно от <see cref="Parse"/>,
+        /// потому что «цвет вышел таким же, как был» и «цвет не вышел» — разные
+        /// события, а по одному лишь результату они неразличимы.
+        /// </summary>
+        public static bool TryParse(string hex, out Color color)
         {
-            if (string.IsNullOrEmpty(hex)) return fallback;
+            color = default;
+            if (string.IsNullOrEmpty(hex)) return false;
+            // Сперва как есть — так проходят имена, которые знает Unity ("red").
+            // Потом с решёткой — так проходит авторское "ff0000" без неё.
+            if (ColorUtility.TryParseHtmlString(hex, out color)) return true;
             var s = hex[0] == '#' ? hex.Substring(1) : hex;
-            // Unity's util accepts 6/8-digit (and #-prefixed); normalise to that.
-            if (ColorUtility.TryParseHtmlString("#" + s, out var c)) return c;
-            return fallback;
+            return ColorUtility.TryParseHtmlString("#" + s, out color);
         }
 
         /// <summary>
@@ -58,11 +68,18 @@ namespace Lvn.UI
             return fallback;
         }
 
-        /// <summary>Цвет из поля команды. Пусто/мусор — текущее значение.</summary>
+        /// <summary>
+        /// Цвет из поля команды. Пусто — текущее значение молча; мусор —
+        /// текущее значение И жалоба: строку писал автор, а опечатка в цвете
+        /// иначе выглядит как «эффект не сработал».
+        /// </summary>
         public static Color FromCmd(JObject cmd, string key, Color current)
         {
             var text = (string)cmd?[key];
-            return string.IsNullOrEmpty(text) ? current : Parse(text, current);
+            if (string.IsNullOrEmpty(text)) return current;
+            if (TryParse(text, out var c)) return c;
+            Debug.LogWarning($"[lvn-ui] {key}=\"{text}\" — не цвет, оставляю прежний");
+            return current;
         }
     }
 }

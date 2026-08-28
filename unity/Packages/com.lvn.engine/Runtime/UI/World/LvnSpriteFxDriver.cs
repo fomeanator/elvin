@@ -262,12 +262,9 @@ namespace Lvn.UI.World
             _tLightning = F(cmd, "lightning", _tLightning);
             _tRunes    = F(cmd, "runes", _tRunes);
             ParseAuraStyle(cmd);
-            var tc = (string)cmd["tint_color"];
-            if (!string.IsNullOrEmpty(tc) && ColorUtility.TryParseHtmlString(tc, out var c3)) _tintColor = c3;
-            var oc = (string)cmd["outline_color"];
-            if (!string.IsNullOrEmpty(oc) && ColorUtility.TryParseHtmlString(oc, out var c1)) _outlineColor = c1;
-            var gc = (string)cmd["glow_color"];
-            if (!string.IsNullOrEmpty(gc) && ColorUtility.TryParseHtmlString(gc, out var c2)) _glowColor = c2;
+            ParseColor(cmd, "tint_color", ref _tintColor);
+            ParseColor(cmd, "outline_color", ref _outlineColor);
+            ParseColor(cmd, "glow_color", ref _glowColor);
             ParseColor(cmd, "ghost_color", ref _ghostColor);
             ParseColor(cmd, "hologram_color", ref _hologramColor);
             ParseColor(cmd, "burn_color", ref _burnColor);
@@ -401,11 +398,7 @@ namespace Lvn.UI.World
             if (cmd["aura_color2"] == null) _auraColor2 = secondary;
         }
 
-        private static Color Html(string value)
-        {
-            ColorUtility.TryParseHtmlString(value, out var parsed);
-            return parsed;
-        }
+        private static Color Html(string value) => UiColor.Parse(value, Color.white);
 
         /// <summary>Слои актёра пересобрали ПОСЛЕ применения sfx (ленивая
         /// догрузка слоя, смена облика): материал эффекта был надет только на
