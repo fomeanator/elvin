@@ -86,3 +86,58 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 		t.Logf("мимо шкалы %d при пороге %d — порог можно опустить", offScale, budget)
 	}
 }
+
+// ХРАПОВИК ШКАЛЫ ОТСТУПА — та же болезнь, что у кегля, и та же мера.
+//
+// В теме есть ступени (8, 12, 18, 26, 40, 60) и при них объяснение: «„на глаз“
+// даёт 14, 15, 18 в соседних местах, и взгляд цепляется за разнобой». Отступов,
+// поставленных числом, — 708; мимо ступеней 448, и самая частая самоделка это
+// как раз 14 (80 мест) и 10 (99). То есть комментарий описывает не опасение, а
+// уже случившееся.
+//
+// Ноль не считается: «убрать отступ» — не ступень шкалы, а его отсутствие.
+func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
+	const budget = 448 // мест мимо шкалы на 28.08.2026; только вниз
+
+	root := repoRoot(t)
+	scale := map[int]bool{8: true, 12: true, 18: true, 26: true, 40: true, 60: true}
+	re := regexp.MustCompile(`style\.(?:padding|margin)\w*\s*=\s*(\d+)`)
+
+	off := 0
+	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
+		dir := filepath.Join(root, "unity", "Packages", pkg, "Runtime")
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, line := range strings.Split(string(b), "\n") {
+				code := line
+				if c := strings.Index(code, "//"); c >= 0 {
+					code = code[:c]
+				}
+				for _, m := range re.FindAllStringSubmatch(code, -1) {
+					n, _ := strconv.Atoi(m[1])
+					if n != 0 && !scale[n] {
+						off++
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("обход %s: %v", pkg, err)
+		}
+	}
+	if off > budget {
+		t.Fatalf("отступов мимо шкалы стало %d при пороге %d.\n\n"+
+			"Возьмите ступень (8/12/18/26/40/60) или добавьте ступень в тему осознанно:"+
+			" разнобой в 2 пункта не виден на правке и виден на экране.", off, budget)
+	}
+}
