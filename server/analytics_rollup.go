@@ -83,7 +83,7 @@ const (
 const (
 	evChapterStart   = "chapter_start"
 	evChapterFinish  = "chapter_finish"
-	evChapterAbandon = "chapter_abandon" // not sent yet; folded the day it is
+	evChapterAbandon = "chapter_abandon" // шлётся с NovelApp.Chapter; см. health.gaps
 	evUnknownOp      = "unknown_op"      // not sent yet; see health.missing_signals
 	evAssetFail      = "asset_fail"      // not sent yet
 	evBoot           = "boot"

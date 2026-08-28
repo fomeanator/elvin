@@ -131,8 +131,7 @@ namespace Lvn.UI.Screens
             catch (Exception ex) { Debug.LogWarning($"[novelapp] script fetch failed: {ex.Message}"); return null; }
             if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[novelapp] no script for '{chapter.id}'"); return null; }
 
-            _currentChapter = chapter;
-            _currentTitle = title;
+            EnterChapterContext(title, chapter);
             _playerName = playerName;
             _currentScriptJson = json;
             Stage.Strings = await LoadCatalogAsync(chapter.script_url); // localization (null → inline text)
@@ -181,14 +180,11 @@ namespace Lvn.UI.Screens
             {
                 foreach (var kv in _manifest.sprites)
                 {
-                    var wb = kv.Value?.wardrobe;
-                    if (wb == null) continue;
-                    var worn = Lvn.UI.LvnWardrobe.Equipped(kv.Key);
-                    if (worn.Count == 0) continue;
-                    foreach (var slot in wb)
-                        if (!string.IsNullOrEmpty(slot.Value?.storyVar)
-                            && worn.TryGetValue(slot.Key, out var val) && !string.IsNullOrEmpty(val))
-                            SetVarPath(Stage.SeedVars, slot.Value.storyVar, val);
+                    // Переток «надетое → сюжетные переменные» ведёт СВЯЗНОЙ:
+                    // обратная сторона того же обряда живёт при открытии листа,
+                    // и порознь они разъезжались.
+                    Lvn.UI.LvnWardrobeSync.ToVars(kv.Key, kv.Value?.wardrobe,
+                        (name, val) => SetVarPath(Stage.SeedVars, name, val));
                 }
             }
 
@@ -267,11 +263,13 @@ namespace Lvn.UI.Screens
             // carousel's Continue leads straight back to this line).
             // Task.Yield can't throw — the real exit-on-teardown is the token
             // check (a destroyed host must not keep a zombie progress loop).
-            _shell.Hud.SetStats(title?.stats, key => Stage.Player?.GetVar(key));
+            // Полосу GameHud убрали 26.08 (её работу взял единый навбар), но
+            // кормление осталось: статы, прогресс и балансы шли в экран,
+            // который НИКОГДА не показывается — Show(Hud) нет ни в одном месте.
+            // Мёртвая работа на каждый шаг главы и на каждое движение кошелька.
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
                    && !destroyCancellationToken.IsCancellationRequested)
             {
-                _shell.Hud.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 _shell.TopBar?.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 await Task.Yield();
             }
@@ -298,15 +296,12 @@ namespace Lvn.UI.Screens
             if (Stage.Player != null)
                 LvnAsync.Fire(SaveScopedVarsAsync(ownerId, VarsToJObject(Stage.Player.Vars)),
                     "SaveScopedVars@chapterEnd");
-            _shell.Hud.SetProgress(1, 1);
             _shell.TopBar?.SetProgress(1, 1);
-            _shell.Hud.SetStats(null, null);
             // The chapter that actually played to the end — a cross-chapter save
             // load may have switched the stage away from the requested one.
             bool finished = Stage.Player != null && Stage.Player.Finished;
             var played = _currentChapter ?? chapter;
-            _currentChapter = null;
-            _currentTitle = null;
+            LeaveChapterContext();
             // Free the finished chapter's decoded art (a chapter can hold dozens of
             // full-res RGBA sprites). Anything the MENU still shows is pinned:
             // covers and loading backdrops often reuse in-chapter bg files, and

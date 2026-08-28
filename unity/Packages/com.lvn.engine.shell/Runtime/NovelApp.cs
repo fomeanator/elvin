@@ -100,6 +100,31 @@ namespace Lvn.UI.Screens
         }
 
 
+        /// <summary>
+        /// МЫ ТЕПЕРЬ В ЭТОЙ ГЛАВЕ — одно действие вместо трёх присваиваний.
+        ///
+        /// <para>Поля хоста нужны ему самому (объекты новеллы и главы), а
+        /// журналам нужен тот же факт идентификаторами. Ставились они порознь
+        /// и в разных файлах, и одна дорога это уже теряла: загрузка сохранения
+        /// ИЗ ДРУГОЙ ГЛАВЫ обновляла поля и прогресс, но не контекст журналов —
+        /// после такого прыжка аналитика и жалоба игрока указывали на
+        /// предыдущую главу.</para>
+        /// </summary>
+        private void EnterChapterContext(LvnTitle title, LvnChapter chapter)
+        {
+            _currentTitle = title;
+            _currentChapter = chapter;
+            Lvn.Services.LvnWhereabouts.Enter(title?.id, chapter?.id);
+        }
+
+        /// <summary>Глава кончилась: и поля, и контекст журналов гаснут вместе.</summary>
+        private void LeaveChapterContext()
+        {
+            _currentTitle = null;
+            _currentChapter = null;
+            Lvn.Services.LvnWhereabouts.Leave();
+        }
+
         public CachingAssets Assets => _assets;
         public NovelShell Shell => _shell;
 

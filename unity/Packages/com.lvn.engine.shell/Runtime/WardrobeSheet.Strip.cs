@@ -307,7 +307,7 @@ namespace Lvn.UI.Screens
             var badge = card.Q<Label>("card-price");
             if (owned) badge?.RemoveFromHierarchy();
             else if (badge == null) card.Add(PriceBadge(item));
-            else badge.text = $"◆ {item.price:N0}";
+            else badge.text = PriceText(item);
 
             var name = card.Q<Label>("card-name");
             if (name != null) name.text = item.name ?? item.value;
@@ -326,17 +326,30 @@ namespace Lvn.UI.Screens
             }
         }
 
-        /// <summary>Бейдж цены — общий для рождения карточки и её обновления:
-        /// два одинаковых бейджа в двух местах разъезжаются на первой же
-        /// правке стиля.</summary>
+        /// <summary>Цена как её видит игрок: число с разрядами и название
+        /// валюты, если новелла его дала. Ромб «◆» больше не прибит — валюта у
+        /// предмета своя, и знать её в лицо — работа Ценника.</summary>
+        private static string PriceText(LvnWardrobeItem item)
+            => Lvn.UI.LvnPriceTag.Full(item?.currency, item?.price ?? 0);
+
+        /// <summary>
+        /// Бейдж цены — общий для рождения карточки и её обновления: два
+        /// одинаковых бейджа в двух местах разъезжаются на первой же правке
+        /// стиля.
+        ///
+        /// <para>Цвет берётся у ЦЕННИКА по валюте предмета. Здесь стоял
+        /// прибитый ромб «◆» и золото — то есть предмет за энергию всё равно
+        /// выглядел как проданный за самоцветы: роль была выделена, а бейдж
+        /// ходил мимо неё (шестой признак канона).</para>
+        /// </summary>
         private Label PriceBadge(LvnWardrobeItem item)
         {
-            var badge = new Label($"◆ {item.price:N0}") { pickingMode = PickingMode.Ignore };
+            var badge = new Label(PriceText(item)) { pickingMode = PickingMode.Ignore };
             badge.name = "card-price";
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
             badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
-            badge.style.color = LvnTokens.Gold;
+            badge.style.color = Lvn.UI.LvnPriceTag.Of(item.currency).Tint;
             badge.style.fontSize = 19;
             badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             badge.style.paddingLeft = 8; badge.style.paddingRight = 8;

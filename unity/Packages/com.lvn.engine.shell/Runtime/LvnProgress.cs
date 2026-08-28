@@ -36,6 +36,62 @@ namespace Lvn.UI.Screens
             PlayerPrefs.Save();
         }
 
+        /// <summary>
+        /// ИГРОК ВЫБРАЛ ГЛАВУ В СПИСКЕ — «продолжить» ведёт туда.
+        ///
+        /// <para>Два шага, и второй легко забыть: точка продолжения переезжает
+        /// И отменяется ожидающий перезапуск, если он был. Оба решения — про
+        /// прогресс, но принимали их ЭКРАНЫ: карусель делала эту пару своими
+        /// руками, а карточка новеллы — свою, другую. Правило «сознательный
+        /// выбор главы сильнее отложенного перезапуска» жило в обработчике
+        /// кнопки.</para>
+        /// </summary>
+        public static void ChooseChapter(LvnTitle title, LvnChapter chapter)
+        {
+            if (title == null || chapter == null) return;
+            SetCurrent(title, chapter);
+            ClearRestart(title.id);
+        }
+
+        /// <summary>
+        /// ИГРОК ПРОСИТ ПЕРЕИГРАТЬ ГЛАВУ С НАЧАЛА: точка продолжения переезжает
+        /// на неё И ставится флаг перезапуска — цикл игры увидит его и сядет на
+        /// входной чекпойнт вместо середины.
+        ///
+        /// <para>Автосейв здесь НЕ трогается намеренно: его сбрасывает сам цикл,
+        /// когда перезапуск действительно начался. Иначе неудачная загрузка
+        /// главы (нет сети, пропал скрипт) уничтожила бы позицию, которую игрок
+        /// ещё держит.</para>
+        /// </summary>
+        public static void RestartChapter(LvnTitle title, LvnChapter chapter)
+        {
+            if (title == null || chapter == null) return;
+            SetCurrent(title, chapter);
+            RequestRestart(title.id, chapter.id);
+        }
+
+        /// <summary>ГЛАВА НАЧАЛАСЬ: «продолжить» ведёт в неё, и она же считается
+        /// достигнутой. Отдельное имя рядом с «выбрал» и «переиграть» —
+        /// чтобы у каждого события прогресса был свой глагол, а не общий
+        /// SetCurrent, по которому не видно, что именно произошло.</summary>
+        public static void StartChapter(LvnTitle title, LvnChapter chapter)
+            => SetCurrent(title, chapter);
+
+        /// <summary>
+        /// ГЛАВА ДОЧИТАНА ДО КОНЦА. Прогресс двигает ИМЕННО ФИНАЛ, а не тап
+        /// «Дальше»: выход через меню конца главы раньше оставлял точку на
+        /// уже пройденной главе, и «Играть» переигрывал её сначала.
+        ///
+        /// <para>Есть следующая — точка переезжает на неё; нет — новелла
+        /// пройдена, точка снимается совсем, и повтор начнётся с начала.</para>
+        /// </summary>
+        public static void FinishChapter(LvnTitle title, LvnChapter next)
+        {
+            if (title == null) return;
+            if (next != null) SetCurrent(title, next);
+            else ClearCurrent(title);
+        }
+
         /// <summary>The chapter to continue from, or null to start fresh.</summary>
         public static LvnChapter Current(LvnTitle title)
         {

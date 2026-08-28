@@ -81,17 +81,27 @@ namespace Lvn.Content
     /// </summary>
     public static class LvnOfflineText
     {
+        // Слова про сеть — через СЛОВАРЬ: до 28.08 они лежали здесь русскими
+        // строками, то есть любая другая новелла получала их насильно и не
+        // могла переопределить (та же болезнь, что у валют и «Гостя»).
+        // Умолчания движка английские, игра называет своё в ui.words.
+
         /// <summary>Внутри фразы, со строчной: «…{0} — переподключение…».</summary>
-        public static string Word = "нет сети";
+        public static string Word => LvnWords.Of("network.word", "no network");
 
         /// <summary>Заголовком сообщения.</summary>
-        public static string Title = "Нет соединения";
+        public static string Title => LvnWords.Of("network.title", "No connection");
 
         /// <summary>Пока пытаемся дотянуться до сервера.</summary>
-        public static string Reconnecting = "нет сети — переподключение…";
+        public static string Reconnecting => LvnWords.Of("network.reconnecting", "no network — reconnecting…");
 
         /// <summary>Действие не вышло и его стоит повторить позже.</summary>
-        public static string TryLater = "Нет сети — позже";
+        public static string TryLater => LvnWords.Of("network.try_later", "No network — later");
+
+        /// <summary>Главу нельзя открыть без сети. Текст стоял ЗАШИТЫМ в хосте,
+        /// мимо этого дома, — и потому не переводился вместе с остальными.</summary>
+        public static string ChapterNeedsNetwork => LvnWords.Of("network.chapter_needs",
+            "This chapter needs a connection. Check it and try again.");
     }
 
     /// <summary>

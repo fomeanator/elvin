@@ -38,6 +38,14 @@ namespace Lvn.UI.Screens
         private readonly float _fillSpan;
         private readonly float _scrimOpacity;
 
+        /// <summary>Сколько держится одна подсказка, если новелла не назвала
+        /// своё (<c>ui.loading.tip_seconds</c>). Три с половиной секунды —
+        /// столько читается короткая фраза; длинным подсказкам автор ставит
+        /// больше. Число стояло безымянным прямо в цикле показа.</summary>
+        public const float TipSecondsDefault = 3.5f;
+
+        private float TipSeconds => _cfg?.tip_seconds ?? TipSecondsDefault;
+
         public LoadingScreen(LoadingScreenConfig cfg, ILvnAssets assets)
         {
             _cfg = cfg ?? new LoadingScreenConfig();
@@ -175,7 +183,7 @@ namespace Lvn.UI.Screens
                 }
 
                 // rotate tips
-                if (tips != null && tips.Length > 0 && now - lastTip >= 3.5f)
+                if (tips != null && tips.Length > 0 && now - lastTip >= TipSeconds)
                 {
                     ScreenUi.SetText(_hint, tips[tipIdx % tips.Length] ?? "");
                     tipIdx++;

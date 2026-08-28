@@ -91,8 +91,7 @@ namespace Lvn.UI.Screens
             if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                 Stage.Player.Vars["player"] = _playerName;
             Stage.RestoreSnapshot(slot.Snap);
-            _currentChapter = chapter;
-            _currentTitle = title ?? _currentTitle;
+            EnterChapterContext(title ?? _currentTitle, chapter);
             _currentScriptJson = json;
             LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
             Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");

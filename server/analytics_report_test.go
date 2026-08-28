@@ -236,6 +236,44 @@ func TestFunnelFindsTheDropOffPoints(t *testing.T) {
 }
 
 // The cross-title leaderboard: what a product owner opens first.
+// Примечание к lost_in_chapter описывает ТО ОКНО, которое читают: без событий
+// об осознанном выходе крах и выход неразличимы, с ними — различимы. Годами
+// оно стояло безусловным «клиент не шлёт» и пережило сборку, которая начала
+// слать: читатель отчёта делал выводы о своих данных по чужому миру.
+func TestLostInChapterNoteFollowsTheEventsActuallySeen(t *testing.T) {
+	_, mux, dir := analyticsRig(t)
+	seedFunnelDay(t, dir)
+
+	note := func(day string) string {
+		var out struct {
+			Funnel funnelReport `json:"funnel"`
+		}
+		getJSON(t, mux, "/v1/analytics/funnel?title=tour&day="+day, "admintok", &out)
+		for _, n := range out.Funnel.Notes {
+			if strings.Contains(n, "lost_in_chapter") {
+				return n
+			}
+		}
+		t.Fatalf("no lost_in_chapter note: %+v", out.Funnel.Notes)
+		return ""
+	}
+
+	if got := note(funnelDay); !strings.Contains(got, "no chapter_abandon event in this window") {
+		t.Fatalf("without the event the note must say so, got %q", got)
+	}
+
+	// Тот же титул, другой день — и в нём игрок вышел из главы осознанно.
+	const abandonDay = "2026-08-03"
+	appendDay(t, dir, abandonDay,
+		evLine("chapter_start", "u1", "tour", "elvin", "ch1", at(abandonDay, 1)),
+		evLine("chapter_abandon", "u1", "tour", "elvin", "ch1", at(abandonDay, 2)),
+	)
+
+	if got := note(abandonDay); !strings.Contains(got, "chapter_abandon IS arriving") {
+		t.Fatalf("with the event the note must stop claiming the client is silent, got %q", got)
+	}
+}
+
 func TestFunnelWithoutATitleRanksEveryLeakAndEveryStopPoint(t *testing.T) {
 	_, mux, dir := analyticsRig(t)
 	seedFunnelDay(t, dir)
@@ -343,14 +381,17 @@ func TestHealthReportsFailuresUnknownOpsAndItsOwnBlindSpots(t *testing.T) {
 	for _, g := range h.Gaps {
 		gaps[g.Event] = g
 	}
-	if g, ok := gaps[evUnknownOp]; !ok || g.Seen != 2 {
-		t.Fatalf("unknown_op gap should be closed (seen=2): %+v", g)
+	if g, ok := gaps[evUnknownOp]; !ok || g.Seen != 2 || !g.Closed {
+		t.Fatalf("unknown_op gap should be closed (seen=2, closed): %+v", g)
 	}
-	if g, ok := gaps[evChapterAbandon]; !ok || g.Seen != 0 || g.Client == "" {
+	// Открытая дыра остаётся to-do и несёт рецепт для клиента; закрытая
+	// остаётся в списке, но помечена — иначе читатель годами видит пять
+	// «дыр», давно закрытых сборкой.
+	if g, ok := gaps[evChapterAbandon]; !ok || g.Seen != 0 || g.Closed || g.Client == "" {
 		t.Fatalf("chapter_abandon must be listed as missing, with the client fix: %+v", g)
 	}
-	if g := gaps["props.sid"]; g.Seen != 4 {
-		t.Fatalf("props.sid gap should show 4 sessions seen: %+v", g)
+	if g := gaps["props.sid"]; g.Seen != 4 || !g.Closed {
+		t.Fatalf("props.sid gap should show 4 sessions seen and be closed: %+v", g)
 	}
 }
 

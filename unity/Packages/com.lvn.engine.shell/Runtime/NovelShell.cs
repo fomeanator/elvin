@@ -392,28 +392,15 @@ namespace Lvn.UI.Screens
                 }).Every(300);
             }
 
-            // Wallet → HUD pills: the server's balances mirror onto the in-game
-            // strip whenever the wallet changes (earn/spend/IAP/refresh).
+            // Кошелёк → пилюли навбара: подписка живёт выше (OnWalletPills).
+            // Здесь была ВТОРАЯ подписка — в полосу GameHud, которую убрали
+            // 26.08 и которая с тех пор ни разу не показывалась.
             _storeUi = ui.store;
-            Lvn.Services.LvnWallet.Changed -= OnWalletChanged;
-            Lvn.Services.LvnWallet.Changed += OnWalletChanged;
-            OnWalletChanged();
         }
 
         private StoreConfig _storeUi;
 
-        private void OnWalletChanged()
-        {
-            if (Hud == null) return;
-            foreach (var kv in Lvn.Services.LvnWallet.Balances)
-            {
-                string icon = _storeUi?.currency_icons != null
-                              && _storeUi.currency_icons.TryGetValue(kv.Key, out var u) ? u : null;
-                Hud.SetBalance(kv.Key, kv.Value, icon);
-            }
-        }
 
-        private void OnDestroy() => Lvn.Services.LvnWallet.Changed -= OnWalletChanged;
 
         /// <summary>ONE store: every entry (quick menu, wallet "+", scripts'
         /// <c>ext store_show</c>, the hub) opens the pack shop.</summary>

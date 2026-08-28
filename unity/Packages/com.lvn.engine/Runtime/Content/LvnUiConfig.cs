@@ -750,6 +750,11 @@ namespace Lvn.Content
         public string file_color;        // default #9a948a
 
         public string[] tips;            // rotating hint lines during loading
+        /// <summary>Сколько секунд висит одна подсказка. Число решает, успеет
+        /// ли игрок её ПРОЧЕСТЬ, — это про длину фраз конкретной новеллы, а не
+        /// про механику загрузки; движковое умолчание
+        /// <c>LoadingScreen.TipSecondsDefault</c>.</summary>
+        public float? tip_seconds;
         public float? min_seconds;       // hold the screen at least this long; default 0
     }
 

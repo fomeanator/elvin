@@ -57,7 +57,7 @@ namespace Lvn.UI.Screens
                 {
                     var eco = _manifest?.economy;
                     await _shell.AlertAsync(eco?.gate_title ?? LvnOfflineText.Title,
-                        "Глава недоступна без сети. Проверь подключение и попробуй ещё раз.");
+                        LvnOfflineText.ChapterNeedsNetwork);
                     break;
                 }
                 if (!alreadyEntered && !await ChargeChapterEntryAsync(chapter))
@@ -70,13 +70,14 @@ namespace Lvn.UI.Screens
                 if (_downloads != null && !ReferenceEquals(chapter, _preparedChapter))
                     _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
                 _preparedChapter = null;
-                LvnProgress.SetCurrent(title, chapter);
+                LvnProgress.StartChapter(title, chapter);
                 // Пока игрок внутри новеллы, каждое событие обязано знать, в
                 // какой именно: без этого сбой не отнести к истории, а таких
                 // событий в отчёте больше половины.
                 // ГДЕ МЫ — одно объявление на все журналы: аналитика, жалоба
-                // игрока и диагностика читают один контекст.
-                Lvn.Services.LvnWhereabouts.Enter(title?.id, chapter.id);
+                // игрока и диагностика читают один контекст. Поля хоста и этот
+                // контекст ставит один обряд (EnterChapterContext).
+                EnterChapterContext(title, chapter);
                 lock (_reachedLabels) _reachedLabels.Clear(); // воронка считается ПО ГЛАВЕ
                 SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
@@ -120,11 +121,9 @@ namespace Lvn.UI.Screens
                 // The FINISH is what advances progress — not the «Дальше» tap.
                 // Leaving via the chapter-end menu used to strand the marker on
                 // the finished chapter, and «Играть» replayed it from the top.
-                if (next != null)
-                    LvnProgress.SetCurrent(title, next);
-                else
+                LvnProgress.FinishChapter(title, next);
+                if (next == null)
                 {
-                    LvnProgress.ClearCurrent(title); // the novel is complete — replays restart
                     // ВОРОНКА ПРОЙДЕНА — ПРЯМО ЗДЕСЬ, ФАКТОМ ФИНАЛА. Ворота в
                     // оболочке выводили это из reached/Current и на живом
                     // устройстве промахивались — партнёр получил «пролог по
@@ -162,7 +161,7 @@ namespace Lvn.UI.Screens
             _chapterSched = null;
             // Вышли из новеллы: события меню не должны числиться за историей,
             // из которой игрок уже ушёл.
-            Lvn.Services.LvnWhereabouts.Leave();
+            LeaveChapterContext();
             // A chapter's worth of remote sprites fragments the panel's dynamic
             // atlas (freed regions rarely fit the next tenant); rebuild it clean
             // at this natural boundary.
