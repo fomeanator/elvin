@@ -43,11 +43,7 @@ namespace Lvn.Tests
         [UnitySetUp]
         public IEnumerator Boot()
         {
-            _panel = ScriptableObject.CreateInstance<PanelSettings>();
-            _go = new GameObject("pair-stage");
-            var doc = _go.AddComponent<UIDocument>();
-            doc.panelSettings = _panel;
-            _stage = _go.AddComponent<VnStage>();
+            _stage = TestStage.Panel("pair-stage", out _go, out _panel);
             yield return null;
             _stage.Play(Script);
             yield return null;

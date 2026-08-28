@@ -11,15 +11,6 @@ namespace Lvn.Tests
 {
     public class CarouselAndHudTests
     {
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
-
         // ── CarouselSnap ──
         [Test]
         public void CarouselSnap_OffsetIndexRoundTrip()
@@ -80,7 +71,7 @@ namespace Lvn.Tests
         [Test]
         public void BootScreen_Builds()
         {
-            var s = new BootScreen(null, new NoAssets());
+            var s = new BootScreen(null, new TestAssets());
             Assert.Greater(s.childCount, 0);
         }
 
@@ -92,7 +83,7 @@ namespace Lvn.Tests
                 new LvnTitle { id = "a", name = "Title A", subtitle = "one" },
                 new LvnTitle { id = "b", name = "Title B" },
             };
-            var c = new TitleCarousel(titles, new CarouselConfig { play_text = "Go" }, new NoAssets());
+            var c = new TitleCarousel(titles, new CarouselConfig { play_text = "Go" }, new TestAssets());
             c.OnPlay += _ => { };       // subscribable
             c.OnIndexChanged += _ => { };
             Assert.Greater(c.childCount, 0);
@@ -107,7 +98,7 @@ namespace Lvn.Tests
             {
                 new LvnTitle { id = "a" }, new LvnTitle { id = "b" }, new LvnTitle { id = "c" },
             };
-            var c = new TitleCarousel(titles, new CarouselConfig(), new NoAssets());
+            var c = new TitleCarousel(titles, new CarouselConfig(), new TestAssets());
             // No OnPlay subscriber yet (mirrors firing during the boot splash).
             c.RequestPlay(2);
             Assert.IsTrue(c.TryConsumePendingPlay(out int idx), "early RequestPlay should latch");
@@ -119,7 +110,7 @@ namespace Lvn.Tests
         public void TitleCarousel_RequestPlayWithSubscriber_FiresImmediatelyAndDoesNotLatch()
         {
             var titles = new List<LvnTitle> { new LvnTitle { id = "a" }, new LvnTitle { id = "b" } };
-            var c = new TitleCarousel(titles, new CarouselConfig(), new NoAssets());
+            var c = new TitleCarousel(titles, new CarouselConfig(), new TestAssets());
             int fired = -1;
             c.OnPlay += i => fired = i;
             c.RequestPlay(1);
@@ -130,7 +121,7 @@ namespace Lvn.Tests
         [Test]
         public void GameHud_ProgressAndPills()
         {
-            var hud = new GameHud(new HudConfig(), new NoAssets());
+            var hud = new GameHud(new HudConfig(), new TestAssets());
             hud.SetProgress(1, 2);
             hud.SetBalance("soft", 1234);
             hud.SetBalances(new Dictionary<string, long> { { "hard", 5 } });
