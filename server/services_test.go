@@ -964,3 +964,70 @@ func TestWallet_EarnKillSwitch(t *testing.T) {
 		t.Fatalf("balance after grant+spend: %v", bal)
 	}
 }
+
+// Заряды с перезарядкой: «3/3 рекламы, после последней кнопка уходит в
+// перезарядку» (TR-34). Дневной потолок про сутки, заряды — про ближайшие
+// минуты, и путать их нельзя: у отказов разные подписи на кнопке.
+func TestAds_ChargesRechargeOverTime(t *testing.T) {
+	dir := t.TempDir()
+	adsPath := filepath.Join(dir, "ads.json")
+	_ = os.WriteFile(adsPath, []byte(
+		`{"crystals_ad":{"currency":"crystals","amount":5,"charges":3,"recharge_sec":90}}`), 0o644)
+	auth, _ := NewAuthService(dir)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	ads, _ := NewAdsService(filepath.Join(dir, "ads"), auth, wallet, adsPath)
+	mux := http.NewServeMux()
+	auth.Routes(mux)
+	wallet.Routes(mux)
+	ads.Routes(mux)
+	_, tok := register(t, mux)
+
+	for i := 0; i < 3; i++ {
+		rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "crystals_ad"})
+		if rec.Code != 200 || out["granted"] != true {
+			t.Fatalf("показ %d обязан пройти: %d %v", i+1, rec.Code, out)
+		}
+		if left := int(out["left"].(float64)); left != 2-i {
+			t.Fatalf("после показа %d остаток обязан быть %d, а он %d", i+1, 2-i, left)
+		}
+	}
+
+	rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "crystals_ad"})
+	if rec.Code != 429 || out["error"] != "recharging" {
+		t.Fatalf("четвёртый показ — перезарядка, а не отказ вообще: %d %v", rec.Code, out)
+	}
+	if out["ready_at"].(float64) <= 0 {
+		t.Fatal("кнопка обязана знать, КОГДА снова будет можно — иначе игроку нечего показать")
+	}
+
+	// Каталог сообщает то же состояние: кнопка рисует себя ОДНИМ запросом.
+	if rec, out := call(t, mux, "GET", "/v1/ads/catalog", tok, nil); rec.Code != 200 {
+		t.Fatalf("каталог: %d %v", rec.Code, out)
+	} else {
+		row := out["placements"].([]any)[0].(map[string]any)
+		if int(row["left"].(float64)) != 0 || row["ready_at"].(float64) <= 0 {
+			t.Fatalf("каталог обязан показать израсходованные заряды: %v", row)
+		}
+	}
+
+	// Цикл истёк — заряды снова полные. Время подменяем через файл состояния:
+	// перезарядка считается по часам, а не тикающим счётчиком, ровно чтобы
+	// пережить закрытие игры.
+	statePath := filepath.Join(dir, "ads")
+	entries, _ := os.ReadDir(statePath)
+	if len(entries) == 0 {
+		t.Fatal("состояние игрока не записано")
+	}
+	raw, _ := os.ReadFile(filepath.Join(statePath, entries[0].Name()))
+	var doc adsUserDoc
+	_ = json.Unmarshal(raw, &doc)
+	doc.Since["crystals_ad"] = time.Now().UTC().Unix() - 91
+	fixed, _ := json.Marshal(doc)
+	_ = os.WriteFile(filepath.Join(statePath, entries[0].Name()), fixed, 0o600)
+
+	if rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "crystals_ad"}); rec.Code != 200 {
+		t.Fatalf("после перезарядки показ обязан снова пройти: %d %v", rec.Code, out)
+	} else if int(out["left"].(float64)) != 2 {
+		t.Fatalf("цикл начался заново — остаток 2, а не %v", out["left"])
+	}
+}

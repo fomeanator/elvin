@@ -323,6 +323,10 @@ namespace Lvn.UI.Screens
             SkinShop = new SkinShopScreen(assets); SkinShop.Hide(); Add(SkinShop);
             PackShop = new PackShopScreen(assets); PackShop.Hide(); Add(PackShop);
             PackShopModal = new PackShopScreen(assets, modal: true); PackShopModal.Hide(); Add(PackShopModal);
+            // Какую площадку показывать «бесплатной» карточкой — решает игра
+            // (ui.store.ad_placement): движок не выбирает за неё, чем торговать.
+            PackShop.AdPlacement = ui.store?.ad_placement;
+            PackShopModal.AdPlacement = ui.store?.ad_placement;
             // The popup sits ABOVE everything so a "not enough currency → buy?"
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);

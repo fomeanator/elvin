@@ -316,6 +316,11 @@ namespace Lvn.UI.Screens
                 _list.Add(empty);
                 return;
             }
+            // БЕСПЛАТНЫЙ СПОСОБ — ПЕРВЫМ. Игрок, у которого нет денег, пришёл
+            // сюда именно за ним; спрятать рекламу под платными паками значит
+            // показать ему только то, что он купить не может.
+            var free = AdCard();
+            if (free != null) _list.Add(free);
             if (_tab >= _tabIds.Count || !_catalog.TryGetValue(_tabIds[_tab], out var packs)) return;
             // Витрина, а не таблица: обычные паки — сеткой в две колонки,
             // «герой» вкладки и наборы — широкими карточками.
@@ -327,6 +332,82 @@ namespace Lvn.UI.Screens
             foreach (var p in packs) grid.Add(Card(p));
         }
 
+
+        /// <summary>
+        /// КАРТОЧКА РЕКЛАМЫ — «+5 кристаллов за ролик», с зарядами и отсчётом.
+        ///
+        /// <para>Состояние ведёт СЕРВЕР (сколько показов осталось в цикле и
+        /// когда он восстановится): свой счётчик на клиенте разошёлся бы с ним
+        /// на первом перезапуске игры, и кнопка обещала бы показ, которого не
+        /// будет.</para>
+        ///
+        /// <para>Нет хука показа рекламы (хост не подключил SDK) или нет
+        /// площадки в каталоге — карточки нет вовсе: кнопка, которая ничего не
+        /// делает, хуже отсутствующей.</para>
+        /// </summary>
+        private VisualElement AdCard()
+        {
+            if (!Lvn.Services.LvnAds.Available || string.IsNullOrEmpty(AdPlacement)) return null;
+            var st = Lvn.Services.LvnAds.StateOf(AdPlacement);
+            if (st == null) return null;
+
+            var card = new VisualElement();
+            card.style.marginBottom = 12;
+            card.style.paddingLeft = 18; card.style.paddingRight = 18;
+            card.style.paddingTop = 16; card.style.paddingBottom = 16;
+            LvnStyler.Card(card);
+
+            var title = new Label(LvnWords.Of("ads.free_title", "Watch an ad — get {0}",
+                LvnPriceTag.Amount(st.Amount)));
+            title.style.color = LvnTokens.Text;
+            title.style.fontSize = LvnTokens.TextBase;
+            title.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(title);
+
+            var hint = new Label();
+            hint.style.color = LvnTokens.TextDim;
+            hint.style.fontSize = LvnTokens.TextXs;
+            hint.style.whiteSpace = WhiteSpace.Normal;
+            hint.style.marginTop = 8;
+            card.Add(hint);
+
+            var btn = new Button();
+            btn.style.marginTop = 12;
+            card.Add(btn);
+
+            void Paint()
+            {
+                var now = Lvn.Services.LvnAds.StateOf(AdPlacement) ?? st;
+                long wait = now.WaitSeconds;
+                bool ready = now.Ready;
+                // Сколько показов осталось — словами игрока, а не «left=2».
+                hint.text = now.Left < 0
+                    ? LvnWords.Of("ads.unlimited", "Available now")
+                    : ready
+                        ? LvnWords.Of("ads.left", "{0} of {1} left", now.Left, now.Charges)
+                        : LvnWords.Of("ads.recharging", "More in {0}", LvnTimeWords.Clock(wait));
+                btn.text = ready
+                    ? LvnWords.Of("ads.watch", "Watch")
+                    : LvnTimeWords.Clock(wait);
+                btn.SetEnabled(ready);
+                LvnStyler.Primary(btn);
+            }
+            Paint();
+
+            // Отсчёт идёт РЕАЛЬНЫМ временем: перезарядка тикает и в свёрнутой
+            // игре, и подпись обязана это знать, иначе она врёт после возврата.
+            card.schedule.Execute(Paint).Every(500);
+            Lvn.UI.LvnBusy.OnClick(btn, async () =>
+            {
+                await Lvn.Services.LvnAds.WatchAndRewardAsync(AdPlacement);
+                Paint();
+            }, busyText: null, what: "WatchAd");
+            return card;
+        }
+
+        /// <summary>Какую площадку показывать бесплатной карточкой. Пусто —
+        /// карточки нет: движок не выбирает за игру, чем она торгует.</summary>
+        public string AdPlacement;
 
         private void BuildTabs()
         {
