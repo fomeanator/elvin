@@ -176,6 +176,18 @@ namespace Lvn.UI.Screens
             _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden; // kill the stray horizontal bar
             sheet.Add(_list);
 
+            // Пилюли следуют за кошельком, а не за своими вызовами. Раньше
+            // экран обновлял их только при постройке и после СВОЕЙ покупки: в
+            // открытом магазине начисление за рекламу или ежедневную награду не
+            // появлялось, и игрок видел устаревший баланс ровно там, где он
+            // важнее всего. Подписка живёт вместе с экраном.
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                Lvn.Services.LvnWallet.Changed += RefreshBalances;
+                RefreshBalances();
+            });
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+                Lvn.Services.LvnWallet.Changed -= RefreshBalances);
             RefreshBalances();
             Rebuild();
             LvnAsync.Fire(LoadCatalogAsync(), "PackShopCatalog");
@@ -535,7 +547,8 @@ namespace Lvn.UI.Screens
                     string.IsNullOrEmpty(pack.Currency) ? "crystals" : pack.Currency,
                     total, "packshop_test:" + pack.Sku);
             }
-            RefreshBalances();
+            // RefreshBalances здесь больше не нужен: начисление поднимает
+            // Changed, и пилюли перерисуются сами — как в любом другом месте.
             if (!ok)
             {
                 b.text = label;
