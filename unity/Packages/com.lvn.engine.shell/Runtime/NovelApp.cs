@@ -56,6 +56,24 @@ namespace Lvn.UI.Screens
                  "text_id resolve through it. Empty = chapters use their inline text.")]
         public string Locale = "";
 
+        /// <summary>
+        /// ДЕЙСТВУЮЩИЙ ЯЗЫК: выбор игрока перекрывает умолчание сборки
+        /// (<see cref="Locale"/> из инспектора).
+        ///
+        /// <para>Ответ на «какой сейчас язык» жил в ДВУХ переменных: настройка
+        /// игрока и поле хоста, которое ей вручную присваивали — при загрузке
+        /// манифеста и на каждое событие настроек. Ручная синхронизация двух
+        /// хранилищ одного смысла держится ровно до первого пути, где
+        /// присвоение забыли; читателю же нужен один ответ, а не два
+        /// источника.</para>
+        /// </summary>
+        public string CurrentLocale
+            => !string.IsNullOrEmpty(LvnPrefs.Locale) ? LvnPrefs.Locale : Locale;
+
+        /// <summary>Язык, на котором СЕЙЧАС собран каталог главы. Не «что
+        /// выбрано», а «что применено» — только для того, чтобы заметить смену.</summary>
+        private string _localeApplied;
+
         [Tooltip("Runtime ThemeStyleSheet so the shell's text has a font.")]
         public ThemeStyleSheet ShellTheme;
 
@@ -353,7 +371,7 @@ namespace Lvn.UI.Screens
             LvnPrefs.OriginalLocale = manifest.language ?? "ru";
             LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
                 ? manifest.languages : System.Array.Empty<string>();
-            if (!string.IsNullOrEmpty(LvnPrefs.Locale)) Locale = LvnPrefs.Locale;
+            _localeApplied = CurrentLocale;   // с чем стартовали — от этого и считаем смену
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             _leash.Hold(() => LvnPrefs.Changed += OnPrefsMaybeLocale,
                         () => LvnPrefs.Changed -= OnPrefsMaybeLocale);
@@ -484,9 +502,10 @@ namespace Lvn.UI.Screens
         // so the chapter falls back to its inline text.
         private async Task<System.Collections.Generic.IReadOnlyDictionary<string, string>> LoadCatalogAsync(string scriptUrl)
         {
-            if (string.IsNullOrEmpty(Locale) || string.IsNullOrEmpty(scriptUrl)) return null;
+            var locale = CurrentLocale;
+            if (string.IsNullOrEmpty(locale) || string.IsNullOrEmpty(scriptUrl)) return null;
             var baseUrl = scriptUrl.EndsWith(".lvn") ? scriptUrl.Substring(0, scriptUrl.Length - 4) : scriptUrl;
-            var url = baseUrl + "." + Locale + ".json";
+            var url = baseUrl + "." + locale + ".json";
             try
             {
                 var json = await _assets.Loader.DownloadScriptText(url, default, singleAttempt: true);
@@ -636,9 +655,9 @@ namespace Lvn.UI.Screens
 
         private async Task OnPrefsMaybeLocaleAsync()
         {
-            var want = LvnPrefs.Locale;
-            if (want == Locale) return;
-            Locale = want;
+            var want = CurrentLocale;
+            if (want == _localeApplied) return;
+            _localeApplied = want;
             if (_currentChapter != null && Stage != null)
             {
                 try { Stage.Strings = await LoadCatalogAsync(_currentChapter.script_url); }
