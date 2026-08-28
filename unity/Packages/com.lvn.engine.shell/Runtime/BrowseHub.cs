@@ -514,9 +514,12 @@ namespace Lvn.UI.Screens
         {
             var t = _detailTarget;
             if (t == null || IsLocked(t)) return;
-            _detailPlay.SetEnabled(false);
-            bool go = OnPlay == null || await OnPlay(t);
-            _detailPlay.SetEnabled(true);
+            // Через дом занятости: вход в главу ждёт сеть и ассеты, и сорванное
+            // ожидание оставляло «Играть» выключенной навсегда — на главном пути.
+            bool go = false;
+            await Lvn.UI.LvnBusy.RunAsync(_detailPlay,
+                async () => { go = OnPlay == null || await OnPlay(t); },
+                busyText: null, what: "Play");
             if (go) _tcs?.TrySetResult(t);
         }
 

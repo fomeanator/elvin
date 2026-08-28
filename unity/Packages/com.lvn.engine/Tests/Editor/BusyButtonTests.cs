@@ -1,0 +1,78 @@
+using System;
+using System.Threading.Tasks;
+using Lvn.UI;
+using NUnit.Framework;
+using UnityEngine.UIElements;
+
+namespace Lvn.Tests
+{
+    /// <summary>Кнопка, которая ждёт, отпускает себя сама — в том числе когда
+    /// ожидание сорвалось.</summary>
+    public class BusyButtonTests
+    {
+        [Test]
+        public async Task ReleasesAfterFailureBecauseADeadButtonIsForever()
+        {
+            var b = new Button { text = "Играть" };
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning,
+                new System.Text.RegularExpressions.Regex("lvn-busy"));
+            bool ok = await LvnBusy.RunAsync(b, () => throw new InvalidOperationException("сеть"));
+
+            Assert.IsFalse(ok);
+            Assert.IsTrue(b.enabledSelf, "после сорванного ожидания кнопка мертва навсегда");
+            Assert.AreEqual("Играть", b.text, "подпись осталась «занята»");
+        }
+
+        [Test]
+        public async Task SecondTapWhileBusyIsIgnored()
+        {
+            var b = new Button { text = "Купить" };
+            var gate = new TaskCompletionSource<bool>();
+            int runs = 0;
+
+            var first = LvnBusy.RunAsync(b, async () => { runs++; await gate.Task; });
+            bool second = await LvnBusy.RunAsync(b, () => { runs++; return Task.CompletedTask; });
+
+            Assert.IsFalse(second, "второй тап прошёл сквозь занятую кнопку");
+            gate.SetResult(true);
+            await first;
+            Assert.AreEqual(1, runs);
+        }
+
+        [Test]
+        public async Task WorkKeepsTheLabelItSetItself()
+        {
+            var b = new Button { text = "Купить" };
+
+            await LvnBusy.RunAsync(b, () => { b.text = "Готово"; return Task.CompletedTask; });
+
+            Assert.AreEqual("Готово", b.text, "«Готово» после покупки не превращается обратно в «Купить»");
+            Assert.IsTrue(b.enabledSelf);
+        }
+
+        [Test]
+        public async Task SuccessLeavesStateToTheWorkWhenAsked()
+        {
+            var b = new Button { text = "Стереть" };
+
+            await LvnBusy.RunAsync(b, () => { b.SetEnabled(false); return Task.CompletedTask; },
+                                   busyText: null, releaseOnSuccess: false);
+
+            Assert.IsFalse(b.enabledSelf, "работа сама расставила состояние — дом не спорит");
+        }
+
+        [Test]
+        public async Task FailureReleasesEvenWhenTheWorkOwnsTheState()
+        {
+            var b = new Button { text = "Стереть" };
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning,
+                new System.Text.RegularExpressions.Regex("lvn-busy"));
+            await LvnBusy.RunAsync(b, () => throw new Exception("диск"),
+                                   busyText: null, releaseOnSuccess: false);
+
+            Assert.IsTrue(b.enabledSelf, "при провале кнопка отпускается ВСЕГДА — это и есть смысл дома");
+        }
+    }
+}
