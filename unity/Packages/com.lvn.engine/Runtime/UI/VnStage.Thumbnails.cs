@@ -47,16 +47,9 @@ namespace Lvn.UI
         {
             if (tex.width <= width) return tex;
             int h = Mathf.Max(1, Mathf.RoundToInt((float)tex.height * width / tex.width));
-            var rt = RenderTexture.GetTemporary(width, h, 0, RenderTextureFormat.ARGB32);
-            Graphics.Blit(tex, rt);
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var small = new Texture2D(width, h, TextureFormat.RGBA32, false);
-            small.ReadPixels(new Rect(0, 0, width, h), 0, 0);
-            small.Apply(false, false);
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-            return small;
+            // Исходник НЕ уничтожаем: эскиз снимают с живого кадра сцены, и он
+            // нужен дальше — в отличие от переноса под бюджет памяти.
+            return Lvn.Content.LvnTexCopy.Rescale(tex, width, h);
         }
 
         /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
