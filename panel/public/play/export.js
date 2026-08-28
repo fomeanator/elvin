@@ -57,7 +57,14 @@ async function inlineAssets(doc, catalog, extraAssets = {}, resolve = (u) => u) 
   return { assetMap: map, usedCatalog };
 }
 
-export async function exportHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
+/**
+ * СОБРАТЬ документ — и только собрать. Отделено от выдачи намеренно: раньше
+ * `exportHtml` делала обе работы разом, и сборку нельзя было проверить иначе
+ * как в браузере — она сразу дёргала `document.createElement("a")` и качала
+ * файл. Теперь упаковку проверяет страж (conformance/export-check.mjs), а
+ * скачивание осталось там, где ему место, — в браузере.
+ */
+export async function buildHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
   const [core, expr] = await Promise.all([
     fetch("core.js").then((r) => r.text()),
     fetch("expr.js").then((r) => r.text()),
@@ -77,12 +84,19 @@ export async function exportHtml(title, lvnJson, catalog = {}, extraAssets = {},
       + JSON.stringify({ doc, assets: assetMap, catalog: usedCatalog }).replace(/<\/script/gi, "<\\/script")
       + "</" + "script>");
 
+  return html;
+}
+
+/** Собрать и ОТДАТЬ игроку файлом — браузерная половина работы. */
+export async function exportHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
+  const html = await buildHtml(title, lvnJson, catalog, extraAssets, resolve);
   const blob = new Blob([html], { type: "text/html" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = (title || "game").replace(/[^\wА-Яа-яЁё-]+/g, "_") + ".html";
   a.click();
   URL.revokeObjectURL(a.href);
+  return html;
 }
 
 function escapeHtml(s) {

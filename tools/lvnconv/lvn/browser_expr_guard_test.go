@@ -412,3 +412,46 @@ func stopKinds(stops []map[string]any) []string {
 	}
 	return out
 }
+
+// ЭКСПОРТ — ПУТЬ ДОСТАВКИ, А НЕ ЕЩЁ ОДИН ЯЗЫК.
+//
+// `export.js` собирает из новеллы самостоятельный .html: внутрь попадают тот же
+// `core.js` и тот же `expr.js`, только со снятыми строками import/export.
+// Значит экспортированная игра обязана играть ровно так же, как песочница — и
+// доказывается это не прогоном (в готовом файле нет модулей, его не
+// импортируешь), а тем, что упакованный код ПОСТРОЧНО совпадает с исходником.
+//
+// Правило снятия — `^export ` — вырезает СЛОВО, а не строку. Разница между
+// `/^export /` и `/^export .*$/` не видна глазом и стоит всей игры: во втором
+// случае из упаковки исчезают объявления функций, и экспортированный файл
+// падает у игрока, а в песочнице всё работает.
+func TestExportPacksTheSameLanguage(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node не установлен — упаковка не проверяется на этой машине")
+	}
+	root := repoRoot(t)
+	checker := filepath.Join(root, filepath.FromSlash("conformance/export-check.mjs"))
+	playDir := filepath.Join(root, filepath.FromSlash("panel/public/play"))
+	for _, f := range []string{checker, filepath.Join(playDir, "export.js")} {
+		if _, err := os.Stat(f); err != nil {
+			t.Fatalf("%s не найден: %v", f, err)
+		}
+	}
+
+	out, err := exec.Command(node, checker, playDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("node не смог собрать экспорт: %v\n%s", err, out)
+	}
+	var problems []string
+	if err := json.Unmarshal(out, &problems); err != nil {
+		t.Fatalf("непонятный ответ node: %v\n%s", err, out)
+	}
+	if len(problems) > 0 {
+		sort.Strings(problems)
+		t.Fatalf("упаковка изменила язык (%d):\n  %s\n\n"+
+			"Экспортированная игра обязана быть тем же плеером. Смотрите strip в export.js: "+
+			"он снимает СЛОВО `export`, а не строку целиком.",
+			len(problems), strings.Join(problems, "\n  "))
+	}
+}
