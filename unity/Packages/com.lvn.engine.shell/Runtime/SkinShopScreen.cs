@@ -368,31 +368,34 @@ namespace Lvn.UI.Screens
         }
 
         // ── item grid ───────────────────────────────────────────────────────
+        // Сетка СВЕРЯЕТСЯ, а не пересобирается: покупка и надевание меняют
+        // состояние одной плитки, а прежний Clear() сносил все — вместе с
+        // позицией прокрутки и уже загруженными миниатюрами, которые тут же
+        // запрашивались снова. Именно этот случай Монтажёр и описывает.
         private void RebuildGrid()
         {
-            _grid.Clear();
-            var skins = Current();
-            foreach (var s in skins) _grid.Add(Tile(s));
+            LvnMontage.Sync(_grid, Current(),
+                s => _char + ":" + _cat + ":" + s.Name,
+                TileShell,
+                DressTile);
         }
 
-        private VisualElement Tile(Skin skin)
+        // КАРКАС плитки — то, что не зависит от состояния скина и потому
+        // создаётся один раз: рамка, миниатюра (одна загрузка на жизнь плитки),
+        // имя и пустая строка состояния.
+        private VisualElement TileShell(Skin skin)
         {
-            bool forSale = skin.State == SkinState.ForSale;
-            bool equipped = skin.State == SkinState.Equipped;
-
             var tile = new VisualElement();
             tile.style.width = Length.Percent(48f);
             tile.style.marginBottom = 14;
             tile.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tile);
             LvnChrome.Round(tile, LvnTokens.Radius);
-            LvnChrome.Border(tile, equipped ? LvnTokens.Accent : LvnTokens.Border, equipped ? 2f : 1f);
             tile.style.overflow = Overflow.Hidden;
             tile.style.paddingBottom = 12;
-            if (forSale) tile.style.opacity = 0.82f;
 
             // thumbnail
-            var thumbWrap = new VisualElement();
+            var thumbWrap = new VisualElement { viewDataKey = "thumbwrap" };
             thumbWrap.style.height = 170;
             thumbWrap.style.overflow = Overflow.Hidden;
             tile.Add(thumbWrap);
@@ -406,24 +409,23 @@ namespace Lvn.UI.Screens
             thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             thumbWrap.Add(thumb);
             LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, skin.Thumb, _assets), "AssignBg");
-            // "✓ Надето" ribbon over the thumbnail
-            if (equipped)
-            {
-                var ribbon = new Label("Надето");
-                ribbon.style.position = Position.Absolute;
-                ribbon.style.top = 10; ribbon.style.left = 10;
-                ribbon.style.fontSize = 18;
-                ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
-                ribbon.style.color = LvnTokens.OnAccent;
-                ribbon.style.backgroundColor = LvnTokens.Accent;
-                ribbon.style.paddingLeft = 10; ribbon.style.paddingRight = 10;
-                ribbon.style.paddingTop = 4; ribbon.style.paddingBottom = 4;
-                LvnChrome.Round(ribbon, 12f);
-                thumbWrap.Add(ribbon);
-            }
+
+            // Лента «Надето» появляется и исчезает при обновлении — держим её
+            // место готовым, чтобы не трогать миниатюру под ней.
+            var ribbon = new Label("Надето") { viewDataKey = "ribbon" };
+            ribbon.style.position = Position.Absolute;
+            ribbon.style.top = 10; ribbon.style.left = 10;
+            ribbon.style.fontSize = 18;
+            ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
+            ribbon.style.color = LvnTokens.OnAccent;
+            ribbon.style.backgroundColor = LvnTokens.Accent;
+            ribbon.style.paddingLeft = 10; ribbon.style.paddingRight = 10;
+            ribbon.style.paddingTop = 4; ribbon.style.paddingBottom = 4;
+            LvnChrome.Round(ribbon, 12f);
+            thumbWrap.Add(ribbon);
 
             // name
-            var name = new Label(skin.Name);
+            var name = new Label(skin.Name) { viewDataKey = "skinname" };
             name.style.color = LvnTokens.Text;
             name.style.fontSize = 22;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -433,12 +435,36 @@ namespace Lvn.UI.Screens
             tile.Add(name);
 
             // state row (badge / action)
-            var row = new VisualElement();
+            var row = new VisualElement { viewDataKey = "staterow" };
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.marginTop = 8;
             row.style.marginLeft = 12; row.style.marginRight = 12;
             tile.Add(row);
+
+            DressTile(tile, skin);
+            return tile;
+        }
+
+        // СОСТОЯНИЕ плитки — всё, что меняется покупкой, надеванием и сменой
+        // баланса. Миниатюры это не касается: она уже на месте.
+        private void DressTile(VisualElement tile, Skin skin)
+        {
+            bool forSale = skin.State == SkinState.ForSale;
+            bool equipped = skin.State == SkinState.Equipped;
+
+            LvnChrome.Border(tile, equipped ? LvnTokens.Accent : LvnTokens.Border, equipped ? 2f : 1f);
+            tile.style.opacity = forSale ? 0.82f : 1f;
+
+            var ribbon = Find(tile, "ribbon");
+            if (ribbon != null) ribbon.style.display = equipped ? DisplayStyle.Flex : DisplayStyle.None;
+
+            var name = Find(tile, "skinname") as Label;
+            if (name != null) name.text = skin.Name;
+
+            var row = Find(tile, "staterow");
+            if (row == null) return;
+            row.Clear(); // подписи и кнопки без картинок — их пересборка не видна
 
             if (equipped)
             {
@@ -488,8 +514,19 @@ namespace Lvn.UI.Screens
                 chip.AddManipulator(new Clickable(() => Buy(skin, tile)));
                 row.Add(chip);
             }
+        }
 
-            return tile;
+        // Поиск части плитки по опознавательному ключу: имя элемента занято
+        // Монтажёром под ключ сверки, поэтому части метятся viewDataKey.
+        private static VisualElement Find(VisualElement root, string key)
+        {
+            foreach (var child in root.Children())
+            {
+                if (child.viewDataKey == key) return child;
+                var deep = Find(child, key);
+                if (deep != null) return deep;
+            }
+            return null;
         }
 
         // ── demo actions ────────────────────────────────────────────────────
