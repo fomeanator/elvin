@@ -304,7 +304,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
             // Словарь оболочки: всё, что движок пишет на экране сам.
-            Lvn.UI.LvnWords.Learn(manifest.ui?.words);
+            Lvn.Content.LvnWords.Learn(manifest.ui?.words);
             _manifest = manifest;
             ApplyMenuStaging(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
@@ -414,16 +414,6 @@ namespace Lvn.UI.Screens
         // Populate the CG gallery from every title's `gallery` (unlock state from
         // LvnGalleryStore), then open it. No items anywhere → the screen keeps its
         // built-in demo fallback.
-        private static bool IsFirstChapter(LvnTitle title, LvnChapter chapter)
-        {
-            if (title?.seasons == null || chapter == null) return false;
-            foreach (var se in title.seasons)
-                if (se?.chapters != null)
-                    foreach (var c in se.chapters)
-                        if (c != null)
-                            return c.id == chapter.id; // the manifest's first listed chapter
-            return false;
-        }
 
 
 

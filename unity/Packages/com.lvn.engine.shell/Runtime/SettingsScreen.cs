@@ -172,7 +172,7 @@ namespace Lvn.UI.Screens
 
                 case "account":
                     _list.Add(UidRow());
-                    _accountRow = RowEx(_cfg.account_label ?? "Аккаунт",
+                    _accountRow = RowEx(_cfg.account_label ?? LvnWords.Of("settings.account", "Account"),
                         "Хранит прогресс и покупки на сервере");
                     _list.Add(_accountRow);
                     SetAccountStatus("…", showSignIn: false);
@@ -249,14 +249,14 @@ namespace Lvn.UI.Screens
 
         private VisualElement SoundRow()
         {
-            var row = RowEx(_cfg.sound_label ?? "Все звуки",
+            var row = RowEx(_cfg.sound_label ?? LvnWords.Of("settings.sound", "All sounds"),
                 "Полностью выключает музыку и эффекты");
-            var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "Вкл") : (_cfg.off_text ?? "Выкл") };
+            var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? LvnWords.Of("common.on", "On")) : (_cfg.off_text ?? LvnWords.Of("common.off", "Off")) };
             StyleValueButton(btn, LvnPrefs.SoundOn);
             btn.clicked += () =>
             {
                 LvnPrefs.SoundOn = !LvnPrefs.SoundOn;
-                btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? "Вкл") : (_cfg.off_text ?? "Выкл");
+                btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? LvnWords.Of("common.on", "On")) : (_cfg.off_text ?? LvnWords.Of("common.off", "Off"));
                 StyleValueButton(btn, LvnPrefs.SoundOn);
             };
             row.Add(btn);
@@ -317,7 +317,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement LanguageRow()
         {
-            var row = RowEx(_cfg.language_label ?? "Язык истории",
+            var row = RowEx(_cfg.language_label ?? LvnWords.Of("settings.language", "Story language"),
                 "Текст глав; интерфейс следует за ним");
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;

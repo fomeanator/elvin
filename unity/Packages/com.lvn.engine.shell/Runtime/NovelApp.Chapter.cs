@@ -74,8 +74,9 @@ namespace Lvn.UI.Screens
                 // Пока игрок внутри новеллы, каждое событие обязано знать, в
                 // какой именно: без этого сбой не отнести к истории, а таких
                 // событий в отчёте больше половины.
-                Lvn.Services.LvnAnalytics.CurrentTitle = title?.id;
-                Lvn.Services.LvnAnalytics.CurrentChapter = chapter.id;
+                // ГДЕ МЫ — одно объявление на все журналы: аналитика, жалоба
+                // игрока и диагностика читают один контекст.
+                Lvn.Services.LvnWhereabouts.Enter(title?.id, chapter.id);
                 lock (_reachedLabels) _reachedLabels.Clear(); // воронка считается ПО ГЛАВЕ
                 SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
@@ -161,8 +162,7 @@ namespace Lvn.UI.Screens
             _chapterSched = null;
             // Вышли из новеллы: события меню не должны числиться за историей,
             // из которой игрок уже ушёл.
-            Lvn.Services.LvnAnalytics.CurrentTitle = null;
-            Lvn.Services.LvnAnalytics.CurrentChapter = null;
+            Lvn.Services.LvnWhereabouts.Leave();
             // A chapter's worth of remote sprites fragments the panel's dynamic
             // atlas (freed regions rarely fit the next tenant); rebuild it clean
             // at this natural boundary.

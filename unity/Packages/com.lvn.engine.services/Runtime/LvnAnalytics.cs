@@ -40,13 +40,21 @@ namespace Lvn.Services
         /// title, и отчёт не может отнести сбой к конкретной истории (сейчас
         /// таких — 104 события из 199).
         /// </summary>
-        public static string CurrentTitle { get; set; }
+        public static string CurrentTitle
+        {
+            get => LvnWhereabouts.Title;
+            set => LvnWhereabouts.Enter(value, LvnWhereabouts.Chapter);
+        }
 
         /// <summary>Глава, которую сейчас играют. Тот же смысл, что у
         /// <see cref="CurrentTitle"/>: без неё событие внутри главы нельзя
         /// поставить на воронку, а именно воронка и есть вопрос «где
         /// отваливаются».</summary>
-        public static string CurrentChapter { get; set; }
+        public static string CurrentChapter
+        {
+            get => LvnWhereabouts.Chapter;
+            set => LvnWhereabouts.Enter(LvnWhereabouts.Title, value);
+        }
 
         public static void Track(string name, params (string key, object value)[] props)
         {

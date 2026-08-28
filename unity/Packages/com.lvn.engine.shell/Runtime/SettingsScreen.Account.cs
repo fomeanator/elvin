@@ -26,13 +26,13 @@ namespace Lvn.UI.Screens
             val.style.marginRight = 10;
             row.Add(val);
 
-            var copy = new Button { text = _cfg.copy_text ?? "Копировать" };
+            var copy = new Button { text = _cfg.copy_text ?? LvnWords.Of("settings.copy", "Copy") };
             StyleValueButton(copy, false);
             copy.SetEnabled(!string.IsNullOrEmpty(uid));
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = uid ?? "";
-                LvnMotion.FlashText(copy, _cfg.copied_text ?? "Скопировано");
+                LvnMotion.FlashText(copy, _cfg.copied_text ?? LvnWords.Of("settings.copied", "Copied"));
             };
             row.Add(copy);
             return row;
@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement VersionRow()
         {
-            var row = RowEx(_cfg.version_label ?? "Версия", null);
+            var row = RowEx(_cfg.version_label ?? LvnWords.Of("settings.version", "Version"), null);
             var val = new Label(Application.version + EditorBuildStamp());
             val.style.color = _dim;
             val.style.fontSize = 22;

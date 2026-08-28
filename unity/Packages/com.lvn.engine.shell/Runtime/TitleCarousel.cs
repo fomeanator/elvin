@@ -338,7 +338,7 @@ namespace Lvn.UI.Screens
             CloseChapterPicker();
 
             int reached = LvnProgress.Reached(t);
-            int firstNumber = chapters[0].number;
+            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(t);
 
             // Scrim: swallow every tap; tapping outside the panel closes.
             _picker = new VisualElement();

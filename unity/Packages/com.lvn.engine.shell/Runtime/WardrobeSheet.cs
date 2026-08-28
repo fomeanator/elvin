@@ -190,7 +190,7 @@ namespace Lvn.UI.Screens
             var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
             peek.Add(peekIcon);
-            var peekLabel = new Label(_cfg.peek_text ?? "Во весь рост");
+            var peekLabel = new Label(_cfg.peek_text ?? LvnWords.Of("wardrobe.peek", "Full height"));
             peekLabel.style.fontSize = 20;
             peekLabel.style.marginLeft = 8;
             peekLabel.style.color = LvnTokens.Text;
@@ -346,7 +346,7 @@ namespace Lvn.UI.Screens
             actions.style.marginTop = 12;
             Add(actions);
 
-            _cancel = new Button(Cancel) { text = _cfg.cancel_text ?? "Отменить" };
+            _cancel = new Button(Cancel) { text = _cfg.cancel_text ?? LvnWords.Of("wardrobe.cancel", "Cancel") };
             _cancel.style.fontSize = 28;
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;

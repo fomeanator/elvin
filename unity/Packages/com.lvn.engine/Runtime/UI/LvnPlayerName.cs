@@ -43,7 +43,7 @@ namespace Lvn.UI
         public static string Display
             => string.IsNullOrEmpty(LvnPrefs.PlayerName)
                 ? (string.IsNullOrEmpty(GuestLabel)
-                       ? LvnWords.Of("player.guest", DefaultGuest) : GuestLabel)
+                       ? Lvn.Content.LvnWords.Of("player.guest", DefaultGuest) : GuestLabel)
                 : LvnPrefs.PlayerName;
 
         /// <summary>Игрок назвался — имя сохраняется, и все, кто его

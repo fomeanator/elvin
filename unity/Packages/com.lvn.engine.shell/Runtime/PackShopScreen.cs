@@ -123,13 +123,13 @@ namespace Lvn.UI.Screens
 
             var titleBlock = new VisualElement();
             titleBlock.style.flexGrow = 1;
-            var eyebrow = new Label("ПОПОЛНИТЬ КОШЕЛЁК");
+            var eyebrow = new Label(LvnWords.Of("shop.eyebrow", "TOP UP"));
             eyebrow.style.color = LvnTokens.Gold;
             eyebrow.style.fontSize = 18;
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
-            var title = new Label("Магазин");
+            var title = new Label(LvnWords.Of("shop.title", "Store"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 44;
@@ -229,7 +229,7 @@ namespace Lvn.UI.Screens
         {
             // «Наборы» — раздел витрины, а не валюта: он остаётся подписью
             // движка, пока у магазина нет своего блока в манифесте.
-            if (tab == "bundles") return "Наборы";
+            if (tab == "bundles") return LvnWords.Of("shop.bundles", "Bundles");
             var name = Lvn.UI.LvnPriceTag.Of(tab).Name;
             return string.IsNullOrEmpty(name)
                 ? char.ToUpperInvariant(tab[0]) + tab.Substring(1) : name;
@@ -263,7 +263,7 @@ namespace Lvn.UI.Screens
                 Sku = p.Sku,
                 Currency = p.Currency,
                 Grants = p.Grants,
-                Headline = bundle ? (string.IsNullOrEmpty(p.Title) ? "Набор" : p.Title) : null,
+                Headline = bundle ? (string.IsNullOrEmpty(p.Title) ? LvnWords.Of("shop.bundle", "Bundle") : p.Title) : null,
                 SubLine = sub,
                 Amount = p.Amount,
                 Unit = UnitOf(p.Currency),
@@ -286,7 +286,7 @@ namespace Lvn.UI.Screens
             _list.Clear();
             if (_tabIds.Count == 0)
             {
-                var empty = new Label("Магазин сейчас закрыт");
+                var empty = new Label(LvnWords.Of("shop.closed", "The store is closed"));
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = 26;
                 empty.style.marginTop = 40;
@@ -379,7 +379,7 @@ namespace Lvn.UI.Screens
             art.Add(halo);
             var glyph = LvnIcons.Make(pack.Emblem, wide ? 46f : 36f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow * 0.55f);
             art.Add(glyph);
-            var category = new Label(pack.Grants != null ? "НАБОР ДЛЯ ИСТОРИИ" : TabTitle(pack.Currency).ToUpperInvariant())
+            var category = new Label(pack.Grants != null ? LvnWords.Of("shop.story_bundle", "STORY BUNDLE") : TabTitle(pack.Currency).ToUpperInvariant())
             { pickingMode = PickingMode.Ignore };
             category.style.position = Position.Absolute;
             category.style.left = 12; category.style.bottom = 9;
@@ -467,9 +467,9 @@ namespace Lvn.UI.Screens
             if (pack.Badge != Ribbon.None)
             {
                 bool gold = pack.Badge == Ribbon.Value || pack.Badge == Ribbon.BestPrice;
-                string txt = pack.Badge == Ribbon.Popular ? "ПОПУЛЯРНЫЙ"
-                           : pack.Badge == Ribbon.Value ? "ВЫГОДНО"
-                           : "ЛУЧШАЯ ЦЕНА";
+                string txt = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
+                           : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
+                           : LvnWords.Of("shop.best_price", "BEST PRICE");
                 var ribbon = new Label(txt) { pickingMode = PickingMode.Ignore };
                 ribbon.style.position = Position.Absolute;
                 ribbon.style.top = 10;
@@ -524,7 +524,7 @@ namespace Lvn.UI.Screens
             }
             b.schedule.Execute(() =>
             {
-                b.text = "Готово";
+                b.text = LvnWords.Of("common.done", "Done");
                 b.schedule.Execute(() =>
                 {
                     b.text = label;

@@ -24,10 +24,24 @@ namespace Lvn.Services
         /// сломалось» в чинибельное сообщение.</summary>
         public static System.Func<string> TailLog;
 
-        /// <summary>Где игрок находится прямо сейчас. Ставит оболочка —
-        /// движок про отзывы не знает и знать не должен.</summary>
-        public static string CurrentTitle, CurrentChapter, CurrentLabel;
-        public static int CurrentAt;
+        /// <summary>Где игрок находится прямо сейчас — ОКНА В ОБЩИЙ КОНТЕКСТ
+        /// (<see cref="LvnWhereabouts"/>). Раньше это были собственные поля, и
+        /// заполнял их никто: хост писал только в поля аналитики, а жалоба
+        /// уходила без новеллы и главы — то есть без ответа на вопрос, о чём
+        /// она. Два одинаковых набора полей на одну правду и разошлись ровно
+        /// так, как расходятся всегда.</summary>
+        public static string CurrentTitle => LvnWhereabouts.Title;
+        public static string CurrentChapter => LvnWhereabouts.Chapter;
+        public static string CurrentLabel
+        {
+            get => LvnWhereabouts.Label;
+            set => LvnWhereabouts.Mark(value, LvnWhereabouts.At);
+        }
+        public static int CurrentAt
+        {
+            get => LvnWhereabouts.At;
+            set => LvnWhereabouts.Mark(LvnWhereabouts.Label, value);
+        }
 
         /// <summary>
         /// Отправляет отзыв. Возвращает false, если не дошло — вызывающему

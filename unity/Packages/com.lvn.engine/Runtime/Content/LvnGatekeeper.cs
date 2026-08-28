@@ -42,6 +42,40 @@ namespace Lvn.Content
             => chapter != null && ChapterOpen(chapter.number, reached, firstNumber);
 
         /// <summary>
+        /// КАКАЯ ГЛАВА ПЕРВАЯ — та, у которой наименьший номер.
+        ///
+        /// <para>Правило было записано ТРЕМЯ разными способами: оболочка искала
+        /// наименьший номер, экраны брали «первую в списке» (<c>chapters[0]</c>),
+        /// а в хосте лежала мёртвая функция, считавшая первой ту, что первой
+        /// ПЕРЕЧИСЛЕНА в манифесте. Совпадают они лишь пока автор перечисляет
+        /// главы по порядку номеров; стоит записать вторую выше первой — и
+        /// «начать сначала» поведёт не туда, а «первая всегда открыта» откроет
+        /// не ту.</para>
+        ///
+        /// <para>Номер — авторский замысел, порядок в файле — случайность
+        /// формата, поэтому правило одно: наименьший номер.</para>
+        /// </summary>
+        public static LvnChapter First(LvnTitle title)
+        {
+            if (title?.seasons == null) return null;
+            LvnChapter best = null;
+            foreach (var s in title.seasons)
+            {
+                if (s?.chapters == null) continue;
+                foreach (var c in s.chapters)
+                {
+                    if (c == null) continue;
+                    if (best == null || c.number < best.number) best = c;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>Номер первой главы — то, что спрашивает
+        /// <see cref="ChapterOpen(int,int,int)"/>. Ноль, если глав нет.</summary>
+        public static int FirstNumber(LvnTitle title) => First(title)?.number ?? 0;
+
+        /// <summary>
         /// НОВЕЛЛА ЗАКРЫТА? Автор пишет условие в <c>title.unlock</c> — выражение
         /// над кросс-новелльными статами игрока (<c>global.*</c>). Нет условия —
         /// новелла открыта.
