@@ -124,7 +124,7 @@ namespace Lvn.UI.Screens
             _buttons.Clear();
             var list = (buttons != null && buttons.Count > 0)
                 ? buttons
-                : new List<Button> { new Button(_cfg.ok_text ?? "OK", true) };
+                : new List<Button> { new Button(_cfg.ok_text ?? LvnWords.Of("common.ok", "OK"), true) };
             for (int i = 0; i < list.Count; i++) _buttons.Add(MakeButton(list[i], i, list.Count));
 
             style.display = DisplayStyle.Flex;
@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
         /// <summary>A single-button notice. Resolves when dismissed.</summary>
         public Task AlertAsync(string title, string message, string ok = null, CancellationToken ct = default)
             => ShowAsync(title, message,
-                new[] { new Button(ok ?? _cfg.ok_text ?? "OK", true) }, dismissable: true, ct);
+                new[] { new Button(ok ?? _cfg.ok_text ?? LvnWords.Of("common.ok", "OK"), true) }, dismissable: true, ct);
 
         /// <summary>A two-button confirm. Returns true if the player pressed the
         /// primary/confirm button, false on cancel or dismissal.</summary>
@@ -158,8 +158,8 @@ namespace Lvn.UI.Screens
         {
             var buttons = new[]
             {
-                new Button(cancel ?? _cfg.cancel_text ?? "Cancel", false),
-                new Button(confirm ?? _cfg.ok_text ?? "OK", true),
+                new Button(cancel ?? _cfg.cancel_text ?? LvnWords.Of("common.cancel", "Cancel"), false),
+                new Button(confirm ?? _cfg.ok_text ?? LvnWords.Of("common.ok", "OK"), true),
             };
             // Index 1 is the confirm button.
             return await ShowAsync(title, message, buttons, dismissable: true, ct) == 1;

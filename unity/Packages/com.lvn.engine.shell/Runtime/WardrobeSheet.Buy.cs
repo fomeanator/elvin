@@ -118,14 +118,20 @@ namespace Lvn.UI.Screens
                 // Слово вместо значка — только если новелла сама его назвала
                 // (currency_label). Иначе игрок читал внутренний идентификатор.
                 bool named = !string.IsNullOrEmpty(_cfg.currency_label);
+                // Сумму пишет Ценник: «:N0» брал разделитель разрядов из
+                // настроек телефона, тогда как весь остальной интерфейс — из
+                // языка новеллы. В одном окне цена «1 200» соседствовала с
+                // балансом «1 200», собранным по другому правилу.
+                string price = Lvn.UI.LvnPriceTag.Amount(item.price);
+                string buy = _cfg.buy_text ?? LvnWords.Of("wardrobe.buy", "Buy");
                 SetConfirmText(named
-                        ? $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0} {_cfg.currency_label}"
-                        : $"{_cfg.buy_text ?? "Buy"}:  {item.price:N0}",
+                        ? $"{buy}:  {price} {_cfg.currency_label}"
+                        : $"{buy}:  {price}",
                     named ? null : item.currency);
                 LvnLog.Trace($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
-            else SetConfirmText(_cfg.confirm_text ?? "Choose");
+            else SetConfirmText(_cfg.confirm_text ?? LvnWords.Of("wardrobe.choose", "Choose"));
         }
 
         internal async Task ConfirmAsync()
