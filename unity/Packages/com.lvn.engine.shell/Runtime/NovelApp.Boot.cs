@@ -287,7 +287,7 @@ namespace Lvn.UI.Screens
                             if (string.IsNullOrEmpty(url)) return;
                             var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
                             if (loader.IsAssetCached(eff)) return;
-                            miss++; bytes += size > 0 ? size : 64 << 10;
+                            miss++; bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                         }
                         Probe(ch.script_url, "script", 0);
                         Probe(ch.bg_url, "sprite", 0);
@@ -313,7 +313,7 @@ namespace Lvn.UI.Screens
                         foreach (var (url, _, size) in CollectContentItems())
                             if (!loader.IsAssetCached(url))
                             {
-                                bytes += size > 0 ? size : 64 << 10;
+                                bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                                 files++;
                                 if (sample.Count < 8) sample.Add(url);
                             }
