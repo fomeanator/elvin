@@ -104,7 +104,11 @@ namespace Lvn.UI.Screens
 
             // Play button — labelled "Continue" (with the episode underneath) when
             // the selected title has a saved reading position.
-            _play = new Button { text = _cfg.play_text ?? "Play" };
+            // Через словарь, как в хабе: у карусели «Play»/«Continue» умолчание было
+            // английским И НЕПЕРЕВОДИМЫМ — ui.words их не видел, оставался только
+            // browse-конфиг. Один и тот же ярлык в двух обозревателях брался по
+            // разным правилам.
+            _play = new Button { text = _cfg.play_text ?? LvnWords.Of("hub.play", "Play") };
             _play.style.position = Position.Absolute;
             _play.style.left = Length.Percent(30f);
             _play.style.right = Length.Percent(30f);
@@ -318,12 +322,12 @@ namespace Lvn.UI.Screens
             var cur = t != null ? LvnProgress.Current(t) : null;
             if (cur != null)
             {
-                _play.text = _cfg.continue_text ?? "Continue";
+                _play.text = _cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue");
                 _progressLabel.text = ChapterLabel(cur);
             }
             else
             {
-                _play.text = _cfg.play_text ?? "Play";
+                _play.text = _cfg.play_text ?? LvnWords.Of("hub.play", "Play");
                 _progressLabel.text = "";
             }
             var chapters = t.ChaptersOf();
@@ -407,7 +411,8 @@ namespace Lvn.UI.Screens
                 cont.style.borderTopLeftRadius = 10; cont.style.borderTopRightRadius = 10;
                 cont.style.borderBottomLeftRadius = 10; cont.style.borderBottomRightRadius = 10;
 
-                var contTitle = new Label((_cfg.continue_text ?? "Continue") + " — " + ChapterLabel(autoCh));
+                var contTitle = new Label((_cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue"))
+                        + " — " + ChapterLabel(autoCh));
                 contTitle.pickingMode = PickingMode.Ignore;
                 contTitle.style.fontSize = 21;
                 contTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
