@@ -255,9 +255,9 @@ namespace Lvn.UI
                     if (!string.IsNullOrEmpty(url) && _loadImage != null) _ = _loadImage(el, url);
                     break;
                 case "scroll":
-                    var sv = new ScrollView(ScrollViewMode.Vertical);
-                    sv.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-                    el = sv;
+                    // Список автора — по общим правилам: он тоже тянется рукой,
+                    // а не только колесом (см. LvnScroll).
+                    el = LvnScroll.Vertical();
                     break;
                 default: // panel, row, column
                     el = new VisualElement();

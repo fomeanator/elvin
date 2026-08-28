@@ -20,7 +20,7 @@ namespace Lvn.UI
         private void ShowStats()
         {
             var p = Panel(L("stats", "Stats"));
-            var scroll = new ScrollView();
+            var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 

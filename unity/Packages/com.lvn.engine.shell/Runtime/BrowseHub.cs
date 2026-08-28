@@ -244,7 +244,7 @@ namespace Lvn.UI.Screens
                 : LvnWords.Name("title", _detailTarget.id, _detailTarget.name));
             _detailImage = new VisualElement { pickingMode = PickingMode.Ignore };
             _detailImage.style.height = Length.Percent(42);
-            _detailImage.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            _detailImage.style.backgroundColor = LvnTokens.Veil(0.35f);
             LvnChrome.Round(_detailImage, _radius);
             Edge(_detailImage);
             LvnPicture.Fit(_detailImage);
@@ -257,7 +257,7 @@ namespace Lvn.UI.Screens
             dScrim.style.position = Position.Absolute;
             dScrim.style.left = 0; dScrim.style.right = 0; dScrim.style.bottom = 0;
             dScrim.style.height = Length.Percent(55f);
-            dScrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.02f), new Color(0f, 0f, 0f, 0.85f));
+            dScrim.style.backgroundImage = Gradient(LvnTokens.Veil(0.02f), LvnTokens.Veil(0.85f));
             _detailImage.Add(dScrim);
             // КРУПНОЕ название на самой обложке. Раньше имя новеллы жило только
             // в узкой строке возврата мелким кеглем, и экран открывался

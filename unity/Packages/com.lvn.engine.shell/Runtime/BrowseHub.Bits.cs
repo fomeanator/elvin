@@ -49,7 +49,7 @@ namespace Lvn.UI.Screens
             var chip = new VisualElement();
             chip.style.flexDirection = FlexDirection.Row;
             chip.style.alignItems = Align.Center;
-            chip.style.backgroundColor = new Color(0f, 0f, 0f, 0.28f);
+            chip.style.backgroundColor = LvnTokens.Veil(0.28f);
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
             LvnChrome.Round(chip, 10f);

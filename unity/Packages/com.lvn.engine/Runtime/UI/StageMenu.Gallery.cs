@@ -26,7 +26,7 @@ namespace Lvn.UI
         private void ShowHistory()
         {
             var p = Panel(L("history", "History"));
-            var scroll = new ScrollView();
+            var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
@@ -80,7 +80,7 @@ namespace Lvn.UI
         private void ShowGallery()
         {
             var p = Panel(L("gallery", "Gallery"));
-            var scroll = new ScrollView();
+            var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
