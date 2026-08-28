@@ -106,6 +106,22 @@ namespace Lvn.UI.Screens
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.AssetFail, ("asset", url), ("code", code));
         }
 
+        /// <summary>Файл доехал, но картинкой не стал. Для отчёта это тот же
+        /// сбой ассета — игрок недосчитался картинки, — но причина другая, и
+        /// она едет в свойстве: битый файл, формат без поддержки, транскод,
+        /// которого нет в сборке.</summary>
+        private static void OnAssetUnusable(string url, string why)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+            lock (_reportedAssetFails)
+            {
+                if (_reportedAssetFails.Count > 200) _reportedAssetFails.Clear();
+                if (!_reportedAssetFails.Add("unusable:" + url)) return;
+            }
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.AssetFail,
+                ("asset", url), ("code", 0), ("why", why ?? ""));
+        }
+
         // Метки, о которых уже отчитались в этой главе. Цикл («спросить ещё
         // раз») проходит одну и ту же метку многократно, а для воронки важен
         // ФАКТ «дошёл», а не счётчик оборотов.

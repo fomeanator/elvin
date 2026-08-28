@@ -699,8 +699,22 @@ namespace Lvn.UI
                         if (string.IsNullOrEmpty(val) || map.ContainsKey(val)) continue;
                         var url = Catalog.FillFor(id, template, new Dictionary<string, string> { { tr.axis, val } });
                         if (string.IsNullOrEmpty(url)) continue;
-                        try { var sp = await Assets.LoadSpriteAsync(url, _cts.Token); if (sp != null) map[val] = sp; }
-                        catch { }   // актёр без арта: покажем силуэт, но кадр не потеряем
+                        // Актёр без арта: показываем силуэт, кадр не теряем — но
+                        // МОЛЧАТЬ об этом нельзя. Игрок видит силуэт вместо
+                        // героини, а раньше в логе и в отчёте не оставалось
+                        // ничего: сетевое событие сюда не доходит, файл-то
+                        // доехал.
+                        try
+                        {
+                            var sp = await Assets.LoadSpriteAsync(url, _cts.Token);
+                            if (sp != null) map[val] = sp;
+                            else Lvn.Content.ContentLoader.NoteAssetUnusable(url, "слой актёра не стал спрайтом");
+                        }
+                        catch (System.OperationCanceledException) { throw; }
+                        catch (System.Exception ex)
+                        {
+                            Lvn.Content.ContentLoader.NoteAssetUnusable(url, ex.GetType().Name);
+                        }
                     }
                 }
             }
