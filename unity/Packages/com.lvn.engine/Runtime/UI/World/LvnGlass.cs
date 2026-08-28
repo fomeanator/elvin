@@ -133,14 +133,7 @@ namespace Lvn.UI.World
 
             // Два раздельных прохода (Г→В) поверх уже уменьшенной копии дают
             // мягкость матового стекла без «ступенек» на контрастных краях.
-            _mat.SetFloat("_Radius", 2.0f);
-            for (int i = 0; i < 2; i++)
-            {
-                _mat.SetVector("_Dir", new Vector4(1f, 0f, 0f, 0f));
-                Graphics.Blit(a, b, _mat, 0);
-                _mat.SetVector("_Dir", new Vector4(0f, 1f, 0f, 0f));
-                Graphics.Blit(b, a, _mat, 0);
-            }
+            LvnBlurPass.Run(_mat, a, b, radius: 2.0f, iterations: 2);   // результат — в a
 
             // ПЕРЕВОРОТ ПО ВЕРТИКАЛИ — не украшение, а разница систем координат:
             // у кадра камеры начало внизу, у интерфейса — вверху. Без него
