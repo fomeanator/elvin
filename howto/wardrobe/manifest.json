@@ -1,96 +1,151 @@
 {
-  "$note": "The CATALOG half of the wardrobe example. This is a manifest fragment: paste `sprites` into your title's real manifest.json (the panel's cast editor writes the same shape). The MOMENT half — when the sheet opens — is wardrobe.lvns next to this file.",
-
-  "ui": {
-    "wardrobe": {
-      "menu_label": "Wardrobe",
-      "show_menu_item": true,
-      "confirm_text": "Choose",
-      "buy_text": "Buy",
-      "remove_text": "Take off",
-      "currency_label": "◆",
-      "rarity_colors": { "rare": "#7fb2ff" }
-    }
-  },
-
-  "sprites": {
-    "mira": {
-      "name": "Mira",
-      "layers": [
-        { "id": "body", "url": "/content/art/mira/body.png" },
-        { "id": "outfit", "url": "/content/art/mira/outfit_{outfit}.png" },
-        { "id": "hair", "url": "/content/art/mira/hair_{hair}.png" },
-        { "id": "face", "url": "/content/art/mira/face_{emotion}.png" }
-      ],
-      "axes": {
-        "outfit": ["casual", "gown", "armor"],
-        "hair": ["down", "braid"],
-        "emotion": ["neutral", "smile"]
-      },
-      "defaults": { "outfit": "casual", "hair": "down", "emotion": "neutral" },
-
-      "wardrobe": {
-        "outfit": {
-          "name": "Outfit",
-          "var": "look",
-          "removable": false,
-          "items": [
-            {
-              "value": "casual",
-              "name": "Everyday coat",
-              "icon": "/content/art/mira/outfit_casual.png"
-            },
-            {
-              "value": "gown",
-              "name": "Gala gown",
-              "icon": "/content/art/mira/outfit_gown.png",
-              "currency": "crystals",
-              "price": 20,
-              "rarity": "rare"
-            },
-            {
-              "value": "armor",
-              "name": "Guard plate",
-              "icon": "/content/art/mira/outfit_armor.png"
-            }
-          ]
-        },
-
-        "hair": {
-          "name": "Hair",
-          "removable": false,
-          "items": [
-            { "value": "down", "name": "Loose", "icon": "/content/art/mira/hair_down.png" },
-            { "value": "braid", "name": "Braid", "icon": "/content/art/mira/hair_braid.png" }
-          ]
-        }
-      }
-    },
-
-    "dorn": {
-      "name": "Dorn",
-      "layers": [
-        { "id": "body", "url": "/content/art/dorn/body.png" },
-        { "id": "outfit", "url": "/content/art/dorn/outfit_{outfit}.png" },
-        { "id": "face", "url": "/content/art/dorn/face_{emotion}.png" }
-      ],
-      "axes": {
-        "outfit": ["dress", "plume"],
-        "emotion": ["neutral", "smile"]
-      },
-      "defaults": { "outfit": "dress", "emotion": "neutral" },
-
-      "wardrobe": {
-        "outfit": {
-          "name": "Uniform",
-          "var": "dorn_look",
-          "removable": true,
-          "items": [
-            { "value": "dress", "name": "Dress uniform", "icon": "/content/art/dorn/outfit_dress.png" },
-            { "value": "plume", "name": "Ceremonial plume", "icon": "/content/art/dorn/outfit_plume.png" }
-          ]
-        }
-      }
-    }
+ "$note": "The CATALOG half of the wardrobe example. This is a manifest fragment: paste `sprites` into your title's real manifest.json (the panel's cast editor writes the same shape). The MOMENT half — when the sheet opens — is wardrobe.lvns next to this file.",
+ "ui": {
+  "wardrobe": {
+   "menu_label": "Wardrobe",
+   "show_menu_item": true,
+   "confirm_text": "Choose",
+   "buy_text": "Buy",
+   "remove_text": "Take off",
+   "rarity_colors": {
+    "rare": "#7fb2ff"
+   }
   }
+ },
+ "sprites": {
+  "mira": {
+   "name": "Mira",
+   "layers": [
+    {
+     "id": "body",
+     "url": "/content/art/mira/body.png"
+    },
+    {
+     "id": "outfit",
+     "url": "/content/art/mira/outfit_{outfit}.png"
+    },
+    {
+     "id": "hair",
+     "url": "/content/art/mira/hair_{hair}.png"
+    },
+    {
+     "id": "face",
+     "url": "/content/art/mira/face_{emotion}.png"
+    }
+   ],
+   "axes": {
+    "outfit": [
+     "casual",
+     "gown",
+     "armor"
+    ],
+    "hair": [
+     "down",
+     "braid"
+    ],
+    "emotion": [
+     "neutral",
+     "smile"
+    ]
+   },
+   "defaults": {
+    "outfit": "casual",
+    "hair": "down",
+    "emotion": "neutral"
+   },
+   "wardrobe": {
+    "outfit": {
+     "name": "Outfit",
+     "var": "look",
+     "removable": false,
+     "items": [
+      {
+       "value": "casual",
+       "name": "Everyday coat",
+       "icon": "/content/art/mira/outfit_casual.png"
+      },
+      {
+       "value": "gown",
+       "name": "Gala gown",
+       "icon": "/content/art/mira/outfit_gown.png",
+       "currency": "crystals",
+       "price": 20,
+       "rarity": "rare"
+      },
+      {
+       "value": "armor",
+       "name": "Guard plate",
+       "icon": "/content/art/mira/outfit_armor.png"
+      }
+     ]
+    },
+    "hair": {
+     "name": "Hair",
+     "removable": false,
+     "items": [
+      {
+       "value": "down",
+       "name": "Loose",
+       "icon": "/content/art/mira/hair_down.png"
+      },
+      {
+       "value": "braid",
+       "name": "Braid",
+       "icon": "/content/art/mira/hair_braid.png"
+      }
+     ]
+    }
+   }
+  },
+  "dorn": {
+   "name": "Dorn",
+   "layers": [
+    {
+     "id": "body",
+     "url": "/content/art/dorn/body.png"
+    },
+    {
+     "id": "outfit",
+     "url": "/content/art/dorn/outfit_{outfit}.png"
+    },
+    {
+     "id": "face",
+     "url": "/content/art/dorn/face_{emotion}.png"
+    }
+   ],
+   "axes": {
+    "outfit": [
+     "dress",
+     "plume"
+    ],
+    "emotion": [
+     "neutral",
+     "smile"
+    ]
+   },
+   "defaults": {
+    "outfit": "dress",
+    "emotion": "neutral"
+   },
+   "wardrobe": {
+    "outfit": {
+     "name": "Uniform",
+     "var": "dorn_look",
+     "removable": true,
+     "items": [
+      {
+       "value": "dress",
+       "name": "Dress uniform",
+       "icon": "/content/art/dorn/outfit_dress.png"
+      },
+      {
+       "value": "plume",
+       "name": "Ceremonial plume",
+       "icon": "/content/art/dorn/outfit_plume.png"
+      }
+     ]
+    }
+   }
+  }
+ }
 }

@@ -509,12 +509,23 @@ namespace Lvn.UI.Screens
             body.style.alignItems = wide ? Align.FlexStart : Align.Center;
             card.Add(body);
 
-            var amount = new Label(pack.Headline ?? $"{LvnPriceTag.Amount(pack.Amount)} {pack.Unit}");
-            amount.style.color = LvnTokens.Text;
-            amount.style.fontSize = wide ? 30 : 25;
-            amount.style.unityFontStyleAndWeight = FontStyle.Bold;
-            amount.style.whiteSpace = WhiteSpace.Normal;
-            if (!wide) amount.style.unityTextAlign = TextAnchor.MiddleCenter;
+            // СКОЛЬКО И ЧЕГО. У набора своё название («Набор новичка»), у пачки
+            // валюты — сумма со значком: слово («500 кристаллов») занимало
+            // полторы строки крупным кеглем и переносилось посреди числа.
+            float sum = wide ? 30 : 25;
+            VisualElement amount;
+            if (!string.IsNullOrEmpty(pack.Headline))
+            {
+                var head = new Label(pack.Headline);
+                head.style.color = LvnTokens.Text;
+                head.style.fontSize = sum;
+                head.style.unityFontStyleAndWeight = FontStyle.Bold;
+                head.style.whiteSpace = WhiteSpace.Normal;
+                if (!wide) head.style.unityTextAlign = TextAnchor.MiddleCenter;
+                amount = head;
+            }
+            else amount = Lvn.UI.LvnPriceTag.Tag(pack.Currency, pack.Amount,
+                new Lvn.UI.LvnPriceTag.Row { FontSize = sum, TextColor = LvnTokens.Text, Gap = 6f });
             body.Add(amount);
 
             if (pack.Grants != null && pack.Grants.Count > 0)
@@ -538,7 +549,10 @@ namespace Lvn.UI.Screens
                         18f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
                     ic.style.marginRight = 6;
                     chip.Add(ic);
-                    var t = new Label($"{LvnPriceTag.Amount(kv.Value)} {UnitOf(kv.Key)}");
+                    // Слова рядом со значком нет: он уже сказал, какая это
+                    // валюта, и «500 кристаллов» под самоцветом — то же самое
+                    // дважды, из-за чего чип не влезал в узкую карточку.
+                    var t = new Label(LvnPriceTag.Amount(kv.Value));
                     t.style.color = LvnTokens.Text;
                     t.style.fontSize = 20;
                     chip.Add(t);

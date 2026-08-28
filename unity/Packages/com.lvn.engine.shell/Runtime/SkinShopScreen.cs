@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.Services;   // кошелёк: витрина берёт у него валюты игрока
 using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -42,6 +43,8 @@ namespace Lvn.UI.Screens
         private int _char;
         private int _cat;
         private int _gold = 1240;
+        // Какой валютой платит демо-кошелёк витрины (первая у игрока).
+        private string _demoCurrency;
 
 
         private enum SkinState { Equipped, Owned, ForSale }
@@ -58,7 +61,10 @@ namespace Lvn.UI.Screens
             public string Thumb;
             public SkinState State;
             public int Price;
-            public bool Energy; // false → gold (◆), true → energy (⚡)
+            /// <summary>Чем платят. Раньше стоял булев «золото или энергия»
+            /// — то есть витрина знала ровно две валюты в лицо, а облик им
+            /// рисовала сама, мимо Ценника.</summary>
+            public string Currency;
         }
 
         public SkinShopScreen(ILvnAssets assets)
@@ -233,6 +239,12 @@ namespace Lvn.UI.Screens
                 SkinState.ForSale, SkinState.ForSale, SkinState.ForSale,
             };
             int[] prices = { 0, 0, 0, 250, 480, 3 };
+            // Валюты берём у кошелька игрока: витрина показывает НАСТОЯЩИЕ
+            // деньги этой новеллы, а не пару, зашитую в движок.
+            var purse = new List<string>(LvnWallet.Balances.Keys);
+            string soft = purse.Count > 0 ? purse[0] : null;
+            _demoCurrency = soft;
+            string hard = purse.Count > 1 ? purse[1] : soft;
 
             for (int c = 0; c < _chars.Count; c++)
             {
@@ -248,7 +260,7 @@ namespace Lvn.UI.Screens
                             Thumb = $"/content/cards/card{i % 4}.png",
                             State = states[i],
                             Price = prices[i],
-                            Energy = i == 5, // the last for-sale item is priced in energy
+                            Currency = i == 5 ? hard : soft, // последний — за вторую валюту
                         });
                     }
                     _skins[c + ":" + k] = list;
@@ -491,20 +503,13 @@ namespace Lvn.UI.Screens
                 chip.style.paddingTop = 8; chip.style.paddingBottom = 8;
                 chip.style.paddingLeft = 12; chip.style.paddingRight = 12;
                 LvnChrome.Round(chip, LvnTokens.RadiusSm);
-                var priceColor = skin.Energy ? LvnTokens.Accent : LvnTokens.Gold;
+                // Цвет и значок — у Ценника: он один знает облик валюты.
+                var priceColor = LvnPriceTag.Of(skin.Currency).Tint;
                 chip.style.backgroundColor = new Color(priceColor.r, priceColor.g, priceColor.b, 0.14f);
                 LvnChrome.Border(chip, new Color(priceColor.r, priceColor.g, priceColor.b, 0.5f), 1f);
 
-                var glyph = LvnIcons.Make(skin.Energy ? LvnIcon.Energy : LvnIcon.Gem, 19f,
-                                          priceColor, 0f, LvnTheme.Current.IconGlow);
-                glyph.style.marginRight = 6;
-                chip.Add(glyph);
-
-                var price = new Label(LvnPriceTag.Amount(skin.Price));
-                price.style.color = priceColor;
-                price.style.fontSize = 20;
-                price.style.unityFontStyleAndWeight = FontStyle.Bold;
-                chip.Add(price);
+                chip.Add(LvnPriceTag.Tag(skin.Currency, skin.Price,
+                    new LvnPriceTag.Row { FontSize = 20f, IconSize = 19f, Gap = 6f }));
 
                 chip.AddManipulator(new Clickable(() => Buy(skin, tile)));
                 row.Add(chip);
@@ -535,8 +540,9 @@ namespace Lvn.UI.Screens
 
         private void Buy(Skin skin, VisualElement tile)
         {
-            // Energy items aren't demo-purchasable here; gold ones spend the mirror.
-            if (!skin.Energy && _gold >= skin.Price)
+            // Демо-кошелёк держит только первую валюту; за вторую здесь не
+            // покупают — витрина показывает вид, а не ведёт расчёты.
+            if (skin.Currency == _demoCurrency && _gold >= skin.Price)
             {
                 _gold -= skin.Price;
                 skin.State = SkinState.Owned; // bought → now equippable

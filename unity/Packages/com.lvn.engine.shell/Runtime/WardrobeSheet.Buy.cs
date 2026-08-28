@@ -116,19 +116,18 @@ namespace Lvn.UI.Screens
 
             if (item != null)
             {
-                // Слово вместо значка — только если новелла сама его назвала
-                // (currency_label). Иначе игрок читал внутренний идентификатор.
-                bool named = !string.IsNullOrEmpty(_cfg.currency_label);
+                // ВАЛЮТУ НА КНОПКЕ ПОКАЗЫВАЕТ ЗНАЧОК. Правило было другое:
+                // слово, если новелла его назвала (currency_label) — и кнопка
+                // единственная во всём гардеробе писала «300 кристаллов», пока
+                // соседние ярлыки и пилюля кошелька рисовали самоцвет. Слово
+                // ещё и не переводится вместе с интерфейсом: оно авторское.
                 // Сумму пишет Ценник: «:N0» брал разделитель разрядов из
                 // настроек телефона, тогда как весь остальной интерфейс — из
                 // языка новеллы. В одном окне цена «1 200» соседствовала с
                 // балансом «1 200», собранным по другому правилу.
                 string price = Lvn.UI.LvnPriceTag.Amount(item.price);
                 string buy = LvnWords.Pick("wardrobe.buy", _cfg.buy_text, "Buy");
-                SetConfirmText(named
-                        ? $"{buy}:  {price} {_cfg.currency_label}"
-                        : $"{buy}:  {price}",
-                    named ? null : item.currency);
+                SetConfirmText($"{buy}:  {price}", item.currency);
                 LvnLog.Trace($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
@@ -211,12 +210,13 @@ namespace Lvn.UI.Screens
             var sku = LvnWardrobe.Sku(_entity, axis, item.value);
             LvnLog.Trace($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
 
-            // В попапе значок не нарисуешь — но и служебное имя валюты
-            // показывать нельзя: без названного currency_label остаётся цена.
+            // В попапе значок не нарисуешь — здесь фраза, и валюта в ней стоит
+            // словом. Слово берётся у ЦЕННИКА (падежная форма из манифеста), а
+            // не из гардеробного currency_label: два источника одного слова
+            // расходились, и в одном окне цена называлась двумя способами.
+            // Облика нет — остаётся голая сумма: врать про валюту хуже.
             string title = LvnWords.Pick("wallet.not_enough", _cfg.insufficient_text, "Not enough");
-            string msg = string.IsNullOrEmpty(_cfg.currency_label)
-                ? $"{title}: {LvnPriceTag.Amount(item.price)}"
-                : $"{title}: {LvnPriceTag.Amount(item.price)} {_cfg.currency_label}";
+            string msg = $"{title}: {LvnPriceTag.Full(item.currency, item.price)}";
 
             var charge = new LvnCashier.Charge
             {

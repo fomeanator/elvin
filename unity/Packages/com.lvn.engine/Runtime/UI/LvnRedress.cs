@@ -62,11 +62,31 @@ namespace Lvn.UI
         private static readonly List<System.WeakReference<VisualElement>> _roots
             = new List<System.WeakReference<VisualElement>>();
 
+        // СИГНАЛ «ПЕРЕОДЕНЬСЯ» ПРИНАДЛЕЖИТ ДОМУ, А НЕ ОБОЛОЧКЕ. Подписка на
+        // смену слов и шрифта жила в NovelShell: он слушал оба события и звал
+        // перерисовку. Работа общая, а держал её один жилец — и без него её не
+        // делал никто. Сцена в песочнице, демо без оболочки, витрина отдельным
+        // документом: язык там менялся в настройках и не доезжал никуда, хотя
+        // корни честно зарегистрированы.
+        //
+        // Слушает дом: кто объявил корень — тот переодевается, и спрашивать
+        // разрешения у оболочки для этого не нужно.
+        private static bool _listening;
+
+        private static void EnsureListening()
+        {
+            if (_listening) return;
+            _listening = true;
+            Lvn.Content.LvnWords.Changed += All;   // сменился язык или каталог
+            LvnFonts.Changed += All;               // гарнитура, кегль, толщина
+        }
+
         /// <summary>Объявить корень дерева: его будут переодевать вместе со
         /// всеми. Повторная регистрация того же корня безвредна.</summary>
         public static void Register(VisualElement root)
         {
             if (root == null) return;
+            EnsureListening();
             for (int i = _roots.Count - 1; i >= 0; i--)
             {
                 if (!_roots[i].TryGetTarget(out var live)) { _roots.RemoveAt(i); continue; }
