@@ -54,7 +54,13 @@ namespace Lvn.Tests
             Assert.IsNotNull(srcAsset, $"missing source fixture {name}.lvns.txt");
             Assert.IsNotNull(goldAsset, $"missing golden fixture {name}.lvn.txt");
 
-            string producedJson = LvnsCompiler.Compile(srcAsset.text);
+            // ФАЙЛОМ, а не текстом. Сборка у автора идёт через импортёр, у
+            // которого есть путь, — а `include` резолвится ровно относительно
+            // него. Гейт, собиравший текст, проверял ту часть языка, которую
+            // умел собрать сам: подключения в фикстуру было не положить, и
+            // пробел в порте (роль 207) прожил незамеченным.
+            string srcPath = AssetDatabase.GetAssetPath(srcAsset);
+            string producedJson = LvnsCompiler.CompileFile(srcPath);
             JToken produced = JToken.Parse(producedJson);
             JToken golden = JToken.Parse(goldAsset.text);
 
