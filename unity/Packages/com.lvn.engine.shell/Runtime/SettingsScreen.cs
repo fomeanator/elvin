@@ -82,7 +82,11 @@ namespace Lvn.UI.Screens
             sheet.Add(title);
 
             _list = new ScrollView(ScrollViewMode.Vertical);
-            _list.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            // ПОЛОСА ВИДНА, КОГДА ЕСТЬ ЧТО ПРОКРУЧИВАТЬ. Спрятанная полоса
+            // экономит четыре пикселя и стоит того, что игрок не знает о
+            // половине настроек: лента длиннее экрана, а признака этого нет
+            // (Илья 28.08 — «чтобы видно было, что есть куда скроллить»).
+            _list.verticalScrollerVisibility = ScrollerVisibility.Auto;
             _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _list.style.flexGrow = 1;
             sheet.Add(_list);
@@ -109,17 +113,16 @@ namespace Lvn.UI.Screens
         // ЛЕНТА, А НЕ ЧЕТЫРЕ ЭКРАНА. Вкладки прятали три четверти настроек за
         // переключателем: игрок, ищущий «размер текста», обязан был угадать, в
         // каком из четырёх разделов он лежит. Теперь всё лежит одной прокруткой
-        // с заголовками, а пилюли сверху стали БЫСТРЫМ ПЕРЕХОДОМ — и заодно
-        // показывают, в каком разделе игрок сейчас.
-        private readonly Dictionary<string, VisualElement> _anchors = new Dictionary<string, VisualElement>();
-        private readonly List<(string id, Button b)> _tabButtons = new List<(string, Button)>();
-        private string _tab = "main";
-
+        // с заголовками разделов.
+        //
+        // Быстрый переход по этим заголовкам был и УДАЛЁН: прыжок к якорю
+        // случался до раскладки, следящая подсветка спорила с нажатием, а
+        // выигрыш — одно движение пальцем на четыре экрана текста. Прокрутка
+        // честнее: она не врёт о том, где игрок находится.
         public void Rebuild()
         {
             _list.Clear();
-            _anchors.Clear();
-            _list.Add(TabsRow());
+            _sections = 0;
 
             Section("main", LvnWords.Of("settings.tab_main", "General"));
             _list.Add(SoundRow());
@@ -181,110 +184,18 @@ namespace Lvn.UI.Screens
             var socials = SocialRow();
             if (socials != null) _list.Add(socials);
 
-            // Подписка на прокрутку — ОДНА на экран. Вешать её в Rebuild
-            // значило копить обработчики: после пятой пересборки каждое
-            // движение ленты пересчитывало подсветку пять раз, и вкладки
-            // «залипали» — обработчики спорили друг с другом.
-            if (!_scrollHooked)
-            {
-                _scrollHooked = true;
-                _list.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => SyncActiveTab());
-                _list.verticalScroller.valueChanged += _ => SyncActiveTab();
-            }
         }
 
-        private bool _scrollHooked;
-
-        // Пока идёт переход по нажатию вкладки, подсветку ведёт НАЖАТИЕ, а не
-        // прокрутка: лента едет мимо чужих разделов, и следящая подсветка
-        // перебивала выбор игрока прямо под пальцем.
-        private float _jumpUntil;
-
-        // Заголовок раздела — он же якорь для быстрого перехода.
+        // Заголовок раздела в ленте.
         private void Section(string id, string title)
         {
             var lbl = SectionTitle(title, LvnTokens.TextLg);
-            lbl.style.marginTop = _anchors.Count == 0 ? 8 : 26;
+            lbl.style.marginTop = _sections++ == 0 ? 8 : 26;
             lbl.style.marginBottom = 8;
-            _anchors[id] = lbl;
             _list.Add(lbl);
         }
 
-        // Какой раздел игрок сейчас читает: верхний из тех, что уже проехали
-        // верхнюю кромку. Подсветка следует за лентой, а не за последним
-        // нажатием — иначе она врёт ровно в тот момент, когда на неё смотрят.
-        private void SyncActiveTab()
-        {
-            if (_anchors.Count == 0 || _tabButtons.Count == 0) return;
-            if (Lvn.UI.LvnClock.Now() < _jumpUntil) return;   // идёт переход по нажатию
-            float top = _list.scrollOffset.y + 24f;
-            string cur = null;
-            foreach (var kv in _anchors)
-            {
-                var y = kv.Value.layout.y;
-                if (float.IsNaN(y)) continue;
-                if (y <= top || cur == null) cur = kv.Key;
-            }
-            if (cur == null || cur == _tab) return;
-            _tab = cur;
-            foreach (var (id, b) in _tabButtons) StyleValueButton(b, id == _tab);
-        }
-
-        // Пилюли-вкладки: быстрый переход к разделу, активная — акцентом.
-        private VisualElement TabsRow()
-        {
-            _tabButtons.Clear();
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.flexWrap = Wrap.Wrap;
-            row.style.marginBottom = 14;
-            foreach (var (id, label) in new[]
-            {
-                ("main", LvnWords.Of("settings.tab_main", "General")), ("reading", LvnWords.Of("settings.tab_reading", "Reading")),
-                ("data", LvnWords.Of("settings.tab_data", "Data")), ("account", LvnWords.Of("settings.tab_account", "Account")),
-            })
-            {
-                var b = new Button { text = label };
-                StyleValueButton(b, _tab == id);
-                b.style.marginRight = 8;
-                b.style.marginBottom = 8;
-                b.style.flexGrow = 1;
-                var captured = id;
-                b.clicked += () =>
-                {
-                    if (!_anchors.TryGetValue(captured, out var anchor)) return;
-                    _tab = captured;
-                    foreach (var (tid, tb) in _tabButtons) StyleValueButton(tb, tid == _tab);
-                    // Замок на время прокрутки: без него следящая подсветка
-                    // возвращалась на прежний раздел, пока лента ещё едет.
-                    _jumpUntil = Lvn.UI.LvnClock.Now() + 0.6f;
-                    // Через кадр: до первой раскладки у якоря нет геометрии, и
-                    // прокрутка «в никуда» выглядела как несработавшее нажатие.
-                    _list.schedule.Execute(() => _list.ScrollTo(anchor)).ExecuteLater(16);
-                };
-                _tabButtons.Add((captured, b));
-                row.Add(b);
-            }
-            return row;
-        }
-
-        // ── rows ──────────────────────────────────────────────────────────────
-
-
-        // Трек главного меню — как в жанровых флагманах: пилюли с выбором.
-        private VisualElement MenuTrackRow()
-        {
-            return WideRow(LvnWords.Of("settings.menu_track", "Menu track"),
-                LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"),
-                Lvn.UI.LvnSegment.Of(MenuTracks,
-                t => t.title,
-                t => (LvnPrefs.MenuTrack ?? "") == t.id
-                     || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && t.id == MenuTracks[0].id),
-                t => { LvnPrefs.MenuTrack = t.id; OnMenuTrack?.Invoke(t.id); },
-                StyleValueButton));
-        }
-
-
+        private int _sections;
 
         // ── шрифт и размеры ──────────────────────────────────────────────────
         // Просьба партнёра (TR-58): «в пункт „чтение“ просится выбор размера
@@ -292,6 +203,19 @@ namespace Lvn.UI.Screens
         // размер реплик и размер интерфейса — три разные величины, и путать их
         // нельзя. Читать длинный текст и попадать пальцем в кнопку — разные
         // задачи, и решаются они разными ручками.
+        // Трек главного меню — пилюли с выбором.
+        private VisualElement MenuTrackRow()
+        {
+            return WideRow(LvnWords.Of("settings.menu_track", "Menu track"),
+                LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"),
+                Lvn.UI.LvnSegment.Of(MenuTracks,
+                    t => t.title,
+                    t => (LvnPrefs.MenuTrack ?? "") == t.id
+                         || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && t.id == MenuTracks[0].id),
+                    t => { LvnPrefs.MenuTrack = t.id; OnMenuTrack?.Invoke(t.id); },
+                    StyleValueButton));
+        }
+
         private VisualElement FontRow()
         {
             var options = new List<string> { "" };
@@ -319,16 +243,41 @@ namespace Lvn.UI.Screens
             (1.3f, "settings.size_xl", "XL"),
         };
 
+        /// <summary>
+        /// Размер реплик — с ЖИВЫМ ОБРАЗЦОМ.
+        ///
+        /// <para>Настройка касается текста главы, а меняют её из меню, где
+        /// реплик нет: игрок жмёт ступени и не видит ничего («иногда размер
+        /// перестаёт переключаться», Илья 28.08 — на самом деле он не
+        /// переключался ВИДИМО никогда). Образец показывает ровно то, что
+        /// получится в главе: тот же кегль, та же гарнитура.</para>
+        /// </summary>
         private VisualElement TextScaleRow()
         {
-            return WideRow(LvnWords.Of("settings.text_size", "Text size"),
-                LvnWords.Of("settings.text_size_hint", "Dialogue lines only — the scene stays as authored"),
-                Lvn.UI.LvnSegment.Of(ScaleSteps,
+            var sample = new Label(LvnWords.Of("settings.text_sample",
+                "— And you came anyway. I knew you would."));
+            sample.style.whiteSpace = WhiteSpace.Normal;
+            sample.style.color = _text;
+            sample.style.marginTop = 12;
+            void Fit() => sample.style.fontSize = Mathf.RoundToInt(SampleBaseSize * LvnPrefs.TextScale);
+            Fit();
+
+            var box = new VisualElement();
+            box.Add(Lvn.UI.LvnSegment.Of(ScaleSteps,
                 st => LvnWords.Of(st.key, st.en),
                 st => Mathf.Abs(LvnPrefs.TextScale - st.k) < 0.01f,
-                st => LvnPrefs.TextScale = st.k,
+                st => { LvnPrefs.TextScale = st.k; Fit(); },
                 StyleValueButton));
+            box.Add(sample);
+            return WideRow(LvnWords.Of("settings.text_size", "Text size"),
+                LvnWords.Of("settings.text_size_hint", "Dialogue lines only — the scene stays as authored"),
+                box);
         }
+
+        // Кегль реплики этой новеллы: образец обязан быть НЕ «каким-нибудь», а
+        // тем же, что игрок увидит в главе — иначе он настраивает одно, а
+        // получает другое.
+        private float SampleBaseSize => _cfg?.sample_font_size ?? 46f;
 
         private VisualElement UiScaleRow()
         {
@@ -463,6 +412,7 @@ namespace Lvn.UI.Screens
             var lbl = new Label(label);
             lbl.style.color = _text;
             lbl.style.fontSize = LvnTokens.TextBase;
+            lbl.style.whiteSpace = WhiteSpace.Normal;   // «Размер интерфейса» плакатной гарнитурой в строку не влезает
             row.Add(lbl);
             if (!string.IsNullOrEmpty(hint))
             {
@@ -487,15 +437,23 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
+            // ПЕРЕНОС УПРАВЛЕНИЯ, А НЕ ПОДПИСИ ПО БУКВАМ. Широкая гарнитура
+            // (пиксельная) в крупном размере съедает ширину, и колонке текста
+            // оставалось сорок пикселей: «ID игрока» рассыпался в столбик по
+            // одной букве (снимок Ильи 28.08). Минимальная ширина держит текст
+            // читаемым, а кнопке остаётся переехать на следующую строку.
+            row.style.flexWrap = Wrap.Wrap;
             row.style.marginBottom = 6;
             row.style.paddingTop = 10; row.style.paddingBottom = 10;
             var col = new VisualElement();
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
+            col.style.minWidth = new Length(55, LengthUnit.Percent);
             col.style.marginRight = 12;
             var lbl = new Label(label);
             lbl.style.color = _text;
             lbl.style.fontSize = 26;
+            lbl.style.whiteSpace = WhiteSpace.Normal;
             col.Add(lbl);
             if (!string.IsNullOrEmpty(hint))
             {

@@ -19,6 +19,14 @@ namespace Lvn.UI
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
+            // ЧИТАЮТ ЗДЕСЬ. Набор настроек чтения жил только в оболочке, и
+            // игрок, которому мелко ПРЯМО СЕЙЧАС, обязан был выйти из главы,
+            // чтобы это поправить. Состав сведён; вид у каждого экрана свой.
+            scroll.Add(SegmentRow(L("font", "Font"), FontSegment()));
+            scroll.Add(SegmentRow(L("text_size", "Text size"), ScaleSegment(
+                () => LvnPrefs.TextScale, v => LvnPrefs.TextScale = v)));
+            scroll.Add(SegmentRow(L("ui_size", "Interface size"), ScaleSegment(
+                () => LvnPrefs.UiScale, v => { LvnPrefs.UiScale = v; LvnPanel.ApplyUiScale(); })));
             scroll.Add(SliderRow(L("text_speed", "Text speed"), 0.25f, 3f, LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             scroll.Add(ToggleRow(L("auto_advance", "Auto-advance"), LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
             scroll.Add(SliderRow(L("auto_delay", "Auto delay"), 0.5f, 2.5f, LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
@@ -80,6 +88,58 @@ namespace Lvn.UI
         // Тон — от текста темы, акцент — из LvnTokens (та же Полночь, что и в
         // оболочке): внутриигровые настройки выглядели «сырыми системными» на
         // фоне отполированных экранов витрины (живой репорт со скрином).
+        // Ряд вариантов в сценном меню: подпись сверху, выбор под ней — на
+        // ширине панели главы вариантам иначе не хватает места.
+        private VisualElement SegmentRow(string label, VisualElement seg)
+        {
+            var card = SettingCard();
+            card.Add(Text(label, 24, FontStyle.Normal));
+            seg.style.marginTop = 8;
+            card.Add(seg);
+            return card;
+        }
+
+        // Кнопка варианта в стиле сценного меню: плашка из темы новеллы, а не
+        // из токенов оболочки — глава рисуется её палитрой.
+        private void StyleOption(Button b, bool active)
+        {
+            var tint = _theme.MenuTextColor;
+            b.style.fontSize = 22;
+            b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
+            b.style.paddingLeft = 14; b.style.paddingRight = 14;
+            b.style.paddingTop = 8; b.style.paddingBottom = 8;
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, 10f);
+            b.style.backgroundColor = active
+                ? new Color(tint.r, tint.g, tint.b, 0.28f)
+                : new Color(tint.r, tint.g, tint.b, 0.10f);
+            b.style.color = tint;
+        }
+
+        private VisualElement FontSegment()
+        {
+            var options = new List<string> { "" };
+            foreach (var f in LvnFonts.Families) options.Add(f.Id);
+            return LvnSegment.Of(options,
+                id => string.IsNullOrEmpty(id) ? L("font_author", "As authored") : LvnFonts.FamilyOf(id).Title,
+                id => (LvnPrefs.FontFamily ?? "") == id,
+                id => LvnPrefs.FontFamily = id,
+                StyleOption);
+        }
+
+        private static readonly (float k, string key, string en)[] SizeSteps =
+        {
+            (0.85f, "size_xs", "XS"), (0.92f, "size_s", "S"), (1f, "size_m", "M"),
+            (1.15f, "size_l", "L"), (1.3f, "size_xl", "XL"),
+        };
+
+        private VisualElement ScaleSegment(Func<float> get, Action<float> set)
+            => LvnSegment.Of(SizeSteps,
+                st => L(st.key, st.en),
+                st => Mathf.Abs(get() - st.k) < 0.01f,
+                st => set(st.k),
+                StyleOption);
+
         private VisualElement SettingCard()
         {
             var card = new VisualElement();

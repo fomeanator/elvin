@@ -282,8 +282,20 @@ namespace Lvn.UI
                 if (fa != null) el.style.unityFontDefinition = new StyleFontDefinition(fa);
                 else el.style.unityFont = font;
             }
+            // Прогрев новой гарнитуры: глифы у динамического шрифта
+            // растеризуются при первом показе, и без прогрева смена читается
+            // как рывок ровно в тот момент, когда игрок смотрит на текст.
+            var chosen = PlayerPicked ? Resources.Load<Font>(Chosen.Path) : Default;
+            if (chosen != null) Prewarm(chosen, WarmAlphabet);
             Changed?.Invoke();
         }
+
+        // Что греть: обе азбуки, цифры и знаки, которыми набран интерфейс.
+        // Кириллица здесь не «на всякий случай» — на ней написана вся игра.
+        private const string WarmAlphabet =
+            "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя" +
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" +
+            " .,!?:;—-–«»\"'()[]…%+/№";
 
         /// <summary>Гарнитура сменилась — экраны, считающие кегль или ширину от
         /// шрифта, пересчитываются.</summary>

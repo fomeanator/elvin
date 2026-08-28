@@ -305,6 +305,10 @@ namespace Lvn.UI.Screens
             if (ui.portal != null && (ui.portal.enabled ?? true)) Portal = ui.portal;
             Auth = (ui.auth != null && (ui.auth.enabled ?? true)) ? new AuthScreen(ui.auth, assets) : null;
             if (Auth != null) Add(Auth);
+            // Образцу текста нужен кегль реплик ЭТОЙ новеллы: настраивают
+            // размер здесь, а видят его в главе — образец обязан совпасть.
+            if (ui.settings != null && ui.settings.sample_font_size == null && ui.dialogue?.body_size != null)
+                ui.settings.sample_font_size = ui.dialogue.body_size;
             Settings = new SettingsScreen(ui.settings, assets);
             // "Sign in" closes settings and shows the boot auth screen (which sits
             // below settings in z-order, so we must hide settings first).
