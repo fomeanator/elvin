@@ -95,25 +95,25 @@ namespace Lvn.UI.Screens
                 Stage.ApplyStage(Hidden(fav), LvnSender.Cutscene);
                 await Stage.WaitForActorArtAsync(fav);
                 Stage.ApplyStage(Revealed(fav, 0.5f), LvnSender.Cutscene);
-                await Task.Delay(220);
+                await Task.Delay(LvnMotion.Ms(220));
             }
-            await Task.Delay(340);
+            await Task.Delay(LvnMotion.Ms(340));
 
             // 3. Створ раскрывается и забирает её.
             Stage.ApplyStage(PortalCmd(portal, 1f, 0.7f), LvnSender.Cutscene);
-            await Task.Delay(300);
+            await Task.Delay(LvnMotion.Ms(300));
             if (!string.IsNullOrEmpty(fav))
             {
                 Stage.ApplyStage(Hidden2(fav, 0.45f), LvnSender.Cutscene);          // растворилась в створе
             }
-            await Task.Delay(520);
+            await Task.Delay(LvnMotion.Ms(520));
 
             // 4. ЧЕРНОТЫ МЕЖДУ МИРАМИ НЕТ. Раньше кадр уходил в фейд, и переход
             //    состоял из трёх событий подряд: створ, чернота, новый кадр —
             //    чернота читалась как мигание («фейд не надо, чтобы мелькал» —
             //    Илья 28.08). Створ раскрыт во весь экран и САМ закрывает мир:
             //    по ту сторону он же и закроется, и шва не видно.
-            await Task.Delay(180);
+            await Task.Delay(LvnMotion.Ms(180));
             // Возвращать уведённых некому: глава закончилась вместе с кадром.
             Stage.DropSolo();
         }
@@ -167,7 +167,7 @@ namespace Lvn.UI.Screens
             var fav = MenuFavoriteEntity();
             if (!string.IsNullOrEmpty(fav)) Stage.ApplyStage(Hidden(fav), LvnSender.Cutscene);
             Stage.ApplyStage(PortalCmd(portal, 1f, 0f), LvnSender.Cutscene);   // створ ЗДЕСЬ ещё открыт
-            await Task.Delay(120);
+            await Task.Delay(LvnMotion.Ms(120));
 
             // Меню принимает створ ОТКРЫТЫМ: героиня выходит из него, и створ
             // закрывается за ней. Проявлять свет неоткуда — черноты не было.
@@ -193,7 +193,7 @@ namespace Lvn.UI.Screens
             _shell?.HideMenuChrome();   // кадр остаётся сценой, а не витриной с кнопками
 
             Stage.ApplyStage(PortalCmd(portal, 1f, 0.75f), LvnSender.Cutscene);
-            await Task.Delay(280);
+            await Task.Delay(LvnMotion.Ms(280));
             // РАСТВОРЯЕМ ТОЛЬКО ТОГО, КТО В КАДРЕ: команда для отсутствующего
             // актёра не теряется — она ждёт его рождения и срабатывает на том,
             // кто появится позже, уже в другом месте.
@@ -202,7 +202,7 @@ namespace Lvn.UI.Screens
                 {
                     ["op"] = "sfx", ["id"] = fav, ["dissolve"] = 1f, ["dur"] = 0.45f,
                 }, LvnSender.Cutscene);
-            await Task.Delay(520);
+            await Task.Delay(LvnMotion.Ms(520));
         }
 
         /// <summary>
@@ -244,18 +244,18 @@ namespace Lvn.UI.Screens
                 // остаётся белый прямоугольник: Image без спрайта заливает себя
                 // сплошняком. Ждём слои и только потом играем появление.
                 await Stage.WaitForActorArtAsync(fav);
-                await Task.Delay(120);
+                await Task.Delay(LvnMotion.Ms(120));
                 Stage.ApplyStage(Revealed(fav, 0.5f), LvnSender.Cutscene);         // проступает
                 // ПАУЗА ПОСЛЕ ПОЯВЛЕНИЯ. Героиня должна побыть в кадре, прежде
                 // чем створ начнёт закрываться: без неё приход и уход
                 // сливаются в одно смазанное движение, и зритель не успевает
                 // понять, что она пришла.
-                await Task.Delay(300);
+                await Task.Delay(LvnMotion.Ms(300));
             }
 
             // 3. Створ закрывается за её спиной.
             Stage.ApplyStage(PortalCmd(portal, 0f, 0.8f), LvnSender.Cutscene);
-            await Task.Delay(900);
+            await Task.Delay(LvnMotion.Ms(900));
 
             // 4. И она уходит обычным уходом — дальше история сама решает, кому
             //    быть в кадре. НО ЕСЛИ ИСТОРИЯ ЕЁ ЖДЁТ (сцена показывала её до
