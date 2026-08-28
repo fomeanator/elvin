@@ -11,14 +11,6 @@ namespace Lvn.Tests
 {
     public class ContentSyncTests
     {
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
 
         [Test]
         public void ParseVersion_ReadsVersionField()
@@ -58,7 +50,7 @@ namespace Lvn.Tests
         {
             var c = new TitleCarousel(
                 new List<LvnTitle> { new LvnTitle { id = "a", name = "A" } },
-                new CarouselConfig(), new NoAssets());
+                new CarouselConfig(), new TestAssets());
             Assert.AreEqual("a", c.Current.id);
 
             c.SetTitles(new List<LvnTitle>

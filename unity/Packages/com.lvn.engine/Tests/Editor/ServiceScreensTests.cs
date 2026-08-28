@@ -16,15 +16,6 @@ namespace Lvn.Tests
     // Network paths (register/verify) are covered by the server's Go tests.
     public class ServiceScreensTests
     {
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
-
         // ── IAP catalog parsing ──
         [Test]
         public void ParseCatalog_ReadsFullAndMinimalPacks()
@@ -66,7 +57,7 @@ namespace Lvn.Tests
                 title = "Добро пожаловать",
                 subtitle = "tagline",
                 start_text = "Начать",
-            }, new NoAssets());
+            }, new TestAssets());
 
             var labels = screen.Query<Label>().ToList();
             Assert.IsTrue(labels.Exists(l => l.text == "Добро пожаловать"));
@@ -80,10 +71,10 @@ namespace Lvn.Tests
         [Test]
         public void AuthScreen_NicknameFieldCanBeDisabled_AndNullConfigIsSafe()
         {
-            var withNick = new AuthScreen(new AuthConfig { ask_nickname = true }, new NoAssets());
+            var withNick = new AuthScreen(new AuthConfig { ask_nickname = true }, new TestAssets());
             Assert.IsNotNull(withNick.Q<TextField>(), "a title can opt the field back in");
 
-            var defaults = new AuthScreen(null, new NoAssets());
+            var defaults = new AuthScreen(null, new TestAssets());
             Assert.IsNull(defaults.Q<TextField>(), "null config: no nickname field either");
             var buttons = defaults.Query<Button>().ToList();
             Assert.IsTrue(buttons.Exists(b => b.text == "Start"));
@@ -93,7 +84,7 @@ namespace Lvn.Tests
         [Test]
         public void Shell_AuthScreenFollowsTheManifestSwitch()
         {
-            var assets = new NoAssets();
+            var assets = new TestAssets();
 
             var on = NovelShell.Create();
             on.Build(new LvnManifest { ui = new LvnUiConfig { auth = new AuthConfig() } }, assets);

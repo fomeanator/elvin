@@ -15,15 +15,6 @@ namespace Lvn.Tests
     // no button; a plugged provider surfaces exactly one labelled button.
     public class PlatformAuthTests
     {
-        private sealed class NoAssets : ILvnAssets
-        {
-            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct) => Task.FromResult<Sprite>(null);
-            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
-            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
-            public void Unload(string url) { }
-            public void UnloadAll() { }
-        }
-
         [TearDown]
         public void Cleanup()
         {
@@ -54,12 +45,12 @@ namespace Lvn.Tests
         public void AuthScreen_ShowsAButtonPerPluggedProvider()
         {
             LvnPlatformAuth.Google = () => Task.FromResult("tok");
-            var screen = new AuthScreen(new AuthConfig { google_text = "Через Google" }, new NoAssets());
+            var screen = new AuthScreen(new AuthConfig { google_text = "Через Google" }, new TestAssets());
             var buttons = CollectButtons(screen);
             Assert.IsTrue(buttons.Contains("Через Google"), "plugged Google → its button");
             Assert.IsFalse(buttons.Contains("Sign in with Apple"), "no Apple hook → no Apple button");
 
-            var off = new AuthScreen(new AuthConfig { show_google = false }, new NoAssets());
+            var off = new AuthScreen(new AuthConfig { show_google = false }, new TestAssets());
             Assert.IsFalse(CollectButtons(off).Contains("Sign in with Google"),
                 "config can hide a plugged provider");
         }
