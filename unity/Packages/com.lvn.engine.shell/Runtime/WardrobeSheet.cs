@@ -904,6 +904,9 @@ namespace Lvn.UI.Screens
         private static bool Encountered(string entity, string axis, string value)
         {
             if (LvnWardrobe.IsSeen(entity, axis, value)) return true;
+            // ContainsKey здесь НАРОЧНО, в отличие от проверки владения рядом:
+            // вопрос не «есть сейчас», а «было когда-либо», и ключ с нулём —
+            // законное свидетельство, что вещь у игрока была.
             if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(entity, axis, value))) return true;
             return LvnWardrobe.Equipped(entity).TryGetValue(axis, out var worn) && worn == value;
         }

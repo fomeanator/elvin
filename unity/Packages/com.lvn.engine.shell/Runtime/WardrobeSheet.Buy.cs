@@ -43,9 +43,12 @@ namespace Lvn.UI.Screens
         // обязаны пересчитаться: купленный скин тут же теряет ценник.
         private void OnWalletChanged() { RefreshBalances(); RebuildStrip(); RefreshConfirm(); }
 
+        // «Штук больше нуля», а не «ключ есть»: инвентарь считает штуки, и
+        // потраченная вещь остаётся ключом с нулём — здесь она выглядела
+        // купленной, тогда как язык (has_item) считал её отсутствующей.
         private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
             item == null || item.price <= 0
-            || LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(_entity, axis, item.value));
+            || LvnWallet.Has(LvnWardrobe.Sku(_entity, axis, item.value));
 
         // Предмет уже принадлежит игроку: бесплатный или лежит в инвентаре
         // кошелька. Правило одно и живёт в IsOwnedIn; здесь — «на активной

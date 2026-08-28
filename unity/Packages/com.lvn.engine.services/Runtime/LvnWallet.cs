@@ -24,6 +24,22 @@ namespace Lvn.Services
         /// local mirror while offline).</summary>
         public static IReadOnlyDictionary<string, long> Balances { get { EnsureLoaded(); return _balances; } }
         public static IReadOnlyDictionary<string, long> Inventory { get { EnsureLoaded(); return _inventory; } }
+
+        /// <summary>
+        /// ЕСТЬ ЛИ ВЕЩЬ У ИГРОКА СЕЙЧАС — «штук больше нуля», а не «ключ
+        /// присутствует».
+        ///
+        /// <para>Инвентарь считает ШТУКИ, и потраченная вещь остаётся ключом с
+        /// нулём. Это знали: в языковой функции <c>has_item</c> так и написано
+        /// комментарием. А гардероб рядом спрашивал <c>ContainsKey</c> — и
+        /// потраченная вещь выглядела в нём купленной.</para>
+        ///
+        /// <para>Отличать от «встречал когда-либо»: для коллекции ключ с нулём
+        /// — законное свидетельство, что вещь была. Это ДРУГОЙ вопрос, и
+        /// отвечать на него этим методом нельзя.</para>
+        /// </summary>
+        public static bool Has(string sku)
+            => !string.IsNullOrEmpty(sku) && Inventory.TryGetValue(sku, out var n) && n > 0;
         private static Dictionary<string, long> _balances = new Dictionary<string, long>();
         private static Dictionary<string, long> _inventory = new Dictionary<string, long>();
 
