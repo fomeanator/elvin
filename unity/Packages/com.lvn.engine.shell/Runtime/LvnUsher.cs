@@ -61,8 +61,8 @@ namespace Lvn.UI.Screens
             {
                 // Ждём кадрами, а не сном: чужой таймер (вуаль гаснет по
                 // своему) и угаданные миллисекунды рано или поздно разойдутся.
-                float until = Time.realtimeSinceStartup + HoldLimitSeconds;
-                while (hold() && Time.realtimeSinceStartup < until)
+                float until = Lvn.LvnClock.Wall() + HoldLimitSeconds;
+                while (hold() && Lvn.LvnClock.Wall() < until)
                     await Task.Yield();
             }
             show?.Invoke();

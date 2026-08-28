@@ -304,7 +304,7 @@ namespace Lvn.Content
             lock (_notFound)
                 if (_notFound.TryGetValue(url, out var at))
                 {
-                    if (Time.realtimeSinceStartup - at < NotFoundTtlSeconds)
+                    if (Lvn.LvnClock.Wall() - at < NotFoundTtlSeconds)
                         throw new LvnFetchException(404, "http_404", url + " (cached 404)");
                     _notFound.Remove(url); // TTL вышел — пробуем сеть снова
                 }
@@ -359,7 +359,7 @@ namespace Lvn.Content
                             // Тоже реальное: срок «этого файла нет» обязан
                             // истекать и в фоне, иначе свёрнутая на час игра
                             // вернётся с той же протухшей памятью о 404.
-                            _notFound[url] = Time.realtimeSinceStartup;
+                            _notFound[url] = Lvn.LvnClock.Wall();
                         }
                         // Info, not warning: a 4xx here is usually the EXPECTED
                         // steady state of an optional probe (.ktx2/.astc/@2k

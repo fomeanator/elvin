@@ -136,11 +136,11 @@ namespace Lvn.UI
             // typewrite over a still-building stage and freeze mid-sentence.
             // Реальное время: это ЗАМЕР для лога («сколько заняло»), и мерить
             // его кадровыми часами значило бы не заметить простоя.
-            var t0 = Time.realtimeSinceStartup;
+            var t0 = Lvn.LvnClock.Wall();
             int inFlight = PendingSpineBuilds;
             try { await SpineBuildsSettled(); } catch { }   // снимок повреждён — начнём главу с начала, а не упадём
             if (inFlight > 0)
-                Debug.Log($"[lvn] resume warmed {inFlight} spine build(s) in {(Time.realtimeSinceStartup - t0):F2}s before rendering");
+                Debug.Log($"[lvn] resume warmed {inFlight} spine build(s) in {(Lvn.LvnClock.Wall() - t0):F2}s before rendering");
             if (veil != null)
             {
                 // Reveal the fully built scene with a short fade instead of a pop.

@@ -196,19 +196,19 @@ namespace Lvn.UI.Screens
                 };
                 _root.Insert(0, _brandTitle);
                 // ВЕСЬ ЭТОТ ФАЙЛ считает время реальным, а не часами интерфейса
-                // (Lvn.UI.LvnClock). Бут — единственное место, где кадры рвутся
+                // (Lvn.LvnClock). Бут — единственное место, где кадры рвутся
                 // и подолгу стоят: загрузка манифеста, разбор атласов, первый
                 // шейдер. Кадровые часы вместе с ними встают, и вуаль вместе с
                 // ними висит — а она обязана уйти по часам, а не по кадрам.
-                float t0 = Time.realtimeSinceStartup;
+                float t0 = Lvn.LvnClock.Wall();
                 int gen = _gen;
                 _root.schedule.Execute(() =>
                 {
                     if (_brandTitle == null || _gen != gen) return;
-                    float k = Mathf.Clamp01((Time.realtimeSinceStartup - t0) / 1.4f);
+                    float k = Mathf.Clamp01((Lvn.LvnClock.Wall() - t0) / 1.4f);
                     _brandTitle.style.opacity = k * k * (3f - 2f * k);
                 }).Every(16).Until(() => _brandTitle == null || _gen != gen
-                    || Time.realtimeSinceStartup - t0 > 1.6f);
+                    || Lvn.LvnClock.Wall() - t0 > 1.6f);
             }
             _brandTitle.text = title ?? "";
         }
@@ -227,22 +227,22 @@ namespace Lvn.UI.Screens
             // Страховка по РЕАЛЬНОМУ времени: она на то и страховка, чтобы
             // сработать, когда кадры встали, — кадровые часы в этот момент
             // стоят вместе с ними.
-            float safety = Time.realtimeSinceStartup + 0.9f;
-            while (_model.Display < 0.98f && Time.realtimeSinceStartup < safety
+            float safety = Lvn.LvnClock.Wall() + 0.9f;
+            while (_model.Display < 0.98f && Lvn.LvnClock.Wall() < safety
                    && _go != null && _gen == gen)
                 await Task.Yield();
             if (_go == null || _gen != gen) return;
             _model.SnapToFull();
             if (_pct != null) _pct.text = "100%";
             if (_fill != null) _fill.style.width = Length.Percent(100f);
-            float hold = Time.realtimeSinceStartup + 0.12f;
-            while (Time.realtimeSinceStartup < hold && _go != null && _gen == gen)
+            float hold = Lvn.LvnClock.Wall() + 0.12f;
+            while (Lvn.LvnClock.Wall() < hold && _go != null && _gen == gen)
                 await Task.Yield();
 
-            float start = Time.realtimeSinceStartup;
+            float start = Lvn.LvnClock.Wall();
             while (_go != null && _gen == gen)
             {
-                float k = seconds <= 0f ? 1f : (Time.realtimeSinceStartup - start) / seconds;
+                float k = seconds <= 0f ? 1f : (Lvn.LvnClock.Wall() - start) / seconds;
                 if (_root != null) _root.style.opacity = 1f - Mathf.Clamp01(k);
                 if (k >= 1f) break;
                 await Task.Yield();

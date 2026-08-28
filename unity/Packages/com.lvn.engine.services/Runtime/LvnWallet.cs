@@ -117,7 +117,7 @@ namespace Lvn.Services
         {
             EnsureLoaded();
             await FlushAsync(); // offline earnings land BEFORE we read the truth
-            _lastAsk = UnityEngine.Time.realtimeSinceStartup;
+            _lastAsk = Lvn.LvnClock.Wall();
             var (code, body) = await LvnBackend.GetAsync("/v1/wallet");
             return code == 200 && Apply(body);
         }
@@ -143,7 +143,7 @@ namespace Lvn.Services
         /// </summary>
         public static Task NudgeAsync(float minGapSeconds = 15f)
         {
-            float now = UnityEngine.Time.realtimeSinceStartup;
+            float now = Lvn.LvnClock.Wall();
             if (now - _lastAsk < minGapSeconds) return Task.CompletedTask;
             _lastAsk = now;
             return RefreshAsync();

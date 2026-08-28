@@ -98,9 +98,7 @@ namespace Lvn.UI
             var chrome = (VisualElement)_chromeSafe;
             if (chrome == null) return null;
             _uiHudHost = new VisualElement { name = "vn-ui-hud", pickingMode = PickingMode.Ignore };
-            _uiHudHost.style.position = Position.Absolute;
-            _uiHudHost.style.left = 0; _uiHudHost.style.right = 0;
-            _uiHudHost.style.top = 0; _uiHudHost.style.bottom = 0;
+            LvnChrome.Stretch(_uiHudHost);
             chrome.Insert(0, _uiHudHost);   // ниже диалога, выборов и меток
             return _uiHudHost;
         }

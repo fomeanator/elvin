@@ -49,14 +49,10 @@ namespace Lvn.UI
             if (layer == null)
             {
                 layer = new VisualElement { name = LayerName, pickingMode = PickingMode.Ignore };
-                layer.style.position = Position.Absolute;
-                layer.style.left = 0; layer.style.right = 0;
-                layer.style.top = 0; layer.style.bottom = 0;
+                LvnChrome.Stretch(layer);
 
                 var tintLayer = new VisualElement { name = TintName, pickingMode = PickingMode.Ignore };
-                tintLayer.style.position = Position.Absolute;
-                tintLayer.style.left = 0; tintLayer.style.right = 0;
-                tintLayer.style.top = 0; tintLayer.style.bottom = 0;
+                LvnChrome.Stretch(tintLayer);
                 layer.Add(tintLayer);
 
                 host.Insert(0, layer);       // под содержимым, но внутри скругления
