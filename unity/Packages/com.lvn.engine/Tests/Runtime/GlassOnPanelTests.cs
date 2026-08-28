@@ -77,7 +77,7 @@ namespace Lvn.Tests.Runtime
             // рисует: сплошной цвет обязан появиться.
             box.style.backgroundColor = Color.green;
             for (int i = 0; i < 6; i++) yield return null;
-            var probe = Read(panelRt);
+            var probe = TestPixels.Read(panelRt);
             bool panelDraws = false;
             for (int y = 0; y < panelRt.height && !panelDraws; y += 4)
                 for (int x = 0; x < panelRt.width; x += 4)
@@ -98,7 +98,7 @@ namespace Lvn.Tests.Runtime
             UiGlass.Apply(box, 1f, new Color(0f, 0f, 0f, 0f)); // без тонировки: смотрим чистое стекло
             for (int i = 0; i < 6; i++) yield return null;
 
-            var shot = Read(panelRt);
+            var shot = TestPixels.Read(panelRt);
             Dump(shot, "glass-on-panel.png");
 
             // Считаем только внутри окна.
@@ -135,16 +135,6 @@ namespace Lvn.Tests.Runtime
             return q;
         }
 
-        private static Texture2D Read(RenderTexture rt)
-        {
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
-            RenderTexture.active = prev;
-            return tex;
-        }
 
         private static void Dump(Texture2D tex, string name)
         {
