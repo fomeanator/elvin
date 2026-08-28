@@ -240,10 +240,7 @@ namespace Lvn.UI.Screens
             _detailImage.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
             LvnChrome.Round(_detailImage, _radius);
             Edge(_detailImage);
-            _detailImage.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            _detailImage.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _detailImage.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _detailImage.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(_detailImage);
             _detailImage.style.marginBottom = 16;
             _detailImage.style.overflow = Overflow.Hidden;
             _detailImage.style.justifyContent = Justify.FlexEnd;
@@ -688,10 +685,7 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img); img.style.backgroundColor = _card;
-                img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-                img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                LvnPicture.Fit(img);
                 b.Add(img); LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
                 var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(scrim);

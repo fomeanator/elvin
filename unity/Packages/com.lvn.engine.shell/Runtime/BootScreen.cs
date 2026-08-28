@@ -51,7 +51,7 @@ namespace Lvn.UI.Screens
             _logo.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             _logo.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             _logo.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            _logo.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+            LvnPicture.Fit(_logo, cover: false);
             _logo.pickingMode = PickingMode.Ignore;
             Add(_logo);
 

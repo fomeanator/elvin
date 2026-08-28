@@ -103,8 +103,7 @@ namespace Lvn.UI.Screens
                 {
                     var icon = new VisualElement();
                     icon.style.width = 44; icon.style.height = 44;
-                    icon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                    icon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                    LvnPicture.Fit(icon, cover: false);
                     LvnAsync.Fire(ScreenUi.AssignBgAsync(icon, s.icon, _assets), "AssignBg");
                     el = icon;
                 }

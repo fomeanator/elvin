@@ -179,8 +179,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Edge(hero, 0.8f);   // кадр — часть интерфейса, а не картинка сверху
             hero.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             hero.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            hero.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            hero.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(hero);
             hero.style.overflow = Overflow.Hidden;
             // fixed aspect: height follows the resolved page width (NOT a percent —
             // percent heights inside scroll content collapse the layout)

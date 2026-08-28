@@ -140,12 +140,14 @@ namespace Lvn.UI.Screens
             // Имя не запоминаем: его держит дом, а параметр остаётся ради
             // прежней сигнатуры хука главы.
             _currentScriptJson = json;
-            Stage.Strings = await LoadCatalogAsync(chapter.script_url); // localization (null → inline text)
-            // Carry this title's persisted stats into the chapter (relationships, route,
-            // memory flags…). The imported global defaults are `default:true`, so they
-            // don't overwrite these; a fresh game starts empty. The store is local-first
-            // (offline-safe) and, when a server is configured, syncs through /v1/state.
-            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
+            // Обстановка главы — одним набором (перевод, статы, контекст
+            // сохранений, галерея): раньше её ставили здесь и в загрузке сейва
+            // двумя четвёрками строк.
+            //
+            // Статы новеллы (отношения, маршрут, флаги памяти) едут в главу
+            // отсюда: импортированные глобальные умолчания объявлены
+            // `default:true` и их не перетирают, а новая игра начинается пустой.
+            await DressStageAsync(title, chapter, chapter.script_url);
 
             // The genre-standard restart semantics: picking a chapter from the
             // picker resets the variables to what they were when that chapter was
@@ -202,8 +204,6 @@ namespace Lvn.UI.Screens
             if (!resuming && LvnProgress.Checkpoint(title?.id, chapter.id) == null)
                 LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
 
-            Stage.SetSaveContext(title?.id, chapter.id, chapter.script_url);
-            Stage.Gallery = title?.gallery;
             // The first line holds until the entry choreography (loader reveal,
             // plus the chapter-title card on fresh entries) finishes — the stage
             // dresses itself silently underneath. A RESUME holds too (it skips

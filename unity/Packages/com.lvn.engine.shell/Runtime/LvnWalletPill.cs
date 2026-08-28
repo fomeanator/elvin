@@ -125,10 +125,7 @@ namespace Lvn.UI.Screens
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
                 img.style.marginRight = 6;
-                img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-                img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                LvnPicture.Fit(img, cover: false);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _look.IconUrl, assets), "AssignBg");
                 return img;
             }

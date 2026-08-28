@@ -138,10 +138,7 @@ namespace Lvn.UI.Screens
             _viewerImage.style.right = Length.Percent(8f);
             _viewerImage.style.top = Length.Percent(10f);
             _viewerImage.style.bottom = Length.Percent(14f);
-            _viewerImage.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-            _viewerImage.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _viewerImage.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _viewerImage.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(_viewerImage, cover: false);
             _viewer.Add(_viewerImage);
 
             var close = new Button(CloseViewer) { text = "" };
@@ -291,10 +288,7 @@ namespace Lvn.UI.Screens
 
             var art = ScreenUi.Stretch(new VisualElement());
             art.pickingMode = PickingMode.Ignore;
-            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            art.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(art);
             cell.Add(art);
 
             if (entry.Unlocked)

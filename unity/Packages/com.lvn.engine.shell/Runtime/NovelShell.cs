@@ -159,7 +159,7 @@ namespace Lvn.UI.Screens
                 photo.style.position = Position.Absolute;
                 photo.style.left = 0; photo.style.right = 0;
                 photo.style.top = 0; photo.style.bottom = 0;
-                photo.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                LvnPicture.Fit(photo);
                 _atmosphere.Add(photo);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(photo, canvasUrl, _assets), "MenuCanvas");
                 var veil = new VisualElement { pickingMode = PickingMode.Ignore };

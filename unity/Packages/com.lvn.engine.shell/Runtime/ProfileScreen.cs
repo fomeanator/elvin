@@ -294,7 +294,7 @@ namespace Lvn.UI.Screens
             avatar.Add(glyph);
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
-                avatar.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                LvnPicture.Fit(avatar);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(avatar, AvatarUrl, _assets), "AssignBg");
             }
             identity.Add(avatar);

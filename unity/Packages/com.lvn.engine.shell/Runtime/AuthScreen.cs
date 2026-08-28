@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
             logo.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             logo.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             logo.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            logo.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+            LvnPicture.Fit(logo, cover: false);
             Add(logo);
 
             // ── bottom panel: title, subtitle, (nickname), start, status ──
