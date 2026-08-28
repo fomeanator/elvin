@@ -319,6 +319,10 @@ namespace Lvn.Content
     /// in-game settings panel (playback tweaks) — this is the app-level screen.</summary>
     public sealed class SettingsConfig
     {
+        // Кегль образца в настройках: тот же, каким новелла печатает реплики
+        // (ui.dialogue.font_size). Пусто — движковое умолчание.
+        public float? sample_font_size;
+
         public string title;           // default "Settings"
         // Простой звук: ДВА ползунка — «Музыка» и «Звук» (печать, интерфейс,
         // эффекты, эмбиент — одним движком). Для новелл без озвучки четыре

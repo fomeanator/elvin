@@ -145,6 +145,11 @@ namespace Lvn.UI
             _timerFill.style.width = Length.Percent(Mathf.Clamp01(remaining01) * 100f);
         }
 
+        /// <summary>Кегль варианта С УЧЁТОМ ВЫБОРА ИГРОКА. Выбор — такой же
+        /// текст главы, как реплика: настроив размер, игрок ждёт его и здесь, а
+        /// не только в диалоге («варианты выбора не меняются», Илья 28.08).</summary>
+        private int ChoiceSize => Mathf.RoundToInt(_theme.ChoiceFontSize * LvnPrefs.TextScale);
+
         private VisualElement BuildOption(LvnOption option)
         {
             int index = option.Index;
@@ -171,7 +176,7 @@ namespace Lvn.UI
 
             var caption = new Label(option.Text ?? string.Empty);
             caption.style.color = _theme.ChoiceTextColor;
-            caption.style.fontSize = _theme.ChoiceFontSize;
+            caption.style.fontSize = ChoiceSize;
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.unityTextAlign = TextAnchor.MiddleCenter;
             // The label belongs to the button's content box. Without an explicit
@@ -187,7 +192,7 @@ namespace Lvn.UI
             {
                 var cost = new Label(option.Cost);
                 cost.style.color = _theme.ChoiceCostColor;
-                cost.style.fontSize = Mathf.RoundToInt(_theme.ChoiceFontSize * 0.72f);
+                cost.style.fontSize = Mathf.RoundToInt(ChoiceSize * 0.72f);
                 cost.style.marginTop = 4;
                 btn.Add(cost);
             }
@@ -205,7 +210,7 @@ namespace Lvn.UI
                 {
                     var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}");
                     chip.style.color = _theme.ChoiceCostColor;
-                    chip.style.fontSize = Mathf.RoundToInt(_theme.ChoiceFontSize * 0.6f);
+                    chip.style.fontSize = Mathf.RoundToInt(ChoiceSize * 0.6f);
                     chip.style.marginLeft = 6;
                     chip.style.marginRight = 6;
                     chip.style.opacity = 0.85f;

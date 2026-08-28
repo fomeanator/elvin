@@ -64,6 +64,12 @@ namespace Lvn.UI
                 b.style.marginLeft = 6;
                 b.style.marginBottom = 6;   // перенос без него слипается со следующей строкой
                 b.style.flexShrink = 0;     // сжатая кнопка теряет подпись раньше, чем ряд — ширину
+                // ПОДПИСЬ ПЕРЕНОСИТСЯ. Крупный кегль и широкая гарнитура
+                // (пиксельная, плакатная) не влезают в одну строку, а кнопка
+                // без переноса просто обрезает текст — игрок видит огрызок и не
+                // понимает, что выбирает.
+                b.style.whiteSpace = WhiteSpace.Normal;
+                b.style.maxWidth = new Length(100, LengthUnit.Percent);
                 b.clicked += () => { pick?.Invoke(value); Highlight(); };
                 made.Add((b, value));
                 seg.Add(b);
