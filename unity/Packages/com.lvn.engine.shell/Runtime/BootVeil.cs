@@ -195,6 +195,11 @@ namespace Lvn.UI.Screens
                     color = new Color(0f, 0f, 0f, 0.85f),
                 };
                 _root.Insert(0, _brandTitle);
+                // ВЕСЬ ЭТОТ ФАЙЛ считает время реальным, а не часами интерфейса
+                // (Lvn.UI.LvnClock). Бут — единственное место, где кадры рвутся
+                // и подолгу стоят: загрузка манифеста, разбор атласов, первый
+                // шейдер. Кадровые часы вместе с ними встают, и вуаль вместе с
+                // ними висит — а она обязана уйти по часам, а не по кадрам.
                 float t0 = Time.realtimeSinceStartup;
                 int gen = _gen;
                 _root.schedule.Execute(() =>
@@ -219,6 +224,9 @@ namespace Lvn.UI.Screens
             _target = 1f;
             // Let the bar glide most of the way, then SNAP so the user actually
             // sees "100%" (the asymptote alone never reaches it in time).
+            // Страховка по РЕАЛЬНОМУ времени: она на то и страховка, чтобы
+            // сработать, когда кадры встали, — кадровые часы в этот момент
+            // стоят вместе с ними.
             float safety = Time.realtimeSinceStartup + 0.9f;
             while (_model.Display < 0.98f && Time.realtimeSinceStartup < safety
                    && _go != null && _gen == gen)

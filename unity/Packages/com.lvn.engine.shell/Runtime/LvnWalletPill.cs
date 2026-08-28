@@ -176,6 +176,9 @@ namespace Lvn.UI.Screens
 
         private static void RequestRefill()
         {
+            // РЕАЛЬНОЕ время, а не часы интерфейса: пауза между запросами к
+            // серверу — про сеть, а не про экран. Энергия восполняется, пока
+            // игра свёрнута, и «15 секунд» обязаны идти там же.
             if (Time.realtimeSinceStartup < _nextRefillRequest) return;
             _nextRefillRequest = Time.realtimeSinceStartup + 15f;
             LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
