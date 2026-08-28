@@ -45,10 +45,17 @@ namespace Lvn.UI
             return g;
         }
 
-        private void StartFade(string channel, AudioSource src, float from, float to, float seconds, bool stopAtEnd)
+        /// <summary>Чем кончается затухание. Флага «останавливать ли» не хватило:
+        /// печать по концу не останавливают, а СТАВЯТ НА ПАУЗУ (позиция записи
+        /// живёт до следующей строки) — и ради одного лишнего исхода рядом
+        /// вырос второй, почти такой же механизм затухания со своей корутиной,
+        /// своей отменой и своим Lerp.</summary>
+        private enum FadeEnd { Keep, Stop, Pause }
+
+        private void StartFade(string channel, AudioSource src, float from, float to, float seconds, FadeEnd end)
         {
             if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
-            _fadeCo[channel] = StartCoroutine(FadeAudio(src, from, to, seconds, stopAtEnd));
+            _fadeCo[channel] = StartCoroutine(FadeAudio(src, from, to, seconds, end));
         }
 
         // The author's last set volume per channel — the player's preference
@@ -87,6 +94,10 @@ namespace Lvn.UI
             if (_ambient != null) _ambient.volume = _authAmbient * LvnVolumes.Of(LvnVolumes.Ambient);
             if (_sfx != null) _sfx.volume = _authSfx * LvnVolumes.Of(LvnVolumes.Sfx);
             if (_voice != null) _voice.volume = LvnVolumes.Of(LvnVolumes.Voice);
+            // Печать — такой же живой источник: без этой строки выключенный
+            // посреди реплики звук продолжал стучать до её конца.
+            if (_typing != null && _typing.isPlaying)
+                _typing.volume = _authTyping * LvnVolumes.Of(LvnVolumes.Ui);
         }
 
         private void RememberAuthored(string channel, float v)
@@ -147,7 +158,9 @@ namespace Lvn.UI
         public void PlayUi(AudioClip clip, float volume = 1f)
         {
             if (clip == null || _ui == null || !LvnPrefs.SoundOn) return;
-            _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnPrefs.VolSfx);
+            // Через дом громкости: прямой ползунок не знал про общий тумблер,
+            // и «звук выключен» глушил историю, но не интерфейс.
+            _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnVolumes.Of(LvnVolumes.Ui));
         }
 
         // ── луп печати (ui.sounds.type) ──────────────────────────────────────
@@ -161,7 +174,11 @@ namespace Lvn.UI
         // звучал как заикание одного и того же начала. Входы/выходы — с
         // короткими фейдами, чтобы стук не рубился на полу-ударе.
         private AudioSource _typing;
-        private Coroutine _typingFade;
+        // Что просил автор — чтобы ползунок и тумблер могли домножиться на это
+        // ЖИВЬЁМ: раньше громкость печати вычислялась один раз на старте строки,
+        // и выключенный посреди длинной реплики звук стучал до её конца.
+        private float _authTyping = 1f;
+        private const string TypingChannel = "typing";
 
         /// <summary>Клавиатура стучит, пока строка печатается: продолжение с
         /// места паузы, фейд-ин. Идемпотентно для уже стучащего лупа.</summary>
@@ -186,7 +203,9 @@ namespace Lvn.UI
                 _typing.UnPause();                    // с места паузы…
                 if (!_typing.isPlaying) _typing.Play(); // …или первый запуск
             }
-            StartTypingFade(Mathf.Clamp01(volume) * LvnPrefs.VolSfx, 0.09f, pauseAtEnd: false);
+            _authTyping = Mathf.Clamp01(volume);
+            StartFade(TypingChannel, _typing, _typing.volume,
+                      _authTyping * LvnVolumes.Of(LvnVolumes.Ui), 0.09f, FadeEnd.Keep);
         }
 
         /// <summary>Строка допечаталась (или её докрутили тапом) — фейд-аут и
@@ -194,28 +213,7 @@ namespace Lvn.UI
         public void StopTypingLoop()
         {
             if (_typing == null || !_typing.isPlaying) return;
-            StartTypingFade(0f, 0.18f, pauseAtEnd: true);
-        }
-
-        private void StartTypingFade(float to, float seconds, bool pauseAtEnd)
-        {
-            if (_typingFade != null) StopCoroutine(_typingFade);
-            _typingFade = StartCoroutine(TypingFadeAsync(to, seconds, pauseAtEnd));
-        }
-
-        private IEnumerator TypingFadeAsync(float to, float seconds, bool pauseAtEnd)
-        {
-            float from = _typing.volume;
-            float t0 = Time.unscaledTime;
-            while (_typing != null)
-            {
-                float k = Mathf.Clamp01((Time.unscaledTime - t0) / Mathf.Max(0.01f, seconds));
-                _typing.volume = Mathf.Lerp(from, to, k);
-                if (k >= 1f) break;
-                yield return null;
-            }
-            if (pauseAtEnd && _typing != null) _typing.Pause();
-            _typingFade = null;
+            StartFade(TypingChannel, _typing, _typing.volume, 0f, 0.18f, FadeEnd.Pause);
         }
 
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host
@@ -231,7 +229,7 @@ namespace Lvn.UI
             if ((string)cmd["action"] == "stop")
             {
                 _playingUrl.Remove(channel);
-                if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, stopAtEnd: true);
+                if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
                 else { CancelFade(channel); src.Stop(); }
                 return;
             }
@@ -279,7 +277,7 @@ namespace Lvn.UI
             {
                 src.volume = 0f;
                 src.Play();
-                StartFade(channel, src, 0f, effective, fade, stopAtEnd: false);
+                StartFade(channel, src, 0f, effective, fade, FadeEnd.Keep);
             }
             else
             {
@@ -307,17 +305,19 @@ namespace Lvn.UI
         // умолчание — зацикленную музыку там, где автор просил обратного.
         private static bool BoolOr(JToken t, bool dflt) => Lvn.LvnBool.Of(t, dflt);
 
-        private static IEnumerator FadeAudio(AudioSource src, float from, float to, float seconds, bool stopAtEnd)
+        private static IEnumerator FadeAudio(AudioSource src, float from, float to, float seconds, FadeEnd end)
         {
             float t = 0f;
-            while (t < seconds)
+            while (t < seconds && src != null)
             {
                 t += Time.unscaledDeltaTime;
                 src.volume = Mathf.Lerp(from, to, Mathf.Clamp01(t / seconds));
                 yield return null;
             }
+            if (src == null) yield break;   // источник снесли посреди затухания
             src.volume = to;
-            if (stopAtEnd) src.Stop();
+            if (end == FadeEnd.Stop) src.Stop();
+            else if (end == FadeEnd.Pause) src.Pause();
         }
     }
 }
