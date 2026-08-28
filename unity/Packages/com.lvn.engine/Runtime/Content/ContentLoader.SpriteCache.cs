@@ -98,6 +98,9 @@ namespace Lvn.Content
         private void Touch(SpriteEntry e)
         {
             e.Seq = ++_spriteSeq;
+            // РЕАЛЬНОЕ время, а не общие часы интерфейса (LvnClock): давность
+            // спрайта должна расти и пока игра свёрнута — иначе после возврата
+            // весь кэш выглядит «только что использованным» и вытеснять нечего.
             e.At = Time.realtimeSinceStartup;
         }
 

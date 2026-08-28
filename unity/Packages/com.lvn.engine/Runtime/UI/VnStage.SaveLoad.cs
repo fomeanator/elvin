@@ -134,6 +134,8 @@ namespace Lvn.UI
             // The staged opening, resume flavour: ReplayVisuals fires its spine
             // builds without awaiting them — rendering the saved beat now would
             // typewrite over a still-building stage and freeze mid-sentence.
+            // Реальное время: это ЗАМЕР для лога («сколько заняло»), и мерить
+            // его кадровыми часами значило бы не заметить простоя.
             var t0 = Time.realtimeSinceStartup;
             int inFlight = PendingSpineBuilds;
             try { await SpineBuildsSettled(); } catch { }   // снимок повреждён — начнём главу с начала, а не упадём

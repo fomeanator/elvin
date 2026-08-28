@@ -13,11 +13,11 @@ namespace Lvn.UI
         {
             if (el == null) return;
             if (seconds <= 0f) { el.style.opacity = to; return; }
-            float t0 = Time.unscaledTime;
+            float t0 = LvnClock.Now();
             while (true)
             {
                 if (ct.IsCancellationRequested) { el.style.opacity = to; return; }
-                float t = Mathf.Clamp01((Time.unscaledTime - t0) / seconds);
+                float t = Mathf.Clamp01(LvnClock.Since(t0) / seconds);
                 t = t * t * (3f - 2f * t); // smoothstep
                 el.style.opacity = Mathf.Lerp(from, to, t);
                 if (t >= 1f) return;

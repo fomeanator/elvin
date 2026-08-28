@@ -379,6 +379,9 @@ namespace Lvn.Content
                         lock (_notFound)
                         {
                             first = !_notFound.ContainsKey(url);
+                            // Тоже реальное: срок «этого файла нет» обязан
+                            // истекать и в фоне, иначе свёрнутая на час игра
+                            // вернётся с той же протухшей памятью о 404.
                             _notFound[url] = Time.realtimeSinceStartup;
                         }
                         // Info, not warning: a 4xx here is usually the EXPECTED

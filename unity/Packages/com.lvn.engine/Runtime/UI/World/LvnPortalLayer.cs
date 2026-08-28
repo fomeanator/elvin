@@ -130,8 +130,8 @@ namespace Lvn.UI.World
 
         private void AuditMaterial()
         {
-            if (Time.unscaledTime < _nextAudit) return;
-            _nextAudit = Time.unscaledTime + 1f;
+            if (LvnClock.Now() < _nextAudit) return;
+            _nextAudit = LvnClock.Now() + 1f;
             if (_image == null) return;
             var m = _image.material;
             bool ok = m != null && m.shader != null && m.shader.isSupported
@@ -184,7 +184,7 @@ namespace Lvn.UI.World
                 // Дышит ПОКАЗЫВАЕМОЕ раскрытие, а само _open остаётся тем, что
                 // задали: иначе вдох посреди закрытия оставил бы створ приоткрытым.
                 float breath = 1f + BreathAmount
-                             * Mathf.Sin(Time.unscaledTime * (2f * Mathf.PI / BreathPeriod));
+                             * Mathf.Sin(LvnClock.Now() * (2f * Mathf.PI / BreathPeriod));
                 _mat.SetFloat("_Open", Mathf.Clamp01(_open * breath));
             }
         }

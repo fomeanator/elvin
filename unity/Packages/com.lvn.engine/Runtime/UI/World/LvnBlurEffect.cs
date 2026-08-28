@@ -44,7 +44,7 @@ namespace Lvn.UI.World
                 _from = _cur;
                 _to = target;
                 _dur = seconds;
-                _start = Time.realtimeSinceStartup;
+                _start = LvnClock.Now();
             }
             enabled = true; // wakes OnRenderImage; it re-disables once idle at 0
         }
@@ -52,7 +52,7 @@ namespace Lvn.UI.World
         private void Advance()
         {
             if (_start < 0f) return;
-            float t = Mathf.Clamp01((Time.realtimeSinceStartup - _start) / _dur);
+            float t = Mathf.Clamp01((LvnClock.Now() - _start) / _dur);
             _cur = Mathf.Lerp(_from, _to, Mathf.SmoothStep(0f, 1f, t));
             if (t >= 1f) _start = -1f;
         }

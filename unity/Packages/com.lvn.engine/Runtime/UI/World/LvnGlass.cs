@@ -118,12 +118,12 @@ namespace Lvn.UI.World
             int w = Mathf.Max(8, src.width / Downscale);
             int h = Mathf.Max(8, src.height / Downscale);
             bool sizeChanged = _rt == null || _rt.width != w || _rt.height != h;
-            if (!sizeChanged && !ShouldRefresh(_lastRefresh, Time.unscaledTime, _rt != null))
+            if (!sizeChanged && !ShouldRefresh(_lastRefresh, LvnClock.Now(), _rt != null))
             {
                 Graphics.Blit(src, dst);   // подложка ещё свежая — кадр идёт насквозь
                 return;
             }
-            _lastRefresh = Time.unscaledTime;
+            _lastRefresh = LvnClock.Now();
             EnsureTarget(w, h, src.format);
 
             var a = RenderTexture.GetTemporary(w, h, 0, src.format);

@@ -44,7 +44,7 @@ namespace Lvn.UI
             }
 
             Build(type == "snow");
-            _last = Time.realtimeSinceStartup;
+            _last = LvnClock.Now();
             style.display = DisplayStyle.Flex;
             _tick?.Pause();
             _tick = schedule.Execute(Tick).Every(16);
@@ -85,7 +85,7 @@ namespace Lvn.UI
 
         private void Tick()
         {
-            float now = Time.realtimeSinceStartup;
+            float now = LvnClock.Now();
             float dt = Mathf.Min(0.1f, now - _last);
             _last = now;
 

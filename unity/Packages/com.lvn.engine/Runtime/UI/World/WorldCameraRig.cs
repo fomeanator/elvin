@@ -22,7 +22,7 @@ namespace Lvn.UI.World
         private Vector2 _panFrom, _panTo, _panBase;
         private float _panDur, _panStart = -1f;
 
-        private static float Now => Time.realtimeSinceStartup;
+        private static float Now => LvnClock.Now();
 
         public void Bind(RectTransform target) { _t = target; }
 

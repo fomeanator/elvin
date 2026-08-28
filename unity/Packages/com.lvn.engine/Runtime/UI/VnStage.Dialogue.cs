@@ -324,7 +324,7 @@ namespace Lvn.UI
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
             _dialogue.Reveal(text);
             _sayUp = true;
-            _sayUpSince = Time.realtimeSinceStartup; // для самоисцеления тапов
+            _sayUpSince = LvnClock.Now(); // для самоисцеления тапов
             _curChoices = null;
             SetSayVisible(true, () => UnlockSayWhenChoreographyReady(gen));
             // Voice-over: the line's clip starts with its text; the previous line's

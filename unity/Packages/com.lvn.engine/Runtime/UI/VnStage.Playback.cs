@@ -149,12 +149,14 @@ namespace Lvn.UI
             // First tick after the reveal finished: start the reading timer.
             if (_autoRevealDoneAt < 0f)
             {
-                _autoRevealDoneAt = Time.realtimeSinceStartup;
+                _autoRevealDoneAt = LvnClock.Now();
                 return;
             }
             float delay = (AutoPauseBase + AutoPausePerChar * _lastSayLength)
                           * LvnPrefs.AutoDelayScale;
-            if (Time.realtimeSinceStartup - _autoRevealDoneAt < delay) return;
+            // Через LvnClock: на реальном времени свёрнутая на минуту игра
+            // возвращалась с «реплику читали минуту» и листала её сразу.
+            if (LvnClock.Since(_autoRevealDoneAt) < delay) return;
             _autoRevealDoneAt = -1f;
             _awaitingTap = false;
             _player.Advance();

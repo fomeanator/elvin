@@ -126,7 +126,7 @@ namespace Lvn.UI
             why = null;
             if (_holds.TryGetValue(subject, out var hold))
             {
-                if (Time.unscaledTime > hold.Until) _holds.Remove(subject);   // держатель молчит — отпускаем сами
+                if (LvnClock.Now() > hold.Until) _holds.Remove(subject);   // держатель молчит — отпускаем сами
                 else if (Rank(sender) < Rank(hold.Sender))
                 {
                     why = $"занято ({hold.Sender})";
@@ -195,8 +195,8 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(subject)) return;
             if (_holds.TryGetValue(subject, out var prev)
-                && Time.unscaledTime <= prev.Until && Rank(sender) < Rank(prev.Sender)) return;
-            _holds[subject] = new Claim { Sender = sender, Until = Time.unscaledTime + HoldSeconds };
+                && LvnClock.Now() <= prev.Until && Rank(sender) < Rank(prev.Sender)) return;
+            _holds[subject] = new Claim { Sender = sender, Until = LvnClock.Now() + HoldSeconds };
         }
 
         /// <summary>Отпустить предмет — работа кончилась.</summary>
@@ -230,7 +230,7 @@ namespace Lvn.UI
         /// <summary>Кто сейчас держит предмет (для диагностики и тестов);
         /// null — свободен.</summary>
         public LvnSender? HolderOf(string subject)
-            => _holds.TryGetValue(subject, out var h) && Time.unscaledTime <= h.Until
+            => _holds.TryGetValue(subject, out var h) && LvnClock.Now() <= h.Until
                ? h.Sender : (LvnSender?)null;
 
         // ── журнал ──────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ namespace Lvn.UI
 
         private void Note(JObject cmd, LvnSender sender, string subject, string decision)
         {
-            var line = $"{Time.unscaledTime:0.00} {sender,-8} {(string)cmd?["op"] ?? "?",-8} "
+            var line = $"{LvnClock.Now():0.00} {sender,-8} {(string)cmd?["op"] ?? "?",-8} "
                      + $"{subject,-18} {decision}";
             if (_journal.Count >= JournalSize) _journal.Dequeue();
             _journal.Enqueue(line);
