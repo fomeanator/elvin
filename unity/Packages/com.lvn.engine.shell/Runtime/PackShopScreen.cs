@@ -50,6 +50,13 @@ namespace Lvn.UI.Screens
         // grants. Демо-хардкод с золотом ушёл (живой репорт «3 валюты, а надо
         // 2, и реальные наборы»).
         private readonly List<string> _tabIds = new List<string>();
+
+        /// <summary>ЧТО МЫ ЗНАЕМ О КАТАЛОГЕ. Пустой список — это ответ, а не
+        /// молчание: до ответа сервера экран рисовал «магазин закрыт», хотя не
+        /// знал ещё ничего, и первым кадром сообщал игроку неправду. Три
+        /// состояния вместо одного: не спрашивали, не смогли, знаем.</summary>
+        private enum CatalogState { Unknown, Failed, Known }
+        private CatalogState _catalogState = CatalogState.Unknown;
         private readonly List<string> _tabNames = new List<string>();
 
         private readonly ILvnAssets _assets;
@@ -181,6 +188,8 @@ namespace Lvn.UI.Screens
             _catalog.Clear();
             _tabIds.Clear();
             _tabNames.Clear();
+            // Сервер не ответил — это «не смогли узнать», а не «товаров нет».
+            _catalogState = packs != null ? CatalogState.Known : CatalogState.Failed;
             if (packs != null)
             {
                 foreach (var p in packs)
@@ -286,7 +295,11 @@ namespace Lvn.UI.Screens
             _list.Clear();
             if (_tabIds.Count == 0)
             {
-                var empty = new Label(LvnWords.Of("shop.closed", "The store is closed"));
+                string word =
+                    _catalogState == CatalogState.Unknown ? LvnWords.Of("shop.loading", "Loading…") :
+                    _catalogState == CatalogState.Failed ? LvnWords.Of("shop.offline", "The store is unavailable") :
+                    LvnWords.Of("shop.closed", "The store is closed");
+                var empty = new Label(word);
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = 26;
                 empty.style.marginTop = 40;
