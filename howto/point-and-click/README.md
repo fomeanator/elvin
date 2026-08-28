@@ -125,7 +125,7 @@ The goal is **0 warning(s)**. If "label … reached by fall-through" pops up, th
 - **Item combinations via variables.** Introduce flags (`has_screwdriver`, `has_battery`) and unlock the next step only when both equal 1 — via nested `if`.
 - **Multi-room scene.** Make separate screen labels `:room1`, `:room2`, each with its own `bg` and a transition hotspot between them — the escape room grows into a suite.
 - **Menu/inventory.** The same `on_click` trick builds a start menu or an item panel; to list what's collected, use lists (`inv = push(inv, "key")`) and `for it in inv`.
-- **Hints and atmosphere.** Mix in `dim`, `audio` for the lock sound, and show a hint via `say` or a reactive `text` (the `hint` command does not render at runtime — it's a no-op).
+- **Hints and atmosphere.** Mix in `dim`, `audio` for the lock sound, and show the hint itself with the `hint` command — `hint text="The keyhole is warm." duration=5` draws a card at the top of the scene and hides itself; `show=false` removes it early. (`say` and a reactive `text` remain fine for longer asides. Do not confuse the command with the `hint=` FIELD on a choice option — that one is ignored; see CAPABILITIES §3.)
 
 ## Next
 
