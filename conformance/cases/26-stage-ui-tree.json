@@ -3,7 +3,8 @@
   "title": "`ui` reaches the presentation layer as ONE command with its tree intact",
   "why": "The interface is a description, not a sequence of actions: a whole tree arrives at once so the renderer can DIFF it against the previous one instead of rebuilding. Flattening it into per-element commands — or losing `layer`/`block` on the way — turns every update into a teardown, which drops the tap under the finger, the scroll position and any running animation. `hide`/`show`/`drop` must arrive as the same op, not as a second kind of command.",
   "runtimes": [
-    "csharp"
+    "csharp",
+    "js"
   ],
   "doc": {
     "scene": "conformance",

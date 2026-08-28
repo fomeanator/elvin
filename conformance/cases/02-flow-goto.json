@@ -2,25 +2,58 @@
   "id": "flow-goto",
   "title": "goto jumps over the block between it and its label",
   "why": "A skipped command must not run at all — not merely be invisible.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "say", "text": "Начало." },
-      { "op": "goto", "label": "ahead" },
-      { "op": "set", "key": "skipped", "value": 1 },
-      { "op": "say", "text": "Этой строки быть не должно." },
-      { "op": "goto", "label": "__end" },
-      { "op": "label", "id": "ahead" },
-      { "op": "say", "text": "После прыжка." }
+      {
+        "op": "say",
+        "text": "Начало."
+      },
+      {
+        "op": "goto",
+        "label": "ahead"
+      },
+      {
+        "op": "set",
+        "key": "skipped",
+        "value": 1
+      },
+      {
+        "op": "say",
+        "text": "Этой строки быть не должно."
+      },
+      {
+        "op": "goto",
+        "label": "__end"
+      },
+      {
+        "op": "label",
+        "id": "ahead"
+      },
+      {
+        "op": "say",
+        "text": "После прыжка."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Начало." },
-      { "say": "После прыжка." },
-      { "end": true }
+      {
+        "say": "Начало."
+      },
+      {
+        "say": "После прыжка."
+      },
+      {
+        "end": true
+      }
     ],
-    "expr_true": ["skipped == 0"]
+    "expr_true": [
+      "skipped == 0"
+    ]
   }
 }

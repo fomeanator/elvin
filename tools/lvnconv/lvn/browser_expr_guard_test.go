@@ -262,6 +262,7 @@ func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
 		Expect   struct {
 			Stops []map[string]any `json:"stops"`
 			Vars  map[string]any   `json:"vars"`
+			Stage []map[string]any `json:"stage"`
 		} `json:"expect"`
 	}
 	files, _ := filepath.Glob(filepath.Join(root, "conformance", "cases", "*.json"))
@@ -298,10 +299,11 @@ func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
 		t.Fatalf("node не смог прогнать корпус: %v\n%s", err, out)
 	}
 	var got []struct {
-		ID    string           `json:"id"`
-		Vars  map[string]any   `json:"vars"`
-		Fail  string           `json:"fail"`
-		Stops []map[string]any `json:"stops"`
+		ID     string           `json:"id"`
+		Vars   map[string]any   `json:"vars"`
+		Fail   string           `json:"fail"`
+		Stops  []map[string]any `json:"stops"`
+		Staged []map[string]any `json:"staged"`
 	}
 	if err := json.Unmarshal(out, &got); err != nil {
 		t.Fatalf("непонятный ответ node: %v\n%s", err, out)
@@ -317,6 +319,61 @@ func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
 		if g.Fail != "" {
 			bad = append(bad, fmt.Sprintf("%s: %s", g.ID, g.Fail))
 			continue
+		}
+		// СЛЕД ОСТАНОВОК: какие остановки, в каком порядке и с каким текстом.
+		// Правило то же, что у C#-прогона: сперва ФОРМА (вид остановок подряд),
+		// потому что разошедшийся след нечитаем как «поле в середине не то»;
+		// затем подробности, и только те, что случай назвал.
+		if len(k.Expect.Stops) > 0 {
+			wantKinds, gotKinds := stopKinds(k.Expect.Stops), stopKinds(g.Stops)
+			if strings.Join(wantKinds, "→") != strings.Join(gotKinds, "→") {
+				bad = append(bad, fmt.Sprintf("%s: след остановок разошёлся\n      корпус: %s\n      браузер: %s",
+					g.ID, strings.Join(wantKinds, " → "), strings.Join(gotKinds, " → ")))
+			} else {
+				for i, wantStop := range k.Expect.Stops {
+					// Корпус пишет реплику ДВУМЯ формами: строкой (только текст)
+					// или объектом {who, text} — когда важно и кто говорит.
+					wantVal, ok := wantStop["say"]
+					if !ok {
+						continue // подробности прочих остановок здесь не сверяем
+					}
+					gotStop := g.Stops[i]
+					switch w := wantVal.(type) {
+					case map[string]any:
+						for field, v := range w {
+							if fmt.Sprint(v) != fmt.Sprint(gotStop[field]) {
+								bad = append(bad, fmt.Sprintf("%s: остановка #%d, %s = %v, корпус ждёт %v",
+									g.ID, i, field, gotStop[field], v))
+							}
+						}
+					default:
+						if fmt.Sprint(w) != fmt.Sprint(gotStop["say"]) {
+							bad = append(bad, fmt.Sprintf("%s: остановка #%d — реплика %v, корпус ждёт %v",
+								g.ID, i, gotStop["say"], w))
+						}
+					}
+				}
+			}
+		}
+
+		// ПОСТАНОВОЧНЫЙ ПОТОК: плеер эти команды не трактует, он их пересылает
+		// — и корпус проверяет ровно порядок и поля пересланного. Правило то
+		// же, что у C#-прогона: длина совпадает, поля сверяются те, что назвал
+		// корпус (остальные — дело реализации).
+		if len(k.Expect.Stage) > 0 {
+			if len(g.Staged) != len(k.Expect.Stage) {
+				bad = append(bad, fmt.Sprintf("%s: сцене ушло %d команд, корпус ждёт %d",
+					g.ID, len(g.Staged), len(k.Expect.Stage)))
+			} else {
+				for i, wantCmd := range k.Expect.Stage {
+					for field, wantVal := range wantCmd {
+						if fmt.Sprint(wantVal) != fmt.Sprint(g.Staged[i][field]) {
+							bad = append(bad, fmt.Sprintf("%s: команда #%d, поле %s = %v, корпус ждёт %v",
+								g.ID, i, field, g.Staged[i][field], wantVal))
+						}
+					}
+				}
+			}
 		}
 		for name, wantVal := range k.Expect.Vars {
 			gotVal, ok := g.Vars[name]
@@ -340,4 +397,18 @@ func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
 			len(bad), strings.Join(bad, "\n  "))
 	}
 	t.Logf("браузерный плеер сыграл %d случая(ев) корпуса без расхождений", len(got))
+}
+
+// stopKinds: вид каждой остановки по порядку — say / choice / input / end.
+func stopKinds(stops []map[string]any) []string {
+	out := make([]string, 0, len(stops))
+	for _, s := range stops {
+		for _, kind := range []string{"say", "choice", "input", "end"} {
+			if _, ok := s[kind]; ok {
+				out = append(out, kind)
+				break
+			}
+		}
+	}
+	return out
 }

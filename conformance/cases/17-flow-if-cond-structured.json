@@ -2,7 +2,10 @@
   "id": "flow-if-cond-structured",
   "title": "if also accepts the structured cond form {key, op, value}",
   "why": "The importer emits `cond` rather than a string `expr` for machine-generated gates, so a runtime that only understands `expr` takes the else branch on every imported condition.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
