@@ -61,8 +61,8 @@ namespace Lvn.UI
         // Шрифт по умолчанию — Onest (OFL, лежит в пакете): у него родная
         // кириллица, и он не безликий. Системный Arial, стоявший здесь до
         // этого, выдаёт «сделано на коленке» раньше, чем прочитан текст.
-        public string FontPath = "Fonts/Onest-Regular";
-        public string FontDisplayPath = "Fonts/Onest-ExtraBold";
+        public string FontPath = LvnFonts.DefaultPath;
+        public string FontDisplayPath = LvnFonts.DefaultDisplayPath;
 
         // Ступени кегля в единицах панели (1080×1920). ШКАЛА, а не свободные
         // числа: одинаковые вещи на разных экранах обязаны быть одного
