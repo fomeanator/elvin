@@ -184,11 +184,9 @@ namespace Lvn.UI.Screens
             LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
         }
 
-        /// <summary>Сколько осталось: «3:07», а больше часа — «1:12:30».</summary>
-        public static string FormatDuration(long seconds)
-        {
-            long h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
-            return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
-        }
+        /// <summary>Сколько осталось: «3:07», а больше часа — «1:12:30».
+        /// Правило перевода секунд в подпись живёт в <see cref="LvnTimeWords"/>
+        /// — здесь остаётся выбор вида, компактного для шапки.</summary>
+        public static string FormatDuration(long seconds) => Lvn.UI.LvnTimeWords.Clock(seconds);
     }
 }

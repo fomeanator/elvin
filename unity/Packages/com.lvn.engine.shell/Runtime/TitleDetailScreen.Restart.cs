@@ -72,15 +72,7 @@ namespace Lvn.UI.Screens
             return $"{label} · {RelativeTime(slot.SavedAtUnixMs)}";
         }
 
-        private static string RelativeTime(long unixMs)
-        {
-            if (unixMs <= 0) return "";
-            var span = System.DateTimeOffset.UtcNow - System.DateTimeOffset.FromUnixTimeMilliseconds(unixMs);
-            if (span.TotalMinutes < 1) return LvnWords.Of("time.just_now", "just now");
-            if (span.TotalMinutes < 60) return LvnWords.Of("time.minutes_ago", "{n} min ago").Replace("{n}", ((int)span.TotalMinutes).ToString());
-            if (span.TotalHours < 24) return LvnWords.Of("time.hours_ago", "{n} h ago").Replace("{n}", ((int)span.TotalHours).ToString());
-            return LvnWords.Of("time.days_ago", "{n} d ago").Replace("{n}", ((int)span.TotalDays).ToString());
-        }
+        private static string RelativeTime(long unixMs) => Lvn.UI.LvnTimeWords.Ago(unixMs);
 
         private VisualElement SaveRow(string slot, string where, System.Action onLoad)
         {

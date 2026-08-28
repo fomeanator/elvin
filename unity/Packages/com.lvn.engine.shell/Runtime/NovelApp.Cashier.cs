@@ -94,11 +94,10 @@ namespace Lvn.UI.Screens
             if (!Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) || r.NextRefillUnix <= 0) return "";
             long rem = r.NextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (rem <= 0) return "";
-            long h = rem / 3600, m = (rem % 3600) / 60;
+            // Словесный вид — тот же дом, что и цифровой в шапке: одно ожидание
+            // не имеет права округляться в двух местах по-разному.
             return "\n\n" + LvnWords.Of("wallet.refill_in", "+1 in {t}")
-                .Replace("{t}", h > 0
-                    ? h + " " + LvnWords.Of("unit.hours", "h") + " " + m + " " + LvnWords.Of("unit.minutes", "min")
-                    : m + " " + LvnWords.Of("unit.minutes", "min"));
+                .Replace("{t}", Lvn.UI.LvnTimeWords.Coarse(rem));
         }
 
         // Charge the chapter-entry currency (typically the regenerating "energy")

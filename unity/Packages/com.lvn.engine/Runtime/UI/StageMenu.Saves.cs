@@ -135,7 +135,7 @@ namespace Lvn.UI
             text.style.justifyContent = Justify.Center;
             text.style.flexGrow = 1;
             string when = slot?.Snap == null ? L("empty", "— empty —")
-                : DateTimeOffset.FromUnixTimeMilliseconds(slot.SavedAtUnixMs).ToLocalTime().ToString("dd.MM HH:mm");
+                : LvnTimeWords.Stamp(slot.SavedAtUnixMs);
             text.Add(Text(label + "   " + when, 24, FontStyle.Bold));
             if (!string.IsNullOrEmpty(slot?.Preview))
                 text.Add(Text("«" + Trunc(slot.Preview, 46) + "»", 20, FontStyle.Italic, dim: true));
