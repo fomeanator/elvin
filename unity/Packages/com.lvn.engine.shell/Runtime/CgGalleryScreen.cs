@@ -49,7 +49,11 @@ namespace Lvn.UI.Screens
         public CgGalleryScreen(ILvnAssets assets)
         {
             _assets = assets;
-            LoadDemoData();
+            // Демо-набор БОЛЬШЕ НЕ ГРУЗИТСЯ. Он ссылался на /content/cards/cardN.png
+            // — файлы, которых в живом контенте нет: восемь-двенадцать «permanent
+            // 404» в логе каждого запуска, при том что галерею хост наполняет
+            // настоящими CG сразу после сборки (NovelApp.QuickMenu). Пустая
+            // галерея честнее выдуманной и не шумит в сеть.
 
             ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Scrim;
@@ -409,22 +413,6 @@ namespace Lvn.UI.Screens
 
         // Hardcoded fallback so the gallery looks complete before a host supplies
         // real entries: 8 unlocked + 4 locked = 12, cycling the demo card art.
-        private void LoadDemoData()
-        {
-            _entries.Clear();
-            const int total = 12;
-            const int unlocked = 8;
-            for (int i = 0; i < total; i++)
-            {
-                _entries.Add(new Entry
-                {
-                    Url = $"/content/cards/card{i % 9}.png",
-                    Caption = $"CG {i + 1}",
-                    Unlocked = i < unlocked,
-                });
-            }
-        }
-
         // ── Local helpers (copied from StoreScreen conventions) ────────────────
     }
 }
