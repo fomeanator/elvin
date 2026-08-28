@@ -130,9 +130,7 @@ namespace Lvn.UI.Screens
             }
             else
             {
-                poster.style.backgroundImage = (hero && _theme.AccentPlaceholders)
-                    ? Gradient(Lighten(_accent, 0.04f), Darken(_accent, 0.5f))
-                    : Gradient(Lighten(_card, 0.12f), Darken(_card, 0.3f));
+                poster.style.backgroundImage = PosterFallbackImage(useAccent: hero);
             }
             // cost / lock chip, small, floated on the poster
             var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)

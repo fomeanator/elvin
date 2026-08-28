@@ -688,10 +688,7 @@ namespace Lvn.UI.Screens
                 scrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.05f), new Color(0.03f, 0.01f, 0.03f, 0.92f));
                 b.Add(scrim);
             }
-            else if (_theme.AccentPlaceholders)
-                b.style.backgroundImage = Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f));
-            else
-                b.style.backgroundImage = Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
+            else b.style.backgroundImage = PosterFallbackImage(useAccent: true);
             // У витринного кадра есть тонкая рамка, но не тяжёлая неоновая
             // обводка: контраст должен остаться у одной кнопки «Играть».
             LvnChrome.Border(b, new Color(_accent.r, _accent.g, _accent.b, 0.52f), 1f);
@@ -920,6 +917,24 @@ namespace Lvn.UI.Screens
             _gradients.Add(tex);
             return new StyleBackground(Background.FromTexture2D(tex));
         }
+
+        /// <summary>
+        /// КАК ВЫГЛЯДИТ НОВЕЛЛА БЕЗ АРТА — один ответ на весь хаб.
+        ///
+        /// <para>Заглушка постера рисовалась двумя местами: витриной и
+        /// карточкой. Правило одно («градиент из акцента, а если тема этого не
+        /// хочет — из цвета карточки»), но числа разошлись: 0.05/0.55 против
+        /// 0.04/0.5 и 0.14/0.35 против 0.12/0.3. Разница мизерная и именно
+        /// поэтому опасная — её не видно глазом, но она означает, что правила
+        /// два, и следующая правка попадёт в одно из них.</para>
+        ///
+        /// <para>Числа взяты от витрины: крупный кадр задаёт вид, мелкая
+        /// карточка его повторяет, а не наоборот.</para>
+        /// </summary>
+        private StyleBackground PosterFallbackImage(bool useAccent)
+            => useAccent && _theme.AccentPlaceholders
+                ? Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f))
+                : Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
 
         private static Color Lighten(Color c, float a) => Color.Lerp(c, Color.white, a);
         private static Color Darken(Color c, float a) => Color.Lerp(c, Color.black, a);
