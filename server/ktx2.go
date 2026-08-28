@@ -182,6 +182,17 @@ func ensureKtx2Source(d *downscaler, ktx2Path string) string {
 // file and renaming into place so a concurrent reader never sees a partial
 // file and a crashed encode never poisons the cache.
 func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
+	// ФОРМАТ УЗНАЮТ ПО СОДЕРЖИМОМУ, А НЕ ПО ИМЕНИ. basisu смотрит на
+	// расширение, и файл, названный .jpg с PNG внутри, он просто отказывается
+	// читать: "Failed reading source image". На проде таких оказался 191 —
+	// весь импортированный арт, — и ни у одного не было ktx2: сжатие молча
+	// пропускало их годами, а фоны ехали к игроку несжатыми.
+	//
+	// Отказ был не виден никому: клиент на 404 честно берёт PNG-путь, картинка
+	// на экране есть, и только вес трафика говорит правду.
+	srcPath, undo := honestExtension(srcPath)
+	defer undo()
+
 	dir, base := filepath.Split(ktx2Path)
 	ext := filepath.Ext(base)
 	tmp := filepath.Join(dir, fmt.Sprintf("%s.tmp-%d%s", strings.TrimSuffix(base, ext), time.Now().UnixNano(), ext))
@@ -375,4 +386,57 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 		}
 		http.NotFound(w, r)
 	})
+}
+
+// honestExtension даёт кодировщику путь, чьё расширение НЕ ВРЁТ о содержимом.
+//
+// Когда имя и формат совпадают — возвращается сам путь, без работы. Когда
+// расходятся, рядом во временном каталоге появляется ссылка с правильным
+// расширением: копировать сотни мегабайт ради подсказки декодеру незачем.
+//
+// Формат определяется по сигнатуре: у PNG она восьмибайтная и однозначная, у
+// JPEG — три байта SOI. Ничего третьего кодировщику мы и не отдаём.
+func honestExtension(path string) (string, func()) {
+	nop := func() {}
+	f, err := os.Open(path)
+	if err != nil {
+		return path, nop
+	}
+	var head [8]byte
+	n, _ := io.ReadFull(f, head[:])
+	f.Close()
+	if n < 3 {
+		return path, nop
+	}
+
+	real := ""
+	switch {
+	case n >= 8 && string(head[:8]) == "\x89PNG\r\n\x1a\n":
+		real = ".png"
+	case head[0] == 0xFF && head[1] == 0xD8 && head[2] == 0xFF:
+		real = ".jpg"
+	default:
+		return path, nop // не наш формат — пусть кодировщик скажет своё слово
+	}
+
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == real || (real == ".jpg" && ext == ".jpeg") {
+		return path, nop
+	}
+
+	dir, err := os.MkdirTemp("", "lvn-src-")
+	if err != nil {
+		return path, nop
+	}
+	link := filepath.Join(dir, strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))+real)
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	if err := os.Symlink(abs, link); err != nil {
+		os.RemoveAll(dir)
+		return path, nop
+	}
+	log.Printf("[ktx2] %s назван %s, а внутри %s — кодируем по содержимому", filepath.Base(path), ext, real)
+	return link, func() { os.RemoveAll(dir) }
 }
