@@ -272,7 +272,7 @@ namespace Lvn.UI.Screens
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
                 {
-                    _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
+                    _shell.Hub.OnDaily = () => OpenDailyWithStatusAsync();
                     // НАГРАДУ НАДО ЕЩЁ И НАЧИСЛИТЬ. Экран поднимал OnClaim и
                     // помечал день забранным, но подключить это к кошельку
                     // должен хост — а он не подключал: игрок жал «Забрать»,
@@ -367,6 +367,30 @@ namespace Lvn.UI.Screens
         /// кошелёк. Отказ показываем — молча погасшая ячейка без денег
         /// неотличима от удачи, а спросить не у кого.
         /// </summary>
+        /// <summary>
+        /// Открыть календарь наград, СПРОСИВ состояние серии у сервиса.
+        ///
+        /// <para>Раньше экран открывали как есть, и он показывал зашитый пятый
+        /// день: четыре ячейки с галочками, которых игрок не забирал. Сервис
+        /// стрик знал всё это время — его просто никто не спрашивал.</para>
+        ///
+        /// <para>Сеть молчит — открываем с тем, что есть: календарь без сервера
+        /// лучше, чем ничего вместо календаря.</para>
+        /// </summary>
+        private async Task OpenDailyWithStatusAsync()
+        {
+            if (_shell?.Daily != null)
+            {
+                try
+                {
+                    var st = await Lvn.Services.LvnDaily.GetAsync();
+                    if (st != null) _shell.Daily.SetStatus(st.Streak, st.ClaimedToday);
+                }
+                catch (Exception ex) { Debug.LogWarning($"[novelapp] серия наград: {ex.Message}"); }
+            }
+            await _shell.OpenDailyAsync();
+        }
+
         private async Task ClaimDailyAsync(int day)
         {
             bool ok = false;

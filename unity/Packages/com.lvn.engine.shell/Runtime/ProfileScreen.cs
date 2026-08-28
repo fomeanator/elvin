@@ -64,10 +64,19 @@ namespace Lvn.UI.Screens
         public bool Minimal;
         public LvnIcon AvatarIcon = LvnIcon.Profile;
         public string AvatarUrl;               // optional art; falls back to the glyph
-        public int Level = 7;
-        public int Xp = 1240;
-        public int XpNext = 2000;
-        public string Uid = "u_f025ad58dc6eb656";
+        // ЧЕГО ДВИЖОК НЕ СЧИТАЕТ, ТОГО ОН И НЕ ПОКАЗЫВАЕТ. Здесь стояли
+        // «уровень 7», «1240 из 2000 XP» и чужой идентификатор — демо-значения,
+        // которые никто никогда не задавал. Системы уровней в движке нет вовсе,
+        // и игрок видел свой «седьмой уровень» с первого запуска: цифра из
+        // воздуха читается как настоящая, потому что стоит там, где обычно
+        // настоящая.
+        //
+        // Ноль значит «неизвестно» — блок уровня и полоса опыта не рисуются,
+        // пока хост не выставит их сам (он же и ведёт счёт, если ведёт).
+        public int Level;
+        public int Xp;
+        public int XpNext;
+        public string Uid;
 
         // ФЕЙКА В ПРОФИЛЕ НЕТ (живой репорт): демонстрационные статы,
         // достижения и отношения удалены. Отношения — РЕАЛЬНЫЕ: хост
@@ -311,6 +320,10 @@ namespace Lvn.UI.Screens
             col.Add(name);
 
             if (Minimal) return card; // TR-25: профиль = имя + ID, без уровня и XP
+            // Уровня нет — секции нет: пустая полоса опыта врёт не меньше
+            // выдуманной, а «Уровень 0» выглядит поломкой.
+            if (Level <= 0 && XpNext <= 0) return card;
+
             var level = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = 26;
