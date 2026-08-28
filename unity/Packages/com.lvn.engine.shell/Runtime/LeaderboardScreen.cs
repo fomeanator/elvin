@@ -123,8 +123,8 @@ namespace Lvn.UI.Screens
             tabs.style.paddingTop = 4; tabs.style.paddingBottom = 4;
             sheet.Add(tabs);
 
-            _tabWeek = Pill("Неделя", () => SetPeriod(true));
-            _tabAll = Pill("Всё время", () => SetPeriod(false));
+            _tabWeek = Pill(LvnWords.Of("board.week", "This week"), () => SetPeriod(true));
+            _tabAll = Pill(LvnWords.Of("board.all_time", "All time"), () => SetPeriod(false));
             tabs.Add(_tabWeek);
             tabs.Add(_tabAll);
 

@@ -19,6 +19,13 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class NovelApp
     {
+        // Подпись главы в очереди загрузок: тире и слово «глава» были склеены
+        // кодом четырежды — в четырёх местах одинаково по-русски.
+        private static string ChapterEntryLabel(LvnTitle t, LvnChapter ch)
+            => LvnWords.Of("dl.chapter_entry", "{title} — chapter {n}")
+                .Replace("{title}", t.name ?? t.id)
+                .Replace("{n}", ch.number.ToString());
+
         // ── «Скачать всю игру» (ELVIN-85) ────────────────────────────────────
         // Полный список контента по манифесту, с ЭФФЕКТИВНЫМИ url (крупный
         // арт живёт @2k-вариантом — качаем то, что возьмёт показ).
@@ -110,7 +117,7 @@ namespace Lvn.UI.Screens
                         foreach (var kv in ch.assets)
                             Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
                     if (items.Count > 0)
-                        perChapter.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
+                        perChapter.Add((ChapterEntryLabel(t, ch), bytes, items));
                 }
             }
             // Всё, что не привязано к главам (обложки, меню, интерфейсные звуки).
@@ -122,7 +129,7 @@ namespace Lvn.UI.Screens
                 shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
                 sharedBytes += size > 0 ? size : 64 << 10;
             }
-            if (shared.Count > 0) _dlCenter.Enqueue("Обложки и меню", sharedBytes, shared);
+            if (shared.Count > 0) _dlCenter.Enqueue(LvnWords.Of("dl.shared", "Covers and menu"), sharedBytes, shared);
             foreach (var (label, bytes, items) in perChapter)
                 _dlCenter.Enqueue(label, bytes, items);
             Debug.Log($"[content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
@@ -182,7 +189,7 @@ namespace Lvn.UI.Screens
                             bytes += kv.Value?.size ?? 64 << 10;
                         }
                         if (items != null)
-                            redo.Add(($"{t.name ?? t.id} — глава {ch.number}", bytes, items));
+                            redo.Add((ChapterEntryLabel(t, ch), bytes, items));
                     }
                 }
             });
@@ -214,7 +221,7 @@ namespace Lvn.UI.Screens
             if (ch.assets != null)
                 foreach (var kv in ch.assets)
                     Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
-            _dlCenter.Enqueue($"{t.name ?? t.id} — глава {ch.number}", bytes, items);
+            _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items);
         }
 
         // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
@@ -243,7 +250,7 @@ namespace Lvn.UI.Screens
                     if (ch.assets != null)
                         foreach (var kv in ch.assets)
                         { Check(kv.Key, kv.Value?.kind ?? "sprite"); if (!ok) break; }
-                    res.Add(($"{t.name ?? t.id} — глава {ch.number}", ok));
+                    res.Add((ChapterEntryLabel(t, ch), ok));
                 }
             }
             return res;

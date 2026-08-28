@@ -20,9 +20,8 @@ namespace Lvn.UI.Screens
         // (стриминг), кнопка — для самолёта и плохой сети.
         private VisualElement StorageRow()
         {
-            var row = RowEx("Игра целиком",
-                "Скачайте истории заранее, чтобы играть без интернета. " +
-                "Пока не скачано — главы загружаются по мере чтения.");
+            var row = RowEx(LvnWords.Of("settings.full_game", "The whole game"),
+                LvnWords.Of("settings.full_game_hint", "Download the stories up front to play offline. Until then chapters load as you read."));
             var status = new Label("…");
             status.style.color = _dim;
             status.style.fontSize = 13;
@@ -53,7 +52,7 @@ namespace Lvn.UI.Screens
                     // «Докачать», когда на диске уже что-то живёт: игрок
                     // скачал почти всё — не предлагать ему «Скачать» заново.
                     btn.text = (used > (8L << 20) ? LvnWords.Of("device.finish", "Finish download") : LvnWords.Of("device.download", "Download"))
-                        + $" ≈{System.Math.Max(1, missing >> 20)} МБ";
+                        + " ≈" + System.Math.Max(1, missing >> 20) + " " + LvnWords.Of("unit.mb", "MB");
                     btn.SetEnabled(true);
                 }
             }
@@ -91,10 +90,9 @@ namespace Lvn.UI.Screens
         private VisualElement ArtQualityRow()
         {
             bool auto = string.IsNullOrEmpty(LvnPrefs.ArtQuality);
-            var row = RowEx("Качество арта",
-                (auto ? "Подобрано под ваш экран автоматически. " : "")
-                + "Ниже ступень — меньше трафика и памяти. Скачанное "
-                + "перекачается в новом качестве само");
+            var row = RowEx(LvnWords.Of("settings.art_quality", "Art quality"),
+                (auto ? LvnWords.Of("settings.art_quality_auto", "Picked for your screen automatically. ") : "")
+                + LvnWords.Of("settings.art_quality_hint", "A lower step means less traffic and memory. Anything downloaded re-fetches itself in the new quality."));
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
@@ -121,8 +119,8 @@ namespace Lvn.UI.Screens
 
         private VisualElement FpsRow()
         {
-            var row = RowEx("Кадровая частота",
-                "30 кадров — дольше живёт батарея; 60 — плавнее анимации");
+            var row = RowEx(LvnWords.Of("settings.frame_rate", "Frame rate"),
+                LvnWords.Of("settings.frame_rate_hint", "30 fps saves battery; 60 animates smoother"));
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);
@@ -147,8 +145,8 @@ namespace Lvn.UI.Screens
         // any purchases the account already owns. (Real platform restore is host-side.)
         private VisualElement RestoreRow()
         {
-            var row = RowEx("Восстановить покупки",
-                "Если после переустановки пропали покупки — нажмите");
+            var row = RowEx(LvnWords.Of("settings.restore_purchases", "Restore purchases"),
+                LvnWords.Of("settings.restore_purchases_hint", "Tap if purchases went missing after a reinstall"));
             var btn = new Button { text = LvnWords.Of("device.restore", "Restore") };
             StyleValueButton(btn, false);
             btn.clicked += () =>

@@ -87,7 +87,7 @@ namespace Lvn.UI.Screens
                 foreach (var c in list) if (c.Url == url) return;
                 list.Add((name, url));
             }
-            AddUnique("По умолчанию", defaultUrl);
+            AddUnique(LvnWords.Of("server.default", "Default"), defaultUrl);
             if (knownServers != null)
                 foreach (var s in knownServers) AddUnique(s.Name, s.Url);
             return list;

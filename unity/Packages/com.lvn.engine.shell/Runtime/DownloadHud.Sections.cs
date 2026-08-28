@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lvn.Content;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -28,11 +29,8 @@ namespace Lvn.UI.Screens
             if (off)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle("Играть без интернета"));
-                card.Add(Hint("Доступно всё, что уже скачано: главы ниже с галочкой "
-                    + "откроются в самолёте и без сети. Скачайте игру целиком — "
-                    + "и читайте где угодно; покупки за кристаллы тоже работают "
-                    + "офлайн и синхронизируются позже."));
+                card.Add(SectionTitle(LvnWords.Of("dl.offline_title", "Play offline")));
+                card.Add(Hint(LvnWords.Of("dl.offline_hint", "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later.")));
                 var chapters = ChaptersInfo?.Invoke();
                 if (chapters != null)
                     foreach (var (label, cached) in chapters)
@@ -43,17 +41,17 @@ namespace Lvn.UI.Screens
             if (pend > 0)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle("Ждут отправки"));
+                card.Add(SectionTitle(LvnWords.Of("dl.pending_title", "Waiting to send")));
                 card.Add(Hint(off
-                    ? $"Событий: {pend} — покупки и прогресс сохранены на устройстве и уедут на сервер, как только появится сеть."
-                    : $"Отправляем на сервер: {pend} событий (покупки, прогресс)."));
+                    ? LvnWords.Of("dl.pending_offline", "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network.").Replace("{n}", pend.ToString())
+                    : LvnWords.Of("dl.pending_sending", "Sending to the server: {n} events (purchases, progress).").Replace("{n}", pend.ToString())));
                 _sections.Add(card);
             }
 
             if (Center != null && Center.Queue.Count > 0)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle("Очередь загрузки"));
+                card.Add(SectionTitle(LvnWords.Of("dl.queue_title", "Download queue")));
                 foreach (var e in Center.Queue)
                     card.Add(QueueRow(e));
                 _sections.Add(card);
@@ -64,8 +62,8 @@ namespace Lvn.UI.Screens
             if (missing.Item2 > 0 && DownloadAll != null && !(Center != null && Center.Queue.Count > 0))
             {
                 var card = SectionCard();
-                card.Add(SectionTitle("Вся игра — с собой"));
-                card.Add(Hint("Скачайте один раз и играйте без интернета: главы, арт и музыка останутся на устройстве."));
+                card.Add(SectionTitle(LvnWords.Of("dl.all_title", "The whole game with you")));
+                card.Add(Hint(LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device.")));
                 var offer = CurrentChapterOffer?.Invoke();
                 if (offer != null)
                 {
@@ -83,7 +81,8 @@ namespace Lvn.UI.Screens
                 }
                 bool partial = HasSomeDownloaded?.Invoke() ?? false;
                 var btn = new Button { text =
-                    (partial ? "Докачать" : "Скачать всё") + $" ≈{Mathf.Max(1, missing.Item1 >> 20)} МБ" };
+                    (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download all"))
+                    + " ≈" + Mathf.Max(1, missing.Item1 >> 20) + " " + LvnWords.Of("unit.mb", "MB") };
                 btn.style.height = 52;
                 btn.style.fontSize = 22;
                 btn.style.marginTop = 8;
@@ -213,7 +212,7 @@ namespace Lvn.UI.Screens
                 row.style.paddingLeft = 8;
             }
             var l = new Label((e.Active ? "▶ " : "") + e.Label
-                + (e.Bytes > 0 ? $" · {Mathf.Max(1, e.Bytes >> 20)} МБ" : ""));
+                + (e.Bytes > 0 ? " · " + Mathf.Max(1, e.Bytes >> 20) + " " + LvnWords.Of("unit.mb", "MB") : ""));
             l.pickingMode = PickingMode.Ignore;
             l.style.color = e.Active ? LvnTokens.Text : LvnTokens.TextDim;
             l.style.fontSize = 20;

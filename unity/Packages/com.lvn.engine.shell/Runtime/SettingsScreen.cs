@@ -129,18 +129,18 @@ namespace Lvn.UI.Screens
                     {
                         // Два ползунка (решение партнёров): «Звуки» ведёт разом
                         // эффекты, печать, интерфейс и эмбиент; голос — туда же.
-                        _list.Add(VolumeRow("Музыка", "Треки историй и главного меню",
+                        _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), LvnWords.Of("settings.music_hint", "Story and menu tracks"),
                             () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                        _list.Add(VolumeRow("Звуки", "Выборы, эффекты сцен и атмосфера",
+                        _list.Add(VolumeRow(LvnWords.Of("settings.sounds", "Sounds"), LvnWords.Of("settings.sounds_hint", "Choices, scene effects and ambience"),
                             () => LvnPrefs.VolSfx,
                             v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
                     }
                     else
                     {
-                        _list.Add(VolumeRow("Музыка", null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                        _list.Add(VolumeRow("Эмбиент", null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                        _list.Add(VolumeRow("Эффекты", null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                        _list.Add(VolumeRow("Голос", null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+                        _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                        _list.Add(VolumeRow(LvnWords.Of("settings.ambient", "Ambience"), null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
+                        _list.Add(VolumeRow(LvnWords.Of("settings.sfx", "Effects"), null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
+                        _list.Add(VolumeRow(LvnWords.Of("settings.voice", "Voice"), null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
                     }
                     if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
                         _list.Add(LanguageRow());
@@ -149,17 +149,17 @@ namespace Lvn.UI.Screens
                     break;
 
                 case "reading":
-                    _list.Add(RangeRow("Скорость текста", "Темп печати реплик",
+                    _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
                         0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
-                    _list.Add(SwitchRow("Авто-чтение", "Реплики листаются сами",
+                    _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
                         () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
-                    _list.Add(RangeRow("Задержка авто", "Пауза перед следующей репликой",
+                    _list.Add(RangeRow(LvnWords.Of("settings.auto_delay", "Auto delay"), LvnWords.Of("settings.auto_delay_hint", "Pause before the next line"),
                         0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-                    _list.Add(RangeRow("Прозрачность окна", "Плашка диалога; текст всегда чёткий",
+                    _list.Add(RangeRow(LvnWords.Of("settings.box_opacity", "Box opacity"), LvnWords.Of("settings.box_opacity_hint", "The dialogue plate; text stays crisp"),
                         0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
-                    _list.Add(SwitchRow("Скип: только прочитанное", "Перемотка стоит на новых репликах",
+                    _list.Add(SwitchRow(LvnWords.Of("settings.skip_read", "Skip read only"), LvnWords.Of("settings.skip_read_hint", "Fast-forward stops at new lines"),
                         () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
-                    _list.Add(SwitchRow("Меньше движения", "Без тряски камеры и вспышек",
+                    _list.Add(SwitchRow(LvnWords.Of("settings.reduce_motion", "Reduce motion"), LvnWords.Of("settings.reduce_motion_hint", "No camera shake or flashes"),
                         () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
                     break;
 
@@ -173,7 +173,7 @@ namespace Lvn.UI.Screens
                 case "account":
                     _list.Add(UidRow());
                     _accountRow = RowEx(_cfg.account_label ?? LvnWords.Of("settings.account", "Account"),
-                        "Хранит прогресс и покупки на сервере");
+                        LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
                     _list.Add(_accountRow);
                     SetAccountStatus("…", showSignIn: false);
                     _list.Add(RestoreRow());
@@ -194,8 +194,8 @@ namespace Lvn.UI.Screens
             row.style.marginBottom = 14;
             foreach (var (id, label) in new[]
             {
-                ("main", "Основные"), ("reading", "Чтение"),
-                ("data", "Данные"), ("account", "Аккаунт"),
+                ("main", LvnWords.Of("settings.tab_main", "General")), ("reading", LvnWords.Of("settings.tab_reading", "Reading")),
+                ("data", LvnWords.Of("settings.tab_data", "Data")), ("account", LvnWords.Of("settings.tab_account", "Account")),
             })
             {
                 var b = new Button { text = label };
@@ -215,7 +215,7 @@ namespace Lvn.UI.Screens
         // Трек главного меню — как в жанровых флагманах: пилюли с выбором.
         private VisualElement MenuTrackRow()
         {
-            var row = RowEx("Трек меню", "Какая музыка играет на витрине");
+            var row = RowEx(LvnWords.Of("settings.menu_track", "Menu track"), LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"));
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             seg.style.flexWrap = Wrap.Wrap;
@@ -250,7 +250,7 @@ namespace Lvn.UI.Screens
         private VisualElement SoundRow()
         {
             var row = RowEx(_cfg.sound_label ?? LvnWords.Of("settings.sound", "All sounds"),
-                "Полностью выключает музыку и эффекты");
+                LvnWords.Of("settings.mute_hint", "Turns music and effects fully off"));
             var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? LvnWords.Of("common.on", "On")) : (_cfg.off_text ?? LvnWords.Of("common.off", "Off")) };
             StyleValueButton(btn, LvnPrefs.SoundOn);
             btn.clicked += () =>
@@ -318,7 +318,7 @@ namespace Lvn.UI.Screens
         private VisualElement LanguageRow()
         {
             var row = RowEx(_cfg.language_label ?? LvnWords.Of("settings.language", "Story language"),
-                "Текст глав; интерфейс следует за ним");
+                LvnWords.Of("settings.language_hint", "Chapter text; the interface follows it"));
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             row.Add(seg);

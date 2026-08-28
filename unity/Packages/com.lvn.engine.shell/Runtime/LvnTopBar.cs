@@ -173,10 +173,12 @@ namespace Lvn.UI.Screens
             _gameRow.style.paddingLeft = 8; _gameRow.style.paddingRight = 8;
             _gameRow.style.display = DisplayStyle.None;
             _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-            _gameRow.Add(GameButton(LvnIcon.Home, "Выйти в меню", () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Book, "История", () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Wardrobe, "Гардероб", () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Store, "Магазин", () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
+            // Подписи игровой панели — через словарь: зашитые по-русски, они делали
+            // английскую сборку невозможной, хотя дом для слов давно есть.
+            _gameRow.Add(GameButton(LvnIcon.Home, LvnWords.Of("game.exit", "Menu"), () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Book, LvnWords.Of("game.history", "History"), () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Wardrobe, LvnWords.Of("game.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Store, LvnWords.Of("game.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
             Add(_gameRow);
 
             RefreshBalances();

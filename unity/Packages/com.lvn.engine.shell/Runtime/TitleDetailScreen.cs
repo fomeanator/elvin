@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 34;
-            section.Add(SectionHeader("Твои статы"));
+            section.Add(SectionHeader(LvnWords.Of("stats.title", "Your stats")));
 
             foreach (var s in Title.stats)
                 if (s != null)
@@ -309,7 +309,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 36;
-            section.Add(SectionHeader("Главы"));
+            section.Add(SectionHeader(LvnWords.Of("chapters.title", "Chapters")));
 
             int reached = LvnProgress.Reached(Title);
             var current = LvnProgress.Current(Title);
@@ -390,7 +390,7 @@ namespace Lvn.UI.Screens
             stateIcon.style.marginRight = 5;
             stateBox.Add(stateIcon);
             var stateLbl = new Label(state == 0 ? LvnWords.Of("chapter.done", "finished") : state == 1 ? LvnWords.Of("chapter.current", "current")
-                : state == 3 ? "доступна" : "закрыто");
+                : state == 3 ? LvnWords.Of("chapter.available", "available") : LvnWords.Of("chapter.locked", "locked"));
             stateLbl.style.fontSize = 20;
             stateLbl.style.color = stateColor;
             stateBox.Add(stateLbl);

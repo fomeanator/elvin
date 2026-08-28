@@ -180,7 +180,7 @@ namespace Lvn.UI.Screens
                     // пальца сразу после тапа, читалось как «не применилось,
                     // жми второй раз» (живой репорт 28.08).
                     StyleEmotions(reveal: false);
-                }) { text = EmotionRu.TryGetValue(v, out var ru) ? ru : v };
+                }) { text = EmotionLabel(v) };
                 chip.name = "emo-" + v;
                 chip.style.height = 44;
                 chip.style.marginBottom = 8;
