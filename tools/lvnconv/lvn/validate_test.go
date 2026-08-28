@@ -710,3 +710,39 @@ func TestCorrectDurationSpellingIsQuiet(t *testing.T) {
 		}
 	}
 }
+
+// ТЁЗКА: слово написано ВЕРНО, ошибочно место.
+//
+// Три слова языка работают и командой, и полем чужой команды: `fade` (поле у
+// bg/audio — длительность перехода), `flash` и `tint` (поля у sfx/fx). Автор,
+// знающий их как поля, пишет их полем и там, где поля нет. Подсказка по
+// расстоянию тут бессильна — опечатки нет.
+//
+// Цена путаницы известна поимённо: тёзка `hint` (команда против поля опции)
+// стоила двух руководств, годами учивших не применять рабочую команду.
+func TestFieldNamedLikeACommandExplainsItself(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"bg","id":"hall","tint":"#800020"},
+	 {"op":"audio","channel":"music","action":"play","url":"/a.ogg","flash":1}
+	]}`)
+	issues := Validate(d)
+	for _, want := range []string{`"tint" is a COMMAND of its own`, `"flash" is a COMMAND of its own`} {
+		if !hasWarn(issues, want) {
+			t.Fatalf("не объяснено: %s\n%+v", want, issues)
+		}
+	}
+}
+
+// А там, где поле ЗАКОННО (tint у sfx, fade у bg), — молчание.
+func TestLegitimateNamesakeFieldsAreQuiet(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"sfx","id":"a","tint":0.4,"flash":1},
+	 {"op":"bg","id":"hall","fade":1.2},
+	 {"op":"tint","color":"#800020","duration":0.5}
+	]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "is a COMMAND of its own") {
+			t.Fatalf("законное поле не должно предупреждать: %s", is.Msg)
+		}
+	}
+}
