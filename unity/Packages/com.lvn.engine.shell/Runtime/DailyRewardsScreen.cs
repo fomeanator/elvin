@@ -107,11 +107,7 @@ namespace Lvn.UI.Screens
             titleCol.style.flexGrow = 1;
             header.Add(titleCol);
 
-            var title = new Label(LvnWords.Of("daily.title", "Daily reward"));
-            LvnChrome.Heading(title);
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = 42;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            var title = SectionTitle(LvnWords.Of("daily.title", "Daily reward"));
             titleCol.Add(title);
 
             _subtitle = new Label();

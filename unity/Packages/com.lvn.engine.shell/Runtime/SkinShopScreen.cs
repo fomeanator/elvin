@@ -103,11 +103,7 @@ namespace Lvn.UI.Screens
             back.AddManipulator(new Clickable(Close));
             left.Add(back);
 
-            var title = new Label(LvnWords.Of("skinshop.title", "Wardrobe"));
-            LvnChrome.Heading(title);
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = 40;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            var title = SectionTitle(LvnWords.Of("skinshop.title", "Wardrobe"));
             left.Add(title);
 
             var balancePill = new VisualElement();
