@@ -38,7 +38,7 @@ namespace Lvn
             // Битую суррогатную пару .NET считает поводом бросить — а имя
             // персонажа не повод ронять главу: берём как есть.
             try { s = s.Normalize(NormalizationForm.FormC); }
-            catch (ArgumentException) { }
+            catch (ArgumentException) { /* битая суррогатная пара — берём как есть */ }
             var sb = new StringBuilder(s.Length);
             foreach (var c in s.ToLowerInvariant())
                 if (char.IsLetterOrDigit(c)) sb.Append(c);
