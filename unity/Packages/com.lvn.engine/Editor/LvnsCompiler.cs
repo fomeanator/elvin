@@ -524,6 +524,23 @@ namespace Lvn.Editor
                     i++; continue;
                 }
 
+                // ПРОЗА, ВЗЯТАЯ В «…», — ЦЕЛИКОМ ТЕКСТ, И ДВОЕТОЧИЕ В НЕЙ
+                // ОБЫЧНЫЙ ЗНАК. Портировано из Go-транскодера (28.08): разрез
+                // «имя: текст» шёл по сырой строке, не глядя на кавычки, и
+                // «Вывеска гласила: закрыто.» превращалась в реплику говорящего
+                // «Вывеска гласила». Тот же путь советует сообщение компилятора
+                // про неизвестную команду — и совет не работал.
+                //
+                // Кавычки ВНУТРИ реплики (`Анна: «Пауза»`) это не задевает:
+                // проверяется, что строка НАЧИНАЕТСЯ с «, то есть имени перед
+                // ней нет.
+                if (line.StartsWith("«") && line.EndsWith("»") && line.Length > 2)
+                {
+                    string prose = line.Substring("«".Length, line.Length - "«".Length - "»".Length).Trim();
+                    script.Add(new JObject { ["op"] = "say", ["text"] = prose });
+                    i++; continue;
+                }
+
                 // Dialogue: Name [emotion]: Text   — or narration
                 Match m = reDialogue.Match(line);
                 if (m.Success)
