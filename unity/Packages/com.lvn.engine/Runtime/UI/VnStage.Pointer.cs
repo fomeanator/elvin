@@ -197,11 +197,14 @@ namespace Lvn.UI
             // not advance/re-print the room). Hotspots win over tap-to-advance.
             if (_hotspots.Count > 0 && _uiRoot != null)
             {
-                float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
-                var hit = HotspotAt(pos, pw, ph);
+                // Долю сцены считает общий перевод: здесь делили на размер
+                // панели своими руками, и нулевой размер (первый layout, поворот
+                // экрана) давал NaN — зона клика молча переставала ловить.
+                var np = StagePoint(pos);
+                var hit = np is Vector2 n ? HotspotAt(n) : null;
                 if (hit != null)
                 {
-                    LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0} of {pw:0}x{ph:0}] → HOTSPOT");
+                    LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0} → {np.Value.x:0.00},{np.Value.y:0.00}] → HOTSPOT");
                     // Hotspots stay armed (no clear): clicking another object jumps
                     // straight to it (its on_click GoTo overrides the cursor), so no
                     // phantom "dismiss" tap is needed. A MISS falls through to the
@@ -210,7 +213,7 @@ namespace Lvn.UI
                     hit();
                     return;
                 }
-                LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0} of {pw:0}x{ph:0}] → miss → advance");
+                LvnPlayer.Log?.Invoke($"[click {pos.x:0},{pos.y:0}] → miss → advance");
                 // A timed hotspot screen: a miss must neither advance nor
                 // complete the line — the wait keeps ticking until hit/timeout.
                 if (_awaitingWait) return;
@@ -248,10 +251,11 @@ namespace Lvn.UI
         // the Device Simulator / touch). Both the pointer and each actor's real
         // on-screen rect are normalized to 0..1 top-left, so it's independent of
         // pixel scale and aspect (and panel-vs-canvas coordinate differences).
-        private System.Action HotspotAt(Vector2 panelPos, float panelW, float panelH)
+        // Точка уже В ДОЛЯХ сцены (StagePoint): перевод — не работа поиска зоны.
+        private System.Action HotspotAt(Vector2 np)
         {
-            if (_renderer == null || panelW <= 0f || panelH <= 0f) return null;
-            float nx = panelPos.x / panelW, ny = panelPos.y / panelH; // UITK: top-left, y-down
+            if (_renderer == null) return null;
+            float nx = np.x, ny = np.y; // UITK: top-left, y-down
             for (int i = _hotspots.Count - 1; i >= 0; i--)
             {
                 // Renderer-normalized rect (0..1, top-left origin); null when the

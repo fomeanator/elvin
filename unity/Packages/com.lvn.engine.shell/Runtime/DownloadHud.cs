@@ -56,7 +56,11 @@ namespace Lvn.UI.Screens
         public bool HasWork => _shown;
 
         /// <summary>Отступ safe area — кружок сидит в строке бара, ниже выреза.</summary>
-        public void SetSafeTop(float units) => _capsule.style.marginTop = units + 5f;
+        public void SetSafeTop(float units)
+        {
+            if (_capsule == null) return;   // ещё строимся: отступ придёт с панелью
+            _capsule.style.marginTop = units + 5f;
+        }
 
         /// <summary>Модаль сцены открыта: мини-кружок прячется (декор уступает),
         /// развёрнутый попап — модаль оболочки и остаётся поверх.</summary>
