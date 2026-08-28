@@ -182,7 +182,7 @@ namespace Lvn.UI
         {
             if (_seen.TryGetValue(entity, out var map)) return map;
             map = new Dictionary<string, HashSet<string>>();
-            var json = PlayerPrefs.GetString(PSeen + entity, "");
+            var json = LvnKeep.Get(PSeen + entity, "");
             if (!string.IsNullOrEmpty(json))
             {
                 try
@@ -211,7 +211,7 @@ namespace Lvn.UI
                 foreach (var v in kv.Value) arr.Add(v);
                 doc[kv.Key] = arr;
             }
-            PlayerPrefs.SetString(PSeen + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
+            LvnKeep.Jot(PSeen + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
             // Без немедленного Save(): первое открытие сюжетного листа метит
             // ВЕСЬ каталог разом, и полный флаш prefs-файла на каждый предмет
             // складывался в один длинный кадр прямо перед подъёмом панели
@@ -226,9 +226,11 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(entity)) return;
             _cache.Remove(entity);
             _seen.Remove(entity);
-            PlayerPrefs.DeleteKey(P + entity);
-            PlayerPrefs.DeleteKey(PSeen + entity);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(P + entity);
+                LvnKeep.Drop(PSeen + entity);
+            }
             Changed?.Invoke(entity);
         }
 
@@ -237,7 +239,7 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(entity)) return new Dictionary<string, string>();
             if (_cache.TryGetValue(entity, out var map)) return map;
             map = new Dictionary<string, string>();
-            var json = PlayerPrefs.GetString(P + entity, "");
+            var json = LvnKeep.Get(P + entity, "");
             if (!string.IsNullOrEmpty(json))
             {
                 try
@@ -259,8 +261,7 @@ namespace Lvn.UI
         {
             var doc = new Newtonsoft.Json.Linq.JObject();
             foreach (var kv in map) doc[kv.Key] = kv.Value;
-            PlayerPrefs.SetString(P + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
-            PlayerPrefs.Save();
+            LvnKeep.Put(P + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
         }
     }
 }

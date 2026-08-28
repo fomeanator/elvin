@@ -17,7 +17,7 @@ namespace Lvn.UI
         /// <summary>The set of unlocked item ids for a title (a fresh copy).</summary>
         public static HashSet<string> Unlocked(string titleId)
         {
-            var json = PlayerPrefs.GetString(Key(titleId), "");
+            var json = LvnKeep.Get(Key(titleId), "");
             if (string.IsNullOrEmpty(json)) return new HashSet<string>();
             try { return JsonConvert.DeserializeObject<HashSet<string>>(json) ?? new HashSet<string>(); }
             catch { return new HashSet<string>(); }
@@ -32,16 +32,14 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(itemId)) return false;
             var set = Unlocked(titleId);
             if (!set.Add(itemId)) return false;
-            PlayerPrefs.SetString(Key(titleId), JsonConvert.SerializeObject(set));
-            PlayerPrefs.Save();
+            LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(set));
             return true;
         }
 
         /// <summary>Forget every unlock for a title (debug / "reset progress").</summary>
         public static void Clear(string titleId)
         {
-            PlayerPrefs.DeleteKey(Key(titleId));
-            PlayerPrefs.Save();
+            LvnKeep.Drop(Key(titleId));
         }
     }
 }

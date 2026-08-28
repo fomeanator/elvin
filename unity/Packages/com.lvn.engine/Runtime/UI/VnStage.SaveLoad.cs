@@ -50,8 +50,7 @@ namespace Lvn.UI
             try
             {
                 var json = Newtonsoft.Json.JsonConvert.SerializeObject(_player.Save());
-                PlayerPrefs.SetString(SaveKey(cmd), json);
-                PlayerPrefs.Save();
+                LvnKeep.Put(SaveKey(cmd), json);
                 LvnPlayer.Log?.Invoke("saved → " + SaveKey(cmd));
             }
             catch (System.Exception e) { Debug.LogWarning("[lvn] save failed: " + e.Message); }
@@ -60,12 +59,12 @@ namespace Lvn.UI
         private void LoadSlot(JObject cmd)
         {
             if (_player == null) return;
-            var json = PlayerPrefs.GetString(SaveKey(cmd), "");
+            var json = LvnKeep.Get(SaveKey(cmd), "");
             if (string.IsNullOrEmpty(json))
             {
                 // Legacy fallback: saves written before keys were title-namespaced.
                 var slot = (string)cmd["slot"];
-                json = PlayerPrefs.GetString("lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot), "");
+                json = LvnKeep.Get("lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot), "");
             }
             LvnPlayer.LvnSnapshot snap = null;
             if (!string.IsNullOrEmpty(json))

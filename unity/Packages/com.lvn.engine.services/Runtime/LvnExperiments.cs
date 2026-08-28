@@ -82,8 +82,7 @@ namespace Lvn.Services
                 // отправлять в аналитику одну группу, а показывать другую.
                 _cache.Clear();
                 foreach (var kv in _server) _cache[kv.Key] = kv.Value;
-                PlayerPrefs.SetString(PServer, obj.ToString(Newtonsoft.Json.Formatting.None));
-                PlayerPrefs.Save();
+                LvnKeep.Put(PServer, obj.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch { /* испорченный ответ — живём на локальном делении */ }
         }
@@ -96,7 +95,7 @@ namespace Lvn.Services
             _loaded = true;
             try
             {
-                var raw = PlayerPrefs.GetString(PServer, "");
+                var raw = LvnKeep.Get(PServer, "");
                 if (string.IsNullOrEmpty(raw)) return;
                 foreach (var p in JObject.Parse(raw).Properties())
                 {

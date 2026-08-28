@@ -122,7 +122,7 @@ namespace Lvn.Services
             _loaded = true;
             try
             {
-                var raw = PlayerPrefs.GetString(PQueue, "");
+                var raw = LvnKeep.Get(PQueue, "");
                 if (!string.IsNullOrEmpty(raw))
                     foreach (var t in JArray.Parse(raw))
                         if (t is JObject o) _queue.Add(o);
@@ -134,7 +134,9 @@ namespace Lvn.Services
         {
             try
             {
-                lock (_queue) PlayerPrefs.SetString(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
+                // Карандашом: очередь переписывается на КАЖДОЕ событие, а теряется
+                // разве что хвост — фиксация приедет с уходом в фон.
+                lock (_queue) LvnKeep.Jot(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
             }
             catch { }   // аналитика не отправилась — это НИКОГДА не повод мешать игре
         }

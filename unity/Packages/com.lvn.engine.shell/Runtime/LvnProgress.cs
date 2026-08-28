@@ -27,13 +27,15 @@ namespace Lvn.UI.Screens
         public static void SetCurrent(LvnTitle title, LvnChapter chapter)
         {
             if (title == null || chapter == null) return;
-            PlayerPrefs.SetString(CurKey(title.id), chapter.id);
-            // The NUMBER rides along: a re-import that renames chapter ids must
-            // not orphan the marker — position is the player's, ids are ours.
-            PlayerPrefs.SetInt(CurNumKey(title.id), chapter.number);
-            if (chapter.number > Reached(title))
-                PlayerPrefs.SetInt(ReachedKey(title.id), chapter.number);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Put(CurKey(title.id), chapter.id);
+                // The NUMBER rides along: a re-import that renames chapter ids must
+                // not orphan the marker — position is the player's, ids are ours.
+                LvnKeep.Put(CurNumKey(title.id), chapter.number);
+                if (chapter.number > Reached(title))
+                    LvnKeep.Put(ReachedKey(title.id), chapter.number);
+            }
         }
 
         /// <summary>
@@ -96,7 +98,7 @@ namespace Lvn.UI.Screens
         public static LvnChapter Current(LvnTitle title)
         {
             if (title?.seasons == null) return null;
-            var id = PlayerPrefs.GetString(CurKey(title.id), "");
+            var id = LvnKeep.Get(CurKey(title.id), "");
             if (string.IsNullOrEmpty(id)) return null;
             foreach (var s in title.seasons)
                 if (s?.chapters != null)
@@ -106,7 +108,7 @@ namespace Lvn.UI.Screens
             // The id vanished (a re-import renamed chapters) — recover by the
             // stored NUMBER and heal the marker. Losing a whole playthrough to
             // an id rename is exactly the progress loss this store must forbid.
-            int num = PlayerPrefs.GetInt(CurNumKey(title.id), 0);
+            int num = LvnKeep.Get(CurNumKey(title.id), 0);
             if (num > 0)
                 foreach (var s in title.seasons)
                     if (s?.chapters != null)
@@ -121,15 +123,20 @@ namespace Lvn.UI.Screens
 
         /// <summary>The furthest chapter number ever started (0 = nothing yet).</summary>
         public static int Reached(LvnTitle title) =>
-            title == null ? 0 : PlayerPrefs.GetInt(ReachedKey(title.id), 0);
+            title == null ? 0 : LvnKeep.Get(ReachedKey(title.id), 0);
 
         /// <summary>Forget the continue point (the novel was finished — replays
         /// start clean). Reached is kept so the picker stays unlocked.</summary>
         public static void ClearCurrent(LvnTitle title)
         {
             if (title == null) return;
-            PlayerPrefs.DeleteKey(CurKey(title.id));
-            PlayerPrefs.DeleteKey(CurNumKey(title.id));
+            // Стирание фиксируется наравне с записью: без этого пройденная
+            // новелла после краха снова открывалась «в середине».
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(CurKey(title.id));
+                LvnKeep.Drop(CurNumKey(title.id));
+            }
         }
 
         /// <summary>Vault restore: re-plant a marker recovered from the progress
@@ -139,12 +146,11 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(titleId)) return;
             if (!string.IsNullOrEmpty(chapterId))
             {
-                PlayerPrefs.SetString(CurKey(titleId), chapterId);
-                PlayerPrefs.SetInt(CurNumKey(titleId), number);
+                LvnKeep.Put(CurKey(titleId), chapterId);
+                LvnKeep.Put(CurNumKey(titleId), number);
             }
-            if (reached > PlayerPrefs.GetInt(ReachedKey(titleId), 0))
-                PlayerPrefs.SetInt(ReachedKey(titleId), reached);
-            PlayerPrefs.Save();
+            if (reached > LvnKeep.Get(ReachedKey(titleId), 0))
+                LvnKeep.Put(ReachedKey(titleId), reached);
         }
 
         // ── chapter-entry checkpoints ────────────────────────────────────────
@@ -166,8 +172,7 @@ namespace Lvn.UI.Screens
             {
                 var all = ReadCheckpoints(titleId);
                 all[chapterId] = vars ?? new JObject();
-                PlayerPrefs.SetString(EntryKey(titleId), all.ToString(Newtonsoft.Json.Formatting.None));
-                PlayerPrefs.Save();
+                LvnKeep.Put(EntryKey(titleId), all.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch { /* checkpoints are a comfort feature — never fatal */ }
         }
@@ -184,7 +189,7 @@ namespace Lvn.UI.Screens
         {
             try
             {
-                var s = PlayerPrefs.GetString(EntryKey(titleId), "");
+                var s = LvnKeep.Get(EntryKey(titleId), "");
                 return string.IsNullOrEmpty(s) ? new JObject() : JObject.Parse(s);
             }
             catch { return new JObject(); }
@@ -194,20 +199,18 @@ namespace Lvn.UI.Screens
         /// explicit RESTART — seed from its checkpoint, not the live state".</summary>
         public static void RequestRestart(string titleId, string chapterId)
         {
-            PlayerPrefs.SetString(RestartKey(titleId), chapterId ?? "");
-            PlayerPrefs.Save();
+            LvnKeep.Put(RestartKey(titleId), chapterId ?? "");
         }
 
         /// <summary>Peek the pending restart target without consuming it — the
         /// shell checks whether the incoming play is an explicit from-the-top
         /// restart (which re-asks the player's name like any fresh start).</summary>
         public static string PendingRestart(string titleId) =>
-            PlayerPrefs.GetString(RestartKey(titleId), "");
+            LvnKeep.Get(RestartKey(titleId), "");
 
         /// <summary>Withdraw a pending restart request — the player chose to
         /// continue their held position instead.</summary>
-        public static void ClearRestart(string titleId) =>
-            PlayerPrefs.DeleteKey(RestartKey(titleId));
+        public static void ClearRestart(string titleId) => LvnKeep.Drop(RestartKey(titleId));
 
         /// <summary>Consume the pending restart request (one-shot): whatever
         /// chapter enters FIRST after the pick clears the flag — a stale request
@@ -216,9 +219,12 @@ namespace Lvn.UI.Screens
         /// that was picked.</summary>
         public static bool TakeRestart(string titleId, string chapterId)
         {
-            var pending = PlayerPrefs.GetString(RestartKey(titleId), "");
+            var pending = LvnKeep.Get(RestartKey(titleId), "");
             if (string.IsNullOrEmpty(pending)) return false;
-            PlayerPrefs.DeleteKey(RestartKey(titleId));
+            // Гашение фиксируется: незафиксированное стирание воскрешало
+            // залежавшийся запрос после краха — ровно то, чего требует
+            // избежать комментарий выше.
+            LvnKeep.Drop(RestartKey(titleId));
             return pending == chapterId;
         }
 
@@ -228,12 +234,14 @@ namespace Lvn.UI.Screens
         /// (Persisted stats and save slots live elsewhere — the host clears those.)</summary>
         public static void ResetTitle(string titleId)
         {
-            PlayerPrefs.DeleteKey(CurKey(titleId));
-            PlayerPrefs.DeleteKey(CurNumKey(titleId));
-            PlayerPrefs.DeleteKey(ReachedKey(titleId));
-            PlayerPrefs.DeleteKey(EntryKey(titleId));
-            PlayerPrefs.DeleteKey(RestartKey(titleId));
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(CurKey(titleId));
+                LvnKeep.Drop(CurNumKey(titleId));
+                LvnKeep.Drop(ReachedKey(titleId));
+                LvnKeep.Drop(EntryKey(titleId));
+                LvnKeep.Drop(RestartKey(titleId));
+            }
         }
     }
 }

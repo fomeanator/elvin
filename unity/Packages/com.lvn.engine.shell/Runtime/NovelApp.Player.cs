@@ -35,15 +35,14 @@ namespace Lvn.UI.Screens
             // key to every server-side possession (wallet, stats, progress
             // backup) — a corrupted prefs blob must never orphan them.
             var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
-            var id = PlayerPrefs.GetString("lvn_user", "");
+            var id = LvnKeep.Get("lvn_user", "");
             if (string.IsNullOrEmpty(id))
             {
                 try { if (System.IO.File.Exists(idFile)) id = System.IO.File.ReadAllText(idFile).Trim(); }
                 catch { /* unreadable second home — fall through */ }
             }
             if (string.IsNullOrEmpty(id)) id = System.Guid.NewGuid().ToString("N");
-            PlayerPrefs.SetString("lvn_user", id);
-            PlayerPrefs.Save();
+            LvnKeep.Put("lvn_user", id);
             try { System.IO.File.WriteAllText(idFile, id); } catch { /* prefs copy still holds */ }
             return id;
         }

@@ -1,0 +1,176 @@
+using System;
+using UnityEngine;
+
+namespace Lvn
+{
+    /// <summary>
+    /// ЗАПИСНАЯ КНИЖКА УСТРОЙСТВА — всё, что игра помнит между запусками, и
+    /// единственное место, которое знает, ЧЕМ она это помнит.
+    ///
+    /// <para>Замер до выделения: 166 обращений к <c>PlayerPrefs</c> в 20 файлах,
+    /// 42 фиксации на 66 записей. Фиксацию звали «когда вспомнят», и это не
+    /// придирка к стилю — записать без фиксации значит держать значение только
+    /// в памяти процесса: при обычном выходе Unity его сохранит, при крахе или
+    /// снятии приложения — нет.</para>
+    ///
+    /// <para>Хуже, что «нет фиксации» было НЕОТЛИЧИМО от «забыли фиксацию».
+    /// В одном только учёте прогресса записи фиксировались, а удаления нет —
+    /// и одноразовый флаг перезапуска гасился без фиксации, ровно вопреки
+    /// комментарию строкой выше: «залежавшийся запрос не должен выстрелить на
+    /// чужой главе». После краха он воскресал и выстреливал. Рядом же лежит
+    /// пропуск НАМЕРЕННЫЙ и объяснённый: гардероб метит весь каталог разом, и
+    /// полный флаш на каждый предмет складывался в длинный кадр перед подъёмом
+    /// панели.</para>
+    ///
+    /// <para>Ответственность: хранить и решать вопрос фиксации ЯВНО. Отсюда два
+    /// глагола вместо одного: <see cref="Put(string,string)"/> — записать и
+    /// зафиксировать, <see cref="Jot(string,string)"/> — записать в карандаше,
+    /// потому что путь горячий. Карандашное больше не теряется: книжка сама
+    /// фиксирует его, когда приложение уходит в фон или закрывается.</para>
+    ///
+    /// <para>Что здесь НЕ живёт: смысл ключей. Какие имена у прогресса, что
+    /// значит «дошёл» и когда его сбрасывать — дело владельцев (LvnProgress,
+    /// LvnPrefs, кошелёк). Книжка не знает, что записывает.</para>
+    /// </summary>
+    public static class LvnKeep
+    {
+        private static int _batch;      // глубина открытых пачек
+        private static bool _pending;   // есть незафиксированное карандашное
+
+        static LvnKeep()
+        {
+            // Карандаш обязан пережить уход в фон: на телефоне это и есть самый
+            // частый способ закрыть игру. Оба события статические — книжке не
+            // нужен объект на сцене, а значит и порядок его создания.
+            Application.focusChanged += focused => { if (!focused) Flush(); };
+            Application.quitting += Flush;
+        }
+
+        // ── чтение ───────────────────────────────────────────────────────────
+
+        /// <summary>Строка. Запасное значение — то, что «ничего не записано».</summary>
+        public static string Get(string key, string fallback = "")
+            => string.IsNullOrEmpty(key) ? fallback : PlayerPrefs.GetString(key, fallback);
+
+        /// <summary>Целое.</summary>
+        public static int Get(string key, int fallback)
+            => string.IsNullOrEmpty(key) ? fallback : PlayerPrefs.GetInt(key, fallback);
+
+        /// <summary>Дробное.</summary>
+        public static float Get(string key, float fallback)
+            => string.IsNullOrEmpty(key) ? fallback : PlayerPrefs.GetFloat(key, fallback);
+
+        /// <summary>Записано ли хоть что-нибудь под этим ключом.</summary>
+        public static bool Has(string key)
+            => !string.IsNullOrEmpty(key) && PlayerPrefs.HasKey(key);
+
+        // ── запись: фиксируется сразу ────────────────────────────────────────
+
+        /// <summary>ЗАПИСАТЬ НАБЕЛО — значение переживёт краш и снятие
+        /// приложения. Умолчание для всего, что игрок сочтёт потерянным.</summary>
+        public static void Put(string key, string value)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.SetString(key, value ?? "");
+            Settle();
+        }
+
+        /// <summary>Целое, набело.</summary>
+        public static void Put(string key, int value)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.SetInt(key, value);
+            Settle();
+        }
+
+        /// <summary>Дробное, набело.</summary>
+        public static void Put(string key, float value)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.SetFloat(key, value);
+            Settle();
+        }
+
+        /// <summary>СТЕРЕТЬ — тоже запись, и фиксации требует ровно так же.
+        /// Незафиксированное стирание воскрешает то, что игра уже посчитала
+        /// забытым: одноразовый флаг, пройденную точку продолжения.</summary>
+        public static void Drop(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.DeleteKey(key);
+            Settle();
+        }
+
+        // ── запись в карандаше: для горячих путей ────────────────────────────
+
+        /// <summary>
+        /// ЗАПИСАТЬ В КАРАНДАШЕ — когда путь горячий и полный флаш на каждое
+        /// значение виден игроку кадром.
+        ///
+        /// <para>Это ЗАЯВЛЕНИЕ, а не пропуск: карандашное фиксируется при уходе
+        /// в фон, при закрытии и по первому же <see cref="Flush"/> или
+        /// <see cref="Put(string,string)"/> рядом.</para>
+        /// </summary>
+        public static void Jot(string key, string value)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.SetString(key, value ?? "");
+            _pending = true;
+        }
+
+        /// <summary>Целое, в карандаше.</summary>
+        public static void Jot(string key, int value)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.SetInt(key, value);
+            _pending = true;
+        }
+
+        /// <summary>Стереть в карандаше.</summary>
+        public static void JotDrop(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            PlayerPrefs.DeleteKey(key);
+            _pending = true;
+        }
+
+        // ── пачка ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// ПАЧКА — много записей, одна фиксация в конце.
+        ///
+        /// <para><c>using (LvnKeep.Batch()) { … }</c>. Внутри и <c>Put</c> ведёт
+        /// себя как карандаш: гардероб метит каталог целиком, кошелёк пишет
+        /// зеркало и очередь — фиксировать каждое значение отдельно значит
+        /// платить кадром за чужую аккуратность.</para>
+        /// </summary>
+        public static IDisposable Batch() => new Sheet();
+
+        /// <summary>Зафиксировать карандашное. Вне пачки и при наличии
+        /// незаписанного — иначе бесплатно.</summary>
+        public static void Flush()
+        {
+            if (_batch > 0 || !_pending) return;
+            _pending = false;
+            PlayerPrefs.Save();
+        }
+
+        private static void Settle()
+        {
+            if (_batch > 0) { _pending = true; return; }
+            _pending = false;
+            PlayerPrefs.Save();
+        }
+
+        private sealed class Sheet : IDisposable
+        {
+            public Sheet() => _batch++;
+
+            public void Dispose()
+            {
+                if (_batch > 0) _batch--;
+                Flush();
+            }
+        }
+    }
+}

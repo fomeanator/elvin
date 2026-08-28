@@ -526,8 +526,7 @@ namespace Lvn.UI.Screens
             if (m == null) return;
             try
             {
-                PlayerPrefs.SetString(ManifestCacheKey, Newtonsoft.Json.JsonConvert.SerializeObject(m));
-                PlayerPrefs.Save();
+                LvnKeep.Put(ManifestCacheKey, Newtonsoft.Json.JsonConvert.SerializeObject(m));
             }
             catch { /* cache write best-effort */ }
         }
@@ -536,7 +535,7 @@ namespace Lvn.UI.Screens
         {
             try
             {
-                var json = PlayerPrefs.GetString(ManifestCacheKey, null);
+                var json = LvnKeep.Get(ManifestCacheKey, null);
                 return string.IsNullOrEmpty(json)
                     ? null
                     : Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json);

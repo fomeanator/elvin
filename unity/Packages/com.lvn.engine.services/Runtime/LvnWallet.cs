@@ -84,7 +84,7 @@ namespace Lvn.Services
         internal static void NoteUser(string userId)
         {
             if (string.IsNullOrEmpty(userId)) return;
-            var prev = UnityEngine.PlayerPrefs.GetString(POwner, "");
+            var prev = LvnKeep.Get(POwner, "");
             if (prev == userId) return;
             if (!string.IsNullOrEmpty(prev))
             {
@@ -92,8 +92,7 @@ namespace Lvn.Services
                 ResetLocal();
                 Changed?.Invoke();
             }
-            UnityEngine.PlayerPrefs.SetString(POwner, userId);
-            UnityEngine.PlayerPrefs.Save();
+            LvnKeep.Put(POwner, userId);
         }
 
         public static async Task<bool> RefreshAsync()
@@ -303,14 +302,14 @@ namespace Lvn.Services
             _loaded = true;
             try
             {
-                var mirror = UnityEngine.PlayerPrefs.GetString(PMirror, "");
+                var mirror = LvnKeep.Get(PMirror, "");
                 if (!string.IsNullOrEmpty(mirror))
                 {
                     var doc = JObject.Parse(mirror);
                     _balances = ToMap(doc["balances"] as JObject);
                     _inventory = ToMap(doc["inventory"] as JObject);
                 }
-                var q = UnityEngine.PlayerPrefs.GetString(PQueue, "");
+                var q = LvnKeep.Get(PQueue, "");
                 if (!string.IsNullOrEmpty(q))
                     foreach (var t in JArray.Parse(q))
                         if (t is JObject o) _queue.Add(o);
@@ -321,14 +320,12 @@ namespace Lvn.Services
         private static void PersistMirror()
         {
             var doc = new JObject { ["balances"] = ToJObject(_balances), ["inventory"] = ToJObject(_inventory) };
-            UnityEngine.PlayerPrefs.SetString(PMirror, doc.ToString(Newtonsoft.Json.Formatting.None));
-            UnityEngine.PlayerPrefs.Save();
+            LvnKeep.Put(PMirror, doc.ToString(Newtonsoft.Json.Formatting.None));
         }
 
         private static void PersistQueue()
         {
-            UnityEngine.PlayerPrefs.SetString(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
-            UnityEngine.PlayerPrefs.Save();
+            LvnKeep.Put(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
         }
 
         /// <summary>Wipe the mirror and queue (tests / account switch).</summary>
@@ -338,8 +335,7 @@ namespace Lvn.Services
         internal static void ForgetLocal()
         {
             ResetLocal();
-            UnityEngine.PlayerPrefs.DeleteKey(POwner);
-            UnityEngine.PlayerPrefs.Save();
+            LvnKeep.Drop(POwner);
             Changed?.Invoke();
         }
 
@@ -350,8 +346,11 @@ namespace Lvn.Services
             _regen = new Dictionary<string, RegenInfo>();
             _queue.Clear();
             _loaded = true;
-            UnityEngine.PlayerPrefs.DeleteKey(PMirror);
-            UnityEngine.PlayerPrefs.DeleteKey(PQueue);
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(PMirror);
+                LvnKeep.Drop(PQueue);
+            }
         }
 
         private static JObject ToJObject(Dictionary<string, long> map)
