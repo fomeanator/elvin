@@ -373,6 +373,9 @@ namespace Lvn.UI.Screens
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
             // Словарь оболочки: всё, что движок пишет на экране сам.
             Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels);
+            // …и кто есть кто: имя говорящего в сцене — та же строка, что имя
+            // героя в гардеробе, только приходит она из скрипта, а не по id.
+            Lvn.Content.LvnWords.LearnActors(manifest.sprites);
             _manifest = manifest;
             ApplyMenuStaging(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню

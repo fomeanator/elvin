@@ -63,6 +63,55 @@ namespace Lvn.Content
         }
 
         /// <summary>
+        /// КОГО КАК ЗОВУТ — авторское имя актёра рядом с его идентификатором.
+        ///
+        /// <para>В скрипте говорящий назван СТРОКОЙ («Виктория»), в манифесте
+        /// тот же герой лежит под идентификатором («victoria»), а перевод имени
+        /// живёт по ключу от идентификатора (<c>actor.victoria</c>). Без этой
+        /// карты два имени одного человека — разные строки, и сцена с
+        /// гардеробом расходились: «Виктория» над репликой и «Victoria» в
+        /// гардеробе одновременно.</para>
+        ///
+        /// <para>Карта заодно чинит и обратный случай: автор перевёл имя в
+        /// каталоге главы, но не в словаре оболочки — тогда каталог главы
+        /// старше, и подставится его вариант (см. <c>LvnPlayer.LocalizedWho</c>).</para>
+        /// </summary>
+        public static void LearnActors(Dictionary<string, LvnSpriteEntity> sprites)
+        {
+            _actorIdByName = null;
+            if (sprites != null)
+            {
+                var map = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (var kv in sprites)
+                {
+                    if (string.IsNullOrEmpty(kv.Key)) continue;
+                    map[kv.Key] = kv.Key;                                   // сам id тоже имя
+                    var authored = kv.Value?.name;
+                    if (!string.IsNullOrEmpty(authored)) map[authored] = kv.Key;
+                }
+                if (map.Count > 0) _actorIdByName = map;
+            }
+            // Шов с ядром: плеер словаря не видит (границы сборок), поэтому имя
+            // говорящего подставляем отсюда.
+            Lvn.LvnPlayer.SpeakerNames = Speaker;
+        }
+
+        private static Dictionary<string, string> _actorIdByName;
+
+        /// <summary>Имя говорящего на языке игрока: перевод по идентификатору
+        /// актёра, иначе перевод по самому имени (так автор называет тех, кого
+        /// нет в манифесте — «Система», «Голос»), иначе авторское имя, на
+        /// латинице прочитанное транслитом.</summary>
+        public static string Speaker(string who)
+        {
+            if (string.IsNullOrEmpty(who)) return who;
+            if (_actorIdByName != null && _actorIdByName.TryGetValue(who, out var id)
+                && TryTranslated("actor." + id, out var byId)) return byId;
+            if (TryTranslated("actor." + who, out var byName)) return byName;
+            return Readable(who);
+        }
+
+        /// <summary>
         /// ПЕРЕВОД СЛОВ ОБОЛОЧКИ — поверх авторского набора.
         ///
         /// <para>Текст главы переводился каталогом, а подписи движка («Играть»,
