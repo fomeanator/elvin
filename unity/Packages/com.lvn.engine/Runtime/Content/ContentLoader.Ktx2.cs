@@ -227,16 +227,9 @@ namespace Lvn.Content
             if (v2k != null && IsAssetCached(v2k)) return true;
             if (IsAssetCached(url)) return true;
             // Сид: файл лежит в APK — чтение локальное и мгновенное.
-            if (_seedIndex != null && _seedIndex.Count > 0)
-            {
-                int at = url.IndexOf("/content/", StringComparison.Ordinal);
-                if (at >= 0)
-                {
-                    var rel = url.Substring(at + 1);
-                    if (_seedIndex.Contains(rel) || _seedIndex.Contains(DownloadPolicy.StripVariant(rel)))
-                        return true;
-                }
-            }
+            // Ключ сида считает ОДИН метод (ContentLoader.Seed): здесь стояла
+            // его копия, и разойдись они — файл из APK находился бы через раз.
+            if (SeedKey(url) != null) return true;
             return false;
         }
 
