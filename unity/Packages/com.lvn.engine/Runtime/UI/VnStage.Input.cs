@@ -71,7 +71,10 @@ namespace Lvn.UI
             _inputScrim.style.position = Position.Absolute;
             _inputScrim.style.left = 0; _inputScrim.style.right = 0;
             _inputScrim.style.top = 0; _inputScrim.style.bottom = 0;
-            _inputScrim.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
+            // Затемнение — авторского цвета, если он его назвал: «#161018f2» в
+            // манифесте это не украшение, а решение о том, сквозь что игрок
+            // смотрит на сцену, задавая ответ.
+            _inputScrim.style.backgroundColor = UiColor.Parse(NameInput?.bg_color, new Color(0f, 0f, 0f, 0.62f));
             _inputScrim.style.justifyContent = Justify.Center;
             _inputScrim.style.alignItems = Align.Center;
             _inputScrim.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -98,7 +101,9 @@ namespace Lvn.UI
             if (Theme?.PanelSprite == null) LvnChrome.Frame(panel);
             _inputScrim.Add(panel);
 
-            var promptText = (string)cmd["prompt"];
+            // Вопрос: команда сильнее манифеста — она ближе к месту, где его
+            // задают; манифест отвечает, когда команда молчит.
+            var promptText = (string)cmd["prompt"] ?? NameInput?.prompt;
             if (!string.IsNullOrEmpty(promptText) && _strings != null && _strings.TryGetValue(promptText, out var trPrompt))
                 promptText = trPrompt; // localization catalog, keyed by the source prompt
             if (_player != null) promptText = TextInterpolation.Apply(promptText, _player.Vars);
@@ -107,7 +112,8 @@ namespace Lvn.UI
                 var prompt = new Label(promptText);
                 // Вопрос задаёт история — значит и цвет у него тот же, каким
                 // подписан говорящий.
-                prompt.style.color = Theme != null ? Theme.SpeakerColor : LvnTokens.Accent;
+                prompt.style.color = UiColor.Parse(NameInput?.prompt_color,
+                    Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
                 prompt.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
                 prompt.style.whiteSpace = WhiteSpace.Normal;
                 prompt.style.marginBottom = 18;
@@ -115,17 +121,33 @@ namespace Lvn.UI
                 panel.Add(prompt);
             }
 
+            // ПОДПИСЬ ПОЛЯ («Имя») — что именно у игрока спрашивают, когда
+            // сам вопрос уже прозвучал репликой. Автор назвал её в манифесте.
+            if (!string.IsNullOrEmpty(NameInput?.speaker_label))
+            {
+                var badge = new Label(NameInput.speaker_label);
+                badge.style.color = UiColor.Parse(NameInput.prompt_color,
+                    Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
+                badge.style.fontSize = (Theme != null ? Theme.BodyFontSize : 30) * 0.7f;
+                badge.style.marginBottom = 6;
+                LvnFonts.Apply(badge, Theme?.Font);
+                panel.Add(badge);
+            }
+
             var field = new TextField();
-            field.value = (string)cmd["default"] ?? string.Empty;
+            field.value = (string)cmd["default"] ?? NameInput?.default_name ?? string.Empty;
             int max = 0;
             try { max = cmd["max"] != null ? (int)cmd["max"] : 0; } catch { }   // экран ввода снесли на полуслове — история продолжится
+            if (max <= 0 && NameInput?.max_length > 0) max = NameInput.max_length.Value;
             if (max > 0) field.maxLength = max;
             field.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
             field.style.marginBottom = 20;
             LvnFonts.Apply(field, Theme?.Font);
             // Красится ВНУТРЕННИЙ элемент поля: у TextField своя подложка, и
             // цвет, поставленный снаружи, до неё не доходит.
-            LvnChrome.Field(field, LvnTokens.SurfaceHi, Theme != null ? Theme.TextColor : LvnTokens.Text);
+            LvnChrome.Field(field,
+                UiColor.Parse(NameInput?.field_color, LvnTokens.SurfaceHi),
+                UiColor.Parse(NameInput?.text_color, Theme != null ? Theme.TextColor : LvnTokens.Text));
             var inner = field.Q(TextField.textInputUssName);
             if (inner != null)
             {
@@ -141,16 +163,21 @@ namespace Lvn.UI
             field.textSelection.selectionColor = sel;
             panel.Add(field);
 
-            string okLabel = Theme?.MenuLabels != null
-                && Theme.MenuLabels.TryGetValue("input_ok", out var v) && !string.IsNullOrEmpty(v)
-                ? v : "OK";
+            // Слово на кнопке: манифест старше темы — он ближе к автору, чем
+            // набор подписей темы, и «Подтвердить» он пишет именно там.
+            string okLabel = !string.IsNullOrEmpty(NameInput?.confirm_text) ? NameInput.confirm_text
+                : Theme?.MenuLabels != null
+                  && Theme.MenuLabels.TryGetValue("input_ok", out var v) && !string.IsNullOrEmpty(v)
+                  ? v : "OK";
             var ok = new Button(() => ConfirmInput(field.value)) { text = okLabel };
             // Та же кнопка, что и у выбора в диалоге: игрок уже знает, как она
             // выглядит и что делает.
             ok.style.height = Theme != null ? Theme.ChoiceMinHeight : 96f;
             ok.style.fontSize = Theme != null ? Theme.ChoiceFontSize : 28;
-            ok.style.color = Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text;
-            ok.style.backgroundColor = Theme != null ? Theme.ChoiceColor : LvnTokens.Surface;
+            ok.style.color = UiColor.Parse(NameInput?.button_text_color,
+                Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text);
+            ok.style.backgroundColor = UiColor.Parse(NameInput?.button_color,
+                Theme != null ? Theme.ChoiceColor : LvnTokens.Surface);
             ok.style.borderLeftWidth = 0; ok.style.borderRightWidth = 0;
             ok.style.borderTopWidth = 0; ok.style.borderBottomWidth = 0;
             LvnChrome.Round(ok, Mathf.Max(8f, r * 0.4f));
