@@ -354,6 +354,19 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				msg := fmt.Sprintf("unknown field %q for op %q", k, op)
 				if s := suggest(k, fields); s != "" {
 					msg += fmt.Sprintf(" — did you mean %q?", s)
+				} else if KnownOps[k] {
+					// ТЁЗКА. Три слова языка работают и командой, и полем чужой
+					// команды: `fade` (поле у bg/audio), `flash` и `tint` (поля
+					// у sfx/fx). Автор, знающий их как поля, пишет их полем и
+					// там, где поля нет — и наоборот. Расстояние тут не при чём,
+					// слово написано ВЕРНО, ошибочно место; поэтому подсказка не
+					// про опечатку, а про смысл.
+					//
+					// Цена такой путаницы уже известна: тёзка `hint` (команда
+					// против поля опции) стоила двух руководств, годами учивших
+					// не применять рабочую команду.
+					msg += fmt.Sprintf(" — %q is a COMMAND of its own; write it on its own line "+
+						"instead of as a field here", k)
 				}
 				addWarn(i, op, msg)
 			}
