@@ -446,12 +446,10 @@ namespace Lvn.UI.World
         // Подменить материал всем Image-слоям актёра (и запомнить, кому).
         private void Skin()
         {
-            if (_shader == null) _shader = Resources.Load<Shader>("LvnSpriteFx");
-            if (_shader == null || !_shader.isSupported)
-            {
-                Debug.LogWarning("[LvnSpriteFx] шейдер не найден/не поддержан — sfx выключен");
-                return;
-            }
+            // Про пропажу говорит LvnShaders — одинаково для всех эффектов и
+            // один раз, а не своим текстом в каждом файле.
+            if (_shader == null) _shader = LvnShaders.Load("LvnSpriteFx");
+            if (_shader == null) return;   // грим не сыграет, сцена останется целой
             if (_mat == null) _mat = new Material(_shader) { hideFlags = HideFlags.HideAndDontSave };
             ClearCompositeHalo();
             _skinned.Clear();

@@ -319,9 +319,10 @@ namespace Lvn.UI.World
         {
             if (_mat == null && !_shaderMissing)
             {
-                var shader = Resources.Load<Shader>("LvnFx");
-                if (shader == null || !shader.isSupported) _shaderMissing = true;
-                else _mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+                // Через LvnShaders: пропажу шейдера он объясняет вслух, а
+                // прежде здесь молча поднимался флаг — и эффекта просто не было.
+                _mat = LvnShaders.Material("LvnFx");
+                if (_mat == null) _shaderMissing = true;
             }
             Advance();
             if (_shaderMissing || !Active)
