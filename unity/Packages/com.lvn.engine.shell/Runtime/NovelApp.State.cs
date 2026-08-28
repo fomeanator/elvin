@@ -88,8 +88,7 @@ namespace Lvn.UI.Screens
             Stage.Gallery = title?.gallery;
             Stage.EntryGate = null; // a save-load lands mid-scene — no entry choreography
             Stage.Play(json, warmIntroSpine: false); // the restore below advances
-            if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
-                Stage.Player.Vars["player"] = _playerName;
+            Lvn.UI.LvnPlayerName.Seed(Stage.Player, _playerName);
             Stage.RestoreSnapshot(slot.Snap);
             EnterChapterContext(title ?? _currentTitle, chapter);
             _currentScriptJson = json;

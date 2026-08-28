@@ -207,8 +207,7 @@ namespace Lvn.UI.Screens
             var entryDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             Stage.EntryGate = entryDone.Task;
             Stage.Play(json, warmIntroSpine: !resuming); // resume restores below — don't run/warm the intro
-            if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
-                Stage.Player.Vars["player"] = playerName;
+            Lvn.UI.LvnPlayerName.Seed(Stage.Player, playerName);
 
             // Title-level variable declarations (title.vars_url): ONE block per
             // game instead of a 250-op boilerplate at the top of every chapter.
@@ -242,8 +241,7 @@ namespace Lvn.UI.Screens
                 // возобновлённого шага видят свежие значения.
                 var freshGlobal = await Lvn.Content.LvnGlobalStats.LoadAsync(_state);
                 Stage.RestoreSnapshot(autosave.Snap);
-                if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
-                    Stage.Player.Vars["player"] = playerName;
+                Lvn.UI.LvnPlayerName.Seed(Stage.Player, playerName);
                 if (freshGlobal != null && freshGlobal.Count > 0 && Stage.Player != null)
                     Stage.Player.Vars[Lvn.Content.LvnGlobalStats.VarName] = freshGlobal;
                 // A resume keeps the snapshot's own state; the declaration only

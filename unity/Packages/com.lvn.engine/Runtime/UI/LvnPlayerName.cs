@@ -49,5 +49,28 @@ namespace Lvn.UI
         /// <summary>Игрок назвался — имя сохраняется, и все, кто его
         /// показывает, увидят новое при следующей отрисовке.</summary>
         public static void Set(string name) => LvnPrefs.PlayerName = name ?? string.Empty;
+
+        /// <summary>Как игрока зовут ВНУТРИ истории: переменная новеллы, по
+        /// которой автор пишет «{player}» и ветвит реплики.</summary>
+        public const string Var = "player";
+
+        /// <summary>
+        /// ПОСЕЯТЬ ИМЯ В ИСТОРИЮ. Правило «положить имя в переменную player,
+        /// если оно есть» стояло ЧЕТЫРЬМЯ копиями — вход в главу, возобновление
+        /// с автосейва, загрузка сохранения и бут, — и в каждой ключ был написан
+        /// строкой. Переименуй автор переменную — и три копии из четырёх
+        /// промолчали бы.
+        ///
+        /// <para>Пустое имя НЕ пишется намеренно: игрок ещё не назвался, и
+        /// пустая переменная в тексте выглядела бы дырой посреди реплики. Пусть
+        /// автор сам решает, что показать безымянному.</para>
+        /// </summary>
+        public static void Seed(Lvn.LvnPlayer player, string name = null)
+        {
+            if (player?.Vars == null) return;
+            var value = string.IsNullOrEmpty(name) ? Current : name;
+            if (string.IsNullOrEmpty(value)) return;
+            player.Vars[Var] = value;
+        }
     }
 }
