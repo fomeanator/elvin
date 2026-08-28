@@ -177,12 +177,6 @@ namespace Lvn.UI.Screens
             _list.Add(UiScaleRow());
             _list.Add(FontRow());
             _list.Add(TextScaleRow());
-            _list.Add(RangeRow(LvnWords.Of("settings.text_weight", "Text weight"),
-                LvnWords.Of("settings.text_weight_hint", "Thicker letters read easier on bright scenes"),
-                0f, 1f, () => LvnPrefs.TextWeight, v => { LvnPrefs.TextWeight = v; Redress(); }));
-            _list.Add(RangeRow(LvnWords.Of("settings.ui_weight", "Interface weight"),
-                LvnWords.Of("settings.ui_weight_hint", "Menu and button labels"),
-                0f, 1f, () => LvnPrefs.UiWeight, v => { LvnPrefs.UiWeight = v; Redress(); }));
             _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
                 0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
@@ -286,6 +280,72 @@ namespace Lvn.UI.Screens
         /// переключался ВИДИМО никогда). Образец показывает ровно то, что
         /// получится в главе: тот же кегль, та же гарнитура.</para>
         /// </summary>
+        /// <summary>
+        /// ТОЛЩИНА — ИМЕНАМИ, А НЕ ДОЛЕЙ. Ползунок обещал плавность, которой у
+        /// шрифта нет: начертаний три, и между ними невозможно «чуть-чуть».
+        /// Игрок двигал ручку и в большинстве положений не видел НИЧЕГО — со
+        /// стороны это «не работает» (Илья, 28.08).
+        /// </summary>
+        private static readonly (float k, string key, string en)[] WeightSteps =
+        {
+            (0f,   "settings.weight_normal", "Normal"),
+            (0.5f, "settings.weight_medium", "Medium"),
+            (1f,   "settings.weight_bold",   "Bold"),
+        };
+
+        /// <summary>
+        /// ВИД ПОЛЗУНКА — как в сценном меню: тонкая дорожка, заливка акцентом,
+        /// круглый бегунок. Стандартный ползунок UITK на тёмной панели выглядит
+        /// системным элементом из другой программы; тот же вид был уже сделан
+        /// для меню в главе, и второй раз его придумывать незачем.
+        /// </summary>
+        private Slider StyleSlider(Slider s, float min, float max)
+        {
+            s.style.height = 40;
+            s.style.marginTop = 6;
+            var tracker = s.Q("unity-tracker");
+            VisualElement fill = null;
+            if (tracker != null)
+            {
+                tracker.style.height = 8;
+                tracker.style.marginTop = 16;
+                tracker.style.backgroundColor = LvnTokens.Track;
+                LvnChrome.Round(tracker, 4f);
+                LvnChrome.ClearBorder(tracker);
+                fill = new VisualElement { pickingMode = PickingMode.Ignore };
+                fill.style.position = Position.Absolute;
+                fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
+                fill.style.backgroundColor = _accent;
+                LvnChrome.Round(fill, 4f);
+                tracker.Add(fill);
+            }
+            var dragger = s.Q("unity-dragger");
+            if (dragger != null)
+            {
+                dragger.style.width = 28; dragger.style.height = 28;
+                dragger.style.top = 6;
+                dragger.style.backgroundColor = _accent;
+                LvnChrome.Round(dragger, 14f);
+                LvnChrome.ClearBorder(dragger);
+            }
+            void Sync(float v)
+            {
+                if (fill != null)
+                    fill.style.width = Length.Percent(Mathf.Clamp01((v - min) / (max - min)) * 100f);
+            }
+            Sync(s.value);
+            s.RegisterValueChangedCallback(e => Sync(e.newValue));
+            return s;
+        }
+
+        private VisualElement WeightRow(string label, string hint,
+                                        System.Func<float> get, System.Action<float> set)
+            => WideRow(label, hint, Lvn.UI.LvnSegment.Of(WeightSteps,
+                st => LvnWords.Of(st.key, st.en),
+                st => Mathf.Abs(get() - st.k) < 0.01f,
+                st => { set(st.k); Redress(); },
+                StyleValueButton, alignEnd: false));
+
         private VisualElement TextScaleRow()
         {
             var sample = new Label(LvnWords.Of("settings.text_sample",
@@ -302,6 +362,16 @@ namespace Lvn.UI.Screens
                 st => Mathf.Abs(LvnPrefs.TextScale - st.k) < 0.01f,
                 st => { LvnPrefs.TextScale = st.k; Fit(); },
                 StyleValueButton, alignEnd: false));
+            // ТОЛЩИНА СКРЫТА (решение Ильи 28.08: «не работает — скрой»).
+            // Причина честная и не в нашем коде: у гарнитур нет отдельных жирных
+            // начертаний (они переменные, Unity берёт один инстанс), а материал
+            // текста в UI Toolkit — не TMP-овский, и раздутия контура
+            // (_FaceDilate) у него нет. Остаётся синтетический жир UITK, который
+            // на SDF почти не виден.
+            //
+            // Настройка и её применение остались в коде: вернуть ряд — одна
+            // строка, как только у гарнитур появятся весовые файлы (Onest их
+            // уже несёт) или у UITK — свойство толщины.
             box.Add(sample);
             return WideRow(LvnWords.Of("settings.text_size", "Text size"),
                 LvnWords.Of("settings.text_size_hint", "Dialogue lines only — the scene stays as authored"),
@@ -347,7 +417,7 @@ namespace Lvn.UI.Screens
             System.Func<float> get, System.Action<float> set)
         {
             var row = RowEx(label, hint);
-            var slider = new Slider(min, max) { value = get() };
+            var slider = StyleSlider(new Slider(min, max) { value = get() }, min, max);
             slider.style.width = 200;
             slider.style.marginLeft = 12;
             var drag = slider.Q("unity-dragger");
@@ -373,7 +443,7 @@ namespace Lvn.UI.Screens
         private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
         {
             var row = RowEx(label, hint);
-            var slider = new Slider(0f, 1f) { value = get() };
+            var slider = StyleSlider(new Slider(0f, 1f) { value = get() }, 0f, 1f);
             slider.style.width = 200;
             slider.style.marginLeft = 12;
             var drag = slider.Q("unity-dragger");

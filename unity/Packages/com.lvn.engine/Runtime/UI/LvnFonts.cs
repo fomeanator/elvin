@@ -36,6 +36,9 @@ namespace Lvn.UI
             catch { fa = null; }
             if (fa != null && _osFallbacks != null)
                 try { fa.fallbackFontAssetTable = _osFallbacks; } catch { }   // шрифт не обернулся в SDF — ниже запасной путь
+            if (fa != null && fa.material != null)
+                try { fa.material.SetFloat(FaceDilate, Mathf.Clamp01(LvnPrefs.TextWeight) * 0.12f); }
+                catch { /* см. ApplyWeight: чужой шейдер молча остаётся как есть */ }
             _wrapped[font] = fa; // cache failures too — don't retry every label
             KickOsFallbacks(); // built in the background, attached when ready
             return fa;
@@ -247,6 +250,41 @@ namespace Lvn.UI
         public static FontStyle UiWeightStyle
             => LvnPrefs.UiWeight >= 0.5f ? FontStyle.Bold : FontStyle.Normal;
 
+        /// <summary>
+        /// ТОЛЩИНА БЕЗ ЖИРНОГО ФАЙЛА. Отдельных начертаний у наших гарнитур
+        /// нет — они переменные, и Unity берёт из них один инстанс. Но текст
+        /// рисуется SDF-материалом, а у него есть раздутие контура
+        /// (<c>_FaceDilate</c>): им глиф утолщается ПЛАВНО, без второго файла и
+        /// без фальшивого жира, которым UITK эмулирует Bold.
+        ///
+        /// <para>Материал общий для всех, кто набран этой гарнитурой, поэтому
+        /// толщина одна на игру — что и правильно: две разные толщины одного
+        /// шрифта на одном экране читаются как ошибка, а не как настройка.</para>
+        ///
+        /// <para>Предел скромный (0…0,12): дальше буквы слипаются на мелком
+        /// кегле, и «жирнее» превращается в «грязнее».</para>
+        ///
+        /// <para>ПОКА НЕ РАБОТАЕТ и в настройках скрыто: материал текста в UI
+        /// Toolkit — не TMP-овский, свойства раздутия у него нет, и вызов молча
+        /// ничего не меняет. Оставлено намеренно: у Onest весовые файлы есть, и
+        /// путь через <see cref="WeightedPath"/> рабочий — не хватает таких
+        /// файлов у остальных гарнитур.</para>
+        /// </summary>
+        public static void ApplyWeight()
+        {
+            float dilate = Mathf.Clamp01(LvnPrefs.TextWeight) * 0.12f;
+            foreach (var kv in _wrapped)
+            {
+                var fa = kv.Value;
+                if (fa == null || fa.material == null) continue;
+                try { fa.material.SetFloat(FaceDilate, dilate); }
+                catch { /* чужой шейдер без этого свойства — толщина просто не изменится */ }
+            }
+            Changed?.Invoke();
+        }
+
+        private static readonly int FaceDilate = Shader.PropertyToID("_FaceDilate");
+
         /// <summary>Путь начертания под текущую толщину: у семейства с
         /// промежуточным весом (Onest SemiBold) середина ползунка берёт его, а
         /// не прыгает сразу в жирный.</summary>
@@ -358,8 +396,15 @@ namespace Lvn.UI
 
         private static string _lastFamily = "";
 
+        private static float _lastWeight = -1f;
+
         private static void OnPrefsChanged()
         {
+            if (!Mathf.Approximately(_lastWeight, LvnPrefs.TextWeight))
+            {
+                _lastWeight = LvnPrefs.TextWeight;
+                ApplyWeight();
+            }
             var now = LvnPrefs.FontFamily ?? "";
             if (now == _lastFamily) return;   // сменилось что-то другое — не тревожим текст
             _lastFamily = now;

@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// slot, a ◀ item name ▶ carousel, one big confirm with the total price.
     /// Opened by <c>ext wardrobe_show char=id</c> (the story holds meanwhile).
     /// </summary>
-    public sealed partial class WardrobeSheet : VisualElement
+    public sealed partial class WardrobeSheet : VisualElement, Lvn.UI.ILvnRedress
     {
         private readonly WardrobeConfig _cfg;
         private readonly DialogueConfig _dlg;
@@ -39,6 +39,24 @@ namespace Lvn.UI.Screens
         private const int EmoBarSegments = 4;
         private readonly Button _confirm;
         private readonly Button _cancel;
+        private Label _peekLabel;
+
+        /// <summary>
+        /// Слова или шрифт сменились. Гардероб держит состояние примерки —
+        /// пересобирать его целиком нельзя: игрок потеряет выбранную вещь и
+        /// открытую вкладку. Поэтому подписи обновляются на месте, а плитки
+        /// перечитывают названия своей же лентой.
+        /// </summary>
+        public void Redress()
+        {
+            if (_title != null) _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
+            if (_peekLabel != null) _peekLabel.text = LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height");
+            if (_cancel != null) _cancel.text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel");
+            RefreshConfirm();     // «Выбрать» / «Купить за N» — своя логика подписи
+            BuildTabs();          // вкладки осей несут названия из каталога
+            RebuildStrip();       // плитки — названия нарядов
+            RefreshLabel();       // строка выбора под лентой
+        }
 
         /// <summary>Просьба к хозяину панели убрать интерфейс с глаз (и вернуть
         /// его). Хост знает, где живёт панель; лист — нет.</summary>
@@ -196,7 +214,8 @@ namespace Lvn.UI.Screens
             var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
             peek.Add(peekIcon);
-            var peekLabel = new Label(LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
+            _peekLabel = new Label(LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
+            var peekLabel = _peekLabel;
             peekLabel.style.fontSize = 20;
             peekLabel.style.marginLeft = 8;
             peekLabel.style.color = LvnTokens.Text;
