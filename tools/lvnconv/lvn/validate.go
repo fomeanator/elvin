@@ -98,6 +98,15 @@ var KnownOps = map[string]bool{
 // set are listed: say/choice/actor/obj are intentionally omitted because they
 // carry open-ended keys (catalog-defined emotion axes, a large placement
 // vocabulary, localization ids), where strict checking would false-positive.
+// OpenFieldHints — команды, у которых набор полей ОТКРЫТ (сверх грамматики
+// автор пишет свои оси гардероба), но известные имена всё же перечислены: по
+// ним ищется явная описка. Не путать с OpFields — там набор закрыт, и любое
+// чужое поле ошибка; здесь чужое поле норма, а вот «почти известное» — нет.
+var OpenFieldHints = map[string][]string{
+	"actor": {"id", "sprite_url", "show", "position", "x", "y", "width", "height", "scale", "emotion", "play", "enter", "exit", "flip", "mirror", "rotation", "opacity", "z", "on_click", "draggable", "on_drop", "on_drop_miss", "loop", "drag_bounds"},
+	"obj":   {"id", "sprite_url", "x", "y", "width", "height", "anchor", "on_click", "show", "opacity", "z", "enter", "exit", "draggable", "on_drop", "on_drop_miss", "loop", "play", "drag_bounds"},
+}
+
 var OpFields = map[string][]string{
 	"bg":            {"id", "sprite_url", "fade", "pan", "pan_to", "pan_dur"},
 	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live"},
@@ -335,6 +344,40 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 					msg += fmt.Sprintf(" — did you mean %q?", s)
 				}
 				addWarn(i, op, msg)
+			}
+		} else if fields, ok := OpenFieldHints[op]; ok {
+			// ОТКРЫТЫЙ НАБОР — НЕ ПОВОД МОЛЧАТЬ О ЯВНОЙ ОПЕЧАТКЕ.
+			//
+			// У `actor` и `obj` поля закрыть нельзя: сверх грамматики там живут
+			// ОСИ ГАРДЕРОБА (`outfit=`, `hair=` — в живом контенте их десятки
+			// тысяч), и объявить их заранее движок не может, имена придумывает
+			// автор. Поэтому опечатка в самой частой команде языка не ловилась
+			// вовсе: `sprite_ulr=` и `postion=` компилировались молча и молча
+			// же не действовали.
+			//
+			// Средний путь: незнакомое поле, ПОХОЖЕЕ на известное, — почти
+			// наверняка описка, а не ось. Порог узкий намеренно: имя короче
+			// четырёх букв не судим (у осей вроде `w`/`h` расстояние до `x`/`y`
+			// тоже единица), и подсказку даём только при расстоянии ≤ 2.
+			known := map[string]bool{"op": true}
+			for _, f := range fields {
+				known[f] = true
+			}
+			var suspect []string
+			for k := range c {
+				if known[k] || len([]rune(k)) < 4 {
+					continue
+				}
+				if s := suggest(k, fields); s != "" && levenshtein(k, s) <= 2 {
+					suspect = append(suspect, k+"\x00"+s)
+				}
+			}
+			sort.Strings(suspect)
+			for _, pair := range suspect {
+				k, s, _ := strings.Cut(pair, "\x00")
+				addWarn(i, op, fmt.Sprintf(
+					"field %q on op %q looks like a typo of %q — the runtime ignores unknown fields silently (a wardrobe axis of your own naming is fine and needs no change)",
+					k, op, s))
 			}
 		}
 		// Enumerated-value check: a value outside a closed set (e.g.

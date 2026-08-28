@@ -56,6 +56,40 @@ func TestEnumValueWarned(t *testing.T) {
 	}
 }
 
+// ОТКРЫТЫЙ НАБОР ПОЛЕЙ — НЕ ПОВОД МОЛЧАТЬ О ЯВНОЙ ОПЕЧАТКЕ.
+//
+// У `actor`/`obj` набор закрыть нельзя: сверх грамматики там живут оси
+// гардероба, которые называет автор (в живом контенте `outfit=` и `hair=`
+// встречаются десятки тысяч раз). Из-за этого опечатка в САМОЙ ЧАСТОЙ команде
+// языка не ловилась вовсе — компилировалась молча и молча же не действовала.
+func TestActorTypoWarnedButWardrobeAxesAreNot(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"actor","id":"m","sprite_ulr":"/a.png","postion":"left"},
+	 {"op":"actor","id":"m","outfit":"school","hair":"long","armor":"plate"}
+	]}`)
+	issues := Validate(d)
+
+	if !hasWarn(issues, `"sprite_ulr"`) || !hasWarn(issues, `"postion"`) {
+		t.Fatalf("описки в actor должны быть замечены: %+v", issues)
+	}
+	for _, axis := range []string{`"outfit"`, `"hair"`, `"armor"`} {
+		if hasWarn(issues, axis) {
+			t.Fatalf("ось гардероба %s — не опечатка, предупреждать о ней нельзя: %+v", axis, issues)
+		}
+	}
+}
+
+// Короткие имена не судим: у осей вроде `w`/`h` расстояние до `x`/`y` тоже
+// единица, и подсказка была бы шумом ровно там, где автор прав.
+func TestShortAxisNamesAreLeftAlone(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[{"op":"actor","id":"m","w":1,"h":2,"ear":"x"}]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "looks like a typo") {
+			t.Fatalf("короткое имя не должно давать подсказку: %s", is.Msg)
+		}
+	}
+}
+
 // Valid values and keys must NOT warn — the checks are only for typos.
 func TestValidFieldsAndEnumsDoNotWarn(t *testing.T) {
 	d := parse(t, `{"scene":"t","script":[
