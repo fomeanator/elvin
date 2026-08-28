@@ -48,19 +48,34 @@ namespace Lvn.Content
         }
 
 
+        /// <summary>
+        /// ПОД КАКИМ КЛЮЧОМ ЭТОТ АДРЕС ЛЕЖИТ В СИДЕ — или null, если его там нет.
+        ///
+        /// <para>Правило простое, но составное: отрезать всё до <c>content/</c>,
+        /// а потом попробовать ДВА ключа — с вариантом качества и без него
+        /// («bg/x@2k.jpg» и «bg/x.jpg»): сид собирают до того, как известно, на
+        /// каком устройстве его распакуют. Записано оно было дважды — здесь и в
+        /// проверке «есть ли файл локально» у транскодера, — и разойдись
+        /// половинки, файл из APK перестал бы находиться ровно наполовину
+        /// случаев.</para>
+        /// </summary>
+        private string SeedKey(string url)
+        {
+            if (_seedIndex == null || _seedIndex.Count == 0 || string.IsNullOrEmpty(url)) return null;
+            int at = url.IndexOf("/content/", StringComparison.Ordinal);
+            if (at < 0) return null;
+            var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
+            if (_seedIndex.Contains(rel)) return rel;
+            var baseRel = DownloadPolicy.StripVariant(rel);
+            return _seedIndex.Contains(baseRel) ? baseRel : null;
+        }
         private async Task<byte[]> TrySeedAsync(string url, string cachePath, CancellationToken ct)
         {
             if (_seedBase == null) return null;
             // Сид мог не прочитаться (нет файла, битый zip) — это не повод
             // валить загрузку: без него просто пойдём в сеть.
             if (_seedLoad != null) { try { await _seedLoad; } catch { } _seedLoad = null; }
-            if (_seedIndex == null || _seedIndex.Count == 0) return null;
-            int at = url.IndexOf("/content/", StringComparison.Ordinal);
-            if (at < 0) return null;
-            var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
-            var baseRel = DownloadPolicy.StripVariant(rel);
-            string hit = _seedIndex.Contains(rel) ? rel
-                : _seedIndex.Contains(baseRel) ? baseRel : null;
+            string hit = SeedKey(url);
             if (hit == null) return null;
             var bytes = await FetchLocalAsync(_seedBase + "/" + hit);
             if (bytes == null || bytes.Length == 0) return null;
