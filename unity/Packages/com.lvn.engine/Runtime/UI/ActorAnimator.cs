@@ -216,6 +216,9 @@ namespace Lvn.UI
                 foreach (var tr in anim.tracks)
                 {
                     if (tr == null || tr.keys == null || tr.keys.Count == 0 || string.IsNullOrEmpty(tr.prop)) continue;
+                    // Незнакомое имя раньше проваливалось в switch без ветки и
+                    // исчезало: «prop=opacity» вместо alpha просто не играло.
+                    if (!LvnAnimProp.Check(tr.prop, tr.layer)) continue;
                     if (tr.prop == "frame")
                     {
                         if (string.IsNullOrEmpty(tr.layer)) continue;
