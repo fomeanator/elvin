@@ -657,7 +657,11 @@ namespace Lvn.UI
                 var a = kv.Value;
                 if (a == null) continue;
                 if (a.auto == "speaking") { talk = a; continue; }
-                if (a.auto == "true") { if (HasLayerTrack(a)) blink = blink ?? a; else idle = idle ?? a; }
+                // Через словарь согласия, а не точным сравнением с "true": оно
+                // отвергало всё остальное — "True", "yes", "1" и голый JSON-булев,
+                // который документация самого поля и обещает (`auto:true`).
+                // Отвергало молча: анимация покоя просто не заводилась.
+                if (LvnBool.Of(a.auto, false)) { if (HasLayerTrack(a)) blink = blink ?? a; else idle = idle ?? a; }
             }
             _talkAnims[id] = talk; // null clears it
 

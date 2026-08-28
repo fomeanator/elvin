@@ -300,4 +300,23 @@ namespace Lvn.UI
         // ui.settings.simple_audio; полный экран настроек читает конфиг сам.
         [HideInInspector] public bool SimpleAudioSliders;
     }
+
+
+    /// <summary>
+    /// АВТОРСКОЕ СЛОВО — одна дорога от <c>ui.menu.labels</c> до надписи.
+    ///
+    /// <para>Читали его в трёх местах и тремя способами: своим методом в меню,
+    /// развёрнутым условием у поля ввода, а в диалоге не читали вовсе — там
+    /// фраза «Не хватает…» была вписана в движок ПО-РУССКИ, и английская сборка
+    /// показывала её как есть.</para>
+    ///
+    /// <para>Расширение, а не метод, нарочно: тема бывает не задана, и вызов на
+    /// пустой теме обязан вернуть умолчание, а не упасть.</para>
+    /// </summary>
+    public static class VnThemeWords
+    {
+        public static string Word(this VnTheme t, string key, string fallback)
+            => t?.MenuLabels != null && t.MenuLabels.TryGetValue(key, out var v)
+               && !string.IsNullOrEmpty(v) ? v : fallback;
+    }
 }

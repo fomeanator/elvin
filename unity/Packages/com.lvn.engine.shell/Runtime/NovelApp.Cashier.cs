@@ -37,23 +37,27 @@ namespace Lvn.UI.Screens
             // (or menu-exit + Play) must not charge the same entry again.
             if (LvnProgress.Reached(title) > 0) return true;
 
-            return await ChargeEntryAsync(cost.currency, cost.amount,
+            return await ChargeWithStoreAsync(cost.currency, cost.amount,
                 "title:" + title.id, "You need more to start this.");
         }
 
         /// <summary>
-        /// ОБРЯД ОПЛАТЫ ЗА ВХОД — тонкая обёртка над Кассиром
+        /// ОБРЯД ОПЛАТЫ С МАГАЗИНОМ — тонкая обёртка над Кассиром
         /// (<see cref="Lvn.Services.LvnCashier"/>), который и держит порядок.
         ///
         /// <para>Здесь остаётся только то, что знает именно новелла: какими
         /// словами звучит отказ (их пишет автор в <c>economy.gate_*</c>), через
         /// сколько прибудет следующая энергия и куда вести за покупкой.</para>
+        ///
+        /// <para>Зовут отсюда трижды: вход в новеллу, ворота главы и платный
+        /// выбор. Раньше третий шёл мимо — оттого и переименовано: «за вход»
+        /// было верно, пока плательщик был один.</para>
         /// </summary>
         /// <param name="currency">чем платим</param>
         /// <param name="amount">сколько</param>
         /// <param name="reason">за что — уходит в журнал кошелька</param>
         /// <param name="fallbackMessage">объяснение, когда новелла своего не дала</param>
-        private async Task<bool> ChargeEntryAsync(string currency, long amount,
+        private async Task<bool> ChargeWithStoreAsync(string currency, long amount,
                                                   string reason, string fallbackMessage)
         {
             if (string.IsNullOrEmpty(currency) || amount <= 0) return true; // бесплатно
@@ -108,7 +112,7 @@ namespace Lvn.UI.Screens
             if (eco.free_chapters != null && chapter != null && eco.free_chapters.Contains(chapter.id))
                 return true; // this chapter is on the house
 
-            return await ChargeEntryAsync(currency, cost,
+            return await ChargeWithStoreAsync(currency, cost,
                 "chapter:" + chapter?.id, "You need more to open this chapter.");
         }
     }

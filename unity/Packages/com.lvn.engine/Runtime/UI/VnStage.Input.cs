@@ -165,10 +165,8 @@ namespace Lvn.UI
 
             // Слово на кнопке: манифест старше темы — он ближе к автору, чем
             // набор подписей темы, и «Подтвердить» он пишет именно там.
-            string okLabel = !string.IsNullOrEmpty(NameInput?.confirm_text) ? NameInput.confirm_text
-                : Theme?.MenuLabels != null
-                  && Theme.MenuLabels.TryGetValue("input_ok", out var v) && !string.IsNullOrEmpty(v)
-                  ? v : "OK";
+            string okLabel = !string.IsNullOrEmpty(NameInput?.confirm_text)
+                ? NameInput.confirm_text : Theme.Word("input_ok", "OK");
             var ok = new Button(() => ConfirmInput(field.value)) { text = okLabel };
             // Та же кнопка, что и у выбора в диалоге: игрок уже знает, как она
             // выглядит и что делает.
