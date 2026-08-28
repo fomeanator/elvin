@@ -165,10 +165,10 @@ namespace Lvn.Content
         public void Stop()
         {
             CancellationTokenSource cts;
+            // Ссылку снимаем под замком, гасим — вне: Cancel зовёт чужие
+            // обработчики, и держать на них блокировку незачем.
             lock (_lock) { cts = _cts; _cts = null; }
-            if (cts == null) return;
-            try { cts.Cancel(); } catch { /* already disposed */ }
-            cts.Dispose();
+            Lvn.LvnCancel.Retire(cts);
         }
 
         private async Task RunAsync(List<Item> required, List<Item> deferred, CancellationToken ct)

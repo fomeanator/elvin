@@ -55,10 +55,8 @@ namespace Lvn.Content
         public void Stop()
         {
             var cts = _cts;
-            _cts = null;
-            if (cts == null) return;
-            try { cts.Cancel(); } catch { /* already disposed */ }
-            cts.Dispose();
+            _cts = null;              // ссылку снимаем первой — см. LvnCancel
+            Lvn.LvnCancel.Retire(cts);
         }
 
         /// <summary>Poll once now. Returns true if the version changed since the
