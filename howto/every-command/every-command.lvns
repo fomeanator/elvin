@@ -14,8 +14,29 @@ scene every-command
 
 actor_map Ida=ida
 
+// ─── `include "<path>"` вклеивает другой .lvns НА ЭТАПЕ СБОРКИ: метки и
+//     функции оттуда становятся частью этой главы, а рантайм о файле не
+//     узнаёт. Так выносят общее — концовки, повторяющуюся сцену, стандартные
+//     реакции героя. Механизм работал, был описан в docs/packages.md для
+//     разработчиков движка — и ни слова в howto/, куда смотрит автор.
+include "endings.lvns"
+
 // ─── Typing speed for the whole scene (chars/sec; 0 = instant) ───
 text_pace cps=45
+
+// ─── Voice-over: `voice <url>` voices the NEXT line and mutes itself on the
+//     one after. Documented in CAPABILITIES (the `voice?` field of `say`) and
+//     implemented in both compilers and the player — yet no example compiled
+//     into it, because the doc gate checks OPS and this one is a prefix.
+voice "/content/audio/ec/hit.ogg"
+Ida: Слышишь? Плёнка идёт с голосом.
+if reel_ok == 0 -> reel_burned
+
+// ─── `ext <op> k=v` — единственная дверь к операции, которой у движка нет:
+//     игра регистрирует её сама (LvnOps.Register). Документирована как
+//     escape hatch, и до сих пор не имела примера — а именно она решает,
+//     можно ли расширить язык, не меняя движок.
+ext wallet_earn currency=gold amount=1 reason="reel_threaded"
 
 // ─── Warm the assets the scene is about to need (non-blocking) ───
 preload url="/content/bg/projection.jpg" kind=sprite

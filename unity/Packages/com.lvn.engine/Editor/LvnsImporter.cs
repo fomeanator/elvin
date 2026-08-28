@@ -23,11 +23,12 @@ namespace Lvn.Editor
     {
         public override void OnImportAsset(AssetImportContext ctx)
         {
-            string src = File.ReadAllText(ctx.assetPath);
             string json;
             try
             {
-                json = LvnsCompiler.Compile(src);
+                // ЧЕРЕЗ ПУТЬ, а не текст: `include` резолвится относительно
+                // файла, и текстовая сборка превращала бы его в реплику.
+                json = LvnsCompiler.CompileFile(ctx.assetPath);
             }
             catch (LvnsCompileException e)
             {

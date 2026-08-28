@@ -99,6 +99,50 @@ namespace Lvn.Editor
             return doc.ToString(Formatting.Indented) + "\n";
         }
 
+        /// <summary>
+        /// СБОРКА С ПУТЁМ — единственный способ пережить `include`.
+        ///
+        /// <para>Порт не знал `include` вовсе, и строка молча становилась
+        /// НАРРАЦИЕЙ: слово вне списка команд превращается в реплику, поэтому
+        /// автор, собравший главу в редакторе, показал бы игроку строку
+        /// «include "endings.lvns"». Через CLI та же глава собиралась верно —
+        /// расхождение видел только тот, кто работает в Unity.</para>
+        ///
+        /// <para>Подключение разворачивается ДО разбора, как в Go: текст
+        /// вставляется на место строки, пути считаются от подключающего файла.
+        /// Пакеты (`@scope/pkg/...`) редакторный путь не поддерживает — их
+        /// приносит `lvnconv deps`, и об этом сказано ошибкой, а не молчанием.</para>
+        /// </summary>
+        public static string CompileFile(string path)
+        {
+            string src = System.IO.File.ReadAllText(path);
+            return Compile(ExpandIncludes(src, System.IO.Path.GetDirectoryName(path), 0));
+        }
+
+        static readonly Regex reInclude = new Regex("^\\s*include\\s+\"([^\"]+)\"\\s*$");
+
+        static string ExpandIncludes(string src, string baseDir, int depth)
+        {
+            if (depth > 8)
+                throw new LvnsCompileException("include: слишком глубокая вложенность (цикл?)");
+            var sb = new StringBuilder();
+            foreach (var line in src.Replace("\r\n", "\n").Split('\n'))
+            {
+                var m = reInclude.Match(line);
+                if (!m.Success) { sb.Append(line).Append('\n'); continue; }
+                string rel = m.Groups[1].Value;
+                if (rel.StartsWith("@"))
+                    throw new LvnsCompileException(
+                        $"include \"{rel}\": пакеты собирает lvnconv (deps), редакторный импорт их не тянет");
+                string full = System.IO.Path.Combine(baseDir ?? ".", rel);
+                if (!System.IO.File.Exists(full))
+                    throw new LvnsCompileException($"include \"{rel}\": файл не найден рядом со скриптом");
+                sb.Append(ExpandIncludes(System.IO.File.ReadAllText(full),
+                                         System.IO.Path.GetDirectoryName(full), depth + 1));
+            }
+            return sb.ToString();
+        }
+
         // ── Convert: the main pipeline (mirrors Go Convert) ──────────────────
         static JObject Convert(string src) { return Convert(src, null, null); }
 
