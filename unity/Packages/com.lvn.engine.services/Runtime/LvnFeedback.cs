@@ -68,7 +68,7 @@ namespace Lvn.Services
             if (!string.IsNullOrEmpty(tail)) body["log"] = tail;
 
             var (code, _) = await LvnBackend.PostAsync("/v1/feedback", body.ToString());
-            return code == 200;
+            return LvnBackend.Ok(code);
         }
     }
 }

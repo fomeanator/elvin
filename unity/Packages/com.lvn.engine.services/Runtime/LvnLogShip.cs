@@ -153,7 +153,7 @@ namespace Lvn.Services
             };
             var (code, _) = await LvnBackend.PostAsync("/v1/log/client",
                 body.ToString(Newtonsoft.Json.Formatting.None));
-            if (code >= 200 && code < 300) { _lastMsg = null; _lastLine = null; }
+            if (LvnBackend.Ok(code)) { _lastMsg = null; _lastLine = null; }
             return code;
         }
     }
