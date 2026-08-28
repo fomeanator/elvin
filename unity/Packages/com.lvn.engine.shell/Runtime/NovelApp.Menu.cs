@@ -37,6 +37,28 @@ namespace Lvn.UI.Screens
         // Знаем ли, на какой вкладке стоит полотно (был хоть один переезд).
         private bool _menuPanSet;
 
+        /// <summary>
+        /// КОМАНДА ПОЛОТНА ВИТРИНЫ — где оно стоит и как проступает.
+        ///
+        /// <para>Собиралась в трёх местах руками (возврат из главы, первый показ
+        /// меню, створ портала), и в каждом повторялось правило «какую точку
+        /// показывать»: переезды уже были — берём их точку, не было — начальную.
+        /// Правило одно, записей три; добавь в него условие (скажем, вкладку —
+        /// а вкладки тут и есть смысл переездов) — и забыть его в одном месте
+        /// значит получить прыжок полотна ровно на одном из трёх путей.</para>
+        ///
+        /// <para>Фон СЦЕНЫ (гардероб показывает последний фон главы) сюда не
+        /// относится: у него нет переездов, и точка ему не нужна.</para>
+        /// </summary>
+        private Newtonsoft.Json.Linq.JObject MenuCanvasCmd(string canvas, float fade)
+            => string.IsNullOrEmpty(canvas) ? null : new Newtonsoft.Json.Linq.JObject
+            {
+                ["op"] = "bg",
+                ["sprite_url"] = canvas,
+                ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
+                ["fade"] = fade,
+            };
+
         /// <summary>Настройки ВИТРИН из манифеста: рост куклы и переезд
         /// полотна в меню (<c>ui.browse</c>), кадр плиток гардероба
         /// (<c>ui.wardrobe.framing</c>). Отдельным методом, потому что зовётся
@@ -82,15 +104,10 @@ namespace Lvn.UI.Screens
             if (Stage == null) return;
             var canvas = _manifest?.ui?.browse?.canvas;
             var fav = MenuFavoriteEntity();
-            var bg = string.IsNullOrEmpty(canvas) ? null : new Newtonsoft.Json.Linq.JObject
-            {
-                ["op"] = "bg", ["sprite_url"] = canvas,
-                ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                // ВОЗВРАЩЕНИЕ — ДЛИННЫЙ ВЫДОХ, а не переключение. Полторы
-                // секунды кроссфейда: мир главы отпускает, полотно меню
-                // проступает. Короткий фейд читался как сбой картинки.
-                ["fade"] = MenuReturnFadeSeconds,
-            };
+            // ВОЗВРАЩЕНИЕ — ДЛИННЫЙ ВЫДОХ, а не переключение. Полторы секунды
+            // кроссфейда: мир главы отпускает, полотно меню проступает.
+            // Короткий фейд читался как сбой картинки.
+            var bg = MenuCanvasCmd(canvas, MenuReturnFadeSeconds);
             LvnLog.Trace($"[lvn-menu] передача кадра: полотно={(bg != null ? "меню" : "прежнее")}, "
                        + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.KnowsLook(fav))}");
             Stage.HandOver(bg, fav);
@@ -172,17 +189,11 @@ namespace Lvn.UI.Screens
                       + $"bgSet={_menuBgSet} → полотно {(!string.IsNullOrEmpty(canvas) && !_menuBgSet ? "СТАВИМ" : "не трогаем")}");
             if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
             {
-                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-                {
-                    ["op"] = "bg", ["sprite_url"] = canvas,
-                    // Стартовая четверть полотна — вкладка «Главная» (меню
-                    // всегда открывается с неё): та же точка, что у P(0) в
-                    // PanMenuScene, чтобы первый переезд не прыгал. Но если
-                    // переезды уже были (возврат из главы на своей вкладке) —
-                    // полотно встаёт СРАЗУ на её точку, иначе первый же тик
-                    // дёрнул бы его через полкадра.
-                    ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                }, LvnSender.Menu);
+                // Точку выбирает MenuCanvasCmd: стартовая четверть — вкладка
+                // «Главная» (меню всегда открывается с неё), а если переезды уже
+                // были — полотно встаёт СРАЗУ на их точку, иначе первый же тик
+                // дёрнул бы его через полкадра.
+                Stage.ApplyStage(MenuCanvasCmd(canvas, 0f), LvnSender.Menu);
                 _menuBgSet = true;
             }
             var fav = MenuFavoriteEntity();
