@@ -71,6 +71,38 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ScaleSpreadShrinksButKeepsOrder()
+        {
+            // «Слишком большой разброс у маленьких и больших текстов»: у
+            // характерных гарнитур крупное вылезает сильнее задуманного, и
+            // заголовок рядом с подписью выглядит плакатом.
+            LvnPrefs.FontFamily = "";
+            int plainSmall = LvnFonts.Size(20), plainBig = LvnFonts.Size(64);
+
+            LvnPrefs.FontFamily = "pixel";
+            int small = LvnFonts.Size(20), big = LvnFonts.Size(64);
+
+            Assert.Less(small, big, "порядок ступеней обязан сохраниться");
+            Assert.Less(big / (float)small, plainBig / (float)plainSmall,
+                "разброс у характерной гарнитуры обязан быть МЕНЬШЕ авторского");
+        }
+
+        [Test]
+        public void OneBadCatalogRowCannotBreakEveryScreen()
+        {
+            // Числа гарнитур подбирают глазом, и однажды подберут неудачно.
+            foreach (var f in LvnFonts.Families)
+            {
+                LvnPrefs.FontFamily = f.Id;
+                foreach (int b in new[] { 20, 30, 48, 64 })
+                {
+                    Assert.GreaterOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 0.6f) - 1, f.Title);
+                    Assert.LessOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 1.75f) + 1, f.Title);
+                }
+            }
+        }
+
+        [Test]
         public void SizeNeverCollapsesToZero()
         {
             LvnPrefs.FontFamily = "pixel";

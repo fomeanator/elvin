@@ -160,8 +160,26 @@ namespace Lvn.UI
             /// </summary>
             public readonly float SizeScale;
 
-            public Family(string id, string title, string path, string display, float sizeScale = 1f)
-            { Id = id; Title = title; Path = path; Display = display; SizeScale = sizeScale; }
+            /// <summary>
+            /// СЖАТИЕ ШКАЛЫ. Общий множитель поднимает или опускает ВСЁ разом, а
+            /// у характерных гарнитур беда другая: мелкое читается нормально, а
+            /// крупное вылезает вдвое («слишком большой разброс у маленьких и
+            /// больших текстов», Илья 28.08). Такие шрифты рисуют прописные
+            /// почти во всю высоту строки, поэтому разница между ступенями у них
+            /// ощущается сильнее, чем задумано.
+            ///
+            /// <para>Меньше единицы — ступени тянутся к базовому кеглю: мелкое
+            /// подрастает, крупное успокаивается, порядок ступеней сохраняется.
+            /// Ровно единица — шкала как у автора.</para>
+            /// </summary>
+            public readonly float SizeSpread;
+
+            public Family(string id, string title, string path, string display,
+                          float sizeScale = 1f, float sizeSpread = 1f)
+            {
+                Id = id; Title = title; Path = path; Display = display;
+                SizeScale = sizeScale; SizeSpread = sizeSpread;
+            }
         }
 
         /// <summary>
@@ -187,10 +205,10 @@ namespace Lvn.UI
             new Family("manrope", "Manrope",    "Fonts/Manrope",       "Fonts/Manrope"),
             // Характерные — их видно с первого слова. Ради этого они и есть:
             // настройка, которую нельзя проверить взглядом, ощущается сломанной.
-            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),
-            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",       2f),
-            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P", 1f / 1.5f),
-            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne", 1f / 1.5f),
+            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay", 0.9f,      0.7f),
+            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",        1.7f,      0.6f),
+            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P",  0.72f,     0.7f),
+            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne",  0.72f,     0.7f),
         };
 
         /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —
@@ -216,10 +234,35 @@ namespace Lvn.UI
         /// не выбирал: авторский кегль подобран под авторский шрифт.</summary>
         public static float SizeFactor => PlayerPicked ? Chosen.SizeScale : 1f;
 
-        /// <summary>Кегль с поправкой на гарнитуру: спрашивают ЗДЕСЬ, а не
-        /// умножают у себя — иначе поправка доедет до половины экранов.</summary>
+        /// <summary>
+        /// Кегль с поправкой на гарнитуру: спрашивают ЗДЕСЬ, а не умножают у
+        /// себя — иначе поправка доедет до половины экранов.
+        ///
+        /// <para>Поправок две, и делают они разное. Множитель двигает ВСЮ
+        /// шкалу (рукописная мельче гротеска при том же числе). Сжатие тянет
+        /// ступени к базовому кеглю: у характерных гарнитур крупное вылезает
+        /// сильнее, чем задумано, и «Заголовок» рядом с подписью выглядит
+        /// плакатом. Степень сохраняет порядок ступеней — мелкое остаётся
+        /// мельче крупного, просто разница перестаёт кричать.</para>
+        /// </summary>
         public static int Size(float baseSize)
-            => UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(baseSize * SizeFactor));
+        {
+            if (!PlayerPicked) return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(baseSize));
+            var fam = Chosen;
+            float mid = LvnTheme.Current != null ? LvnTheme.Current.TextBase : 30f;
+            if (mid < 1f) mid = 30f;
+            float shaped = baseSize;
+            if (fam.SizeSpread > 0f && !UnityEngine.Mathf.Approximately(fam.SizeSpread, 1f) && baseSize > 0f)
+                shaped = mid * UnityEngine.Mathf.Pow(baseSize / mid, fam.SizeSpread);
+            float value = shaped * fam.SizeScale;
+            // МЯГКИЕ ГРАНИЦЫ вокруг авторского кегля. Числа гарнитур подбирают
+            // глазом, и однажды подберут неудачно; предел не даёт одной строке
+            // каталога сломать вёрстку всех экранов сразу. Полтора раза вверх и
+            // почти вдвое вниз — предел различимости: дальше это уже не «тот же
+            // текст другим шрифтом», а другой макет.
+            value = UnityEngine.Mathf.Clamp(value, baseSize * 0.6f, baseSize * 1.75f);
+            return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(value));
+        }
 
         /// <summary>Путь текстового шрифта с учётом выбора игрока: тема
         /// спрашивает ЗДЕСЬ, а не читает своё поле напрямую.</summary>
