@@ -265,14 +265,8 @@ namespace Lvn.UI.Screens
             var wardrobe = _manifest?.sprites != null && _manifest.sprites.TryGetValue(entity, out var def)
                 ? def?.wardrobe : null;
             if (p == null || wardrobe == null) return;
-            foreach (var kv in wardrobe)
-            {
-                var storyVar = kv.Value?.storyVar;
-                if (string.IsNullOrEmpty(storyVar)) continue;
-                var v = p.GetVar(storyVar);
-                if (v == null) continue;
-                Lvn.UI.LvnWardrobe.Equip(entity, kv.Key, v.ToString());
-            }
+            // Обратная сторона обряда — у СВЯЗНОГО.
+            Lvn.UI.LvnWardrobeSync.FromVars(entity, wardrobe, name => p.GetVar(name)?.ToString());
         }
     }
 }

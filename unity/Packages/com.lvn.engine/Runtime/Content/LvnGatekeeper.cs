@@ -89,7 +89,11 @@ namespace Lvn.Content
             if (title == null || string.IsNullOrEmpty(title.unlock)) return false;
             try
             {
-                var vars = new Dictionary<string, JToken> { ["global"] = globalVars ?? new JObject() };
+                // Имя корневой переменной — у ХРАНИТЕЛЯ СТАТОВ: здесь стояла
+                // строка, то есть сам Привратник ходил мимо соседней роли
+                // (шестой признак канона — и в собственном доме).
+                var vars = new Dictionary<string, JToken>
+                    { [LvnGlobalStats.VarName] = globalVars ?? new JObject() };
                 return !Lvn.LvnExpression.EvaluateBool(title.unlock, vars);
             }
             catch { return false; }

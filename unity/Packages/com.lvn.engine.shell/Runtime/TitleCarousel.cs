@@ -391,8 +391,9 @@ namespace Lvn.UI.Screens
                 // child label drawn in the same box).
                 var cont = new Button(() =>
                 {
-                    LvnProgress.SetCurrent(t, autoCh);
-                    LvnProgress.ClearRestart(t.id); // continuing beats any pending restart
+                    // Пара решений про прогресс — у ПРОГРЕССА (ChooseChapter):
+                    // экран только сообщает выбор игрока.
+                    LvnProgress.ChooseChapter(t, autoCh);
                     CloseChapterPicker();
                     OnPlay?.Invoke(_index);
                 });
@@ -443,8 +444,7 @@ namespace Lvn.UI.Screens
                     // the restart actually starts, so a failed chapter load
                     // (offline, missing script) never destroys the position the
                     // player still holds.
-                    LvnProgress.SetCurrent(t, ch);
-                    LvnProgress.RequestRestart(t.id, ch.id);
+                    LvnProgress.RestartChapter(t, ch);
                     CloseChapterPicker();
                     OnPlay?.Invoke(_index);
                 })

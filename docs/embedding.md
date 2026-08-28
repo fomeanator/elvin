@@ -117,6 +117,14 @@ it yourself), the callback gets the running stage.
   achievements, analytics.
 - `VnStage.ExitRequested` / `RequestExit()` — the menu's Exit, or trigger it.
 - `VnStage.ChromeHiddenChanged` — the long-press art view (mirror your HUD).
+- `NovelShell.Hud` (`GameHud`) — the legacy in-game strip. The engine no longer
+  shows or feeds it (the unified top bar took that job on 26.08); a host that
+  wants it shows it and fills it itself via `SetProgress` / `SetBalance` /
+  `SetStats`.
+- `DialogueBox.RevealTicked` — the typewriter head moved by a word: hook a
+  typing sound or a per-word effect. Nothing inside the engine listens; the seam
+  exists FOR the host, and its absence from this list is what made it look like
+  dead code during the 28.08 role audit.
 
 ### Meta-progress stores
 

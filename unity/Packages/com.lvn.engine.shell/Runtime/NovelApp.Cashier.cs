@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.Services;
 
 namespace Lvn.UI.Screens
 {
@@ -41,38 +42,45 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
-        /// ОБРЯД ОПЛАТЫ — единственный способ взять с игрока деньги за вход.
+        /// ОБРЯД ОПЛАТЫ ЗА ВХОД — тонкая обёртка над Кассиром
+        /// (<see cref="Lvn.Services.LvnCashier"/>), который и держит порядок.
         ///
-        /// <para>Списать; если не хватило — объяснить, чего и сколько, и
-        /// предложить магазин; после магазина попробовать ещё раз; если и тогда
-        /// нет — сказать об этом прямо. Порядок и формулировки были написаны
-        /// дважды, для входа в новеллу и в главу, слово в слово, — и разошлись
-        /// бы при первой же правке одного из них.</para>
+        /// <para>Здесь остаётся только то, что знает именно новелла: какими
+        /// словами звучит отказ (их пишет автор в <c>economy.gate_*</c>), через
+        /// сколько прибудет следующая энергия и куда вести за покупкой.</para>
         /// </summary>
         /// <param name="currency">чем платим</param>
         /// <param name="amount">сколько</param>
-        /// <param name="reason">за что — уходит в кошелёк и в аналитику</param>
+        /// <param name="reason">за что — уходит в журнал кошелька</param>
         /// <param name="fallbackMessage">объяснение, когда новелла своего не дала</param>
         private async Task<bool> ChargeEntryAsync(string currency, long amount,
                                                   string reason, string fallbackMessage)
         {
             if (string.IsNullOrEmpty(currency) || amount <= 0) return true; // бесплатно
-            if (await Lvn.Services.LvnWallet.SpendAsync(currency, amount, reason)) return true;
-            if (_shell == null) return false;
 
             var eco = _manifest?.economy;
-            string title = eco?.gate_title ?? "Not enough energy";
-            string msg = (eco?.gate_message ?? fallbackMessage) + RefillHint(currency);
-            bool toStore = await _shell.ConfirmAsync(title, msg,
-                eco?.gate_buy ?? "Store", eco?.gate_cancel ?? "Not now");
-            if (!toStore) return false;
+            var charge = new Lvn.Services.LvnCashier.Charge
+            {
+                Currency = currency,
+                Amount = amount,
+                Reason = reason,
+                Title = eco?.gate_title ?? "Not enough energy",
+                Message = (eco?.gate_message ?? fallbackMessage) + RefillHint(currency),
+                BuyText = eco?.gate_buy ?? "Store",
+                CancelText = eco?.gate_cancel ?? "Not now",
+                DeniedTitle = eco?.gate_denied,
+            };
 
-            await _shell.OpenPackShopAsync();
-            await Lvn.Services.LvnWallet.RefreshAsync();
-            if (await Lvn.Services.LvnWallet.SpendAsync(currency, amount, reason)) return true;
+            // Оболочки нет — спрашивать нечем: платит тот, у кого хватает, и
+            // молча. Кассир вернёт NoOffer, и вход закроется без окна.
+            if (_shell == null)
+                return (await Lvn.Services.LvnCashier.ChargeAsync(charge, null, null)).Ok();
 
-            await _shell.AlertAsync(eco?.gate_denied ?? title, msg);
-            return false;
+            var outcome = await Lvn.Services.LvnCashier.ChargeAsync(charge,
+                (title, msg) => _shell.ConfirmAsync(title, msg, charge.BuyText, charge.CancelText),
+                () => _shell.OpenPackShopAsync(),
+                (title, msg) => _shell.AlertAsync(title, msg));
+            return outcome.Ok();
         }
 
         // "⚡ +1 через 1 ч 20 мин" — the regen countdown for the gate popup, from the

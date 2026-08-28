@@ -197,8 +197,8 @@ namespace Lvn.UI.Screens
             if (t == null || ch == null) return Task.CompletedTask;
             // Move the continue point and flag an explicit restart: the play loop
             // seeds this chapter from its entry checkpoint (stats as of first entry).
-            LvnProgress.SetCurrent(t, ch);
-            LvnProgress.RequestRestart(t.id, ch.id);
+            // Та же пара, что у карусели, — теперь один обряд у прогресса.
+            LvnProgress.RestartChapter(t, ch);
             Play();
             return Task.CompletedTask;
         }

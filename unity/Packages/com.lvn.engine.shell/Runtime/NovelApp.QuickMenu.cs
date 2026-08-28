@@ -163,7 +163,18 @@ namespace Lvn.UI.Screens
             DownloadPolicy.PreferredSuffix = "@" + EffectiveArtQuality();
             Lvn.UI.LvnPrefs.Changed += () =>
             {
-                if (!_chapterPlaying) ShowMenuScene(withPortal: false); // смена фаворита — живьём, без врат
+                // СЦЕНА ПЕРЕСОБИРАЕТСЯ, ТОЛЬКО ЕСЛИ СМЕНИЛСЯ ФАВОРИТ. Событие
+                // настроек летит на КАЖДОЕ присваивание — в том числе на каждый
+                // кадр перетаскивания ползунка громкости, — а пересборка сцены
+                // меню это полотно, кукла и вся её диагностика. Сравнение
+                // дешевле любой отложенной перерисовки: лишней работы не
+                // становится меньше, её просто не возникает.
+                var favNow = MenuFavoriteEntity();
+                if (!_chapterPlaying && favNow != _lastMenuFavorite)
+                {
+                    _lastMenuFavorite = favNow;
+                    ShowMenuScene(withPortal: false); // смена фаворита — живьём, без врат
+                }
                 var next = "@" + EffectiveArtQuality();
                 if (DownloadPolicy.PreferredSuffix != next)
                 {

@@ -427,8 +427,18 @@ func (s *AnalyticsService) buildFunnel(m *dayRollup, id string, pc playerCuts, m
 	rep.Steps = steps
 	rep.Drops = dropsOf(id, t.Author, steps, minSample)
 	rep.Notes = append(rep.Notes,
-		"starts/finishes count EVENTS: one player replaying a chapter counts twice. players_stopped_here is the player-level counterpart",
-		"lost_in_chapter is inferred as starts-finishes — the client sends no chapter_abandon event, so a crash and a deliberate exit look the same")
+		"starts/finishes count EVENTS: one player replaying a chapter counts twice. players_stopped_here is the player-level counterpart")
+	// Что именно означает lost_in_chapter, зависит от того, шлёт ли сборка
+	// chapter_abandon. Примечание годами утверждало, что не шлёт, и осталось
+	// стоять, когда клиент начал: читатель отчёта делал вывод о своих данных
+	// по позапрошлогоднему миру.
+	if m.Names[evChapterAbandon] > 0 {
+		rep.Notes = append(rep.Notes,
+			"lost_in_chapter is inferred as starts-finishes; chapter_abandon IS arriving in this window, so a deliberate exit can be told from a crash by that event")
+	} else {
+		rep.Notes = append(rep.Notes,
+			"lost_in_chapter is inferred as starts-finishes — no chapter_abandon event in this window, so a crash and a deliberate exit look the same")
+	}
 	return rep
 }
 
@@ -737,19 +747,26 @@ func (s *AnalyticsService) handleHealth(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// gaps: the signals this report CANNOT produce because nothing sends them, and
-// the exact event that would. Keeping this in the API (rather than in a doc
-// nobody opens) means the day the client starts sending one, the entry flips to
-// seen>0 and disappears from the to-do by itself.
+// gaps: the signals this report cannot produce unless the client sends them,
+// and the exact event that lights each one up. Keeping the list in the API
+// (rather than in a doc nobody opens) means a gap closes by itself the day the
+// events arrive.
+//
+// "By itself" was aspirational until the entries were actually marked: seen>0
+// was reported, but every entry still read as an open hole, so a reader saw
+// five to-dos long after the client had closed them. The flag says which world
+// the entry describes — closed ones stay listed (they document what the number
+// would mean if the events stopped) but are no longer a to-do.
 type analyticsGap struct {
 	Event  string `json:"event"`
 	Seen   int    `json:"seen"`
+	Closed bool   `json:"closed"` // события приходят — дыра закрыта
 	Blind  string `json:"blind_spot"`
 	Client string `json:"client_fix"`
 }
 
 func (s *AnalyticsService) gaps(m *dayRollup) []analyticsGap {
-	return []analyticsGap{
+	out := []analyticsGap{
 		{
 			Event: evChapterAbandon, Seen: m.Names[evChapterAbandon],
 			Blind:  "in-chapter loss is only inferable as chapter_start - chapter_finish, so a crash, a kill, an energy gate and a bored exit are one number",
@@ -776,6 +793,10 @@ func (s *AnalyticsService) gaps(m *dayRollup) []analyticsGap {
 			Client: "pass the current title id with every Track call that happens inside a novel",
 		},
 	}
+	for i := range out {
+		out[i].Closed = out[i].Seen > 0
+	}
+	return out
 }
 
 func sessionsBlock(m *dayRollup, pc playerCuts) map[string]any {

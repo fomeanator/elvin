@@ -238,6 +238,20 @@ namespace Lvn.UI
             return CrossChapterLoader != null;
         }
 
+        /// <summary>
+        /// СКОЛЬКО РЕПЛИК МОЖНО ПОТЕРЯТЬ при падении приложения.
+        ///
+        /// <para>Продуктовое решение, а не деталь отрисовки: между двумя
+        /// автосейвами игрок читает столько-то строк, и ровно столько он
+        /// перечитает после сбоя. Число стояло безымянной пятёркой в глубине
+        /// метода, который рисует реплику, — там его никто не искал бы, меняя
+        /// «как часто мы сохраняемся».</para>
+        ///
+        /// <para>Выбор и ввод значения сохраняются НЕЗАВИСИМО от счётчика: их
+        /// нельзя терять вовсе, и это отдельные вызовы.</para>
+        /// </summary>
+        public const int AutosaveEveryLines = 5;
+
         /// <summary>Autosave into the reserved slot now — called by the host on
         /// app pause, and internally on choices / every few lines.</summary>
         public void AutosaveNow()

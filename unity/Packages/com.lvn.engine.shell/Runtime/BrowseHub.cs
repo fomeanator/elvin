@@ -345,7 +345,12 @@ namespace Lvn.UI.Screens
             if (_playerNameLabel != null)
                 _playerNameLabel.text = string.IsNullOrEmpty(PlayerName)
                     ? Lvn.UI.LvnPlayerName.Display : PlayerName;
-            if (_playerLevelLabel != null) _playerLevelLabel.text = "Уровень " + (PlayerLevel > 0 ? PlayerLevel : 1);
+            // Через СЛОВАРЬ (ключ тот же, что у профиля): здесь слово стояло
+            // строкой — вторая надпись про одно и то же, и переводились бы они
+            // порознь.
+            if (_playerLevelLabel != null)
+                _playerLevelLabel.text = LvnWords.Of("profile.level", "Level {0}",
+                    PlayerLevel > 0 ? PlayerLevel : 1);
 
             // ПИЛЮЛИ НЕ ПЕРЕСОБИРАЮТСЯ НА КАЖДОЕ СОБЫТИЕ. Раньше здесь стоял
             // Clear() и полная сборка заново — с новой загрузкой значков. Вход

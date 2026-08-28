@@ -121,6 +121,20 @@ namespace Lvn.UI
         /// acted on the request (and by Play for a fresh chapter).</summary>
         public void ClearExitRequest() => ExitRequested = false;
 
+        /// <summary>
+        /// СКОЛЬКО ДЕРЖИТСЯ ДОЧИТАННАЯ РЕПЛИКА в авторежиме: постоянная пауза
+        /// плюс время на длину строки. Обе величины стояли безымянными в одной
+        /// формуле, хотя решают они разное: первая — «сколько нужно, чтобы
+        /// понять, что реплика кончилась», вторая — «сколько читается один
+        /// символ».
+        ///
+        /// <para>Игрок правит это ползунком «задержка авто» — множитель
+        /// <see cref="LvnPrefs.AutoDelayScale"/> сверху; здесь база, от которой
+        /// ползунок отсчитывает.</para>
+        /// </summary>
+        private const float AutoPauseBase = 0.55f;
+        private const float AutoPausePerChar = 0.035f;
+
         private void AutoAdvanceTick()
         {
             if (!LvnPrefs.AutoAdvance || InputBlocked || _chromeHidden
@@ -138,7 +152,8 @@ namespace Lvn.UI
                 _autoRevealDoneAt = Time.realtimeSinceStartup;
                 return;
             }
-            float delay = (0.55f + 0.035f * _lastSayLength) * LvnPrefs.AutoDelayScale;
+            float delay = (AutoPauseBase + AutoPausePerChar * _lastSayLength)
+                          * LvnPrefs.AutoDelayScale;
             if (Time.realtimeSinceStartup - _autoRevealDoneAt < delay) return;
             _autoRevealDoneAt = -1f;
             _awaitingTap = false;
@@ -503,7 +518,7 @@ namespace Lvn.UI
             bool wasNew = LvnReadStore.MarkRead(_saveTitleId, who, text);
             if (wasNew && Skipping && LvnPrefs.SkipReadOnly) StopSkip();
             // Rolling autosave so a crash mid-scene loses a few lines at most.
-            if (++_saySinceAutosave >= 5)
+            if (++_saySinceAutosave >= AutosaveEveryLines)
             {
                 _saySinceAutosave = 0;
                 AutosaveNow();

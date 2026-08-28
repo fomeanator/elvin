@@ -31,9 +31,21 @@ namespace Lvn.Content
         // multiplexed). Mini is wide so a chapter's small files all download in
         // one parallel burst; large is capped low so a couple of big files can't
         // monopolise the connection and stall that burst.
-        private const int MiniParallel = 12;  // < 50KB — full width, burst them all
-        private const int NormalParallel = 6; // < 2MB
-        private const int LargeParallel = 2;  // ≥ 2MB
+        private const int MiniParallel = 12;  // мельче MiniBytes — во всю ширину
+        private const int NormalParallel = 6; // мельче LargeBytes
+        private const int LargeParallel = 2;  // от LargeBytes и крупнее
+
+        // ГДЕ ПРОХОДЯТ ГРАНИЦЫ РАЗМЕРА. Числа стояли прямо в SlotFor, а рядом
+        // те же величины были записаны СЛОВАМИ в комментариях к ширине
+        // очередей: два места про один порог, и разошлись бы они молча — код
+        // качал бы по-новому, комментарий объяснял бы по-старому.
+        /// <summary>Мельче этого файл считается мелким: значки, крошки-превью,
+        /// силуэты. Их качают пачкой — задержка важнее полосы.</summary>
+        private const long MiniBytes = 50 * 1024;
+        /// <summary>От этого размера файл считается крупным: фон, спайн-атлас.
+        /// Их держат в узкой очереди, иначе пара таких занимает всё соединение
+        /// и мелочь ждёт за ними.</summary>
+        private const long LargeBytes = 2 * 1024 * 1024;
 
         // Floor for a missing/zero size so a not-yet-uploaded asset still
         // contributes a little to the byte totals (keeps the bar honest).
@@ -260,7 +272,7 @@ namespace Lvn.Content
         {
             var t = tier;
             if (string.IsNullOrEmpty(t))
-                t = size < 50 * 1024 ? "mini" : size < 2 * 1024 * 1024 ? "normal" : "large";
+                t = size < MiniBytes ? "mini" : size < LargeBytes ? "normal" : "large";
             return t switch
             {
                 "mini" => _miniSlots,

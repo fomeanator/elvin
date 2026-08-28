@@ -16,6 +16,20 @@ namespace Lvn.UI.Screens
     /// Pills are created on demand. <see cref="SetProgress"/> uses the shared
     /// <see cref="Percent"/> rule so every "%" in the UI matches the loading bar.
     /// </summary>
+    /// <summary>
+    /// ⚠ ПОЛОСА БОЛЬШЕ НЕ ЖИВЁТ В ИГРЕ (решение Ильи 26.08). Её работу —
+    /// прогресс главы и балансы валют — взял единый навбар
+    /// (<see cref="LvnTopBar"/>): в сцене они висят мини-бабликами по углам,
+    /// а затемняющая полоса сверху убрана совсем.
+    ///
+    /// <para>Класс оставлен как ПУБЛИЧНЫЙ ШОВ: встраивающая игра вправе взять
+    /// его и показать сама (<c>NovelShell.Hud</c>). Но кормить его движок
+    /// больше не будет — до 28.08 он молча слал сюда балансы на каждое
+    /// движение кошелька и прогресс на каждый шаг главы, в экран, у которого
+    /// нет ни одного вызова <c>Show</c>. Хост, решивший его показать, ставит
+    /// значения сам: <see cref="SetProgress"/>, <see cref="SetBalance"/>,
+    /// <see cref="SetStats"/>.</para>
+    /// </summary>
     public sealed class GameHud : VisualElement
     {
         private readonly HudConfig _cfg;

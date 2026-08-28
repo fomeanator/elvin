@@ -93,7 +93,7 @@ type analyticsEvent struct {
 	// "chapter" while the helper's own docstring spells it "ch", and a
 	// dimension has to be length-capped once, here, not in every query.
 	Chapter string `json:"chapter,omitempty"`
-	SID     string `json:"sid,omitempty"` // session id — not sent yet; see health.gaps
+	SID     string `json:"sid,omitempty"` // session id — клиент штампует им каждое событие
 }
 
 var reDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)

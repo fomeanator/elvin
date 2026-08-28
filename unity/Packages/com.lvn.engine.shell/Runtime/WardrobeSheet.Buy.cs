@@ -189,22 +189,17 @@ namespace Lvn.UI.Screens
         // Buy exactly the browsed item; on success the button flips to the
         // plain "choose" (RefreshConfirm sees it owned) and the player keeps
         // shopping — the next tab's piece is one more press away.
+        //
+        // Порядок обряда (списать → предложить магазин → повторить → объяснить)
+        // здесь БОЛЬШЕ НЕ ЖИВЁТ: он у Кассира, общий с воротами входа в главу.
+        // Своим экземпляром гардероб уже успел разойтись с оригиналом — писал
+        // исход по первой попытке, и покупка после магазина оставалась в отчёте
+        // провалом. Здесь остаётся гардеробное: чем платят, какими словами и что
+        // обновить на экране после успеха.
         private async Task BuyCurrentAsync(string axis, LvnWardrobeItem item)
         {
             var sku = LvnWardrobe.Sku(_entity, axis, item.value);
             LvnLog.Trace($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
-            bool ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
-            LvnLog.Trace($"[lvn-wardrobe] buy {sku} → {(ok ? "OK" : "FAILED")}; " +
-                      $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
-            LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
-                ("entity", _entity), ("sku", sku));
-            if (ok)
-            {
-                _buying = false;
-                RebuildStrip(); // бейджи «◆» на карточках и свотчах устарели
-                RefreshConfirm();
-                return;
-            }
 
             // В попапе значок не нарисуешь — но и служебное имя валюты
             // показывать нельзя: без названного currency_label остаётся цена.
@@ -213,19 +208,41 @@ namespace Lvn.UI.Screens
                 ? $"{title}: {item.price:N0}"
                 : $"{title}: {item.price:N0} {_cfg.currency_label}";
 
-            // Offer the store and retry once — same pattern as the chapter/title
-            // entry gates. Falls back to just flashing the reason on the button
-            // if the host hasn't wired the popup hooks (older shells).
-            if (ConfirmTopUp != null && OpenStore != null)
+            var charge = new LvnCashier.Charge
             {
-                bool toStore = await ConfirmTopUp(title, msg);
-                if (toStore)
-                {
-                    await OpenStore();
-                    await LvnWallet.RefreshAsync();
-                    ok = await LvnWallet.SpendAsync(item.currency, item.price, "wardrobe", sku);
-                    if (!ok && Alert != null) await Alert(title, msg);
-                }
+                Currency = item.currency,
+                Amount = item.price,
+                Reason = "wardrobe",
+                Sku = sku,
+                Title = title,
+                Message = msg,
+                Marks = new (string, object)[] { ("entity", _entity), ("sku", sku) },
+            };
+
+            var outcome = await LvnCashier.ChargeAsync(charge,
+                ConfirmTopUp == null || OpenStore == null ? null
+                    : new System.Func<string, string, Task<bool>>((t, m) => ConfirmTopUp(t, m)),
+                OpenStore == null ? null : new System.Func<Task>(() => OpenStore()),
+                Alert == null ? null : new System.Func<string, string, Task>((t, m) => Alert(t, m)));
+
+            bool ok = outcome.Ok();
+            LvnLog.Trace($"[lvn-wardrobe] buy {sku} → {outcome}; " +
+                      $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
+            // Исход — ПО ИТОГУ обряда, а не по первой попытке: покупка после
+            // захода в магазин это покупка.
+            LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
+                ("entity", _entity), ("sku", sku));
+
+            if (ok)
+            {
+                _buying = false;
+                RebuildStrip(); // бейджи «◆» на карточках и свотчах устарели
+                RefreshConfirm();
+                return;
+            }
+
+            if (outcome != LvnCashier.Outcome.NoOffer)
+            {
                 _buying = false;
                 RefreshConfirm();
                 return;
