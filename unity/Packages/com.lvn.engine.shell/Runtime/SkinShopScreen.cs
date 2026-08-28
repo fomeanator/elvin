@@ -406,7 +406,8 @@ namespace Lvn.UI.Screens
 
             // Лента «Надето» появляется и исчезает при обновлении — держим её
             // место готовым, чтобы не трогать миниатюру под ней.
-            var ribbon = new Label(LvnWords.Of("skinshop.equipped", "Equipped")) { viewDataKey = "ribbon" };
+            var ribbon = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("skinshop.equipped", "Equipped"));
+            ribbon.viewDataKey = "ribbon";
             ribbon.style.position = Position.Absolute;
             ribbon.style.top = 10; ribbon.style.left = 10;
             ribbon.style.fontSize = 18;
@@ -462,7 +463,7 @@ namespace Lvn.UI.Screens
 
             if (equipped)
             {
-                var state = new Label(LvnWords.Of("skinshop.active", "Active"));
+                var state = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("skinshop.active", "Active"));
                 state.style.color = LvnTokens.Accent;
                 state.style.fontSize = 18;
                 state.style.unityFontStyleAndWeight = FontStyle.Bold;

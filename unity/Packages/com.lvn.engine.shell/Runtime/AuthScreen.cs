@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
             panel.style.borderBottomRightRadius = 16;
             Add(panel);
 
-            var title = new Label(LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = 42;
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -97,7 +97,7 @@ namespace Lvn.UI.Screens
             // field in explicitly (ui.auth.ask_nickname: true).
             if (_cfg.ask_nickname ?? false)
             {
-                var prompt = new Label(LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
+                var prompt = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
                 prompt.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
                 prompt.style.fontSize = 24;
                 prompt.style.marginTop = 20;

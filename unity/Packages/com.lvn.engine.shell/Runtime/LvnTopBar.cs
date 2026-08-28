@@ -271,7 +271,7 @@ namespace Lvn.UI.Screens
             circle.style.backgroundColor = LvnTokens.Accent;
             circle.style.alignItems = Align.Center;
             circle.style.justifyContent = Justify.Center;
-            var t = new Label(LvnWords.Of("app.logo", "L"));
+            var t = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("app.logo", "L"));
             t.pickingMode = PickingMode.Ignore;
             t.style.color = LvnTokens.OnAccent;
             t.style.fontSize = 30;

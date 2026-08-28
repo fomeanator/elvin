@@ -29,7 +29,12 @@ namespace Lvn.UI.Screens
             head.style.alignItems = Align.Center;
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.marginBottom = 14;
-            var title = new Label(_theme.Heading(Lvn.Content.LvnWords.Name("collection", c.id, c.name)));
+            // Подпись знает свой источник: при смене языка её перечитает дом,
+            // а карточки не придётся пересобирать — вместе с ними уехали бы
+            // прокрутка и то, на чём игрок остановился.
+            var cid = c.id; var cname = c.name;
+            var title = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => _theme.Heading(Lvn.Content.LvnWords.Name("collection", cid, cname)));
             title.style.color = _text; title.style.fontSize = 54;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
@@ -150,7 +155,9 @@ namespace Lvn.UI.Screens
             caption.style.flexGrow = 1;
             caption.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.98f);
 
-            var name = new Label(Lvn.Content.LvnWords.Name("title", t.id, t.name));
+            var tid0 = t.id; var tname0 = t.name;
+            var name = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => Lvn.Content.LvnWords.Name("title", tid0, tname0));
             name.style.color = _text; name.style.fontSize = 32;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
@@ -227,7 +234,9 @@ namespace Lvn.UI.Screens
             var top = new VisualElement();
             top.style.flexDirection = FlexDirection.Row; top.style.justifyContent = Justify.SpaceBetween;
             top.style.alignItems = Align.Center;
-            var name = new Label(Lvn.Content.LvnWords.Name("title", t.id, t.name));
+            var tid0 = t.id; var tname0 = t.name;
+            var name = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => Lvn.Content.LvnWords.Name("title", tid0, tname0));
             name.style.color = _text; name.style.fontSize = 36;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
@@ -235,7 +244,9 @@ namespace Lvn.UI.Screens
             else if (t.cost != null && t.cost.amount > 0) top.Add(CostChip(t.cost));
             col.Add(top);
 
-            var desc = new Label(Lvn.Content.LvnWords.Name("subtitle", t.id, t.card?.description ?? t.subtitle ?? ""));
+            var tid1 = t.id; var tsub1 = t.card?.description ?? t.subtitle ?? "";
+            var desc = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => Lvn.Content.LvnWords.Name("subtitle", tid1, tsub1));
             desc.style.color = _dim; desc.style.fontSize = 24; desc.style.marginTop = 5;
             desc.style.whiteSpace = WhiteSpace.Normal;
             desc.style.overflow = Overflow.Hidden;

@@ -266,6 +266,9 @@ namespace Lvn.UI
             // сцена, интерфейс и диалог получают одну гарнитуру разом. Ставить
             // его в каждом экране значит однажды забыть про один из них.
             LvnFonts.ApplyDefault(root);
+            // Сцена — второе живое дерево: гардероб и диалог живут в нём, и
+            // без объявления они переодевались только при перезаходе.
+            LvnRedress.Register(root);
 
             root.Add(_particles);   // weather sits over the scene, under the UI
             // Chrome lives inside the device SAFE AREA (never under a notch /

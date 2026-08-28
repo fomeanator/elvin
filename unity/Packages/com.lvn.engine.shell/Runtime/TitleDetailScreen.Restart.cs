@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
                 section.Add(SaveRow(LvnWords.Of("saves.auto", "Autosave"), DescribeSave(Title, auto), Play));
             else if (!hasProgress)
             {
-                var empty = new Label(LvnWords.Of("saves.empty", "No saves yet — start reading."));
+                var empty = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("saves.empty", "No saves yet — start reading."));
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = 20;
                 empty.style.marginTop = 10;

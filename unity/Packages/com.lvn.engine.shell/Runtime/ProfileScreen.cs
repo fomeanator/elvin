@@ -135,7 +135,7 @@ namespace Lvn.UI.Screens
             sheet.Add(top);
 
             var titleBlock = new VisualElement();
-            var eyebrow = new Label(LvnWords.Of("profile.eyebrow", "PROFILE"));
+            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.eyebrow", "PROFILE"));
             eyebrow.style.color = LvnTokens.Gold;
             eyebrow.style.fontSize = 18;
             eyebrow.style.letterSpacing = 2.2f;
@@ -216,7 +216,7 @@ namespace Lvn.UI.Screens
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
             ic.style.marginRight = 12;
             row.Add(ic);
-            var lbl = new Label(LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
                                             $"{ChaptersDone} {ChapterWord(ChaptersDone)}"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
@@ -259,7 +259,7 @@ namespace Lvn.UI.Screens
             card.style.paddingRight = 18;
             card.style.marginBottom = 16;
 
-            var dossier = new Label(LvnWords.Of("profile.dossier", "STORY RECORD"));
+            var dossier = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.dossier", "STORY RECORD"));
             dossier.style.color = LvnTokens.Gold;
             dossier.style.fontSize = 17;
             dossier.style.letterSpacing = 1.9f;
@@ -313,7 +313,7 @@ namespace Lvn.UI.Screens
             col.Add(name);
 
             if (Minimal) return card; // TR-25: профиль = имя + ID, без уровня и XP
-            var level = new Label(LvnWords.Of("profile.level", "Level {0}", Level));
+            var level = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = 26;
             level.style.marginTop = 2;

@@ -37,7 +37,12 @@ namespace Lvn.UI.Screens
                 {
                     if (OnlySeen && id != _entity && !HasAnyCollected(id)) continue;
                     var pid = id;
-                    var b = new Button(() => SwitchTo(pid)) { text = name };
+                    // Подпись знает свой источник: имя персонажа приходит из
+                    // каталога и переводится словарём, поэтому при смене языка
+                    // её перечитает дом — раньше баблики не реагировали ни на
+                    // что (снимок Ильи 28.08).
+                    var b = new Button(() => SwitchTo(pid));
+                    Lvn.UI.LvnRedress.Bind(b, () => Lvn.Content.LvnWords.Name("actor", pid, name));
                     b.style.height = 40;
                     b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginBottom = 8;
                     b.style.paddingLeft = 14; b.style.paddingRight = 14;

@@ -131,7 +131,7 @@ namespace Lvn.UI.Screens
 
             var titleBlock = new VisualElement();
             titleBlock.style.flexGrow = 1;
-            var eyebrow = new Label(LvnWords.Of("shop.eyebrow", "TOP UP"));
+            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.eyebrow", "TOP UP"));
             eyebrow.style.color = LvnTokens.Gold;
             eyebrow.style.fontSize = 18;
             eyebrow.style.letterSpacing = 2.2f;
@@ -362,7 +362,7 @@ namespace Lvn.UI.Screens
 
             // ЧИСЛО БЕЗ ВАЛЮТЫ НЕ ГОВОРИТ НИЧЕГО: «получите 5» — пять чего? В
             // игре две валюты, и путать их дороже всего именно в магазине.
-            var title = new Label(LvnWords.Of("ads.free_title", "Watch an ad — get {0}",
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("ads.free_title", "Watch an ad — get {0}",
                 LvnPriceTag.Full(st.Currency, st.Amount)));
             title.style.color = LvnTokens.Text;
             title.style.fontSize = LvnTokens.TextBase;
@@ -548,7 +548,7 @@ namespace Lvn.UI.Screens
             }
             else if (pack.Bonus > 0)
             {
-                var bonus = new Label(LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
+                var bonus = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
                 bonus.style.color = LvnTokens.Gold;
                 bonus.style.fontSize = 21;
                 bonus.style.marginTop = 4;

@@ -53,8 +53,7 @@ namespace Lvn.UI.Screens
             if (_peekLabel != null) _peekLabel.text = LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height");
             if (_cancel != null) _cancel.text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel");
             RefreshConfirm();     // «Выбрать» / «Купить за N» — своя логика подписи
-            BuildTabs();          // вкладки осей несут названия из каталога
-            RebuildStrip();       // плитки — названия нарядов
+            RebuildStrip();       // плитки несут названия нарядов
             RefreshLabel();       // строка выбора под лентой
         }
 
@@ -195,7 +194,7 @@ namespace Lvn.UI.Screens
             headRow.style.alignItems = Align.Center;
             Add(headRow);
 
-            _title = new Label(LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe"));
+            _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe"));
             _title.style.display = DisplayStyle.None; // подпись убрана, поле живо для хоста
 
             // ВО ВЕСЬ РОСТ. Раньше этот шеврон ЗАКРЫВАЛ примерку, и игроки его
@@ -214,7 +213,7 @@ namespace Lvn.UI.Screens
             var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
             peek.Add(peekIcon);
-            _peekLabel = new Label(LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
+            _peekLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
             var peekLabel = _peekLabel;
             peekLabel.style.fontSize = 20;
             peekLabel.style.marginLeft = 8;
@@ -561,8 +560,9 @@ namespace Lvn.UI.Screens
                 }
                 // Подпись оси — из словаря: «Украшения» и «Причёска» в
                 // английском интерфейсе выглядят как недоделанный перевод.
-                var lbl = new Label(Lvn.Content.LvnWords.Name("axis", axis, slot?.name))
-                    { pickingMode = PickingMode.Ignore };
+                var lbl = new Label { pickingMode = PickingMode.Ignore };
+                var ax = axis; var slotName = slot?.name;
+                Lvn.UI.LvnRedress.Bind(lbl, () => Lvn.Content.LvnWords.Name("axis", ax, slotName));
                 lbl.name = "ax-label";
                 lbl.style.fontSize = 22;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
@@ -594,7 +594,8 @@ namespace Lvn.UI.Screens
                 onA.style.marginRight = 10;
                 onA.style.display = DisplayStyle.None;
                 all.Add(offA); all.Add(onA);
-                var lblA = new Label(LvnWords.Of("wardrobe.mine", "Mine")) { pickingMode = PickingMode.Ignore };
+                var lblA = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("wardrobe.mine", "Mine"));
+                lblA.pickingMode = PickingMode.Ignore;
                 lblA.name = "ax-label";
                 lblA.style.fontSize = 22;
                 lblA.style.whiteSpace = WhiteSpace.NoWrap;

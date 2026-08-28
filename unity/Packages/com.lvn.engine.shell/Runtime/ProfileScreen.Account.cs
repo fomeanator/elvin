@@ -30,11 +30,11 @@ namespace Lvn.UI.Screens
             row.style.paddingLeft = 16; row.style.paddingRight = 16;
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            var lbl = new Label(LvnWords.Of("settings.title", "Settings"));
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             col.Add(lbl);
-            var hint = new Label(LvnWords.Of("settings.hint", "Sound, story language and full download"));
+            var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.hint", "Sound, story language and full download"));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = 19;
             hint.style.marginTop = 2;
@@ -69,11 +69,11 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
             col.style.marginRight = 10;
-            var lbl = new Label(LvnWords.Of("account.delete", "Delete account"));
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete", "Delete account"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             col.Add(lbl);
-            var hint = new Label(LvnWords.Of("account.delete_hint", "Erases progress, purchases and saves. Forever."));
+            var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete_hint", "Erases progress, purchases and saves. Forever."));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = 19;
             hint.style.marginTop = 2;

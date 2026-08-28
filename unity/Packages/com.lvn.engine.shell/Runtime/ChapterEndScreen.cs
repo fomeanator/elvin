@@ -37,7 +37,7 @@ namespace Lvn.UI.Screens
             column.style.width = Length.Percent(82f);
             Add(column);
 
-            _title = new Label(LvnWords.Pick("chapter_end.title", _cfg.title, "End of chapter"));
+            _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("chapter_end.title", _cfg.title, "End of chapter"));
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
             _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             _title.style.fontSize = _cfg.title_size ?? 64f;

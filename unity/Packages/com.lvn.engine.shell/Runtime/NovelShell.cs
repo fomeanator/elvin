@@ -289,6 +289,9 @@ namespace Lvn.UI.Screens
             // сборке экрана, и без этого перевод доезжал бы только до того, что
             // откроют ПОСЛЕ смены языка: открытые настройки остались бы на
             // прежнем языке, и игрок решил бы, что переключатель не работает.
+            // Корень оболочки — один из живых деревьев игры; переодеванием
+            // заведует дом, и подписываться каждому экрану не нужно.
+            Lvn.UI.LvnRedress.Register(_root);
             Lvn.Content.LvnWords.Changed -= RefreshWords;
             Lvn.Content.LvnWords.Changed += RefreshWords;
             // Гарнитура и размеры — тот же случай: подписи ставятся при сборке.
@@ -636,7 +639,7 @@ namespace Lvn.UI.Screens
         // шапка настроек).
         private void RefreshWords()
         {
-            Lvn.UI.LvnRedress.All(_root);
+            Lvn.UI.LvnRedress.All();   // все живые деревья: оболочка, сцена, гардероб
             Hub?.Redress();          // нижнее меню и шапка хаба живут отдельно
         }
     }

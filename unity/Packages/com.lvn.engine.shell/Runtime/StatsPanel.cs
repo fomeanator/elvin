@@ -47,7 +47,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             root.Add(panel);
 
-            var title = new Label(LvnWords.Of("stats.title", "Your stats"));
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("stats.title", "Your stats"));
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 30;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;

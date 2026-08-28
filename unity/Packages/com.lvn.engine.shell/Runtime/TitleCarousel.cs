@@ -368,7 +368,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
-            var head = new Label(LvnWords.Pick("chapters.title", _cfg.chapters_text, "Chapters"));
+            var head = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("chapters.title", _cfg.chapters_text, "Chapters"));
             head.style.fontSize = 26;
             head.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);

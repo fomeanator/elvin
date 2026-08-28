@@ -324,7 +324,7 @@ namespace Lvn.UI.Screens
 
             if (e.IsYou)
             {
-                var you = new Label(LvnWords.Of("leaderboard.you", "You"));
+                var you = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("leaderboard.you", "You"));
                 you.style.fontSize = 18;
                 you.style.color = LvnTokens.OnAccent;
                 you.style.backgroundColor = LvnTokens.Accent;
