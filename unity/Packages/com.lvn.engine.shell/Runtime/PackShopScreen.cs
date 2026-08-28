@@ -137,11 +137,7 @@ namespace Lvn.UI.Screens
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
-            var title = new Label(LvnWords.Of("shop.title", "Store"));
-            LvnChrome.Heading(title);
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = 44;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            var title = SectionTitle(LvnWords.Of("shop.title", "Store"));
             titleBlock.Add(title);
             top.Add(titleBlock);
 
