@@ -125,7 +125,7 @@ namespace Lvn.UI.Screens
             sheet.Add(_podium);
 
             // ── Ranked list (#4..) ──────────────────────────────────────────
-            _list = new ScrollView(ScrollViewMode.Vertical);
+            _list = Lvn.UI.LvnScroll.Vertical();
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 

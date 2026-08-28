@@ -259,8 +259,7 @@ namespace Lvn.UI.Screens
 
             // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
             // перестраиваются при развороте и по изменению очереди.
-            _sections = new ScrollView(ScrollViewMode.Vertical);
-            _sections.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _sections = Lvn.UI.LvnScroll.Vertical();
             _sections.style.flexGrow = 1;
             _sections.style.marginTop = 10;
             _full.Add(_sections);

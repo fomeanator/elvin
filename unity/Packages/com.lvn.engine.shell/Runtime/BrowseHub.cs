@@ -84,7 +84,6 @@ namespace Lvn.UI.Screens
         private List<LvnCollection> _collections = new List<LvnCollection>();
         private JObject _globalVars = new JObject(); // cached flags for unlock eval
         private LvnTitle _detailTarget;
-        private readonly List<Texture2D> _gradients = new List<Texture2D>(); // generated depth textures
 
         private TaskCompletionSource<LvnTitle> _tcs;
 
@@ -207,9 +206,8 @@ namespace Lvn.UI.Screens
             rule.style.backgroundColor = _accent; LvnChrome.Round(rule, 2f);
             brand.Add(rule);
             _hubView.Add(brand);
-            _hubRows = new ScrollView(ScrollViewMode.Vertical);
+            _hubRows = Lvn.UI.LvnScroll.Vertical();
             _hubRows.style.flexGrow = 1;
-            _hubRows.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel, no track/arrows
             // Контент ленты ПРИЖАТ К НИЗУ В УПОР (Илья 27.08): контейнер
             // скролла минимум во весь вьюпорт — воздух-растяжка сверху (см.
             // BuildHubTiles) отжимает ряды к нижнему меню, а не оставляет
@@ -229,9 +227,8 @@ namespace Lvn.UI.Screens
             // ── COLLECTION ──
             _collectionView = Column();
             _collectionView.Add(BackBar(out _collectionTitle, () => ShowHub()));
-            _collectionList = new ScrollView(ScrollViewMode.Vertical);
+            _collectionList = Lvn.UI.LvnScroll.Vertical();
             _collectionList.style.flexGrow = 1;
-            _collectionList.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _collectionView.Add(_collectionList);
             Add(_collectionView);
 
@@ -927,17 +924,12 @@ namespace Lvn.UI.Screens
         // A vertical gradient as a StyleBackground — the only way to get real
         // depth in UITK from code (no box-shadow / css-gradient on inline styles).
         // top = the upper edge colour, bottom = the lower edge.
+        // Градиент рисует ФОН (LvnBackdrop): здесь на каждый вызов рождалась
+        // новая текстура и оседала в списке, который никто не освобождал —
+        // заглушка постера считается на каждую карточку без арта, а сетка
+        // пересобирается на каждую смену данных, языка и шрифта.
         private StyleBackground Gradient(Color top, Color bottom)
-        {
-            const int h = 128;
-            var tex = new Texture2D(1, h, TextureFormat.RGBA32, false)
-            { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
-            for (int y = 0; y < h; y++)
-                tex.SetPixel(0, y, Color.Lerp(bottom, top, (float)y / (h - 1)));
-            tex.Apply();
-            _gradients.Add(tex);
-            return new StyleBackground(Background.FromTexture2D(tex));
-        }
+            => Lvn.UI.LvnBackdrop.Vertical(top, bottom);
 
         /// <summary>
         /// КАК ВЫГЛЯДИТ НОВЕЛЛА БЕЗ АРТА — один ответ на весь хаб.

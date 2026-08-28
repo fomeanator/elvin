@@ -167,10 +167,8 @@ namespace Lvn.UI.Screens
             BuildTabs();
 
             // ── Pack grid ─────────────────────────────────────────────────────
-            _list = new ScrollView(ScrollViewMode.Vertical);
+            _list = Lvn.UI.LvnScroll.Vertical();
             _list.style.flexGrow = 1;
-            _list.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-            _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden; // kill the stray horizontal bar
             sheet.Add(_list);
 
             // Пилюли следуют за кошельком, а не за своими вызовами. Раньше

@@ -58,8 +58,7 @@ namespace Lvn.UI.Screens
             head.Add(all);
             row.Add(head);
 
-            var strip = new ScrollView(ScrollViewMode.Horizontal);
-            strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            var strip = Lvn.UI.LvnScroll.Horizontal();
             // И ВЕРТИКАЛЬНУЮ тоже. Полоса брала своё не от прокрутки, а от того,
             // что карточка выше отведённой ей строки: сбоку появлялся системный
             // ползунок чужого вида, а низ карточки обрезался.

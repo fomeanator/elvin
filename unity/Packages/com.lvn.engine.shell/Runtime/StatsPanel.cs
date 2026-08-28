@@ -54,9 +54,8 @@ namespace Lvn.UI.Screens
             title.style.marginBottom = 8;
             panel.Add(title);
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            var scroll = Lvn.UI.LvnScroll.Vertical(showScroller: true);
             scroll.style.flexShrink = 1;
-            scroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
             panel.Add(scroll);
             foreach (var s in stats)
                 if (s != null)
