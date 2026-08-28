@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 )
@@ -49,18 +48,28 @@ func (s *DailyService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/daily/claim", s.handleClaim)
 }
 
-func (s *DailyService) load(userID string) *dailyDoc {
+// Ошибка чтения — НЕ повод начать серию заново: пустой документ выглядит
+// законно, а сохранится он поверх уцелевшего файла (см. readJSONFile).
+func (s *DailyService) load(userID string) (*dailyDoc, error) {
 	doc := &dailyDoc{}
-	if data, err := os.ReadFile(filepath.Join(s.dir, userID+".json")); err == nil {
-		_ = json.Unmarshal(data, doc)
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return nil, err
 	}
-	return doc
+	if _, err := readJSONFile(path, doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
 }
 
 func (s *DailyService) save(userID string, doc *dailyDoc) error {
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return err
+	}
 	data, _ := json.Marshal(doc)
 	// Через дом (см. leaderboard.save): своя схема не синхронизировала запись.
-	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
+	return atomicWrite(path, data, 0o600)
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {
@@ -97,8 +106,14 @@ func (s *DailyService) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	doc := s.load(userID)
+	doc, err := s.load(userID)
 	s.mu.Unlock()
+	if err != nil {
+		// Файл есть, но не читается: показать «серии нет» значило бы соврать —
+		// и следующий claim записал бы этот ноль поверх настоящей серии.
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "daily_unavailable"})
+		return
+	}
 	today := s.now().UTC().Format("2006-01-02")
 	streak, claimed := s.nextStreak(doc, today)
 	next := s.rewardFor(streak)
@@ -120,7 +135,11 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	doc := s.load(userID)
+	doc, err := s.load(userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "daily_unavailable"})
+		return
+	}
 	today := s.now().UTC().Format("2006-01-02")
 	streak, claimed := s.nextStreak(doc, today)
 	if claimed {

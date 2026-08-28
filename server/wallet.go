@@ -308,7 +308,11 @@ func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 // let the next save overwrite someone's real balance with zeros.
 func (s *WalletService) load(userID string) (*walletDoc, error) {
 	doc := &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
-	data, err := os.ReadFile(filepath.Join(s.dir, userID+".json"))
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
@@ -340,7 +344,11 @@ func (s *WalletService) save(userID string, doc *walletDoc) error {
 		doc.History = doc.History[len(doc.History)-100:]
 	}
 	data, _ := json.MarshalIndent(doc, "", "  ")
-	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return err
+	}
+	return atomicWrite(path, data, 0o600)
 }
 
 func (s *WalletService) user(w http.ResponseWriter, r *http.Request) (string, bool) {

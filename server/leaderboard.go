@@ -44,12 +44,14 @@ func (s *LeaderboardService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/leaderboard/", s.handle)
 }
 
-func (s *LeaderboardService) load(board string) []lbEntry {
+func (s *LeaderboardService) load(board string) ([]lbEntry, error) {
 	var entries []lbEntry
-	if data, err := os.ReadFile(filepath.Join(s.dir, board+".json")); err == nil {
-		_ = json.Unmarshal(data, &entries)
+	// Ошибка чтения не превращается в пустую таблицу: сохранение поверх
+	// стёрло бы её целиком (см. readJSONFile).
+	if _, err := readJSONFile(filepath.Join(s.dir, board+".json"), &entries); err != nil {
+		return nil, err
 	}
-	return entries
+	return entries, nil
 }
 
 func (s *LeaderboardService) save(board string, entries []lbEntry) error {
@@ -95,7 +97,11 @@ func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	entries := s.load(board)
+	entries, err := s.load(board)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "leaderboard_unavailable"})
+		return
+	}
 	improved := true
 	found := false
 	for i := range entries {
@@ -136,7 +142,11 @@ func (s *LeaderboardService) handleTop(w http.ResponseWriter, r *http.Request, b
 		n = v
 	}
 	s.mu.Lock()
-	entries := s.load(board)
+	entries, err := s.load(board)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "leaderboard_unavailable"})
+		return
+	}
 	s.mu.Unlock()
 
 	sortEntries(entries)
