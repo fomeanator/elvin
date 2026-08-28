@@ -384,6 +384,8 @@ namespace Lvn.UI.Screens
         /// содержимое опускаются ПОД вырез камеры.</summary>
         public void SetSafeTop(float units)
         {
+            if (_row == null || _miniPills == null || _miniProgress == null || _tapCatcher == null)
+                return;                     // ещё строимся: отступ придёт с панелью
             if (Mathf.Approximately(_safeTop, units)) return;
             _safeTop = units;
             _row.style.marginTop = units;

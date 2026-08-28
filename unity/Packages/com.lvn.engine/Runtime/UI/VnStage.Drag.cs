@@ -9,6 +9,33 @@ namespace Lvn.UI
 {
     public sealed partial class VnStage
     {
+        /// <summary>
+        /// ТОЧКА ЭКРАНА В КООРДИНАТАХ СЦЕНЫ — доли 0..1 от её размера.
+        ///
+        /// <para>Сцена мыслит долями: актёр стоит на 0.35 ширины, зона клика —
+        /// прямоугольник в долях, точка сброса — тоже доля. Экран мыслит
+        /// пикселями. Перевод между ними — деление на размер панели — писали по
+        /// месту ШЕСТЬ раз: три в перетаскивании, один в начале жеста, один в
+        /// зонах клика, один в разборе попадания.</para>
+        ///
+        /// <para>Две копии из шести делили БЕЗ ПРОВЕРКИ размера. Панель бывает
+        /// нулевой ровно в тот кадр, когда всё и происходит: первый layout, смена
+        /// ориентации, пересборка документа. Деление на ноль даёт не исключение,
+        /// а NaN — и объект уезжает в никуда, а зона клика перестаёт ловить
+        /// касания. Такое не падает, а «иногда не работает».</para>
+        ///
+        /// <para>Null означает «сцена ещё не имеет размера»: спрашивающий обязан
+        /// проверить, и это честнее, чем вернуть ноль и сделать вид, что точка в
+        /// левом верхнем углу.</para>
+        /// </summary>
+        private Vector2? StagePoint(Vector2 screenPos)
+        {
+            if (_uiRoot == null) return null;
+            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
+            if (pw <= 0f || ph <= 0f) return null;
+            return new Vector2(screenPos.x / pw, screenPos.y / ph);
+        }
+
         // ── drag & drop ──────────────────────────────────────────────────────
         // The point-and-click inventory verb: `obj … draggable=true
         // on_drop="bag:apple_in_bag pond:apple_lost" [on_drop_miss=label]`.
@@ -49,10 +76,8 @@ namespace Lvn.UI
 
         private string DraggableAt(Vector2 pos)
         {
-            if (_draggables.Count == 0 || _renderer == null || _uiRoot == null) return null;
-            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
-            if (pw <= 0f || ph <= 0f) return null;
-            var np = new Vector2(pos.x / pw, pos.y / ph);
+            if (_draggables.Count == 0 || _renderer == null) return null;
+            if (StagePoint(pos) is not Vector2 np) return null;
             string hit = null; // last (topmost-placed) wins
             foreach (var kv in _draggables)
             {
@@ -68,8 +93,10 @@ namespace Lvn.UI
             _dragId = id;
             _suppressTap = true;
             _longPress?.Pause();
-            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
-            _dragGrab = new Vector2(pos.x / pw - di.Home.X, pos.y / ph - di.Home.Y);
+            // Захват без проверки размера давал NaN, и объект «прилипал» к
+            // курсору со смещением в бесконечность.
+            if (StagePoint(pos) is not Vector2 grab) return;
+            _dragGrab = new Vector2(grab.x - di.Home.X, grab.y - di.Home.Y);
             var r = _renderer?.ActorScreenRect(id); // rect size for screen bounding
             di.Size = r != null ? new Vector2(r.Value.width, r.Value.height) : Vector2.zero;
             LvnPlayer.Log?.Invoke("drag begin '" + id + "'");
@@ -93,10 +120,9 @@ namespace Lvn.UI
         internal void DragMove(Vector2 pos)
         {
             if (_dragId == null || !_draggables.TryGetValue(_dragId, out var di)) return;
-            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
-            if (pw <= 0f || ph <= 0f) return;
+            if (StagePoint(pos) is not Vector2 np) return;
             var p = di.Home;
-            var cl = ClampToScreen(new Vector2(pos.x / pw - _dragGrab.x, pos.y / ph - _dragGrab.y), di);
+            var cl = ClampToScreen(new Vector2(np.x - _dragGrab.x, np.y - _dragGrab.y), di);
             p.X = cl.x;
             p.Y = cl.y;
             _renderer?.PlaceActor(_dragId, p);
@@ -109,8 +135,7 @@ namespace Lvn.UI
             _dragId = null;
             if (id == null || !_draggables.TryGetValue(id, out var di)) return;
 
-            float pw = _uiRoot.layout.width, ph = _uiRoot.layout.height;
-            var np = new Vector2(pos.x / pw, pos.y / ph);
+            if (StagePoint(pos) is not Vector2 np) return;
             // it stays where it was dropped — remember the spot as the new home
             var clEnd = ClampToScreen(new Vector2(np.x - _dragGrab.x, np.y - _dragGrab.y), di);
             di.Home.X = clEnd.x;

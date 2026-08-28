@@ -73,6 +73,14 @@ namespace Lvn.UI
             var applied = new Vector2(float.NaN, float.NaN);
             void Refresh()
             {
+                // ПОКА ЭЛЕМЕНТА НЕТ В ПАНЕЛИ, СЛЕДИТЬ НЕ ЗА ЧЕМ. Первый вызов
+                // раньше шёл СРАЗУ, из конструктора подписчика: вырезов там ещё
+                // не существует (Insets вернёт ноль), зато сам подписчик ещё не
+                // достроен — и «примени отступ» приходило к полю, которого нет.
+                // Живой бут падал NullReferenceException в кружке загрузок
+                // (28.08), причём падал ВЕСЬ бут: исключение из конструктора
+                // некому поймать.
+                if (el.panel == null) return;
                 var now = Insets(el);
                 if (Mathf.Approximately(now.x, applied.x) && Mathf.Approximately(now.y, applied.y))
                     return;
