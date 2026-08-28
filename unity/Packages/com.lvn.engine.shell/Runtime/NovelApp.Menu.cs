@@ -267,16 +267,24 @@ namespace Lvn.UI.Screens
             // target — куда в кадре кладём точку интереса (доли высоты экрана
             // от центра, + = выше): цифры Ильи 28.08 — украшения на 10% ниже,
             // причёска на 30% ниже, платье на 7% выше и зум −10%.
-            var k = axis.ToLowerInvariant();
+            // ЧТО ЗА ОСЬ — спрашиваем у витрины (LvnWardrobeStage.KindOf), а не
+            // угадываем заново. Здесь стояла ТРЕТЬЯ копия правила, и она успела
+            // отстать: дом нормализует «ё» → «е», а копия нет — ось с именем
+            // «Причёска» получала кадр НА КОРПУС, хотя лист показывал её
+            // причёской. Числа кадра остаются здесь: они про камеру, а не про
+            // смысл оси.
             float z, focus, target;
             if (axis == Lvn.UI.Screens.WardrobeSheet.AllTab)
             { z = 1.07f; focus = 0.5f; target = 0f; } // «Моё»: лёгкий наезд по центру
-            else if (k.Contains("hair") || k.Contains("причес") || k.Contains("волос"))
-            { z = 1.91f; focus = 0.82f; target = 0.30f; } // Илья 28.08: 2×5% выше, зум −7%
-            else if (k.Contains("decor") || k.Contains("jewel") || k.Contains("украш")
-                     || k.Contains("acc"))
-            { z = 1.90f; focus = 0.72f; target = 0.20f; }
-            else { z = 1.31f; focus = 0.45f; target = 0.03f; } // платье/наряд — корпус
+            else switch (Lvn.UI.LvnWardrobeStage.KindOf(axis))
+            {
+                case Lvn.UI.LvnWardrobeAxisKind.Hair:
+                    z = 1.91f; focus = 0.82f; target = 0.30f; break; // Илья 28.08: 2×5% выше, зум −7%
+                case Lvn.UI.LvnWardrobeAxisKind.Decor:
+                    z = 1.90f; focus = 0.72f; target = 0.20f; break;
+                default:
+                    z = 1.31f; focus = 0.45f; target = 0.03f; break; // платье/наряд — корпус
+            }
             // Канвас сцены width-match к 1080 — его высота в юнитах канваса.
             float H = 1080f * Screen.height / Mathf.Max(1, Screen.width);
             float panY = (target - (focus - 0.5f) * z) * H;

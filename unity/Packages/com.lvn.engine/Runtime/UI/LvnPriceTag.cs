@@ -93,15 +93,15 @@ namespace Lvn.UI
             return string.IsNullOrEmpty(unit) ? Amount(value) : Amount(value) + " " + unit;
         }
 
-        // Умолчания движка — про ФОРМУ, а не про слова: энергия узнаётся по
-        // общепринятому идентификатору, всё прочее считается «камнями».
-        private static LvnIcon DefaultIcon(string currency)
-            => string.Equals(currency, "energy", System.StringComparison.OrdinalIgnoreCase)
-                ? LvnIcon.Energy : LvnIcon.Gem;
+        // Умолчания движка — про ФОРМУ, а не про слова. Догадка о значке живёт
+        // у ИКОНОК (LvnIcons.ForCurrency) и знает больше, чем знала эта: золото,
+        // монеты, ключи, сердца — на двух языках. Здесь стояла своя, бедная
+        // («energy — молния, всё прочее камень»), и умолчания двух домов не
+        // совпадали: валюта «золото» без настройки получала камень в магазине и
+        // монету в строке состояния.
+        private static LvnIcon DefaultIcon(string currency) => LvnIcons.ForCurrency(currency);
 
-        private static Color DefaultTint(string currency)
-            => string.Equals(currency, "energy", System.StringComparison.OrdinalIgnoreCase)
-                ? LvnTokens.Accent : LvnTokens.Gold;
+        private static Color DefaultTint(string currency) => LvnIcons.CurrencyColor(currency);
 
         private static LvnIcon ParseIcon(string name, LvnIcon fallback)
             => string.IsNullOrEmpty(name)

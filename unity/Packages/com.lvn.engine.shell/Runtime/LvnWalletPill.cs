@@ -123,10 +123,13 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _look.IconUrl, assets), "AssignBg");
                 return img;
             }
-            var ic = _look.IconTint.HasValue
-                ? LvnIcons.Make(LvnIcons.ForCurrency(_currency), _look.IconSize,
-                                _look.IconTint.Value, 0f, LvnTheme.Current.IconGlow)
-                : LvnIcons.MakeCurrency(_currency, _look.IconSize);
+            // ЗНАЧОК БЕРЁМ У ЦЕННИКА, а не угадываем сами: автор мог назвать
+            // его в манифесте (`ui.currency_look[…].icon`), и пилюля этого
+            // раньше не видела — в магазине стоял авторский значок, а в строке
+            // состояния догаданный. Оттенок так же: свой, если назван.
+            var look = LvnPriceTag.Of(_currency);
+            var tint = _look.IconTint ?? look.Tint;
+            var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint, 0f, LvnTheme.Current.IconGlow);
             ic.pickingMode = PickingMode.Ignore;
             ic.style.marginRight = 6;
             return ic;
