@@ -64,13 +64,36 @@ namespace Lvn.UI.Screens
             => _capsule.style.visibility = modal && !_expanded
                 ? Visibility.Hidden : Visibility.Visible;
 
-        /// <summary>Игровой режим: кружок — отдельный баблик в ЛЕВОМ верхнем
-        /// углу сцены (бар пропал, валюты справа такими же бабликами); в меню —
-        /// центр строки бара.</summary>
-        public void SetInGame(bool inGame)
+        /// <summary>
+        /// Игровой режим: кружок — отдельный баблик в ЛЕВОМ верхнем углу сцены
+        /// (бар пропал, валюты справа такими же бабликами); в меню — центр
+        /// строки бара.
+        ///
+        /// <para>СЛУШАЕТ РЕЖИССЁРА, а не ждёт команды. Прежде состояние «мы в
+        /// главе» рассылали вручную: оболочка звала и бар, и кружок на входе и
+        /// выходе. Но есть третий путь — показ хаба — и там звали ТОЛЬКО бар:
+        /// кружок оставался с игровым отступом поверх меню. Бар при этом сам
+        /// сообщает режим Режиссёру, так что источник правды был, просто кружок
+        /// его не спрашивал.</para>
+        /// </summary>
+        private void ApplyChapterMode()
         {
+            bool inGame = Lvn.UI.LvnScreenDirector.Current.InChapter;
             style.alignItems = inGame ? Align.FlexStart : Align.Center;
             _capsule.style.marginLeft = inGame ? 104 : 0; // правее баблика прогресса
+        }
+
+        private readonly Lvn.LvnLeash _modeLeash = new Lvn.LvnLeash();
+
+        private void FollowChapterMode()
+        {
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                _modeLeash.Hold(() => Lvn.UI.LvnScreenDirector.Current.Changed += ApplyChapterMode,
+                                () => Lvn.UI.LvnScreenDirector.Current.Changed -= ApplyChapterMode);
+                ApplyChapterMode();
+            });
+            RegisterCallback<DetachFromPanelEvent>(_ => _modeLeash.Release());
         }
 
         /// <summary>Подтолкнуть отправку накопленных событий: кошелёк флашится
@@ -106,6 +129,7 @@ namespace Lvn.UI.Screens
             style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
             style.alignItems = Align.Center; // капсула — центр строки навбара
             style.display = DisplayStyle.None; // до первой работы кружка нет
+            FollowChapterMode();               // вид следует за Режиссёром сам
 
             // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
             // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает
