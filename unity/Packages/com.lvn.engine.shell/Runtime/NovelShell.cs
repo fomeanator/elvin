@@ -230,7 +230,8 @@ namespace Lvn.UI.Screens
                 }
             }).Every(33);
         }
-        private string _playerName;
+        // Тоже окно в дом, а не копия: оболочка спрашивает имя, а не хранит.
+        private string _playerName => Lvn.UI.LvnPlayerName.Current;
 
         /// <summary>The shell's UIDocument. Assign
         /// <c>Document.panelSettings.themeStyleSheet</c> a runtime theme so the

@@ -137,7 +137,8 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[novelapp] no script for '{chapter.id}'"); return null; }
 
             EnterChapterContext(title, chapter);
-            _playerName = playerName;
+            // Имя не запоминаем: его держит дом, а параметр остаётся ради
+            // прежней сигнатуры хука главы.
             _currentScriptJson = json;
             Stage.Strings = await LoadCatalogAsync(chapter.script_url); // localization (null → inline text)
             // Carry this title's persisted stats into the chapter (relationships, route,

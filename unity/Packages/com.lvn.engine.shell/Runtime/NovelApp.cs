@@ -104,7 +104,18 @@ namespace Lvn.UI.Screens
         private LvnChapter _currentChapter;
         private LvnTitle _currentTitle; // the playing title — for live per-title re-theming
         private string _currentScriptJson;
-        private string _playerName;
+        /// <summary>
+        /// Имя игрока — ОКНО в дом (<see cref="Lvn.UI.LvnPlayerName"/>), а не
+        /// своя копия.
+        ///
+        /// <para>Копий было три: настройка игрока, поле оболочки и поле хоста.
+        /// Синхронизировали их руками — всюду рядом стояли две строки
+        /// (<c>_playerName = nick; LvnPrefs.PlayerName = nick;</c>), и это ровно
+        /// признак канона. Держалось до пути, где вспомнили не про все: имя,
+        /// введённое из квик-меню, не доходило до оболочки, и следующая глава
+        /// звала игрока по-старому.</para>
+        /// </summary>
+        private string _playerName => Lvn.UI.LvnPlayerName.Current;
         private LvnUiConfig _globalUi; // manifest.ui — the base for per-title theming
         private LvnManifest _manifest; // the live manifest (cross-chapter save routing)
 

@@ -57,7 +57,7 @@ namespace Lvn.UI.Screens
             }
 
             // The player's name persists across launches — nobody re-asks it.
-            _playerName = Lvn.UI.LvnPrefs.PlayerName;
+            // Имя спрашивают у дома по месту — копировать его в поле незачем.
 
             // ── welcome/auth screen: the FIRST launch only ──
             // Later launches go straight in; the device sign-in runs silently
@@ -75,8 +75,7 @@ namespace Lvn.UI.Screens
                     Lvn.UI.LvnPrefs.SeenWelcome = true;
                     if (!string.IsNullOrEmpty(nick))
                     {
-                        _playerName = nick;
-                        Lvn.UI.LvnPrefs.PlayerName = nick;
+                        Lvn.UI.LvnPlayerName.Set(nick);
                     }
                 }
                 catch (OperationCanceledException) { return; }
