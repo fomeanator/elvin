@@ -17,6 +17,26 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub
     {
+        /// <summary>Слова или шрифт сменились: нижнее меню и заголовок хаба
+        /// строятся один раз, и без этого остаются на прежнем языке — а нижнее
+        /// меню игрок видит с любого экрана.</summary>
+        public void Redress()
+        {
+            // Навбар пересобирается на месте: он живёт под всеми экранами и
+            // сносить его целиком значит моргнуть всей оболочкой.
+            if (_bottomNav?.parent != null)
+            {
+                var parent = _bottomNav.parent;
+                int at = parent.IndexOf(_bottomNav);
+                _navTabs.Clear();
+                var fresh = BottomNav();
+                parent.Insert(at, fresh);
+                _bottomNav.RemoveFromHierarchy();
+                _bottomNav = fresh;
+            }
+            if (_hubTitle != null) _hubTitle.text = _cfg?.title ?? "";
+        }
+
         private VisualElement BottomNav()
         {
             var nav = new VisualElement();

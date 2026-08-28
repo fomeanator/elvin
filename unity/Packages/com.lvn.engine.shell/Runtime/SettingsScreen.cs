@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// <see cref="LvnWebView"/> seam; "Sign in" is delegated to the host via
     /// <see cref="OnSignIn"/>.
     /// </summary>
-    public sealed partial class SettingsScreen : LvnOverlayScreen
+    public sealed partial class SettingsScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
     {
         /// <summary>Host hook for the "Sign in" button — route to the auth screen
         /// / platform sign-in. Null hides the button.</summary>
@@ -74,7 +74,8 @@ namespace Lvn.UI.Screens
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
 
-            var title = new Label(LvnWords.Pick("settings.title", _cfg.title, "Settings"));
+            _titleLabel = new Label(LvnWords.Pick("settings.title", _cfg.title, "Settings"));
+            var title = _titleLabel;
             LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = LvnTokens.TextLg;
@@ -91,7 +92,8 @@ namespace Lvn.UI.Screens
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 
-            var close = new Button(Close) { text = LvnWords.Pick("common.close", _cfg.close_text, "Close") };
+            _closeButton = new Button(Close) { text = LvnWords.Pick("common.close", _cfg.close_text, "Close") };
+            var close = _closeButton;
             close.style.fontSize = LvnTokens.TextBase;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
@@ -119,6 +121,26 @@ namespace Lvn.UI.Screens
         // случался до раскладки, следящая подсветка спорила с нажатием, а
         // выигрыш — одно движение пальцем на четыре экрана текста. Прокрутка
         // честнее: она не врёт о том, где игрок находится.
+        /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
+        public void Redress() { RedressChrome(); Rebuild(); }
+
+        private Label _titleLabel;
+        private Button _closeButton;
+
+        protected override void RedressChrome()
+        {
+            if (_titleLabel != null)
+            {
+                _titleLabel.text = LvnWords.Pick("settings.title", _cfg.title, "Settings");
+                _titleLabel.style.fontSize = LvnTokens.TextLg;
+            }
+            if (_closeButton != null)
+            {
+                _closeButton.text = LvnWords.Pick("common.close", _cfg.close_text, "Close");
+                _closeButton.style.fontSize = LvnTokens.TextBase;
+            }
+        }
+
         public void Rebuild()
         {
             _list.Clear();
@@ -157,7 +179,10 @@ namespace Lvn.UI.Screens
             _list.Add(TextScaleRow());
             _list.Add(RangeRow(LvnWords.Of("settings.text_weight", "Text weight"),
                 LvnWords.Of("settings.text_weight_hint", "Thicker letters read easier on bright scenes"),
-                0f, 1f, () => LvnPrefs.TextWeight, v => LvnPrefs.TextWeight = v));
+                0f, 1f, () => LvnPrefs.TextWeight, v => { LvnPrefs.TextWeight = v; Redress(); }));
+            _list.Add(RangeRow(LvnWords.Of("settings.ui_weight", "Interface weight"),
+                LvnWords.Of("settings.ui_weight_hint", "Menu and button labels"),
+                0f, 1f, () => LvnPrefs.UiWeight, v => { LvnPrefs.UiWeight = v; Redress(); }));
             _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
                 0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
@@ -422,6 +447,7 @@ namespace Lvn.UI.Screens
             lbl.style.color = _text;
             lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.whiteSpace = WhiteSpace.Normal;   // «Размер интерфейса» плакатной гарнитурой в строку не влезает
+            lbl.style.unityFontStyleAndWeight = Lvn.UI.LvnFonts.UiWeightStyle;
             row.Add(lbl);
             if (!string.IsNullOrEmpty(hint))
             {

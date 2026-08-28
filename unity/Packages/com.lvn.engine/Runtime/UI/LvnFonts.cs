@@ -242,6 +242,11 @@ namespace Lvn.UI
         public static FontStyle WeightStyle
             => LvnPrefs.TextWeight >= 0.5f ? FontStyle.Bold : FontStyle.Normal;
 
+        /// <summary>Начертание ИНТЕРФЕЙСА: своя ручка — меню читают мельком и
+        /// по краю экрана, реплики вдумчиво и по центру.</summary>
+        public static FontStyle UiWeightStyle
+            => LvnPrefs.UiWeight >= 0.5f ? FontStyle.Bold : FontStyle.Normal;
+
         /// <summary>Путь начертания под текущую толщину: у семейства с
         /// промежуточным весом (Onest SemiBold) середина ползунка берёт его, а
         /// не прыгает сразу в жирный.</summary>

@@ -26,7 +26,7 @@ namespace Lvn.UI.Screens
     /// the claim button resolves, then fades out. All colours come from
     /// <see cref="LvnTokens"/> ("Полночь").
     /// </summary>
-    public sealed class DailyRewardsScreen : LvnOverlayScreen
+    public sealed class DailyRewardsScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
     {
         /// <summary>Called when the player taps "Забрать" for the live day.
         /// Argument: the day number (1-based). Hosts wire this to their wallet;
@@ -169,6 +169,9 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the subtitle, the seven cells, and the claim button
         /// from the current streak state. Safe to call any number of times.</summary>
+        /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
+        public void Redress() => Rebuild();
+
         public void Rebuild()
         {
             _subtitle.text = LvnWords.Of("daily.day", "Day {0}", _currentDay);

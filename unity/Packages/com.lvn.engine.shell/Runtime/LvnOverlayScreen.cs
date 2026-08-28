@@ -100,6 +100,11 @@ namespace Lvn.UI.Screens
         /// <para>Отступы остаются у экрана: сколько воздуха внутри — вопрос его
         /// содержимого, а не общего облика.</para>
         /// </summary>
+        /// <summary>Перечитать подписи ШАПКИ (заголовок, кнопка закрытия).
+        /// Список экран пересобирает сам; шапку он строит один раз, и без этого
+        /// она остаётся на прежнем языке — а её игрок видит первой.</summary>
+        protected virtual void RedressChrome() { }
+
         protected VisualElement Sheet(float sideInset = 5f, float topInset = 6f, Color? tint = null)
         {
             var sheet = new VisualElement();

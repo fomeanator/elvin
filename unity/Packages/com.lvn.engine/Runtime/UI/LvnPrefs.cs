@@ -42,6 +42,7 @@ namespace Lvn.UI
             _uiScale = LvnKeep.Get(P + "ui_scale", 1f);
             _fontFamily = LvnKeep.Get(P + "font_family", "");
             _textWeight = LvnKeep.Get(P + "text_weight", 0f);
+            _uiWeight = LvnKeep.Get(P + "ui_weight", 0f);
             _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
             _locale = LvnKeep.Get(P + "locale", "");
             _artQuality = LvnKeep.Get(P + "art_quality", "");
@@ -303,6 +304,17 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _textWeight, "text_weight", Mathf.Clamp01(value)); }
         }
         private static float _textWeight;
+
+        /// <summary>ТОЛЩИНА ИНТЕРФЕЙСА — отдельная от толщины реплик. Меню
+        /// читают мельком и по краю экрана, реплики — вдумчиво и по центру:
+        /// одному игроку нужен жирный интерфейс на обычном тексте, другому —
+        /// наоборот, и одна ручка на двоих не устраивает никого.</summary>
+        public static float UiWeight
+        {
+            get { EnsureLoaded(); return _uiWeight; }
+            set { EnsureLoaded(); Set(ref _uiWeight, "ui_weight", Mathf.Clamp01(value)); }
+        }
+        private static float _uiWeight;
 
         /// <summary>ГАРНИТУРА — ключ из каталога <c>LvnFonts.Families</c>.
         /// Пусто — та, что выбрала новелла.</summary>

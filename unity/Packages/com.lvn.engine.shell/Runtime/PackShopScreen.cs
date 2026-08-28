@@ -24,7 +24,7 @@ namespace Lvn.UI.Screens
     /// billing can wire it to the same <see cref="LvnWallet.VerifyPurchaseAsync"/>
     /// pattern <see cref="StoreScreen"/> uses.
     /// </summary>
-    public sealed class PackShopScreen : LvnOverlayScreen
+    public sealed class PackShopScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
     {
         private enum Ribbon { None, Popular, Value, BestPrice }
 
@@ -297,6 +297,9 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the pack grid for the active tab and re-style the tab
         /// pills. Cheap to call after any state change.</summary>
+        /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
+        public void Redress() => Rebuild();
+
         public void Rebuild()
         {
             for (int i = 0; i < _tabButtons.Count; i++) StyleTab(_tabButtons[i], i == _tab);

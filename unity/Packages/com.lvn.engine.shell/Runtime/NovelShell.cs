@@ -291,6 +291,9 @@ namespace Lvn.UI.Screens
             // прежнем языке, и игрок решил бы, что переключатель не работает.
             Lvn.Content.LvnWords.Changed -= RefreshWords;
             Lvn.Content.LvnWords.Changed += RefreshWords;
+            // Гарнитура и размеры — тот же случай: подписи ставятся при сборке.
+            LvnFonts.Changed -= RefreshWords;
+            LvnFonts.Changed += RefreshWords;
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
             // Единая атмосфера меню (решение Ильи 26.08): ОДИН живой
@@ -627,13 +630,14 @@ namespace Lvn.UI.Screens
         // Перерисовать подписи на живых экранах. Только те, что УМЕЮТ
         // пересобираться: у остальных подписи стоят в дереве, и трогать их
         // отсюда значило бы знать их устройство.
+        // ПЕРЕОДЕВАЮТСЯ ВСЕ, КТО УМЕЕТ. Перечислять экраны поимённо значило
+        // забыть следующий: список рос, а забытый экран оставался на прежнем
+        // языке — и именно его игрок видел первым (гардероб, нижнее меню,
+        // шапка настроек).
         private void RefreshWords()
         {
-            Settings?.Rebuild();
-            Profile?.Rebuild();
-            PackShop?.Rebuild();
-            PackShopModal?.Rebuild();
-            Detail?.Rebuild();
+            Lvn.UI.LvnRedress.All(_root);
+            Hub?.Redress();          // нижнее меню и шапка хаба живут отдельно
         }
     }
 }
