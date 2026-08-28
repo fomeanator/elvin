@@ -487,6 +487,20 @@ namespace Lvn.UI.Screens
         /// manifest and re-render the data-driven screens (the carousel rebuilds
         /// its deck, keeping the selected title). Cheap and safe to call any time;
         /// the host's content-sync loop calls it when the server version changes.</summary>
+        /// <summary>
+        /// ЖИВОЕ ОБНОВЛЕНИЕ МЕНЯЕТ ДАННЫЕ, А НЕ ОФОРМЛЕНИЕ — и это граница, а не
+        /// недоделка.
+        ///
+        /// <para>Состав новелл, коллекции, каталог гардероба приезжают сюда и
+        /// заменяются на месте. А цвета, подписи и размеры экранов приходят из
+        /// <c>manifest.ui</c> в КОНСТРУКТОРЫ: сменить их значит пересобрать
+        /// экраны, то есть выбросить открытую карточку, набранный текст и
+        /// прокрутку под пальцем игрока. Ради правки оттенка кнопки это дорого;
+        /// новое оформление доедет со следующим запуском.</para>
+        ///
+        /// <para>Исключение — простые настройки БЕЗ вёрстки: их видно сразу и
+        /// стоят они ничего.</para>
+        /// </summary>
         public void ApplyLiveUpdate(LvnManifest manifest)
         {
             if (manifest == null) return;
@@ -497,6 +511,11 @@ namespace Lvn.UI.Screens
             // персонажей) — без этой строки она одна оставалась на прежнем
             // содержимом, пока соседние экраны показывали новое.
             WardrobeTab?.SetManifest(manifest);
+            // Простые настройки без вёрстки — тоже данные: чем торгует
+            // «бесплатная» карточка магазина, игра решает манифестом, и решение
+            // обязано доезжать вместе с ним.
+            if (PackShop != null) PackShop.AdPlacement = manifest.ui?.store?.ad_placement;
+            if (PackShopModal != null) PackShopModal.AdPlacement = manifest.ui?.store?.ad_placement;
         }
 
 

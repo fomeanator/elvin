@@ -1,0 +1,51 @@
+{
+  "scene": "staging_ops",
+  "script": [
+    {
+      "op": "say",
+      "text": "Проверка постановочных команд.",
+      "who": "Аня"
+    },
+    {
+      "id": "click",
+      "op": "sfx",
+      "url": "ui/click.ogg"
+    },
+    {
+      "ms": 500,
+      "op": "wait"
+    },
+    {
+      "blur": 0.4,
+      "dur": 0.3,
+      "op": "fx"
+    },
+    {
+      "dur": 0.2,
+      "op": "fx",
+      "tint": "#204060"
+    },
+    {
+      "dur": 0.2,
+      "op": "fx",
+      "shake": 0.5
+    },
+    {
+      "cps": 30,
+      "op": "text_pace"
+    },
+    {
+      "name": "глава-1",
+      "op": "track"
+    },
+    {
+      "op": "preload",
+      "url": "bg/room.png"
+    },
+    {
+      "op": "say",
+      "text": "Готово.",
+      "who": "Аня"
+    }
+  ]
+}

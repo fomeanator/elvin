@@ -48,7 +48,48 @@ func commandLike(text string) string {
 			return mm[1]
 		}
 	}
+	// ЧЕТВЁРТАЯ ФОРМА: известное имя команды плюс аргумент, похожий на
+	// значение, а не на слово. `wait 0.5` вместо `wait ms=500`,
+	// `text_pace 30` вместо `text_pace cps=30`, `preload bg/room.png` вместо
+	// `preload url=…` — все три молча становились репликами и уезжали игроку.
+	//
+	// Почему это безопасно, хотя предыдущий абзац отказался ловить
+	// позиционные промахи: там слово могло быть ЛЮБЫМ (`wave after wave`), а
+	// здесь первое слово обязано быть ИЗВЕСТНОЙ операцией, и следом обязан
+	// стоять токен, которого в прозе не бывает — число или путь со слэшем
+	// внутри. «Clear skies ahead» не сработает: `skies` не число и не путь.
+	if KnownOps[mm[1]] {
+		for _, w := range strings.Fields(text)[1:] {
+			if looksLikeValue(w) {
+				return mm[1]
+			}
+		}
+	}
 	return ""
+}
+
+// looksLikeValue: токен, которого в обычной фразе не встретишь — число
+// (включая дробное и отрицательное) или путь со слэшем внутри слова.
+func looksLikeValue(w string) bool {
+	if w == "" {
+		return false
+	}
+	if i := strings.IndexByte(w, '/'); i > 0 && i < len(w)-1 {
+		return true
+	}
+	dot := false
+	for i := 0; i < len(w); i++ {
+		c := w[i]
+		switch {
+		case c >= '0' && c <= '9':
+		case c == '.' && !dot && i > 0:
+			dot = true
+		case c == '-' && i == 0:
+		default:
+			return false
+		}
+	}
+	return strings.ContainsAny(w, "0123456789")
 }
 
 // KnownOps is the registry of command ops the runtime understands. An op
