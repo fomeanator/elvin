@@ -177,7 +177,7 @@ namespace Lvn.UI.Screens
             headRow.style.alignItems = Align.Center;
             Add(headRow);
 
-            _title = new Label(_cfg.title ?? "Wardrobe");
+            _title = new Label(_cfg.title ?? LvnWords.Of("wardrobe.title", "Wardrobe"));
             _title.style.display = DisplayStyle.None; // подпись убрана, поле живо для хоста
 
             // ВО ВЕСЬ РОСТ. Раньше этот шеврон ЗАКРЫВАЛ примерку, и игроки его
@@ -487,12 +487,12 @@ namespace Lvn.UI.Screens
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
             _tab = null;
-            _title.text = _cfg.title ?? "Wardrobe";
+            _title.text = _cfg.title ?? LvnWords.Of("wardrobe.title", "Wardrobe");
 
             RebuildRoster();
             if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
             {
-                _itemName.text = _cfg.empty_text ?? "The wardrobe is empty";
+                _itemName.text = _cfg.empty_text ?? LvnWords.Of("wardrobe.empty", "The wardrobe is empty");
                 RebuildStrip(); // не показывать карточки прошлого персонажа
                 RefreshConfirm();
                 return;

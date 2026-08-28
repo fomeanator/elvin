@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
 
             // Chapter picker — only meaningful for multi-chapter titles; shown per
             // selection in UpdatePlayLabel.
-            _chaptersBtn = new Button(OpenChapterPicker) { text = _cfg.chapters_text ?? "Chapters" };
+            _chaptersBtn = new Button(OpenChapterPicker) { text = _cfg.chapters_text ?? LvnWords.Of("chapters.title", "Chapters") };
             _chaptersBtn.style.position = Position.Absolute;
             _chaptersBtn.style.left = Length.Percent(72f);
             _chaptersBtn.style.right = Length.Percent(6f);
@@ -368,7 +368,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
-            var head = new Label(_cfg.chapters_text ?? "Chapters");
+            var head = new Label(_cfg.chapters_text ?? LvnWords.Of("chapters.title", "Chapters"));
             head.style.fontSize = 26;
             head.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);

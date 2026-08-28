@@ -78,13 +78,13 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
             row.style.marginTop = 8; row.style.marginBottom = 6;
-            if (hasTerms) row.Add(LinkLabel(_cfg.terms_text ?? "Terms of Use", _cfg.terms_url));
+            if (hasTerms) row.Add(LinkLabel(_cfg.terms_text ?? LvnWords.Of("account.terms", "Terms of Use"), _cfg.terms_url));
             if (hasTerms && hasPrivacy)
             {
                 var dot = new Label("·"); dot.style.color = _dim; dot.style.marginLeft = 10; dot.style.marginRight = 10;
                 row.Add(dot);
             }
-            if (hasPrivacy) row.Add(LinkLabel(_cfg.privacy_text ?? "Privacy Policy", _cfg.privacy_url));
+            if (hasPrivacy) row.Add(LinkLabel(_cfg.privacy_text ?? LvnWords.Of("account.privacy", "Privacy Policy"), _cfg.privacy_url));
             return row;
         }
 
@@ -153,7 +153,7 @@ namespace Lvn.UI.Screens
             _accountRow.Add(val);
             if (showSignIn)
             {
-                var btn = new Button { text = _cfg.sign_in_text ?? "Sign in" };
+                var btn = new Button { text = _cfg.sign_in_text ?? LvnWords.Of("account.sign_in", "Sign in") };
                 StyleValueButton(btn, true);
                 btn.clicked += () => { if (OnSignIn != null) _ = OnSignIn(); };
                 _accountRow.Add(btn);
