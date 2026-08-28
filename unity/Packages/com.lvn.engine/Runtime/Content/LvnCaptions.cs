@@ -48,7 +48,7 @@ namespace Lvn.Content
 
         private static string Numbered(int number)
             => (string.IsNullOrEmpty(ChapterWord)
-                    ? Lvn.UI.LvnWords.Of("chapter.word", DefaultChapterWord)
+                    ? Lvn.Content.LvnWords.Of("chapter.word", DefaultChapterWord)
                     : ChapterWord)
                + " " + number;
     }

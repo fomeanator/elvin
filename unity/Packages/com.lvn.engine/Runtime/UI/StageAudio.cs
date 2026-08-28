@@ -70,24 +70,22 @@ namespace Lvn.UI
 
         private void OnDestroy() => LvnPrefs.Changed -= ApplyUserVolumes;
 
-        // The master sound switch collapses every channel to silence when off.
-        private static float Master => LvnPrefs.SoundOn ? 1f : 0f;
-
-        private static float UserScale(string channel) =>
-            Master * (channel == "music" ? LvnPrefs.VolMusic
-            : channel == "ambient" ? LvnPrefs.VolAmbient
-            : LvnPrefs.VolSfx);
+        // Громкость канала знает ЗВУКОРЕЖИССЁР — здесь была своя таблица
+        // каналов, и в ней не было озвучки: реплика играла мимо настроек.
+        private static float Master => LvnVolumes.Master;
+        private static float UserScale(string channel) => LvnVolumes.Of(channel);
 
         // Re-scale the live sources when the player moves a volume slider or flips
         // the master sound switch. A fade in flight keeps its own target (it snaps
         // on the next command) — fine for a settings tweak.
         private void ApplyUserVolumes()
         {
-            float m = Master;
-            if (_music != null) _music.volume = _authMusic * LvnPrefs.VolMusic * m;
-            if (_ambient != null) _ambient.volume = _authAmbient * LvnPrefs.VolAmbient * m;
-            if (_sfx != null) _sfx.volume = _authSfx * LvnPrefs.VolSfx * m;
-            if (_voice != null) _voice.volume = LvnPrefs.VolVoice * m;
+            // Авторская громкость (что просил сценарий) × пользовательская
+            // (что выставил игрок). Вторая половина — у Звукорежиссёра.
+            if (_music != null) _music.volume = _authMusic * LvnVolumes.Of(LvnVolumes.Music);
+            if (_ambient != null) _ambient.volume = _authAmbient * LvnVolumes.Of(LvnVolumes.Ambient);
+            if (_sfx != null) _sfx.volume = _authSfx * LvnVolumes.Of(LvnVolumes.Sfx);
+            if (_voice != null) _voice.volume = LvnVolumes.Of(LvnVolumes.Voice);
         }
 
         private void RememberAuthored(string channel, float v)
@@ -117,7 +115,10 @@ namespace Lvn.UI
             catch { /* silent if the host ships no voice */ }
             if (clip == null || _voice == null || gen != _voiceGen) return;
             _voice.clip = clip;
-            _voice.volume = LvnPrefs.VolVoice;
+            // ЧЕРЕЗ ЗВУКОРЕЖИССЁРА, а не с ползунка напрямую: здесь терялся
+            // общий тумблер, и при выключенном звуке реплика всё равно
+            // звучала — до ближайшего пересчёта громкостей.
+            _voice.volume = LvnVolumes.Of(LvnVolumes.Voice);
             _voice.Play();
         }
 

@@ -307,25 +307,37 @@ namespace Lvn.UI.Screens
 
         private void FillPills(VisualElement host, bool compact)
         {
-            host.Clear();
+            // СПИСОК СВЕРЯЕТСЯ, А НЕ ПЕРЕСОБИРАЕТСЯ (правило Монтажёра). Этот
+            // же симптом чинили для шапки хаба: ответ кошелька приходит через
+            // круговой путь до сервера, и пересборка на каждое изменение
+            // выбрасывала живые пилюли вместе с их значками и заново их
+            // грузила — при том что пилюля умеет обновлять своё число сама и
+            // так тикает раз в секунду. Пересборка нужна ровно тогда, когда
+            // сменился САМ СПИСОК валют.
             var bg = LvnTokens.PanelBg;
-            foreach (var cur in Currencies)
+            Lvn.UI.LvnMontage.Sync(host, Currencies,
+                key: cur => cur,
+                create: cur => MakePill(cur, compact),
+                update: (el, _) => (el as LvnWalletPill)?.Refresh());
+        }
+
+        private LvnWalletPill MakePill(string cur, bool compact)
+        {
+            var bg = LvnTokens.PanelBg;
+            var captured = cur;
+            return new LvnWalletPill(cur, new LvnWalletPill.Look
             {
-                var captured = cur;
-                host.Add(new LvnWalletPill(cur, new LvnWalletPill.Look
-                {
-                    MarginLeft = compact ? 6 : 8,
-                    Height = compact ? 42 : 46,
-                    Radius = compact ? 21f : 23f,
-                    IconSize = compact ? 19f : 20f,
-                    FontSize = 21f,
-                    Bold = true,
-                    Edge = true,
-                    // Над сценой у каждой валюты свой пузырёк, в меню — общий
-                    // ряд на приглушённой подложке бара.
-                    Background = compact ? new Color(bg.r, bg.g, bg.b, 0.72f) : LvnTokens.Faint,
-                }, onTap: () => OnCurrency?.Invoke(captured)));
-            }
+                MarginLeft = compact ? 6 : 8,
+                Height = compact ? 42 : 46,
+                Radius = compact ? 21f : 23f,
+                IconSize = compact ? 19f : 20f,
+                FontSize = 21f,
+                Bold = true,
+                Edge = true,
+                // Над сценой у каждой валюты свой пузырёк, в меню — общий
+                // ряд на приглушённой подложке бара.
+                Background = compact ? new Color(bg.r, bg.g, bg.b, 0.72f) : LvnTokens.Faint,
+            }, onTap: () => OnCurrency?.Invoke(captured));
         }
 
         // ── режимы ────────────────────────────────────────────────────────────

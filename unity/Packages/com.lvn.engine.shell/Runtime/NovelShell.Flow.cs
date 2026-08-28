@@ -264,21 +264,11 @@ namespace Lvn.UI.Screens
 
         /// <summary>The first playable chapter of a title (lowest non-negative
         /// chapter number across its seasons), or null.</summary>
+        /// <summary>Первая глава новеллы — правило у ПРИВРАТНИКА (наименьший
+        /// номер): здесь была копия, а в хосте лежала третья версия с другим
+        /// правилом.</summary>
         internal static LvnChapter FirstChapter(LvnTitle title)
-        {
-            if (title?.seasons == null) return null;
-            LvnChapter best = null;
-            foreach (var s in title.seasons)
-            {
-                if (s?.chapters == null) continue;
-                foreach (var c in s.chapters)
-                {
-                    if (c == null) continue;
-                    if (best == null || c.number < best.number) best = c;
-                }
-            }
-            return best;
-        }
+            => Lvn.Content.LvnGatekeeper.First(title);
 
         // ТИТР ГЛАВЫ — только номер: название эпизода стоит в титре отдельной
         // строкой, и дублировать его в подзаголовке незачем.

@@ -63,8 +63,7 @@ namespace Lvn.UI.Screens
             Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label), ("at", at));
             // Та же позиция нужна отзыву: «тут баг» без места в сценарии
             // невоспроизводим, а сам игрок место назвать не может.
-            Lvn.Services.LvnFeedback.CurrentLabel = label;
-            Lvn.Services.LvnFeedback.CurrentAt = at;
+            Lvn.Services.LvnWhereabouts.Mark(label, at);
         }
 
         private static void OnChoiceShown(int written, int shown, int at)
@@ -158,8 +157,7 @@ namespace Lvn.UI.Screens
                 // Local first: a kill during the network sync must not leave the
                 // old autosave alive with the restart flag already consumed.
                 LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
-                var curGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
-                if (curGlobal != null && curGlobal.Count > 0) Stage.SeedVars[GlobalVar] = curGlobal;
+                await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
                 await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
                 Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
             }
@@ -243,12 +241,15 @@ namespace Lvn.UI.Screens
                 // another novel may have moved them since. Load the live ones FIRST:
                 // the overlay below then runs before any of the restore's async
                 // continuations, so the resumed beat's conditions read fresh stats.
-                var freshGlobal = await _state.LoadVarsAsync(GlobalScopeId, default);
+                // Живые статы читаем ДО восстановления: наложение ниже успевает
+                // до асинхронных продолжений восстановления, и условия
+                // возобновлённого шага видят свежие значения.
+                var freshGlobal = await Lvn.Content.LvnGlobalStats.LoadAsync(_state);
                 Stage.RestoreSnapshot(autosave.Snap);
                 if (Stage.Player != null && !string.IsNullOrEmpty(playerName))
                     Stage.Player.Vars["player"] = playerName;
                 if (freshGlobal != null && freshGlobal.Count > 0 && Stage.Player != null)
-                    Stage.Player.Vars[GlobalVar] = freshGlobal;
+                    Stage.Player.Vars[Lvn.Content.LvnGlobalStats.VarName] = freshGlobal;
                 // A resume keeps the snapshot's own state; the declaration only
                 // fills keys the snapshot never had (e.g. vars added after the
                 // save was written) — never resets chapter scope mid-chapter.

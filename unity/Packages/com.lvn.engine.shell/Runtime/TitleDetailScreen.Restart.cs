@@ -157,7 +157,7 @@ namespace Lvn.UI.Screens
         {
             if (Title == null) return;
             int reached = LvnProgress.Reached(Title);
-            int firstNumber = chapters.Count > 0 ? chapters[0].number : 0;
+            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
             var panel = OpenModal("Выберите главу");
 
             var scroll = new ScrollView(ScrollViewMode.Vertical);

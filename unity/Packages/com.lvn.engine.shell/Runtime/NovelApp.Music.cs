@@ -28,7 +28,7 @@ namespace Lvn.UI.Screens
                 _menuMusic.clip = clip;
                 _menuMusic.loop = true;
                 _menuMusic.playOnAwake = false;
-                _menuMusic.volume = Lvn.UI.LvnPrefs.SoundOn ? Lvn.UI.LvnPrefs.VolMusic : 0f; // тумблер и ползунок ведут и меню
+                _menuMusic.volume = Lvn.UI.LvnVolumes.Of(Lvn.UI.LvnVolumes.Music); // тумблер и ползунок ведут и меню
                 Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume;
                 if (!_chapterPlaying) _menuMusic.Play();
             }
@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
             // живёт мимо StageAudio, и «выключаю звук — ничего не происходит»
             // (живой репорт) было именно про неё.
             if (_menuMusic != null)
-                _menuMusic.volume = Lvn.UI.LvnPrefs.SoundOn ? Lvn.UI.LvnPrefs.VolMusic : 0f;
+                _menuMusic.volume = Lvn.UI.LvnVolumes.Of(Lvn.UI.LvnVolumes.Music);
         }
     }
 }

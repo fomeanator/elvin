@@ -233,14 +233,29 @@ namespace Lvn.UI.Screens
         public void Rebuild()
         {
             if (_grid == null) return;
-            _grid.Clear();
-
+            // СЕТКА СВЕРЯЕТСЯ, А НЕ ПЕРЕСОБИРАЕТСЯ (правило Монтажёра). Зовут
+            // её и на открытии экрана, и после каждой разблокировки кадра: с
+            // пересборкой все плитки рождались заново, вместе с ними заново
+            // ехали превью — и открытие ОДНОГО кадра перерисовывало галерею
+            // целиком, гася уже загруженные картинки на кадр.
             int unlocked = 0;
-            for (int i = 0; i < _entries.Count; i++)
-            {
-                if (_entries[i].Unlocked) unlocked++;
-                _grid.Add(Tile(i));
-            }
+            for (int i = 0; i < _entries.Count; i++) if (_entries[i].Unlocked) unlocked++;
+            var order = new List<int>(_entries.Count);
+            for (int i = 0; i < _entries.Count; i++) order.Add(i);
+            Lvn.UI.LvnMontage.Sync(_grid, order,
+                key: i => _entries[i].Url ?? ("#" + i),   // адрес кадра и есть его личность
+                create: i => Tile(i),
+                // Плитка помнит, открытым ли кадр была нарисована: сменилось —
+                // рисуем заново, нет — оставляем как есть вместе с превью.
+                update: (el, i) =>
+                {
+                    bool now = _entries[i].Unlocked;
+                    if ((el.userData as bool?) == now) return;
+                    var fresh = Tile(i);
+                    int at = _grid.IndexOf(el);
+                    el.RemoveFromHierarchy();
+                    _grid.Insert(Mathf.Clamp(at, 0, _grid.childCount), fresh);
+                });
             _counter.text = $"{unlocked} / {_entries.Count} открыто";
         }
 
@@ -253,6 +268,7 @@ namespace Lvn.UI.Screens
             var entry = _entries[index];
 
             var cell = new VisualElement();
+            cell.userData = entry.Unlocked;   // чем нарисована — для сверки
             cell.style.width = Length.Percent(31.5f);
             cell.style.height = 150;
             cell.style.marginRight = Length.Percent(1.5f);

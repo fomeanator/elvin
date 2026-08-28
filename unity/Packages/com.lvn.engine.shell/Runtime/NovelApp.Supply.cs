@@ -140,8 +140,10 @@ namespace Lvn.UI.Screens
         // a per-player state blob shared by EVERY novel, so they accumulate across
         // titles and one novel can read what another left behind. Ordinary vars stay
         // scoped to their title.
-        private const string GlobalVar = "global";
-        private const string GlobalScopeId = "__global";
+        // Имена — у ХРАНИТЕЛЯ СТАТОВ: здесь они были копией, и переименование
+        // области хранилища разошлось бы молча.
+        private const string GlobalVar = Lvn.Content.LvnGlobalStats.VarName;
+        private const string GlobalScopeId = Lvn.Content.LvnGlobalStats.ScopeId;
 
 
 

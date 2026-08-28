@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             back.AddManipulator(new Clickable(Close));
             left.Add(back);
 
-            var title = new Label("Гардероб");
+            var title = new Label(LvnWords.Of("skinshop.title", "Wardrobe"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
@@ -204,7 +204,7 @@ namespace Lvn.UI.Screens
             _grid.contentContainer.style.justifyContent = Justify.SpaceBetween;
             sheet.Add(_grid);
 
-            var close = new Button(Close) { text = "Закрыть" };
+            var close = new Button(Close) { text = LvnWords.Of("common.close", "Close") };
             close.style.fontSize = 26;
             close.style.marginTop = 12;
             close.style.paddingTop = 12;
