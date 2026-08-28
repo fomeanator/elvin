@@ -39,78 +39,15 @@ namespace Lvn.UI.Screens
             el.style.borderTopColor = new Color(edge.r, edge.g, edge.b, 0.72f);
         }
 
-        /// <summary>Load a sprite by url and set it as the element's background
-        /// image. Missing art is non-fatal — the element keeps whatever it had.</summary>
-        /// <summary>
-        /// ПОКАЗАТЬ КАРТИНКУ — одно действие, а не запуск задачи с меткой.
-        ///
-        /// <para>Загрузка асинхронна, но для экрана это не событие: он говорит
-        /// «здесь эта обложка» и идёт дальше. Тридцать четыре места писали это
-        /// одинаково — <c>LvnAsync.Fire(ScreenUi.AssignBgAsync(el, url, assets),
-        /// "AssignBg")</c>, — и тридцать три из них с одной и той же меткой.
-        /// Метка в диагностике при этом бесполезна ровно потому, что общая: по
-        /// строке «AssignBg» в логе не понять, чья картинка не доехала.</para>
-        ///
-        /// <para>Асинхронность — свойство загрузки, а не решение вызывающего.
-        /// Пока «запусти и забудь» пишется на месте, каждый обязан помнить и про
-        /// <c>Fire</c> (иначе задача уплывёт без обработки отказа), и про метку.
-        /// Забыть можно только вторую — и её забывали в пользу общей.</para>
-        ///
-        /// <para>Метку принимаем: у меню полотна она своя («MenuCanvas»), и
-        /// разница осмысленная — это единственный фон, чья пропажа видна на
-        /// весь экран.</para>
-        /// </summary>
-        public static void SetBg(VisualElement el, string url, ILvnAssets assets, string what = "AssignBg")
-            => LvnAsync.Fire(AssignBgAsync(el, url, assets), what);
+        // ПОКАЗ КАРТИНКИ ЖИВЁТ В ДВИЖКЕ (роль 212). Вписывание стояло здесь
+        // отдельно от загрузки — и работало БЕЗ неё молча: картинка вставала
+        // растянутой под форму своего места. Теперь картинка обязана назвать,
+        // чем она пришла: Lvn.UI.LvnPicture.Photo (обложка, фон, аватар —
+        // вписывается) или .Skin (рамка, подложка, полоса — тянется).
 
-        public static async Task AssignBgAsync(VisualElement el, string url, ILvnAssets assets)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
-            try
-            {
-                var sprite = await assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite != null)
-                {
-                    el.style.backgroundImage = new StyleBackground(sprite);
-                    PinBg(el, sprite, assets);
-                }
-            }
-            catch { /* missing art is non-fatal */ }
-        }
-
-        // ── ЖИВЫЕ ФОНЫ UI ЗАКРЕПЛЕНЫ (27.08): LRU спрайт-кэша уничтожал
-        // текстуры, которые элементы ещё показывают, — обложки новелл в хабе
-        // белели после прогулки по гардеробу, арт героини после главы (живые
-        // репорты). Правило то же, что у сцены: что на экране — не трогать.
-        // Пин живёт, пока элемент в панели; замена арта и уход из иерархии
-        // снимают его.
-        // ОКНО В ДОМ КАРТИНОК: сам пин живёт в движке — он одинаково нужен и
-        // галерее внутриигрового меню, которая этой сборки не видит.
-        internal static void PinBg(VisualElement el, Sprite sprite, ILvnAssets assets)
-            => Lvn.UI.LvnPicture.Pin(el, sprite, assets);
-
-        /// <summary>Load a sprite and apply it as the element's 9-sliced frame —
-        /// the art replaces the flat fill. Missing art keeps the flat look.</summary>
-        public static async Task AssignNineSliceAsync(VisualElement el, string url, int slice, ILvnAssets assets)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
-            try
-            {
-                var sprite = await assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite == null) return;
-                el.style.backgroundImage = new StyleBackground(sprite);
-                PinBg(el, sprite, assets);
-                el.style.backgroundColor = Color.clear;
-                if (slice > 0)
-                {
-                    el.style.unitySliceLeft = slice;
-                    el.style.unitySliceRight = slice;
-                    el.style.unitySliceTop = slice;
-                    el.style.unitySliceBottom = slice;
-                }
-            }
-            catch { /* missing art is non-fatal */ }
-        }
+        /// <summary>Окно в дом картинок: девятислойная рамка.</summary>
+        public static Task AssignNineSliceAsync(VisualElement el, string url, int slice, ILvnAssets assets)
+            => Lvn.UI.LvnPicture.Frame(el, url, slice, assets);
 
         /// <summary>A full-width, centre-aligned absolute label placed at a vertical
         /// fraction of its parent. Ignores pointer input (overlay text).</summary>

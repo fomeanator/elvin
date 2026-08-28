@@ -129,9 +129,8 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
-                LvnPicture.Fit(img);
                 poster.Add(img);
-                ScreenUi.SetBg(img, art, _assets);
+                LvnPicture.Photo(img, art, _assets);
             }
             else
             {
@@ -213,9 +212,8 @@ namespace Lvn.UI.Screens
             thumb.style.width = 128; thumb.style.height = Length.Percent(100f);
             thumb.style.backgroundColor = _theme.SurfaceHi;
             Edge(thumb);
-            LvnPicture.Fit(thumb);
             var art = t.CardArt();
-            if (!string.IsNullOrEmpty(art)) ScreenUi.SetBg(thumb, art, _assets);
+            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(thumb, art, _assets);
             card.Add(thumb);
 
             // text column (right)

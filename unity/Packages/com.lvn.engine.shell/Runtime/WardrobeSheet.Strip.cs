@@ -484,7 +484,7 @@ namespace Lvn.UI.Screens
             // молча выбрасывал арт — «показались, а при возврате на таб
             // пропали» (живой скрин 27.08).
             art.style.backgroundImage = new StyleBackground(s);
-            ScreenUi.PinBg(art, s, _assets); // видимый арт LRU не трогает
+            Lvn.UI.LvnPicture.Pin(art, s, _assets); // видимый арт LRU не трогает
             ph.style.display = DisplayStyle.None;
         }
 

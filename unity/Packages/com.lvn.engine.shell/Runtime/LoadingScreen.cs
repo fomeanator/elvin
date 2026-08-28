@@ -113,11 +113,11 @@ namespace Lvn.UI.Screens
             Add(_file);
 
             // Static art from the config (async — non-fatal if missing).
-            ScreenUi.SetBg(_fog, _cfg.fog_url, _assets);
-            ScreenUi.SetBg(track, _cfg.bar_track_url, _assets);
-            ScreenUi.SetBg(_fill, _cfg.bar_fill_url, _assets);
-            ScreenUi.SetBg(frame, _cfg.bar_frame_url, _assets);
-            if (!string.IsNullOrEmpty(_cfg.bg_url)) ScreenUi.SetBg(_bg, _cfg.bg_url, _assets);
+            LvnPicture.Skin(_fog, _cfg.fog_url, _assets);
+            LvnPicture.Skin(track, _cfg.bar_track_url, _assets);
+            LvnPicture.Skin(_fill, _cfg.bar_fill_url, _assets);
+            LvnPicture.Skin(frame, _cfg.bar_frame_url, _assets);
+            if (!string.IsNullOrEmpty(_cfg.bg_url)) LvnPicture.Photo(_bg, _cfg.bg_url, _assets);
         }
 
         /// <summary>Drives the loading bar until <paramref name="isDone"/> returns
@@ -156,7 +156,7 @@ namespace Lvn.UI.Screens
             _chapterTitle.style.opacity = 0f;
             _chapterSubtitle.style.opacity = 0f;
 
-            if (!string.IsNullOrEmpty(bgUrl)) ScreenUi.SetBg(_bg, bgUrl, _assets);
+            if (!string.IsNullOrEmpty(bgUrl)) LvnPicture.Photo(_bg, bgUrl, _assets);
 
             var tips = _cfg.tips;
             float minSeconds = minSecondsOverride ?? _cfg.min_seconds ?? 0f;

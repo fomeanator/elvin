@@ -296,8 +296,7 @@ namespace Lvn.UI.Screens
             avatar.Add(glyph);
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
-                LvnPicture.Fit(avatar);
-                ScreenUi.SetBg(avatar, AvatarUrl, _assets);
+                LvnPicture.Photo(avatar, AvatarUrl, _assets);
             }
             identity.Add(avatar);
 

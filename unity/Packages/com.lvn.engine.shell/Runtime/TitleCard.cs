@@ -63,8 +63,8 @@ namespace Lvn.UI.Screens
             _subtitle.style.marginTop = 12;
             _card.Add(_subtitle);
 
-            ScreenUi.SetBg(_fog, _cfg.fog_url, _assets);
-            ScreenUi.SetBg(_card, _cfg.frame_url, _assets);
+            LvnPicture.Skin(_fog, _cfg.fog_url, _assets);
+            LvnPicture.Skin(_card, _cfg.frame_url, _assets);
         }
 
         /// <summary>Set the two lines. Either may be null/empty to hide it.</summary>

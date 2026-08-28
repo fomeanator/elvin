@@ -48,9 +48,6 @@ namespace Lvn.UI.Screens
             _logo.style.top = Length.Percent(logoY * 100f);
             _logo.style.height = Length.Percent(logoW * 100f);
             _logo.style.translate = new Translate(0f, Length.Percent(-50f), 0f);
-            _logo.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _logo.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _logo.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             LvnPicture.Fit(_logo, cover: false);
             _logo.pickingMode = PickingMode.Ignore;
             Add(_logo);
@@ -77,9 +74,9 @@ namespace Lvn.UI.Screens
             _percent.pickingMode = PickingMode.Ignore;
             Add(_percent);
 
-            ScreenUi.SetBg(bg, _cfg.bg_url, _assets);
-            ScreenUi.SetBg(_logo, _cfg.logo_url, _assets);
-            ScreenUi.SetBg(_fill, _cfg.bar_fill_url, _assets);
+            LvnPicture.Photo(bg, _cfg.bg_url, _assets);
+            LvnPicture.Photo(_logo, _cfg.logo_url, _assets, cover: false);
+            LvnPicture.Skin(_fill, _cfg.bar_fill_url, _assets);
         }
 
         /// <summary>Drive the boot bar until <paramref name="isDone"/> and the

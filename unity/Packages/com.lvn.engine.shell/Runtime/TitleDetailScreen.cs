@@ -201,7 +201,7 @@ namespace Lvn.UI.Screens
                 float w = e.newRect.width;
                 if (w > 1f) hero.style.height = Mathf.Round(w * HeroAspect);
             });
-            ScreenUi.SetBg(hero, ShownHero, _assets);
+            LvnPicture.Photo(hero, ShownHero, _assets);
             // bottom gradient scrim so the overlaid title reads (a real gradient —
             // a flat half-black band leaves an ugly hard edge across the art)
             var scrim = new VisualElement { pickingMode = PickingMode.Ignore };

@@ -365,7 +365,7 @@ namespace Lvn.UI.Screens
             av.Add(initial);
 
             if (!string.IsNullOrEmpty(e.AvatarUrl))
-                ScreenUi.SetBg(av, e.AvatarUrl, _assets);
+                LvnPicture.Photo(av, e.AvatarUrl, _assets);
             return av;
         }
 
