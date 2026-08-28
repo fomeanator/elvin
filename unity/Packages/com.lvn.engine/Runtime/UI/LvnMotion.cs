@@ -62,7 +62,7 @@ namespace Lvn.UI
         /// анимации.</summary>
         public static float Tempo
         {
-            get => _tempo;
+            get { EnsureComfort(); return _tempo; }
             set
             {
                 float v = Mathf.Clamp(value, 0.05f, 4f);
@@ -73,15 +73,64 @@ namespace Lvn.UI
         }
         private static float _tempo = 1f;
 
+        /// <summary>Во сколько раз живее движется интерфейс, когда игрок просит
+        /// меньше движения. Не ноль: мгновенные подмены читаются как сбой
+        /// отрисовки, а не как спокойствие — цель настройки убрать РАЗМАХ, а не
+        /// связность.</summary>
+        private const float ComfortTempo = 0.35f;
+
+        private static bool _comfortWired;
+
+        /// <summary>
+        /// НАСТРОЙКА «МЕНЬШЕ ДВИЖЕНИЯ» ДОХОДИТ ДО ВСЕГО ДВИЖЕНИЯ.
+        ///
+        /// <para>Ручка темпа существовала с самого начала и описывала себя как
+        /// «единственная ручка быстрее/медленнее для всего сразу» — но её никто
+        /// не крутил. Настройку при этом уважали ДВА места: тряска экрана и
+        /// полноэкранные эффекты. Всё остальное — выезд навбара на 1,2 секунды,
+        /// подъезд контента, катсцена ухода в главу — шло полным ходом.</para>
+        ///
+        /// <para>То есть настройка обещала игроку то, чего не делала. Для
+        /// человека с вестибулярной чувствительностью это не мелочь: он её
+        /// включил и получил ровно то же самое.</para>
+        ///
+        /// <para>Подписка ленивая и одноразовая: темп спрашивают все, кто
+        /// считает длительность, поэтому первый же расчёт её и заводит — ничей
+        /// код инициализации трогать не пришлось.</para>
+        /// </summary>
+        private static void EnsureComfort()
+        {
+            if (_comfortWired) return;
+            _comfortWired = true;
+            LvnPrefs.Changed += ApplyComfort;
+            ApplyComfort();
+        }
+
+        private static void ApplyComfort()
+        {
+            float want = LvnPrefs.ReduceMotion ? ComfortTempo : 1f;
+            if (Mathf.Approximately(want, _tempo)) return;
+            _tempo = want;
+            TempoChanged?.Invoke();
+        }
+
         /// <summary>Темп сменили — тем, кто закешировал длительности, пора
         /// пересчитать (в основном это декларативные USS-переходы).</summary>
         public static event Action TempoChanged;
 
         /// <summary>Длительность в миллисекундах с учётом темпа.</summary>
-        public static int Ms(int ms) => Mathf.Max(1, Mathf.RoundToInt(ms * _tempo));
+        public static int Ms(int ms)
+        {
+            EnsureComfort();
+            return Mathf.Max(1, Mathf.RoundToInt(ms * _tempo));
+        }
 
         /// <summary>Длительность в секундах с учётом темпа.</summary>
-        public static float Sec(float seconds) => Mathf.Max(0f, seconds * _tempo);
+        public static float Sec(float seconds)
+        {
+            EnsureComfort();
+            return Mathf.Max(0f, seconds * _tempo);
+        }
 
         /// <summary>
         /// Насколько «живой» пружина. Затухание 1 — без проскока (для того, что
