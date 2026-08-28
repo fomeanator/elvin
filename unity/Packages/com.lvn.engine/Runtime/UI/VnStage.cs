@@ -209,10 +209,10 @@ namespace Lvn.UI
                     LvnLog.Trace($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
                               + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
                 }
-                Healer.Tick(Time.unscaledTime);
-                if (Time.unscaledTime >= _nextDriftCheck)
+                Healer.Tick(LvnClock.Now());
+                if (LvnClock.Now() >= _nextDriftCheck)
                 {
-                    _nextDriftCheck = Time.unscaledTime + 0.5f;
+                    _nextDriftCheck = LvnClock.Now() + 0.5f;
                     CompareFrameToScreen();
                 }
             }

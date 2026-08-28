@@ -229,8 +229,8 @@ namespace Lvn.UI
         public async Task WaitForActorArtAsync(string id, float timeoutSeconds = 2.5f)
         {
             if (string.IsNullOrEmpty(id) || !(_renderer is CanvasSceneRenderer csr)) return;
-            float until = Time.unscaledTime + Mathf.Max(0.1f, timeoutSeconds);
-            while (Time.unscaledTime < until)
+            float until = LvnClock.Now() + Mathf.Max(0.1f, timeoutSeconds);
+            while (LvnClock.Now() < until)
             {
                 bool pending = !ActorVisibleOrPending(id);
                 var dead = csr.ActorsWithDeadLayers();

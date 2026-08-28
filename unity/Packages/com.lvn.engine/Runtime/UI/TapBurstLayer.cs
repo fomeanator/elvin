@@ -75,12 +75,12 @@ namespace Lvn.UI
             }
             if (_tick == null) _tick = schedule.Execute(Tick).Every(16);
             _tick.Resume();
-            _last = Time.realtimeSinceStartup;
+            _last = LvnClock.Now();
         }
 
         private void Tick()
         {
-            float now = Time.realtimeSinceStartup;
+            float now = LvnClock.Now();
             float dt = Mathf.Min(0.05f, now - _last);
             _last = now;
             for (int i = _live.Count - 1; i >= 0; i--)

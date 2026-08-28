@@ -187,11 +187,11 @@ namespace Lvn.UI
         private async Task Animate(float seconds, int gen, System.Action<float> apply)
         {
             if (seconds <= 0f) { apply(1f); return; }
-            float t0 = Time.unscaledTime;
+            float t0 = LvnClock.Now();
             while (true)
             {
                 if (gen != _gen) return;
-                float k = Mathf.Clamp01((Time.unscaledTime - t0) / seconds);
+                float k = Mathf.Clamp01((LvnClock.Now() - t0) / seconds);
                 k = k * k * (3f - 2f * k);
                 apply(k);
                 if (k >= 1f) return;

@@ -157,7 +157,7 @@ namespace Lvn.UI.World
             f._from = from;
             f._to = to;
             f._dur = seconds;
-            f._start = Time.realtimeSinceStartup;
+            f._start = LvnClock.Now();
             // from == to — ЧИСТЫЙ ТАЙМЕР: вид не трогаем, просто ждём и зовём
             // хвост. Так работает уход через растворение — гашением занят
             // _Dissolve, а этот компонент лишь прячет объект в конце.
@@ -196,7 +196,7 @@ namespace Lvn.UI.World
         private void Update()
         {
             if (_start < 0f || _group == null) { enabled = false; return; }
-            float t = Mathf.Clamp01((Time.realtimeSinceStartup - _start) / _dur);
+            float t = Mathf.Clamp01((LvnClock.Now() - _start) / _dur);
             // The actor should not cross the stage as a ghost. Entrance becomes
             // solid in the opening 10%; exit fades only in the closing 10%.
             // Drift still receives raw t and therefore spans the whole motion.

@@ -76,10 +76,10 @@ namespace Lvn.UI.World
 
         private async Task FadeInAsync(int gen, float seconds)
         {
-            float started = Time.unscaledTime;
+            float started = LvnClock.Now();
             while (gen == _fadeGen && _image != null)
             {
-                float t = Mathf.Clamp01((Time.unscaledTime - started) / seconds);
+                float t = Mathf.Clamp01((LvnClock.Now() - started) / seconds);
                 _image.color = new Color(1f, 1f, 1f, t * t * (3f - 2f * t));
                 if (t >= 1f) break;
                 await Task.Yield();
@@ -112,10 +112,10 @@ namespace Lvn.UI.World
 
         private async Task PanAsync(int gen, float from, float to, float seconds)
         {
-            float started = Time.unscaledTime;
+            float started = LvnClock.Now();
             while (gen == _panGen && _image != null)
             {
-                float t = Mathf.Clamp01((Time.unscaledTime - started) / seconds);
+                float t = Mathf.Clamp01((LvnClock.Now() - started) / seconds);
                 _panX = Mathf.Lerp(from, to, t * t * (3f - 2f * t));
                 UpdateCover();
                 if (t >= 1f) break;

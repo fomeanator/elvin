@@ -229,10 +229,10 @@ namespace Lvn.UI.World
                 FinishCrossfade(gen);
                 return;
             }
-            float started = Time.unscaledTime;
+            float started = LvnClock.Now();
             while (gen == _crossfadeGeneration && _active && _proxy != null)
             {
-                float t = Mathf.Clamp01((Time.unscaledTime - started) / seconds);
+                float t = Mathf.Clamp01((LvnClock.Now() - started) / seconds);
                 float k = t * t * (3f - 2f * t);
                 if (wardrobeFlow)
                     _material.SetFloat(WardrobeProgressId, k);

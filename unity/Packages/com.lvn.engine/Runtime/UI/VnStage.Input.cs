@@ -24,14 +24,14 @@ namespace Lvn.UI
             StopChoiceTimer();
             if (seconds <= 0f || _uiRoot == null) return;
             _choiceTotal = seconds;
-            _choiceDeadline = Time.unscaledTime + seconds;
+            _choiceDeadline = LvnClock.Now() + seconds;
             _choices?.SetTimer(1f);
             _choiceTick = _uiRoot.schedule.Execute(() =>
             {
                 // An open menu or the art view freezes the clock — a timed choice
                 // must race the player, not their settings screen.
                 if (InputBlocked || _chromeHidden) { _choiceDeadline += 0.1f; return; }
-                float left = _choiceDeadline - Time.unscaledTime;
+                float left = _choiceDeadline - LvnClock.Now();
                 _choices?.SetTimer(left / _choiceTotal);
                 if (left > 0f) return;
                 StopChoiceTimer();

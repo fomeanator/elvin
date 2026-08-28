@@ -36,7 +36,9 @@ namespace Lvn.UI
         }
 
         // Time source — overridable so tests can drive Composite() deterministically.
-        internal static Func<float> Clock = () => Time.realtimeSinceStartup;
+        // Своя ручка остаётся: тесты анимаций двигают время покадрово и не
+        // должны зависеть от общих часов интерфейса. Умолчание — общие.
+        internal static Func<float> Clock = () => LvnClock.Now();
 
         public ActorAnimator(VisualElement rig) { _rig = rig; }
 

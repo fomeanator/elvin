@@ -409,7 +409,7 @@ namespace Lvn.UI
         {
             _tw.SetText(text ?? "");
             _cps = PaceFor(cps);
-            _startTime = Time.realtimeSinceStartup;
+            _startTime = LvnClock.Now();
             _lastQuantum = -1;
             _tick?.Pause();
 
@@ -567,7 +567,7 @@ namespace Lvn.UI
         private void Tick()
         {
             if (!IsRevealing) { _tick?.Pause(); return; }
-            float elapsed = Time.realtimeSinceStartup - _startTime;
+            float elapsed = LvnClock.Since(_startTime);
             float wordProgress = TypewriterClock.Progress(elapsed, _cps) / AverageCharactersPerWord;
             _tw.WordReveal(_initialReveal, wordProgress,
                 out _wordCompleteChars, out _wordActiveEndChars, out _wordActiveAlpha);

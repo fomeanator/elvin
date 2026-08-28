@@ -173,8 +173,8 @@ namespace Lvn.UI
 
         private void LogSwallow(string reason)
         {
-            if (Time.realtimeSinceStartup - _lastSwallowLog < 1f) return;
-            _lastSwallowLog = Time.realtimeSinceStartup;
+            if (LvnClock.Now() - _lastSwallowLog < 1f) return;
+            _lastSwallowLog = LvnClock.Now();
             LvnLog.Trace($"[lvn-input] тап проглочен: {reason} (say={_sayUp} awaitingTap={_awaitingTap})");
         }
 
@@ -234,7 +234,7 @@ namespace Lvn.UI
             // до перезахода). Вечная глухота хуже лишнего тапа: продвигаемся
             // и честно жалуемся в лог. Порог 1.5с не даёт сработать на
             // штатной передаче «уход карточки → пауза → приход».
-            else if (_sayUp && Time.realtimeSinceStartup - _sayUpSince > 1.5f
+            else if (_sayUp && LvnClock.Now() - _sayUpSince > 1.5f
                      && _clock.Passed(LvnStageClock.ActorVisibilityBarrier))
             {
                 LvnLog.Trace("[lvn-input] такт не ждал касания при видимой строке — самоисцеление тапом");
