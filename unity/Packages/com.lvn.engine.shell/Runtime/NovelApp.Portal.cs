@@ -120,12 +120,7 @@ namespace Lvn.UI.Screens
             LvnLog.Trace($"[lvn-portal] в кадре нет полотна — подставляем меню: "
                        + $"{(string.IsNullOrEmpty(canvas) ? "НЕЧЕМ" : canvas)}");
             if (string.IsNullOrEmpty(canvas)) return;
-            Stage.ApplyStage(new JObject
-            {
-                ["op"] = "bg", ["sprite_url"] = canvas,
-                ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                ["fade"] = 0f,
-            }, LvnSender.Cutscene);
+            Stage.ApplyStage(MenuCanvasCmd(canvas, 0f), LvnSender.Cutscene);
             _menuBgSet = true;
         }
 
