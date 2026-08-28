@@ -17,24 +17,43 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub
     {
-        /// <summary>Слова или шрифт сменились: нижнее меню и заголовок хаба
-        /// строятся один раз, и без этого остаются на прежнем языке — а нижнее
-        /// меню игрок видит с любого экрана.</summary>
+        /// <summary>
+        /// Слова или шрифт сменились. Подписи вкладок обновляются НА МЕСТЕ, без
+        /// пересборки: навбар живёт под всеми экранами и держит подсветку
+        /// активной вкладки — снеси его, и подсветка начнёт переезжать заново,
+        /// а игрок увидит, как нижнее меню моргает при каждой смене настройки.
+        /// </summary>
         public void Redress()
         {
-            // Навбар пересобирается на месте: он живёт под всеми экранами и
-            // сносить его целиком значит моргнуть всей оболочкой.
-            if (_bottomNav?.parent != null)
+            for (int i = 0; i < _navTabs.Count; i++)
             {
-                var parent = _bottomNav.parent;
-                int at = parent.IndexOf(_bottomNav);
-                _navTabs.Clear();
-                var fresh = BottomNav();
-                parent.Insert(at, fresh);
-                _bottomNav.RemoveFromHierarchy();
-                _bottomNav = fresh;
+                var t = _navTabs[i];
+                if (t?.Label == null) continue;
+                t.Label.text = _theme.Heading(NavLabel(t.Index));
+                t.Label.style.unityFontStyleAndWeight = LvnFonts.UiWeightStyle;
             }
-            if (_hubTitle != null) _hubTitle.text = _cfg?.title ?? "";
+            if (_hubTitle != null) _hubTitle.text = _theme.Heading(_cfg?.title ?? "");
+            // Подсветку возвращаем на место: переодевание меняет ПОДПИСИ, а не
+            // то, где игрок находится. Пересборка навбара сбрасывала её на
+            // «Главную» — со стороны это выглядело как переход, которого он не
+            // делал.
+            SetActiveTab(_activeTab, instant: true);
+        }
+
+        // Подпись вкладки по её месту: перевод сильнее авторского поля, оно
+        // сильнее умолчания. Раньше подписи стояли строками прямо в сборке, и
+        // обновить их было негде.
+        private string NavLabel(int index)
+        {
+            switch (index)
+            {
+                case 0: return LvnWords.Pick("nav.home", _cfg.nav_home, "Home");
+                case 1: return LvnWords.Pick("nav.store", _cfg.nav_store, "Store");
+                case 2: return LvnWords.Pick("nav.wardrobe", _cfg.nav_wardrobe, "Wardrobe");
+                case 3: return LvnWords.Pick("nav.profile", _cfg.nav_profile, "Profile");
+                case 4: return LvnWords.Pick("nav.gallery", _cfg.nav_gallery, "Gallery");
+                default: return "";
+            }
         }
 
         private VisualElement BottomNav()
@@ -52,13 +71,13 @@ namespace Lvn.UI.Screens
             nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab(0, LvnIcon.Home, LvnWords.Pick("nav.home", _cfg.nav_home, "Home"),
+            nav.Add(NavTab(0, LvnIcon.Home, NavLabel(0),
                 () => OnHomeNav?.Invoke()));
-            nav.Add(NavTab(1, LvnIcon.Store, LvnWords.Pick("nav.store", _cfg.nav_store, "Store"), () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
-            nav.Add(NavTab(2, LvnIcon.Wardrobe, LvnWords.Pick("nav.wardrobe", _cfg.nav_wardrobe, "Wardrobe"), () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
+            nav.Add(NavTab(1, LvnIcon.Store, NavLabel(1), () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
+            nav.Add(NavTab(2, LvnIcon.Wardrobe, NavLabel(2), () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
             if (_cfg.show_gallery ?? true)
-                nav.Add(NavTab(4, LvnIcon.Gallery, LvnWords.Pick("nav.gallery", _cfg.nav_gallery, "Gallery"), () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
-            nav.Add(NavTab(3, LvnIcon.Profile, LvnWords.Pick("nav.profile", _cfg.nav_profile, "Profile"), () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
+                nav.Add(NavTab(4, LvnIcon.Gallery, NavLabel(4), () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
+            nav.Add(NavTab(3, LvnIcon.Profile, NavLabel(3), () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
             SetActiveTab(0, instant: true);
             return nav;
         }

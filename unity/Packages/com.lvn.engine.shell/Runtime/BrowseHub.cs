@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// and only then resolves. <see cref="PickTitleAsync"/> returns the chosen,
     /// unlocked, paid-for title (or null if cancelled).
     /// </summary>
-    public sealed partial class BrowseHub : VisualElement, ILvnEntrance
+    public sealed partial class BrowseHub : VisualElement, ILvnEntrance, Lvn.UI.ILvnRedress
     {
         /// <summary>Loads the player's global stat flags (the <c>__global</c> blob)
         /// so <c>unlock</c> conditions can be evaluated. Null → everything unlocked.</summary>
