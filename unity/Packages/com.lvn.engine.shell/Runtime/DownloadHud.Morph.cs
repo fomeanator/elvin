@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
                 _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
-            _capsule.experimental.animation.Start(0f, 1f, 260, (_, p) =>
+            _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(260), (_, p) =>
             {
                 float e = 1f - Mathf.Pow(1f - p, 3f); // OutCubic — тормозит у цели
                 ApplyMorph(Mathf.Lerp(from, to, e));
