@@ -31,13 +31,14 @@ namespace Lvn.UI.Screens
         // when the title has no cost. Returns true if the player may enter.
         private async Task<bool> ChargeTitleEntryAsync(LvnTitle title)
         {
-            var cost = title?.cost;
-            if (cost == null || string.IsNullOrEmpty(cost.currency) || cost.amount <= 0) return true;
+            // Цену считает ДОМ — тот же, что отвечает ценнику на кнопке.
+            var cost = Lvn.Content.LvnEntryPrice.ForTitle(title);
+            if (cost.Free) return true;
             // The entry was paid when the title was FIRST started — «Продолжить»
             // (or menu-exit + Play) must not charge the same entry again.
             if (LvnProgress.Reached(title) > 0) return true;
 
-            return await ChargeWithStoreAsync(cost.currency, cost.amount,
+            return await ChargeWithStoreAsync(cost.Currency, cost.Amount,
                 "title:" + title.id, "You need more to start this.");
         }
 
@@ -107,14 +108,12 @@ namespace Lvn.UI.Screens
         // purchase) shows a popup and returns false, dropping back to the carousel.
         private async Task<bool> ChargeChapterEntryAsync(LvnChapter chapter)
         {
-            var eco = _manifest?.economy;
-            var currency = eco?.chapter_currency;
-            int cost = eco?.chapter_cost ?? 1;
-            if (string.IsNullOrEmpty(currency) || cost <= 0) return true; // gate off
-            if (eco.free_chapters != null && chapter != null && eco.free_chapters.Contains(chapter.id))
-                return true; // this chapter is on the house
+            // Гейт, умолчание и список бесплатных глав — у ДОМА: карточка
+            // новеллы показывает цену тем же расчётом, и разойтись им негде.
+            var price = Lvn.Content.LvnEntryPrice.ForChapter(_manifest?.economy, chapter?.id);
+            if (price.Free) return true;
 
-            return await ChargeWithStoreAsync(currency, cost,
+            return await ChargeWithStoreAsync(price.Currency, price.Amount,
                 "chapter:" + chapter?.id, "You need more to open this chapter.");
         }
     }

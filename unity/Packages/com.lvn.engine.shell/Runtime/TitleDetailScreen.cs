@@ -64,7 +64,9 @@ namespace Lvn.UI.Screens
         // (TitleName/HeroImageUrl/Synopsis) are overwritten by NovelApp from
         // the actual LvnTitle before every Rebuild().
         public string HeroImageUrl = "/content/cards/card0.png";
-        public int EnergyCost = 1;
+        /// <summary>Экономика новеллы (гейт входа в главу) — нужна ценнику на
+        /// кнопке: без неё он показывал выдуманную единицу.</summary>
+        public Lvn.Content.LvnEconomyConfig Economy;
         public string TitleName = "";
 
         // ── КАРТОЧКА ЧИТАЕТ НОВЕЛЛУ САМА ────────────────────────────────────
@@ -86,8 +88,12 @@ namespace Lvn.UI.Screens
         }
         private string ShownSynopsis
             => !string.IsNullOrEmpty(Title?.card?.description) ? Title.card.description : Synopsis;
-        private int ShownCost
-            => Title?.cost?.amount > 0 ? (int)Title.cost.amount : EnergyCost;
+        // ЦЕНУ СЧИТАЕТ ДОМ, тот же, что списывает: здесь стояло «цена новеллы,
+        // иначе поле EnergyCost», а поле это никто никогда не задавал — новелла
+        // без своей цены рисовала игроку «1» независимо от того, сколько
+        // спишется, а бесплатная глава показывала цену и не списывала ничего.
+        private Lvn.Content.LvnEntryPrice.Price ShownPrice
+            => Lvn.Content.LvnEntryPrice.Shown(Title, Economy, LvnProgress.Current(Title)?.id);
         public string Chips = "";
         public string Synopsis = "";
 
@@ -466,10 +472,15 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(play, LvnTokens.RadiusSm);
             actionRow.Add(play);
 
+            // БЕСПЛАТНЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЦЕНУ. Раньше плашка стояла всегда:
+            // у новеллы без своей цены она рисовала выдуманную единицу, а
+            // бесплатная по free_chapters глава показывала цену и не списывала
+            // ничего.
+            var price = ShownPrice;
+            if (price.Free) return;
+
             var cost = new VisualElement();
             cost.style.flexShrink = 0;
-            cost.style.flexDirection = FlexDirection.Row;
-            cost.style.alignItems = Align.Center;
             cost.style.paddingLeft = 16;
             cost.style.paddingRight = 16;
             cost.style.paddingTop = 14;
@@ -477,16 +488,10 @@ namespace Lvn.UI.Screens
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(cost, LvnTokens.RadiusSm);
 
-            cost.style.flexDirection = FlexDirection.Row;
-            cost.style.alignItems = Align.Center;
-            var costIcon = LvnIcons.Make(LvnIcon.Energy, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
-            costIcon.style.marginRight = 6;
-            cost.Add(costIcon);
-            var costLbl = new Label(ShownCost.ToString());
-            costLbl.style.color = LvnTokens.Gold;
-            costLbl.style.fontSize = 26;
-            costLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
-            cost.Add(costLbl);
+            // Значок — ВАЛЮТЫ ЭТОЙ ЦЕНЫ, а не прибитая молния: гейт вправе
+            // стоять в любой валюте, и энергия здесь была догадкой экрана.
+            cost.Add(LvnPriceTag.Tag(price.Currency, price.Amount,
+                new LvnPriceTag.Row { FontSize = 26f, IconSize = 22f, Gap = 6f }));
             actionRow.Add(cost);
         }
 

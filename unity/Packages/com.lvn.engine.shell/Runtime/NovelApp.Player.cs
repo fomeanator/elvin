@@ -203,6 +203,9 @@ namespace Lvn.UI.Screens
                 // здесь стояли четыре присваивания рядом с этой же строкой —
                 // и держались на памяти того, кто их пишет.
                 _shell.Detail.Title = t;
+                // …и экономика новеллы: ценник на кнопке считает ту же цену,
+                // что спишет кассир (гейт главы, бесплатные главы).
+                _shell.Detail.Economy = _manifest?.economy;
                 _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
                 Newtonsoft.Json.Linq.JObject vars = null;
                 if (t?.id != null)
