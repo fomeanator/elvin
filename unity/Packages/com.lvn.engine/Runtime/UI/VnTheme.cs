@@ -43,7 +43,11 @@ namespace Lvn.UI
         // Defaults derive from the "Полночь" design tokens (LvnTokens) so the whole
         // app is one coherent look out of the box; any field is still overridable.
         [Header("Dialogue")]
-        public Color PanelColor = new Color(0.086f, 0.063f, 0.094f, 0.86f); // PanelBg tone, translucent (market norm 75-90%)
+        // Тон — из токенов действующей темы, своя лишь плотность: полупрозрачный
+        // диалог (рыночная норма 75–90%) поверх плотных листов оболочки. Раньше
+        // тон стоял числами и молча расходился бы со сменой темы, хотя строкой
+        // выше обещано обратное.
+        public Color PanelColor = LvnTokens.Panel(0.86f);
         public Color TextColor = LvnTokens.Text;
         public Color SpeakerColor = LvnTokens.Accent;
         public Font Font;

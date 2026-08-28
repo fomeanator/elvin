@@ -88,7 +88,9 @@ namespace Lvn.UI
             var panel = new VisualElement();
             panel.style.width = Length.Percent(82);
             panel.style.maxWidth = 900;
-            panel.style.backgroundColor = Theme != null ? Theme.PanelColor : new Color(0.086f, 0.063f, 0.094f, 0.94f);
+            // Запасной цвет — из токенов, а не числами: без темы сцены поле
+            // всё равно обязано быть цвета действующей палитры.
+            panel.style.backgroundColor = Theme != null ? Theme.PanelColor : LvnTokens.Panel(0.94f);
             panel.style.paddingLeft = Theme != null ? Theme.PanelPaddingX : 22f;
             panel.style.paddingRight = Theme != null ? Theme.PanelPaddingX : 22f;
             panel.style.paddingTop = Theme != null ? Theme.PanelPaddingY : 18f;
