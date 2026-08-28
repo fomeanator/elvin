@@ -28,10 +28,7 @@ import (
 // Поэтому здесь корпус прогоняется через настоящий `expr.js` в node. Нет node —
 // тест пропускается: это машина без браузерного тракта, а не поломка.
 func TestBrowserExpressionsAgreeWithTheCorpus(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node не установлен — браузерный вычислитель не проверяется на этой машине")
-	}
+	node := requireNode(t, "браузерный вычислитель")
 	root := repoRoot(t)
 	// ИСХОДНИК, А НЕ СБОРКА. Вчерашняя версия смотрела в
 	// `server/website/play/` — а эта папка целиком в .gitignore: она вывод
@@ -240,10 +237,7 @@ func scriptNeedsARealPlayer(script []map[string]any) bool {
 // браузере 1 вместо 2 — логическое значение не считалось единицей, хотя язык
 // (и Lvn.LvnNum.Value) говорит обратное.
 func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node не установлен — браузерный плеер не проверяется на этой машине")
-	}
+	node := requireNode(t, "браузерный плеер")
 	root := repoRoot(t)
 	core := filepath.Join(root, filepath.FromSlash("panel/public/play/core.js"))
 	runner := filepath.Join(root, filepath.FromSlash("conformance/browser-runner.mjs"))
@@ -426,10 +420,7 @@ func stopKinds(stops []map[string]any) []string {
 // случае из упаковки исчезают объявления функций, и экспортированный файл
 // падает у игрока, а в песочнице всё работает.
 func TestExportPacksTheSameLanguage(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node не установлен — упаковка не проверяется на этой машине")
-	}
+	node := requireNode(t, "упаковка экспорта")
 	root := repoRoot(t)
 	checker := filepath.Join(root, filepath.FromSlash("conformance/export-check.mjs"))
 	playDir := filepath.Join(root, filepath.FromSlash("panel/public/play"))
@@ -454,4 +445,24 @@ func TestExportPacksTheSameLanguage(t *testing.T) {
 			"он снимает СЛОВО `export`, а не строку целиком.",
 			len(problems), strings.Join(problems, "\n  "))
 	}
+}
+
+// requireNode: где node есть — проверяем, где нет — пропускаем. НО НЕ НА CI.
+//
+// Пропуск без node честен на чужой машине и опасен на сборочной: тест
+// «проходит», и три стража языка молчат, создавая ровно ту уверенность, ради
+// борьбы с которой они заведены. Так и было — в Go-джобе node не стоял вовсе.
+// Теперь он там есть, а переменная LVN_REQUIRE_NODE делает его пропажу
+// красной: если окружение объявило себя обязанным проверять, молчать нельзя.
+func requireNode(t *testing.T, what string) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err == nil {
+		return node
+	}
+	if os.Getenv("LVN_REQUIRE_NODE") != "" {
+		t.Fatalf("node не найден, а окружение требует проверки (%s)", what)
+	}
+	t.Skipf("node не установлен — %s не проверяется на этой машине", what)
+	return ""
 }

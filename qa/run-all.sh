@@ -54,6 +54,30 @@ if [ -f "$REPO_ROOT/unity/TestHost/Temp/UnityLockfile" ] && pgrep -x Unity >/dev
   echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
 fi
 
+# ── 0a. СТРАЖИ ФОРМЫ И ЯЗЫКА (Go) ──────────────────────────────────────────
+# Их десятки, и держат они то, чего Unity-прогон не видит вовсе: дубли в C#,
+# согласие документации с кодом, единый диалект двух компиляторов, набор команд
+# у двух рендереров браузера, читаемость диагностики. Цикл назывался «ничего не
+# сломалось?» и при этом их не запускал — можно было увидеть зелёное, не
+# проверив ни одного.
+#
+# LVN_REQUIRE_NODE: на машине с node стражам языка запрещено пропускаться
+# молча; без node они честно скипнутся сами.
+if command -v go >/dev/null 2>&1; then
+  for mod in tools/lvnconv server; do
+    log "go test $mod"
+    if command -v node >/dev/null 2>&1; then
+      (cd "$REPO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test ./... >/dev/null 2>&1) \
+        || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
+    else
+      (cd "$REPO_ROOT/$mod" && go test ./... >/dev/null 2>&1) \
+        || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
+    fi
+  done
+else
+  log "WARN: go не найден — стражи формы и языка не проверены"
+fi
+
 # ── 0. Go-сервер для PlayMode-смоука (BootSmokeTests поднимает его сам) ─────
 mkdir -p "$REPO_ROOT/qa/bin"
 if command -v go >/dev/null 2>&1; then

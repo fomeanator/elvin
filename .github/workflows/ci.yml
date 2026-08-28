@@ -55,6 +55,15 @@ jobs:
         with:
           go-version-file: ${{ matrix.module }}/go.mod
           cache-dependency-path: ${{ matrix.module }}/go.sum
+      # node нужен НЕ для сборки, а для трёх стражей языка: браузерный
+      # вычислитель и мини-плеер playground прогоняются через conformance, а
+      # упаковка экспорта проверяется на тождество исходникам. Без node эти
+      # тесты честно пропускаются (t.Skip) — то есть на машине без него молчат.
+      # Молчащий на CI страж создаёт ровно ту уверенность, ради борьбы с которой
+      # он заведён, поэтому node ставится здесь наравне с Go.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: gofmt
         run: |
           unformatted=$(gofmt -l .)
@@ -66,6 +75,11 @@ jobs:
       - name: build
         run: go build ./...
       - name: test
+        # LVN_REQUIRE_NODE: здесь node ЕСТЬ, поэтому стражам языка запрещено
+        # пропускаться. Без этой переменной их молчание неотличимо от прохода —
+        # именно так три стража браузерного тракта не работали на CI вовсе.
+        env:
+          LVN_REQUIRE_NODE: "1"
         run: go test ./...
 
   smoke:
