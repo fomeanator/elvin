@@ -324,6 +324,45 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
+        /// Показать таблицу лидеров, наполнив её живыми данными.
+        ///
+        /// <para>Экран показывал ДЕМО-строки: он их и заводит в конструкторе,
+        /// чтобы в редакторе было видно вёрстку. Пока хост не подставит
+        /// настоящие, игрок увидел бы выдуманные имена — поэтому наполнение и
+        /// показ идут одним вызовом, а не двумя, которые можно перепутать
+        /// местами.</para>
+        ///
+        /// <para>Сеть может не ответить: тогда показываем то, что есть, а не
+        /// пустой экран. «Рейтинг недоступен» игроку сказать нечем — сервис
+        /// не различает «пусто» и «не дозвонились».</para>
+        /// </summary>
+        private async Task ShowLeaderboardAsync(string board = "score")
+        {
+            if (_shell?.Leaderboard == null) return;
+            try
+            {
+                var top = await Lvn.Services.LvnLeaderboard.GetTopAsync(board, 20);
+                if (top?.Entries != null && top.Entries.Count > 0)
+                {
+                    var list = new System.Collections.Generic.List<LeaderboardScreen.Entry>();
+                    string me = Lvn.UI.LvnPlayerName.Current;
+                    for (int i = 0; i < top.Entries.Count; i++)
+                        list.Add(new LeaderboardScreen.Entry
+                        {
+                            Rank = i + 1,
+                            Name = top.Entries[i].Name,
+                            Score = top.Entries[i].Score,
+                            IsYou = !string.IsNullOrEmpty(me) && top.Entries[i].Name == me,
+                        });
+                    _shell.Leaderboard.Entries = list;
+                    _shell.Leaderboard.Rebuild();
+                }
+            }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] рейтинг не приехал: {ex.Message}"); }
+            await _shell.OpenLeaderboardAsync();
+        }
+
+        /// <summary>
         /// Забрать ежедневную награду: начисляет сервер, он же обновляет
         /// кошелёк. Отказ показываем — молча погасшая ячейка без денег
         /// неотличима от удачи, а спросить не у кого.

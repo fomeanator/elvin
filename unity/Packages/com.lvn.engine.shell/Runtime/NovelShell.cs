@@ -53,6 +53,10 @@ namespace Lvn.UI.Screens
         public ProfileScreen Profile { get; private set; }
         /// <summary>The daily-rewards calendar.</summary>
         public DailyRewardsScreen Daily { get; private set; }
+        /// <summary>Таблица лидеров. Экран был написан и переведён (подписи
+        /// лежат в ui.words), но НЕ СОЗДАВАЛСЯ ни в одном месте: игрок не мог
+        /// его увидеть никаким путём, а сервис умел отдавать данные.</summary>
+        public LeaderboardScreen Leaderboard { get; private set; }
         /// <summary>The wardrobe / skin shop.</summary>
         public SkinShopScreen SkinShop { get; private set; }
         /// <summary>The currency-pack shop — ВКЛАДКА ленты (прозрачная страница).</summary>
@@ -311,6 +315,7 @@ namespace Lvn.UI.Screens
             Gallery = new CgGalleryScreen(assets); Gallery.Hide(); Add(Gallery);
             Profile = new ProfileScreen(assets); Profile.Hide(); Add(Profile);
             Daily = new DailyRewardsScreen(assets); Daily.Hide(); Add(Daily);
+            Leaderboard = new LeaderboardScreen(assets); Leaderboard.Hide(); Add(Leaderboard);
             SkinShop = new SkinShopScreen(assets); SkinShop.Hide(); Add(SkinShop);
             PackShop = new PackShopScreen(assets); PackShop.Hide(); Add(PackShop);
             PackShopModal = new PackShopScreen(assets, modal: true); PackShopModal.Hide(); Add(PackShopModal);
@@ -439,6 +444,8 @@ namespace Lvn.UI.Screens
             => ShowModalAsync(Profile, ct);
         public Task OpenDailyAsync(CancellationToken ct = default)
             => ShowModalAsync(Daily, ct);
+        public Task OpenLeaderboardAsync(CancellationToken ct = default)
+            => ShowModalAsync(Leaderboard, ct);
         public Task OpenSkinShopAsync(CancellationToken ct = default)
             => ShowModalAsync(SkinShop, ct);
         /// <summary>Быстрый магазин — модаль со своим фоном (вкладка ленты —
