@@ -476,7 +476,8 @@ namespace Lvn.UI.Screens
                 bool worn = IsWornIn(axis, item.value);
                 LvnChrome.Border(card, worn ? _accent : new Color(1f, 1f, 1f, 0.12f),
                     worn ? 2.5f : 1.5f);
-                var a2 = axis; var v2 = item.value; var n2 = item.name ?? item.value;
+                var a2 = axis; var v2 = item.value;
+                var n2 = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
                 card.RegisterCallback<ClickEvent>(_ =>
                 {
                     LvnWardrobe.Preview(_entity, a2, v2);

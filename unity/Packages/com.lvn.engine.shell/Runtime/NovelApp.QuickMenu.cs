@@ -39,7 +39,7 @@ namespace Lvn.UI.Screens
             // the story holds while the shop is open, then rolls on.
             var storeCfg = manifest.ui?.store;
             if (storeCfg != null && (storeCfg.show_menu_item ?? true))
-                StageMenu.AddMenuItem(storeCfg.menu_label ?? "Store", stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
+                StageMenu.AddMenuItem(LvnWords.Pick("menu.store", storeCfg.menu_label, "Store"), stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
                 ctx.Hold();
@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
             var wardrobeCfg = manifest.ui?.wardrobe;
             if ((wardrobeCfg != null || AnyWardrobeEntity())
                 && (wardrobeCfg?.show_menu_item ?? true))
-                StageMenu.AddMenuItem(wardrobeCfg?.menu_label ?? "Wardrobe",
+                StageMenu.AddMenuItem(LvnWords.Pick("menu.wardrobe", wardrobeCfg?.menu_label, "Wardrobe"),
                     stage => LvnAsync.Fire(OpenWardrobeFromMenuAsync(stage), "OpenWardrobeFromMenu"));
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {

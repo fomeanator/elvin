@@ -720,9 +720,12 @@ namespace Lvn.UI.Screens
                     var items = Items(sub);
                     if (items.Count == 0) continue;
                     var slot = _def.wardrobe[sub];
-                    var lbl = new Label(slot?.name ?? sub);
+                    // Подпись подоси («Основа», «Цвет волос») — через словарь:
+                    // она стоит рядом с переведёнными плитками и остаётся
+                    // последним русским словом в английском гардеробе.
+                    var lbl = new Label(Lvn.Content.LvnWords.Name("axis", sub, slot?.name));
                     lbl.style.color = _dim;
-                    lbl.style.fontSize = 21;
+                    lbl.style.fontSize = LvnTokens.TextSm;
                     lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
                     lbl.style.marginRight = 10;
                     _subRow.Add(lbl);
