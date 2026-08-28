@@ -151,7 +151,7 @@ namespace Lvn.UI.Screens
                 {
                     if (s?.chapters == null) continue;
                     foreach (var c in s.chapters)
-                        if (c != null && c.script_url == scriptUrl)
+                        if (c != null && Lvn.Content.LvnScriptRef.Same(c.script_url, scriptUrl))
                             return (t, c);
                 }
             }

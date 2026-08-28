@@ -383,7 +383,7 @@ namespace Lvn.UI.Screens
             LvnChapter autoCh = null;
             if (auto?.Snap != null && !auto.Snap.Finished)
                 foreach (var c in chapters)
-                    if (c.script_url == auto.Snap.ScriptUrl) { autoCh = c; break; }
+                    if (Lvn.Content.LvnScriptRef.Same(c.script_url, auto.Snap.ScriptUrl)) { autoCh = c; break; }
             if (autoCh != null)
             {
                 // No Button.text here — the title and the line preview are two

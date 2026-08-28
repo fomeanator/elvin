@@ -201,7 +201,11 @@ namespace Lvn.UI
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);
             if (s?.Snap == null || _player == null) return false;
-            if (!string.IsNullOrEmpty(s.Snap.ScriptUrl) && s.Snap.ScriptUrl != _saveScriptUrl) return false;
+            // Через LvnScriptRef: прямое сравнение считало, что адрес всегда
+            // записан одинаково, и отвергало сейв, у которого кириллица в
+            // адресе записана процентами или другой юникодной формой.
+            if (!string.IsNullOrEmpty(s.Snap.ScriptUrl)
+                && !Lvn.Content.LvnScriptRef.Same(s.Snap.ScriptUrl, _saveScriptUrl)) return false;
             RestoreSnapshot(s.Snap);
             return true;
         }
@@ -233,7 +237,8 @@ namespace Lvn.UI
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);
             if (s?.Snap == null) return false;
-            if (string.IsNullOrEmpty(s.Snap.ScriptUrl) || s.Snap.ScriptUrl == _saveScriptUrl) return true;
+            if (string.IsNullOrEmpty(s.Snap.ScriptUrl)
+                || Lvn.Content.LvnScriptRef.Same(s.Snap.ScriptUrl, _saveScriptUrl)) return true;
             return CrossChapterLoader != null;
         }
 
