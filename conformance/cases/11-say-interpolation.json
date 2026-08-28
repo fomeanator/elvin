@@ -2,28 +2,74 @@
   "id": "say-interpolation",
   "title": "{expr} interpolates in the line, the speaker name and the option captions",
   "why": "Interpolation is the only way content reads state back to the player. Bare vars, calls, doubled-brace escapes and the speaker slot all go through the same substitution — a runtime that covers only bare vars renders half a HUD.",
-  "runtimes": ["csharp"],
-  "picks": [0],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
+  "picks": [
+    0
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "set", "key": "hp", "value": 7 },
-      { "op": "set", "key": "maxhp", "value": 10 },
-      { "op": "set", "key": "hero", "value": "Аня" },
-      { "op": "say", "who": "{hero}", "text": "HP {hp}/{maxhp} — {floor(hp * 100 / maxhp)}% и {{в скобках}}." },
-      { "op": "choice", "options": [
-        { "text": "Дальше ({hp})", "goto": "on" }
-      ] },
-      { "op": "label", "id": "on" },
-      { "op": "say", "text": "Готово." }
+      {
+        "op": "set",
+        "key": "hp",
+        "value": 7
+      },
+      {
+        "op": "set",
+        "key": "maxhp",
+        "value": 10
+      },
+      {
+        "op": "set",
+        "key": "hero",
+        "value": "Аня"
+      },
+      {
+        "op": "say",
+        "who": "{hero}",
+        "text": "HP {hp}/{maxhp} — {floor(hp * 100 / maxhp)}% и {{в скобках}}."
+      },
+      {
+        "op": "choice",
+        "options": [
+          {
+            "text": "Дальше ({hp})",
+            "goto": "on"
+          }
+        ]
+      },
+      {
+        "op": "label",
+        "id": "on"
+      },
+      {
+        "op": "say",
+        "text": "Готово."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": { "who": "Аня", "text": "HP 7/10 — 70% и {в скобках}." } },
-      { "choice": ["Дальше (7)"] },
-      { "say": "Готово." },
-      { "end": true }
+      {
+        "say": {
+          "who": "Аня",
+          "text": "HP 7/10 — 70% и {в скобках}."
+        }
+      },
+      {
+        "choice": [
+          "Дальше (7)"
+        ]
+      },
+      {
+        "say": "Готово."
+      },
+      {
+        "end": true
+      }
     ]
   }
 }

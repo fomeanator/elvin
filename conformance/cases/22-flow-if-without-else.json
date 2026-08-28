@@ -2,22 +2,49 @@
   "id": "flow-if-without-else",
   "title": "A false `if` with no else falls through to the next command",
   "why": "Both the cheatsheet and the language reference promise \"if true — jump, otherwise fall through\". The Unity player routed the empty branch through SeekTo, where an empty label means __end — so a false condition SILENTLY ENDED THE CHAPTER. Our compiler always emits `else`, which is why it never bit; `.lvn` is advertised as a container any tool may write, so the runtime has to honour the documented rule.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "set", "key": "gold", "value": 1 },
-      { "op": "if", "expr": "gold >= 10", "then": "rich" },
-      { "op": "say", "text": "Провалились дальше." },
-      { "op": "goto", "label": "__end" },
-      { "op": "label", "id": "rich" },
-      { "op": "say", "text": "Этой строки быть не должно." }
+      {
+        "op": "set",
+        "key": "gold",
+        "value": 1
+      },
+      {
+        "op": "if",
+        "expr": "gold >= 10",
+        "then": "rich"
+      },
+      {
+        "op": "say",
+        "text": "Провалились дальше."
+      },
+      {
+        "op": "goto",
+        "label": "__end"
+      },
+      {
+        "op": "label",
+        "id": "rich"
+      },
+      {
+        "op": "say",
+        "text": "Этой строки быть не должно."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Провалились дальше." },
-      { "end": true }
+      {
+        "say": "Провалились дальше."
+      },
+      {
+        "end": true
+      }
     ]
   }
 }
