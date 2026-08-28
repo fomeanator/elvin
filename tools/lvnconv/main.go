@@ -477,6 +477,50 @@ func writeOut(out string, data []byte) {
 	if err := os.WriteFile(out, data, 0o644); err != nil {
 		die(err.Error())
 	}
+	reportOnWritten(out, data)
+}
+
+// ЧТО ЗАПИСАЛИ — ТО И ПРОВЕРИЛИ.
+//
+// Импорт через студию прогонял свой результат через валидатор
+// (`server.checkImportedScripts`), а тот же импорт из командной строки — нет.
+// Один и тот же файл проверялся или не проверялся в зависимости от пути, каким
+// его получили, и локальный автор узнавал о находках только в игре.
+//
+// Живой пример цены: в главах Cold тридцать мест, где гардероб замкнут в петлю
+// без выхода. Импортёр эту болезнь давно лечит, но контент собирали раньше
+// починки — и молчаливый CLI не сказал ни слова ни тогда, ни при каждой
+// следующей сборке.
+//
+// НЕ блокирует: файл уже записан, а импорт кладёт рядом арт, спрайты и
+// манифест — падать после факта значит оставить половину. Находки печатаются,
+// решение за автором. Ровно так же рассуждает серверная половина.
+func reportOnWritten(path string, data []byte) {
+	if !strings.HasSuffix(strings.ToLower(path), ".lvn") {
+		return
+	}
+	doc, err := lvn.Parse(data)
+	if err != nil {
+		return // разбор упал бы раньше, на самой конвертации
+	}
+	ext, _, _ := lvn.FindExtGrammar(path)
+	var errs, warns int
+	for _, is := range lvn.ValidateExt(doc, ext) {
+		switch is.Sev {
+		case lvn.SevError:
+			errs++
+			fmt.Fprintln(os.Stderr, "error: "+is.String())
+		case lvn.SevNote:
+			// заметки не шумят на выводе конвертации
+		default:
+			warns++
+			fmt.Fprintln(os.Stderr, "warning: "+is.String())
+		}
+	}
+	if errs+warns > 0 {
+		fmt.Fprintf(os.Stderr, "written %s — %d error(s), %d warning(s); run `lvnconv validate %s` for the full list\n",
+			path, errs, warns, path)
+	}
 }
 
 // writeCatalog writes the string catalog next to the .lvn as <name>.<lang>.json.
