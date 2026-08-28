@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -66,7 +67,9 @@ namespace Lvn.UI
             p.Add(Item(L("cancel", "Cancel"), () => ShowSlots(true)));
         }
 
-        private async void TryLoad(string slot)
+        private void TryLoad(string slot) => LvnAsync.Fire(TryLoadAsync(slot), "TryLoad");
+
+        private async Task TryLoadAsync(string slot)
         {
             // Same-chapter slots restore in place; another chapter's slot routes
             // through the host (fetch that chapter's script, play, restore).
@@ -75,7 +78,12 @@ namespace Lvn.UI
             // молчало. А причины настоящие — снимок пуст, глава сейва не
             // открывается этим хостом, скрипт не доехал; игрок же видел только
             // кнопку, которая «не работает».
-            if (await _stage.LoadFromSlotAsync(slot)) Close();
+            bool ok;
+            // Упавшая загрузка — тот же отказ для игрока, что и вернувшая false:
+            // без этого исключение уносило и результат, и объяснение.
+            try { ok = await _stage.LoadFromSlotAsync(slot); }
+            catch { LoadFailedNotice(); throw; }
+            if (ok) Close();
             else LoadFailedNotice();
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -145,7 +146,9 @@ namespace Lvn.UI
 
         // Sprites come through the stage's asset chain (cache-aware); a panel
         // closed mid-load just orphans the element — nothing to cancel.
-        private async void LoadCg(Image img, string url)
+        private void LoadCg(Image img, string url) => LvnAsync.Fire(LoadCgAsync(img, url), "LoadCg");
+
+        private async Task LoadCgAsync(Image img, string url)
         {
             if (_stage.Assets == null || string.IsNullOrEmpty(url)) return;
             try

@@ -501,13 +501,21 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        private async void Buy(Button b, Pack pack)
+        // Через Fire, а не `async void`: упавшая задача исчезала бесследно, а
+        // вместе с ней — снятие замка. Оборванная сеть посреди покупки оставляла
+        // _buying = true НАВСЕГДА: экран магазина мертвел молча, и лечилось это
+        // только выходом с него. Замок снимает finally, что бы ни случилось.
+        private void Buy(Button b, Pack pack) => LvnAsync.Fire(BuyAsync(b, pack), "Buy");
+
+        private async Task BuyAsync(Button b, Pack pack)
         {
             if (_buying) return;
             _buying = true;
             var label = b.text;
             b.SetEnabled(false);
             b.text = "…";
+            try
+            {
             // TEST-mode purchase: no store billing yet, but the CREDIT is real —
             // it lands in the server wallet (idempotent op), so bought crystals
             // exist everywhere: the wardrobe, the HUD pills, the next session.
@@ -545,6 +553,15 @@ namespace Lvn.UI.Screens
                     _buying = false;
                 }).ExecuteLater(1100);
             }).ExecuteLater(650);
+            }
+            catch
+            {
+                // Сорвалось — вернуть кнопку игроку, а не оставить её серой.
+                b.text = label;
+                b.SetEnabled(true);
+                _buying = false;
+                throw;   // а сам разбор — в лог, именем задачи
+            }
         }
 
         // ── Balances: the REAL wallet ────────────────────────────────────────
