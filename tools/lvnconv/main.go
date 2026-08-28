@@ -521,19 +521,29 @@ func cmdValidate(args []string) {
 		die("validate: " + err.Error())
 	} else if g != nil {
 		ext = g
-		fmt.Fprintf(os.Stderr, "ext-grammar: %s (%d host op(s))\n", found, len(g.Ops))
+		if found == "" {
+			// Проектного файла нет — работают только операции самого движка.
+			fmt.Fprintf(os.Stderr, "ext-grammar: built-in service ops (%d)\n", len(g.Ops))
+		} else {
+			fmt.Fprintf(os.Stderr, "ext-grammar: %s + built-in (%d host op(s))\n", found, len(g.Ops))
+		}
 	}
 
 	issues := lvn.ValidateExt(doc, ext)
-	var errs, warns int
+	var errs, warns, notes int
 	for _, is := range issues {
-		warn := is.Sev != lvn.SevError
-		if warn {
-			warns++
-			fmt.Fprintln(os.Stderr, "warning: "+is.String())
-		} else {
+		switch is.Sev {
+		case lvn.SevError:
 			errs++
 			fmt.Fprintln(os.Stderr, "error: "+is.String())
+		case lvn.SevNote:
+			// Заметка не находка: она объясняет, чего проверка НЕ сказала, и
+			// потому не участвует в -strict.
+			notes++
+			fmt.Fprintln(os.Stderr, "note: "+is.String())
+		default:
+			warns++
+			fmt.Fprintln(os.Stderr, "warning: "+is.String())
 		}
 	}
 	if errs > 0 || (*strict && warns > 0) {

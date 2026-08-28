@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -108,8 +109,16 @@ func TestFindExtGrammarSidecar(t *testing.T) {
 		t.Fatalf("sidecar ops not loaded: %v", g.Ops)
 	}
 
-	if g, _, err := FindExtGrammar(filepath.Join(t.TempDir(), "lone.lvn")); g != nil || err != nil {
-		t.Fatalf("no sidecar must be (nil, nil), got g=%v err=%v", g, err)
+	// Нет проектного файла — путь пустой, но грамматика НЕ пустая: операции
+	// движка известны всегда (см. withServiceOps). Раньше здесь возвращался
+	// nil, и каждый проект был обязан переписать список первопартийных
+	// операций себе — Time Romance переписал четыре из тринадцати.
+	if g, path, err := FindExtGrammar(filepath.Join(t.TempDir(), "lone.lvn")); err != nil || path != "" {
+		t.Fatalf("no sidecar must report an empty path, got path=%q err=%v", path, err)
+	} else if _, ok := g.Ops["minigame"]; ok {
+		t.Fatal("чужая проектная операция не должна протекать между вызовами")
+	} else if _, ok := g.Ops["wallet_earn"]; !ok {
+		t.Fatal("операции движка обязаны быть известны без проектного файла")
 	}
 
 	// A present-but-broken sidecar is an error, never silently skipped.
@@ -143,5 +152,60 @@ func TestExtLabelFieldTargetsAndValidates(t *testing.T) {
 	d2 := parse(t, `{"scene":"t","script":[{"op":"minigame","id":"r","on_lose":"nowhere"}]}`)
 	if issues := ValidateExt(d2, g); !hasError(issues, `undefined label "nowhere"`) {
 		t.Fatalf("expected undefined-label error, got %v", issues)
+	}
+}
+
+// КОПИЯ ГРАММАТИКИ СЕРВИСНЫХ ОПЕРАЦИЙ НЕ ОТСТАЁТ ОТ ОРИГИНАЛА.
+//
+// Валидатор носит встроенную копию (`service-ops.json`), потому что знать свои
+// операции — обязанность движка: без этого каждый проект переписывал их список
+// себе, и Time Romance объявил четыре из тринадцати — а `leaderboard_submit`,
+// рабочий и зарегистрированный, числился неизвестной командой.
+func TestEmbeddedServiceGrammarMatchesThePackage(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+	canon, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(
+		"unity/Packages/com.lvn.engine.services/ext-grammar.json")))
+	if err != nil {
+		t.Fatalf("грамматика пакета услуг: %v", err)
+	}
+	mine, err := os.ReadFile("service-ops.json")
+	if err != nil {
+		t.Fatalf("встроенная копия: %v", err)
+	}
+	if !bytes.Equal(bytes.TrimSpace(canon), bytes.TrimSpace(mine)) {
+		t.Fatal("service-ops.json отстал от com.lvn.engine.services/ext-grammar.json — обновите копию")
+	}
+}
+
+// Проектная грамматика ДОПОЛНЯЕТ движковую, а не заменяет её.
+func TestProjectGrammarExtendsRatherThanReplaces(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ext-grammar.json"),
+		[]byte(`{"name":"proj","ops":{"my_op":{"fields":["a"]}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	g, _, err := FindExtGrammar(filepath.Join(dir, "chapter.lvn"))
+	if err != nil || g == nil {
+		t.Fatalf("FindExtGrammar: %v", err)
+	}
+	if _, ok := g.Ops["my_op"]; !ok {
+		t.Fatal("проектная операция потерялась")
+	}
+	if _, ok := g.Ops["leaderboard_submit"]; !ok {
+		t.Fatal("первопартийная операция должна остаться известной рядом с проектной")
+	}
+}
+
+// Без проектной грамматики операции движка всё равно известны.
+func TestServiceOpsKnownWithoutAnySidecar(t *testing.T) {
+	g, path, err := FindExtGrammar(filepath.Join(t.TempDir(), "chapter.lvn"))
+	if err != nil {
+		t.Fatalf("FindExtGrammar: %v", err)
+	}
+	if path != "" {
+		t.Fatalf("проектной грамматики быть не должно, а найдено: %s", path)
+	}
+	if g == nil || len(g.Ops) == 0 {
+		t.Fatal("операции движка обязаны быть известны и без файла в проекте")
 	}
 }
