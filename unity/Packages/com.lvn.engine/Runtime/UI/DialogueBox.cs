@@ -499,6 +499,10 @@ namespace Lvn.UI
         public void RefreshTextStyle()
         {
             if (_theme == null) return;
+            // Проступает САМ ТЕКСТ реплики, не плашка под ним: мигающая плашка
+            // читается как вспышка, а меняется только текст. Фейд короткий —
+            // игрок крутит ползунок и ждёт ОТВЕТА, а не представления.
+            if (_body != null) LvnMotion.FadeIn(_body, delayMs: 0, ms: LvnMotion.Quick);
             if (_speaker != null)
             {
                 _speaker.style.fontSize = SpeakerSize;

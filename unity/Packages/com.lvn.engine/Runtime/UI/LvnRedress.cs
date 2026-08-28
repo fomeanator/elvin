@@ -55,13 +55,11 @@ namespace Lvn.UI
                     {
                         r.Redress();
                         dressed++;
-                        // ПОДМЕНА ТЕКСТА ПРОСТУПАЕТ, А НЕ МОРГАЕТ. Смена языка,
-                        // гарнитуры или размера переписывает весь экран разом —
-                        // мгновенная подмена читается как сбой отрисовки.
-                        // Фейд живёт ЗДЕСЬ, потому что переодевание одно на всех:
-                        // добавь его в каждом экране — и он будет разной длины и
-                        // в половине мест забыт.
-                        LvnMotion.FadeIn(el, delayMs: 0, ms: LvnMotion.Quick);
+                        // ПРОСТУПАЕТ ТЕКСТ, А НЕ ЭКРАН. Проявлять панель целиком
+                        // значит мигать фоном, плашками и картинками — со стороны
+                        // это белая вспышка, а не смена языка. Меняются ТОЛЬКО
+                        // подписи, они и проступают; всё остальное стоит на месте.
+                        FadeTexts(el);
                     }
                     catch (System.Exception e)
                     {
@@ -76,7 +74,27 @@ namespace Lvn.UI
             // Штамп: сколько экранов ответило. Ноль означает, что переодеваться
             // некому — и это ровно тот случай, когда игрок говорит «никакой
             // реакции», а в логе иначе не было бы ни строчки.
-            Lvn.LvnLog.Info($"[lvn-redress] переодето экранов: {dressed}");
+            LvnLog.Info($"[lvn-redress] переодето экранов: {dressed}");
+        }
+        // Текстовые узлы переодетого экрана. Дерево обходим один раз и с
+        // потолком: на длинном списке проявлять каждую строку по отдельности
+        // дороже, чем сама смена языка, а разницы на глаз уже нет.
+        private static void FadeTexts(VisualElement root)
+        {
+            const int Cap = 120;
+            int n = 0;
+            var pending = new Stack<VisualElement>();
+            pending.Push(root);
+            while (pending.Count > 0 && n < Cap)
+            {
+                var el = pending.Pop();
+                if (el is TextElement t && !string.IsNullOrEmpty(t.text))
+                {
+                    LvnMotion.FadeIn(t, delayMs: 0, ms: LvnMotion.Quick);
+                    n++;
+                }
+                for (int i = 0; i < el.childCount; i++) pending.Push(el[i]);
+            }
         }
     }
 }
