@@ -92,22 +92,16 @@ namespace Lvn.UI
         {
             var op = (string)cmd?["op"];
             if (string.IsNullOrEmpty(op)) return "?";
-            switch (op)
+            // К чему относится команда, знает LvnOpKind; здесь остаётся только
+            // перевод в КЛЮЧ предмета — то, за что спорят отправители.
+            switch (LvnOpKind.Of(op))
             {
-                case "actor":
-                case "obj":
-                case "sfx":
+                case LvnOpSubject.Actor:
                     var id = (string)cmd["id"];
                     return string.IsNullOrEmpty(id) ? op : "actor:" + id;
-                case "bg":
-                case "bg3d":
+                case LvnOpSubject.Background:
                     return "bg";
-                case "fade":
-                case "dim":
-                case "flash":
-                case "tint":
-                case "blur":
-                case "fx":
+                case LvnOpSubject.Veil:
                     return "veil";      // вуали и эффекты кадра — один предмет
                 default:
                     return op;

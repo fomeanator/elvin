@@ -119,6 +119,10 @@ namespace Lvn
         {
             var op = (string)cmd?["op"];
             if (string.IsNullOrEmpty(op)) return false;
+            // Фон и вуаль опознаёт LvnOpKind: список «что считается вуалью» жил
+            // и здесь, и у Распорядителя сцены, и они уже начали расходиться.
+            if (LvnOpKind.IsBackground(op)) { Background = (JObject)cmd.DeepClone(); return true; }
+            if (LvnOpKind.IsVeil(op)) { Veil = (JObject)cmd.DeepClone(); return true; }
             switch (op)
             {
                 case "actor":
@@ -145,18 +149,6 @@ namespace Lvn
                     Actors[id] = a;
                     return true;
                 }
-                case "bg":
-                case "bg3d":
-                    Background = (JObject)cmd.DeepClone();
-                    return true;
-                case "fade":
-                case "dim":
-                case "flash":
-                case "tint":
-                case "blur":
-                case "fx":
-                    Veil = (JObject)cmd.DeepClone();
-                    return true;
                 case "clear":
                     // Уходят все, но кадр помнит, чем их вернуть: `clear` — это
                     // «скрыть всех», а не «забыть всех». Разница видна ровно
