@@ -186,7 +186,7 @@ namespace Lvn.UI.Screens
                 }
                 LvnLog.Trace($"[lvn-wardrobe] sheet choose DONE — equipped [{string.Join(", ", ToPairs(LvnWardrobe.Equipped(_entity)))}]");
                 LvnWardrobe.ClearPreview(_entity); // equips now cover the look
-                _tcs?.TrySetResult(true);
+                _gate.Release(true);
             }
             finally
             {

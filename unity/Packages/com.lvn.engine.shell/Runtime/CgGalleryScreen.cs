@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _viewerImage;
         private readonly Label _viewerCaption;
 
-        private TaskCompletionSource<bool> _tcs;
+        private readonly LvnCloseGate _gate = new LvnCloseGate();
         private bool _open;
 
         // Which unlocked entry the viewer is currently showing (index into _entries).
@@ -200,12 +200,10 @@ namespace Lvn.UI.Screens
             Rebuild();
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
             // Hide() during the fade-in must cancel the open, not leave this await
-            // parked on a _tcs nobody will ever resolve.
+            // parked on a gate nobody will ever release.
             if (!_open) return;
 
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
+            try { await _gate.WaitAsync(ct); }
             finally
             {
                 await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
@@ -221,7 +219,7 @@ namespace Lvn.UI.Screens
             style.display = DisplayStyle.None;
             CloseViewer();
             _open = false;
-            _tcs?.TrySetResult(false);
+            _gate.Release(false);
         }
 
         /// <summary>Replace the gallery entries and re-render. Null clears to empty.</summary>
@@ -263,7 +261,7 @@ namespace Lvn.UI.Screens
             _counter.text = LvnWords.Of("gallery.counter", "{0} unlocked", $"{unlocked} / {_entries.Count}");
         }
 
-        private void Close() => _tcs?.TrySetResult(true);
+        private void Close() => _gate.Release(true);
 
         // ── Grid tile ──────────────────────────────────────────────────────────
 
