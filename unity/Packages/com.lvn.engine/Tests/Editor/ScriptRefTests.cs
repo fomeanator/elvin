@@ -47,6 +47,15 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void CacheBustingQuery_DoesNotChangeTheScript()
+        {
+            // «?v=3» ставят, чтобы обновить кэш; глава от этого другой не стала.
+            Assert.IsTrue(LvnScriptRef.Same("/c/ch1.lvn?v=3", "/c/ch1.lvn"));
+            Assert.IsTrue(LvnScriptRef.Same("/c/ch1.lvn?v=3", "/c/ch1.lvn?v=4"));
+            Assert.IsFalse(LvnScriptRef.Same("/c/ch1.lvn?v=3", "/c/ch2.lvn?v=3"));
+        }
+
+        [Test]
         public void PlusStaysAPlus()
         {
             // UnEscapeURL превратил бы «+» в пробел (наследие веб-форм), и файл
