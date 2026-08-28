@@ -317,15 +317,22 @@ namespace Lvn.UI.Screens
             // тогда и глава на границе достигнутого честно «пройдена».
             int last = chapterList[chapterList.Count - 1].number;
             bool finished = current == null && reached >= last;
+            // Доступность спрашиваем у Швейцара, а не считаем сами. Своё правило
+            // («номер не больше достигнутого») забывало про ПЕРВУЮ главу, которая
+            // открыта всегда, — и у новеллы, к которой ещё не притрагивались
+            // (reached = 0), список рисовал замок на главе, играбельной кнопкой
+            // рядом. Соседнее окно «перезапустить с главы» в этом же экране
+            // спрашивало Швейцара и замка не рисовало.
+            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
             foreach (var ch in chapterList)
             {
                 // state: 1 = точка продолжения; 0 = ПРОЙДЕНА (строго раньше
                 // достигнутой — сама достигнутая ещё не сыграна: партнёр прошёл
                 // гл.2, перезапустил её — и «пройденной» рисовалась гл.3);
-                // 3 = достигнута и доступна, но не пройдена; 2 = закрыта.
+                // 3 = доступна, но не пройдена; 2 = закрыта.
                 int state = current != null && ch.id == current.id ? 1
                     : ch.number < reached || (finished && ch.number <= reached) ? 0
-                    : ch.number <= reached ? 3
+                    : Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber) ? 3
                     : 2;
                 section.Add(ChapterRow(ch.number, ChapterLabel(ch), state));
             }
