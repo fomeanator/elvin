@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
 
-            var title = new Label(_cfg.title ?? LvnWords.Of("settings.title", "Settings"));
+            var title = new Label(LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = LvnTokens.TextLg;
@@ -91,7 +91,7 @@ namespace Lvn.UI.Screens
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 
-            var close = new Button(Close) { text = _cfg.close_text ?? LvnWords.Of("common.close", "Close") };
+            var close = new Button(Close) { text = LvnWords.Pick("common.close", _cfg.close_text, "Close") };
             close.style.fontSize = LvnTokens.TextBase;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
@@ -176,10 +176,10 @@ namespace Lvn.UI.Screens
 
             Section("account", LvnWords.Of("settings.tab_account", "Account"));
             _list.Add(UidRow());
-            _accountRow = RowEx(_cfg.account_label ?? LvnWords.Of("settings.account", "Account"),
+            _accountRow = RowEx(LvnWords.Pick("settings.account", _cfg.account_label, "Account"),
                 LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
             _list.Add(_accountRow);
-            SetAccountStatus("…", showSignIn: false);
+            SetAccountStatus(LvnWords.Of("account.checking", "Checking…"), showSignIn: false);
             _list.Add(RestoreRow());
             _list.Add(VersionRow());
             var links = LinksRow();
@@ -216,7 +216,7 @@ namespace Lvn.UI.Screens
                     t => (LvnPrefs.MenuTrack ?? "") == t.id
                          || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && t.id == MenuTracks[0].id),
                     t => { LvnPrefs.MenuTrack = t.id; OnMenuTrack?.Invoke(t.id); },
-                    StyleValueButton));
+                    StyleValueButton, alignEnd: false));
         }
 
         private VisualElement FontRow()
@@ -226,14 +226,17 @@ namespace Lvn.UI.Screens
             return WideRow(LvnWords.Of("settings.font", "Font"),
                 LvnWords.Of("settings.font_hint", "The typeface for lines and menus"),
                 Lvn.UI.LvnSegment.Of(options,
+                // Названия гарнитур — тоже подписи: «Вязь» и «От руки» в
+                // английском интерфейсе выглядят как недоделанный перевод, а не
+                // как имена шрифтов.
                 id => string.IsNullOrEmpty(id)
                     ? LvnWords.Of("settings.font_author", "As authored")
-                    : Lvn.UI.LvnFonts.FamilyOf(id).Title,
+                    : LvnWords.Name("font", id, Lvn.UI.LvnFonts.FamilyOf(id).Title),
                 id => (LvnPrefs.FontFamily ?? "") == id,
                 // Пересобирать экран не нужно: дом шрифтов переставит гарнитуру
                 // всем, кому её ставил, — включая эти же кнопки.
                 id => LvnPrefs.FontFamily = id,
-                StyleValueButton));
+                StyleValueButton, alignEnd: false));
         }
 
         // Ступени, а не ползунок: у размера текста нет «чуть-чуть» — есть
@@ -270,7 +273,7 @@ namespace Lvn.UI.Screens
                 st => LvnWords.Of(st.key, st.en),
                 st => Mathf.Abs(LvnPrefs.TextScale - st.k) < 0.01f,
                 st => { LvnPrefs.TextScale = st.k; Fit(); },
-                StyleValueButton));
+                StyleValueButton, alignEnd: false));
             box.Add(sample);
             return WideRow(LvnWords.Of("settings.text_size", "Text size"),
                 LvnWords.Of("settings.text_size_hint", "Dialogue lines only — the scene stays as authored"),
@@ -290,19 +293,19 @@ namespace Lvn.UI.Screens
                 st => LvnWords.Of(st.key, st.en),
                 st => Mathf.Abs(LvnPrefs.UiScale - st.k) < 0.01f,
                 st => { LvnPrefs.UiScale = st.k; Lvn.UI.LvnPanel.ApplyUiScale(); },
-                StyleValueButton));
+                StyleValueButton, alignEnd: false));
         }
 
         private VisualElement SoundRow()
         {
-            var row = RowEx(_cfg.sound_label ?? LvnWords.Of("settings.sound", "All sounds"),
+            var row = RowEx(LvnWords.Pick("settings.sound", _cfg.sound_label, "All sounds"),
                 LvnWords.Of("settings.mute_hint", "Turns music and effects fully off"));
-            var btn = new Button { text = LvnPrefs.SoundOn ? (_cfg.on_text ?? LvnWords.Of("common.on", "On")) : (_cfg.off_text ?? LvnWords.Of("common.off", "Off")) };
+            var btn = new Button { text = LvnPrefs.SoundOn ? (LvnWords.Pick("common.on", _cfg.on_text, "On")) : (LvnWords.Pick("common.off", _cfg.off_text, "Off")) };
             StyleValueButton(btn, LvnPrefs.SoundOn);
             btn.clicked += () =>
             {
                 LvnPrefs.SoundOn = !LvnPrefs.SoundOn;
-                btn.text = LvnPrefs.SoundOn ? (_cfg.on_text ?? LvnWords.Of("common.on", "On")) : (_cfg.off_text ?? LvnWords.Of("common.off", "Off"));
+                btn.text = LvnPrefs.SoundOn ? (LvnWords.Pick("common.on", _cfg.on_text, "On")) : (LvnWords.Pick("common.off", _cfg.off_text, "Off"));
                 StyleValueButton(btn, LvnPrefs.SoundOn);
             };
             row.Add(btn);
@@ -335,7 +338,7 @@ namespace Lvn.UI.Screens
                 v => v ? LvnWords.Of("common.on", "On") : LvnWords.Of("common.off", "Off"),
                 v => get() == v,
                 v => set(v),
-                StyleValueButton));
+                StyleValueButton, alignEnd: false));
             return row;
         }
 
@@ -355,7 +358,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement LanguageRow()
         {
-            var label = _cfg.language_label ?? LvnWords.Of("settings.language", "Story language");
+            var label = LvnWords.Pick("settings.language", _cfg.language_label, "Story language");
             // The script's inline language, then each localized catalog.
             var options = new List<string> { "" };
             options.AddRange(LvnPrefs.AvailableLocales);
@@ -366,7 +369,7 @@ namespace Lvn.UI.Screens
                     LocaleName,
                     loc => LvnPrefs.Locale == loc,
                     loc => LvnPrefs.Locale = loc,   // NovelApp перечитает каталог сам
-                    StyleValueButton));
+                    StyleValueButton, alignEnd: false));
         }
 
 

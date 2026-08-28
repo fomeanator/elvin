@@ -108,7 +108,7 @@ namespace Lvn.UI.Screens
             // английским И НЕПЕРЕВОДИМЫМ — ui.words их не видел, оставался только
             // browse-конфиг. Один и тот же ярлык в двух обозревателях брался по
             // разным правилам.
-            _play = new Button { text = _cfg.play_text ?? LvnWords.Of("hub.play", "Play") };
+            _play = new Button { text = LvnWords.Pick("hub.play", _cfg.play_text, "Play") };
             _play.style.position = Position.Absolute;
             _play.style.left = Length.Percent(30f);
             _play.style.right = Length.Percent(30f);
@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
 
             // Chapter picker — only meaningful for multi-chapter titles; shown per
             // selection in UpdatePlayLabel.
-            _chaptersBtn = new Button(OpenChapterPicker) { text = _cfg.chapters_text ?? LvnWords.Of("chapters.title", "Chapters") };
+            _chaptersBtn = new Button(OpenChapterPicker) { text = LvnWords.Pick("chapters.title", _cfg.chapters_text, "Chapters") };
             _chaptersBtn.style.position = Position.Absolute;
             _chaptersBtn.style.left = Length.Percent(72f);
             _chaptersBtn.style.right = Length.Percent(6f);
@@ -322,12 +322,12 @@ namespace Lvn.UI.Screens
             var cur = t != null ? LvnProgress.Current(t) : null;
             if (cur != null)
             {
-                _play.text = _cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue");
+                _play.text = LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue");
                 _progressLabel.text = ChapterLabel(cur);
             }
             else
             {
-                _play.text = _cfg.play_text ?? LvnWords.Of("hub.play", "Play");
+                _play.text = LvnWords.Pick("hub.play", _cfg.play_text, "Play");
                 _progressLabel.text = "";
             }
             var chapters = t.ChaptersOf();
@@ -368,7 +368,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
-            var head = new Label(_cfg.chapters_text ?? LvnWords.Of("chapters.title", "Chapters"));
+            var head = new Label(LvnWords.Pick("chapters.title", _cfg.chapters_text, "Chapters"));
             head.style.fontSize = 26;
             head.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
@@ -411,7 +411,7 @@ namespace Lvn.UI.Screens
                 cont.style.borderTopLeftRadius = 10; cont.style.borderTopRightRadius = 10;
                 cont.style.borderBottomLeftRadius = 10; cont.style.borderBottomRightRadius = 10;
 
-                var contTitle = new Label((_cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue"))
+                var contTitle = new Label((LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue"))
                         + " — " + ChapterLabel(autoCh));
                 contTitle.pickingMode = PickingMode.Ignore;
                 contTitle.style.fontSize = 21;

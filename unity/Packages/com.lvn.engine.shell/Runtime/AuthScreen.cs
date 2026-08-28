@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
             panel.style.borderBottomRightRadius = 16;
             Add(panel);
 
-            var title = new Label(_cfg.title ?? LvnWords.Of("auth.welcome", "Welcome"));
+            var title = new Label(LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = 42;
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -97,7 +97,7 @@ namespace Lvn.UI.Screens
             // field in explicitly (ui.auth.ask_nickname: true).
             if (_cfg.ask_nickname ?? false)
             {
-                var prompt = new Label(_cfg.name_prompt ?? LvnWords.Of("auth.name_prompt", "Your name"));
+                var prompt = new Label(LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
                 prompt.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
                 prompt.style.fontSize = 24;
                 prompt.style.marginTop = 20;
@@ -115,7 +115,7 @@ namespace Lvn.UI.Screens
                 if (!string.IsNullOrEmpty(_cfg.field_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets), "AssignBg");
             }
 
-            var start = new Button(Confirm) { text = _cfg.start_text ?? LvnWords.Of("auth.start", "Start") };
+            var start = new Button(Confirm) { text = LvnWords.Pick("auth.start", _cfg.start_text, "Start") };
             start.style.fontSize = 32;
             start.style.marginTop = 22;
             start.style.paddingTop = 16;
@@ -139,9 +139,9 @@ namespace Lvn.UI.Screens
             provRow.style.marginTop = 12;
             panel.Add(provRow);
             AddProviderButton(provRow, "google", _cfg.show_google ?? true,
-                _cfg.google_text ?? LvnWords.Of("auth.google", "Sign in with Google"), textColor);
+                LvnWords.Pick("auth.google", _cfg.google_text, "Sign in with Google"), textColor);
             AddProviderButton(provRow, "apple", _cfg.show_apple ?? true,
-                _cfg.apple_text ?? LvnWords.Of("auth.apple", "Sign in with Apple"), textColor);
+                LvnWords.Pick("auth.apple", _cfg.apple_text, "Sign in with Apple"), textColor);
 #if UNITY_EDITOR
             AddProviderButton(provRow, "dev", true, "Dev sign-in", textColor);
 #endif
@@ -217,11 +217,11 @@ namespace Lvn.UI.Screens
             // оставляло кнопку выключенной навсегда, а подпись — «Connecting…».
             Lvn.UI.LvnBusy.OnClick(b, async () =>
             {
-                _status.text = _cfg.signing_text ?? LvnWords.Of("auth.connecting", "Connecting…");
+                _status.text = LvnWords.Pick("auth.connecting", _cfg.signing_text, "Connecting…");
                 bool ok = await Lvn.Services.LvnPlatformAuth.SignInAsync(provider);
                 _status.text = ok
-                    ? (_cfg.provider_done_text ?? LvnWords.Of("account.signed_in", "Signed in"))
-                    : (_cfg.offline_text ?? LvnWords.Of("auth.offline", "Offline — progress stays on this device"));
+                    ? (LvnWords.Pick("account.signed_in", _cfg.provider_done_text, "Signed in"))
+                    : (LvnWords.Pick("auth.offline", _cfg.offline_text, "Offline — progress stays on this device"));
                 // the recovered account may carry a display name — pre-fill it
                 if (ok && _field != null && !string.IsNullOrEmpty(Lvn.Services.LvnBackend.DisplayName))
                     _field.value = Lvn.Services.LvnBackend.DisplayName;
@@ -231,13 +231,13 @@ namespace Lvn.UI.Screens
 
         private async Task DriveStatusAsync()
         {
-            _status.text = _cfg.signing_text ?? LvnWords.Of("auth.connecting", "Connecting…");
+            _status.text = LvnWords.Pick("auth.connecting", _cfg.signing_text, "Connecting…");
             bool ok;
             try { ok = await Lvn.Services.LvnBackend.EnsureRegisteredAsync(); }
             catch { ok = false; }
             _status.text = ok
-                ? (_cfg.signed_text ?? LvnWords.Of("auth.connected", "Connected"))
-                : (_cfg.offline_text ?? LvnWords.Of("auth.offline", "Offline — progress stays on this device"));
+                ? (LvnWords.Pick("auth.connected", _cfg.signed_text, "Connected"))
+                : (LvnWords.Pick("auth.offline", _cfg.offline_text, "Offline — progress stays on this device"));
         }
     }
 }

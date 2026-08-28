@@ -83,6 +83,15 @@ namespace Lvn.UI.Screens
             _amount.style.color = _look.TextColor;
             _amount.style.fontSize = _look.FontSize;
             if (_look.Bold) _amount.style.unityFontStyleAndWeight = FontStyle.Bold;
+            // ЧИСЛО СТОИТ НА МЕСТЕ. Баланс меняется на ходу (награда, покупка,
+            // восполнение), и без опоры плашка дёргалась на каждую цифру: «12»
+            // сжималось, «13 240» распирало, а соседняя плашка съезжала следом.
+            // Минимальная ширина под четыре знака держит ряд неподвижным, а
+            // выравнивание по центру не даёт числу «прилипать» к значку.
+            _amount.style.minWidth = _look.FontSize * 2.2f;
+            _amount.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _amount.style.marginLeft = 4;
+            _amount.style.flexShrink = 0;   // длинное число не режется многоточием
             Add(_amount);
 
             if (_look.ShowTimer)

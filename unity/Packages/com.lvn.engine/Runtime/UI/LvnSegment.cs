@@ -43,12 +43,17 @@ namespace Lvn.UI
         /// <param name="style">вид кнопки: (кнопка, выбран ли)</param>
         public static VisualElement Of<T>(IEnumerable<T> options, Func<T, string> label,
                                           Func<T, bool> isCurrent, Action<T> pick,
-                                          Action<Button, bool> style)
+                                          Action<Button, bool> style, bool alignEnd = true)
         {
             var seg = new VisualElement();
             seg.style.flexDirection = FlexDirection.Row;
             seg.style.flexWrap = Wrap.Wrap;              // НЕВЫКЛЮЧАЕМО: см. сводку
-            seg.style.justifyContent = Justify.FlexEnd;
+            // РЯД НЕ ШИРЕ СВОЕГО МЕСТА. Кнопки не сжимаются (иначе теряют
+            // подпись), поэтому без предела ряд растягивал родителя и уезжал за
+            // край экрана — первый вариант оказывался за левой границей и был
+            // недоступен ровно так же, как раньше третья ступень справа.
+            seg.style.maxWidth = new Length(100, LengthUnit.Percent);
+            seg.style.justifyContent = alignEnd ? Justify.FlexEnd : Justify.FlexStart;
             if (options == null) return seg;
 
             var made = new List<(Button b, T value)>();
@@ -61,8 +66,10 @@ namespace Lvn.UI
             {
                 var value = opt;
                 var b = new Button { text = label != null ? label(value) : value?.ToString() ?? "" };
-                b.style.marginLeft = 6;
-                b.style.marginBottom = 6;   // перенос без него слипается со следующей строкой
+                // Отступ СПРАВА, а не слева: при переносе левый отступ первой
+                // кнопки строки сдвигал бы её от края, и ряд выглядел бы кривым.
+                b.style.marginRight = 8;
+                b.style.marginBottom = 8;   // перенос без него слипается со следующей строкой
                 b.style.flexShrink = 0;     // сжатая кнопка теряет подпись раньше, чем ряд — ширину
                 // ПОДПИСЬ ПЕРЕНОСИТСЯ. Крупный кегль и широкая гарнитура
                 // (пиксельная, плакатная) не влезают в одну строку, а кнопка

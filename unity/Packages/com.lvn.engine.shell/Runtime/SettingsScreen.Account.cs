@@ -16,7 +16,7 @@ namespace Lvn.UI.Screens
     {
         private VisualElement UidRow()
         {
-            var row = RowEx(_cfg.uid_label ?? LvnWords.Of("account.uid", "Player ID"),
+            var row = RowEx(LvnWords.Pick("account.uid", _cfg.uid_label, "Player ID"),
                 LvnWords.Of("account.uid_hint", "Quote it if you contact support"));
             var uid = LvnBackend.UserId;
             var shortId = string.IsNullOrEmpty(uid) ? "—" : Lvn.Content.LvnClip.Id(uid);
@@ -26,13 +26,13 @@ namespace Lvn.UI.Screens
             val.style.marginRight = 10;
             row.Add(val);
 
-            var copy = new Button { text = _cfg.copy_text ?? LvnWords.Of("settings.copy", "Copy") };
+            var copy = new Button { text = LvnWords.Pick("settings.copy", _cfg.copy_text, "Copy") };
             StyleValueButton(copy, false);
             copy.SetEnabled(!string.IsNullOrEmpty(uid));
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = uid ?? "";
-                LvnMotion.FlashText(copy, _cfg.copied_text ?? LvnWords.Of("settings.copied", "Copied"));
+                LvnMotion.FlashText(copy, LvnWords.Pick("settings.copied", _cfg.copied_text, "Copied"));
             };
             row.Add(copy);
             return row;
@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement VersionRow()
         {
-            var row = RowEx(_cfg.version_label ?? LvnWords.Of("settings.version", "Version"), null);
+            var row = RowEx(LvnWords.Pick("settings.version", _cfg.version_label, "Version"), null);
             var val = new Label(Application.version + EditorBuildStamp());
             val.style.color = _dim;
             val.style.fontSize = LvnTokens.TextSm;
@@ -78,13 +78,13 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
             row.style.marginTop = 8; row.style.marginBottom = 6;
-            if (hasTerms) row.Add(LinkLabel(_cfg.terms_text ?? LvnWords.Of("account.terms", "Terms of Use"), _cfg.terms_url));
+            if (hasTerms) row.Add(LinkLabel(LvnWords.Pick("account.terms", _cfg.terms_text, "Terms of Use"), _cfg.terms_url));
             if (hasTerms && hasPrivacy)
             {
                 var dot = new Label("·"); dot.style.color = _dim; dot.style.marginLeft = 10; dot.style.marginRight = 10;
                 row.Add(dot);
             }
-            if (hasPrivacy) row.Add(LinkLabel(_cfg.privacy_text ?? LvnWords.Of("account.privacy", "Privacy Policy"), _cfg.privacy_url));
+            if (hasPrivacy) row.Add(LinkLabel(LvnWords.Pick("account.privacy", _cfg.privacy_text, "Privacy Policy"), _cfg.privacy_url));
             return row;
         }
 
@@ -125,19 +125,34 @@ namespace Lvn.UI.Screens
 
         private async Task RefreshAccountAsync()
         {
+            // ВОПРОС У СТРОКИ ОДИН: переживёт ли прогресс смену телефона. Пока
+            // аккаунт только на устройстве — не переживёт; привязанный к Google
+            // или Apple — переживёт. Провайдеры и токены игрока не касаются.
+            //
+            // Раньше строка показывала многоточие, пока шёл запрос, и оставалась
+            // им навсегда при отказе сети: «Аккаунт · …» не отвечает ни на что и
+            // выглядит поломкой («странный и непонятный пункт», Илья 28.08).
             var providers = await LvnBackend.GetProvidersAsync();
             if (!IsOpen || _accountRow == null) return;
-            if (providers != null && providers.Length > 0)
+            if (providers == null)
+            {
+                // Спросить не вышло — говорим об этом, а не молчим точками.
+                SetAccountStatus(LvnWords.Of("account.unknown", "No connection — will check later"),
+                    showSignIn: false);
+                return;
+            }
+            if (providers.Length > 0)
             {
                 string via = string.Join(", ", System.Array.ConvertAll(providers, Capitalize));
-                SetAccountStatus((_cfg.signed_in_text ?? LvnWords.Of("account.signed_in", "Signed in")) + " · " + via, showSignIn: false);
+                SetAccountStatus(LvnWords.Pick("account.signed_in", _cfg.signed_in_text, "Signed in") + " · " + via,
+                    showSignIn: false);
+                return;
             }
-            else
-            {
-                // A device-only (or offline) account — offer to link Google/Apple.
-                string via = _cfg.device_text ?? LvnWords.Of("account.device", "device");
-                SetAccountStatus((_cfg.signed_in_text ?? LvnWords.Of("account.signed_in", "Signed in")) + " · " + via, showSignIn: OnSignIn != null);
-            }
+            // Только устройство: главное здесь не «как вошёл», а ЧЕМ РИСКУЕТ.
+            // Авторское слово уважается и здесь: игра вправе назвать это
+            // по-своему («только на телефоне»), а перевод — сильнее их обоих.
+            SetAccountStatus(LvnWords.Pick("account.device_only", _cfg.device_text,
+                "Progress lives on this device only"), showSignIn: OnSignIn != null);
         }
 
         private void SetAccountStatus(string text, bool showSignIn)
@@ -153,7 +168,7 @@ namespace Lvn.UI.Screens
             _accountRow.Add(val);
             if (showSignIn)
             {
-                var btn = new Button { text = _cfg.sign_in_text ?? LvnWords.Of("account.sign_in", "Sign in") };
+                var btn = new Button { text = LvnWords.Pick("account.sign_in", _cfg.sign_in_text, "Sign in") };
                 StyleValueButton(btn, true);
                 btn.clicked += () => { if (OnSignIn != null) _ = OnSignIn(); };
                 _accountRow.Add(btn);
