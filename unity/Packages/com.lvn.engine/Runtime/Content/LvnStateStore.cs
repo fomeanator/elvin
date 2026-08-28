@@ -119,7 +119,10 @@ namespace Lvn.Content
     {
         private readonly string _base;
         private readonly string _user;
-        private const int TimeoutSeconds = 8;
+        // Было 8 — число без объяснения, отличавшееся от загрузчика на две
+        // секунды без причины. Состояние тянут таким же коротким запросом, что и
+        // манифест, значит и терпение у них одно.
+        private const int TimeoutSeconds = Lvn.LvnNetPatience.RequestSeconds;
 
         // Last server version seen per title (the OCC token): echoed on PUT so the
         // server can detect that another device wrote in between. A conflict comes
