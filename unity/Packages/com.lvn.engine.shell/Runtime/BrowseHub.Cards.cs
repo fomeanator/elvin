@@ -136,7 +136,7 @@ namespace Lvn.UI.Screens
             }
             // cost / lock chip, small, floated on the poster
             var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)
-                : (t.cost != null && t.cost.amount > 0 ? Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy) : null);
+                : (t.cost != null && t.cost.amount > 0 ? CostChip(t.cost) : null);
             if (chip != null)
             {
                 chip.style.position = Position.Absolute; chip.style.top = 12; chip.style.right = 12;
@@ -231,7 +231,7 @@ namespace Lvn.UI.Screens
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
             if (locked) top.Add(Chip(_cfg.locked_text, _dim, LvnIcon.Lock));
-            else if (t.cost != null && t.cost.amount > 0) top.Add(Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy));
+            else if (t.cost != null && t.cost.amount > 0) top.Add(CostChip(t.cost));
             col.Add(top);
 
             var desc = new Label(t.card?.description ?? t.subtitle ?? "");

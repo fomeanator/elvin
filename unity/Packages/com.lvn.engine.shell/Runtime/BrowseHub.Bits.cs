@@ -29,6 +29,21 @@ namespace Lvn.UI.Screens
 
         /// <summary>Метка на карточке: иконка, подпись или и то и другое.
         /// Пустой текст — иконка одна, и метка сжимается до неё.</summary>
+        /// <summary>
+        /// ЧИП ЦЕНЫ — облик берёт Ценник, а не эта функция.
+        ///
+        /// <para>Цена рисовалась в ЧЕТЫРЁХ местах хаба одинаковой строкой, и во
+        /// всех четырёх значок был зашит энергией, а цвет золотом. Валюта при
+        /// этом приходит из данных: новелла, назначившая вход за кристаллы,
+        /// показывала «⚡ 100» — чужой значок при своей сумме. Разряды тоже
+        /// терялись: сумма шла через ToString(), мимо разделителя языка.</para>
+        /// </summary>
+        private VisualElement CostChip(LvnCost cost)
+        {
+            var look = Lvn.UI.LvnPriceTag.Of(cost?.currency);
+            return Chip(Lvn.UI.LvnPriceTag.Amount(cost?.amount ?? 0), look.Tint, look.Icon);
+        }
+
         private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
         {
             var chip = new VisualElement();

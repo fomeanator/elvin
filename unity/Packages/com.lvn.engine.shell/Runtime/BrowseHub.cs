@@ -500,7 +500,7 @@ namespace Lvn.UI.Screens
             _detailChips.Clear();
             if (locked) _detailChips.Add(Chip(null, _dim, LvnIcon.Lock));
             else if (t.cost != null && t.cost.amount > 0)
-                _detailChips.Add(Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy));
+                _detailChips.Add(CostChip(t.cost));
             ShowView(_detailView);
         }
 
@@ -719,7 +719,7 @@ namespace Lvn.UI.Screens
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)
             {
-                var chip = Chip(t.cost.amount.ToString(), _theme.Gold, LvnIcon.Energy); chip.style.marginLeft = 12;
+                var chip = CostChip(t.cost); chip.style.marginLeft = 12;
                 actions.Add(chip);
             }
             b.Add(actions);
