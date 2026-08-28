@@ -46,7 +46,7 @@ namespace Lvn.UI.Screens
             // the marker to the NEXT one, and that entry hasn't been paid yet.
             var entrySlot = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
             bool alreadyEntered = resume != null && entrySlot?.Snap != null
-                && entrySlot.Snap.ScriptUrl == resume.script_url
+                && Lvn.Content.LvnScriptRef.Same(entrySlot.Snap.ScriptUrl, resume.script_url)
                 && !entrySlot.Snap.Finished;
             while (chapter != null)
             {

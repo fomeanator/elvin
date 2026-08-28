@@ -172,7 +172,7 @@ namespace Lvn.UI.Screens
             // OnEnd, so replays start clean.
             var autosave = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
             bool resuming = !restart && autosave?.Snap != null
-                            && autosave.Snap.ScriptUrl == chapter.script_url
+                            && Lvn.Content.LvnScriptRef.Same(autosave.Snap.ScriptUrl, chapter.script_url)
                             && !autosave.Snap.Finished;
 
             // Device-side wardrobe equips (the hub sheet has no live Player to
