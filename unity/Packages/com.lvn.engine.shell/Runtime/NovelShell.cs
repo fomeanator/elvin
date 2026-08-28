@@ -368,8 +368,12 @@ namespace Lvn.UI.Screens
             // TabReset: глава всегда возвращает ленту на «Главную» — стартовая
             // четверть полотна (pan 0.35 в ShowMenuScene) обязана совпадать с
             // фактической вкладкой после выхода из главы.
-            OnChapterSessionStart += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.EnterChapter(); TabReset(); TopBar.SetInGame(true); DownloadHud?.SetInGame(true); };
-            OnChapterSessionEnd += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.LeaveChapter(); TopBar.SetInGame(false); DownloadHud?.SetInGame(false); };
+            // Режим говорим ОДИН раз — Режиссёру (через бар, который и есть его
+            // голос): кружок загрузок теперь слушает сам. Рассылка вручную
+            // держалась ровно до третьего пути (показ хаба), где звали только
+            // бар, и кружок оставался с игровым отступом поверх меню.
+            OnChapterSessionStart += () => { ShowMenuChrome(); TabReset(); TopBar.SetInGame(true); };
+            OnChapterSessionEnd += () => { ShowMenuChrome(); TopBar.SetInGame(false); };
             // Было `-=` перед `+=` — защита от двойной подписки, но НЕ отписка:
             // обработчик метод экземпляра, и у пересозданной оболочки делегат
             // другой, так что прежняя подписка оставалась висеть навсегда и
