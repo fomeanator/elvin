@@ -39,17 +39,11 @@ namespace Lvn.Content
             int w = Mathf.Max(1, Mathf.RoundToInt(tex.width * k));
             int h = Mathf.Max(1, Mathf.RoundToInt(tex.height * k));
 
-            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
-            var prev = RenderTexture.active;
-            Graphics.Blit(tex, rt);
-            RenderTexture.active = rt;
-            var small = new Texture2D(w, h, TextureFormat.RGBA32, false);
-            small.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-            small.Apply(updateMipmaps: false, makeNoLongerReadable: finalize);
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-            Object.Destroy(tex);
-            return small;
+            // Пересъёмка через видеопамять — у LvnTexCopy: там возврат активной
+            // цели и временной текстуры стоит в finally, а тут стоял по прямой
+            // и терялся, если ReadPixels падал (а он падает на части устройств).
+            return LvnTexCopy.Rescale(tex, w, h, mipmaps: false,
+                                      readable: !finalize, destroySource: true);
         }
 
         /// <summary>
@@ -73,16 +67,8 @@ namespace Lvn.Content
             if (Mathf.Max(tex.width, tex.height) < minSide) return tex;
 
             int w = tex.width, h = tex.height;
-            var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
-            var prev = RenderTexture.active;
-            Graphics.Blit(tex, rt);
-            RenderTexture.active = rt;
-            var mipped = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: true);
-            mipped.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-            mipped.Apply(updateMipmaps: true, makeNoLongerReadable: finalize);
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-            Object.Destroy(tex);
+            var mipped = LvnTexCopy.Rescale(tex, w, h, mipmaps: true,
+                                            readable: !finalize, destroySource: true);
             // Трилинейная: между уровнями тоже надо переходить плавно, иначе на
             // изменении масштаба видна граница переключения.
             mipped.wrapMode = TextureWrapMode.Clamp;

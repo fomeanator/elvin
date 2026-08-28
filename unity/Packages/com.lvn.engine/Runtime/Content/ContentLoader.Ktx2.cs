@@ -95,15 +95,10 @@ namespace Lvn.Content
                 var result = await ktx.LoadFromBytes(data.AsReadOnly(), linear: false);
                 if (result?.texture == null) return (_gpuHonest = false).Value;
 
-                var rt = RenderTexture.GetTemporary(4, 4, 0, RenderTextureFormat.ARGB32);
-                var prev = RenderTexture.active;
-                Graphics.Blit(result.texture, rt);
-                RenderTexture.active = rt;
-                var read = new Texture2D(4, 4, TextureFormat.RGBA32, false);
-                read.ReadPixels(new Rect(0, 0, 4, 4), 0, 0);
-                read.Apply();
-                RenderTexture.active = prev;
-                RenderTexture.ReleaseTemporary(rt);
+                // Та же пересъёмка, что у переноса под бюджет памяти, — через
+                // общий дом: пиксель пробника надо ПРОЧИТАТЬ, поэтому текстура
+                // остаётся читаемой, а исходник гасим сами строкой ниже.
+                var read = LvnTexCopy.Rescale(result.texture, 4, 4, readable: true);
                 var c = read.GetPixel(2, 2);
                 UnityEngine.Object.Destroy(read);
                 UnityEngine.Object.Destroy(result.texture);
