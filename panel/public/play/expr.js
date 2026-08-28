@@ -243,8 +243,20 @@ class Parser {
     let v = this.postfix();
     for (;;) {
       if (this.eat("*")) v = num(v) * num(this.postfix());
-      else if (this.eat("/")) { const r = num(this.postfix()); v = r === 0 ? 0 : num(v) / r; }
-      else if (this.eat("%")) { const r = num(this.postfix()); v = r === 0 ? 0 : num(v) % r; }
+      // ДЕЛЕНИЕ НА НОЛЬ — ОШИБКА, а не тихий ноль. Здесь стояло `r === 0 ? 0`,
+      // и это расходилось с движком, который бросает "expr: division by zero".
+      // Автор пробует формулу в playground, видит ноль и считает её рабочей —
+      // а в приложении та же строка останавливает главу. Правило одно на все
+      // рантаймы: неизвестное и невозможное — ошибка, никогда не пропуск.
+      else if (this.eat("/")) {
+        const r = num(this.postfix());
+        if (r === 0) throw new Error("expr: division by zero");
+        v = num(v) / r;
+      } else if (this.eat("%")) {
+        const r = num(this.postfix());
+        if (r === 0) throw new Error("expr: modulo by zero");
+        v = num(v) % r;
+      }
       else return v;
     }
   }

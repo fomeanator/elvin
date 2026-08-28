@@ -60,7 +60,7 @@ namespace Lvn
         private static string Resolve(string key, IReadOnlyDictionary<string, JToken> vars)
         {
             if (vars != null && vars.TryGetValue(key, out var v))
-                return (v == null || v.Type == JTokenType.Null) ? "" : v.ToString();
+                return (v == null || v.Type == JTokenType.Null) ? "" : Show(v);
 
             // Dotted path into a nested object: `Wardrobe.mainCh_Clothes` /
             // `global.rep`. The store nests these under the root key (SetVarPath), so a
@@ -79,12 +79,54 @@ namespace Lvn
                 var r = LvnExpression.Evaluate(key, vars);
                 if (r == null || r.Type == JTokenType.Null)
                     return IsPlainIdentifier(key) ? "{" + key + "}" : "";
-                return r.ToString();
+                return Show(r);
             }
             catch (LvnException)
             {
                 return "{" + key + "}"; // surface the bad/missing placeholder to the writer
             }
+        }
+
+        /// <summary>
+        /// КАК ЗНАЧЕНИЕ ВЫГЛЯДИТ В РЕПЛИКЕ. Подстановка идёт в текст ДЛЯ ИГРОКА,
+        /// и печатать его отладочным видом нельзя.
+        ///
+        /// <para>Здесь стоял <c>ToString()</c> — то есть JSON-вид значения:
+        /// <c>{2/3}</c> давало «0.6666666666666666», а список — многострочный
+        /// список — одной строкой JSON прямо посреди фразы. Браузерный плеер печатал то
+        /// же самое иначе (два знака после запятой, список через запятую), и обе
+        /// реализации считали себя правыми: правила формата не было НИГДЕ.</para>
+        ///
+        /// <para>Корпус этого не ловил: все его подстановки целочисленные.
+        /// Расхождение жило в зазоре между «проверено» и «бывает» — самом
+        /// дорогом месте, потому что находит его автор на своей новелле.</para>
+        ///
+        /// <para>Правило простое и одинаковое в обоих рантаймах: целое печатается
+        /// целым, дробное округляется до сотых (дальше игроку не нужно), список —
+        /// через запятую, всё прочее как есть.</para>
+        /// </summary>
+        internal static string Show(JToken v)
+        {
+            if (v == null || v.Type == JTokenType.Null) return "";
+            if (v is JArray arr)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < arr.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(Show(arr[i]));
+                }
+                return sb.ToString();
+            }
+            if (v.Type == JTokenType.Float)
+            {
+                double d = (double)v;
+                double r = System.Math.Round(d, 2);
+                return r == System.Math.Floor(r)
+                    ? ((long)r).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : r.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            return v.ToString();
         }
 
         // Navigate a dotted path: the first segment is a root var, the remainder a
