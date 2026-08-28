@@ -58,6 +58,10 @@ namespace Lvn.UI.Screens
             // tap the scrim (not the sheet) to close
             RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
+            // СВОЙ ЛИСТ, а не общий Sheet(): галерея — единственный накладной
+            // экран, не наследующий LvnOverlayScreen, и базы у неё нет. Перевод
+            // её на общую базу поменял бы хореографию показа, поэтому метрика
+            // пока повторяет общую вручную — сверять при правках.
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;
             sheet.style.left = Length.Percent(5f);
@@ -66,11 +70,11 @@ namespace Lvn.UI.Screens
             sheet.style.bottom = Length.Percent(6f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
             LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
+            Add(sheet);
             sheet.style.paddingTop = 22;
             sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20;
             sheet.style.paddingRight = 20;
-            Add(sheet);
 
             // ── Header: ‹ back · "Галерея" · counter ────────────────────────────
             var header = new VisualElement();

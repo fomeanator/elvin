@@ -69,20 +69,11 @@ namespace Lvn.UI.Screens
             // tap the scrim (not the sheet) to close
             RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
-            var sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(5f);
-            sheet.style.right = Length.Percent(5f);
-            sheet.style.top = Length.Percent(6f);
-            sheet.style.bottom = Length.Percent(6f);
-            sheet.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
+            var sheet = Sheet();   // положение и вид — общие; поля свои
             sheet.style.paddingTop = 20;
             sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20;
             sheet.style.paddingRight = 20;
-            Add(sheet);
-            AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
             // ── Header: back + title ────────────────────────────────────────
             var header = new VisualElement();

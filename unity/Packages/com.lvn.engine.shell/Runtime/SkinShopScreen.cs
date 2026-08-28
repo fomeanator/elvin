@@ -73,21 +73,13 @@ namespace Lvn.UI.Screens
             RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
             // ── the sheet ────────────────────────────────────────────────────
-            var sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(4f);
-            sheet.style.right = Length.Percent(4f);
-            sheet.style.top = Length.Percent(5f);
-            sheet.style.bottom = Length.Percent(5f);
-            sheet.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
-            LvnChrome.Border(sheet, LvnTokens.Border, 1f);
+            // Витрина скинов шире прочих: её содержимое — сетка карточек, и
+            // лишний процент по краю режет колонку.
+            var sheet = Sheet(sideInset: 4f, topInset: 5f);
             sheet.style.paddingTop = 18;
             sheet.style.paddingBottom = 16;
             sheet.style.paddingLeft = 18;
             sheet.style.paddingRight = 18;
-            Add(sheet);
-            AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
             // ── top bar: back ‹ + title + currency pill ─────────────────────
             var topBar = new VisualElement();

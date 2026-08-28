@@ -65,19 +65,14 @@ namespace Lvn.UI.Screens
             style.display = DisplayStyle.None;
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Close(); });
 
-            var sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(6f);
-            sheet.style.right = Length.Percent(6f);
-            sheet.style.top = Length.Percent(8f);
-            sheet.style.bottom = Length.Percent(8f);
-            sheet.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
-            LvnChrome.Round(sheet, _radius + 4f);
-            LvnChrome.Edge(sheet);
+            // Поля шире общих — настройки длинный список, ему нужен воздух по
+            // краям. Цвет от новеллы передаём ЯВНО: до этого он ставился строкой
+            // выше и тут же затирался обёрткой, то есть не работал вовсе.
+            var sheet = Sheet(sideInset: 6f, topInset: 8f,
+                              tint: string.IsNullOrEmpty(_cfg.panel_color)
+                                        ? (Color?)null : UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg));
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
-            Add(sheet);
-            AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
             var title = new Label(_cfg.title ?? LvnWords.Of("settings.title", "Settings"));
             LvnChrome.Heading(title);
