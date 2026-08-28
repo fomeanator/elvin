@@ -66,7 +66,7 @@ namespace Lvn.Services
         {
             LastError = null;
             var (code, body) = await SendAsync("POST", "/v1/net/rooms", "{}", null);
-            if (code != 200) return Fail("комната не открылась", code, body);
+            if (!LvnBackend.Ok(code)) return Fail("комната не открылась", code, body);
             return Seated(body);
         }
 
@@ -80,7 +80,7 @@ namespace Lvn.Services
             var (code, body) = await SendAsync("POST", $"/v1/net/rooms/{roomCode}/join", "{}", null);
             if (code == 404) return Fail("комната не найдена", code, body);
             if (code == 409) return Fail("за столом нет мест", code, body);
-            if (code != 200) return Fail("не удалось сесть", code, body);
+            if (!LvnBackend.Ok(code)) return Fail("не удалось сесть", code, body);
             return Seated(body);
         }
 
@@ -95,7 +95,7 @@ namespace Lvn.Services
             {
                 var (code, body) = await SendAsync(
                     "GET", $"/v1/net/rooms/{Code}?need={need}&wait={WaitChunkSeconds}", null, _token);
-                if (code != 200) return Fail("связь потеряна", code, body);
+                if (!LvnBackend.Ok(code)) return Fail("связь потеряна", code, body);
                 try
                 {
                     var o = JObject.Parse(body);
@@ -119,7 +119,7 @@ namespace Lvn.Services
             var (code, body) = await SendAsync("POST", CellPath(key), payload, _token);
             // 409 — наше же значение уже лежит (переподключение, повтор). Это не
             // ошибка: дальше просто читаем ящик.
-            if (code != 200 && code != 409) return Fail("не отправилось", code, body);
+            if (!LvnBackend.Ok(code) && code != 409) return Fail("не отправилось", code, body);
             return true;
         }
 
@@ -137,7 +137,7 @@ namespace Lvn.Services
             {
                 int chunk = wait ? WaitChunkSeconds : 0;
                 var (code, body) = await SendAsync("GET", CellPath(key) + "?wait=" + chunk, null, _token);
-                if (code != 200) { Fail("связь потеряна", code, body); return null; }
+                if (!LvnBackend.Ok(code)) { Fail("связь потеряна", code, body); return null; }
                 JObject o;
                 try { o = JObject.Parse(body); } catch { continue; }
 

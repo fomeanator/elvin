@@ -21,7 +21,7 @@ namespace Lvn.Services
         public static async Task<Status> GetAsync()
         {
             var (code, body) = await LvnBackend.GetAsync("/v1/daily");
-            if (code != 200 || string.IsNullOrEmpty(body)) return null;
+            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
             try
             {
                 var d = JObject.Parse(body);
@@ -42,7 +42,7 @@ namespace Lvn.Services
         public static async Task<bool> ClaimAsync()
         {
             var (code, _) = await LvnBackend.PostAsync("/v1/daily/claim", "{}");
-            if (code != 200) return false;
+            if (!LvnBackend.Ok(code)) return false;
             await LvnWallet.RefreshAsync();
             return true;
         }

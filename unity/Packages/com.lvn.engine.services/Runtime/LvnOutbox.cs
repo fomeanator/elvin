@@ -116,7 +116,7 @@ namespace Lvn.Services
             try
             {
                 long code = await _send(batch);
-                if (code >= 200 && code < 300)
+                if (LvnBackend.Ok(code))
                 {
                     Drop(batch.Count);
                 }

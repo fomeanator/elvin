@@ -31,14 +31,14 @@ namespace Lvn.Services
             var payload = new JObject { ["score"] = score };
             if (!string.IsNullOrEmpty(displayName)) payload["name"] = displayName;
             var (code, body) = await LvnBackend.PostAsync("/v1/leaderboard/" + board, payload.ToString());
-            if (code != 200 || string.IsNullOrEmpty(body)) return 0;
+            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return 0;
             try { return (int?)JObject.Parse(body)["rank"] ?? 0; } catch { return 0; }
         }
 
         public static async Task<Top> GetTopAsync(string board, int n = 10)
         {
             var (code, body) = await LvnBackend.GetAsync($"/v1/leaderboard/{board}?n={n}");
-            if (code != 200 || string.IsNullOrEmpty(body)) return null;
+            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
             try
             {
                 var d = JObject.Parse(body);

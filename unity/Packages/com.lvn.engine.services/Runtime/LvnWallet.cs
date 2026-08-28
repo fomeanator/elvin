@@ -119,7 +119,7 @@ namespace Lvn.Services
             await FlushAsync(); // offline earnings land BEFORE we read the truth
             _lastAsk = Lvn.LvnClock.Wall();
             var (code, body) = await LvnBackend.GetAsync("/v1/wallet");
-            return code == 200 && Apply(body);
+            return LvnBackend.Ok(code) && Apply(body);
         }
 
         /// <summary>
@@ -164,7 +164,7 @@ namespace Lvn.Services
             var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
                 ["op_id"] = System.Guid.NewGuid().ToString("N") };
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/earn", payload.ToString());
-            if (code == 200) return Apply(body);
+            if (LvnBackend.Ok(code)) return Apply(body);
             if (code != 0) return false; // the server SAW it and refused — not an offline case
             Enqueue(payload);    // the durable replay record FIRST (kill-safe) —
             ApplyLocal(payload); // the mirror is just a view derived from it
@@ -183,7 +183,7 @@ namespace Lvn.Services
                 ["op_id"] = System.Guid.NewGuid().ToString("N") };
             if (!string.IsNullOrEmpty(sku)) payload["sku"] = sku;
             var (code, body) = await LvnBackend.PostAsync("/v1/wallet/spend", payload.ToString());
-            if (code == 200) return Apply(body);
+            if (LvnBackend.Ok(code)) return Apply(body);
             if (code != 0) return false; // 409 insufficient etc. — the server's word stands
             if (!CanApplyLocal(payload)) return false; // offline overdraft — honest no
             Enqueue(payload);    // durable first, view second (see EarnAsync)
@@ -209,10 +209,10 @@ namespace Lvn.Services
                     var body = new JObject(op);
                     body.Remove("op");
                     var (code, resp) = await LvnBackend.PostAsync(path, body.ToString());
-                    if (code == 0) return; // still offline — keep the queue
+                    if (LvnBackend.Offline(code)) return; // still offline — keep the queue
                     _queue.RemoveAt(0);
                     PersistQueue();
-                    if (code == 200) Apply(resp);
+                    if (LvnBackend.Ok(code)) Apply(resp);
                     else UnityEngine.Debug.LogWarning(
                         $"[lvn-wallet] queued {op["op"]} {op["currency"]} {op["amount"]} rejected on sync ({code}) — server truth wins");
                 }
@@ -243,7 +243,7 @@ namespace Lvn.Services
         public static async Task<List<IapPack>> GetCatalogAsync()
         {
             var (code, body) = await LvnBackend.GetAsync("/v1/iap/catalog");
-            return code == 200 ? ParseCatalog(body) : null;
+            return LvnBackend.Ok(code) ? ParseCatalog(body) : null;
         }
 
         /// <summary>Parse a /v1/iap/catalog response; null on garbage.</summary>
@@ -290,7 +290,7 @@ namespace Lvn.Services
         {
             var (code, body) = await LvnBackend.PostAsync("/v1/iap/verify",
                 new JObject { ["platform"] = platform, ["sku"] = sku, ["receipt"] = receipt }.ToString());
-            return code == 200 && Apply(body);
+            return LvnBackend.Ok(code) && Apply(body);
         }
 
         internal static bool Apply(string json)

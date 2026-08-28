@@ -96,7 +96,7 @@ namespace Lvn.Services
 
             var body = new JObject { ["raw"] = raw }.ToString();
             var (code, _) = await LvnBackend.PostAsync("/v1/attribution", body);
-            if (code != 200) return; // не вышло — попробуем на следующем запуске
+            if (!LvnBackend.Ok(code)) return; // не вышло — попробуем на следующем запуске
 
             using (LvnKeep.Batch())
             {

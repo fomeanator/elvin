@@ -16,7 +16,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -77,9 +79,17 @@ func NewAuthService(dir string) (*AuthService, error) {
 		byProv: map[string]string{},
 	}
 	s.verifyProvider = s.verifyProviderReal
-	if data, err := os.ReadFile(s.path); err == nil {
-		// A corrupt users.json must stop the server, not silently become an
-		// empty table the next persist would overwrite (losing every account).
+	// ЧИТАЕТСЯ ИЛИ НЕТ — РАЗНЫЕ ОТВЕТЫ, и здесь была закрыта только половина.
+	// Битый JSON останавливал сервер правильно (иначе следующая запись стёрла
+	// бы все аккаунты пустой таблицей), а вот НЕЧИТАЕМЫЙ файл — права слетели,
+	// диск отвалился — молча пропускался тем же `err == nil`: сервер поднимался
+	// с нулём пользователей и переписывал ими живой файл. Ровно тот случай,
+	// который комментарий рядом обещал не допустить.
+	data, err := os.ReadFile(s.path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("read %s: %w", s.path, err)
+	}
+	if err == nil {
 		if err := json.Unmarshal(data, &s.users); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", s.path, err)
 		}

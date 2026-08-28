@@ -63,7 +63,7 @@ namespace Lvn.Services
         public static async Task<List<Placement>> GetCatalogAsync()
         {
             var (code, body) = await LvnBackend.GetAsync("/v1/ads/catalog");
-            if (code != 200 || string.IsNullOrEmpty(body)) return null;
+            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
             try
             {
                 var list = new List<Placement>();
@@ -99,11 +99,11 @@ namespace Lvn.Services
 
             var (code, reply) = await LvnBackend.PostAsync("/v1/ads/reward",
                 new JObject { ["placement"] = placement }.ToString());
-            LvnAnalytics.Track(code == 200 ? LvnEvents.AdReward : LvnEvents.AdRewardFail, ("placement", placement));
+            LvnAnalytics.Track(LvnBackend.Ok(code) ? LvnEvents.AdReward : LvnEvents.AdRewardFail, ("placement", placement));
             // Ответ несёт новое состояние зарядов — и при отказе тоже: «ещё
             // 1:12» игроку сказать можно только отсюда.
             NoteState(placement, reply);
-            if (code != 200) return false;
+            if (!LvnBackend.Ok(code)) return false;
             await LvnWallet.RefreshAsync(); // the grant lands in the pills immediately
             return true;
         }

@@ -69,7 +69,7 @@ namespace Lvn.Services
             LoadCached();
             if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
             var (code, body) = await LvnBackend.GetAsync("/v1/experiments");
-            if (code != 200 || string.IsNullOrEmpty(body)) return;
+            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return;
             try
             {
                 var obj = JObject.Parse(body)["assignments"] as JObject;
