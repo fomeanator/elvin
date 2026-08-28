@@ -361,8 +361,7 @@ namespace Lvn.UI.Screens
                     Lvn.UI.LvnPrefs.SeenWelcome = true;
                     if (!string.IsNullOrEmpty(nick))
                     {
-                        _playerName = nick;
-                        Lvn.UI.LvnPrefs.PlayerName = nick;
+                        Lvn.UI.LvnPlayerName.Set(nick);   // одно хранилище на всех
                     }
                 }
             }

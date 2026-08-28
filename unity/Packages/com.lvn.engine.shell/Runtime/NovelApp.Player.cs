@@ -147,10 +147,9 @@ namespace Lvn.UI.Screens
                     if (t != null)
                         try { await ResetTitleProgressAsync(t); }
                         catch (Exception e) { Debug.LogWarning($"[novelapp] wipe {t.id}: {e.Message}"); }
-            LvnPrefs.PlayerName = "";
+            Lvn.UI.LvnPlayerName.Set("");
             LvnPrefs.IntroDone = false;
             LvnPrefs.SeenWelcome = false;
-            _playerName = "";
             Debug.Log("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
             return true;
         }
