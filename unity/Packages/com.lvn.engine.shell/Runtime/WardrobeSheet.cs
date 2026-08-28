@@ -244,7 +244,13 @@ namespace Lvn.UI.Screens
             _tabs.style.justifyContent = Justify.Center;
             _tabs.style.flexGrow = 1;    // разделы занимают строку, кнопка справа
             _tabs.style.flexShrink = 1;
-            _tabs.style.flexWrap = Wrap.Wrap;
+            // РАЗДЕЛЫ — ОДНА СТРОКА. Перенос был разрешён, и в английской
+            // локали «Accessories» с «Hairstyle» выталкивали «Outfit» на
+            // вторую строку (живой скрин Ильи 29.08): шапка листа прыгала по
+            // высоте, лента под ней съезжала, а сам ряд переставал читаться
+            // как переключатель — четвёртый раздел выглядел отдельной кнопкой.
+            _tabs.style.flexWrap = Wrap.NoWrap;
+            _tabs.RegisterCallback<GeometryChangedEvent>(_ => FitTabs());
             headRow.Add(_tabs);
             headRow.Add(peek); // строка: разделы — по центру, «Во весь рост» — справа
 
@@ -498,6 +504,7 @@ namespace Lvn.UI.Screens
             _index.Clear();
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
+            _tabFit = 0;   // ряд собирается заново — меряем с чистого листа
             _tab = null;
             _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
 
@@ -534,6 +541,7 @@ namespace Lvn.UI.Screens
                 if (!string.IsNullOrEmpty(slot?.icon))
                 {
                     var img = new VisualElement { pickingMode = PickingMode.Ignore };
+                    img.name = "ax-art";
                     img.style.width = 30; img.style.height = 30;
                     img.style.marginRight = 10;
                     LvnPicture.Photo(img, slot.icon, _assets, cover: false);
@@ -817,6 +825,63 @@ namespace Lvn.UI.Screens
 
 
 
+
+        // ── ряд разделов ужимается вместо переноса ───────────────────────────
+        // Ужимаемся ступенями и ровно настолько, насколько нужно: сперва
+        // отступы, потом иконки, и лишь в последнюю очередь кегль подписи —
+        // слово целиком важнее его размера. Обратно ступени не отыгрываются:
+        // ряд пересобирается при смене персонажа, там счётчик и обнуляется.
+        private int _tabFit;
+        private const int TabFitLast = 3;
+
+        private void FitTabs()
+        {
+            if (_tabs == null || _tabFit >= TabFitLast) return;
+            float room = _tabs.resolvedStyle.width;
+            if (room <= 1f) return;              // ещё не мерили — придёт следующим событием
+            float need = 0f;
+            foreach (var c in _tabs.Children())
+            {
+                float w = c.resolvedStyle.width;
+                if (float.IsNaN(w) || w <= 0f) return;   // дети ещё без геометрии
+                need += w + c.resolvedStyle.marginLeft + c.resolvedStyle.marginRight;
+            }
+            if (need <= room) return;
+            ApplyTabFit(++_tabFit);
+        }
+
+        private void ApplyTabFit(int step)
+        {
+            float side = step >= 1 ? (step >= 2 ? 8f : 12f) : 18f;
+            float gap = step >= 1 ? (step >= 2 ? 3f : 4f) : 6f;
+            float font = step >= 3 ? 18f : (step >= 2 ? 20f : 22f);
+            bool icons = step < 2;
+            foreach (var c in _tabs.Children())
+            {
+                c.style.paddingLeft = side; c.style.paddingRight = side + 2f;
+                c.style.marginLeft = gap; c.style.marginRight = gap;
+                var lbl = c.Q<Label>("ax-label");
+                if (lbl != null) lbl.style.fontSize = font;
+                foreach (var n in new[] { "ax-ic-off", "ax-ic-on" })
+                {
+                    var ic = c.Q<VisualElement>(n);
+                    if (ic == null) continue;
+                    // Иконку прячем шириной, а не display: display у этих двух
+                    // глифов означает «какой из них сейчас активен», и SelectTab
+                    // им распоряжается — трогать его отсюда значило бы спорить.
+                    ic.style.width = icons ? 24f : 0f;
+                    ic.style.marginRight = icons ? 10f : 0f;
+                    ic.style.overflow = icons ? Overflow.Visible : Overflow.Hidden;
+                }
+                var img = c.Q<VisualElement>("ax-art");
+                if (img != null)
+                {
+                    img.style.width = icons ? 30f : 0f;
+                    img.style.marginRight = icons ? 10f : 0f;
+                }
+            }
+            LvnLog.Trace($"[lvn-wardrobe] разделы ужаты до ступени {step}: отступ {side}, кегль {font}, иконки {(icons ? "есть" : "нет")}");
+        }
 
         private void SelectTab(string axis)
         {
