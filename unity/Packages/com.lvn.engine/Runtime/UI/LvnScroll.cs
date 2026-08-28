@@ -57,9 +57,8 @@ namespace Lvn.UI
         /// на том же списке безвреден — обработчики ставятся один раз.</summary>
         public static void DragToScroll(ScrollView sv)
         {
-            if (sv == null || sv.userData is Handle) return;
-            var h = new Handle();
-            sv.userData = h;   // метка «этот уже умеет»: экраны зовут дважды
+            if (sv == null || Taught.TryGetValue(sv, out _)) return;
+            Taught.Add(sv, Marker);   // метка «этот уже умеет»: экраны зовут дважды
 
             bool down = false, dragging = false;
             int pid = -1;
@@ -115,10 +114,11 @@ namespace Lvn.UI
             sv.RegisterCallback<PointerCaptureOutEvent>(_ => { down = false; dragging = false; pid = -1; });
         }
 
-        // Метка «список уже умеет тянуться». Отдельный тип, а не bool в
-        // userData: userData у элемента один, и подпись со своим источником
-        // (LvnRedress.Bind) кладёт туда поставщика текста — перепутать их
-        // нельзя, поэтому обе метки различаются по типу.
-        private sealed class Handle { }
+        // Метка «список уже умеет тянуться» — в таблице со слабыми ключами, а
+        // не в el.userData: карман элемента принадлежит экрану (id вкладки, url
+        // арта), и служебные пометки движка в нём затирают чужое.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ScrollView, object>
+            Taught = new System.Runtime.CompilerServices.ConditionalWeakTable<ScrollView, object>();
+        private static readonly object Marker = new object();
     }
 }

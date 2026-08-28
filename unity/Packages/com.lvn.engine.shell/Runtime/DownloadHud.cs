@@ -130,6 +130,8 @@ namespace Lvn.UI.Screens
             style.alignItems = Align.Center; // капсула — центр строки навбара
             style.display = DisplayStyle.None; // до первой работы кружка нет
             FollowChapterMode();               // вид следует за Режиссёром сам
+            // И за кромкой — тоже сам: кружок сидит в строке бара, ниже выреза.
+            Lvn.UI.LvnEdges.Follow(this, insets => SetSafeTop(insets.x));
 
             // Ловец тапов «мимо попапа»: невидим и не мешает, пока попап
             // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает

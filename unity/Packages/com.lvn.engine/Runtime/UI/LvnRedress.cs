@@ -46,9 +46,29 @@ namespace Lvn.UI
         public static T Bind<T>(T el, System.Func<string> text) where T : TextElement
         {
             if (el == null || text == null) return el;
-            el.userData = text;          // источник живёт вместе с элементом
+            Sources.Remove(el);
+            Sources.Add(el, text);
             el.text = text();
             return el;
+        }
+
+        // ГДЕ ЖИВЁТ ИСТОЧНИК. Сначала он лежал в el.userData — и это был чужой
+        // карман: userData принадлежит экрану, там уже хранятся id вкладки, url
+        // загруженного арта и признак «карточка открыта». Привязка молча
+        // затирала бы их, а экран так же молча — её; вдобавок соседний код
+        // читает свой карман жёстким приведением и падал бы на поставщике
+        // текста.
+        //
+        // Таблица со СЛАБЫМИ ключами: снесённый элемент уходит из неё сам, и
+        // дом не держит живым ни одного мёртвого дерева.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VisualElement, System.Func<string>>
+            Sources = new System.Runtime.CompilerServices.ConditionalWeakTable<VisualElement, System.Func<string>>();
+
+        /// <summary>Источник подписи, если он у неё есть.</summary>
+        public static bool TrySource(VisualElement el, out System.Func<string> text)
+        {
+            text = null;
+            return el != null && Sources.TryGetValue(el, out text) && text != null;
         }
 
         // ЖИВЫЕ КОРНИ. Интерфейс игры живёт не одним деревом: оболочка в своём
@@ -128,7 +148,7 @@ namespace Lvn.UI
                 var el = pending.Pop();
                 // Привязанная подпись перечитывается всегда: она знает свой
                 // источник, и экрану для этого ничего делать не нужно.
-                if (el is TextElement bound && bound.userData is System.Func<string> src)
+                if (el is TextElement bound && TrySource(bound, out var src))
                 {
                     try
                     {

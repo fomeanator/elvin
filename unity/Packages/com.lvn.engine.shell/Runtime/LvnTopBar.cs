@@ -80,6 +80,28 @@ namespace Lvn.UI.Screens
             style.position = Position.Absolute;
             style.left = 0; style.right = 0; style.top = 0;
 
+            // ДЕНЬГИ БАР СЛУШАЕТ САМ — как это делает витрина хаба. Подписку
+            // держал хост (LvnWallet.Changed → TopBar.RefreshBalances), и
+            // правило выходило разное для двух соседних поверхностей: одна
+            // узнаёт о движении денег сама, другая — только если её кормят.
+            // Отписка на снятии с панели обязательна: делегат метода экземпляра
+            // у пересозданной оболочки другой, и прежняя подписка дёргала бы
+            // мёртвое дерево на каждое движение денег.
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                Lvn.Services.LvnWallet.Changed += RefreshBalances;
+                RefreshBalances();
+            });
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+                Lvn.Services.LvnWallet.Changed -= RefreshBalances);
+
+            // ВЫРЕЗ КАМЕРЫ БАР СПРАШИВАЕТ САМ. Раньше его кормил хост: раз в
+            // 300 мс мерил кромку и раздавал двум жильцам вызовом SetSafeTop.
+            // Пока хост это делал, всё работало; экран без хоста (демо-сцена,
+            // песочница) получал бар, наехавший на чёлку, — а причина была не
+            // в баре, и искать её приходилось в чужом файле.
+            Lvn.UI.LvnEdges.Follow(this, insets => SetSafeTop(insets.x));
+
             // Ловушка тапа по верхней кромке — активна только в игре при
             // скрытом баре. Ниже её 48 юнитов сцена живёт как обычно.
             _tapCatcher = new VisualElement();
