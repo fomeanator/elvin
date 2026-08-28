@@ -250,10 +250,7 @@ namespace Lvn.UI
                     break;
                 case "image":
                     el = new VisualElement();
-                    el.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-                    el.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                    el.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                    el.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                    LvnPicture.Fit(el);
                     var url = (string)n["url"];
                     if (!string.IsNullOrEmpty(url) && _loadImage != null) _ = _loadImage(el, url);
                     break;

@@ -116,7 +116,7 @@ namespace Lvn.UI
                     ? new BackgroundRepeat(Repeat.Repeat, Repeat.Repeat)
                     : new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
                 if (!tile)
-                    v.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                    LvnPicture.Fit(v);
             }
             v.style.opacity = opacity;
             parent.Add(v);

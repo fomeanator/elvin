@@ -372,8 +372,7 @@ namespace Lvn.UI.Screens
             art.style.height = Length.Percent(zoom * 100f);
             art.style.left = Length.Percent(50f - zoom * 100f * 0.50f); // якорь X в центре окна
             art.style.top = Length.Percent(50f - zoom * 100f * ay);    // якорь Y в центре окна
-            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-            art.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(art, cover: false);
             card.Add(art);
             // Плейсхолдер-вешалка, пока арт едет (Илья 27.08): пустая чёрная
             // плитка читалась как «не грузит». Пункт «Нет» живёт с постоянным

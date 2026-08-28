@@ -535,7 +535,7 @@ namespace Lvn.UI.Screens
                     var img = new VisualElement { pickingMode = PickingMode.Ignore };
                     img.style.width = 30; img.style.height = 30;
                     img.style.marginRight = 10;
-                    img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                    LvnPicture.Fit(img, cover: false);
                     LvnAsync.Fire(ScreenUi.AssignBgAsync(img, slot.icon, _assets), "AssignBg");
                     b.Add(img);
                 }
@@ -787,7 +787,7 @@ namespace Lvn.UI.Screens
             {
                 var art = new VisualElement { pickingMode = PickingMode.Ignore };
                 art.style.width = 44; art.style.height = 44;
-                art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
+                LvnPicture.Fit(art, cover: false);
                 LvnAsync.Fire(AssignCardArtAsync(art, new VisualElement(),
                     ResolveIcon(item.icon)), "WardrobeSwatch");
                 b.Add(art);

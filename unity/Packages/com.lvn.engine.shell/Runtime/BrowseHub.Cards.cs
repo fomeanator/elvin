@@ -125,10 +125,7 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
-                img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-                img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                LvnPicture.Fit(img);
                 poster.Add(img);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
             }
@@ -216,10 +213,7 @@ namespace Lvn.UI.Screens
             thumb.style.width = 128; thumb.style.height = Length.Percent(100f);
             thumb.style.backgroundColor = _theme.SurfaceHi;
             Edge(thumb);
-            thumb.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            thumb.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(thumb);
             var art = t.CardArt();
             if (!string.IsNullOrEmpty(art)) LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, art, _assets), "AssignBg");
             card.Add(thumb);

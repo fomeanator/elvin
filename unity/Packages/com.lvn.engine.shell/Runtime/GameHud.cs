@@ -83,10 +83,7 @@ namespace Lvn.UI.Screens
             _progressIcon = new VisualElement { pickingMode = PickingMode.Ignore };
             _progressIcon.style.width = 28; _progressIcon.style.height = 28;
             _progressIcon.style.marginRight = 8;
-            _progressIcon.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
-            _progressIcon.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _progressIcon.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _progressIcon.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(_progressIcon, cover: false);
             _progressIcon.style.display = string.IsNullOrEmpty(_cfg.progress_icon_url) ? DisplayStyle.None : DisplayStyle.Flex;
             left.Add(_progressIcon);
 

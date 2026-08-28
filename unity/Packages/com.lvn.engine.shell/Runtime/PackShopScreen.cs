@@ -474,9 +474,7 @@ namespace Lvn.UI.Screens
             art.style.borderTopLeftRadius = LvnTokens.Radius;
             art.style.borderTopRightRadius = LvnTokens.Radius;
             art.style.overflow = Overflow.Hidden;
-            art.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            art.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            art.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
+            LvnPicture.Fit(art);
             var halo = new VisualElement { pickingMode = PickingMode.Ignore };
             halo.style.position = Position.Absolute;
             halo.style.width = wide ? 78 : 60; halo.style.height = wide ? 78 : 60;

@@ -271,10 +271,7 @@ namespace Lvn.UI.Screens
             var cover = new VisualElement();
             cover.style.position = Position.Absolute;
             cover.style.left = 0; cover.style.right = 0; cover.style.top = 0; cover.style.bottom = 0;
-            cover.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            cover.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            cover.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            cover.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(cover);
             cover.pickingMode = PickingMode.Ignore;
             card.Add(cover);
             LvnAsync.Fire(ScreenUi.AssignBgAsync(cover, t?.cover_url, _assets), "AssignBg");

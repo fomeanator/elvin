@@ -82,10 +82,7 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(json)) return false;
 
             Stage.ClearStage();
-            Stage.Strings = await LoadCatalogAsync(url);
-            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
-            Stage.SetSaveContext(title?.id, chapter.id, url);
-            Stage.Gallery = title?.gallery;
+            await DressStageAsync(title, chapter, url);
             Stage.EntryGate = null; // a save-load lands mid-scene — no entry choreography
             Stage.Play(json, warmIntroSpine: false); // the restore below advances
             Lvn.UI.LvnPlayerName.Seed(Stage.Player, _playerName);
@@ -160,6 +157,30 @@ namespace Lvn.UI.Screens
 
         // Load a title's stats plus the player's global stats, merged into one seed
         // (global stats land under the `global` var). Two blobs, one per scope.
+        /// <summary>
+        /// ОБСТАНОВКА ГЛАВЫ ДЛЯ СЦЕНЫ — четыре вещи, которые сцена обязана
+        /// получить перед показом, и получить ВСЕ.
+        ///
+        /// <para>Набор один: каталог перевода, статы новеллы, контекст
+        /// сохранений и список CG для галереи. А ставили его двое — путь входа в
+        /// главу и загрузка сейва, — каждый своей четвёркой строк. Забыть одну
+        /// из четырёх ничего не ломает сразу: без каталога глава просто идёт на
+        /// языке оригинала, без галереи открытые CG не отмечаются, без контекста
+        /// сохранений автосейв уходит не в тот слот. Это дефекты, которые
+        /// замечают через день и не связывают с местом, где их сделали.</para>
+        ///
+        /// <para>Порядок здесь безразличен: статы после могут быть заменены
+        /// чекпоинтом рестарта, а контекст и галерея от них не зависят.</para>
+        /// </summary>
+        private async Task DressStageAsync(LvnTitle title, LvnChapter chapter, string url)
+        {
+            if (Stage == null || chapter == null) return;
+            Stage.Strings = await LoadCatalogAsync(url);          // null → текст как в скрипте
+            Stage.SeedVars = await LoadScopedVarsAsync(title?.id);
+            Stage.SetSaveContext(title?.id, chapter.id, url);
+            Stage.Gallery = title?.gallery;
+        }
+
         private async Task<Newtonsoft.Json.Linq.JObject> LoadScopedVarsAsync(string titleId)
         {
             var vars = await _state.LoadVarsAsync(titleId, default) ?? new Newtonsoft.Json.Linq.JObject();

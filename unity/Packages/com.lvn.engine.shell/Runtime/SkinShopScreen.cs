@@ -144,10 +144,7 @@ namespace Lvn.UI.Screens
 
             _previewImage = new VisualElement { pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(_previewImage);
-            _previewImage.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            _previewImage.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _previewImage.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            _previewImage.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(_previewImage);
             _previewBox.Add(_previewImage);
 
             // vignette: a dark band at the bottom so the caption always reads
@@ -326,10 +323,7 @@ namespace Lvn.UI.Screens
 
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
-                img.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-                img.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-                img.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                LvnPicture.Fit(img);
                 chip.Add(img);
                 LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _chars[idx].Preview, _assets), "AssignBg");
                 chip.AddManipulator(new Clickable(() =>
@@ -407,10 +401,7 @@ namespace Lvn.UI.Screens
             var thumb = new VisualElement { pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(thumb);
             thumb.style.backgroundColor = LvnTokens.Bg;
-            thumb.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            thumb.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(thumb);
             thumbWrap.Add(thumb);
             LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, skin.Thumb, _assets), "AssignBg");
 

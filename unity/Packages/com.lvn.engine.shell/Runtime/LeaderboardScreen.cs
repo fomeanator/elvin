@@ -361,8 +361,7 @@ namespace Lvn.UI.Screens
             av.style.alignItems = Align.Center;
             av.style.justifyContent = Justify.Center;
             av.style.backgroundColor = ColorFor(e.Name);
-            av.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
-            av.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            LvnPicture.Fit(av);
             LvnChrome.Round(av, size / 2f);
             LvnChrome.ClearBorder(av);
 
