@@ -157,9 +157,8 @@ namespace Lvn.UI.Screens
                 // вуаль (текст обязан читаться) + тинт вкладки поверх.
                 var photo = new VisualElement { pickingMode = PickingMode.Ignore };
                 LvnChrome.Stretch(photo);
-                LvnPicture.Fit(photo);
                 _atmosphere.Add(photo);
-                ScreenUi.SetBg(photo, canvasUrl, _assets, "MenuCanvas");
+                LvnPicture.Photo(photo, canvasUrl, _assets, what: "MenuCanvas");
                 var veil = new VisualElement { pickingMode = PickingMode.Ignore };
                 LvnChrome.Stretch(veil);
                 // «Реализм» (Илья): фото почти как есть — лишь лёгкая вуаль,

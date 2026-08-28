@@ -279,10 +279,9 @@ namespace Lvn.UI.Screens
             var cover = new VisualElement();
             cover.style.position = Position.Absolute;
             cover.style.left = 0; cover.style.right = 0; cover.style.top = 0; cover.style.bottom = 0;
-            LvnPicture.Fit(cover);
             cover.pickingMode = PickingMode.Ignore;
             card.Add(cover);
-            ScreenUi.SetBg(cover, t?.cover_url, _assets);
+            LvnPicture.Photo(cover, t?.cover_url, _assets);
             var caption = new VisualElement();
             caption.style.paddingLeft = 18; caption.style.paddingRight = 18;
             caption.style.paddingTop = 14; caption.style.paddingBottom = 18;

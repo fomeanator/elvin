@@ -118,7 +118,7 @@ namespace Lvn.UI.Screens
             _pillsRow.style.alignItems = Align.Center;
             Add(_pillsRow);
 
-            ScreenUi.SetBg(_progressIcon, _cfg.progress_icon_url, _assets);
+            LvnPicture.Photo(_progressIcon, _cfg.progress_icon_url, _assets, cover: false);
         }
 
         /// <summary>Update the chapter-progress percent (current command / total).</summary>

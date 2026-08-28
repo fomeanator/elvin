@@ -86,8 +86,94 @@ namespace Lvn.UI
 
         /// <summary>Подложка под картинку: элемент, который не ловит касания и
         /// уже знает, как вписывать арт. Ровно то, что писали руками перед
-        /// каждой загрузкой фона (<c>ScreenUi.AssignBgAsync</c>).</summary>
+        /// каждой загрузкой фона.</summary>
         public static VisualElement Picture(bool cover = true)
             => Fit(new VisualElement { pickingMode = PickingMode.Ignore }, cover);
+
+        /// <summary>
+        /// ФОТОГРАФИЯ: обложка, фон главы, аватар, кадр галереи. Вписывается в
+        /// своё место и НЕ искажается.
+        ///
+        /// <para>Раньше показ картинки был не одним действием, а двумя, и жили
+        /// они на разных этажах: вписывание (<see cref="Fit"/>) — в движке,
+        /// загрузка (<c>ScreenUi.SetBg</c>) — в оболочке. Загрузка при этом
+        /// работает и без вписывания, молча: картинка встаёт, растянутая под
+        /// форму своего места. На квадратной плитке это почти незаметно, на
+        /// полноэкранном фоне — заметно всем, но только на устройстве с другим
+        /// соотношением сторон, чем у того, где проверяли.</para>
+        ///
+        /// <para>Так и вышло: фон загрузочного экрана, фон подъёма и фон входа
+        /// растягивались — три места из тридцати четырёх, и найти их можно было
+        /// только пересчитав все.</para>
+        ///
+        /// <para><paramref name="cover"/>: заполнить место без полей (обложка,
+        /// фон) или показать целиком (логотип, портрет в рамке).</para>
+        /// </summary>
+        public static void Photo(VisualElement el, string url, ILvnAssets assets,
+                                 bool cover = true, string what = "photo")
+        {
+            if (el == null) return;
+            Fit(el, cover);
+            Lvn.LvnAsync.Fire(AssignAsync(el, url, assets), what);
+        }
+
+        /// <summary>
+        /// ОБШИВКА: рамка карточки, подложка поля, полоса прогресса, туман.
+        /// Тянется по своему месту — это и есть её работа, вписывать её нельзя.
+        ///
+        /// <para>Отдельный глагол нужен не ради красоты: пока показ был один на
+        /// оба случая, «вписать» оставалось решением вызывающего — и решением
+        /// НЕВИДИМЫМ, потому что забытое вписывание выглядит как обычная
+        /// картинка. Теперь картинка обязана назвать, чем она пришла.</para>
+        /// </summary>
+        public static void Skin(VisualElement el, string url, ILvnAssets assets, string what = "skin")
+            => Lvn.LvnAsync.Fire(AssignAsync(el, url, assets), what);
+
+        /// <summary>
+        /// РАМКА, ТЯНУЩАЯСЯ ПО КРАЯМ (девятислойка): углы держат форму, стороны
+        /// растягиваются. Именно то, чего не хватает обшивке, — и потому здесь
+        /// оговорка: способ написан, но не позван НИ РАЗУ. Рамки, подложки
+        /// полей и полосы прогресса до сих пор показываются простым
+        /// растяжением, отчего их углы плывут вместе с размером элемента.
+        /// </summary>
+        public static async System.Threading.Tasks.Task Frame(
+            VisualElement el, string url, int slice, ILvnAssets assets)
+        {
+            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
+            try
+            {
+                var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
+                if (sprite == null) return;
+                el.style.backgroundImage = new StyleBackground(sprite);
+                Pin(el, sprite, assets);
+                el.style.backgroundColor = Color.clear;
+                if (slice > 0)
+                {
+                    el.style.unitySliceLeft = slice;
+                    el.style.unitySliceRight = slice;
+                    el.style.unitySliceTop = slice;
+                    el.style.unitySliceBottom = slice;
+                }
+            }
+            catch { /* пропавший арт не повод ронять экран */ }
+        }
+
+        /// <summary>Загрузить арт и поставить его фоном элемента. Отсутствующий
+        /// арт — не беда: элемент остаётся с тем, что у него было.</summary>
+        public static async System.Threading.Tasks.Task AssignAsync(
+            VisualElement el, string url, ILvnAssets assets)
+        {
+            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
+            try
+            {
+                var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
+                if (sprite != null)
+                {
+                    el.style.backgroundImage = new StyleBackground(sprite);
+                    Pin(el, sprite, assets);
+                }
+            }
+            catch { /* пропавший арт не повод ронять экран */ }
+        }
     }
 }

@@ -536,8 +536,7 @@ namespace Lvn.UI.Screens
                     var img = new VisualElement { pickingMode = PickingMode.Ignore };
                     img.style.width = 30; img.style.height = 30;
                     img.style.marginRight = 10;
-                    LvnPicture.Fit(img, cover: false);
-                    ScreenUi.SetBg(img, slot.icon, _assets);
+                    LvnPicture.Photo(img, slot.icon, _assets, cover: false);
                     b.Add(img);
                 }
                 else
@@ -951,29 +950,9 @@ namespace Lvn.UI.Screens
                 accent ? _accentText : UiColor.Parse(_ch?.text_color, _text),
                 _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
-                LvnAsync.Fire(ApplyNineSliceAsync(b, _ch.button_image, _ch.button_slice ?? 0), "ApplyNineSlice");
+                LvnAsync.Fire(Lvn.UI.LvnPicture.Frame(b, _ch.button_image, _ch.button_slice ?? 0, _assets), "ApplyNineSlice");
             else
                 b.style.backgroundImage = new StyleBackground(StyleKeyword.None); // an accent tab drops the art
-        }
-
-        private async Task ApplyNineSliceAsync(VisualElement el, string url, int slice)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || _assets == null) return;
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, CancellationToken.None);
-                if (sprite == null) return;
-                el.style.backgroundImage = new StyleBackground(sprite);
-                el.style.backgroundColor = Color.clear; // the art replaces the flat fill
-                if (slice > 0)
-                {
-                    el.style.unitySliceLeft = slice;
-                    el.style.unitySliceRight = slice;
-                    el.style.unitySliceTop = slice;
-                    el.style.unitySliceBottom = slice;
-                }
-            }
-            catch { /* missing art keeps the flat look */ }
         }
     }
 }

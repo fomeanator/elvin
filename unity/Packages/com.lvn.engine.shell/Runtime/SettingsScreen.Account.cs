@@ -103,8 +103,7 @@ namespace Lvn.UI.Screens
                 {
                     var icon = new VisualElement();
                     icon.style.width = 44; icon.style.height = 44;
-                    LvnPicture.Fit(icon, cover: false);
-                    ScreenUi.SetBg(icon, s.icon, _assets);
+                    LvnPicture.Photo(icon, s.icon, _assets, cover: false);
                     el = icon;
                 }
                 else

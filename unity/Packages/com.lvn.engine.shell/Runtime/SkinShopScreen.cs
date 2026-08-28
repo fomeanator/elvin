@@ -300,7 +300,7 @@ namespace Lvn.UI.Screens
             _previewWearing.text = worn != null
                 ? LvnWords.Of("skinshop.worn", "worn: {0}", worn)
                 : LvnWords.Of("skinshop.worn_none", "nothing worn");
-            ScreenUi.SetBg(_previewImage, ch.Preview, _assets);
+            LvnPicture.Photo(_previewImage, ch.Preview, _assets);
         }
 
         // ── character selector ──────────────────────────────────────────────
@@ -323,9 +323,8 @@ namespace Lvn.UI.Screens
 
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img);
-                LvnPicture.Fit(img);
                 chip.Add(img);
-                ScreenUi.SetBg(img, _chars[idx].Preview, _assets);
+                LvnPicture.Photo(img, _chars[idx].Preview, _assets);
                 chip.AddManipulator(new Clickable(() =>
                 {
                     if (_char == idx) return;
@@ -400,9 +399,8 @@ namespace Lvn.UI.Screens
             var thumb = new VisualElement { pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(thumb);
             thumb.style.backgroundColor = LvnTokens.Bg;
-            LvnPicture.Fit(thumb);
             thumbWrap.Add(thumb);
-            ScreenUi.SetBg(thumb, skin.Thumb, _assets);
+            LvnPicture.Photo(thumb, skin.Thumb, _assets);
 
             // Лента «Надето» появляется и исчезает при обновлении — держим её
             // место готовым, чтобы не трогать миниатюру под ней.

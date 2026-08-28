@@ -487,7 +487,7 @@ namespace Lvn.UI.Screens
             art.Add(category);
             card.Add(art);
             if (!string.IsNullOrEmpty(pack.Card))
-                ScreenUi.SetBg(art, pack.Card, _assets);
+                LvnPicture.Photo(art, pack.Card, _assets);
 
             // Текстовый этаж: количество/название, бонус и состав набора.
             var body = new VisualElement();

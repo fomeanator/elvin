@@ -125,8 +125,7 @@ namespace Lvn.UI.Screens
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
                 img.style.marginRight = 6;
-                LvnPicture.Fit(img, cover: false);
-                ScreenUi.SetBg(img, _look.IconUrl, assets);
+                LvnPicture.Photo(img, _look.IconUrl, assets, cover: false);
                 return img;
             }
             // ЗНАЧОК БЕРЁМ У ЦЕННИКА, а не угадываем сами: автор мог назвать
