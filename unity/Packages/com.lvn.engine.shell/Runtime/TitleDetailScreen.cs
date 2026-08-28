@@ -389,7 +389,7 @@ namespace Lvn.UI.Screens
                 17f, stateColor, 0f, LvnTheme.Current.IconGlow);
             stateIcon.style.marginRight = 5;
             stateBox.Add(stateIcon);
-            var stateLbl = new Label(state == 0 ? "пройдено" : state == 1 ? "текущая"
+            var stateLbl = new Label(state == 0 ? LvnWords.Of("chapter.done", "finished") : state == 1 ? LvnWords.Of("chapter.current", "current")
                 : state == 3 ? "доступна" : "закрыто");
             stateLbl.style.fontSize = 20;
             stateLbl.style.color = stateColor;
@@ -425,7 +425,7 @@ namespace Lvn.UI.Screens
             // right under the Play action so it reads as a secondary option.
             if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0))
             {
-                var restart = new Button(ShowRestartMenu) { text = "Начать заново" };
+                var restart = new Button(ShowRestartMenu) { text = LvnWords.Of("title.restart", "Start over") };
                 restart.style.marginBottom = 12;
                 restart.style.fontSize = 24;
                 restart.style.paddingTop = 12;
@@ -442,7 +442,7 @@ namespace Lvn.UI.Screens
             actionRow.style.alignItems = Align.Center;
             bar.Add(actionRow);
 
-            var play = new Button(Play) { text = "Играть" };
+            var play = new Button(Play) { text = LvnWords.Of("hub.play", "Play") };
             play.style.flexGrow = 1;
             play.style.flexShrink = 1;
             play.style.fontSize = 30;

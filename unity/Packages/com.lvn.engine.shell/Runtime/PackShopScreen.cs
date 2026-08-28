@@ -453,7 +453,7 @@ namespace Lvn.UI.Screens
             }
             else if (pack.Bonus > 0)
             {
-                var bonus = new Label($"+{pack.Bonus:N0} бонус");
+                var bonus = new Label(LvnWords.Of("shop.bonus", "+{0} bonus", pack.Bonus.ToString("N0")));
                 bonus.style.color = LvnTokens.Gold;
                 bonus.style.fontSize = 21;
                 bonus.style.marginTop = 4;

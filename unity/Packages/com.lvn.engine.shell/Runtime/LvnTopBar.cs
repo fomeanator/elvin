@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Lvn.Content;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -254,7 +255,11 @@ namespace Lvn.UI.Screens
 
         // ── содержимое ────────────────────────────────────────────────────────
 
-        // Лого: «Т» в акцентном кружке — вектор кодом, без ассетов.
+        // Лого: буква в акцентном кружке — вектор кодом, без ассетов.
+        //
+        // Буква АВТОРСКАЯ. Здесь стояла «Т» — инициал одной конкретной новеллы,
+        // зашитый в движок, который лежит в открытом репозитории и служит любым
+        // играм. Умолчание нейтральное, своё автор ставит словом app.logo.
         private VisualElement Logo()
         {
             var circle = new VisualElement();
@@ -264,7 +269,7 @@ namespace Lvn.UI.Screens
             circle.style.backgroundColor = LvnTokens.Accent;
             circle.style.alignItems = Align.Center;
             circle.style.justifyContent = Justify.Center;
-            var t = new Label("Т");
+            var t = new Label(LvnWords.Of("app.logo", "L"));
             t.pickingMode = PickingMode.Ignore;
             t.style.color = LvnTokens.OnAccent;
             t.style.fontSize = 30;

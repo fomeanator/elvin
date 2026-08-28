@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
-            var title = new Label("Рейтинг");
+            var title = new Label(LvnWords.Of("leaderboard.title", "Leaderboard"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 40;
@@ -333,7 +333,7 @@ namespace Lvn.UI.Screens
 
             if (e.IsYou)
             {
-                var you = new Label("Вы");
+                var you = new Label(LvnWords.Of("leaderboard.you", "You"));
                 you.style.fontSize = 18;
                 you.style.color = LvnTokens.OnAccent;
                 you.style.backgroundColor = LvnTokens.Accent;

@@ -214,7 +214,8 @@ namespace Lvn.UI.Screens
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
             ic.style.marginRight = 12;
             row.Add(ic);
-            var lbl = new Label($"В истории: {ChaptersDone} {ChapterWord(ChaptersDone)}");
+            var lbl = new Label(LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
+                                            $"{ChaptersDone} {ChapterWord(ChaptersDone)}"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             row.Add(lbl);

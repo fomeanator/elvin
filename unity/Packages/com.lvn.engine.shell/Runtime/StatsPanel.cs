@@ -47,7 +47,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             root.Add(panel);
 
-            var title = new Label("Твои статы");
+            var title = new Label(LvnWords.Of("stats.title", "Your stats"));
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 30;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -62,7 +62,7 @@ namespace Lvn.UI.Screens
                 if (s != null)
                     scroll.Add(StatRows.Row(s, getVar));
 
-            var close = new Button(Hide) { text = "Закрыть" };
+            var close = new Button(Hide) { text = LvnWords.Of("common.close", "Close") };
             close.style.marginTop = 16;
             close.style.fontSize = 22;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;

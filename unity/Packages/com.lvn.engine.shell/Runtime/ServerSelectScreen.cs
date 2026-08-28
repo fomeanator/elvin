@@ -45,7 +45,7 @@ namespace Lvn.UI.Screens
                 checkRow.style.flexDirection = FlexDirection.Row;
                 checkRow.style.alignItems = Align.Center;
                 var check = new Toggle { value = manual };
-                var checkLabel = new Label("Выбрать сервер вручную");
+                var checkLabel = new Label(LvnWords.Of("server.manual", "Choose the server manually"));
                 checkLabel.style.color = new Color(0.65f, 0.65f, 0.65f);
                 checkLabel.style.fontSize = 14;
                 checkLabel.style.marginLeft = 6;
@@ -151,7 +151,7 @@ namespace Lvn.UI.Screens
             panel.style.borderBottomRightRadius = 14;
             root.Add(panel);
 
-            var title = new Label("Выбор сервера");
+            var title = new Label(LvnWords.Of("server.title", "Server"));
             title.style.fontSize = 26;
             title.style.color = new Color(0.96f, 0.93f, 0.85f);
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -190,7 +190,7 @@ namespace Lvn.UI.Screens
                 }, TaskScheduler.FromCurrentSynchronizationContext()), "ProbeServer");
             }
 
-            var customLabel = new Label("Свой сервер (URL до /api)");
+            var customLabel = new Label(LvnWords.Of("server.custom", "Your own server (URL up to /api)"));
             customLabel.style.color = new Color(0.80f, 0.72f, 0.56f);
             customLabel.style.fontSize = 15;
             customLabel.style.marginTop = 12;
@@ -216,7 +216,7 @@ namespace Lvn.UI.Screens
             });
             panel.Add(field);
 
-            var connect = new Button(() => Confirm(field.value)) { text = "Подключиться" };
+            var connect = new Button(() => Confirm(field.value)) { text = LvnWords.Of("server.connect", "Connect") };
             connect.style.marginTop = 12;
             connect.style.fontSize = 18;
             connect.style.paddingTop = 10;

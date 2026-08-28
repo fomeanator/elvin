@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Lvn.Content;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -161,7 +162,7 @@ namespace Lvn.UI.Screens
             head.style.justifyContent = Justify.SpaceBetween;
             _full.Add(head);
 
-            var title = new Label("Загрузки");
+            var title = new Label(LvnWords.Of("downloads.title", "Downloads"));
             title.pickingMode = PickingMode.Ignore;
             title.style.color = LvnTokens.Text;
             title.style.fontSize = 28;
@@ -313,16 +314,16 @@ namespace Lvn.UI.Screens
                 if (glyph == RingGlyph.Alert)
                 {
                     _file.text = Lvn.Content.LvnOfflineText.Title;
-                    _kind.text = "Загрузка продолжится сама";
+                    _kind.text = LvnWords.Of("downloads.resumes", "The download will resume by itself");
                 }
                 else if (glyph == RingGlyph.Up)
                 {
-                    _file.text = "Синхронизация";
-                    _kind.text = $"Событий к отправке: {pend}";
+                    _file.text = LvnWords.Of("downloads.syncing", "Syncing");
+                    _kind.text = LvnWords.Of("downloads.pending_ops", "Events to send: {0}", pend);
                 }
                 else
                 {
-                    _file.text = string.IsNullOrEmpty(t.label) ? "Загрузка контента" : t.label;
+                    _file.text = string.IsNullOrEmpty(t.label) ? LvnWords.Of("downloads.content", "Downloading content") : t.label;
                     var activeEntry = ActiveEntry();
                     _kind.text = Humanize(ActiveUrl?.Invoke(), null)
                         + (activeEntry != null ? " · " + activeEntry.Label : "");
@@ -333,7 +334,10 @@ namespace Lvn.UI.Screens
                     int filesLeft = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
                     int chLeft = 0;
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
-                    _vQueue.text = chLeft > 0 ? $"глав {chLeft} · файлов {filesLeft}" : $"файлов {filesLeft}";
+                    _vQueue.text = chLeft > 0
+                        ? LvnWords.Of("downloads.queue_chapters", "chapters {0}", chLeft) + " · "
+                          + LvnWords.Of("downloads.queue_files", "files {0}", filesLeft)
+                        : LvnWords.Of("downloads.queue_files", "files {0}", filesLeft);
                     _vGot.text = qTotal > 0
                         ? Mb(qDone + batchRec) + " из " + Mb(qTotal)
                         : Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
@@ -341,7 +345,8 @@ namespace Lvn.UI.Screens
                     {
                         _lastMissingAt = now;
                         var miss = MissingInfo?.Invoke() ?? (0, 0);
-                        _vLeft.text = miss.Item2 > 0 ? $"≈{Mathf.Max(1, miss.Item1 >> 20)} МБ" : "всё скачано";
+                        _vLeft.text = miss.Item2 > 0 ? $"≈{Mathf.Max(1, miss.Item1 >> 20)} " + LvnWords.Of("unit.mb", "MB")
+                            : LvnWords.Of("downloads.all_done", "everything downloaded");
                     }
                 }
                 if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }

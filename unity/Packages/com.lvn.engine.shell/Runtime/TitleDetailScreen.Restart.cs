@@ -35,7 +35,7 @@ namespace Lvn.UI.Screens
                 && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0);
             if (hasProgress)
             {
-                var cont = new Button(Play) { text = "Продолжить" };
+                var cont = new Button(Play) { text = LvnWords.Of("hub.continue", "Continue") };
                 cont.style.flexShrink = 0;
                 cont.style.marginTop = 14;
                 cont.style.fontSize = 28;
@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
                 section.Add(SaveRow("Автосохранение", DescribeSave(Title, auto), Play));
             else if (!hasProgress)
             {
-                var empty = new Label("Пока нет сохранений — начните читать.");
+                var empty = new Label(LvnWords.Of("saves.empty", "No saves yet — start reading."));
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = 20;
                 empty.style.marginTop = 10;
@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
             col.Add(whereLbl);
             row.Add(col);
 
-            var load = new Button(onLoad) { text = "Загрузить" };
+            var load = new Button(onLoad) { text = LvnWords.Of("saves.load", "Load") };
             load.SetEnabled(onLoad != null);
             load.style.flexShrink = 0;
             load.style.marginLeft = 12;

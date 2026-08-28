@@ -30,11 +30,11 @@ namespace Lvn.UI.Screens
             row.style.paddingLeft = 16; row.style.paddingRight = 16;
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            var lbl = new Label("Настройки");
+            var lbl = new Label(LvnWords.Of("settings.title", "Settings"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             col.Add(lbl);
-            var hint = new Label("Звук, язык истории и загрузка игры целиком");
+            var hint = new Label(LvnWords.Of("settings.hint", "Sound, story language and full download"));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = 19;
             hint.style.marginTop = 2;
@@ -69,11 +69,11 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
             col.style.marginRight = 10;
-            var lbl = new Label("Удалить аккаунт");
+            var lbl = new Label(LvnWords.Of("account.delete", "Delete account"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = 24;
             col.Add(lbl);
-            var hint = new Label("Сотрёт прогресс, покупки и сохранения. Навсегда.");
+            var hint = new Label(LvnWords.Of("account.delete_hint", "Erases progress, purchases and saves. Forever."));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = 19;
             hint.style.marginTop = 2;
@@ -82,7 +82,7 @@ namespace Lvn.UI.Screens
             row.Add(col);
 
             var danger = new Color(0.86f, 0.28f, 0.32f);
-            var btn = new Button { text = "Удалить" };
+            var btn = new Button { text = LvnWords.Of("account.delete_do", "Delete") };
             btn.style.fontSize = 20;
             btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
             btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
@@ -98,14 +98,14 @@ namespace Lvn.UI.Screens
                 {
                     // Первое нажатие только взводит; через 4 с кнопка остывает.
                     armed = true;
-                    btn.text = "Точно удалить?";
+                    btn.text = LvnWords.Of("account.delete_sure", "Really delete?");
                     btn.style.backgroundColor = danger;
                     btn.style.color = Color.white;
                     btn.schedule.Execute(() =>
                     {
                         if (!armed) return;
                         armed = false;
-                        btn.text = "Удалить";
+                        btn.text = LvnWords.Of("account.delete_do", "Delete");
                         btn.style.backgroundColor = LvnTokens.Faint;
                         btn.style.color = danger;
                     }).ExecuteLater(LvnMotion.Ms(ArmedWindowMs));
@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
                 }
                 armed = false;
                 btn.SetEnabled(false);
-                btn.text = "Удаляем…";
+                btn.text = LvnWords.Of("account.deleting", "Deleting…");
                 LvnAsync.Fire(RunDeleteAsync(btn, danger), "DeleteAccount");
             };
             row.Add(btn);
@@ -129,7 +129,7 @@ namespace Lvn.UI.Screens
             btn.SetEnabled(true);
             btn.style.backgroundColor = LvnTokens.Faint;
             btn.style.color = danger;
-            btn.text = "Удалить";
+            btn.text = LvnWords.Of("account.delete_do", "Delete");
             LvnMotion.FlashText(btn, Lvn.Content.LvnOfflineText.TryLater, LvnMotion.NoticeLong);
         }
 
@@ -152,7 +152,7 @@ namespace Lvn.UI.Screens
             idLabel.style.flexGrow = 1;
             footer.Add(idLabel);
 
-            var copy = new Button { text = "Копировать" };
+            var copy = new Button { text = LvnWords.Of("settings.copy", "Copy") };
             copy.style.fontSize = 20;
             copy.style.paddingTop = 10;
             copy.style.paddingBottom = 10;
