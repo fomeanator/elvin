@@ -521,6 +521,7 @@ namespace Lvn.UI.World
                 foreach (var tr in anim.tracks)
                 {
                     if (tr == null || tr.keys == null || tr.keys.Count == 0 || string.IsNullOrEmpty(tr.prop)) continue;
+                    if (!Lvn.UI.LvnAnimProp.Check(tr.prop, tr.layer)) continue;
                     if (tr.prop == "frame")
                     {
                         if (!string.IsNullOrEmpty(tr.layer))
