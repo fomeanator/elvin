@@ -24,8 +24,13 @@ func cmdLocale(args []string) {
 	fs := newFlagSet("locale")
 	langs := fs.String("lang", "", "target language code(s), comma-separated: -lang ru or -lang ru,en")
 	check := fs.Bool("check", false, "report catalog coverage without writing (exit 1 when a catalog misses keys)")
+	audit := fs.String("audit", "", "content dir: сверить каталоги на диске с manifest.languages")
 	prune := fs.Bool("prune", false, "drop catalog keys the script no longer contains")
 	_ = fs.Parse(args)
+	if *audit != "" {
+		cmdLocaleAudit(*audit)
+		return
+	}
 	if *langs == "" || fs.NArg() == 0 {
 		die("locale: usage: lvnconv locale -lang <code>[,<code>…] [-check] [-prune] <script.lvns|script.lvn>…")
 	}

@@ -58,7 +58,46 @@ namespace Lvn.Content
                 foreach (var kv in menuLabels) merged[kv.Key] = kv.Value;
             if (words != null)
                 foreach (var kv in words) merged[kv.Key] = kv.Value;
-            _words = merged.Count == 0 ? null : merged;
+            _base = merged.Count == 0 ? null : merged;
+            _words = Merge(_base, _translated);
+        }
+
+        /// <summary>
+        /// ПЕРЕВОД СЛОВ ОБОЛОЧКИ — поверх авторского набора.
+        ///
+        /// <para>Текст главы переводился каталогом, а подписи движка («Играть»,
+        /// «Стереть», «Осталось 2 из 3») — нет: их автор задаёт один раз в
+        /// манифесте, на своём языке. Игрок переключал язык истории и получал
+        /// английские реплики в русском интерфейсе — двуязычие наполовину, что
+        /// хуже одноязычия: выглядит как поломка, а не как выбор.</para>
+        ///
+        /// <para>Перевод НАКЛАДЫВАЕТСЯ, а не заменяет: чего в нём нет, остаётся
+        /// авторским словом, а не английским умолчанием движка. Пустой словарь
+        /// (или язык оригинала) снимает наложение целиком.</para>
+        /// </summary>
+        public static void Translate(Dictionary<string, string> words)
+        {
+            _translated = words == null || words.Count == 0
+                ? null : new Dictionary<string, string>(words, System.StringComparer.OrdinalIgnoreCase);
+            _words = Merge(_base, _translated);
+            Changed?.Invoke();
+        }
+
+        /// <summary>Словарь сменился — экраны, уже нарисованные прежними
+        /// словами, обязаны перерисоваться. Иначе перевод доедет только до
+        /// того, что откроют ПОСЛЕ него.</summary>
+        public static event System.Action Changed;
+
+        private static Dictionary<string, string> _base, _translated;
+
+        private static Dictionary<string, string> Merge(
+            Dictionary<string, string> baseWords, Dictionary<string, string> over)
+        {
+            if (over == null || over.Count == 0) return baseWords;
+            var merged = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+            if (baseWords != null) foreach (var kv in baseWords) merged[kv.Key] = kv.Value;
+            foreach (var kv in over) merged[kv.Key] = kv.Value;
+            return merged;
         }
 
         /// <summary>

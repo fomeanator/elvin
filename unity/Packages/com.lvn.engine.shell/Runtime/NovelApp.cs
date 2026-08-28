@@ -673,6 +673,13 @@ namespace Lvn.UI.Screens
             var want = CurrentLocale;
             if (want == _localeApplied) return;
             _localeApplied = want;
+
+            // СЛОВА ОБОЛОЧКИ ТОЖЕ ПЕРЕВОДЯТСЯ. Раньше переводился только текст
+            // главы, а подписи движка оставались авторскими: игрок переключал
+            // язык и получал английские реплики в русском интерфейсе —
+            // двуязычие наполовину выглядит поломкой, а не выбором.
+            Lvn.Content.LvnWords.Translate(await LoadUiWordsAsync(want));
+
             if (_currentChapter != null && Stage != null)
             {
                 try { Stage.Strings = await LoadCatalogAsync(_currentChapter.script_url); }
@@ -681,6 +688,34 @@ namespace Lvn.UI.Screens
                 // новым языком сразу (штатный RerenderCurrent — тот же вариант
                 // текста, без сдвига {a|b|c}), а не со следующей строки.
                 Stage.Player?.RerenderCurrent();
+            }
+        }
+
+        /// <summary>
+        /// Перевод слов ОБОЛОЧКИ для языка: <c>ui/words.&lt;locale&gt;.json</c> в
+        /// контенте, рядом с остальными данными игры.
+        ///
+        /// <para>Файлом, а не полем манифеста: манифест грузится на каждом
+        /// подъёме и до первого экрана, а переводы нужны только тому, кто
+        /// переключил язык. Ключи — те же, что у <c>ui.words</c>: чего в
+        /// переводе нет, остаётся авторским словом.</para>
+        /// </summary>
+        private async Task<System.Collections.Generic.Dictionary<string, string>> LoadUiWordsAsync(string locale)
+        {
+            if (string.IsNullOrEmpty(locale) || _assets?.Loader == null) return null;
+            try
+            {
+                var json = await _assets.Loader.DownloadScriptText(
+                    "/content/ui/words." + locale + ".json", default, singleAttempt: true);
+                if (string.IsNullOrEmpty(json)) return null;
+                return Newtonsoft.Json.JsonConvert
+                    .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
+            }
+            catch
+            {
+                // Нет файла — не беда и не ошибка: игра просто остаётся на
+                // авторском языке интерфейса.
+                return null;
             }
         }
     }
