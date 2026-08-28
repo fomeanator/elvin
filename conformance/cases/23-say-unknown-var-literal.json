@@ -2,20 +2,40 @@
   "id": "say-unknown-var-literal",
   "title": "An unset bare variable renders as literal {key} in text, but stays 0 in a condition",
   "why": "The documented typo signal: missing data has to be VISIBLE on screen rather than quietly reading as 0. The two halves are easy to conflate — the browser player rendered 0 in text, which hides the typo, while ink defaults must still hold inside conditions. Both halves are asserted here so a runtime cannot fix one by breaking the other.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "set", "key": "gold", "value": 7 },
-      { "op": "say", "text": "Есть {gold}, а вот {nope} нет." }
+      {
+        "op": "set",
+        "key": "gold",
+        "value": 7
+      },
+      {
+        "op": "say",
+        "text": "Есть {gold}, а вот {nope} нет."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Есть 7, а вот {nope} нет." },
-      { "end": true }
+      {
+        "say": "Есть 7, а вот {nope} нет."
+      },
+      {
+        "end": true
+      }
     ],
-    "expr_true": ["nope == 0", "nope == \"\"", "!nope"],
-    "expr_false": ["nope"]
+    "expr_true": [
+      "nope == 0",
+      "nope == \"\"",
+      "!nope"
+    ],
+    "expr_false": [
+      "nope"
+    ]
   }
 }
