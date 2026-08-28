@@ -421,7 +421,12 @@ func TestConformanceCasesWellFormed(t *testing.T) {
 			t.Errorf("%s: runtimes must list at least one runtime", name)
 		}
 		for _, r := range c.Runtimes {
-			if r != "csharp" {
+			// «js» — вычислитель браузерного playground
+			// (server/website/play/expr.js). Он третья реализация языка, и до
+			// 28.08 его не сверял никто: держал комментарий «та же поверхность,
+			// что у LvnExpression». Случай, помеченный «js», обязателен и для
+			// него — см. TestBrowserExpressionsAgreeWithTheCorpus.
+			if r != "csharp" && r != "js" {
 				t.Errorf("%s: unknown runtime %q", name, r)
 			}
 		}

@@ -2,20 +2,42 @@
   "id": "expr-builtins-collections",
   "title": "The closed built-in set behaves identically on lists and maps",
   "why": "The built-in table is documented as closed and shared, but each runtime carries its OWN evaluator — the browser one held 8 of the 26 and threw on the rest, so every list/map recipe worked in the app and died in the playground. These assertions are the parity contract: a runtime missing a function, or returning a mutated collection instead of a fresh one, fails here rather than in somebody's content. Note there is no map literal in either evaluator — a map is grown with put() from an unset name.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "set", "key": "l", "expr": "list(2, 2, 3)" },
-      { "op": "set", "key": "m", "expr": "put(no_such_map, \"a\", 1)" },
-      { "op": "set", "key": "m", "expr": "put(m, \"b\", 2)" },
-      { "op": "say", "text": "Список из {len(l)}, ключей {len(m)}." }
+      {
+        "op": "set",
+        "key": "l",
+        "expr": "list(2, 2, 3)"
+      },
+      {
+        "op": "set",
+        "key": "m",
+        "expr": "put(no_such_map, \"a\", 1)"
+      },
+      {
+        "op": "set",
+        "key": "m",
+        "expr": "put(m, \"b\", 2)"
+      },
+      {
+        "op": "say",
+        "text": "Список из {len(l)}, ключей {len(m)}."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Список из 3, ключей 2." },
-      { "end": true }
+      {
+        "say": "Список из 3, ключей 2."
+      },
+      {
+        "end": true
+      }
     ],
     "expr_true": [
       "len(l) == 3",
