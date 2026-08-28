@@ -181,11 +181,24 @@ namespace Lvn.UI.Screens
             var socials = SocialRow();
             if (socials != null) _list.Add(socials);
 
-            // Пока лента не измерена, прыгать некуда — подсветку и переходы
-            // включаем после первой раскладки.
-            _list.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => SyncActiveTab());
-            _list.verticalScroller.valueChanged += _ => SyncActiveTab();
+            // Подписка на прокрутку — ОДНА на экран. Вешать её в Rebuild
+            // значило копить обработчики: после пятой пересборки каждое
+            // движение ленты пересчитывало подсветку пять раз, и вкладки
+            // «залипали» — обработчики спорили друг с другом.
+            if (!_scrollHooked)
+            {
+                _scrollHooked = true;
+                _list.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => SyncActiveTab());
+                _list.verticalScroller.valueChanged += _ => SyncActiveTab();
+            }
         }
+
+        private bool _scrollHooked;
+
+        // Пока идёт переход по нажатию вкладки, подсветку ведёт НАЖАТИЕ, а не
+        // прокрутка: лента едет мимо чужих разделов, и следящая подсветка
+        // перебивала выбор игрока прямо под пальцем.
+        private float _jumpUntil;
 
         // Заголовок раздела — он же якорь для быстрого перехода.
         private void Section(string id, string title)
@@ -203,6 +216,7 @@ namespace Lvn.UI.Screens
         private void SyncActiveTab()
         {
             if (_anchors.Count == 0 || _tabButtons.Count == 0) return;
+            if (Lvn.UI.LvnClock.Now() < _jumpUntil) return;   // идёт переход по нажатию
             float top = _list.scrollOffset.y + 24f;
             string cur = null;
             foreach (var kv in _anchors)
@@ -239,9 +253,14 @@ namespace Lvn.UI.Screens
                 b.clicked += () =>
                 {
                     if (!_anchors.TryGetValue(captured, out var anchor)) return;
-                    _list.ScrollTo(anchor);
                     _tab = captured;
                     foreach (var (tid, tb) in _tabButtons) StyleValueButton(tb, tid == _tab);
+                    // Замок на время прокрутки: без него следящая подсветка
+                    // возвращалась на прежний раздел, пока лента ещё едет.
+                    _jumpUntil = Lvn.UI.LvnClock.Now() + 0.6f;
+                    // Через кадр: до первой раскладки у якоря нет геометрии, и
+                    // прокрутка «в никуда» выглядела как несработавшее нажатие.
+                    _list.schedule.Execute(() => _list.ScrollTo(anchor)).ExecuteLater(16);
                 };
                 _tabButtons.Add((captured, b));
                 row.Add(b);
@@ -284,7 +303,9 @@ namespace Lvn.UI.Screens
                     ? LvnWords.Of("settings.font_author", "As authored")
                     : Lvn.UI.LvnFonts.FamilyOf(id).Title,
                 id => (LvnPrefs.FontFamily ?? "") == id,
-                id => { LvnPrefs.FontFamily = id; Rebuild(); },
+                // Пересобирать экран не нужно: дом шрифтов переставит гарнитуру
+                // всем, кому её ставил, — включая эти же кнопки.
+                id => LvnPrefs.FontFamily = id,
                 StyleValueButton));
         }
 

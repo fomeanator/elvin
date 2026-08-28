@@ -107,7 +107,10 @@ namespace Lvn.UI
         {
             get
             {
-                var path = LvnFonts.PathFor(LvnTheme.Current != null ? LvnTheme.Current.FontPath : null);
+                // ТЕМАТИЧЕСКИЙ путь, без подмены: выбор игрока накладывает
+                // Apply. Подмени здесь — и «как в игре» возвращало бы не тему,
+                // а прошлый выбор игрока.
+                var path = LvnTheme.Current != null ? LvnTheme.Current.FontPath : null;
                 if (string.IsNullOrEmpty(path)) return null;
                 if (_default != null && _defaultPath == path) return _default;
                 _defaultPath = path;
@@ -165,9 +168,15 @@ namespace Lvn.UI
         {
             new Family("onest",   "Onest",      "Fonts/Onest-Regular", "Fonts/Onest-ExtraBold"),
             new Family("inter",   "Inter",      "Fonts/Inter",         "Fonts/Inter"),
-            new Family("golos",   "Golos Text", "Fonts/GolosText",     "Fonts/GolosText"),
+            new Family("golos",   "Golos",      "Fonts/GolosText",     "Fonts/GolosText"),
             new Family("literata","Literata",   "Fonts/Literata",      "Fonts/Literata"),
             new Family("manrope", "Manrope",    "Fonts/Manrope",       "Fonts/Manrope"),
+            // Характерные — их видно с первого слова. Ради этого они и есть:
+            // настройка, которую нельзя проверить взглядом, ощущается сломанной.
+            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),
+            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat"),
+            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P"),
+            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne"),
         };
 
         /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —
@@ -208,7 +217,7 @@ namespace Lvn.UI
         {
             get
             {
-                var path = LvnFonts.DisplayPathFor(LvnTheme.Current != null ? LvnTheme.Current.FontDisplayPath : null);
+                var path = LvnTheme.Current != null ? LvnTheme.Current.FontDisplayPath : null;
                 if (string.IsNullOrEmpty(path)) return null;
                 if (_display != null && _displayPath == path) return _display;
                 _displayPath = path;
@@ -216,6 +225,89 @@ namespace Lvn.UI
                 return _display;
             }
         }
+
+        // ── ЖИВАЯ СМЕНА ГАРНИТУРЫ ────────────────────────────────────────────
+        //
+        // Шрифт ставится элементам поштучно и в момент их сборки: диалог, выборы,
+        // ввод имени, корни слоёв. Выбери игрок другую гарнитуру — и ничего не
+        // произойдёт до пересборки экрана, то есть настройка выглядит сломанной
+        // («шрифты не меняются», Илья 28.08). Поэтому дом ПОМНИТ, кому он
+        // применял шрифт, и переставляет его всем разом.
+        //
+        // Слабые ссылки: экраны сносятся и пересобираются десятками за сессию, и
+        // список, держащий их живыми, был бы утечкой ровно того размера, что и
+        // сама игра.
+        private static readonly List<(System.WeakReference<VisualElement> el, Font asked)> _applied
+            = new List<(System.WeakReference<VisualElement>, Font)>();
+        private static bool _hooked;
+
+        private static void Remember(VisualElement el, Font asked)
+        {
+            if (!_hooked)
+            {
+                _hooked = true;
+                LvnPrefs.Changed += OnPrefsChanged;
+            }
+            for (int i = _applied.Count - 1; i >= 0; i--)
+            {
+                if (!_applied[i].el.TryGetTarget(out var live)) { _applied.RemoveAt(i); continue; }
+                if (ReferenceEquals(live, el)) { _applied[i] = (_applied[i].el, asked); return; }
+            }
+            _applied.Add((new System.WeakReference<VisualElement>(el), asked));
+        }
+
+        private static string _lastFamily = "";
+
+        private static void OnPrefsChanged()
+        {
+            var now = LvnPrefs.FontFamily ?? "";
+            if (now == _lastFamily) return;   // сменилось что-то другое — не тревожим текст
+            _lastFamily = now;
+            Refresh();
+        }
+
+        /// <summary>Переставить шрифт всем, кому его ставили. Зовётся сама при
+        /// смене гарнитуры; хосту нужна, если он менял настройку в обход.</summary>
+        public static void Refresh()
+        {
+            _default = null; _defaultPath = null;      // пути темы теперь ведут в другую гарнитуру
+            _display = null; _displayPath = null;
+            for (int i = _applied.Count - 1; i >= 0; i--)
+            {
+                if (!_applied[i].el.TryGetTarget(out var el) || el.panel == null && el.parent == null)
+                { _applied.RemoveAt(i); continue; }
+                var font = Override(_applied[i].asked);
+                if (font == null) continue;
+                var fa = From(font);
+                if (fa != null) el.style.unityFontDefinition = new StyleFontDefinition(fa);
+                else el.style.unityFont = font;
+            }
+            Changed?.Invoke();
+        }
+
+        /// <summary>Гарнитура сменилась — экраны, считающие кегль или ширину от
+        /// шрифта, пересчитываются.</summary>
+        public static event System.Action Changed;
+
+        // Выбор игрока перекрывает и тему новеллы, и шрифт из контента: он
+        // сделан ради читаемости, а не ради вкуса, и «почти везде» здесь
+        // означает «не работает».
+        private static Font Override(Font asked)
+        {
+            if (!PlayerPicked) return asked;
+            var path = Chosen.Path;
+            if (string.IsNullOrEmpty(path)) return asked;
+            if (_chosenCache != null && _chosenPath == path) return _chosenCache;
+            _chosenPath = path;
+            _chosenCache = Resources.Load<Font>(path);
+            if (_chosenCache == null)
+                Debug.LogWarning($"[lvn-fonts] гарнитура «{Chosen.Title}» не найдена по пути {path} — " +
+                                 "остаётся прежняя");
+            return _chosenCache ?? asked;
+        }
+
+        private static Font _chosenCache;
+        private static string _chosenPath;
 
         /// <summary>Поставить шрифт темы на корень слоя.</summary>
         public static void ApplyDefault(VisualElement root) => Apply(root, Default);
@@ -225,7 +317,10 @@ namespace Lvn.UI
         /// the wrap failed. Null font = no-op (theme/panel default applies).</summary>
         public static void Apply(VisualElement el, Font font)
         {
-            if (el == null || font == null) return;
+            if (el == null) return;
+            Remember(el, font);        // чтобы пережить смену гарнитуры на лету
+            font = Override(font);     // выбор игрока сильнее любого другого шрифта
+            if (font == null) return;
             var fa = From(font);
             if (fa != null) el.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromSDFFont(fa));
             else el.style.unityFont = new StyleFont(font);
