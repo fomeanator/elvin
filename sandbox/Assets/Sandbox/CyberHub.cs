@@ -67,9 +67,11 @@ namespace Sandbox
                 nav_profile = "Профиль",
             };
 
+            // Имя игрока живёт в одном доме, а не полем витрины: его правят и
+            // пролог, и настройки, и сервер — витрина его только читает.
+            Lvn.UI.LvnPlayerName.Set("Виктория");
             var hub = new BrowseHub(cfg, null)
             {
-                PlayerName = "Виктория",
                 PlayerLevel = 7,
             };
             hub.SetData(Collections(), Titles());

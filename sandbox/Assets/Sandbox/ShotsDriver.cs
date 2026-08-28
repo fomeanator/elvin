@@ -93,7 +93,7 @@ namespace Lvn.Sandbox
             // снимает меню, пока за ним играет глава. Именно так и вышло, и по
             // тем кадрам «переходов не видно» читалось как поломка движка.
             // Поэтому говорим витрине то же, что говорит палец игрока.
-            Lvn.UI.Screens.LvnProgress.SetCurrent(title as Lvn.Content.LvnTitle,
+            Lvn.UI.Screens.LvnProgress.ChooseChapter(title as Lvn.Content.LvnTitle,
                 chapter as Lvn.Content.LvnChapter); // какую главу открыть
             var shell = app.Shell;
             var hub = shell?.Hub;
