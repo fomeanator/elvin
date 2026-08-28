@@ -157,9 +157,36 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// РАВЕНСТВО: строка перевешивает число, а не наоборот.
+//
+// Здесь стояло обратное правило — «если хоть один операнд число, сравниваем
+// числа», — и оно приводило строку к нулю: `"Аня" == 0` было ИСТИНОЙ, как и
+// `"abc" == 0`, потому что num() нечисловой строки даёт ноль. Движок
+// (LvnExpression.EqualTo) сравнивает такую пару как СТРОКИ: "Аня" vs "0" —
+// ложь. Совпадало лишь то, что выглядело одинаково с обеих сторон (`"5" == 5`),
+// и это маскировало расхождение.
+//
+// Цена в новелле высокая: условие вида `who == 0` (проверка «переменная ещё не
+// задана») в playground срабатывало на ЛЮБОМ имени. Ветка уходила не туда, и
+// автор винил свой сценарий.
+//
+// Порядок правил тот же, что в движке: пустое/неустановленное сравнивается по
+// смыслу «0 / false / пусто», затем строки — как строки, и только потом числа.
 function eq(a, b) {
-  if (typeof a === "number" || typeof b === "number") return num(a) === num(b);
-  return String(a) === String(b);
+  const unset = (x) => x === null || x === undefined;
+  if (unset(a) || unset(b)) {
+    const o = unset(a) ? b : a;
+    if (unset(o)) return true;
+    if (typeof o === "number") return o === 0;
+    if (typeof o === "boolean") return o === false;
+    if (typeof o === "string") return o === "";
+    return false; // пустой список/карта — не «не задано»
+  }
+  if (typeof a === "object" || typeof b === "object") {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+  if (typeof a === "string" || typeof b === "string") return String(a) === String(b);
+  return num(a) === num(b);
 }
 
 // One element out of a list (numeric), a map (string key) or a string
@@ -189,15 +216,33 @@ class Parser {
   peek(s) { this.ws(); return this.src.startsWith(s, this.pos); }
   eat(s) { if (this.peek(s)) { this.pos += s.length; return true; } return false; }
 
+  // ПРАВУЮ ЧАСТЬ РАЗБИРАЕМ ВСЕГДА, даже когда ответ уже известен.
+  //
+  // Здесь стояло `truthy(v) || truthy(this.and())` — и короткое замыкание
+  // САМОГО JS съедало вызов: при истинном левом операнде правая часть не
+  // разбиралась вовсе, оставалась в потоке, и парсер падал на ней
+  // «unexpected». То есть `1 or 5` и `0 and 1` были СИНТАКСИЧЕСКОЙ ОШИБКОЙ в
+  // playground — любое условие, чей исход решает левый операнд.
+  //
+  // Разбор и вычисление здесь одно действие (парсер интерпретирующий), и
+  // экономить на нём нечего: в языке нет присваиваний внутри выражения, а
+  // значит у правой части нет побочных эффектов, ради которых существует
+  // короткое замыкание.
   or() {
     let v = this.and();
-    while (this.eat("||") || this.eatWord("or")) v = truthy(v) || truthy(this.and());
+    while (this.eat("||") || this.eatWord("or")) {
+      const r = this.and();
+      v = truthy(v) || truthy(r);
+    }
     return v;
   }
 
   and() {
     let v = this.not();
-    while (this.eat("&&") || this.eatWord("and")) v = truthy(v) && truthy(this.not());
+    while (this.eat("&&") || this.eatWord("and")) {
+      const r = this.not();
+      v = truthy(v) && truthy(r);
+    }
     return v;
   }
 
@@ -349,7 +394,14 @@ class Parser {
       if (!fn) throw new Error(`unknown function ${name}()`);
       return fn(...args);
     }
-    return name in this.vars ? this.vars[name] : 0;
+    // НЕУСТАНОВЛЕННАЯ ПЕРЕМЕННАЯ — null, а не ноль. Ноль здесь ломал ровно то,
+    // ради чего в языке есть ink-семантика: незаданное равно И нулю, И false,
+    // И пустой строке (`__once == 0`, `name == ""`, `flag == false` — все три
+    // истинны до первой записи). Подменив её нулём, вычислитель терял две
+    // трети правила: `nope == ""` становилось ложью, потому что сравнивались
+    // уже "0" и "". Решение о смысле пустоты принимает eq(), а не разрешение
+    // имени.
+    return name in this.vars ? this.vars[name] : null;
   }
 }
 
