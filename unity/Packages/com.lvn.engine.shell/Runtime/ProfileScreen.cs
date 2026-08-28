@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -331,7 +332,7 @@ namespace Lvn.UI.Screens
             fill.style.width = Length.Percent(frac * 100f);
             track.Add(fill);
 
-            var xpLabel = new Label($"{Xp:N0} / {next:N0} XP");
+            var xpLabel = new Label($"{LvnPriceTag.Amount(Xp)} / {LvnPriceTag.Amount(next)} XP");
             xpLabel.style.color = LvnTokens.TextDim;
             xpLabel.style.fontSize = 20;
             xpLabel.style.marginTop = 6;

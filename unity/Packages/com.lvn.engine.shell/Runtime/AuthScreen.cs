@@ -139,9 +139,9 @@ namespace Lvn.UI.Screens
             provRow.style.marginTop = 12;
             panel.Add(provRow);
             AddProviderButton(provRow, "google", _cfg.show_google ?? true,
-                _cfg.google_text ?? "Sign in with Google", textColor);
+                _cfg.google_text ?? LvnWords.Of("auth.google", "Sign in with Google"), textColor);
             AddProviderButton(provRow, "apple", _cfg.show_apple ?? true,
-                _cfg.apple_text ?? "Sign in with Apple", textColor);
+                _cfg.apple_text ?? LvnWords.Of("auth.apple", "Sign in with Apple"), textColor);
 #if UNITY_EDITOR
             AddProviderButton(provRow, "dev", true, "Dev sign-in", textColor);
 #endif
@@ -216,12 +216,12 @@ namespace Lvn.UI.Screens
             b.clicked += async () =>
             {
                 b.SetEnabled(false);
-                _status.text = _cfg.signing_text ?? "Connecting…";
+                _status.text = _cfg.signing_text ?? LvnWords.Of("auth.connecting", "Connecting…");
                 bool ok = await Lvn.Services.LvnPlatformAuth.SignInAsync(provider);
                 b.SetEnabled(true);
                 _status.text = ok
-                    ? (_cfg.provider_done_text ?? "Signed in")
-                    : (_cfg.offline_text ?? "Offline — progress stays on this device");
+                    ? (_cfg.provider_done_text ?? LvnWords.Of("account.signed_in", "Signed in"))
+                    : (_cfg.offline_text ?? LvnWords.Of("auth.offline", "Offline — progress stays on this device"));
                 // the recovered account may carry a display name — pre-fill it
                 if (ok && _field != null && !string.IsNullOrEmpty(Lvn.Services.LvnBackend.DisplayName))
                     _field.value = Lvn.Services.LvnBackend.DisplayName;
@@ -231,13 +231,13 @@ namespace Lvn.UI.Screens
 
         private async Task DriveStatusAsync()
         {
-            _status.text = _cfg.signing_text ?? "Connecting…";
+            _status.text = _cfg.signing_text ?? LvnWords.Of("auth.connecting", "Connecting…");
             bool ok;
             try { ok = await Lvn.Services.LvnBackend.EnsureRegisteredAsync(); }
             catch { ok = false; }
             _status.text = ok
-                ? (_cfg.signed_text ?? "Connected")
-                : (_cfg.offline_text ?? "Offline — progress stays on this device");
+                ? (_cfg.signed_text ?? LvnWords.Of("auth.connected", "Connected"))
+                : (_cfg.offline_text ?? LvnWords.Of("auth.offline", "Offline — progress stays on this device"));
         }
     }
 }

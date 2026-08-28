@@ -130,13 +130,13 @@ namespace Lvn.UI.Screens
             if (providers != null && providers.Length > 0)
             {
                 string via = string.Join(", ", System.Array.ConvertAll(providers, Capitalize));
-                SetAccountStatus((_cfg.signed_in_text ?? "Signed in") + " · " + via, showSignIn: false);
+                SetAccountStatus((_cfg.signed_in_text ?? LvnWords.Of("account.signed_in", "Signed in")) + " · " + via, showSignIn: false);
             }
             else
             {
                 // A device-only (or offline) account — offer to link Google/Apple.
-                string via = _cfg.device_text ?? "device";
-                SetAccountStatus((_cfg.signed_in_text ?? "Signed in") + " · " + via, showSignIn: OnSignIn != null);
+                string via = _cfg.device_text ?? LvnWords.Of("account.device", "device");
+                SetAccountStatus((_cfg.signed_in_text ?? LvnWords.Of("account.signed_in", "Signed in")) + " · " + via, showSignIn: OnSignIn != null);
             }
         }
 
