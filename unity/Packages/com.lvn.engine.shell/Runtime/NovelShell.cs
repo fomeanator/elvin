@@ -285,6 +285,12 @@ namespace Lvn.UI.Screens
             // По той же причине здесь и шрифт темы: unityFontDefinition
             // наследуется вниз, и вся оболочка получает одну гарнитуру.
             LvnFonts.ApplyDefault(_root);
+            // СЛОВАРЬ СМЕНИЛСЯ — ЭКРАНЫ ПЕРЕОДЕВАЮТСЯ. Подписи ставятся при
+            // сборке экрана, и без этого перевод доезжал бы только до того, что
+            // откроют ПОСЛЕ смены языка: открытые настройки остались бы на
+            // прежнем языке, и игрок решил бы, что переключатель не работает.
+            Lvn.Content.LvnWords.Changed -= RefreshWords;
+            Lvn.Content.LvnWords.Changed += RefreshWords;
 
             Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
             // Единая атмосфера меню (решение Ильи 26.08): ОДИН живой
@@ -618,5 +624,18 @@ namespace Lvn.UI.Screens
 
 
 
+        // Перерисовать подписи на живых экранах. Только те, что УМЕЮТ
+        // пересобираться: у остальных подписи стоят в дереве, и трогать их
+        // отсюда значило бы знать их устройство.
+        private void RefreshWords()
+        {
+            Settings?.Rebuild();
+            Profile?.Rebuild();
+            PackShop?.Rebuild();
+            PackShopModal?.Rebuild();
+            Detail?.Rebuild();
+        }
     }
 }
+
+
