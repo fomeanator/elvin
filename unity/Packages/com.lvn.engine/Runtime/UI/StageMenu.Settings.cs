@@ -63,9 +63,11 @@ namespace Lvn.UI
             card.style.alignItems = Align.Center;
             card.Add(Text(L("language", "Language"), 24, FontStyle.Normal));
 
-            string Caption(string code) => LvnPrefs.LocaleTitle(code);
+            // Круг вариантов — общий с настройками оболочки: здесь он был свой
+            // и без «авто», то есть два экрана предлагали разный выбор.
+            string Caption(string code) => LvnLocale.Title(code);
 
-            var btn = new Button { text = Caption(LvnPrefs.Locale) };
+            var btn = new Button { text = Caption(LvnLocale.Chosen) };
             btn.style.minWidth = 150;
             btn.style.height = 48;
             btn.style.fontSize = 22;
@@ -77,8 +79,8 @@ namespace Lvn.UI
             if (_theme.Font != null) btn.style.unityFont = new StyleFont(_theme.Font);
             btn.clicked += () =>
             {
-                LvnPrefs.Locale = LvnPrefs.NextLocale(LvnPrefs.Locale, LvnPrefs.AvailableLocales);
-                btn.text = Caption(LvnPrefs.Locale);
+                LvnLocale.Chosen = LvnLocale.Next(LvnLocale.Chosen);
+                btn.text = Caption(LvnLocale.Chosen);
             };
             card.Add(btn);
             return card;

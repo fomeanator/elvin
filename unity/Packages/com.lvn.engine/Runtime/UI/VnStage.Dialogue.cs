@@ -173,9 +173,14 @@ namespace Lvn.UI
                 // Слово авторское: фраза была вписана в движок по-русски, и
                 // английская новелла показывала русский текст. {amount}/{currency}
                 // подставляются — автору незачем знать порядок слов движка.
+                // Сумму и имя валюты берём у ЦЕННИКА, как весь остальной
+                // интерфейс: здесь подставлялся служебный id («crystals») и
+                // число без разрядов, так что в сцене игрок читал «Not enough
+                // crystals: need 1200», а в гардеробе — «Не хватает: 1 200
+                // кристаллов». Одна нехватка, две записи.
                 var not_enough = Theme.Word("choice_not_enough", "Not enough {currency}: need {amount}")
-                    .Replace("{amount}", picked.WalletAmount.ToString())
-                    .Replace("{currency}", picked.WalletCurrency ?? "");
+                    .Replace("{amount}", LvnPriceTag.Amount(picked.WalletAmount))
+                    .Replace("{currency}", LvnPriceTag.Of(picked.WalletCurrency).Name ?? "");
                 ApplyHint(new JObject { ["text"] = not_enough, ["duration"] = 3 });
                 return; // menu stays up; the player picks something else
             }

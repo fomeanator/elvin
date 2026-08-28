@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
         private string NameOfValue(string axis, string value)
         {
             foreach (var it in Items(axis))
-                if (it.value == value) return it.name ?? it.value;
+                if (it.value == value) return Lvn.Content.LvnWords.Name("skin", it.value, it.name);
             return value;
         }
 

@@ -315,7 +315,7 @@ namespace Lvn.UI.Screens
                             entries.Add(new CgGalleryScreen.Entry
                             {
                                 Url = g.url,
-                                Caption = g.name ?? g.id,
+                                Caption = LvnWords.Name("cg", g.id, g.name),
                                 Unlocked = Lvn.UI.LvnGalleryStore.IsUnlocked(t.id, g.id),
                             });
                 if (entries.Count > 0) _shell.Gallery.SetEntries(entries);
