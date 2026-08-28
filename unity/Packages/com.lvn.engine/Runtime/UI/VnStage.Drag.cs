@@ -155,9 +155,7 @@ namespace Lvn.UI
                 + " y=" + clEnd.y.ToString("0.###") + " → " + (label ?? "(stay)"));
             if (label == null || _player == null) return;
 
-            _awaitingTap = false;
-            _curChoices = null;
-            _choices?.Dismiss();
+            StopWaitingForPlayer();
             _player.GoTo(label);
             _player.Advance();
             AutosaveNow(); // a completed interaction must survive a crash

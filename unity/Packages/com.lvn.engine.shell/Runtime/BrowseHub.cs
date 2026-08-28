@@ -153,8 +153,7 @@ namespace Lvn.UI.Screens
             avatar.style.width = 56; avatar.style.height = 56;
             avatar.style.backgroundColor = _theme.SurfaceHi;
             avatar.style.marginRight = 12;
-            avatar.style.borderTopWidth = 2; avatar.style.borderBottomWidth = 2;
-            avatar.style.borderLeftWidth = 2; avatar.style.borderRightWidth = 2; SetBorderColor(avatar, _accent);
+            LvnChrome.Border(avatar, _accent, 2f);
             LvnChrome.Round(avatar, _theme.RoundPills ? 28f : _radius);
             profile.Add(avatar);
             var nameCol = new VisualElement();

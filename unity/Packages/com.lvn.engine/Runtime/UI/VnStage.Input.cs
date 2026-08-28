@@ -35,8 +35,9 @@ namespace Lvn.UI
                 _choices?.SetTimer(left / _choiceTotal);
                 if (left > 0f) return;
                 StopChoiceTimer();
-                _curChoices = null;
-                _choices?.Dismiss();
+                // Таймер выбора истёк — ветку выбрало время. Гасим тем же
+                // способом, что и клик: свой таймер уже остановлен строкой выше.
+                StopWaitingForPlayer(cancelTimer: false);
                 _dialogue?.SuppressAdvanceHint(false);
                 // Stale after a load/rollback is a no-op inside the player.
                 if (_player != null && _player.ResolveChoiceTimeout())
@@ -97,8 +98,7 @@ namespace Lvn.UI
             panel.style.paddingBottom = Theme != null ? Theme.PanelPaddingY : 18f;
             panel.style.overflow = Overflow.Visible;   // рамка выступает наружу
             float r = Theme != null ? Theme.PanelCornerRadius : 12f;
-            panel.style.borderTopLeftRadius = r; panel.style.borderTopRightRadius = r;
-            panel.style.borderBottomLeftRadius = r; panel.style.borderBottomRightRadius = r;
+            LvnChrome.Round(panel, r);
             UiStyle.ApplyBackground(panel, Theme?.PanelSprite, Theme != null ? Theme.PanelSlice : 0);
             if (Theme?.PanelSprite == null) LvnChrome.Frame(panel);
             _inputScrim.Add(panel);

@@ -88,18 +88,9 @@ namespace Lvn.UI.Screens
             sheet.Add(header);
 
             var back = new Button(Close) { text = "‹" };
+            LvnStyler.IconSlot(back, 52f);
             back.style.fontSize = 36;
-            back.style.width = 52;
-            back.style.height = 52;
             back.style.marginRight = 12;
-            back.style.paddingTop = 0;
-            back.style.paddingBottom = 0;
-            back.style.paddingLeft = 0;
-            back.style.paddingRight = 0;
-            back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(back);
-            LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
@@ -149,18 +140,7 @@ namespace Lvn.UI.Screens
             close.style.position = Position.Absolute;
             close.style.top = Length.Percent(4f);
             close.style.right = Length.Percent(6f);
-            close.style.alignItems = Align.Center;
-            close.style.justifyContent = Justify.Center;
-            close.style.width = 56;
-            close.style.height = 56;
-            close.style.paddingTop = 0;
-            close.style.paddingBottom = 0;
-            close.style.paddingLeft = 0;
-            close.style.paddingRight = 0;
-            close.style.color = LvnTokens.Text;
-            close.style.backgroundColor = new Color(1f, 1f, 1f, 0.12f);
-            LvnChrome.ClearBorder(close);
-            LvnChrome.Round(close, 28f);
+            LvnStyler.IconSlot(close, 56f, 28f);
             _viewer.Add(close);
 
             var prev = new Button(() => Page(-1)) { text = "‹" };
@@ -281,14 +261,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Edge(cell);
             cell.style.overflow = Overflow.Hidden;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
-            cell.style.borderTopWidth = 1;
-            cell.style.borderBottomWidth = 1;
-            cell.style.borderLeftWidth = 1;
-            cell.style.borderRightWidth = 1;
-            cell.style.borderTopColor = LvnTokens.Border;
-            cell.style.borderBottomColor = LvnTokens.Border;
-            cell.style.borderLeftColor = LvnTokens.Border;
-            cell.style.borderRightColor = LvnTokens.Border;
+            LvnChrome.Border(cell, LvnTokens.Border, 1f);
 
             var art = ScreenUi.Stretch(new VisualElement());
             art.pickingMode = PickingMode.Ignore;
@@ -396,17 +369,8 @@ namespace Lvn.UI.Screens
         {
             b.style.position = Position.Absolute;
             b.style.top = Length.Percent(46f);
+            LvnStyler.IconSlot(b, 60f, 30f);
             b.style.fontSize = 42;
-            b.style.width = 60;
-            b.style.height = 60;
-            b.style.paddingTop = 0;
-            b.style.paddingBottom = 0;
-            b.style.paddingLeft = 0;
-            b.style.paddingRight = 0;
-            b.style.color = LvnTokens.Text;
-            b.style.backgroundColor = new Color(1f, 1f, 1f, 0.12f);
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, 30f);
         }
 
         // ── Demo data ──────────────────────────────────────────────────────────

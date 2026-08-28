@@ -330,8 +330,7 @@ namespace Lvn.UI
             veil.style.backgroundColor = new Color(1f, 1f, 1f, 0f);
             if (radius > 0f)
             {
-                veil.style.borderTopLeftRadius = radius; veil.style.borderTopRightRadius = radius;
-                veil.style.borderBottomLeftRadius = radius; veil.style.borderBottomRightRadius = radius;
+                LvnChrome.Round(veil, radius);
             }
             el.Add(veil);
 

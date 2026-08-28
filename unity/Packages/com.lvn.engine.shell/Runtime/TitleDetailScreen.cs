@@ -269,10 +269,7 @@ namespace Lvn.UI.Screens
             chip.style.paddingTop = 7;
             chip.style.paddingBottom = 7;
             chip.style.backgroundColor = LvnTokens.SurfaceHi;
-            chip.style.borderTopWidth = 1; chip.style.borderBottomWidth = 1;
-            chip.style.borderLeftWidth = 1; chip.style.borderRightWidth = 1;
-            chip.style.borderTopColor = LvnTokens.Border; chip.style.borderBottomColor = LvnTokens.Border;
-            chip.style.borderLeftColor = LvnTokens.Border; chip.style.borderRightColor = LvnTokens.Border;
+            LvnChrome.Border(chip, LvnTokens.Border, 1f);
             LvnChrome.Round(chip, 999f); // pill
 
             var lbl = new Label(text);

@@ -41,6 +41,25 @@ namespace Lvn.UI
         /// <summary>Скругление из темы: `Round(el)` вместо числа на глаз.</summary>
         public static void Round(VisualElement el) => Round(el, LvnTokens.Radius);
 
+        /// <summary>
+        /// ПЕРЕКРАСИТЬ РАМКУ, не трогая толщину — когда элемент уже обведён, а
+        /// сменилось только состояние (выбран, куплен, активен).
+        ///
+        /// <para>Копия этих четырёх строк жила приватно в двух экранах разом
+        /// (<c>SetBorderColor</c> в ленте хаба и в ежедневной награде) — ровно
+        /// половина <see cref="Border"/>, вырезанная потому, что толщину в тот
+        /// момент менять было не нужно. Дом отдавал работу целиком или никак, и
+        /// каждый, кому нужна была половина, отрезал её себе сам.</para>
+        /// </summary>
+        public static void Tint(VisualElement el, Color color)
+        {
+            if (el == null) return;
+            el.style.borderTopColor = color;
+            el.style.borderBottomColor = color;
+            el.style.borderLeftColor = color;
+            el.style.borderRightColor = color;
+        }
+
         /// <summary>Снять рамку со всех четырёх сторон.</summary>
         public static void ClearBorder(VisualElement el)
         {

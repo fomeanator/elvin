@@ -263,10 +263,7 @@ namespace Lvn.UI
                         }
                         if (!string.IsNullOrEmpty(target))
                             _player.GoTo(target);
-                        CancelPendingWait(); // a timed hotspot screen: the click wins the race
-                        _awaitingTap = false;
-                        _curChoices = null;
-                        _choices.Dismiss();
+                        StopWaitingForPlayer();   // клик по зоне опередил таймер — он и отменяет
                         _player.Advance();
                     };
                 }
@@ -278,10 +275,7 @@ namespace Lvn.UI
                         {
                             if (_player == null) return;
                             _player.GoTo(clickTarget);
-                            CancelPendingWait(); // a timed hotspot screen: the click wins the race
-                            _awaitingTap = false;
-                            _curChoices = null;
-                            _choices.Dismiss();
+                            StopWaitingForPlayer();   // клик по зоне опередил таймер
                             _player.Advance();
                         };
                 }

@@ -145,10 +145,7 @@ namespace Lvn.UI.Screens
             panel.style.paddingLeft = 22;
             panel.style.paddingRight = 22;
             panel.style.backgroundColor = new Color(0f, 0f, 0f, 0.72f);
-            panel.style.borderTopLeftRadius = 14;
-            panel.style.borderTopRightRadius = 14;
-            panel.style.borderBottomLeftRadius = 14;
-            panel.style.borderBottomRightRadius = 14;
+            LvnChrome.Round(panel, 14f);
             root.Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.title", "Server"));

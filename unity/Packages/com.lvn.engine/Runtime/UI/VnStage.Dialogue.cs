@@ -223,12 +223,38 @@ namespace Lvn.UI
             }).ExecuteLater(ms);
         }
 
+        /// <summary>
+        /// СЦЕНА БОЛЬШЕ НИЧЕГО НЕ ЖДЁТ ОТ ИГРОКА — снять всё, чем она его
+        /// спрашивала.
+        ///
+        /// <para>Ожидание держится в трёх местах разом: поле «ждём тап», список
+        /// показанных вариантов и сам виджет выбора на экране. Гасили их пятью
+        /// местами — перетаскивание, клик по горячей зоне (дважды), команда
+        /// перехода, фиксация выбора — и каждое своим набором: где-то с отменой
+        /// таймера, где-то без; где-то <c>_choices.Dismiss()</c>, где-то
+        /// <c>?.</c>; порядок всякий раз новый.</para>
+        ///
+        /// <para>Забыть одну строку из трёх ничего не ломает СРАЗУ: экран
+        /// чистый, а поле помнит вчерашние варианты — и следующий тап уходит в
+        /// выбор, которого игрок не видит. Такую ошибку находят не в коде, а по
+        /// жалобе «нажал и провалился не туда».</para>
+        ///
+        /// <para><paramref name="cancelTimer"/> — единственная законная разница:
+        /// таймер отменяет тот, кто ОПЕРЕДИЛ его (клик по зоне, пока идёт
+        /// обратный отсчёт), а фиксация уже сделанного выбора его не трогает.</para>
+        /// </summary>
+        private void StopWaitingForPlayer(bool cancelTimer = true)
+        {
+            if (cancelTimer) CancelPendingWait();
+            _awaitingTap = false;
+            _curChoices = null;
+            _choices?.Dismiss();
+        }
+
         private void FinishChoiceCommit(int gen, int index, string pickedText)
         {
             if (gen != _dialogueSwapGeneration) return;
-            _choices.Dismiss();
-            _curChoices = null;
-            _awaitingTap = false;
+            StopWaitingForPlayer(cancelTimer: false);   // выбор сделан — таймер уже не его дело
             _choiceCommitInFlight = false;
             _sayUp = false;
             if (_dialogue != null)

@@ -127,8 +127,7 @@ namespace Lvn.UI.Screens
             _play.style.fontSize = 30;
             _play.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
             _play.style.backgroundColor = _playBg;
-            _play.style.borderTopLeftRadius = 12; _play.style.borderTopRightRadius = 12;
-            _play.style.borderBottomLeftRadius = 12; _play.style.borderBottomRightRadius = 12;
+            LvnChrome.Round(_play, 12f);
             _play.clicked += () => OnPlay?.Invoke(_index);
             Add(_play);
 
@@ -155,8 +154,7 @@ namespace Lvn.UI.Screens
             _chaptersBtn.style.fontSize = 20;
             _chaptersBtn.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
             _chaptersBtn.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
-            _chaptersBtn.style.borderTopLeftRadius = 12; _chaptersBtn.style.borderTopRightRadius = 12;
-            _chaptersBtn.style.borderBottomLeftRadius = 12; _chaptersBtn.style.borderBottomRightRadius = 12;
+            LvnChrome.Round(_chaptersBtn, 12f);
             Add(_chaptersBtn);
 
             OnIndexChanged += _ => UpdatePlayLabel();
@@ -226,8 +224,7 @@ namespace Lvn.UI.Screens
                 var dot = new VisualElement();
                 dot.style.width = 10; dot.style.height = 10;
                 dot.style.marginLeft = 5; dot.style.marginRight = 5;
-                dot.style.borderTopLeftRadius = 5; dot.style.borderTopRightRadius = 5;
-                dot.style.borderBottomLeftRadius = 5; dot.style.borderBottomRightRadius = 5;
+                LvnChrome.Round(dot, 5f);   // точка — круг из квадрата 10×10
                 dot.style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
                 _dots.Add(dot);
                 _dotEls.Add(dot);
@@ -275,8 +272,7 @@ namespace Lvn.UI.Screens
             card.style.flexShrink = 0;
             card.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
             float r = _cfg.card_radius ?? 18f;
-            card.style.borderTopLeftRadius = r; card.style.borderTopRightRadius = r;
-            card.style.borderBottomLeftRadius = r; card.style.borderBottomRightRadius = r;
+            LvnChrome.Round(card, r);
             card.style.overflow = Overflow.Hidden;
             card.style.justifyContent = Justify.FlexEnd;
 
@@ -362,8 +358,7 @@ namespace Lvn.UI.Screens
             panel.style.left = Length.Percent(10f); panel.style.right = Length.Percent(10f);
             panel.style.top = Length.Percent(10f); panel.style.bottom = Length.Percent(10f);
             panel.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
-            panel.style.borderTopLeftRadius = 14; panel.style.borderTopRightRadius = 14;
-            panel.style.borderBottomLeftRadius = 14; panel.style.borderBottomRightRadius = 14;
+            LvnChrome.Round(panel, 14);
             panel.style.paddingLeft = 16; panel.style.paddingRight = 16;
             panel.style.paddingTop = 14; panel.style.paddingBottom = 14;
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -409,8 +404,7 @@ namespace Lvn.UI.Screens
                 cont.style.justifyContent = Justify.Center;
                 cont.style.alignItems = Align.FlexStart;
                 cont.style.backgroundColor = _playBg;
-                cont.style.borderTopLeftRadius = 10; cont.style.borderTopRightRadius = 10;
-                cont.style.borderBottomLeftRadius = 10; cont.style.borderBottomRightRadius = 10;
+                LvnChrome.Round(cont, 10);
 
                 var contTitle = new Label((LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue"))
                         + " — " + ChapterLabel(autoCh));
@@ -466,8 +460,7 @@ namespace Lvn.UI.Screens
                 row.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
                 var bg = _playBg;
                 row.style.backgroundColor = new Color(bg.r, bg.g, bg.b, unlocked ? bg.a : bg.a * 0.35f);
-                row.style.borderTopLeftRadius = 10; row.style.borderTopRightRadius = 10;
-                row.style.borderBottomLeftRadius = 10; row.style.borderBottomRightRadius = 10;
+                LvnChrome.Round(row, 10);
                 row.SetEnabled(unlocked);
                 scroll.Add(row);
             }

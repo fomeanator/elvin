@@ -127,10 +127,7 @@ namespace Lvn.UI
         {
             if (_player == null) return;
             if (!string.IsNullOrEmpty(label)) _player.GoTo(label);
-            CancelPendingWait();
-            _awaitingTap = false;
-            _curChoices = null;
-            _choices?.Dismiss();
+            StopWaitingForPlayer();
             _player.Advance();
         }
 
@@ -367,8 +364,7 @@ namespace Lvn.UI
             _hintCard.style.borderRightColor = border;
             _hintCard.style.borderBottomColor = border;
             float r = Mathf.Max(12f, (Theme != null ? Theme.PanelCornerRadius : 12f) * 0.65f);
-            _hintCard.style.borderTopLeftRadius = r; _hintCard.style.borderTopRightRadius = r;
-            _hintCard.style.borderBottomLeftRadius = r; _hintCard.style.borderBottomRightRadius = r;
+            LvnChrome.Round(_hintCard, r);
 
             _hintLabel.style.color = Theme != null ? Theme.TextColor : Color.white;
             _hintLabel.style.fontSize = Theme != null
@@ -380,8 +376,7 @@ namespace Lvn.UI
                 hintIcon.style.backgroundColor = accent;
                 hintIcon.style.color = bg;
                 hintIcon.style.fontSize = 24;
-                hintIcon.style.borderTopLeftRadius = 18; hintIcon.style.borderTopRightRadius = 18;
-                hintIcon.style.borderBottomLeftRadius = 18; hintIcon.style.borderBottomRightRadius = 18;
+                LvnChrome.Round(hintIcon, 18f);
                 if (Theme != null) LvnFonts.Apply(hintIcon, Theme.Font);
             }
             _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);
