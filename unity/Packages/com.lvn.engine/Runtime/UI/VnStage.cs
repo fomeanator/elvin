@@ -158,7 +158,11 @@ namespace Lvn.UI
         // and every bg/actor/audio load would throw immediately → a blank stage.
         private void OnEnable()
         {
-            _cts?.Dispose(); _cts = new CancellationTokenSource();
+            // Прежний источник уже ОТМЕНЁН в OnDisable — гасить нечего, только
+            // отпустить. Retire звать не нужно: он бы отменил повторно, а тут
+            // важна не отмена, а свежий источник для нового включения.
+            _cts?.Dispose();
+            _cts = new CancellationTokenSource();
             // Скрытие интерфейса просят и не через сцену (это общая роль), а
             // видимость слоёв ставит она. Без подписки чужая просьба доехала
             // бы до Режиссёра и осталась там.
