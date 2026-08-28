@@ -33,9 +33,15 @@ func TestBrowserExpressionsAgreeWithTheCorpus(t *testing.T) {
 		t.Skip("node не установлен — браузерный вычислитель не проверяется на этой машине")
 	}
 	root := repoRoot(t)
-	exprJS := filepath.Join(root, filepath.FromSlash("server/website/play/expr.js"))
+	// ИСХОДНИК, А НЕ СБОРКА. Вчерашняя версия смотрела в
+	// `server/website/play/` — а эта папка целиком в .gitignore: она вывод
+	// `npm run deploy`, и на чистой машине её нет. Страж молча пропускался бы
+	// всегда, создавая ровно ту уверенность, ради борьбы с которой заведён.
+	exprJS := filepath.Join(root, filepath.FromSlash("panel/public/play/expr.js"))
 	if _, err := os.Stat(exprJS); err != nil {
-		t.Skipf("expr.js не найден: %v", err)
+		t.Fatalf("panel/public/play/expr.js не найден (%v) — браузерный вычислитель "+
+			"ЕСТЬ третья реализация языка и обязан лежать в репозитории, а не только "+
+			"в выводе сборки", err)
 	}
 
 	type expectation struct {
