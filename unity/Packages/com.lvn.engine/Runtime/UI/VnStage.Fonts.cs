@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -36,17 +37,37 @@ namespace Lvn.UI
             try
             {
                 var ca = Assets as CachingAssets;
-                if (ca == null) return;
+                if (ca == null)
+                {
+                    // Хост принёс свой доступ к ассетам, который файлы на диск не
+                    // кладёт. Шрифт по адресу тут не взять — но АВТОР ЕГО ЗАДАЛ,
+                    // и текст пойдёт другим начертанием: сказать надо.
+                    Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт: хост не кэширует файлы на диск");
+                    return;
+                }
                 var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
                 var font = LvnFonts.FromFile(path);
                 // The theme may have been swapped while the font downloaded —
                 // only apply if it still asks for this exact url.
-                if (font == null || Theme == null || Theme.FontResourcePath != url) return;
+                if (Theme == null || Theme.FontResourcePath != url) return;   // тему сменили — не отказ
+                if (font == null)
+                {
+                    Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт: файл не стал начертанием");
+                    return;
+                }
                 Theme.Font = font;
                 LvnFonts.Prewarm(font, _prewarmCorpus); // chapter may already be playing
                 RebuildChrome(); // dialogue/choices re-skin with the new face
             }
-            catch { /* best-effort: the panel default font keeps rendering */ }
+            catch (OperationCanceledException) { /* глава сменилась — не отказ */ }
+            catch (Exception ex)
+            {
+                // Раньше здесь стояло молчание с пояснением «best-effort: панель
+                // продолжит рисовать своим шрифтом». Рисовать-то продолжит, но
+                // автор ЗАДАЛ начертание и увидит чужое — ни в логе, ни в
+                // отчёте следа не оставалось.
+                Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт: " + ex.GetType().Name);
+            }
             // Release the dedup guard: per-chapter theme rebuilds null out
             // Theme.Font, and the NEXT ResolveFont must be able to re-apply —
             // by then it's a cache hit (file on disk + LvnFonts path cache).
@@ -61,14 +82,29 @@ namespace Lvn.UI
             try
             {
                 var ca = Assets as CachingAssets;
-                if (ca == null) return;
+                if (ca == null)
+                {
+                    Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт надписи: хост не кэширует файлы на диск");
+                    return;
+                }
                 var path = await ca.EnsureCachedFileAsync(url, _cts != null ? _cts.Token : default);
                 var font = LvnFonts.FromFile(path);
-                if (font == null || el == null || el.panel == null) return;
+                if (el == null || el.panel == null) return;   // надпись убрали — не отказ
+                if (font == null)
+                {
+                    Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт надписи: файл не стал начертанием");
+                    return;
+                }
                 LvnFonts.Apply(el, font);
                 LvnFonts.Prewarm(font, _prewarmCorpus);
             }
-            catch { /* label keeps the theme face */ }
+            catch (OperationCanceledException) { /* сцена сменилась — не отказ */ }
+            catch (Exception ex)
+            {
+                // «Надпись останется с шрифтом темы» — верно, но автор просил
+                // ДРУГОЙ и об этом не узнает.
+                Lvn.Content.ContentLoader.NoteAssetUnusable(url, "шрифт надписи: " + ex.GetType().Name);
+            }
         }
     }
 }

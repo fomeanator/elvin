@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
@@ -112,7 +113,18 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(url) || assets == null) return;
             AudioClip clip = null;
             try { clip = await assets.LoadAudioAsync(url, ct); }
-            catch { /* silent if the host ships no voice */ }
+            catch (OperationCanceledException) { return; }   // реплику сменили — это не отказ
+            catch (System.Exception ex)
+            {
+                // «Хост не поставляет озвучку» — это ПУСТОЙ url, и он отсеян
+                // строкой выше. Сюда попадает другое: автор озвучку ЗАДАЛ, а она
+                // не зазвучала. Для игрока это немая реплика там, где обещан
+                // голос, и молчать об этом нельзя — ровно как с пропавшей
+                // картинкой.
+                Lvn.Content.ContentLoader.NoteAssetUnusable(url, "озвучка: " + ex.GetType().Name);
+            }
+            if (clip == null && _voice != null && gen == _voiceGen)
+                Lvn.Content.ContentLoader.NoteAssetUnusable(url, "озвучка не стала клипом");
             if (clip == null || _voice == null || gen != _voiceGen) return;
             _voice.clip = clip;
             // ЧЕРЕЗ ЗВУКОРЕЖИССЁРА, а не с ползунка напрямую: здесь терялся
@@ -242,7 +254,14 @@ namespace Lvn.UI
 
             AudioClip clip = null;
             try { clip = await assets.LoadAudioAsync(url, ct); }
-            catch { /* silent if the host ships no audio */ }
+            catch (OperationCanceledException) { return; }   // сцена сменилась — не отказ
+            catch (System.Exception ex)
+            {
+                // Пустой url отсеян выше: сюда попадает музыка или звук,
+                // которые автор НАЗВАЛ, а они не зазвучали. Тишина вместо темы
+                // — такая же пропажа, как силуэт вместо героини.
+                Lvn.Content.ContentLoader.NoteAssetUnusable(url, "звук «" + channel + "»: " + ex.GetType().Name);
+            }
             if (clip == null) return;
             // A newer audio command (or a chapter reset that bumps the channel via
             // StopVoice/ResetStage's stop) started on this channel while we loaded
