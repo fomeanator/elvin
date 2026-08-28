@@ -47,7 +47,7 @@ namespace Lvn.Services
                 {
                     var sku = S(0);
                     if (string.IsNullOrEmpty(sku)) return false;
-                    return LvnWallet.Inventory.TryGetValue(sku, out var n) && n > 0;
+                    return LvnWallet.Has(sku);
                 }
 
                 // balance("crystals") — сколько валюты у игрока сейчас.
