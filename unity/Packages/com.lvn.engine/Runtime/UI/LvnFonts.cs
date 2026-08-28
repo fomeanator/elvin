@@ -117,6 +117,22 @@ namespace Lvn.UI
         }
 
         /// <summary>Шрифт заголовков — тот же гарнитуры, но тяжёлый.</summary>
+        /// <summary>
+        /// ШРИФТ ДВИЖКА ИЗ КОРОБКИ — Onest (OFL, лежит в пакете): у него родная
+        /// кириллица, и он не безликий. Системный Arial выдаёт «сделано на
+        /// коленке» раньше, чем прочитан текст.
+        ///
+        /// <para>Путь стоял умолчанием в ДВУХ темах — сцены и оболочки, — и
+        /// совпадал он по договорённости, а не по устройству. Разойдись они на
+        /// одну правку, и диалог с меню поехали бы разными начертаниями:
+        /// заметно сразу, а искать пришлось бы в двух файлах, где написано одно
+        /// и то же.</para>
+        /// </summary>
+        public const string DefaultPath = "Fonts/Onest-Regular";
+
+        /// <summary>Заголовочное начертание того же семейства.</summary>
+        public const string DefaultDisplayPath = "Fonts/Onest-ExtraBold";
+
         private static Font _display;
         private static string _displayPath;
         public static Font Display
