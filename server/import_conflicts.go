@@ -37,7 +37,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -136,9 +135,7 @@ func (a *conflictAPI) handleList(w http.ResponseWriter, r *http.Request) {
 	// n <= 0 keeps the default on purpose: UnifiedDiff reads 0 as "unlimited",
 	// so honouring ?max_lines=0 would answer a request to shrink the body with
 	// an unbounded one. Use diff=0 to drop diffs entirely.
-	if n, err := strconv.Atoi(q.Get("max_lines")); err == nil && n > 0 {
-		budget = min(n, maxDiffLines)
-	}
+	budget = qtyParam(r, "max_lines", budget, maxDiffLines)
 	wantDiff := q.Get("diff") != "0"
 
 	rows := make([]conflictRow, 0, len(conflicts))

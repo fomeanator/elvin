@@ -92,7 +92,46 @@ namespace Lvn
             // метку впервые спросили после потери.
             LvnKeep.Put(name, value);
             if (fromFile != value) WriteFile(name, value);
+            Enroll(name);
             return value;
+        }
+
+        /// <summary>
+        /// ЗАБЫТЬ ВСЕ постоянные метки — обряд удаления аккаунта.
+        ///
+        /// <para>Забвение (<c>LvnForget</c>) не знает имён меток и знать не
+        /// должно: их выдаёт паспортист, ему и держать список. Иначе следующая
+        /// метка переживёт удаление аккаунта ровно так же незаметно, как это
+        /// уже случалось с галереей и прочитанным — промах увидит один человек,
+        /// тот, кто попросил себя забыть.</para>
+        ///
+        /// <para>Список живёт В КНИЖКЕ, а не в памяти процесса: метку спрашивают
+        /// при подъёме соответствующей службы, и на момент удаления аккаунта
+        /// половина из них может быть ещё не спрошена в этом запуске.</para>
+        /// </summary>
+        public static void ForgetAll()
+        {
+            foreach (var name in Enrolled()) Forget(name);
+            LvnKeep.Drop(Roll);
+        }
+
+        // Перепись выданных меток. Разделитель — перевод строки: имя метки
+        // задаёт владелец, и запятая в нём законна.
+        private const string Roll = "lvn.marks";
+
+        private static string[] Enrolled()
+        {
+            var roll = LvnKeep.Get(Roll, "");
+            return string.IsNullOrEmpty(roll)
+                ? System.Array.Empty<string>()
+                : roll.Split('\n');
+        }
+
+        private static void Enroll(string name)
+        {
+            foreach (var known in Enrolled()) if (known == name) return;
+            var roll = LvnKeep.Get(Roll, "");
+            LvnKeep.Put(Roll, string.IsNullOrEmpty(roll) ? name : roll + "\n" + name);
         }
 
         /// <summary>
