@@ -160,7 +160,7 @@ namespace Lvn.UI.Screens
                     o => o.Item2,
                     o => Current() == o.Item1,
                     o => LvnPrefs.ArtQuality = o.Item1,
-                    StyleValueButton));
+                    StyleValueButton, alignEnd: false));
         }
 
         private VisualElement FpsRow()
@@ -171,7 +171,7 @@ namespace Lvn.UI.Screens
                     fps => fps.ToString(),
                     fps => (LvnPrefs.TargetFps == 30) == (fps == 30),
                     fps => LvnPrefs.TargetFps = fps,
-                    StyleValueButton));
+                    StyleValueButton, alignEnd: false));
         }
 
         // "Restore purchases": re-syncs the wallet from the server, which re-grants

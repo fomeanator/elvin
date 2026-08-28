@@ -313,7 +313,9 @@ namespace Lvn.UI.Screens
             else badge.text = PriceText(item);
 
             var name = card.Q<Label>("card-name");
-            if (name != null) name.text = item.name ?? item.value;
+            // Название наряда — подпись, а не идентификатор: в английском
+            // интерфейсе «Орхидея» читается как недоделанный перевод.
+            if (name != null) name.text = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
 
             // РЕДКОСТЬ ПРЕДМЕТА — цветной ободок карточки. Поле `rarity` у
             // предмета и палитра `rarity_colors` в конфигурации гардероба
@@ -454,7 +456,7 @@ namespace Lvn.UI.Screens
             plate.style.paddingLeft = 6; plate.style.paddingRight = 6;
             card.Add(plate);
 
-            var name = new Label(item.name ?? item.value) { pickingMode = PickingMode.Ignore };
+            var name = new Label(Lvn.Content.LvnWords.Name("skin", item.value, item.name)) { pickingMode = PickingMode.Ignore };
             name.name = "card-name";
             name.style.color = _text;
             name.style.fontSize = 25;

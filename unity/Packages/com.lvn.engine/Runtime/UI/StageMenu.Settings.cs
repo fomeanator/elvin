@@ -121,7 +121,8 @@ namespace Lvn.UI
             var options = new List<string> { "" };
             foreach (var f in LvnFonts.Families) options.Add(f.Id);
             return LvnSegment.Of(options,
-                id => string.IsNullOrEmpty(id) ? L("font_author", "As authored") : LvnFonts.FamilyOf(id).Title,
+                id => string.IsNullOrEmpty(id) ? L("font_author", "As authored")
+                     : Lvn.Content.LvnWords.Name("font", id, LvnFonts.FamilyOf(id).Title),
                 id => (LvnPrefs.FontFamily ?? "") == id,
                 id => LvnPrefs.FontFamily = id,
                 StyleOption);

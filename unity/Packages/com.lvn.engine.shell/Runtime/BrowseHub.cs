@@ -187,7 +187,7 @@ namespace Lvn.UI.Screens
 
             var brand = new VisualElement();
             brand.style.marginTop = 2; brand.style.marginBottom = 20;
-            var eyebrow = new Label((_cfg.subtitle ?? LvnWords.Of("hub.subtitle", "Choose your path")).ToUpperInvariant());
+            var eyebrow = new Label((LvnWords.Pick("hub.subtitle", _cfg.subtitle, "Choose your path")).ToUpperInvariant());
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 30;
             eyebrow.style.letterSpacing = 4f; eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             eyebrow.style.marginBottom = 8;
@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             dActions.style.flexDirection = FlexDirection.Row;
             dActions.style.alignItems = Align.Center;
             dActions.style.marginTop = 14;
-            _detailPlay = AccentButton(_cfg.play_text ?? LvnWords.Of("hub.play", "Play"), () => LvnAsync.Fire(PlayTappedAsync(), "PlayTapped"));
+            _detailPlay = AccentButton(LvnWords.Pick("hub.play", _cfg.play_text, "Play"), () => LvnAsync.Fire(PlayTappedAsync(), "PlayTapped"));
             _detailPlay.style.flexGrow = 1;
             _detailPlay.style.marginTop = 0;
             dActions.Add(_detailPlay);
@@ -495,7 +495,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(img)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_detailImage, img, _assets), "AssignBg");
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
-            _detailPlay.text = locked ? (_cfg.locked_text ?? LvnWords.Of("hub.locked", "Locked"))
+            _detailPlay.text = locked ? (LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked"))
                 : PlayLabel(t);
             _detailChips.Clear();
             if (locked) _detailChips.Add(Chip(null, _dim, LvnIcon.Lock));
@@ -620,7 +620,7 @@ namespace Lvn.UI.Screens
             }
             if (orphans.Count > 0)
             {
-                var lib = new LvnCollection { id = "_library", name = _cfg.library_text ?? LvnWords.Of("hub.library", "Novels"), titles = orphans };
+                var lib = new LvnCollection { id = "_library", name = LvnWords.Pick("hub.library", _cfg.library_text, "Novels"), titles = orphans };
                 var libRow = CollectionRow(lib, hero: _collections.Count == 0);
                 if (libRow != null) _hubRows.Add(libRow);
             }
@@ -699,7 +699,7 @@ namespace Lvn.UI.Screens
             b.style.justifyContent = Justify.FlexEnd;
             b.style.paddingLeft = 24; b.style.paddingRight = 24; b.style.paddingBottom = 24;
 
-            var eyebrow = new Label((resume ? (_cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue")) : (_cfg.featured_text ?? LvnWords.Of("hub.featured", "Featured"))).ToUpperInvariant());
+            var eyebrow = new Label((resume ? (LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")) : (LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured"))).ToUpperInvariant());
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
@@ -711,7 +711,7 @@ namespace Lvn.UI.Screens
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
             actions.style.marginTop = 12;
             var play = new Button(() => { if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
-            { text = locked ? (_cfg.locked_text ?? LvnWords.Of("hub.locked", "Locked")) : (resume ? (_cfg.continue_text ?? LvnWords.Of("hub.continue", "Continue")) : (_cfg.play_text ?? LvnWords.Of("hub.play", "Play"))) };
+            { text = locked ? (LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")) : (resume ? (LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")) : (LvnWords.Pick("hub.play", _cfg.play_text, "Play"))) };
             play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
@@ -870,8 +870,8 @@ namespace Lvn.UI.Screens
 
         private string PlayLabel(LvnTitle t) =>
             t.cost != null && t.cost.amount > 0
-                ? (_cfg.play_text ?? LvnWords.Of("hub.play", "Play")) + "  ·  " + string.Format(_cfg.cost_text ?? "{0}", t.cost.amount)
-                : (_cfg.play_text ?? LvnWords.Of("hub.play", "Play"));
+                ? (LvnWords.Pick("hub.play", _cfg.play_text, "Play")) + "  ·  " + string.Format(_cfg.cost_text ?? "{0}", t.cost.amount)
+                : (LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
 
         /// <summary>
         /// Круглая/квадратная кнопка с векторной иконкой вместо надписи.

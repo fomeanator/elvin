@@ -177,7 +177,7 @@ namespace Lvn.UI.Screens
             headRow.style.alignItems = Align.Center;
             Add(headRow);
 
-            _title = new Label(_cfg.title ?? LvnWords.Of("wardrobe.title", "Wardrobe"));
+            _title = new Label(LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe"));
             _title.style.display = DisplayStyle.None; // подпись убрана, поле живо для хоста
 
             // ВО ВЕСЬ РОСТ. Раньше этот шеврон ЗАКРЫВАЛ примерку, и игроки его
@@ -196,7 +196,7 @@ namespace Lvn.UI.Screens
             var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
             peek.Add(peekIcon);
-            var peekLabel = new Label(_cfg.peek_text ?? LvnWords.Of("wardrobe.peek", "Full height"));
+            var peekLabel = new Label(LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
             peekLabel.style.fontSize = 20;
             peekLabel.style.marginLeft = 8;
             peekLabel.style.color = LvnTokens.Text;
@@ -352,7 +352,7 @@ namespace Lvn.UI.Screens
             actions.style.marginTop = 12;
             Add(actions);
 
-            _cancel = new Button(Cancel) { text = _cfg.cancel_text ?? LvnWords.Of("wardrobe.cancel", "Cancel") };
+            _cancel = new Button(Cancel) { text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel") };
             _cancel.style.fontSize = 28;
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;
@@ -485,12 +485,12 @@ namespace Lvn.UI.Screens
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
             _tab = null;
-            _title.text = _cfg.title ?? LvnWords.Of("wardrobe.title", "Wardrobe");
+            _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
 
             RebuildRoster();
             if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
             {
-                _itemName.text = _cfg.empty_text ?? LvnWords.Of("wardrobe.empty", "The wardrobe is empty");
+                _itemName.text = LvnWords.Pick("wardrobe.empty", _cfg.empty_text, "The wardrobe is empty");
                 RebuildStrip(); // не показывать карточки прошлого персонажа
                 RefreshConfirm();
                 return;

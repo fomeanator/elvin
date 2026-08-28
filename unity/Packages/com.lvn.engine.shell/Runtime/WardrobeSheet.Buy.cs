@@ -124,7 +124,7 @@ namespace Lvn.UI.Screens
                 // языка новеллы. В одном окне цена «1 200» соседствовала с
                 // балансом «1 200», собранным по другому правилу.
                 string price = Lvn.UI.LvnPriceTag.Amount(item.price);
-                string buy = _cfg.buy_text ?? LvnWords.Of("wardrobe.buy", "Buy");
+                string buy = LvnWords.Pick("wardrobe.buy", _cfg.buy_text, "Buy");
                 SetConfirmText(named
                         ? $"{buy}:  {price} {_cfg.currency_label}"
                         : $"{buy}:  {price}",
@@ -132,7 +132,7 @@ namespace Lvn.UI.Screens
                 LvnLog.Trace($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
                           $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
             }
-            else SetConfirmText(_cfg.confirm_text ?? LvnWords.Of("wardrobe.choose", "Choose"));
+            else SetConfirmText(LvnWords.Pick("wardrobe.choose", _cfg.confirm_text, "Choose"));
         }
 
         internal async Task ConfirmAsync()
@@ -213,7 +213,7 @@ namespace Lvn.UI.Screens
 
             // В попапе значок не нарисуешь — но и служебное имя валюты
             // показывать нельзя: без названного currency_label остаётся цена.
-            string title = _cfg.insufficient_text ?? LvnWords.Of("wallet.not_enough", "Not enough");
+            string title = LvnWords.Pick("wallet.not_enough", _cfg.insufficient_text, "Not enough");
             string msg = string.IsNullOrEmpty(_cfg.currency_label)
                 ? $"{title}: {LvnPriceTag.Amount(item.price)}"
                 : $"{title}: {LvnPriceTag.Amount(item.price)} {_cfg.currency_label}";
