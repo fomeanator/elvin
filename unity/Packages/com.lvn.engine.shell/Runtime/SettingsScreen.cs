@@ -414,16 +414,17 @@ namespace Lvn.UI.Screens
         private VisualElement LanguageRow()
         {
             var label = LvnWords.Pick("settings.language", _cfg.language_label, "Story language");
-            // The script's inline language, then each localized catalog.
-            var options = new List<string> { "" };
-            options.AddRange(LvnPrefs.AvailableLocales);
+            // Варианты и их имена — у дома языка: «Авто», оригинал, каталоги.
+            // Здесь их собирали руками и без «авто», так что вернуться к языку
+            // системы после первого же выбора было нечем.
+            var options = new List<string>(Lvn.UI.LvnLocale.Options());
             // Через дом рядов: сколько у новеллы каталогов, столько и кнопок —
             // без переноса четвёртый язык уехал бы за край, как ступень арта.
             return WideRow(label, LvnWords.Of("settings.language_hint", "Chapter text; the interface follows it"),
                 Lvn.UI.LvnSegment.Of(options,
                     LocaleName,
-                    loc => LvnPrefs.Locale == loc,
-                    loc => LvnPrefs.Locale = loc,   // NovelApp перечитает каталог сам
+                    loc => Lvn.UI.LvnLocale.Chosen == loc,
+                    loc => Lvn.UI.LvnLocale.Chosen = loc,   // NovelApp перечитает каталог сам
                     StyleValueButton, alignEnd: false));
         }
 
@@ -569,7 +570,7 @@ namespace Lvn.UI.Screens
 
         // Пилюля оригинала носит ИМЯ ЯЗЫКА («Русский»), а не слово «Оригинал»
         // — «Оригинал/Русский» при русском оригинале читалось бессмыслицей.
-        private static string LocaleName(string loc) => LvnPrefs.LocaleTitle(loc);
+        private static string LocaleName(string loc) => Lvn.UI.LvnLocale.Title(loc);
 
         private static string Capitalize(string s) =>
             string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);

@@ -463,7 +463,10 @@ namespace Lvn.UI.Screens
 
         private void ShowCollection(LvnCollection c)
         {
-            _collectionTitle.text = c.name ?? c.id;
+            // Имя подборки — через словарь, как и всё, что видит игрок:
+            // авторское «Экспедиции» посреди английского хаба читается как
+            // недоделанный перевод, а не как выбор.
+            _collectionTitle.text = LvnWords.Name("collection", c.id, c.name);
             _collectionList.Clear();
             if (c.titles != null)
                 foreach (var id in c.titles)
@@ -491,7 +494,7 @@ namespace Lvn.UI.Screens
         {
             _detailTarget = t;
             _detailFrom = from;
-            _detailTitle.text = t.name ?? t.id;
+            _detailTitle.text = LvnWords.Name("title", t.id, t.name);
             _detailBigTitle.text = _theme.Heading(LvnWords.Name("title", t.id, t.name));
             var art = t.card;
             _detailSubtitle.text = LvnWords.Name("subtitle", t.id, t.subtitle ?? "");
@@ -713,14 +716,14 @@ namespace Lvn.UI.Screens
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
-            var title = new Label(t.name ?? t.id);
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Name("title", t.id, t.name));
             title.style.color = _text; title.style.fontSize = 57; title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.whiteSpace = WhiteSpace.Normal; b.Add(title);
 
             var actions = new VisualElement();
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
             actions.style.marginTop = 12;
-            var play = new Button(() => { if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
+            var play = new Button(() => { if (locked) { FireLockedHint(LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
             { };
             bool lock0 = locked, res1 = resume;
             Lvn.UI.LvnRedress.Bind(play, () =>

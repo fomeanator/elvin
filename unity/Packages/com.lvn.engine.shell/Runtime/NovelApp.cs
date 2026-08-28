@@ -68,7 +68,16 @@ namespace Lvn.UI.Screens
         /// источника.</para>
         /// </summary>
         public string CurrentLocale
-            => !string.IsNullOrEmpty(LvnPrefs.Locale) ? LvnPrefs.Locale : Locale;
+        {
+            get
+            {
+                // ДЕЙСТВУЮЩИЙ язык считает дом: «авто» он разрешает в код
+                // системы сам, и хосту не нужно ни смотреть на телефон, ни
+                // записывать ответ в выбор игрока.
+                var live = Lvn.UI.LvnLocale.Effective;
+                return !string.IsNullOrEmpty(live) ? live : Locale;
+            }
+        }
 
         /// <summary>Язык, на котором СЕЙЧАС собран каталог главы. Не «что
         /// выбрано», а «что применено» — только для того, чтобы заметить смену.</summary>
@@ -374,15 +383,12 @@ namespace Lvn.UI.Screens
             // Language: the manifest declares which catalogs exist (Settings shows
             // a picker when any); the reader's persisted choice wins over the
             // inspector default, and changing it mid-story reloads the catalog.
-            // Язык — тоже по устройству (пока игрок не выбрал сам): системный
-            // язык с каталогом в манифесте включается на первом запуске.
-            if (!LvnPrefs.LocaleChosen && manifest.languages != null)
-            {
-                var sys = Lvn.UI.LvnDeviceProfile.SystemLocale;
-                if (!string.IsNullOrEmpty(sys) && sys != (manifest.language ?? "ru")
-                    && manifest.languages.Contains(sys))
-                    LvnPrefs.Locale = sys;
-            }
+            // Язык устройства подставлял ЗДЕСЬ сам хост — и записывал его в
+            // выбор игрока. После этого «не выбирал» было не отличить от
+            // «выбрал», вернуться к языку системы нечем, а смена языка телефона
+            // ничего не меняла: подстановка случалась однажды в жизни установки.
+            // Теперь решает дом (LvnLocale.Effective), и «авто» — обычный
+            // вариант в ряду настроек.
             LvnPrefs.OriginalLocale = manifest.language ?? "ru";
             LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
                 ? manifest.languages : System.Array.Empty<string>();

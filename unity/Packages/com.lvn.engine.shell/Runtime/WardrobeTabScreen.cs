@@ -54,11 +54,12 @@ namespace Lvn.UI.Screens
                 foreach (var id in explicitRoster)
                     if (!string.IsNullOrEmpty(id) && _manifest.sprites != null
                         && _manifest.sprites.TryGetValue(id, out var d))
-                        list.Add((id, d?.name ?? id));
+                        list.Add((id, LvnWords.Name("actor", id, d?.name)));
             var entity = Entity;
             if (list.Count == 0 && !string.IsNullOrEmpty(entity))
                 list.Add((entity, _manifest?.sprites != null
-                    && _manifest.sprites.TryGetValue(entity, out var e) ? e?.name ?? entity : entity));
+                    && _manifest.sprites.TryGetValue(entity, out var e)
+                        ? LvnWords.Name("actor", entity, e?.name) : entity));
             return list;
         }
 

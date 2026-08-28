@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
         // кодом четырежды — в четырёх местах одинаково по-русски.
         private static string ChapterEntryLabel(LvnTitle t, LvnChapter ch)
             => LvnWords.Of("dl.chapter_entry", "{title} — chapter {n}")
-                .Replace("{title}", t.name ?? t.id)
+                .Replace("{title}", LvnWords.Name("title", t.id, t.name))
                 .Replace("{n}", ch.number.ToString());
 
         // ── «Скачать всю игру» (ELVIN-85) ────────────────────────────────────
