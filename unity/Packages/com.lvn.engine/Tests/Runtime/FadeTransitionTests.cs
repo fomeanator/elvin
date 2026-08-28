@@ -118,8 +118,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest, Ignore("проверяет путь мимо сцены — пересобрать от WorldStage, см. remarks")]
         public IEnumerator MidTransitionHasNoXrayAndUsesNoMaterial()
         {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-                Assert.Ignore("нет графики — картинку не проверить");
+            TestPixels.RequireGraphics();
             BuildScene(clothSmaller: false);
             yield return null;
 
@@ -166,8 +165,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator DissolveEatsAllLayersOnOneGrid()
         {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-                Assert.Ignore("нет графики — картинку не проверить");
+            TestPixels.RequireGraphics();
             var shader = Resources.Load<Shader>("LvnSpriteFx");
             if (shader == null || !shader.isSupported)
                 Assert.Ignore("шейдер слоёв недоступен");

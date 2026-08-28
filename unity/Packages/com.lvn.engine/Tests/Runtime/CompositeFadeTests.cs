@@ -28,8 +28,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator ClothesDoNotRevealTheBodyMidFade()
         {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-                Assert.Ignore("нет графики — картинку не проверить");
+            TestPixels.RequireGraphics();
             var shader = Resources.Load<Shader>("LvnSpriteFx");
             if (shader == null || !shader.isSupported)
                 Assert.Ignore("шейдер слоёв недоступен на этой машине");
@@ -63,7 +62,7 @@ namespace Lvn.Tests.Runtime
             cam.Render();
             yield return null;
 
-            var shot = Read(rt);
+            var shot = TestPixels.Read(rt);
             // СРЕДНЕЕ ПО ОБЛАСТИ, а не один пиксель: боковой фронт проходит
             // через область, поэтому одиночная проба увидит только одну его
             // сторону и не измерит переход целиком.
@@ -99,8 +98,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator SideFadeIsOneSmoothBandWithoutSpeckle()
         {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-                Assert.Ignore("нет графики — картинку не проверить");
+            TestPixels.RequireGraphics();
 
             var camGo = new GameObject("clean-fade-cam");
             var cam = camGo.AddComponent<Camera>();
@@ -128,7 +126,7 @@ namespace Lvn.Tests.Runtime
             cam.Render();
             yield return null;
 
-            var shot = Read(rt);
+            var shot = TestPixels.Read(rt);
             int y = shot.height / 2;
             int upwardJumps = 0;
             float previous = shot.GetPixel(0, y).grayscale;
@@ -154,8 +152,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator PartOwnedBodyMaterialUsesTheSameActorFade()
         {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-                Assert.Ignore("нет графики — картинку не проверить");
+            TestPixels.RequireGraphics();
 
             var camGo = new GameObject("part-fade-cam");
             var cam = camGo.AddComponent<Camera>();
@@ -189,7 +186,7 @@ namespace Lvn.Tests.Runtime
             cam.Render();
             yield return null;
 
-            var shot = Read(rt);
+            var shot = TestPixels.Read(rt);
             int y = shot.height / 2;
             Assert.Less(shot.GetPixel(12, y).grayscale, 0.08f,
                 "visible half must still be opaque clothes, not body");
@@ -219,15 +216,5 @@ namespace Lvn.Tests.Runtime
             rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         }
 
-        private static Texture2D Read(RenderTexture rt)
-        {
-            var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
-            RenderTexture.active = prev;
-            return tex;
-        }
     }
 }
