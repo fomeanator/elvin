@@ -269,6 +269,15 @@ function start() {
 function applyStage(cmd) {
   switch (cmd.op) {
     case "bg": if (cmd.sprite_url) $id("bg").style.backgroundImage = 'url("' + art(cmd.sprite_url) + '")'; break;
+    case "clear":
+      // Со сцены уходят все ТЕЛА; фон и надписи HUD живут в другом месте DOM и
+      // остаются намеренно — смена сцены это clear + новый bg.
+      //
+      // Ветки не было вовсе: автор писал clear, в песочнице видел чистую сцену,
+      // скачивал игру — и там актёры оставались стоять. Ровно та же копия
+      // разошлась и в состоянии кадра (см. trackStage).
+      $id("actors").replaceChildren();
+      break;
     case "actor": case "obj": {
       if (!cmd.id) break;
       let node = $id("actors").querySelector('[data-id="' + cmd.id + '"]');
