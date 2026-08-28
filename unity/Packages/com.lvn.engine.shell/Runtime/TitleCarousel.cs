@@ -421,7 +421,10 @@ namespace Lvn.UI.Screens
 
                 if (!string.IsNullOrEmpty(auto.Preview))
                 {
-                    var prev = new Label("«" + (auto.Preview.Length > 40 ? auto.Preview.Substring(0, 40) + "…" : auto.Preview) + "»");
+                    // ТОТ ЖЕ ПРЕДЕЛ, что в меню сцены: это одна и та же запись
+                    // автосейва, и «40 здесь, 46 там» игрок читает как разные
+                    // сохранения.
+                    var prev = new Label("«" + Lvn.Content.LvnClip.Text(auto.Preview, Lvn.Content.LvnClip.PreviewMax) + "»");
                     prev.pickingMode = PickingMode.Ignore;
                     prev.style.fontSize = 16;
                     prev.style.marginTop = 2;

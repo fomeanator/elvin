@@ -259,7 +259,7 @@ namespace Lvn.UI.Screens
             sample.style.whiteSpace = WhiteSpace.Normal;
             sample.style.color = _text;
             sample.style.marginTop = 12;
-            void Fit() => sample.style.fontSize = Mathf.RoundToInt(SampleBaseSize * LvnPrefs.TextScale);
+            void Fit() => sample.style.fontSize = Lvn.UI.LvnFonts.Size(SampleBaseSize * LvnPrefs.TextScale);
             Fit();
 
             var box = new VisualElement();

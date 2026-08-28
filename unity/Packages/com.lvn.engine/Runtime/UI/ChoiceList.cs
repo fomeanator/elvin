@@ -148,7 +148,7 @@ namespace Lvn.UI
         /// <summary>Кегль варианта С УЧЁТОМ ВЫБОРА ИГРОКА. Выбор — такой же
         /// текст главы, как реплика: настроив размер, игрок ждёт его и здесь, а
         /// не только в диалоге («варианты выбора не меняются», Илья 28.08).</summary>
-        private int ChoiceSize => Mathf.RoundToInt(_theme.ChoiceFontSize * LvnPrefs.TextScale);
+        private int ChoiceSize => LvnFonts.Size(_theme.ChoiceFontSize * LvnPrefs.TextScale);
 
         private VisualElement BuildOption(LvnOption option)
         {

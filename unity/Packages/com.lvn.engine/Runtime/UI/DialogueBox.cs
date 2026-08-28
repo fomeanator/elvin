@@ -520,11 +520,11 @@ namespace Lvn.UI
         /// постановка новеллы, множитель — его глаза и его телефон; спорить им
         /// не о чем, поэтому размер один и считается здесь, а не в пяти местах
         /// показа.</summary>
-        private int BodySize => Mathf.RoundToInt(_theme.BodyFontSize * LvnPrefs.TextScale);
+        private int BodySize => LvnFonts.Size(_theme.BodyFontSize * LvnPrefs.TextScale);
 
         /// <summary>Имя говорящего растёт вместе с репликой: разъехавшись, они
         /// читались бы как разные экраны.</summary>
-        private int SpeakerSize => Mathf.RoundToInt(_theme.SpeakerFontSize * LvnPrefs.TextScale);
+        private int SpeakerSize => LvnFonts.Size(_theme.SpeakerFontSize * LvnPrefs.TextScale);
 
         public void SetUserOpacity(float value)
         {

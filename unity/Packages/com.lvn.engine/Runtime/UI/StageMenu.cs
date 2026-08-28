@@ -419,7 +419,8 @@ namespace Lvn.UI
             if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
         }
 
-        private static string Trunc(string s, int max)
-            => s.Length <= max ? s : s.Substring(0, max) + "…";
+        // Правило обрезки — в доме (LvnClip): здесь оно рвало суррогатные
+        // пары и оставляло хвостовые запятые перед многоточием.
+        private static string Trunc(string s, int max) => Lvn.Content.LvnClip.Text(s, max);
     }
 }

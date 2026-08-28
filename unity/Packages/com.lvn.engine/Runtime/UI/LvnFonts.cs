@@ -146,8 +146,22 @@ namespace Lvn.UI
             public readonly string Title;    // подпись в списке
             public readonly string Path;     // текст
             public readonly string Display;  // заголовки
-            public Family(string id, string title, string path, string display)
-            { Id = id; Title = title; Path = path; Display = display; }
+
+            /// <summary>
+            /// ОПТИЧЕСКАЯ ПОПРАВКА КЕГЛЯ. Один и тот же кегль у разных гарнитур
+            /// выглядит разной величиной: у рукописной строчные буквы вдвое
+            /// ниже, чем у гротеска, а пиксельная и плакатная, наоборот, тяжелее
+            /// и шире. Без поправки «Крупный» на одной гарнитуре читается как
+            /// «Обычный», а на другой не влезает в кнопку.
+            ///
+            /// <para>Числа выбраны глазом на живом экране (Илья, 28.08): вкус
+            /// здесь и есть критерий, измерить x-height программой можно, а
+            /// решить, «читается ли», — нет.</para>
+            /// </summary>
+            public readonly float SizeScale;
+
+            public Family(string id, string title, string path, string display, float sizeScale = 1f)
+            { Id = id; Title = title; Path = path; Display = display; SizeScale = sizeScale; }
         }
 
         /// <summary>
@@ -174,9 +188,9 @@ namespace Lvn.UI
             // Характерные — их видно с первого слова. Ради этого они и есть:
             // настройка, которую нельзя проверить взглядом, ощущается сломанной.
             new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),
-            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat"),
-            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P"),
-            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne"),
+            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",       2f),
+            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P", 1f / 1.5f),
+            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne", 1f / 1.5f),
         };
 
         /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —
@@ -197,6 +211,15 @@ namespace Lvn.UI
 
         /// <summary>Выбрал ли игрок гарнитуру сам.</summary>
         public static bool PlayerPicked => !string.IsNullOrEmpty(LvnPrefs.FontFamily);
+
+        /// <summary>Поправка кегля под выбранную гарнитуру. Единица, пока игрок
+        /// не выбирал: авторский кегль подобран под авторский шрифт.</summary>
+        public static float SizeFactor => PlayerPicked ? Chosen.SizeScale : 1f;
+
+        /// <summary>Кегль с поправкой на гарнитуру: спрашивают ЗДЕСЬ, а не
+        /// умножают у себя — иначе поправка доедет до половины экранов.</summary>
+        public static int Size(float baseSize)
+            => UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(baseSize * SizeFactor));
 
         /// <summary>Путь текстового шрифта с учётом выбора игрока: тема
         /// спрашивает ЗДЕСЬ, а не читает своё поле напрямую.</summary>
