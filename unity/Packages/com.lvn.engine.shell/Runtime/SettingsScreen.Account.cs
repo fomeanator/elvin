@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
             var shortId = string.IsNullOrEmpty(uid) ? "—" : Lvn.Content.LvnClip.Id(uid);
             var val = new Label(shortId);
             val.style.color = _dim;
-            val.style.fontSize = 22;
+            val.style.fontSize = LvnTokens.TextSm;
             val.style.marginRight = 10;
             row.Add(val);
 
@@ -43,7 +43,7 @@ namespace Lvn.UI.Screens
             var row = RowEx(_cfg.version_label ?? LvnWords.Of("settings.version", "Version"), null);
             var val = new Label(Application.version + EditorBuildStamp());
             val.style.color = _dim;
-            val.style.fontSize = 22;
+            val.style.fontSize = LvnTokens.TextSm;
             row.Add(val);
             return row;
         }
@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
                 {
                     var lbl = new Label(s.name ?? "link");
                     lbl.style.color = _accent;
-                    lbl.style.fontSize = 24;
+                    lbl.style.fontSize = LvnTokens.TextSm;
                     el = lbl;
                 }
                 el.style.marginLeft = 10; el.style.marginRight = 10;
@@ -148,7 +148,7 @@ namespace Lvn.UI.Screens
                 _accountRow.RemoveAt(i);
             var val = new Label(text);
             val.style.color = _dim;
-            val.style.fontSize = 22;
+            val.style.fontSize = LvnTokens.TextSm;
             val.style.marginRight = 10;
             _accountRow.Add(val);
             if (showSignIn)

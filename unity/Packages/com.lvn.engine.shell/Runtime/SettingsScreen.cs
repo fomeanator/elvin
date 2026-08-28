@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             var title = new Label(_cfg.title ?? LvnWords.Of("settings.title", "Settings"));
             LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
-            title.style.fontSize = 36;
+            title.style.fontSize = LvnTokens.TextLg;
             title.style.marginBottom = 14;
             sheet.Add(title);
 
@@ -92,7 +92,7 @@ namespace Lvn.UI.Screens
             sheet.Add(_list);
 
             var close = new Button(Close) { text = _cfg.close_text ?? LvnWords.Of("common.close", "Close") };
-            close.style.fontSize = 26;
+            close.style.fontSize = LvnTokens.TextBase;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = _text;
@@ -149,9 +149,12 @@ namespace Lvn.UI.Screens
                 _list.Add(MenuTrackRow());
 
             Section("reading", LvnWords.Of("settings.tab_reading", "Reading"));
+            // Размер интерфейса — ПЕРВЫМ: он про то, попадает ли игрок пальцем
+            // и видит ли подписи вообще; остальное настраивают, когда это уже
+            // решено (Илья, 28.08).
+            _list.Add(UiScaleRow());
             _list.Add(FontRow());
             _list.Add(TextScaleRow());
-            _list.Add(UiScaleRow());
             _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
                 0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
@@ -209,7 +212,7 @@ namespace Lvn.UI.Screens
             return WideRow(LvnWords.Of("settings.menu_track", "Menu track"),
                 LvnWords.Of("settings.menu_track_hint", "What plays on the storefront"),
                 Lvn.UI.LvnSegment.Of(MenuTracks,
-                    t => t.title,
+                    t => LvnWords.Name("track", t.id, t.title),
                     t => (LvnPrefs.MenuTrack ?? "") == t.id
                          || (string.IsNullOrEmpty(LvnPrefs.MenuTrack) && t.id == MenuTracks[0].id),
                     t => { LvnPrefs.MenuTrack = t.id; OnMenuTrack?.Invoke(t.id); },
@@ -384,7 +387,7 @@ namespace Lvn.UI.Screens
         {
             var lbl = new Label(text.ToUpperInvariant());
             lbl.style.color = _dim;
-            lbl.style.fontSize = 19;
+            lbl.style.fontSize = LvnTokens.TextSm;
             lbl.style.letterSpacing = 2.5f;
             lbl.style.marginTop = 18;
             lbl.style.marginBottom = 4;
@@ -452,14 +455,14 @@ namespace Lvn.UI.Screens
             col.style.marginRight = 12;
             var lbl = new Label(label);
             lbl.style.color = _text;
-            lbl.style.fontSize = 26;
+            lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.whiteSpace = WhiteSpace.Normal;
             col.Add(lbl);
             if (!string.IsNullOrEmpty(hint))
             {
                 var h = new Label(hint);
                 h.style.color = _dim;
-                h.style.fontSize = 19;
+                h.style.fontSize = LvnTokens.TextSm;
                 h.style.marginTop = 2;
                 h.style.whiteSpace = WhiteSpace.Normal;
                 col.Add(h);
@@ -478,7 +481,7 @@ namespace Lvn.UI.Screens
             row.style.paddingTop = 10; row.style.paddingBottom = 10;
             var lbl = new Label(label);
             lbl.style.color = _text;
-            lbl.style.fontSize = 26;
+            lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.flexGrow = 1;
             row.Add(lbl);
             return row;
@@ -488,14 +491,14 @@ namespace Lvn.UI.Screens
         {
             var lbl = new Label(text);
             lbl.style.color = _accent;
-            lbl.style.fontSize = 22;
+            lbl.style.fontSize = LvnTokens.TextSm;
             lbl.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
             return lbl;
         }
 
         private void StyleValueButton(Button b, bool active)
         {
-            b.style.fontSize = 24;
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.paddingTop = 8; b.style.paddingBottom = 8;
             b.style.paddingLeft = 16; b.style.paddingRight = 16;
             // Роль — «один из вариантов», но палитру приносит новелла

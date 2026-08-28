@@ -328,6 +328,12 @@ namespace Lvn.UI
     {
         public static string Word(this VnTheme t, string key, string fallback)
         {
+            // ПЕРЕВОД СИЛЬНЕЕ АВТОРСКОГО СЛОВАРЯ. Подписи меню автор задаёт на
+            // своём языке, и они стояли впереди перевода: игрок переключал
+            // язык, получал английские реплики — и русское меню поверх них.
+            // Меню он читает первым, поэтому именно оно и решает, «работает ли
+            // переключатель».
+            if (Lvn.Content.LvnWords.TryTranslated(key, out var tr)) return tr;
             if (t?.MenuLabels != null && t.MenuLabels.TryGetValue(key, out var v)
                 && !string.IsNullOrEmpty(v)) return v;
             return Lvn.Content.LvnWords.Of(key, fallback);

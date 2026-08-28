@@ -83,6 +83,38 @@ namespace Lvn.Content
             Changed?.Invoke();
         }
 
+        /// <summary>
+        /// ИМЯ, КОТОРОЕ ВИДИТ ИГРОК — через словарь, если у него есть перевод.
+        ///
+        /// <para>Названия новелл, коллекций, персонажей и нарядов приходят из
+        /// данных: автор пишет их на своём языке в манифесте и каталоге. При
+        /// переключении языка реплики становились английскими, а «Агентство»,
+        /// «Экспедиции» и имена героев оставались русскими — полстраницы на
+        /// одном языке, полстраницы на другом.</para>
+        ///
+        /// <para>Ключ собирается по виду и идентификатору: <c>title.agency</c>,
+        /// <c>collection.stories</c>, <c>actor.hill</c>, <c>skin.rose</c>. Нет
+        /// перевода — остаётся авторское имя: это НЕ повод показать
+        /// идентификатор или английское умолчание.</para>
+        /// </summary>
+        public static string Name(string kind, string id, string authored)
+        {
+            if (!string.IsNullOrEmpty(kind) && !string.IsNullOrEmpty(id)
+                && TryTranslated(kind + "." + id, out var tr)) return tr;
+            return string.IsNullOrEmpty(authored) ? id : authored;
+        }
+
+        /// <summary>Есть ли ПЕРЕВОД для ключа. Спрашивают те, у кого свой
+        /// словарь ближе к экрану (тема сцены): выбор языка обязан побеждать
+        /// авторские подписи, иначе игрок переключает язык и видит переведённые
+        /// реплики в неперёведенном меню — а меню он читает первым.</summary>
+        public static bool TryTranslated(string key, out string value)
+        {
+            value = null;
+            if (_translated == null || string.IsNullOrEmpty(key)) return false;
+            return _translated.TryGetValue(key, out value) && !string.IsNullOrEmpty(value);
+        }
+
         /// <summary>Словарь сменился — экраны, уже нарисованные прежними
         /// словами, обязаны перерисоваться. Иначе перевод доедет только до
         /// того, что откроют ПОСЛЕ него.</summary>
