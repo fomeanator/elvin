@@ -28,24 +28,24 @@ namespace Lvn.UI
         {
             if (_loaded) return;
             _loaded = true;
-            _textSpeed = PlayerPrefs.GetFloat(P + "text_speed", 1f);
-            _autoAdvance = PlayerPrefs.GetInt(P + "auto_advance", 0) == 1;
-            _autoDelayScale = PlayerPrefs.GetFloat(P + "auto_delay", 1f);
-            _volMusic = PlayerPrefs.GetFloat(P + "vol_music", 1f);
-            _volAmbient = PlayerPrefs.GetFloat(P + "vol_ambient", 1f);
-            _volSfx = PlayerPrefs.GetFloat(P + "vol_sfx", 1f);
-            _volVoice = PlayerPrefs.GetFloat(P + "vol_voice", 1f);
-            _reduceMotion = PlayerPrefs.GetInt(P + "reduce_motion", 0) == 1;
-            _skipReadOnly = PlayerPrefs.GetInt(P + "skip_read_only", 0) == 1;
-            _dialogOpacity = PlayerPrefs.GetFloat(P + "dialog_opacity", 1f);
-            _soundOn = PlayerPrefs.GetInt(P + "sound_on", 1) == 1;
-            _locale = PlayerPrefs.GetString(P + "locale", "");
-            _artQuality = PlayerPrefs.GetString(P + "art_quality", "");
+            _textSpeed = LvnKeep.Get(P + "text_speed", 1f);
+            _autoAdvance = LvnKeep.Get(P + "auto_advance", 0) == 1;
+            _autoDelayScale = LvnKeep.Get(P + "auto_delay", 1f);
+            _volMusic = LvnKeep.Get(P + "vol_music", 1f);
+            _volAmbient = LvnKeep.Get(P + "vol_ambient", 1f);
+            _volSfx = LvnKeep.Get(P + "vol_sfx", 1f);
+            _volVoice = LvnKeep.Get(P + "vol_voice", 1f);
+            _reduceMotion = LvnKeep.Get(P + "reduce_motion", 0) == 1;
+            _skipReadOnly = LvnKeep.Get(P + "skip_read_only", 0) == 1;
+            _dialogOpacity = LvnKeep.Get(P + "dialog_opacity", 1f);
+            _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
+            _locale = LvnKeep.Get(P + "locale", "");
+            _artQuality = LvnKeep.Get(P + "art_quality", "");
             // Миграция со старого двухпозиционного флага «Экономия».
-            if (_artQuality == "" && PlayerPrefs.GetInt(P + "art_eco", 0) == 1) _artQuality = "1k";
-            _menuTrack = PlayerPrefs.GetString(P + "menu_track", "");
-            _menuFavorite = PlayerPrefs.GetString(P + "menu_favorite", "");
-            _targetFps = PlayerPrefs.GetInt(P + "target_fps", 60) == 30 ? 30 : 60;
+            if (_artQuality == "" && LvnKeep.Get(P + "art_eco", 0) == 1) _artQuality = "1k";
+            _menuTrack = LvnKeep.Get(P + "menu_track", "");
+            _menuFavorite = LvnKeep.Get(P + "menu_favorite", "");
+            _targetFps = LvnKeep.Get(P + "target_fps", 60) == 30 ? 30 : 60;
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
 
@@ -53,8 +53,7 @@ namespace Lvn.UI
         {
             if (Mathf.Approximately(field, value)) return;
             field = value;
-            PlayerPrefs.SetFloat(P + key, value);
-            PlayerPrefs.Save();
+            LvnKeep.Put(P + key, value);
             Changed?.Invoke();
         }
 
@@ -62,8 +61,7 @@ namespace Lvn.UI
         {
             if (field == value) return;
             field = value;
-            PlayerPrefs.SetInt(P + key, value ? 1 : 0);
-            PlayerPrefs.Save();
+            LvnKeep.Put(P + key, value ? 1 : 0);
             Changed?.Invoke();
         }
 
@@ -71,8 +69,7 @@ namespace Lvn.UI
         {
             if (field == value) return;
             field = value;
-            PlayerPrefs.SetString(P + key, value);
-            PlayerPrefs.Save();
+            LvnKeep.Put(P + key, value);
             Changed?.Invoke();
         }
 
@@ -82,16 +79,16 @@ namespace Lvn.UI
         /// start), persisted forever. Empty until entered.</summary>
         public static string PlayerName
         {
-            get => PlayerPrefs.GetString(P + "player_name", "");
-            set { PlayerPrefs.SetString(P + "player_name", value ?? ""); PlayerPrefs.Save(); Changed?.Invoke(); }
+            get => LvnKeep.Get(P + "player_name", "");
+            set { LvnKeep.Put(P + "player_name", value ?? ""); Changed?.Invoke(); }
         }
 
         /// <summary>Has the boot welcome/auth screen been shown already? It
         /// greets the player exactly once — never again on later launches.</summary>
         public static bool SeenWelcome
         {
-            get => PlayerPrefs.GetInt(P + "seen_welcome", 0) == 1;
-            set { PlayerPrefs.SetInt(P + "seen_welcome", value ? 1 : 0); PlayerPrefs.Save(); }
+            get => LvnKeep.Get(P + "seen_welcome", 0) == 1;
+            set { LvnKeep.Put(P + "seen_welcome", value ? 1 : 0); }
         }
 
         /// <summary>Пройдена ли ВВОДНАЯ новелла (title с <c>type: "intro"</c>).
@@ -101,8 +98,8 @@ namespace Lvn.UI
         /// решения раньше, чем он понял, во что играет.</summary>
         public static bool IntroDone
         {
-            get => PlayerPrefs.GetInt(P + "intro_done", 0) == 1;
-            set { PlayerPrefs.SetInt(P + "intro_done", value ? 1 : 0); PlayerPrefs.Save(); }
+            get => LvnKeep.Get(P + "intro_done", 0) == 1;
+            set { LvnKeep.Put(P + "intro_done", value ? 1 : 0); }
         }
 
         /// <summary>Player opted into picking the content server manually at
@@ -111,8 +108,8 @@ namespace Lvn.UI
         /// picker only appears once the player has asked for it once.</summary>
         public static bool ManualServerSelect
         {
-            get => PlayerPrefs.GetInt(P + "manual_server_select", 0) == 1;
-            set { PlayerPrefs.SetInt(P + "manual_server_select", value ? 1 : 0); PlayerPrefs.Save(); }
+            get => LvnKeep.Get(P + "manual_server_select", 0) == 1;
+            set { LvnKeep.Put(P + "manual_server_select", value ? 1 : 0); }
         }
 
         /// <summary>The last server URL the player picked or typed in the boot
@@ -120,8 +117,8 @@ namespace Lvn.UI
         /// self-hoster doesn't retype their URL on every launch.</summary>
         public static string ServerUrlOverride
         {
-            get => PlayerPrefs.GetString(P + "server_url_override", "");
-            set { PlayerPrefs.SetString(P + "server_url_override", value ?? ""); PlayerPrefs.Save(); }
+            get => LvnKeep.Get(P + "server_url_override", "");
+            set { LvnKeep.Put(P + "server_url_override", value ?? ""); }
         }
 
         public static float TextSpeed
@@ -226,8 +223,7 @@ namespace Lvn.UI
                 int v = value == 30 ? 30 : 60;
                 if (_targetFps == v) return;
                 _targetFps = v;
-                PlayerPrefs.SetInt(P + "target_fps", v);
-                PlayerPrefs.Save();
+                LvnKeep.Put(P + "target_fps", v);
                 Changed?.Invoke();
             }
         }
@@ -272,8 +268,7 @@ namespace Lvn.UI
                 var v = value ?? "";
                 if (_locale == v) return;
                 _locale = v;
-                PlayerPrefs.SetString(P + "locale", v);
-                PlayerPrefs.Save();
+                LvnKeep.Put(P + "locale", v);
                 Changed?.Invoke();
             }
         }
@@ -281,7 +276,7 @@ namespace Lvn.UI
 
         /// <summary>Выбирал ли игрок язык сам хоть раз — до этого хост вправе
         /// подставить язык устройства (автодефолт, как у качества арта).</summary>
-        public static bool LocaleChosen => PlayerPrefs.HasKey(P + "locale");
+        public static bool LocaleChosen => LvnKeep.Has(P + "locale");
 
         /// <summary>Код языка ОРИГИНАЛА (manifest.language) — пилюля оригинала
         /// зовётся именем языка («Русский»), а не словом «Оригинал».</summary>

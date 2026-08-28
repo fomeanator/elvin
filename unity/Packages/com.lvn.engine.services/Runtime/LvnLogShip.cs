@@ -172,7 +172,7 @@ namespace Lvn.Services
         {
             try
             {
-                var raw = PlayerPrefs.GetString(PQueue, "");
+                var raw = LvnKeep.Get(PQueue, "");
                 if (!string.IsNullOrEmpty(raw))
                     foreach (var t in JArray.Parse(raw))
                         if (t is JObject o) _queue.Add(o);
@@ -184,8 +184,9 @@ namespace Lvn.Services
         {
             try
             {
-                lock (_queue) PlayerPrefs.SetString(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
-                PlayerPrefs.Save(); // survive a hard kill, not just a clean quit
+                // Набело: очередь диагностики обязана пережить именно жёсткое
+                // снятие процесса — ради него она и ведётся.
+                lock (_queue) LvnKeep.Put(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
             }
             catch { }   // отправка диагностики упала — сообщать о ней некому и незачем
         }

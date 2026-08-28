@@ -26,8 +26,8 @@ namespace Lvn.Services
         /// it once at boot (NovelApp's ServerUrl is the usual source).</summary>
         public static string BaseUrl = "";
 
-        public static string UserId => PlayerPrefs.GetString(PUser, "");
-        public static string Token => PlayerPrefs.GetString(PToken, "");
+        public static string UserId => LvnKeep.Get(PUser, "");
+        public static string Token => LvnKeep.Get(PToken, "");
         public static bool SignedIn => !string.IsNullOrEmpty(Token);
 
         /// <summary>Raised after a successful (re-)registration.</summary>
@@ -38,21 +38,22 @@ namespace Lvn.Services
         public static async Task<bool> EnsureRegisteredAsync()
         {
             if (string.IsNullOrEmpty(BaseUrl)) return SignedIn;
-            var device = PlayerPrefs.GetString(PDevice, "");
+            var device = LvnKeep.Get(PDevice, "");
             if (string.IsNullOrEmpty(device))
             {
                 device = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-                PlayerPrefs.SetString(PDevice, device);
-                PlayerPrefs.Save();
+                LvnKeep.Put(PDevice, device);
             }
             var body = JsonUtility.ToJson(new RegisterReq { device_id = device });
             var (code, json) = await PostAsync("/v1/auth/register", body, auth: false);
             if (code != 200 || string.IsNullOrEmpty(json)) return SignedIn;
             var resp = JsonUtility.FromJson<RegisterResp>(json);
             if (string.IsNullOrEmpty(resp?.token)) return SignedIn;
-            PlayerPrefs.SetString(PToken, resp.token);
-            PlayerPrefs.SetString(PUser, resp.user_id);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Put(PToken, resp.token);
+                LvnKeep.Put(PUser, resp.user_id);
+            }
             LvnWallet.NoteUser(resp.user_id); // bind (or reset) the offline wallet to this account
             SignedInChanged?.Invoke(resp.user_id);
             return true;
@@ -63,7 +64,7 @@ namespace Lvn.Services
 
         /// <summary>The profile display name — local-first (kept in PlayerPrefs
         /// even offline), synced to the account when a server is reachable.</summary>
-        public static string DisplayName => PlayerPrefs.GetString(PName, "");
+        public static string DisplayName => LvnKeep.Get(PName, "");
 
         /// <summary>Save the display name locally and push it to the account
         /// (POST /v1/auth/profile). Offline the local copy still sticks — the
@@ -72,8 +73,7 @@ namespace Lvn.Services
         {
             name = (name ?? "").Trim();
             if (name.Length == 0) return false;
-            PlayerPrefs.SetString(PName, name);
-            PlayerPrefs.Save();
+            LvnKeep.Put(PName, name);
             var (code, _) = await PostAsync("/v1/auth/profile", JsonUtility.ToJson(new ProfileReq { name = name }));
             return code == 200;
         }
@@ -91,10 +91,12 @@ namespace Lvn.Services
             if (code != 200 || string.IsNullOrEmpty(json)) return false;
             var resp = JsonUtility.FromJson<LoginResp>(json);
             if (string.IsNullOrEmpty(resp?.token)) return false;
-            PlayerPrefs.SetString(PToken, resp.token);
-            PlayerPrefs.SetString(PUser, resp.user_id);
-            if (!string.IsNullOrEmpty(resp.name)) PlayerPrefs.SetString(PName, resp.name);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Put(PToken, resp.token);
+                LvnKeep.Put(PUser, resp.user_id);
+                if (!string.IsNullOrEmpty(resp.name)) LvnKeep.Put(PName, resp.name);
+            }
             // Cross-device recovery may have switched ACCOUNTS on this device —
             // the previous user's offline wallet must not leak into this one.
             LvnWallet.NoteUser(resp.user_id);
@@ -125,11 +127,13 @@ namespace Lvn.Services
         {
             var (code, _) = await PostAsync("/v1/account/delete", "{\"confirm\":\"DELETE\"}");
             if (code != 200) return false;
-            PlayerPrefs.DeleteKey(PToken);
-            PlayerPrefs.DeleteKey(PUser);
-            PlayerPrefs.DeleteKey(PName);
-            PlayerPrefs.DeleteKey(PDevice);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Drop(PToken);
+                LvnKeep.Drop(PUser);
+                LvnKeep.Drop(PName);
+                LvnKeep.Drop(PDevice);
+            }
             LvnWallet.ForgetLocal(); // офлайн-кошелёк не должен пережить владельца
             SignedInChanged?.Invoke("");
             return true;

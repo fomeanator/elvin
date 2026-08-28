@@ -58,7 +58,7 @@ namespace Lvn.Content
         {
             try
             {
-                var s = PlayerPrefs.GetString(Key(titleId), "");
+                var s = LvnKeep.Get(Key(titleId), "");
                 return string.IsNullOrEmpty(s) ? null : JObject.Parse(s);
             }
             catch { return null; }
@@ -68,8 +68,7 @@ namespace Lvn.Content
         {
             try
             {
-                PlayerPrefs.SetString(Key(titleId), doc.ToString(Newtonsoft.Json.Formatting.None));
-                PlayerPrefs.Save();
+                LvnKeep.Put(Key(titleId), doc.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch (Exception e) { Debug.LogWarning("[lvn-state] local write failed: " + e.Message); }
         }
@@ -86,7 +85,7 @@ namespace Lvn.Content
         {
             try
             {
-                var s = PlayerPrefs.GetString(BaseKey(titleId), "");
+                var s = LvnKeep.Get(BaseKey(titleId), "");
                 return string.IsNullOrEmpty(s) ? null : JObject.Parse(s);
             }
             catch { return null; }
@@ -96,8 +95,7 @@ namespace Lvn.Content
         {
             try
             {
-                PlayerPrefs.SetString(BaseKey(titleId), (vars ?? new JObject()).ToString(Newtonsoft.Json.Formatting.None));
-                PlayerPrefs.Save();
+                LvnKeep.Put(BaseKey(titleId), (vars ?? new JObject()).ToString(Newtonsoft.Json.Formatting.None));
             }
             catch { /* base is an optimisation — merge degrades to overlay-all */ }
         }
@@ -141,12 +139,11 @@ namespace Lvn.Content
 
         internal static string DeviceKey()
         {
-            var k = PlayerPrefs.GetString("lvn_state_key", "");
+            var k = LvnKeep.Get("lvn_state_key", "");
             if (string.IsNullOrEmpty(k))
             {
                 k = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-                PlayerPrefs.SetString("lvn_state_key", k);
-                PlayerPrefs.Save();
+                LvnKeep.Put("lvn_state_key", k);
             }
             return k;
         }

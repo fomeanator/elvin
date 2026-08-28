@@ -8,7 +8,8 @@ namespace Lvn.UI
     /// skip-read-only and any host-side seen-percentage UI. A line is keyed by a
     /// 64-bit FNV-1a hash of speaker + text, so it survives insertions around it
     /// and re-imports; editing the text itself makes the line new again (which is
-    /// honest — the player hasn't read the new wording). PlayerPrefs-backed like
+    /// honest — the player hasn't read the new wording). Kept in the device
+    /// notebook (LvnKeep) like
     /// the other meta-progress stores, with an in-memory cache because MarkRead
     /// runs on every rendered line.
     /// </summary>
@@ -20,7 +21,7 @@ namespace Lvn.UI
         private static readonly Dictionary<string, HashSet<ulong>> _cache
             = new Dictionary<string, HashSet<ulong>>();
         private static int _sinceSave;
-        private const int SaveEvery = 10; // lines between PlayerPrefs.Save flushes
+        private const int SaveEvery = 10; // реплик между фиксациями карандаша
 
         /// <summary>FNV-1a 64 over who + '\n' + text — the line's identity.</summary>
         public static ulong Hash(string who, string text)
@@ -43,7 +44,7 @@ namespace Lvn.UI
             var key = Key(titleId);
             if (_cache.TryGetValue(key, out var set)) return set;
             set = new HashSet<ulong>();
-            var raw = PlayerPrefs.GetString(key, "");
+            var raw = LvnKeep.Get(key, "");
             if (!string.IsNullOrEmpty(raw))
                 foreach (var part in raw.Split(','))
                     if (ulong.TryParse(part, System.Globalization.NumberStyles.HexNumber, null, out var v))
@@ -56,7 +57,8 @@ namespace Lvn.UI
             Load(titleId).Contains(Hash(who, text));
 
         /// <summary>Remember a rendered line; returns true when it was new.
-        /// Persists coalesced (every few lines + on app quit via PlayerPrefs).</summary>
+        /// Persists coalesced: every few lines, plus whenever the notebook
+        /// flushes (app to background or quit).</summary>
         public static bool MarkRead(string titleId, string who, string text)
         {
             var set = Load(titleId);
@@ -67,11 +69,13 @@ namespace Lvn.UI
                 if (sb.Length > 0) sb.Append(',');
                 sb.Append(v.ToString("x"));
             }
-            PlayerPrefs.SetString(Key(titleId), sb.ToString());
+            // Карандашом: реплика метится читанной на каждом клике, и полный
+            // флаш на каждую был бы кадром в самом горячем месте игры.
+            LvnKeep.Jot(Key(titleId), sb.ToString());
             if (++_sinceSave >= SaveEvery)
             {
                 _sinceSave = 0;
-                PlayerPrefs.Save();
+                LvnKeep.Flush();
             }
             return true;
         }
@@ -83,8 +87,7 @@ namespace Lvn.UI
         public static void Clear(string titleId)
         {
             _cache.Remove(Key(titleId));
-            PlayerPrefs.DeleteKey(Key(titleId));
-            PlayerPrefs.Save();
+            LvnKeep.Drop(Key(titleId));
         }
     }
 }

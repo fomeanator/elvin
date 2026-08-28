@@ -79,9 +79,8 @@ namespace Lvn.Services
         {
             // Уже отправленное не перезаписываем: первое касание — это первое
             // касание, и второй запуск по другой ссылке его не отменяет.
-            if (PlayerPrefs.GetInt(PSent, 0) == 1) return;
-            PlayerPrefs.SetString(PPending, raw);
-            PlayerPrefs.Save();
+            if (LvnKeep.Get(PSent, 0) == 1) return;
+            LvnKeep.Put(PPending, raw);
         }
 
         /// <summary>
@@ -90,8 +89,8 @@ namespace Lvn.Services
         /// </summary>
         public static async Task FlushAsync()
         {
-            if (PlayerPrefs.GetInt(PSent, 0) == 1) return;
-            var raw = PlayerPrefs.GetString(PPending, "");
+            if (LvnKeep.Get(PSent, 0) == 1) return;
+            var raw = LvnKeep.Get(PPending, "");
             if (string.IsNullOrEmpty(raw)) return;
             if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
 
@@ -99,9 +98,11 @@ namespace Lvn.Services
             var (code, _) = await LvnBackend.PostAsync("/v1/attribution", body);
             if (code != 200) return; // не вышло — попробуем на следующем запуске
 
-            PlayerPrefs.SetInt(PSent, 1);
-            PlayerPrefs.DeleteKey(PPending);
-            PlayerPrefs.Save();
+            using (LvnKeep.Batch())
+            {
+                LvnKeep.Put(PSent, 1);
+                LvnKeep.Drop(PPending);
+            }
         }
     }
 }

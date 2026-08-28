@@ -108,7 +108,7 @@ namespace Lvn.UI
         // so a hidden newer-schema slot survives unrelated Put/Delete round-trips.
         private static Dictionary<string, LvnSaveSlot> Raw(string titleId)
         {
-            var json = PlayerPrefs.GetString(Key(titleId), "");
+            var json = LvnKeep.Get(Key(titleId), "");
             if (string.IsNullOrEmpty(json)) return new Dictionary<string, LvnSaveSlot>();
             try
             {
@@ -168,8 +168,7 @@ namespace Lvn.UI
         {
             try
             {
-                PlayerPrefs.SetString(Key(titleId), JsonConvert.SerializeObject(all));
-                PlayerPrefs.Save();
+                LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(all));
                 return true;
             }
             catch (Exception e)
