@@ -14,6 +14,9 @@ namespace Lvn.UI
         /// <summary>Украшение: серьги, ожерелье, венок. Витрина показывает их
         /// кроп-иконками, а не кадром фигуры.</summary>
         Decor,
+        /// <summary>Эмоция: лицо, настроение. Не вещь вовсе — эту ось лист
+        /// показывает отдельной колонкой, а сцена не считает переодеванием.</summary>
+        Emotion,
         /// <summary>Одежда: платье, броня, форма — вещь на корпусе.</summary>
         Outfit,
     }
@@ -42,6 +45,11 @@ namespace Lvn.UI
             // (в двух копиях) знало только «причес», поэтому ось с именем
             // «Причёска» проходила как одежда и получала кадр на корпус.
             var key = (axis ?? "").ToLowerInvariant().Replace('ё', 'е');
+            // Эмоция первой: она не вещь, и спутать её с одеждой дороже всего —
+            // сцена приняла бы смену лица за переодевание. Правило стояло ДВАЖДЫ
+            // слово в слово (тракт показа актёра и лента листа).
+            if (key.Contains("emo") || key.Contains("эмо") || key == "mood" || key == "face")
+                return LvnWardrobeAxisKind.Emotion;
             if (key.Contains("hair") || key.Contains("причес") || key.Contains("волос"))
                 return LvnWardrobeAxisKind.Hair;
             if (key.Contains("decor") || key.Contains("jewel") || key.Contains("acc")
@@ -52,6 +60,11 @@ namespace Lvn.UI
         /// <summary>Вещь на голове? Сцена по этому признаку льёт смену облика
         /// сверху вниз, лист — рисует корону вместо вешалки.</summary>
         public static bool IsHair(string axis) => KindOf(axis) == LvnWardrobeAxisKind.Hair;
+
+        /// <summary>Ось лица, а не гардероба. Спрашивают двое: тракт показа
+        /// актёра (смена эмоции — не переодевание) и лента листа (эмоции живут
+        /// отдельной колонкой).</summary>
+        public static bool IsEmotion(string axis) => KindOf(axis) == LvnWardrobeAxisKind.Emotion;
 
         /// <summary>Значок раздела, когда новелла не дала своего (slot.icon).</summary>
         public static LvnIcon IconFor(string axis)

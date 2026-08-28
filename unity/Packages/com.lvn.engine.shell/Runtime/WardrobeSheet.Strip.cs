@@ -153,8 +153,9 @@ namespace Lvn.UI.Screens
             if (_def?.axes != null)
                 foreach (var kv in _def.axes)
                 {
-                    var k = (kv.Key ?? "").ToLowerInvariant();
-                    if ((k.Contains("emo") || k.Contains("эмо") || k == "mood" || k == "face")
+                    // Ось лица опознаёт витрина (LvnWardrobeStage.IsEmotion) —
+                    // здесь была вторая копия того же правила.
+                    if (Lvn.UI.LvnWardrobeStage.IsEmotion(kv.Key)
                         && kv.Value != null && kv.Value.Count > 1)
                     { _emotionAxis = kv.Key; vals = kv.Value; break; }
                 }

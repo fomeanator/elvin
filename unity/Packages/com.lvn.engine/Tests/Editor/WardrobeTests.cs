@@ -243,5 +243,51 @@ namespace Lvn.Tests
             visit(root);
             foreach (var c in root.Children()) Walk(c, visit);
         }
-    }
+    
+        // ─────────────────────────────────────────────────────────────────────
+        // ЧТО ЗА ОСЬ — ЗНАЕТ ОДИН ДОМ.
+        //
+        // Правило угадывания по имени («hair», «причёска», «эмоции») жило
+        // копиями: витрина, тракт показа актёра, лента листа и камера меню.
+        // Копии успели разойтись — дом нормализует «ё» → «е», а копия в камере
+        // нет, и ось «Причёска» получала кадр НА КОРПУС, хотя лист показывал её
+        // причёской.
+
+        [Test]
+        public void ОсьВолос_УзнаётсяВЛюбомНаписании()
+        {
+            foreach (var axis in new[] { "hair", "hairstyle", "причес", "Причёска", "ВОЛОСЫ" })
+                Assert.AreEqual(LvnWardrobeAxisKind.Hair, LvnWardrobeStage.KindOf(axis), axis);
+        }
+
+        [Test]
+        public void ОсьЛица_НеСчитаетсяПереодеванием()
+        {
+            foreach (var axis in new[] { "emotion", "эмоция", "mood", "face" })
+            {
+                Assert.AreEqual(LvnWardrobeAxisKind.Emotion, LvnWardrobeStage.KindOf(axis), axis);
+                Assert.IsTrue(LvnWardrobeStage.IsEmotion(axis), axis);
+                Assert.IsFalse(LvnWardrobeStage.IsHair(axis), axis);
+            }
+        }
+
+        [Test]
+        public void ОсьУкрашений_ОтличаетсяОтОдежды()
+        {
+            Assert.AreEqual(LvnWardrobeAxisKind.Decor, LvnWardrobeStage.KindOf("украшения"));
+            Assert.AreEqual(LvnWardrobeAxisKind.Decor, LvnWardrobeStage.KindOf("jewelry"));
+            Assert.AreEqual(LvnWardrobeAxisKind.Outfit, LvnWardrobeStage.KindOf("outfit"));
+            Assert.AreEqual(LvnWardrobeAxisKind.Outfit, LvnWardrobeStage.KindOf("pose"));
+        }
+
+        [Test]
+        public void НеизвестнаяОсь_ЭтоОдежда()
+        {
+            // Умолчание намеренное: незнакомую ось показываем как вещь на
+            // корпусе — так её хотя бы видно целиком.
+            Assert.AreEqual(LvnWardrobeAxisKind.Outfit, LvnWardrobeStage.KindOf("шляпа"));
+            Assert.AreEqual(LvnWardrobeAxisKind.Outfit, LvnWardrobeStage.KindOf(""));
+            Assert.AreEqual(LvnWardrobeAxisKind.Outfit, LvnWardrobeStage.KindOf(null));
+        }
+}
 }

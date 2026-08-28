@@ -50,11 +50,9 @@ namespace Lvn.UI
                 wardrobeFromTop: !emotion && LvnWardrobeStage.IsHair(axis));
         }
 
-        private static bool IsEmotionAxis(string axis)
-        {
-            var key = (axis ?? "").ToLowerInvariant();
-            return key.Contains("emo") || key.Contains("эмо") || key == "mood" || key == "face";
-        }
+        // Что за ось — у витрины (LvnWardrobeStage): здесь стояла копия
+        // правила, слово в слово совпадавшая с копией в ленте листа.
+        private static bool IsEmotionAxis(string axis) => LvnWardrobeStage.IsEmotion(axis);
 
         /// <summary>Engine-level wardrobe focus: every visible CHARACTER except
         /// <paramref name="keepId"/> is temporarily removed, all exits finish,
