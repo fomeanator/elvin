@@ -74,7 +74,9 @@ namespace Lvn.Content
             if (_seedBase == null) return null;
             // Сид мог не прочитаться (нет файла, битый zip) — это не повод
             // валить загрузку: без него просто пойдём в сеть.
-            if (_seedLoad != null) { try { await _seedLoad; } catch { } _seedLoad = null; }
+            // Посев мог сорваться — нам важно лишь ДОЖДАТЬСЯ его конца, а
+            // отказ уже объяснён внутри и повторится по обычному пути загрузки.
+            if (_seedLoad != null) { try { await _seedLoad; } catch { /* объяснено внутри */ } _seedLoad = null; }
             string hit = SeedKey(url);
             if (hit == null) return null;
             var bytes = await FetchLocalAsync(_seedBase + "/" + hit);

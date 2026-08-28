@@ -341,10 +341,8 @@ namespace Lvn.UI.World
                 bloomRt = RenderTexture.GetTemporary(w, h, 0, src.format);
                 var tmp = RenderTexture.GetTemporary(w, h, 0, src.format);
                 Graphics.Blit(src, bloomRt, _mat, 1);
-                _mat.SetVector("_Dir", new Vector4(1, 0, 0, 0));
-                Graphics.Blit(bloomRt, tmp, _mat, 2);
-                _mat.SetVector("_Dir", new Vector4(0, 1, 0, 0));
-                Graphics.Blit(tmp, bloomRt, _mat, 2);
+                // Порог уже снят проходом выше — размываем то, что осталось.
+                LvnBlurPass.Once(_mat, bloomRt, tmp, pass: 2);
                 RenderTexture.ReleaseTemporary(tmp);
                 _mat.SetTexture("_BloomTex", bloomRt);
             }

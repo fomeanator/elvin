@@ -84,14 +84,7 @@ namespace Lvn.UI.World
 
             int iterations = 1 + Mathf.RoundToInt(_cur * 2f);       // 1..3
             float radius = 0.75f + _cur * 1.75f;                    // texel spread per pass
-            _mat.SetFloat("_Radius", radius);
-            for (int i = 0; i < iterations; i++)
-            {
-                _mat.SetVector("_Dir", new Vector4(1f, 0f, 0f, 0f));
-                Graphics.Blit(a, b, _mat, 0);
-                _mat.SetVector("_Dir", new Vector4(0f, 1f, 0f, 0f));
-                Graphics.Blit(b, a, _mat, 0);
-            }
+            LvnBlurPass.Run(_mat, a, b, radius, iterations);   // результат — в a
 
             _mat.SetTexture("_BlurTex", a);
             _mat.SetFloat("_Mix", Mathf.Clamp01(_cur * 1.25f)); // definite blur well before 1.0
