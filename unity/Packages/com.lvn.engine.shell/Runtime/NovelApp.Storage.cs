@@ -79,7 +79,7 @@ namespace Lvn.UI.Screens
                 foreach (var (url, _, size) in items)
                     if (!loader.IsAssetCached(url))
                     {
-                        missing += size > 0 ? size : 64 << 10; // без меты — скромная оценка
+                        missing += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                         count++;
                     }
                 long used = await loader.AssetCacheDiskUsageAsync();
@@ -115,7 +115,7 @@ namespace Lvn.UI.Screens
                         var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
                         if (!chapterUrls.Add(eff) || loader.IsAssetCached(eff)) return;
                         items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
-                        bytes += size > 0 ? size : 64 << 10;
+                        bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                     }
                     Add(ch.script_url, "script", 0);
                     Add(ch.bg_url, "sprite", 0);
@@ -133,7 +133,7 @@ namespace Lvn.UI.Screens
             {
                 if (chapterUrls.Contains(url) || loader.IsAssetCached(url)) continue;
                 shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
-                sharedBytes += size > 0 ? size : 64 << 10;
+                sharedBytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
             if (shared.Count > 0) _dlCenter.Enqueue(LvnWords.Of("dl.shared", "Covers and menu"), sharedBytes, shared);
             foreach (var (label, bytes, items) in perChapter)
@@ -192,7 +192,7 @@ namespace Lvn.UI.Screens
                             if (loader.IsAssetCached(eff)) continue;
                             items ??= new List<Lvn.Content.PreloadItem>();
                             items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite" });
-                            bytes += kv.Value?.size ?? 64 << 10;
+                            bytes += kv.Value?.size ?? DownloadPolicy.UnknownSizeBytes;
                         }
                         if (items != null)
                             redo.Add((ChapterEntryLabel(t, ch), bytes, items));
@@ -220,7 +220,7 @@ namespace Lvn.UI.Screens
                 var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
                 if (loader.IsAssetCached(eff)) return;
                 items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
-                bytes += size > 0 ? size : 64 << 10;
+                bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
             Add(ch.script_url, "script", 0);
             Add(ch.bg_url, "sprite", 0);
