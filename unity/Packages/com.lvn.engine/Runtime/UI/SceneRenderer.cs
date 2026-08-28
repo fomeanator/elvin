@@ -256,7 +256,7 @@ namespace Lvn.UI
             var portal = _scene.Portal;
             if (portal == null) return false;
             float F(string key, float fallback)
-                => cmd[key] != null ? (float)cmd[key] : fallback;
+                => LvnNum.Parse(cmd[key], fallback);
             var color = new UnityEngine.Color(0.48f, 0.84f, 1f);
             // Мимо UiColor опечатка гасила умолчание в прозрачность: створ
             // «открывался», но его не было видно.

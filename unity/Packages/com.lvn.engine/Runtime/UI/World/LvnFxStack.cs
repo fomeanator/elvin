@@ -114,7 +114,7 @@ namespace Lvn.UI.World
             // `fx off` — литерал off попадает в поле "off" ИЛИ в первое слово;
             // компилятор кладёт голое слово как {"off": true}-подобный ключ не
             // гарантированно, поэтому признаём оба написания: off=1 и reset=1.
-            float dur = cmd["dur"] != null ? (float)cmd["dur"] : 0f;
+            float dur = LvnNum.Parse(cmd["dur"], 0f);
             _speed = dur > 0f ? 1f / dur : 0f;
 
             if (cmd["off"] != null || cmd["reset"] != null)
@@ -134,13 +134,13 @@ namespace Lvn.UI.World
 
             _tVignette   = F(cmd, "vignette", _tVignette);
             if (cmd["cinematic"] != null)
-                _tCinematic = Mathf.Clamp01((float)cmd["cinematic"]);
+                _tCinematic = Mathf.Clamp01(LvnNum.Parse(cmd["cinematic"], 0f));
             else if (cmd["grain"] != null)
             {
                 // Compatibility migration: old stories used grain=0.05..0.20
                 // as their generic "cinema" knob. The animated noise shader is
                 // gone; those values now select a quiet filmic grade instead.
-                _tCinematic = Mathf.Clamp01((float)cmd["grain"] * 3f);
+                _tCinematic = Mathf.Clamp01(LvnNum.Parse(cmd["grain"], 0f) * 3f);
             }
             _tChromatic  = F(cmd, "chromatic", _tChromatic);
             _tScanlines  = F(cmd, "scanlines", _tScanlines);
@@ -282,7 +282,10 @@ namespace Lvn.UI.World
         }
 
         private static float F(JObject cmd, string key, float cur)
-            => cmd[key] != null ? (float)cmd[key] : cur;
+            // Через LvnNum: прямое приведение БРОСАЕТ на «57%» и на опечатке автора,
+        // и одно кривое поле роняло всю команду. Проценты в дереве ui понимались
+        // с первого дня — у эффектов молча не понимались вовсе.
+        => LvnNum.Parse(cmd[key], cur);
 
         // Разбор цвета — из общего дома (UiColor). Своя копия в каждом слое и
         // была тем, из-за чего одно понятие расходилось по движку.
