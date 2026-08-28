@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // A narration line that starts with a word + an `=` looks like a command whose
@@ -426,6 +427,21 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			}
 			if msg := braceIssue(c.Str("who")); msg != "" {
 				addWarn(i, op, "speaker name: "+msg)
+			}
+			// ГОВОРЯЩИЙ, ПОХОЖИЙ НА ПРОЗУ, — это почти всегда проза, которую
+			// разрезало двоеточие. В языке `Имя: текст` — реплика, и строка
+			// «Это тестовая глава: проверяем показ» превращается в реплику
+			// говорящего «Это тестовая глава». Тихо: на экране появляется
+			// подпись, которой автор не писал.
+			//
+			// В живом контенте таких набралось шесть штук — «Комната-побег.
+			// Кликай по предметам», «Код 451 подходит. В сейфе — записка».
+			// Лечится кавычками: «…» вокруг всей строки (с 28.08 они защищают
+			// двоеточие).
+			if who := c.Str("who"); looksLikeProse(who) {
+				addWarn(i, op, fmt.Sprintf(
+					"speaker %q looks like prose cut by a colon — if this is narration, wrap the whole line in «…»; a real name goes before the colon",
+					who))
 			}
 			// Narration shaped like a command is almost always a command with a
 			// syntax slip that silently fell through to dialogue — the failure
@@ -1035,4 +1051,30 @@ func braceIssue(s string) string {
 		return "unbalanced '{' in text (missing '}')"
 	}
 	return ""
+}
+
+// looksLikeProse: «говорящий» с точкой, восклицанием или вопросом внутри, либо
+// длиной от пяти слов. Имена людей так не выглядят, а разрезанная двоеточием
+// фраза — выглядит именно так.
+//
+// Безымянные подписи из одних знаков («...», «???») пропускаем: это намеренный
+// приём, а не описка.
+func looksLikeProse(who string) bool {
+	if who == "" {
+		return false
+	}
+	hasLetter := false
+	for _, r := range who {
+		if unicode.IsLetter(r) {
+			hasLetter = true
+			break
+		}
+	}
+	if !hasLetter {
+		return false
+	}
+	if strings.ContainsAny(who, ".!?") {
+		return true
+	}
+	return len(strings.Fields(who)) >= 5
 }

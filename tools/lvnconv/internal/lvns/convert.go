@@ -838,6 +838,26 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			return nil, fmt.Errorf("line %d: unknown command %q (write it as dialogue with «…» quoting if this is prose)", srcNo[i], firstWord)
 		}
 
+		// ПРОЗА, ВЗЯТАЯ В «…», — ЦЕЛИКОМ ТЕКСТ, И ДВОЕТОЧИЕ В НЕЙ ОБЫЧНЫЙ ЗНАК.
+		//
+		// Разрез «имя: текст» шёл по сырой строке, не глядя на обрамляющие
+		// кавычки, поэтому «Вывеска гласила: закрыто.» превращалась в реплику
+		// говорящего «Вывеска гласила». Тихо: ни ошибки, ни предупреждения.
+		//
+		// Хуже, что этот же путь СОВЕТУЕТ сам компилятор — сообщение про
+		// неизвестную команду предлагает «write it as dialogue with «…» quoting
+		// if this is prose», и совет не работал. А двоеточие в прозе — вещь
+		// частая: «Вывеска гласила:», «Правило первое:», время «в 9:30».
+		//
+		// Кавычки внутри реплики (`Анна: «Пауза»`) это не задевает: здесь
+		// проверяется, что строка НАЧИНАЕТСЯ с «, то есть имени перед ней нет.
+		if strings.HasPrefix(line, "«") && strings.HasSuffix(line, "»") && len(line) > 2 {
+			inner := strings.TrimSpace(line[len("«") : len(line)-len("»")])
+			emit(Cmd{"op": "say", "text": inner}, srcNo[i])
+			i++
+			continue
+		}
+
 		// Dialogue: Name [emotion]: Text or Narration
 		if m := reDialogue.FindStringSubmatch(line); m != nil {
 			speaker := strings.TrimSpace(m[1])
