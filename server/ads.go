@@ -38,7 +38,7 @@ type adsUserDoc struct {
 
 	// Когда истрачен последний заряд — от него считается восстановление.
 	// Unix-секунды: в файле их читает человек, а часовые пояса тут ни при чём.
-	Spent map[string]int `json:"spent"` // placement → сколько зарядов истрачено в текущем цикле
+	Spent map[string]int   `json:"spent"` // placement → сколько зарядов истрачено в текущем цикле
 	Since map[string]int64 `json:"since"` // placement → когда начался текущий цикл
 }
 
@@ -126,8 +126,7 @@ func (s *AdsService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID := s.auth.UserFromRequest(r)
@@ -138,7 +137,7 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Placement string `json:"placement"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Placement == "" {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil || req.Placement == "" {
 		http.Error(w, "placement required", http.StatusBadRequest)
 		return
 	}
@@ -160,17 +159,13 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 	// разговор с игроком.
 	if left, readyAt := chargesLeft(reward, doc, req.Placement, now); left == 0 {
 		s.mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{
 			"error": "recharging", "ready_at": readyAt, "charges": reward.Charges})
 		return
 	}
 	if reward.DailyCap > 0 && doc.Counts[req.Placement] >= reward.DailyCap {
 		s.mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_ = json.NewEncoder(w).Encode(map[string]any{"error": "daily_cap", "cap": reward.DailyCap})
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": "daily_cap", "cap": reward.DailyCap})
 		return
 	}
 	doc.Counts[req.Placement]++

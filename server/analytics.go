@@ -153,8 +153,7 @@ func analyticsAllow(source string, now time.Time) bool {
 }
 
 func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	source := s.auth.UserFromRequest(r)
@@ -166,7 +165,7 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var events []analyticsEvent
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&events); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyDoc)).Decode(&events); err != nil {
 		http.Error(w, "a JSON array of {name, ts?, props?} required", http.StatusBadRequest)
 		return
 	}
@@ -228,8 +227,7 @@ func (s *AnalyticsService) handleEvents(w http.ResponseWriter, r *http.Request) 
 			accepted++
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]int{"accepted": accepted})
+	writeJSON(w, http.StatusOK, map[string]int{"accepted": accepted})
 }
 
 // handleSummary lives in analytics_report.go — reading is a different job from

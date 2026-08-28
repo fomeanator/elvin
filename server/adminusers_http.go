@@ -23,15 +23,14 @@ func (s *AdminService) AdminUsersRoutes(mux *http.ServeMux) {
 }
 
 func (s *AdminService) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var body struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
 	}
-	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body) != nil {
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&body) != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -89,7 +88,7 @@ func (s *AdminService) handlePeople(w http.ResponseWriter, r *http.Request) {
 			Password string `json:"password"`
 			Role     string `json:"role"`
 		}
-		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body) != nil {
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&body) != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}

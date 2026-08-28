@@ -360,7 +360,7 @@ function compileAndRun() {
   saveKey = "lvn-play-save:" + sceneName;
   resetStage();
   history = [];
-  player = new Player(doc, { onStage: applyStage });
+  player = new Player(doc, { onStage: applyStage, seed: runSeed() });
 
   // A save from an earlier visit: offer to continue (the whole point of
   // playing a shared story in more than one sitting).
@@ -371,6 +371,25 @@ function compileAndRun() {
     return;
   }
   render(player.advance());
+}
+
+// СЕМЯ ПРОГОНА. Броски костей воспроизводимы (см. expr.js), но воспроизводимость
+// существует, только если семя КТО-ТО задаёт и его можно назвать. Иначе поток
+// засевается от часов, и «у меня выпало иначе» снова необъяснимо.
+//
+// `#seed=…` в адресе — то, что делает ссылку честной: открывший её увидит ту же
+// историю с теми же бросками. Без параметра берём новое семя и кладём в адрес,
+// чтобы прогон можно было повторить или переслать ПОСЛЕ того, как он случился.
+function runSeed() {
+  const m = /[#&]seed=([0-9a-fA-F]{1,16})/.exec(location.hash);
+  if (m) return BigInt("0x" + m[1]);
+  const fresh = BigInt(Date.now()) ^ (BigInt(Math.floor(Math.random() * 0xffffffff)) << 20n);
+  const hex = (fresh & ((1n << 64n) - 1n)).toString(16);
+  try {
+    const sep = location.hash.includes("#") ? "&" : "#";
+    history.replaceState(null, "", location.hash + sep + "seed=" + hex);
+  } catch { /* адрес не обязан поддаваться — прогон от этого не ломается */ }
+  return fresh;
 }
 
 function showResume(saved) {
@@ -844,7 +863,7 @@ async function playChapterAt(i) {
   resetStage();
   history = [];
   setStatus((c.number || i + 1) + " · " + (c.name || c.id), "ok");
-  player = new Player(doc, { onStage: applyStage });
+  player = new Player(doc, { onStage: applyStage, seed: runSeed() });
   render(player.advance());
 }
 

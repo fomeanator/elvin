@@ -121,7 +121,7 @@ namespace Lvn
             if (v.Type == JTokenType.Float)
             {
                 double d = (double)v;
-                double r = System.Math.Round(d, 2);
+                double r = LvnNum.RoundHalfUp(d, 2);
                 return r == System.Math.Floor(r)
                     ? ((long)r).ToString(System.Globalization.CultureInfo.InvariantCulture)
                     : r.ToString(System.Globalization.CultureInfo.InvariantCulture);

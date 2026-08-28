@@ -51,8 +51,7 @@ func (s *server) handleImportBundle(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	// Local mode: the five files already sit on the server host — pass their PATHS
@@ -163,7 +162,7 @@ func (s *server) importBundleLocal(w http.ResponseWriter, r *http.Request) {
 		ID, Name, Subtitle                             string
 		Template                                       string
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, bodySmall)).Decode(&body); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 		return
 	}

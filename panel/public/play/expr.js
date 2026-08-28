@@ -58,18 +58,82 @@ export function setVarPath(vars, key, value) {
 const isMap = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const asArr = (v) => (Array.isArray(v) ? v.slice() : []);
 const asMap = (v) => (isMap(v) ? { ...v } : {});
-const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1)); // inclusive
+// ── СЛУЧАЙНОСТЬ ВОСПРОИЗВОДИМА, как в движке ────────────────────────────────
+//
+// Здесь стоял генератор языка-носителя: без семени и без состояния. Движок
+// бросает кости splitmix64 — тот же seed даёт ту же последовательность на любой
+// платформе, и сохранение восстанавливает поток ровно с того места, где его
+// прервали. Playground этого не умел, и разница била по самому нужному: автор
+// проверяет вероятностную сцену, а она каждый раз играет по-новому — отладить
+// нельзя, тогда как в приложении та же сцена при том же семени повторяется в
+// точности. Ссылка «посмотри, что у меня вышло» показывала другу ДРУГУЮ историю.
+//
+// Порт дословный (BigInt — 64 бита без потерь): те же Gamma и константы
+// перемешивания, та же выборка с отбрасыванием, тот же сдвиг на 11.
+const RNG_GAMMA = 0x9E3779B97F4A7C15n;
+const U64 = (1n << 64n) - 1n;
+
+let rngState = null;
+let rngDraws = 0;
+
+function rngMix(z) {
+  z = ((z ^ (z >> 30n)) * 0xBF58476D1CE4E5B9n) & U64;
+  z = ((z ^ (z >> 27n)) * 0x94D049BB133111EBn) & U64;
+  return (z ^ (z >> 31n)) & U64;
+}
+
+/** Засеять поток. Без семени — от часов, как в собранной игре. */
+export function seedRandom(seed) {
+  rngState = (seed === undefined || seed === null)
+    ? rngMix(BigInt(Date.now()) & U64)
+    : BigInt.asUintN(64, BigInt(seed));
+  rngDraws = 0;
+}
+
+/** Позиция потока — для сохранения и для отчёта об ошибке. */
+export function randomState() {
+  return { state: rngState === null ? null : rngState.toString(16), draws: rngDraws };
+}
+
+/** Вернуть поток ровно туда, где его прервали (см. randomState). */
+export function restoreRandom(st) {
+  if (!st || typeof st.state !== "string") return false;
+  try { rngState = BigInt("0x" + st.state) & U64; } catch { return false; }
+  rngDraws = typeof st.draws === "number" ? st.draws : 0;
+  return true;
+}
+
+function nextULong() {
+  if (rngState === null) seedRandom();
+  rngState = (rngState + RNG_GAMMA) & U64;
+  rngDraws++;
+  return rngMix(rngState);
+}
+
+const nextDouble = () => Number(nextULong() >> 11n) / 9007199254740992;
+
+// Включительно с обеих сторон и терпимо к переставленным границам — то же
+// обещание, что у rand(a, b) в движке. Выборка с отбрасыванием: остаток от
+// деления смещал бы вероятности к младшим значениям.
+const randInt = (lo, hi) => {
+  if (hi < lo) { const t = lo; lo = hi; hi = t; }
+  const span = BigInt(hi - lo) + 1n;
+  const limit = U64 - (U64 % span);
+  let r;
+  do { r = nextULong(); } while (r >= limit);
+  return lo + Number(r % span);
+};
 
 const FUNCS = {
   // numbers
   rand: (...a) => {
-    if (a.length === 0) return Math.random();
+    if (a.length === 0) return nextDouble();
     if (a.length === 1) { const n = Math.round(num(a[0])); return randInt(0, n < 0 ? 0 : n); }
     let lo = Math.round(num(a[0])), hi = Math.round(num(a[1]));
     if (lo > hi) { const t = lo; lo = hi; hi = t; }
     return randInt(lo, hi);
   },
-  chance: (...a) => Math.random() < (a.length > 0 ? num(a[0]) : 0.5),
+  chance: (...a) => nextDouble() < (a.length > 0 ? num(a[0]) : 0.5),
 
   // Функции хоста: их значения приходят из кошелька и гардероба, которых у
   // веб-плеера нет. Отвечаем безопасным пустым ответом, а не падаем: ветка за

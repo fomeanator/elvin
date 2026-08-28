@@ -113,8 +113,7 @@ func (s *FeedbackService) Routes(mux *http.ServeMux) {
 // POST /v1/feedback — из игры. Требует сессии: анонимный отзыв нельзя
 // уточнить у автора, а половина отзывов требует одного встречного вопроса.
 func (s *FeedbackService) handleSubmit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var in feedbackEntry

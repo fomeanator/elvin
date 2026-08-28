@@ -41,8 +41,7 @@ func (s *AdminService) handleImportTemplates(w http.ResponseWriter, r *http.Requ
 	if !s.ok(w, r) {
 		return
 	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodGet) {
 		return
 	}
 	names := map[string]bool{"default": true}
@@ -93,7 +92,7 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		// default.json overrides DefaultTemplate() for every import that
 		// doesn't name another template. DELETE removes the override again.
 		var doc json.RawMessage
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&doc); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyDoc)).Decode(&doc); err != nil {
 			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}

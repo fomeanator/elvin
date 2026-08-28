@@ -61,12 +61,11 @@ func (s *server) handleStageExtract(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var body struct{ Path string }
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, bodySmall)).Decode(&body); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -123,8 +122,7 @@ func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var body struct {
@@ -136,7 +134,7 @@ func (s *server) handleDetectRoles(w http.ResponseWriter, r *http.Request) {
 		// see applyXlsxToPreview.
 		Vars string
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, bodyDoc)).Decode(&body); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 		return
 	}

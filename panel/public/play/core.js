@@ -7,7 +7,10 @@
 // Pure and DOM-free: advance()/choose()/submitInput() return a pause event
 // ({type: say|choice|input|wait|end, …}); the UI renders it and calls back.
 
-import { evalExpr, evalBool, interpolate, getVarPath, setVarPath, evalStructuredCond } from "./expr.js";
+// ИМПОРТ — ОДНОЙ СТРОКОЙ, и это не стиль. Экспорт в самостоятельный .html
+// снимает модульные строки построчно (`^import .*$`), поэтому перенос строки
+// внутри импорта оставляет его хвост в упакованном коде и ломает файл.
+import { evalExpr, evalBool, interpolate, getVarPath, setVarPath, evalStructuredCond, seedRandom, randomState, restoreRandom } from "./expr.js";
 
 // СОСТОЯНИЕ СЦЕНЫ ИЗ ПЕРЕСЛАННЫХ КОМАНД — что стоит в кадре прямо сейчас.
 //
@@ -88,7 +91,13 @@ export function stateNumber(v) {
 }
 
 export class Player {
-  constructor(doc, { onStage } = {}) {
+  // У ПРОГОНА ЕСТЬ СВОЁ СЕМЯ. Без него поток засевался бы от часов при первом
+  // же броске — то есть воспроизводимость существовала бы в генераторе и не
+  // существовала на практике. `seed` принимают и тесты, и корпус, и ссылка
+  // «поиграй в мою историю»: одно число делает прогон повторимым для всех.
+  constructor(doc, { onStage, seed } = {}) {
+    seedRandom(seed);
+    this.seed = seed;
     this.script = (doc && doc.script) || [];
     this.vars = Object.create(null);
     this.ip = 0;
@@ -294,11 +303,15 @@ export class Player {
   /** Save anchor: everything needed to come back to the CURRENT pause.
    * Restore rewinds to the paused command and re-runs it, so the beat
    * (line/options/input) re-presents itself — the engine's own recipe. */
+  // ПОЗИЦИЯ КОСТЕЙ — ЧАСТЬ ПРОГОНА, а не окружения. Без неё «продолжить»
+  // переигрывает случайное заново: сохранился перед броском, вернулся — выпало
+  // другое. Движок кладёт состояние потока в сейв ровно по этой причине.
   snapshot() {
     return {
       ip: this.pausedIp ?? this.ip,
       vars: JSON.parse(JSON.stringify(this.vars)),
       callStack: [...this.callStack],
+      rng: randomState(),
     };
   }
 
@@ -307,6 +320,9 @@ export class Player {
     this.ip = Math.max(0, Math.min(snap.ip, this.script.length));
     this.vars = Object.assign(Object.create(null), snap.vars || {});
     this.callStack = [...(snap.callStack || [])];
+    // Кости возвращаются туда же, откуда продолжается история: снимок без них
+    // воспроизводит текст, но не броски — а игрок видит именно броски.
+    restoreRandom(snap.rng);
     this.finished = false;
     this._choice = null;
     this._awaitInput = null;

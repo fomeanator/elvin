@@ -598,7 +598,8 @@ namespace Lvn
                     case "max": return Val.Of(a.Count == 0 ? 0 : (a.Count == 1 ? N(0) : System.Math.Max(N(0), N(1))));
                     case "abs": return Val.Of(System.Math.Abs(N(0)));
                     case "floor": return Val.Of(System.Math.Floor(N(0)));
-                    case "round": return Val.Of(System.Math.Round(N(0)));
+                    // Половина вверх, а не банковское Math.Round: см. LvnNum.RoundHalfUp.
+                    case "round": return Val.Of(LvnNum.RoundHalfUp(N(0)));
 
                     // ── collections: length / membership / read ──
                     case "len":

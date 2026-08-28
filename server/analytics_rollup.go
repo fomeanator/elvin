@@ -913,13 +913,9 @@ func (st *rollupStore) persist(r *dayRollup) {
 	if err != nil {
 		return
 	}
-	tmp := filepath.Join(dir, "."+r.Day+".tmp")
-	if os.WriteFile(tmp, body, 0o600) != nil {
-		return
-	}
-	if os.Rename(tmp, st.rollPath(r.Day)) != nil {
-		_ = os.Remove(tmp)
-	}
+	// Через дом: тот же изъян, что у таблицы лидеров — Sync не звался, и
+	// суточная свёртка могла воскреснуть обрезанной.
+	_ = atomicWrite(st.rollPath(r.Day), body, 0o600)
 }
 
 func (st *rollupStore) evict() {

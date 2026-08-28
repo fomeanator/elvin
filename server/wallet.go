@@ -257,8 +257,7 @@ func (s *WalletService) regenState(doc *walletDoc, now time.Time) map[string]reg
 
 // writeDoc encodes the wallet plus computed regen state to the client.
 func (s *WalletService) writeDoc(w http.ResponseWriter, doc *walletDoc) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(walletResponse{walletDoc: doc, RegenState: s.regenState(doc, s.now())})
+	writeJSON(w, http.StatusOK, walletResponse{walletDoc: doc, RegenState: s.regenState(doc, s.now())})
 }
 
 func (s *WalletService) Routes(mux *http.ServeMux) {
@@ -301,8 +300,7 @@ func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 		return packs[i].SKU < packs[j].SKU
 	})
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"packs": packs})
+	writeJSON(w, http.StatusOK, map[string]any{"packs": packs})
 }
 
 // load reads a user's wallet. Only a MISSING file means "new wallet" — an
@@ -380,8 +378,7 @@ func (s *WalletService) handleGet(w http.ResponseWriter, r *http.Request) {
 
 func (s *WalletService) mutate(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		if !onlyMethod(w, r, http.MethodPost) {
 			return
 		}
 		if kind == "earn" && s.EarnDisabled {
@@ -405,7 +402,7 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 			// otherwise a client could name its own payee (see attribution.go).
 			Title string `json:"title"`
 		}
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil ||
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil ||
 			req.Currency == "" || req.Amount <= 0 || req.Reason == "" {
 			http.Error(w, "currency, amount>0 and reason required", http.StatusBadRequest)
 			return
@@ -432,9 +429,7 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 		}
 		if kind == "spend" {
 			if doc.Balances[req.Currency] < req.Amount {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				_ = json.NewEncoder(w).Encode(map[string]any{
+				writeJSON(w, http.StatusConflict, map[string]any{
 					"error": "insufficient_funds", "balance": doc.Balances[req.Currency],
 				})
 				return
@@ -549,8 +544,7 @@ func (s *WalletService) Grant(userID, currency string, amount int64, reason stri
 }
 
 func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID, ok := s.user(w, r)
@@ -562,7 +556,7 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		SKU      string `json:"sku"`
 		Receipt  string `json:"receipt"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil ||
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodySmall)).Decode(&req); err != nil ||
 		req.SKU == "" || req.Receipt == "" {
 		http.Error(w, "sku and receipt required", http.StatusBadRequest)
 		return

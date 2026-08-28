@@ -136,12 +136,11 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var cfg exportConfig
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&cfg); err != nil && err != io.EOF {
+	if err := json.NewDecoder(io.LimitReader(r.Body, bodyDoc)).Decode(&cfg); err != nil && err != io.EOF {
 		http.Error(w, "bad body", http.StatusBadRequest)
 		return
 	}

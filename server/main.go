@@ -211,7 +211,7 @@ func main() {
 	dailySvc.Routes(mux)
 	adsSvc.Routes(mux)
 	netSvc := NewNetService()
-	netSvc.Routes(mux)   // комнаты для игры вдвоём: сервер держит ящики, правила у клиентов
+	netSvc.Routes(mux) // комнаты для игры вдвоём: сервер держит ящики, правила у клиентов
 	adminSvc.Routes(mux)
 	// «Удалить аккаунт» — стор-требование: игрок стирает свои данные сам.
 	(&accountEraser{
@@ -628,7 +628,7 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(withVersion(entry.body, entry.version))
 	case http.MethodPut:
-		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		body, err := io.ReadAll(io.LimitReader(r.Body, bodyDoc))
 		if err != nil {
 			http.Error(w, "read body", http.StatusBadRequest)
 			return
@@ -855,7 +855,7 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 	dst := filepath.Join(s.content, filepath.Clean(rel))
 	switch r.Method {
 	case http.MethodPut:
-		body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+		body, err := io.ReadAll(io.LimitReader(r.Body, bodyHuge))
 		if err != nil {
 			http.Error(w, "read body", http.StatusBadRequest)
 			return
@@ -974,6 +974,65 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 		_ = d.Close()
 	}
 	return nil
+}
+
+// «УЗНАЙ ИЛИ ОТКАЖИ» — один дом на все защищённые обработчики.
+//
+// Ритуал повторялся шестью копиями: спросить пользователя, сравнить с пустой
+// строкой, ответить 401 и выйти. Текст отказа, к счастью, не разошёлся — но
+// заголовок `WWW-Authenticate` не ставила ни одна из шести. По HTTP ответ 401
+// без него неполон: клиент не знает, КАКОЙ способ входа от него ждут. Тот же
+// пробел, что с `Allow` у 405 (роль 184), и по той же причине — правило жило
+// копиями, и неполнота копировалась вместе с ним.
+//
+// Пользователя обработчик добывает сам (у сервисов разные приёмники), а дом
+// решает единственный вопрос: пускать или нет.
+func requireUser(w http.ResponseWriter, userID string) bool {
+	if userID != "" {
+		return true
+	}
+	w.Header().Set("WWW-Authenticate", `Bearer realm="lvn"`)
+	http.Error(w, "unauthorized", http.StatusUnauthorized)
+	return false
+}
+
+// СКОЛЬКО ТЕЛА МЫ ГОТОВЫ ПРОЧИТАТЬ — именованные ступени, а не числа по месту.
+//
+// Предел стоял у всех тридцати четырёх чтений (это хорошо: без него один запрос
+// съедает память сервера), но записан был двенадцатью разными способами — и
+// дважды ОДНО И ТО ЖЕ число разными: `4096` в восьми местах и `4<<10` в трёх.
+// Разнобой здесь не косметика: чтобы понять, «много ли это», приходится считать
+// в уме, а решение «сколько можно» принимается заново на каждом обработчике,
+// без памяти о соседях.
+//
+// Ступени названы по СМЫСЛУ запроса, а не по числу: маленькая форма, документ,
+// пачка событий, загрузка файла. Новый обработчик выбирает ступень, а не
+// придумывает константу.
+const (
+	bodyTiny  = 4 << 10  // короткая форма: логин, отметка, один идентификатор
+	bodySmall = 64 << 10 // запись с полями: профиль, заказ, настройка
+	bodyDoc   = 1 << 20  // документ: манифест главы, отчёт, пачка событий
+	bodyBulk  = 8 << 20  // выгрузка: импорт новеллы, набор ассетов
+	bodyHuge  = 64 << 20 // архив целиком — единственный обработчик, который его ждёт
+)
+
+// МЕТОД ЗАПРОСА ПРОВЕРЯЕТ ОДИН ДОМ.
+//
+// Ритуал «не тот метод — 405 и выход» был написан двадцать восемь раз, и уже
+// разошёлся в словах: «POST only» в семнадцати местах, «method not allowed» в
+// шестнадцати. Код одинаковый (405), поэтому клиенту всё равно — а вот тому,
+// кто читает лог сервера, приходится держать в голове, что это одно и то же.
+//
+// Возвращает true, если можно работать дальше: `if !onlyMethod(w, r, http.MethodPost) { return }`.
+// Заголовок Allow ставится по правилам HTTP — без него 405 формально неполон, и
+// ни одно из двадцати восьми мест его не ставило.
+func onlyMethod(w http.ResponseWriter, r *http.Request, method string) bool {
+	if r.Method == method {
+		return true
+	}
+	w.Header().Set("Allow", method)
+	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

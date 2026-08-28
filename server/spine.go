@@ -27,8 +27,7 @@ func (s *server) handleAdminSpine(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	if err := r.ParseMultipartForm(64 << 20); err != nil {

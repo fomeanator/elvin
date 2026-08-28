@@ -35,8 +35,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -57,7 +56,7 @@ func (s *server) handleImportArticy(w http.ResponseWriter, r *http.Request) {
 			Start, Max              int
 			Localize                bool
 		}
-		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
+		if err := json.NewDecoder(io.LimitReader(r.Body, bodyDoc)).Decode(&body); err != nil {
 			http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 			return
 		}

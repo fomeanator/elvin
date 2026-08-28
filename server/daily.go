@@ -59,11 +59,8 @@ func (s *DailyService) load(userID string) *dailyDoc {
 
 func (s *DailyService) save(userID string, doc *dailyDoc) error {
 	data, _ := json.Marshal(doc)
-	tmp := filepath.Join(s.dir, userID+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(s.dir, userID+".json"))
+	// Через дом (см. leaderboard.save): своя схема не синхронизировала запись.
+	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {
@@ -105,16 +102,14 @@ func (s *DailyService) handleStatus(w http.ResponseWriter, r *http.Request) {
 	today := s.now().UTC().Format("2006-01-02")
 	streak, claimed := s.nextStreak(doc, today)
 	next := s.rewardFor(streak)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"streak": doc.Streak, "claimed_today": claimed,
 		"next_streak": streak, "next_reward": next,
 	})
 }
 
 func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID := s.auth.UserFromRequest(r)
@@ -129,9 +124,7 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 	today := s.now().UTC().Format("2006-01-02")
 	streak, claimed := s.nextStreak(doc, today)
 	if claimed {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_ = json.NewEncoder(w).Encode(map[string]any{"error": "already_claimed", "streak": doc.Streak})
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "already_claimed", "streak": doc.Streak})
 		return
 	}
 	reward := s.rewardFor(streak)
@@ -150,8 +143,7 @@ func (s *DailyService) handleClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"streak": streak, "reward": reward,
 	})
 }
