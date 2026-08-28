@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using Lvn.Services;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -212,10 +213,10 @@ namespace Lvn.UI.Screens
 
             // В попапе значок не нарисуешь — но и служебное имя валюты
             // показывать нельзя: без названного currency_label остаётся цена.
-            string title = _cfg.insufficient_text ?? "Not enough";
+            string title = _cfg.insufficient_text ?? LvnWords.Of("wallet.not_enough", "Not enough");
             string msg = string.IsNullOrEmpty(_cfg.currency_label)
-                ? $"{title}: {item.price:N0}"
-                : $"{title}: {item.price:N0} {_cfg.currency_label}";
+                ? $"{title}: {LvnPriceTag.Amount(item.price)}"
+                : $"{title}: {LvnPriceTag.Amount(item.price)} {_cfg.currency_label}";
 
             var charge = new LvnCashier.Charge
             {

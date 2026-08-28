@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -273,7 +274,7 @@ namespace Lvn.UI.Screens
             cell.Add(icon);
 
             // Amount.
-            var amount = new Label($"+{reward.Amount:N0}");
+            var amount = new Label("+" + LvnPriceTag.Amount(reward.Amount));
             amount.style.color = reward.Gold ? LvnTokens.Gold : LvnTokens.Text;
             amount.style.fontSize = premium ? 26 : 24;
             amount.style.unityFontStyleAndWeight = FontStyle.Bold;

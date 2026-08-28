@@ -277,7 +277,7 @@ namespace Lvn.UI.Screens
             {
                 var parts = new List<string>();
                 foreach (var kv in p.Grants)
-                    parts.Add($"{kv.Value:N0} {UnitOf(kv.Key)}");
+                    parts.Add($"{LvnPriceTag.Amount(kv.Value)} {UnitOf(kv.Key)}");
                 sub = string.Join(" · ", parts);
             }
             return new Pack
@@ -427,7 +427,7 @@ namespace Lvn.UI.Screens
             body.style.alignItems = wide ? Align.FlexStart : Align.Center;
             card.Add(body);
 
-            var amount = new Label(pack.Headline ?? $"{pack.Amount:N0} {pack.Unit}");
+            var amount = new Label(pack.Headline ?? $"{LvnPriceTag.Amount(pack.Amount)} {pack.Unit}");
             amount.style.color = LvnTokens.Text;
             amount.style.fontSize = wide ? 30 : 25;
             amount.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -456,7 +456,7 @@ namespace Lvn.UI.Screens
                         18f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
                     ic.style.marginRight = 6;
                     chip.Add(ic);
-                    var t = new Label($"{kv.Value:N0} {UnitOf(kv.Key)}");
+                    var t = new Label($"{LvnPriceTag.Amount(kv.Value)} {UnitOf(kv.Key)}");
                     t.style.color = LvnTokens.Text;
                     t.style.fontSize = 20;
                     chip.Add(t);
