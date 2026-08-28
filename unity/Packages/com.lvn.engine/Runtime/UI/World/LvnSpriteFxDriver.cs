@@ -228,7 +228,7 @@ namespace Lvn.UI.World
                     _tGhost = _tPetrify = _tHologram = _tBurn = _tRim = _tShake =
                     _tAura = _tBlade = _tLightning = _tRunes = 0f;
                 _tFade = 1f;
-                _speed = F(cmd, "dur", 0f) > 0f ? 1f / (float)cmd["dur"] : 0f;
+                _speed = F(cmd, "dur", 0f) > 0f ? 1f / F(cmd, "dur", 1f) : 0f;
                 if (_speed <= 0f)
                 {
                     _outline = _glow = _dissolve = _flash = _dark = _tintFx =
@@ -293,12 +293,12 @@ namespace Lvn.UI.World
         }
 
         private static float F(JObject cmd, string key, float cur)
-            => cmd[key] != null ? (float)cmd[key] : cur;
+            => LvnNum.Parse(cmd[key], cur);
 
         private static float ClampedF(JObject cmd, string key, float current,
             float min, float max)
             => cmd[key] != null
-                ? Mathf.Clamp((float)cmd[key], min, max)
+                ? Mathf.Clamp(LvnNum.Parse(cmd[key], current), min, max)
                 : current;
 
         // Разбор цвета — из общего дома (UiColor). Своя копия в каждом слое и

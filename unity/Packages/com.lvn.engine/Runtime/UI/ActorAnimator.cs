@@ -313,8 +313,21 @@ namespace Lvn.UI
         }
 
         // ── pure sampling (static, unit-tested) ──────────────────────────────
-        private static float F(object o) =>
-            o == null ? 0f : Convert.ToSingle(o, CultureInfo.InvariantCulture);
+        // Разбор по типу, а не Convert.ToSingle: тот БРОСАЕТ на строке из
+        // каталога — а ключ, записанный как "0.012", роняет всю анимацию вместо
+        // одного кадра. Заодно быстрее: типовые случаи идут без преобразования.
+        private static float F(object o)
+        {
+            switch (o)
+            {
+                case null: return 0f;
+                case double d: return (float)d;
+                case float f: return f;
+                case long l: return l;
+                case int i: return i;
+            }
+            return LvnNum.Parse(o.ToString(), 0f);
+        }
 
         internal static float Sample(LvnAnimTrack tr, float t) => Sample(tr, t, easeless: false);
 
