@@ -116,7 +116,7 @@ namespace Lvn.UI.Screens
             poster.style.borderTopLeftRadius = _radius + 2f;
             poster.style.borderTopRightRadius = _radius + 2f;
 
-            string art = t.card?.image ?? t.cover_url;
+            string art = t.CardArt();
             if (!string.IsNullOrEmpty(art))
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -213,7 +213,7 @@ namespace Lvn.UI.Screens
             thumb.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             thumb.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
-            var art = t.card?.image ?? t.cover_url;
+            var art = t.CardArt();
             if (!string.IsNullOrEmpty(art)) LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, art, _assets), "AssignBg");
             card.Add(thumb);
 

@@ -347,6 +347,18 @@ namespace Lvn.Content
     /// </summary>
     public static class LvnTitleExtensions
     {
+        /// <summary>
+        /// АРТ КАРТОЧКИ: изображение карточки, если автор его задал, иначе
+        /// обложка.
+        ///
+        /// <para>Правило было записано ПЯТЬ раз — в двух видах карточек хаба, в
+        /// его же деталях и в экране новеллы. Хуже, что предзагрузка и подсчёт
+        /// «скачано ли» правила не знали вовсе и брали только обложку: новелла
+        /// с заданным <c>card.image</c> объявлялась скачанной, а карточка потом
+        /// ждала сеть — грелся не тот файл, который показывают.</para>
+        /// </summary>
+        public static string CardArt(this LvnTitle t) => t?.card?.image ?? t?.cover_url;
+
         /// <summary>Все главы новеллы, по возрастанию номера.</summary>
         public static List<LvnChapter> ChaptersOf(this LvnTitle t)
         {
