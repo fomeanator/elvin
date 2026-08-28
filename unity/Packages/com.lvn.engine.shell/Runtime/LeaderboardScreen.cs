@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// and calls <see cref="Rebuild"/>. Fade / show / hide mirror the other shell
     /// overlays (see <see cref="StoreScreen"/>).
     /// </summary>
-    public sealed class LeaderboardScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
+    public sealed class LeaderboardScreen : LvnOverlayScreen
     {
         /// <summary>One row in the standings.</summary>
         public sealed class Entry
@@ -130,7 +130,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the podium and the list from <see cref="Entries"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public void Redress() => Rebuild();
+        public override void Redress() => Rebuild();
 
         public void Rebuild()
         {

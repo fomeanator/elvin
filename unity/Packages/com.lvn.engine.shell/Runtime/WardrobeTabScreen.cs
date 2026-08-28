@@ -142,6 +142,16 @@ namespace Lvn.UI.Screens
             _panel.Add(_sheet);
         }
 
+        /// <summary>Переодеться: шапка — базой, а ростер надо ПЕРЕСПРОСИТЬ.
+        /// Имена персонажей уходят в лист готовыми строками (<c>SetRoster</c>),
+        /// и после смены языка лист пересобрал бы их из прежних — тех же строк
+        /// на прежнем языке.</summary>
+        public override void Redress()
+        {
+            base.Redress();
+            if (_sheet != null) _sheet.SetRoster(Roster());
+        }
+
         protected override void OnOpening()
         {
             EnsureSheet();

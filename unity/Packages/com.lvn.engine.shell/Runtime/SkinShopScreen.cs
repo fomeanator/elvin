@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
     /// the real catalog + wallet wiring lands later (see the wardrobe sheet
     /// for the live, manifest-driven equivalent).
     /// </summary>
-    public sealed class SkinShopScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
+    public sealed class SkinShopScreen : LvnOverlayScreen
     {
         private readonly ILvnAssets _assets;
 
@@ -279,7 +279,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>(Re)build every dynamic section from the current selection.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public void Redress() => Rebuild();
+        public override void Redress() => Rebuild();
 
         public void Rebuild()
         {
