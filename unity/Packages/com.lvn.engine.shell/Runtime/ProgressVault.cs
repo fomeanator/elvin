@@ -104,6 +104,15 @@ namespace Lvn.UI.Screens
             catch (Exception e) { Debug.LogWarning("[vault] local write failed: " + e.Message); }
         }
 
+        /// <summary>Снести локальный сейф: игрок попросил себя забыть, а сейф —
+        /// снимок ВСЕГО прогресса, из которого он же и восстановится при первом
+        /// подъёме, если файл пережить.</summary>
+        public static void Forget()
+        {
+            try { if (System.IO.File.Exists(FilePath)) System.IO.File.Delete(FilePath); }
+            catch (Exception e) { Debug.LogWarning("[vault] local wipe failed: " + e.Message); }
+        }
+
         public static JObject ReadLocal()
         {
             try

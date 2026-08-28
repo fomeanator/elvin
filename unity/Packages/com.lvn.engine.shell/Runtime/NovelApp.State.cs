@@ -107,9 +107,9 @@ namespace Lvn.UI.Screens
             if (title == null) return;
             // LOCAL state first — a kill mid-network-await must not leave a
             // "continue" that resumes the middle of the novel with zeroed stats.
-            foreach (var slot in new System.Collections.Generic.List<string>(LvnSaveStore.Slots(title.id).Keys))
-                LvnSaveStore.Delete(title.id, slot);
-            LvnProgress.ResetTitle(title.id);
+            // Список того, что стереть, держит ЗАБВЕНИЕ, а не этот метод: здесь
+            // перечислялись сейвы и статы, а галерея с прочитанным оставались.
+            Lvn.UI.LvnForget.Title(title.id);
             try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
             Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
