@@ -88,106 +88,115 @@ namespace Lvn.UI.Screens
 
             while (!ct.IsCancellationRequested)
             {
-                // ── choose a title: hub flow or the carousel ──
-                LvnTitle title;
-                var intro = PendingIntroTitle();
-                if (intro != null)
+                // ПОКАЗАЛ — ОБЯЗАН СНЯТЬ, чем бы виток ни кончился. Раньше
+                // подстраховка стояла хвостом, и до неё не доходили: отмена
+                // посреди главы уходила `return`-ом мимо, оставляя НЕПРОЗРАЧНЫЙ
+                // экран загрузки поверх меню. Игрок видел заставку, под которой
+                // работает живой интерфейс, и не мог ничего нажать.
+                try
                 {
-                    title = intro;   // выбора нет — и это намеренно
-                }
-                else if (useHub && Hub != null)
-                {
-                    // ВПУСКАЕТ ШВЕЙЦАР. Цикл только называет участников и
-                    // условие «дверь закрыта»; порядок (зарядить → дождаться →
-                    // показать → двинуть) и предохранители — его забота.
-                    TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
-                    LvnAsync.Fire(LvnUsher.OpenAsync(
-                        hold: () => BootVeil.IsVisible,
-                        show: () => Show(Hub),
-                        Hub, TopBar), "ShellEntrance");
-                    OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
-                    // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
-                    // ставит и полотно, и куклу — значит светлое пятно рисует
-                    // сама оболочка. Через секунду после показа перечисляем
-                    // ВСЕ крупные светлые непрозрачные поверхности дерева.
-                    if (Lvn.UI.LvnLog.Verbose)
-                        _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
-                    title = await Hub.PickTitleAsync(ct);
-                    // (вход полос играет сам по себе — ждать его незачем)
-                    if (ct.IsCancellationRequested) return;
-                    Hide(Hub);
-                    if (title == null) continue; // never picked → re-enter the hub
-                }
-                else
-                {
-                    Carousel.RefreshProgress(); // progress moved while a chapter played
-                    Show(Carousel);
-                    int idx = await WaitForPlay(ct);
-                    if (ct.IsCancellationRequested) return;
-                    Hide(Carousel);
-                    title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
-                        ? _manifest.titles[idx] : null;
-                }
-                // "Играть" continues from the furthest STARTED chapter (started
-                // ch2 → the button opens ch2); a fresh/finished title starts at
-                // chapter one. PlayChapterAsync applies the same resume rule —
-                // resolving it HERE too makes the loading screen show the right
-                // chapter's backdrop and preload the right asset plan.
-                var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
+                    // ── choose a title: hub flow or the carousel ──
+                    LvnTitle title;
+                    var intro = PendingIntroTitle();
+                    if (intro != null)
+                    {
+                        title = intro;   // выбора нет — и это намеренно
+                    }
+                    else if (useHub && Hub != null)
+                    {
+                        // ВПУСКАЕТ ШВЕЙЦАР. Цикл только называет участников и
+                        // условие «дверь закрыта»; порядок (зарядить → дождаться →
+                        // показать → двинуть) и предохранители — его забота.
+                        TopBar?.SetInGame(false); // хаб на экране ⇒ бар обязан быть виден
+                        LvnAsync.Fire(LvnUsher.OpenAsync(
+                            hold: () => BootVeil.IsVisible,
+                            show: () => Show(Hub),
+                            Hub, TopBar), "ShellEntrance");
+                        OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
+                        // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
+                        // ставит и полотно, и куклу — значит светлое пятно рисует
+                        // сама оболочка. Через секунду после показа перечисляем
+                        // ВСЕ крупные светлые непрозрачные поверхности дерева.
+                        if (Lvn.UI.LvnLog.Verbose)
+                            _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
+                        title = await Hub.PickTitleAsync(ct);
+                        // (вход полос играет сам по себе — ждать его незачем)
+                        if (ct.IsCancellationRequested) return;
+                        Hide(Hub);
+                        if (title == null) continue; // never picked → re-enter the hub
+                    }
+                    else
+                    {
+                        Carousel.RefreshProgress(); // progress moved while a chapter played
+                        Show(Carousel);
+                        int idx = await WaitForPlay(ct);
+                        if (ct.IsCancellationRequested) return;
+                        Hide(Carousel);
+                        title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
+                            ? _manifest.titles[idx] : null;
+                    }
+                    // "Играть" continues from the furthest STARTED chapter (started
+                    // ch2 → the button opens ch2); a fresh/finished title starts at
+                    // chapter one. PlayChapterAsync applies the same resume rule —
+                    // resolving it HERE too makes the loading screen show the right
+                    // chapter's backdrop and preload the right asset plan.
+                    var chapter = LvnProgress.Current(title) ?? FirstChapter(title);
 
-                // The name ask lives INSIDE the chapter entry now (after the
-                // title card, over the live scene) — the host owns it.
+                    // The name ask lives INSIDE the chapter entry now (after the
+                    // title card, over the live scene) — the host owns it.
 
-                // ── chapter loading (Liminal-style entry) ──
-                // The loader stays OPAQUE while the chapter boots BEHIND it —
-                // the host fades it out via RevealFromLoadingAsync() once the
-                // scene has its first background, then floats the chapter title
-                // over the LIVE scene (ShowChapterTitleAsync). No frame of raw
-                // stage ever shows between screens.
-                var ready = chapterReady?.Invoke(chapter) ?? (() => true);
-                var prog = chapterProgress?.Invoke(chapter);
-                bool cached = ready();
-                if (Portal != null)
-                {
-                    // ПЕРЕХОД БЕЗ ЭКРАНА. Игрок уже нажал «играть» — между его
-                    // решением и историей не должно быть ещё одной остановки.
-                    // Створ стоит на главной, героиня уходит в него, и следом
-                    // кадр забирает глава.
-                    if (OnPortalEnter != null) await OnPortalEnter();
-                }
-                else
-                {
-                    Show(Loading);
-                    await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
-                        minSecondsOverride: cached
-                            ? (Transitions?.loading_floor ?? 0.25f)
-                            : (float?)null);
-                }
+                    // ── chapter loading (Liminal-style entry) ──
+                    // The loader stays OPAQUE while the chapter boots BEHIND it —
+                    // the host fades it out via RevealFromLoadingAsync() once the
+                    // scene has its first background, then floats the chapter title
+                    // over the LIVE scene (ShowChapterTitleAsync). No frame of raw
+                    // stage ever shows between screens.
+                    var ready = chapterReady?.Invoke(chapter) ?? (() => true);
+                    var prog = chapterProgress?.Invoke(chapter);
+                    bool cached = ready();
+                    if (Portal != null)
+                    {
+                        // ПЕРЕХОД БЕЗ ЭКРАНА. Игрок уже нажал «играть» — между его
+                        // решением и историей не должно быть ещё одной остановки.
+                        // Створ стоит на главной, героиня уходит в него, и следом
+                        // кадр забирает глава.
+                        if (OnPortalEnter != null) await OnPortalEnter();
+                    }
+                    else
+                    {
+                        Show(Loading);
+                        await Loading.RunAsync(ready, prog, ct, bgUrl: chapter?.bg_url,
+                            minSecondsOverride: cached
+                                ? (Transitions?.loading_floor ?? 0.25f)
+                                : (float?)null);
+                    }
 
-                // ── play ──
-                if (playChapter != null && chapter != null)
-                {
-                    LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
-                    // Полоса GameHud удалена (решение Ильи 26.08): затемнение
-                    // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
-                    // единого навбара по углам сцены.
-                    OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
-                    try { await playChapter(title, chapter, _playerName); }
-                    catch (OperationCanceledException) { return; }
-                    catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
-                    OnChapterSessionEnd?.Invoke();   // вернулись в меню — и его звук тоже
-                    Hide(Hud);
-                }
-                // Вводная считается пройденной, когда доиграна до конца: бросил
-                // на середине — при следующем запуске снова попадёт в неё, а не
-                // на витрину, которую ещё не заслужил.
-                if (intro != null && IsTitleFinished(intro)) Lvn.UI.LvnPrefs.IntroDone = true;
+                    // ── play ──
+                    if (playChapter != null && chapter != null)
+                    {
+                        LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh"); // fresh pills for the HUD
+                        // Полоса GameHud удалена (решение Ильи 26.08): затемнение
+                        // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
+                        // единого навбара по углам сцены.
+                        OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
+                        try { await playChapter(title, chapter, _playerName); }
+                        catch (OperationCanceledException) { return; }
+                        catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
+                        OnChapterSessionEnd?.Invoke();   // вернулись в меню — и его звук тоже
+                        Hide(Hud);
+                    }
+                    // Вводная считается пройденной, когда доиграна до конца: бросил
+                    // на середине — при следующем запуске снова попадёт в неё, а не
+                    // на витрину, которую ещё не заслужил.
+                    if (intro != null && IsTitleFinished(intro)) Lvn.UI.LvnPrefs.IntroDone = true;
 
-                // Safety: if play bailed before revealing (charge refused, script
-                // fetch failed), don't strand an opaque loader over the menu.
-                Loading.Hide();
-                Title.Hide();
-                if (BootVeil.IsVisible) BootVeil.Hide(); // и брендовую вуаль первого входа
+                }   // конец витка: дальше — уборка, что бы ни случилось
+                finally
+                {
+                    Loading.Hide();
+                    Title.Hide();
+                    if (BootVeil.IsVisible) BootVeil.Hide(); // и брендовую вуаль первого входа
+                }
             }
         }
 
