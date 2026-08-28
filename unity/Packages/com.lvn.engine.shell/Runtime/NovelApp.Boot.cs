@@ -193,6 +193,7 @@ namespace Lvn.UI.Screens
                             manifest);
                 }
             }
+            catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
 
             _shell = NovelShell.Create(transform, 30, ShellTheme);

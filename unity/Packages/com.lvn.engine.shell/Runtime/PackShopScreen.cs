@@ -66,7 +66,6 @@ namespace Lvn.UI.Screens
         private readonly List<Button> _tabButtons = new List<Button>();
         private readonly Dictionary<string, List<Pack>> _catalog;
 
-        private bool _buying;
         private int _tab;
 
         /// <summary>ДВА МАГАЗИНА ИЗ ОДНОГО КОНТЕНТА (решение Ильи 27.08):
@@ -600,21 +599,22 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        // Через Fire, а не `async void`: упавшая задача исчезала бесследно, а
-        // вместе с ней — снятие замка. Оборванная сеть посреди покупки оставляла
-        // _buying = true НАВСЕГДА: экран магазина мертвел молча, и лечилось это
-        // только выходом с него. Замок снимает finally, что бы ни случилось.
-        private void Buy(Button b, Pack pack) => LvnAsync.Fire(BuyAsync(b, pack), "Buy");
-
-        private async Task BuyAsync(Button b, Pack pack)
+        // ЗАНЯТОСТЬ ВЕДЁТ ДОМ, а не своё поле. Здесь стоял `_buying`, снимаемый
+        // в трёх местах руками, и комментарий обещал `finally`, которого не
+        // было: оборванная сеть посреди покупки оставляла экран мёртвым до
+        // выхода с него. Дом (LvnBusy) держит занятость самой кнопкой и
+        // отпускает её при любом исходе; releaseOnSuccess: false — потому что
+        // успех экран доигрывает сам («Готово» на секунду, потом прежняя
+        // подпись).
+        private void Buy(Button b, Pack pack)
         {
-            if (_buying) return;
-            _buying = true;
-            var label = b.text;
-            b.SetEnabled(false);
-            b.text = "…";
-            try
-            {
+            string label = b.text;   // подпись запоминаем ДО занятости
+            LvnAsync.Fire(LvnBusy.RunAsync(b, () => BuyAsync(b, pack, label), "…",
+                                           releaseOnSuccess: false, what: "Buy"), "Buy");
+        }
+
+        private async Task BuyAsync(Button b, Pack pack, string label)
+        {
             // TEST-mode purchase: no store billing yet, but the CREDIT is real —
             // it lands in the server wallet (idempotent op), so bought crystals
             // exist everywhere: the wardrobe, the HUD pills, the next session.
@@ -640,7 +640,6 @@ namespace Lvn.UI.Screens
             {
                 b.text = label;
                 b.SetEnabled(true);
-                _buying = false;
                 return;
             }
             b.schedule.Execute(() =>
@@ -650,18 +649,8 @@ namespace Lvn.UI.Screens
                 {
                     b.text = label;
                     b.SetEnabled(true);
-                    _buying = false;
                 }).ExecuteLater(1100);
             }).ExecuteLater(650);
-            }
-            catch
-            {
-                // Сорвалось — вернуть кнопку игроку, а не оставить её серой.
-                b.text = label;
-                b.SetEnabled(true);
-                _buying = false;
-                throw;   // а сам разбор — в лог, именем задачи
-            }
         }
 
         // ── Balances: the REAL wallet ────────────────────────────────────────
