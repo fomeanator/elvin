@@ -9,6 +9,35 @@
 
 import { evalExpr, evalBool, interpolate, getVarPath, setVarPath, evalStructuredCond } from "./expr.js";
 
+// СОСТОЯНИЕ СЦЕНЫ ИЗ ПЕРЕСЛАННЫХ КОМАНД — что стоит в кадре прямо сейчас.
+//
+// Плеер команды постановки не трактует, он их пересылает; но и песочнице, и
+// экспортированной игре нужно ЗАПОМНИТЬ кадр — для автосохранения и возврата.
+// Правило было списано дважды: в app.js и в шаблоне экспорта, — и копии
+// разошлись. В экспорте не было ветки `clear`, поэтому после восстановления
+// сохранения там возвращались актёры, которых сцена убрала.
+//
+// Живёт здесь, потому что core.js инлайнится в экспорт целиком: одно правило
+// доезжает обоим само, без переписывания.
+export function trackStage(state, cmd) {
+  if (!cmd || !state) return state;
+  state.actors = state.actors || {};
+  state.hud = state.hud || {};
+  if (cmd.op === "bg" && cmd.sprite_url) state.bg = cmd.sprite_url;
+  // `clear` empties the cast and nothing else — the backdrop and the HUD are
+  // deliberately left in place, so a scene change stays `clear` + a new `bg`.
+  else if (cmd.op === "clear") state.actors = {};
+  else if (cmd.op === "actor" || cmd.op === "obj") {
+    if (!cmd.id) return state;
+    if (cmd.show === false) delete state.actors[cmd.id];
+    else state.actors[cmd.id] = Object.assign({}, state.actors[cmd.id] || {}, cmd);
+  } else if (cmd.op === "text" && cmd.id) {
+    if (cmd.hide) delete state.hud[cmd.id];
+    else state.hud[cmd.id] = Object.assign({}, state.hud[cmd.id] || {}, cmd);
+  }
+  return state;
+}
+
 // СОГЛАСИЕ, КАКИМ ЕГО ПИШЕТ АВТОР — тот же словарь, что у движка
 // (Lvn.LvnBool): true/1/yes/y/on/да. Незнакомое слово согласием НЕ считается:
 // опечатка вернее опечатка, чем решение.

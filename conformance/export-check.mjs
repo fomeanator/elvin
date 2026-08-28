@@ -46,4 +46,14 @@ for (const [name, src] of [["core.js", core], ["expr.js", expr]]) {
   }
 }
 
+// ПРАВИЛО КАДРА — ОДНО. `trackStage` живёт в плеере и приезжает в экспорт
+// вместе с ним. Отдельное определение в песочнице или в шаблоне значит, что
+// копия вернулась: ровно так в экспорте однажды пропала ветка `clear`, и
+// восстановление сохранения возвращало актёров, которых сцена убрала.
+for (const [name, src] of [["app.js", read("app.js")], ["export.js", read("export.js")]]) {
+  if (/^\s*function trackStage\s*\(/m.test(src)) {
+    problems.push(`${name}: своё определение trackStage — правило кадра должно приходить из core.js`);
+  }
+}
+
 process.stdout.write(JSON.stringify(problems));
