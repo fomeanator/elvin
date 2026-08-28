@@ -539,7 +539,15 @@ namespace Lvn.UI
                             miniRects?.Add(i < urlRects.Count ? urlRects[i] : Vector4.zero);
                             miniDefs?.Add(i < urlDefs.Count ? urlDefs[i] : default);
                         }
-                        if (mini.Count > 0 && _clock.MayTouch(epoch, lane, gen))
+                        // ЗАГОТОВКА ВЫХОДИТ ЦЕЛОЙ ИЛИ НЕ ВЫХОДИТ ВОВСЕ.
+                        // Раньше она собиралась из тех слоёв, у кого нашёлся
+                        // @mini, а остальные молча пропускались — и на экран
+                        // выходила фигура БЕЗ ЛИЦА (партнёрский репорт 29.08:
+                        // «базовый баг», первая сессия, пролог). Ждать лишние
+                        // полсекунды честнее, чем показать человека без лица:
+                        // задержку игрок читает как загрузку, безликость — как
+                        // сломанную игру.
+                        if (mini.Count == urls.Count && _clock.MayTouch(epoch, lane, gen))
                         {
                             var silPl = placement;
                             silPl.Silhouette = true;
@@ -610,8 +618,23 @@ namespace Lvn.UI
             RepinSceneSprites("actor:" + id, layers); // что на экране — LRU не трогает
             // Что НАДЕТО на фигуре — с этого мгновения и до следующей сборки.
             // Отсюда живёт правило «тот же облик — не пересобирать».
-            if (layers != null && layers.Count > 0) _actorLook[id] = look;
-            else _actorLook.Remove(id);
+            // ОБЛИК ЗАПИСЫВАЕТСЯ, ТОЛЬКО ЕСЛИ НАДЕТ ЦЕЛИКОМ. Признак «на ней
+            // этот облик» ставился по списку ЗАПРОШЕННОГО (look — все urls),
+            // а хватало одного доехавшего слоя. Дальше проверка «облик тот же
+            // и арт цел» (sameLook выше) честно отвечала «да» — и неполную
+            // фигуру показывали ВКЛЮЧЕНИЕМ, без пересборки. Так безликость
+            // переставала быть временной: самолечение слоя живёт, пока этот
+            // показ новейший, а выход в меню его обрывает — и героиня
+            // застревала без лица уже на главном экране.
+            bool wholeLook = layers != null && urls != null && layers.Count == urls.Count;
+            if (wholeLook) _actorLook[id] = look;
+            else
+            {
+                _actorLook.Remove(id); // неполной фигуре следующий показ обязан пересобрать облик
+                if (layers != null && layers.Count > 0)
+                    LvnLog.Warn($"[lvn-actor] {id}: надето {layers.Count} из {urls?.Count ?? 0} слоёв — "
+                              + "облик не закрепляем, следующий показ соберёт заново");
+            }
             placement.SmoothPosition = false;
             placement.WardrobeSwap = false;
             placement.WardrobeFromTop = false;
