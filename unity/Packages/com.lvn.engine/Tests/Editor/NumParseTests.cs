@@ -62,5 +62,44 @@ namespace Lvn.Tests
             Assert.IsNull(LvnNum.Parse(JToken.FromObject("%")));
             Assert.AreEqual(7f, LvnNum.Parse(JToken.FromObject("ерунда"), 7f), 1e-5f);
         }
+
+        // ── ЗНАЧЕНИЕ СОСТОЯНИЯ — другой вопрос, чем поле команды ─────────────
+        // Там «57%» это доля, здесь просто текст; зато true законно значит
+        // единицу, как и в языке выражений.
+
+        [Test]
+        public void ЧислоИзСтроки_ЭтоЧисло()
+        {
+            // Так приходит ВВОД ИГРОКА: VnStage.Input кладёт в переменную
+            // строку, а спросить число — обычное дело. Плеер строку не
+            // разбирал, поэтому inc над «10» давал 1, стирая значение.
+            Assert.AreEqual(10d, LvnNum.Value(JToken.FromObject("10"), 0), 1e-9);
+            Assert.AreEqual(-2.5d, LvnNum.Value(JToken.FromObject(" -2.5 "), 0), 1e-9);
+        }
+
+        [Test]
+        public void ЛогическоеЗначение_ЭтоЕдиницаИНоль()
+        {
+            Assert.AreEqual(1d, LvnNum.Value(JToken.FromObject(true), 0), 1e-9);
+            Assert.AreEqual(0d, LvnNum.Value(JToken.FromObject(false), 9), 1e-9);
+        }
+
+        [Test]
+        public void НеЧисло_ЭтоЗапасноеЗначение_АНеПадение()
+        {
+            Assert.AreEqual(3d, LvnNum.Value(JToken.FromObject("абв"), 3), 1e-9);
+            Assert.AreEqual(3d, LvnNum.Value(null, 3), 1e-9);
+            Assert.AreEqual(3d, LvnNum.Value(JValue.CreateNull(), 3), 1e-9);
+            Assert.AreEqual(3d, LvnNum.Value(new JObject(), 3), 1e-9);
+        }
+
+        [Test]
+        public void ПроцентВСостоянии_ЭтоНеДоля()
+        {
+            // Поле команды и значение переменной читаются РАЗНЫМИ правилами:
+            // «57%» как ширина — доля, как содержимое переменной — текст.
+            Assert.AreEqual(0.57f, LvnNum.Parse(JToken.FromObject("57%"), 0), 1e-5f);
+            Assert.AreEqual(0d, LvnNum.Value(JToken.FromObject("57%"), 0), 1e-9);
+        }
     }
 }

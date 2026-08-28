@@ -103,9 +103,7 @@ namespace Lvn.UI.Screens
             if (getVar == null || string.IsNullOrEmpty(key)) return 0;
             JToken tok;
             try { tok = getVar(key); } catch { return 0; }
-            if (tok == null) return 0;
-            try { return tok.Type == JTokenType.Boolean ? (tok.Value<bool>() ? 1 : 0) : tok.Value<double>(); }
-            catch { return 0; }
+            return Lvn.LvnNum.Value(tok, 0); // общее правило числа — там же, где у inc
         }
     }
 }
