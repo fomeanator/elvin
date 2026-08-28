@@ -171,19 +171,17 @@ func (s *AuthService) Channels() map[string]string {
 // это один раз при первом запуске. Повтор безопасен: первое касание не
 // переписывается, поэтому потерянный ответ можно спокойно переслать.
 func (s *AuthService) handleAttribution(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID := s.UserFromRequest(r)
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, userID) {
 		return
 	}
 	var body struct {
 		Raw string `json:"raw"`
 	}
-	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body) != nil {
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&body) != nil {
 		http.Error(w, `{"raw": "<адрес диплинка или строка меток>"} required`, http.StatusBadRequest)
 		return
 	}

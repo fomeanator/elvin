@@ -54,11 +54,10 @@ func (s *LeaderboardService) load(board string) []lbEntry {
 
 func (s *LeaderboardService) save(board string, entries []lbEntry) error {
 	data, _ := json.MarshalIndent(entries, "", "  ")
-	tmp := filepath.Join(s.dir, board+".json.tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(s.dir, board+".json"))
+	// Через дом: своя пара «записать во временный + переименовать» выглядела
+	// атомарной, но не звала Sync — при выключении питания переименование
+	// успевает раньше данных, и таблица лидеров воскресает пустой.
+	return atomicWrite(filepath.Join(s.dir, board+".json"), data, 0o600)
 }
 
 func (s *LeaderboardService) handle(w http.ResponseWriter, r *http.Request) {
@@ -79,15 +78,14 @@ func (s *LeaderboardService) handle(w http.ResponseWriter, r *http.Request) {
 
 func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request, board string) {
 	userID := s.auth.UserFromRequest(r)
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, userID) {
 		return
 	}
 	var req struct {
 		Score int64  `json:"score"`
 		Name  string `json:"name"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil {
 		http.Error(w, "score required", http.StatusBadRequest)
 		return
 	}
@@ -126,8 +124,7 @@ func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"improved": improved,
 		"rank":     rankOf(entries, userID),
 	})
@@ -160,8 +157,7 @@ func (s *LeaderboardService) handleTop(w http.ResponseWriter, r *http.Request, b
 			}
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(out)
+	writeJSON(w, http.StatusOK, out)
 }
 
 func sortEntries(entries []lbEntry) {

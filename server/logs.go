@@ -66,8 +66,7 @@ type clientLogLine struct {
 const clientLogDayMaxSize = 256 << 20
 
 func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	if !analyticsAllow("log:"+clientIP(r), time.Now()) {
@@ -75,7 +74,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var batch clientLogBatch
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 512<<10)).Decode(&batch); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyDoc)).Decode(&batch); err != nil {
 		http.Error(w, "JSON {device, lines:[{ts,level,msg,stack?}]} required", http.StatusBadRequest)
 		return
 	}
@@ -132,8 +131,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 			accepted++
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]int{"accepted": accepted})
+	writeJSON(w, http.StatusOK, map[string]int{"accepted": accepted})
 }
 
 func clip(s string, max int) string {
@@ -189,6 +187,5 @@ func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"day": day, "lines": tail})
+	writeJSON(w, http.StatusOK, map[string]any{"day": day, "lines": tail})
 }

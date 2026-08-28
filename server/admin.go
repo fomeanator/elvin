@@ -172,12 +172,11 @@ func (s *AdminService) handleRollback(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var req struct{ File, TS string }
-	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req) != nil ||
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req) != nil ||
 		!historyEligible(req.File) || !reHistoryTS.MatchString(req.TS) {
 		http.Error(w, "file and ts required", http.StatusBadRequest)
 		return
@@ -206,8 +205,7 @@ func (s *AdminService) handlePublish(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	draft := filepath.Join(s.content, "manifest.draft.json")
@@ -306,7 +304,7 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 	case http.MethodPut:
 		var doc json.RawMessage
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&doc); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyBulk)).Decode(&doc); err != nil {
 			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -373,7 +371,7 @@ func (s *AdminService) handleManifest(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 	case http.MethodPut:
 		var doc json.RawMessage
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<20)).Decode(&doc); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyBulk)).Decode(&doc); err != nil {
 			http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -464,8 +462,7 @@ func (s *AdminService) handleGrant(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var req struct {
@@ -474,7 +471,7 @@ func (s *AdminService) handleGrant(w http.ResponseWriter, r *http.Request) {
 		Amount   int64  `json:"amount"`
 		Reason   string `json:"reason"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil ||
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil ||
 		req.UserID == "" || req.Currency == "" || req.Amount == 0 {
 		http.Error(w, "user_id, currency and amount required", http.StatusBadRequest)
 		return

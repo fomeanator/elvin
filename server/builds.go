@@ -190,7 +190,7 @@ func (s *BuildsService) register(w http.ResponseWriter, r *http.Request) {
 		Platform string `json:"platform"` // необязательно: обычно ясно по расширению
 		Notes    string `json:"notes"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, bodySmall)).Decode(&body); err != nil {
 		http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -77,7 +77,7 @@ type netRoom struct {
 	//
 	// Зерно даёт сервер, а не код комнаты: код короткий и его диктуют вслух,
 	// то есть будущие броски можно было бы предсказать заранее.
-	seed uint64
+	seed  uint64
 	seats map[string]*netSeat
 	order []string // места в порядке входа: "кто первый сел"
 	cells map[string]*netCell
@@ -107,8 +107,7 @@ func (s *NetService) Routes(mux *http.ServeMux) {
 
 // POST /v1/net/rooms — открыть комнату. Отдаёт код для партнёра и токен места.
 func (s *NetService) handleCreate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	s.mu.Lock()

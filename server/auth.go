@@ -219,14 +219,13 @@ func (s *AuthService) UserFromRequest(r *http.Request) string {
 }
 
 func (s *AuthService) handleRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var req struct {
 		DeviceID string `json:"device_id"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || len(req.DeviceID) < 16 {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil || len(req.DeviceID) < 16 {
 		http.Error(w, "device_id (>=16 chars) required", http.StatusBadRequest)
 		return
 	}
@@ -253,8 +252,7 @@ func (s *AuthService) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"user_id": userID,
 		"token":   userID + "." + secret,
 	})
@@ -262,8 +260,7 @@ func (s *AuthService) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *AuthService) handleMe(w http.ResponseWriter, r *http.Request) {
 	userID := s.UserFromRequest(r)
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, userID) {
 		return
 	}
 	s.mu.Lock()
@@ -276,8 +273,7 @@ func (s *AuthService) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 	sort.Strings(providers) // stable order for the UI
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": userID, "created": created, "name": name, "providers": providers,
 	})
 }
@@ -287,20 +283,18 @@ func (s *AuthService) handleMe(w http.ResponseWriter, r *http.Request) {
 // device recovers this account. 409 when the identity already belongs to a
 // different account (the client offers "switch to that account?" via login).
 func (s *AuthService) handleLink(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID := s.UserFromRequest(r)
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, userID) {
 		return
 	}
 	var req struct {
 		Provider string `json:"provider"` // google | apple | dev (-auth-dev)
 		Token    string `json:"token"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil ||
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodySmall)).Decode(&req); err != nil ||
 		req.Provider == "" || req.Token == "" {
 		http.Error(w, "provider and token required", http.StatusBadRequest)
 		return
@@ -315,9 +309,7 @@ func (s *AuthService) handleLink(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	key := req.Provider + ":" + subject
 	if owner, taken := s.byProv[key]; taken && owner != userID {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		writeJSON(w, http.StatusConflict, map[string]string{
 			"error": "already_linked", "user_id": owner,
 		})
 		return
@@ -332,23 +324,21 @@ func (s *AuthService) handleLink(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "provider": req.Provider})
+	writeJSON(w, http.StatusOK, map[string]string{"user_id": userID, "provider": req.Provider})
 }
 
 // handleLogin signs in WITH a platform identity: a known identity returns its
 // account (fresh session token — the cross-device recovery), an unknown one
 // creates a new account on the spot (the standard first "Sign in with …").
 func (s *AuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var req struct {
 		Provider string `json:"provider"`
 		Token    string `json:"token"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil ||
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodySmall)).Decode(&req); err != nil ||
 		req.Provider == "" || req.Token == "" {
 		http.Error(w, "provider and token required", http.StatusBadRequest)
 		return
@@ -378,8 +368,7 @@ func (s *AuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"user_id": userID,
 		"token":   userID + "." + secret,
 		"name":    s.users[userID].Name,
@@ -389,19 +378,17 @@ func (s *AuthService) handleLogin(w http.ResponseWriter, r *http.Request) {
 // handleProfile sets the display name shown by the auth screen and anywhere
 // else the account surfaces (leaderboards already carry their own name field).
 func (s *AuthService) handleProfile(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	userID := s.UserFromRequest(r)
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, userID) {
 		return
 	}
 	var req struct {
 		Name string `json:"name"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req); err != nil {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
@@ -417,6 +404,5 @@ func (s *AuthService) handleProfile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "persist failed", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": userID, "name": name})
+	writeJSON(w, http.StatusOK, map[string]string{"user_id": userID, "name": name})
 }

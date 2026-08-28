@@ -254,7 +254,7 @@ func (s *ExperimentsService) handleAdmin(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusOK, map[string]any{"experiments": s.cfg.Get()})
 	case http.MethodPut:
 		var body []experiment
-		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&body) != nil {
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyDoc)).Decode(&body) != nil {
 			http.Error(w, "нужен массив экспериментов", http.StatusBadRequest)
 			return
 		}

@@ -108,8 +108,7 @@ func (a *conflictAPI) handleList(w http.ResponseWriter, r *http.Request) {
 	if !a.authed(w, r) {
 		return
 	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodGet) {
 		return
 	}
 	conflicts, err := importer.ScanConflicts(a.srv.content)
@@ -173,8 +172,7 @@ func (a *conflictAPI) handleResolve(w http.ResponseWriter, r *http.Request) {
 	if !a.authed(w, r) {
 		return
 	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	var req struct {
@@ -182,7 +180,7 @@ func (a *conflictAPI) handleResolve(w http.ResponseWriter, r *http.Request) {
 		Choice string `json:"choice"`
 		Title  string `json:"title"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodySmall)).Decode(&req); err != nil {
 		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}

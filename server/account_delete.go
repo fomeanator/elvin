@@ -27,19 +27,17 @@ func (e *accountEraser) Routes(mux *http.ServeMux) {
 }
 
 func (e *accountEraser) handleDelete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+	if !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
 	uid := e.auth.UserFromRequest(r)
-	if uid == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if !requireUser(w, uid) {
 		return
 	}
 	var req struct {
 		Confirm string `json:"confirm"`
 	}
-	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req)
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyTiny)).Decode(&req)
 	if req.Confirm != "DELETE" {
 		http.Error(w, `confirm:"DELETE" required`, http.StatusBadRequest)
 		return
