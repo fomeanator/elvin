@@ -23,7 +23,10 @@ namespace Lvn.UI.Screens
     /// </summary>
     public abstract class LvnOverlayScreen : VisualElement
     {
-        private TaskCompletionSource<bool> _tcs;
+        // Ожидание закрытия — через LvnCloseGate: связка «создать, подписать
+        // отмену, дождаться, отпустить» стояла тут, в галерее и в гардеробе, и
+        // каждая её часть обязательна по своей причине.
+        private readonly LvnCloseGate _gate = new LvnCloseGate();
         private bool _open;
         private VisualElement _sheet;
 
@@ -206,10 +209,8 @@ namespace Lvn.UI.Screens
             await ScreenFx.FadeAsync(this, 0f, 1f, FadeSeconds, ct);
             if (!_open) return false;   // закрыли прямо во время проявления
 
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
             bool confirmed;
-            try { confirmed = await _tcs.Task; }
+            try { confirmed = await _gate.WaitAsync(ct); }
             finally
             {
                 PlaySheet(opening: false);
@@ -246,7 +247,7 @@ namespace Lvn.UI.Screens
             style.opacity = 0f;
             style.display = DisplayStyle.None;
             _open = false;
-            _tcs?.TrySetResult(false);
+            _gate.Release(false);
         }
 
         /// <summary>
@@ -261,10 +262,10 @@ namespace Lvn.UI.Screens
         /// ожиданием (дедлок главного потока), ни покадровым (нет кадров).
         /// Поэтому — отмена всегда через <see cref="Cancel"/>.</para>
         /// </summary>
-        protected void Close() => _tcs?.TrySetResult(true);
+        protected void Close() => _gate.Release(true);
 
         /// <summary>Отменить: крестик, «назад», системная кнопка возврата.</summary>
-        protected void Cancel() => _tcs?.TrySetResult(false);
+        protected void Cancel() => _gate.Release(false);
 
         /// <summary>Отмена СНАРУЖИ — роутер оболочки закрывает верхнюю модаль
         /// по системной «назад». Семантика ровно как у <see cref="Cancel"/>.</summary>
