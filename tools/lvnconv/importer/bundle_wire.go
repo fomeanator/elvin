@@ -35,6 +35,7 @@ import (
 	"unicode"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // PostProcessBundle wires the spreadsheet mappings into a compiled bundle import
@@ -577,6 +578,16 @@ func removeUnreachableOps(ops []map[string]any) []map[string]any {
 					visit(j)
 				}
 			}
+			// Точки входа — клик по объекту, перетаскивание, кнопка в дереве
+			// `ui` — уводят так же, как переход, только про них не сказано в
+			// тексте. Спрашиваем у того же дома, что и валидатор (lvn):
+			// раньше этот обход про них не знал вовсе и вырезал бы ветку, в
+			// которую игрок попадает нажатием.
+			for _, target := range lvn.HotspotTargets(lvn.Cmd(op)) {
+				if target != "" {
+					jump(target)
+				}
+			}
 			switch op["op"] {
 			case "goto":
 				if l, _ := op["label"].(string); l != "" {
@@ -600,27 +611,49 @@ func removeUnreachableOps(ops []map[string]any) []map[string]any {
 				}
 				// call returns → fall-through continues
 			case "choice":
+				// ПРАВИЛО ВЫБОРА БЕРЁТСЯ У РАНТАЙМА, а не сочиняется здесь.
+				// LvnPlayer: `if (target != null) Jump(target); else _ip++;` —
+				// вариант БЕЗ перехода проваливается на команду после выбора
+				// (и тело без goto тоже: `_ip++ // body without a goto`).
+				//
+				// Здесь стоял безусловный `return`, то есть провал считался
+				// невозможным. Для articy это сходилось — тамошний импорт всегда
+				// ставит goto (в живой базе 6015 вариантов, из них без перехода
+				// НОЛЬ), — но правило всё равно расходилось с игрой, а цена
+				// расхождения тут высокая: этот обход не отчёт составляет, а
+				// УДАЛЯЕТ команды. Разойдись данные с ожиданием — и вырезанным
+				// оказался бы кусок, который рантайм играет.
+				fallsThrough := false
 				if opts, ok := op["options"].([]any); ok {
 					for _, o := range opts {
 						oc, ok := o.(map[string]any)
 						if !ok {
 							continue
 						}
-						if l, _ := oc["goto"].(string); l != "" {
-							jump(l)
-						}
+						target, _ := oc["goto"].(string)
+						bodyJumps := false
 						if body, ok := oc["body"].([]any); ok {
 							for _, b := range body {
 								if bc, ok := b.(map[string]any); ok {
 									if l, _ := bc["label"].(string); bc["op"] == "goto" && l != "" {
 										jump(l)
+										bodyJumps = true
 									}
 								}
 							}
 						}
+						if target != "" {
+							jump(target)
+							continue
+						}
+						if !bodyJumps {
+							fallsThrough = true // этот вариант уводит на следующую команду
+						}
 					}
 				}
-				return // control transfers to a picked option — no fall-through
+				if !fallsThrough {
+					return // каждый вариант уходит переходом — провала нет
+				}
 			}
 			i++
 		}

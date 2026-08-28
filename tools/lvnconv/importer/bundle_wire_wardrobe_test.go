@@ -526,3 +526,82 @@ func TestHowtoImportArticyExampleMatchesImporterOutput(t *testing.T) {
 		"Regenerate with: LVN_UPDATE_HOWTO=1 go test ./importer/ -run TestHowtoImportArticyExample\n"+
 		"--- importer output ---\n%s", want)
 }
+
+// ВЫБОР БЕЗ ПЕРЕХОДА ПРОВАЛИВАЕТСЯ ДАЛЬШЕ — так делает рантайм, так обязан
+// считать и чистильщик недостижимого.
+//
+// LvnPlayer: `if (target != null) Jump(target); else _ip++;`. Здесь же стоял
+// безусловный `return` — провал считался невозможным. Для articy это сходилось
+// (тамошний импорт всегда ставит goto: в живой базе 6015 вариантов, без
+// перехода НОЛЬ), но цена расхождения высока: этот обход не отчёт составляет,
+// а УДАЛЯЕТ команды.
+func TestUnreachableSweepFollowsTheRuntimeChoiceRule(t *testing.T) {
+	ops := []map[string]any{
+		{"op": "say", "text": "вопрос"},
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "уйти", "goto": "ушли"},
+			map[string]any{"text": "остаться"},
+		}},
+		{"op": "say", "text": "после выбора"},
+		{"op": "goto", "label": "конец"},
+		{"op": "label", "id": "ушли"},
+		{"op": "say", "text": "ушли"},
+		{"op": "label", "id": "конец"},
+	}
+	kept := false
+	for _, o := range removeUnreachableOps(ops) {
+		if o["op"] == "say" && o["text"] == "после выбора" {
+			kept = true
+		}
+	}
+	if !kept {
+		t.Fatal("команда после выбора достижима провалом — вырезать её нельзя")
+	}
+}
+
+// А когда КАЖДЫЙ вариант уходит переходом, провала нет и хвост вырезается.
+func TestUnreachableSweepStillDropsTheTailWhenEveryOptionJumps(t *testing.T) {
+	ops := []map[string]any{
+		{"op": "choice", "options": []any{
+			map[string]any{"text": "туда", "goto": "a"},
+			map[string]any{"text": "сюда", "goto": "b"},
+		}},
+		{"op": "say", "text": "недостижимо"},
+		{"op": "label", "id": "a"},
+		{"op": "say", "text": "a"},
+		{"op": "goto", "label": "конец"},
+		{"op": "label", "id": "b"},
+		{"op": "say", "text": "b"},
+		{"op": "label", "id": "конец"},
+	}
+	for _, o := range removeUnreachableOps(ops) {
+		if o["op"] == "say" && o["text"] == "недостижимо" {
+			t.Fatal("хвост за выбором, где все варианты уходят, должен быть вырезан")
+		}
+	}
+}
+
+// ТОЧКА ВХОДА ПО КЛИКУ — ТОЖЕ ПУТЬ.
+//
+// Обход валидатора знал, что `obj`/`actor`/`ui` уводят кликом, перетаскиванием
+// и кнопкой в дереве `ui`; чистильщик импортёра не знал про это вовсе — и
+// вырезал бы ветку, в которую игрок попадает нажатием. Теперь оба спрашивают у
+// одного дома (`lvn.HotspotTargets`).
+func TestUnreachableSweepKeepsClickBranches(t *testing.T) {
+	ops := []map[string]any{
+		{"op": "obj", "id": "дверь", "on_click": "открыли"},
+		{"op": "goto", "label": "конец"},
+		{"op": "label", "id": "открыли"},
+		{"op": "say", "text": "дверь открылась"},
+		{"op": "label", "id": "конец"},
+	}
+	kept := false
+	for _, o := range removeUnreachableOps(ops) {
+		if o["op"] == "say" && o["text"] == "дверь открылась" {
+			kept = true
+		}
+	}
+	if !kept {
+		t.Fatal("ветка, в которую ведёт клик по объекту, не должна вырезаться")
+	}
+}
