@@ -173,6 +173,23 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void Anim_AutoAcceptsJsonBoolean()
+        {
+            // Поле объявлено строкой, а документация обещает `auto:true` — и
+            // каталоги пишут именно так. Прежнее точное сравнение с "true"
+            // молча теряло анимацию покоя.
+            const string json = @"{
+              ""name"": ""Mara"", ""kind"": ""rigged"",
+              ""anim"": { ""idle"": { ""auto"": true, ""duration"": 1.0,
+                ""tracks"": [ { ""prop"": ""y"", ""keys"": [[0,0],[1,0]] } ] } }
+            }";
+            var e = JsonConvert.DeserializeObject<LvnSpriteEntity>(json);
+            Assert.IsTrue(LvnBool.Of(e.anim["idle"].auto, false),
+                $"каталог написал auto:true, поле прочиталось как \"{e.anim["idle"].auto}\"");
+            Assert.IsFalse(LvnBool.Of("speaking", false), "\"speaking\" — не согласие, а роль");
+        }
+
+        [Test]
         public void Yoyo_PingPongsInsteadOfRestarting()
         {
             ActorAnimator.Clock = () => 0f;

@@ -41,9 +41,7 @@ namespace Lvn.UI
         // Every chrome string resolves through the theme's label map (manifest
         // ui.menu.labels) so a novel ships its own language; English is the
         // engine default.
-        private string L(string key, string fallback) =>
-            _theme.MenuLabels != null && _theme.MenuLabels.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)
-                ? v : fallback;
+        private string L(string key, string fallback) => _theme.Word(key, fallback);
 
         public StageMenu(VnStage stage, VnTheme theme)
         {

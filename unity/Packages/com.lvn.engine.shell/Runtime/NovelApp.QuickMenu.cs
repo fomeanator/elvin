@@ -98,8 +98,13 @@ namespace Lvn.UI.Screens
             // Wallet-priced choices (imported "[premium]" options carry
             // wallet_cost): route the spend through the product wallet. A failed
             // spend keeps the menu up — the stage shows a "not enough" hint.
+            // Через Кассира, а не прямо в кошелёк: платный выбор — такая же
+            // покупка, как вход в главу, и обряд у неё тот же. Мимо кассы
+            // терялось ровно то, ради чего платные выборы и заводят: не хватило
+            // — магазин не предлагался (игрок упирался в стену), а отказ не
+            // попадал в отчёт, хотя «упёрся в цену» шлёт только Кассир.
             Stage.ChoiceSpend = (currency, amount) =>
-                Lvn.Services.LvnWallet.SpendAsync(currency, amount, "choice");
+                ChargeWithStoreAsync(currency, amount, "choice", "You need more to pick this.");
 
             // Test-build currency faucet (economy.debug_grant): a quick-menu item
             // that credits the wallet on tap — the partner's "получить 100" button
@@ -108,7 +113,9 @@ namespace Lvn.UI.Screens
             if (faucet != null && !string.IsNullOrEmpty(faucet.currency))
             {
                 int amount = faucet.amount ?? 100;
-                string label = faucet.label ?? $"Получить {amount}";
+                // Подстановка была обещана документацией поля и не делалась:
+                // автор, скопировавший умолчание себе, видел «{amount}» буквально.
+                string label = (faucet.label ?? "Получить {amount}").Replace("{amount}", amount.ToString());
                 StageMenu.AddMenuItem(label, stage => LvnAsync.Fire(GrantFaucetAsync(faucet.currency, amount), "GrantFaucet"));
             }
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>

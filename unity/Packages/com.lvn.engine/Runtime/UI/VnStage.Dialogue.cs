@@ -170,11 +170,13 @@ namespace Lvn.UI
             if (!StageCurrent(epoch) || _player == null || !_player.AtChoice) return;
             if (!paid)
             {
-                ApplyHint(new JObject
-                {
-                    ["text"] = $"Не хватает {picked.WalletAmount} {picked.WalletCurrency}",
-                    ["duration"] = 3
-                });
+                // Слово авторское: фраза была вписана в движок по-русски, и
+                // английская новелла показывала русский текст. {amount}/{currency}
+                // подставляются — автору незачем знать порядок слов движка.
+                var not_enough = Theme.Word("choice_not_enough", "Not enough {currency}: need {amount}")
+                    .Replace("{amount}", picked.WalletAmount.ToString())
+                    .Replace("{currency}", picked.WalletCurrency ?? "");
+                ApplyHint(new JObject { ["text"] = not_enough, ["duration"] = 3 });
                 return; // menu stays up; the player picks something else
             }
             CommitChoice(index, picked.Text);
