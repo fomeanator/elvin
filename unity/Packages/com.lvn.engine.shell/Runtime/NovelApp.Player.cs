@@ -26,25 +26,19 @@ namespace Lvn.UI.Screens
             await Lvn.Services.LvnWallet.RefreshAsync();
         }
 
+        // Имя метки игрока. Оно же имя файла-дублёра (lvn_user.id) — менять
+        // нельзя: у живых игроков метка лежит именно под ним.
+        private const string PlayerMark = "lvn_user";
+
         // The save identity for /v1/state. An explicit UserId (an account) wins; else
         // a per-device id generated once and kept in PlayerPrefs.
         private string ResolveUserId()
         {
             if (!string.IsNullOrEmpty(UserId)) return UserId;
-            // Double-homed identity: PlayerPrefs AND a plain file. The id is the
-            // key to every server-side possession (wallet, stats, progress
-            // backup) — a corrupted prefs blob must never orphan them.
-            var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
-            var id = LvnKeep.Get("lvn_user", "");
-            if (string.IsNullOrEmpty(id))
-            {
-                try { if (System.IO.File.Exists(idFile)) id = System.IO.File.ReadAllText(idFile).Trim(); }
-                catch { /* unreadable second home — fall through */ }
-            }
-            if (string.IsNullOrEmpty(id)) id = System.Guid.NewGuid().ToString("N");
-            LvnKeep.Put("lvn_user", id);
-            try { System.IO.File.WriteAllText(idFile, id); } catch { /* prefs copy still holds */ }
-            return id;
+            // Метку выдаёт ПАСПОРТИСТ: два дома и починка уцелевшим — его
+            // правило, а не забота экрана профиля. Здесь остаётся только
+            // выбор «учётка хоста или метка этого устройства».
+            return LvnMark.Steady(PlayerMark);
         }
 
         // Забыть идентификатор — ОБА его дома: он ключ ко всему серверному, и
@@ -53,13 +47,7 @@ namespace Lvn.UI.Screens
         {
             // Поле UserId экземпляра не трогаем: это НАСТРОЙКА хоста (заданная
             // в инспекторе учётка), а не то, что игра узнала об игроке.
-            LvnKeep.Drop("lvn_user");
-            try
-            {
-                var idFile = System.IO.Path.Combine(Application.persistentDataPath, "lvn_user.id");
-                if (System.IO.File.Exists(idFile)) System.IO.File.Delete(idFile);
-            }
-            catch (Exception e) { Debug.LogWarning($"[novelapp] id wipe: {e.Message}"); }
+            LvnMark.Forget(PlayerMark);
         }
 
         // Seed the rich detail page with the real title (name/art/synopsis/cost),

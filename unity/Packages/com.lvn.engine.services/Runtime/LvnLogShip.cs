@@ -25,7 +25,9 @@ namespace Lvn.Services
         private const float FlushEverySec = 15f;
         private const int QueueCap = 300;
 
-        private static readonly string _session = Guid.NewGuid().ToString("N").Substring(0, 12);
+        // Метка запуска — ОДНА на игру (см. Lvn.LvnMark.Run): по ней строка
+        // лога сводится с событием аналитики того же запуска.
+        private static string _session => Lvn.LvnMark.Run;
         private static bool _booted;
         private static int _mainThreadId;
         private static string _lastMsg;
