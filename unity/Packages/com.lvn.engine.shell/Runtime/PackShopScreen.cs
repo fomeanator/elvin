@@ -145,10 +145,7 @@ namespace Lvn.UI.Screens
                 var close = new Button(Cancel) { text = "×" };
                 close.style.width = 52; close.style.height = 52;
                 close.style.fontSize = 34;
-                close.style.color = LvnTokens.TextDim;
-                close.style.backgroundColor = LvnTokens.Faint;
-                LvnChrome.ClearBorder(close);
-                LvnChrome.Round(close, 26f);
+                LvnStyler.Plate(close, LvnTokens.Faint, LvnTokens.TextDim, 26f);
                 top.Add(close);
             }
 
@@ -491,7 +488,7 @@ namespace Lvn.UI.Screens
             art.Add(category);
             card.Add(art);
             if (!string.IsNullOrEmpty(pack.Card))
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(art, pack.Card, _assets), "AssignBg");
+                ScreenUi.SetBg(art, pack.Card, _assets);
 
             // Текстовый этаж: количество/название, бонус и состав набора.
             var body = new VisualElement();

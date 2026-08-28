@@ -46,6 +46,28 @@ namespace Lvn.UI.Screens
 
         /// <summary>Load a sprite by url and set it as the element's background
         /// image. Missing art is non-fatal — the element keeps whatever it had.</summary>
+        /// <summary>
+        /// ПОКАЗАТЬ КАРТИНКУ — одно действие, а не запуск задачи с меткой.
+        ///
+        /// <para>Загрузка асинхронна, но для экрана это не событие: он говорит
+        /// «здесь эта обложка» и идёт дальше. Тридцать четыре места писали это
+        /// одинаково — <c>LvnAsync.Fire(ScreenUi.AssignBgAsync(el, url, assets),
+        /// "AssignBg")</c>, — и тридцать три из них с одной и той же меткой.
+        /// Метка в диагностике при этом бесполезна ровно потому, что общая: по
+        /// строке «AssignBg» в логе не понять, чья картинка не доехала.</para>
+        ///
+        /// <para>Асинхронность — свойство загрузки, а не решение вызывающего.
+        /// Пока «запусти и забудь» пишется на месте, каждый обязан помнить и про
+        /// <c>Fire</c> (иначе задача уплывёт без обработки отказа), и про метку.
+        /// Забыть можно только вторую — и её забывали в пользу общей.</para>
+        ///
+        /// <para>Метку принимаем: у меню полотна она своя («MenuCanvas»), и
+        /// разница осмысленная — это единственный фон, чья пропажа видна на
+        /// весь экран.</para>
+        /// </summary>
+        public static void SetBg(VisualElement el, string url, ILvnAssets assets, string what = "AssignBg")
+            => LvnAsync.Fire(AssignBgAsync(el, url, assets), what);
+
         public static async Task AssignBgAsync(VisualElement el, string url, ILvnAssets assets)
         {
             if (el == null || string.IsNullOrEmpty(url) || assets == null) return;

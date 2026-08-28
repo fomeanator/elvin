@@ -63,8 +63,8 @@ namespace Lvn.UI.Screens
             _subtitle.style.marginTop = 12;
             _card.Add(_subtitle);
 
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_fog, _cfg.fog_url, _assets), "AssignBg");
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_card, _cfg.frame_url, _assets), "AssignBg");
+            ScreenUi.SetBg(_fog, _cfg.fog_url, _assets);
+            ScreenUi.SetBg(_card, _cfg.frame_url, _assets);
         }
 
         /// <summary>Set the two lines. Either may be null/empty to hide it.</summary>

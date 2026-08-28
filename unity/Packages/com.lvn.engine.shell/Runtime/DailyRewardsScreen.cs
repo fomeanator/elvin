@@ -157,10 +157,7 @@ namespace Lvn.UI.Screens
             _claim.style.marginTop = 22;
             _claim.style.paddingTop = 16;
             _claim.style.paddingBottom = 16;
-            _claim.style.color = LvnTokens.OnAccent;
-            _claim.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.ClearBorder(_claim);
-            LvnChrome.Round(_claim, LvnTokens.RadiusSm);
+            LvnStyler.Primary(_claim, LvnTokens.RadiusSm);
             card.Add(_claim);
 
             Rebuild();

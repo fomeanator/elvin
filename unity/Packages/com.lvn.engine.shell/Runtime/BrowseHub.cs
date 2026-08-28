@@ -523,7 +523,7 @@ namespace Lvn.UI.Screens
                 ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
             var img = art?.image ?? t.CardArt();
-            if (!string.IsNullOrEmpty(img)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_detailImage, img, _assets), "AssignBg");
+            if (!string.IsNullOrEmpty(img)) ScreenUi.SetBg(_detailImage, img, _assets);
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
             Lvn.UI.LvnRedress.Refresh(_detailPlay);
@@ -717,7 +717,7 @@ namespace Lvn.UI.Screens
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(img); img.style.backgroundColor = _card;
                 LvnPicture.Fit(img);
-                b.Add(img); LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
+                b.Add(img); ScreenUi.SetBg(img, art, _assets);
                 var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
                 ScreenUi.Stretch(scrim);
                 scrim.style.backgroundImage = Gradient(new Color(0f, 0f, 0f, 0.05f), new Color(0.03f, 0.01f, 0.03f, 0.92f));

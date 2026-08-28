@@ -109,7 +109,7 @@ namespace Lvn.UI.Screens
                     if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Confirm();
                 });
                 panel.Add(_field);
-                if (!string.IsNullOrEmpty(_cfg.field_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_field, _cfg.field_url, _assets), "AssignBg");
+                if (!string.IsNullOrEmpty(_cfg.field_url)) ScreenUi.SetBg(_field, _cfg.field_url, _assets);
             }
 
             var start = new Button(Confirm) { text = LvnWords.Pick("auth.start", _cfg.start_text, "Start") };
@@ -121,7 +121,7 @@ namespace Lvn.UI.Screens
             start.style.backgroundColor = UiColor.Parse(_cfg.button_color, LvnTokens.Accent);
             LvnChrome.Round(start, 12f);
             panel.Add(start);
-            if (!string.IsNullOrEmpty(_cfg.button_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(start, _cfg.button_url, _assets), "AssignBg");
+            if (!string.IsNullOrEmpty(_cfg.button_url)) ScreenUi.SetBg(start, _cfg.button_url, _assets);
 
             // Platform sign-in — a button per provider the HOST actually
             // plugged into LvnPlatformAuth (no SDK, no button). Signing in
@@ -148,8 +148,8 @@ namespace Lvn.UI.Screens
             _status.pickingMode = PickingMode.Ignore;
             panel.Add(_status);
 
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(bg, _cfg.bg_url, _assets), "AssignBg");
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(logo, _cfg.logo_url, _assets), "AssignBg");
+            ScreenUi.SetBg(bg, _cfg.bg_url, _assets);
+            ScreenUi.SetBg(logo, _cfg.logo_url, _assets);
         }
 
         /// <summary>Show the screen, kick the silent device sign-in (its result

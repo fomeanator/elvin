@@ -97,10 +97,7 @@ namespace Lvn.UI.Screens
             close.style.fontSize = LvnTokens.TextBase;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
-            close.style.color = _text;
-            close.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(close);
-            LvnChrome.Round(close, _radius);
+            LvnStyler.Plate(close, LvnTokens.Faint, _text, _radius);
             sheet.Add(close);
         }
 

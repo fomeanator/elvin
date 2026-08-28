@@ -131,7 +131,7 @@ namespace Lvn.UI.Screens
                 ScreenUi.Stretch(img);
                 LvnPicture.Fit(img);
                 poster.Add(img);
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(img, art, _assets), "AssignBg");
+                ScreenUi.SetBg(img, art, _assets);
             }
             else
             {
@@ -215,7 +215,7 @@ namespace Lvn.UI.Screens
             Edge(thumb);
             LvnPicture.Fit(thumb);
             var art = t.CardArt();
-            if (!string.IsNullOrEmpty(art)) LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, art, _assets), "AssignBg");
+            if (!string.IsNullOrEmpty(art)) ScreenUi.SetBg(thumb, art, _assets);
             card.Add(thumb);
 
             // text column (right)

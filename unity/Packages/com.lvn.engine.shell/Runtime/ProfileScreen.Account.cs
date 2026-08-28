@@ -86,10 +86,7 @@ namespace Lvn.UI.Screens
             btn.style.fontSize = 20;
             btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
             btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
-            btn.style.color = danger;
-            btn.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(btn);
-            LvnChrome.Round(btn, LvnTokens.RadiusSm);
+            LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
 
             bool armed = false;
             btn.clicked += () =>
@@ -158,10 +155,7 @@ namespace Lvn.UI.Screens
             copy.style.paddingBottom = 10;
             copy.style.paddingLeft = 16;
             copy.style.paddingRight = 16;
-            copy.style.color = LvnTokens.OnAccent;
-            copy.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.ClearBorder(copy);
-            LvnChrome.Round(copy, LvnTokens.RadiusSm);
+            LvnStyler.Primary(copy, LvnTokens.RadiusSm);
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = id;

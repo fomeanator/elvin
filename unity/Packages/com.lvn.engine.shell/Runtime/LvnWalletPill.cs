@@ -126,7 +126,7 @@ namespace Lvn.UI.Screens
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
                 img.style.marginRight = 6;
                 LvnPicture.Fit(img, cover: false);
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _look.IconUrl, assets), "AssignBg");
+                ScreenUi.SetBg(img, _look.IconUrl, assets);
                 return img;
             }
             // ЗНАЧОК БЕРЁМ У ЦЕННИКА, а не угадываем сами: автор мог назвать

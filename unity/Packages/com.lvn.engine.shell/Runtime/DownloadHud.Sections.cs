@@ -71,10 +71,7 @@ namespace Lvn.UI.Screens
                     chBtn.style.height = 48;
                     chBtn.style.fontSize = 21;
                     chBtn.style.marginTop = 8;
-                    chBtn.style.color = LvnTokens.Accent;
-                    chBtn.style.backgroundColor = LvnTokens.Faint;
-                    LvnChrome.ClearBorder(chBtn);
-                    LvnChrome.Round(chBtn, 14f);
+                    LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
                     var startCh = offer.Value.start;
                     chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
                     card.Add(chBtn);
@@ -86,10 +83,7 @@ namespace Lvn.UI.Screens
                 btn.style.height = 52;
                 btn.style.fontSize = 22;
                 btn.style.marginTop = 8;
-                btn.style.color = LvnTokens.OnAccent;
-                btn.style.backgroundColor = LvnTokens.Accent;
-                LvnChrome.ClearBorder(btn);
-                LvnChrome.Round(btn, 14f);
+                LvnStyler.Primary(btn, 14f);
                 btn.clicked += () => { btn.SetEnabled(false); _ = DownloadAll(); };
                 card.Add(btn);
                 _sections.Add(card);

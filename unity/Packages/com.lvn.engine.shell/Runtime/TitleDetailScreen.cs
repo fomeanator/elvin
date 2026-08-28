@@ -201,7 +201,7 @@ namespace Lvn.UI.Screens
                 float w = e.newRect.width;
                 if (w > 1f) hero.style.height = Mathf.Round(w * HeroAspect);
             });
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(hero, ShownHero, _assets), "AssignBg");
+            ScreenUi.SetBg(hero, ShownHero, _assets);
             // bottom gradient scrim so the overlaid title reads (a real gradient —
             // a flat half-black band leaves an ugly hard edge across the art)
             var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -450,10 +450,7 @@ namespace Lvn.UI.Screens
                 restart.style.fontSize = 24;
                 restart.style.paddingTop = 12;
                 restart.style.paddingBottom = 12;
-                restart.style.color = LvnTokens.Text;
-                restart.style.backgroundColor = LvnTokens.Faint;
-                LvnChrome.ClearBorder(restart);
-                LvnChrome.Round(restart, LvnTokens.RadiusSm);
+                LvnStyler.Quiet(restart, LvnTokens.RadiusSm);
                 bar.Add(restart);
             }
 
@@ -470,10 +467,7 @@ namespace Lvn.UI.Screens
             play.style.paddingBottom = 18;
             play.style.marginRight = 14;
             play.style.unityFontStyleAndWeight = FontStyle.Bold;
-            play.style.color = LvnTokens.OnAccent;
-            play.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.ClearBorder(play);
-            LvnChrome.Round(play, LvnTokens.RadiusSm);
+            LvnStyler.Primary(play, LvnTokens.RadiusSm);
             actionRow.Add(play);
 
             // БЕСПЛАТНЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЦЕНУ. Раньше плашка стояла всегда:
