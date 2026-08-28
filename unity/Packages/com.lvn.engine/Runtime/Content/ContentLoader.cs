@@ -49,21 +49,13 @@ namespace Lvn.Content
         private const string VersionsPath = "/content/asset-versions.json";
 
 
-        // Hard per-request timeout. Deliberately short: a dead/blackhole socket
-        // must fail fast so chapter loading degrades to cache instead of hanging
-        // (offline a UnityWebRequest can otherwise sit the full timeout). The
-        // global LvnNetworkStatus flag is the fast path; this timeout is the LIVE
-        // backstop for when the flag is stale (e.g. wifi dropped mid-session).
-        private const int RequestTimeoutSeconds = 10;
+        // Срок ответа — из общего дома: «сколько игра ждёт сеть» спрашивают
+        // ещё двое (хранилище состояния и сервисный клиент), и раньше каждый
+        // отвечал своим числом. Объяснение живёт там же, при числе.
+        private const int RequestTimeoutSeconds = Lvn.LvnNetPatience.RequestSeconds;
 
-        // Asset transfers use a STALL deadline instead of a total-time one: a
-        // 5 MB background on a slow cell link legitimately takes >10s, and
-        // killing it mid-body (then pinning the offline flag) turned one slow
-        // file into a session-wide offline flap storm (live BlueStacks case:
-        // "Request timeout" every few seconds all session). A transfer stays
-        // alive for as long as its byte counter keeps moving; only a counter
-        // FROZEN this long is a dead socket.
-        private const int StallTimeoutSeconds = 15;
+        // Срок молчания в передаче — оттуда же (см. LvnNetPatience.StallSeconds).
+        private const int StallTimeoutSeconds = Lvn.LvnNetPatience.StallSeconds;
 
         // Classify a failed request: only a connect-level failure (no bytes,
         // not a timeout/abort) means THE NETWORK is gone and pins the global

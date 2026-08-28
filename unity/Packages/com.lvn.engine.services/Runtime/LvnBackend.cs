@@ -149,7 +149,7 @@ namespace Lvn.Services
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             if (auth && SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
-            req.timeout = 10;
+            req.timeout = Lvn.LvnNetPatience.RequestSeconds;
             var op = req.SendWebRequest();
             while (!op.isDone) await Task.Yield();
             if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
@@ -176,7 +176,7 @@ namespace Lvn.Services
             if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
             using var req = UnityWebRequest.Get(BaseUrl + path);
             if (SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
-            req.timeout = 10;
+            req.timeout = Lvn.LvnNetPatience.RequestSeconds;
             var op = req.SendWebRequest();
             while (!op.isDone) await Task.Yield();
             if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
