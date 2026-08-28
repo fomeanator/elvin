@@ -77,12 +77,16 @@ namespace Lvn.UI
 
         // Типографская шкала и шкала отступов. Здесь же, а не в каждом экране:
         // размер — такая же часть темы, как цвет.
-        public static int TextXs      => LvnTheme.Current.TextXs;
-        public static int TextSm      => LvnTheme.Current.TextSm;
-        public static int TextBase    => LvnTheme.Current.TextBase;
-        public static int TextLg      => LvnTheme.Current.TextLg;
-        public static int TextXl      => LvnTheme.Current.TextXl;
-        public static int TextDisplay => LvnTheme.Current.TextDisplay;
+        // Кегли идут через ПОПРАВКУ ГАРНИТУРЫ: рукописная при том же числе
+        // выглядит вдвое мельче гротеска, пиксельная — крупнее и шире. Без
+        // поправки выбор шрифта ломал бы вёрстку там, где до него всё
+        // помещалось.
+        public static int TextXs      => LvnFonts.Size(LvnTheme.Current.TextXs);
+        public static int TextSm      => LvnFonts.Size(LvnTheme.Current.TextSm);
+        public static int TextBase    => LvnFonts.Size(LvnTheme.Current.TextBase);
+        public static int TextLg      => LvnFonts.Size(LvnTheme.Current.TextLg);
+        public static int TextXl      => LvnFonts.Size(LvnTheme.Current.TextXl);
+        public static int TextDisplay => LvnFonts.Size(LvnTheme.Current.TextDisplay);
 
         public static float Space1 => LvnTheme.Current.Space1;
         public static float Space2 => LvnTheme.Current.Space2;

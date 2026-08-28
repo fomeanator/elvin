@@ -56,6 +56,28 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void OpticalSizeIsCorrectedPerFamily()
+        {
+            // Один кегль у разных гарнитур выглядит разной величиной: у
+            // рукописной строчные вдвое ниже, у пиксельной буквы тяжелее.
+            LvnPrefs.FontFamily = "";
+            Assert.AreEqual(30, LvnFonts.Size(30), "без выбора игрока авторский кегль не трогаем");
+
+            LvnPrefs.FontFamily = "caveat";
+            Assert.Greater(LvnFonts.Size(30), 30, "рукописную поднимаем, иначе «Крупный» читается как «Обычный»");
+
+            LvnPrefs.FontFamily = "pixel";
+            Assert.Less(LvnFonts.Size(30), 30, "пиксельную опускаем, иначе подписи не влезают в кнопки");
+        }
+
+        [Test]
+        public void SizeNeverCollapsesToZero()
+        {
+            LvnPrefs.FontFamily = "pixel";
+            Assert.GreaterOrEqual(LvnFonts.Size(1), 1, "кегль ноль — это невидимый текст");
+        }
+
+        [Test]
         public void UnknownKeyFallsBackInsteadOfLeavingNoFont()
         {
             LvnPrefs.FontFamily = "нет-такой";

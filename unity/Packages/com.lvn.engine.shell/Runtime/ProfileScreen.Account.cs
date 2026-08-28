@@ -173,6 +173,6 @@ namespace Lvn.UI.Screens
         }
 
         private static string Shorten(string id)
-            => id != null && id.Length > 12 ? id.Substring(0, 12) + "…" : id;
+            => Lvn.Content.LvnClip.Id(id);
     }
 }
