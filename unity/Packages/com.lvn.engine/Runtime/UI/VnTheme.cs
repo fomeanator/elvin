@@ -312,11 +312,21 @@ namespace Lvn.UI
     ///
     /// <para>Расширение, а не метод, нарочно: тема бывает не задана, и вызов на
     /// пустой теме обязан вернуть умолчание, а не упасть.</para>
+    ///
+    /// <para>СЛОВАРЕЙ В МАНИФЕСТЕ ДВА: <c>ui.menu.labels</c> (подписи меню) и
+    /// <c>ui.words</c> (всё остальное). Автор обязан был помнить, какое слово в
+    /// какой класть, а ошибка выдавала английский текст МОЛЧА — на этом
+    /// спотыкается даже тот, кто систему знает. Теперь слово ищется в обоих:
+    /// сперва тема (она ближе к экрану и может переопределить), затем общий
+    /// словарь, и только потом английское умолчание движка.</para>
     /// </summary>
     public static class VnThemeWords
     {
         public static string Word(this VnTheme t, string key, string fallback)
-            => t?.MenuLabels != null && t.MenuLabels.TryGetValue(key, out var v)
-               && !string.IsNullOrEmpty(v) ? v : fallback;
+        {
+            if (t?.MenuLabels != null && t.MenuLabels.TryGetValue(key, out var v)
+                && !string.IsNullOrEmpty(v)) return v;
+            return Lvn.Content.LvnWords.Of(key, fallback);
+        }
     }
 }
