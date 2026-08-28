@@ -96,8 +96,11 @@ namespace Lvn.Tests
                 LvnPrefs.FontFamily = f.Id;
                 foreach (int b in new[] { 20, 30, 48, 64 })
                 {
-                    Assert.GreaterOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 0.6f) - 1, f.Title);
-                    Assert.LessOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 1.75f) + 1, f.Title);
+                    // Потолок уважает заявку каталога: рукописная просит вдвое
+                    // с лишним, и это законно — предел стоит на случай опечатки.
+                    float ceiling = Mathf.Max(1.75f, f.SizeScale);
+                    Assert.GreaterOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 0.5f) - 1, f.Title);
+                    Assert.LessOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * ceiling) + 1, f.Title);
                 }
             }
         }

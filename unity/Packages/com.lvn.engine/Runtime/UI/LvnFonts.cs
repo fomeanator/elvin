@@ -206,7 +206,7 @@ namespace Lvn.UI
             // Характерные — их видно с первого слова. Ради этого они и есть:
             // настройка, которую нельзя проверить взглядом, ощущается сломанной.
             new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay", 0.9f,      0.7f),
-            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",        1.7f,      0.6f),
+            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",        2.2f,      0.55f),
             new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P",  0.72f,     0.7f),
             new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne",  0.72f,     0.7f),
         };
@@ -260,7 +260,12 @@ namespace Lvn.UI
             // каталога сломать вёрстку всех экранов сразу. Полтора раза вверх и
             // почти вдвое вниз — предел различимости: дальше это уже не «тот же
             // текст другим шрифтом», а другой макет.
-            value = UnityEngine.Mathf.Clamp(value, baseSize * 0.6f, baseSize * 1.75f);
+            // Потолок УВАЖАЕТ ЗАЯВКУ КАТАЛОГА: рукописная просит вдвое с
+            // лишним, и это законно — её строчные вдвое ниже. Предел стоит на
+            // случай опечатки (10 вместо 1), а не чтобы спорить с подобранным
+            // глазом числом.
+            float ceiling = UnityEngine.Mathf.Max(1.75f, fam.SizeScale);
+            value = UnityEngine.Mathf.Clamp(value, baseSize * 0.5f, baseSize * ceiling);
             return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(value));
         }
 

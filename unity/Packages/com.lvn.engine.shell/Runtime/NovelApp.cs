@@ -386,6 +386,12 @@ namespace Lvn.UI.Screens
             LvnPrefs.OriginalLocale = manifest.language ?? "ru";
             LvnPrefs.AvailableLocales = manifest.languages != null && manifest.languages.Count > 0
                 ? manifest.languages : System.Array.Empty<string>();
+            // ЯЗЫК ПЕРЕЖИВАЕТ ПЕРЕЗАПУСК. Перевод накладывался только по СМЕНЕ
+            // языка, а выбор хранится на устройстве: после перезапуска игрок
+            // видел выбранный английский в списке — и русское меню вокруг
+            // («настройки сами язык потеряли», Илья 28.08). Прогрев остальных
+            // языков идёт следом, чтобы переключение было мгновенным.
+            LvnAsync.Fire(ApplyLocaleAtBootAsync(), "ApplyLocale");
             _localeApplied = CurrentLocale;   // с чем стартовали — от этого и считаем смену
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             _leash.Hold(() => LvnPrefs.Changed += OnPrefsMaybeLocale,
@@ -521,13 +527,16 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(locale) || string.IsNullOrEmpty(scriptUrl)) return null;
             var baseUrl = scriptUrl.EndsWith(".lvn") ? scriptUrl.Substring(0, scriptUrl.Length - 4) : scriptUrl;
             var url = baseUrl + "." + locale + ".json";
+            if (_stringsCache.TryGetValue(url, out var cached)) return cached;
             try
             {
                 var json = await _assets.Loader.DownloadScriptText(url, default, singleAttempt: true);
-                if (string.IsNullOrEmpty(json)) return null;
-                return Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
+                var cat = string.IsNullOrEmpty(json) ? null : Newtonsoft.Json.JsonConvert
+                    .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
+                _stringsCache[url] = cat;   // второе переключение туда-обратно уже мгновенное
+                return cat;
             }
-            catch { return null; }
+            catch { _stringsCache[url] = null; return null; }
         }
 
         private async Task<LvnManifest> FetchManifestAsync()
@@ -700,21 +709,72 @@ namespace Lvn.UI.Screens
         /// переключил язык. Ключи — те же, что у <c>ui.words</c>: чего в
         /// переводе нет, остаётся авторским словом.</para>
         /// </summary>
+        // ПЕРЕКЛЮЧЕНИЕ ЯЗЫКА ОБЯЗАНО БЫТЬ МГНОВЕННЫМ. Словарь и каталог главы
+        // едут по сети, и на первом переключении игрок видел паузу в пару
+        // секунд — а он переключает язык, чтобы ПРОЧИТАТЬ эту реплику, и пауза
+        // читается как «не сработало» (Илья, 28.08). Поэтому оба кэшируются в
+        // памяти, а объявленные языки прогреваются заранее, пока игрок ещё
+        // ходит по меню.
+        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>
+            _uiWordsCache = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>();
+        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyDictionary<string, string>>
+            _stringsCache = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyDictionary<string, string>>();
+
+        /// <summary>Прогреть словари объявленных языков. Тишина при отказе:
+        /// прогрев — оптимизация, а не обязанность, и без него переключение
+        /// просто окажется медленнее.</summary>
+        private async Task WarmLocalesAsync()
+        {
+            var langs = LvnPrefs.AvailableLocales;
+            if (langs == null) return;
+            foreach (var lang in langs)
+            {
+                if (string.IsNullOrEmpty(lang) || _uiWordsCache.ContainsKey(lang)) continue;
+                try { await LoadUiWordsAsync(lang); }
+                catch { /* прогрев — оптимизация: не вышло, значит переключение будет медленнее */ }
+            }
+        }
+
+        private async Task ApplyLocaleAtBootAsync()
+        {
+            var locale = CurrentLocale;
+            var words = await LoadUiWordsAsync(locale);
+            // ПЕРЕКЛЮЧИЛИ, ПОКА МЫ ГРУЗИЛИ — их выбор новее нашего. Бут идёт
+            // фоном, а язык переключают из настроек в любой момент; затри мы
+            // здесь чужой выбор, игрок увидел бы, как язык откатывается сам.
+            if (CurrentLocale != locale) return;
+            _localeApplied = locale;
+            Lvn.Content.LvnWords.Translate(string.IsNullOrEmpty(locale) ? null : words);
+            await WarmLocalesAsync();
+        }
+
         private async Task<System.Collections.Generic.Dictionary<string, string>> LoadUiWordsAsync(string locale)
         {
-            if (string.IsNullOrEmpty(locale) || _assets?.Loader == null) return null;
+            if (string.IsNullOrEmpty(locale)) return null;
+            if (_uiWordsCache.TryGetValue(locale, out var cached)) return cached;
+            // Манифест — первый: он уже в руках, и перевод из него доезжает
+            // мгновенно, без второго запроса и без шанса «файл не задеплоили».
+            var fromManifest = _manifest?.ui?.words_locales;
+            if (fromManifest != null && fromManifest.TryGetValue(locale, out var inline) && inline != null)
+            {
+                _uiWordsCache[locale] = inline;
+                return inline;
+            }
+            if (_assets?.Loader == null) return null;
             try
             {
                 var json = await _assets.Loader.DownloadScriptText(
                     "/content/ui/words." + locale + ".json", default, singleAttempt: true);
-                if (string.IsNullOrEmpty(json)) return null;
-                return Newtonsoft.Json.JsonConvert
+                var words = string.IsNullOrEmpty(json) ? null : Newtonsoft.Json.JsonConvert
                     .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
+                _uiWordsCache[locale] = words;   // и ОТСУТСТВИЕ файла запоминаем: второй раз не ходим
+                return words;
             }
             catch
             {
                 // Нет файла — не беда и не ошибка: игра просто остаётся на
                 // авторском языке интерфейса.
+                _uiWordsCache[locale] = null;
                 return null;
             }
         }

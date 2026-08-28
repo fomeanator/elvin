@@ -26,6 +26,14 @@ namespace Lvn.Content
         /// Движковое умолчание — английское «Guest»: слова игры приходят
         /// отсюда. Читает <c>LvnPlayerName</c>.</summary>
         public string guest_name;
+
+        // ПЕРЕВОДЫ СЛОВ ОБОЛОЧКИ, язык → словарь. В манифесте, а не отдельным
+        // файлом: манифест автор и так деплоит на каждую правку, а перевод,
+        // который лежит рядом, но не доехал, неотличим от «переключатель не
+        // работает». Файл ui/words.<locale>.json остаётся возможностью для
+        // больших словарей — он читается, только если в манифесте языка нет.
+        public System.Collections.Generic.Dictionary<string,
+            System.Collections.Generic.Dictionary<string, string>> words_locales;
         // Переменная истории, в которую игрок вписывает своё имя ("name" в Time
         // Romance). Оболочка берёт из неё имя для хаба, профиля и гардероба.
         public string player_name_var;

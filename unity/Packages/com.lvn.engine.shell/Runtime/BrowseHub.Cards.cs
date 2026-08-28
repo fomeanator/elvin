@@ -29,7 +29,7 @@ namespace Lvn.UI.Screens
             head.style.alignItems = Align.Center;
             head.style.justifyContent = Justify.SpaceBetween;
             head.style.marginBottom = 14;
-            var title = new Label(_theme.Heading(c.name ?? c.id));
+            var title = new Label(_theme.Heading(Lvn.Content.LvnWords.Name("collection", c.id, c.name)));
             title.style.color = _text; title.style.fontSize = 54;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
@@ -150,7 +150,7 @@ namespace Lvn.UI.Screens
             caption.style.flexGrow = 1;
             caption.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.98f);
 
-            var name = new Label(t.name ?? t.id);
+            var name = new Label(Lvn.Content.LvnWords.Name("title", t.id, t.name));
             name.style.color = _text; name.style.fontSize = 32;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
@@ -173,7 +173,7 @@ namespace Lvn.UI.Screens
             LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
-                if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); }
+                if (locked) { FireLockedHint(Lvn.Content.LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); }
                 else OpenDetail(t, from);
             });
             return card;
@@ -224,7 +224,7 @@ namespace Lvn.UI.Screens
             var top = new VisualElement();
             top.style.flexDirection = FlexDirection.Row; top.style.justifyContent = Justify.SpaceBetween;
             top.style.alignItems = Align.Center;
-            var name = new Label(t.name ?? t.id);
+            var name = new Label(Lvn.Content.LvnWords.Name("title", t.id, t.name));
             name.style.color = _text; name.style.fontSize = 36;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
@@ -253,7 +253,7 @@ namespace Lvn.UI.Screens
             LvnMotion.Tappable(card);
             card.RegisterCallback<ClickEvent>(evt =>
             {
-                if (locked) { FireLockedHint(t.name ?? t.id, t.locked_hint ?? ""); }
+                if (locked) { FireLockedHint(Lvn.Content.LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); }
                 else OpenDetail(t, CurrentCollectionOf(t));
             });
             return card;
