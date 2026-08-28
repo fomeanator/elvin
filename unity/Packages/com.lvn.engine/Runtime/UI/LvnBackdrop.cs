@@ -199,6 +199,60 @@ namespace Lvn.UI
             return _vig = New(N, N, px, TextureWrapMode.Clamp);
         }
 
+        /// <summary>
+        /// ВЕРТИКАЛЬНЫЙ ГРАДИЕНТ — глубина под карточкой и затемнение под
+        /// подписью поверх арта.
+        ///
+        /// <para>Рисовали его двое и по-разному. Витрина создавала НОВУЮ
+        /// текстуру на каждый вызов и складывала в список, который никто не
+        /// освобождал: заглушка постера считается на каждую карточку без арта, а
+        /// сетка пересобирается при каждой смене данных, языка и шрифта — то
+        /// есть десятки текстур на переключение и ни одной снятой. Карточка
+        /// новеллы держала свою, отдельным статическим полем, с другой кривой
+        /// прозрачности.</para>
+        ///
+        /// <para>Здесь одна текстура на РЕЦЕПТ: одинаковый градиент считается
+        /// один раз и переиспользуется всеми, кто его попросит. Рецептов у
+        /// интерфейса единицы (фон хаба, два затемнения, две заглушки), поэтому
+        /// кэш ограничен по смыслу задачи, а не по счётчику.</para>
+        ///
+        /// <para><paramref name="smooth"/> сглаживает переход: у затемнения под
+        /// текстом линейная кривая даёт заметный край поперёк картинки.</para>
+        /// </summary>
+        public static StyleBackground Vertical(Color top, Color bottom, bool smooth = false, int height = 128)
+        {
+            var key = (Key(top), Key(bottom), smooth, height);
+            if (_verticals.TryGetValue(key, out var cached) && cached != null)
+                return new StyleBackground(Background.FromTexture2D(cached));
+
+            int h = Mathf.Max(2, height);
+            var px = new Color32[h];
+            for (int y = 0; y < h; y++)
+            {
+                // y = 0 — НИЖНЯЯ строка: снизу «bottom», кверху «top».
+                float t = (float)y / (h - 1);
+                if (smooth) t = Mathf.SmoothStep(0f, 1f, t);
+                px[y] = Color.Lerp(bottom, top, t);
+            }
+            var tex = New(1, h, px, TextureWrapMode.Clamp);
+            _verticals[key] = tex;
+            return new StyleBackground(Background.FromTexture2D(tex));
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>
+            _verticals = new System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>();
+
+        // Цвет ключом: округление до байта — разница мельче этого не видна на
+        // экране, но плодила бы по текстуре на каждый пересчёт акцента.
+        private static uint Key(Color c)
+        {
+            uint r = (uint)Mathf.RoundToInt(Mathf.Clamp01(c.r) * 255f);
+            uint g = (uint)Mathf.RoundToInt(Mathf.Clamp01(c.g) * 255f);
+            uint b = (uint)Mathf.RoundToInt(Mathf.Clamp01(c.b) * 255f);
+            uint a = (uint)Mathf.RoundToInt(Mathf.Clamp01(c.a) * 255f);
+            return (r << 24) | (g << 16) | (b << 8) | a;
+        }
+
         /// <summary>Пятно света: белое к краю в ноль, тонируется акцентом.</summary>
         private static Texture2D Glow()
         {

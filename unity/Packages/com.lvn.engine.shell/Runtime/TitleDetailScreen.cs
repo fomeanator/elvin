@@ -107,10 +107,9 @@ namespace Lvn.UI.Screens
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
-            _scroll = new ScrollView(ScrollViewMode.Vertical);
+            _scroll = Lvn.UI.LvnScroll.Vertical();
             _scroll.style.flexGrow = 1;
             _scroll.style.flexShrink = 1;
-            _scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden; // clean app feel
             Add(_scroll);
 
             // Sticky action bar — a sibling of the scroll, so it never scrolls away.
@@ -517,26 +516,13 @@ namespace Lvn.UI.Screens
             return LvnChrome.Heading(lbl);
         }
 
-        // A cached bottom-anchored black gradient (transparent → dark) so hero
-        // text reads without a hard band edge across the art.
-        private static Texture2D _scrimTex;
+        // Затемнение под подписью героя: тот же дом, что рисует фон витрины.
+        // Здесь стояла своя текстура со своим кэшем и своей кривой — два
+        // рисователя одного градиента, и правка попадала в один из них.
         private static StyleBackground BottomScrim()
-        {
-            if (_scrimTex == null)
-            {
-                const int h = 128;
-                _scrimTex = new Texture2D(1, h, TextureFormat.RGBA32, false)
-                { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
-                for (int y = 0; y < h; y++)
-                {
-                    // y=0 is the bottom row: darkest there, fading out towards the top
-                    float t = (float)y / (h - 1);
-                    float a = Mathf.Lerp(0.88f, 0f, Mathf.SmoothStep(0f, 1f, t));
-                    _scrimTex.SetPixel(0, y, new Color(0.05f, 0.02f, 0.05f, a));
-                }
-                _scrimTex.Apply();
-            }
-            return new StyleBackground(Background.FromTexture2D(_scrimTex));
-        }
+            => Lvn.UI.LvnBackdrop.Vertical(
+                top: new Color(0.05f, 0.02f, 0.05f, 0f),
+                bottom: new Color(0.05f, 0.02f, 0.05f, 0.88f),
+                smooth: true);
     }
 }

@@ -254,14 +254,11 @@ namespace Lvn.UI.Screens
             // «Выбрать» её не коммитит, закрытие листа возвращает лицо по
             // умолчанию. Горизонтальный ряд в листе «странно скроллился»
             // (живой репорт) — вертикаль у правого края читается сама.
-            _emotions = new ScrollView(ScrollViewMode.Vertical);
-            _emotions.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-            _emotions.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _emotions = Lvn.UI.LvnScroll.Vertical();
             _emotions.style.position = Position.Absolute;
             _emotions.style.right = EmoBarLane; // полоса у самого края — под индикатор
             _emotions.style.display = DisplayStyle.None;
             _emotions.contentContainer.style.alignItems = Align.FlexEnd;
-            MakeDragScrollable(_emotions); // тянется рукой, а не только колесом
             Add(_emotions);
 
             // ГДЕ МЫ В СПИСКЕ ЛИЦ (Илья 26.08: «показывать кружками скролл —
@@ -306,9 +303,7 @@ namespace Lvn.UI.Screens
             // варианты оси видны разом — арт, цена ПРЯМО на картинке (бейдж в
             // углу), имя на серой подложке снизу. Тап = примерка; лента и
             // карусель ниже — два руля одного состояния (_index).
-            _strip = new ScrollView(ScrollViewMode.Horizontal);
-            _strip.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-            _strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            _strip = Lvn.UI.LvnScroll.Horizontal();
             _strip.style.marginTop = 12;
             _strip.contentContainer.style.flexDirection = FlexDirection.Row;
             Add(_strip);
@@ -826,7 +821,7 @@ namespace Lvn.UI.Screens
             {
                 var b = c as Button;
                 if (b == null) continue;
-                bool active = (string)b.userData == _tab;
+                bool active = (b.userData as string) == _tab;
                 SkinButton(b, active);
                 LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
                 // Дети пилюли (лейбл и пара глифов) красятся вручную — кнопочный

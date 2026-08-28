@@ -153,7 +153,7 @@ namespace Lvn.UI.Screens
             int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
             var panel = OpenModal(LvnWords.Of("restart.pick_chapter", "Choose a chapter"));
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            var scroll = Lvn.UI.LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             panel.Add(scroll);
 

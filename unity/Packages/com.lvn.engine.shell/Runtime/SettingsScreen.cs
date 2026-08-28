@@ -82,13 +82,13 @@ namespace Lvn.UI.Screens
             title.style.marginBottom = 14;
             sheet.Add(title);
 
-            _list = new ScrollView(ScrollViewMode.Vertical);
+            // Полоса видна: в настройках она подсказывает, что список
+            // длиннее экрана (живой репорт «не видно, что есть куда скроллить»).
+            _list = Lvn.UI.LvnScroll.Vertical(showScroller: true);
             // ПОЛОСА ВИДНА, КОГДА ЕСТЬ ЧТО ПРОКРУЧИВАТЬ. Спрятанная полоса
             // экономит четыре пикселя и стоит того, что игрок не знает о
             // половине настроек: лента длиннее экрана, а признака этого нет
             // (Илья 28.08 — «чтобы видно было, что есть куда скроллить»).
-            _list.verticalScrollerVisibility = ScrollerVisibility.Auto;
-            _list.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 

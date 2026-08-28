@@ -38,54 +38,6 @@ namespace Lvn.UI.Screens
             }).ExecuteLater(16 + Mathf.Min(i, 10) * 26);
         }
 
-        // Перетаскивание ScrollView указателем (Илья 28.08: «надо их скролабл
-        // сделать»): штатно UITK тянет список только колесом/тач-жестом.
-        // Нажатие на чип отдаёт захват чипу; после порога 8px жест признаётся
-        // скроллом — захват перехватываем себе, чип получает CaptureOut и клик
-        // не срабатывает (тап без движения работает как раньше).
-        private static void MakeDragScrollable(ScrollView sv)
-        {
-            bool down = false, dragging = false;
-            int pid = -1;
-            Vector2 startPos = default, startOff = default;
-            sv.RegisterCallback<PointerDownEvent>(e =>
-            {
-                down = true; dragging = false; pid = e.pointerId;
-                startPos = e.position; startOff = sv.scrollOffset;
-            }, TrickleDown.TrickleDown);
-            void EndGesture()
-            {
-                if (pid != -1 && sv.HasPointerCapture(pid)) sv.ReleasePointer(pid);
-                down = false; dragging = false; pid = -1;
-            }
-            sv.RegisterCallback<PointerMoveEvent>(e =>
-            {
-                if (!down || e.pointerId != pid) return;
-                // Кнопка уже отпущена, а PointerUp до нас не дошёл. Это штатно:
-                // тап по чипу перестраивает колонку, элемент под курсором
-                // исчезает — и событие отпускания уходит вместе с ним. Без
-                // этой проверки жест оставался «нажатым» навсегда и список
-                // ехал за курсором без нажатия (Илья 26.08).
-                if (e.pressedButtons == 0) { EndGesture(); return; }
-                var d = (Vector2)e.position - startPos;
-                if (!dragging && Mathf.Abs(d.y) > 8f)
-                {
-                    dragging = true;
-                    sv.CapturePointer(pid);
-                }
-                if (dragging)
-                    sv.scrollOffset = new Vector2(startOff.x, startOff.y - d.y);
-            });
-            // TrickleDown: отпускание должно дойти до нас ДО того, как обработчик
-            // чипа пересоберёт колонку и заберёт с собой цель события.
-            sv.RegisterCallback<PointerUpEvent>(e =>
-            {
-                if (e.pointerId == pid) EndGesture();
-            }, TrickleDown.TrickleDown);
-            // Захват потерян не нами (перестройка, другой элемент) — жест мёртв.
-            sv.RegisterCallback<PointerCaptureOutEvent>(_ => { down = false; dragging = false; pid = -1; });
-        }
-
         // Колонка эмоций стоит от низа НАВБАРА до верха плашки — в координатах
         // листа, потому пересчёт на каждый layout: лист живёт на разной высоте
         // в меню и в игре, а safe area у каждого устройства своя.
@@ -336,7 +288,7 @@ namespace Lvn.UI.Screens
             var art = card.Q<VisualElement>("card-art");
             var ph = card.Q<VisualElement>("card-ph");
             var url = ResolveIcon(item.icon);
-            if (art != null && !string.IsNullOrEmpty(url) && (string)art.userData != url)
+            if (art != null && !string.IsNullOrEmpty(url) && (art.userData as string) != url)
             {
                 art.userData = url;
                 var (zoom, _) = LvnWardrobeStage.Framing(axis);
