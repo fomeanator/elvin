@@ -22,6 +22,11 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub : VisualElement, ILvnEntrance, Lvn.UI.ILvnRedress
     {
+        /// <summary>Служебный сборник «всё, что не разложено по полкам». Его id
+        /// не приходит из манифеста — по нему подпись узнаёт, что название
+        /// полосы надо спросить у словаря, а не у данных.</summary>
+        internal const string LibraryId = "_library";
+
         /// <summary>Loads the player's global stat flags (the <c>__global</c> blob)
         /// so <c>unlock</c> conditions can be evaluated. Null → everything unlocked.</summary>
         public System.Func<Task<JObject>> GlobalStatsProvider;
@@ -235,6 +240,8 @@ namespace Lvn.UI.Screens
             // ── DETAIL ──
             _detailView = Column();
             _detailView.Add(BackBar(out _detailTitle, BackFromDetail));
+            Lvn.UI.LvnRedress.Bind(_detailTitle, () => _detailTarget == null ? string.Empty
+                : LvnWords.Name("title", _detailTarget.id, _detailTarget.name));
             _detailImage = new VisualElement { pickingMode = PickingMode.Ignore };
             _detailImage.style.height = Length.Percent(42);
             _detailImage.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
@@ -257,13 +264,15 @@ namespace Lvn.UI.Screens
             // безымянным: картинка, абзац и кнопка.
             var dCap = new VisualElement { pickingMode = PickingMode.Ignore };
             dCap.style.paddingLeft = 20; dCap.style.paddingRight = 20; dCap.style.paddingBottom = 16;
-            _detailBigTitle = new Label(string.Empty);
+            _detailBigTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
+                : _theme.Heading(LvnWords.Name("title", _detailTarget.id, _detailTarget.name)));
             _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = 60;
             _detailBigTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _detailBigTitle.style.whiteSpace = WhiteSpace.Normal;
             _detailBigTitle.style.letterSpacing = _theme.Tracking;
             dCap.Add(_detailBigTitle);
-            _detailSubtitle = new Label(string.Empty);
+            _detailSubtitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
+                : LvnWords.Name("subtitle", _detailTarget.id, _detailTarget.subtitle ?? ""));
             _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = 30;
             _detailSubtitle.style.whiteSpace = WhiteSpace.Normal;
             _detailSubtitle.style.marginTop = 4;
@@ -292,7 +301,19 @@ namespace Lvn.UI.Screens
             dActions.style.flexDirection = FlexDirection.Row;
             dActions.style.alignItems = Align.Center;
             dActions.style.marginTop = 14;
-            _detailPlay = AccentButton(LvnWords.Pick("hub.play", _cfg.play_text, "Play"), () => LvnAsync.Fire(PlayTappedAsync(), "PlayTapped"));
+            // ПОДПИСЬ КНОПКИ ЗАВИСИТ ОТ ДВУХ ВЕЩЕЙ СРАЗУ: от языка и от того,
+            // какую новеллу открыли (её цена, её замок). Держать оба ответа
+            // порознь — присваивание при открытии и привязку для языка — значит
+            // получить расхождение ровно в тот момент, когда игрок переключает
+            // язык, стоя на карточке. Источник один, экран лишь просит
+            // перечитать его (см. ShowDetail).
+            _detailPlay = AccentButton(string.Empty, () => LvnAsync.Fire(PlayTappedAsync(), "PlayTapped"));
+            Lvn.UI.LvnRedress.Bind(_detailPlay, () =>
+            {
+                var t = _detailTarget;
+                if (t == null) return LvnWords.Pick("hub.play", _cfg?.play_text, "Play");
+                return IsLocked(t) ? LvnWords.Pick("hub.locked", _cfg?.locked_text, "Locked") : PlayLabel(t);
+            });
             _detailPlay.style.flexGrow = 1;
             _detailPlay.style.marginTop = 0;
             dActions.Add(_detailPlay);
@@ -307,13 +328,17 @@ namespace Lvn.UI.Screens
             // _hubView глотает клики по нему (живой скрин «меню не кликается»).
             _bottomNav.BringToFront();
 
-            // Keep the top-bar balances live with the wallet while on screen.
-            RegisterCallback<AttachToPanelEvent>(_ => { Lvn.Services.LvnWallet.Changed += RefreshTopBar; RefreshTopBar(); });
-            RegisterCallback<DetachFromPanelEvent>(_ => Lvn.Services.LvnWallet.Changed -= RefreshTopBar);
+            // Балансы в шапке живы, пока хаб на экране, — связку держит Поводок.
+            Lvn.LvnLeash.WhileOnScreen(this,
+                () => Lvn.Services.LvnWallet.Changed += RefreshTopBar,
+                () => Lvn.Services.LvnWallet.Changed -= RefreshTopBar,
+                RefreshTopBar);
 
-            // Safe-area: keep headers below the notch and the bottom nav above the
-            // home indicator. Re-resolves whenever geometry changes.
-            RegisterCallback<GeometryChangedEvent>(_ => ApplySafeArea());
+            // Кромка: ЧИСЛА и ПОВОД пересчитать держит Кромочник. Здесь стояла
+            // подписка на одну лишь смену геометрии — а комментарий рядом уже
+            // утверждал, что поворот экрана эту формулу будит. Не будил:
+            // поворот UITK-событием не сопровождается.
+            LvnEdges.Follow(this, _ => ApplySafeArea());
 
             ShowHub();
         }
@@ -488,10 +513,13 @@ namespace Lvn.UI.Screens
         {
             _detailTarget = t;
             _detailFrom = from;
-            _detailTitle.text = LvnWords.Name("title", t.id, t.name);
-            _detailBigTitle.text = _theme.Heading(LvnWords.Name("title", t.id, t.name));
+            // Подписи детали привязаны к ОТКРЫТОЙ новелле (см. конструктор):
+            // просим перечитать их, а не пишем текст поверх. Иначе смена языка
+            // на открытой карточке возвращала бы прежние слова.
+            Lvn.UI.LvnRedress.Refresh(_detailTitle);
+            Lvn.UI.LvnRedress.Refresh(_detailBigTitle);
+            Lvn.UI.LvnRedress.Refresh(_detailSubtitle);
             var art = t.card;
-            _detailSubtitle.text = LvnWords.Name("subtitle", t.id, t.subtitle ?? "");
             _detailSubtitle.style.display = string.IsNullOrEmpty(t.subtitle)
                 ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
@@ -499,8 +527,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(img)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_detailImage, img, _assets), "AssignBg");
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
-            _detailPlay.text = locked ? (LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked"))
-                : PlayLabel(t);
+            Lvn.UI.LvnRedress.Refresh(_detailPlay);
             _detailChips.Clear();
             if (locked) _detailChips.Add(Chip(null, _dim, LvnIcon.Lock));
             else if (t.cost != null && t.cost.amount > 0)
@@ -624,7 +651,12 @@ namespace Lvn.UI.Screens
             }
             if (orphans.Count > 0)
             {
-                var lib = new LvnCollection { id = "_library", name = LvnWords.Pick("hub.library", _cfg.library_text, "Novels"), titles = orphans };
+                // ИМЕНИ У СЛУЖЕБНОГО СБОРНИКА НЕТ НАРОЧНО. Оно вычислялось
+                // здесь строкой и застывало в модели: смена языка полосу
+                // «Новеллы» не доставала — данные пересобирает не переодевание,
+                // а перезаход в хаб. Как зовётся эта полоса, знает подпись
+                // (см. CollectionRow), и знает по ключу.
+                var lib = new LvnCollection { id = LibraryId, titles = orphans };
                 var libRow = CollectionRow(lib, hero: _collections.Count == 0);
                 if (libRow != null) _hubRows.Add(libRow);
             }

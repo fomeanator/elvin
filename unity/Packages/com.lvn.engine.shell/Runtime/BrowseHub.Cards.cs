@@ -34,7 +34,9 @@ namespace Lvn.UI.Screens
             // прокрутка и то, на чём игрок остановился.
             var cid = c.id; var cname = c.name;
             var title = Lvn.UI.LvnRedress.Bind(new Label(),
-                () => _theme.Heading(Lvn.Content.LvnWords.Name("collection", cid, cname)));
+                () => _theme.Heading(cid == LibraryId
+                    ? LvnWords.Pick("hub.library", _cfg?.library_text, "Novels")
+                    : Lvn.Content.LvnWords.Name("collection", cid, cname)));
             title.style.color = _text; title.style.fontSize = 54;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
@@ -45,7 +47,9 @@ namespace Lvn.UI.Screens
             var all = new VisualElement();
             all.style.flexDirection = FlexDirection.Row;
             all.style.alignItems = Align.Center;
-            var allText = new Label(_theme.Heading(LvnWords.Pick("hub.all", _cfg.all_text, "All"))) { pickingMode = PickingMode.Ignore };
+            var allText = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => _theme.Heading(LvnWords.Pick("hub.all", _cfg?.all_text, "All")));
+            allText.pickingMode = PickingMode.Ignore;
             allText.style.color = _accent; allText.style.fontSize = 36;
             allText.style.unityFontStyleAndWeight = FontStyle.Bold;
             allText.style.letterSpacing = _theme.Tracking;
@@ -134,7 +138,7 @@ namespace Lvn.UI.Screens
                 poster.style.backgroundImage = PosterFallbackImage(useAccent: hero);
             }
             // cost / lock chip, small, floated on the poster
-            var chip = locked ? Chip(_cfg.locked_text, _dim, LvnIcon.Lock)
+            var chip = locked ? Chip(LvnWords.Pick("hub.locked", _cfg?.locked_text, "Locked"), _dim, LvnIcon.Lock)
                 : (t.cost != null && t.cost.amount > 0 ? CostChip(t.cost) : null);
             if (chip != null)
             {
@@ -164,10 +168,12 @@ namespace Lvn.UI.Screens
             // Подзаголовок («Сезон 1 · Глава 0 — Вербовка») — тоже данные:
             // переведён — берём перевод, нет — читаем латиницей, чтобы он не
             // висел кириллицей посреди английской карточки.
-            string sub = Lvn.Content.LvnWords.Name("subtitle", t.id, t.subtitle ?? t.card?.description);
+            var tsub0 = t.subtitle ?? t.card?.description;
+            string sub = Lvn.Content.LvnWords.Name("subtitle", tid0, tsub0);
             if (!string.IsNullOrEmpty(sub))
             {
-                var subLbl = new Label(sub);
+                var subLbl = Lvn.UI.LvnRedress.Bind(new Label(),
+                    () => Lvn.Content.LvnWords.Name("subtitle", tid0, tsub0));
                 subLbl.style.color = _dim; subLbl.style.fontSize = 22; subLbl.style.marginTop = 4;
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
@@ -233,7 +239,7 @@ namespace Lvn.UI.Screens
             name.style.color = _text; name.style.fontSize = 36;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
-            if (locked) top.Add(Chip(_cfg.locked_text, _dim, LvnIcon.Lock));
+            if (locked) top.Add(Chip(LvnWords.Pick("hub.locked", _cfg?.locked_text, "Locked"), _dim, LvnIcon.Lock));
             else if (t.cost != null && t.cost.amount > 0) top.Add(CostChip(t.cost));
             col.Add(top);
 

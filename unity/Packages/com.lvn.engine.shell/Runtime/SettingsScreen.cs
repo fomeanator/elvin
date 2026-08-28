@@ -214,7 +214,9 @@ namespace Lvn.UI.Screens
         // Заголовок раздела в ленте.
         private void Section(string id, string title)
         {
-            var lbl = SectionTitle(title, LvnTokens.TextLg);
+            // Ленту настроек экран пересобирает целиком при переодевании, так
+            // что готовая строка здесь живёт ровно до следующей сборки.
+            var lbl = SectionTitle(() => title, LvnTokens.TextLg);
             lbl.style.marginTop = _sections++ == 0 ? 8 : 26;
             lbl.style.marginBottom = 8;
             _list.Add(lbl);

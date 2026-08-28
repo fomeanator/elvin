@@ -109,7 +109,7 @@ namespace Lvn.UI.Screens
             back.AddManipulator(new Clickable(Close));
             left.Add(back);
 
-            var title = SectionTitle(LvnWords.Of("skinshop.title", "Wardrobe"));
+            var title = SectionTitle(() => LvnWords.Of("skinshop.title", "Wardrobe"));
             left.Add(title);
 
             var balancePill = new VisualElement();
@@ -213,10 +213,13 @@ namespace Lvn.UI.Screens
         private void SeedDemo()
         {
             _chars.Clear();
-            _chars.Add(new Character { Name = "Алиса", Preview = "/content/cards/card0.png" });
-            _chars.Add(new Character { Name = "Алина", Preview = "/content/cards/card1.png" });
-            _chars.Add(new Character { Name = "Ева", Preview = "/content/cards/card2.png" });
-            _chars.Add(new Character { Name = "Мира", Preview = "/content/cards/card3.png" });
+            // БЕЗ ПРЕВЬЮ: адреса демо-набора (/content/cards/cardN.png) в живом
+            // контенте не существуют, и витрина — которую игрок вообще не видит,
+            // она не подключена — уходила за ними в сеть при каждом старте.
+            _chars.Add(new Character { Name = "Алиса" });
+            _chars.Add(new Character { Name = "Алина" });
+            _chars.Add(new Character { Name = "Ева" });
+            _chars.Add(new Character { Name = "Мира" });
 
             _skins.Clear();
             // per category: a themed set of six skins, mixed states (1 equipped,
@@ -252,7 +255,7 @@ namespace Lvn.UI.Screens
                         list.Add(new Skin
                         {
                             Name = names[i],
-                            Thumb = $"/content/cards/card{i % 4}.png",
+                            Thumb = null,   // см. выше: демо-адресов нет в контенте
                             State = states[i],
                             Price = prices[i],
                             Currency = i == 5 ? hard : soft, // последний — за вторую валюту
@@ -352,8 +355,7 @@ namespace Lvn.UI.Screens
                 tab.style.paddingLeft = 18; tab.style.paddingRight = 18;
                 tab.style.paddingTop = 9; tab.style.paddingBottom = 9;
                 tab.style.unityTextAlign = TextAnchor.MiddleCenter;
-                LvnStyler.Choice(tab, active, 20f);
-                if (active) tab.style.unityFontStyleAndWeight = FontStyle.Bold;
+                LvnStyler.Tab(tab, active, 20f);
 
                 tab.AddManipulator(new Clickable(() =>
                 {

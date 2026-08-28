@@ -54,6 +54,7 @@ namespace Lvn.UI.Screens
             if (_cancel != null) _cancel.text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel");
             RefreshConfirm();     // «Выбрать» / «Купить за N» — своя логика подписи
             RebuildStrip();       // плитки несут названия нарядов
+            RebuildSubRow(false); // подписи подосей («Основа», «Цвет волос»)
             RefreshLabel();       // строка выбора под лентой
         }
 

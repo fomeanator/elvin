@@ -58,7 +58,6 @@ namespace Lvn.UI.Screens
         /// состояния вместо одного: не спрашивали, не смогли, знаем.</summary>
         private enum CatalogState { Unknown, Failed, Known }
         private CatalogState _catalogState = CatalogState.Unknown;
-        private readonly List<string> _tabNames = new List<string>();
 
         private readonly ILvnAssets _assets;
         private readonly VisualElement _balances;
@@ -137,7 +136,7 @@ namespace Lvn.UI.Screens
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
-            var title = SectionTitle(LvnWords.Of("shop.title", "Store"));
+            var title = SectionTitle(() => LvnWords.Of("shop.title", "Store"));
             titleBlock.Add(title);
             top.Add(titleBlock);
 
@@ -176,13 +175,10 @@ namespace Lvn.UI.Screens
             // открытом магазине начисление за рекламу или ежедневную награду не
             // появлялось, и игрок видел устаревший баланс ровно там, где он
             // важнее всего. Подписка живёт вместе с экраном.
-            RegisterCallback<AttachToPanelEvent>(_ =>
-            {
-                Lvn.Services.LvnWallet.Changed += RefreshBalances;
-                RefreshBalances();
-            });
-            RegisterCallback<DetachFromPanelEvent>(_ =>
-                Lvn.Services.LvnWallet.Changed -= RefreshBalances);
+            Lvn.LvnLeash.WhileOnScreen(this,
+                () => Lvn.Services.LvnWallet.Changed += RefreshBalances,
+                () => Lvn.Services.LvnWallet.Changed -= RefreshBalances,
+                RefreshBalances);
             RefreshBalances();
             Rebuild();
             LvnAsync.Fire(LoadCatalogAsync(), "PackShopCatalog");
@@ -194,7 +190,6 @@ namespace Lvn.UI.Screens
             var packs = await Lvn.Services.LvnWallet.GetCatalogAsync();
             _catalog.Clear();
             _tabIds.Clear();
-            _tabNames.Clear();
             // Сервер не ответил — это «не смогли узнать», а не «товаров нет».
             _catalogState = packs != null ? CatalogState.Known : CatalogState.Failed;
             if (packs != null)
@@ -208,7 +203,6 @@ namespace Lvn.UI.Screens
                     {
                         _catalog[tab] = list = new List<Pack>();
                         _tabIds.Add(tab);
-                        _tabNames.Add(TabTitle(tab));
                     }
                     list.Add(ToCard(p, bundle));
                 }
@@ -416,10 +410,14 @@ namespace Lvn.UI.Screens
         {
             _tabsRow.Clear();
             _tabButtons.Clear();
-            for (int i = 0; i < _tabNames.Count; i++)
+            for (int i = 0; i < _tabIds.Count; i++)
             {
                 int idx = i;
-                var pill = new Button(() => { _tab = idx; Rebuild(); }) { text = _tabNames[i] };
+                // Подпись вкладки спрашивается заново: список вкладок собирает
+                // каталог (он приходит с сервера), а переодевание его не
+                // перезапрашивает — застывшая строка пережила бы смену языка.
+                var pill = new Button(() => { _tab = idx; Rebuild(); });
+                Lvn.UI.LvnRedress.Bind(pill, () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]) : string.Empty);
                 pill.style.fontSize = 24;
                 pill.style.marginRight = 10;
                 pill.style.marginBottom = 8;
@@ -437,8 +435,7 @@ namespace Lvn.UI.Screens
         {
             // Скругление у вкладки своё (чуть круглее мелкого из темы) — роль
             // не имеет права его переопределять безымянным умолчанием.
-            LvnStyler.Choice(b, active, LvnTokens.RadiusSm + 4f);
-            b.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
+            LvnStyler.Tab(b, active, LvnTokens.RadiusSm + 4f);
         }
 
         // ── One pack card ─────────────────────────────────────────────────────

@@ -131,10 +131,17 @@ namespace Lvn.UI.Screens
         /// <para>Размер взят крупный (44): заголовок раздела — верхняя ступень
         /// иерархии на экране, и уменьшать её ради того, чтобы уместить рядом
         /// вкладки, значит чинить компоновку не тем местом.</para>
+        ///
+        /// <para>ПРИНИМАЕТ ИСТОЧНИК, А НЕ СТРОКУ. Заголовок стоит в шапке, а
+        /// шапку экраны собирают в конструкторе и при переодевании не трогают:
+        /// пересобирается тело. Готовая строка обрывала связь со словарём — и
+        /// «Профиль», «Магазин», «Гардероб» оставались на прежнем языке, пока
+        /// всё под ними уже переключилось. Со источником подпись перечитывает
+        /// себя сама.</para>
         /// </summary>
-        protected static Label SectionTitle(string text, float size = 44f)
+        protected static Label SectionTitle(System.Func<string> text, float size = 44f)
         {
-            var title = new Label(text);
+            var title = Lvn.UI.LvnRedress.Bind(new Label(), text);
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
             title.style.fontSize = size;
