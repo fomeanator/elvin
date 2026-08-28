@@ -62,6 +62,33 @@ var knownDeadFields = map[string]string{
 	"title_label":           "подпись створа приходит из ui.portal.title_label",
 }
 
+// stripComments убирает // … до конца строки и /* … */ целиком. Грубо (строки
+// в кавычках не щадит), но для поиска обращений «.поле» этого достаточно.
+func stripComments(src string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(src, "\n") {
+		if i := strings.Index(line, "//"); i >= 0 {
+			line = line[:i]
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	out := b.String()
+	for {
+		i := strings.Index(out, "/*")
+		if i < 0 {
+			break
+		}
+		j := strings.Index(out[i:], "*/")
+		if j < 0 {
+			out = out[:i]
+			break
+		}
+		out = out[:i] + out[i+j+2:]
+	}
+	return out
+}
+
 func TestConfigFieldsAreActuallyRead(t *testing.T) {
 	root := repoRoot(t)
 	cfgPath := filepath.Join(root, filepath.FromSlash(
@@ -96,7 +123,11 @@ func TestConfigFieldsAreActuallyRead(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			text := string(body)
+			// Комментарии вырезаем: упоминание поля в пояснении соседнего
+			// файла — не чтение. На этом страж уже один раз ошибся, засчитав
+			// «→ WardrobeConfig.rarity_colors» из комментария LvnManifest за
+			// живое использование, и пропустил мёртвую редкость предметов.
+			text := stripComments(string(body))
 			for f := range fields {
 				if read[f] {
 					continue

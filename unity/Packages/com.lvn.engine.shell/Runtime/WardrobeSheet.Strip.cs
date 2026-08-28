@@ -314,6 +314,19 @@ namespace Lvn.UI.Screens
             var name = card.Q<Label>("card-name");
             if (name != null) name.text = item.name ?? item.value;
 
+            // РЕДКОСТЬ ПРЕДМЕТА — цветной ободок карточки. Поле `rarity` у
+            // предмета и палитра `rarity_colors` в конфигурации гардероба
+            // существовали с самого начала, автор разметил ими три десятка
+            // вещей — и не читал их НИКТО: описание связи жило в комментарии
+            // рядом с полем, а кода за ним не стояло.
+            //
+            // Ободок ставится на обновлении, а не при рождении карточки:
+            // редкость приходит из данных предмета и может смениться вместе с
+            // ними (переимпорт, правка манифеста).
+            var ring = Rarity(item);
+            if (ring.HasValue) LvnChrome.Border(card, ring.Value, 2f);
+            else LvnChrome.ClearBorder(card);
+
             // Арт переназначается, ТОЛЬКО если сменился адрес: иначе каждая
             // сверка снова гоняла бы загрузку и гасила плитку под плейсхолдер.
             var art = card.Q<VisualElement>("card-art");
@@ -326,6 +339,21 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(AssignCardArtAsync(art, ph ?? new VisualElement(), url, sharp: zoom >= 3f),
                     "WardrobeCard");
             }
+        }
+
+        /// <summary>Цвет редкости предмета, если автор его назвал: ключ у
+        /// предмета (<c>rarity: "rare"</c>) ищется в палитре гардероба
+        /// (<c>ui.wardrobe.rarity_colors</c>). Нет ключа или нет палитры —
+        /// нет и ободка: движок не придумывает за автора, что считать
+        /// редким.</summary>
+        private Color? Rarity(LvnWardrobeItem item)
+        {
+            var key = item?.rarity;
+            if (string.IsNullOrEmpty(key)) return null;
+            var palette = _cfg?.rarity_colors;
+            if (palette == null || !palette.TryGetValue(key, out var hex) || string.IsNullOrEmpty(hex))
+                return null;
+            return UiColor.Parse(hex, LvnTokens.Accent);
         }
 
         /// <summary>Цена как её видит игрок: число с разрядами и название
