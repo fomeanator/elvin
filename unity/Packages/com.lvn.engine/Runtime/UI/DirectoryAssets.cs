@@ -86,14 +86,8 @@ namespace Lvn.UI
             // built). This handles wav/ogg/mp3 correctly; never hand-roll PCM.
             using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, GuessAudioType(path));
             var op = req.SendWebRequest();
-            while (!op.isDone)
-            {
-                if (ct.IsCancellationRequested) { req.Abort(); return null; }
-                await Task.Yield();
-            }
-            if (req.result is UnityWebRequest.Result.ConnectionError
-                           or UnityWebRequest.Result.DataProcessingError)
-                return null;
+            if (!await Lvn.Content.LvnNetWait.AwaitAsync(req, op, ct)) return null;
+            if (Lvn.Content.LvnNetWait.Failed(req)) return null;
 
             if (_audioCache.TryGetValue(url, out hit)) return hit;
 

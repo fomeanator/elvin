@@ -472,8 +472,7 @@ namespace Lvn.Content
             using var req = UnityWebRequestMultimedia.GetAudioClip(fileUrl, type);
 
             await AwaitRequest(req, req.SendWebRequest(), ct);
-            if (req.result is UnityWebRequest.Result.ConnectionError or UnityWebRequest.Result.DataProcessingError)
-                return null;
+            if (LvnNetWait.Failed(req)) return null;
             return DownloadHandlerAudioClip.GetContent(req);
         }
 

@@ -259,13 +259,11 @@ namespace Lvn.Content
                 req.SetRequestHeader("X-State-Key", _key);
                 req.timeout = TimeoutSeconds;
                 var op = req.SendWebRequest();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); return null; }
-                    await Task.Yield();
-                }
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                // Ждёт дом: он же обрывает запрос по МОЛЧАНИЮ. Здесь этой
+                // защиты не было вовсе — висели до срока UnityWebRequest, а он
+                // про весь ответ, а не про замерший счётчик байтов.
+                if (!await LvnNetWait.AwaitAsync(req, op, ct)) return null;
+                if (LvnNetWait.Failed(req))
                 {
                     LvnNetworkStatus.MarkOffline("state GET network error");
                     return null;
@@ -301,13 +299,8 @@ namespace Lvn.Content
                 req.SetRequestHeader("X-State-Key", _key);
                 req.timeout = TimeoutSeconds;
                 var op = req.SendWebRequest();
-                while (!op.isDone)
-                {
-                    if (ct.IsCancellationRequested) { req.Abort(); return; }
-                    await Task.Yield();
-                }
-                if (req.result is UnityWebRequest.Result.ConnectionError
-                               or UnityWebRequest.Result.DataProcessingError)
+                if (!await LvnNetWait.AwaitAsync(req, op, ct)) return;
+                if (LvnNetWait.Failed(req))
                 {
                     LvnNetworkStatus.MarkOffline("state PUT network error");
                     return;

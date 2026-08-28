@@ -36,7 +36,7 @@ namespace Lvn.UI.Screens
             void Add(string url, string kind, long size)
             {
                 if (string.IsNullOrEmpty(url)) return;
-                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                var eff = DownloadPolicy.Effective(kind, url);
                 if (seen.Add(eff)) items.Add((eff, kind, size));
             }
             var m = _manifest;
@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
                     void Add(string url, string kind, long size)
                     {
                         if (string.IsNullOrEmpty(url)) return;
-                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                        var eff = DownloadPolicy.Effective(kind, url);
                         if (!chapterUrls.Add(eff) || loader.IsAssetCached(eff)) return;
                         items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
                         bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
@@ -217,7 +217,7 @@ namespace Lvn.UI.Screens
             void Add(string url, string kind, long size)
             {
                 if (string.IsNullOrEmpty(url)) return;
-                var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                var eff = DownloadPolicy.Effective(kind, url);
                 if (loader.IsAssetCached(eff)) return;
                 items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
                 bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
@@ -248,7 +248,7 @@ namespace Lvn.UI.Screens
                     void Check(string url, string kind)
                     {
                         if (!ok || string.IsNullOrEmpty(url)) return;
-                        var eff = kind == "sprite" ? (DownloadPolicy.DownscaleVariant(url) ?? url) : url;
+                        var eff = DownloadPolicy.Effective(kind, url);
                         if (!loader.IsAssetCached(eff)) ok = false;
                     }
                     Check(ch.script_url, "script");
