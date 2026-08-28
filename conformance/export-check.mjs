@@ -51,8 +51,10 @@ for (const [name, src] of [["core.js", core], ["expr.js", expr]]) {
 // копия вернулась: ровно так в экспорте однажды пропала ветка `clear`, и
 // восстановление сохранения возвращало актёров, которых сцена убрала.
 for (const [name, src] of [["app.js", read("app.js")], ["export.js", read("export.js")]]) {
-  if (/^\s*function trackStage\s*\(/m.test(src)) {
-    problems.push(`${name}: своё определение trackStage — правило кадра должно приходить из core.js`);
+  for (const fn of ["trackStage", "replayStage"]) {
+    if (new RegExp(`^\\s*function ${fn}\\s*\\(`, "m").test(src)) {
+      problems.push(`${name}: своё определение ${fn} — правило кадра должно приходить из core.js`);
+    }
   }
 }
 

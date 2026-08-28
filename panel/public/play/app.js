@@ -2,7 +2,7 @@
 // .lvns into a .lvn doc; core.js plays it; this file renders pauses into DOM
 // and shares scripts through the URL hash — open the link, the game runs.
 
-import { Player, trackStage as trackStageCore } from "./core.js";
+import { Player, trackStage as trackStageCore, replayStage } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
@@ -385,9 +385,8 @@ function showResume(saved) {
   btnGo.addEventListener("click", () => {
     els.choices.hidden = true;
     stagedState = saved.stage || stagedState;
-    if (stagedState.bg) applyStageDom({ op: "bg", sprite_url: stagedState.bg }, player.vars);
-    for (const cmd of Object.values(stagedState.actors)) applyStageDom(cmd, player.vars);
-    for (const cmd of Object.values(stagedState.hud)) applyStageDom(cmd, player.vars);
+    // Порядок возврата кадра — у плеера (replayStage): фон, тела, HUD.
+    replayStage(stagedState, (cmd) => applyStageDom(cmd, player.vars));
     render(player.restore(saved.snap));
   });
   els.choices.appendChild(btnGo);

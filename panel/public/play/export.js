@@ -251,9 +251,8 @@ function start() {
     go.addEventListener("click", () => {
       box.hidden = true;
       stagedState = saved.stage || stagedState;
-      if (stagedState.bg) applyStage({ op: "bg", sprite_url: stagedState.bg });
-      for (const cmd of Object.values(stagedState.actors)) applyStage(cmd);
-      for (const cmd of Object.values(stagedState.hud)) applyStage(cmd);
+      // Порядок возврата кадра приезжает с плеером (replayStage).
+      replayStage(stagedState, applyStage);
       render(player.restore(saved.snap));
     });
     box.appendChild(go);
