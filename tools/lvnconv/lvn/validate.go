@@ -212,13 +212,23 @@ type Severity int
 const (
 	SevWarning Severity = iota
 	SevError
+	// SevNote — сказанное для полноты картины, а не для исправления: сюда
+	// уходит то, что проверка НАМЕРЕННО не считает находкой. Без него
+	// подавление шума неотличимо от сломанной проверки, а превращать заметку в
+	// предупреждение нельзя: `-strict` валит сборку на любом предупреждении, и
+	// честная заметка стала бы стеной.
+	SevNote
 )
 
 func (s Severity) String() string {
-	if s == SevError {
+	switch s {
+	case SevError:
 		return "error"
+	case SevNote:
+		return "note"
+	default:
+		return "warning"
 	}
-	return "warning"
 }
 
 // Issue is a single validation finding.
@@ -261,6 +271,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 	var issues []Issue
 	addErr := func(i int, op, msg string) { issues = append(issues, Issue{i, op, msg, SevError}) }
 	addWarn := func(i int, op, msg string) { issues = append(issues, Issue{i, op, msg, SevWarning}) }
+	addNote := func(msg string) { issues = append(issues, Issue{-1, "label", msg, SevNote}) }
 
 	// Pass 0: required document-level blocks.
 	if d.Scene == "" {
@@ -590,8 +601,8 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 		if id == "" || !targeted[id] {
 			continue // unreachable-by-jump labels are plain linear flow, not a trap
 		}
-		if strings.HasPrefix(id, "__") {
-			continue // compiler-generated loop/if labels: fall-through is by design
+		if !authoredLabel(id) {
+			continue // метку писал не автор — см. authoredLabel
 		}
 		prev := d.Script[i-1].Op()
 		if !fallThroughTerminators[prev] {
@@ -606,10 +617,21 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 	// labels are legitimate linear flow, so this is only a warning when the label
 	// is also the first command or sits after a terminator (truly unreachable).
 	var unused []string
+	machineUnused := 0
 	for id := range defined {
-		if !targeted[id] {
-			unused = append(unused, id)
+		if targeted[id] {
+			continue
 		}
+		if !authoredLabel(id) {
+			machineUnused++ // импортёр метит КАЖДУЮ ноду графа; это не находка
+			continue
+		}
+		unused = append(unused, id)
+	}
+	if machineUnused > 0 {
+		// Сказать вслух, что проверка отработала, а не промолчала: иначе
+		// подавление неотличимо от поломки.
+		addNote(fmt.Sprintf("%d generated label(s) are never targeted — normal for an imported chapter, not reported", machineUnused))
 	}
 	sort.Strings(unused)
 	for _, id := range unused {
@@ -1078,3 +1100,23 @@ func looksLikeProse(who string) bool {
 	}
 	return len(strings.Fields(who)) >= 5
 }
+
+// authoredLabel: метку написал АВТОР, а не машина.
+//
+// Диагностика имеет смысл, только если говорит о том, что автор писал. В
+// импортированной главе метку получает КАЖДАЯ нода графа articy — их формы
+// `n17_000000`, и в базе Time Romance таких 5329 против 38 авторских. Две
+// проверки («провал в метку» и «метка никем не нужна») ругались на них
+// 4343 раза, и полезный сигнал тонул в шуме сто к одному: пять настоящих
+// находок на четыре с половиной тысячи строк.
+//
+// Машинные метки бывают двух видов: `n<номер>_<шесть цифр>` от импортёра и
+// `__…` от самого компилятора (циклы, ветвления, точки возврата).
+func authoredLabel(id string) bool {
+	if id == "" || strings.HasPrefix(id, "__") {
+		return false
+	}
+	return !importedLabel.MatchString(id)
+}
+
+var importedLabel = regexp.MustCompile(`^n\d+_\d{6}$`)

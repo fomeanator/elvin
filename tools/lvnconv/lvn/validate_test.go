@@ -561,3 +561,60 @@ func TestProseSpeakerWarned(t *testing.T) {
 		}
 	}
 }
+
+// ДИАГНОСТИКА ГОВОРИТ О ТОМ, ЧТО ПИСАЛ АВТОР.
+//
+// В импортированной главе метку получает КАЖДАЯ нода графа articy (форма
+// `n17_000000`); в базе Time Romance таких 5329 против 38 авторских. Две
+// проверки — «провал в метку» и «метка никем не нужна» — ругались на них
+// 4343 раза, и пять настоящих находок тонули в четырёх с половиной тысячах
+// строк вывода.
+func TestGeneratedLabelsDoNotDrownTheRealFindings(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"say","text":"раз"},
+	 {"op":"label","id":"n17_000000"},
+	 {"op":"say","text":"два"},
+	 {"op":"label","id":"развилка"},
+	 {"op":"goto","label":"n17_000000"},
+	 {"op":"goto","label":"развилка"}
+	]}`)
+	issues := Validate(d)
+
+	for _, is := range issues {
+		if is.Sev == SevWarning && contains(is.Msg, "n17_000000") {
+			t.Fatalf("метка импортёра не должна давать предупреждений: %s", is.Msg)
+		}
+	}
+	// Авторская метка с тем же провалом — предупреждение на месте.
+	if !hasWarn(issues, `"развилка"`) {
+		t.Fatalf("на авторской метке проверка обязана работать: %+v", issues)
+	}
+}
+
+// Подавление объясняется вслух: иначе оно неотличимо от сломанной проверки.
+// Заметка НЕ предупреждение — `-strict` валит сборку на любом предупреждении,
+// и честное объяснение стало бы стеной.
+func TestSuppressionIsSaidOutLoudAsANote(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"say","text":"раз"},
+	 {"op":"label","id":"n1_000000"},
+	 {"op":"label","id":"n2_000000"}
+	]}`)
+	issues := Validate(d)
+
+	var note *Issue
+	for i := range issues {
+		if issues[i].Sev == SevNote {
+			note = &issues[i]
+		}
+	}
+	if note == nil {
+		t.Fatalf("подавленное должно быть названо заметкой: %+v", issues)
+	}
+	if !contains(note.Msg, "generated label") {
+		t.Fatalf("заметка должна объяснять, ЧТО именно не показано: %s", note.Msg)
+	}
+	if note.Sev == SevWarning || note.Sev == SevError {
+		t.Fatal("заметка не должна валить -strict")
+	}
+}

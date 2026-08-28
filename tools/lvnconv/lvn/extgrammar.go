@@ -18,11 +18,13 @@ package lvn
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 )
 
 // ExtOp declares one host-defined op: its closed field set, which of those
@@ -195,7 +197,53 @@ func FindExtGrammar(nearFile string) (*ExtGrammar, string, error) {
 		if err != nil {
 			return nil, cand, err // a present-but-broken sidecar must not be skipped silently
 		}
-		return g, cand, nil
+		return withServiceOps(g), cand, nil
 	}
-	return nil, "", nil
+	// Проектной грамматики нет — остаются операции самого движка.
+	return withServiceOps(nil), "", nil
+}
+
+//go:embed service-ops.json
+var serviceOpsJSON []byte
+
+var (
+	builtinOnce    sync.Once
+	builtinGrammar *ExtGrammar
+)
+
+// ДВИЖОК ОБЪЯВЛЯЕТ СВОИ ОПЕРАЦИИ САМ.
+//
+// Пакет услуг регистрирует тринадцать ext-операций (кошелёк, таблица рекордов,
+// ежедневная награда, реклама, сетевая дуэль) и поставляет их грамматику. Но
+// валидатор искал грамматику ТОЛЬКО рядом со скриптом, а проектный файл её
+// ЗАМЕЩАЛ, а не дополнял: новелла Time Romance объявила у себя четыре операции
+// из тринадцати — и `leaderboard_submit`, рабочий и зарегистрированный, годами
+// числился неизвестной командой.
+//
+// Знать собственные операции — обязанность движка, а не автора: переписывать их
+// список в каждый проект значит держать одно знание в двух местах и ждать, пока
+// они разойдутся. Проектная грамматика теперь ДОПОЛНЯЕТ встроенную и
+// перекрывает её только для одноимённых операций — хост вправе заменить
+// первопартийную своей.
+func withServiceOps(project *ExtGrammar) *ExtGrammar {
+	builtinOnce.Do(func() {
+		g, err := ParseExtGrammar(serviceOpsJSON)
+		if err == nil {
+			builtinGrammar = g
+		}
+	})
+	if builtinGrammar == nil {
+		return project
+	}
+	merged := &ExtGrammar{Name: builtinGrammar.Name, Ops: map[string]ExtOp{}}
+	for k, v := range builtinGrammar.Ops {
+		merged.Ops[k] = v
+	}
+	if project != nil {
+		merged.Name = project.Name
+		for k, v := range project.Ops {
+			merged.Ops[k] = v // проект вправе переопределить первопартийную
+		}
+	}
+	return merged
 }
