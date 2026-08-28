@@ -94,6 +94,67 @@ namespace Lvn.UI
             return string.IsNullOrEmpty(unit) ? Amount(value) : Amount(value) + " " + unit;
         }
 
+        /// <summary>Как выглядит ряд «значок + сумма».</summary>
+        public sealed class Row
+        {
+            /// <summary>Кегль суммы.</summary>
+            public float FontSize = 19f;
+            /// <summary>Сторона значка; 0 — по кеглю.</summary>
+            public float IconSize;
+            /// <summary>Цвет суммы и значка; null — цвет валюты.</summary>
+            public Color? TextColor;
+            /// <summary>Полужирная сумма: цена читается раньше подписи.</summary>
+            public bool Bold = true;
+            /// <summary>Просвет между значком и числом.</summary>
+            public float Gap = 4f;
+            /// <summary>Значок слева от суммы. Справа — когда сумма
+            /// выравнивается по левому краю колонки.</summary>
+            public bool IconFirst = true;
+        }
+
+        /// <summary>
+        /// ЦЕНА, КОТОРУЮ ВИДНО ЦЕЛИКОМ: значок вместо слова.
+        ///
+        /// <para>Название валюты словом — «1 200 кристаллов» — длиннее самой
+        /// цены втрое и в узком месте её же и вытесняет. На карточке гардероба
+        /// ярлык прижат к правому краю, и строка со словом уезжала за левый
+        /// край плитки: игроку оставалось «кристаллов» без числа — ровно та
+        /// часть, которую он и так знал.</para>
+        ///
+        /// <para>Значок занимает одну букву, читается на любом языке и не
+        /// требует перевода. Слово остаётся там, где места вдоволь и нужен
+        /// падеж: в тостах и подтверждениях покупки (<see cref="Full"/>).</para>
+        ///
+        /// <para>Собирает ряд ДОМ, а не экран: раньше значок к сумме приставлял
+        /// каждый сам — хаб фишкой, пилюля кошелька своим рядом, витрина скинов
+        /// вообще без значка, — и одна валюта в двух местах выглядела
+        /// по-разному.</para>
+        /// </summary>
+        public static UnityEngine.UIElements.VisualElement Tag(
+            string currency, long amount, Row look = null)
+        {
+            look = look ?? new Row();
+            var l = Of(currency);
+            var color = look.TextColor ?? l.Tint;
+
+            var row = new UnityEngine.UIElements.VisualElement
+            { pickingMode = UnityEngine.UIElements.PickingMode.Ignore };
+            row.style.flexDirection = UnityEngine.UIElements.FlexDirection.Row;
+            row.style.alignItems = UnityEngine.UIElements.Align.Center;
+
+            var sum = new UnityEngine.UIElements.Label(Amount(amount))
+            { pickingMode = UnityEngine.UIElements.PickingMode.Ignore };
+            sum.style.fontSize = look.FontSize;
+            sum.style.color = color;
+            if (look.Bold) sum.style.unityFontStyleAndWeight = FontStyle.Bold;
+
+            float side = look.IconSize > 0f ? look.IconSize : Mathf.Round(look.FontSize * 1.05f);
+            var icon = LvnIcons.Make(l.Icon, side, color, 0f, LvnTheme.Current.IconGlow);
+            if (look.IconFirst) { icon.style.marginRight = look.Gap; row.Add(icon); row.Add(sum); }
+            else { icon.style.marginLeft = look.Gap; row.Add(sum); row.Add(icon); }
+            return row;
+        }
+
         // Умолчания движка — про ФОРМУ, а не про слова. Догадка о значке живёт
         // у ИКОНОК (LvnIcons.ForCurrency) и знает больше, чем знала эта: золото,
         // монеты, ключи, сердца — на двух языках. Здесь стояла своя, бедная

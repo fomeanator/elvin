@@ -171,7 +171,6 @@ namespace Lvn.Content
         public string remove_text;    // default "Take off"
         public string confirm_text;   // the in-story sheet's commit button; default "Choose"
         public string buy_text;       // the sheet's purchase button (unowned item browsed); default "Buy"
-        public string currency_label; // display stand-in for the currency id in the buy caption, e.g. "◆"
         public string insufficient_text; // shown when a buy fails for funds; default "Not enough"
         public string close_text;     // default "Close" (гардероб как отдельный экран)
         public string cancel_text;    // закрыть примерку НЕ сохраняя; default "Отменить"

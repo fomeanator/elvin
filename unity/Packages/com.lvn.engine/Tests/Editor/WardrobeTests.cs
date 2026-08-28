@@ -176,7 +176,7 @@ namespace Lvn.Tests
         public void Sheet_UnownedItemOffersBuy_NotChoose()
         {
             var sheet = new WardrobeSheet(new WardrobeConfig
-            { confirm_text = "Выбрать", buy_text = "Купить", currency_label = "◆" }, new TestAssets());
+            { confirm_text = "Выбрать", buy_text = "Купить" }, new TestAssets());
             sheet.SetManifest(Manifest());
             try
             {
@@ -188,7 +188,9 @@ namespace Lvn.Tests
                 string cta = sheet.ConfirmCaption;
                 StringAssert.StartsWith("Купить", cta, "an unowned item offers a purchase, not a choose");
                 StringAssert.Contains("300", cta, "the buy button carries THIS item's price");
-                StringAssert.Contains("◆", cta, "currency_label replaces the raw currency id");
+                // Валюту показывает ЗНАЧОК рядом с суммой, а не слово в подписи:
+                // слово авторское (не переводится) и в узкой кнопке вытесняло цену.
+                StringAssert.DoesNotContain("gold", cta, "валюта не пишется служебным id");
             }
             finally { LvnWardrobe.ClearPreview(Entity); }
         }

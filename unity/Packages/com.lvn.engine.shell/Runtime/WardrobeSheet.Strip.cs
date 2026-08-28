@@ -307,10 +307,11 @@ namespace Lvn.UI.Screens
             if (card == null) return;
             bool owned = IsOwnedIn(axis, item);
 
-            var badge = card.Q<Label>("card-price");
-            if (owned) badge?.RemoveFromHierarchy();
-            else if (badge == null) card.Add(PriceBadge(item));
-            else badge.text = PriceText(item);
+            // Ярлык цены пересобирается целиком: внутри значок валюты, и при
+            // смене предмета меняется не только число, но и он.
+            var badge = card.Q("card-price");
+            badge?.RemoveFromHierarchy();
+            if (!owned) card.Add(PriceBadge(item));
 
             var name = card.Q<Label>("card-name");
             // Название наряда — подпись, а не идентификатор: в английском
@@ -359,9 +360,8 @@ namespace Lvn.UI.Screens
             return UiColor.Parse(hex, LvnTokens.Accent);
         }
 
-        /// <summary>Цена как её видит игрок: число с разрядами и название
-        /// валюты, если новелла его дала. Ромб «◆» больше не прибит — валюта у
-        /// предмета своя, и знать её в лицо — работа Ценника.</summary>
+        /// <summary>Цена словом — для мест, где места вдоволь: тост, вопрос о
+        /// покупке. На карточке её показывает значок (см. PriceBadge).</summary>
         private static string PriceText(LvnWardrobeItem item)
             => Lvn.UI.LvnPriceTag.Full(item?.currency, item?.price ?? 0);
 
@@ -375,16 +375,17 @@ namespace Lvn.UI.Screens
         /// выглядел как проданный за самоцветы: роль была выделена, а бейдж
         /// ходил мимо неё (шестой признак канона).</para>
         /// </summary>
-        private Label PriceBadge(LvnWardrobeItem item)
+        private VisualElement PriceBadge(LvnWardrobeItem item)
         {
-            var badge = new Label(PriceText(item)) { pickingMode = PickingMode.Ignore };
+            // ЗНАЧОК, А НЕ СЛОВО. Со словом («1 200 кристаллов») ярлык шире
+            // плитки, а прижат он к правому краю — число уезжало за левый край,
+            // и на карточке оставалось голое «кристаллов» (Илья, 28.08).
+            var badge = Lvn.UI.LvnPriceTag.Tag(item.currency, item.price,
+                new Lvn.UI.LvnPriceTag.Row { FontSize = 19f, Gap = 3f });
             badge.name = "card-price";
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
             badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
-            badge.style.color = Lvn.UI.LvnPriceTag.Of(item.currency).Tint;
-            badge.style.fontSize = 19;
-            badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
             badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
             LvnChrome.Round(badge, 10f);
