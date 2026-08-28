@@ -136,6 +136,32 @@ namespace Lvn.UI.Screens
         public static int Reached(LvnTitle title) =>
             title == null ? 0 : LvnKeep.Get(ReachedKey(title.id), 0);
 
+        /// <summary>
+        /// НОВЕЛЛА ПРОЙДЕНА? Дошли до её последней главы, и она закончилась:
+        /// продолжения нет, а самая дальняя достигнутая — последняя.
+        ///
+        /// <para>Правило стояло в двух местах, и защиту имело только одно.
+        /// «Не начата — значит не пройдена» пришлось дописать, когда новелла с
+        /// первой главой под номером 0 объявлялась пройденной на ЧИСТОМ
+        /// устройстве: «дошёл до 0» ≥ «последняя 0». Воронка тогда не включалась
+        /// ни разу, и игрок сразу видел витрину. Второе место — список глав в
+        /// карточке — этой защиты не получило и рисовало главы непочатой
+        /// новеллы галочками «пройдено».</para>
+        ///
+        /// <para>Урок ровно тот же, что у имени актёра и у доступности главы:
+        /// знание было В ДВИЖКЕ и не дошло до соседа, потому что правило
+        /// пересказали, а не позвали.</para>
+        /// </summary>
+        public static bool Finished(LvnTitle title)
+        {
+            if (title == null) return false;
+            var chapters = title.ChaptersOf();
+            if (chapters.Count == 0) return false;
+            int reached = Reached(title);
+            if (reached <= 0) return false;
+            return Current(title) == null && reached >= chapters[chapters.Count - 1].number;
+        }
+
         /// <summary>Forget the continue point (the novel was finished — replays
         /// start clean). Reached is kept so the picker stays unlocked.</summary>
         public static void ClearCurrent(LvnTitle title)
