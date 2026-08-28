@@ -15,7 +15,7 @@ namespace Lvn.UI
         private void ShowSettings()
         {
             var p = Panel(L("settings", "Settings"));
-            var scroll = new ScrollView();
+            var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 

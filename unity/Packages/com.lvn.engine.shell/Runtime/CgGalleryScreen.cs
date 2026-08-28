@@ -117,7 +117,7 @@ namespace Lvn.UI.Screens
             _counter.style.paddingRight = 14;
             _counter.style.paddingTop = 7;
             _counter.style.paddingBottom = 7;
-            _counter.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            _counter.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.35f);
             LvnChrome.Round(_counter, 14f);
             header.Add(_counter);
 
@@ -131,7 +131,7 @@ namespace Lvn.UI.Screens
 
             // ── Fullscreen viewer (hidden until a tile is opened) ──────────────
             _viewer = ScreenUi.Stretch(new VisualElement());
-            _viewer.style.backgroundColor = new Color(0f, 0f, 0f, 0.92f);
+            _viewer.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.92f);
             _viewer.style.display = DisplayStyle.None;
             _viewer.RegisterCallback<ClickEvent>(evt => { if (evt.target == _viewer) CloseViewer(); });
             Add(_viewer);
@@ -308,7 +308,7 @@ namespace Lvn.UI.Screens
                 cap.style.paddingBottom = 6;
                 cap.style.paddingLeft = 10;
                 cap.style.paddingRight = 10;
-                cap.style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
+                cap.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.55f);
                 cap.pickingMode = PickingMode.Ignore;
                 cell.Add(cap);
 

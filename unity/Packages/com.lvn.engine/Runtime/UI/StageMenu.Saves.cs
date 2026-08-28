@@ -16,7 +16,7 @@ namespace Lvn.UI
         private void ShowSlots(bool saveMode)
         {
             var p = Panel(saveMode ? L("save", "Save") : L("load", "Load"));
-            var scroll = new ScrollView();
+            var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             p.Add(scroll);
 
