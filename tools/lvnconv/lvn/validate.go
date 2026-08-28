@@ -750,6 +750,21 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			}
 		}
 		for _, e := range exprs {
+			// СРАВНЕНИЕ СТРОК ПОРЯДКОМ НИЧЕГО НЕ СРАВНИВАЕТ. Операторы `<`, `>`,
+			// `<=`, `>=` в этом языке ЧИСЛОВЫЕ — оба вычислителя (движок и
+			// браузерный) приводят операнды к числу, и строка становится нулём.
+			// `name < "М"` — не «до буквы М», а `0 < 0`, то есть всегда false, и
+			// молча: ни ошибки, ни предупреждения не было ни от кого.
+			//
+			// Отказ тихий вдвойне, потому что выражение ВЫГЛЯДИТ рабочим и в
+			// половине случаев даже даёт ожидаемый ответ (false там, где автор
+			// его и ждал). Находят такое на живой новелле, через недели.
+			if lit := orderComparesString(e); lit != "" {
+				addWarn(i, c.Op(), fmt.Sprintf(
+					"expression %q orders a string literal (%s) — `<` `>` `<=` `>=` compare NUMBERS here, "+
+						"and a string becomes 0, so this is always the same answer; compare with == or keep a numeric field",
+					e, lit))
+			}
 			for _, fn := range exprCalls(e) {
 				if ExprFuncs[fn] {
 					continue
@@ -955,6 +970,25 @@ func exprIdents(expr string) []string {
 		out = append(out, id)
 	}
 	return out
+}
+
+// orderComparesString: рядом с `<`/`>`/`<=`/`>=` стоит строковый литерал.
+// Возвращает сам литерал (для сообщения) или пустую строку.
+//
+// Ищем ровно литерал, а не переменную: тип переменной статически неизвестен, и
+// предупреждать на каждое `hp < max` значило бы утопить настоящие находки в
+// шуме — та же причина, по которой здесь не проверяют вызовы функций подряд.
+var orderVsLiteral = regexp.MustCompile(`(?:<=|>=|<|>)\s*("[^"]*")|("[^"]*")\s*(?:<=|>=|<|>)`)
+
+func orderComparesString(e string) string {
+	m := orderVsLiteral.FindStringSubmatch(e)
+	if m == nil {
+		return ""
+	}
+	if m[1] != "" {
+		return m[1]
+	}
+	return m[2]
 }
 
 // strayAssign returns the index of a top-level `=` that is not part of a
