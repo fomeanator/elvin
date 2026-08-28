@@ -162,6 +162,45 @@ namespace Lvn.UI.Screens
             return Current(title) == null && reached >= chapters[chapters.Count - 1].number;
         }
 
+        /// <summary>
+        /// СКОЛЬКО ГЛАВ ПРОЙДЕНО — честное число, а не оценка на глаз.
+        ///
+        /// <para>Достигнутая глава ещё не сыграна: игрок в ней сейчас. Поэтому
+        /// пройденных на одну меньше — кроме случая, когда новелла закончена: там
+        /// сыграны все. Ровно это правило профиль считал у себя, отдельной
+        /// строкой с двумя зажимами.</para>
+        /// </summary>
+        public static int Done(LvnTitle title)
+        {
+            if (title == null) return 0;
+            var chapters = title.ChaptersOf();
+            if (chapters.Count == 0) return 0;
+            if (Finished(title)) return chapters.Count;
+            int reached = Reached(title);
+            if (reached <= 0) return 0;
+            // Считаем по СПИСКУ, а не по номеру: номера глав необязательно идут
+            // с единицы и подряд (у импортированных новелл они бывают любыми).
+            int done = 0;
+            for (int i = 0; i < chapters.Count; i++)
+                if (chapters[i].number < reached) done++;
+            return Mathf.Clamp(done, 0, chapters.Count);
+        }
+
+        /// <summary>
+        /// ДОЛЯ ПРОЙДЕННОГО, 0..1 — для полосы на карточке.
+        ///
+        /// <para>Полоса на карточке подборки рисовала ЗАШИТЫЕ 35% («demo
+        /// progress»): одинаковые у непочатой новеллы и у почти пройденной, у
+        /// всех игроков и во всех новеллах. Игрок читает такую полосу как
+        /// сведения о себе, а это была заглушка, дожившая до продакшена.</para>
+        /// </summary>
+        public static float Fraction(LvnTitle title)
+        {
+            var chapters = title?.ChaptersOf();
+            if (chapters == null || chapters.Count == 0) return 0f;
+            return Mathf.Clamp01(Done(title) / (float)chapters.Count);
+        }
+
         /// <summary>Forget the continue point (the novel was finished — replays
         /// start clean). Reached is kept so the picker stays unlocked.</summary>
         public static void ClearCurrent(LvnTitle title)

@@ -245,15 +245,22 @@ namespace Lvn.UI.Screens
             desc.style.overflow = Overflow.Hidden;
             col.Add(desc);
 
-            // a thin progress bar (fallback demo progress)
-            var track = new VisualElement();
-            track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
-            track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, 3f); track.style.overflow = Overflow.Hidden;
-            var fill = new VisualElement();
-            fill.style.height = Length.Percent(100f);
-            fill.style.width = Length.Percent(locked ? 0f : 35f); // demo progress
-            fill.style.backgroundColor = _accent; LvnChrome.Round(fill, 3f);
-            track.Add(fill); col.Add(track);
+            // ПОЛОСА ПРОЧИТАННОГО — настоящая. Здесь стояли зашитые 35%
+            // («demo progress»): одинаковые у непочатой новеллы и у почти
+            // пройденной, у всех игроков и во всех историях. Полосу читают как
+            // сведения о себе, поэтому заглушка тут врала прямо в лицо.
+            float read = locked ? 0f : LvnProgress.Fraction(t);
+            if (read > 0f)
+            {
+                var track = new VisualElement();
+                track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
+                track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, 3f); track.style.overflow = Overflow.Hidden;
+                var fill = new VisualElement();
+                fill.style.height = Length.Percent(100f);
+                fill.style.width = Length.Percent(read * 100f);
+                fill.style.backgroundColor = _accent; LvnChrome.Round(fill, 3f);
+                track.Add(fill); col.Add(track);
+            }
 
             card.Add(col);
 

@@ -106,11 +106,12 @@ namespace Lvn.UI.Screens
             rel.Sort((a, b) => b.Affection.CompareTo(a.Affection));
             p.Relations = rel;
             // Честная цифра прогресса: пройденные главы по всем историям.
+            // Считает ПРОГРЕСС — здесь стояла своя формула с двумя зажимами, и
+            // она считала достигнутую главу пройденной, хотя игрок в ней сейчас.
             int done = 0;
             if (titles != null)
                 foreach (var t in titles)
-                    if (t != null)
-                        done += Mathf.Max(0, Mathf.Min(LvnProgress.Reached(t), t.ChaptersOf().Count));
+                    if (t != null) done += LvnProgress.Done(t);
             p.ChaptersDone = done;
             // Профиль — дом данных ИГРОКА: настоящие имя и ID (в экране зашиты
             // демо-заглушки), живой кошелёк, удаление аккаунта. Жалоба-ориентир:
