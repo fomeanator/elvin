@@ -613,6 +613,45 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 		}
 	}
 
+	// Pass 3b: ПЕТЛЯ БЕЗ ВЫХОДА — игрок застрянет в ней навсегда.
+	//
+	// `goto` назад сам по себе нормален: на нём держатся игровые циклы
+	// (кликер, разбор комнаты). Ловушка — когда между меткой и возвратом нет
+	// НИ ОДНОГО пути наружу: ни ветвления, ни выбора, ни возврата из вызова.
+	// Тогда поток крутится вечно, и всё, что написано дальше, не сыграет
+	// никогда.
+	//
+	// Находка не теоретическая: в главах Cold так замкнут гардероб — открыть,
+	// поставить флаг, вернуться на метку, открыть снова. Прежняя диагностика
+	// видела лишь СЛЕДСТВИЕ («дальше недостижимо»), да и то не всегда: если в
+	// хвост главы вёл ещё один переход, петля проходила молча.
+	{
+		labelAt := map[string]int{}
+		for i, c := range d.Script {
+			if c.Op() == "label" {
+				if id := c.Str("id"); id != "" {
+					labelAt[id] = i
+				}
+			}
+		}
+		for i, c := range d.Script {
+			if c.Op() != "goto" {
+				continue
+			}
+			lo, ok := labelAt[c.Str("label")]
+			if !ok || lo > i {
+				continue // прыжок вперёд или в никуда — не петля
+			}
+			if !loopHasExit(d.Script, labelAt, lo, i) {
+				addWarn(i, "goto", fmt.Sprintf(
+					"loop back to %q has no way out: nothing between the label and this jump can leave it "+
+						"(no if/choice/return, no jump outside) — the player is stuck here forever and everything "+
+						"after never plays. %d command(s) in the loop.",
+					c.Str("label"), i-lo+1))
+			}
+		}
+	}
+
 	// Pass 4: lint — labels defined but never targeted. Fall-through-reachable
 	// labels are legitimate linear flow, so this is only a warning when the label
 	// is also the first command or sits after a terminator (truly unreachable).
@@ -1120,3 +1159,53 @@ func authoredLabel(id string) bool {
 }
 
 var importedLabel = regexp.MustCompile(`^n\d+_\d{6}$`)
+
+// loopHasExit: есть ли из отрезка [lo, hi] хоть один путь наружу.
+//
+// Наружу ведут: `return` (выход из вызова), а также любой переход — goto, call,
+// обе ветви `if`, вариант выбора — чья цель лежит вне отрезка либо неизвестна
+// (на неизвестную метку валидатор ругается отдельно, но считать её ловушкой
+// нельзя).
+func loopHasExit(script []Cmd, labelAt map[string]int, lo, hi int) bool {
+	outside := func(target string) bool {
+		if target == "" {
+			return false
+		}
+		p, ok := labelAt[target]
+		return !ok || p < lo || p > hi
+	}
+	for j := lo; j <= hi; j++ {
+		c := script[j]
+		switch c.Op() {
+		case "return":
+			return true
+		case "goto", "call":
+			if outside(c.Str("label")) {
+				return true
+			}
+		case "if":
+			if outside(c.Str("then")) || outside(c.Str("else")) {
+				return true
+			}
+		case "choice":
+			opts, _ := c["options"].([]any)
+			for _, o := range opts {
+				om, _ := o.(map[string]any)
+				oc := Cmd(om)
+				// Вариант уводит своим `goto`, а если его нет — переходом
+				// внутри тела (та же логика, что у обхода достижимости).
+				target := oc.Str("goto")
+				if target == "" {
+					target = bodyGoto(oc)
+				}
+				if outside(target) {
+					return true
+				}
+				if target == "" {
+					return true // вариант проваливается дальше — из петли есть ход
+				}
+			}
+		}
+	}
+	return false
+}
