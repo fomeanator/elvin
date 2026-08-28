@@ -392,6 +392,31 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 					k, op, s))
 			}
 		}
+		// ДЛИТЕЛЬНОСТЬ ЗОВУТ ДВУМЯ ИМЕНАМИ, и это раскол языка, а не описка
+		// автора: старые команды (fade/dim/flash/tint/blur/camera/hint) ждут
+		// `duration`, новые (fx/sfx/portal/bg3d/cutscene) — `dur`. Выучив одно,
+		// автор промахивается на другой команде.
+		//
+		// Обычные проверки тут не спасают: расстояние между словами — пять
+		// правок, для подсказки «did you mean» слишком много, а у `fx` и `sfx`
+		// набор полей вообще открытый, и `fx duration=2` проходил МОЛЧА —
+		// эффект не применялся, сообщения не было.
+		//
+		// Поэтому пара названа явно: не догадка, а знание.
+		if want, ok := durationSpelling[op]; ok {
+			other := "dur"
+			if want == "dur" {
+				other = "duration"
+			}
+			if c[other] != nil && c[want] == nil {
+				addWarn(i, op, fmt.Sprintf(
+					"op %q spells its duration %q, not %q — the value is ignored as written "+
+						"(the language is split: fade/dim/flash/tint/blur/camera/hint take `duration`, "+
+						"fx/sfx/portal/bg3d/cutscene take `dur`)",
+					op, want, other))
+			}
+		}
+
 		// Enumerated-value check: a value outside a closed set (e.g.
 		// `position="lft"`) is almost always a typo. Only present string fields
 		// with a fully-closed value set are checked (see EnumValues).
@@ -1208,4 +1233,14 @@ func loopHasExit(script []Cmd, labelAt map[string]int, lo, hi int) bool {
 		}
 	}
 	return false
+}
+
+// durationSpelling — как ИМЕННО эта команда зовёт длительность. Раскол
+// исторический: у старых команд `duration`, у добавленных позже `dur`.
+// Перечислено явно, потому что подсказка по расстоянию тут бессильна — между
+// словами пять правок.
+var durationSpelling = map[string]string{
+	"fade": "duration", "dim": "duration", "flash": "duration", "tint": "duration",
+	"blur": "duration", "camera": "duration", "hint": "duration",
+	"fx": "dur", "sfx": "dur", "portal": "dur", "bg3d": "dur", "cutscene": "dur",
 }

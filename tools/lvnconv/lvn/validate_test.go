@@ -674,3 +674,39 @@ func TestGameLoopsAreNotFlagged(t *testing.T) {
 		}
 	}
 }
+
+// ДЛИТЕЛЬНОСТЬ ЗОВУТ ДВУМЯ ИМЕНАМИ — и это раскол языка, а не описка автора.
+//
+// Старые команды ждут `duration`, добавленные позже — `dur`. Выучив одно, автор
+// промахивается на другой команде, и обычные проверки тут бессильны: между
+// словами пять правок (для подсказки «did you mean» слишком много), а у `fx` и
+// `sfx` набор полей открытый — `fx duration=2` проходил МОЛЧА, эффект не
+// применялся.
+func TestDurationSpellingWarned(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"fade","to":"black","dur":1},
+	 {"op":"fx","vignette":0.3,"duration":2},
+	 {"op":"sfx","id":"a","glow":1,"duration":1}
+	]}`)
+	issues := Validate(d)
+	for _, want := range []string{`op "fade" spells its duration "duration"`,
+		`op "fx" spells its duration "dur"`, `op "sfx" spells its duration "dur"`} {
+		if !hasWarn(issues, want) {
+			t.Fatalf("не замечено: %s\n%+v", want, issues)
+		}
+	}
+}
+
+// Правильное написание молчит — иначе предупреждение стало бы фоном.
+func TestCorrectDurationSpellingIsQuiet(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"fade","to":"black","duration":1},
+	 {"op":"fx","vignette":0.3,"dur":2},
+	 {"op":"portal","open":1,"dur":0.5}
+	]}`)
+	for _, is := range Validate(d) {
+		if contains(is.Msg, "spells its duration") {
+			t.Fatalf("верное написание не должно предупреждать: %s", is.Msg)
+		}
+	}
+}
