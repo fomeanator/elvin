@@ -84,8 +84,27 @@ namespace Lvn.UI
         /// </summary>
         public static void ApplyUiScale()
         {
+            // ПЕРЕСТРОЙКА — НЕ В ОБРАБОТЧИКЕ НАЖАТИЯ. Опорное разрешение меняет
+            // раскладку всей панели; сделай это прямо под пальцем — и кнопка,
+            // на которой палец стоит, теряет захват указателя и остаётся
+            // выглядеть нажатой («кнопка залипла», Илья 28.08). Поэтому здесь
+            // только просьба, а исполняет её ближайший кадр.
+            _scaleDirty = true;
+            EnsureWatcher();
+        }
+
+        private static bool _scaleDirty;
+        private static float _appliedScale = -1f;
+
+        private static void ApplyUiScaleNow()
+        {
             if (_shared == null) return;
             float k = Mathf.Clamp(LvnPrefs.UiScale, 0.85f, 1.3f);
+            // Ничего не изменилось — не трогаем панель. Смена опоры заставляет
+            // текст рерастеризоваться под новые размеры, и делать это на каждое
+            // чужое изменение настроек значило платить рывком за громкость.
+            if (Mathf.Abs(k - _appliedScale) < 0.001f) return;
+            _appliedScale = k;
             _shared.referenceResolution = new Vector2Int(
                 Mathf.RoundToInt(ReferenceWidth / k), Mathf.RoundToInt(ReferenceHeight / k));
         }
@@ -130,6 +149,13 @@ namespace Lvn.UI
         private sealed class LvnPanelWatcher : MonoBehaviour
         {
             private int _w, _h;
+
+            private void LateUpdate()
+            {
+                if (!_scaleDirty) return;
+                _scaleDirty = false;
+                ApplyUiScaleNow();
+            }
 
             private void Update()
             {

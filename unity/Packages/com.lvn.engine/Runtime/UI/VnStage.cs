@@ -554,6 +554,10 @@ namespace Lvn.UI
         private void OnPrefsChanged()
         {
             _dialogue?.SetUserOpacity(LvnPrefs.DialogOpacity);
+            // Размер текста и гарнитура — тоже настройки, и их ждут ПРЯМО
+            // СЕЙЧАС: игрок открыл настройки, чтобы разглядеть эту самую
+            // реплику, а не следующую.
+            _dialogue?.RefreshTextStyle();
         }
 
         private void OnDestroy()

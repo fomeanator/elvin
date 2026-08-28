@@ -491,6 +491,31 @@ namespace Lvn.UI
 
         /// <summary>Scale the dialogue window's background opacity (0.2–1) — the
         /// player's comfort setting. Text stays fully opaque.</summary>
+        /// <summary>ПЕРЕЧИТАТЬ НАСТРОЙКИ ТЕКСТА НА ЖИВОМ ЭКРАНЕ. Кегль и
+        /// гарнитура ставятся при сборке реплики, и без этого вызова выбор в
+        /// настройках доезжал бы только со следующей строкой — то есть игрок,
+        /// который для того их и открыл, видел бы неизменившийся текст и решил,
+        /// что настройка сломана.</summary>
+        public void RefreshTextStyle()
+        {
+            if (_theme == null) return;
+            if (_speaker != null)
+            {
+                _speaker.style.fontSize = SpeakerSize;
+                LvnFonts.Apply(_speaker, _theme.Font);
+            }
+            if (_body != null)
+            {
+                _body.style.fontSize = BodySize;
+                LvnFonts.Apply(_body, _theme.Font);
+            }
+            if (_advanceHint != null)
+            {
+                _advanceHint.style.fontSize = Mathf.RoundToInt(BodySize * 0.55f);
+                LvnFonts.Apply(_advanceHint, _theme.Font);
+            }
+        }
+
         /// <summary>Кегль реплики С УЧЁТОМ ВЫБОРА ИГРОКА. Авторский размер —
         /// постановка новеллы, множитель — его глаза и его телефон; спорить им
         /// не о чем, поэтому размер один и считается здесь, а не в пяти местах
