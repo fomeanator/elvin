@@ -227,21 +227,9 @@ namespace Lvn.UI.Screens
             return null;
         }
 
-        /// <summary>Новелла пройдена, если дошли до её последней главы и она
-        /// закончилась: продолжения нет, а самая дальняя достигнутая — последняя.</summary>
-        private static bool IsTitleFinished(LvnTitle t)
-        {
-            var chapters = t.ChaptersOf();
-            if (chapters.Count == 0) return false;
-            int reached = LvnProgress.Reached(t);
-            // НЕ НАЧАТА — ЗНАЧИТ НЕ ПРОЙДЕНА. Без этой строки новелла, чья
-            // первая глава имеет номер 0, считалась пройденной на чистом
-            // устройстве: «дошёл до 0» ≥ «последняя 0». Воронка не включалась
-            // ни разу, и игрок сразу видел витрину.
-            if (reached <= 0) return false;
-            return LvnProgress.Current(t) == null
-                && reached >= chapters[chapters.Count - 1].number;
-        }
+        /// <summary>Новелла пройдена? Ответ у прогресса — правило одно на всех
+        /// (см. <see cref="LvnProgress.Finished"/>).</summary>
+        private static bool IsTitleFinished(LvnTitle t) => LvnProgress.Finished(t);
 
         /// <summary>Auto-start a title by id without racing the boot splash — the
         /// request is honoured the moment the carousel takes control. Returns false
