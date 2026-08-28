@@ -394,8 +394,8 @@ namespace Lvn.UI.Screens
             // голос): кружок загрузок теперь слушает сам. Рассылка вручную
             // держалась ровно до третьего пути (показ хаба), где звали только
             // бар, и кружок оставался с игровым отступом поверх меню.
-            OnChapterSessionStart += () => { ShowMenuChrome(); TabReset(); TopBar.SetInGame(true); };
-            OnChapterSessionEnd += () => { ShowMenuChrome(); TopBar.SetInGame(false); };
+            OnChapterSessionStart += () => { ShowMenuChrome(); TabReset(); Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(true); };
+            OnChapterSessionEnd += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(false); };
             // Пилюли валют бар слушает сам (подписка в его конструкторе, снятие
             // — на уходе с панели). Здесь стояла подписка ЗА него: оболочка
             // знала, что бару нужно знать о деньгах.

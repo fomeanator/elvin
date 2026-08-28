@@ -117,9 +117,41 @@ namespace Lvn.Services
         {
             EnsureLoaded();
             await FlushAsync(); // offline earnings land BEFORE we read the truth
+            _lastAsk = UnityEngine.Time.realtimeSinceStartup;
             var (code, body) = await LvnBackend.GetAsync("/v1/wallet");
             return code == 200 && Apply(body);
         }
+
+        /// <summary>
+        /// ОСВЕЖИТЬ ПРИ СЛУЧАЕ — но не чаще, чем имеет смысл.
+        ///
+        /// <para>Два разных повода спросить сервер путались в одном вызове.
+        /// Первый — «игрок что-то сделал»: купил, получил награду, нажал
+        /// «Восстановить». Такой запрос обязан уйти сразу, и его делает
+        /// <see cref="RefreshAsync"/>. Второй — «экран показался»: открылся хаб,
+        /// открылся гардероб, подошло время восполнения энергии. Их много, они
+        /// случаются подряд, и каждый шёл на сервер отдельным запросом.</para>
+        ///
+        /// <para>Паузу между фоновыми запросами держала ПИЛЮЛЯ КОШЕЛЬКА —
+        /// статическим полем внутри виджета. То есть правило «как часто
+        /// спрашивать сервер о деньгах» жило в подписи на экране: нет пилюли —
+        /// нет и правила, а хаб с гардеробом о нём и не знали вовсе.</para>
+        ///
+        /// <para>Время РЕАЛЬНОЕ, а не игровое: пауза — про сеть, а не про
+        /// экран. Энергия восполняется, пока игра свёрнута, и отсчёт обязан
+        /// идти там же.</para>
+        /// </summary>
+        public static Task NudgeAsync(float minGapSeconds = 15f)
+        {
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (now - _lastAsk < minGapSeconds) return Task.CompletedTask;
+            _lastAsk = now;
+            return RefreshAsync();
+        }
+
+        // Когда последний раз спрашивали сервер (реальные секунды с запуска).
+        // Отрицательное начальное — первый же повод спрашивает сразу.
+        private static float _lastAsk = -1000f;
 
         /// <summary>Server-side earn; offline it lands in the local mirror and
         /// the replay queue (still true — the earning is honest and durable).</summary>

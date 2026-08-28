@@ -181,17 +181,11 @@ namespace Lvn.UI.Screens
             _timer.style.display = DisplayStyle.Flex;
         }
 
-        private static float _nextRefillRequest;
-
+        // Пауза между запросами — у КОШЕЛЬКА: правило «как часто спрашивать
+        // сервер о деньгах» жило здесь, статическим полем внутри подписи на
+        // экране, и о нём не знали ни хаб, ни гардероб.
         private static void RequestRefill()
-        {
-            // РЕАЛЬНОЕ время, а не часы интерфейса: пауза между запросами к
-            // серверу — про сеть, а не про экран. Энергия восполняется, пока
-            // игра свёрнута, и «15 секунд» обязаны идти там же.
-            if (Time.realtimeSinceStartup < _nextRefillRequest) return;
-            _nextRefillRequest = Time.realtimeSinceStartup + 15f;
-            LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
-        }
+            => LvnAsync.Fire(LvnWallet.NudgeAsync(), "Refresh");
 
         /// <summary>Сколько осталось: «3:07», а больше часа — «1:12:30».
         /// Правило перевода секунд в подпись живёт в <see cref="LvnTimeWords"/>
