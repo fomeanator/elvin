@@ -2,7 +2,7 @@
 // .lvns into a .lvn doc; core.js plays it; this file renders pauses into DOM
 // and shares scripts through the URL hash — open the link, the game runs.
 
-import { Player } from "./core.js";
+import { Player, trackStage as trackStageCore } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
@@ -431,20 +431,9 @@ function applyStage(cmd, vars) {
   applyStageDom(cmd, vars);
 }
 
-function trackStage(cmd) {
-  if (cmd.op === "bg" && cmd.sprite_url) stagedState.bg = cmd.sprite_url;
-  // `clear` empties the cast and nothing else — the backdrop and the HUD are
-  // deliberately left in place, so a scene change stays `clear` + a new `bg`.
-  else if (cmd.op === "clear") stagedState.actors = {};
-  else if (cmd.op === "actor" || cmd.op === "obj") {
-    if (!cmd.id) return;
-    if (cmd.show === false) delete stagedState.actors[cmd.id];
-    else stagedState.actors[cmd.id] = { ...(stagedState.actors[cmd.id] || {}), ...cmd };
-  } else if (cmd.op === "text" && cmd.id) {
-    if (cmd.hide) delete stagedState.hud[cmd.id];
-    else stagedState.hud[cmd.id] = { ...(stagedState.hud[cmd.id] || {}), ...cmd };
-  }
-}
+// Правило кадра — у плеера (core.js): оно инлайнится в экспорт целиком, и
+// песочница с экспортированной игрой больше не могут разойтись.
+const trackStage = (cmd) => trackStageCore(stagedState, cmd);
 
 function applyStageDom(cmd, vars) {
   switch (cmd.op) {

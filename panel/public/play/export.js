@@ -198,17 +198,11 @@ const hudLabels = new Map();
 const SAVE_KEY = "lvn-html-save:" + (document.title || "story");
 let stagedState = { bg: null, actors: {}, hud: {} };
 
-function trackStage(cmd) {
-  if (cmd.op === "bg" && cmd.sprite_url) stagedState.bg = cmd.sprite_url;
-  else if (cmd.op === "actor" || cmd.op === "obj") {
-    if (!cmd.id) return;
-    if (cmd.show === false) delete stagedState.actors[cmd.id];
-    else stagedState.actors[cmd.id] = Object.assign({}, stagedState.actors[cmd.id] || {}, cmd);
-  } else if (cmd.op === "text" && cmd.id) {
-    if (cmd.hide) delete stagedState.hud[cmd.id];
-    else stagedState.hud[cmd.id] = Object.assign({}, stagedState.hud[cmd.id] || {}, cmd);
-  }
-}
+// Правило кадра приезжает вместе с плеером: core.js инлайнится целиком, и
+// trackStage(state, cmd) уже здесь. Своя копия стояла ниже и УЖЕ отстала —
+// в ней не было ветки clear, поэтому восстановление сохранения возвращало
+// актёров, которых сцена убрала. (Обратные кавычки в этом комментарии закрыли
+// бы шаблонную строку — здесь их быть не может.)
 
 function autosave() {
   if (!player || player.finished) return;
@@ -244,7 +238,7 @@ function start() {
   hudLabels.clear();
   stagedState = { bg: null, actors: {}, hud: {} };
   history = [];
-  player = new Player(doc, { onStage: (c) => { trackStage(c); applyStage(c); } });
+  player = new Player(doc, { onStage: (c) => { trackStage(stagedState, c); applyStage(c); } });
 
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch {}
