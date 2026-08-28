@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LVN Playground — write on the left, play on the right</title>
+  <link rel="stylesheet" href="play.css" />
+  <!-- wasm_exec.js defines the global `Go`; lvns.wasm is the SAME compiler
+       the CLI and IDE use — one source of truth, no drifted JS port. -->
+  <script src="wasm_exec.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <span class="logo">LVN <em>playground</em></span>
+    <select id="examples" title="Examples"></select>
+    <span class="spacer"></span>
+    <span id="status" class="status">loading the compiler…</span>
+    <button id="assets" class="btn" title="Demo art + your own images (click a tile to insert its path)">🖼 Assets</button>
+    <button id="rollback" class="btn" title="Step back (or wheel-up over the stage)">↩</button>
+    <button id="run" class="btn primary" title="Ctrl/Cmd+Enter">▶ Run</button>
+    <button id="share" class="btn" title="Copy a link that carries this script">🔗 Share</button>
+    <button id="download" class="btn" title="Download the compiled .lvn container">⬇ .lvn</button>
+    <button id="export-html" class="btn" title="One self-contained HTML file: double-click and it plays">⬇ HTML</button>
+    <a class="btn ghost" href="docs/" title="Documentation">📚 Docs</a>
+    <a class="btn ghost" href="https://github.com/fomeanator/elvin" target="_blank" rel="noreferrer">GitHub</a>
+  </header>
+
+  <div id="assets-drawer" class="assets-drawer" hidden>
+    <div class="assets-head">
+      <b>Assets</b>
+      <span class="assets-hint">click a tile — its path lands in the script at the cursor</span>
+      <span class="spacer"></span>
+      <label class="btn" for="assets-upload">＋ Add images</label>
+      <input id="assets-upload" type="file" accept="image/*" multiple hidden />
+      <button id="assets-close" class="btn ghost">✕</button>
+    </div>
+    <div class="assets-group"><span class="assets-label">demo</span><div id="assets-demo" class="assets-grid"></div></div>
+    <div class="assets-group"><span class="assets-label">yours</span><div id="assets-user" class="assets-grid"></div>
+      <p class="assets-note">Your images live in this browser (and ride along into the ⬇ HTML export) —
+        reference one by its file name: <code>bg sprite_url="my_bg.png"</code></p>
+    </div>
+  </div>
+
+  <main class="split">
+    <section class="pane editor-pane">
+      <div class="editor-wrap">
+        <pre id="backdrop" class="backdrop" aria-hidden="true"></pre>
+        <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+      </div>
+      <pre id="problems" class="problems" hidden></pre>
+    </section>
+
+    <section class="pane stage-pane">
+      <div id="stage" class="stage">
+        <div id="bg" class="bg"></div>
+        <div id="actors" class="actors"></div>
+        <div id="hud" class="hud"></div>
+        <div id="veil" class="veil"></div>
+        <div id="dialogue" class="dialogue" hidden>
+          <div id="speaker" class="speaker"></div>
+          <div id="line" class="line"></div>
+          <div class="advance-hint">▼</div>
+        </div>
+        <div id="choices" class="choices" hidden></div>
+        <div id="inputbox" class="inputbox" hidden>
+          <div id="input-prompt" class="input-prompt"></div>
+          <input id="input-field" type="text" />
+          <button id="input-ok" class="btn primary">OK</button>
+        </div>
+        <div id="endcard" class="endcard" hidden>
+          <div>The End</div>
+          <button id="restart" class="btn">↻ Restart</button>
+        </div>
+      </div>
+      <p class="stage-note">The mini-player covers the story core (text, choices,
+        timers, input, variables, image backgrounds/sprites). The full staging —
+        bones, Spine, particles — lives in the Unity runtime.</p>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
