@@ -134,7 +134,7 @@ namespace Lvn.Services
             {
                 Debug.LogWarning($"[lvn-outbox] {_name}: отправка сорвалась ({e.Message}) — очередь держим");
             }
-            finally { _flushing = false; _lastFlush = Time.realtimeSinceStartup; }
+            finally { _flushing = false; _lastFlush = Lvn.LvnClock.Wall(); }
         }
 
         // 408 «подожди» и 429 «слишком часто» — это «позже», а не «неисправимо».
@@ -211,7 +211,7 @@ namespace Lvn.Services
                 foreach (var b in boxes)
                 {
                     if (b._dirty) { b._dirty = false; b.Persist(); }
-                    if (Time.realtimeSinceStartup - b._lastFlush > b._everySec && b.Count > 0)
+                    if (Lvn.LvnClock.Wall() - b._lastFlush > b._everySec && b.Count > 0)
                         Lvn.LvnAsync.Fire(b.FlushAsync(), "Flush:" + b._name);
                 }
             }

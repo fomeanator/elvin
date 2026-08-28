@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI
@@ -35,6 +36,53 @@ namespace Lvn.UI
             el.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             return el;
         }
+
+        /// <summary>
+        /// ЧТО НА ЭКРАНЕ — НЕ ТРОГАТЬ. Закрепить спрайт за элементом, пока тот
+        /// в панели: кэш вытесняет по давности использования и не знает, что
+        /// картинку прямо сейчас показывают.
+        ///
+        /// <para>Правило родилось из живого бага 27.08 — обложки в хабе белели
+        /// после прогулки по гардеробу, арт героини после главы. Починили его
+        /// в оболочке, там пин и остался; ядро сцены оболочку не видит, и
+        /// галерея CG внутриигрового меню грузила картинки МИМО пина. Тот же
+        /// баг, тот же экран, только другая дверь — а по коду не видно, потому
+        /// что дом стоял этажом выше (см. роль «дом стоял не на том этаже»).</para>
+        ///
+        /// <para>Пин снимается сам, когда элемент уходит из панели. Повторный
+        /// показ другой картинки отпускает прежнюю: держать обе значило бы
+        /// запирать память ровно тем, что игрок уже пролистал.</para>
+        /// </summary>
+        public static void Pin(VisualElement el, Sprite sprite, ILvnAssets assets)
+        {
+            var loader = (assets as CachingAssets)?.Loader;
+            if (el == null || loader == null || sprite == null) return;
+            if (_pins.TryGetValue(el, out var old))
+            {
+                if (ReferenceEquals(old.sprite, sprite)) return;
+                old.loader?.PinSprite(old.sprite, false);
+                loader.PinSprite(sprite, true);
+                _pins[el] = (loader, sprite);
+                return;
+            }
+            loader.PinSprite(sprite, true);
+            _pins[el] = (loader, sprite);
+            el.RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                // Guard по словарю: дубль-колбэк после повторного Attach
+                // становится no-op — пин снимается ровно один раз.
+                if (_pins.TryGetValue(el, out var cur))
+                {
+                    cur.loader?.PinSprite(cur.sprite, false);
+                    _pins.Remove(el);
+                }
+            });
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<
+            VisualElement, (Lvn.Content.ContentLoader loader, Sprite sprite)> _pins
+            = new System.Collections.Generic.Dictionary<
+                VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
 
         /// <summary>Подложка под картинку: элемент, который не ловит касания и
         /// уже знает, как вписывать арт. Ровно то, что писали руками перед

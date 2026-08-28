@@ -161,7 +161,7 @@ namespace Lvn.UI.Screens
             var tips = _cfg.tips;
             float minSeconds = minSecondsOverride ?? _cfg.min_seconds ?? 0f;
             float hold = hasTitle ? Mathf.Max(0f, titleHoldSeconds) : 0f;
-            float start = Lvn.UI.LvnClock.Now();
+            float start = Lvn.LvnClock.Now();
             float lastTip = -999f;
             float doneAt = -1f; // when work + floor completed — the title hold runs from here
             int tipIdx = 0;
@@ -169,7 +169,7 @@ namespace Lvn.UI.Screens
             while (true)
             {
                 if (ct.IsCancellationRequested) break;
-                float now = Lvn.UI.LvnClock.Now();
+                float now = Lvn.LvnClock.Now();
                 float elapsed = now - start;
                 bool done = isDone == null || isDone();
                 bool floorDone = done && elapsed >= minSeconds;

@@ -3,6 +3,7 @@ package articy
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/stagetags"
 	"regexp"
 	"sort"
 	"strconv"
@@ -700,7 +701,7 @@ func instructionCmds(script string) ([]Cmd, error) {
 		if m := reSetArticy.FindStringSubmatch(stmt); m != nil {
 			rhs := strings.TrimSpace(m[2])
 			if reLitArticy.MatchString(rhs) {
-				out = append(out, Cmd{"op": "set", "key": m[1], "value": coerce(rhs)})
+				out = append(out, Cmd{"op": "set", "key": m[1], "value": stagetags.Coerce(rhs)})
 			} else {
 				out = append(out, Cmd{"op": "set", "key": m[1], "expr": rhs})
 			}

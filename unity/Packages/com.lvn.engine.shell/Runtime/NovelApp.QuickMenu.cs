@@ -489,8 +489,8 @@ namespace Lvn.UI.Screens
                     UnityEngine.Android.Permission.RequestUserPermission(perm, cb);
                     // Страховка от платформ, где колбэк не приходит: ждём ответ,
                     // но не дольше минуты — история важнее диалога.
-                    float deadline = Time.realtimeSinceStartup + 60f;
-                    while (!done && Time.realtimeSinceStartup < deadline)
+                    float deadline = Lvn.LvnClock.Wall() + 60f;
+                    while (!done && Lvn.LvnClock.Wall() < deadline)
                         await Task.Yield();
                 }
 #else

@@ -69,9 +69,7 @@ namespace Lvn.UI
             _awaitingInput = true;
 
             _inputScrim = new VisualElement();
-            _inputScrim.style.position = Position.Absolute;
-            _inputScrim.style.left = 0; _inputScrim.style.right = 0;
-            _inputScrim.style.top = 0; _inputScrim.style.bottom = 0;
+            LvnChrome.Stretch(_inputScrim);
             // Затемнение — авторского цвета, если он его назвал: «#161018f2» в
             // манифесте это не украшение, а решение о том, сквозь что игрок
             // смотрит на сцену, задавая ответ.

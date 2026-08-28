@@ -156,24 +156,18 @@ namespace Lvn.UI.Screens
                 // Арт-полотно партнёра: фото на всю ширину 4 экранов + тёмная
                 // вуаль (текст обязан читаться) + тинт вкладки поверх.
                 var photo = new VisualElement { pickingMode = PickingMode.Ignore };
-                photo.style.position = Position.Absolute;
-                photo.style.left = 0; photo.style.right = 0;
-                photo.style.top = 0; photo.style.bottom = 0;
+                LvnChrome.Stretch(photo);
                 LvnPicture.Fit(photo);
                 _atmosphere.Add(photo);
                 ScreenUi.SetBg(photo, canvasUrl, _assets, "MenuCanvas");
                 var veil = new VisualElement { pickingMode = PickingMode.Ignore };
-                veil.style.position = Position.Absolute;
-                veil.style.left = 0; veil.style.right = 0;
-                veil.style.top = 0; veil.style.bottom = 0;
+                LvnChrome.Stretch(veil);
                 // «Реализм» (Илья): фото почти как есть — лишь лёгкая вуаль,
                 // чтобы текст поверх оставался читабельным.
                 veil.style.backgroundColor = new Color(t.Bg.r, t.Bg.g, t.Bg.b, 0.22f);
                 _atmosphere.Add(veil);
                 _canvasTint = new VisualElement { pickingMode = PickingMode.Ignore };
-                _canvasTint.style.position = Position.Absolute;
-                _canvasTint.style.left = 0; _canvasTint.style.right = 0;
-                _canvasTint.style.top = 0; _canvasTint.style.bottom = 0;
+                LvnChrome.Stretch(_canvasTint);
                 _atmosphere.Add(_canvasTint);
             }
             else LvnBackdrop.Apply(_atmosphere, t);
@@ -207,7 +201,7 @@ namespace Lvn.UI.Screens
             _root.schedule.Execute(() =>
             {
                 if (_atmosphere.style.display == DisplayStyle.None) return;
-                float time = Lvn.UI.LvnClock.Now();
+                float time = Lvn.LvnClock.Now();
                 float scroll = Hub != null && Hub.style.display == DisplayStyle.Flex ? Hub.ScrollY : 0f;
                 var acc = UnityEngine.Input.acceleration;
                 var target = new Vector2(

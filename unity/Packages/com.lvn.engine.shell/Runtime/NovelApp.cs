@@ -433,12 +433,12 @@ namespace Lvn.UI.Screens
                 Stage?.ApplyStage(new JObject { ["op"] = "fx", ["off"] = 1 }, LvnSender.Cutscene);
             }
 
-            float revealStart = Time.realtimeSinceStartup;
+            float revealStart = Lvn.LvnClock.Wall();
             float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
-            while (Stage != null && !Stage.HasBackdrop && Time.realtimeSinceStartup < revealDeadline)
+            while (Stage != null && !Stage.HasBackdrop && Lvn.LvnClock.Wall() < revealDeadline)
                 await Task.Yield();
             Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
-                      $"waited={(Time.realtimeSinceStartup - revealStart) * 1000f:F0}ms resuming={resuming}");
+                      $"waited={(Lvn.LvnClock.Wall() - revealStart) * 1000f:F0}ms resuming={resuming}");
             // СТВОР ЗАКРЫВАЕТСЯ ИМЕННО ЗДЕСЬ, а не сразу после Play. Между Play
             // и этим местом сцена убирается ЕЩЁ РАЗ — восстановление автосейва
             // делает свой сброс, — и створ, поставленный раньше, не доживает.

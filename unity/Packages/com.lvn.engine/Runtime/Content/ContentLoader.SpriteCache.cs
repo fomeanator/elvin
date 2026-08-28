@@ -101,7 +101,7 @@ namespace Lvn.Content
             // РЕАЛЬНОЕ время, а не общие часы интерфейса (LvnClock): давность
             // спрайта должна расти и пока игра свёрнута — иначе после возврата
             // весь кэш выглядит «только что использованным» и вытеснять нечего.
-            e.At = Time.realtimeSinceStartup;
+            e.At = Lvn.LvnClock.Wall();
         }
 
         // Must run under the _spriteCache lock. Returns the evicted entries so the
@@ -110,7 +110,7 @@ namespace Lvn.Content
         {
             var victims = new List<SpriteEntry>();
             if (_spriteBytes <= budgetBytes) return victims;
-            float now = Time.realtimeSinceStartup;
+            float now = Lvn.LvnClock.Wall();
             foreach (var url in PickEvictions(
                          SnapshotLocked(), budgetBytes, now, graceSeconds))
             {

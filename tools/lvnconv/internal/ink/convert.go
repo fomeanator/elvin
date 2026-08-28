@@ -2,6 +2,7 @@ package ink
 
 import (
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/stagetags"
 	"regexp"
 	"strconv"
 	"strings"
@@ -226,7 +227,7 @@ func (p *parser) coerceRef(s string) any {
 	if v, ok := p.consts[s]; ok {
 		return v
 	}
-	return coerce(s)
+	return stagetags.Coerce(s)
 }
 
 var reIdent = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_.]*`)
@@ -1145,7 +1146,7 @@ func (p *parser) handleTag(name, args string, say Cmd, ln int) error {
 		if say == nil {
 			return fmt.Errorf("line %d: # say: must be attached to a dialogue line", ln)
 		}
-		applyKV(say, splitArgs(args))
+		stagetags.ApplyKV(say, stagetags.SplitArgs(args))
 		return nil
 
 	case "bg", "actor", "set", "inc", "goto", "wait", "fade", "audio":
@@ -1161,7 +1162,7 @@ func (p *parser) handleTag(name, args string, say Cmd, ln int) error {
 		return nil
 
 	case "dim":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		c := Cmd{"op": "dim", "alpha": 0.4, "duration": 0.5}
 		if len(fields) > 0 {
 			if v, err := strconv.ParseFloat(fields[0], 64); err == nil {
@@ -1177,17 +1178,17 @@ func (p *parser) handleTag(name, args string, say Cmd, ln int) error {
 		return nil
 
 	case "camera":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		if len(fields) == 0 {
 			return fmt.Errorf("line %d: camera tag expects an action (shake/zoom)", ln)
 		}
 		c := Cmd{"op": "camera", "action": fields[0]}
-		applyKV(c, fields[1:])
+		stagetags.ApplyKV(c, fields[1:])
 		p.emit(c)
 		return nil
 
 	case "particles":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		if len(fields) == 0 {
 			return fmt.Errorf("line %d: particles tag expects a type", ln)
 		}
@@ -1200,7 +1201,7 @@ func (p *parser) handleTag(name, args string, say Cmd, ln int) error {
 
 	case "preload":
 		var assets []any
-		for _, u := range splitArgs(args) {
+		for _, u := range stagetags.SplitArgs(args) {
 			kind := "sprite"
 			low := strings.ToLower(u)
 			if strings.HasSuffix(low, ".ogg") || strings.HasSuffix(low, ".mp3") || strings.HasSuffix(low, ".wav") {
@@ -1305,24 +1306,24 @@ func (p *parser) resolveFixups() error {
 func parseAt(op, args string) (Cmd, error) {
 	switch op {
 	case "bg", "actor":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		c := Cmd{"op": op}
 		if len(fields) > 0 && !strings.Contains(fields[0], "=") {
 			c["id"] = fields[0]
 			fields = fields[1:]
 		}
-		applyKV(c, fields)
+		stagetags.ApplyKV(c, fields)
 		return c, nil
 
 	case "set":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("set: expected `key value`")
 		}
-		return Cmd{"op": "set", "key": fields[0], "value": coerce(fields[1])}, nil
+		return Cmd{"op": "set", "key": fields[0], "value": stagetags.Coerce(fields[1])}, nil
 
 	case "inc":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("inc: expected `key by`")
 		}
@@ -1333,14 +1334,14 @@ func parseAt(op, args string) (Cmd, error) {
 		return Cmd{"op": "inc", "key": fields[0], "by": n}, nil
 
 	case "goto":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		if len(fields) == 0 {
 			return nil, fmt.Errorf("goto: expected label")
 		}
 		return Cmd{"op": "goto", "label": fields[0]}, nil
 
 	case "wait":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		ms := int64(500)
 		if len(fields) > 0 {
 			n, err := strconv.ParseInt(fields[0], 10, 64)
@@ -1352,7 +1353,7 @@ func parseAt(op, args string) (Cmd, error) {
 		return Cmd{"op": "wait", "ms": ms}, nil
 
 	case "fade":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		c := Cmd{"op": "fade", "to": "black", "duration": 0.5}
 		if len(fields) > 0 {
 			c["to"] = fields[0]
@@ -1365,7 +1366,7 @@ func parseAt(op, args string) (Cmd, error) {
 		return c, nil
 
 	case "audio":
-		fields := splitArgs(args)
+		fields := stagetags.SplitArgs(args)
 		c := Cmd{"op": "audio"}
 		if len(fields) > 0 {
 			c["channel"] = fields[0]
@@ -1378,49 +1379,10 @@ func parseAt(op, args string) (Cmd, error) {
 			c["url"] = rest[0]
 			rest = rest[1:]
 		}
-		applyKV(c, rest)
+		stagetags.ApplyKV(c, rest)
 		return c, nil
 	}
 	return nil, fmt.Errorf("unknown command %q", op)
-}
-
-func splitArgs(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	return regexp.MustCompile(`\s+`).Split(s, -1)
-}
-
-func applyKV(c Cmd, fields []string) {
-	for _, f := range fields {
-		eq := strings.Index(f, "=")
-		if eq <= 0 {
-			continue
-		}
-		c[f[:eq]] = coerce(f[eq+1:])
-	}
-}
-
-func coerce(s string) any {
-	switch s {
-	case "true":
-		return true
-	case "false":
-		return false
-	case "null":
-		return nil
-	}
-	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return n
-	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil {
-		return f
-	}
-	if len(s) >= 2 && (s[0] == '"' && s[len(s)-1] == '"' || s[0] == '\'' && s[len(s)-1] == '\'') {
-		return s[1 : len(s)-1]
-	}
-	return s
 }
 
 func normalizeOp(o string) string {

@@ -137,9 +137,7 @@ namespace Lvn.UI.Screens
             // свёрнут; при развороте ловит клик В ЛЮБОЙ точке экрана и утекает
             // попап обратно в кружок (решение Ильи: крестик или тап вне).
             _scrim = new VisualElement();
-            _scrim.style.position = Position.Absolute;
-            _scrim.style.left = 0; _scrim.style.right = 0;
-            _scrim.style.top = 0; _scrim.style.bottom = 0;
+            LvnChrome.Stretch(_scrim);
             _scrim.style.display = DisplayStyle.None;
             _scrim.RegisterCallback<PointerDownEvent>(e =>
             {
@@ -274,7 +272,7 @@ namespace Lvn.UI.Screens
         /// <summary>Скормить свежий снимок сети (таймер оболочки, ~300 мс).</summary>
         public void Tick((int inflight, int batchTotal, int batchDone, long received, long expected, string label) t)
         {
-            float now = Time.realtimeSinceStartup;
+            float now = Lvn.LvnClock.Wall();
             bool act = t.inflight > 0 || (t.batchTotal > 0 && t.batchDone < t.batchTotal);
             bool off = Offline?.Invoke() ?? false;
             bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);

@@ -16,15 +16,10 @@ namespace Lvn.UI.Screens
     {
         /// <summary>Pin an element to all four edges of its parent (absolute,
         /// full-bleed). Returns the element so it can be used inline.</summary>
+        // ОКНО В РАМОЧНИКА: сама растяжка живёт в движке — её одинаково нужно
+        // и сцене, и оболочке, а сцена этой сборки не видит.
         public static T Stretch<T>(T el) where T : VisualElement
-        {
-            el.style.position = Position.Absolute;
-            el.style.left = 0;
-            el.style.right = 0;
-            el.style.top = 0;
-            el.style.bottom = 0;
-            return el;
-        }
+            => Lvn.UI.LvnChrome.Stretch(el);
 
         /// <summary>
         /// The substantial lower sheet used by menu sections that live over the
@@ -89,36 +84,10 @@ namespace Lvn.UI.Screens
         // репорты). Правило то же, что у сцены: что на экране — не трогать.
         // Пин живёт, пока элемент в панели; замена арта и уход из иерархии
         // снимают его.
-        private static readonly System.Collections.Generic.Dictionary<
-            VisualElement, (Lvn.Content.ContentLoader loader, Sprite sprite)> _bgPins
-            = new System.Collections.Generic.Dictionary<
-                VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
-
+        // ОКНО В ДОМ КАРТИНОК: сам пин живёт в движке — он одинаково нужен и
+        // галерее внутриигрового меню, которая этой сборки не видит.
         internal static void PinBg(VisualElement el, Sprite sprite, ILvnAssets assets)
-        {
-            var loader = (assets as Lvn.UI.CachingAssets)?.Loader;
-            if (loader == null || sprite == null) return;
-            if (_bgPins.TryGetValue(el, out var old))
-            {
-                if (ReferenceEquals(old.sprite, sprite)) return;
-                old.loader?.PinSprite(old.sprite, false);
-                loader.PinSprite(sprite, true);
-                _bgPins[el] = (loader, sprite);
-                return;
-            }
-            loader.PinSprite(sprite, true);
-            _bgPins[el] = (loader, sprite);
-            el.RegisterCallback<DetachFromPanelEvent>(_ =>
-            {
-                // Guard по словарю: дубль-колбэк после повторного Attach
-                // становится no-op — пин снимается ровно один раз.
-                if (_bgPins.TryGetValue(el, out var cur))
-                {
-                    cur.loader?.PinSprite(cur.sprite, false);
-                    _bgPins.Remove(el);
-                }
-            });
-        }
+            => Lvn.UI.LvnPicture.Pin(el, sprite, assets);
 
         /// <summary>Load a sprite and apply it as the element's 9-sliced frame —
         /// the art replaces the flat fill. Missing art keeps the flat look.</summary>

@@ -54,11 +54,7 @@ namespace Lvn.UI
         private static VisualElement MakeVeilLayer()
         {
             var v = new VisualElement();
-            v.style.position = Position.Absolute;
-            v.style.left = 0;
-            v.style.right = 0;
-            v.style.top = 0;
-            v.style.bottom = 0;
+            LvnChrome.Stretch(v);
             v.style.backgroundColor = Color.clear;
             v.style.opacity = 0f;
             v.pickingMode = PickingMode.Ignore;

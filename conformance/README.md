@@ -26,8 +26,16 @@ conformance/
 | Op-table guard (Go) | `tools/lvnconv/lvn/conformance_test.go` | `ops-owners.json` vs `KnownOps`, vs the real C# dispatch sites, vs the C# `StagingOps.Known` registry; plus corpus well-formedness |
 | C# runtime (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/ConformanceCorpusTests.cs` | every case whose `runtimes` contains `csharp` |
 | C# dispatch (EditMode) | `unity/Packages/com.lvn.engine/Tests/Editor/OpDispatchContractTests.cs` | one probe command per op against a BARE engine: flow ops must be consumed, staging ops forwarded verbatim |
+| Browser player (Go, needs node) | `tools/lvnconv/lvn/browser_expr_guard_test.go` | every case whose `runtimes` contains `js`, played by the REAL `panel/public/play/core.js` through `browser-runner.mjs` |
 
 The Go guard is the cheap one and needs no Unity: `cd tools/lvnconv && go test ./...`.
+
+**Set `LVN_REQUIRE_NODE=1`.** Without node the browser rows SKIP instead of
+failing — reasonable on a machine that has no node, and a silent hole anywhere
+else: the corpus declares 26 `js` cases, and a skipped runner reports the same
+green as a passing one. The skip is deliberate; going green while a whole
+runtime is unchecked is not. CI and every local run of this repo must set the
+variable: `cd tools/lvnconv && LVN_REQUIRE_NODE=1 go test ./...`.
 
 ## `ops-owners.json` — the ownership table
 

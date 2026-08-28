@@ -154,7 +154,14 @@ namespace Lvn.UI
             try
             {
                 var sprite = await _stage.Assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                if (sprite != null && img.panel != null) img.sprite = sprite;
+                if (sprite != null && img.panel != null)
+                {
+                    img.sprite = sprite;
+                    // ЗАКРЕПЛЯЕМ: кэш вытесняет по давности и не знает, что CG
+                    // сейчас смотрят. Без пина открытая галерея белела ровно
+                    // так же, как когда-то обложки хаба.
+                    LvnPicture.Pin(img, sprite, _stage.Assets);
+                }
             }
             catch { /* a missing CG just leaves the dark frame */ }
         }

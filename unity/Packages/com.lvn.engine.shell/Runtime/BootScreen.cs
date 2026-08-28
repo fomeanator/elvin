@@ -94,11 +94,11 @@ namespace Lvn.UI.Screens
             style.opacity = 1f;
 
             float minSeconds = _cfg.min_seconds ?? 1.0f;
-            float start = Lvn.UI.LvnClock.Now();
+            float start = Lvn.LvnClock.Now();
 
             while (!ct.IsCancellationRequested)
             {
-                float elapsed = Lvn.UI.LvnClock.Now() - start;
+                float elapsed = Lvn.LvnClock.Now() - start;
                 bool done = isDone == null || isDone();
 
                 if (progress != null)
