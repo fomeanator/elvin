@@ -9,6 +9,38 @@
 
 import { evalExpr, evalBool, interpolate, getVarPath, setVarPath, evalStructuredCond } from "./expr.js";
 
+// СОГЛАСИЕ, КАКИМ ЕГО ПИШЕТ АВТОР — тот же словарь, что у движка
+// (Lvn.LvnBool): true/1/yes/y/on/да. Незнакомое слово согласием НЕ считается:
+// опечатка вернее опечатка, чем решение.
+export function consent(v) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v !== "string") return false;
+  switch (v.trim().toLowerCase()) {
+    case "1": case "true": case "yes": case "y": case "on": case "да":
+      return true;
+    default:
+      return false;
+  }
+}
+
+// ЧИСЛО ИЗ ЗНАЧЕНИЯ СОСТОЯНИЯ — то же правило, что у движка (Lvn.LvnNum.Value):
+// число как есть, ЛОГИЧЕСКОЕ как единица или ноль, число-строкой разбирается
+// (так приходит ввод игрока), всё прочее — ноль.
+//
+// Здесь стояло `parseFloat(cur) || 0`, и логическое значение превращалось в
+// ноль: `set flag=true` + `inc flag` давали 1 вместо 2. Корпус это ловит
+// (values-number-from-string), но до 28.08 браузер им не проверялся.
+export function stateNumber(v) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "string") {
+    const n = parseFloat(v.trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export class Player {
   constructor(doc, { onStage } = {}) {
     this.script = (doc && doc.script) || [];
@@ -50,9 +82,17 @@ export class Player {
           let v;
           if (c.expr !== undefined) { try { v = evalExpr(c.expr, this.vars); } catch { v = 0; } }
           else v = c.value;
-          // `default: true` means INITIALISE-ONLY: a chapter-entry default must
-          // not stomp a value carried in from an earlier chapter or a save.
-          if (c.key && !(c.default === true && getVarPath(this.vars, c.key) !== null))
+          // `default` means INITIALISE-ONLY: a chapter-entry default must not
+          // stomp a value carried in from an earlier chapter or a save.
+          //
+          // Сравнение шло с `true` — то есть понимался ТОЛЬКО настоящий
+          // логический литерал. Но компилятор булевы не нормализует:
+          // `default=yes` доезжает строкой «yes», `default=1` числом, и в
+          // браузере такой default молча не срабатывал — значение
+          // перезаписывалось вопреки написанному. То же правило в движке живёт
+          // у Чтеца «да-нет» (Lvn.LvnBool); здесь оно повторено по словарю,
+          // который закреплён корпусом (values-boolean-forms).
+          if (c.key && !(consent(c.default) && getVarPath(this.vars, c.key) !== null))
             setVarPath(this.vars, c.key, v);
           this.ip++;
           break;
@@ -65,7 +105,7 @@ export class Player {
           const by = typeof c.by === "number" ? c.by
             : typeof c.by === "boolean" ? (c.by ? 1 : 0) : 1;
           const cur = getVarPath(this.vars, c.key);
-          setVarPath(this.vars, c.key, (typeof cur === "number" ? cur : parseFloat(cur) || 0) + by);
+          setVarPath(this.vars, c.key, stateNumber(cur) + by);
           this.ip++;
           break;
         }

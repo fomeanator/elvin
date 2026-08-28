@@ -2,26 +2,63 @@
   "id": "flow-if-branches",
   "title": "if takes else on the first pass and then on the second",
   "why": "One script, both branches: proves the condition is re-evaluated (not cached) and that an unset counter reads as 0 on the first visit.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
-      { "op": "label", "id": "loop" },
-      { "op": "if", "expr": "n >= 1", "then": "big", "else": "small" },
-      { "op": "label", "id": "small" },
-      { "op": "say", "text": "Мало." },
-      { "op": "inc", "key": "n" },
-      { "op": "goto", "label": "loop" },
-      { "op": "label", "id": "big" },
-      { "op": "say", "text": "Много." }
+      {
+        "op": "label",
+        "id": "loop"
+      },
+      {
+        "op": "if",
+        "expr": "n >= 1",
+        "then": "big",
+        "else": "small"
+      },
+      {
+        "op": "label",
+        "id": "small"
+      },
+      {
+        "op": "say",
+        "text": "Мало."
+      },
+      {
+        "op": "inc",
+        "key": "n"
+      },
+      {
+        "op": "goto",
+        "label": "loop"
+      },
+      {
+        "op": "label",
+        "id": "big"
+      },
+      {
+        "op": "say",
+        "text": "Много."
+      }
     ]
   },
   "expect": {
     "stops": [
-      { "say": "Мало." },
-      { "say": "Много." },
-      { "end": true }
+      {
+        "say": "Мало."
+      },
+      {
+        "say": "Много."
+      },
+      {
+        "end": true
+      }
     ],
-    "vars": { "n": 1 }
+    "vars": {
+      "n": 1
+    }
   }
 }

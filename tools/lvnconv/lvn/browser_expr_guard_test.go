@@ -227,3 +227,117 @@ func scriptNeedsARealPlayer(script []map[string]any) bool {
 	}
 	return false
 }
+
+// БРАУЗЕРНЫЙ ПЛЕЕР ИГРАЕТ КОРПУС ЦЕЛИКОМ, а не только считает выражения.
+//
+// `core.js` — «faithful JS mini-port of LvnPlayer»: поток, вызовы, выборы,
+// ввод. Четвёртая реализация языка, и до сих пор её не проверял никто. Прогон
+// корпуса НАСТОЯЩИМ плеером снимает то ограничение, из-за которого проверка
+// выражений пропускала двадцать три случая: состояние теперь строит сам
+// плеер — с переходами, вызовами и пропущенными ветками, — а не модель в тесте.
+//
+// Первый же прогон нашёл расхождение: `set flag=true` + `inc flag` давали в
+// браузере 1 вместо 2 — логическое значение не считалось единицей, хотя язык
+// (и Lvn.LvnNum.Value) говорит обратное.
+func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node не установлен — браузерный плеер не проверяется на этой машине")
+	}
+	root := repoRoot(t)
+	core := filepath.Join(root, filepath.FromSlash("panel/public/play/core.js"))
+	runner := filepath.Join(root, filepath.FromSlash("conformance/browser-runner.mjs"))
+	for _, f := range []string{core, runner} {
+		if _, err := os.Stat(f); err != nil {
+			t.Fatalf("%s не найден (%v) — браузерный плеер это реализация языка, а не артефакт сборки", f, err)
+		}
+	}
+
+	type kase struct {
+		ID       string          `json:"id"`
+		Runtimes []string        `json:"runtimes"`
+		Picks    []any           `json:"picks"`
+		Inputs   []string        `json:"inputs"`
+		Doc      json.RawMessage `json:"doc"`
+		Expect   struct {
+			Stops []map[string]any `json:"stops"`
+			Vars  map[string]any   `json:"vars"`
+		} `json:"expect"`
+	}
+	files, _ := filepath.Glob(filepath.Join(root, "conformance", "cases", "*.json"))
+	var want []kase
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		var k kase
+		if json.Unmarshal(raw, &k) != nil {
+			continue
+		}
+		for _, r := range k.Runtimes {
+			if r == "js" {
+				want = append(want, k)
+			}
+		}
+	}
+	if len(want) == 0 {
+		t.Skip("ни один случай не объявлен обязательным для браузера")
+	}
+
+	payload, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casesPath := filepath.Join(t.TempDir(), "cases.json")
+	if err := os.WriteFile(casesPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(node, runner, core, casesPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("node не смог прогнать корпус: %v\n%s", err, out)
+	}
+	var got []struct {
+		ID    string           `json:"id"`
+		Vars  map[string]any   `json:"vars"`
+		Fail  string           `json:"fail"`
+		Stops []map[string]any `json:"stops"`
+	}
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("непонятный ответ node: %v\n%s", err, out)
+	}
+
+	byID := map[string]int{}
+	for i, k := range want {
+		byID[k.ID] = i
+	}
+	var bad []string
+	for _, g := range got {
+		k := want[byID[g.ID]]
+		if g.Fail != "" {
+			bad = append(bad, fmt.Sprintf("%s: %s", g.ID, g.Fail))
+			continue
+		}
+		for name, wantVal := range k.Expect.Vars {
+			gotVal, ok := g.Vars[name]
+			if !ok {
+				bad = append(bad, fmt.Sprintf("%s: переменной %q нет вовсе", g.ID, name))
+				continue
+			}
+			// Сравниваем по печатному виду: JSON-числа приезжают float64 с
+			// обеих сторон, а корпус пишет их как есть.
+			if fmt.Sprint(wantVal) != fmt.Sprint(gotVal) {
+				bad = append(bad, fmt.Sprintf("%s: %s = %v, корпус ждёт %v", g.ID, name, gotVal, wantVal))
+			}
+		}
+	}
+	sort.Strings(bad)
+
+	if len(bad) > 0 {
+		t.Fatalf("браузерный плеер разошёлся с корпусом (%d):\n  %s\n\n"+
+			"Автор пробует новеллу в playground, а играет её в приложении. "+
+			"Правьте panel/public/play/core.js под корпус: источник правды — язык.",
+			len(bad), strings.Join(bad, "\n  "))
+	}
+	t.Logf("браузерный плеер сыграл %d случая(ев) корпуса без расхождений", len(got))
+}

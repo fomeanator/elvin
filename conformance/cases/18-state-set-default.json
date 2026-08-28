@@ -2,7 +2,10 @@
   "id": "state-set-default",
   "title": "set default=true initialises only — it never overwrites a value already there",
   "why": "This is how a title declares its variables once and every chapter re-applies the block without stomping carried-in progress or a loaded save. A runtime that treats default= as a plain set resets the player's story on every chapter entry.",
-  "runtimes": ["csharp"],
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
   "doc": {
     "scene": "conformance",
     "script": [
