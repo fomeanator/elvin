@@ -289,14 +289,7 @@ namespace Lvn.UI.Screens
             avatar.style.justifyContent = Justify.Center;
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(avatar, avatarSize / 2f);
-            avatar.style.borderTopWidth = 3;
-            avatar.style.borderBottomWidth = 3;
-            avatar.style.borderLeftWidth = 3;
-            avatar.style.borderRightWidth = 3;
-            avatar.style.borderTopColor = LvnTokens.Accent;
-            avatar.style.borderBottomColor = LvnTokens.Accent;
-            avatar.style.borderLeftColor = LvnTokens.Accent;
-            avatar.style.borderRightColor = LvnTokens.Accent;
+            LvnChrome.Border(avatar, LvnTokens.Accent, 3f);
 
             var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
             glyph.style.alignSelf = Align.Center;

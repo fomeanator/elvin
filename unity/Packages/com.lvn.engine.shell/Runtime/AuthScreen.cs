@@ -68,10 +68,7 @@ namespace Lvn.UI.Screens
             panel.style.paddingLeft = 26;
             panel.style.paddingRight = 26;
             panel.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.Veil(0.65f));
-            panel.style.borderTopLeftRadius = 16;
-            panel.style.borderTopRightRadius = 16;
-            panel.style.borderBottomLeftRadius = 16;
-            panel.style.borderBottomRightRadius = 16;
+            LvnChrome.Round(panel, 16f);
             Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
@@ -122,10 +119,7 @@ namespace Lvn.UI.Screens
             start.style.paddingBottom = 16;
             start.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.OnAccent);
             start.style.backgroundColor = UiColor.Parse(_cfg.button_color, LvnTokens.Accent);
-            start.style.borderTopLeftRadius = 12;
-            start.style.borderTopRightRadius = 12;
-            start.style.borderBottomLeftRadius = 12;
-            start.style.borderBottomRightRadius = 12;
+            LvnChrome.Round(start, 12f);
             panel.Add(start);
             if (!string.IsNullOrEmpty(_cfg.button_url)) LvnAsync.Fire(ScreenUi.AssignBgAsync(start, _cfg.button_url, _assets), "AssignBg");
 
@@ -211,8 +205,7 @@ namespace Lvn.UI.Screens
             b.style.paddingLeft = 18; b.style.paddingRight = 18;
             b.style.color = textColor;
             b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
-            b.style.borderTopLeftRadius = 10; b.style.borderTopRightRadius = 10;
-            b.style.borderBottomLeftRadius = 10; b.style.borderBottomRightRadius = 10;
+            LvnChrome.Round(b, 10f);
             // Через дом занятости: вход ждёт СЕТЬ, и сорванное ожидание
             // оставляло кнопку выключенной навсегда, а подпись — «Connecting…».
             Lvn.UI.LvnBusy.OnClick(b, async () =>

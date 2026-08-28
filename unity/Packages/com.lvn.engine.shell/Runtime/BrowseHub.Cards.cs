@@ -191,12 +191,6 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        private static void SetBorderColor(VisualElement el, Color c)
-        {
-            el.style.borderTopColor = c; el.style.borderBottomColor = c;
-            el.style.borderLeftColor = c; el.style.borderRightColor = c;
-        }
-
         // A full-width list card (one per row): a thumbnail on the left, then the
         // name + a mini-description + a progress bar, and a cost/lock chip.
         private VisualElement TitleCard(LvnTitle t)
@@ -208,7 +202,7 @@ namespace Lvn.UI.Screens
             card.style.backgroundColor = _card;
             card.style.borderTopWidth = 1; card.style.borderBottomWidth = 1;
             card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
-            SetBorderColor(card, _border);
+            Lvn.UI.LvnChrome.Tint(card, _border);
             card.style.opacity = locked ? 0.55f : 1f;
             LvnChrome.Round(card, _radius);
             card.style.marginBottom = 14;

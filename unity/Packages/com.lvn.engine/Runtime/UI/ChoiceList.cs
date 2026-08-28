@@ -134,8 +134,7 @@ namespace Lvn.UI
                 track.style.height = 6;
                 track.style.marginBottom = _theme.ChoiceSpacing;
                 track.style.backgroundColor = new Color(1f, 1f, 1f, 0.15f);
-                track.style.borderTopLeftRadius = 3; track.style.borderTopRightRadius = 3;
-                track.style.borderBottomLeftRadius = 3; track.style.borderBottomRightRadius = 3;
+                LvnChrome.Round(track, 3f);
                 _timerFill = new VisualElement();
                 _timerFill.style.height = Length.Percent(100);
                 _timerFill.style.backgroundColor = _theme.ChoiceCostColor;
@@ -167,10 +166,7 @@ namespace Lvn.UI
             // светящегося контура выпадает из экрана, на котором контур есть у
             // всего остального.
             LvnChrome.Edge(btn, 0.85f);
-            btn.style.borderTopLeftRadius = _theme.ChoiceCornerRadius;
-            btn.style.borderTopRightRadius = _theme.ChoiceCornerRadius;
-            btn.style.borderBottomLeftRadius = _theme.ChoiceCornerRadius;
-            btn.style.borderBottomRightRadius = _theme.ChoiceCornerRadius;
+            LvnChrome.Round(btn, _theme.ChoiceCornerRadius);
             btn.style.flexDirection = FlexDirection.Column;
             btn.style.alignItems = Align.Center;
 

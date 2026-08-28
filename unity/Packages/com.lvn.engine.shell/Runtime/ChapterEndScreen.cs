@@ -74,11 +74,8 @@ namespace Lvn.UI.Screens
             b.style.backgroundColor = primary
                 ? UiColor.Parse(_cfg.button_color, LvnTokens.Accent)
                 : UiColor.Parse(_cfg.button_secondary_color, LvnTokens.Faint);
-            b.style.borderTopWidth = 0; b.style.borderBottomWidth = 0;
-            b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;
-            float r = _cfg.button_radius ?? 26f;
-            b.style.borderTopLeftRadius = r; b.style.borderTopRightRadius = r;
-            b.style.borderBottomLeftRadius = r; b.style.borderBottomRightRadius = r;
+            LvnChrome.ClearBorder(b);
+            LvnChrome.Round(b, _cfg.button_radius ?? 26f);
             return b;
         }
 

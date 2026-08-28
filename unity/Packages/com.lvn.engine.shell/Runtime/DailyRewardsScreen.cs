@@ -109,11 +109,7 @@ namespace Lvn.UI.Screens
             card.style.maxWidth = 760;
             card.style.backgroundColor = LvnTokens.PanelBg;
             LvnChrome.Round(card, LvnTokens.Radius + 4f);
-            card.style.borderLeftWidth = 1;
-            card.style.borderRightWidth = 1;
-            card.style.borderTopWidth = 1;
-            card.style.borderBottomWidth = 1;
-            SetBorderColor(card, LvnTokens.Border);
+            LvnChrome.Border(card, LvnTokens.Border, 1f);
             card.style.paddingTop = 26;
             card.style.paddingBottom = 22;
             card.style.paddingLeft = 24;
@@ -143,19 +139,8 @@ namespace Lvn.UI.Screens
             titleCol.Add(_subtitle);
 
             var close = new Button(Close) { text = "" };
-            close.style.alignItems = Align.Center;
-            close.style.justifyContent = Justify.Center;
-            close.style.width = 44;
-            close.style.height = 44;
+            LvnStyler.IconSlot(close, 44f);
             close.style.marginLeft = 12;
-            close.style.paddingTop = 0;
-            close.style.paddingBottom = 0;
-            close.style.paddingLeft = 0;
-            close.style.paddingRight = 0;
-            close.style.color = LvnTokens.Text;
-            close.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(close);
-            LvnChrome.Round(close, LvnTokens.RadiusSm);
             header.Add(close);
 
             // ── The 7-day grid (wraps: 4 + 3) ──────────────────────────────────
@@ -249,7 +234,7 @@ namespace Lvn.UI.Screens
                     cell.style.borderRightWidth = 2;
                     cell.style.borderTopWidth = 2;
                     cell.style.borderBottomWidth = 2;
-                    SetBorderColor(cell, LvnTokens.Accent);
+                    LvnChrome.Tint(cell, LvnTokens.Accent);
                     break;
                 case State.Claimed:
                     cell.style.backgroundColor = LvnTokens.Surface;
@@ -264,7 +249,7 @@ namespace Lvn.UI.Screens
                     cell.style.borderRightWidth = 1;
                     cell.style.borderTopWidth = 1;
                     cell.style.borderBottomWidth = 1;
-                    SetBorderColor(cell, LvnTokens.Border);
+                    LvnChrome.Tint(cell, LvnTokens.Border);
                     break;
             }
 
@@ -335,12 +320,5 @@ namespace Lvn.UI.Screens
             return cell;
         }
 
-        private static void SetBorderColor(VisualElement el, Color c)
-        {
-            el.style.borderLeftColor = c;
-            el.style.borderRightColor = c;
-            el.style.borderTopColor = c;
-            el.style.borderBottomColor = c;
-        }
     }
 }

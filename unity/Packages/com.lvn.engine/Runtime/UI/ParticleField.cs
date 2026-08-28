@@ -65,10 +65,7 @@ namespace Lvn.UI
                 el.style.backgroundColor = new Color(1f, 1f, 1f, snow ? 0.85f : 0.45f);
                 if (snow)
                 {
-                    el.style.borderTopLeftRadius = size;
-                    el.style.borderTopRightRadius = size;
-                    el.style.borderBottomLeftRadius = size;
-                    el.style.borderBottomRightRadius = size;
+                    LvnChrome.Round(el, size);   // круг — скругление в половину стороны
                 }
                 Add(el);
 

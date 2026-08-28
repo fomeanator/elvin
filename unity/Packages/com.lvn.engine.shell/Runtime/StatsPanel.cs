@@ -40,10 +40,7 @@ namespace Lvn.UI.Screens
             panel.style.backgroundColor = LvnTokens.PanelBg;
             panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
             panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
-            panel.style.borderTopLeftRadius = LvnTokens.RadiusSm + 4f;
-            panel.style.borderTopRightRadius = LvnTokens.RadiusSm + 4f;
-            panel.style.borderBottomLeftRadius = LvnTokens.RadiusSm + 4f;
-            panel.style.borderBottomRightRadius = LvnTokens.RadiusSm + 4f;
+            LvnChrome.Round(panel, LvnTokens.RadiusSm + 4f);
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             root.Add(panel);
 
@@ -67,10 +64,8 @@ namespace Lvn.UI.Screens
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;
-            close.style.borderTopLeftRadius = LvnTokens.RadiusSm; close.style.borderTopRightRadius = LvnTokens.RadiusSm;
-            close.style.borderBottomLeftRadius = LvnTokens.RadiusSm; close.style.borderBottomRightRadius = LvnTokens.RadiusSm;
-            close.style.borderTopWidth = 0; close.style.borderRightWidth = 0;
-            close.style.borderBottomWidth = 0; close.style.borderLeftWidth = 0;
+            LvnChrome.Round(close, LvnTokens.RadiusSm);
+            LvnChrome.ClearBorder(close);
             panel.Add(close);
         }
 

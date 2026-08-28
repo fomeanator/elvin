@@ -52,10 +52,7 @@ namespace Lvn.UI
             _frame.style.paddingBottom = t.PanelPaddingY;
             _frame.style.minHeight = t.PanelMinHeight;
             _frame.style.backgroundColor = t.PanelColor;
-            _frame.style.borderTopLeftRadius = t.PanelCornerRadius;
-            _frame.style.borderTopRightRadius = t.PanelCornerRadius;
-            _frame.style.borderBottomLeftRadius = t.PanelCornerRadius;
-            _frame.style.borderBottomRightRadius = t.PanelCornerRadius;
+            LvnChrome.Round(_frame, t.PanelCornerRadius);
             UiStyle.ApplyBackground(_frame, t.PanelSprite, t.PanelSlice); // the dialogue's own art
             Add(_frame);
 

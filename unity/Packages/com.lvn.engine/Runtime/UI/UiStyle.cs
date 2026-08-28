@@ -18,10 +18,7 @@ namespace Lvn.UI
             el.style.backgroundImage = new StyleBackground(sprite);
             el.style.backgroundColor = Color.clear; // let the art show, not a colour behind it
             // A framed sprite defines its own corners — drop the rounded-rect radii.
-            el.style.borderTopLeftRadius = 0;
-            el.style.borderTopRightRadius = 0;
-            el.style.borderBottomLeftRadius = 0;
-            el.style.borderBottomRightRadius = 0;
+            LvnChrome.Round(el, 0f);
 
             if (slice > 0)
             {

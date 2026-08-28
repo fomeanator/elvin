@@ -83,16 +83,9 @@ namespace Lvn.UI.Screens
             sheet.Add(header);
 
             var back = new Button(Close) { text = "‹" };
+            LvnStyler.IconSlot(back, 46f);
             back.style.fontSize = 34;
-            back.style.width = 46;
-            back.style.height = 46;
-            back.style.paddingLeft = 0; back.style.paddingRight = 0;
-            back.style.paddingTop = 0; back.style.paddingBottom = 0;
             back.style.marginRight = 12;
-            back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(back);
-            LvnChrome.Round(back, LvnTokens.RadiusSm);
             header.Add(back);
 
             var title = SectionTitle(() => LvnWords.Of("leaderboard.title", "Leaderboard"));
