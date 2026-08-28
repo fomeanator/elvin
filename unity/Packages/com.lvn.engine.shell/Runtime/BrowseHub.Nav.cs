@@ -32,7 +32,12 @@ namespace Lvn.UI.Screens
                 t.Label.text = _theme.Heading(NavLabel(t.Index));
                 t.Label.style.unityFontStyleAndWeight = LvnFonts.UiWeightStyle;
             }
-            if (_hubTitle != null) _hubTitle.text = _theme.Heading(_cfg?.title ?? "");
+            if (_hubTitle != null)
+                _hubTitle.text = _theme.Heading(LvnWords.Pick("browse.title", _cfg?.title, ""));
+            if (_hubEyebrow != null) _hubEyebrow.text = HubEyebrow();
+            // Карточки несут названия новелл и подзаголовки — они тоже данные,
+            // и на главной их видно первыми.
+            Refresh();
             // Подсветку возвращаем на место: переодевание меняет ПОДПИСИ, а не
             // то, где игрок находится. Пересборка навбара сбрасывала её на
             // «Главную» — со стороны это выглядело как переход, которого он не

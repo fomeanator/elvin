@@ -66,6 +66,12 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _hubView, _collectionView, _detailView;
         private VisualElement _bottomNav;
         private readonly Label _hubTitle, _hubSubtitle;
+        private Label _hubEyebrow;
+
+        // Надзаголовок хаба собирается в одном месте: он стоит над названием
+        // игры и меняется вместе с языком, как всё остальное.
+        private string HubEyebrow()
+            => LvnWords.Pick("hub.subtitle", _cfg.subtitle, "Choose your path").ToUpperInvariant();
         private readonly ScrollView _hubRows; // vertical stack of per-collection sliders
         private readonly Label _collectionTitle;
         private readonly ScrollView _collectionList;
@@ -187,12 +193,13 @@ namespace Lvn.UI.Screens
 
             var brand = new VisualElement();
             brand.style.marginTop = 2; brand.style.marginBottom = 20;
-            var eyebrow = new Label((LvnWords.Pick("hub.subtitle", _cfg.subtitle, "Choose your path")).ToUpperInvariant());
+            _hubEyebrow = new Label(HubEyebrow());
+            var eyebrow = _hubEyebrow;
             eyebrow.style.color = _accent; eyebrow.style.fontSize = 30;
             eyebrow.style.letterSpacing = 4f; eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             eyebrow.style.marginBottom = 8;
             brand.Add(eyebrow);
-            _hubTitle = Heading(_cfg.title ?? "", 58);
+            _hubTitle = Heading(LvnWords.Pick("browse.title", _cfg.title, ""), 58);
             brand.Add(_hubTitle);
             _hubSubtitle = new Label(); // (kept for API; the eyebrow carries the sub-line)
             var rule = new VisualElement();
@@ -485,9 +492,9 @@ namespace Lvn.UI.Screens
             _detailTarget = t;
             _detailFrom = from;
             _detailTitle.text = t.name ?? t.id;
-            _detailBigTitle.text = _theme.Heading(t.name ?? t.id);
+            _detailBigTitle.text = _theme.Heading(LvnWords.Name("title", t.id, t.name));
             var art = t.card;
-            _detailSubtitle.text = t.subtitle ?? "";
+            _detailSubtitle.text = LvnWords.Name("subtitle", t.id, t.subtitle ?? "");
             _detailSubtitle.style.display = string.IsNullOrEmpty(t.subtitle)
                 ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
