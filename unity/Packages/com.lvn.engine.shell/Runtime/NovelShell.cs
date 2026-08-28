@@ -424,6 +424,9 @@ namespace Lvn.UI.Screens
 
         /// <summary>ONE store: every entry (quick menu, wallet "+", scripts'
         /// <c>ext store_show</c>, the hub) opens the pack shop.</summary>
+        /// <summary>Прежнее имя магазина. НЕ ЗОВЁТСЯ внутри движка — оставлено
+        /// для хостов, собранных до переименования: две двери в одну комнату
+        /// дешевле сломанной сборки у того, кто взял библиотеку.</summary>
         public Task OpenStoreAsync(CancellationToken ct = default)
             => OpenPackShopAsync(ct);
 
@@ -440,12 +443,28 @@ namespace Lvn.UI.Screens
         // входит, но фон у неё свой и «назад» она обрабатывает сама.
         public Task OpenGalleryAsync(CancellationToken ct = default)
             => Gallery != null ? Gallery.ShowAsync(ct) : Task.CompletedTask;
+        /// <summary>
+        /// Показать профиль КАК ЕСТЬ — тем, что уже положено в его поля.
+        ///
+        /// <para>Внутри движка не зовётся, и намеренно: наш хост открывает
+        /// профиль своим путём, который сперва собирает отношения из манифеста и
+        /// состояния. Позвать эту дверь напрямую значит показать профиль без
+        /// связей — не пустой экран, а ПРАВДОПОДОБНЫЙ, и разницу заметит только
+        /// тот, кто знает, что связи должны быть.</para>
+        ///
+        /// <para>Оставлена для хостов, которые наполняют профиль сами: оболочка
+        /// манифеста не видит и собрать связи не может.</para>
+        /// </summary>
         public Task OpenProfileAsync(CancellationToken ct = default)
             => ShowModalAsync(Profile, ct);
         public Task OpenDailyAsync(CancellationToken ct = default)
             => ShowModalAsync(Daily, ct);
         public Task OpenLeaderboardAsync(CancellationToken ct = default)
             => ShowModalAsync(Leaderboard, ct);
+        /// <summary>Витрина скинов. НЕ ПОДКЛЮЧЕНА: экран показывает выдуманный
+        /// каталог (демо-вёрстка), и точки входа у него нет — гардероб ведёт
+        /// свою торговлю сам. Дверь оставлена хосту, который приведёт витрину к
+        /// настоящим данным.</summary>
         public Task OpenSkinShopAsync(CancellationToken ct = default)
             => ShowModalAsync(SkinShop, ct);
         /// <summary>Быстрый магазин — модаль со своим фоном (вкладка ленты —
