@@ -90,7 +90,7 @@ namespace Lvn.UI.Screens
                 var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var fromEl = from.el;
                 float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
-                to.el.experimental.animation.Start(0f, 1f, 338, (e, p) => // 260 + 30% — «чуть медленнее» (26.08)
+                to.el.experimental.animation.Start(0f, 1f, LvnMotion.Ms(338), (e, p) => // 260 + 30% — «чуть медленнее» (26.08)
                 {
                     float k = 1f - Mathf.Pow(1f - p, 3f);
                     e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);

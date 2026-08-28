@@ -222,7 +222,7 @@ namespace Lvn.UI.Screens
                 _gameRow.style.display = DisplayStyle.Flex;
                 _row.style.translate = new Translate(0f, -slide);
                 _gameRow.style.translate = new Translate(0f, -slide);
-                _row.experimental.animation.Start(0f, 1f, 240, (r, v) =>
+                _row.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Calm), (r, v) =>
                 {
                     float k = 1f - Mathf.Pow(1f - v, 3f);
                     var y = Mathf.Lerp(-slide, 0f, k);
@@ -234,7 +234,7 @@ namespace Lvn.UI.Screens
             }
             else
             {
-                _row.experimental.animation.Start(0f, 1f, 200, (r, v) =>
+                _row.experimental.animation.Start(0f, 1f, LvnMotion.Ms(200), (r, v) =>
                 {
                     float k = 1f - Mathf.Pow(1f - v, 3f);
                     var y = Mathf.Lerp(0f, -slide, k);

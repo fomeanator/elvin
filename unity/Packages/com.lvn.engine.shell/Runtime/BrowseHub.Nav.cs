@@ -85,7 +85,7 @@ namespace Lvn.UI.Screens
                     LvnIcons.Tint(t.IconEl, to, glow);
                     continue;
                 }
-                t.Root.experimental.animation.Start(0f, 1f, 180, (e, p) =>
+                t.Root.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Normal), (e, p) =>
                 {
                     var c = Color.Lerp(from, to, p);
                     t.Label.style.color = c;

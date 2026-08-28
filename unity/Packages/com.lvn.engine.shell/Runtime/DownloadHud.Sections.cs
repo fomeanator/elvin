@@ -121,7 +121,7 @@ namespace Lvn.UI.Screens
                 el.style.translate = new Translate(0f, 10f);
                 int delay = 60 + i * 55;
                 el.schedule.Execute(() =>
-                    el.experimental.animation.Start(0f, 1f, 220, (e2, t) =>
+                    el.experimental.animation.Start(0f, 1f, LvnMotion.Ms(220), (e2, t) =>
                     {
                         float e = 1f - Mathf.Pow(1f - t, 3f);
                         e2.style.opacity = e;
@@ -233,7 +233,7 @@ namespace Lvn.UI.Screens
                 // Строка уезжает и схлопывается — и только потом выбывает из
                 // очереди: снятие видно, а не «мигнуло и нет».
                 float h0 = row.resolvedStyle.height;
-                row.experimental.animation.Start(0f, 1f, 180, (r, t) =>
+                row.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Normal), (r, t) =>
                 {
                     r.style.opacity = 1f - t;
                     r.style.translate = new Translate(Mathf.Lerp(0f, 40f, t * t), 0f);

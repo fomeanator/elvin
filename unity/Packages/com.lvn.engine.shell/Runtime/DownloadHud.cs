@@ -304,7 +304,7 @@ namespace Lvn.UI.Screens
                 {
                     _shown = true;
                     style.display = DisplayStyle.Flex;
-                    _capsule.experimental.animation.Start(0f, 1f, 180,
+                    _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Normal),
                         (_, p) => _capsule.style.opacity = p);
                 }
 
@@ -471,7 +471,7 @@ namespace Lvn.UI.Screens
                     if (_glyph == value) return;
                     _glyph = value;
                     // Смена состояния — короткий пульс: глаз ловит перемену.
-                    this.experimental.animation.Start(0f, 1f, 240, (e, t) =>
+                    this.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Calm), (e, t) =>
                     {
                         float k = 1f + 0.14f * Mathf.Sin(t * Mathf.PI);
                         e.style.scale = new Scale(new Vector2(k, k));
