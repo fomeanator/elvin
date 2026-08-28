@@ -34,7 +34,7 @@ namespace Lvn.UI.Screens
     ///  - the back button and the action bar respect Screen.safeArea (notch /
     ///    home indicator).
     /// </summary>
-    public sealed partial class TitleDetailScreen : LvnOverlayScreen
+    public sealed partial class TitleDetailScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
     {
         private const float HeroAspect = 0.68f; // hero height = page width × this
 
@@ -133,6 +133,9 @@ namespace Lvn.UI.Screens
 
         /// <summary>(Re)build the whole content column. Public so tests/hosts can
         /// render the page without driving <see cref="ShowAsync"/>.</summary>
+        /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
+        public void Redress() { RedressChrome(); Rebuild(); }
+
         public void Rebuild()
         {
             _scroll.Clear();

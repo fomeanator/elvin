@@ -18,7 +18,7 @@ namespace Lvn.UI.Screens
     /// Mirrors <see cref="StoreScreen"/>'s overlay contract: a TCS-gated
     /// <see cref="ShowAsync"/> that fades in, parks until Close, then fades out.
     /// </summary>
-    public sealed class CgGalleryScreen : VisualElement
+    public sealed class CgGalleryScreen : VisualElement, Lvn.UI.ILvnRedress
     {
         /// <summary>One gallery entry: its art url, a caption, and whether the player
         /// has unlocked it. Locked entries never reveal the image.</summary>
@@ -232,6 +232,9 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the grid + counter from the current entries. Safe to call
         /// repeatedly (e.g. after an unlock).</summary>
+        /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
+        public void Redress() => Rebuild();
+
         public void Rebuild()
         {
             if (_grid == null) return;
