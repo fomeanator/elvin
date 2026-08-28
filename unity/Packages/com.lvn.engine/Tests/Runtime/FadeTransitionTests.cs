@@ -27,11 +27,7 @@ namespace Lvn.Tests.Runtime
             _rt = new RenderTexture(96, 96, 16);
             _cam.targetTexture = _rt;
 
-            _canvasGo = new GameObject("t-canvas", typeof(Canvas), typeof(CanvasScaler));
-            var canvas = _canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = _cam;
-            canvas.planeDistance = 1f;
+            _canvasGo = TestStage.Canvas(_cam);
 
             _actor = new GameObject("t-actor", typeof(RectTransform), typeof(CanvasGroup));
             _actor.transform.SetParent(_canvasGo.transform, false);

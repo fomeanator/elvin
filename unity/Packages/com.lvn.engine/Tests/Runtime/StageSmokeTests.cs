@@ -44,11 +44,7 @@ namespace Lvn.Tests
         [UnitySetUp]
         public IEnumerator Boot()
         {
-            _panel = ScriptableObject.CreateInstance<PanelSettings>();
-            _go = new GameObject("smoke-stage");
-            var doc = _go.AddComponent<UIDocument>();
-            doc.panelSettings = _panel;
-            _stage = _go.AddComponent<VnStage>();
+            _stage = TestStage.Panel("smoke-stage", out _go, out _panel);
             yield return null; // UIDocument brings its panel up on its own OnEnable
             _stage.Play(Script);
             yield return null; // first beat renders

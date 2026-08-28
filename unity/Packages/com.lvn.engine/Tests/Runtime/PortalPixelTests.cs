@@ -36,11 +36,7 @@ namespace Lvn.Tests.Runtime
             _cam.backgroundColor = Color.black;
             _cam.targetTexture = _rt;
 
-            _canvasGo = new GameObject("t-canvas", typeof(Canvas), typeof(CanvasScaler));
-            var canvas = _canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = _cam;
-            canvas.planeDistance = 1f;
+            _canvasGo = TestStage.Canvas(_cam);
 
             _portal = LvnPortalLayer.Create(_canvasGo.transform, siblingIndex: -1);
         }
