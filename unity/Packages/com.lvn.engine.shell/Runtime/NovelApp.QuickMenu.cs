@@ -261,7 +261,6 @@ namespace Lvn.UI.Screens
                 // кнопка скрывается в BrowseHub по тому же конфигу.
                 if (manifest.ui?.browse?.show_daily ?? true)
                     _shell.Hub.OnDaily = () => _shell.OpenDailyAsync();
-                _shell.Hub.PlayerName = _playerName;
                 _shell.Hub.Currencies = HubCurrencies();
                 _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
                 _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(0), "TabHome");

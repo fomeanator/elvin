@@ -47,7 +47,10 @@ namespace Lvn.UI.Screens
         public System.Func<LvnTitle, Task<bool>> OnOpenDetail;
         /// <summary>Player display name + level for the top bar (fallbacks used
         /// when unset — filled with real data later).</summary>
-        public string PlayerName;
+        // ИМЯ ИГРОКА ЗДЕСЬ НЕ ХРАНИТСЯ. Поле было копией того, что лежит в
+        // настройках устройства, и обновлять его приходилось руками из двух
+        // мест оболочки: после ввода ника и при открытии профиля. Забудь один
+        // вызов — и хаб показывает вчерашнее имя. Спрашиваем у роли.
         public int PlayerLevel;
 
         private VisualElement _topPills; // hub HUD: currency balances
@@ -343,8 +346,7 @@ namespace Lvn.UI.Screens
             // Подпись безымянного игрока — у роли: здесь стояло русское слово
             // прямо в движке, и другая игра получала его насильно.
             if (_playerNameLabel != null)
-                _playerNameLabel.text = string.IsNullOrEmpty(PlayerName)
-                    ? Lvn.UI.LvnPlayerName.Display : PlayerName;
+                _playerNameLabel.text = Lvn.UI.LvnPlayerName.Display;
             // Через СЛОВАРЬ (ключ тот же, что у профиля): здесь слово стояло
             // строкой — вторая надпись про одно и то же, и переводились бы они
             // порознь.

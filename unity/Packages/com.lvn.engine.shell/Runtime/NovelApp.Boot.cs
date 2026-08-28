@@ -498,7 +498,7 @@ namespace Lvn.UI.Screens
             {
                 Stage.Play(json);
                 if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
-                    Stage.Player.Vars["player"] = _playerName;
+                    Lvn.UI.LvnPlayerName.Seed(Stage.Player, _playerName);
                 Debug.Log($"[novelapp] reloaded chapter '{_currentChapter.id}' (structure changed — restarted)");
             }
         }

@@ -55,7 +55,8 @@ namespace Lvn.UI.Screens
         // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
         /// <summary>Имя для показа. Пусто — спросим у роли: она знает и имя,
         /// и подпись безымянного (её задаёт новелла, а не движок).</summary>
-        public string PlayerName;
+        // Копия имени не хранится — см. BrowseHub: одна правда у роли
+        // LvnPlayerName, экран её только показывает.
 
         /// <summary>TR-25: минимальный профиль — только имя и ID (уровень, XP,
         /// статы, достижения и отношения спрятаны). ui.browse.profile_full=false.</summary>
@@ -304,8 +305,7 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             identity.Add(col);
 
-            var name = new Label(string.IsNullOrEmpty(PlayerName)
-                ? Lvn.UI.LvnPlayerName.Display : PlayerName);
+            var name = new Label(Lvn.UI.LvnPlayerName.Display);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = 34;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;

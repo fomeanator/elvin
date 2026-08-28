@@ -100,7 +100,7 @@ namespace Lvn.UI.Screens
             // Профиль — дом данных ИГРОКА: настоящие имя и ID (в экране зашиты
             // демо-заглушки), живой кошелёк, удаление аккаунта. Жалоба-ориентир:
             // «в настройках больше данных для профиля, чем в профиле».
-            p.PlayerName = _playerName;
+            // Имя экрану больше не толкают: он спрашивает его у роли сам.
             var uid = Lvn.Services.LvnBackend.UserId;
             if (!string.IsNullOrEmpty(uid)) p.Uid = uid;
             p.Wallet = BuildWalletTiles();
