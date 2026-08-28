@@ -1032,19 +1032,9 @@ namespace Lvn
         // the default instead of throwing out of Advance and killing the chapter.
         private static bool BoolOr(JToken t, bool def) => Lvn.LvnBool.Of(t, def);
 
-        private static double Num(JToken t, double def)
-        {
-            if (t == null) return def;
-            switch (t.Type)
-            {
-                case JTokenType.Integer:
-                case JTokenType.Float:
-                    return t.Value<double>();
-                case JTokenType.Boolean:
-                    return t.Value<bool>() ? 1 : 0;
-                default:
-                    return def;
-            }
-        }
+        // Число из значения состояния — у Lvn.LvnNum. Здесь строка не
+        // разбиралась вовсе, поэтому inc над введённым игроком «10» давал 1,
+        // стирая значение: ввод сохраняется СТРОКОЙ (VnStage.Input).
+        private static double Num(JToken t, double def) => LvnNum.Value(t, def);
     }
 }

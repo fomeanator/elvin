@@ -1,0 +1,51 @@
+{
+  "id": "values-number-from-string",
+  "title": "Arithmetic over state reads a number written as a string — the shape player input arrives in",
+  "why": "A variable does not always hold a JSON number. Player input is stored as a STRING (VnStage.Input), and asking the player for a number — age, a count, a bet — is ordinary. The C# player used to skip strings entirely: `inc` over \"10\" produced 1, wiping the value, while the expression language happily read the same \"10\" as ten and the stat bar drew it correctly. One value, three answers, no error anywhere. This case pins the one answer: a numeric string is a number to every reader of state.",
+  "runtimes": ["csharp"],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      { "op": "set", "key": "age", "value": "10" },
+      { "op": "inc", "key": "age" },
+
+      { "op": "set", "key": "bet", "value": "100" },
+      { "op": "inc", "key": "bet", "by": 50 },
+
+      { "op": "set", "key": "debt", "value": "7" },
+      { "op": "inc", "key": "debt", "by": -2 },
+
+      { "op": "set", "key": "flag", "value": true },
+      { "op": "inc", "key": "flag" },
+
+      { "op": "set", "key": "name", "value": "Аня" },
+      { "op": "inc", "key": "name" },
+
+      { "op": "say", "text": "Готово." }
+    ]
+  },
+  "expect": {
+    "stops": [
+      { "say": "Готово." },
+      { "end": true }
+    ],
+    "vars": {
+      "age": 11,
+      "bet": 150,
+      "debt": 5,
+      "flag": 2,
+      "name": 1
+    },
+    "expr_true": [
+      "age == 11",
+      "bet == 150",
+      "debt == 5",
+      "flag == 2",
+      "name == 1"
+    ],
+    "expr_false": [
+      "age == 1",
+      "bet == 1"
+    ]
+  }
+}

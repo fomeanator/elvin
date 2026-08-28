@@ -42,5 +42,41 @@ namespace Lvn
 
         /// <summary>Строка — тот же разбор: числа приходят и текстом.</summary>
         public static float Parse(string s, float fallback) => Parse((JToken)s) ?? fallback;
+
+        /// <summary>
+        /// ЧИСЛО ИЗ ЗНАЧЕНИЯ СОСТОЯНИЯ — то, что видит арифметика над
+        /// переменными: <c>inc</c>, пороги выбора, шкалы статов.
+        ///
+        /// <para>Отдельно от <see cref="Parse(JToken)"/>, потому что вопрос
+        /// другой. Там читают ПОЛЕ КОМАНДЫ, где «57%» значит долю; здесь читают
+        /// ЗНАЧЕНИЕ ПЕРЕМЕННОЙ, где процент — просто текст, зато <c>true</c>
+        /// законно значит единицу (так же считает язык выражений).</para>
+        ///
+        /// <para>Правило было записано трижды и по-разному: плеер не разбирал
+        /// число из строки вовсе (<c>inc</c> над строковым «10» давал 1, стирая
+        /// значение), шкала статов разбирала, а язык выражений разбирал и умел
+        /// bool. Число-строкой — не выдумка: так сохраняется ВВОД ИГРОКА
+        /// (<c>VnStage.Input</c> кладёт в переменную строку), и спросить у
+        /// игрока число — обычное дело.</para>
+        ///
+        /// <para>Согласовано с <c>LvnExpression.AsNum</c>, но не бросает:
+        /// выражение вправе объявить «'абв' — не число» ошибкой автора, а
+        /// счётчику посреди главы падать не за что.</para>
+        /// </summary>
+        public static double Value(JToken t, double fallback)
+        {
+            if (t == null || t.Type == JTokenType.Null) return fallback;
+            switch (t.Type)
+            {
+                case JTokenType.Integer:
+                case JTokenType.Float:
+                    return t.Value<double>();
+                case JTokenType.Boolean:
+                    return t.Value<bool>() ? 1 : 0;
+            }
+            var text = t.Type == JTokenType.String ? t.Value<string>() : t.ToString();
+            return double.TryParse(text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
+                ? d : fallback;
+        }
     }
 }
