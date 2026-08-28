@@ -40,6 +40,11 @@ namespace Lvn.UI.Screens
         {
             Lvn.Content.ContentLoader.AssetFailed -= OnAssetFailed;
             Lvn.Content.ContentLoader.AssetFailed += OnAssetFailed;
+            // «Файл доехал, а картинкой не стал» — та же для игрока пропажа, что
+            // и недоехавший ассет, поэтому и событие то же. Раньше этот случай
+            // не сообщался никак: показ ловил исключение и оставлял силуэт.
+            Lvn.Content.ContentLoader.AssetUnusable -= OnAssetUnusable;
+            Lvn.Content.ContentLoader.AssetUnusable += OnAssetUnusable;
 
             // Шаги внутри главы: метки — это «слайды» автора, выборы — места,
             // где игрок решает. Без них между входом в главу и выходом пусто, и
