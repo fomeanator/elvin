@@ -507,6 +507,9 @@ namespace Lvn.UI
             if (_body != null)
             {
                 _body.style.fontSize = BodySize;
+                // Вес — тоже выбор игрока: тонкая гарнитура на светлом фоне
+                // теряется, и лечится это весом, а не размером.
+                _body.style.unityFontStyleAndWeight = LvnFonts.WeightStyle;
                 LvnFonts.Apply(_body, _theme.Font);
             }
             if (_advanceHint != null)

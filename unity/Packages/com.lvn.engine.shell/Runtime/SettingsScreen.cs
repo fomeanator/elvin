@@ -155,6 +155,9 @@ namespace Lvn.UI.Screens
             _list.Add(UiScaleRow());
             _list.Add(FontRow());
             _list.Add(TextScaleRow());
+            _list.Add(RangeRow(LvnWords.Of("settings.text_weight", "Text weight"),
+                LvnWords.Of("settings.text_weight_hint", "Thicker letters read easier on bright scenes"),
+                0f, 1f, () => LvnPrefs.TextWeight, v => LvnPrefs.TextWeight = v));
             _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
                 0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
             _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),

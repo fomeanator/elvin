@@ -230,6 +230,30 @@ namespace Lvn.UI
         /// <summary>Выбрал ли игрок гарнитуру сам.</summary>
         public static bool PlayerPicked => !string.IsNullOrEmpty(LvnPrefs.FontFamily);
 
+        /// <summary>
+        /// НАЧЕРТАНИЕ ПО ВЫБРАННОЙ ТОЛЩИНЕ. Ползунок непрерывный, а начертаний
+        /// у шрифта конечное число — поэтому здесь он превращается в ступени:
+        /// обычное, полужирное (если у семейства оно есть), жирное.
+        ///
+        /// <para>Толщина — про читаемость, а не про вкус: тонкая гарнитура на
+        /// светлом фоне и мелком кегле теряется, и это лечится весом, а не
+        /// размером.</para>
+        /// </summary>
+        public static FontStyle WeightStyle
+            => LvnPrefs.TextWeight >= 0.5f ? FontStyle.Bold : FontStyle.Normal;
+
+        /// <summary>Путь начертания под текущую толщину: у семейства с
+        /// промежуточным весом (Onest SemiBold) середина ползунка берёт его, а
+        /// не прыгает сразу в жирный.</summary>
+        public static string WeightedPath(string basePath)
+        {
+            float w = LvnPrefs.TextWeight;
+            if (w < 0.34f || string.IsNullOrEmpty(basePath)) return basePath;
+            if (basePath.EndsWith("Onest-Regular"))
+                return w < 0.67f ? "Fonts/Onest-SemiBold" : "Fonts/Onest-ExtraBold";
+            return basePath;   // у остальных семейств вес добирается стилем
+        }
+
         /// <summary>Поправка кегля под выбранную гарнитуру. Единица, пока игрок
         /// не выбирал: авторский кегль подобран под авторский шрифт.</summary>
         public static float SizeFactor => PlayerPicked ? Chosen.SizeScale : 1f;
@@ -378,7 +402,7 @@ namespace Lvn.UI
         private static Font Override(Font asked)
         {
             if (!PlayerPicked) return asked;
-            var path = Chosen.Path;
+            var path = WeightedPath(Chosen.Path);
             if (string.IsNullOrEmpty(path)) return asked;
             if (_chosenCache != null && _chosenPath == path) return _chosenCache;
             _chosenPath = path;

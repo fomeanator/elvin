@@ -41,6 +41,7 @@ namespace Lvn.UI
             _textScale = LvnKeep.Get(P + "text_scale", 1f);
             _uiScale = LvnKeep.Get(P + "ui_scale", 1f);
             _fontFamily = LvnKeep.Get(P + "font_family", "");
+            _textWeight = LvnKeep.Get(P + "text_weight", 0f);
             _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
             _locale = LvnKeep.Get(P + "locale", "");
             _artQuality = LvnKeep.Get(P + "art_quality", "");
@@ -291,6 +292,17 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _uiScale, "ui_scale", Mathf.Clamp(value, 0.85f, 1.3f)); }
         }
         private static float _uiScale = 1f;
+
+        /// <summary>ТОЛЩИНА ТЕКСТА — 0 (как в гарнитуре) … 1 (жирный). Не
+        /// «жирный да/нет»: у тонких гарнитур и на ярком фоне читаемость
+        /// добирают именно весом, и шаг между «обычным» и «жирным» слишком
+        /// груб — между ними есть промежуточное начертание.</summary>
+        public static float TextWeight
+        {
+            get { EnsureLoaded(); return _textWeight; }
+            set { EnsureLoaded(); Set(ref _textWeight, "text_weight", Mathf.Clamp01(value)); }
+        }
+        private static float _textWeight;
 
         /// <summary>ГАРНИТУРА — ключ из каталога <c>LvnFonts.Families</c>.
         /// Пусто — та, что выбрала новелла.</summary>
