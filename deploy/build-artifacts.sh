@@ -67,7 +67,8 @@ for must in \
   "play/index.html" \
   "play/core.js" \
   "play/expr.js" \
-  "play/lvns.wasm"; do
+  "play/lvns.wasm" \
+  "play/content/bg/Autumn_street.jpg"; do
   [ -e "$site/$must" ] || {
     echo "[build-artifacts] сборка панели неполная: нет $must" >&2
     echo "  (rsync --delete заменил бы живой сайт этим; деплой остановлен)" >&2
