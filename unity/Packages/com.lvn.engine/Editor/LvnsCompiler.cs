@@ -478,6 +478,25 @@ namespace Lvn.Editor
                     {
                         cmd = new JObject { ["op"] = firstWord, ["label"] = words[1] }; isCommand = true;
                     }
+                    else if (firstWord == "track")
+                    {
+                        // ВЕТКИ НЕ БЫЛО, хотя имя стояло в KnownOps и рядом
+                        // висело предупреждение «без неё строка стала бы
+                        // репликой». Именно это и происходило: метка конверсии,
+                        // написанная в редакторе, компилировалась в РЕПЛИКУ и
+                        // показывалась игроку. Через CLI тот же скрипт собирался
+                        // правильно — расхождение видел только тот, кто собирал
+                        // в Unity.
+                        //
+                        // Имя берём как есть, вместе с пробелами: «первый
+                        // поцелуй» читается в отчёте, «первый_поцелуй» — нет.
+                        string trackName = line.Substring("track".Length).Trim().Trim('"', '\'', '«', '»');
+                        if (trackName.Length == 0)
+                            throw new LvnsCompileException(
+                                $"line {i + 1}: track: нужно имя метки — track \"первый поцелуй\"");
+                        cmd = new JObject { ["op"] = "track", ["name"] = trackName };
+                        isCommand = true;
+                    }
                     else if (firstWord == "ext")
                     {
                         // `ext <op> k=v …` declares a HOST op: emit it verbatim.

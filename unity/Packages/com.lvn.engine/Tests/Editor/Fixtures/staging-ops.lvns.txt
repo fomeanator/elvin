@@ -1,0 +1,12 @@
+scene staging_ops
+
+Аня: Проверка постановочных команд.
+sfx id=click url=ui/click.ogg
+wait ms=500
+fx blur=0.4 dur=0.3
+fx tint=#204060 dur=0.2
+fx shake=0.5 dur=0.2
+text_pace cps=30
+track "глава-1"
+preload url=bg/room.png
+Аня: Готово.
