@@ -31,13 +31,21 @@ jobs:
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
           fail=0
-          for pair in \
-            "com.lvn.engine:lvn-engine" \
-            "com.lvn.engine.shell:lvn-engine-shell" \
-            "com.lvn.engine.services:lvn-engine-services" \
-            "com.lvn.engine.spine:lvn-engine-spine" \
-            "com.lvn.engine.addressables:lvn-engine-addressables"; do
-            pkg="${pair%%:*}"; repo="${pair##*:}"
+          # СПИСОК НЕ ЗАХАРДКОЖЕН — по тому же правилу, что у пакетов языка
+          # ниже: новый пакет это новый каталог unity/Packages/com.lvn.*, и он
+          # публикуется сам. Пять пар «пакет:репо» стояли здесь руками, и шестой
+          # пришлось бы вписать — а забыть легко: публикация идёт по тегу, редко,
+          # и молча пропустила бы пакет, которого нет в списке.
+          #
+          # Имя зеркала выводится из имени пакета (com.lvn.engine.shell →
+          # lvn-engine-shell). Соответствие имён проверяет
+          # TestPackageMirrorNames — на каждом пуше, а не по тегу: ошибка в
+          # публикации обнаруживается за минуту, а не при выпуске версии.
+          shopt -s nullglob
+          for dir in unity/Packages/com.lvn.*/; do
+            pkg="$(basename "$dir")"
+            # com.lvn.engine.shell → lvn-engine-shell
+            repo="${pkg#com.}"; repo="${repo//./-}"
             head=$(git subtree split -P "unity/Packages/$pkg")
             echo "$pkg → $repo @ $head"
             url="https://x-access-token:${TOKEN}@github.com/fomeanator/${repo}.git"
