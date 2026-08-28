@@ -60,7 +60,9 @@ namespace Lvn.Services
             long amount = Balances.TryGetValue(currency ?? "", out var b) ? b : 0;
             return Regen.TryGetValue(currency ?? "", out var r) && r.Cap > 0 && amount < r.Cap
                 ? amount + "/" + r.Cap
-                : amount.ToString("N0");
+                : Lvn.UI.LvnPriceTag.Amount(amount);   // через Ценник: сборка сервисов
+                  // видит интерфейс, но не модель контента — а «как показать
+                  // сумму» и есть работа Ценника.
         }
 
         /// <summary>Raised whenever the mirrored state changes.</summary>

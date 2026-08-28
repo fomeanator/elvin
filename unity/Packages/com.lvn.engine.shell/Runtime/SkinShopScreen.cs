@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -131,7 +132,7 @@ namespace Lvn.UI.Screens
             diamond.style.marginRight = 8;
             balancePill.Add(diamond);
 
-            _balanceAmount = new Label(_gold.ToString("N0"));
+            _balanceAmount = new Label(LvnPriceTag.Amount(_gold));
             _balanceAmount.style.color = LvnTokens.Gold;
             _balanceAmount.style.fontSize = 24;
             _balanceAmount.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -284,7 +285,7 @@ namespace Lvn.UI.Screens
         /// <summary>(Re)build every dynamic section from the current selection.</summary>
         public void Rebuild()
         {
-            _balanceAmount.text = _gold.ToString("N0");
+            _balanceAmount.text = LvnPriceTag.Amount(_gold);
             RebuildPreview();
             RebuildAvatars();
             RebuildTabs();
@@ -507,7 +508,7 @@ namespace Lvn.UI.Screens
                 glyph.style.marginRight = 6;
                 chip.Add(glyph);
 
-                var price = new Label(skin.Price.ToString("N0"));
+                var price = new Label(LvnPriceTag.Amount(skin.Price));
                 price.style.color = priceColor;
                 price.style.fontSize = 20;
                 price.style.unityFontStyleAndWeight = FontStyle.Bold;

@@ -413,27 +413,13 @@ namespace Lvn.UI.Screens
             return LvnWords.Of("dl.class_other", "Game files");
         }
 
-        // Запятая была вписана в код: `.Replace('.', ',')` — русская дробь
-        // насильно, в любой новелле. Разделитель — такое же слово языка, как
-        // «МБ», и живёт в словаре.
-        private static System.Globalization.NumberFormatInfo Decimals
-        {
-            get
-            {
-                var f = (System.Globalization.NumberFormatInfo)
-                    System.Globalization.CultureInfo.InvariantCulture.NumberFormat.Clone();
-                f.NumberDecimalSeparator = LvnWords.Of("unit.decimal", ".");
-                return f;
-            }
-        }
-
         private static string Mb(long bytes)
             => bytes >= 100L << 20 ? (bytes >> 20) + " " + LvnWords.Of("unit.mb", "MB")
-             : (bytes / 1048576f).ToString("0.#", Decimals) + " " + LvnWords.Of("unit.mb", "MB");
+             : LvnNumberFormat.Decimals(bytes / 1048576f) + " " + LvnWords.Of("unit.mb", "MB");
 
         private static string Speed(float bytesPerSec)
             => bytesPerSec >= 1048576f
-                ? (bytesPerSec / 1048576f).ToString("0.#", Decimals) + " " + LvnWords.Of("unit.mbs", "MB/s")
+                ? LvnNumberFormat.Decimals(bytesPerSec / 1048576f) + " " + LvnWords.Of("unit.mbs", "MB/s")
                 : Mathf.RoundToInt(bytesPerSec / 1024f) + " " + LvnWords.Of("unit.kbs", "KB/s");
 
         /// <summary>Что рисуется внутри кольца: стрелка вниз (загрузка),

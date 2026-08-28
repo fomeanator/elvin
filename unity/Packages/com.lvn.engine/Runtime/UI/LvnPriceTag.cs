@@ -80,8 +80,9 @@ namespace Lvn.UI
         }
 
         /// <summary>Сумма без валюты: «1 200». Разряды — чтобы четырёхзначные
-        /// цены читались с одного взгляда.</summary>
-        public static string Amount(long value) => value.ToString("N0");
+        /// цены читались с одного взгляда, а разделитель — из языка новеллы, а
+        /// не из настроек телефона (см. <see cref="LvnNumberFormat"/>).</summary>
+        public static string Amount(long value) => LvnNumberFormat.Groups(value);
 
         /// <summary>Сумма с названием валюты: «1 200 кристаллов». Без названия
         /// (автор его не дал) остаётся голое число — врать про валюту хуже,
