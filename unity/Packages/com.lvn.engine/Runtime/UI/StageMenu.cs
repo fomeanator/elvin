@@ -210,6 +210,27 @@ namespace Lvn.UI
 
 
         // Swap the scrim's content for a fresh panel.
+        /// <summary>
+        /// «Сохранить не вышло» — единственное, что игрок обязан узнать сразу.
+        ///
+        /// <para>Отказ записи молчал во всех трёх местах: быстрое сохранение
+        /// отбрасывало результат, а меню слотов просто не обновляло список —
+        /// «нажал и ничего не произошло» неотличимо от «сохранилось». Цена
+        /// молчания здесь выше, чем у пропавшей картинки: игрок продолжает
+        /// играть, считая прогресс записанным.</para>
+        ///
+        /// <para>Слово авторское (ключ <c>save_failed</c>), умолчание
+        /// английское — как и вся оболочка движка.</para>
+        /// </summary>
+        private void SaveFailedNotice()
+        {
+            var p = Panel(L("save", "Save"));
+            var msg = Text(L("save_failed", "Could not save — storage refused the write."), 26, FontStyle.Normal);
+            msg.style.marginBottom = 12;
+            p.Add(msg);
+            p.Add(Item(L("close", "Close"), Close));
+        }
+
         private VisualElement Panel(string title)
         {
             DestroyThumbs();
@@ -260,8 +281,12 @@ namespace Lvn.UI
             if (!Hidden("quick_save"))
                 sheet.Add(Item(L("quick_save", "Quick save"), () =>
                 {
-                    _stage.SaveToSlot(QuickSlot);
-                    Close();
+                    // ОТКАЗ СОХРАНЕНИЯ ВИДЕН. Результат раньше отбрасывался:
+                    // игрок нажимал «быстрое сохранение», меню закрывалось, и
+                    // он был уверен, что записался. Хранилище могло отказать
+                    // (нет места, запрет записи) — и прохождение терялось молча.
+                    if (_stage.SaveToSlot(QuickSlot)) Close();
+                    else SaveFailedNotice();
                 }));
             if (!Hidden("save"))
                 sheet.Add(Item(L("save", "Save"), () => ShowSlots(saveMode: true)));

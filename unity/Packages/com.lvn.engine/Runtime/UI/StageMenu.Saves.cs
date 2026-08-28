@@ -39,7 +39,10 @@ namespace Lvn.UI
                     scroll.Add(SlotRow(label, slot, () =>
                     {
                         if (occupied) ConfirmOverwrite(label, name);
-                        else if (_stage.SaveToSlot(name)) ShowSlots(true); // refresh with the new stamp
+                        // Успех — обновляем список; отказ хранилища сообщаем:
+                        // «нажал и ничего не произошло» неотличимо от «сохранено».
+                        else if (_stage.SaveToSlot(name)) ShowSlots(true);
+                        else SaveFailedNotice();
                     }, thumbSlot: name));
                 }
                 else
@@ -58,6 +61,7 @@ namespace Lvn.UI
             p.Add(Item(L("overwrite", "Overwrite"), () =>
             {
                 if (_stage.SaveToSlot(slotName)) ShowSlots(true);
+                else SaveFailedNotice();
             }));
             p.Add(Item(L("cancel", "Cancel"), () => ShowSlots(true)));
         }
@@ -66,7 +70,25 @@ namespace Lvn.UI
         {
             // Same-chapter slots restore in place; another chapter's slot routes
             // through the host (fetch that chapter's script, play, restore).
+            //
+            // Отказ был неотличим от «не нажалось»: меню оставалось открытым и
+            // молчало. А причины настоящие — снимок пуст, глава сейва не
+            // открывается этим хостом, скрипт не доехал; игрок же видел только
+            // кнопку, которая «не работает».
             if (await _stage.LoadFromSlotAsync(slot)) Close();
+            else LoadFailedNotice();
+        }
+
+        /// <summary>«Загрузить не вышло» — вторая половина той же честности, что
+        /// и у отказа записи: игрок должен отличать «не получилось» от «не
+        /// нажалось».</summary>
+        private void LoadFailedNotice()
+        {
+            var p = Panel(L("load", "Load"));
+            var msg = Text(L("load_failed", "Could not load this save."), 26, FontStyle.Normal);
+            msg.style.marginBottom = 12;
+            p.Add(msg);
+            p.Add(Item(L("close", "Close"), () => ShowSlots(false)));
         }
 
         private VisualElement SlotRow(string label, LvnSaveSlot slot, Action onClick, bool enabled = true,
