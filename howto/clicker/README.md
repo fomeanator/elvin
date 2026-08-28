@@ -124,7 +124,7 @@ cd tools/lvnconv && go build -o /tmp/lvnconv .
 - **New upgrades.** Add a resource (`workers = 0`) and a pair of labels modeled on `:buy_oven`/`:do_oven` — a rising price via `floor(cost * k)`.
 - **Prestige / reset.** On hitting a threshold, zero out `cookies`/`ovens` but remember the multiplier in a separate variable (`prestige = prestige + 1`) and factor it into income crediting.
 - **Multiple resources.** Introduce `flour`, `milk`; an oven costs both cookies and flour — extend the `if` check in the purchase handler.
-- **Achievements.** At the top of `:loop`, check thresholds — `if cookies >= 100 -> ach_100` — show a congratulation via `say` or a reactive `text` line and return with `-> loop` (remember a flag so it does not fire twice). The `hint` command is not suitable for this — at runtime it is a no-op.
+- **Achievements.** At the top of `:loop`, check thresholds — `if cookies >= 100 -> ach_100` — show a congratulation via `say`, a reactive `text` line, or a `hint` card, and return with `-> loop` (remember a flag so it does not fire twice). `hint text="100 cookies!" duration=4` is the least intrusive of the three: it draws a popup at the top of the scene and hides itself. (Do not confuse it with the `hint=` FIELD on a choice option — that one is ignored; see CAPABILITIES §3.)
 - **Balance for prestige.** Move the price growth factor into a variable and tune the economy without touching the loop structure.
 
 ## Next

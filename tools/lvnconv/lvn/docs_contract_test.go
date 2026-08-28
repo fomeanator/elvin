@@ -400,3 +400,82 @@ func TestDocumentedConstructsHaveAWitnessExample(t *testing.T) {
 			"compiled choice carries it — %s", capsDocPath, f, fix)
 	}
 }
+
+// ЖАНРОВОЕ РУКОВОДСТВО НЕ СПОРИТ С ГЛАВНЫМ СПРАВОЧНИКОМ.
+//
+// CAPABILITIES.md пинится тестами выше, а вот howto/<жанр>/README.md писались
+// по ходу и стареют молча. Живой случай: два руководства учили автора, что
+// команда `hint` — заглушка («at runtime it is a no-op»), и предлагали обходить
+// её через `say`. На деле она давно рисует карточку с автоскрытием, и то же
+// самое написано в CAPABILITIES строкой «✅ `hint` is rendered». Путаница
+// пошла от ТЁЗКИ: поле `hint=` у опции выбора действительно игнорируется.
+//
+// Цена ошибки выше обычной: по этим руководствам учится ИИ-агент автора, и
+// «команда не работает» он принимает как факт — навсегда переставая её
+// применять.
+//
+// Проверка узкая и потому надёжная: если жанровый README называет команду
+// нерабочей, а справочник её так не называет — расхождение внутри документации.
+func TestGenreGuidesDoNotContradictTheCapabilities(t *testing.T) {
+	root := capsRepoRoot()
+	caps, err := os.ReadFile(filepath.Join(root, capsDocPath))
+	if err != nil {
+		t.Fatalf("%s: %v", capsDocPath, err)
+	}
+	capsText := string(caps)
+
+	// «`cmd` … no-op» / «`cmd` … does not render» в пределах одного предложения.
+	deadClaim := regexp.MustCompile("`([a-z_]+)`[^.\n]{0,160}?(no-op|does not render|is not implemented)")
+
+	var clashes []string
+	err = filepath.Walk(filepath.Join(root, "howto"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		if strings.HasSuffix(path, capsDocPath) || strings.Contains(path, "CAPABILITIES") {
+			return nil // сам справочник пинится отдельно и вправе объявлять заглушки
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		for _, m := range deadClaim.FindAllStringSubmatch(string(body), -1) {
+			op := m[1]
+			if !KnownOps[op] {
+				continue // не команда языка — обычная проза
+			}
+			// Справочник согласен, что она мертва? Тогда спора нет. Согласие
+			// ищем В ТОЙ ЖЕ СТРОКЕ, где справочник называет команду: иначе
+			// «silent no-op» про соседнюю команду гасит проверку для всех —
+			// на этом первая версия теста и промолчала.
+			agrees := false
+			for _, line := range strings.Split(capsText, "\n") {
+				if !strings.Contains(line, "`"+op+"`") {
+					continue
+				}
+				if strings.Contains(line, "no-op") || strings.Contains(line, "does not render") ||
+					strings.Contains(line, "is not implemented") {
+					agrees = true
+					break
+				}
+			}
+			if agrees {
+				continue
+			}
+			rel, _ := filepath.Rel(root, path)
+			clashes = append(clashes, fmt.Sprintf("%s: называет %q нерабочей, а CAPABILITIES — нет", filepath.ToSlash(rel), op))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk howto: %v", err)
+	}
+	sort.Strings(clashes)
+
+	if len(clashes) > 0 {
+		t.Fatalf("руководство спорит со справочником (%d):\n  %s\n\n"+
+			"По этим файлам учится ИИ-агент автора: «команда не работает» он принимает как факт. "+
+			"Либо руководство отстало — поправьте его, либо команда правда мертва — тогда скажите это и в CAPABILITIES.",
+			len(clashes), strings.Join(clashes, "\n  "))
+	}
+}
