@@ -79,7 +79,7 @@ namespace Lvn.UI.Screens
             Add(sheet);
             AdoptSheet(sheet); // единый враппер попапа: стекло, окантовка, подъезд
 
-            var title = new Label(_cfg.title ?? "Settings");
+            var title = new Label(_cfg.title ?? LvnWords.Of("settings.title", "Settings"));
             LvnChrome.Heading(title);
             title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = 36;
@@ -92,7 +92,7 @@ namespace Lvn.UI.Screens
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 
-            var close = new Button(Close) { text = _cfg.close_text ?? "Close" };
+            var close = new Button(Close) { text = _cfg.close_text ?? LvnWords.Of("common.close", "Close") };
             close.style.fontSize = 26;
             close.style.marginTop = 12;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
