@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// остаётся висеть на обещании, которое никто уже не выполнит, — экран
     /// закрыт, а вызвавший его код ждёт вечно.</para>
     /// </summary>
-    public abstract class LvnOverlayScreen : VisualElement
+    public abstract class LvnOverlayScreen : VisualElement, Lvn.UI.ILvnRedress
     {
         // Ожидание закрытия — через LvnCloseGate: связка «создать, подписать
         // отмену, дождаться, отпустить» стояла тут, в галерее и в гардеробе, и
@@ -104,6 +104,18 @@ namespace Lvn.UI.Screens
         /// Список экран пересобирает сам; шапку он строит один раз, и без этого
         /// она остаётся на прежнем языке — а её игрок видит первой.</summary>
         protected virtual void RedressChrome() { }
+
+        /// <summary>
+        /// ПЕРЕОДЕТЬСЯ. Объявление жило у КАЖДОГО наследника отдельно — семь
+        /// экранов из восьми написали <c>ILvnRedress</c> руками, а восьмой
+        /// (гардеробная вкладка) забыл, и его подписи не меняли язык, пока
+        /// экран не пересоздадут. Правило, которое надо помнить, помнят не все;
+        /// поэтому теперь оно у общего предка, и забыть его нельзя.
+        ///
+        /// <para>По умолчанию — перечитать шапку. Экран со списком добавляет к
+        /// этому пересборку своего содержимого.</para>
+        /// </summary>
+        public virtual void Redress() => RedressChrome();
 
         protected VisualElement Sheet(float sideInset = 5f, float topInset = 6f, Color? tint = null)
         {

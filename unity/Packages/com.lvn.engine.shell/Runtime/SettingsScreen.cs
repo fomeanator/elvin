@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// <see cref="LvnWebView"/> seam; "Sign in" is delegated to the host via
     /// <see cref="OnSignIn"/>.
     /// </summary>
-    public sealed partial class SettingsScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
+    public sealed partial class SettingsScreen : LvnOverlayScreen
     {
         /// <summary>Host hook for the "Sign in" button — route to the auth screen
         /// / platform sign-in. Null hides the button.</summary>
@@ -119,7 +119,7 @@ namespace Lvn.UI.Screens
         // выигрыш — одно движение пальцем на четыре экрана текста. Прокрутка
         // честнее: она не врёт о том, где игрок находится.
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public void Redress() { RedressChrome(); Rebuild(); }
+        public override void Redress() { RedressChrome(); Rebuild(); }
 
         private Label _titleLabel;
         private Button _closeButton;

@@ -64,10 +64,22 @@ namespace Lvn.UI
 
             // Что уже стоит, по ключам.
             Dictionary<string, VisualElement> mine = null;
+            int strangers = 0;
             foreach (var child in host.Children())
             {
                 var name = child.name;
-                if (string.IsNullOrEmpty(name) || !name.StartsWith(KeyPrefix, StringComparison.Ordinal)) continue;
+                if (string.IsNullOrEmpty(name) || !name.StartsWith(KeyPrefix, StringComparison.Ordinal))
+                {
+                    // ЧУЖОЙ ЖИЛЕЦ. Монтажёр убирает только свои элементы — это
+                    // нарочно: в теле могут стоять служебные соседи, и сносить
+                    // их он не вправе. Но если чужой лежит СРЕДИ карточек, то
+                    // тело наполняют двумя способами разом, и второй способ
+                    // невидим для сверки: его элементы не уйдут никогда.
+                    // Именно так украшения оставались в ленте причёсок
+                    // (гардероб, витрина «Моё» клала карточки напрямую).
+                    strangers++;
+                    continue;
+                }
                 (mine ??= new Dictionary<string, VisualElement>())[name] = child;
             }
 
@@ -104,6 +116,11 @@ namespace Lvn.UI
                 }
                 at++;
             }
+
+            if (strangers > 0 && kept.Count > 0)
+                LvnLog.Warn($"[lvn-montage] в теле {strangers} элемент(ов) не от монтажёра рядом с " +
+                                $"{kept.Count} карточками: тело наполняют двумя способами, и чужие " +
+                                "не уйдут при следующей сверке — наполняйте через Sync");
 
             if (mine == null) return;
             foreach (var pair in mine)

@@ -675,7 +675,14 @@ namespace Lvn.UI.Screens
             var item = CurrentItem();
             if (item == null) return;
             var name = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
-            string prefix = null;
+            // ПЕРВЫМ — ТО, ЧТО ВЫБРАНО В ЛЕНТЕ. Подпись собиралась наоборот
+            // («Шатенка: Голливудские волны»), и читалась как «предмет:
+            // уточнение» — то есть ровно шиворот-навыворот: начиналась словом,
+            // которого в ленте нет вовсе, потому что цвет волос выбирают
+            // свотчами под ней (живой репорт Ильи 29.08). Уточнения идут
+            // после, через точку-разделитель, а не через двоеточие: двоеточие
+            // обещает, что слева — заголовок.
+            string extra = null;
             foreach (var sub in SubAxesOf(_tab))
             {
                 var v = CurrentValueOf(sub);
@@ -683,9 +690,9 @@ namespace Lvn.UI.Screens
                 var n = NameOfValue(sub, v);
                 if (string.IsNullOrEmpty(n)) continue;
                 n = Lvn.Content.LvnWords.Name("skin", v, n);
-                prefix = prefix == null ? n : prefix + ", " + n;
+                extra = extra == null ? n : extra + ", " + n;
             }
-            _itemName.text = prefix == null ? name : prefix + ": " + name;
+            _itemName.text = extra == null ? name : name + " · " + extra;
         }
 
         // Стрелки листают КАРУСЕЛЬ раздела; на вкладке «Моё» каруселью служит

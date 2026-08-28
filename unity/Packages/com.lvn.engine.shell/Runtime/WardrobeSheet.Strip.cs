@@ -178,14 +178,20 @@ namespace Lvn.UI.Screens
             if (_strip == null) return;
             if (_tab == AllTab)
             {
-                // Сборная витрина собирается заново: её состав — это покупки
-                // всех осей разом, и устойчивого ключа у пары (ось, предмет)
-                // между показами нет.
-                _strip.Clear();
-                _stripCards.Clear();
                 // Сборная витрина: пары (ось, предмет) — тап примеряет в СВОЮ
                 // ось; подсветка по надетому каждой оси.
-                int shown = 0;
+                //
+                // ЧЕРЕЗ ТОГО ЖЕ МОНТАЖЁРА, что и обычная лента, и это не
+                // причёсывание кода. Раньше витрина чистила ленту сама и
+                // клала карточки напрямую — без монтажной метки. Монтажёр
+                // убирает только СВОИ элементы (чужих он не трогает нарочно),
+                // поэтому при уходе с «Моё» на любой раздел его карточки
+                // оставались в ленте, а монтажёр досыпал сверху свои: игрок
+                // открывал «Причёску» и видел там украшения (живой репорт
+                // Ильи 29.08 со скриншотом — «Мак» и «Орхидея» среди причёсок).
+                // Одна лента, наполняемая двумя способами, обязана была
+                // разъехаться — вопрос был только когда.
+                var all = new List<(string axis, LvnWardrobeItem item)>();
                 if (_def?.wardrobe != null)
                     foreach (var kv in _def.wardrobe)
                     {
@@ -200,13 +206,21 @@ namespace Lvn.UI.Screens
                             // коллекцию покупок.
                             if (it.value == LvnWardrobe.NoneValue || it.price <= 0
                                 || !IsOwnedIn(kv.Key, it)) continue;
-                            var card = StripCard(kv.Key, -1, it);
-                            _strip.Add(card);
-                            _stripCards.Add(card);
-                            if (animate) EnterSoft(card, shown);
-                            shown++;
+                            all.Add((kv.Key, it));
                         }
                     }
+                int shown = all.Count;
+                Lvn.UI.LvnMontage.Sync(_strip.contentContainer, all,
+                    key: p => p.axis + "/" + p.item.value,
+                    create: p =>
+                    {
+                        var card = StripCard(p.axis, -1, p.item);
+                        if (animate) EnterSoft(card, all.FindIndex(x => x.axis == p.axis && x.item == p.item));
+                        return card;
+                    },
+                    update: (el, p) => RefreshCard(el, p.axis, p.item));
+                _stripCards.Clear();
+                foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
                 _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 // Подпись отдана основе (RefreshLabel ниже); своё слово витрина
                 // говорит, только когда основы нет и показывать нечего.

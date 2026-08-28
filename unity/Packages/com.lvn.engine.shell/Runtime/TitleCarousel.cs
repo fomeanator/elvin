@@ -405,7 +405,11 @@ namespace Lvn.UI.Screens
                 cont.style.backgroundColor = _playBg;
                 LvnChrome.Round(cont, 10);
 
-                var contTitle = new Label((LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue"))
+                // Через привязку: подпись склеена из СЛОВА и номера главы, и
+                // без неё «Продолжить» оставалось на прежнем языке (номер-то
+                // менялся) — ровно тот случай, когда половина строки переведена.
+                var contTitle = Lvn.UI.LvnRedress.Bind(new Label(),
+                    () => LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                         + " — " + ChapterLabel(autoCh));
                 contTitle.pickingMode = PickingMode.Ignore;
                 contTitle.style.fontSize = 21;

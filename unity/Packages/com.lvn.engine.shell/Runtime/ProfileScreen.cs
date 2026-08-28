@@ -18,7 +18,7 @@ namespace Lvn.UI.Screens
     /// fallback so the screen renders standalone; a host wires live data by
     /// setting the public fields and calling <see cref="Rebuild"/>.
     /// </summary>
-    public sealed partial class ProfileScreen : LvnOverlayScreen, Lvn.UI.ILvnRedress
+    public sealed partial class ProfileScreen : LvnOverlayScreen
     {
         /// <summary>Сколько кнопка удаления остаётся «взведённой» и ждёт второго
         /// нажатия. Дольше прочих ответов интерфейса намеренно: человек должен
@@ -170,7 +170,7 @@ namespace Lvn.UI.Screens
         /// <summary>Tear down and rebuild the whole body from the current model.
         /// Cheap enough to call after mutating any of the public fields.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public void Redress() { RedressChrome(); Rebuild(); }
+        public override void Redress() { RedressChrome(); Rebuild(); }
 
         public void Rebuild()
         {
