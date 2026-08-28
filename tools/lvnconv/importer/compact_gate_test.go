@@ -18,7 +18,6 @@ package importer
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -60,11 +59,9 @@ func asArticy(d *lvns.Doc) *articy.Doc {
 // compiles to must not move by one byte.
 func TestGatedExamplesCompactionIsLossless(t *testing.T) {
 	for _, f := range gatedExamples(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatalf("%s: %v", f, err)
-		}
-		doc, err := lvns.Convert(string(src))
+		// Файлом, а не текстом: см. lvn/docs_contract_test.go — include
+		// резолвится относительно ПУТИ, и текстовая сборка его не переживает.
+		doc, err := lvns.ConvertFile(f)
 		if err != nil {
 			t.Fatalf("%s: gated example does not compile: %v", f, err)
 		}
@@ -95,11 +92,9 @@ func TestGatedExamplesCompactionIsLossless(t *testing.T) {
 // an animation's structured payload had no spelling in the flat k=v form.
 func TestGatedExamplesDecompileRecompiles(t *testing.T) {
 	for _, f := range gatedExamples(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatalf("%s: %v", f, err)
-		}
-		doc, err := lvns.Convert(string(src))
+		// Файлом, а не текстом: см. lvn/docs_contract_test.go — include
+		// резолвится относительно ПУТИ, и текстовая сборка его не переживает.
+		doc, err := lvns.ConvertFile(f)
 		if err != nil {
 			continue
 		}
@@ -148,11 +143,9 @@ func storyOps(s []lvns.Cmd) []lvns.Cmd {
 func TestCompactionActuallyCompacts(t *testing.T) {
 	var raw, compact int
 	for _, f := range gatedExamples(t) {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		doc, err := lvns.Convert(string(src))
+		// Файлом, а не текстом: см. lvn/docs_contract_test.go — include
+		// резолвится относительно ПУТИ, и текстовая сборка его не переживает.
+		doc, err := lvns.ConvertFile(f)
 		if err != nil {
 			continue
 		}

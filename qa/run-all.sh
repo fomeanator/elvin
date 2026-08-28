@@ -96,7 +96,18 @@ try:
 except Exception as e:
     print(f"  {sys.argv[2]}: нет результатов ({e})"); sys.exit(1)
 total, passed, failed = r.get('total'), r.get('passed'), r.get('failed')
-print(f"  {sys.argv[2]}: {passed}/{total} passed, {failed} failed")
+# ПРОПУСК — НЕ УСПЕХ, а отсутствие ответа. Тест, который «зелёный» только
+# потому, что раскладки не хватило (нет Unity-пакетов, нет node, нет
+# server/content), сообщает ровно ноль — а выглядит как проверенный. Считаем
+# и НАЗЫВАЕМ их: пока их число видно, никто не примет тишину за подтверждение.
+skipped = [tc for tc in r.iter('test-case') if tc.get('result') == 'Skipped']
+tail = f", {len(skipped)} skipped" if skipped else ""
+print(f"  {sys.argv[2]}: {passed}/{total} passed, {failed} failed{tail}")
+for tc in skipped[:10]:
+    why = (tc.findtext('reason/message') or '').strip().splitlines()
+    print("    skipped:", tc.get('name'), "—", (why[0] if why else "причина не названа")[:80])
+if len(skipped) > 10:
+    print(f"    … и ещё {len(skipped) - 10}")
 for tc in r.iter('test-case'):
     if tc.get('result') not in (None, 'Passed', 'Skipped'):
         print("   ", tc.get('result'), tc.get('fullname'))

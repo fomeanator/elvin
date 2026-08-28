@@ -287,7 +287,11 @@ func capsCollectWitnesses(t *testing.T) capsWitness {
 			}
 			code = append(code, line)
 		}
-		doc, err := lvns.Convert(string(src))
+		// ФАЙЛОМ, а не текстом: у ConvertFile есть путь, относительно которого
+		// резолвятся include. Гейт, компилирующий текст, проверяет не то, что
+		// произойдёт при сборке, — и первый же пример с include ломает его,
+		// хотя сам пример совершенно законен (поймано на живой правке).
+		doc, err := lvns.ConvertFile(f)
 		if err != nil {
 			// The compile gate in CI covers this; failing here too keeps the
 			// witness set from silently shrinking.
@@ -365,6 +369,40 @@ func TestDocumentedConstructsHaveAWitnessExample(t *testing.T) {
 		}
 		t.Errorf("op %q is documented (%s:%d) but no gated example compiles into it — %s",
 			op, capsDocPath, d.ops[op], fix)
+	}
+
+	// ПРЕФИКСНЫЕ КОМАНДЫ — тоже конструкции, и свидетель им нужен так же.
+	//
+	// Правило выше проверяет ОПЕРАЦИИ, а `voice <url>` операцией не становится:
+	// он приклеивается полем к следующей реплике. Из-за этого озвучка —
+	// описанная в CAPABILITIES, реализованная в обоих компиляторах и в плеере —
+	// не имела НИ ОДНОГО компилируемого примера, и гейт молчал: смотрел не туда.
+	//
+	// Свидетелем считается поле в собранном документе: так проверяется вся
+	// цепочка (синтаксис → компилятор → поле команды), а не наличие слова в
+	// исходнике.
+	for _, field := range []string{"voice"} {
+		if !w.tokens[field] {
+			t.Errorf("конструкция %q документирована, но ни один пример в неё не компилируется — %s",
+				field, fix)
+		}
+	}
+
+	// `ext <op> k=v` — ЕДИНСТВЕННАЯ дверь к операции, которой у движка нет:
+	// игра регистрирует её сама. В документе от неё не остаётся ни слова «ext»,
+	// ни отдельного поля — компилируется она в команду с ИМЕНЕМ ХОСТ-ОПЕРАЦИИ,
+	// поэтому проверять надо не токен, а факт: есть ли среди собранных команд
+	// хоть одна, чей op не знает движок. Без такой проверки шов, на котором
+	// держится расширяемость языка, оставался без единого примера.
+	extWitness := false
+	for op := range w.ops {
+		if !KnownOps[op] {
+			extWitness = true
+			break
+		}
+	}
+	if !extWitness {
+		t.Errorf("`ext <op>` документирован как escape hatch, но ни один пример им не пользуется — %s", fix)
 	}
 
 	var claimed []string

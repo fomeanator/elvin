@@ -233,6 +233,29 @@ Checked against the runtime:
 | `orient=true` (rotate along the path tangent) | ✅ yes (for `move`; respects easing and spline) |
 | `defanim` / `play` (named reusable animations) | ✅ yes (pure compile-time expansion: `defanim` emits nothing, `play` stamps the stored parameters into a normal `anim` — the runtime only ever sees `anim`) |
 
+## Splitting a script across files (`include`)
+
+`include "<path>"` pastes another `.lvns` **at compile time**: labels, functions
+and prose from the included file become part of this one, and the runtime never
+learns a file was involved. Paths resolve relative to the **including** file;
+a path starting with `@` names a package (`include "@scope/pkg/file.lvns"`),
+vendored under `lvns_packages/` by `lvnconv deps`.
+
+```
+scene chapter-2
+include "common/endings.lvns"      // shared labels: :bad_end, :good_end
+Аня: Начало главы.
+-> good_end
+```
+
+Use it for what repeats across chapters — endings, a recurring minigame, a
+character's stock reactions. What it is NOT: a runtime import. The compiled
+`.lvn` is one flat document, so a cycle of includes is a compile error, and an
+included file cannot be swapped without recompiling.
+
+Packages (publishing a reusable `.lvns` set, `lvns.package.json`, the lockfile)
+are described in `docs/packages.md`.
+
 **Quoting rule (a common mistake):** values with **spaces** in quotes
 (`keys="…"`, `path="…"`) require the **legacy form** `id=`/`prop=`. A bracket list
 `[…]` and the one-liner `to=` also work in terse form. A malformed `anim`/`move` is
