@@ -540,7 +540,10 @@ namespace Lvn.UI.Screens
                     on.style.display = DisplayStyle.None;
                     b.Add(off); b.Add(on);
                 }
-                var lbl = new Label(slot?.name ?? axis) { pickingMode = PickingMode.Ignore };
+                // Подпись оси — из словаря: «Украшения» и «Причёска» в
+                // английском интерфейсе выглядят как недоделанный перевод.
+                var lbl = new Label(Lvn.Content.LvnWords.Name("axis", axis, slot?.name))
+                    { pickingMode = PickingMode.Ignore };
                 lbl.name = "ax-label";
                 lbl.style.fontSize = 22;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
@@ -645,14 +648,18 @@ namespace Lvn.UI.Screens
                 var slot = _def.wardrobe[basis];
                 var val = CurrentValueOf(basis);
                 var nm = NameOfValue(basis, val);
+                // Строка выбора собирается из ДВУХ подписей — оси и значения, — и
+                // обе идут через словарь: иначе «Основа: Запад» остаётся русским
+                // посреди английского гардероба.
+                var axisName = Lvn.Content.LvnWords.Name("axis", basis, slot?.name);
                 _itemName.text = string.IsNullOrEmpty(nm)
-                    ? (slot?.name ?? basis)
-                    : (slot?.name ?? basis) + ": " + nm;
+                    ? axisName
+                    : axisName + ": " + Lvn.Content.LvnWords.Name("skin", val, nm);
                 return;
             }
             var item = CurrentItem();
             if (item == null) return;
-            var name = item.name ?? item.value;
+            var name = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
             string prefix = null;
             foreach (var sub in SubAxesOf(_tab))
             {
@@ -660,6 +667,7 @@ namespace Lvn.UI.Screens
                 if (string.IsNullOrEmpty(v)) continue;
                 var n = NameOfValue(sub, v);
                 if (string.IsNullOrEmpty(n)) continue;
+                n = Lvn.Content.LvnWords.Name("skin", v, n);
                 prefix = prefix == null ? n : prefix + ", " + n;
             }
             _itemName.text = prefix == null ? name : prefix + ": " + name;

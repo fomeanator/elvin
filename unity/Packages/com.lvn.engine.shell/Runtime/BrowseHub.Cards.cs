@@ -158,7 +158,10 @@ namespace Lvn.UI.Screens
             name.style.overflow = Overflow.Hidden;
             caption.Add(name);
 
-            string sub = t.subtitle ?? t.card?.description;
+            // Подзаголовок («Сезон 1 · Глава 0 — Вербовка») — тоже данные:
+            // переведён — берём перевод, нет — читаем латиницей, чтобы он не
+            // висел кириллицей посреди английской карточки.
+            string sub = Lvn.Content.LvnWords.Name("subtitle", t.id, t.subtitle ?? t.card?.description);
             if (!string.IsNullOrEmpty(sub))
             {
                 var subLbl = new Label(sub);
@@ -232,7 +235,7 @@ namespace Lvn.UI.Screens
             else if (t.cost != null && t.cost.amount > 0) top.Add(CostChip(t.cost));
             col.Add(top);
 
-            var desc = new Label(t.card?.description ?? t.subtitle ?? "");
+            var desc = new Label(Lvn.Content.LvnWords.Name("subtitle", t.id, t.card?.description ?? t.subtitle ?? ""));
             desc.style.color = _dim; desc.style.fontSize = 24; desc.style.marginTop = 5;
             desc.style.whiteSpace = WhiteSpace.Normal;
             desc.style.overflow = Overflow.Hidden;
