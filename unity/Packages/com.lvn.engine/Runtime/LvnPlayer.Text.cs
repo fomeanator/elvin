@@ -27,10 +27,34 @@ namespace Lvn
             return Lookup(id) ?? id;
         }
 
-        // Speaker display names resolve through the same catalog (keyed by the
-        // source name), so a translated cast renders without touching the script.
+        /// <summary>
+        /// КАК ЗОВУТ ГОВОРЯЩЕГО НА ЯЗЫКЕ ИГРОКА — второй ответ на тот же
+        /// вопрос, если каталог главы промолчал.
+        ///
+        /// <para>Имя героини живёт в двух местах и приходит к игроку двумя
+        /// путями. В сцене «who» — авторская строка, и её переводит каталог
+        /// главы (ключ — сама строка). В оболочке то же имя берётся из
+        /// манифеста по идентификатору и переводится словарём
+        /// (<c>actor.victoria</c>). Пути независимы, и расходятся они
+        /// постоянно: в живом контенте Time Romance имена персонажей переведены
+        /// в словаре оболочки и НЕ переведены в каталогах глав — 52 случая из
+        /// 84 проверенных. Игрок с английским интерфейсом видел «Victoria» в
+        /// гардеробе и «Виктория» над репликой той же героини.</para>
+        ///
+        /// <para>Ядро словаря оболочки не видит (границы сборок: он в Content,
+        /// а Content зависит от ядра, не наоборот), поэтому здесь шов: кто
+        /// знает имена — тот их и подставляет. Не подставил никто — остаётся
+        /// авторская строка, как было.</para>
+        /// </summary>
+        public static Func<string, string> SpeakerNames;
+
         private string LocalizedWho(string who)
-            => who == null ? null : Lookup(who) ?? who;
+        {
+            if (who == null) return null;
+            var byCatalog = Lookup(who);
+            if (byCatalog != null) return byCatalog;   // автор перевёл строку — она главнее
+            return SpeakerNames?.Invoke(who) ?? who;
+        }
 
         // Old imported stories encode system hints as ordinary dialogue lines
         // spoken by "Подсказка". Keep that content playable, but present it
