@@ -50,6 +50,7 @@ func TestPersonalDataIsForgettable(t *testing.T) {
 		"LvnWallet.cs":          "офлайн-зеркало кошелька: стирается в LvnBackend вместе с учёткой (ForgetLocal)",
 		"LvnAnalytics.cs":       "очередь недоставленных событий: уходит с ближайшей отправкой, как логи",
 		"LvnAttribution.cs":     "откуда пришла УСТАНОВКА: свойство устройства и кампании, а не игрока",
+		"LvnOutbox.cs":          "очередь на отправку: служебный буфер владельца, забывается вместе с ним",
 	}
 
 	writeRe := regexp.MustCompile(`LvnKeep\.(Put|Jot)\(`)
