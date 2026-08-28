@@ -42,10 +42,7 @@ namespace Lvn.UI.Screens
                 cont.style.paddingTop = 18;
                 cont.style.paddingBottom = 18;
                 cont.style.unityFontStyleAndWeight = FontStyle.Bold;
-                cont.style.color = LvnTokens.OnAccent;
-                cont.style.backgroundColor = LvnTokens.Accent;
-                LvnChrome.ClearBorder(cont);
-                LvnChrome.Round(cont, LvnTokens.RadiusSm);
+                LvnStyler.Primary(cont, LvnTokens.RadiusSm);
                 section.Add(cont);
             }
 
@@ -113,10 +110,7 @@ namespace Lvn.UI.Screens
             load.style.paddingBottom = 10;
             load.style.paddingLeft = 18;
             load.style.paddingRight = 18;
-            load.style.color = LvnTokens.Text;
-            load.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(load);
-            LvnChrome.Round(load, LvnTokens.RadiusSm);
+            LvnStyler.Quiet(load, LvnTokens.RadiusSm);
             row.Add(load);
 
             return row;

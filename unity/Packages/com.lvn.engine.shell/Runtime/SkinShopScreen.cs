@@ -199,10 +199,7 @@ namespace Lvn.UI.Screens
             close.style.marginTop = 12;
             close.style.paddingTop = 12;
             close.style.paddingBottom = 12;
-            close.style.color = LvnTokens.Text;
-            close.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(close);
-            LvnChrome.Round(close, LvnTokens.RadiusSm);
+            LvnStyler.Quiet(close, LvnTokens.RadiusSm);
             sheet.Add(close);
 
             SeedDemo();
@@ -303,7 +300,7 @@ namespace Lvn.UI.Screens
             _previewWearing.text = worn != null
                 ? LvnWords.Of("skinshop.worn", "worn: {0}", worn)
                 : LvnWords.Of("skinshop.worn_none", "nothing worn");
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_previewImage, ch.Preview, _assets), "AssignBg");
+            ScreenUi.SetBg(_previewImage, ch.Preview, _assets);
         }
 
         // ── character selector ──────────────────────────────────────────────
@@ -328,7 +325,7 @@ namespace Lvn.UI.Screens
                 ScreenUi.Stretch(img);
                 LvnPicture.Fit(img);
                 chip.Add(img);
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(img, _chars[idx].Preview, _assets), "AssignBg");
+                ScreenUi.SetBg(img, _chars[idx].Preview, _assets);
                 chip.AddManipulator(new Clickable(() =>
                 {
                     if (_char == idx) return;
@@ -405,7 +402,7 @@ namespace Lvn.UI.Screens
             thumb.style.backgroundColor = LvnTokens.Bg;
             LvnPicture.Fit(thumb);
             thumbWrap.Add(thumb);
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(thumb, skin.Thumb, _assets), "AssignBg");
+            ScreenUi.SetBg(thumb, skin.Thumb, _assets);
 
             // Лента «Надето» появляется и исчезает при обновлении — держим её
             // место готовым, чтобы не трогать миниатюру под ней.
@@ -478,10 +475,7 @@ namespace Lvn.UI.Screens
                 equip.style.flexGrow = 1;
                 equip.style.fontSize = 20;
                 equip.style.paddingTop = 8; equip.style.paddingBottom = 8;
-                equip.style.color = LvnTokens.Text;
-                equip.style.backgroundColor = LvnTokens.Faint;
-                LvnChrome.ClearBorder(equip);
-                LvnChrome.Round(equip, LvnTokens.RadiusSm);
+                LvnStyler.Quiet(equip, LvnTokens.RadiusSm);
                 row.Add(equip);
             }
             else // for sale

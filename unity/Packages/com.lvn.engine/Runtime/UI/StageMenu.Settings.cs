@@ -72,10 +72,7 @@ namespace Lvn.UI
             btn.style.height = 48;
             btn.style.fontSize = 22;
             btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
-            btn.style.color = LvnTokens.OnAccent;
-            btn.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.ClearBorder(btn);
-            LvnChrome.Round(btn, 14f);
+            LvnStyler.Primary(btn, 14f);
             if (_theme.Font != null) btn.style.unityFont = new StyleFont(_theme.Font);
             btn.clicked += () =>
             {

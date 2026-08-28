@@ -270,7 +270,7 @@ namespace Lvn.UI.Screens
 
             if (entry.Unlocked)
             {
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(art, entry.Url, _assets), "AssignBg");
+                ScreenUi.SetBg(art, entry.Url, _assets);
                 // Caption strip along the bottom.
                 var cap = new VisualElement();
                 cap.style.position = Position.Absolute;
@@ -361,7 +361,7 @@ namespace Lvn.UI.Screens
             if (_viewIndex < 0 || _viewIndex >= _entries.Count) return;
             var entry = _entries[_viewIndex];
             _viewerImage.style.backgroundImage = new StyleBackground((Texture2D)null);
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_viewerImage, entry.Url, _assets), "AssignBg");
+            ScreenUi.SetBg(_viewerImage, entry.Url, _assets);
             _viewerCaption.text = entry.Caption;
         }
 

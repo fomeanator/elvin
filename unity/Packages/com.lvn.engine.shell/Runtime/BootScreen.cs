@@ -77,9 +77,9 @@ namespace Lvn.UI.Screens
             _percent.pickingMode = PickingMode.Ignore;
             Add(_percent);
 
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(bg, _cfg.bg_url, _assets), "AssignBg");
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_logo, _cfg.logo_url, _assets), "AssignBg");
-            LvnAsync.Fire(ScreenUi.AssignBgAsync(_fill, _cfg.bar_fill_url, _assets), "AssignBg");
+            ScreenUi.SetBg(bg, _cfg.bg_url, _assets);
+            ScreenUi.SetBg(_logo, _cfg.logo_url, _assets);
+            ScreenUi.SetBg(_fill, _cfg.bar_fill_url, _assets);
         }
 
         /// <summary>Drive the boot bar until <paramref name="isDone"/> and the

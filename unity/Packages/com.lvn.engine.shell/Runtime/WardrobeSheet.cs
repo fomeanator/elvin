@@ -537,7 +537,7 @@ namespace Lvn.UI.Screens
                     img.style.width = 30; img.style.height = 30;
                     img.style.marginRight = 10;
                     LvnPicture.Fit(img, cover: false);
-                    LvnAsync.Fire(ScreenUi.AssignBgAsync(img, slot.icon, _assets), "AssignBg");
+                    ScreenUi.SetBg(img, slot.icon, _assets);
                     b.Add(img);
                 }
                 else

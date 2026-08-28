@@ -297,7 +297,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
                 LvnPicture.Fit(avatar);
-                LvnAsync.Fire(ScreenUi.AssignBgAsync(avatar, AvatarUrl, _assets), "AssignBg");
+                ScreenUi.SetBg(avatar, AvatarUrl, _assets);
             }
             identity.Add(avatar);
 
