@@ -127,7 +127,7 @@ namespace Lvn.UI.Screens
         /// игрового гардероба листание витрины раскрывать не должно.</summary>
         public bool MarkSeenOnShow = true;
 
-        private TaskCompletionSource<bool> _tcs;
+        private readonly LvnCloseGate _gate = new LvnCloseGate();
         private bool _open;
         private bool _buying;
 
@@ -411,9 +411,7 @@ namespace Lvn.UI.Screens
             RefreshBalances();
             LvnWallet.Changed += OnWalletChanged;
             LvnAsync.Fire(LvnWallet.RefreshAsync(), "Refresh");
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs.TrySetResult(false));
-            try { await _tcs.Task; }
+            try { await _gate.WaitAsync(ct); }
             finally
             {
                 LvnWallet.Changed -= OnWalletChanged;
@@ -428,10 +426,10 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(_entity)) LvnWardrobe.ClearPreview(_entity);
             _open = false;
             FireSectionFocus(null); // жёсткое закрытие возвращает общий план
-            _tcs?.TrySetResult(false);
+            _gate.Release(false);
         }
 
-        private void Cancel() => _tcs?.TrySetResult(false);
+        private void Cancel() => _gate.Release(false);
 
         // Every currency the wardrobe charges in + everything the player holds.
         private void RefreshBalances()
