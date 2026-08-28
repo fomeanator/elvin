@@ -213,19 +213,19 @@ namespace Lvn.UI.Screens
             b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
             b.style.borderTopLeftRadius = 10; b.style.borderTopRightRadius = 10;
             b.style.borderBottomLeftRadius = 10; b.style.borderBottomRightRadius = 10;
-            b.clicked += async () =>
+            // Через дом занятости: вход ждёт СЕТЬ, и сорванное ожидание
+            // оставляло кнопку выключенной навсегда, а подпись — «Connecting…».
+            Lvn.UI.LvnBusy.OnClick(b, async () =>
             {
-                b.SetEnabled(false);
                 _status.text = _cfg.signing_text ?? LvnWords.Of("auth.connecting", "Connecting…");
                 bool ok = await Lvn.Services.LvnPlatformAuth.SignInAsync(provider);
-                b.SetEnabled(true);
                 _status.text = ok
                     ? (_cfg.provider_done_text ?? LvnWords.Of("account.signed_in", "Signed in"))
                     : (_cfg.offline_text ?? LvnWords.Of("auth.offline", "Offline — progress stays on this device"));
                 // the recovered account may carry a display name — pre-fill it
                 if (ok && _field != null && !string.IsNullOrEmpty(Lvn.Services.LvnBackend.DisplayName))
                     _field.value = Lvn.Services.LvnBackend.DisplayName;
-            };
+            }, busyText: null, what: "SignIn");
             row.Add(b);
         }
 

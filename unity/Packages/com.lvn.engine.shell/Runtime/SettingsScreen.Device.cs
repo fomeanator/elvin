@@ -75,8 +75,12 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
-                    btn.SetEnabled(false);
-                    LvnAsync.Fire(Run(), "ClearDownloads");
+                    // Через дом занятости: очистка ждёт диск, и сорванное
+                    // ожидание оставляло кнопку мёртвой до перезахода в
+                    // настройки. Состояние в конце расставляет RefreshAsync —
+                    // поэтому при успехе кнопку не трогаем.
+                    LvnAsync.Fire(Lvn.UI.LvnBusy.RunAsync(btn, Run, busyText: null,
+                        releaseOnSuccess: false, what: "ClearDownloads"), "ClearDownloads");
                     async Task Run() { await ClearDownloads(); await RefreshAsync(); }
                 }
             };
