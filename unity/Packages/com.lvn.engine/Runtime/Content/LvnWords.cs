@@ -41,10 +41,23 @@ namespace Lvn.Content
         /// <summary>Принять словарь новеллы (<c>ui.words</c>): ключ → слово.
         /// Зовётся при загрузке манифеста, до первого показа экрана.</summary>
         public static void Learn(Dictionary<string, string> words)
+            => Learn(words, null);
+
+        /// <summary>
+        /// То же, но с ВТОРЫМ словарём манифеста — подписями меню
+        /// (<c>ui.menu.labels</c>). Их читает тема, но искать слово надо в
+        /// обоих: автор кладёт его туда, где ему кажется естественным, и
+        /// промах не должен молча оборачиваться английским текстом. При
+        /// совпадении ключа выигрывает <c>ui.words</c> — он общий.
+        /// </summary>
+        public static void Learn(Dictionary<string, string> words, Dictionary<string, string> menuLabels)
         {
-            _words = words == null || words.Count == 0
-                ? null
-                : new Dictionary<string, string>(words, System.StringComparer.OrdinalIgnoreCase);
+            var merged = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+            if (menuLabels != null)
+                foreach (var kv in menuLabels) merged[kv.Key] = kv.Value;
+            if (words != null)
+                foreach (var kv in words) merged[kv.Key] = kv.Value;
+            _words = merged.Count == 0 ? null : merged;
         }
 
         /// <summary>

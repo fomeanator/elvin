@@ -330,7 +330,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
             // Словарь оболочки: всё, что движок пишет на экране сам.
-            Lvn.Content.LvnWords.Learn(manifest.ui?.words);
+            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels);
             _manifest = manifest;
             ApplyMenuStaging(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
