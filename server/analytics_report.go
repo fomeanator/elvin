@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +33,9 @@ const (
 	analyticsMaxWindowDays = 92 // one quarter per query; ranges are folds, not scans
 	analyticsDefaultTopN   = 50
 	analyticsMinSample     = 5 // below this a "90% drop" is two players leaving
+	// Потолок для запрошенного «минимума выборки»: выше него отчёт молчит
+	// всегда, и просить больше значит просить пустой ответ.
+	analyticsMaxMinSample = 10000
 )
 
 // ------------------------------------------------------------------ window
@@ -71,10 +73,9 @@ func parseAnalyticsWindow(r *http.Request) (anaWindow, error) {
 		}
 		return anaWindow{Days: days, From: from, To: to}, nil
 	}
-	if n, _ := strconv.Atoi(q.Get("days")); n > 0 {
-		if n > analyticsMaxWindowDays {
-			return anaWindow{}, errBadWindow
-		}
+	if n, ok := spanParam(r, "days", 0, analyticsMaxWindowDays); !ok {
+		return anaWindow{}, errBadWindow
+	} else if n > 0 {
 		end, _ := time.Parse("2006-01-02", today)
 		start := end.AddDate(0, 0, -(n - 1)).Format("2006-01-02")
 		days, err := daysBetween(start, today)
@@ -119,11 +120,7 @@ func daysBetween(from, to string) ([]string, error) {
 }
 
 func topN(r *http.Request) int {
-	n, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if n <= 0 || n > 1000 {
-		n = analyticsDefaultTopN
-	}
-	return n
+	return qtyParam(r, "limit", analyticsDefaultTopN, 1000)
 }
 
 // --------------------------------------------------------- derived cuts
@@ -575,10 +572,7 @@ func (s *AnalyticsService) handleFunnel(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	minSample, _ := strconv.Atoi(r.URL.Query().Get("min"))
-	if minSample <= 0 {
-		minSample = analyticsMinSample
-	}
+	minSample := qtyParam(r, "min", analyticsMinSample, analyticsMaxMinSample)
 	title := clip(r.URL.Query().Get("title"), 64)
 	seg, err := parseSegment(r)
 	if err != nil {

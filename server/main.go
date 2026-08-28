@@ -33,6 +33,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1081,6 +1082,60 @@ func onlyMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 	w.Header().Set("Allow", method)
 	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	return false
+}
+
+// ЧИСЛО ИЗ ЗАПРОСА ЧИТАЕТ ОДИН ДОМ — и, главное, ОДИНАКОВО отвечает на перегиб.
+//
+// Восемь обработчиков разбирали числовой параметр сами, и предел стоял у всех
+// восьми (это хорошо), но вели они себя при перегибе ПЯТЬЮ разными способами:
+// окно отчёта отвечало ошибкой, ожидание в комнате молча срезалось до потолка,
+// длина выгрузки — тоже до потолка, а вот `limit` у топа, `n` у логов и `n` у
+// лидеров молча падали в УМОЛЧАНИЕ.
+//
+// Разница видна снаружи и обидна: клиент просит тысячу строк лога, надеясь
+// получить «сколько можно», и получает двести — меньше, чем если бы просил
+// вдумчиво. Ошибки в ответе при этом нет, поэтому автор клиента не узнаёт, что
+// его число вообще не приняли, и чинит не то.
+//
+// Правил ровно два, и выбор между ними — про СМЫСЛ, а не про вкус:
+//
+//   • qtyParam — число меняет только ОБЪЁМ ответа (сколько строк, сколько
+//     секунд ждать). Перегиб срезается до потолка молча: клиент просил больше,
+//     чем есть, и получает всё, что есть.
+//   • spanParam — число меняет СМЫСЛ ответа (за какой период отчёт). Перегиб —
+//     ошибка: молча подменённый период превращает отчёт про деньги в отчёт про
+//     другой отрезок времени, и заметить это по цифрам нельзя.
+//
+// Пустое и нечитаемое значение — всегда умолчание: параметра просто нет.
+func qtyParam(r *http.Request, name string, def, max int) int {
+	v := strings.TrimSpace(r.URL.Query().Get(name))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def
+	}
+	if n > max {
+		return max
+	}
+	return n
+}
+
+// spanParam — как qtyParam, но перегиб честно назван ошибкой: ok=false.
+func spanParam(r *http.Request, name string, def, max int) (int, bool) {
+	v := strings.TrimSpace(r.URL.Query().Get(name))
+	if v == "" {
+		return def, true
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def, true
+	}
+	if n > max {
+		return 0, false
+	}
+	return n, true
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

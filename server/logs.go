@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -158,10 +157,7 @@ func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 	}
 	device := r.URL.Query().Get("device")
 	level := r.URL.Query().Get("level")
-	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
-	if n <= 0 || n > 2000 {
-		n = 200
-	}
+	n := qtyParam(r, "n", 200, 2000)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

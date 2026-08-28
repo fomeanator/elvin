@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -138,9 +137,7 @@ func (s *LeaderboardService) handleSubmit(w http.ResponseWriter, r *http.Request
 
 func (s *LeaderboardService) handleTop(w http.ResponseWriter, r *http.Request, board string) {
 	n := 10
-	if v, err := strconv.Atoi(r.URL.Query().Get("n")); err == nil && v > 0 && v <= 100 {
-		n = v
-	}
+	n = qtyParam(r, "n", n, 100)
 	s.mu.Lock()
 	entries, err := s.load(board)
 	if err != nil {

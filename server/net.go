@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -218,11 +217,8 @@ func (s *NetService) handlePut(w http.ResponseWriter, r *http.Request, code, key
 // таймеру между «партнёр нажал» и «у меня поехало» всегда стоит интервал, и
 // игра ощущается вялой независимо от скорости сети.
 func (s *NetService) handleGet(w http.ResponseWriter, r *http.Request, code, key string) {
-	wait, _ := strconv.Atoi(r.URL.Query().Get("wait"))
+	wait := qtyParam(r, "wait", 0, int(netMaxWait/time.Second))
 	deadline := time.Now().Add(time.Duration(wait) * time.Second)
-	if time.Until(deadline) > netMaxWait {
-		deadline = time.Now().Add(netMaxWait)
-	}
 
 	for {
 		s.mu.Lock()
@@ -325,12 +321,9 @@ func (s *NetService) handleRoom(w http.ResponseWriter, r *http.Request) {
 // GET /v1/net/rooms/{code} — кто за столом. Нужно, чтобы показать «ждём
 // второго» до начала партии.
 func (s *NetService) handleWho(w http.ResponseWriter, r *http.Request, code string) {
-	wait, _ := strconv.Atoi(r.URL.Query().Get("wait"))
-	need, _ := strconv.Atoi(r.URL.Query().Get("need"))
+	wait := qtyParam(r, "wait", 0, int(netMaxWait/time.Second))
+	need := qtyParam(r, "need", 0, netMaxSeats)
 	deadline := time.Now().Add(time.Duration(wait) * time.Second)
-	if time.Until(deadline) > netMaxWait {
-		deadline = time.Now().Add(netMaxWait)
-	}
 	for {
 		s.mu.Lock()
 		room, seat, ok := s.seatLocked(code, r)

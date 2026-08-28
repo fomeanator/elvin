@@ -68,6 +68,18 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ЗабвениеЗнаетОВсехМетках()
+        {
+            // Забвение не держит список имён — его держит тот, кто их выдал.
+            // Иначе следующая метка переживёт удаление аккаунта незаметно.
+            var mark = LvnMark.Steady(Name);
+            LvnMark.ForgetAll();
+
+            Assert.AreEqual("", LvnKeep.Get(Name, ""), "метка не пережила удаление аккаунта");
+            Assert.AreNotEqual(mark, LvnMark.Steady(Name), "после забвения выдана новая");
+        }
+
+        [Test]
         public void РазоваяМеткаКаждыйРазНовая()
         {
             Assert.AreNotEqual(LvnMark.Once(), LvnMark.Once(),
