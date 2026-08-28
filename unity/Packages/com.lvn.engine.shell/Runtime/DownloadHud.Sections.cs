@@ -82,7 +82,7 @@ namespace Lvn.UI.Screens
                 bool partial = HasSomeDownloaded?.Invoke() ?? false;
                 var btn = new Button { text =
                     (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download all"))
-                    + " ≈" + Mathf.Max(1, missing.Item1 >> 20) + " " + LvnWords.Of("unit.mb", "MB") };
+                    + " " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
                 btn.style.height = 52;
                 btn.style.fontSize = 22;
                 btn.style.marginTop = 8;
@@ -212,7 +212,7 @@ namespace Lvn.UI.Screens
                 row.style.paddingLeft = 8;
             }
             var l = new Label((e.Active ? "▶ " : "") + e.Label
-                + (e.Bytes > 0 ? " · " + Mathf.Max(1, e.Bytes >> 20) + " " + LvnWords.Of("unit.mb", "MB") : ""));
+                + (e.Bytes > 0 ? " · " + Lvn.Content.LvnBytes.Short(e.Bytes) : ""));
             l.pickingMode = PickingMode.Ignore;
             l.style.color = e.Active ? LvnTokens.Text : LvnTokens.TextDim;
             l.style.fontSize = 20;

@@ -88,8 +88,8 @@ namespace Lvn.UI.Screens
                 {
                     // Всё на устройстве — говорим именно это, а не «скачано».
                     status.text = LvnWords.Of("device.stored_all",
-                        "The whole game is on this device ({0} MB) — it plays without the internet.",
-                        used >> 20);
+                        "The whole game is on this device ({0}) — it plays without the internet.",
+                        Lvn.Content.LvnBytes.Short(used));
                     btn.style.display = DisplayStyle.None;
                 }
                 else
@@ -97,13 +97,13 @@ namespace Lvn.UI.Screens
                     btn.style.display = DisplayStyle.Flex;
                     status.text = used > 0
                         ? LvnWords.Of("device.partial",
-                            "{0} MB on the device, {1} MB left. Chapters load as you read; download them up front to play offline.",
-                            used >> 20, System.Math.Max(1, missing >> 20))
+                            "{0} on the device, {1} left. Chapters load as you read; download them up front to play offline.",
+                            Lvn.Content.LvnBytes.Short(used), Lvn.Content.LvnBytes.Short(missing))
                         : LvnWords.Of("device.nothing_yet",
-                            "Nothing downloaded yet — chapters load as you read. Download {0} MB up front to play offline.",
-                            System.Math.Max(1, missing >> 20));
+                            "Nothing downloaded yet — chapters load as you read. Download {0} up front to play offline.",
+                            Lvn.Content.LvnBytes.Short(missing));
                     btn.text = (used > (8L << 20) ? LvnWords.Of("device.finish", "Finish download") : LvnWords.Of("device.download", "Download"))
-                        + " " + System.Math.Max(1, missing >> 20) + " " + LvnWords.Of("unit.mb", "MB");
+                        + " " + Lvn.Content.LvnBytes.Short(missing);
                     btn.SetEnabled(true);
                 }
             }
@@ -121,7 +121,7 @@ namespace Lvn.UI.Screens
                     {
                         long expect = System.Math.Max(p.expected, p.received);
                         status.text = LvnWords.Of("device.downloading", "downloading… {0}",
-                            $"{p.received >> 20} / {expect >> 20} " + LvnWords.Of("unit.mb", "MB"));
+                            Lvn.Content.LvnBytes.Short(p.received) + " / " + Lvn.Content.LvnBytes.Short(expect));
                         ShowBar(p.received, expect);
                     }
                     else LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
