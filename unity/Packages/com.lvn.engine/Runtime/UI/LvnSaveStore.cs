@@ -62,8 +62,9 @@ namespace Lvn.UI
                     if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
                     return;
                 }
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-                System.IO.File.WriteAllBytes(path, thumb.EncodeToPNG());
+                // Тоже атомарно: оборванная запись оставляла бы обрезанный PNG,
+                // и слот показывал бы половину картинки вместо прежней целой.
+                Lvn.Content.ContentLoader.AtomicWriteAllBytes(path, thumb.EncodeToPNG());
             }
             catch (Exception e) { Debug.LogWarning("[lvn] thumb write failed: " + e.Message); }
         }

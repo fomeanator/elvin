@@ -93,10 +93,13 @@ namespace Lvn.UI.Screens
         {
             try
             {
-                var tmp = FilePath + ".tmp";
-                System.IO.File.WriteAllText(tmp, bundle.ToString(Newtonsoft.Json.Formatting.None));
-                if (System.IO.File.Exists(FilePath)) System.IO.File.Delete(FilePath);
-                System.IO.File.Move(tmp, FilePath);
+                // Через общий дом атомарной записи: своя копия не создавала
+                // каталог, брала постоянное имя временного файла (две записи
+                // подряд наступали друг на друга) и оставляла его на диске,
+                // если запись срывалась. Прогресс — не то место, где это можно
+                // выяснять опытным путём.
+                Lvn.Content.ContentLoader.AtomicWriteAllText(
+                    FilePath, bundle.ToString(Newtonsoft.Json.Formatting.None));
             }
             catch (Exception e) { Debug.LogWarning("[vault] local write failed: " + e.Message); }
         }

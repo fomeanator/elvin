@@ -779,7 +779,7 @@ namespace Lvn.Content
         // it into place (mirrors the .part → File.Move pattern DownloadBytes uses).
         // The destination path therefore only ever holds a complete file — never a
         // truncated one from an interrupted write.
-        internal static void AtomicWriteAllBytes(string path, byte[] bytes)
+        public static void AtomicWriteAllBytes(string path, byte[] bytes)
         {
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
@@ -796,6 +796,15 @@ namespace Lvn.Content
                 throw;
             }
         }
+
+        /// <summary>
+        /// То же для текста. Заведено потому, что своя копия этой записи уже
+        /// нашлась у хранилища прогресса — и была БЕДНЕЕ: без создания каталога,
+        /// с постоянным именем временного файла (две записи подряд наступают
+        /// друг на друга) и без уборки этого файла, если запись сорвалась.
+        /// </summary>
+        public static void AtomicWriteAllText(string path, string text)
+            => AtomicWriteAllBytes(path, System.Text.Encoding.UTF8.GetBytes(text ?? ""));
     }
 
     /// <summary>Lightweight descriptor for a single preload batch entry.</summary>
