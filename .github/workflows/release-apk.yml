@@ -41,7 +41,17 @@ jobs:
             -d '{"name":"Elvin Demo","bundleId":"com.ominis.elvindemo","company":"Ominis","offline":true}' \
             -o export.zip
           mkdir -p export && tar -xf export.zip -C export
-          test -d "export/ElvinDemo/Assets/StreamingAssets/lvn"
+          # ЧТО ИМЕННО ПРОВЕРЯЕТСЯ. Каталога мало: с ним, но без манифеста игра
+          # установится, откроется и покажет пустоту — а узнается это по
+          # готовому APK, то есть через минуты сборки и установку на телефон.
+          # Те же три вопроса задаёт сборщик (CliBuild.AssertPlayable); здесь
+          # они звучат раньше и дешевле.
+          bundle="export/ElvinDemo/Assets/StreamingAssets/lvn"
+          test -d "$bundle" || { echo "::error::экспорт не положил $bundle"; exit 1; }
+          test -f "$bundle/manifest.json" || { echo "::error::в $bundle нет manifest.json — игра откроется пустой"; exit 1; }
+          chapters=$(find "$bundle/content/scripts" -name "*.lvn" 2>/dev/null | wc -l | tr -d " ")
+          [ "$chapters" -gt 0 ] || { echo "::error::в офлайн-контенте нет ни одной главы (.lvn)"; exit 1; }
+          echo "offline bundle: manifest + $chapters chapter(s)"
 
       - name: build APK from the tagged engine
         run: |
