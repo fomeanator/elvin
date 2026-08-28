@@ -5,6 +5,12 @@ using System.Threading.Tasks;
 namespace Lvn
 {
     /// <summary>
+    /// НЕ ПОДКЛЮЧЁН: автосохранение и отправка состояния сейчас пишут напрямую,
+    /// и всплеск правок подряд даёт всплеск записей. Схлопывание — правильная
+    /// форма для этого места, но включать его в тракт сохранений значит менять
+    /// момент, в который данные оказываются на диске; такое проверяют живым
+    /// прогоном, а не тестом. Тесты держат его рабочим до этого решения.
+    ///
     /// A coalescing single-flight writer: many fast <see cref="Request"/> calls
     /// collapse into a serialized stream of writes where at most ONE write runs at
     /// a time and only the NEWEST pending value is ever written. The standard
