@@ -56,4 +56,35 @@ for (const [name, src] of [["app.js", read("app.js")], ["export.js", read("expor
   }
 }
 
+// ДВА РЕНДЕРЕРА РИСУЮТ ОДИН НАБОР КОМАНД.
+//
+// Рендереры законно разные: в песочнице редактор и подсветка, в экспорте —
+// облегчённый. Но НАБОР команд, на которые они отзываются, обязан совпадать:
+// расхождение здесь значит, что автор видит одно, а игрок — другое. Так в
+// экспорте не оказалось ветки `clear`: сцена не очищалась, актёры оставались
+// стоять поверх новой.
+const opsOf = (src, fnName) => {
+  const i = src.indexOf(fnName);
+  if (i < 0) return null;
+  const body = src.slice(i, i + 6000);
+  return new Set([...body.matchAll(/case "([a-z_0-9]+)"/g)].map((m) => m[1]));
+};
+const sandboxOps = opsOf(read("app.js"), "function applyStageDom");
+const exportOps = opsOf(read("export.js"), "function applyStage(");
+// Команды, которых в экспорте нет НАМЕРЕННО, и почему.
+const exportSkips = new Map([
+  ["ui", "дерево ui рисует редактор песочницы; в самостоятельном файле его нет"],
+  // Сервисные операции песочница отправляет на сервер (svcOp). Экспортированная
+  // игра — один файл, который открывают где угодно, в том числе без сети: ей
+  // некуда их слать, и это не пропажа, а свойство доставки.
+  ["track", "метка конверсии уходит на сервер; самостоятельный файл его не имеет"],
+  ["leaderboard_submit", "таблица рекордов требует сервера, которого у файла нет"],
+]);
+if (sandboxOps && exportOps) {
+  for (const op of sandboxOps) {
+    if (exportOps.has(op) || exportSkips.has(op)) continue;
+    problems.push(`команду "${op}" рисует песочница, но не экспорт — игрок увидит не то, что автор`);
+  }
+}
+
 process.stdout.write(JSON.stringify(problems));
