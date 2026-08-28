@@ -204,7 +204,7 @@ namespace Lvn.UI.Screens
                 }
                 // Паспорт устройства → серверный профиль игрока (сегменты,
                 // саппорт «на чём играет»), как делают все крупные аналитики.
-                Lvn.Services.LvnAnalytics.Track("device", Lvn.UI.LvnDeviceProfile.Snapshot());
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.Device, Lvn.UI.LvnDeviceProfile.Snapshot());
 
                 _shell.Settings.StorageInfo = StorageInfoAsync;
                 _shell.Settings.DownloadAll = DownloadEverythingAsync;
@@ -396,7 +396,7 @@ namespace Lvn.UI.Screens
                 // потери на загрузке выглядят так, будто игра никому не нужна.
                 // Длительность здесь же: «долго грузилось» — самая частая
                 // причина уйти, не начав.
-                Lvn.Services.LvnAnalytics.Track("first_screen",
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.FirstScreen,
                     ("boot_ms", bootClock.ElapsedMilliseconds),
                     ("offline", LvnNetworkStatus.IsOffline));
             }

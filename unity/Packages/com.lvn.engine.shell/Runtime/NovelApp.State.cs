@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
             Stage.RestoreSnapshot(slot.Snap);
             EnterChapterContext(title ?? _currentTitle, chapter);
             _currentScriptJson = json;
-            LvnProgress.SetCurrent(_currentTitle, chapter); // continue follows the jump
+            LvnProgress.ResumeFromSave(_currentTitle, chapter); // continue follows the jump
             Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
             return true;
         }

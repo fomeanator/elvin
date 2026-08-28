@@ -118,7 +118,7 @@ namespace Lvn.Services
             string msg = charge.Message ?? "";
             if (!await offerStore(title, msg))
             {
-                Deny("spend_declined", charge);
+                Deny(LvnEvents.SpendDeclined, charge);
                 return Outcome.Declined;
             }
 
@@ -130,7 +130,7 @@ namespace Lvn.Services
                 return Outcome.PaidAfterStore;
 
             if (explain != null) await explain(charge.DeniedTitle ?? title, msg);
-            Deny("spend_denied", charge);
+            Deny(LvnEvents.SpendDenied, charge);
             return Outcome.Denied;
         }
 

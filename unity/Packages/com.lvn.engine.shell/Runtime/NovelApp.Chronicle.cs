@@ -60,18 +60,18 @@ namespace Lvn.UI.Screens
                 if (_reachedLabels.Count > 500) _reachedLabels.Clear(); // без роста без предела
                 if (!_reachedLabels.Add(label)) return;
             }
-            Lvn.Services.LvnAnalytics.Track("label_reach", ("label", label), ("at", at));
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.LabelReach, ("label", label), ("at", at));
             // Та же позиция нужна отзыву: «тут баг» без места в сценарии
             // невоспроизводим, а сам игрок место назвать не может.
             Lvn.Services.LvnWhereabouts.Mark(label, at);
         }
 
         private static void OnChoiceShown(int written, int shown, int at)
-            => Lvn.Services.LvnAnalytics.Track("choice_shown",
+            => Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChoiceShown,
                 ("written", written), ("shown", shown), ("at", at));
 
         private static void OnChoicePicked(int index, string text, float seconds, int at)
-            => Lvn.Services.LvnAnalytics.Track("choice_pick",
+            => Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChoicePick,
                 ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 1)), ("at", at));
 
         /// <summary>
@@ -85,7 +85,7 @@ namespace Lvn.UI.Screens
         {
             var ops = LvnPlayer.UnclaimedOps;
             if (ops == null || ops.Count == 0) return;
-            Lvn.Services.LvnAnalytics.Track("unknown_op",
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.UnknownOp,
                 ("ops", ops), ("title", title?.id), ("chapter", chapter?.id));
             LvnPlayer.ResetOpDiagnostics();
         }

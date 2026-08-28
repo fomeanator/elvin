@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Lvn.Services
 {
     /// <summary>
-    /// Fire-and-forget product analytics: <c>LvnAnalytics.Track("chapter_start",
+    /// Fire-and-forget product analytics: <c>LvnAnalytics.Track(LvnEvents.ChapterStart,
     /// ("ch", "ch1"))</c> queues an event; batches flush every 20 events / 30
     /// seconds / on pause. The queue survives restarts (PlayerPrefs) and drops
     /// its oldest beyond 500 — analytics must never grow unbounded or block

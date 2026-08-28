@@ -84,8 +84,8 @@ const (
 	evChapterStart   = "chapter_start"
 	evChapterFinish  = "chapter_finish"
 	evChapterAbandon = "chapter_abandon" // шлётся с NovelApp.Chapter; см. health.gaps
-	evUnknownOp      = "unknown_op"      // not sent yet; see health.missing_signals
-	evAssetFail      = "asset_fail"      // not sent yet
+	evUnknownOp      = "unknown_op"      // шлётся с NovelApp.Chronicle
+	evAssetFail      = "asset_fail"      // шлётся с NovelApp.Supply
 	evBoot           = "boot"
 	evFirstScreen    = "first_screen" // первый интерактивный экран после загрузки
 	evLabelReach     = "label_reach"  // дошёл до авторской метки — слайд главы

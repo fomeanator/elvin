@@ -230,7 +230,7 @@ namespace Lvn.UI.Screens
                       $"balances now [{string.Join(", ", ToPairs(LvnWallet.Balances))}]");
             // Исход — ПО ИТОГУ обряда, а не по первой попытке: покупка после
             // захода в магазин это покупка.
-            LvnAnalytics.Track(ok ? "wardrobe_buy" : "wardrobe_buy_fail",
+            LvnAnalytics.Track(ok ? Lvn.Services.LvnEvents.WardrobeBuy : Lvn.Services.LvnEvents.WardrobeBuyFail,
                 ("entity", _entity), ("sku", sku));
 
             if (ok)
