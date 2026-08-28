@@ -249,6 +249,10 @@ namespace Lvn.Content
     /// mere presence adds the quick-menu entry.</summary>
     public sealed class StoreConfig
     {
+        // Площадка рекламы для бесплатной карточки магазина («посмотри ролик —
+        // получи валюту»). Пусто — карточки нет.
+        public string ad_placement;
+
         public string title;          // default "Store"
         public string scrim_color;    // fullscreen backdrop; default #000000b3
         public string panel_color;    // sheet fill; default #14141af7
