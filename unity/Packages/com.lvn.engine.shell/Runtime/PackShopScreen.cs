@@ -357,8 +357,10 @@ namespace Lvn.UI.Screens
             card.style.paddingTop = 16; card.style.paddingBottom = 16;
             LvnStyler.Card(card);
 
+            // ЧИСЛО БЕЗ ВАЛЮТЫ НЕ ГОВОРИТ НИЧЕГО: «получите 5» — пять чего? В
+            // игре две валюты, и путать их дороже всего именно в магазине.
             var title = new Label(LvnWords.Of("ads.free_title", "Watch an ad — get {0}",
-                LvnPriceTag.Amount(st.Amount)));
+                LvnPriceTag.Full(st.Currency, st.Amount)));
             title.style.color = LvnTokens.Text;
             title.style.fontSize = LvnTokens.TextBase;
             title.style.whiteSpace = WhiteSpace.Normal;
