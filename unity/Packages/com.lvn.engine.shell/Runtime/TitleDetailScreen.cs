@@ -80,7 +80,7 @@ namespace Lvn.UI.Screens
         {
             get
             {
-                var own = Title?.card?.image ?? Title?.cover_url;
+                var own = Title.CardArt();
                 return !string.IsNullOrEmpty(own) ? own : HeroImageUrl;
             }
         }

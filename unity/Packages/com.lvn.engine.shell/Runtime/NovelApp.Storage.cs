@@ -44,7 +44,13 @@ namespace Lvn.UI.Screens
             foreach (var t in m.titles)
             {
                 if (t == null) continue;
+                // ОБА адреса, а не «правильный»: карусель показывает обложку,
+                // а хаб — арт карточки, и это РАЗНЫЕ файлы, когда автор задал
+                // card.image. Грели только обложку — карточка хаба ждала сеть
+                // после «всё скачано»; грей только карточку — то же случилось бы
+                // с каруселью. Повтор безвреден: одинаковые адреса отсеет seen.
                 Add(t.cover_url, "sprite", 0);
+                Add(t.CardArt(), "sprite", 0);
                 foreach (var ch in t.ChaptersOf())
                 {
                     if (ch == null) continue;
@@ -270,6 +276,7 @@ namespace Lvn.UI.Screens
                 bool intro = string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase);
                 var current = LvnProgress.Current(t);
                 Add(live, t.cover_url);
+                Add(live, t.CardArt());
                 foreach (var ch in t.ChaptersOf())
                 {
                     if (ch == null) continue;

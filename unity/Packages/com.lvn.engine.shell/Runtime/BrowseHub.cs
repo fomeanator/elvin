@@ -491,7 +491,7 @@ namespace Lvn.UI.Screens
             _detailSubtitle.style.display = string.IsNullOrEmpty(t.subtitle)
                 ? DisplayStyle.None : DisplayStyle.Flex;
             _detailDesc.text = art?.description ?? t.subtitle ?? "";
-            var img = art?.image ?? t.cover_url;
+            var img = art?.image ?? t.CardArt();
             if (!string.IsNullOrEmpty(img)) LvnAsync.Fire(ScreenUi.AssignBgAsync(_detailImage, img, _assets), "AssignBg");
             bool locked = IsLocked(t);
             _detailPlay.SetEnabled(!locked);
@@ -673,7 +673,7 @@ namespace Lvn.UI.Screens
             b.style.overflow = Overflow.Hidden;
             LvnChrome.Round(b, _radius + 2f);
 
-            string art = t.card?.image ?? t.cover_url;
+            string art = t.CardArt();
             if (!string.IsNullOrEmpty(art))
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
