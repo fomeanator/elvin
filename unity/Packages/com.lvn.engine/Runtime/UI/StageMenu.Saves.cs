@@ -15,6 +15,7 @@ namespace Lvn.UI
     {
         private void ShowSlots(bool saveMode)
         {
+            _pane = () => ShowSlots(saveMode);
             var p = Panel(saveMode ? L("save", "Save") : L("load", "Load"));
             var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
@@ -55,6 +56,7 @@ namespace Lvn.UI
         // it a two-step: a small panel naming the slot, confirm or go back.
         private void ConfirmOverwrite(string label, string slotName)
         {
+            _pane = () => ConfirmOverwrite(label, slotName);
             var p = Panel(L("save", "Save"));
             var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 26, FontStyle.Normal);
             msg.style.marginBottom = 12;
@@ -92,6 +94,7 @@ namespace Lvn.UI
         /// нажалось».</summary>
         private void LoadFailedNotice()
         {
+            _pane = LoadFailedNotice;
             var p = Panel(L("load", "Load"));
             var msg = Text(L("load_failed", "Could not load this save."), 26, FontStyle.Normal);
             msg.style.marginBottom = 12;

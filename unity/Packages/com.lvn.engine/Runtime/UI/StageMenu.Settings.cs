@@ -14,6 +14,7 @@ namespace Lvn.UI
     {
         private void ShowSettings()
         {
+            _pane = ShowSettings;
             var p = Panel(L("settings", "Settings"));
             var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;

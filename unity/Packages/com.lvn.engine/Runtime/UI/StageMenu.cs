@@ -13,7 +13,7 @@ namespace Lvn.UI
     /// the stage's backlog and rollback). Lives as a top layer inside the stage's
     /// UIDocument; while a sheet is open the stage's tap-to-advance is blocked.
     /// </summary>
-    public sealed partial class StageMenu : VisualElement
+    public sealed partial class StageMenu : VisualElement, ILvnRedress
     {
         private const int SlotCount = 6;
         private const string QuickSlot = "quick"; // the one-tap save; shown in Load
@@ -162,6 +162,27 @@ namespace Lvn.UI
             });
         }
 
+        // ЧТО ПОКАЗАНО СЕЙЧАС. Меню строит панель заново на каждый переход и
+        // нигде не помнило, КАКУЮ именно: «где мы» знала только история
+        // вызовов. Пока меню лишь открывали и закрывали, этого хватало — а
+        // потом язык стали переключать ПРЯМО ЗДЕСЬ, в настройках главы, и
+        // выяснилось, что перерисовать себя меню не может: кнопка языка
+        // меняла свою подпись вручную, а заголовок «Язык» рядом с ней, вкладки
+        // и весь остальной текст оставались на прежнем языке до закрытия и
+        // повторного открытия. Игрок видел ровно одно переведённое слово —
+        // то, по которому только что нажал.
+        //
+        // Панель называет себя сама, одной строкой в начале. Переодевание —
+        // это «покажи то же самое ещё раз».
+        private System.Action _pane;
+
+        /// <summary>Переодеть открытую панель: та же панель, новые слова.</summary>
+        public void Redress()
+        {
+            if (!IsOpen || _scrim == null) return;
+            _pane?.Invoke();
+        }
+
         private void OpenSheet()
         {
             if (IsOpen) return;
@@ -222,6 +243,7 @@ namespace Lvn.UI
         /// </summary>
         private void SaveFailedNotice()
         {
+            _pane = SaveFailedNotice;
             var p = Panel(L("save", "Save"));
             var msg = Text(L("save_failed", "Could not save — storage refused the write."), 26, FontStyle.Normal);
             msg.style.marginBottom = 12;
@@ -259,6 +281,7 @@ namespace Lvn.UI
 
         private void ShowMain()
         {
+            _pane = ShowMain;
             _scrim.Clear();
             var sheet = new VisualElement();
             sheet.style.position = Position.Absolute;

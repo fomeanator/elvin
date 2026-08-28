@@ -19,6 +19,7 @@ namespace Lvn.UI
         // replaying a chapter.
         private void ShowStats()
         {
+            _pane = ShowStats;
             var p = Panel(L("stats", "Stats"));
             var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;

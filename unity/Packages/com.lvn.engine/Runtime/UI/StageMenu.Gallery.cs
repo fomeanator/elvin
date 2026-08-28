@@ -25,6 +25,7 @@ namespace Lvn.UI
 
         private void ShowHistory()
         {
+            _pane = ShowHistory;
             var p = Panel(L("history", "History"));
             var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
@@ -79,6 +80,7 @@ namespace Lvn.UI
 
         private void ShowGallery()
         {
+            _pane = ShowGallery;
             var p = Panel(L("gallery", "Gallery"));
             var scroll = LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
@@ -134,6 +136,7 @@ namespace Lvn.UI
         // back to the grid.
         private void ShowCgFull(Lvn.Content.LvnGalleryItem item)
         {
+            _pane = () => ShowCgFull(item);
             DestroyThumbs();
             _scrim.Clear();
             var img = new Image { scaleMode = ScaleMode.ScaleToFit };
