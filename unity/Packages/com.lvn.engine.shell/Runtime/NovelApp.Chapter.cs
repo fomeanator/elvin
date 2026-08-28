@@ -81,7 +81,7 @@ namespace Lvn.UI.Screens
                 lock (_reachedLabels) _reachedLabels.Clear(); // воронка считается ПО ГЛАВЕ
                 SyncProgressVault(); // every progress move lands in all three homes
                 ChapterStarted?.Invoke(title, chapter);
-                Lvn.Services.LvnAnalytics.Track("chapter_start",
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterStart,
                     ("title", title?.id), ("chapter", chapter.id));
                 var finished = await PlayOneChapterAsync(title, chapter, playerName, novelFreshStart);
                 novelFreshStart = false; // only the entry chapter of this run counts
@@ -100,7 +100,7 @@ namespace Lvn.UI.Screens
                     // фон, зависшая сцена. Метка + фон + кто на сцене дают
                     // место, которое можно открыть и посмотреть глазами.
                     var snap = Stage?.Player?.Save();
-                    Lvn.Services.LvnAnalytics.Track("chapter_abandon",
+                    Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterAbandon,
                         ("title", title?.id), ("chapter", chapter.id),
                         ("at", Stage?.Player?.Index ?? -1),
                         ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
                     break; // → carousel
                 }
                 ChapterFinished?.Invoke(title, finished);
-                Lvn.Services.LvnAnalytics.Track("chapter_finish",
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
                     ("title", title?.id), ("chapter", finished.id));
                 FlushUnknownOps(title, finished);
                 // A cross-chapter save load can land the player in another title —

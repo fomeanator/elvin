@@ -24,7 +24,11 @@ namespace Lvn.UI.Screens
 
         /// <summary>Record that the player is (now) in this chapter. Bumps
         /// Reached when this is the furthest chapter so far.</summary>
-        public static void SetCurrent(LvnTitle title, LvnChapter chapter)
+        // ЗАКРЫТО НАРУЖУ НАМЕРЕННО: снаружи у каждого события прогресса свой
+        // глагол (выбрал / переиграть / началась / дочитана / загрузил сейв).
+        // Общий SetCurrent не говорит, ЧТО произошло, — а от этого зависит,
+        // снимать ли ожидающий перезапуск и считать ли главу достигнутой.
+        private static void SetCurrent(LvnTitle title, LvnChapter chapter)
         {
             if (title == null || chapter == null) return;
             using (LvnKeep.Batch())
@@ -77,6 +81,13 @@ namespace Lvn.UI.Screens
         /// чтобы у каждого события прогресса был свой глагол, а не общий
         /// SetCurrent, по которому не видно, что именно произошло.</summary>
         public static void StartChapter(LvnTitle title, LvnChapter chapter)
+            => SetCurrent(title, chapter);
+
+        /// <summary>ЗАГРУЖЕНО СОХРАНЕНИЕ ИЗ ДРУГОЙ ГЛАВЫ: «продолжить» едет за
+        /// игроком туда, куда он прыгнул. Пятый повод сдвинуть точку — и
+        /// единственный, который до сих пор двигал её мимо глаголов, прямым
+        /// вызовом из загрузчика сохранений.</summary>
+        public static void ResumeFromSave(LvnTitle title, LvnChapter chapter)
             => SetCurrent(title, chapter);
 
         /// <summary>

@@ -68,7 +68,7 @@ namespace Lvn.Services
 
             var (code, _) = await LvnBackend.PostAsync("/v1/ads/reward",
                 new JObject { ["placement"] = placement }.ToString());
-            LvnAnalytics.Track(code == 200 ? "ad_reward" : "ad_reward_fail", ("placement", placement));
+            LvnAnalytics.Track(code == 200 ? LvnEvents.AdReward : LvnEvents.AdRewardFail, ("placement", placement));
             if (code != 200) return false;
             await LvnWallet.RefreshAsync(); // the grant lands in the pills immediately
             return true;

@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
                 if (_reportedAssetFails.Count > 200) _reportedAssetFails.Clear(); // без роста без предела
                 if (!_reportedAssetFails.Add(url)) return;
             }
-            Lvn.Services.LvnAnalytics.Track("asset_fail", ("asset", url), ("code", code));
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.AssetFail, ("asset", url), ("code", code));
         }
 
         // Метки, о которых уже отчитались в этой главе. Цикл («спросить ещё
