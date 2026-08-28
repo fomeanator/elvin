@@ -205,7 +205,7 @@ namespace Lvn.UI.Screens
             _root.schedule.Execute(() =>
             {
                 if (_atmosphere.style.display == DisplayStyle.None) return;
-                float time = Time.realtimeSinceStartup;
+                float time = Lvn.UI.LvnClock.Now();
                 float scroll = Hub != null && Hub.style.display == DisplayStyle.Flex ? Hub.ScrollY : 0f;
                 var acc = UnityEngine.Input.acceleration;
                 var target = new Vector2(
