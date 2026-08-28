@@ -278,7 +278,10 @@ namespace Lvn.UI
         // typewriter starts and then freezes mid-sentence while art decodes.
         // Capped: a dead network can't hold the intro hostage — whatever missed
         // the window loads on-demand exactly as before.
-        private async void StartWithSpineWarmup(LvnPlayer player, int gen)
+        private void StartWithSpineWarmup(LvnPlayer player, int gen)
+            => LvnAsync.Fire(StartWithSpineWarmupAsync(player, gen), "StartWithSpineWarmup");
+
+        private async Task StartWithSpineWarmupAsync(LvnPlayer player, int gen)
         {
             // Plain art warms in the BACKGROUND — it races the reader, never the
             // intro (holding the first beat hostage to 12 decodes read as a

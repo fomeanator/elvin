@@ -627,7 +627,9 @@ namespace Lvn.UI.Screens
         // The Settings language row writes LvnPrefs.Locale; pick the change up
         // and swap the running chapter's string catalog — new lines render in
         // the new language immediately (the visible line updates on advance).
-        private async void OnPrefsMaybeLocale()
+        private void OnPrefsMaybeLocale() => LvnAsync.Fire(OnPrefsMaybeLocaleAsync(), "OnPrefsMaybeLocale");
+
+        private async Task OnPrefsMaybeLocaleAsync()
         {
             var want = LvnPrefs.Locale;
             if (want == Locale) return;

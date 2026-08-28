@@ -30,7 +30,22 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class NovelApp
     {
+        // Точка входа Unity — единственный законный `async void` здесь. Но
+        // упавший бут молчал: исключение уходило в никуда, а игрок оставался
+        // перед вуалью, которая «просто не догружается». Теперь падение видно и
+        // в логе, и на самой вуали.
         private async void Start()
+        {
+            try { await StartAsync(); }
+            catch (Exception e)
+            {
+                Debug.LogError("[lvn-boot] бут сорвался: " + e);
+                try { BootVeil.Status(LvnWords.Of("boot.failed", "startup failed — check the log")); }
+                catch { /* вуали уже нет: сообщать некуда, лог уже написан */ }
+            }
+        }
+
+        private async Task StartAsync()
         {
             ConfigureFrameRate();
 
@@ -424,7 +439,9 @@ namespace Lvn.UI.Screens
 
         // Server content changed: refresh the version index, re-apply the manifest
         // (carousel rebuilds), and hot-reload the open chapter if its script moved.
-        private async void OnContentChanged()
+        private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
+
+        private async Task OnContentChangedAsync()
         {
             Debug.Log("[novelapp] content changed — reloading");
             try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
