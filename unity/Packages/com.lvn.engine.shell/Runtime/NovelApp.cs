@@ -315,6 +315,7 @@ namespace Lvn.UI.Screens
             _assets.Set3DSetCatalog(manifest.sets3d);
             Stage.Assets = _assets;
             Stage.Catalog = new SpriteCatalog(manifest.sprites);
+            Stage.NameInput = manifest.ui?.name_input;   // оформление формы ввода — авторское
             // Theme the in-game dialogue/choices from the manifest, the same way
             // the shell screens read manifest.ui — so the whole game is themeable.
             // (A title can override this per-game; applied in PlayChapterAsync.)

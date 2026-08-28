@@ -50,6 +50,20 @@ namespace Lvn.UI
         }
         private System.Collections.Generic.IReadOnlyDictionary<string, string> _strings;
 
+        /// <summary>
+        /// ОФОРМЛЕНИЕ ФОРМЫ ВВОДА, каким его задал автор (<c>ui.name_input</c>).
+        ///
+        /// <para>Блок в манифесте существовал с самого начала и был заполнен
+        /// целиком — вопрос, подпись поля, текст кнопки, пять цветов, — но НЕ
+        /// ЧИТАЛСЯ НИКЕМ: форма одевалась только темой диалога. Автор написал
+        /// правильно и получил молча не то, а узнать об этом было неоткуда.</para>
+        ///
+        /// <para>Порядок старшинства: команда новеллы (<c>input prompt=…</c>)
+        /// сильнее манифеста — она ближе к месту, где задают вопрос; манифест
+        /// сильнее темы; тема сильнее умолчаний движка.</para>
+        /// </summary>
+        public Lvn.Content.NameInputConfig NameInput;
+
         [Tooltip("Optional content folder. If set and Assets is unwired, the stage " +
                  "loads sprites from here via DirectoryAssets — so a scene plays with " +
                  "art straight from Play, no code. Editor/standalone file paths.")]

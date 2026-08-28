@@ -445,6 +445,7 @@ namespace Lvn.UI.Screens
             if (Stage != null)
             {
                 Stage.Catalog = new SpriteCatalog(manifest.sprites);
+                Stage.NameInput = manifest.ui?.name_input;   // оформление формы ввода — авторское
                 // Re-theme live — rebuilt fresh from the NEW manifest: engine
                 // defaults → global ui → the playing title's ui override (matched
                 // by id in the new manifest, so per-title edits take effect). Safe

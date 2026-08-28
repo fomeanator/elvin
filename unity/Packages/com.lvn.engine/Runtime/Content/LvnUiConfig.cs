@@ -773,7 +773,15 @@ namespace Lvn.Content
         public float? fade_seconds;      // fade-in duration; default 0.6
     }
 
-    /// <summary>The character name-input screen.</summary>
+    /// <summary>
+    /// ОФОРМЛЕНИЕ ФОРМЫ ВВОДА (<c>op input</c>) — вопрос, подпись поля, слово
+    /// на кнопке и цвета. Автор пишет его в <c>ui.name_input</c>.
+    ///
+    /// <para>Блок долго не читал НИКТО: форма одевалась только темой диалога,
+    /// а заполненные значения молча не действовали. Теперь его читает
+    /// <c>VnStage.Input</c>; старшинство такое: команда новеллы сильнее
+    /// манифеста, манифест сильнее темы.</para>
+    /// </summary>
     public sealed class NameInputConfig
     {
         public bool? enabled;            // the manifest switch; default true when the section exists
