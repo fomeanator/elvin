@@ -90,6 +90,8 @@ namespace Lvn.EditorTools
                 Debug.Log("[lvn-build] Android graphics API pinned to OpenGLES3 (Vulkan disabled)");
             }
 
+            AssertPlayable();
+
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { EnsureBootScene() },
@@ -109,6 +111,42 @@ namespace Lvn.EditorTools
         // Exported projects self-boot (the template's Boot.cs creates the
         // shell package's NovelApp before the first scene loads), so the
         // build just needs SOME scene. Reuse one if the
+        /// <summary>
+        /// ИГРА, КОТОРУЮ НЕЧЕМ ИГРАТЬ, НЕ СОБИРАЕТСЯ.
+        ///
+        /// <para>Офлайн-сборка несёт контент внутри
+        /// (<c>Assets/StreamingAssets/lvn</c>): манифест, скрипты, арт. Если
+        /// каталог есть, а манифеста в нём нет, приложение установится,
+        /// откроется и покажет пустоту — узнаётся это по готовому APK, то есть
+        /// через минуты сборки и установку на телефон.</para>
+        ///
+        /// <para>Проверка узкая намеренно. Каталога нет вовсе — это ЗАКОННАЯ
+        /// онлайн-сборка (контент приедет с сервера), и падать на ней нельзя;
+        /// сказать вслух — можно и нужно, чтобы «а почему пусто» не искали в
+        /// телефоне. Красным становится только противоречие: контент объявлен и
+        /// при этом отсутствует.</para>
+        /// </summary>
+        private static void AssertPlayable()
+        {
+            const string bundle = "Assets/StreamingAssets/lvn";
+            if (!Directory.Exists(bundle))
+            {
+                Debug.Log("[lvn-build] офлайн-контента нет — сборка online: игра пойдёт за контентом на сервер");
+                return;
+            }
+            var manifest = Path.Combine(bundle, "manifest.json");
+            if (!File.Exists(manifest))
+                throw new Exception("[lvn-build] " + bundle + " есть, а manifest.json в нём нет — " +
+                                    "собранная игра откроется пустой. Экспорт положил каталог не до конца " +
+                                    "или его почистили: проверьте /v1/export и содержимое StreamingAssets.");
+            var scripts = Directory.Exists(Path.Combine(bundle, "content", "scripts"))
+                ? Directory.GetFiles(Path.Combine(bundle, "content", "scripts"), "*.lvn").Length : 0;
+            Debug.Log($"[lvn-build] офлайн-контент на месте: манифест + {scripts} глав(ы)");
+            if (scripts == 0)
+                Debug.LogWarning("[lvn-build] в офлайн-контенте НЕТ НИ ОДНОЙ главы (.lvn) — " +
+                                 "игра запустится, но играть будет нечего");
+        }
+
         // project has it; otherwise create an empty one.
         private static string EnsureBootScene()
         {
