@@ -34,6 +34,7 @@ namespace Lvn.UI.Screens
                     chapter = root["chapter"] as Newtonsoft.Json.Linq.JObject,
                 };
             }
+            catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception e)
             {
                 // Declarations are an optimization, never a gate: chapters keep

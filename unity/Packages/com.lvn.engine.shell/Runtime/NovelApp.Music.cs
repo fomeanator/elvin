@@ -61,6 +61,7 @@ namespace Lvn.UI.Screens
                 _menuMusic.clip = clip;
                 if (was && !_chapterPlaying) _menuMusic.Play();
             }
+            catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception ex) { Debug.LogWarning($"[novelapp] смена трека меню: {ex.Message}"); }
         }
 
