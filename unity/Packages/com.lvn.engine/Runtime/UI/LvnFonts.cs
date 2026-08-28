@@ -63,12 +63,36 @@ namespace Lvn.UI
         private static async System.Threading.Tasks.Task BuildOsFallbacksAsync()
         {
             var list = new List<FontAsset>();
+
+            // СПРАШИВАЕМ У СИСТЕМЫ ТОЛЬКО ТО, ЧТО У НЕЁ ЕСТЬ. Раньше запасные
+            // гарнитуры перебирались вслепую, а Unity на отсутствующую отвечает
+            // не null, а объектом-пустышкой — и печатает ДВЕ ошибки в лог:
+            // «Unable to find a font file [Roboto]» и «Unable to load font
+            // face». На маке таких три из шести, то есть шесть красных строк на
+            // каждом запуске. Ошибка, которая ничего не значит, дороже
+            // молчания: она приучает не читать лог, и настоящая теряется среди
+            // неё (живой лог Ильи, 28.08).
+            var installed = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var f in Font.GetOSInstalledFontNames() ?? System.Array.Empty<string>())
+                    if (!string.IsNullOrEmpty(f))
+                    {
+                        installed.Add(f);
+                        installed.Add(f.Replace(" ", ""));   // «Helvetica Neue» ↔ «HelveticaNeue»
+                    }
+            }
+            catch { /* платформа не отдаёт список — переберём вслепую, как раньше */ }
+
             foreach (var name in new[]
                      {
                          "Roboto", "Helvetica Neue", "Arial",          // Latin + Cyrillic
                          "PingFang SC", "Noto Sans CJK SC", "Yu Gothic" // CJK (when present)
                      })
             {
+                if (installed.Count > 0
+                    && !installed.Contains(name) && !installed.Contains(name.Replace(" ", "")))
+                    continue;   // этой гарнитуры на системе нет — не тревожим TMP
                 await System.Threading.Tasks.Task.Yield(); // one asset per frame — no spike
                 try
                 {
