@@ -284,11 +284,9 @@ namespace Lvn.UI
             try { return (float)t; } catch { return dflt; }
         }
 
-        private static bool BoolOr(JToken t, bool dflt)
-        {
-            if (t == null) return dflt;
-            try { return (bool)t; } catch { return dflt; }
-        }
+        // Читал только настоящее true/false, поэтому «loop=no» тихо давал
+        // умолчание — зацикленную музыку там, где автор просил обратного.
+        private static bool BoolOr(JToken t, bool dflt) => Lvn.LvnBool.Of(t, dflt);
 
         private static IEnumerator FadeAudio(AudioSource src, float from, float to, float seconds, bool stopAtEnd)
         {

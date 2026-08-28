@@ -617,13 +617,12 @@ namespace Lvn.UI
 
         private static float Num(string s, float def) => Num((JToken)s, def);
 
+        // Словарь общий (Lvn.LvnBool), а вот судьба НЕПОНЯТОГО значения здесь
+        // своя и намеренная: в разметке непустая строка исторически значит
+        // «свойство задано», поэтому незнакомое слово — согласие, а не
+        // умолчание. Это единственное осмысленное расхождение из шести.
         private static bool Truthy(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return false;
-            s = s.Trim().ToLowerInvariant();
-            if (s == "0" || s == "false" || s == "off" || s == "no" || s == "нет" || s == "") return false;
-            return true;
-        }
+            => !string.IsNullOrEmpty(s) && Lvn.LvnBool.Of(s, true);
 
         // Кегль по ИМЕНИ ступени, а не числом: одинаковые вещи на разных
         // экранах обязаны быть одного размера. Число тоже принимается — но

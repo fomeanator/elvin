@@ -33,17 +33,9 @@ namespace Lvn.UI
 
         // Tolerant boolean read: absent → dflt, and true/false/1/0 written as a
         // string or number are all accepted rather than throwing an invalid cast.
-        private static bool BoolOr(JToken t, bool dflt)
-        {
-            if (t == null) return dflt;
-            try { return (bool)t; } catch { }   // поле не разобралось — идём с прежним значением
-            switch (t.ToString().Trim().ToLowerInvariant())
-            {
-                case "true": case "1": case "yes": return true;
-                case "false": case "0": case "no": return false;
-                default: return dflt;
-            }
-        }
+        // Словарь согласия — у ЧТЕЦА «ДА-НЕТ» (Lvn.LvnBool): здесь он знал
+        // true/1/yes, звук не знал и этого, а UI-слой знал ещё on/off и «нет».
+        private static bool BoolOr(JToken t, bool dflt) => Lvn.LvnBool.Of(t, dflt);
 
 
         internal static TransitionType ParseTransition(string name)

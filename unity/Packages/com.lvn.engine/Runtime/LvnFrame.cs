@@ -128,7 +128,9 @@ namespace Lvn
                     if (string.IsNullOrEmpty(id)) return false;
                     Actors.TryGetValue(id, out var a);
                     a.Pose = (JObject)cmd.DeepClone();
-                    a.Visible = cmd["show"] == null || (bool)cmd["show"];
+                    // Было голым (bool): авторское «show=no» здесь не давало
+                    // ложь, а бросало исключение на разборе кадра.
+                    a.Visible = LvnBool.Of(cmd["show"], true);
                     Actors[id] = a;
                     return true;
                 }
