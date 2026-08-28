@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 )
@@ -112,8 +111,15 @@ func (s *AdsService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	var doc *adsUserDoc
 	if userID != "" && reUserFile.MatchString(userID) {
 		s.mu.Lock()
-		doc = s.loadUser(userID)
+		loaded, err := s.loadUser(userID)
 		s.mu.Unlock()
+		if err != nil {
+			// Витрину показать нечем: пустые счётчики выдали бы «награда
+			// доступна» за уже просмотренное.
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "ads_unavailable"})
+			return
+		}
+		doc = loaded
 	} else {
 		doc = &adsUserDoc{Counts: map[string]int{}, Spent: map[string]int{}, Since: map[string]int64{}}
 	}
@@ -150,7 +156,12 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	day := now.Format("2006-01-02")
 	s.mu.Lock()
-	doc := s.loadUser(userID)
+	doc, err := s.loadUser(userID)
+	if err != nil {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "ads_unavailable"})
+		return
+	}
 	if doc.Day != day {
 		doc.Day, doc.Counts = day, map[string]int{}
 	}
@@ -209,10 +220,20 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *AdsService) loadUser(userID string) *adsUserDoc {
+// Четвёртое хранилище с тем же изъяном, что были у награды и лидеров: ошибка
+// чтения давала пустой документ, и он сохранялся поверх (см. readJSONFile).
+// Для рекламы это значит сброшенные счётчики просмотров — то есть выданную
+// заново награду за уже просмотренное.
+func (s *AdsService) loadUser(userID string) (*adsUserDoc, error) {
 	doc := &adsUserDoc{Counts: map[string]int{}}
-	if data, err := os.ReadFile(filepath.Join(s.dir, userID+".json")); err == nil {
-		_ = json.Unmarshal(data, doc)
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := readJSONFile(path, doc); err != nil {
+		return nil, err
+	}
+	{
 		if doc.Counts == nil {
 			doc.Counts = map[string]int{}
 		}
@@ -223,10 +244,14 @@ func (s *AdsService) loadUser(userID string) *adsUserDoc {
 			doc.Since = map[string]int64{}
 		}
 	}
-	return doc
+	return doc, nil
 }
 
 func (s *AdsService) saveUser(userID string, doc *adsUserDoc) error {
+	path, err := userFilePath(s.dir, userID)
+	if err != nil {
+		return err
+	}
 	data, _ := json.Marshal(doc)
-	return atomicWrite(filepath.Join(s.dir, userID+".json"), data, 0o600)
+	return atomicWrite(path, data, 0o600)
 }
