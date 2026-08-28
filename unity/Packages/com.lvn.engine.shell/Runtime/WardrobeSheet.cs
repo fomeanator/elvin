@@ -99,17 +99,23 @@ namespace Lvn.UI.Screens
         private ScrollView _emotions;              // баблики эмоций (ось emotion)
         private string _emotionAxis;               // имя оси лиц текущего персонажа
 
-        // Русские подписи известных эмоций articy-палитры; незнакомая — как есть.
-        private static readonly Dictionary<string, string> EmotionRu = new Dictionary<string, string>
+        // Английские умолчания палитры articy; подпись берёт словарь по ключу
+        // emotion.<имя>, поэтому новелла зовёт эмоции своими словами, а
+        // незнакомую движок показывает как есть.
+        private static readonly Dictionary<string, string> EmotionEn = new Dictionary<string, string>
         {
-            ["idle"] = "Спокойно", ["medium"] = "Нейтрально", ["happy"] = "Радость",
-            ["sad"] = "Грусть", ["anger"] = "Злость", ["flirt"] = "Флирт",
-            ["delight"] = "Восторг", ["surprised"] = "Удивление", ["fear"] = "Страх",
-            ["boredom"] = "Скука", ["discontent"] = "Недовольство", ["dreamy"] = "Мечтательно",
-            ["horny"] = "Страсть", ["offence"] = "Обида", ["sarcasm"] = "Сарказм",
-            ["shame"] = "Смущение", ["sleep"] = "Сон", ["smirk"] = "Ухмылка",
-            ["tears"] = "Слёзы", ["thoughtfulness"] = "Задумчивость",
+            ["idle"] = "Calm", ["medium"] = "Neutral", ["happy"] = "Happy",
+            ["sad"] = "Sad", ["anger"] = "Anger", ["flirt"] = "Flirt",
+            ["delight"] = "Delight", ["surprised"] = "Surprised", ["fear"] = "Fear",
+            ["boredom"] = "Bored", ["discontent"] = "Discontent", ["dreamy"] = "Dreamy",
+            ["horny"] = "Passion", ["offence"] = "Offence", ["sarcasm"] = "Sarcasm",
+            ["shame"] = "Shy", ["sleep"] = "Asleep", ["smirk"] = "Smirk",
+            ["tears"] = "Tears", ["thoughtfulness"] = "Thoughtful",
         };
+
+        /// <summary>Подпись эмоции: слово новеллы → английское умолчание → сам код.</summary>
+        internal static string EmotionLabel(string key)
+            => LvnWords.Of("emotion." + key, EmotionEn.TryGetValue(key, out var en) ? en : key);
 
         /// <summary>Меню-режим: пилюли кошелька прячутся — валюты уже несёт
         /// единый навбар, дубль над плашкой только шумит.</summary>
@@ -866,7 +872,7 @@ namespace Lvn.UI.Screens
                 // такой же выбор, с примеркой (NoneValue) и коммитом (Equip
                 // трактует его как «снять»). Просьба Ильи 27.08.
                 if (slot.removable == true)
-                    list.Add(new LvnWardrobeItem { value = LvnWardrobe.NoneValue, name = "Нет" });
+                    list.Add(new LvnWardrobeItem { value = LvnWardrobe.NoneValue, name = LvnWords.Of("wardrobe.none", "None") });
                 foreach (var it in slot.items)
                     if (it != null && !string.IsNullOrEmpty(it.value)
                         && (!OnlySeen || Encountered(axis, it.value)))

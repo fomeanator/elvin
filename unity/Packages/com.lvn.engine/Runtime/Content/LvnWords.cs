@@ -69,5 +69,37 @@ namespace Lvn.Content
                  : pattern.Contains("{0}") ? string.Format(pattern, arg0)
                  : pattern + " " + arg0;
         }
+
+        /// <summary>
+        /// СЛОВО ПРИ ЧИСЛЕ: «1 глава», «2 главы», «5 глав».
+        ///
+        /// <para>Правило склонения было вписано в экран профиля прямо кодом —
+        /// со славянскими остатками от 11 до 14 и русскими формами в
+        /// <c>switch</c>. Английской новелле оно даёт «5 глава», и обойти его
+        /// автор не может ничем.</para>
+        ///
+        /// <para>Форм не одна и не всегда три: язык выбирает СЕБЕ правило тем,
+        /// сколько форм назвал автор. Дал <c>.few</c> — считаем язык славянским
+        /// и применяем остатки; не дал — простое «один против прочих». Так
+        /// движку не нужно знать список языков мира.</para>
+        /// </summary>
+        public static string Plural(string key, long n, string one, string other)
+        {
+            string w1 = Of(key + ".one", null);
+            string few = Of(key + ".few", null);
+            string many = Of(key + ".many", null);
+            if (w1 != null && few != null && many != null)
+            {
+                long lastTwo = n % 100;
+                if (lastTwo >= 11 && lastTwo <= 14) return many;
+                switch (n % 10)
+                {
+                    case 1: return w1;
+                    case 2: case 3: case 4: return few;
+                    default: return many;
+                }
+            }
+            return n == 1 ? Of(key + ".one", one) : Of(key + ".other", other);
+        }
     }
 }

@@ -173,13 +173,13 @@ namespace Lvn.UI.Screens
 
             if (Wallet.Count > 0)
             {
-                _body.Add(SectionHeader("Кошелёк"));
+                _body.Add(SectionHeader(LvnWords.Of("profile.wallet", "Wallet")));
                 _body.Add(TileRow(Wallet));
             }
 
             if (!Minimal && Achievements.Count > 0)
             {
-                _body.Add(SectionHeader("Достижения"));
+                _body.Add(SectionHeader(LvnWords.Of("profile.achievements", "Achievements")));
                 _body.Add(BuildAchievements());
             }
 
@@ -187,10 +187,10 @@ namespace Lvn.UI.Screens
             // минимальном профиле: это то, ради чего игрок сюда заходит.
             // Пустоту не прячем, а объясняем: игрок должен знать, что здесь
             // вырастет и от чего (живой репорт «там пустота, смысл какой»).
-            _body.Add(SectionHeader("Отношения"));
+            _body.Add(SectionHeader(LvnWords.Of("profile.relations", "Relationships")));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
-                "Первый выбор уже меняет историю. Начните главу — и здесь появятся ваши связи."));
+                LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
 
             if (OnOpenSettings != null) _body.Add(SettingsLink());
             if (OnDeleteAccount != null) _body.Add(DeleteAccountRow());
@@ -511,19 +511,9 @@ namespace Lvn.UI.Screens
         }
 
 
+        // Склонение держит словарь: правило зависит от языка, а не от экрана.
         private static string ChapterWord(int count)
-        {
-            int lastTwo = count % 100;
-            if (lastTwo >= 11 && lastTwo <= 14) return "глав";
-            switch (count % 10)
-            {
-                case 1: return "глава";
-                case 2:
-                case 3:
-                case 4: return "главы";
-                default: return "глав";
-            }
-        }
+            => LvnWords.Plural("chapter", count, "chapter", "chapters");
 
         // Жизненный цикл накладного экрана — в базовом классе
         // (LvnOverlayScreen): проявление, ожидание, угасание и отмена открытия

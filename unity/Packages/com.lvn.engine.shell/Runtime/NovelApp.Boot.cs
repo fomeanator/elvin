@@ -130,12 +130,12 @@ namespace Lvn.UI.Screens
             var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
             var versionsTask = _assets.WarmVersionsAsync();
             var manifestTask = FetchManifestAsync();
-            BootVeil.Progress(10, "подключение…");
+            BootVeil.Progress(10, LvnWords.Of("boot.connecting", "connecting…"));
 
             bool online = await probeTask;
             if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
             Mark($"connectivity → {(online ? "online" : "offline")}");
-            BootVeil.Progress(30, "загрузка данных…");
+            BootVeil.Progress(30, LvnWords.Of("boot.loading_data", "loading data…"));
 
             try { await versionsTask; } catch { /* offline: last-known index */ }
             Mark("version index");
@@ -280,7 +280,9 @@ namespace Lvn.UI.Screens
                             foreach (var kv in ch.assets)
                                 Probe(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
                         if (miss == 0) return null;
-                        string label = $"Скачать главу {ch.number} · ≈{Mathf.Max(1, bytes >> 20)} МБ";
+                        string label = LvnWords.Of("download.chapter", "Download chapter {n} · ≈{mb} MB")
+                    .Replace("{n}", ch.number.ToString())
+                    .Replace("{mb}", Mathf.Max(1, bytes >> 20).ToString());
                         return (label, () => EnqueueChapterDownload(t, ch));
                     };
                     hud.HasSomeDownloaded = () =>
@@ -360,7 +362,7 @@ namespace Lvn.UI.Screens
                     float p = l != null && l.BatchTotal > 0
                         ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
                     BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
-                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : "загрузка…");
+                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : LvnWords.Of("boot.loading", "loading…"));
                     await Task.Yield();
                 }
                 if (ct.IsCancellationRequested) return;

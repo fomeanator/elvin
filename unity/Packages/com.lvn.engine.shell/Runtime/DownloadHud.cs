@@ -228,10 +228,10 @@ namespace Lvn.UI.Screens
             info.style.flexDirection = FlexDirection.Row;
             info.style.flexWrap = Wrap.Wrap;
             _full.Add(info);
-            _vSpeed = InfoCell(info, "Скорость");
-            _vQueue = InfoCell(info, "В очереди");
-            _vGot   = InfoCell(info, "Скачано");
-            _vLeft  = InfoCell(info, "Осталось");
+            _vSpeed = InfoCell(info, LvnWords.Of("dl.speed", "Speed"));
+            _vQueue = InfoCell(info, LvnWords.Of("dl.queued", "Queued"));
+            _vGot   = InfoCell(info, LvnWords.Of("dl.done", "Downloaded"));
+            _vLeft  = InfoCell(info, LvnWords.Of("dl.left", "Left"));
 
             // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
             // перестраиваются при развороте и по изменению очереди.
@@ -339,8 +339,8 @@ namespace Lvn.UI.Screens
                           + LvnWords.Of("downloads.queue_files", "files {0}", filesLeft)
                         : LvnWords.Of("downloads.queue_files", "files {0}", filesLeft);
                     _vGot.text = qTotal > 0
-                        ? Mb(qDone + batchRec) + " из " + Mb(qTotal)
-                        : Mb(t.received) + (t.expected > 0 ? " из " + Mb(t.expected) : "");
+                        ? Mb(qDone + batchRec) + " " + LvnWords.Of("common.of", "of") + " " + Mb(qTotal)
+                        : Mb(t.received) + (t.expected > 0 ? " " + LvnWords.Of("common.of", "of") + " " + Mb(t.expected) : "");
                     if (now - _lastMissingAt > 3f)
                     {
                         _lastMissingAt = now;
@@ -398,29 +398,43 @@ namespace Lvn.UI.Screens
         private static string Humanize(string url, string fallback)
         {
             if (string.IsNullOrEmpty(url))
-                return string.IsNullOrEmpty(fallback) ? "Файлы игры" : fallback;
+                return string.IsNullOrEmpty(fallback) ? LvnWords.Of("dl.class_other", "Game files") : fallback;
             switch (Lvn.Content.DownloadPolicy.Classify(url))
             {
-                case Lvn.Content.AssetClass.Actor: return "Персонажи и наряды";
-                case Lvn.Content.AssetClass.SceneBg: return "Фоны сцен";
-                case Lvn.Content.AssetClass.ChapterBg: return "Экраны глав";
-                case Lvn.Content.AssetClass.Cover: return "Обложки историй";
-                case Lvn.Content.AssetClass.Audio: return "Музыка и звуки";
-                case Lvn.Content.AssetClass.Script: return "Текст глав";
-                case Lvn.Content.AssetClass.Ui: return "Интерфейс";
+                case Lvn.Content.AssetClass.Actor: return LvnWords.Of("dl.class_actor", "Characters and outfits");
+                case Lvn.Content.AssetClass.SceneBg: return LvnWords.Of("dl.class_scene_bg", "Scene backdrops");
+                case Lvn.Content.AssetClass.ChapterBg: return LvnWords.Of("dl.class_chapter_bg", "Chapter screens");
+                case Lvn.Content.AssetClass.Cover: return LvnWords.Of("dl.class_cover", "Story covers");
+                case Lvn.Content.AssetClass.Audio: return LvnWords.Of("dl.class_audio", "Music and sound");
+                case Lvn.Content.AssetClass.Script: return LvnWords.Of("dl.class_script", "Chapter text");
+                case Lvn.Content.AssetClass.Ui: return LvnWords.Of("dl.class_ui", "Interface");
             }
-            if (url.Contains("/sprites/")) return "Персонажи и наряды";
-            return "Файлы игры";
+            if (url.Contains("/sprites/")) return LvnWords.Of("dl.class_actor", "Characters and outfits");
+            return LvnWords.Of("dl.class_other", "Game files");
+        }
+
+        // Запятая была вписана в код: `.Replace('.', ',')` — русская дробь
+        // насильно, в любой новелле. Разделитель — такое же слово языка, как
+        // «МБ», и живёт в словаре.
+        private static System.Globalization.NumberFormatInfo Decimals
+        {
+            get
+            {
+                var f = (System.Globalization.NumberFormatInfo)
+                    System.Globalization.CultureInfo.InvariantCulture.NumberFormat.Clone();
+                f.NumberDecimalSeparator = LvnWords.Of("unit.decimal", ".");
+                return f;
+            }
         }
 
         private static string Mb(long bytes)
-            => bytes >= 100L << 20 ? $"{bytes >> 20} МБ"
-             : $"{bytes / 1048576f:0.#} МБ".Replace('.', ',');
+            => bytes >= 100L << 20 ? (bytes >> 20) + " " + LvnWords.Of("unit.mb", "MB")
+             : (bytes / 1048576f).ToString("0.#", Decimals) + " " + LvnWords.Of("unit.mb", "MB");
 
         private static string Speed(float bytesPerSec)
             => bytesPerSec >= 1048576f
-                ? $"{bytesPerSec / 1048576f:0.#} МБ/с".Replace('.', ',')
-                : $"{Mathf.RoundToInt(bytesPerSec / 1024f)} КБ/с";
+                ? (bytesPerSec / 1048576f).ToString("0.#", Decimals) + " " + LvnWords.Of("unit.mbs", "MB/s")
+                : Mathf.RoundToInt(bytesPerSec / 1024f) + " " + LvnWords.Of("unit.kbs", "KB/s");
 
         /// <summary>Что рисуется внутри кольца: стрелка вниз (загрузка),
         /// «!» (офлайн при живой очереди), стрелка вверх (синхронизация —

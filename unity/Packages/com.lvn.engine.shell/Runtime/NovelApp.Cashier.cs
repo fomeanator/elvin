@@ -95,7 +95,10 @@ namespace Lvn.UI.Screens
             long rem = r.NextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (rem <= 0) return "";
             long h = rem / 3600, m = (rem % 3600) / 60;
-            return "\n\n+1 энергия через " + (h > 0 ? h + " ч " + m + " мин" : m + " мин");
+            return "\n\n" + LvnWords.Of("wallet.refill_in", "+1 in {t}")
+                .Replace("{t}", h > 0
+                    ? h + " " + LvnWords.Of("unit.hours", "h") + " " + m + " " + LvnWords.Of("unit.minutes", "min")
+                    : m + " " + LvnWords.Of("unit.minutes", "min"));
         }
 
         // Charge the chapter-entry currency (typically the regenerating "energy")

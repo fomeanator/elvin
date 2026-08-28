@@ -329,7 +329,7 @@ namespace Lvn.UI.Screens
             // Покупка в меню-гардеробе идёт через кошелёк; нехватка средств
             // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
             WardrobeTab.OpenStore = () => OpenPackShopAsync();
-            WardrobeTab.ConfirmTopUp = (t, m) => ConfirmAsync(t, m, "В магазин", "Отмена");
+            WardrobeTab.ConfirmTopUp = (t, m) => ConfirmAsync(t, m, LvnWords.Of("store.go", "Store"), LvnWords.Of("common.cancel", "Cancel"));
             WardrobeTab.Alert = (t, m) => AlertAsync(t, m);
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);

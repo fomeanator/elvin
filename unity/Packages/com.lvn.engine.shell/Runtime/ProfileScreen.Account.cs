@@ -165,7 +165,7 @@ namespace Lvn.UI.Screens
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = id;
-                LvnMotion.FlashText(copy, "Скопировано");
+                LvnMotion.FlashText(copy, LvnWords.Of("common.copied", "Copied"));
             };
             footer.Add(copy);
 

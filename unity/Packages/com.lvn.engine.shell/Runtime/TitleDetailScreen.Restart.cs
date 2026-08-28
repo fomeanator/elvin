@@ -29,7 +29,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 36;
-            section.Add(SectionHeader("Сохранения"));
+            section.Add(SectionHeader(LvnWords.Of("saves.title", "Saves")));
 
             bool hasProgress = Title != null
                 && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0);
@@ -51,7 +51,7 @@ namespace Lvn.UI.Screens
 
             var auto = Title != null ? LvnSaveStore.Get(Title.id, LvnSaveStore.AutoSlot) : null;
             if (auto?.Snap != null)
-                section.Add(SaveRow("Автосохранение", DescribeSave(Title, auto), Play));
+                section.Add(SaveRow(LvnWords.Of("saves.auto", "Autosave"), DescribeSave(Title, auto), Play));
             else if (!hasProgress)
             {
                 var empty = new Label(LvnWords.Of("saves.empty", "No saves yet — start reading."));
@@ -76,10 +76,10 @@ namespace Lvn.UI.Screens
         {
             if (unixMs <= 0) return "";
             var span = System.DateTimeOffset.UtcNow - System.DateTimeOffset.FromUnixTimeMilliseconds(unixMs);
-            if (span.TotalMinutes < 1) return "только что";
-            if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} мин назад";
-            if (span.TotalHours < 24) return $"{(int)span.TotalHours} ч назад";
-            return $"{(int)span.TotalDays} дн назад";
+            if (span.TotalMinutes < 1) return LvnWords.Of("time.just_now", "just now");
+            if (span.TotalMinutes < 60) return LvnWords.Of("time.minutes_ago", "{n} min ago").Replace("{n}", ((int)span.TotalMinutes).ToString());
+            if (span.TotalHours < 24) return LvnWords.Of("time.hours_ago", "{n} h ago").Replace("{n}", ((int)span.TotalHours).ToString());
+            return LvnWords.Of("time.days_ago", "{n} d ago").Replace("{n}", ((int)span.TotalDays).ToString());
         }
 
         private VisualElement SaveRow(string slot, string where, System.Action onLoad)
@@ -134,23 +134,24 @@ namespace Lvn.UI.Screens
         {
             if (Title == null) return;
             var chapters = Title.ChaptersOf();
-            var panel = OpenModal("Перезапуск экспедиции");
+            var panel = OpenModal(LvnWords.Of("restart.title", "Restart"));
 
             var msg = new Label(
-                "«Всю экспедицию» — с первой главы, все статы сбросятся. " +
-                "«С главы» — выбрать главу и начать с неё.");
+                LvnWords.Of("restart.explain",
+                "\"Everything\" starts over from chapter one and clears every stat. "
+                + "\"From a chapter\" picks where to resume."));
             msg.style.color = LvnTokens.TextDim;
             msg.style.fontSize = 22;
             msg.style.whiteSpace = WhiteSpace.Normal;
             msg.style.marginBottom = 8;
             panel.Add(msg);
 
-            panel.Add(ModalButton("Перезапустить всю экспедицию", primary: true,
+            panel.Add(ModalButton(LvnWords.Of("restart.whole", "Restart everything"), primary: true,
                 () => LvnAsync.Fire(RestartWholeAsync(), "RestartWhole")));
             if (chapters.Count > 1)
-                panel.Add(ModalButton("Перезапустить с главы…", primary: false,
+                panel.Add(ModalButton(LvnWords.Of("restart.from_chapter", "Restart from a chapter…"), primary: false,
                     () => ShowChapterPicker(chapters)));
-            panel.Add(ModalButton("Отмена", primary: false, CloseModal));
+            panel.Add(ModalButton(LvnWords.Of("common.cancel", "Cancel"), primary: false, CloseModal));
         }
 
         private void ShowChapterPicker(List<LvnChapter> chapters)
@@ -158,7 +159,7 @@ namespace Lvn.UI.Screens
             if (Title == null) return;
             int reached = LvnProgress.Reached(Title);
             int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
-            var panel = OpenModal("Выберите главу");
+            var panel = OpenModal(LvnWords.Of("restart.pick_chapter", "Choose a chapter"));
 
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
@@ -170,14 +171,14 @@ namespace Lvn.UI.Screens
                 // Перезапуск не вправе прыгнуть дальше пройденного — правило
                 // спрашиваем у Привратника, а не повторяем здесь.
                 bool unlocked = Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber);
-                var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  закрыто"), primary: false,
+                var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  " + LvnWords.Of("chapter.locked", "locked")), primary: false,
                     () => { if (unlocked) LvnAsync.Fire(RestartFromChapterAsync(ch), "RestartFromChapter"); });
                 row.SetEnabled(unlocked);
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 scroll.Add(row);
             }
 
-            panel.Add(ModalButton("Отмена", primary: false, CloseModal));
+            panel.Add(ModalButton(LvnWords.Of("common.cancel", "Cancel"), primary: false, CloseModal));
         }
 
         private async Task RestartWholeAsync()

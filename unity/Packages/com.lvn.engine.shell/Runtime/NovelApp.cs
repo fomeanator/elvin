@@ -268,7 +268,7 @@ namespace Lvn.UI.Screens
                 Debug.LogWarning("[novelapp] no manifest and no cache — holding boot for connectivity");
                 for (int attempt = 1; manifest == null; attempt++)
                 {
-                    BootVeil.Status($"нет соединения с сервером — переподключение… ({attempt})");
+                    BootVeil.Status(LvnWords.Of("boot.reconnecting", "no connection to the server — reconnecting… ({n})").Replace("{n}", attempt.ToString()));
                     // Компонент умер (смена сцены, снос встраивателем) — уходим
                     // без манифеста: вызывающий это увидит и прекратит загрузку.
                     try { await Task.Delay(5000, destroyCancellationToken); }
