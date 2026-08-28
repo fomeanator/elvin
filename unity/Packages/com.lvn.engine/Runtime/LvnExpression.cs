@@ -590,9 +590,13 @@ namespace Lvn
                     // ── numbers / chance ──
                     case "rand":
                         if (a.Count == 0) return Val.Of(_rng.NextDouble());
-                        if (a.Count == 1) { int n = (int)System.Math.Round(N(0)); return Val.Of((double)_rng.NextInt(0, n < 0 ? 0 : n)); }
+                        // Границы округляются ТЕМ ЖЕ правилом, что round():
+                        // System.Math.Round здесь банковское, и rand(2.5, 5) в
+                        // приложении начинался бы с двойки, а в playground с
+                        // тройки — расхождение, пережившее роль 179.
+                        if (a.Count == 1) { int n = (int)LvnNum.RoundHalfUp(N(0)); return Val.Of((double)_rng.NextInt(0, n < 0 ? 0 : n)); }
                         // NextInt is inclusive on both ends and orders its bounds.
-                        return Val.Of((double)_rng.NextInt((int)System.Math.Round(N(0)), (int)System.Math.Round(N(1))));
+                        return Val.Of((double)_rng.NextInt((int)LvnNum.RoundHalfUp(N(0)), (int)LvnNum.RoundHalfUp(N(1))));
                     case "chance": return Val.Of(_rng.NextDouble() < (a.Count > 0 ? N(0) : 0.5));
                     case "min": return Val.Of(a.Count == 0 ? 0 : (a.Count == 1 ? N(0) : System.Math.Min(N(0), N(1))));
                     case "max": return Val.Of(a.Count == 0 ? 0 : (a.Count == 1 ? N(0) : System.Math.Max(N(0), N(1))));

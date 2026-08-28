@@ -407,6 +407,19 @@ namespace Lvn.UI.Screens
                         () => LvnPrefs.Changed -= OnPrefsMaybeLocale);
         }
 
+        /// <summary>
+        /// Вход в главу: дождаться первого фона за непрозрачной загрузкой,
+        /// раскрыть живую сцену, показать титул главы и — на первой главе —
+        /// спросить имя.
+        ///
+        /// <para>Ожидание фона имеет СРОК: текстовая сцена может не иметь фона
+        /// вовсе, и без срока вход завис бы навсегда. Возобновление titles не
+        /// показывает: игрок посреди сцены, а не в начале.</para>
+        ///
+        /// <para>Обещание <c>entryDone</c> выполняется в finally ЧТО БЫ НИ
+        /// СЛУЧИЛОСЬ: на нём держится первая реплика, и незакрытое обещание —
+        /// это игра, замершая на пустом экране.</para>
+        /// </summary>
         private async Task RevealChapterEntryAsync(LvnTitle title, LvnChapter chapter,
             bool resuming, bool restart, bool novelFreshStart,
             TaskCompletionSource<bool> entryDone)
