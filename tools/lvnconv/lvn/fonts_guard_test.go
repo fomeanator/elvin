@@ -151,3 +151,63 @@ func lookup12(b []byte, off int, want uint32) bool {
 	}
 	return false
 }
+
+// ШРИФТ СТАВИТ ДОМ, А НЕ ЭКРАН.
+//
+// У присвоения шрифта два пути, и они дают РАЗНЫЙ результат при одинаковом
+// имени гарнитуры. Прежний (`style.unityFont`) кладёт растровое начертание;
+// нынешний (`LvnFonts.Apply` → `unityFontDefinition`) — SDF-обёртку, ту самую,
+// у которой работает толщина (раздутие контура) и которая не мылится, когда
+// текст растёт.
+//
+// Различие невидимо в коде и хорошо видно на экране — причём именно там, где
+// текст крупный: в меню главы, куда игрок и приходит делать его крупнее. Восемь
+// надписей этого меню ставили шрифт сами и оставались растровыми, пока прочий
+// текст игры уже был SDF.
+//
+// Поэтому: в рантайме прямых присвоений `style.unityFont` нет. Дом — один, и
+// он умеет откатиться к прежнему пути сам, если обёртка не удалась.
+func TestFontIsSetThroughItsHome(t *testing.T) {
+	root := repoRoot(t)
+	re := regexp.MustCompile(`\.style\.unityFont\s*=`)
+
+	var found []string
+	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell", "com.lvn.engine.services"} {
+		dir := filepath.Join(root, "unity", "Packages", pkg, "Runtime")
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			// Сам дом — единственное законное место: там и живёт откат к
+			// прежнему пути.
+			if filepath.Base(path) == "LvnFonts.cs" {
+				return nil
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for i, ln := range strings.Split(string(b), "\n") {
+				if re.MatchString(ln) {
+					found = append(found, fmt.Sprintf("%s:%d", filepath.Base(path), i+1))
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("обход %s: %v", pkg, err)
+		}
+	}
+
+	if len(found) > 0 {
+		sort.Strings(found)
+		t.Fatalf("шрифт ставится мимо дома: %s\n"+
+			"зовите LvnFonts.Apply(элемент, шрифт) — прежний путь даёт растровое "+
+			"начертание вместо SDF: та же гарнитура, но мылится на крупном кегле "+
+			"и не слушается толщины",
+			strings.Join(found, ", "))
+	}
+}

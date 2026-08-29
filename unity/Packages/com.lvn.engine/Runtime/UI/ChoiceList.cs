@@ -190,6 +190,10 @@ namespace Lvn.UI
                 cost.style.color = _theme.ChoiceCostColor;
                 cost.style.fontSize = Mathf.RoundToInt(ChoiceSize * 0.72f);
                 cost.style.marginTop = 4;
+                // Гарнитура новеллы — и подписи под вариантом тоже. Её ставили
+                // только заголовку, и вторая строка той же кнопки рисовалась
+                // шрифтом панели: на кнопке оказывались две разные гарнитуры.
+                LvnFonts.Apply(cost, _theme.Font);
                 btn.Add(cost);
             }
 
@@ -210,6 +214,7 @@ namespace Lvn.UI
                     chip.style.marginLeft = 6;
                     chip.style.marginRight = 6;
                     chip.style.opacity = 0.85f;
+                    LvnFonts.Apply(chip, _theme.Font);
                     effRow.Add(chip);
                 }
                 btn.Add(effRow);
