@@ -346,14 +346,19 @@ namespace Lvn.UI
         /// шрифту, из его метрик, и новая гарнитура встаёт правильно без
         /// подбора.</para>
         ///
-        /// <para>Мера — высота строчных (x-height): именно она решает, крупным
-        /// ли текст ВЫГЛЯДИТ, потому что строчных в тексте большинство. У
-        /// шрифта без строчных (пиксельная набирает всё прописными) берётся
-        /// высота прописных — для него это и есть основная буква.</para>
+        /// <para>Мера — СРЕДНЕЕ ИЗ СТРОЧНОЙ И ПРОПИСНОЙ, и это не компромисс
+        /// ради красоты. По одной строчной мерить нельзя: у рукописной они
+        /// вдвое ниже эталонных (31.9 против 47.4), а прописные, наоборот,
+        /// ВЫШЕ (70.6 против 63.6) — растянув её по строчным, мы делаем
+        /// заголовки в полтора раза крупнее эталонных, и получается ровно
+        /// «от руки огромен». Замер девяти гарнитур: по строчной разброс
+        /// кегля выходит двукратный (22…45 при авторских 30), по среднему —
+        /// 25…32.</para>
         ///
-        /// <para>Эталон — первая гарнитура каталога, шрифт движка из коробки:
-        /// авторские кегли подбирались под неё, и она обязана остаться ровно
-        /// такой, какой была.</para>
+        /// <para>Буквы берутся НАРИСОВАННЫЕ, а не заявленные в метриках. У
+        /// пиксельной строчных нет вовсе, и линия строчных проставлена
+        /// формально — 68 при фактической высоте буквы 56.3; поверив метрике,
+        /// мы уменьшали её сильнее, чем нужно.</para>
         /// </summary>
         private static float OpticalScale(Family fam)
         {
@@ -368,21 +373,37 @@ namespace Lvn.UI
             return scale;
         }
 
-        // Доля кегля, которую занимает основная буква. Ноль означает «измерить
-        // не вышло» — вызывающий тогда оставляет кегль как есть.
+        // Средняя высота нарисованной буквы в долях кегля. Ноль означает
+        // «измерить не вышло» — вызывающий тогда оставляет кегль как есть.
         private static float LetterHeight(string resourcePath)
         {
             if (string.IsNullOrEmpty(resourcePath)) return 0f;
             var font = Resources.Load<Font>(resourcePath);
             if (font == null) return 0f;
             var fa = From(font);
-            if (fa == null) return 0f;
-            var face = fa.faceInfo;
-            if (face.pointSize <= 0f) return 0f;
-            float x = face.meanLine - face.baseline;          // строчные
-            if (x <= 0.0001f) x = face.capLine - face.baseline; // их нет — прописные
-            if (x <= 0.0001f) return 0f;
-            return x / face.pointSize;
+            if (fa == null || fa.faceInfo.pointSize <= 0f) return 0f;
+
+            float low = GlyphHeight(fa, 'x', 'о');    // строчная: латиница, иначе кириллица
+            float high = GlyphHeight(fa, 'H', 'О');   // прописная
+            if (low <= 0.0001f) low = high;           // шрифт только с прописными
+            if (high <= 0.0001f) high = low;
+            if (low <= 0.0001f) return 0f;
+            return (low + high) * 0.5f / fa.faceInfo.pointSize;
+        }
+
+        // Высота нарисованного глифа. Динамический SDF рисует символ по
+        // требованию — поэтому сначала просим его добавить.
+        private static float GlyphHeight(FontAsset fa, params char[] candidates)
+        {
+            foreach (var c in candidates)
+            {
+                try { fa.TryAddCharacters(c.ToString()); } catch { }
+                if (fa.characterLookupTable != null
+                    && fa.characterLookupTable.TryGetValue(c, out var ch)
+                    && ch?.glyph != null && ch.glyph.metrics.height > 0.0001f)
+                    return ch.glyph.metrics.height;
+            }
+            return 0f;
         }
 
         private static readonly System.Collections.Generic.Dictionary<string, float> _optical
