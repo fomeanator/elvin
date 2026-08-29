@@ -149,6 +149,39 @@ namespace Lvn.UI
         /// не только в диалоге («варианты выбора не меняются», Илья 28.08).</summary>
         private int ChoiceSize => LvnFonts.Size(_theme.ChoiceFontSize * LvnPrefs.TextScale);
 
+        /// <summary>
+        /// ПЕРЕЧИТАТЬ КЕГЛЬ У ТОГО, ЧТО УЖЕ НА ЭКРАНЕ.
+        ///
+        /// <para>Размер варианта считается от выбора игрока — но считался он
+        /// один раз, при сборке. Игрок, открывший настройки прямо на выборе
+        /// («хочу разглядеть ЭТИ варианты»), возвращался к вариантам прежнего
+        /// размера: настройка будто не работала. Реплика перечитывала себя
+        /// давно, выбор — нет, хотя это тот же текст главы.</para>
+        ///
+        /// <para>Кегль ищется по роли надписи, а не по её месту в кнопке:
+        /// подпись цены и плашки эффектов появляются не у каждого варианта.</para>
+        /// </summary>
+        public void RefreshTextStyle()
+        {
+            int size = ChoiceSize;
+            foreach (var el in this.Query<Label>().ToList())
+            {
+                switch (el.name)
+                {
+                    case CaptionName: el.style.fontSize = size; break;
+                    case CostName:    el.style.fontSize = Mathf.RoundToInt(size * CostSizeRatio); break;
+                    case EffectName:  el.style.fontSize = Mathf.RoundToInt(size * EffectSizeRatio); break;
+                }
+            }
+        }
+
+        // Роли надписей внутри варианта: подпись, цена, плашка эффекта.
+        private const string CaptionName = "choice-caption";
+        private const string CostName = "choice-cost";
+        private const string EffectName = "choice-effect";
+        private const float CostSizeRatio = 0.72f;
+        private const float EffectSizeRatio = 0.6f;
+
         private VisualElement BuildOption(LvnOption option)
         {
             int index = option.Index;
@@ -170,7 +203,7 @@ namespace Lvn.UI
             btn.style.flexDirection = FlexDirection.Column;
             btn.style.alignItems = Align.Center;
 
-            var caption = new Label(option.Text ?? string.Empty);
+            var caption = new Label(option.Text ?? string.Empty) { name = CaptionName };
             caption.style.color = _theme.ChoiceTextColor;
             caption.style.fontSize = ChoiceSize;
             caption.style.whiteSpace = WhiteSpace.Normal;
@@ -186,9 +219,9 @@ namespace Lvn.UI
 
             if (!string.IsNullOrEmpty(option.Cost))
             {
-                var cost = new Label(option.Cost);
+                var cost = new Label(option.Cost) { name = CostName };
                 cost.style.color = _theme.ChoiceCostColor;
-                cost.style.fontSize = Mathf.RoundToInt(ChoiceSize * 0.72f);
+                cost.style.fontSize = Mathf.RoundToInt(ChoiceSize * CostSizeRatio);
                 cost.style.marginTop = 4;
                 // Гарнитура новеллы — и подписи под вариантом тоже. Её ставили
                 // только заголовку, и вторая строка той же кнопки рисовалась
@@ -208,9 +241,9 @@ namespace Lvn.UI
                 effRow.style.marginTop = 4;
                 foreach (var eff in option.Effects)
                 {
-                    var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}");
+                    var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}") { name = EffectName };
                     chip.style.color = _theme.ChoiceCostColor;
-                    chip.style.fontSize = Mathf.RoundToInt(ChoiceSize * 0.6f);
+                    chip.style.fontSize = Mathf.RoundToInt(ChoiceSize * EffectSizeRatio);
                     chip.style.marginLeft = 6;
                     chip.style.marginRight = 6;
                     chip.style.opacity = 0.85f;
