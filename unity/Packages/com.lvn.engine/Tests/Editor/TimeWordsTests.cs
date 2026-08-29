@@ -111,6 +111,28 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void КраяОтсчётаДержатсяИНаЯзыкеНовеллы()
+        {
+            // Края правила («целый час», «меньше минуты», «часы разошлись»)
+            // проверены выше по-английски, а игрок читает их СЛОВАМИ НОВЕЛЛЫ:
+            // подстановка слова и правило про ноль — разные механизмы, и
+            // сойтись им ничто не мешает только пока это проверено вместе.
+            LvnWords.Learn(new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["unit.hours"] = "ч",
+                ["unit.minutes"] = "мин",
+            });
+            try
+            {
+                Assert.AreEqual("1 ч", LvnTimeWords.Coarse(3600), "«1 ч 0 мин» читается как поломка");
+                Assert.AreEqual("1 ч 12 мин", LvnTimeWords.Coarse(4350), "минуты, когда они есть, на месте");
+                Assert.AreEqual("1 мин", LvnTimeWords.Coarse(40), "«0 мин» — не «вот-вот», а поломка");
+                Assert.AreEqual("1 мин", LvnTimeWords.Coarse(-90), "отрицательного ожидания не бывает");
+            }
+            finally { LvnWords.Learn(null); }
+        }
+
+        [Test]
         public void AgoWordsComeFromTheNovellaWithTheNumberInPlace()
         {
             LvnWords.Learn(new System.Collections.Generic.Dictionary<string, string>

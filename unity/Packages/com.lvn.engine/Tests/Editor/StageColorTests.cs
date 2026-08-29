@@ -55,6 +55,44 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ЗелёныйОстаётсяЯркимЗелёным()
+        {
+            // ЭТО ЗАЩИТА УЖЕ НАПИСАННЫХ ГЛАВ, а не придирка к оттенку.
+            // «green» в HTML — тёмный #008000, в движке — яркий (0,1,0). Имена
+            // движка оставлены в разборе ЯВНО именно поэтому: молча передать их
+            // общему разбору значило бы перекрасить каждую вспышку и каждую
+            // вуаль, написанную словом, — и ни автор, ни журнал об этом бы не
+            // узнали.
+            var green = VnStage.ParseColor("green", Color.black);
+
+            Assert.AreEqual(new Color(0f, 1f, 0f, 1f), green, "«green» перестал быть ярким зелёным");
+            Assert.AreNotEqual(VnStage.ParseColor("#008000", Color.black), green,
+                "движковый «green» съехал на HTML-овский тёмный — главы перекрашены задним числом");
+        }
+
+        [Test]
+        public void ВосьмизначныйБезРешёткиТожеЦвет()
+        {
+            // Решётку автор ставит не всегда — правило «без решётки тоже цвет»
+            // обязано доходить и до записи с прозрачностью, иначе половина
+            // формы работает, а половина молча даёт умолчание.
+            Assert.AreEqual(VnStage.ParseColor("#ffffff80", Color.black),
+                            VnStage.ParseColor("ffffff80", Color.black));
+        }
+
+        [Test]
+        public void РегистрНаписанияНеВажен()
+        {
+            // Автор пишет цвет как ему удобно; «WHITE» и «#3A1C0D» — тот же
+            // цвет, а не опечатка с жалобой в журнал.
+            Assert.AreEqual(Color.white, VnStage.ParseColor("WHITE", Color.black));
+            Assert.AreEqual(VnStage.ParseColor("warm", Color.black),
+                            VnStage.ParseColor("Warm", Color.black));
+            Assert.AreEqual(VnStage.ParseColor("#3a1c0d", Color.white),
+                            VnStage.ParseColor("#3A1C0D", Color.white));
+        }
+
+        [Test]
         public void МнемоникиНастроенияПережилиПереход()
         {
             var warm = VnStage.ParseColor("warm", Color.black);

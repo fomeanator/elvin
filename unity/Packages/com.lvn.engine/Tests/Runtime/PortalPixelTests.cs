@@ -19,6 +19,16 @@ namespace Lvn.Tests.Runtime
     /// <para>Поэтому здесь кадр рисуется в текстуру и читается: в створе должны
     /// быть светящиеся пиксели, вне его — пусто. Это и есть «увидеть глазами»,
     /// только повторяемо.</para>
+    ///
+    /// <para>БЕЗ ГРАФИКИ ЭТОТ НАБОР НЕПРОВЕРЯЕМ, и молчать об этом нельзя.
+    /// В <c>-nographics</c> рисовать нечем: <c>Camera.Render</c> ничего не
+    /// пишет, а <c>ReadPixels</c> отдаёт не кадр, а содержимое неинициализированной
+    /// памяти — одну и ту же яркость 0.80 в ЛЮБОЙ точке. На таком «кадре»
+    /// проверки «створ виден» проходили сами собой, а «створа тут нет» падали:
+    /// набор выглядел строгим, а был лживым в обе стороны. Поэтому здесь стоит
+    /// тот же пропуск, что и у прочих пиксельных проверок движка
+    /// (<see cref="TestPixels.RequireGraphics"/>): на машине с экраном они
+    /// проверяют портал, в батче — честно объявляют себя пропущенными.</para>
     /// </summary>
     public class PortalPixelTests
     {
@@ -30,12 +40,7 @@ namespace Lvn.Tests.Runtime
         [SetUp]
         public void SetUp()
         {
-            _rt = new RenderTexture(256, 256, 0);
-            _cam = new GameObject("t-cam", typeof(Camera)).GetComponent<Camera>();
-            _cam.clearFlags = CameraClearFlags.SolidColor;
-            _cam.backgroundColor = Color.black;
-            _cam.targetTexture = _rt;
-
+            _cam = TestStage.Camera(out _rt);
             _canvasGo = TestStage.Canvas(_cam);
 
             _portal = LvnPortalLayer.Create(_canvasGo.transform, siblingIndex: -1);
@@ -44,9 +49,10 @@ namespace Lvn.Tests.Runtime
         [TearDown]
         public void TearDown()
         {
-            if (_cam != null) { _cam.targetTexture = null; Object.Destroy(_cam.gameObject); }
-            Object.Destroy(_canvasGo);
-            Object.Destroy(_rt);
+            // Пропущенный тест сюда тоже заходит — стенда может не быть вовсе.
+            TestStage.Drop(_cam);
+            if (_canvasGo != null) Object.Destroy(_canvasGo);
+            if (_rt != null) Object.Destroy(_rt);
         }
 
         /// <summary>Средняя яркость квадрата вокруг точки кадра (0..1 по обеим
@@ -54,12 +60,7 @@ namespace Lvn.Tests.Runtime
         private float Luminance(float u, float v, int half = 12)
         {
             _cam.Render();
-            var prev = RenderTexture.active;
-            RenderTexture.active = _rt;
-            var tex = new Texture2D(_rt.width, _rt.height, TextureFormat.RGBA32, false);
-            tex.ReadPixels(new Rect(0, 0, _rt.width, _rt.height), 0, 0);
-            tex.Apply();
-            RenderTexture.active = prev;
+            var tex = TestPixels.Read(_rt);
 
             int cx = Mathf.RoundToInt(u * _rt.width), cy = Mathf.RoundToInt(v * _rt.height);
             float sum = 0f; int n = 0;
@@ -76,6 +77,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator OpenPortalIsVisibleOnScreen()
         {
+            TestPixels.RequireGraphics();
             _portal.Place(new Vector2(0.5f, 0.5f), 0.30f, new Color(0.48f, 0.84f, 1f));
             _portal.Set(1f, 0f);
             yield return null;
@@ -89,6 +91,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator ClosedPortalLeavesTheFrameClean()
         {
+            TestPixels.RequireGraphics();
             _portal.Place(new Vector2(0.5f, 0.5f), 0.30f, new Color(0.48f, 0.84f, 1f));
             _portal.Set(1f, 0f);
             yield return null;
@@ -106,6 +109,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator PortalIsVisibleOnTheVeryFirstFrame()
         {
+            TestPixels.RequireGraphics();
             _portal.Place(new Vector2(0.5f, 0.5f), 0.30f, new Color(0.48f, 0.84f, 1f));
             _portal.Set(1f, 0f);
             yield return null;   // единственный кадр — как при первом заходе в меню
@@ -117,6 +121,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator PortalStandsWhereItWasPlaced()
         {
+            TestPixels.RequireGraphics();
             // Справа от центра — так он стоит на главной (x = 0.72).
             _portal.Place(new Vector2(0.72f, 0.5f), 0.22f, new Color(0.48f, 0.84f, 1f));
             _portal.Set(1f, 0f);
