@@ -158,16 +158,36 @@ namespace Lvn.UI
             catch { /* пропавший арт не повод ронять экран */ }
         }
 
+        // ЧЕГО ЖДЁТ ЭТОТ ЭЛЕМЕНТ ПРЯМО СЕЙЧАС.
+        //
+        // Один и тот же элемент просят показать разное быстрее, чем доезжает
+        // первое: игрок листает галерею стрелкой, тапает свотчи цвета волос,
+        // перелистывает карточки. Побеждала не последняя просьба, а та, что
+        // доехала позже — картинка от одной сцены под подписью от другой.
+        //
+        // Сцена от этого класса гонок закрыта поколениями (LvnStageClock).
+        // Здесь хватает адреса: показать надо ровно то, что попросили
+        // последним. Таблица слабая — элемент, ушедший из дерева, уносит запись
+        // с собой.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+            VisualElement, System.Runtime.CompilerServices.StrongBox<string>> _awaited
+            = new System.Runtime.CompilerServices.ConditionalWeakTable<
+                VisualElement, System.Runtime.CompilerServices.StrongBox<string>>();
+
         /// <summary>Загрузить арт и поставить его фоном элемента. Отсутствующий
-        /// арт — не беда: элемент остаётся с тем, что у него было.</summary>
+        /// арт — не беда: элемент остаётся с тем, что у него было. Устаревший —
+        /// тем более: пришедший позже ответ на отменённую просьбу не имеет права
+        /// перекрасить элемент.</summary>
         public static async System.Threading.Tasks.Task AssignAsync(
             VisualElement el, string url, ILvnAssets assets)
         {
             if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
+            var box = _awaited.GetValue(el, _ => new System.Runtime.CompilerServices.StrongBox<string>(null));
+            box.Value = url;
             try
             {
                 var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                if (sprite != null)
+                if (sprite != null && box.Value == url)
                 {
                     el.style.backgroundImage = new StyleBackground(sprite);
                     Pin(el, sprite, assets);
