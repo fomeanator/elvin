@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
             {
                 if (downloaded) return;
                 btn.SetEnabled(false);
-                _ = DownloadAll();
+                Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll");
                 // Живой прогресс: полоса и мегабайты, пока батч активен.
                 ticker = box.schedule.Execute(() =>
                 {
@@ -124,6 +124,8 @@ namespace Lvn.UI.Screens
                             Lvn.Content.LvnBytes.Short(p.received) + " / " + Lvn.Content.LvnBytes.Short(expect));
                         ShowBar(p.received, expect);
                     }
+                    // Батч кончился — пересчёт состояния сам же и усыпит
+                    // отсчёт первой своей строкой.
                     else LvnAsync.Fire(RefreshAsync(), "SettingsRefresh");
                 }).Every(500);
             };

@@ -497,7 +497,7 @@ namespace Lvn.UI.Screens
         // built-in inline detail view when no host is wired.
         private void OpenDetail(LvnTitle t, LvnCollection from)
         {
-            if (OnOpenDetail != null) { var target = t; _ = OpenDetailFlow(target); }
+            if (OnOpenDetail != null) { var target = t; Lvn.LvnAsync.Fire(OpenDetailFlow(target), "OpenDetail"); }
             else ShowDetail(t, from);
         }
 

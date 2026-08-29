@@ -314,7 +314,7 @@ namespace Lvn.UI.Screens
                     && now - _lastFlushKick > 5f)
                 {
                     _lastFlushKick = now;
-                    _ = FlushPending();
+                    Lvn.LvnAsync.Fire(FlushPending(), "FlushPending");
                 }
                 _miniRing.Glyph = glyph;
                 _fullRing.Glyph = glyph;

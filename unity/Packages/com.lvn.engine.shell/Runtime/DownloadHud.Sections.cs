@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
                 btn.style.fontSize = 22;
                 btn.style.marginTop = 8;
                 LvnStyler.Primary(btn, 14f);
-                btn.clicked += () => { btn.SetEnabled(false); _ = DownloadAll(); };
+                btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
                 card.Add(btn);
                 _sections.Add(card);
             }
