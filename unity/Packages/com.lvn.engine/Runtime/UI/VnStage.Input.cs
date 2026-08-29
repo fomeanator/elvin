@@ -16,6 +16,9 @@ namespace Lvn.UI
     {
         // ── choice countdown ────────────────────────────────────────────────
         private IVisualElementScheduledItem _choiceTick;
+        // На чьём расписании заведён отсчёт: сцену пересобирают, и чужое
+        // расписание после этого молчит.
+        private VisualElement _choiceTickHost;
         private float _choiceDeadline;
         private float _choiceTotal;
 
@@ -26,6 +29,15 @@ namespace Lvn.UI
             _choiceTotal = seconds;
             _choiceDeadline = LvnClock.Now() + seconds;
             _choices?.SetTimer(1f);
+            // ОДИН ОТСЧЁТ НА ВСЕ ВЫБОРЫ. Заводился новый на каждый выбор со
+            // сроком, а прежний оставался в расписании панели навсегда:
+            // остановка его только усыпляла.
+            if (_choiceTick != null && ReferenceEquals(_choiceTickHost, _uiRoot))
+            {
+                _choiceTick.Resume();
+                return;
+            }
+            _choiceTickHost = _uiRoot;
             _choiceTick = _uiRoot.schedule.Execute(() =>
             {
                 // An open menu or the art view freezes the clock — a timed choice
@@ -45,11 +57,9 @@ namespace Lvn.UI
             }).Every(100);
         }
 
-        private void StopChoiceTimer()
-        {
-            _choiceTick?.Pause();
-            _choiceTick = null;
-        }
+        // Отсчёт УСЫПЛЯЕТСЯ, а не выбрасывается: он один на все выборы главы,
+        // и следующий срок разбудит тот же.
+        private void StopChoiceTimer() => _choiceTick?.Pause();
 
         // ── input op: text-entry overlay ────────────────────────────────────
         private bool _awaitingInput;
