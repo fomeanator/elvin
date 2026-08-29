@@ -182,16 +182,23 @@ The first is the "ask this once" shape: the flag is set on pick, so its own
 `expr` gate hides the option afterwards. The second has no `-> label` at all —
 it runs its body and the flow falls through past the choice.
 
-Keep a body to **`set`/`inc` and the jump**. Those are state, and state is what
-a save restores. **Staging in a body does not survive a save**: the resume
-rebuilds the scene from a trace of command *indices*, and a body command has no
-index in the script — so an `actor`/`bg`/`hint`/`fade`/`audio` inside a body
-plays once and is gone the moment the player loads. Put staging after the label
-instead (the validator warns if you don't).
+Write whatever the branch needs — **the compiler picks the mechanism for you.**
 
-A body is also **flat**: no `if`/`choice`/`call` and no nested block — the
-compiler rejects those outright, because the runtime would forward them to the
-stage and drop them without a trace. Move branching to a label.
+A block of pure state (`set`/`inc` plus the jump) rides along as a runtime
+*body*: values are what a save restores anyway, so there is nothing to lower and
+an ordinary "ask this once" costs not a single extra label.
+
+Anything richer — `say`, `actor`, `bg`, `fade`, `audio`, `if`, a nested
+choice — is **woven into ordinary script** behind a minted label, exactly what
+you would have hand-written. That is not a style preference: a body command has
+no index in the script, and the resume rebuilds the scene from a trace of
+command *indices*. Staging left in a body plays once and is gone the moment the
+player loads — the live report was "went to the menu, came back, the character
+is missing": the background was there, the lines went on, the figure was not.
+Weaving gives those commands an index, so the resume finds them.
+
+You will see the woven labels (`__weave_…`, `__wend_…`) in the compiled `.lvn`.
+They are the lowering, not something to write by hand.
 
 ### Loops
 ```

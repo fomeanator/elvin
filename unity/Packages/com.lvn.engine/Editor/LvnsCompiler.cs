@@ -1147,14 +1147,30 @@ namespace Lvn.Editor
             parameters = "";
         }
 
-        // The ops LvnPlayer.Choose does NOT dispatch inside an option body:
-        // everything the player handles in its own loop (conformance/
-        // ops-owners.json, csharp "player"/"player+stage") except set/inc/goto,
-        // which Choose implements explicitly. Inside a body they would be
-        // forwarded to the stage and disappear without a trace.
-        static readonly HashSet<string> OptionBodyDenied = new HashSet<string>(StringComparer.Ordinal)
+        /// <summary>
+        /// ЧТО ИМЕЕТ ПРАВО ЕХАТЬ РАНТАЙМ-ТЕЛОМ ОПЦИИ — и ничего сверх.
+        ///
+        /// <para>Тело опции исполняется БЕЗ СОБСТВЕННОГО ИНДЕКСА в скрипте, а
+        /// картинку сцены игра восстанавливает по следу исполнения — списку
+        /// индексов. У чего нет индекса, того нет и в следе: команда отработает
+        /// один раз и исчезнет при первом же сохранении.</para>
+        ///
+        /// <para>Для переменных это безобидно: их значения снимок несёт сам. Для
+        /// всего остального — нет. Партнёрский отчёт «вышел в меню, вернулся —
+        /// персонажа нет» ровно об этом: <c>actor</c> в теле опции показал
+        /// героиню, автосохранение её не запомнило, и возврат собрал сцену без
+        /// неё — фон на месте, реплики идут, фигуры нет.</para>
+        ///
+        /// <para>Список был обратным — перечислял запрещённое, — и всё, чего в
+        /// нём не назвали (а это вся постановка: <c>actor</c>, <c>bg</c>,
+        /// <c>fade</c>, <c>audio</c>, <c>obj</c>, <c>camera</c>, <c>fx</c>…),
+        /// молча ехало телом. Перечислять безопасное короче и, главное,
+        /// безопаснее: новая команда языка по умолчанию плетётся в скрипт, а не
+        /// теряется.</para>
+        /// </summary>
+        static readonly HashSet<string> OptionBodyKeeps = new HashSet<string>(StringComparer.Ordinal)
         {
-            "say", "choice", "label", "if", "call", "return", "wait", "input", "preload", "load",
+            "set", "inc", "goto",
         };
 
         /// <summary>Compile a choice option's `{ … }` block. It does NOT judge the
@@ -1168,15 +1184,14 @@ namespace Lvn.Editor
             return body;
         }
 
-        /// <summary>The weave fork: does this block fit a runtime `body`, or must
-        /// it become script? OptionBodyDenied used to make such a block an ERROR;
-        /// it is the fork now, and no error remains. Mirrors Go needsWeaving.</summary>
+        /// <summary>Развилка плетения: помещается блок в рантайм-тело или обязан
+        /// стать скриптом? Зеркалит Go needsWeaving.</summary>
         static bool NeedsWeaving(JArray cmds)
         {
             foreach (JToken t in cmds)
             {
                 var op = (string)t["op"];
-                if (op != null && OptionBodyDenied.Contains(op)) return true;
+                if (op == null || !OptionBodyKeeps.Contains(op)) return true;
             }
             return false;
         }
