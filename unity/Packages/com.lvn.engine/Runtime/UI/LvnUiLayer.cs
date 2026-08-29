@@ -45,6 +45,7 @@ namespace Lvn.UI
             public string Layer;   // hud | over — в каком корне лежит
             public string When;    // always | idle | say | choice — при какой стадии виден
             public bool Manual;    // спрятано вручную через `ui X hide` — стадия не спорит
+            public bool Shown;     // стоит ли дерево на экране СЕЙЧАС — чтобы не играть вход дважды
             public LvnAppearKind Appear;   // как дерево выходит на экран
             public readonly List<Binding> Bindings = new List<Binding>();
         }
@@ -178,7 +179,8 @@ namespace Lvn.UI
         private void ApplyStageTo(Tree t)
         {
             if (t?.Root == null) return;
-            if (t.Manual) { t.Root.style.display = DisplayStyle.None; return; }
+            // Спрятанное рукой автора считается ушедшим: вернётся — сыграет вход.
+            if (t.Manual) { t.Root.style.display = DisplayStyle.None; t.Shown = false; return; }
             bool show;
             switch (t.When)
             {
@@ -188,7 +190,16 @@ namespace Lvn.UI
                 default:       show = true; break;
             }
             t.Root.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-            if (show) Appear(t.Root, t.Appear);
+            // ВХОД ИГРАЕТСЯ НА ПОЯВЛЕНИИ, А НЕ НА КАЖДОЙ СМЕНЕ СТАДИИ.
+            //
+            // Стадия меняется дважды за реплику — текст допечатался, игрок
+            // тапнул, — и оба раза сюда приходили ВСЕ деревья, включая те, что
+            // никуда не пропадали: дерево с `when=always` (умолчание, то есть
+            // весь постоянный HUD — полосы, счётчики, трекер) обнулялось в
+            // прозрачность и всплывало заново. Со стороны это ровная пульсация
+            // интерфейса в любой сцене с диалогом.
+            if (show && !t.Shown) Appear(t.Root, t.Appear);
+            t.Shown = show;
         }
 
         // Появление — из общего набора движка (LvnAppear), а не своя анимация
