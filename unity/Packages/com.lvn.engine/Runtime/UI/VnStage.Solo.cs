@@ -93,7 +93,7 @@ namespace Lvn.UI
             {
                 if (!ch.Show)
                 {
-                    HideActor(ch.Id, LvnSender.Story);
+                    HideOnScreen(ch.Id);
                     _onScreen.Actors.TryGetValue(ch.Id, out var was);
                     was.Visible = false;
                     _onScreen.Actors[ch.Id] = was;
@@ -113,18 +113,41 @@ namespace Lvn.UI
             }
         }
 
+        /// <summary>
+        /// УБРАТЬ С ЭКРАНА, НЕ ТРОГАЯ ПАРТИТУРУ.
+        ///
+        /// <para>Приведение кадра идёт МИМО общей двери — ровно так же, как
+        /// показ в <see cref="Reconcile"/> (он зовёт <c>ApplyDispatch</c>).
+        /// Уход же ходил через <see cref="ApplyStage"/>, а та за каждой
+        /// командой истории записывает кадр истории — и подпись истории
+        /// липкая. Выходило, что наложение, всего лишь ЗАКРЫВШЕЕ человека,
+        /// стирало его из того самого слоя, откуда его собирались вернуть:
+        /// катсцена кончалась, <see cref="EndSolo"/> смотрел в кадр истории и
+        /// не находил там никого. Ровно это партнёр видел как «агента увели
+        /// ради катсцены, и он пропал на несколько ходов».</para>
+        ///
+        /// <para>Экран и партитура — разные вещи. Здесь меняется только
+        /// экран.</para>
+        /// </summary>
+        private void HideOnScreen(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            // Тот же выбор op, что и у обычного увода: предмет уводится как
+            // предмет, иначе команда уедет не тому исполнителю.
+            string op = "actor";
+            if (_actorCmds.TryGetValue(id, out var staged)
+                && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
+                op = "obj";
+            ApplyDispatch(new JObject { ["op"] = op, ["id"] = id, ["show"] = false },
+                          LvnSender.Story);
+        }
+
         /// <summary>Записать авторскую команду в кадр истории. Зовётся из
         /// двери сцены — там же, где решается спор отправителей.</summary>
         private void RememberInStoryFrame(JObject cmd, LvnSender sender)
         {
             if (LvnStageManager.Sticky(sender)) StoryFrame.Absorb(cmd);
         }
-
-        /// <summary>Грим записывается в кадр истории вместе с позой — раньше он
-        /// жил отдельным словарём и терялся на каждом возврате: автор
-        /// показывает Агента тёмным силуэтом, а возвращался обычный человек в
-        /// белой рубашке.</summary>
-        private void RememberFx(JObject cmd) { }
 
         /// <summary>Идёт ли катсцена: пока идёт, кадром распоряжается она.</summary>
         public bool SoloActive { get; private set; }
@@ -209,6 +232,14 @@ namespace Lvn.UI
         {
             SoloActive = false;
             Commands.ReleaseAll(LvnSender.Cutscene);
+            // ОТ КАДРА, ОТ КОТОРОГО ОТКАЗАЛИСЬ, НЕ ВОЗВРАЩАЮТСЯ.
+            // <see cref="DropSolo"/> снимает наложение, НЕ приводя экран:
+            // глава кончилась вместе с кадром, приводить не к чему. Но зовут
+            // конец катсцены и уход в меню разные руки, и обычный EndSolo
+            // после уже брошенного кадра восстановил бы состав ушедшей главы —
+            // прямо в меню, поверх витрины. Нет наложения — нечего и
+            // закрывать.
+            if (!Score.HasLayer(LvnSender.Cutscene)) return;
             Score.Close(LvnSender.Cutscene);
             Reconcile("катсцена кончилась");
         }
