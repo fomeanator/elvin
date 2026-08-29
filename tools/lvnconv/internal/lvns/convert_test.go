@@ -530,6 +530,9 @@ func TestConvertFuncCannotShadowBuiltin(t *testing.T) {
 // form existed it had no source spelling at all, so every "ask this once"
 // option lost the flag that retires it on the first re-save (audit O3).
 
+// Постановка в блоке УЕЗЖАЕТ В СКРИПТ, а не остаётся телом: у команды тела нет
+// индекса, а по индексам игра восстанавливает картинку сцены после загрузки.
+// Собственные параметры заголовка (условие показа) при этом остаются на опции.
 func TestConvertChoiceOptionBody(t *testing.T) {
 	doc, err := Convert("scene t\n- Спросить -> q1 expr=\"!_once_q1\" {\n    _once_q1 = true\n    hint text=\"ok\"\n}\n- Уйти -> __end\n:q1\nответ\n")
 	if err != nil {
@@ -543,25 +546,64 @@ func TestConvertChoiceOptionBody(t *testing.T) {
 	if opt["expr"] != "!_once_q1" {
 		t.Fatalf("the option's own params were eaten by the block: %v", opt)
 	}
-	if _, has := opt["goto"]; has {
-		t.Fatalf("a body option must carry its jump IN the body (the runtime ignores goto then): %v", opt)
+	if _, has := opt["body"]; has {
+		t.Fatalf("блок с постановкой обязан стать скриптом, а не телом: %v", opt)
 	}
-	body, _ := opt["body"].([]any)
-	if len(body) != 3 {
-		t.Fatalf("body: %v", body)
+	target, _ := opt["goto"].(string)
+	if !strings.HasPrefix(target, "__weave_") {
+		t.Fatalf("опция обязана вести в сплетённую ветку: %v", opt)
 	}
-	if b := body[0].(map[string]any); b["op"] != "set" || b["key"] != "_once_q1" {
-		t.Fatalf("first body command: %v", b)
+	// Ветка содержит обе команды блока и уходит на цель заголовка.
+	var branch []Cmd
+	seen := false
+	for _, c := range doc.Script {
+		if op, _ := c["op"].(string); op == "label" {
+			id, _ := c["id"].(string)
+			seen = id == target
+			continue
+		}
+		if seen {
+			branch = append(branch, c)
+			if op, _ := c["op"].(string); op == "goto" {
+				break
+			}
+		}
 	}
-	if b := body[1].(map[string]any); b["op"] != "hint" {
-		t.Fatalf("staging command lost from the body: %v", b)
+	if len(branch) != 3 {
+		t.Fatalf("ветка: %v", branch)
 	}
-	if b := body[2].(map[string]any); b["op"] != "goto" || b["label"] != "q1" {
-		t.Fatalf("the header's target must close the body: %v", b)
+	if branch[0]["op"] != "set" || branch[0]["key"] != "_once_q1" {
+		t.Fatalf("первая команда ветки: %v", branch[0])
+	}
+	if branch[1]["op"] != "hint" {
+		t.Fatalf("постановка потеряна при плетении: %v", branch[1])
+	}
+	if branch[2]["op"] != "goto" || branch[2]["label"] != "q1" {
+		t.Fatalf("цель заголовка обязана закрывать ветку: %v", branch[2])
 	}
 	// The plain option next to it is untouched.
 	if opts[1].(map[string]any)["goto"] != "__end" {
 		t.Fatalf("plain option changed shape: %v", opts[1])
+	}
+}
+
+// Блок ИЗ ОДНИХ ПЕРЕМЕННЫХ остаётся телом: их значения снимок несёт сам, плести
+// нечего — и цена конструкции для обычного «спросить один раз» нулевая.
+func TestConvertChoiceOptionPureStateStaysABody(t *testing.T) {
+	doc, err := Convert("scene t\n- Спросить -> q1 {\n    _once_q1 = true\n}\n- Уйти -> __end\n:q1\nответ\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opt := doc.Script[0]["options"].([]any)[0].(map[string]any)
+	body, _ := opt["body"].([]any)
+	if len(body) != 2 {
+		t.Fatalf("тело: %v", opt)
+	}
+	if b := body[0].(map[string]any); b["op"] != "set" {
+		t.Fatalf("первая команда тела: %v", b)
+	}
+	if b := body[1].(map[string]any); b["op"] != "goto" || b["label"] != "q1" {
+		t.Fatalf("цель заголовка обязана закрывать тело: %v", b)
 	}
 }
 

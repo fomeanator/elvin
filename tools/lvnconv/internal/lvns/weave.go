@@ -62,12 +62,11 @@ type weaveBlock struct {
 }
 
 // needsWeaving отвечает на единственный вопрос развилки: помещается этот блок
-// в рантайм-поле `body` или обязан стать скриптом. Список — тот же
-// optionBodyDenied, который раньше был причиной ОШИБКИ; теперь он причина
-// лоуринга, и ошибки не остаётся вовсе.
+// в рантайм-поле `body` или обязан стать скриптом. Помещается только то, что
+// переживает сохранение само, — см. optionBodyKeeps.
 func needsWeaving(cmds []Cmd) bool {
 	for _, c := range cmds {
-		if op, _ := c["op"].(string); optionBodyDenied[op] {
+		if op, _ := c["op"].(string); !optionBodyKeeps[op] {
 			return true
 		}
 	}

@@ -1,0 +1,72 @@
+{
+  "scene": "weave-staging",
+  "script": [
+    {
+      "op": "say",
+      "text": "Позвать её?",
+      "who": "Нихарис"
+    },
+    {
+      "op": "choice",
+      "options": [
+        {
+          "goto": "__weave_head_1",
+          "text": "Позвать"
+        },
+        {
+          "body": [
+            {
+              "expr": "false",
+              "key": "позвал",
+              "op": "set"
+            },
+            {
+              "label": "дальше",
+              "op": "goto"
+            }
+          ],
+          "text": "Промолчать"
+        }
+      ]
+    },
+    {
+      "label": "__wend_head_2",
+      "op": "goto"
+    },
+    {
+      "id": "__weave_head_1",
+      "op": "label"
+    },
+    {
+      "expr": "true",
+      "key": "позвал",
+      "op": "set"
+    },
+    {
+      "id": "heroine",
+      "op": "actor",
+      "show": true
+    },
+    {
+      "label": "дальше",
+      "op": "goto"
+    },
+    {
+      "id": "__wend_head_2",
+      "op": "label"
+    },
+    {
+      "id": "дальше",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Ну вот.",
+      "who": "Нихарис"
+    },
+    {
+      "label": "__end",
+      "op": "goto"
+    }
+  ]
+}

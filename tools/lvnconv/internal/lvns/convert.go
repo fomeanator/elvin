@@ -2186,19 +2186,27 @@ func parseBlockCommands(lines []string, outer *nestCtx) ([]Cmd, error) {
 	return doc.Script, nil
 }
 
-// optionBodyDenied are the ops LvnPlayer.Choose does NOT dispatch inside a body:
-// everything the player handles in its own loop (conformance/ops-owners.json,
-// csharp "player"/"player+stage") except set/inc/goto, which Choose implements
-// explicitly. Handed to a body they would be forwarded to the stage and disappear
-// without a trace.
+// optionBodyKeeps — ЧТО ИМЕЕТ ПРАВО ЕХАТЬ РАНТАЙМ-ТЕЛОМ ОПЦИИ, и ничего сверх.
 //
-// This list used to make such a block an ERROR. It is now the weave fork instead
-// (weave.go): the same block is lowered into ordinary script behind a minted
-// label, which is what the author would have hand-written anyway.
-var optionBodyDenied = map[string]bool{
-	"say": true, "choice": true, "label": true, "if": true,
-	"call": true, "return": true, "wait": true, "input": true,
-	"preload": true, "load": true,
+// Тело опции исполняется БЕЗ СОБСТВЕННОГО ИНДЕКСА в скрипте, а картинку сцены
+// игра восстанавливает по следу исполнения — списку индексов. У чего нет
+// индекса, того нет и в следе: команда отработает один раз и исчезнет при
+// первом же сохранении.
+//
+// Для переменных это безобидно — их значения снимок несёт сам. Для всего
+// остального нет. Партнёрский отчёт «вышел в меню, вернулся — персонажа нет»
+// ровно об этом: actor в теле опции показал героиню, автосохранение её не
+// запомнило, и возврат собрал сцену без неё.
+//
+// Список был обратным — перечислял запрещённое, — и вся постановка (actor, bg,
+// fade, audio, obj, camera, fx…) молча ехала телом, потому что её в нём не
+// назвали. Перечислять безопасное короче и безопаснее: новая команда языка по
+// умолчанию плетётся в скрипт, а не теряется.
+//
+// Блок, не поместившийся сюда, не ошибка: он лоурится в обычный скрипт за
+// минтованной меткой (weave.go) — ровно то, что автор написал бы руками.
+var optionBodyKeeps = map[string]bool{
+	"set": true, "inc": true, "goto": true,
 }
 
 func parseKeyValue(s string) (map[string]any, error) {
