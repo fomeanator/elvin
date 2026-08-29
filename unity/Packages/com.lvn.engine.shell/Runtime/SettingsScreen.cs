@@ -260,15 +260,12 @@ namespace Lvn.UI.Screens
                 StyleValueButton, alignEnd: false));
         }
 
-        // Ступени, а не ползунок: у размера текста нет «чуть-чуть» — есть
-        // «читается» и «не читается», и пять названных ступеней игрок проходит
-        // за пять нажатий вместо ловли доли на полоске.
-        private static readonly (float k, string key, string en)[] ScaleSteps =
-        {
-            (0.85f, "settings.size_xs", "XS"), (0.92f, "settings.size_s", "S"),
-            (1f, "settings.size_m", "M"), (1.15f, "settings.size_l", "L"),
-            (1.3f, "settings.size_xl", "XL"),
-        };
+        // Ступени — из дома ручек (Lvn.UI.LvnKnobs): те же пять значений стояли
+        // и здесь, и в меню главы. Ключ слова короткий, раздел приписывает
+        // экран — «settings.size_l» ищется в его словаре, «size_l» в словаре
+        // новеллы.
+        private static string StepWord(in Lvn.UI.LvnKnobs.Step s)
+            => LvnWords.Of("settings." + s.Key, s.En);
 
         /// <summary>
         /// Размер реплик — с ЖИВЫМ ОБРАЗЦОМ.
@@ -311,10 +308,10 @@ namespace Lvn.UI.Screens
             Fit();
 
             var box = new VisualElement();
-            box.Add(Lvn.UI.LvnSegment.Of(ScaleSteps,
-                st => LvnWords.Of(st.key, st.en),
-                st => Mathf.Abs(LvnPrefs.TextScale - st.k) < 0.01f,
-                st => { LvnPrefs.TextScale = st.k; Fit(); },
+            box.Add(Lvn.UI.LvnSegment.Of(Lvn.UI.LvnKnobs.Scale,
+                st => StepWord(st),
+                st => Lvn.UI.LvnKnobs.At(LvnPrefs.TextScale, st),
+                st => { LvnPrefs.TextScale = st.K; Fit(); },
                 StyleValueButton, alignEnd: false));
             // ТОЛЩИНА СКРЫТА (решение Ильи 28.08: «не работает — скрой»).
             // Причина честная и не в нашем коде: у гарнитур нет отдельных жирных
@@ -341,10 +338,10 @@ namespace Lvn.UI.Screens
         {
             return WideRow(LvnWords.Of("settings.ui_size", "Interface size"),
                 LvnWords.Of("settings.ui_size_hint", "Menus, buttons and panels — the scene keeps its framing"),
-                Lvn.UI.LvnSegment.Of(ScaleSteps,
-                st => LvnWords.Of(st.key, st.en),
-                st => Mathf.Abs(LvnPrefs.UiScale - st.k) < 0.01f,
-                st => { LvnPrefs.UiScale = st.k; Lvn.UI.LvnPanel.ApplyUiScale(); },
+                Lvn.UI.LvnSegment.Of(Lvn.UI.LvnKnobs.Scale,
+                st => StepWord(st),
+                st => Lvn.UI.LvnKnobs.At(LvnPrefs.UiScale, st),
+                st => { LvnPrefs.UiScale = st.K; Lvn.UI.LvnPanel.ApplyUiScale(); },
                 StyleValueButton, alignEnd: false));
         }
 

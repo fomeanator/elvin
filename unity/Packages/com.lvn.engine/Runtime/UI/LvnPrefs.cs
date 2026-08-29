@@ -271,26 +271,28 @@ namespace Lvn.UI
         }
 
         /// <summary>РАЗМЕР ТЕКСТА РЕПЛИК — множитель к авторскому кеглю
-        /// (0,85–1,4; 1 — как задумал автор). Не абсолютное число: кегль
-        /// принадлежит постановке новеллы, игрок лишь подгоняет его под свои
-        /// глаза и свой телефон. Просьба партнёра (TR-58): «в пункт „чтение“
-        /// просится выбор размера шрифта».</summary>
+        /// (1 — как задумал автор). Не абсолютное число: кегль принадлежит
+        /// постановке новеллы, игрок лишь подгоняет его под свои глаза и свой
+        /// телефон. Просьба партнёра (TR-58): «в пункт „чтение“ просится выбор
+        /// размера шрифта».
+        ///
+        /// <para>Границы — крайние ступени из <see cref="LvnKnobs"/>. Свой
+        /// зажим здесь обещал потолок 1,4, которого ни один экран не
+        /// предлагал.</para></summary>
         public static float TextScale
         {
             get { EnsureLoaded(); return _textScale; }
-            set { EnsureLoaded(); Set(ref _textScale, "text_scale", Mathf.Clamp(value, 0.85f, 1.4f)); }
+            set { EnsureLoaded(); Set(ref _textScale, "text_scale", LvnKnobs.ClampScale(value)); }
         }
         private static float _textScale = 1f;
 
         /// <summary>МАСШТАБ ИНТЕРФЕЙСА — множитель к размеру всей оболочки
-        /// (0,85–1,3; 1 — как нарисовано). Крайние ступени намеренно не шире:
-        /// мельче 0,85 кнопки перестают попадать под палец, крупнее 1,3 списки
-        /// перестают помещаться в экран — и то и другое читается как поломка,
-        /// а не как настройка.</summary>
+        /// (1 — как нарисовано). Почему ступени не шире — сказано в
+        /// <see cref="LvnKnobs.Scale"/>, оттуда же и границы.</summary>
         public static float UiScale
         {
             get { EnsureLoaded(); return _uiScale; }
-            set { EnsureLoaded(); Set(ref _uiScale, "ui_scale", Mathf.Clamp(value, 0.85f, 1.3f)); }
+            set { EnsureLoaded(); Set(ref _uiScale, "ui_scale", LvnKnobs.ClampScale(value)); }
         }
         private static float _uiScale = 1f;
 
