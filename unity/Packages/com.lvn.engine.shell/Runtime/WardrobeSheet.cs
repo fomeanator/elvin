@@ -484,7 +484,7 @@ namespace Lvn.UI.Screens
                     TextColor = _text,
                     IconUrl = _cfg.currency_icons != null
                               && _cfg.currency_icons.TryGetValue(cur, out var url) ? url : null,
-                }, _assets, onPlus: OpenStore != null ? () => _ = OpenStore() : (System.Action)null)
+                }, _assets, onPlus: OpenStore != null ? () => Lvn.LvnAsync.Fire(OpenStore(), "OpenStore") : (System.Action)null)
                 { style = { marginRight = 8 } });
             }
         }

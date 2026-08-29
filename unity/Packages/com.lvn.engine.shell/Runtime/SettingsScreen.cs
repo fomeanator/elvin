@@ -199,6 +199,12 @@ namespace Lvn.UI.Screens
                 LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
             _list.Add(_accountRow);
             SetAccountStatus(LvnWords.Of("account.checking", "Checking…"), showSignIn: false);
+            // …И СПРОСИТЬ. «Проверяем…» ставилось, а спрашивать было некому:
+            // строку статуса никто не вызывал, и раздел «Аккаунт» навсегда
+            // оставался многоточием — ни «вход выполнен», ни «прогресс живёт
+            // только на этом телефоне». Сам ответ строка обрабатывает давно,
+            // включая отказ сети.
+            Lvn.LvnAsync.Fire(RefreshAccountAsync(), "SettingsAccount");
             _list.Add(RestoreRow());
             _list.Add(VersionRow());
             var links = LinksRow();

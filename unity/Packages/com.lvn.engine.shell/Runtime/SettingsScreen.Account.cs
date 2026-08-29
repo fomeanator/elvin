@@ -168,7 +168,13 @@ namespace Lvn.UI.Screens
             {
                 var btn = new Button { text = LvnWords.Pick("account.sign_in", _cfg.sign_in_text, "Sign in") };
                 StyleValueButton(btn, true);
-                btn.clicked += () => { if (OnSignIn != null) _ = OnSignIn(); };
+                // ЧЕРЕЗ ДОМ ЗАНЯТОЙ КНОПКИ. Вход в аккаунт ждёт сеть и открывает
+                // экран платформы; второй тап по неотвеченной кнопке запускал
+                // второй такой вход. Дом гасит кнопку на время работы и
+                // отклоняет повторный тап — ровно для этого он и заведён.
+                // Отпускать не нужно: удачный вход уводит с этого экрана сам.
+                Lvn.UI.LvnBusy.OnClick(btn, () => OnSignIn(),
+                    releaseOnSuccess: false, what: "SignIn");
                 _accountRow.Add(btn);
             }
         }
