@@ -74,7 +74,7 @@ namespace Lvn.UI
             btn.style.fontSize = 22;
             btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
             LvnStyler.Primary(btn, 14f);
-            if (_theme.Font != null) btn.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(btn, _theme.Font);
             btn.clicked += () =>
             {
                 LvnLocale.Chosen = LvnLocale.Next(LvnLocale.Chosen);

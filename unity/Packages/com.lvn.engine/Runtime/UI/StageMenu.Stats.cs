@@ -184,7 +184,7 @@ namespace Lvn.UI
                 LvnChrome.ClearBorder(input);
                 LvnChrome.Round(input, 6f);
             }
-            if (_theme.Font != null) f.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(f, _theme.Font);
             return f;
         }
 
@@ -198,7 +198,7 @@ namespace Lvn.UI
             b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, 6f);
-            if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(b, _theme.Font);
             return b;
         }
     }

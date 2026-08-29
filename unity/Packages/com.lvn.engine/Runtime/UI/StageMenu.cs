@@ -79,7 +79,7 @@ namespace Lvn.UI
             LvnChrome.Round(_modeBadge, 22);
             LvnChrome.ClearBorder(_modeBadge);
             _modeBadge.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-            if (_theme.Font != null) _modeBadge.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(_modeBadge, _theme.Font);
             _modeBadge.style.display = DisplayStyle.None;
             _fabRow.Add(_modeBadge);
 
@@ -122,7 +122,7 @@ namespace Lvn.UI
             LvnChrome.ClearBorder(b);
             // A press on the chrome must never bubble into tap-to-advance.
             b.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-            if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(b, _theme.Font);
             return b;
         }
 
@@ -385,7 +385,7 @@ namespace Lvn.UI
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
             b.style.paddingLeft = 20;
             LvnChrome.ClearBorder(b);
-            if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(b, _theme.Font);
             return b;
         }
 
@@ -423,6 +423,17 @@ namespace Lvn.UI
 
         // ── little style helpers ─────────────────────────────────────────────
 
+        /// <summary>
+        /// Надпись меню главы.
+        ///
+        /// <para>Шрифт ставит ДОМ. Все восемь надписей этого меню присваивали
+        /// его сами, прежним путём (<c>unityFont</c>), — и получали растровое
+        /// начертание вместо SDF: то же имя гарнитуры, но другая отрисовка.
+        /// Заметно это там, где текст растёт — на крупном кегле и при
+        /// увеличенном интерфейсе, — и ровно на том экране, куда игрок приходит
+        /// делать текст крупнее. Толщина реплик, которая живёт раздутием
+        /// контура SDF, до этих надписей не доходила вовсе.</para>
+        /// </summary>
         private Label Text(string s, int size, FontStyle weight, bool dim = false)
         {
             var l = new Label(s);
@@ -430,7 +441,7 @@ namespace Lvn.UI
             l.style.unityFontStyleAndWeight = weight;
             l.style.color = dim ? _theme.MenuDimTextColor : _theme.MenuTextColor;
             l.style.whiteSpace = WhiteSpace.Normal;
-            if (_theme.Font != null) l.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(l, _theme.Font);
             return l;
         }
 
@@ -439,7 +450,7 @@ namespace Lvn.UI
             LvnStyler.Ghost(b, _theme.MenuTextColor);
             b.style.fontSize = 38;
             b.style.width = 52; b.style.height = 46;
-            if (_theme.Font != null) b.style.unityFont = new StyleFont(_theme.Font);
+            LvnFonts.Apply(b, _theme.Font);
         }
 
         // Правило обрезки — в доме (LvnClip): здесь оно рвало суррогатные
