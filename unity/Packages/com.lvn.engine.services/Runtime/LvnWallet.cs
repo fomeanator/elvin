@@ -92,7 +92,14 @@ namespace Lvn.Services
         private const string POwner = "lvn.wallet.owner";
         private static readonly List<JObject> _queue = new List<JObject>();
         private static bool _loaded;
-        private static bool _flushing;
+        // ИДУЩАЯ ОТПРАВКА ОЧЕРЕДИ — не флаг, а сама работа.
+        //
+        // Флагом второй вызов узнавал, что отправка уже идёт, и... возвращался,
+        // не дождавшись её. Своё «жду очередь» он тем самым выполнял за ноль
+        // секунд и слал собственный запрос вперёд неё. Порядок, объявленный
+        // строкой «FIFO holds even mid-chapter», держался только пока вызовы шли
+        // по одному.
+        private static Task _flush;
 
         /// <summary>Bind the local mirror/queue to an account. Called by
         /// LvnBackend whenever a sign-in lands: if the device switched to a
@@ -195,11 +202,22 @@ namespace Lvn.Services
         /// every Refresh; safe to call any time. Stops at the first transport
         /// failure (still offline) and keeps the rest queued. A server 4xx
         /// (e.g. the overdraft finally caught) DROPS the op — truth wins.</summary>
-        public static async Task FlushAsync()
+        public static Task FlushAsync()
         {
             EnsureLoaded();
-            if (_flushing || _queue.Count == 0) return;
-            _flushing = true;
+            // Отправка уже идёт — ЖДЁМ ЕЁ, а не проскакиваем мимо. Иначе спенд,
+            // пущенный следом за возвратом сети, обгонял ещё не долетевший
+            // офлайновый заработок, и сервер честно отказывал «не хватает» —
+            // при достаточном балансе. Игроку это видно как отказ покупки сразу
+            // после возвращения в сеть, который лечится повторным тапом.
+            if (_flush != null && !_flush.IsCompleted) return _flush;
+            if (_queue.Count == 0) return Task.CompletedTask;
+            _flush = FlushQueueAsync();
+            return _flush;
+        }
+
+        private static async Task FlushQueueAsync()
+        {
             try
             {
                 while (_queue.Count > 0)
@@ -217,7 +235,7 @@ namespace Lvn.Services
                         $"[lvn-wallet] queued {op["op"]} {op["currency"]} {op["amount"]} rejected on sync ({code}) — server truth wins");
                 }
             }
-            finally { _flushing = false; }
+            finally { _flush = null; }
         }
 
         /// <summary>One purchasable pack from the server's IAP catalog — the
