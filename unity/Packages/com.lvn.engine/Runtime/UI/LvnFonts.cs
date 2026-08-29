@@ -397,7 +397,7 @@ namespace Lvn.UI
         {
             foreach (var c in candidates)
             {
-                try { fa.TryAddCharacters(c.ToString()); } catch { }
+                try { fa.TryAddCharacters(c.ToString()); } catch { }   // статический атлас дорисовать не даёт — тогда ищем букву среди уже нарисованных
                 if (fa.characterLookupTable != null
                     && fa.characterLookupTable.TryGetValue(c, out var ch)
                     && ch?.glyph != null && ch.glyph.metrics.height > 0.0001f)
