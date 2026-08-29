@@ -35,16 +35,16 @@ namespace Lvn.UI
             {
                 // «Музыка» и «Звук» — двухползунковый режим (ui.settings.
                 // simple_audio): звук ведёт эффекты+эмбиент+голос одним движком.
-                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
+                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v, live: true));
                 scroll.Add(SliderRow(L("sound", "Sound"), 0f, 1f, LvnPrefs.VolSfx,
-                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
+                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }, live: true));
             }
             else
             {
-                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                scroll.Add(SliderRow(L("ambient", "Ambient"), 0f, 1f, LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                scroll.Add(SliderRow(L("voice", "Voice"), 0f, 1f, LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
+                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v, live: true));
+                scroll.Add(SliderRow(L("ambient", "Ambient"), 0f, 1f, LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v, live: true));
+                scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v, live: true));
+                scroll.Add(SliderRow(L("voice", "Voice"), 0f, 1f, LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v, live: true));
             }
             scroll.Add(SliderRow(L("window_opacity", "Window opacity"), 0.2f, 1f, LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
             scroll.Add(ToggleRow(L("skip_read_only", "Skip read text only"), LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
@@ -128,17 +128,13 @@ namespace Lvn.UI
                 StyleOption);
         }
 
-        private static readonly (float k, string key, string en)[] SizeSteps =
-        {
-            (0.85f, "size_xs", "XS"), (0.92f, "size_s", "S"), (1f, "size_m", "M"),
-            (1.15f, "size_l", "L"), (1.3f, "size_xl", "XL"),
-        };
-
+        // Ступени и допуск сравнения — из дома ручек: те же пять значений
+        // стояли здесь и в настройках оболочки двумя списками.
         private VisualElement ScaleSegment(Func<float> get, Action<float> set)
-            => LvnSegment.Of(SizeSteps,
-                st => L(st.key, st.en),
-                st => Mathf.Abs(get() - st.k) < 0.01f,
-                st => set(st.k),
+            => LvnSegment.Of(LvnKnobs.Scale,
+                st => L(st.Key, st.En),
+                st => LvnKnobs.At(get(), st),
+                st => set(st.K),
                 StyleOption);
 
         private VisualElement SettingCard()
@@ -153,15 +149,26 @@ namespace Lvn.UI
             return card;
         }
 
-        private VisualElement SliderRow(string label, float min, float max, float value, Action<float> onChange)
+        /// <summary>
+        /// Ряд с ползунком. Вид — из дома, и МОМЕНТ ПРИМЕНЕНИЯ тоже.
+        ///
+        /// <para><paramref name="live"/> — только для того, что слышно на ходу.
+        /// Предпросмотр стоял здесь у ВСЕХ рядов без разбора, и три настройки,
+        /// к звуку отношения не имеющие (скорость текста, задержка авто,
+        /// прозрачность окна), записывались на устройство на каждое движение
+        /// пальца — с фиксацией на диск и событием «настройки изменились»
+        /// каждый кадр. Это и есть «ползунок ненадёжный»: он дёргается под
+        /// пальцем, потому что каждый кадр чинит за собой полсцены. В
+        /// настройках оболочки те же три ползунка уже вели себя гладко —
+        /// разошлись ровно эти две записи одного правила.</para>
+        /// </summary>
+        private VisualElement SliderRow(string label, float min, float max, float value,
+                                        Action<float> onChange, bool live = false)
         {
             var card = SettingCard();
             card.Add(Text(label, 24, FontStyle.Normal));
-            // Ползунок — из дома: вид и правило «применяем при отпускании» были
-            // записаны здесь и в настройках оболочки по отдельности и успели
-            // разойтись. Громкость слышна только вживую, поэтому у неё есть
-            // предпросмотр.
-            card.Add(LvnSlider.Make(min, max, value, onChange, onPreview: onChange,
+            card.Add(LvnSlider.Make(min, max, value, onChange,
+                onPreview: live ? onChange : null,
                 accent: LvnTokens.Accent,
                 track: new Color(_theme.MenuTextColor.r, _theme.MenuTextColor.g,
                                  _theme.MenuTextColor.b, 0.18f)));
