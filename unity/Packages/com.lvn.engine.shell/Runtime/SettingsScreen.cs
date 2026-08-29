@@ -364,22 +364,37 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        // A per-channel volume slider (0–1) that reads the current pref and writes
-        // it back live as the player drags. Sits under the master Sound toggle.
-        // Слайдер произвольного диапазона — тем же видом, что громкости.
-        private VisualElement RangeRow(string label, string hint, float min, float max,
-            System.Func<float> get, System.Action<float> set)
+        /// <summary>
+        /// Строка с ползунком: подпись, пояснение и полоса справа.
+        ///
+        /// <para>МОМЕНТ ПРИМЕНЕНИЯ ОСТАЁТСЯ ЗА ДОМОМ. Здесь ползунок собирался
+        /// домом и тут же обвешивался своей подпиской на каждое изменение —
+        /// то есть ровно тем, от чего дом и заводился: значение применялось на
+        /// каждое движение пальца, а не при отпускании. Дом уже умеет оба
+        /// ответа, экрану остаётся сказать, нужен ли предпросмотр.</para>
+        ///
+        /// <para><paramref name="live"/> — для того, что слышно только вживую
+        /// (громкость). Прочее применяется, когда игрок отпустил: он выбрал
+        /// значение тогда, а не когда провёл через него.</para>
+        /// </summary>
+        private VisualElement SliderRow(string label, string hint, float min, float max,
+            System.Func<float> get, System.Action<float> set, bool live = false)
         {
             var row = RowEx(label, hint);
-            var slider = Lvn.UI.LvnSlider.Make(min, max, get(), v => set(v), accent: _accent);
+            // Бегунок красит сам дом: штатный сделан прозрачным и служит только
+            // областью захвата, так что покраска его фона отсюда была работой
+            // по невидимому элементу.
+            var slider = Lvn.UI.LvnSlider.Make(min, max, get(), set,
+                onPreview: live ? set : null, accent: _accent);
             slider.style.width = 200;
             slider.style.marginLeft = 12;
-            var drag = slider.Q("unity-dragger");
-            if (drag != null) drag.style.backgroundColor = _accent;
-            slider.RegisterValueChangedCallback(evt => set(evt.newValue));
             row.Add(slider);
             return row;
         }
+
+        private VisualElement RangeRow(string label, string hint, float min, float max,
+            System.Func<float> get, System.Action<float> set)
+            => SliderRow(label, hint, min, max, get, set);
 
         // Булева строка пилюлями Вкл/Выкл — как «Все звуки».
         private VisualElement SwitchRow(string label, string hint,
@@ -394,20 +409,9 @@ namespace Lvn.UI.Screens
             return row;
         }
 
+        // Громкость слышна только вживую — предпросмотр обязателен.
         private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
-        {
-            var row = RowEx(label, hint);
-            // Громкость слышна только вживую — предпросмотр обязателен, а
-            // запись настройки случается при отпускании.
-            var slider = Lvn.UI.LvnSlider.Make(0f, 1f, get(), v => set(v), onPreview: v => set(v), accent: _accent);
-            slider.style.width = 200;
-            slider.style.marginLeft = 12;
-            var drag = slider.Q("unity-dragger");
-            if (drag != null) drag.style.backgroundColor = _accent;
-            slider.RegisterValueChangedCallback(evt => set(evt.newValue));
-            row.Add(slider);
-            return row;
-        }
+            => SliderRow(label, hint, 0f, 1f, get, set, live: true);
 
 
         private VisualElement LanguageRow()
@@ -438,19 +442,10 @@ namespace Lvn.UI.Screens
 
         // ── shared bits ─────────────────────────────────────────────────────────
 
-        // A label + a right-aligned value area.
-        // Заголовок смысловой группы: настройки читаются секциями, а не
-        // простынёй строк (живой репорт «непонятный экран»).
-        private VisualElement SectionTitle(string text)
-        {
-            var lbl = new Label(text.ToUpperInvariant());
-            lbl.style.color = _dim;
-            lbl.style.fontSize = LvnTokens.TextSm;
-            lbl.style.letterSpacing = 2.5f;
-            lbl.style.marginTop = 18;
-            lbl.style.marginBottom = 4;
-            return lbl;
-        }
+        // Заголовок смысловой группы берётся у базового экрана: настройки
+        // читаются секциями, а не простынёй строк (живой репорт «непонятный
+        // экран»). Своя копия заголовка здесь жила, но её никто не звал — и она
+        // уже разошлась с общей по кеглю и разрядке.
 
         // Строка «название + пояснение» — у каждой настройки есть подпись,
         // объясняющая, что она делает: контрол без пояснения выглядит дико
@@ -527,22 +522,6 @@ namespace Lvn.UI.Screens
                 col.Add(h);
             }
             row.Add(col);
-            return row;
-        }
-
-        private VisualElement Row(string label)
-        {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.justifyContent = Justify.SpaceBetween;
-            row.style.marginBottom = 6;
-            row.style.paddingTop = 10; row.style.paddingBottom = 10;
-            var lbl = new Label(label);
-            lbl.style.color = _text;
-            lbl.style.fontSize = LvnTokens.TextBase;
-            lbl.style.flexGrow = 1;
-            row.Add(lbl);
             return row;
         }
 
