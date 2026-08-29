@@ -175,37 +175,19 @@ namespace Lvn.UI
             public readonly string Display;  // заголовки
 
             /// <summary>
-            /// ОПТИЧЕСКАЯ ПОПРАВКА КЕГЛЯ. Один и тот же кегль у разных гарнитур
-            /// выглядит разной величиной: у рукописной строчные буквы вдвое
-            /// ниже, чем у гротеска, а пиксельная и плакатная, наоборот, тяжелее
-            /// и шире. Без поправки «Крупный» на одной гарнитуре читается как
-            /// «Обычный», а на другой не влезает в кнопку.
+            /// РАЗМЕР ГАРНИТУРЫ НЕ ЗАДАЁТСЯ ЧИСЛОМ — он измеряется.
             ///
-            /// <para>Числа выбраны глазом на живом экране (Илья, 28.08): вкус
-            /// здесь и есть критерий, измерить x-height программой можно, а
-            /// решить, «читается ли», — нет.</para>
+            /// <para>Здесь стояли две подобранные глазом поправки: общий
+            /// множитель кегля и сжатие шкалы. Подобранное глазом число живёт
+            /// ровно до следующей гарнитуры и молча устаревает — «от руки
+            /// огромен, а пиксель мал» это они и есть. Теперь величину буквы у
+            /// шрифта СПРАШИВАЮТ (см. OpticalScale), и каталог описывает
+            /// только то, что действительно про гарнитуру: кто она, как
+            /// называется и где лежит.</para>
             /// </summary>
-            public readonly float SizeScale;
-
-            /// <summary>
-            /// СЖАТИЕ ШКАЛЫ. Общий множитель поднимает или опускает ВСЁ разом, а
-            /// у характерных гарнитур беда другая: мелкое читается нормально, а
-            /// крупное вылезает вдвое («слишком большой разброс у маленьких и
-            /// больших текстов», Илья 28.08). Такие шрифты рисуют прописные
-            /// почти во всю высоту строки, поэтому разница между ступенями у них
-            /// ощущается сильнее, чем задумано.
-            ///
-            /// <para>Меньше единицы — ступени тянутся к базовому кеглю: мелкое
-            /// подрастает, крупное успокаивается, порядок ступеней сохраняется.
-            /// Ровно единица — шкала как у автора.</para>
-            /// </summary>
-            public readonly float SizeSpread;
-
-            public Family(string id, string title, string path, string display,
-                          float sizeScale = 1f, float sizeSpread = 1f)
+            public Family(string id, string title, string path, string display)
             {
                 Id = id; Title = title; Path = path; Display = display;
-                SizeScale = sizeScale; SizeSpread = sizeSpread;
             }
         }
 
@@ -232,10 +214,10 @@ namespace Lvn.UI
             new Family("manrope", "Manrope",    "Fonts/Manrope",       "Fonts/Manrope"),
             // Характерные — их видно с первого слова. Ради этого они и есть:
             // настройка, которую нельзя проверить взглядом, ощущается сломанной.
-            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay", 0.9f,      0.7f),
-            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat",        2.2f,      0.55f),
-            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P",  0.72f,     0.7f),
-            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne",  0.72f,     0.7f),
+            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),
+            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat"),
+            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P"),
+            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne"),
         };
 
         /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —
@@ -323,7 +305,7 @@ namespace Lvn.UI
 
         /// <summary>Поправка кегля под выбранную гарнитуру. Единица, пока игрок
         /// не выбирал: авторский кегль подобран под авторский шрифт.</summary>
-        public static float SizeFactor => PlayerPicked ? Chosen.SizeScale : 1f;
+        public static float SizeFactor => PlayerPicked ? OpticalScale(Chosen) : 1f;
 
         /// <summary>
         /// Кегль с поправкой на гарнитуру: спрашивают ЗДЕСЬ, а не умножают у
@@ -338,27 +320,73 @@ namespace Lvn.UI
         /// </summary>
         public static int Size(float baseSize)
         {
-            if (!PlayerPicked) return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(baseSize));
-            var fam = Chosen;
-            float mid = LvnTheme.Current != null ? LvnTheme.Current.TextBase : 30f;
-            if (mid < 1f) mid = 30f;
-            float shaped = baseSize;
-            if (fam.SizeSpread > 0f && !UnityEngine.Mathf.Approximately(fam.SizeSpread, 1f) && baseSize > 0f)
-                shaped = mid * UnityEngine.Mathf.Pow(baseSize / mid, fam.SizeSpread);
-            float value = shaped * fam.SizeScale;
-            // МЯГКИЕ ГРАНИЦЫ вокруг авторского кегля. Числа гарнитур подбирают
-            // глазом, и однажды подберут неудачно; предел не даёт одной строке
-            // каталога сломать вёрстку всех экранов сразу. Полтора раза вверх и
-            // почти вдвое вниз — предел различимости: дальше это уже не «тот же
-            // текст другим шрифтом», а другой макет.
-            // Потолок УВАЖАЕТ ЗАЯВКУ КАТАЛОГА: рукописная просит вдвое с
-            // лишним, и это законно — её строчные вдвое ниже. Предел стоит на
-            // случай опечатки (10 вместо 1), а не чтобы спорить с подобранным
-            // глазом числом.
-            float ceiling = UnityEngine.Mathf.Max(1.75f, fam.SizeScale);
-            value = UnityEngine.Mathf.Clamp(value, baseSize * 0.5f, baseSize * ceiling);
+            if (!PlayerPicked || baseSize <= 0f)
+                return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(baseSize));
+            float value = baseSize * OpticalScale(Chosen);
+            // МЯГКИЕ ГРАНИЦЫ. Измерение честное, но шрифт может прийти со
+            // сломанными метриками (или вовсе не собраться), и тогда одна
+            // строка каталога сломала бы вёрстку всех экранов разом.
+            value = UnityEngine.Mathf.Clamp(value, baseSize * 0.5f, baseSize * 2.5f);
             return UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(value));
         }
+
+        /// <summary>
+        /// ОДИН КЕГЛЬ — ОДИН ВИДИМЫЙ РАЗМЕР, у любой гарнитуры.
+        ///
+        /// <para>Кегль (те самые «30») не описывает величину букв: это высота
+        /// площадки, на которой шрифт нарисован, а сколько он на ней занимает —
+        /// дело рисовальщика. У рукописной строчные вдвое ниже площадки (место
+        /// съедают петли и росчерки), у пиксельной прописные почти во всю её
+        /// высоту. Один и тот же «30» даёт у них разницу вдвое — что и было
+        /// видно: «от руки огромен, а пиксель мал».</para>
+        ///
+        /// <para>Раньше поправка подбиралась глазом и стояла числом в каталоге.
+        /// Числа устаревают молча: добавили гарнитуру — подобрали заново,
+        /// ошиблись — узнали по скриншоту. Теперь размер СЧИТАЕТСЯ по самому
+        /// шрифту, из его метрик, и новая гарнитура встаёт правильно без
+        /// подбора.</para>
+        ///
+        /// <para>Мера — высота строчных (x-height): именно она решает, крупным
+        /// ли текст ВЫГЛЯДИТ, потому что строчных в тексте большинство. У
+        /// шрифта без строчных (пиксельная набирает всё прописными) берётся
+        /// высота прописных — для него это и есть основная буква.</para>
+        ///
+        /// <para>Эталон — первая гарнитура каталога, шрифт движка из коробки:
+        /// авторские кегли подбирались под неё, и она обязана остаться ровно
+        /// такой, какой была.</para>
+        /// </summary>
+        private static float OpticalScale(Family fam)
+        {
+            if (string.IsNullOrEmpty(fam.Id)) return 1f;   // Family — структура, «пустая» узнаётся по имени
+            if (_optical.TryGetValue(fam.Id, out var cached)) return cached;
+
+            float mine = LetterHeight(fam.Path);
+            float reference = Families.Length > 0 ? LetterHeight(Families[0].Path) : 0f;
+            float scale = mine > 0.0001f && reference > 0.0001f ? reference / mine : 1f;
+            _optical[fam.Id] = scale;
+            LvnLog.Trace($"[lvn-fonts] {fam.Id}: буква {mine:0.###} против эталонной {reference:0.###} → кегль ×{scale:0.##}");
+            return scale;
+        }
+
+        // Доля кегля, которую занимает основная буква. Ноль означает «измерить
+        // не вышло» — вызывающий тогда оставляет кегль как есть.
+        private static float LetterHeight(string resourcePath)
+        {
+            if (string.IsNullOrEmpty(resourcePath)) return 0f;
+            var font = Resources.Load<Font>(resourcePath);
+            if (font == null) return 0f;
+            var fa = From(font);
+            if (fa == null) return 0f;
+            var face = fa.faceInfo;
+            if (face.pointSize <= 0f) return 0f;
+            float x = face.meanLine - face.baseline;          // строчные
+            if (x <= 0.0001f) x = face.capLine - face.baseline; // их нет — прописные
+            if (x <= 0.0001f) return 0f;
+            return x / face.pointSize;
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<string, float> _optical
+            = new System.Collections.Generic.Dictionary<string, float>();
 
         /// <summary>Путь текстового шрифта с учётом выбора игрока: тема
         /// спрашивает ЗДЕСЬ, а не читает своё поле напрямую.</summary>

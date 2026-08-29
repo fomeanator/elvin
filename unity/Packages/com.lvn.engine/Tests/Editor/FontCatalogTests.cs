@@ -58,51 +58,103 @@ namespace Lvn.Tests
         [Test]
         public void OpticalSizeIsCorrectedPerFamily()
         {
-            // Один кегль у разных гарнитур выглядит разной величиной: у
-            // рукописной строчные вдвое ниже, у пиксельной буквы тяжелее.
+            // Один кегль у разных гарнитур выглядит разной величиной, и
+            // поправка на это ИЗМЕРЯЕТСЯ по шрифту. Направление поправки тест
+            // больше не диктует: раньше здесь стояло «рукописную поднимаем,
+            // пиксельную опускаем» — числа подобранные глазом, и именно они
+            // разъехались («от руки огромен, а пиксель мал»). Проверяем то,
+            // что действительно обязано выполняться.
             LvnPrefs.FontFamily = "";
             Assert.AreEqual(30, LvnFonts.Size(30), "без выбора игрока авторский кегль не трогаем");
 
-            LvnPrefs.FontFamily = "caveat";
-            Assert.Greater(LvnFonts.Size(30), 30, "рукописную поднимаем, иначе «Крупный» читается как «Обычный»");
+            LvnPrefs.FontFamily = LvnFonts.Families[0].Id;
+            Assert.AreEqual(30, LvnFonts.Size(30), "эталонная гарнитура — та, под которую подбирали кегли");
 
-            LvnPrefs.FontFamily = "pixel";
-            Assert.Less(LvnFonts.Size(30), 30, "пиксельную опускаем, иначе подписи не влезают в кнопки");
+            bool anyCorrected = false;
+            foreach (var f in LvnFonts.Families)
+            {
+                LvnPrefs.FontFamily = f.Id;
+                if (LvnFonts.Size(30) != 30) anyCorrected = true;
+            }
+            Assert.IsTrue(anyCorrected, "ни одна гарнитура не поправлена — измерение молчит");
         }
 
         [Test]
-        public void ScaleSpreadShrinksButKeepsOrder()
+        public void СтупениКегляСохраняютПропорцию()
         {
-            // «Слишком большой разброс у маленьких и больших текстов»: у
-            // характерных гарнитур крупное вылезает сильнее задуманного, и
-            // заголовок рядом с подписью выглядит плакатом.
+            // Поправка — ОДИН множитель на гарнитуру, а не своя кривая для
+            // мелкого и крупного. Значит отношение «крупное к мелкому»
+            // остаётся авторским у любой гарнитуры: макет, собранный на
+            // ступенях 20/64, не разъезжается при смене шрифта.
+            //
+            // Прежде здесь жило «сжатие шкалы» — крупное подтягивалось к
+            // мелкому, чтобы характерные гарнитуры не превращали заголовок в
+            // плакат. Оно решало последствие того, что множитель был подобран
+            // неверно; с измеренным множителем лечить нечего.
             LvnPrefs.FontFamily = "";
-            int plainSmall = LvnFonts.Size(20), plainBig = LvnFonts.Size(64);
+            float author = LvnFonts.Size(64) / (float)LvnFonts.Size(20);
 
-            LvnPrefs.FontFamily = "pixel";
-            int small = LvnFonts.Size(20), big = LvnFonts.Size(64);
-
-            Assert.Less(small, big, "порядок ступеней обязан сохраниться");
-            Assert.Less(big / (float)small, plainBig / (float)plainSmall,
-                "разброс у характерной гарнитуры обязан быть МЕНЬШЕ авторского");
+            foreach (var f in LvnFonts.Families)
+            {
+                LvnPrefs.FontFamily = f.Id;
+                int small = LvnFonts.Size(20), big = LvnFonts.Size(64);
+                Assert.Less(small, big, $"{f.Title}: порядок ступеней обязан сохраниться");
+                // Допуск — округление кегля до целых пикселей, не более.
+                Assert.That(big / (float)small, Is.EqualTo(author).Within(0.15f * author),
+                    $"{f.Title}: разброс ступеней разошёлся с авторским");
+            }
         }
 
         [Test]
         public void OneBadCatalogRowCannotBreakEveryScreen()
         {
-            // Числа гарнитур подбирают глазом, и однажды подберут неудачно.
+            // Размер меряется по самому шрифту, и метрики могут прийти
+            // сломанными — границы держат вёрстку в любом случае.
             foreach (var f in LvnFonts.Families)
             {
                 LvnPrefs.FontFamily = f.Id;
                 foreach (int b in new[] { 20, 30, 48, 64 })
                 {
-                    // Потолок уважает заявку каталога: рукописная просит вдвое
-                    // с лишним, и это законно — предел стоит на случай опечатки.
-                    float ceiling = Mathf.Max(1.75f, f.SizeScale);
                     Assert.GreaterOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 0.5f) - 1, f.Title);
-                    Assert.LessOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * ceiling) + 1, f.Title);
+                    Assert.LessOrEqual(LvnFonts.Size(b), Mathf.RoundToInt(b * 2.5f) + 1, f.Title);
                 }
             }
+        }
+
+        [Test]
+        public void БуквыОдинаковойВысотыУВсехГарнитур()
+        {
+            // Смысл поправки: при одном кегле СТРОЧНАЯ буква выходит одной
+            // высоты у любой гарнитуры. Раньше поправка подбиралась глазом, и
+            // «От руки» была вдвое крупнее «Пикселя» при одном и том же 30.
+            const int Kegl = 30;
+            LvnPrefs.FontFamily = LvnFonts.Families[0].Id;
+            float reference = LetterPixels(Kegl);
+            Assert.Greater(reference, 0f, "эталонную гарнитуру не измерить — тест бессмыслен");
+
+            foreach (var f in LvnFonts.Families)
+            {
+                LvnPrefs.FontFamily = f.Id;
+                float mine = LetterPixels(Kegl);
+                if (mine <= 0f) continue;   // шрифт не собрался в SDF — Size честно оставит кегль
+                Assert.That(mine, Is.EqualTo(reference).Within(0.25f * reference),
+                    $"{f.Title}: строчная {mine:0.#}px против эталонных {reference:0.#}px при кегле {Kegl}");
+            }
+        }
+
+        // Высота основной буквы в пикселях при данном кегле — то, что видит глаз.
+        private static float LetterPixels(int kegl)
+        {
+            var fam = LvnFonts.Chosen;
+            var font = Resources.Load<Font>(fam.Path);
+            if (font == null) return 0f;
+            var fa = LvnFonts.From(font);
+            if (fa == null || fa.faceInfo.pointSize <= 0f) return 0f;
+            var face = fa.faceInfo;
+            float x = face.meanLine - face.baseline;
+            if (x <= 0.0001f) x = face.capLine - face.baseline;
+            if (x <= 0.0001f) return 0f;
+            return x / face.pointSize * LvnFonts.Size(kegl);
         }
 
         [Test]
