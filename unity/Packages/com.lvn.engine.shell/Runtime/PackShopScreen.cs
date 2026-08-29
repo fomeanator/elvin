@@ -60,7 +60,6 @@ namespace Lvn.UI.Screens
         private CatalogState _catalogState = CatalogState.Unknown;
 
         private readonly ILvnAssets _assets;
-        private readonly VisualElement _balances;
         private readonly VisualElement _tabsRow;
         private readonly ScrollView _list;
         private readonly List<Button> _tabButtons = new List<Button>();
@@ -149,9 +148,10 @@ namespace Lvn.UI.Screens
             }
 
             // Балансы в шапке удалены — валюты несёт единый навбар (дубль).
-            _balances = new VisualElement();
-            _balances.style.display = DisplayStyle.None;
-            top.Add(_balances);
+            // Пустой скрытый контейнер и пересборка пилюль в него жили здесь
+            // ещё месяц после удаления: каждое начисление честно собирало две
+            // плашки внутрь того, чего не видно. Хуже расхода то, что код
+            // выглядел рабочим балансом магазина и уводил починку не туда.
 
             // ── Category tabs ─────────────────────────────────────────────────
             _tabsRow = new VisualElement();
@@ -167,15 +167,6 @@ namespace Lvn.UI.Screens
             sheet.Add(_list);
 
             // Пилюли следуют за кошельком, а не за своими вызовами. Раньше
-            // экран обновлял их только при постройке и после СВОЕЙ покупки: в
-            // открытом магазине начисление за рекламу или ежедневную награду не
-            // появлялось, и игрок видел устаревший баланс ровно там, где он
-            // важнее всего. Подписка живёт вместе с экраном.
-            Lvn.LvnLeash.WhileOnScreen(this,
-                () => Lvn.Services.LvnWallet.Changed += RefreshBalances,
-                () => Lvn.Services.LvnWallet.Changed -= RefreshBalances,
-                RefreshBalances);
-            RefreshBalances();
             Rebuild();
             LvnAsync.Fire(LoadCatalogAsync(), "PackShopCatalog");
         }
@@ -634,8 +625,8 @@ namespace Lvn.UI.Screens
                     string.IsNullOrEmpty(pack.Currency) ? "crystals" : pack.Currency,
                     total, "packshop_test:" + pack.Sku);
             }
-            // RefreshBalances здесь больше не нужен: начисление поднимает
-            // Changed, и пилюли перерисуются сами — как в любом другом месте.
+            // Баланс тут обновлять некому и незачем: его показывает единый
+            // навбар, а он слушает Changed сам.
             if (!ok)
             {
                 b.text = label;
@@ -653,39 +644,6 @@ namespace Lvn.UI.Screens
             }).ExecuteLater(650);
         }
 
-        // ── Balances: the REAL wallet ────────────────────────────────────────
-        private void RefreshBalances()
-        {
-            _balances.Clear();
-            var bal = Lvn.Services.LvnWallet.Balances;
-            long crystals = bal.TryGetValue("crystals", out var c) ? c : 0;
-            long energy = bal.TryGetValue("energy", out var e) ? e : 0;
-            _balances.Add(BalancePill(LvnIcon.Gem, LvnPriceTag.Amount(crystals), LvnTokens.Gold));
-            _balances.Add(BalancePill(LvnIcon.Energy, LvnPriceTag.Amount(energy), LvnTokens.Accent));
-        }
-
-        private static VisualElement BalancePill(LvnIcon glyph, string value, Color glyphColor)
-        {
-            var pill = new VisualElement();
-            pill.style.flexDirection = FlexDirection.Row;
-            pill.style.alignItems = Align.Center;
-            pill.style.marginLeft = 10;
-            pill.style.paddingLeft = 12; pill.style.paddingRight = 12;
-            pill.style.paddingTop = 6; pill.style.paddingBottom = 6;
-            pill.style.backgroundColor = new Color(0f, 0f, 0f, 0.4f);
-            LvnChrome.Round(pill, 16f);
-
-            var icon = LvnIcons.Make(glyph, 22f, glyphColor, 0f, LvnTheme.Current.IconGlow);
-            icon.style.marginRight = 6;
-            pill.Add(icon);
-
-            var amount = new Label(value);
-            amount.style.color = LvnTokens.Text;
-            amount.style.fontSize = 24;
-            amount.style.unityFontStyleAndWeight = FontStyle.Bold;
-            pill.Add(amount);
-            return pill;
-        }
 
         // ── Hardcoded demo catalog: five tiered packs per tab ─────────────────
     }

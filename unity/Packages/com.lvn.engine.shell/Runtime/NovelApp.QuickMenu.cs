@@ -227,7 +227,13 @@ namespace Lvn.UI.Screens
                 // …БЕЗ ВРАТ: смена наряда — пересборка куклы, а не приход в
                 // меню. Со створом это выглядело так, будто каждая юбка
                 // открывает портал (живой репорт 28.08).
-                Lvn.UI.LvnWardrobe.Changed += _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
+                // Через поводок, как две подписки выше. Здесь стояла безымянная
+                // лямбда — отписаться от неё нельзя вовсе, и правило «подписался
+                // — умей отпустить» держалось у двух соседей из трёх.
+                System.Action<string> onWardrobe =
+                    _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
+                _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onWardrobe,
+                            () => Lvn.UI.LvnWardrobe.Changed -= onWardrobe);
                 // Сцена перехода: панель ведёт экран, створ и героиню — хост.
                 _shell.OnPortalEnter = EnterPortalAsync;
                 // РЕЖИМ ОБЪЯВЛЯЕТ ОБОЛОЧКА, а не хост: она владеет сессией
