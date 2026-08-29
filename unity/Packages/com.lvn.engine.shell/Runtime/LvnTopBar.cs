@@ -232,11 +232,20 @@ namespace Lvn.UI.Screens
             return b;
         }
 
+        /// <summary>Сколько бар ждёт тишины, прежде чем уйти сам.</summary>
+        private const long GameBarQuietMs = 5000;
+
+        // Один отсчёт автоухода на все открытия — заводится при первом.
+        private IVisualElementScheduledItem _barAutoHide;
+
         private void ToggleGameBar(bool? force = null)
         {
             bool show = force ?? !_gameBarShown;
             if (show == _gameBarShown && force == null) return;
             _gameBarShown = show;
+            // Закрылись — отсчёт больше не нужен: он разбудится при следующем
+            // открытии. Иначе он доживёт до конца и закроет уже чужое открытие.
+            if (!show) _barAutoHide?.Pause();
             float slide = RowH + _safeTop + 150f;
             if (show)
             {
@@ -257,8 +266,16 @@ namespace Lvn.UI.Screens
                     r.style.translate = new Translate(0f, y);
                     _gameRow.style.translate = new Translate(0f, y);
                 });
-                // Автоуход через 5 с тишины — сцена остаётся чистой.
-                schedule.Execute(() => { if (_gameBarShown) ToggleGameBar(false); }).ExecuteLater(5000);
+                // Автоуход через 5 с ТИШИНЫ — сцена остаётся чистой.
+                //
+                // Отсчёт один, и он перезапускается. Здесь на каждое открытие
+                // заводился новый, а прежние продолжали идти: открыл бар, ушёл в
+                // магазин, вернулся и открыл снова — и старый отсчёт захлопывал
+                // бар раньше срока, посреди объяснения. Оба смотрели только на
+                // «бар открыт?», а не на «моё ли это открытие».
+                _barAutoHide ??= schedule.Execute(
+                    () => { if (_gameBarShown) ToggleGameBar(false); });
+                _barAutoHide.ExecuteLater(GameBarQuietMs);
             }
             else
             {

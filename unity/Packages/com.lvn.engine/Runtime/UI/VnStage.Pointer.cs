@@ -33,6 +33,9 @@ namespace Lvn.UI
         private bool _pressTracking, _suppressTap;
         private Vector2 _pressPos;
         private IVisualElementScheduledItem _longPress;
+        // На чьём расписании заведён отсчёт: сцену пересобирают, и чужое
+        // расписание после этого молчит.
+        private VisualElement _longPressHost;
 
         /// <summary>Raised when the long-press art view hides/shows the chrome —
         /// the host mirrors it onto its own HUD.</summary>
@@ -113,12 +116,22 @@ namespace Lvn.UI
             // случайно и «теряют интерфейс», выключает жест данными.
             if (Theme?.LongPressArtView ?? true)
             {
-                _longPress = _uiRoot?.schedule.Execute(() =>
+                // ОДИН ОТСЧЁТ НА ВСЕ НАЖАТИЯ. Здесь заводился новый на каждое
+                // касание — а касание это то, чем игрок листает главу: прежний
+                // отсчёт только приостанавливался и оставался в расписании
+                // панели, и за сессию их набегали тысячи. Заводим один раз и
+                // перезапускаем; корень сцены сверяем, потому что при пересборке
+                // сцены расписание принадлежит уже другому элементу.
+                if (_longPress == null || !ReferenceEquals(_longPressHost, _uiRoot))
                 {
-                    if (!_pressTracking || _dragId != null) return;
-                    _suppressTap = true;      // this press is an art view, not a tap
-                    HideChrome(LvnScreenDirector.ArtViewReason);
-                });
+                    _longPressHost = _uiRoot;
+                    _longPress = _uiRoot?.schedule.Execute(() =>
+                    {
+                        if (!_pressTracking || _dragId != null) return;
+                        _suppressTap = true;      // this press is an art view, not a tap
+                        HideChrome(LvnScreenDirector.ArtViewReason);
+                    });
+                }
                 _longPress?.ExecuteLater(LongPressMs);
             }
         }

@@ -426,7 +426,13 @@ namespace Lvn.UI
             if (IsRevealing)
             {
                 _body.MarkDirtyRepaint(); // same text as the last line? still restart at 0
-                _tick = schedule.Execute(Tick).Every(16);
+                // ОДИН ТАЙМЕР НА ВСЕ РЕПЛИКИ. Здесь заводился новый на каждую:
+                // прежний только приостанавливался и оставался в расписании
+                // панели навсегда — за главу их набегали сотни. Пульсация
+                // указателя двумя полями выше давно живёт правильно, и правило
+                // у них общее: завести один раз, дальше будить и усыплять.
+                _tick ??= schedule.Execute(Tick).Every(16);
+                _tick.Resume();
             }
         }
 
