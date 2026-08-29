@@ -44,8 +44,6 @@ namespace Lvn.UI.Screens
         private VisualElement _hero;
         private Button _backBtn;
 
-        private VisualElement _modal; // the restart overlay, while it's up
-
         /// <summary>The real title behind this page — set by the host before
         /// <see cref="Rebuild"/> so the Restart menu can list the actual chapters
         /// and read/clear reading progress. Null → the Restart affordance hides.</summary>
