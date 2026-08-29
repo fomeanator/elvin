@@ -54,5 +54,47 @@ namespace Lvn.Tests
             Assert.AreEqual("Victoria", LvnWords.Name("actor", "hill", "Виктория"),
                 "перевод — всегда лучше транслита");
         }
+
+        [Test]
+        public void EmptyInputIsNotAReasonToCrash()
+        {
+            Assert.IsFalse(LvnTranslit.HasCyrillic(null));
+            Assert.IsFalse(LvnTranslit.HasCyrillic(""));
+            Assert.IsNull(LvnTranslit.ToLatin(null));
+            Assert.AreEqual("", LvnTranslit.ToLatin(""));
+        }
+
+        [Test]
+        public void SilentSignsDisappearInsteadOfBecomingApostrophes()
+        {
+            // Апостроф вместо мягкого знака только мешает читать.
+            Assert.AreEqual("obem", LvnTranslit.ToLatin("объем"));
+            StringAssert.DoesNotContain("'", LvnTranslit.ToLatin("Дальность"));
+        }
+
+        [Test]
+        public void MultiLetterReplacementsKeepTheirCase()
+        {
+            // Заглавной становится ТОЛЬКО первая буква замены — иначе «Юля»
+            // превращается в «YUlya».
+            Assert.AreEqual("Yuliya", LvnTranslit.ToLatin("Юлия"));
+            Assert.AreEqual("Zhanna", LvnTranslit.ToLatin("Жанна"));
+            Assert.AreEqual("Chekhov", LvnTranslit.ToLatin("Чехов"));
+        }
+
+        [Test]
+        public void MixedStringsStayMixed()
+        {
+            // Строка может быть смешанной: латиница и знаки остаются как есть.
+            Assert.AreEqual("Cold: Roman i Viktoriya (2)",
+                LvnTranslit.ToLatin("Cold: Роман и Виктория (2)"));
+        }
+
+        [Test]
+        public void CyrillicIsDetectedByLettersNotByLanguage()
+        {
+            Assert.IsTrue(LvnTranslit.HasCyrillic("Cold: Роман"), "хватает одной буквы");
+            Assert.IsFalse(LvnTranslit.HasCyrillic("Cold 13 — dash and digits"));
+        }
     }
 }

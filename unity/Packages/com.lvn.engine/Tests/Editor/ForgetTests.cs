@@ -116,5 +116,64 @@ namespace Lvn.Tests
                 "упавшее хранилище остановило забвение — половина игрока осталась");
             LvnForget.Register("падучее", null, null);
         }
+
+        [Test]
+        public void ForgettingNobodyIsANoOp()
+        {
+            // «Начать заново» без выбранной новеллы не имеет права стирать
+            // ЧТО-НИБУДЬ наугад.
+            FillTitle();
+
+            LvnForget.Title(null);
+            LvnForget.Title("");
+
+            Assert.AreEqual(1, LvnSaveStore.Slots(T).Count, "стёрли не ту новеллу");
+        }
+
+        [Test]
+        public void ForgettingOneNovelLeavesTheNeighbourAlone()
+        {
+            const string other = "test-forget-other";
+            try
+            {
+                FillTitle();
+                LvnGalleryStore.Unlock(other, "cg-01");
+
+                LvnForget.Title(T);
+
+                Assert.IsTrue(LvnGalleryStore.IsUnlocked(other, "cg-01"),
+                    "«начать заново» стирает ОДНУ экспедицию, а не соседнюю");
+            }
+            finally { PlayerPrefs.DeleteKey("lvn.gallery." + other); }
+        }
+
+        [Test]
+        public void AccountDeletionWithoutACatalogStillForgetsThePlayer()
+        {
+            // Список новелл может не доехать (нет сети) — личное игрока обязано
+            // уйти всё равно.
+            LvnPlayerName.Set("Майя");
+            PlayerPrefs.SetString("lvn_state___global", "{\"vars\":{\"karma\":3}}");
+
+            LvnForget.All(null);
+
+            Assert.AreEqual("", LvnPlayerName.Current);
+            Assert.AreEqual("", PlayerPrefs.GetString("lvn_state___global", ""));
+        }
+
+        [Test]
+        public void ReRegisteringTheSameStoreDoesNotDoubleIt()
+        {
+            // Подъём приложения не обязан начинаться с чистой статики: вторая
+            // регистрация того же имени ЗАМЕНЯЕТ первую, а не добавляет второго.
+            int asked = 0;
+            LvnForget.Register("двойное хранилище", _ => asked++, null);
+            LvnForget.Register("двойное хранилище", _ => asked++, null);
+
+            LvnForget.Title(T);
+
+            Assert.AreEqual(1, asked);
+            LvnForget.Register("двойное хранилище", null, null);
+        }
     }
 }

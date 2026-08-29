@@ -74,5 +74,58 @@ namespace Lvn.Tests
 
             Assert.IsTrue(b.enabledSelf, "при провале кнопка отпускается ВСЕГДА — это и есть смысл дома");
         }
+
+        [Test]
+        public async Task BusyLabelIsShownWhileWaitingAndTakenBackAfter()
+        {
+            var b = new Button { text = "Играть" };
+            string seen = null;
+
+            await LvnBusy.RunAsync(b, () => { seen = b.text; return Task.CompletedTask; }, busyText: "Ждём…");
+
+            Assert.AreEqual("Ждём…", seen, "игрок должен видеть, что нажатие услышано");
+            Assert.AreEqual("Играть", b.text, "подпись возвращается, раз работа её не меняла");
+        }
+
+        [Test]
+        public async Task ADisabledButtonIsAlreadyBusy()
+        {
+            // Второй тап приходит и по кнопке, которую выключил кто-то другой:
+            // это по-прежнему «занята», а не «жми ещё раз».
+            var b = new Button { text = "Купить" };
+            b.SetEnabled(false);
+            int runs = 0;
+
+            bool ok = await LvnBusy.RunAsync(b, () => { runs++; return Task.CompletedTask; });
+
+            Assert.IsFalse(ok);
+            Assert.AreEqual(0, runs);
+        }
+
+        [Test]
+        public async Task WorkWithoutAButtonStillRuns()
+        {
+            // Кнопки может не быть (вызов из кода) — работа от этого не отменяется.
+            int runs = 0;
+            bool ok = await LvnBusy.RunAsync(null, () => { runs++; return Task.CompletedTask; });
+
+            Assert.IsTrue(ok);
+            Assert.AreEqual(1, runs);
+        }
+
+        [Test]
+        public async Task NoWorkIsNotSuccess()
+        {
+            var b = new Button { text = "Купить" };
+            Assert.IsFalse(await LvnBusy.RunAsync(b, null));
+            Assert.IsTrue(b.enabledSelf, "нечего ждать — нечего и выключать");
+        }
+
+        [Test]
+        public void SubscribingNothingIsHarmless()
+        {
+            Assert.DoesNotThrow(() => LvnBusy.OnClick(null, () => Task.CompletedTask));
+            Assert.DoesNotThrow(() => LvnBusy.OnClick(new Button(), null));
+        }
     }
 }

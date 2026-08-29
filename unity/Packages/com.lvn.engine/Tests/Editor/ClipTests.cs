@@ -51,5 +51,75 @@ namespace Lvn.Tests
             Assert.IsTrue(id.StartsWith("u_e25fc02ed2"), "по короткому id игрок называет себя в поддержке");
             Assert.IsTrue(id.EndsWith("…"));
         }
+
+        [Test]
+        public void ShortIdIsNotTouched()
+        {
+            Assert.AreEqual("u_1234", LvnClip.Id("u_1234"), "короткий id и так читается целиком");
+        }
+
+        [Test]
+        public void CompositeCharacterIsNeverSplit()
+        {
+            // «é» разложенной формой — буква плюс отдельный акут. Записано
+            // КОДАМИ: буквой любой редактор пересобрал бы её в один знак, и
+            // тест ловил бы пустоту.
+            const string decomposed = "abcd\u0065\u0301fghij";
+            Assert.AreEqual(11, decomposed.Length, "фикстура собрана — тест ничего не ловит");
+
+            var s = LvnClip.Text(decomposed, 6);
+            Assert.IsFalse(s.Contains("\u0301"),
+                "разрез внутри составного символа рисуется отдельной палочкой над многоточием");
+        }
+
+        [Test]
+        public void OneCharacterOverTheLimitIsStillCut()
+        {
+            // Правило простое и проверяемое: длиннее предела — режем, ровно по
+            // пределу — нет.
+            Assert.AreEqual("Ровно", LvnClip.Text("Ровно", 5));
+            Assert.AreEqual("Ровн…", LvnClip.Text("Ровно!", 5));
+        }
+
+        [Test]
+        public void NoRoomForAnythingButTheEllipsis()
+        {
+            Assert.AreEqual("…", LvnClip.Text("Длинная строка", 1));
+        }
+
+        [Test]
+        public void HeadOfOnlyPunctuationBecomesJustTheEllipsis()
+        {
+            // «— …» читается как мусор; оставляем один знак сокращения.
+            Assert.AreEqual("…", LvnClip.Text("— — — — реплика", 5));
+        }
+
+        [Test]
+        public void NoLimitMeansNoCut()
+        {
+            // Ноль и отрицательное — «предел не задан», а не «оставить ничего».
+            Assert.AreEqual("Привет", LvnClip.Text("Привет", 0));
+            Assert.AreEqual("Привет", LvnClip.Text("Привет", -5));
+        }
+
+        [Test]
+        public void TheEllipsisIsOneCharacter()
+        {
+            // Три точки подряд выглядят как опечатка и занимают втрое больше места.
+            Assert.AreEqual(1, LvnClip.Ellipsis.Length);
+        }
+
+        [Test]
+        public void OnePreviewLengthForEveryScreen()
+        {
+            // Превью одной и той же записи, обрезанное по-разному, читается как
+            // разные сохранения: 40 в карусели против 46 в меню сцены.
+            var line = new string('я', 100);
+            var preview = LvnClip.Text(line, LvnClip.PreviewMax);
+            Assert.LessOrEqual(preview.Length, LvnClip.PreviewMax,
+                "превью обязано влезать в строку списка вместе с многоточием");
+            Assert.Greater(preview.Length, LvnClip.PreviewMax / 2,
+                "и не быть куцым: обрезок должен оставаться узнаваемой репликой");
+        }
     }
 }

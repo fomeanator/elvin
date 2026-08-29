@@ -85,5 +85,52 @@ namespace Lvn.Tests
             Assert.AreNotEqual(LvnMark.Once(), LvnMark.Once(),
                 "повтор с той же меткой сервер счёл бы тем же начислением");
         }
+
+        [Test]
+        public void РазоваяМеткаНеХранится()
+        {
+            // Она нужна ровно на одну операцию: сохранённая, она превратила бы
+            // КАЖДЫЙ повтор в «то же начисление».
+            var once = LvnMark.Once();
+            Assert.AreEqual(32, once.Length);
+            Assert.AreEqual("", LvnKeep.Get(once, ""), "разовая метка в книжку не попадает");
+        }
+
+        [Test]
+        public void БезымяннуюМеткуВыдатьНельзя()
+        {
+            // Имя — это и есть дом метки: без него её негде искать при
+            // следующем запуске, и «постоянная» окажется разовой.
+            Assert.Throws<System.ArgumentException>(() => LvnMark.Steady(null));
+            Assert.Throws<System.ArgumentException>(() => LvnMark.Steady(""));
+        }
+
+        [Test]
+        public void ЗабвениеЗабираетВСЕВыданныеМетки()
+        {
+            // Перепись живёт в книжке, а не в памяти: половина меток на момент
+            // удаления аккаунта может быть в этом запуске ещё не спрошена.
+            const string second = "test_mark_второй";
+            try
+            {
+                var a = LvnMark.Steady(Name);
+                var b = LvnMark.Steady(second);
+                Assert.AreNotEqual(a, b, "разным именам — разные метки");
+
+                LvnMark.ForgetAll();
+
+                Assert.AreEqual("", LvnKeep.Get(Name, ""));
+                Assert.AreEqual("", LvnKeep.Get(second, ""), "вторая метка пережила удаление аккаунта");
+            }
+            finally { LvnMark.Forget(second); }
+        }
+
+        [Test]
+        public void ЗабытьНесуществующуюМеткуБезвредно()
+        {
+            Assert.DoesNotThrow(() => LvnMark.Forget("никогда_не_выдавалась"));
+            Assert.DoesNotThrow(() => LvnMark.Forget(null));
+            Assert.DoesNotThrow(LvnMark.ForgetAll);
+        }
     }
 }

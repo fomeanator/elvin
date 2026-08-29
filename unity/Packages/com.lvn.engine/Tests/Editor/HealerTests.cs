@@ -143,5 +143,87 @@ namespace Lvn.Tests.Editor
             _doc.Tick(1f);
             Assert.AreEqual(1, _cures, "упавшая проверка утащила за собой весь обход");
         }
+
+        // Лечение — попытка, а не обязательство: упавшее не должно стоить
+        // обхода соседям.
+        [Test]
+        public void ABrokenCureDoesNotStopTheRoundEither()
+        {
+            _doc.Watch("падучее лечение", () => true, () => throw new System.Exception("лечение упало"));
+            Watch();
+            _sick = true;
+            _doc.Tick(0f);
+            _doc.Tick(1f);
+            Assert.AreEqual(1, _cures, "упавшее лечение утащило за собой весь обход");
+        }
+
+        // Сцена ушла — сторож уходит с ней, иначе он лечит мёртвое дерево.
+        [Test]
+        public void ForgettingAnAilmentStopsTheWatch()
+        {
+            Watch();
+            _sick = true;
+            _doc.Tick(0f);
+            _doc.Forget("недуг");
+            _doc.Tick(1f);
+
+            Assert.AreEqual(0, _cures);
+            Assert.AreEqual(0, _doc.HealedCount("недуг"));
+        }
+
+        [Test]
+        public void ClearForgetsEverySentinelAtOnce()
+        {
+            Watch();
+            _doc.Watch("второй", () => true, () => { });
+            _sick = true;
+            _doc.Clear();
+            _doc.Tick(0f);
+            _doc.Tick(1f);
+
+            Assert.AreEqual(0, _cures);
+            StringAssert.Contains("под наблюдением никого", _doc.Journal());
+        }
+
+        // Наблюдение без имени, без проверки или без лечения — не наблюдение:
+        // молча принятая половинка сторожа не сработает и не пожалуется.
+        [Test]
+        public void AHalfDescribedAilmentIsNotWatched()
+        {
+            _doc.Watch(null, () => true, () => _cures++);
+            _doc.Watch("безпроверки", null, () => _cures++);
+            _doc.Watch("безлечения", () => true, null);
+
+            _doc.Tick(0f);
+            _doc.Tick(1f);
+
+            Assert.AreEqual(0, _cures);
+            StringAssert.Contains("под наблюдением никого", _doc.Journal());
+        }
+
+        // Счётчик «лечили» спрашивают по имени: неизвестное имя — ноль, а не
+        // чужое число.
+        [Test]
+        public void AnUnknownAilmentWasHealedZeroTimes()
+        {
+            Watch();
+            Assert.AreEqual(0, _doc.HealedCount("такого недуга нет"));
+        }
+
+        // Разрежение не уходит в бесконечность: у него объявленный потолок.
+        [Test]
+        public void TheSpacingHasADeclaredCeiling()
+        {
+            Watch(period: 0.5f);
+            _sick = true;
+            for (float t = 0f; t < 120f; t += 0.5f) _doc.Tick(t);
+
+            // За две минуты при потолке 8 секунд лечений не может быть больше,
+            // чем «первые несколько + 120/8».
+            // Без потолка их было бы 240; с потолком в 8 секунд — два десятка.
+            Assert.Less(_cures, 10 + 120f / LvnHealer.MaxPeriod,
+                "разрежение перестало расти — лог снова заваливается");
+            Assert.Greater(_cures, 3, "и совсем сдаваться Лекарь не должен");
+        }
     }
 }
