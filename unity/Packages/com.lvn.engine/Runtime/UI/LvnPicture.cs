@@ -140,10 +140,15 @@ namespace Lvn.UI
             VisualElement el, string url, int slice, ILvnAssets assets)
         {
             if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
+            var box = _awaited.GetValue(el, _ => new System.Runtime.CompilerServices.StrongBox<string>(null));
+            box.Value = url;
             try
             {
                 var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                if (sprite == null) return;
+                // Та же сверка адреса, что у показа: рамка живёт в той же
+                // таблице ожиданий, иначе две просьбы к одному элементу
+                // разошлись бы по разным правилам.
+                if (sprite == null || box.Value != url) return;
                 el.style.backgroundImage = new StyleBackground(sprite);
                 Pin(el, sprite, assets);
                 el.style.backgroundColor = Color.clear;

@@ -248,7 +248,21 @@ namespace Lvn.Content
         {
             var pattern = Of(key, fallback);
             if (string.IsNullOrEmpty(pattern)) return pattern;
-            if (pattern.Contains("{0}")) return string.Format(pattern, arg0);
+            if (pattern.Contains("{0}"))
+            {
+                // Та же страховка, что у шаблона с двумя числами: перевод вида
+                // «{0} из {1}», положенный под одночисловой ключ, — ошибка
+                // переводчика, а не повод уронить сборку экрана. Здесь она
+                // стояла только у брата, и семейство расходилось ровно в том,
+                // что важнее всего: переживёт ли игра чужую опечатку.
+                try { return string.Format(pattern, arg0); }
+                catch (FormatException)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[lvn-words] шаблон «{key}» не понят — показан без подстановки");
+                    return pattern;
+                }
+            }
             if (pattern.Contains("{n}")) return pattern.Replace("{n}", arg0?.ToString() ?? "");
             return pattern + " " + arg0;
         }

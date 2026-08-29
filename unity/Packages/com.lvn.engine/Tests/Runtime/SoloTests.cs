@@ -1,4 +1,8 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Lvn.Content;
 using Lvn.UI;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -19,6 +23,32 @@ namespace Lvn.Tests.Runtime
     /// </summary>
     public class SoloTests
     {
+        /// <summary>
+        /// АРТ У КУКЛЫ ДОЛЖЕН БЫТЬ — иначе её вообще не выпустят в кадр.
+        ///
+        /// <para>Сцена НАМЕРЕННО не показывает актёра, которому нечем рисовать
+        /// (<c>CanvasSceneRenderer.ApplyActor</c>): пустой <c>Image</c>
+        /// заливает себя сплошняком, и это тот самый белый прямоугольник.
+        /// Стенд без единого спрайта получал слот, созданный впрок, и
+        /// НИКОГДА — живую куклу: проверки про «пережила уборку тем же
+        /// объектом» смотрели на выключенный объект и не находили ничего.</para>
+        /// </summary>
+        private sealed class OneSpriteAssets : ILvnAssets
+        {
+            private Sprite _sprite;
+            public Sprite Sprite => _sprite ??= Sprite.Create(
+                new Texture2D(4, 4), new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+
+            public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+                => Task.FromResult(Sprite);
+            public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+                => Task.FromResult<AudioClip>(null);
+            public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct)
+                => Task.CompletedTask;
+            public void Unload(string url) { }
+            public void UnloadAll() { }
+        }
+
         private GameObject _go;
         private VnStage _stage;
 
@@ -29,6 +59,7 @@ namespace Lvn.Tests.Runtime
             var doc = _go.GetComponent<UIDocument>();
             doc.panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             _stage = _go.AddComponent<VnStage>();
+            _stage.Assets = new OneSpriteAssets();
         }
 
         [TearDown]
@@ -37,7 +68,27 @@ namespace Lvn.Tests.Runtime
         private static JObject Show(string id) => new JObject
         {
             ["op"] = "actor", ["id"] = id, ["show"] = true, ["position"] = "center",
+            // Слой у каждого свой — иначе «облик тот же» спутает двух кукол.
+            ["sprite_url"] = "test/" + id + ".png",
         };
+
+        /// <summary>
+        /// КУКЛА ПО ИМЕНИ — через дерево сцены, а не <c>GameObject.Find</c>.
+        ///
+        /// <para><c>GameObject.Find</c> видит только ВКЛЮЧЁННЫЕ объекты, а
+        /// половина здешних вопросов ровно про выключенных: «пережила уборку
+        /// живой, но ушла из кадра». Искать надо там, где кукла живёт, —
+        /// в содержимом канваса ЭТОЙ сцены, а не по всей сцене теста (чужой
+        /// стенд из соседнего теста ещё не снесён: <c>Destroy</c>
+        /// отложенный).</para>
+        /// </summary>
+        private GameObject Doll(string id)
+        {
+            var content = _go != null
+                ? _go.transform.Find("vn-world-canvas/game-root/content") : null;
+            var t = content != null ? content.Find("vn-obj-" + id) : null;
+            return t != null ? t.gameObject : null;
+        }
 
         private IEnumerator Staged(params string[] ids)
         {
@@ -119,7 +170,13 @@ namespace Lvn.Tests.Runtime
 
             var solo = _stage.BeginSoloAsync("hero");
             while (!solo.IsCompleted) yield return null;
-            for (int i = 0; i < 30 && _stage.DialogueOnScreen; i++) yield return null;
+            // ЖДЁМ ВРЕМЕНЕМ, А НЕ КАДРАМИ. Окно уходит СВОИМ ходом и прячется
+            // хвостом анимации (см. SetSayVisible → DropOut): срок у неё в
+            // миллисекундах, а батч-прогон успевает отсчитать три десятка
+            // кадров быстрее, чем карточка доедет. Считать кадры значило бы
+            // проверять скорость машины, а не уход окна.
+            float until = Time.realtimeSinceStartup + 2f;
+            while (_stage.DialogueOnScreen && Time.realtimeSinceStartup < until) yield return null;
 
             Assert.IsFalse(_stage.DialogueOnScreen,
                 "окно реплики пережило начало катсцены — героиня уходит в портал "
@@ -136,17 +193,18 @@ namespace Lvn.Tests.Runtime
         {
             yield return Staged("agent", "hero");
             _stage.KeepActorAlive = "hero";
-            var before = GameObject.Find("vn-obj-hero");
+            var before = Doll("hero");
             Assert.IsNotNull(before, "sanity: кукла героини должна стоять на сцене");
+            Assert.IsTrue(before.activeSelf, "sanity: и стоять ВИДИМОЙ, а не слотом впрок");
 
             _stage.ClearStage();          // уборка сцены — смена главы
             yield return null;
 
-            var after = GameObject.Find("vn-obj-hero");
+            var after = Doll("hero");
             Assert.IsNotNull(after, "героиню снесло уборкой — по ту сторону соберётся вторая");
             Assert.AreSame(before, after,
                 "героиня пересобрана: это уже ДРУГОЙ объект, а не та же кукла");
-            Assert.IsNull(GameObject.Find("vn-obj-agent"),
+            Assert.IsNull(Doll("agent"),
                 "sanity: все прочие уходят вместе со своей главой");
         }
 
@@ -163,7 +221,7 @@ namespace Lvn.Tests.Runtime
             _stage.ClearStage();
             yield return null;
 
-            Assert.IsNotNull(GameObject.Find("vn-obj-hero"), "sanity: объект остаётся жить");
+            Assert.IsNotNull(Doll("hero"), "sanity: объект остаётся жить");
             Assert.IsFalse(_stage.RememberedByScript("hero"),
                 "поза из меню пережила уборку — глава получит героиню, стоящую по-менюшному");
             Assert.IsFalse(_stage.RememberedByScript("agent"),
@@ -204,11 +262,13 @@ namespace Lvn.Tests.Runtime
         {
             yield return Staged("hero");
             _stage.KeepActorAlive = "hero";
+            Assert.IsTrue(Doll("hero")?.activeSelf ?? false,
+                "sanity: до уборки она в кадре — иначе проверка ниже ничего не значит");
 
             _stage.ClearStage();
             yield return null;
 
-            var go = GameObject.Find("vn-obj-hero");
+            var go = Doll("hero");
             Assert.IsNotNull(go, "sanity: объект жив");
             Assert.IsFalse(go.activeSelf, "героиня осталась в кадре новой главы");
         }
