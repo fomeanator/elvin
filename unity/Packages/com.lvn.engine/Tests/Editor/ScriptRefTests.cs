@@ -63,5 +63,41 @@ namespace Lvn.Tests
             Assert.IsTrue(LvnScriptRef.Same("/c/a+b.lvn", "/c/a+b.lvn"));
             Assert.IsFalse(LvnScriptRef.Same("/c/a+b.lvn", "/c/a b.lvn"));
         }
+
+        [Test]
+        public void MixedRecordingMeetsTheCleanOne()
+        {
+            // «Глава%201» — половина буквами, половина процентами: так адрес
+            // выглядит после того, как его один раз склеили руками.
+            Assert.IsTrue(LvnScriptRef.Same("/c/Глава%201.lvn",
+                                            "/c/Глава 1.lvn"));
+        }
+
+        [Test]
+        public void StrayWhitespaceIsNotADifferentChapter()
+        {
+            Assert.IsTrue(LvnScriptRef.Same("/c/ch1.lvn ", "/c/ch1.lvn"),
+                "хвостовой пробел из манифеста не должен стоить игроку прохождения");
+        }
+
+        [Test]
+        public void BrokenPercentEscapeDoesNotCrash()
+        {
+            // «%ZZ» — не шестнадцатеричное; сравнение обязано ответить, а не упасть.
+            Assert.DoesNotThrow(() => LvnScriptRef.Same("/c/a%ZZb.lvn", "/c/ch1.lvn"));
+            Assert.DoesNotThrow(() => LvnScriptRef.Canonical("/c/%"));
+            Assert.IsTrue(LvnScriptRef.Same("/c/a%ZZb.lvn", "/c/a%ZZb.lvn"));
+        }
+
+        [Test]
+        public void CanonicalIsForComparingOnlyNotForLoading()
+        {
+            // Сеть берёт адрес таким, каким его дал манифест; здесь — только вид
+            // для сравнения.
+            Assert.AreEqual("", LvnScriptRef.Canonical(null));
+            Assert.AreEqual("", LvnScriptRef.Canonical(""));
+            Assert.AreEqual("/c/Глава1.lvn",
+                            LvnScriptRef.Canonical("/c/%D0%93%D0%BB%D0%B0%D0%B2%D0%B01.lvn?v=9"));
+        }
     }
 }

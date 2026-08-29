@@ -46,5 +46,35 @@ namespace Lvn.Tests
             Assert.AreEqual(LvnKey.Normalize("House-Platon"), LvnKey.Normalize("houseplaton"));
             Assert.AreEqual("", LvnKey.Normalize(null));
         }
+
+        [Test]
+        public void ABrokenSurrogateIsNotAReasonToDropTheChapter()
+        {
+            // .NET считает битую пару поводом бросить из Normalize. Имя
+            // персонажа таким поводом не является.
+            string broken = "Майя\uD800";   // «Майя» + одинокая старшая половина
+            Assert.DoesNotThrow(() => LvnKey.Normalize(broken));
+            StringAssert.StartsWith("майя", LvnKey.Normalize(broken),
+                "здоровая часть имени обязана уцелеть");
+        }
+
+        [Test]
+        public void DigitsArePartOfTheName()
+        {
+            // «Виктория 2» и «victoria_2» — один персонаж, а не два.
+            Assert.AreEqual(LvnKey.Normalize("Виктория 2"), LvnKey.Normalize("виктория2"));
+            Assert.AreNotEqual(LvnKey.Normalize("hero1"), LvnKey.Normalize("hero2"),
+                "цифра — часть имени, а не разделитель");
+        }
+
+        [Test]
+        public void PunctuationIsAMatterOfTasteNotOfIdentity()
+        {
+            Assert.AreEqual(LvnKey.Normalize("Ноэль де Флёр"), LvnKey.Normalize("Ноэль-де-Флёр"),
+                "разделитель — вопрос вкуса автора, а не часть имени");
+            Assert.AreEqual(LvnKey.Normalize("a.b,c!"), LvnKey.Normalize("abc"));
+            Assert.AreEqual("", LvnKey.Normalize("___ --- ..."), "из одних разделителей ключа не выйдет");
+            Assert.AreEqual("", LvnKey.Normalize(""));
+        }
     }
 }
