@@ -746,3 +746,61 @@ func TestLegitimateNamesakeFieldsAreQuiet(t *testing.T) {
 		}
 	}
 }
+
+// ЭКРАН, КОТОРЫЙ ЖДЁТ ИГРОКА, — НЕ ЛОВУШКА.
+//
+// Новелла с собственным интерфейсом держит поток на метке ожидания
+// («label idle / wait / goto idle»), а уводит его КНОПКА дерева `ui` или
+// кликабельный предмет сцены. Для скрипта это вечная петля, для игрока —
+// экран, на котором он выбирает, куда пойти.
+//
+// Пока проверка про это не знала, она кричала на каждой такой новелле — 55
+// раз на витринах движка, — и настоящие ловушки (замкнутый гардероб в главах
+// Cold) тонули в шуме, ради которого проверка и заводилась. Диагностика,
+// которую перестают читать, не работает вовсе.
+func TestPlayerDrivenLoopIsNotATrap(t *testing.T) {
+	cases := map[string]string{
+		"кнопка интерфейса": `{"scene":"t","script":[
+		 {"op":"ui","id":"hud","tree":{"kind":"panel","children":[
+		   {"kind":"button","text":"дальше","on_click":"finish"}]}},
+		 {"op":"label","id":"idle"},
+		 {"op":"wait","seconds":1},
+		 {"op":"goto","label":"idle"},
+		 {"op":"label","id":"finish"},
+		 {"op":"say","text":"конец"}]}`,
+		"предмет сцены с кликом": `{"scene":"t","script":[
+		 {"op":"label","id":"room"},
+		 {"op":"obj","id":"drawer","on_click":"drawer","sprite_url":"/a.png"},
+		 {"op":"say","text":"кликай по предметам"},
+		 {"op":"goto","label":"room"},
+		 {"op":"label","id":"drawer"},
+		 {"op":"say","text":"ключ!"}]}`,
+		"предмет, который перетаскивают": `{"scene":"t","script":[
+		 {"op":"obj","id":"apple","draggable":true,"on_drop":"bag:in_bag","sprite_url":"/a.png"},
+		 {"op":"label","id":"room"},
+		 {"op":"say","text":"перетащи яблоко"},
+		 {"op":"goto","label":"room"},
+		 {"op":"label","id":"in_bag"},
+		 {"op":"say","text":"хоп"}]}`,
+	}
+	for name, src := range cases {
+		d := parse(t, src)
+		if hasWarn(Validate(d), "has no way out") {
+			t.Errorf("%s: поток ждёт ИГРОКА, а не крутится сам — это не ловушка", name)
+		}
+	}
+}
+
+// …и обратное: интерфейс без единого отклика ловушку не оправдывает.
+func TestSilentUiDoesNotExcuseATrap(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"ui","id":"hud","tree":{"kind":"panel","children":[
+	   {"kind":"text","text":"счёт: {n}"}]}},
+	 {"op":"label","id":"ловушка"},
+	 {"op":"say","text":"крутимся"},
+	 {"op":"goto","label":"ловушка"},
+	 {"op":"say","text":"сюда не попасть"}]}`)
+	if !hasWarn(Validate(d), "has no way out") {
+		t.Fatal("дерево без кнопок ничего игроку не даёт — ловушка осталась ловушкой")
+	}
+}
