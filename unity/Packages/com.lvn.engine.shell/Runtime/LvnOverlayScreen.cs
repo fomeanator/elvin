@@ -183,7 +183,7 @@ namespace Lvn.UI.Screens
             await tcs.Task;
             style.display = DisplayStyle.None;
             style.translate = new Translate(0f, 0f);
-            OnClosed();
+            Closed();
         }
 
         // Хореография листа: подъезд снизу + лёгкий scale. Скрим (сам экран)
@@ -241,7 +241,7 @@ namespace Lvn.UI.Screens
                 await ScreenFx.FadeAsync(this, 1f, 0f, FadeSeconds, CancellationToken.None);
                 style.display = DisplayStyle.None;
                 _open = false;
-                OnClosed();
+                Closed();
             }
             return confirmed;
         }
@@ -262,7 +262,7 @@ namespace Lvn.UI.Screens
         {
             style.display = DisplayStyle.None;
             style.translate = new Translate(0f, 0f);
-            OnClosed();
+            Closed();
         }
 
         /// <summary>Убрать немедленно, без угасания: смена главы, выход в меню.</summary>
@@ -291,14 +291,73 @@ namespace Lvn.UI.Screens
         /// <summary>Отменить: крестик, «назад», системная кнопка возврата.</summary>
         protected void Cancel() => _gate.Release(false);
 
-        /// <summary>Отмена СНАРУЖИ — роутер оболочки закрывает верхнюю модаль
-        /// по системной «назад». Семантика ровно как у <see cref="Cancel"/>.</summary>
-        public void RequestCancel() => Cancel();
+        /// <summary>
+        /// Отмена СНАРУЖИ — роутер оболочки закрывает верхнюю модаль по
+        /// системной «назад».
+        ///
+        /// <para>«Назад» снимает ОДИН слой. Пока поверх листа стоит
+        /// подтверждение, верхний слой — оно: закрывать под ним весь экран
+        /// значит отвечать не на тот вопрос, который игрок видит. Роутер про
+        /// внутренние слои экрана не знает и знать не должен — про них знает
+        /// сам экран.</para>
+        /// </summary>
+        public void RequestCancel()
+        {
+            if (HasOverlay) { DropOverlay(); return; }
+            Cancel();
+        }
 
         /// <summary>Наследник может подготовить данные перед проявлением.</summary>
         protected virtual void OnOpening() { }
 
         /// <summary>И прибраться после угасания.</summary>
         protected virtual void OnClosed() { }
+
+        // ── НАЛОЖЕНИЕ ПОВЕРХ ЛИСТА ──────────────────────────────────────────
+        //
+        // Подтверждение («точно начать заново?»), выбор главы, разбор покупки —
+        // карточка, встающая поверх собственного листа экрана.
+        //
+        // Ставить и снимать её экран умел сам, и снимала её ровно одна кнопка —
+        // «отмена» внутри самой карточки. Все остальные выходы (системная
+        // «назад», уход по вкладке, Hide при смене главы) о карточке не знали:
+        // экран гас вместе с ней, но карточка оставалась его ребёнком. При
+        // следующем открытии — уже другой новеллы — она всплывала поверх
+        // свежесобранной страницы, потому что пересборка чистит ленту, а не
+        // корень экрана.
+        //
+        // Выходов у экрана пять, и помнить их все обязан тот, кто их и завёл, —
+        // база. Наследнику остаётся сказать, ЧТО он кладёт поверх.
+        private VisualElement _overlay;
+
+        /// <summary>Положить наложение поверх листа. Предыдущее снимается:
+        /// одновременно их не бывает.</summary>
+        protected void PutOverlay(VisualElement el)
+        {
+            DropOverlay();
+            if (el == null) return;
+            _overlay = el;
+            Add(el);
+        }
+
+        /// <summary>Снять наложение, если оно есть.</summary>
+        protected void DropOverlay()
+        {
+            if (_overlay == null) return;
+            _overlay.RemoveFromHierarchy();
+            _overlay = null;
+        }
+
+        /// <summary>Стоит ли сейчас наложение — например, чтобы не пересобирать
+        /// под ним ленту.</summary>
+        protected bool HasOverlay => _overlay != null;
+
+        // Единственный выход наружу: сначала убираем своё наложение, потом
+        // сообщаем наследнику. Наследник не обязан помнить про уборку.
+        private void Closed()
+        {
+            DropOverlay();
+            OnClosed();
+        }
     }
 }

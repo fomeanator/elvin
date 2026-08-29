@@ -206,8 +206,8 @@ namespace Lvn.UI.Screens
                 e.StopPropagation();
                 if (e.target == scrim) CloseModal();
             });
-            Add(scrim);
-            _modal = scrim;
+            // Наложение держит база: она одна знает все выходы из экрана.
+            PutOverlay(scrim);
 
             var panel = new VisualElement();
             panel.style.width = Length.Percent(84f);
@@ -233,10 +233,7 @@ namespace Lvn.UI.Screens
             return panel;
         }
 
-        private void CloseModal()
-        {
-            if (_modal != null) { _modal.RemoveFromHierarchy(); _modal = null; }
-        }
+        private void CloseModal() => DropOverlay();
 
         private static Button ModalButton(string text, bool primary, System.Action onClick)
         {
