@@ -233,15 +233,24 @@ namespace Lvn.Content
             return fallback;
         }
 
-        /// <summary>То же, но с подстановкой одного числа: «День {0}» → «День 3».
+        /// <summary>
+        /// То же, но с подстановкой одного числа: «День {0}» → «День 3».
         /// Порядок слов в разных языках разный, поэтому число подставляется
-        /// шаблоном, а не склеиванием.</summary>
+        /// шаблоном, а не склеиванием.
+        ///
+        /// <para>Понимает ОБЕ записи места: <c>{0}</c> и <c>{n}</c>. Обе живые:
+        /// движок писал <c>{0}</c>, а отсчёты времени — <c>{n}</c>, и вторая
+        /// уже разошлась по готовым каталогам переводов. Пока дом знал только
+        /// первую, перевод со второй записью молча получал число, приклеенное
+        /// в конец фразы: «через {n} мин 5». Знать обе дешевле, чем однажды
+        /// переучивать переводчиков.</para></summary>
         public static string Of(string key, string fallback, object arg0)
         {
             var pattern = Of(key, fallback);
-            return string.IsNullOrEmpty(pattern) ? pattern
-                 : pattern.Contains("{0}") ? string.Format(pattern, arg0)
-                 : pattern + " " + arg0;
+            if (string.IsNullOrEmpty(pattern)) return pattern;
+            if (pattern.Contains("{0}")) return string.Format(pattern, arg0);
+            if (pattern.Contains("{n}")) return pattern.Replace("{n}", arg0?.ToString() ?? "");
+            return pattern + " " + arg0;
         }
 
         /// <summary>Шаблон с ДВУМЯ подстановками: «{0} МБ на устройстве, ещё

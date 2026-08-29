@@ -43,8 +43,8 @@ namespace Lvn.UI.Screens
                 var card = SectionCard();
                 card.Add(SectionTitle(LvnWords.Of("dl.pending_title", "Waiting to send")));
                 card.Add(Hint(off
-                    ? LvnWords.Of("dl.pending_offline", "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network.").Replace("{n}", pend.ToString())
-                    : LvnWords.Of("dl.pending_sending", "Sending to the server: {n} events (purchases, progress).").Replace("{n}", pend.ToString())));
+                    ? LvnWords.Of("dl.pending_offline", "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network.", pend)
+                    : LvnWords.Of("dl.pending_sending", "Sending to the server: {n} events (purchases, progress).", pend)));
                 _sections.Add(card);
             }
 

@@ -38,14 +38,18 @@ namespace Lvn.UI
 
         /// <summary>Словесный отсчёт: «1 ч 12 мин», меньше часа — «12 мин»,
         /// меньше минуты — «1 мин». Ноль минут не пишем: «через 0 мин» читается
-        /// как поломка, хотя означает «вот-вот».</summary>
+        /// как поломка, хотя означает «вот-вот».
+        ///
+        /// <para>Правило про ноль действовало только ниже часа, и ровно час
+        /// показывался как «1 ч 0 мин» — та же поломка, только на час позже.
+        /// Целый час называется часом.</para></summary>
         public static string Coarse(long seconds)
         {
             if (seconds < 0) seconds = 0;
             long h = seconds / 3600, m = (seconds % 3600) / 60;
             string hours = LvnWords.Of("unit.hours", "h");
             string minutes = LvnWords.Of("unit.minutes", "min");
-            if (h > 0) return $"{h} {hours} {m} {minutes}";
+            if (h > 0) return m > 0 ? $"{h} {hours} {m} {minutes}" : $"{h} {hours}";
             return $"{Math.Max(1, m)} {minutes}";
         }
 
@@ -81,7 +85,8 @@ namespace Lvn.UI
             }
         }
 
+        // Подстановку числа знает дом слов — обе записи места, «{0}» и «{n}».
         private static string Fill(string key, string fallback, int n)
-            => LvnWords.Of(key, fallback).Replace("{n}", n.ToString());
+            => LvnWords.Of(key, fallback, n);
     }
 }
