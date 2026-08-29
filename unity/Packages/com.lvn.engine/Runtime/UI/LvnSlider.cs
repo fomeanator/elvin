@@ -28,6 +28,12 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnSlider
     {
+        // Высота дорожки и размер кружка — числа, из которых считается всё
+        // остальное. Пока они стояли по месту, центрирование приходилось
+        // выводить заново в каждой формуле, и одна из них ошибалась.
+        private const float TrackHeight = 8f;
+        private const float KnobSize = 28f;
+
         public static Slider Make(float min, float max, float value,
                                   Action<float> onApply, Action<float> onPreview = null,
                                   Color? accent = null, Color? track = null)
@@ -41,9 +47,13 @@ namespace Lvn.UI
             var tracker = s.Q("unity-tracker");
             if (tracker != null)
             {
-                tracker.style.height = 8;
+                tracker.style.height = TrackHeight;
                 tracker.style.marginTop = 16;
                 tracker.style.backgroundColor = track ?? LvnTokens.Track;
+                // Кружок вчетверо выше дорожки и торчит за её края — это
+                // нормально и должно быть видно: обрезка превратила бы его в
+                // полоску той же высоты, что дорожка.
+                tracker.style.overflow = Overflow.Visible;
                 LvnChrome.Round(tracker, 4f);
                 LvnChrome.ClearBorder(tracker);
                 fill = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -53,36 +63,62 @@ namespace Lvn.UI
                 LvnChrome.Round(fill, 4f);
                 tracker.Add(fill);
             }
+            // БЕГУНОК И ЗАЛИВКА ЖИВУТ В ОДНОЙ СИСТЕМЕ КООРДИНАТ.
+            //
+            // Раньше их было две: заливку мы считали процентом от дорожки, а
+            // бегунок двигал сам UI Toolkit — по своей формуле, где доля
+            // умножается на ширину МИНУС ширина бегунка (иначе он вылезал бы за
+            // край). Формулы сходятся ровно в одной точке — посередине, — а по
+            // краям расходятся на половину бегунка: кружок стоял правее конца
+            // заполненной части, а на максимуме заезжал за саму дорожку (живой
+            // скрин Ильи 29.08, «кружочки съезжают»).
+            //
+            // Спорить с чужой формулой бессмысленно — она сработает снова при
+            // следующем пересчёте. Поэтому штатный бегунок остаётся тем, чем он
+            // и нужен, — областью захвата пальца, — но не рисуется; а видимый
+            // кружок живёт ВНУТРИ дорожки и позиционируется тем же процентом,
+            // что и заливка. Совпасть они теперь не могут иначе как точно.
             var dragger = s.Q("unity-dragger");
             if (dragger != null)
             {
                 // Крупнее стандартного: палец не мышь, и промах по бегунку
-                // ощущается как «ползунок не слушается».
-                dragger.style.width = 28; dragger.style.height = 28;
-                dragger.style.backgroundColor = acc;
-                LvnChrome.Round(dragger, 14f);
+                // ощущается как «ползунок не слушается». Размер остаётся —
+                // это область захвата; прозрачность скрывает только вид.
+                dragger.style.width = KnobSize; dragger.style.height = KnobSize;
+                dragger.style.opacity = 0f;
                 LvnChrome.ClearBorder(dragger);
             }
 
-            // БЕГУНОК ДЕРЖИТСЯ НА ДОРОЖКЕ. Раньше его вертикаль задавалась
-            // числом, подобранным под одну высоту строки: в другом ряду (или
-            // при другом кегле) он съезжал выше или ниже дорожки. Теперь центр
-            // считается по фактической геометрии — на любой высоте и после
-            // любого пересчёта раскладки.
-            void CenterDragger()
+            VisualElement knob = null;
+            if (tracker != null)
             {
-                if (dragger == null || tracker == null || dragger.parent == null) return;
-                float trackMid = dragger.parent.WorldToLocal(tracker.worldBound.center).y;
-                float h = dragger.resolvedStyle.height > 0f ? dragger.resolvedStyle.height : 28f;
-                dragger.style.top = trackMid - h * 0.5f;
+                knob = new VisualElement { pickingMode = PickingMode.Ignore };
+                knob.style.position = Position.Absolute;
+                knob.style.width = KnobSize; knob.style.height = KnobSize;
+                knob.style.backgroundColor = acc;
+                // ЦЕНТР КРУЖКА — НА ДОРОЖКЕ, И СЧИТАЕТСЯ В ПИКСЕЛЯХ.
+                //
+                // Сначала центрирование было записано процентами (top 50% плюс
+                // translate −50%), и кружок уехал ВНИЗ: доля от высоты дорожки
+                // легла, а обратное смещение на свою половину — нет. Проценты
+                // тут вообще лишние: обе высоты известны числом прямо здесь,
+                // и разница между ними — это и есть весь сдвиг.
+                //
+                // Отрицательные отступы законны: кружок вчетверо выше дорожки
+                // и обязан выходить за неё сверху и снизу поровну.
+                knob.style.top = -(KnobSize - TrackHeight) * 0.5f;
+                knob.style.marginLeft = -KnobSize * 0.5f;   // процент задаёт центр, а не левый край
+                LvnChrome.Round(knob, KnobSize * 0.5f);
+                LvnChrome.ClearBorder(knob);
+                tracker.Add(knob);
             }
-            s.RegisterCallback<GeometryChangedEvent>(_ => CenterDragger());
 
             void Paint(float v)
             {
-                if (fill != null)
-                    fill.style.width = Length.Percent(
-                        Mathf.Clamp01(Mathf.Approximately(max, min) ? 0f : (v - min) / (max - min)) * 100f);
+                float t = Mathf.Clamp01(Mathf.Approximately(max, min)
+                    ? 0f : (v - min) / (max - min));
+                if (fill != null) fill.style.width = Length.Percent(t * 100f);
+                if (knob != null) knob.style.left = Length.Percent(t * 100f);
             }
             Paint(value);
 
@@ -100,7 +136,7 @@ namespace Lvn.UI
                 // Отклик на отпускание: бегунок коротко проступает — «дошло».
                 // Без него игрок не понимает, засчиталось ли, и дёргает ползунок
                 // ещё раз.
-                if (dragger != null) LvnMotion.FadeIn(dragger, delayMs: 0, ms: LvnMotion.Quick);
+                if (knob != null) LvnMotion.FadeIn(knob, delayMs: 0, ms: LvnMotion.Quick);
             }
             // Отпускание ловим и на самом ползунке, и на потере захвата: палец
             // часто уходит за пределы дорожки, и события отпускания там уже нет.
