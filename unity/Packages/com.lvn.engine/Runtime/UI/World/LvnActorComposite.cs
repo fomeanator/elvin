@@ -106,6 +106,12 @@ namespace Lvn.UI.World
             _proxy.gameObject.SetActive(true);
             HideLiveLayers(layers);
             _active = true;
+            // СЛЕД ДЛЯ ОДНОКАДРОВОГО МИГАНИЯ («при смене эмоции за персонажем
+            // тень и засветы», 01.09). Снимок — прямоугольник с материалом:
+            // если он оживает раньше, чем материал описал слои, кадр рисуется
+            // не тем. По следу видно, сколько слоёв записано и с какой
+            // непрозрачностью снимок вышел на экран.
+            LvnLog.Trace($"[lvn-look] снимок: слоёв={written}, альфа={_proxy.color.a:F2}");
             // СТОРОЖ: прокси — ВРЕМЕННАЯ поверхность (самый долгий переход
             // ~0.3с). Гонка перебивающих применений могла оставить его жить
             // вечно с уже уничтоженными текстурами — гигантский белый
@@ -208,15 +214,32 @@ namespace Lvn.UI.World
             // наряд: старый облик целиком растворяется над новым.
 
             int gen = ++_crossfadeGeneration;
+            LvnLog.Trace($"[lvn-look] кроссфейд: {(wardrobeFlow ? "наряд" : "облик")}, "
+                           + $"альфа снимка={( _proxy != null ? _proxy.color.a : -1f):F2}, {seconds:F2}с");
             // The proxy was created after the rig and remains above it. The new
             // look is fully opaque underneath; fading the old composite reveals
             // it as one image instead of alpha-blending every clothing layer.
-            _rig.gameObject.SetActive(true);
-            RestoreLiveLayers(); // новый облик уже под снимком — пусть рисуется
-            _proxyTransform.SetAsLastSibling();
+            // ПОРЯДОК ВАЖЕН, И ОН БЫЛ ОБРАТНЫЙ. Снимок сначала показывали
+            // поверх нового облика и только ПОТОМ описывали материалу, как его
+            // рисовать. Один кадр он рисовался прежним состоянием — с чужим
+            // режимом и прогрессом прошлого перехода, — и это читается как
+            // тень или засвет за фигурой («при смене эмоции мигает каждый раз»,
+            // Илья 01.09). Сперва говорим материалу, чем он стал, и лишь затем
+            // открываем живые слои.
             _material.SetFloat(WardrobeModeId, wardrobeFlow ? 1f : 0f);
             _material.SetFloat(WardrobeProgressId, 0f);
             _material.SetFloat(WardrobeFromTopId, wardrobeFromTop ? 1f : 0f);
+            if (_proxy != null)
+            {
+                // Снимок обязан выйти НЕПРОЗРАЧНЫМ: альфа осталась бы от конца
+                // прошлого кроссфейда (ноль), и первый кадр цикла вернул бы её
+                // к единице скачком — тот же мигающий кадр.
+                var c0 = _proxy.color; c0.a = 1f; _proxy.color = c0;
+                _proxy.SetMaterialDirty();
+            }
+            _rig.gameObject.SetActive(true);
+            RestoreLiveLayers(); // новый облик уже под снимком — пусть рисуется
+            _proxyTransform.SetAsLastSibling();
             Lvn.LvnAsync.Fire(CrossfadeToLiveAsync(gen, Mathf.Max(0f, seconds), wardrobeFlow),
                 "WardrobeActorCrossfade");
         }

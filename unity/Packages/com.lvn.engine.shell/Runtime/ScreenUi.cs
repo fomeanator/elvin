@@ -211,6 +211,58 @@ namespace Lvn.UI.Screens
         /// left-anchored <paramref name="fill"/> the caller animates by setting its
         /// width. Both the boot splash and the chapter loader built this identically;
         /// callers add their own extras (a frame overlay, art) on top.</summary>
+        /// <summary>
+        /// ПОЛОСА РАСТЁТ, А НЕ ПЕРЕПРЫГИВАЕТ.
+        ///
+        /// <para>Заполнение ставили присваиванием ширины: данные приходят раз в
+        /// треть секунды, и полоса дёргалась ступеньками — на глаз это читается
+        /// как подвисание, а не как ход. Здесь она доезжает до новой доли за
+        /// один короткий ход, поэтому движение непрерывно даже на редких
+        /// данных.</para>
+        ///
+        /// <para>Назад — БЕЗ анимации: откат (сменилась глава, пересчитали
+        /// знаменатель) не событие для глаза, а поправка учёта; ползти назад
+        /// значило бы показывать несуществующее «разгружается».</para>
+        /// </summary>
+        public static void SetFill(VisualElement fill, float frac)
+        {
+            if (fill == null) return;
+            frac = Mathf.Clamp01(frac);
+            // Откуда ехать: у ВЫСТАВЛЕННОЙ доли ключевое слово Undefined (Null
+            // значит «свойство не трогали»). Перепутать их значит каждый раз
+            // начинать ход от нуля — полоса дёргалась бы к началу на каждом
+            // обновлении.
+            var w = fill.style.width;
+            float now = w.keyword == StyleKeyword.Undefined && w.value.unit == LengthUnit.Percent
+                ? Mathf.Clamp01(w.value.value / 100f) : 0f;
+            if (frac <= now + 0.0005f)   // назад и на месте — сразу
+            {
+                fill.style.width = new Length(frac * 100f, LengthUnit.Percent);
+                return;
+            }
+            fill.experimental.animation.Start(now, frac, Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Calm),
+                (e, v) => e.style.width = new Length(v * 100f, LengthUnit.Percent));
+        }
+
+        /// <summary>
+        /// ЗНАЧЕНИЕ, КОТОРОЕ СМЕНИЛОСЬ, — МИГАЕТ.
+        ///
+        /// <para>Цифры в сводке загрузок меняются молча, и глаз не замечает,
+        /// что показатель ожил: скорость, остаток и очередь выглядят
+        /// застывшими, даже когда идут. Короткий полупрозрачный вдох на смене
+        /// — самый дешёвый способ показать «это только что обновилось».</para>
+        ///
+        /// <para>Только НА СМЕНУ: та же строка не мигает, иначе сводка
+        /// мельтешит при каждом тике.</para>
+        /// </summary>
+        public static void SetValue(Label label, string text)
+        {
+            if (label == null || label.text == text) return;
+            label.text = text;
+            label.experimental.animation.Start(0.45f, 1f, Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Quick),
+                (e, v) => e.style.opacity = v);
+        }
+
         public static VisualElement ProgressBar(
             float xFrac, float yFrac, float wFrac, float hFrac,
             Color trackColor, Color fillColor,

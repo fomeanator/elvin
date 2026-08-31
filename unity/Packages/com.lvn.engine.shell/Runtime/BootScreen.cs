@@ -133,7 +133,7 @@ namespace Lvn.UI.Screens
         private void Render(bool full)
         {
             if (_gate.FillMoved(_model.FillPercent))
-                _fill.style.width = Length.Percent(_model.FillPercent);
+                ScreenUi.SetFill(_fill, _model.FillPercent / 100f);
             if (_showPercent && _gate.PercentMoved(_model.Percent))
                 _percent.text = (full ? 100 : _model.Percent) + "%";
         }
