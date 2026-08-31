@@ -369,13 +369,16 @@ namespace Lvn.UI.Screens
             Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
             PackShop = new PackShopScreen(assets); Add(PackShop);
             PackShopModal = new PackShopScreen(assets, modal: true); Add(PackShopModal);
-            // Какую площадку показывать «бесплатной» карточкой — решает игра
-            // (ui.store.ad_placement): движок не выбирает за неё, чем торговать.
-            PackShop.AdPlacement = ui.store?.ad_placement;
-            PackShopModal.AdPlacement = ui.store?.ad_placement;
             // The popup sits ABOVE everything so a "not enough currency → buy?"
             // confirm can appear over an open store/settings, and warnings over any.
             Popup = new PopupScreen(ui.popup); Add(Popup);
+
+            // ПЕРВАЯ РАЗДАЧА КОНТЕНТА — та же, что и на живом обновлении.
+            // Экраны, живущие манифестом (пометка ILvnContentAware), получают
+            // его от набора; постройка не перечисляет их по именам, иначе
+            // «настроить при сборке» и «обновить на лету» разойдутся — а
+            // разойдясь, дадут экран, верный только до первого обновления.
+            _screens.SetContent(_manifest);
 
             // ── СЛОИ (решение Ильи 26.08: «расставь нормально слои») ──
             // Порядок add'ов истории — не архитектура: настройки оказывались
@@ -540,19 +543,11 @@ namespace Lvn.UI.Screens
         {
             if (manifest == null) return;
             _manifest = manifest;
-            // Витрина обновляется как витрина — какая бы она ни была. Расклад
-            // (хаб или карусель) при этом не меняется: это вёрстка, а её,
-            // по правилу выше, доводит следующий запуск.
-            Browse?.SetContent(manifest);
-            // Вкладка гардероба тоже живёт манифестом (каталог нарядов, ростер
-            // персонажей) — без этой строки она одна оставалась на прежнем
-            // содержимом, пока соседние экраны показывали новое.
-            WardrobeTab?.SetManifest(manifest);
-            // Простые настройки без вёрстки — тоже данные: чем торгует
-            // «бесплатная» карточка магазина, игра решает манифестом, и решение
-            // обязано доезжать вместе с ним.
-            if (PackShop != null) PackShop.AdPlacement = manifest.ui?.store?.ad_placement;
-            if (PackShopModal != null) PackShopModal.AdPlacement = manifest.ui?.store?.ad_placement;
+            // СВЕЖИЙ МАНИФЕСТ ДОХОДИТ ДО ВСЕХ, КТО НА НЁМ ДЕРЖИТСЯ. Кто именно —
+            // знает набор экранов (пометка ILvnContentAware), а не эта строка:
+            // перечень по именам держался на памяти пишущего и уже подводил —
+            // забытый экран не падает, он просто показывает вчерашнее.
+            _screens.SetContent(manifest);
         }
 
 

@@ -641,3 +641,37 @@ func TestMotionCurvesHaveNames(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// СВЕЖИЙ КОНТЕНТ ДОХОДИТ ДО ВСЕХ, КТО НА НЁМ ДЕРЖИТСЯ.
+//
+// Манифест развозили по экранам ПОИМЁННО, и список держался на памяти
+// пишущего. Он уже подводил: «без этой строки вкладка гардероба одна
+// оставалась на прежнем содержимом, пока соседние экраны показывали новое».
+// Забыть строку легко, а увидеть последствие — нет: экран не падает, он просто
+// показывает вчерашнее.
+//
+// Теперь кто живёт манифестом — свойство ЭКРАНА (ILvnContentAware), а развозит
+// набор. Страж держит границу: оболочка не раздаёт контент по именам.
+func TestFreshContentReachesEveryone(t *testing.T) {
+	root := repoRoot(t)
+	shell := filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime/NovelShell.cs")
+	src := stripComments(string(mustRead(t, shell)))
+
+	// «Экран.ЧтоТо = manifest…» или «Экран?.SetXxx(manifest)» — раздача по имени.
+	byName := regexp.MustCompile(`\b[A-Z]\w*\s*\??\.\s*\w+\s*(?:=[^=]|\()\s*[^;]*\bmanifest\b`)
+	var found []string
+	for i, l := range strings.Split(src, "\n") {
+		if strings.Contains(l, "_screens.SetContent") {
+			continue
+		}
+		if byName.MatchString(l) {
+			found = append(found, fmt.Sprintf("NovelShell.cs:%d: %s", i+1, strings.TrimSpace(l)))
+		}
+	}
+	if len(found) > 0 {
+		t.Errorf("оболочка раздаёт контент по именам экранов (%d):\n  %s\n\n"+
+			"Пометьте экран ILvnContentAware — набор развезёт сам. Перечень по именам "+
+			"держится на памяти пишущего, а забытый экран не падает: он показывает вчерашнее.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
