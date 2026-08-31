@@ -286,13 +286,17 @@ namespace Lvn.UI
 
             // Тап-салют (ui.stage.tap_burst): сердечки из точки КАЖДОГО
             // касания — trickle-down видит тап раньше кнопок и не мешает им.
-            if (!string.IsNullOrEmpty(Theme?.TapBurst))
+            // Через дом закрытого слова: опечатка поднимала слой салюта и
+            // подписку на каждое касание, но не рисовала НИЧЕГО — тише, чем
+            // выключенный салют, и дороже.
+            string burst = LvnAuthorWord.Pick(Theme?.TapBurst, "ui.stage.tap_burst", "", "hearts");
+            if (burst == "hearts")
             {
                 _tapBurst = new TapBurstLayer();
                 root.Add(_tapBurst); // поверх всего хрома
                 root.RegisterCallback<PointerDownEvent>(evt =>
                 {
-                    if (_tapBurst != null && Theme?.TapBurst == "hearts")
+                    if (_tapBurst != null)
                         _tapBurst.Burst(_tapBurst.WorldToLocal(evt.position));
                 }, TrickleDown.TrickleDown);
             }

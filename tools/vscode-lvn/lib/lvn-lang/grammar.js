@@ -369,7 +369,8 @@ export const ATTR_VALUES = {
   "to": [
     "black",
     "white",
-    "clear"
+    "clear",
+    "none"
   ],
   "color": [
     "bg",
@@ -745,7 +746,7 @@ export const GROUPS = [
       ],
       [
         "fade",
-        "to (black/white/clear), duration"
+        "to (black/white/clear/none), duration"
       ],
       [
         "dim",

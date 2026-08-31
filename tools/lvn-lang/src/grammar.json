@@ -389,6 +389,7 @@
         "black",
         "white",
         "clear",
+        "none",
         ""
       ]
     },
@@ -550,7 +551,8 @@
     "to": [
       "black",
       "white",
-      "clear"
+      "clear",
+      "none"
     ],
     "color": [
       "bg",

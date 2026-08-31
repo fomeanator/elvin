@@ -185,7 +185,9 @@ var OpFields = map[string][]string{
 // is almost always a typo (`position="lft"`). Only fully-closed sets are here —
 // colour names also accept hex, so they're deliberately excluded.
 var EnumValues = map[string]map[string][]string{
-	"fade":      {"to": {"black", "white", "clear", ""}},
+	// `none` — синоним `clear`, и рантайм его понимает (VnStage.Effects).
+	// Валидатор о нём не знал и ругался на законное слово.
+	"fade":      {"to": {"black", "white", "clear", "none", ""}},
 	"particles": {"type": {"rain", "snow"}},
 	"audio":     {"channel": {"music", "ambient", "sfx"}, "action": {"play", "stop"}},
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
@@ -268,9 +270,25 @@ var AnimPropHints = map[string]string{
 // молча пропускал трек, и автор видел неподвижную полосу без единой подсказки
 // почему. «opacity» вместо «alpha» — каноническая описка, названная так в
 // докблоке самого рантайма.
-var AnimProps = []string{
+var AnimProps = append(append([]string{}, AnimPropsWhole...), "frame")
+
+// AnimPropsWhole — что можно тянуть у ФИГУРЫ ЦЕЛИКОМ (трек без слоя).
+var AnimPropsWhole = []string{
 	"x", "y", // смещение от места, в долях кадра
 	"screen_x", "screen_y", // движение самого места по экрану
+	"scale", "scalex", "scaley",
+	"rotation",
+	"alpha",
+}
+
+// AnimPropsLayered — что можно тянуть у ОДНОГО СЛОЯ куклы (трек со слоем).
+//
+// Экранного места у слоя нет: по экрану ходит фигура, а не её рукав. Зато у
+// слоя есть КАДР. Рантайм это знал (LvnAnimProp.Whole/Layered), а проверка
+// оставалась плоской — и `prop=frame` без слоя или `screen_x` со слоем
+// проходили молча, чтобы потом молча же ничего не сыграть.
+var AnimPropsLayered = []string{
+	"x", "y",
 	"scale", "scalex", "scaley",
 	"rotation",
 	"alpha",
@@ -628,11 +646,32 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 							continue
 						}
 						prop, _ := tr["prop"].(string)
-						if prop == "" || inSet(AnimProps, prop) {
+						if prop == "" {
 							continue
 						}
-						msg := fmt.Sprintf("prop=%q — такого свойства движок не знает, трек будет пропущен (есть: %s)",
-							prop, strings.Join(AnimProps, ", "))
+						// Словарь КОНТЕКСТНЫЙ, как и исполнитель.
+						layer, _ := tr["layer"].(string)
+						here := AnimPropsWhole
+						if layer != "" {
+							here = AnimPropsLayered
+						}
+						if inSet(here, prop) {
+							continue
+						}
+						// Знакомое имя не в своём месте — отдельный разговор:
+						// «движок не знает» на слове, которое он отлично знает,
+						// только сбивает.
+						if inSet(AnimProps, prop) {
+							where := "оно принадлежит СЛОЮ — добавьте layer="
+							if layer != "" {
+								where = fmt.Sprintf("у слоя %q экранного места нет — уберите layer= или тяните x/y", layer)
+							}
+							addWarn(i, op, fmt.Sprintf("prop=%q здесь не играет: %s. Здесь можно: %s",
+								prop, where, strings.Join(here, ", ")))
+							continue
+						}
+						msg := fmt.Sprintf("prop=%q — такого свойства движок не знает, трек будет пропущен (здесь можно: %s)",
+							prop, strings.Join(here, ", "))
 						// Прицельная подсказка там, где расстояние между словами
 						// её не даёт. «opacity» — не случайная описка: у actor и
 						// obj прозрачность ТАК И НАЗЫВАЕТСЯ (`opacity=0.4`), а у
