@@ -63,6 +63,8 @@ namespace Lvn
                 return (v == null || v.Type == JTokenType.Null) ? "" : Show(v);
 
             // ТОЧКА — РАБОТА ВЫЧИСЛИТЕЛЯ, а не вторая её реализация здесь.
+            // (Промах по такому имени показывается автору как {key} —
+            //  см. IsPlainIdentifier: точка внутри имени тоже имя.)
             //
             // Раньше `Wardrobe.mainCh_Clothes` и `global.rep` разбирались тут
             // же, своим проходом по JSON: комментарий объяснял это тем, что
@@ -138,12 +140,37 @@ namespace Lvn
             return v.ToString();
         }
 
+        /// <summary>
+        /// ПРОСТОЕ ИМЯ — то, что автор МОГ ИМЕТЬ В ВИДУ как переменную. По нему
+        /// решают, показать ли непонятое как <c>{key}</c>: имя — это опечатка,
+        /// и её надо ВИДЕТЬ; выражение — замысел, и пустота честнее.
+        ///
+        /// <para>ТОЧКА ВНУТРИ — ТОЖЕ ИМЯ. Здесь она именем не считалась, и
+        /// промах в корне (<c>{globl.rep}</c>) стирался в пустоту: у автора
+        /// число пропадало посреди фразы без единого следа. Браузерный плеер на
+        /// том же тексте показывал <c>{globl.rep}</c> — то есть два рантайма
+        /// отвечали на один вопрос по-разному, и правым был второй.</para>
+        ///
+        /// <para>Кириллица здесь наравне с латиницей: имена переменных в русских
+        /// новеллах пишут по-русски, и опечатку в них надо видеть так же.</para>
+        /// </summary>
         private static bool IsPlainIdentifier(string s)
         {
             if (string.IsNullOrEmpty(s)) return false;
+            bool afterDot = true;   // начало строки и место сразу за точкой ждут букву
             foreach (var ch in s)
+            {
+                if (ch == '.')
+                {
+                    if (afterDot) return false;   // «.a», «a..b», «a.» — не имя
+                    afterDot = true;
+                    continue;
+                }
+                if (afterDot && !(char.IsLetter(ch) || ch == '_')) return false;
                 if (!char.IsLetterOrDigit(ch) && ch != '_') return false;
-            return true;
+                afterDot = false;
+            }
+            return !afterDot;   // «a.» кончается точкой — не имя
         }
     }
 }
