@@ -203,7 +203,41 @@ namespace Lvn.Content
 
         // Silent prefetch variant: does NOT update the byte counters so the
         // progress bar doesn't see the parallel warm-start and jump backward.
-        private async Task<byte[]> FetchToMemoryPrefetch(string url, CancellationToken ct)
+        /// <summary>
+        /// ОДИН ЗАХОД ЗА БАЙТАМИ — правила движка про сеть, записанные однажды.
+        ///
+        /// <para>Их пять, и все пять — про то, чем эта загрузка отличается от
+        /// обычного веб-запроса: место в очереди загрузок (и обязательное его
+        /// освобождение), срок держит СТОРОЖ ЗАСТОЯ, а не таймаут запроса
+        /// (медленная сеть — не отказ, молчащая — отказ), самоподписанный
+        /// сертификат принимается только в отладочной сборке, сетевой сбой
+        /// ЗАСЧИТЫВАЕТСЯ (по этому счёту оболочка решает, что связи нет), и
+        /// не-двухсотый код — это отказ, а не пустой файл.</para>
+        ///
+        /// <para>Записаны они были ТРИЖДЫ: у тихой предзагрузки, у одиночного
+        /// захода и у пакетного. Отличались только тем, что считать по дороге,
+        /// — а расхождение в любом из пяти читалось бы как «иногда офлайн не
+        /// определяется» или «иногда качает вечно».</para>
+        /// </summary>
+        /// <summary>Что вернулось: тело и КОД. Код нужен докачке — сервер,
+        /// не умеющий Range, отвечает на просьбу «с байта N» двумястами и
+        /// присылает файл сначала.</summary>
+        private readonly struct Fetched
+        {
+            public readonly byte[] Body;
+            public readonly long Code;
+            public Fetched(byte[] body, long code) { Body = body; Code = code; }
+        }
+
+        private async Task<byte[]> GetBytesAsync(string url, CancellationToken ct,
+                                                 Action<UnityWebRequest> onProgress)
+            => (await GetAsync(url, ct, onProgress)).Body;
+
+        /// <param name="prepare">что добавить к запросу до отправки (докачка
+        /// ставит заголовок Range)</param>
+        private async Task<Fetched> GetAsync(string url, CancellationToken ct,
+                                             Action<UnityWebRequest> onProgress,
+                                             Action<UnityWebRequest> prepare = null)
         {
             ThrowIfOffline();
             await _downloadSlots.WaitAsync(ct);
@@ -211,13 +245,14 @@ namespace Lvn.Content
             {
                 var full = ResolveUrl(url);
                 using var req = UnityWebRequest.Get(full);
+                prepare?.Invoke(req);
                 req.downloadHandler = new DownloadHandlerBuffer();
                 req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 req.certificateHandler = new AcceptAllCertificates();
 #endif
                 var op = req.SendWebRequest();
-                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds))
+                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, onProgress))
                     throw new OperationCanceledException(ct);
                 if (LvnNetWait.Failed(req))
                 {
@@ -226,56 +261,31 @@ namespace Lvn.Content
                 }
                 if (req.responseCode is < 200 or >= 300)
                     throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-                return req.downloadHandler.data ?? Array.Empty<byte>();
+                return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
             }
             finally { _downloadSlots.Release(); }
         }
+
+        private Task<byte[]> FetchToMemoryPrefetch(string url, CancellationToken ct)
+            => GetBytesAsync(url, ct, null);   // счётчиков не трогаем — в том и смысл
 
         // Downloads url into memory, updating byte-progress counters. No disk I/O
         // — used by RunBatchAsync so disk writes can be pipelined.
         private async Task<byte[]> FetchToMemory(string url, CancellationToken ct)
         {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
+            // Ждёт ДОМ; здесь остаётся только то, что принадлежит очереди
+            // загрузок: сколько байт пришло и сколько их всего.
+            lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected[url] = 0; }
+            return await GetBytesAsync(url, ct, r =>
             {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected[url] = 0; }
-
-                using var req = UnityWebRequest.Get(full);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                // Ждёт ДОМ; здесь остаётся только то, что принадлежит очереди
-                // загрузок: сколько байт пришло и сколько их всего.
-                bool waited = await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, r =>
+                lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes;
+                if (_bytesExpected.GetValueOrDefault(url) == 0)
                 {
-                    lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes;
-                    if (_bytesExpected.GetValueOrDefault(url) == 0)
-                    {
-                        var cl = r.GetResponseHeader("Content-Length");
-                        if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                            lock (_inflight) _bytesExpected[url] = sz;
-                    }
-                });
-                if (!waited) throw new OperationCanceledException(ct);
-
-                if (LvnNetWait.Failed(req))
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
+                    var cl = r.GetResponseHeader("Content-Length");
+                    if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
+                        lock (_inflight) _bytesExpected[url] = sz;
                 }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-
-                var body = req.downloadHandler.data ?? Array.Empty<byte>();
-                lock (_inflight) { _bytesReceived[url] = body.Length; _bytesExpected[url] = body.Length; }
-                return body;
-            }
-            finally { _downloadSlots.Release(); }
+            });
         }
 
         // Локальное чтение (jar:/file:) через UnityWebRequest — File.IO не
@@ -391,23 +401,9 @@ namespace Lvn.Content
         // request per file — no chunk loop, no extra round-trips.
         private async Task<byte[]> FetchResumable(string url, string partPath, long resumeFrom, CancellationToken ct)
         {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = resumeFrom; }
-
-                using var req = UnityWebRequest.Get(full);
-                if (resumeFrom > 0)
-                    req.SetRequestHeader("Range", $"bytes={resumeFrom}-");
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                bool waited = await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, r =>
+            lock (_inflight) { _bytesReceived[url] = resumeFrom; }
+            var got = await GetAsync(url, ct,
+                r =>
                 {
                     lock (_inflight) _bytesReceived[url] = resumeFrom + (long)r.downloadedBytes;
                     if (_bytesExpected.GetValueOrDefault(url) <= resumeFrom)
@@ -416,32 +412,21 @@ namespace Lvn.Content
                         if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
                             lock (_inflight) _bytesExpected[url] = resumeFrom + sz;
                     }
-                });
-                if (!waited) throw new OperationCanceledException(ct);
+                },
+                r => { if (resumeFrom > 0) r.SetRequestHeader("Range", $"bytes={resumeFrom}-"); });
 
-                if (LvnNetWait.Failed(req))
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
+            // Server returned 200 when we asked for 206 → no resume support,
+            // overwrite .part with the full fresh response.
+            bool overwrite = resumeFrom == 0 || (int)got.Code == 200;
+            await AppendBytesAsync(partPath, got.Body, overwrite, ct);
 
-                var body = req.downloadHandler.data ?? Array.Empty<byte>();
-                // Server returned 200 when we asked for 206 → no resume support,
-                // overwrite .part with the full fresh response.
-                bool overwrite = resumeFrom == 0 || (int)req.responseCode == 200;
-                await AppendBytesAsync(partPath, body, overwrite, ct);
-
-                lock (_inflight)
-                {
-                    var total = resumeFrom + body.Length;
-                    _bytesReceived[url] = total;
-                    _bytesExpected[url] = total;
-                }
-                return await ReadAllBytesAsync(partPath, ct);
+            lock (_inflight)
+            {
+                var total = resumeFrom + got.Body.Length;
+                _bytesReceived[url] = total;
+                _bytesExpected[url] = total;
             }
-            finally { _downloadSlots.Release(); }
+            return await ReadAllBytesAsync(partPath, ct);
         }
 
         private static async Task AppendBytesAsync(string path, byte[] data, bool overwrite, CancellationToken ct)
@@ -527,37 +512,11 @@ namespace Lvn.Content
 
         // Single attempt — downloads url into memory, no disk writes. Used for
         // text (scripts, version index) and on-demand bytes not worth persisting.
-        private async Task<byte[]> FetchOnce(string url, CancellationToken ct)
+        private Task<byte[]> FetchOnce(string url, CancellationToken ct)
         {
-            ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                lock (_inflight) { _bytesReceived[url] = 0; }
-
-                using var req = UnityWebRequest.Get(full);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
-#endif
-                var op = req.SendWebRequest();
-                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds,
-                        r => { lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes; }))
-                    throw new OperationCanceledException(ct);
-
-                if (LvnNetWait.Failed(req))
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-
-                return req.downloadHandler.data ?? Array.Empty<byte>();
-            }
-            finally { _downloadSlots.Release(); }
+            lock (_inflight) { _bytesReceived[url] = 0; }
+            return GetBytesAsync(url, ct,
+                r => { lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes; });
         }
     }
 }
