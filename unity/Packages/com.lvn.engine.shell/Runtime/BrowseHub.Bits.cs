@@ -38,13 +38,29 @@ namespace Lvn.UI.Screens
         /// показывала «⚡ 100» — чужой значок при своей сумме. Разряды тоже
         /// терялись: сумма шла через ToString(), мимо разделителя языка.</para>
         /// </summary>
+        /// <summary>
+        /// ЦЕНА НА КАРТОЧКЕ — рядом ЦЕННИКА, а не своим.
+        ///
+        /// <para>Значок к сумме приставлял каждый экран сам, и одна валюта в
+        /// разных местах выглядела по-разному — ради этого ряд и переехал в
+        /// дом. Хаб остался последним, кто собирал его руками: дом звали
+        /// только за цветом и значком, а складывали их обратно здесь.</para>
+        ///
+        /// <para>Огранка плашки остаётся тут: ярлык лежит НА ОБЛОЖКЕ, и
+        /// читаемость ему даёт вуаль, а не тон панели.</para>
+        /// </summary>
         private VisualElement CostChip(LvnCost cost)
         {
-            var look = Lvn.UI.LvnPriceTag.Of(cost?.currency);
-            return Chip(Lvn.UI.LvnPriceTag.Amount(cost?.amount ?? 0), look.Tint, look.Icon);
+            var chip = ChipShell();
+            chip.Add(Lvn.UI.LvnPriceTag.Tag(cost?.currency, cost?.amount ?? 0,
+                new Lvn.UI.LvnPriceTag.Row { FontSize = 30f, IconSize = 18f, Gap = 5f }));
+            return chip;
         }
 
-        private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
+        /// <summary>Плашка ярлыка: вуаль, отступы, скругление. Содержимое
+        /// кладёт вызывающий — цену собирает Ценник, слово со значком
+        /// собирается ниже.</summary>
+        private VisualElement ChipShell()
         {
             var chip = new VisualElement();
             chip.style.flexDirection = FlexDirection.Row;
@@ -53,6 +69,12 @@ namespace Lvn.UI.Screens
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
             LvnChrome.Round(chip, 10f);
+            return chip;
+        }
+
+        private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
+        {
+            var chip = ChipShell();
             if (icon != LvnIcon.None)
             {
                 var ic = LvnIcons.Make(icon, 18f, color, 0f, _theme.IconGlow);
@@ -62,7 +84,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(text))
             {
                 var lb = new Label(text) { pickingMode = PickingMode.Ignore };
-                lb.style.color = color; lb.style.fontSize = 30;
+                lb.style.color = color; lb.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
                 chip.Add(lb);
             }
             return chip;
@@ -86,7 +108,7 @@ namespace Lvn.UI.Screens
             bar.style.alignItems = Align.Center;
             bar.style.marginBottom = 14;
             var back = new Button(onBack) { text = _cfg.back_text ?? "‹" };
-            back.style.fontSize = 48; back.style.minWidth = 52;
+            back.style.fontSize = Lvn.UI.LvnFonts.Size(48f); back.style.minWidth = 52;
             back.style.color = _titleColor;
             back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
             LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);

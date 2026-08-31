@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             var back = new Button(Close) { text = "‹" };
             LvnStyler.IconSlot(back, 46f);
-            back.style.fontSize = 34;
+            back.style.fontSize = Lvn.UI.LvnFonts.Size(34f);
             back.style.marginRight = 12;
             header.Add(back);
 
@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
         private Button Pill(string text, System.Action onClick)
         {
             var b = new Button(onClick) { text = text };
-            b.style.fontSize = 24;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             b.style.paddingTop = 10; b.style.paddingBottom = 10;
             b.style.paddingLeft = 24; b.style.paddingRight = 24;
             b.style.marginLeft = 0; b.style.marginRight = 0;
@@ -225,7 +225,7 @@ namespace Lvn.UI.Screens
 
             // Rank badge.
             var badge = new Label(place.ToString());
-            badge.style.fontSize = 22;
+            badge.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             badge.style.color = LvnTokens.OnAccent;
             badge.style.backgroundColor = first ? LvnTokens.Gold
@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
 
             var name = new Label(e.Name);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = 24;
+            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             name.style.marginTop = 8;
             name.style.unityFontStyleAndWeight = first ? FontStyle.Bold : FontStyle.Normal;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -289,7 +289,7 @@ namespace Lvn.UI.Screens
             // Rank number — tabular, right-aligned in a fixed gutter.
             var rank = new Label(e.Rank.ToString());
             rank.style.width = 42;
-            rank.style.fontSize = 24;
+            rank.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             rank.style.color = e.IsYou ? LvnTokens.Accent : LvnTokens.TextDim;
             rank.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             rank.style.unityTextAlign = TextAnchor.MiddleRight;
@@ -307,7 +307,7 @@ namespace Lvn.UI.Screens
 
             var name = new Label(e.Name);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = 24;
+            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             name.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             name.style.whiteSpace = WhiteSpace.NoWrap;
             name.style.overflow = Overflow.Hidden;
@@ -316,7 +316,7 @@ namespace Lvn.UI.Screens
             if (e.IsYou)
             {
                 var you = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("leaderboard.you", "You"));
-                you.style.fontSize = 18;
+                you.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
                 you.style.color = LvnTokens.OnAccent;
                 you.style.backgroundColor = LvnTokens.Accent;
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -330,7 +330,7 @@ namespace Lvn.UI.Screens
 
             var score = new Label(LvnPriceTag.Amount(e.Score));
             score.style.color = e.IsYou ? LvnTokens.Text : LvnTokens.TextDim;
-            score.style.fontSize = 24;
+            score.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             score.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             score.style.minWidth = 110;
             score.style.unityTextAlign = TextAnchor.MiddleRight;

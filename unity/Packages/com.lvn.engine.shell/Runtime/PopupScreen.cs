@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             _title = new Label { name = "popup-title" };
             _title.style.color = _titleColor;
-            _title.style.fontSize = 32;
+            _title.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             _title.style.whiteSpace = WhiteSpace.Normal;
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
 
             _message = new Label { name = "popup-message" };
             _message.style.color = _text;
-            _message.style.fontSize = 26;
+            _message.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             _message.style.whiteSpace = WhiteSpace.Normal;
             _message.style.unityTextAlign = TextAnchor.MiddleCenter;
             _message.style.marginBottom = 20;
@@ -180,7 +180,7 @@ namespace Lvn.UI.Screens
         private UnityEngine.UIElements.Button MakeButton(Button spec, int index, int count)
         {
             var b = new UnityEngine.UIElements.Button(() => Resolve(index)) { text = spec.Label ?? "" };
-            b.style.fontSize = 26;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             b.style.flexGrow = count > 1 ? 1 : 0;
             b.style.minWidth = 120;
             b.style.marginLeft = index > 0 ? 8 : 0;

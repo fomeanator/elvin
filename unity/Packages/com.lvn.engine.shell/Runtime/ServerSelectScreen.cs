@@ -47,7 +47,7 @@ namespace Lvn.UI.Screens
                 var check = new Toggle { value = manual };
                 var checkLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.manual", "Choose the server manually"));
                 checkLabel.style.color = new Color(0.65f, 0.65f, 0.65f);
-                checkLabel.style.fontSize = 14;
+                checkLabel.style.fontSize = Lvn.UI.LvnFonts.Size(14f);
                 checkLabel.style.marginLeft = 6;
                 checkRow.Add(check);
                 checkRow.Add(checkLabel);
@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
             root.Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.title", "Server"));
-            title.style.fontSize = 26;
+            title.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             title.style.color = new Color(0.96f, 0.93f, 0.85f);
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
             title.style.marginBottom = 14;
@@ -164,14 +164,14 @@ namespace Lvn.UI.Screens
 
                 var dot = new Label("•");
                 dot.style.color = new Color(0.5f, 0.5f, 0.5f);
-                dot.style.fontSize = 22;
+                dot.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
                 dot.style.marginRight = 8;
                 row.Add(dot);
 
                 var btn = new Button(() => Confirm(c.Url)) { text = $"{c.Name}\n{c.Url}" };
                 btn.style.flexGrow = 1;
                 btn.style.unityTextAlign = TextAnchor.MiddleLeft;
-                btn.style.fontSize = 16;
+                btn.style.fontSize = Lvn.UI.LvnFonts.Size(16f);
                 btn.style.paddingTop = 8;
                 btn.style.paddingBottom = 8;
                 btn.style.paddingLeft = 14;
@@ -189,14 +189,14 @@ namespace Lvn.UI.Screens
 
             var customLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.custom", "Your own server (URL up to /api)"));
             customLabel.style.color = new Color(0.80f, 0.72f, 0.56f);
-            customLabel.style.fontSize = 15;
+            customLabel.style.fontSize = Lvn.UI.LvnFonts.Size(15f);
             customLabel.style.marginTop = 12;
             customLabel.style.marginBottom = 6;
             panel.Add(customLabel);
 
             bool customKnown = candidates.Exists(c => c.Url == savedCustom);
             var field = new TextField { value = !customKnown ? savedCustom : "" };
-            field.style.fontSize = 18;
+            field.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             var input = field.Q(TextField.textInputUssName);
             if (input != null)
             {
@@ -215,7 +215,7 @@ namespace Lvn.UI.Screens
 
             var connect = new Button(() => Confirm(field.value)) { text = LvnWords.Of("server.connect", "Connect") };
             connect.style.marginTop = 12;
-            connect.style.fontSize = 18;
+            connect.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             connect.style.paddingTop = 10;
             connect.style.paddingBottom = 10;
             connect.style.backgroundColor = new Color(0.78f, 0.63f, 0.31f);

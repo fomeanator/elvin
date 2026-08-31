@@ -102,7 +102,7 @@ namespace Lvn.UI.Screens
 
             var back = new Label("‹");
             back.style.color = LvnTokens.Text;
-            back.style.fontSize = 44;
+            back.style.fontSize = Lvn.UI.LvnFonts.Size(44f);
             back.style.marginRight = 12;
             back.style.width = 40;
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -128,7 +128,7 @@ namespace Lvn.UI.Screens
 
             _balanceAmount = new Label(LvnPriceTag.Amount(_gold));
             _balanceAmount.style.color = LvnTokens.Gold;
-            _balanceAmount.style.fontSize = 24;
+            _balanceAmount.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             _balanceAmount.style.unityFontStyleAndWeight = FontStyle.Bold;
             balancePill.Add(_balanceAmount);
 
@@ -162,13 +162,13 @@ namespace Lvn.UI.Screens
 
             _previewName = new Label();
             _previewName.style.color = LvnTokens.Text;
-            _previewName.style.fontSize = 34;
+            _previewName.style.fontSize = Lvn.UI.LvnFonts.Size(34f);
             _previewName.style.unityFontStyleAndWeight = FontStyle.Bold;
             caption.Add(_previewName);
 
             _previewWearing = new Label();
             _previewWearing.style.color = LvnTokens.TextDim;
-            _previewWearing.style.fontSize = 18;
+            _previewWearing.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             _previewWearing.style.marginTop = 2;
             caption.Add(_previewWearing);
 
@@ -195,7 +195,7 @@ namespace Lvn.UI.Screens
             sheet.Add(_grid);
 
             var close = new Button(Close) { text = LvnWords.Of("common.close", "Close") };
-            close.style.fontSize = 26;
+            close.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             close.style.marginTop = 12;
             close.style.paddingTop = 12;
             close.style.paddingBottom = 12;
@@ -345,7 +345,7 @@ namespace Lvn.UI.Screens
                 bool active = idx == _cat;
 
                 var tab = new Label(_categories[i]);
-                tab.style.fontSize = 24;
+                tab.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
                 tab.style.marginRight = 8;
                 tab.style.marginBottom = 6;
                 tab.style.paddingLeft = 18; tab.style.paddingRight = 18;
@@ -408,7 +408,7 @@ namespace Lvn.UI.Screens
             ribbon.viewDataKey = "ribbon";
             ribbon.style.position = Position.Absolute;
             ribbon.style.top = 10; ribbon.style.left = 10;
-            ribbon.style.fontSize = 18;
+            ribbon.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
             ribbon.style.color = LvnTokens.OnAccent;
             ribbon.style.backgroundColor = LvnTokens.Accent;
@@ -420,7 +420,7 @@ namespace Lvn.UI.Screens
             // name
             var name = new Label(skin.Name) { viewDataKey = "skinname" };
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = 22;
+            name.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.marginTop = 10;
             name.style.marginLeft = 12; name.style.marginRight = 12;
@@ -463,7 +463,7 @@ namespace Lvn.UI.Screens
             {
                 var state = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("skinshop.active", "Active"));
                 state.style.color = LvnTokens.Accent;
-                state.style.fontSize = 18;
+                state.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
                 state.style.unityFontStyleAndWeight = FontStyle.Bold;
                 row.Add(state);
             }
@@ -471,7 +471,7 @@ namespace Lvn.UI.Screens
             {
                 var equip = new Button(() => Equip(skin)) { text = LvnWords.Of("skinshop.equip", "Equip") };
                 equip.style.flexGrow = 1;
-                equip.style.fontSize = 20;
+                equip.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 equip.style.paddingTop = 8; equip.style.paddingBottom = 8;
                 LvnStyler.Quiet(equip, LvnTokens.RadiusSm);
                 row.Add(equip);

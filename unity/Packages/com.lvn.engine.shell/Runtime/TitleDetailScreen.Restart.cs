@@ -38,7 +38,7 @@ namespace Lvn.UI.Screens
                 var cont = new Button(Play) { text = LvnWords.Of("hub.continue", "Continue") };
                 cont.style.flexShrink = 0;
                 cont.style.marginTop = 14;
-                cont.style.fontSize = 28;
+                cont.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
                 cont.style.paddingTop = 18;
                 cont.style.paddingBottom = 18;
                 cont.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -53,7 +53,7 @@ namespace Lvn.UI.Screens
             {
                 var empty = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("saves.empty", "No saves yet — start reading."));
                 empty.style.color = LvnTokens.TextDim;
-                empty.style.fontSize = 20;
+                empty.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 empty.style.marginTop = 10;
                 empty.style.whiteSpace = WhiteSpace.Normal;
                 section.Add(empty);
@@ -91,12 +91,12 @@ namespace Lvn.UI.Screens
 
             var slotLbl = new Label(slot);
             slotLbl.style.color = LvnTokens.Text;
-            slotLbl.style.fontSize = 24;
+            slotLbl.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             col.Add(slotLbl);
 
             var whereLbl = new Label(where);
             whereLbl.style.color = LvnTokens.TextDim;
-            whereLbl.style.fontSize = 20;
+            whereLbl.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             whereLbl.style.marginTop = 4;
             col.Add(whereLbl);
             row.Add(col);
@@ -105,7 +105,7 @@ namespace Lvn.UI.Screens
             load.SetEnabled(onLoad != null);
             load.style.flexShrink = 0;
             load.style.marginLeft = 12;
-            load.style.fontSize = 22;
+            load.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             load.style.paddingTop = 10;
             load.style.paddingBottom = 10;
             load.style.paddingLeft = 18;
@@ -127,7 +127,7 @@ namespace Lvn.UI.Screens
                 "\"Everything\" starts over from chapter one and clears every stat. "
                 + "\"From a chapter\" picks where to resume."));
             msg.style.color = LvnTokens.TextDim;
-            msg.style.fontSize = 22;
+            msg.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             msg.style.whiteSpace = WhiteSpace.Normal;
             msg.style.marginBottom = 8;
             panel.Add(msg);
@@ -224,7 +224,7 @@ namespace Lvn.UI.Screens
             {
                 var h = new Label(heading);
                 h.style.color = LvnTokens.Text;
-                h.style.fontSize = 30;
+                h.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
                 h.style.unityFontStyleAndWeight = FontStyle.Bold;
                 h.style.whiteSpace = WhiteSpace.Normal;
                 h.style.marginBottom = 12;
@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
         private static Button ModalButton(string text, bool primary, System.Action onClick)
         {
             var b = new Button(onClick) { text = text };
-            b.style.fontSize = 24;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             b.style.marginTop = 10;
             b.style.paddingTop = 14; b.style.paddingBottom = 14;
             b.style.paddingLeft = 16; b.style.paddingRight = 16;

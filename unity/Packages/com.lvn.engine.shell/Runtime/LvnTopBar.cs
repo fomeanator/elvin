@@ -176,7 +176,7 @@ namespace Lvn.UI.Screens
             _miniProgressLabel = new Label("0%");
             _miniProgressLabel.pickingMode = PickingMode.Ignore;
             _miniProgressLabel.style.color = LvnTokens.Text;
-            _miniProgressLabel.style.fontSize = 21;
+            _miniProgressLabel.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
             _miniProgressLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             _miniProgress.Add(_miniProgressLabel);
             Add(_miniProgress);
@@ -225,7 +225,7 @@ namespace Lvn.UI.Screens
             var l = Lvn.UI.LvnRedress.Bind(new Label(), label);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
-            l.style.fontSize = 19;
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
             l.style.marginTop = 5;
             b.Add(l);
             b.RegisterCallback<ClickEvent>(_ => onTap());
@@ -319,7 +319,7 @@ namespace Lvn.UI.Screens
             var t = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("app.logo", "L"));
             t.pickingMode = PickingMode.Ignore;
             t.style.color = LvnTokens.OnAccent;
-            t.style.fontSize = 30;
+            t.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             t.style.unityFontStyleAndWeight = FontStyle.Bold;
             circle.Add(t);
             return circle;

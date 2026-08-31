@@ -130,7 +130,7 @@ namespace Lvn.UI.Screens
             titleBlock.style.flexGrow = 1;
             var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.eyebrow", "TOP UP"));
             eyebrow.style.color = LvnTokens.Gold;
-            eyebrow.style.fontSize = 18;
+            eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             eyebrow.style.letterSpacing = 2.2f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleBlock.Add(eyebrow);
@@ -142,7 +142,7 @@ namespace Lvn.UI.Screens
             {
                 var close = new Button(Cancel) { text = "×" };
                 close.style.width = 52; close.style.height = 52;
-                close.style.fontSize = 34;
+                close.style.fontSize = Lvn.UI.LvnFonts.Size(34f);
                 LvnStyler.Plate(close, LvnTokens.Faint, LvnTokens.TextDim, 26f);
                 top.Add(close);
             }
@@ -292,7 +292,7 @@ namespace Lvn.UI.Screens
                     LvnWords.Of("shop.closed", "The store is closed");
                 var empty = new Label(word);
                 empty.style.color = LvnTokens.TextDim;
-                empty.style.fontSize = 26;
+                empty.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
                 empty.style.marginTop = 40;
                 empty.style.unityTextAlign = TextAnchor.MiddleCenter;
                 _list.Add(empty);
@@ -405,7 +405,7 @@ namespace Lvn.UI.Screens
                 // перезапрашивает — застывшая строка пережила бы смену языка.
                 var pill = new Button(() => { _tab = idx; Rebuild(); });
                 Lvn.UI.LvnRedress.Bind(pill, () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]) : string.Empty);
-                pill.style.fontSize = 24;
+                pill.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
                 pill.style.marginRight = 10;
                 pill.style.marginBottom = 8;
                 pill.style.paddingTop = 10; pill.style.paddingBottom = 10;
@@ -472,7 +472,7 @@ namespace Lvn.UI.Screens
             category.style.position = Position.Absolute;
             category.style.left = 12; category.style.bottom = 9;
             category.style.color = new Color(LvnTokens.Text.r, LvnTokens.Text.g, LvnTokens.Text.b, 0.72f);
-            category.style.fontSize = 15;
+            category.style.fontSize = Lvn.UI.LvnFonts.Size(15f);
             category.style.letterSpacing = 1.4f;
             category.style.unityFontStyleAndWeight = FontStyle.Bold;
             art.Add(category);
@@ -525,17 +525,13 @@ namespace Lvn.UI.Screens
                     chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
                     chip.style.paddingLeft = 10; chip.style.paddingRight = 12;
                     chip.style.marginRight = 8; chip.style.marginBottom = 6;
-                    var ic = LvnIcons.Make(Lvn.UI.LvnPriceTag.Of(kv.Key).Icon,
-                        18f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
-                    ic.style.marginRight = 6;
-                    chip.Add(ic);
-                    // Слова рядом со значком нет: он уже сказал, какая это
-                    // валюта, и «500 кристаллов» под самоцветом — то же самое
-                    // дважды, из-за чего чип не влезал в узкую карточку.
-                    var t = new Label(LvnPriceTag.Amount(kv.Value));
-                    t.style.color = LvnTokens.Text;
-                    t.style.fontSize = 20;
-                    chip.Add(t);
+                    // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
+                    // значок акцентным, сумма цветом текста, — и та же валюта
+                    // в хабе и в гардеробе выглядела иначе. Заодно уходит
+                    // повторённое здесь решение дома: слова рядом со значком
+                    // нет, он уже сказал, какая это валюта.
+                    chip.Add(LvnPriceTag.Tag(kv.Key, kv.Value,
+                        new LvnPriceTag.Row { FontSize = 20f, IconSize = 18f, Gap = 6f }));
                     chips.Add(chip);
                 }
                 body.Add(chips);
@@ -544,14 +540,14 @@ namespace Lvn.UI.Screens
             {
                 var bonus = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
                 bonus.style.color = LvnTokens.Gold;
-                bonus.style.fontSize = 21;
+                bonus.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
                 bonus.style.marginTop = 4;
                 bonus.style.unityFontStyleAndWeight = FontStyle.Bold;
                 body.Add(bonus);
             }
 
             var buy = new Button { text = pack.Price };
-            buy.style.fontSize = 24;
+            buy.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             buy.style.marginTop = 10;
             buy.style.alignSelf = Align.Stretch;
             buy.style.paddingTop = 12; buy.style.paddingBottom = 12;
@@ -576,7 +572,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.position = Position.Absolute;
                 ribbon.style.top = 10;
                 ribbon.style.left = 12;
-                ribbon.style.fontSize = 17;
+                ribbon.style.fontSize = Lvn.UI.LvnFonts.Size(17f);
                 ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
                 ribbon.style.letterSpacing = 1.5f;
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;

@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
             _percent.style.top = Length.Percent((barY + 0.03f) * 100f);
             _percent.style.unityTextAlign = TextAnchor.MiddleCenter;
             _percent.style.color = UiColor.Parse(_cfg.percent_color, LvnTokens.TextDim);
-            _percent.style.fontSize = 26;
+            _percent.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             _percent.style.display = _showPercent ? DisplayStyle.Flex : DisplayStyle.None;
             _percent.pickingMode = PickingMode.Ignore;
             Add(_percent);

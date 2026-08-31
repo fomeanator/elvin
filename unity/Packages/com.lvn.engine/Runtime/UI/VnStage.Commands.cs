@@ -378,7 +378,7 @@ namespace Lvn.UI
             {
                 hintIcon.style.backgroundColor = accent;
                 hintIcon.style.color = bg;
-                hintIcon.style.fontSize = 24;
+                hintIcon.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
                 LvnChrome.Round(hintIcon, 18f);
                 if (Theme != null) LvnFonts.Apply(hintIcon, Theme.Font);
             }

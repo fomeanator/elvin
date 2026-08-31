@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
                 {
                     var chBtn = new Button { text = offer.Value.label };
                     chBtn.style.height = 48;
-                    chBtn.style.fontSize = 21;
+                    chBtn.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
                     chBtn.style.marginTop = 8;
                     LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
                     var startCh = offer.Value.start;
@@ -81,7 +81,7 @@ namespace Lvn.UI.Screens
                     (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download all"))
                     + " " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
                 btn.style.height = 52;
-                btn.style.fontSize = 22;
+                btn.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
                 btn.style.marginTop = 8;
                 LvnStyler.Primary(btn, 14f);
                 btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
@@ -138,12 +138,12 @@ namespace Lvn.UI.Screens
             var c = Lvn.UI.LvnRedress.Bind(new Label(), caption);
             c.pickingMode = PickingMode.Ignore;
             c.style.color = LvnTokens.TextDim;
-            c.style.fontSize = 17;
+            c.style.fontSize = Lvn.UI.LvnFonts.Size(17f);
             cell.Add(c);
             var v = new Label("—");
             v.pickingMode = PickingMode.Ignore;
             v.style.color = LvnTokens.Text;
-            v.style.fontSize = 21;
+            v.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
             v.style.unityFontStyleAndWeight = FontStyle.Bold;
             v.style.marginTop = 1;
             cell.Add(v);
@@ -156,7 +156,7 @@ namespace Lvn.UI.Screens
             var l = new Label(text);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
-            l.style.fontSize = 22;
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             l.style.unityFontStyleAndWeight = FontStyle.Bold;
             l.style.marginBottom = 4;
             return l;
@@ -167,7 +167,7 @@ namespace Lvn.UI.Screens
             var l = new Label(text);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.TextDim;
-            l.style.fontSize = 19;
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
             l.style.whiteSpace = WhiteSpace.Normal;
             return l;
         }
@@ -182,13 +182,13 @@ namespace Lvn.UI.Screens
             var mark = new Label(cached ? "√" : "○");
             mark.pickingMode = PickingMode.Ignore;
             mark.style.color = cached ? LvnTokens.Accent : LvnTokens.TextDim;
-            mark.style.fontSize = 20;
+            mark.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             mark.style.width = 26;
             row.Add(mark);
             var l = new Label(label);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = cached ? LvnTokens.Text : LvnTokens.TextDim;
-            l.style.fontSize = 20;
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             row.Add(l);
             return row;
         }
@@ -212,7 +212,7 @@ namespace Lvn.UI.Screens
                 + (e.Bytes > 0 ? " · " + Lvn.Content.LvnBytes.Short(e.Bytes) : ""));
             l.pickingMode = PickingMode.Ignore;
             l.style.color = e.Active ? LvnTokens.Text : LvnTokens.TextDim;
-            l.style.fontSize = 20;
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             l.style.overflow = Overflow.Hidden;
             l.style.textOverflow = TextOverflow.Ellipsis;
             l.style.whiteSpace = WhiteSpace.NoWrap;
@@ -220,7 +220,7 @@ namespace Lvn.UI.Screens
             row.Add(l);
             var x = new Label("×");
             x.style.color = LvnTokens.TextDim;
-            x.style.fontSize = 20;
+            x.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             x.style.paddingLeft = 10; x.style.paddingRight = 4;
             x.style.flexShrink = 0;
             var entry = e;

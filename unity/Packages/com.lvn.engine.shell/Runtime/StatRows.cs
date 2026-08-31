@@ -25,12 +25,12 @@ namespace Lvn.UI.Screens
             var head = Head();
             var name = new Label(s.label ?? s.key);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = 24;
+            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             head.Add(name);
 
             var valueLbl = new Label($"{Mathf.RoundToInt((float)value)}/{max}");
             valueLbl.style.color = LvnTokens.Accent;
-            valueLbl.style.fontSize = 22;
+            valueLbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             valueLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.Add(valueLbl);
             row.Add(head);
@@ -51,12 +51,12 @@ namespace Lvn.UI.Screens
             var head = Head();
             var posLbl = new Label($"{s.pos_label} {Mathf.RoundToInt((float)pos)}");
             posLbl.style.color = LvnTokens.Text;
-            posLbl.style.fontSize = 22;
+            posLbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             head.Add(posLbl);
 
             var negLbl = new Label($"{Mathf.RoundToInt((float)neg)} {s.neg_label}");
             negLbl.style.color = LvnTokens.TextDim;
-            negLbl.style.fontSize = 22;
+            negLbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             head.Add(negLbl);
             row.Add(head);
             row.Add(Meter(frac));
