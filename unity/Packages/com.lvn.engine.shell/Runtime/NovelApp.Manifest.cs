@@ -183,6 +183,20 @@ namespace Lvn.UI.Screens
             }
             catch { /* cache write best-effort */ }
         }
+        /// <summary>Тот же каталог, что лежит в кэше? Сравниваем ЗАПИСЬ, а не
+        /// поля: кэш и есть запись, и вопрос ровно в том, изменится ли она.</summary>
+        private static bool SameAsCached(LvnManifest m)
+        {
+            if (m == null) return false;
+            try
+            {
+                var cached = LvnKeep.Get(ManifestCacheKey, null);
+                return !string.IsNullOrEmpty(cached)
+                       && cached == Newtonsoft.Json.JsonConvert.SerializeObject(m);
+            }
+            catch { return false; }
+        }
+
         private static LvnManifest LoadCachedManifest()
         {
             try
