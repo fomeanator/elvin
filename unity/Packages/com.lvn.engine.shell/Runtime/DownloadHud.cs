@@ -232,7 +232,7 @@ namespace Lvn.UI.Screens
             _kind = new Label("");
             _kind.pickingMode = PickingMode.Ignore;
             _kind.style.color = LvnTokens.TextDim;
-            _kind.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
+            _kind.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             _kind.style.marginTop = 3;
             col.Add(_kind);
 

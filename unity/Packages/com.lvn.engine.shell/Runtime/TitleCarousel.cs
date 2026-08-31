@@ -409,7 +409,7 @@ namespace Lvn.UI.Screens
                     () => LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                         + " — " + ChapterLabel(autoCh));
                 contTitle.pickingMode = PickingMode.Ignore;
-                contTitle.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
+                contTitle.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 contTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
                 contTitle.style.color = UiColor.Named(_cfg.play_color, LvnTokens.Text);
                 cont.Add(contTitle);
@@ -454,7 +454,7 @@ namespace Lvn.UI.Screens
                 { text = ChapterLabel(ch) };
                 row.style.height = 52;
                 row.style.marginBottom = 6;
-                row.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
+                row.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 row.style.paddingLeft = 14;
                 row.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);

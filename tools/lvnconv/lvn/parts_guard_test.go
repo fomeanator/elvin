@@ -129,3 +129,47 @@ func TestHttpSuccessHasOneRule(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// НАСТРОЙКА ЖИВЁТ В КАТАЛОГЕ, А НЕ НА ЭКРАНЕ.
+//
+// Набор настроек чтения и звука был записан ДВАЖДЫ — в меню сцены и на экране
+// оболочки. Пределы совпадали чудом (их сверяли руками), а имена уже
+// разошлись: прозрачность окна звалась `settings.box_opacity` в оболочке и
+// `window_opacity` в сцене, «пропускать прочитанное» — `settings.skip_read` и
+// `skip_read_only`, эффекты — «Effects» и «Sound FX». Переводчик переводил
+// одно из двух, и игрок видел половину настроек по-русски, а половину
+// по-английски — смотря откуда открыл.
+//
+// Признак возврата: экран настроек САМ пишет настройку. Значит, он снова знает
+// про неё то, чего не знает второй экран.
+func TestSettingsLiveInTheCatalog(t *testing.T) {
+	root := repoRoot(t)
+	const home = "LvnSettingsCatalog.cs"
+	screens := []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime/SettingsScreen.cs",
+		"unity/Packages/com.lvn.engine/Runtime/UI/StageMenu.Settings.cs",
+	}
+	prefs := []string{"TextSpeed", "AutoDelayScale", "DialogOpacity",
+		"SkipReadOnly", "ReduceMotion", "VolMusic", "VolSfx", "VolAmbient", "VolVoice"}
+
+	var found []string
+	for _, rel := range screens {
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s: %v — экран переименовали, а страж об этом не знает", rel, err)
+		}
+		text := stripComments(string(body))
+		for _, p := range prefs {
+			if strings.Contains(text, "LvnPrefs."+p+" =") {
+				found = append(found, fmt.Sprintf("%s: LvnPrefs.%s", filepath.Base(path), p))
+			}
+		}
+	}
+	if len(found) > 0 {
+		t.Errorf("экран настроек пишет настройку сам (%d):\n  %s\n\n"+
+			"Состав настроек — в %s: экран берёт определение и решает только, "+
+			"как его показать. Иначе второй экран о настройке не узнает.",
+			len(found), strings.Join(found, "\n  "), home)
+	}
+}

@@ -28,27 +28,12 @@ namespace Lvn.UI
                 () => LvnPrefs.TextScale, v => LvnPrefs.TextScale = v)));
             scroll.Add(SegmentRow(L("ui_size", "Interface size"), ScaleSegment(
                 () => LvnPrefs.UiScale, v => { LvnPrefs.UiScale = v; LvnPanel.ApplyUiScale(); })));
-            scroll.Add(SliderRow(L("text_speed", "Text speed"), 0.25f, 3f, LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
-            scroll.Add(ToggleRow(L("auto_advance", "Auto-advance"), LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
-            scroll.Add(SliderRow(L("auto_delay", "Auto delay"), 0.5f, 2.5f, LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-            if (_theme.SimpleAudioSliders)
-            {
-                // «Музыка» и «Звук» — двухползунковый режим (ui.settings.
-                // simple_audio): звук ведёт эффекты+эмбиент+голос одним движком.
-                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v, live: true));
-                scroll.Add(SliderRow(L("sound", "Sound"), 0f, 1f, LvnPrefs.VolSfx,
-                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }, live: true));
-            }
-            else
-            {
-                scroll.Add(SliderRow(L("music", "Music"), 0f, 1f, LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v, live: true));
-                scroll.Add(SliderRow(L("ambient", "Ambient"), 0f, 1f, LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v, live: true));
-                scroll.Add(SliderRow(L("sfx", "Sound FX"), 0f, 1f, LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v, live: true));
-                scroll.Add(SliderRow(L("voice", "Voice"), 0f, 1f, LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v, live: true));
-            }
-            scroll.Add(SliderRow(L("window_opacity", "Window opacity"), 0.2f, 1f, LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
-            scroll.Add(ToggleRow(L("skip_read_only", "Skip read text only"), LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
-            scroll.Add(ToggleRow(L("reduce_motion", "Reduce motion"), LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+            // ЧТО настраивается — у КАТАЛОГА, здесь только вид. Набор жил в
+            // двух местах, и имена уже разошлись: прозрачность окна звалась
+            // здесь window_opacity, а в оболочке settings.box_opacity — и
+            // переводчик переводил ровно половину.
+            foreach (var d in LvnSettingsCatalog.Reading()) scroll.Add(RowFor(d));
+            foreach (var d in LvnSettingsCatalog.Audio(_theme.SimpleAudioSliders)) scroll.Add(RowFor(d));
 
             // Language — only when the content ships catalogs (manifest.languages).
             // Tapping cycles Original → each language → Original.
@@ -162,6 +147,14 @@ namespace Lvn.UI
         /// настройках оболочки те же три ползунка уже вели себя гладко —
         /// разошлись ровно эти две записи одного правила.</para>
         /// </summary>
+        /// <summary>Строка настройки в СЦЕНЕ: компактная карточка. Что
+        /// показывать, знает каталог; как — этот метод.</summary>
+        private VisualElement RowFor(LvnSettingDef d)
+            => d.Kind == LvnSettingKind.Switch
+                ? ToggleRow(LvnSettingsCatalog.Label(d, _theme), d.Flag(), v => d.SetFlag(v))
+                : SliderRow(LvnSettingsCatalog.Label(d, _theme), d.Min, d.Max, d.Num(),
+                            v => d.SetNum(v), live: d.Live);
+
         private VisualElement SliderRow(string label, float min, float max, float value,
                                         Action<float> onChange, bool live = false)
         {

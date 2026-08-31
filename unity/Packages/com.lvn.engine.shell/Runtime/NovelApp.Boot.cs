@@ -132,6 +132,14 @@ namespace Lvn.UI.Screens
             // the [lvn-boot]/[lvn-perf] marks ship to /v1/log/client — a partner
             // device's crash is readable via /v1/admin/client-logs, no adb.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
+            // Службы ходят на ТОТ ЖЕ адрес, что и контент, — значит их ответ
+            // говорит о связи ровно то же. Шов, а не прямой вызов: дом признака
+            // живёт в сборке контента, которой службы не видят.
+            Lvn.Services.LvnBackend.Reachability = (reached, why) =>
+            {
+                if (reached) Lvn.Content.LvnNetworkStatus.MarkOnline(why);
+                else Lvn.Content.LvnNetworkStatus.MarkOffline(why);
+            };
             Lvn.Services.LvnLogShip.Boot();
 
             // Промахи ассетов — в аналитику. Движок про неё не знает и знать не

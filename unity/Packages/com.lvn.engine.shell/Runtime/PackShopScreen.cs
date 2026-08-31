@@ -522,7 +522,7 @@ namespace Lvn.UI.Screens
             {
                 var bonus = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
                 bonus.style.color = LvnTokens.Gold;
-                bonus.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
+                bonus.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 bonus.style.marginTop = 4;
                 bonus.style.unityFontStyleAndWeight = FontStyle.Bold;
                 body.Add(bonus);
