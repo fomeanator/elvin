@@ -187,17 +187,11 @@ namespace Lvn.Editor
         static List<string> SplitArgs(string s)
         {
             var args = new List<string>();
-            char inStr = '\0';
-            int chev = 0, depth = 0, start = 0;
-            for (int i = 0; i < s.Length; i++)
+            int depth = 0, start = 0;
+            foreach (int i in CodePositions(s))
             {
                 char c = s[i];
-                if (inStr != '\0') { if (c == inStr) inStr = '\0'; continue; }
-                if (c == '«') chev++;
-                else if (c == '»') { if (chev > 0) chev--; }
-                else if (chev > 0) { }
-                else if (c == '"' || c == '\'') inStr = c;
-                else if (c == '(' || c == '[' || c == '{') depth++;
+                if (c == '(' || c == '[' || c == '{') depth++;
                 else if (c == ')' || c == ']' || c == '}') depth--;
                 else if (c == ',' && depth == 0)
                 {
