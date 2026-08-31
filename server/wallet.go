@@ -102,9 +102,8 @@ type iapProduct struct {
 	Bonus         int64   `json:"bonus,omitempty"` // extra amount shown as "+N bonus" (already inside Amount)
 	Order         int     `json:"order,omitempty"` // catalog sort key; ties break by amount
 	// Section groups packs in the store screen (e.g. "currency1", "currency2",
-	// "bundles"). Empty = the default ungrouped list. The client maps the id to
-	// a display title (store.section_titles); packs appear section-by-section in
-	// Order.
+	// "bundles"). Empty = the default ungrouped list. The id IS the heading the
+	// client shows; packs appear section-by-section in Order.
 	Section string `json:"section,omitempty"`
 	// Grants lets a "bundle" pack award MULTIPLE currencies at once
 	// (currency→amount). When set it takes precedence over Currency/Amount for

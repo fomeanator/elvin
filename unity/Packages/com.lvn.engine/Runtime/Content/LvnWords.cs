@@ -52,8 +52,21 @@ namespace Lvn.Content
         /// совпадении ключа выигрывает <c>ui.words</c> — он общий.
         /// </summary>
         public static void Learn(Dictionary<string, string> words, Dictionary<string, string> menuLabels)
+            => Learn(words, menuLabels, null);
+
+        /// <summary>
+        /// То же, но с ТРЕТЬИМ источником — подписями, заданными ПОЛЯМИ секций
+        /// (<c>ui.wardrobe.equip_text</c>). Их переводит в ключи
+        /// <see cref="LvnAuthoredWords"/>; там же сказано, почему поле и словарь
+        /// живы одновременно.
+        ///
+        /// <para>Слой самый нижний: словарь и подписи меню сильнее поля. Автор,
+        /// написавший слово дважды, имел в виду то, что ближе к словарю.</para>
+        /// </summary>
+        public static void Learn(Dictionary<string, string> words, Dictionary<string, string> menuLabels, LvnUiConfig ui)
         {
             var merged = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in LvnAuthoredWords.Fold(ui)) merged[kv.Key] = kv.Value;
             if (menuLabels != null)
                 foreach (var kv in menuLabels) merged[kv.Key] = kv.Value;
             if (words != null)

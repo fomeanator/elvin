@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
             // Словарь оболочки: всё, что движок пишет на экране сам.
-            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels);
+            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels, manifest.ui);
             // …и кто есть кто: имя говорящего в сцене — та же строка, что имя
             // героя в гардеробе, только приходит она из скрипта, а не по id.
             Lvn.Content.LvnWords.LearnActors(manifest.sprites);

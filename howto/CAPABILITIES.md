@@ -117,12 +117,12 @@ pick. Urls are content urls, scaled by the user's SFX volume; a missing field
 means silence.
 
 Chapter entry as a scene, not a loading screen (a manifest block):
-`manifest.ui.portal = { enabled?, color?, x?, y?, radius?, idle?, doll_height?,
-doll_x?, enter_label?, waiting_label?, locked_label?, title_label? }`. With it,
-opening a chapter puts the heroine beside a gateway on the LIVE scene: a panel
-names the mission, the bar is the gateway "charging" — the chapter's download
-by another name — and the button wakes when it is ready. Stepping through
-dissolves her into the portal, and only then does the chapter begin. She keeps
+`manifest.ui.portal = { enabled?, color?, x?, y?, radius?, idle?, doll_height? }`.
+With it, opening a chapter puts the heroine beside a gateway on the LIVE scene
+— a layer of the scene itself, not a screen over it, so it never covers her and
+survives the stage being cleared. Stepping through dissolves her into the
+portal, and only then does the chapter begin. The gateway carries no captions:
+it is a place in the world, and the words around it belong to the menu. She keeps
 the outfit and emotion she had in the menu: the scene is continuous, so nothing
 is re-staged from defaults. Without the block the engine shows its ordinary
 loading screen — a portal belongs to one world's fiction, not to every story.
