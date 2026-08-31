@@ -8,7 +8,7 @@
 // derived reference-panel GROUPS and the AI-prompt op list, so the panel,
 // Monaco and the docs all read one contract. The Go validator parity-tests
 // against the same JSON (tools/lvnconv/lvn/grammar_sync_test.go).
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,3 +74,17 @@ export const AI_OP_LINES = OPS.map((op) => {
 
 writeFileSync(join(root, "src/grammar.js"), out);
 console.log("generated src/grammar.js from grammar.json");
+
+// ВШИТАЯ В РАСШИРЕНИЕ КОПИЯ — обновляется ТЕМ ЖЕ ШАГОМ.
+//
+// Раньше её не обновлял никто, и она отстала настолько, что учила
+// НЕСУЩЕСТВУЮЩЕМУ: предлагала `obj fill`, `fill_from`, `in3d`, `world` —
+// поля, которых в движке нет, — и не знала `cutscene`, `ui`, `track`. Автор,
+// поставивший расширение, получал подсказки к другому языку. Копия, которую
+// никто не пересобирает, хуже отсутствия копии.
+const vendored = join(root, "../vscode-lvn/lib/lvn-lang");
+if (existsSync(vendored)) {
+  writeFileSync(join(vendored, "grammar.js"), out);
+  writeFileSync(join(vendored, "grammar.json"), readFileSync(join(root, "src/grammar.json"), "utf8"));
+  console.log("updated tools/vscode-lvn/lib/lvn-lang from the same source");
+}
