@@ -214,7 +214,15 @@ namespace Lvn.Content
         {
             value = null;
             if (_translated == null || string.IsNullOrEmpty(key)) return false;
-            return _translated.TryGetValue(key, out value) && !string.IsNullOrEmpty(value);
+            if (_translated.TryGetValue(key, out value) && !string.IsNullOrEmpty(value)) return true;
+            // Прежнее имя ключа — у ПСЕВДОНИМОВ. Каталог перевода, собранный до
+            // переезда на приставки, знает слово под старым именем, и терять
+            // из-за этого готовый перевод не за что.
+            var legacy = LvnWordAliases.Legacy(key);
+            if (!string.IsNullOrEmpty(legacy)
+                && _translated.TryGetValue(legacy, out value) && !string.IsNullOrEmpty(value)) return true;
+            value = null;
+            return false;
         }
 
         /// <summary>Словарь сменился — экраны, уже нарисованные прежними
@@ -240,9 +248,18 @@ namespace Lvn.Content
         /// </summary>
         public static string Of(string key, string fallback)
         {
-            if (!string.IsNullOrEmpty(key) && _words != null
-                && _words.TryGetValue(key, out var w) && !string.IsNullOrEmpty(w))
-                return w;
+            if (!string.IsNullOrEmpty(key) && _words != null)
+            {
+                if (_words.TryGetValue(key, out var w) && !string.IsNullOrEmpty(w)) return w;
+                // ТО ЖЕ СЛОВО ПОД ПРЕЖНИМ ИМЕНЕМ. Автор переводил меню сцены,
+                // где ключи голые (`close`, `window_opacity`), а экраны
+                // оболочки спрашивают с приставкой — и получали английское
+                // умолчание поверх готового перевода. Пары названы у
+                // LvnWordAliases.
+                var legacy = LvnWordAliases.Legacy(key);
+                if (!string.IsNullOrEmpty(legacy)
+                    && _words.TryGetValue(legacy, out w) && !string.IsNullOrEmpty(w)) return w;
+            }
             return fallback;
         }
 

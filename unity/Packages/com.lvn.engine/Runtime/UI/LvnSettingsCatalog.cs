@@ -13,7 +13,6 @@ namespace Lvn.UI
     public sealed class LvnSettingDef
     {
         public string Key;          // канонический ключ словаря: settings.text_speed
-        public string Legacy;       // прежний ключ сцены: text_speed (может не быть)
         public string English;      // умолчание движка
         public string HintKey;      // пояснение — его показывает только оболочка
         public string HintEnglish;
@@ -43,9 +42,10 @@ namespace Lvn.UI
     /// или широкая с пояснением в оболочке) остаётся экрану: вид у них разный
     /// намеренно.</para>
     ///
-    /// <para>Прежний ключ сцены не выброшен, а назван: словари авторов,
-    /// переведшие <c>window_opacity</c>, продолжают работать — канонический
-    /// ключ спрашивается первым, прежний вторым.</para>
+    /// <para>Прежние имена ключей знает СЛОВАРЬ (<see cref="Lvn.Content.LvnWordAliases"/>):
+    /// словари авторов, переведшие <c>window_opacity</c>, продолжают работать,
+    /// и не только здесь — то же правило чинит «Закрыть», «Галерея»,
+    /// «История» и «Отмена» на всех экранах оболочки.</para>
     /// </summary>
     public static class LvnSettingsCatalog
     {
@@ -55,42 +55,42 @@ namespace Lvn.UI
         {
             new LvnSettingDef
             {
-                Key = "settings.text_speed", Legacy = "text_speed", English = "Text speed",
+                Key = "settings.text_speed", English = "Text speed",
                 HintKey = "settings.text_speed_hint", HintEnglish = "How fast lines type out",
                 Kind = LvnSettingKind.Range, Min = 0.25f, Max = 3f,
                 Num = () => LvnPrefs.TextSpeed, SetNum = v => LvnPrefs.TextSpeed = v,
             },
             new LvnSettingDef
             {
-                Key = "settings.auto_advance", Legacy = "auto_advance", English = "Auto-advance",
+                Key = "settings.auto_advance", English = "Auto-advance",
                 HintKey = "settings.auto_advance_hint", HintEnglish = "Lines turn by themselves",
                 Kind = LvnSettingKind.Switch,
                 Flag = () => LvnPrefs.AutoAdvance, SetFlag = v => LvnPrefs.AutoAdvance = v,
             },
             new LvnSettingDef
             {
-                Key = "settings.auto_delay", Legacy = "auto_delay", English = "Auto delay",
+                Key = "settings.auto_delay", English = "Auto delay",
                 HintKey = "settings.auto_delay_hint", HintEnglish = "Pause before the next line",
                 Kind = LvnSettingKind.Range, Min = 0.5f, Max = 2.5f,
                 Num = () => LvnPrefs.AutoDelayScale, SetNum = v => LvnPrefs.AutoDelayScale = v,
             },
             new LvnSettingDef
             {
-                Key = "settings.box_opacity", Legacy = "window_opacity", English = "Box opacity",
+                Key = "settings.box_opacity", English = "Box opacity",
                 HintKey = "settings.box_opacity_hint", HintEnglish = "The dialogue plate; text stays crisp",
                 Kind = LvnSettingKind.Range, Min = 0.2f, Max = 1f,
                 Num = () => LvnPrefs.DialogOpacity, SetNum = v => LvnPrefs.DialogOpacity = v,
             },
             new LvnSettingDef
             {
-                Key = "settings.skip_read", Legacy = "skip_read_only", English = "Skip read only",
+                Key = "settings.skip_read", English = "Skip read only",
                 HintKey = "settings.skip_read_hint", HintEnglish = "Fast-forward stops at new lines",
                 Kind = LvnSettingKind.Switch,
                 Flag = () => LvnPrefs.SkipReadOnly, SetFlag = v => LvnPrefs.SkipReadOnly = v,
             },
             new LvnSettingDef
             {
-                Key = "settings.reduce_motion", Legacy = "reduce_motion", English = "Reduce motion",
+                Key = "settings.reduce_motion", English = "Reduce motion",
                 HintKey = "settings.reduce_motion_hint", HintEnglish = "No camera shake or flashes",
                 Kind = LvnSettingKind.Switch,
                 Flag = () => LvnPrefs.ReduceMotion, SetFlag = v => LvnPrefs.ReduceMotion = v,
@@ -107,7 +107,7 @@ namespace Lvn.UI
         {
             var music = new LvnSettingDef
             {
-                Key = "settings.music", Legacy = "music", English = "Music",
+                Key = "settings.music", English = "Music",
                 HintKey = "settings.music_hint", HintEnglish = "Story and menu tracks",
                 Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
                 Num = () => LvnPrefs.VolMusic, SetNum = v => LvnPrefs.VolMusic = v,
@@ -118,7 +118,7 @@ namespace Lvn.UI
                     music,
                     new LvnSettingDef
                     {
-                        Key = "settings.sounds", Legacy = "sound", English = "Sounds",
+                        Key = "settings.sounds", English = "Sounds",
                         HintKey = "settings.sounds_hint", HintEnglish = "Choices, scene effects and ambience",
                         Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
                         Num = () => LvnPrefs.VolSfx,
@@ -130,50 +130,32 @@ namespace Lvn.UI
                 music,
                 new LvnSettingDef
                 {
-                    Key = "settings.ambient", Legacy = "ambient", English = "Ambience",
+                    Key = "settings.ambient", English = "Ambience",
                     Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
                     Num = () => LvnPrefs.VolAmbient, SetNum = v => LvnPrefs.VolAmbient = v,
                 },
                 new LvnSettingDef
                 {
-                    Key = "settings.sfx", Legacy = "sfx", English = "Effects",
+                    Key = "settings.sfx", English = "Effects",
                     Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
                     Num = () => LvnPrefs.VolSfx, SetNum = v => LvnPrefs.VolSfx = v,
                 },
                 new LvnSettingDef
                 {
-                    Key = "settings.voice", Legacy = "voice", English = "Voice",
+                    Key = "settings.voice", English = "Voice",
                     Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
                     Num = () => LvnPrefs.VolVoice, SetNum = v => LvnPrefs.VolVoice = v,
                 },
             };
         }
 
-        /// <summary>Подпись настройки: канонический ключ, затем прежний ключ
-        /// сцены, затем английское умолчание. Тема (если её дали) отвечает
-        /// первой — у неё есть подписи меню, положенные автором.</summary>
+        /// <summary>Подпись настройки. Прежнее имя ключа подставит сам словарь
+        /// (<see cref="Lvn.Content.LvnWordAliases"/>); тема, если её дали,
+        /// отвечает первой — у неё есть подписи меню, положенные автором.</summary>
         public static string Label(LvnSettingDef d, VnTheme theme = null)
         {
             if (d == null) return "";
-            if (theme != null)
-            {
-                var byTheme = theme.Word(d.Key, null);
-                if (!string.IsNullOrEmpty(byTheme)) return byTheme;
-                if (!string.IsNullOrEmpty(d.Legacy))
-                {
-                    var legacy = theme.Word(d.Legacy, null);
-                    if (!string.IsNullOrEmpty(legacy)) return legacy;
-                }
-                return d.English;
-            }
-            var word = Lvn.Content.LvnWords.Of(d.Key, null);
-            if (!string.IsNullOrEmpty(word)) return word;
-            if (!string.IsNullOrEmpty(d.Legacy))
-            {
-                word = Lvn.Content.LvnWords.Of(d.Legacy, null);
-                if (!string.IsNullOrEmpty(word)) return word;
-            }
-            return d.English;
+            return theme != null ? theme.Word(d.Key, d.English) : Lvn.Content.LvnWords.Of(d.Key, d.English);
         }
 
         /// <summary>Пояснение под подписью; пустое, когда его нет.</summary>

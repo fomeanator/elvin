@@ -784,7 +784,7 @@ namespace Lvn.UI.Screens
 
         private string PlayLabel(LvnTitle t) =>
             t.cost != null && t.cost.amount > 0
-                ? (LvnWords.Pick("hub.play", _cfg.play_text, "Play")) + "  ·  " + string.Format(_cfg.cost_text ?? "{0}", t.cost.amount)
+                ? (LvnWords.Pick("hub.play", _cfg.play_text, "Play")) + "  ·  " + string.Format(LvnWords.Pick("hub.cost", _cfg.cost_text, "{0}"), t.cost.amount)
                 : (LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
 
         /// <summary>

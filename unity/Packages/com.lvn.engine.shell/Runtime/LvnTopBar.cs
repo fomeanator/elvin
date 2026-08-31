@@ -202,8 +202,8 @@ namespace Lvn.UI.Screens
             // английскую сборку невозможной, хотя дом для слов давно есть.
             _gameRow.Add(GameButton(LvnIcon.Home, () => LvnWords.Of("game.exit", "Menu"), () => { ToggleGameBar(false); OnGameExit?.Invoke(); }));
             _gameRow.Add(GameButton(LvnIcon.Book, () => LvnWords.Of("game.history", "History"), () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Wardrobe, () => LvnWords.Of("game.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
-            _gameRow.Add(GameButton(LvnIcon.Store, () => LvnWords.Of("game.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Wardrobe, () => LvnWords.Of("menu.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Store, () => LvnWords.Of("menu.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
             Add(_gameRow);
 
             RefreshBalances();

@@ -74,11 +74,27 @@ namespace Lvn.Services
         public static string Display(string currency)
         {
             long amount = Balances.TryGetValue(currency ?? "", out var b) ? b : 0;
-            return Regen.TryGetValue(currency ?? "", out var r) && r.Cap > 0 && amount < r.Cap
-                ? amount + "/" + r.Cap
+            return BelowCap(currency)
+                ? amount + "/" + Regen[currency ?? ""].Cap
                 : Lvn.UI.LvnPriceTag.Amount(amount);   // через Ценник: сборка сервисов
                   // видит интерфейс, но не модель контента — а «как показать
                   // сумму» и есть работа Ценника.
+        }
+
+        /// <summary>
+        /// ВАЛЮТА КОПИТСЯ — то есть у неё есть потолок и до него не добрали.
+        ///
+        /// <para>Один вопрос, два ответчика: показ суммы решал его у себя
+        /// («3/5» вместо «3»), а пилюля кошелька — у себя, чтобы понять, вешать
+        /// ли таймер до следующего начисления. Разойдись эти два места на строгом
+        /// и нестрогом сравнении — и на полном кошельке рядом с «5/5» тикал бы
+        /// счётчик до пополнения, которого не будет.</para>
+        /// </summary>
+        public static bool BelowCap(string currency)
+        {
+            var key = currency ?? "";
+            return Regen.TryGetValue(key, out var r) && r.Cap > 0
+                   && (Balances.TryGetValue(key, out var b) ? b : 0) < r.Cap;
         }
 
         /// <summary>Raised whenever the mirrored state changes.</summary>

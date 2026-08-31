@@ -178,7 +178,7 @@ namespace Lvn.UI.Screens
                 IconUrl = iconUrl,
                 IconTint = _pillText,
                 ShowTimer = true,
-                TimerReadyText = _cfg.regen_ready_text ?? "…",
+                TimerReadyText = LvnWords.Pick("hud.regen_ready", _cfg.regen_ready_text, "…"),
             }, _assets);
             _pillsRow.Add(pill);
             return pill;
