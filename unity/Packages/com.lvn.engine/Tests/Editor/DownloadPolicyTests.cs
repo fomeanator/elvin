@@ -41,10 +41,13 @@ namespace Lvn.Tests
         [Test]
         public void Kind_MapsByExtension()
         {
-            Assert.AreEqual("sprite", DownloadPolicy.Kind("/a/b.png"));
-            Assert.AreEqual("sprite", DownloadPolicy.Kind("/a/b.webp"));
-            Assert.AreEqual("audio", DownloadPolicy.Kind("/a/b.ogg"));
-            Assert.AreEqual("bin", DownloadPolicy.Kind("/a/b.lvn"));
+            Assert.AreEqual(LvnParts.Sprite, DownloadPolicy.Kind("/a/b.png"));
+            Assert.AreEqual(LvnParts.Sprite, DownloadPolicy.Kind("/a/b.webp"));
+            Assert.AreEqual(LvnParts.Audio, DownloadPolicy.Kind("/a/b.ogg"));
+            // Скрипт зовётся скриптом. Прежде здесь стояло «bin»: словарь
+            // определителя не знал слова, на котором ветвится загрузчик, — и
+            // рядом с каждым вызовом приходилось держать проверку-дублёр.
+            Assert.AreEqual(LvnParts.Script, DownloadPolicy.Kind("/a/b.lvn"));
         }
 
         [Test]
@@ -101,6 +104,46 @@ namespace Lvn.Tests
                 "полотно витрины знает только манифест — по имени файла оно обычная картинка");
             Assert.IsFalse(DownloadPolicy.NeededForFirstFrame(canvas),
                 "без манифеста это просто картинка, и ждать её незачем");
+        }
+
+        // ЧТО ЭТО ЗА ФАЙЛ — один ответ. Определителей было два: политика и
+        // самодельная копия внутри планировщика. На знакомых расширениях они
+        // совпадали, а на незнакомом расходились — планировщик считал такой
+        // файл КАРТИНКОЙ и грел его как картинку.
+        [Test]
+        public void РодФайлаНазываетсяСловамиОписи()
+        {
+            Assert.AreEqual(LvnParts.Sprite, DownloadPolicy.Kind("/content/bg/a.png"));
+            Assert.AreEqual(LvnParts.Sprite, DownloadPolicy.Kind("/content/bg/a.WEBP"));
+            Assert.AreEqual(LvnParts.Audio, DownloadPolicy.Kind("/content/sfx/a.ogg"));
+            Assert.AreEqual(LvnParts.Bin, DownloadPolicy.Kind("/content/fonts/a.ttf"),
+                "незнакомое расширение — не картинка: греть его как картинку значит "
+                + "распаковывать в текстуру то, что текстурой не является");
+        }
+
+        // Слово «скрипт» в словаре определителя завелось не для красоты: ровно
+        // на нём ветвится загрузчик (текстом или байтами). Пока его не было,
+        // рядом с каждым вызовом стояла проверка-дублёр.
+        [Test]
+        public void СкриптРодНазываетсяСкриптом()
+        {
+            Assert.AreEqual(LvnParts.Script, DownloadPolicy.Kind("/content/scripts/ch1.lvn"));
+            Assert.AreEqual(LvnParts.Script, DownloadPolicy.Kind("/content/scripts/ch1.lvn?v=7"),
+                "запрос за адресом не меняет род файла");
+        }
+
+        // АДРЕС СОСЕДА. Каталог перевода лежит рядом со скриптом: ch1.lvn →
+        // ch1.ru.json. Пока хвост клеили к сырому адресу, версия в запросе
+        // попадала в СЕРЕДИНУ имени — файла с таким именем нет, каталог не
+        // находился, и глава молча оставалась на языке автора.
+        [Test]
+        public void АдресСоседаНеЛомаетсяОЗапрос()
+        {
+            Assert.AreEqual("/s/ch1.ru.json", LvnUrl.Sibling("/s/ch1.lvn", ".ru.json"));
+            Assert.AreEqual("/s/ch1.ru.json?v=7", LvnUrl.Sibling("/s/ch1.lvn?v=7", ".ru.json"),
+                "запрос обязан ехать в конец: в середине имени он даёт несуществующий файл");
+            Assert.AreEqual("/s/ch1.ru.json", LvnUrl.Sibling("/s/ch1", ".ru.json"),
+                "адрес без расширения — тоже адрес");
         }
     }
 }

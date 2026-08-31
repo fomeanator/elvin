@@ -31,6 +31,21 @@ namespace Lvn.Content
             return q >= 0 ? url.Substring(0, q) : url;
         }
 
+        /// <summary>Файл-СОСЕД: тот же адрес с другим хвостом («ch1.lvn» + «.ru.json»
+        /// → «ch1.ru.json»). Запрос за адресом переезжает в конец, а не в середину
+        /// имени: приклеенный к имени «?v=7» давал файл, которого нет, — каталог
+        /// перевода не находился, и глава молча оставалась на языке автора.</summary>
+        public static string Sibling(string url, string suffix)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+            var bare = Bare(url);
+            var query = url.Length > bare.Length ? url.Substring(bare.Length) : "";
+            int dot = bare.LastIndexOf('.');
+            int slash = bare.LastIndexOfAny(new[] { '/', '\\' });
+            if (dot > slash) bare = bare.Substring(0, dot);
+            return bare + suffix + query;
+        }
+
         /// <summary>Сетевой адрес: за ним запрос, и путь в нём кодируют.</summary>
         public static bool Remote(string url)
             => !string.IsNullOrEmpty(url)

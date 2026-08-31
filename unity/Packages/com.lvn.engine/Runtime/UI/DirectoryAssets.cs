@@ -84,7 +84,7 @@ namespace Lvn.UI
             // Decode through UnityWebRequestMultimedia from a file:// url — Unity's
             // own decoder, run on the main thread (the only place AudioClip can be
             // built). This handles wav/ogg/mp3 correctly; never hand-roll PCM.
-            using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, GuessAudioType(path));
+            using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, Lvn.Content.DownloadPolicy.AudioTypeOf(path));
             var op = req.SendWebRequest();
             if (!await Lvn.Content.LvnNetWait.AwaitAsync(req, op, ct)) return null;
             if (Lvn.Content.LvnNetWait.Failed(req)) return null;
@@ -96,14 +96,6 @@ namespace Lvn.UI
             return clip;
         }
 
-        private static AudioType GuessAudioType(string path)
-        {
-            var lower = path.ToLowerInvariant();
-            if (lower.EndsWith(".ogg")) return AudioType.OGGVORBIS;
-            if (lower.EndsWith(".wav")) return AudioType.WAV;
-            if (lower.EndsWith(".mp3")) return AudioType.MPEG;
-            return AudioType.UNKNOWN;
-        }
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
         // одинаковые правила освобождения. Копия здесь и была тем местом, где
         // «почти одинаково» однажды становится «по-разному».

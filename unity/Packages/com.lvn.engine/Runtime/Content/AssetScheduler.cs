@@ -249,11 +249,11 @@ namespace Lvn.Content
         // окном сцены (WarmUpcomingArtAsync + сами bg/actor, скрытые вуалью).
         private async Task Warm(Item item, CancellationToken ct)
         {
-            var kind = string.IsNullOrEmpty(item.Kind) ? KindOf(item.Url) : item.Kind;
+            var kind = string.IsNullOrEmpty(item.Kind) ? DownloadPolicy.Kind(item.Url) : item.Kind;
             switch (kind)
             {
-                case "audio":
-                    await _loader.Prefetch(item.Url, "audio", ct);
+                case LvnParts.Audio:
+                    await _loader.Prefetch(item.Url, LvnParts.Audio, ct);
                     break;
                 default:
                     // Warm the SAME file the display path will fetch — the loader
@@ -303,7 +303,7 @@ namespace Lvn.Content
             {
                 foreach (var kv in assets)
                 {
-                    if (string.IsNullOrEmpty(kv.Key) || IsScript(kv.Key)) continue;
+                    if (string.IsNullOrEmpty(kv.Key) || DownloadPolicy.IsScript(kv.Key)) continue;
                     // ВАЖНОЕ ДЕРЖИТ ВХОД, ОСТАЛЬНОЕ ЕДЕТ НА ЛЕТУ. Заставка
                     // (бренд-фейд/лоадер) ждёт только critical — открывающую
                     // сцену; хвост главы стримится фоном во время игры, впереди
@@ -350,15 +350,5 @@ namespace Lvn.Content
             return string.CompareOrdinal(a.Key, b.Key);
         }
 
-        private static bool IsScript(string url) =>
-            LvnUrl.Bare(url).ToLowerInvariant().EndsWith(".lvn");
-
-        private static string KindOf(string url)
-        {
-            var u = LvnUrl.Bare(url).ToLowerInvariant();
-            if (u.EndsWith(".lvn")) return "script";
-            if (u.EndsWith(".ogg") || u.EndsWith(".wav") || u.EndsWith(".mp3")) return "audio";
-            return "sprite";
-        }
     }
 }

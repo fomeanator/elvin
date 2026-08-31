@@ -62,9 +62,30 @@ namespace Lvn.Content
         public static bool IsScript(string url) =>
             LvnUrl.Bare(url).EndsWith(".lvn", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>The prefetch kind string ("sprite" | "audio" | "bin").</summary>
+        /// <summary>Каким декодером Unity читать этот звук. Таблица стояла
+        /// ДВАЖДЫ — у загрузчика и у файлового поставщика, слово в слово. Живёт
+        /// здесь же, где список звуковых расширений: пополнить один список и
+        /// забыть другой означало бы «файл скачан, но не звучит».</summary>
+        public static UnityEngine.AudioType AudioTypeOf(string url)
+        {
+            var u = LvnUrl.Bare(url ?? "").ToLowerInvariant();
+            if (u.EndsWith(".ogg")) return UnityEngine.AudioType.OGGVORBIS;
+            if (u.EndsWith(".wav")) return UnityEngine.AudioType.WAV;
+            if (u.EndsWith(".mp3")) return UnityEngine.AudioType.MPEG;
+            return UnityEngine.AudioType.UNKNOWN;
+        }
+
+        /// <summary>ЧТО ЭТО ЗА ФАЙЛ — один ответ на движок, словами
+        /// <see cref="LvnParts"/>. Определителей было два, и на незнакомом
+        /// расширении они расходились: планировщик считал такой файл КАРТИНКОЙ,
+        /// политика — двоичным. Вдобавок словарь политики не знал слова
+        /// «скрипт», хотя ровно на нём ветвится загрузчик, — и звать его
+        /// приходилось с проверкой-дублёром рядом.</summary>
         public static string Kind(string url) =>
-            IsImage(url) ? "sprite" : IsAudio(url) ? "audio" : "bin";
+            IsScript(url) ? LvnParts.Script
+            : IsImage(url) ? LvnParts.Sprite
+            : IsAudio(url) ? LvnParts.Audio
+            : LvnParts.Bin;
 
         /// <summary>The "@2k" downscale-variant url for large story art, or null
         /// when the url must load as-is (pixel art, UI skins, already a variant,

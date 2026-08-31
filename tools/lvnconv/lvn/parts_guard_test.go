@@ -544,3 +544,56 @@ func TestBrowseAnswersOneWay(t *testing.T) {
 		}
 	}
 }
+
+// ЧТО ЭТО ЗА ФАЙЛ — ОДИН ОТВЕТ.
+//
+// «Это скрипт?» было написано ТРИЖДЫ: в политике загрузок, в планировщике и в
+// офлайн-политике — причём третья копия чистила адрес от запроса своим
+// способом. Род файла определяли ДВОЕ, и на незнакомом расширении они
+// расходились: планировщик считал такой файл картинкой и грел его как картинку.
+//
+// Расширение файла само по себе не запрещено — по нему выбирают декодер звука
+// и разбирают атлас Spine. Запрещено ВТОРОЕ МНЕНИЕ о роде: список расширений
+// содержимого живёт в DownloadPolicy, остальные спрашивают его.
+func TestFileKindHasOneAnswer(t *testing.T) {
+	root := repoRoot(t)
+	// Явные исключения — они отвечают на ДРУГОЙ вопрос, а не на «что это за файл».
+	allowed := map[string]string{
+		"DownloadPolicy.cs": "сам определитель",
+		"DirectoryAssets.cs": "каким декодером читать звук (AudioType), а не какого файл рода",
+		"VnStage.Spine.cs":   "разбор атласа Spine: страницы перечислены внутри файла",
+		"LvnSpineBootstrap.cs": "то же — страницы атласа",
+	}
+	sniff := regexp.MustCompile(`EndsWith\("\.(lvn|png|jpg|jpeg|webp|ogg|wav|mp3)"`)
+
+	var found []string
+	scanned := 0
+	for _, rel := range []string{"unity/Packages"} {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			p := filepath.ToSlash(path)
+			if strings.Contains(p, "/Tests/") || strings.Contains(p, "/Editor/") {
+				return nil
+			}
+			if _, ok := allowed[filepath.Base(path)]; ok {
+				return nil
+			}
+			scanned++
+			for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+				if sniff.MatchString(l) {
+					found = append(found, fmt.Sprintf("%s:%d: %s", filepath.Base(path), i+1, strings.TrimSpace(l)))
+				}
+			}
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("род файла определяют по расширению мимо DownloadPolicy (%d):\n  %s\n\n"+
+			"Спросите DownloadPolicy.Kind/IsScript/IsImage/IsAudio. Второе мнение о роде "+
+			"расходится с первым молча: список расширений в одной копии пополняют, в другой забывают.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

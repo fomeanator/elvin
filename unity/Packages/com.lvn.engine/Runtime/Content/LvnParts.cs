@@ -40,9 +40,14 @@ namespace Lvn.Content
     /// </summary>
     public static class LvnParts
     {
+        // СЛОВАРЬ РОДОВ — один на движок. Кто определяет род по адресу —
+        // DownloadPolicy.Kind; здесь только слова, чтобы производитель и
+        // потребитель называли одно и то же одинаково.
         public const string Sprite = "sprite";
         public const string Script = "script";
         public const string Audio = "audio";
+        /// <summary>Всё остальное: шрифт, набор, незнакомое расширение.</summary>
+        public const string Bin = "bin";
 
         /// <summary>Файлы ОДНОЙ ГЛАВЫ.</summary>
         public static IEnumerable<LvnPart> OfChapter(LvnChapter ch)
