@@ -70,10 +70,13 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>Вкладка по номеру. Чужой номер даёт НЕ вкладку: у пустого
+        /// значения номер −1, а не ноль — иначе сохранённый мусор молча
+        /// объявлял бы себя главной.</summary>
         public static LvnTab Of(int index)
         {
             for (int i = 0; i < Shown.Count; i++) if (Shown[i].Index == index) return Shown[i];
-            return default;
+            return new LvnTab(-1, default, null, null, hasPage: false);
         }
 
         /// <summary>Подпись вкладки: перевод сильнее авторского поля, оно
