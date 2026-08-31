@@ -282,7 +282,11 @@ namespace Lvn.UI
         /// не пустой экран: опечатка в манифесте не должна ронять оболочку.</summary>
         public static LvnTheme ByName(string name)
         {
-            switch ((name ?? "").Trim().ToLowerInvariant())
+            // Через дом закрытого слова: опечатка молча отдавала «Полночь», и
+            // киберпанковая игра открывалась в облике по умолчанию — автор
+            // видел не ошибку, а «почему-то не так».
+            switch (LvnAuthorWord.Pick(name, "ui.browse.theme", "midnight",
+                                       "midnight", "cyber", "cyberpunk", "romance"))
             {
                 case "cyber":
                 case "cyberpunk": return Cyber();

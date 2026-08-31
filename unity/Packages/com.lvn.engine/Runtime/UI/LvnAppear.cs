@@ -99,12 +99,13 @@ namespace Lvn.UI
             completion.ExecuteLater(ms + 1);
         }
 
-        /// <summary>Имя вида из языка. Неизвестное — None: молча не двигаемся,
-        /// а не падаем посреди главы.</summary>
+        /// <summary>Имя вида появления. Неизвестное — None: посреди главы не
+        /// падаем, но и не молчим — жалоба идёт в лог, потому что «панель
+        /// просто возникла» автор объяснить себе не сможет.</summary>
         public static LvnAppearKind Parse(string name)
         {
             if (string.IsNullOrEmpty(name)) return LvnAppearKind.None;
-            switch (name.Trim().ToLowerInvariant())
+            switch (LvnAuthorWord.Pick(name, "appear", "", Names))
             {
                 case "fade": return LvnAppearKind.Fade;
                 case "rise": return LvnAppearKind.Rise;
@@ -118,6 +119,15 @@ namespace Lvn.UI
             }
             return LvnAppearKind.None;
         }
+
+        /// <summary>Все виды появления, включая короткие синонимы.</summary>
+        public static readonly string[] Names =
+        {
+            "fade", "rise", "pop",
+            "slide_up", "up", "slide_down", "down",
+            "slide_left", "left", "slide_right", "right",
+            "drop", "unfold",
+        };
 
         /// <summary>Сыграть появление (<paramref name="appearing"/>) или уход.
         /// <paramref name="ms"/> = 0 берёт длительность темы.</summary>
