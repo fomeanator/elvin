@@ -1,7 +1,7 @@
 // ЭКСПОРТ — ПУТЬ ДОСТАВКИ, А НЕ ЕЩЁ ОДИН ЯЗЫК.
 //
 // `export.js` собирает из новеллы самостоятельный .html: внутрь попадают тот же
-// `core.js` и `expr.js`, только со снятыми строками import/export. Значит
+// `core.js`, `expr.js` и `color.js`, только со снятыми строками import/export. Значит
 // экспортированная игра обязана играть ровно так же, как песочница, — и
 // доказывается это не прогоном (в файле нет модулей, его не импортируешь), а
 // тем, что упакованный код ПОСТРОЧНО совпадает с исходником.
@@ -29,7 +29,7 @@ const doc = { scene: "check", script: [{ op: "say", text: "раз" }] };
 const html = await buildHtml("check", JSON.stringify(doc), {}, {}, (u) => u);
 
 const problems = [];
-const core = read("core.js"), expr = read("expr.js");
+const core = read("core.js"), expr = read("expr.js"), color = read("color.js");
 
 if (/^\s*import /m.test(html)) problems.push("в упакованном виде остался import — файл не самостоятелен");
 
@@ -42,7 +42,7 @@ if (/^\s*import /m.test(html)) problems.push("в упакованном виде
 if (/^[^\S\n]*[\w,\s]*\}\s*from\s+["']/m.test(html))
   problems.push("в упакованном виде остался ХВОСТ импорта (перенос строки внутри import) — держите import одной строкой");
 
-for (const [name, src] of [["core.js", core], ["expr.js", expr]]) {
+for (const [name, src] of [["core.js", core], ["expr.js", expr], ["color.js", color]]) {
   for (const raw of src.split("\n")) {
     const line = raw.trim();
     if (!line || line.startsWith("//")) continue;
