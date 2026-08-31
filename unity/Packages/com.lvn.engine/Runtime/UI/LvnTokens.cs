@@ -104,6 +104,22 @@ namespace Lvn.UI
         public static int TextXl      => LvnFonts.Size(LvnTheme.Current.TextXl);
         public static int TextDisplay => LvnFonts.Size(LvnTheme.Current.TextDisplay);
 
+        /// <summary>Кегль, НАЗВАННЫЙ АВТОРОМ, — или ступень лестницы, если он
+        /// промолчал.
+        ///
+        /// <para>Авторское число тоже проходит через <see cref="LvnFonts.Size"/>:
+        /// правило «один кегль — один видимый размер у любой гарнитуры» держится
+        /// оптической поправкой, и шесть настраиваемых заголовков были
+        /// единственными, кто мимо неё ходил — при смене гарнитуры они одни
+        /// менялись в размере.</para>
+        ///
+        /// <para>А умолчание за <c>??</c> было ещё и дырой в лестнице: страж
+        /// видит <c>fontSize = 22f</c>, но не видит <c>fontSize = cfg.x ?? 22f</c>,
+        /// и мимо шкалы жили 22, 34 и 40.</para>
+        /// </summary>
+        public static int TextOr(float? authored, int step) =>
+            authored.HasValue ? LvnFonts.Size(authored.Value) : step;
+
         public static float Space1 => LvnTheme.Current.Space1;
         public static float Space2 => LvnTheme.Current.Space2;
         public static float Space3 => LvnTheme.Current.Space3;
