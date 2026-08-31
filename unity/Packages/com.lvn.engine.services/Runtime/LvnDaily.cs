@@ -21,10 +21,10 @@ namespace Lvn.Services
         public static async Task<Status> GetAsync()
         {
             var (code, body) = await LvnBackend.GetAsync("/v1/daily");
-            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
+            var d = LvnBackend.Json(code, body);
+            if (d == null) return null;
             try
             {
-                var d = JObject.Parse(body);
                 return new Status
                 {
                     Streak = (int?)d["streak"] ?? 0,

@@ -116,21 +116,8 @@ namespace Lvn.UI.Screens
 
             // ВКЛАДКА как главная (Илья 26.08): без листа и скрима, контент на
             // общей атмосфере, дырка под нижнее меню, root не ловит тапы.
-            style.backgroundColor = Color.clear;
-            pickingMode = PickingMode.Ignore;
-
             var sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = 10; sheet.style.right = 10;
-            // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
-            // верх экрана — воздух с героиней и полотном.
-            sheet.style.top = Length.Percent(39f);
-            sheet.style.bottom = 132;
-            sheet.style.paddingTop = 18;
-            sheet.style.paddingBottom = 14;
-            sheet.style.paddingLeft = 18;
-            sheet.style.paddingRight = 18;
-            ScreenUi.SceneSheet(sheet, 0.92f);
+            ScreenUi.HubTabSheet(this, sheet);
             Add(sheet);
 
             // ── Top bar: back (‹) + "Профиль" ─────────────────────────────

@@ -34,10 +34,16 @@ namespace Lvn.UI
         // no safer for a real player who just made the pick herself).
         private bool _resumeSkipAfterChoice;
 
+        /// <summary>ГЛАВА ИДЁТ: чтец есть и он не доигран. Вопрос задавался
+        /// пятью местами тремя частями каждое — и в одном из них выродился в
+        /// «пропуск идёт И чтец есть И не доигран И на выборе», где первые три
+        /// части уже были проверены строкой выше.</summary>
+        private bool Playing => _player != null && !_player.Finished;
+
         /// <summary>Fast-forward lines until a choice, a tap, or the chapter ends.</summary>
         public void StartSkip()
         {
-            if (_player == null || _player.Finished) return;
+            if (!Playing) return;
             Skipping = true;
         }
 
@@ -46,9 +52,9 @@ namespace Lvn.UI
         private void SkipTick()
         {
             if (!Skipping) return;
-            if (_player == null || _player.Finished || _player.AtChoice)
+            if (!Playing || _player.AtChoice)
             {
-                if (Skipping && _player != null && !_player.Finished && _player.AtChoice)
+                if (Playing && _player.AtChoice)
                     _resumeSkipAfterChoice = true; // gearing down FOR a choice, not a stop/finish
                 Skipping = false; // something needs the player — gear down
                 return;
@@ -138,7 +144,7 @@ namespace Lvn.UI
         private void AutoAdvanceTick()
         {
             if (!LvnPrefs.AutoAdvance || InputBlocked || _chromeHidden
-                || _player == null || _player.Finished || _player.AtChoice
+                || !Playing || _player.AtChoice
                 || !_awaitingTap || _awaitingWait || _awaitingInput
                 || EntryGatePending
                 || _dialogue == null || _dialogue.IsRevealing)
@@ -173,7 +179,7 @@ namespace Lvn.UI
         /// </summary>
         public bool TryHotSwap(string lvnJson)
         {
-            if (_player == null || _player.Finished) return false;
+            if (!Playing) return false;
             LvnDocument doc;
             try { doc = LvnDocument.Parse(lvnJson); }
             catch { return false; }

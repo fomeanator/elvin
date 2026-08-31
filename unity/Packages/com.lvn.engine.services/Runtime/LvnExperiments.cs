@@ -69,10 +69,11 @@ namespace Lvn.Services
             LoadCached();
             if (string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;
             var (code, body) = await LvnBackend.GetAsync("/v1/experiments");
-            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return;
+            var answer = LvnBackend.Json(code, body);
+            if (answer == null) return;
             try
             {
-                var obj = JObject.Parse(body)["assignments"] as JObject;
+                var obj = answer["assignments"] as JObject;
                 if (obj == null) return;
                 _server.Clear();
                 foreach (var p in obj.Properties())

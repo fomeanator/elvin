@@ -31,17 +31,20 @@ namespace Lvn.Services
             var payload = new JObject { ["score"] = score };
             if (!string.IsNullOrEmpty(displayName)) payload["name"] = displayName;
             var (code, body) = await LvnBackend.PostAsync("/v1/leaderboard/" + board, payload.ToString());
-            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return 0;
-            try { return (int?)JObject.Parse(body)["rank"] ?? 0; } catch { return 0; }
+            var d = LvnBackend.Json(code, body);
+            if (d == null) return 0;
+            // Число в чужом виде («"12"», null) — тоже «места нет»: сервер
+            // считается недоговороспособным, а не поводом уронить отправку.
+            try { return (int?)d["rank"] ?? 0; } catch { return 0; }
         }
 
         public static async Task<Top> GetTopAsync(string board, int n = 10)
         {
             var (code, body) = await LvnBackend.GetAsync($"/v1/leaderboard/{board}?n={n}");
-            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
+            var d = LvnBackend.Json(code, body);
+            if (d == null) return null;
             try
             {
-                var d = JObject.Parse(body);
                 var top = new Top { Total = (int?)d["total"] ?? 0 };
                 foreach (var e in d["top"] as JArray ?? new JArray())
                     top.Entries.Add(new Entry { Name = (string)e["name"], Score = (long?)e["score"] ?? 0 });

@@ -118,12 +118,7 @@ namespace Lvn.Content
         // no recognised image extension (nothing sensible to transcode).
         private static string AstcUrlFor(string url)
         {
-            if (string.IsNullOrEmpty(url)) return null;
-            int dot = url.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = url.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + ".astc";
+            return DownloadPolicy.SplitSourceImage(url, out var stem, out _) ? stem + ".astc" : null;
         }
 
         // Parses the standard ARM .astc container: a 16-byte header (4-byte

@@ -184,56 +184,11 @@ namespace Lvn.UI
                 return;
             }
 
-            // Resolve the layer urls, in priority order:
-            //   1. catalog id (manifest.sprites) — layered, with conditional `when`;
-            //   2. per-doc cast block — layered by the command's axes;
-            //   3. direct body/clothes/hair layers, or a single sprite_url.
-            List<string> urls;
-            List<string> urlIds = null;      // parallel layer ids (catalog path), for blink/lip-sync
-            List<Vector4> urlRects = null;    // parallel per-layer sub-rects (x,y,w,h); w≤0 = fill
-            List<SpriteCatalog.ResolvedLayer> urlDefs = null; // parallel full defs (bones: parent/pivot/spring)
-            if (Catalog != null && Catalog.Has(id))
-            {
-                var axes = AxesOf(cmd);
-                // An actual staging (not the preload scan, which never comes
-                // through here) is the outfit "crossing the player's path" —
-                // the always-open wardrobe's collection grows from these.
-                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
-                var rls = Catalog.ResolveLayers(id, axes, CatalogCond());
-                // Диагностика облика: «почему лысая/не тот наряд» решается одной
-                // строкой лога вместо круга скриншотов — видно, какие слои и из
-                // каких осей собрались.
-                LvnLog.Trace($"[lvn-actor] {id}: слои [{string.Join(",", rls.ConvertAll(r => r.Id))}] "
-                    + $"оси {{{string.Join(", ", System.Linq.Enumerable.Select(axes, kv => kv.Key + "=" + kv.Value))}}}");
-                urls = new List<string>(rls.Count);
-                urlIds = new List<string>(rls.Count);
-                urlRects = new List<Vector4>(rls.Count);
-                urlDefs = rls;
-                foreach (var rl in rls) { urls.Add(rl.Url); urlIds.Add(rl.Id); urlRects.Add(new Vector4(rl.X, rl.Y, rl.W, rl.H)); }
-            }
-            else if (_cast != null && _cast.TryGetValue(id, out var entity))
-            {
-                // ЧЕРЕЗ КОСТЮМЕРА, как и путь каталога. Раньше здесь брались
-                // СЫРЫЕ оси команды: на персонажа из блока `cast` не
-                // действовали ни переменные ({var} уезжал в имя файла как
-                // есть), ни гардероб — примерка и надетое до него просто не
-                // доходили. Два пути одевали героя по разным правилам, и
-                // отличались они одной буквой в имени метода.
-                var axes = AxesOf(cmd);
-                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
-                urls = SpriteComposer.Resolve(entity, axes);
-            }
-            else
-            {
-                urls = new List<string>();
-                var body = (string)cmd["body_url"]; if (!string.IsNullOrEmpty(body)) urls.Add(body);
-                var clothes = (string)cmd["clothes_url"]; if (!string.IsNullOrEmpty(clothes)) urls.Add(clothes);
-                var hair = (string)cmd["hair_url"]; if (!string.IsNullOrEmpty(hair)) urls.Add(hair);
-                if (urls.Count == 0)
-                {
-                    var sp = (string)cmd["sprite_url"]; if (!string.IsNullOrEmpty(sp)) urls.Add(sp);
-                }
-            }
+            var art = ResolveActorArt(id, cmd);
+            var urls = art.Urls;
+            var urlIds = art.Ids;      // parallel layer ids (catalog path), for blink/lip-sync
+            var urlRects = art.Rects;  // parallel per-layer sub-rects (x,y,w,h); w≤0 = fill
+            var urlDefs = art.Defs;    // parallel full defs (bones: parent/pivot/spring)
 
             // Build the click action + placement SYNCHRONOUSLY (everything here runs
             // before the first `await` below). For the Canvas scene we also place the
@@ -242,42 +197,7 @@ namespace Lvn.UI
             // shows. Otherwise the hotspot armed only a few frames later (after the
             // async art load), and a tap in that gap fell through to "advance",
             // re-printing the room — the "first click does nothing" bug.
-            System.Action onClick = null;
-            var clickField = cmd["on_click"];
-            if (clickField != null)
-            {
-                if (clickField.Type == JTokenType.Object)
-                {
-                    var clickObj = (JObject)clickField;
-                    var target = (string)clickObj["goto"];
-                    var setOps = clickObj["set"] as JObject;
-                    onClick = () =>
-                    {
-                        if (_player == null) return;
-                        if (setOps != null)
-                        {
-                            foreach (var prop in setOps.Properties())
-                                _player.Vars[prop.Name] = prop.Value;
-                        }
-                        if (!string.IsNullOrEmpty(target))
-                            _player.GoTo(target);
-                        StopWaitingForPlayer();   // клик по зоне опередил таймер — он и отменяет
-                        _player.Advance();
-                    };
-                }
-                else
-                {
-                    var clickTarget = (string)clickField;
-                    if (!string.IsNullOrEmpty(clickTarget))
-                        onClick = () =>
-                        {
-                            if (_player == null) return;
-                            _player.GoTo(clickTarget);
-                            StopWaitingForPlayer();   // клик по зоне опередил таймер
-                            _player.Advance();
-                        };
-                }
-            }
+            var onClick = ClickActionFrom(cmd["on_click"]);
 
             bool fresh = !_memory.TryWhere(id, out var prevPl);
             // АВТОРСКАЯ КОМАНДА НЕ НАСЛЕДУЕТ ЧУЖУЮ ПОЗУ. Липкость размещения —
@@ -636,6 +556,127 @@ namespace Lvn.UI
         /// останавливает всё своё движение (<c>StopAll</c>), и вернуть его в
         /// кадр без этого шага значило бы вернуть неподвижную куклу.</para>
         /// </summary>
+        /// <summary>
+        /// ВО ЧТО ФИГУРА ОДЕТА — слои, которые надо нарисовать по этой команде.
+        ///
+        /// <para>Путей к ним три, и они разной силы: каталог новеллы
+        /// (<c>manifest.sprites</c> — слои с условиями <c>when</c>), блок
+        /// <c>cast</c> самого документа и, наконец, прямые адреса в команде
+        /// (<c>body_url</c>/<c>clothes_url</c>/<c>hair_url</c>, иначе одна
+        /// картинка <c>sprite_url</c>). Первый нашедшийся и отвечает.</para>
+        ///
+        /// <para>ПЕРВЫЕ ДВА ПУТИ СПРАШИВАЮТ ОСИ ОДИНАКОВО. Раньше путь
+        /// <c>cast</c> брал СЫРЫЕ оси команды: на такого персонажа не
+        /// действовали ни переменные ({var} уезжал в имя файла как есть), ни
+        /// гардероб — примерка и надетое до него просто не доходили. Два пути
+        /// одевали героя по разным правилам, а отличались одной буквой в имени
+        /// метода.</para>
+        /// </summary>
+        private readonly struct ActorArt
+        {
+            public readonly List<string> Urls;
+            /// <summary>Имена слоёв — по ним живут моргание и губы. Есть только
+            /// у пути каталога: остальные два слоёв по именам не знают.</summary>
+            public readonly List<string> Ids;
+            /// <summary>Кусок картинки на слой (x,y,w,h); w≤0 — «весь файл».</summary>
+            public readonly List<Vector4> Rects;
+            /// <summary>Полные описания слоёв — для костей (родитель, ось, пружина).</summary>
+            public readonly List<SpriteCatalog.ResolvedLayer> Defs;
+
+            public ActorArt(List<string> urls, List<string> ids,
+                            List<Vector4> rects, List<SpriteCatalog.ResolvedLayer> defs)
+            { Urls = urls; Ids = ids; Rects = rects; Defs = defs; }
+        }
+
+        private ActorArt ResolveActorArt(string id, JObject cmd)
+        {
+            if (Catalog != null && Catalog.Has(id))
+            {
+                var axes = AxesOf(cmd);
+                // Настоящая постановка (а не обход предзагрузки, который сюда не
+                // заходит) — это наряд, ПОПАВШИЙСЯ ИГРОКУ НА ГЛАЗА: из таких и
+                // растёт коллекция всегда открытого гардероба.
+                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
+                var rls = Catalog.ResolveLayers(id, axes, CatalogCond());
+                // Диагностика облика: «почему лысая/не тот наряд» решается одной
+                // строкой лога вместо круга скриншотов — видно, какие слои и из
+                // каких осей собрались.
+                LvnLog.Trace($"[lvn-actor] {id}: слои [{string.Join(",", rls.ConvertAll(r => r.Id))}] "
+                    + $"оси {{{string.Join(", ", System.Linq.Enumerable.Select(axes, kv => kv.Key + "=" + kv.Value))}}}");
+                var urls = new List<string>(rls.Count);
+                var ids = new List<string>(rls.Count);
+                var rects = new List<Vector4>(rls.Count);
+                foreach (var rl in rls) { urls.Add(rl.Url); ids.Add(rl.Id); rects.Add(new Vector4(rl.X, rl.Y, rl.W, rl.H)); }
+                return new ActorArt(urls, ids, rects, rls);
+            }
+
+            if (_cast != null && _cast.TryGetValue(id, out var entity))
+            {
+                var axes = AxesOf(cmd);
+                foreach (var ax in axes) LvnWardrobe.MarkSeen(id, ax.Key, ax.Value);
+                return new ActorArt(SpriteComposer.Resolve(entity, axes), null, null, null);
+            }
+
+            var direct = new List<string>();
+            var body = (string)cmd["body_url"]; if (!string.IsNullOrEmpty(body)) direct.Add(body);
+            var clothes = (string)cmd["clothes_url"]; if (!string.IsNullOrEmpty(clothes)) direct.Add(clothes);
+            var hair = (string)cmd["hair_url"]; if (!string.IsNullOrEmpty(hair)) direct.Add(hair);
+            if (direct.Count == 0)
+            {
+                var sp = (string)cmd["sprite_url"]; if (!string.IsNullOrEmpty(sp)) direct.Add(sp);
+            }
+            return new ActorArt(direct, null, null, null);
+        }
+
+        /// <summary>
+        /// ЧТО ДЕЛАЕТ НАЖАТИЕ ПО ФИГУРЕ.
+        ///
+        /// <para>Автор пишет <c>on_click</c> двумя способами: одним словом —
+        /// метка перехода, — или объектом <c>{ goto, set }</c>, который заодно
+        /// правит переменные. Оба кончаются одинаково: переменные, переход,
+        /// ОТМЕНА ОЖИДАНИЯ и шаг. Отмена здесь не мелочь — нажатие по зоне
+        /// опередило таймер <c>wait</c>, и без неё таймер догонит и продвинет
+        /// реплику второй раз.</para>
+        ///
+        /// <para>Действие собирается СИНХРОННО, до первого ожидания в показе:
+        /// зона обязана ловить нажатие с того же кадра, в котором сработала
+        /// команда. Пока её ставили после загрузки арта, нажатие в этом
+        /// промежутке проваливалось в «продвинуть реплику» — комната
+        /// печаталась заново, и это выглядело как «первый клик не
+        /// работает».</para>
+        /// </summary>
+        private System.Action ClickActionFrom(JToken clickField)
+        {
+            if (clickField == null) return null;
+
+            if (clickField.Type == JTokenType.Object)
+            {
+                var clickObj = (JObject)clickField;
+                var target = (string)clickObj["goto"];
+                var setOps = clickObj["set"] as JObject;
+                return () =>
+                {
+                    if (_player == null) return;
+                    if (setOps != null)
+                        foreach (var prop in setOps.Properties())
+                            _player.Vars[prop.Name] = prop.Value;
+                    if (!string.IsNullOrEmpty(target)) _player.GoTo(target);
+                    StopWaitingForPlayer();
+                    _player.Advance();
+                };
+            }
+
+            var label = (string)clickField;
+            if (string.IsNullOrEmpty(label)) return null;
+            return () =>
+            {
+                if (_player == null) return;
+                _player.GoTo(label);
+                StopWaitingForPlayer();
+                _player.Advance();
+            };
+        }
+
         private async Task ApplyActorAnimsAsync(string id, JObject cmd, Placement placement,
                                                 int epoch, string lane, int gen)
         {

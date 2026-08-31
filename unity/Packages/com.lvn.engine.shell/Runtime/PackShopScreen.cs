@@ -101,18 +101,7 @@ namespace Lvn.UI.Screens
                 // враппера-листа и скрима — контент прямо на общей атмосфере;
                 // сверху навбар, снизу дырка под нижнее меню хаба (оно живёт и
                 // кликается — root не ловит тапы).
-                style.backgroundColor = Color.clear;
-                pickingMode = PickingMode.Ignore;
-                sheet.style.left = 10; sheet.style.right = 10;
-                // Контент прижат ВНИЗ (решение Ильи 26.08, «как гардероб»):
-                // верх экрана — воздух с героиней и полотном.
-                sheet.style.top = Length.Percent(39f);    // лицо героини остаётся в чистой зоне
-                sheet.style.bottom = 132; // дырка нижнего меню
-                sheet.style.paddingTop = 18;
-                sheet.style.paddingBottom = 14;
-                sheet.style.paddingLeft = 18;
-                sheet.style.paddingRight = 18;
-                ScreenUi.SceneSheet(sheet, 0.92f);
+                ScreenUi.HubTabSheet(this, sheet);
             }
             Add(sheet);
 

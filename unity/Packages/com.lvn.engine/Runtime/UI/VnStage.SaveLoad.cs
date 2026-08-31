@@ -262,7 +262,7 @@ namespace Lvn.UI
         /// app pause, and internally on choices / every few lines.</summary>
         public void AutosaveNow()
         {
-            if (_player == null || _player.Finished) return;
+            if (!Playing) return;
             SaveToSlot(LvnSaveStore.AutoSlot);
         }
     }

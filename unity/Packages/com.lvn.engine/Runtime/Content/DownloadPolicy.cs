@@ -114,16 +114,39 @@ namespace Lvn.Content
         /// расходятся ровно те места, которые никто не свяжет.</summary>
         public const string DisplayVariant = "@2k";
 
+        /// <summary>
+        /// ИСХОДНАЯ КАРТИНКА — та, из которой контент делает другие.
+        ///
+        /// <para>Разложить адрес на «имя без расширения» и «расширение», а
+        /// заодно ответить, картинка ли это вообще: у чужого расширения (звук,
+        /// сценарий, бандл, уже готовый .ktx2) вариантов и перекодировок не
+        /// бывает.</para>
+        ///
+        /// <para>Проверка стояла ЧЕТЫРЕЖДЫ дословно — у варианта качества, у
+        /// уменьшенного показа, у ASTC и у KTX2, — а список расширений в ней
+        /// один. Добавить контенту .webp значило вспомнить все четыре; забыть
+        /// одно — получить перекодировку, которая молча ничего не делает для
+        /// половины арта.</para>
+        /// </summary>
+        public static bool SplitSourceImage(string url, out string stem, out string ext)
+        {
+            stem = null; ext = null;
+            if (string.IsNullOrEmpty(url)) return false;
+            int dot = url.LastIndexOf('.');
+            if (dot < 0) return false;
+            var e = url.Substring(dot).ToLowerInvariant();
+            if (e != ".png" && e != ".jpg" && e != ".jpeg") return false;
+            stem = url.Substring(0, dot);
+            ext = url.Substring(dot);   // РОДНОЙ регистр: сервер отдаёт «.PNG», и
+            return true;                // приведённое к нижнему имя там не найдётся
+        }
+
         /// <summary>Навесить конкретный вариант на url (те же исключения, что у
         /// <see cref="DownscaleVariant"/>): «bg/x.jpg» + «@1k» → «bg/x@1k.jpg».</summary>
         public static string WithVariant(string url, string variant)
         {
-            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(variant)) return null;
-            int dot = url.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = url.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + variant + url.Substring(dot);
+            if (string.IsNullOrEmpty(variant)) return null;
+            return SplitSourceImage(url, out var stem, out var ext) ? stem + variant + ext : null;
         }
 
         /// <summary>Варианты ПОКАЗА (без «@mini»): их держит на диске центр
@@ -138,11 +161,7 @@ namespace Lvn.Content
             // from @2k (VnStage.Spine LoadSpineImageAsync) — warming the original
             // would download+decode a full-size page the renderer never samples.
             if (!(url.Contains("/bg/") || url.Contains("/art/") || url.Contains("/sprites/") || url.Contains("/spine/"))) return null;
-            int dot = url.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = url.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return url.Substring(0, dot) + PreferredSuffix + url.Substring(dot);
+            return SplitSourceImage(url, out var stem, out var ext) ? stem + PreferredSuffix + ext : null;
         }
 
         /// <summary>
