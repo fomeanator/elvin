@@ -94,7 +94,7 @@ namespace Lvn.UI
                         // «тот же облик — показать как есть» здесь и так не
                         // сработает (фигура не цела), но полагаться на это не
                         // станем — забываем надетое явно.
-                        _actorLook.Remove(id);
+                        _memory.DropLook(id);
                         RefreshWardrobeActor(id, null);
                     }
                 }, period: 0.5f);
@@ -109,7 +109,7 @@ namespace Lvn.UI
             if (dead == null) return null;
             List<string> mine = null;
             foreach (var id in dead)
-                if (_actorCmds.ContainsKey(id)) (mine ??= new List<string>()).Add(id);
+                if (_memory.Knows(id)) (mine ??= new List<string>()).Add(id);
             return mine;
         }
 

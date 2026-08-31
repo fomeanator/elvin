@@ -428,7 +428,7 @@ namespace Lvn.UI
                 // Говорящий возвращается, если соло его прятало — или впервые
                 // выходит на сцену сам (каталожный арт), без ручного actor-опа.
                 if (_soloHidden.Remove(speakerId) ||
-                    (Catalog != null && Catalog.Has(speakerId) && !_placements.ContainsKey(speakerId)))
+                    (Catalog != null && Catalog.Has(speakerId) && !_memory.HasWhere(speakerId)))
                 {
                     LvnAsync.Fire(ApplyActorAsync(new JObject
                     {
@@ -441,7 +441,7 @@ namespace Lvn.UI
             foreach (var id in _spokenIds)
             {
                 if (id == speakerId || _soloHidden.Contains(id)) continue;
-                if (!_placements.TryGetValue(id, out var pl) || !pl.Show) continue;
+                if (!_memory.TryWhere(id, out var pl) || !pl.Show) continue;
                 _soloHidden.Add(id);
                 LvnAsync.Fire(ApplyActorAsync(new JObject
                 {
@@ -474,17 +474,17 @@ namespace Lvn.UI
                 // renderer's loose key match so `actor Bob` + `Bob: ...` still
                 // receives a spatial nameplate.
                 string key = Lvn.LvnKey.Normalize(who);
-                foreach (var kv in _actorTargets)
+                foreach (var kv in _memory.Targets())
                     if (Lvn.LvnKey.Normalize(kv.Key) == key) { id = kv.Key; break; }
                 if (string.IsNullOrEmpty(id))
-                    foreach (var kv in _placements)
+                    foreach (var kv in _memory.Wheres())
                         if (Lvn.LvnKey.Normalize(kv.Key) == key) { id = kv.Key; break; }
             }
             if (string.IsNullOrEmpty(id)) return DialogueSpeakerSide.Unanchored;
 
             Placement p;
-            bool found = _actorTargets.TryGetValue(id, out p)
-                || _placements.TryGetValue(id, out p);
+            bool found = _memory.TryTarget(id, out p)
+                || _memory.TryWhere(id, out p);
             if (!found || !p.Show) return DialogueSpeakerSide.Unanchored;
             if (p.X < 0.45f) return DialogueSpeakerSide.Left;
             if (p.X > 0.55f) return DialogueSpeakerSide.Right;

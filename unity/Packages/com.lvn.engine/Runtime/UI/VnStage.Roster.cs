@@ -28,7 +28,7 @@ namespace Lvn.UI
         /// the actor isn't on stage.</summary>
         public void RefreshActor(string id)
         {
-            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var cmd)) return;
+            if (string.IsNullOrEmpty(id) || !_memory.TryCommand(id, out var cmd)) return;
             if (!BoolOr(cmd["show"], true)) return; // скрытого не воскрешать
             LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
@@ -41,8 +41,8 @@ namespace Lvn.UI
         /// Хосту меню это отличает «кукла есть/едет» от «пропала — переслать».</summary>
         public bool ActorVisibleOrPending(string id)
             => !string.IsNullOrEmpty(id)
-               && ((_placements.TryGetValue(id, out var p) && p.Show)
-                   || (_actorTargets.TryGetValue(id, out var t) && t.Show));
+               && ((_memory.TryWhere(id, out var p) && p.Show)
+                   || (_memory.TryTarget(id, out var t) && t.Show));
 
         /// <summary>ФИГУРА ЦЕЛА: слои на месте, и каждому есть чем рисовать.
         /// Такую показывают как есть — включением, а не сборкой.</summary>
@@ -52,7 +52,7 @@ namespace Lvn.UI
         /// файлы под теми же именами. Без этого сброса реплей после обновления
         /// показал бы прежний арт «как есть» — то есть не показал бы правку.
         /// </summary>
-        public void ForgetLooks() => _actorLook.Clear();
+        public void ForgetLooks() => _memory.ForgetLooks();
 
         public bool ActorArtAlive(string id)
             => !string.IsNullOrEmpty(id)
@@ -68,9 +68,9 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(id)) return;
             // Already on stage (the story/import staged her) → do NOTHING. Re-applying
             // would reload the whole layered composite and lag the wardrobe open.
-            if (_placements.TryGetValue(id, out var pl) && pl.Show) return;
+            if (_memory.TryWhere(id, out var pl) && pl.Show) return;
             JObject cmd;
-            if (_actorCmds.TryGetValue(id, out var last) && (string)last["op"] == "actor")
+            if (_memory.TryCommand(id, out var last) && (string)last["op"] == "actor")
             {
                 cmd = (JObject)last.DeepClone();
                 cmd["show"] = true; // in case the last op hid her
@@ -107,46 +107,30 @@ namespace Lvn.UI
         /// стороны перехода помнит ОДНУ И ТУ ЖЕ куклу.</summary>
         private void ForgetAllActorsExcept(string keep)
         {
-            List<string> drop = null;
-            foreach (var id in _actorCmds.Keys)
-                if (!string.Equals(id, keep, StringComparison.Ordinal)) (drop ??= new List<string>()).Add(id);
-            foreach (var id in _placements.Keys)
-                if (!string.Equals(id, keep, StringComparison.Ordinal)
-                    && (drop == null || !drop.Contains(id))) (drop ??= new List<string>()).Add(id);
-            foreach (var id in _actorTargets.Keys)
-                if (!string.Equals(id, keep, StringComparison.Ordinal)
-                    && (drop == null || !drop.Contains(id))) (drop ??= new List<string>()).Add(id);
-            if (drop == null) return;
-            foreach (var id in drop)
-            {
-                _actorCmds.Remove(id);
-                _placements.Remove(id);
-                _actorTargets.Remove(id);
-                _poseSender.Remove(id);
-            }
+            // Один список вместо трёх обходов по трём словарям: раньше
+            // «кого забыть» собиралось из ключей каждого по отдельности, с
+            // проверкой на повтор, — и четвёртый словарь в этот сбор не входил
+            // вовсе, его чистили следом наугад.
+            _memory.ForgetAllExcept(keep);
         }
 
         public void ForgetActor(string id)
         {
-            if (string.IsNullOrEmpty(id)) return;
-            _actorCmds.Remove(id);
-            _placements.Remove(id);
-            _actorTargets.Remove(id);
-            _poseSender.Remove(id);
+            _memory.Forget(id);
         }
 
         /// <summary>Стояла ли эта роль на сцене по СЦЕНАРИЮ — то есть помнит ли
         /// сцена её команду. Хост спрашивает перед примеркой, чтобы понимать,
         /// свой это актёр или приведённый гардеробом манекен.</summary>
         public bool RememberedByScript(string id)
-            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
+            => _memory.Knows(id);
 
         /// <summary>Ids of actors currently VISIBLE on stage — hosts use it to
         /// pick who an always-open wardrobe should dress.</summary>
         public List<string> ActorsOnStage()
         {
             var list = new List<string>();
-            foreach (var kv in _placements)
+            foreach (var kv in _memory.Wheres())
                 if (kv.Value.Show) list.Add(kv.Key);
             return list;
         }
@@ -167,9 +151,9 @@ namespace Lvn.UI
         public List<string> ActorsInFrame()
         {
             var list = new List<string>();
-            foreach (var kv in _placements)
+            foreach (var kv in _memory.Wheres())
                 if (kv.Value.Show) list.Add(kv.Key);
-            foreach (var kv in _actorTargets)
+            foreach (var kv in _memory.Targets())
                 if (kv.Value.Show && !list.Contains(kv.Key)) list.Add(kv.Key);
             return list;
         }
@@ -192,7 +176,7 @@ namespace Lvn.UI
         /// </summary>
         public bool Restage(string id, JObject placement, LvnSender sender = LvnSender.Story)
         {
-            if (string.IsNullOrEmpty(id) || !_actorCmds.TryGetValue(id, out var last)) return false;
+            if (string.IsNullOrEmpty(id) || !_memory.TryCommand(id, out var last)) return false;
             var cmd = (JObject)last.DeepClone();
             if (placement != null)
                 foreach (var prop in placement.Properties())
@@ -209,7 +193,7 @@ namespace Lvn.UI
         /// авторская команда). По этому решают: перетекает облик или его
         /// собирают заново.</summary>
         public bool KnowsLook(string id)
-            => !string.IsNullOrEmpty(id) && _actorCmds.ContainsKey(id);
+            => _memory.Knows(id);
 
         /// <summary>Take an actor off stage — the counterpart of
         /// <see cref="EnsureActorShown"/> for a host that staged someone
@@ -222,7 +206,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(id)) return;
             string op = "actor";
-            if (_actorCmds.TryGetValue(id, out var staged)
+            if (_memory.TryCommand(id, out var staged)
                 && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
                 op = "obj";
             // Без exit=: уход возьмётся из темы (drift/fade/что выбрала
@@ -247,10 +231,10 @@ namespace Lvn.UI
 
         private void HideActorTemporarily(string id, LvnSender sender = LvnSender.Wardrobe)
         {
-            JObject replay = _actorCmds.TryGetValue(id, out var current)
+            JObject replay = _memory.TryCommand(id, out var current)
                 ? (JObject)current.DeepClone() : null;
             HideActor(id, sender);
-            if (replay != null) _actorCmds[id] = replay;
+            if (replay != null) _memory.RestoreCommand(id, replay);
         }
 
 
