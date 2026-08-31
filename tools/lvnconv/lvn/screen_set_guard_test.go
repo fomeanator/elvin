@@ -785,17 +785,22 @@ func TestСловарьСвойствАнимацииОдин(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block := regexp.MustCompile(`(?s)Known = new HashSet<string>\s*\{(.*?)\n        \};`).
-		FindStringSubmatch(string(csRaw))
-	if block == nil {
-		t.Fatal("LvnAnimProp.Known не найден — поправь якорь сторожа")
-	}
+	// Словарь КОНТЕКСТНЫЙ: у фигуры целиком свой набор, у слоя куклы свой.
+	// Валидатор и подсказки знают объединение — но пусть знают ЕГО, а не
+	// половину.
 	engine := map[string]bool{}
-	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(block[1], -1) {
-		engine[m[1]] = true
+	for _, name := range []string{"Whole", "Layered"} {
+		block := regexp.MustCompile(`(?s)` + name + ` = new HashSet<string>\s*\{(.*?)\n        \};`).
+			FindStringSubmatch(string(csRaw))
+		if block == nil {
+			t.Fatalf("LvnAnimProp.%s не найден — поправь якорь сторожа", name)
+		}
+		for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(block[1], -1) {
+			engine[m[1]] = true
+		}
 	}
 	if len(engine) != 10 {
-		t.Fatalf("в LvnAnimProp.Known %d имён, ожидалось 10: %v", len(engine), engine)
+		t.Fatalf("в словаре свойств %d имён, ожидалось 10: %v", len(engine), engine)
 	}
 	for w := range engine {
 		if !inSet(AnimProps, w) {
