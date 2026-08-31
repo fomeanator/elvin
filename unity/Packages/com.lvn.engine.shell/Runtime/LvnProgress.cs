@@ -292,6 +292,64 @@ namespace Lvn.UI.Screens
             return pending == chapterId;
         }
 
+        /// <summary>
+        /// КАК ИГРОК ВХОДИТ В НОВЕЛЛУ — три ответа, которые считаются вместе.
+        /// </summary>
+        public readonly struct Entry
+        {
+            /// <summary>С какой главы начинать: та, на которой остановились,
+            /// иначе названная звонящим.</summary>
+            public readonly LvnChapter Chapter;
+            /// <summary>Заход С ЧИСТОГО ЛИСТА — первый в жизни или после
+            /// финала. По нему первая глава заново спрашивает имя игрока.</summary>
+            public readonly bool NovelFreshStart;
+            /// <summary>Вход в эту главу УЖЕ ОПЛАЧЕН: брать плату второй раз
+            /// нельзя.</summary>
+            public readonly bool AlreadyPaid;
+
+            public Entry(LvnChapter chapter, bool freshStart, bool alreadyPaid)
+            { Chapter = chapter; NovelFreshStart = freshStart; AlreadyPaid = alreadyPaid; }
+        }
+
+        /// <summary>
+        /// НАЧАТЬ ЗАХОД В НОВЕЛЛУ. Четыре правила, сплетённые между собой, —
+        /// они стояли прямо в теле игрового цикла, и порядок между ними
+        /// держался комментариями.
+        ///
+        /// <para>ПЕРВОЕ. «Чистый лист» считается ДО любой записи точки: иначе
+        /// сама запись его и стирает, и первая глава не спросит имя.</para>
+        ///
+        /// <para>ВТОРОЕ. Пройденная новелла переигрывается НАЧИСТО. Точку на
+        /// финале стирают, но переменные новеллы всё ещё держат всё
+        /// прохождение — заход отправляется через перезапуск, чтобы первая
+        /// глава села на свой нетронутый чекпойнт, а не на итоговые статы.</para>
+        ///
+        /// <para>ТРЕТЬЕ. Возврат в оплаченную главу не берёт плату второй раз.
+        /// «Уже входили» — это ЕЁ автосейв (он пишется на входе), а не метка
+        /// прогресса: конец главы двигает метку на СЛЕДУЮЩУЮ, за которую ещё
+        /// не платили.</para>
+        ///
+        /// <para>ЧЕТВЁРТОЕ. Доигранный автосейв не считается оплаченным
+        /// входом — иначе финал новеллы открывал бы её последнюю главу
+        /// бесплатно раз за разом.</para>
+        /// </summary>
+        public static Entry BeginEntry(LvnTitle title, LvnChapter chapter)
+        {
+            var resume = Current(title);
+            bool freshStart = resume == null;
+            if (resume != null) chapter = resume;
+
+            if (resume == null && Reached(title) > 0 && chapter != null)
+                RequestRestart(title?.id, chapter.id);
+
+            var entrySlot = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
+            bool alreadyPaid = resume != null && entrySlot?.Snap != null
+                && Lvn.Content.LvnScriptRef.Same(entrySlot.Snap.ScriptUrl, resume.script_url)
+                && !entrySlot.Snap.Finished;
+
+            return new Entry(chapter, freshStart, alreadyPaid);
+        }
+
         /// <summary>A full "restart the whole expedition" wipe: forget the continue
         /// point, the furthest-reached marker, every entry checkpoint and any pending
         /// restart request. The next play starts the title from chapter one, clean.
