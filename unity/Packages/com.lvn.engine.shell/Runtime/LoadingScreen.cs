@@ -18,7 +18,7 @@ namespace Lvn.UI.Screens
     /// (or another full-screen element) and <see cref="RunAsync"/> until your
     /// loading predicate is done.
     /// </summary>
-    public sealed class LoadingScreen : VisualElement
+    public sealed class LoadingScreen : VisualElement, ILvnHides
     {
         private readonly LoadingScreenConfig _cfg;
         private readonly ILvnAssets _assets;

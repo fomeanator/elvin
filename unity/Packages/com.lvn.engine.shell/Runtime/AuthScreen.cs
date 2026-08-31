@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// <see cref="AskAsync"/> fades in, waits for Start and returns the
     /// nickname (empty when the field is disabled or left blank).
     /// </summary>
-    public sealed class AuthScreen : VisualElement
+    public sealed class AuthScreen : VisualElement, ILvnHides
     {
         private readonly AuthConfig _cfg;
         private readonly ILvnAssets _assets;

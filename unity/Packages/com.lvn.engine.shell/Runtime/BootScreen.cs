@@ -14,7 +14,7 @@ namespace Lvn.UI.Screens
     /// progress, finishes, and fades out. Distinct from the per-chapter
     /// <see cref="LoadingScreen"/> — this is the very first thing the app shows.
     /// </summary>
-    public sealed class BootScreen : VisualElement
+    public sealed class BootScreen : VisualElement, ILvnHides
     {
         private readonly BootScreenConfig _cfg;
         private readonly ILvnAssets _assets;

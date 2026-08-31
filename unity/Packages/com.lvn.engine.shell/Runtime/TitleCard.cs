@@ -12,7 +12,7 @@ namespace Lvn.UI.Screens
     /// wash and decorative frame behind a chapter line and a subtitle line. Set
     /// the text, then <see cref="RevealAsync"/> to fade it in, hold, and fade out.
     /// </summary>
-    public sealed class TitleCard : VisualElement
+    public sealed class TitleCard : VisualElement, ILvnHides
     {
         private readonly TitleCardConfig _cfg;
         private readonly ILvnAssets _assets;
