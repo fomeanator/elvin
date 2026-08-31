@@ -126,10 +126,23 @@ func joinDeclarations(lines []string) []string {
 	// `public string url; // адрес` кончается КОММЕНТАРИЕМ, и без этой
 	// обрезки склейка ехала вперёд до следующей точки с запятой, съедая по
 	// дороге объявления классов. Так потерялось семнадцать из сорока пяти.
+	// «//» ВНУТРИ СТРОКИ — НЕ КОММЕНТАРИЙ. Поле с адресом по умолчанию
+	// (`public string url = "https://cdn/x";`) выглядело бы незакрытым, склейка
+	// поехала бы вперёд и съела следующее объявление класса — та же тихая
+	// потеря, что уже случилась однажды. Сейчас таких полей нет, но ждать,
+	// пока появятся, незачем.
 	bare := func(s string) string {
 		s = strings.TrimSpace(s)
-		if i := strings.Index(s, "//"); i >= 0 {
-			s = strings.TrimSpace(s[:i])
+		inStr := false
+		for i := 0; i < len(s); i++ {
+			switch {
+			case s[i] == '\\' && inStr:
+				i++
+			case s[i] == '"':
+				inStr = !inStr
+			case !inStr && s[i] == '/' && i+1 < len(s) && s[i+1] == '/':
+				return strings.TrimSpace(s[:i])
+			}
 		}
 		return s
 	}

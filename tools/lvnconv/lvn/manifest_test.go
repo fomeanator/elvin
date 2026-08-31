@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -380,6 +381,200 @@ func TestПолеСУмолчаниемНеТеряется(t *testing.T) {
 	want := map[string]string{"duration": "float", "loop": "bool"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("поле с умолчанием потеряно:\n получили %v\n ждали   %v", got, want)
+	}
+}
+
+// ── СКЛЕЙКА ОБЪЯВЛЕНИЙ: ДВЕ МОЛЧАЛИВЫЕ БЕДЫ ──────────────────────────────────
+//
+// Обе не роняли ничего и не писали ни строчки — просто гейт переставал знать
+// про часть манифеста и объявлял живые поля несуществующими.
+//
+//   - ОБЪЯВЛЕНИЕ В ДВЕ СТРОКИ. `words_locales` — словарь словарей, его тип не
+//     влезает в строку. Построчный разбор терял поле целиком, и гейт ругался на
+//     словарь переводов оболочки, который автор деплоит на каждой правке.
+//   - СКЛЕЙКА, ДОБАВЛЕННАЯ РАДИ ПЕРВОЙ, СЪЕДАЛА КЛАССЫ. Строка
+//     `public string url; // адрес` кончается КОММЕНТАРИЕМ, а не точкой с
+//     запятой: склейка считала объявление незакрытым и ехала вперёд до
+//     следующей `;`, проглатывая по дороге объявление класса. Так пропало
+//     СЕМНАДЦАТЬ классов из сорока пяти — без единого слова.
+
+// Объявление, растянутое на две строки, — обычное поле.
+func TestМногострочноеОбъявлениеСобираетсяВОдноПоле(t *testing.T) {
+	// Форма — дословно из LvnUiConfig.cs.
+	src := `
+    public sealed class LvnUiConfig
+    {
+        public System.Collections.Generic.Dictionary<string,
+            System.Collections.Generic.Dictionary<string, string>> words_locales;
+        public string player_name_var;
+    }`
+	got := ScrapeManifestSchema(src)["LvnUiConfig"]
+	if got["words_locales"] != "map:string" {
+		t.Fatalf("поле, объявленное в две строки, потеряно (%v) — гейт объявит несуществующим "+
+			"словарь переводов оболочки", got)
+	}
+	// И следующее поле не съедено склейкой.
+	if got["player_name_var"] != "string" {
+		t.Fatalf("поле после многострочного объявления пропало: %v", got)
+	}
+}
+
+// Хвостовой комментарий не делает объявление незакрытым — и не съедает
+// следующий за ним класс.
+func TestХвостовойКомментарийНеСъедаетСледующийКласс(t *testing.T) {
+	src := `
+    public sealed class LvnStoreLook
+    {
+        public string currency; // e.g. "crystals"
+        public int? amount;     // default 100
+    }
+
+    public sealed class LvnGateWords
+    {
+        public string gate_title;
+    }`
+	got := ScrapeManifestSchema(src)
+	if _, ok := got["LvnGateWords"]; !ok {
+		t.Fatalf("класс после поля с хвостовым комментарием проглочен склейкой — "+
+			"так молча пропало 17 классов из 45; снялось: %v", keysOf2(got))
+	}
+	if got["LvnStoreLook"]["amount"] != "int" {
+		t.Fatalf("поле с хвостовым комментарием разобрано неверно: %v", got["LvnStoreLook"])
+	}
+	if got["LvnGateWords"]["gate_title"] != "string" {
+		t.Fatalf("поля съеденного класса не разобраны: %v", got["LvnGateWords"])
+	}
+}
+
+// Объявление класса не приклеивается к ПРЕДЫДУЩЕМУ полю: между ними бывает
+// пусто, бывает комментарий, а поле бывает и многострочным.
+func TestОбъявлениеКлассаНеСъедаетсяПредыдущимПолем(t *testing.T) {
+	src := `
+    public sealed class LvnFirst
+    {
+        public System.Collections.Generic.List<
+            LvnTitle> titles;
+    }
+    // Каталог новеллы.
+    public sealed class LvnSecond
+    {
+        public string id;
+    }`
+	got := ScrapeManifestSchema(src)
+	if _, ok := got["LvnSecond"]; !ok {
+		t.Fatalf("класс после многострочного поля потерян: %v", keysOf2(got))
+	}
+	if got["LvnFirst"]["titles"] != "LvnTitle" {
+		t.Fatalf("многострочный список разобран неверно: %v", got["LvnFirst"])
+	}
+	// Обратное тоже верно: поля второго класса не приписаны первому.
+	if _, wrong := got["LvnFirst"]["id"]; wrong {
+		t.Fatalf("поле второго класса приписано первому: %v", got["LvnFirst"])
+	}
+}
+
+// `enum` — не класс: у него значения, а не поля, и объявить его классом значило
+// бы завести в схеме пустышку с чужим именем.
+func TestEnumНеПутаетсяСКлассом(t *testing.T) {
+	src := `
+    public enum ChapterEntryMode
+    {
+        Free,
+        Energy,
+    }
+
+    public sealed class LvnEntry
+    {
+        public string mode;
+    }`
+	got := ScrapeManifestSchema(src)
+	if _, ok := got["ChapterEntryMode"]; ok {
+		t.Fatalf("enum попал в схему классом: %v", keysOf2(got))
+	}
+	if got["LvnEntry"]["mode"] != "string" {
+		t.Fatalf("класс после enum разобран неверно: %v", got["LvnEntry"])
+	}
+}
+
+// САМОЕ ВАЖНОЕ ЗДЕСЬ: СКОЛЬКО КЛАССОВ ДОЛЖНО БЫТЬ — СЧИТАЕМ САМИ.
+//
+// Страж свежести (TestСхемаМанифестаНеОтстаётОтDTO) сверяет снимок С ТЕМ ЖЕ
+// СКРАПЕРОМ: когда врёт скрапер, обе стороны врут одинаково, и страж зелёный.
+// Ровно так семнадцать пропавших классов и прожили незамеченными.
+//
+// Поэтому здесь число берётся НЕЗАВИСИМЫМ способом — простым подсчётом строк
+// `public sealed class` в обоих исходниках, без единой строчки разбора полей.
+func TestЧислоКлассовВСнимкеСовпадаетСПодсчётомВИсходниках(t *testing.T) {
+	root := repoRoot(t)
+	reSealed := regexp.MustCompile(`(?m)^\s*public sealed class \w+`)
+	rePlain := regexp.MustCompile(`(?m)^\s*public class \w+`)
+	declared := 0
+	for _, name := range []string{"LvnUiConfig.cs", "LvnManifest.cs"} {
+		raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+			"Runtime", "Content", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Счёт держится на том, что классы DTO объявлены sealed — так и есть.
+		// Появился НЕзапечатанный: скрапер его подберёт, а этот счётчик нет,
+		// и расхождение было бы ложной тревогой. Лучше сказать прямо.
+		if n := len(rePlain.FindAllString(string(raw), -1)); n > 0 {
+			t.Fatalf("в %s появилось %d незапечатанных `public class` — объявите их sealed "+
+				"или поправьте счётчик этого теста", name, n)
+		}
+		declared += len(reSealed.FindAllString(string(raw), -1))
+	}
+	if declared < 30 {
+		t.Fatalf("в исходниках насчитано всего %d классов — проверьте пути, тест перестал "+
+			"что-либо доказывать", declared)
+	}
+	var stored ManifestSchema
+	if err := json.Unmarshal(manifestFieldsJSON, &stored); err != nil {
+		t.Fatalf("снимок схемы не разбирается: %v", err)
+	}
+	if len(stored) != declared {
+		t.Fatalf("в исходниках %d классов, в снимке %d — %d потерялось молча.\n"+
+			"Страж свежести этого не поймает: он сверяет снимок с тем же скрапером, "+
+			"и когда врёт скрапер, обе стороны врут одинаково.\n"+
+			"Чините разбор (ScrapeManifestSchema), потом перегенерируйте:\n"+
+			"  (cd tools/lvnconv && go run ./cmd/lvn-genschema)",
+			declared, len(stored), declared-len(stored))
+	}
+}
+
+// keysOf2 — имена классов снимка, для внятного сообщения об ошибке.
+func keysOf2(s ManifestSchema) []string {
+	out := make([]string, 0, len(s))
+	for k := range s {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// ── СЛУЖЕБНЫЕ КЛЮЧИ СЕРВЕРА ──────────────────────────────────────────────────
+//
+// `rev` в манифест дописывает САМ СЕРВЕР (защита от гонки двух редакторов) и
+// требует обратно при следующем PUT; в DTO движка его нет и быть не должно.
+// Без списка ServerAddedKeys гейт выдавал находку на КАЖДОМ сохранении из
+// панели — ровно то, после чего проверку перестают читать.
+
+func TestСлужебныйКлючСервераВКорнеМолчит(t *testing.T) {
+	mustBeQuiet(t, `{"rev":17,"ui":{"hud":{"height":0.08}}}`)
+}
+
+// ОСЛАБЛЕНИЕ РОВНО НА ОДИН ЭТАЖ. Тот же `rev` внутри вложенного объекта — уже
+// не подпись сервера, а настоящая описка автора, и молчать о ней нельзя:
+// иначе освобождение от шума превратилось бы в слепое пятно на всю глубину.
+func TestТотЖеКлючВнутриВложенногоОбъектаЛовится(t *testing.T) {
+	issues := manifestIssues(t, `{"ui":{"rev":17}}`)
+	if !hasWarn(issues, "ui.rev — такого поля нет") {
+		t.Fatalf("`rev` внутри ui прошёл молча — служебный ключ сервера освободил от проверки "+
+			"весь манифест, а не только его корень: %v", issues)
+	}
+	issues = manifestIssues(t, `{"titles":[{"id":"t","rev":3}]}`)
+	if !hasWarn(issues, "titles[0].rev — такого поля нет") {
+		t.Fatalf("`rev` в карточке новеллы прошёл молча: %v", issues)
 	}
 }
 

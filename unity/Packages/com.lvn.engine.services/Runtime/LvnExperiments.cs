@@ -54,6 +54,13 @@ namespace Lvn.Services
         private static readonly Dictionary<string, string> _server =
             new Dictionary<string, string>();
 
+        /// <summary>Забыть, в какие группы игрок попал: деление
+        /// детерминированное, но СОХРАНЁННОЕ, и переживало забвение.</summary>
+        public static void Forget()
+        {
+            try { LvnKeep.Drop(PServer); } catch { /* уже нечего */ }
+        }
+
         private const string PServer = "lvn.svc.ab.assignments";
 
         /// <summary>
