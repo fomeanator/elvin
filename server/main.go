@@ -871,6 +871,12 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		// on the write path where that can still be stopped. Errors block,
 		// warnings (unknown/host ops above all) ride along in the response.
 		var findings lvnFindings
+		if isManifestPath(rel) {
+			// Манифест через гейт не проходил вовсе — а это весь облик
+			// приложения. Только предупреждения: схемы у нас нет, судим по
+			// конвенции имён (см. checkManifest).
+			findings = s.checkManifest(body)
+		}
 		if isLvnPath(rel) {
 			findings = s.checkLvn(rel, body)
 			if findings.blocked() {
