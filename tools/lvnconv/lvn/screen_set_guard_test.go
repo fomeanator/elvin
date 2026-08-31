@@ -1007,3 +1007,55 @@ func TestКопияГрамматикиВРасширенииНеФорк(t *tes
 		}
 	}
 }
+
+// Встроенные функции выражений сверяются С ДВИЖКОМ, а не только между собой.
+//
+// ExprFuncs был пришпилен к Go-компилятору и к веб-плееру, но НЕ к C#
+// вычислителю — то есть к тому, кто их и исполняет. Ровно та расстановка, при
+// которой две стороны согласны, а третья тихо уезжает: так уже протухли
+// золотые эталоны.
+func TestВстроенныеФункцииСверяютсяСДвижком(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine",
+		"Runtime", "LvnExpression.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	from := strings.Index(src, `case "rand":`)
+	if from < 0 {
+		t.Fatal("разбор функций не найден — поправь якорь сторожа")
+	}
+	to := strings.Index(src[from:], "default:")
+	if to < 0 {
+		t.Fatal("default у функций не найден")
+	}
+	engine := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_0-9]+)"`).FindAllStringSubmatch(src[from:from+to], -1) {
+		engine[m[1]] = true
+	}
+	if len(engine) < 20 {
+		t.Fatalf("встроенных функций всего %d — похоже, якорь промахнулся", len(engine))
+	}
+	for name := range engine {
+		if !ExprFuncs[name] {
+			t.Fatalf("движок умеет %s(), а валидатор о ней не знает — "+
+				"пожалуется на работающее выражение", name)
+		}
+	}
+	for name := range ExprFuncs {
+		if engine[name] || HostExprFuncs[name] {
+			continue
+		}
+		t.Fatalf("валидатор считает %s() существующей, но движок её не встраивает "+
+			"и в HostExprFuncs её нет — выражение молча вычислится в ничто", name)
+	}
+	// Функции хозяина не должны случайно оказаться встроенными: тогда чистый
+	// com.lvn.engine перестал бы отличаться от приложения, и обещание про
+	// «безопасный пустой ответ» стало бы неправдой.
+	for name := range HostExprFuncs {
+		if engine[name] {
+			t.Fatalf("%s() объявлена функцией хозяина, но движок её встраивает — "+
+				"обнови HostExprFuncs и комментарий про чистый пакет", name)
+		}
+	}
+}
