@@ -48,7 +48,16 @@ namespace Lvn.UI
             if (el == null || text == null) return el;
             Sources.Remove(el);
             Sources.Add(el, text);
-            el.text = text();
+            // ИСТОЧНИК, КОТОРЫЙ УПАЛ, СТОИТ ОДНОЙ ПОДПИСИ. Здесь он звался БЕЗ
+            // перехвата, хотя и Refresh, и общий обход его оборачивают: битый
+            // поставщик уносил не надпись, а СБОРКУ ЭКРАНА целиком — и если это
+            // бут, то и весь запуск. Подпись остаётся пустой; чинить её будет
+            // первое же переодевание, когда источник придёт в себя.
+            try { el.text = text(); }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[lvn-redress] подпись не собралась при привязке: {e.Message}");
+            }
             return el;
         }
 
@@ -143,8 +152,14 @@ namespace Lvn.UI
         {
             for (int i = _roots.Count - 1; i >= 0; i--)
             {
-                if (!_roots[i].TryGetTarget(out var root) || root.panel == null && root.parent == null)
-                { _roots.RemoveAt(i); continue; }
+                // ЗАБЫВАЕМ ТОЛЬКО МЁРТВОЕ. Корень, которого не стало, уносит
+                // слабая ссылка; а вот «сейчас ни к чему не присоединён» — не
+                // смерть, а МИНУТА: экран собирают до того, как повесить на
+                // панель, документ пересобирают между Stop и Play. Вычёркивать
+                // такой корень значит лишить его языка НАВСЕГДА — и молча:
+                // подписи просто перестанут меняться.
+                if (!_roots[i].TryGetTarget(out var root)) { _roots.RemoveAt(i); continue; }
+                if (root.panel == null && root.parent == null) continue; // отвязан — переодеть некому, но он ещё вернётся
                 All(root);
             }
         }

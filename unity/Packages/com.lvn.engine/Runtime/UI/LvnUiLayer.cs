@@ -30,7 +30,6 @@ namespace Lvn.UI
         // лежать поверх всего, и то и другое встречается в одной главе.
         private readonly VisualElement _hud;
         private readonly VisualElement _over;
-        private readonly Func<string, JToken> _varOf;
         private readonly Func<IReadOnlyDictionary<string, JToken>> _vars;
         private readonly Action<string> _goTo;
         private readonly Action<JObject> _setVars;
@@ -74,7 +73,6 @@ namespace Lvn.UI
             _hud = Fill("lvn-ui", hudHost);
             _over = overHost == null || ReferenceEquals(overHost, hudHost) ? _hud : Fill("lvn-ui-over", overHost);
             _vars = vars;
-            _varOf = null;
             _goTo = goTo;
             _loadImage = loadImage;
             _setVars = setVars;

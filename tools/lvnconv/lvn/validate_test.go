@@ -775,6 +775,14 @@ func TestPlayerDrivenLoopIsNotATrap(t *testing.T) {
 		 {"op":"goto","label":"room"},
 		 {"op":"label","id":"drawer"},
 		 {"op":"say","text":"ключ!"}]}`,
+		"кнопка интерфейса объектной записью": `{"scene":"t","script":[
+		 {"op":"ui","id":"hud","tree":{"kind":"panel","children":[
+		   {"kind":"button","text":"дальше","on_click":{"goto":"finish","set":{"seen":true}}}]}},
+		 {"op":"label","id":"idle"},
+		 {"op":"wait","seconds":1},
+		 {"op":"goto","label":"idle"},
+		 {"op":"label","id":"finish"},
+		 {"op":"say","text":"конец"}]}`,
 		"предмет, который перетаскивают": `{"scene":"t","script":[
 		 {"op":"obj","id":"apple","draggable":true,"on_drop":"bag:in_bag","sprite_url":"/a.png"},
 		 {"op":"label","id":"room"},
@@ -787,6 +795,29 @@ func TestPlayerDrivenLoopIsNotATrap(t *testing.T) {
 		d := parse(t, src)
 		if hasWarn(Validate(d), "has no way out") {
 			t.Errorf("%s: поток ждёт ИГРОКА, а не крутится сам — это не ловушка", name)
+		}
+	}
+}
+
+// МЕТКА, К КОТОРОЙ ВЕДЁТ КНОПКА ДЕРЕВА, ДОСТИЖИМА — обеими записями.
+//
+// Рантайм понимает `on_click` двумя способами везде: меткой одним словом и
+// объектом `{goto, set}`. Обход дерева знал только первый — и метка, к которой
+// ведёт единственная кнопка меню, объявлялась мёртвой. Дальше это тонет: автор
+// перестаёт читать предупреждение «метка ни от кого не достижима», потому что
+// оно врёт на его собственном меню.
+func TestObjectClickInsideUiTreeReachesItsLabel(t *testing.T) {
+	d := parse(t, `{"scene":"t","script":[
+	 {"op":"ui","id":"menu","tree":{"kind":"panel","children":[
+	   {"kind":"button","text":"в сад","on_click":{"goto":"сад","set":{"был":true}}}]}},
+	 {"op":"label","id":"idle"},
+	 {"op":"wait","seconds":1},
+	 {"op":"goto","label":"idle"},
+	 {"op":"label","id":"сад"},
+	 {"op":"say","text":"яблони"}]}`)
+	for _, is := range Validate(d) {
+		if strings.Contains(is.Msg, "сад") {
+			t.Errorf("метка, к которой ведёт кнопка объектной записью, объявлена недостижимой: %s", is.Msg)
 		}
 	}
 }

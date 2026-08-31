@@ -36,12 +36,27 @@ namespace Lvn.Tests
             public readonly VisualElement OverHost = new VisualElement();
             public readonly Dictionary<string, JToken> Vars = new Dictionary<string, JToken>();
             public readonly List<string> Jumps = new List<string>();
+            /// <summary>Что уже лежало в переменных В МОМЕНТ каждого перехода —
+            /// по нему видно, успела ли объектная форма нажатия записать их до
+            /// того, как история ушла по метке.</summary>
+            public readonly List<Dictionary<string, JToken>> VarsAtJump
+                = new List<Dictionary<string, JToken>>();
             public readonly LvnUiLayer Layer;
 
             public Rig(bool separateOver = true)
             {
                 Layer = new LvnUiLayer(HudHost, separateOver ? OverHost : null,
-                                       () => Vars, target => Jumps.Add(target));
+                                       () => Vars,
+                                       target =>
+                                       {
+                                           VarsAtJump.Add(new Dictionary<string, JToken>(Vars));
+                                           Jumps.Add(target);
+                                       },
+                                       loadImage: null,
+                                       setVars: ops =>
+                                       {
+                                           foreach (var p in ops.Properties()) Vars[p.Name] = p.Value;
+                                       });
             }
 
             public VisualElement Hud => HudHost.Q("lvn-ui");
@@ -521,6 +536,150 @@ namespace Lvn.Tests
 
             Assert.IsNull(Handler(rig.Over.Q<Button>("молча")),
                 "кнопка без on_click куда-то ведёт — история прыгнет от случайного тапа");
+        }
+
+        [Test]
+        public void НажатиеПишетПеременныеПЕРЕДТемКакУйтиПоМетке()
+        {
+            // Объектная форма (`on_click={goto, set}`) — законная запись языка,
+            // и порядок в ней не косметика: ветка, в которую ведёт метка, ЭТИ ЖЕ
+            // переменные и читает. Запиши их после перехода — и первая реплика
+            // новой ветки увидит старые значения: игрок взял ключ, а дверь
+            // говорит, что ключа нет.
+            var rig = new Rig();
+            rig.Vars["ключ"] = false;
+            rig.Ui(@"{'op':'ui','id':'сумка','tree':{'kind':'panel','id':'корень','children':[
+                        {'kind':'button','id':'взять','text':'Взять ключ',
+                         'on_click':{'goto':'дверь','set':{'ключ':true,'шагов':2}}}]}}");
+
+            var нажать = Handler(rig.Hud.Q<Button>("взять"));
+            Assert.NotNull(нажать, "объектная форма нажатия никуда не ведёт");
+            нажать.Invoke();
+
+            CollectionAssert.AreEqual(new[] { "дверь" }, rig.Jumps, "нажатие увело не по той метке");
+            Assert.AreEqual(1, rig.VarsAtJump.Count);
+            Assert.AreEqual(true, (bool)rig.VarsAtJump[0]["ключ"],
+                "переход случился РАНЬШЕ записи — новая ветка прочитает старые значения");
+            Assert.AreEqual(2, (int)rig.VarsAtJump[0]["шагов"], "записана не вся правка");
+        }
+
+        [Test]
+        public void ОбъектнаяФормаНажатияНеУноситВесьИнтерфейс()
+        {
+            // Поле приводили к строке напрямую, а приведение объекта к строке в
+            // Newtonsoft БРОСАЕТ: исключение уходило наверх, дерево не строилось
+            // вовсе — у игрока на этом шаге пропадал ВЕСЬ интерфейс. Автор при
+            // этом написал ровно то, что написано в документации движка, просто
+            // не в том операторе.
+            //
+            // Слой собирают и БЕЗ приёмника переменных (встраивание, стенд,
+            // демо). Тогда объектная форма обязана отработать хотя бы переходом,
+            // а не остаться мёртвой кнопкой.
+            var host = new VisualElement();
+            var vars = new Dictionary<string, JToken>();
+            var jumps = new List<string>();
+            var layer = new LvnUiLayer(host, null, () => vars, t => jumps.Add(t));
+
+            Assert.DoesNotThrow(() => layer.Apply(JObject.Parse(
+                @"{'op':'ui','id':'сумка','tree':{'kind':'panel','id':'корень','children':[
+                    {'kind':'button','id':'взять','text':'Взять',
+                     'on_click':{'goto':'дверь','set':{'ключ':true}}}]}}")),
+                "объектная форма нажатия уронила сборку — интерфейс пропал целиком");
+
+            var корень = host.Q("корень");
+            Assert.NotNull(корень, "дерево не построилось: у игрока пустой экран вместо интерфейса");
+
+            var нажать = Handler(host.Q<Button>("взять"));
+            Assert.NotNull(нажать, "без приёмника переменных кнопка осталась мёртвой");
+            нажать.Invoke();
+            CollectionAssert.AreEqual(new[] { "дверь" }, jumps,
+                "без приёмника переменных потерялся и переход — из меню нет выхода");
+        }
+
+        // ── порядок наложения ───────────────────────────────────────────────
+
+        [Test]
+        public void ПриРавномZПорядокОстаётсяАвторским()
+        {
+            // z — порядок наложения, и UI Toolkit его не знает: слой сортирует
+            // детей сам. Но своего z нет ПОЧТИ У ВСЕХ, и для них «порядок
+            // наложения» означает ровно «как написано в сценарии».
+            //
+            // Сортировка обязана быть устойчивой. List.Sort устойчивость не
+            // обещает и на длинных списках её не даёт — начиная примерно с
+            // семнадцатого ребёнка порядок переставал совпадать с авторским, и
+            // ряд кнопок молча перемешивался. Поэтому детей здесь двадцать, а
+            // не три: на трёх дефект не виден.
+            var дети = new List<string>();
+            for (int i = 0; i < 20; i++) дети.Add("{'kind':'text','id':'n" + i + "','text':'" + i + "'}");
+            var rig = new Rig();
+            rig.Ui("{'op':'ui','id':'ряд','tree':{'kind':'panel','id':'корень','children':["
+                   + string.Join(",", дети) + "]}}");
+
+            var корень = rig.Hud.Q("корень");
+            var порядок = new List<string>();
+            for (int i = 0; i < корень.childCount; i++) порядок.Add(корень[i].name);
+
+            var какНаписано = new List<string>();
+            for (int i = 0; i < 20; i++) какНаписано.Add("n" + i);
+            CollectionAssert.AreEqual(какНаписано, порядок,
+                "дети без своего z перемешались — порядок наложения разошёлся с написанным в сценарии");
+        }
+
+        [Test]
+        public void ЯвныйZПоднимаетУзелНадСоседями()
+        {
+            // Ради этого сортировка и заводилась: подсказка обязана лечь ПОВЕРХ
+            // полосы, как бы автор ни расставил их в тексте. Равные z при этом
+            // остаются в авторском порядке — иначе одно поднятое окно
+            // перемешивало бы всё остальное.
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'экран','tree':{'kind':'panel','id':'корень','children':[
+                        {'kind':'text','id':'подсказка','z':5,'text':'жми'},
+                        {'kind':'text','id':'первый','text':'а'},
+                        {'kind':'text','id':'второй','text':'б'},
+                        {'kind':'text','id':'фон','z':-1,'text':'в'}]}}");
+
+            var корень = rig.Hud.Q("корень");
+            var порядок = new List<string>();
+            for (int i = 0; i < корень.childCount; i++) порядок.Add(корень[i].name);
+
+            CollectionAssert.AreEqual(new[] { "фон", "первый", "второй", "подсказка" }, порядок,
+                "z не решает, кто лежит поверх кого, — или он перемешал равных между собой");
+        }
+
+        // ── центр внутри дерева ─────────────────────────────────────────────
+
+        [Test]
+        public void ЦентрВнутриДереваОстаётсяВСвоёмРодителе()
+        {
+            // Рамка центрирования встаёт ВО ВЕСЬ РОДИТЕЛЬ. Улети она в корень
+            // слоя, узел центрировался бы по всему экрану: значок посреди
+            // полосы здоровья оказался бы посреди игры, поверх реплики.
+            var rig = new Rig();
+            rig.Vars["доля"] = 30;
+            rig.Ui(@"{'op':'ui','id':'хад','tree':{'kind':'panel','id':'корень','children':[
+                        {'kind':'panel','id':'полоса','h':40,'children':[
+                            {'kind':'text','id':'подпись','at':'center','text':'{доля}%'}]},
+                        {'kind':'text','id':'снизу','text':'внизу'}]}}");
+
+            var подпись = rig.Hud.Q("подпись");
+            Assert.NotNull(подпись, "центрированный узел потерялся внутри дерева");
+
+            var рамка = подпись.parent;
+            Assert.AreSame(rig.Hud.Q("полоса"), рамка.parent,
+                "рамка центрирования уехала из своего родителя — узел встал по центру экрана");
+            Assert.AreEqual(Justify.Center, рамка.style.justifyContent.value);
+
+            // Узел остаётся собой: имя, привязки и живое значение при нём.
+            Assert.AreEqual("30%", ((Label)подпись).text, "центрированный узел потерял живое значение");
+            rig.Vars["доля"] = 75;
+            rig.Poll();
+            Assert.AreEqual("75%", ((Label)подпись).text,
+                "живое значение перестало доходить до узла, завёрнутого в рамку");
+
+            Assert.AreEqual(2, rig.Hud.Q("корень").childCount,
+                "рамка добавилась лишним ребёнком корню — раскладка соседей поехала");
         }
 
         // ── зазор и единицы размеров ────────────────────────────────────────
