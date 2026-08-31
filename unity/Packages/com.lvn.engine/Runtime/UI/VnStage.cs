@@ -192,14 +192,12 @@ namespace Lvn.UI
                     case LvnScreenDirector.QuickMenu: _menu?.Close(); break;
                 }
             }
-            // [lvn-perf] frame-hitch watchdog: any frame past 150 ms is a felt
-            // freeze — log it with the in-flight spine work so a hitch can be
-            // attributed (or ruled out) at a glance. Skips the very first frames
-            // after a scene load, which are always heavy and not interesting.
-            float dt = Time.unscaledDeltaTime;
-            if (dt > 0.15f && Time.frameCount > 10)
-                Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {Time.frameCount}"
-                          + (_spineLoading.Count > 0 ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : ""));
+            // Рывок кадра — у СЧЁТЧИКА (Lvn.LvnFrameWatch): порог и вопрос «это
+            // уже рывок?» жили здесь строкой, и ответ был только в логе. Сцена
+            // добавляет к нему то, что знает только она: чем движок был занят.
+            Lvn.LvnFrameWatch.Frame(Time.unscaledDeltaTime, Time.frameCount,
+                () => _spineLoading.Count > 0
+                    ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : "");
 
             if (_renderer is CanvasSceneRenderer csr)
             {
