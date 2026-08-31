@@ -460,3 +460,36 @@ func TestПодсказкиНеОтстаютОтГрамматики(t *testing
 		}
 	}
 }
+
+// Компилятор .lvns разложен по темам — и режут его РАЗБОРОМ, а не подсчётом.
+//
+// Файл был крупнейшим в репозитории (1703 строки) и неучтённым нарушением
+// собственного правила канона. Две попытки разрезать его подсчётом фигурных
+// скобок развалили сборку: в компиляторе полно строковых литералов со
+// скобками — он про них и написан. Сторож держит разложение и заодно ловит
+// возврат к «одному файлу на всё».
+func TestКомпиляторРазложенПоТемам(t *testing.T) {
+	dir := filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine", "Editor")
+	for _, f := range []string{"LvnsCompiler.Expand.cs", "LvnsCompiler.Anim.cs"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Fatalf("%s пропал — темы компилятора снова съехались в один файл", f)
+		}
+	}
+	// Развороты живут в .Expand: в корне их быть не должно.
+	core, err := os.ReadFile(filepath.Join(dir, "LvnsCompiler.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := stripCommentsAndStrings(string(core))
+	for _, gone := range []string{"static string ExpandLoops(", "static string ExpandCalls(", "static JObject BuildAnimCmd("} {
+		if strings.Contains(src, gone) {
+			t.Fatalf("LvnsCompiler.cs: %q вернулся в корень — у него свой файл", gone)
+		}
+	}
+	// Правило канона, из-за которого всё и делалось.
+	lines := strings.Count(string(core), "\n") + 1
+	if lines > 1400 {
+		t.Fatalf("LvnsCompiler.cs снова разросся (%d строк): файл в тысячу строк — "+
+			"это несколько классов, которые забыли разделить", lines)
+	}
+}
