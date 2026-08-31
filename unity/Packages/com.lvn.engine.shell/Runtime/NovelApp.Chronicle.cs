@@ -95,6 +95,54 @@ namespace Lvn.UI.Screens
             LvnPlayer.ResetOpDiagnostics();
         }
 
+        /// <summary>
+        /// ПЕРЕИГРАТЬ ГЛАВУ С НАЧАЛА — откат переменных к её ВХОДУ.
+        ///
+        /// <para>Жанровое правило: глава, выбранная в списке, начинается с тем,
+        /// с чем игрок в неё вошёл ВПЕРВЫЕ. Иначе статы из будущего протекают в
+        /// прошлое и открывают там выборы, которых у игрока тогда не было.</para>
+        ///
+        /// <para>КРОМЕ КРОСС-НОВЕЛЛЬНЫХ: <c>global.*</c> — это про самого
+        /// игрока, а не про эту главу, и её откат их не касается. Поэтому
+        /// текущие накладываются ПОВЕРХ чекпойнта, а не берутся из него.</para>
+        ///
+        /// <para>ПОРЯДОК ЗДЕСЬ — ЧАСТЬ ПРАВИЛА, а не оформление. Сперва
+        /// стирается автосейв, и только потом идёт сеть: приложение, убитое
+        /// посреди сетевого шага, не должно оставить старый автосейв живым при
+        /// уже потраченном признаке перезапуска — игрок вернулся бы ровно туда,
+        /// откуда просил уйти.</para>
+        /// </summary>
+        /// <returns>true — это перезапуск: возобновлять с автосейва нечего.</returns>
+        private async Task<bool> RollBackToEntryAsync(LvnTitle title, LvnChapter chapter)
+        {
+            if (!LvnProgress.TakeRestart(title?.id, chapter.id)) return false;
+
+            Stage.SeedVars = LvnProgress.Checkpoint(title?.id, chapter.id)
+                             ?? new Newtonsoft.Json.Linq.JObject();
+            LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
+            await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
+            await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
+            Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
+            return true;
+        }
+
+        /// <summary>
+        /// ЗАПОМНИТЬ ВХОД — ОДИН РАЗ ЗА ВСЁ ВРЕМЯ.
+        ///
+        /// <para>Чекпойнт это переменные ПЕРВОГО в жизни входа в главу, якорь
+        /// для будущих перезапусков. Возобновление с середины его не пишет —
+        /// это очевидно; но и ПОВТОРНОЕ прохождение тоже: перезаписать якорь
+        /// статами следующего круга значит испортить перезапуск навсегда, и
+        /// заметит это игрок не сразу, а кругом позже, когда «начать сначала»
+        /// приведёт его в главу с чужими цифрами.</para>
+        /// </summary>
+        private void RememberEntryOnce(LvnTitle title, LvnChapter chapter, bool resuming)
+        {
+            if (resuming) return;
+            if (LvnProgress.Checkpoint(title?.id, chapter.id) != null) return;
+            LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
+        }
+
         private async Task<LvnChapter> PlayOneChapterAsync(LvnTitle title, LvnChapter chapter, string playerName, bool novelFreshStart = false)
         {
             if (Stage == null || chapter == null || string.IsNullOrEmpty(chapter.script_url))
@@ -149,25 +197,7 @@ namespace Lvn.UI.Screens
             // `default:true` и их не перетирают, а новая игра начинается пустой.
             await DressStageAsync(title, chapter, chapter.script_url);
 
-            // The genre-standard restart semantics: picking a chapter from the
-            // picker resets the variables to what they were when that chapter was
-            // FIRST entered — stats from the future must not leak into the past
-            // and mis-gate its choices. The live state store rolls back with it,
-            // so a later stat sync doesn't resurrect the discarded future.
-            bool restart = LvnProgress.TakeRestart(title?.id, chapter.id);
-            if (restart)
-            {
-                Stage.SeedVars = LvnProgress.Checkpoint(title?.id, chapter.id)
-                                 ?? new Newtonsoft.Json.Linq.JObject();
-                // Global (cross-novel) stats must NOT roll back with a per-chapter
-                // restart — overlay the CURRENT global stats over the checkpoint.
-                // Local first: a kill during the network sync must not leave the
-                // old autosave alive with the restart flag already consumed.
-                LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
-                await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
-                await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
-                Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
-            }
+            bool restart = await RollBackToEntryAsync(title, chapter);
 
             // Resume where the player actually was: a mid-chapter autosave for THIS
             // script (written on choices/every few lines/app pause) beats replaying
@@ -196,13 +226,7 @@ namespace Lvn.UI.Screens
                 }
             }
 
-            // A FRESH entry (chapter transition, picker restart, first launch) is
-            // the moment the entry checkpoint captures; a mid-chapter resume must
-            // NOT overwrite it — and neither may a REPLAY: the checkpoint is the
-            // vars of the FIRST entry ever, the restart anchor. Overwriting it
-            // with a later playthrough's stats would corrupt restarts forever.
-            if (!resuming && LvnProgress.Checkpoint(title?.id, chapter.id) == null)
-                LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
+            RememberEntryOnce(title, chapter, resuming);
 
             // The first line holds until the entry choreography (loader reveal,
             // plus the chapter-title card on fresh entries) finishes — the stage
