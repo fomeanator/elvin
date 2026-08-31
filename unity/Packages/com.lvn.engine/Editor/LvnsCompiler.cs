@@ -769,62 +769,62 @@ namespace Lvn.Editor
             return outList;
         }
 
-        static int FirstBlockBrace(string rs)
+        /// <summary>
+        /// ЧТО В СТРОКЕ КОД, А ЧТО ТЕКСТ — одно правило на весь компилятор.
+        ///
+        /// <para>Внутри кавычек и внутри «шевронов» символы ничего не значат:
+        /// скобка в реплике не открывает блок, запятая в тексте не делит
+        /// аргументы, две косые в адресе не начинают комментарий. Правило
+        /// простое — и было написано ЧЕТЫРЕ РАЗА: у поиска фигурной скобки, у
+        /// поиска парной, у срезания комментария и у деления аргументов.</para>
+        ///
+        /// <para>В компиляторе такой повтор опаснее, чем где бы то ни было:
+        /// разойдись копии на одном символе — и одно и то же место скрипта
+        /// разберётся двумя способами, а автор увидит не ошибку, а МОЛЧА не то.
+        /// Здесь перечисляются позиции кода; что с ними делать, каждый решает
+        /// сам.</para>
+        /// </summary>
+        static System.Collections.Generic.IEnumerable<int> CodePositions(string s, int from = 0)
         {
             char inStr = '\0';
             int chev = 0;
-            for (int i = 0; i < rs.Length; i++)
+            for (int i = from; i < s.Length; i++)
             {
-                char c = rs[i];
+                char c = s[i];
                 if (inStr != '\0') { if (c == inStr) inStr = '\0'; continue; }
-                if (c == '«') chev++;
-                else if (c == '»') { if (chev > 0) chev--; }
-                else if (chev > 0) { }
-                else if (c == '"' || c == '\'') inStr = c;
-                else if (c == '{') return i;
+                if (c == '«') { chev++; continue; }
+                if (c == '»') { if (chev > 0) chev--; continue; }
+                if (chev > 0) continue;
+                if (c == '"' || c == '\'') { inStr = c; continue; }
+                yield return i;
             }
+        }
+
+        static int FirstBlockBrace(string rs)
+        {
+            foreach (int i in CodePositions(rs))
+                if (rs[i] == '{') return i;
             return -1;
         }
 
         static int MatchBrace(string rs, int open)
         {
-            char inStr = '\0';
-            int chev = 0, depth = 0;
-            for (int i = open; i < rs.Length; i++)
+            int depth = 0;
+            foreach (int i in CodePositions(rs, open))
             {
-                char c = rs[i];
-                if (inStr != '\0') { if (c == inStr) inStr = '\0'; continue; }
-                if (c == '«') chev++;
-                else if (c == '»') { if (chev > 0) chev--; }
-                else if (chev > 0) { }
-                else if (c == '"' || c == '\'') inStr = c;
-                else if (c == '{') depth++;
-                else if (c == '}')
-                {
-                    depth--;
-                    if (depth == 0) return i;
-                }
+                if (rs[i] == '{') depth++;
+                else if (rs[i] == '}' && --depth == 0) return i;
             }
             return -1;
         }
 
         static string StripLineComment(string s)
         {
-            char inStr = '\0';
-            int chev = 0;
-            for (int i = 0; i < s.Length; i++)
+            foreach (int i in CodePositions(s))
             {
-                char c = s[i];
-                if (inStr != '\0') { if (c == inStr) inStr = '\0'; continue; }
-                if (c == '«') chev++;
-                else if (c == '»') { if (chev > 0) chev--; }
-                else if (chev > 0) { }
-                else if (c == '"' || c == '\'') inStr = c;
-                else if (c == '/' && i + 1 < s.Length && s[i + 1] == '/')
-                {
-                    if (i > 0 && s[i - 1] == ':') continue; // part of ://
-                    return s.Substring(0, i);
-                }
+                if (s[i] != '/' || i + 1 >= s.Length || s[i + 1] != '/') continue;
+                if (i > 0 && s[i - 1] == ':') continue; // часть ://
+                return s.Substring(0, i);
             }
             return s;
         }
