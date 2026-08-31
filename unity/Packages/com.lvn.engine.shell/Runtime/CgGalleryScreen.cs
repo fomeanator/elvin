@@ -79,9 +79,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingRight = 20;
 
             // ── Header: ‹ back · "Галерея" · counter ────────────────────────────
-            var header = new VisualElement();
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.alignItems = Align.Center;
+            var header = ScreenUi.Row();
             header.style.marginBottom = 16;
             sheet.Add(header);
 

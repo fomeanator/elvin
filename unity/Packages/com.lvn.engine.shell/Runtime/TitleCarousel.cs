@@ -85,8 +85,7 @@ namespace Lvn.UI.Screens
             _strip = new VisualElement();
             _strip.style.position = Position.Absolute;
             _strip.style.top = 0; _strip.style.bottom = 0;
-            _strip.style.flexDirection = FlexDirection.Row;
-            _strip.style.alignItems = Align.Center;
+            ScreenUi.Row(_strip);
             _viewport.Add(_strip);
 
             // page dots

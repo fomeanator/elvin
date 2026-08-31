@@ -128,8 +128,7 @@ namespace Lvn.UI.Screens
             _row.style.borderBottomWidth = 1f;
             _row.style.borderBottomColor = LvnTokens.Border;
             _row.style.height = RowH;
-            _row.style.flexDirection = FlexDirection.Row;
-            _row.style.alignItems = Align.Center;
+            ScreenUi.Row(_row);
             _row.style.paddingLeft = 12; _row.style.paddingRight = 12;
             Add(_row);
 
@@ -141,8 +140,7 @@ namespace Lvn.UI.Screens
             _row.Add(spacer);
 
             _pills = new VisualElement();
-            _pills.style.flexDirection = FlexDirection.Row;
-            _pills.style.alignItems = Align.Center;
+            ScreenUi.Row(_pills);
             _row.Add(_pills);
 
             _row.Add(Burger());
@@ -191,8 +189,7 @@ namespace Lvn.UI.Screens
             _gameRow.style.backgroundColor = new Color(gbg.r, gbg.g, gbg.b, 0.9f);
             _gameRow.style.borderBottomWidth = 1f;
             _gameRow.style.borderBottomColor = LvnTokens.Border;
-            _gameRow.style.flexDirection = FlexDirection.Row;
-            _gameRow.style.alignItems = Align.Center;
+            ScreenUi.Row(_gameRow);
             _gameRow.style.justifyContent = Justify.SpaceAround;
             _gameRow.style.paddingTop = 10; _gameRow.style.paddingBottom = 12;
             _gameRow.style.paddingLeft = 8; _gameRow.style.paddingRight = 8;

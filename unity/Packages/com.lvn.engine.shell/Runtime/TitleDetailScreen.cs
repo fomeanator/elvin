@@ -365,9 +365,7 @@ namespace Lvn.UI.Screens
                 : state == LvnChapterMark.Current ? LvnTokens.Accent
                 : state == LvnChapterMark.Open ? LvnTokens.Text
                 : LvnTokens.TextDim;
-            var stateBox = new VisualElement();
-            stateBox.style.flexDirection = FlexDirection.Row;
-            stateBox.style.alignItems = Align.Center;
+            var stateBox = ScreenUi.Row();
             stateBox.style.flexShrink = 0;
             stateBox.style.marginLeft = 12;
             var stateIcon = LvnIcons.Make(
@@ -423,9 +421,7 @@ namespace Lvn.UI.Screens
                 bar.Add(restart);
             }
 
-            var actionRow = new VisualElement();
-            actionRow.style.flexDirection = FlexDirection.Row;
-            actionRow.style.alignItems = Align.Center;
+            var actionRow = ScreenUi.Row();
             bar.Add(actionRow);
 
             var play = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.play", "Play"));

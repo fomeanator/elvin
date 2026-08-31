@@ -121,9 +121,7 @@ namespace Lvn.UI.Screens
             Add(sheet);
 
             // ── Top bar: back (‹) + "Профиль" ─────────────────────────────
-            var top = new VisualElement();
-            top.style.flexDirection = FlexDirection.Row;
-            top.style.alignItems = Align.Center;
+            var top = ScreenUi.Row();
             top.style.marginBottom = 14;
             sheet.Add(top);
 
@@ -188,9 +186,7 @@ namespace Lvn.UI.Screens
         // может показать без выдумок на любом аккаунте.
         private VisualElement ProgressLine()
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
+            var row = ScreenUi.Row();
             LvnChrome.Card(row);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -243,9 +239,7 @@ namespace Lvn.UI.Screens
             dossier.style.marginBottom = 12;
             card.Add(dossier);
 
-            var identity = new VisualElement();
-            identity.style.flexDirection = FlexDirection.Row;
-            identity.style.alignItems = Align.Center;
+            var identity = ScreenUi.Row();
             card.Add(identity);
 
             // Circular avatar with an Accent ring.
@@ -428,16 +422,11 @@ namespace Lvn.UI.Screens
             row.style.paddingRight = 16;
             row.style.marginBottom = 10;
 
-            var head = new VisualElement();
-            head.style.flexDirection = FlexDirection.Row;
-            head.style.alignItems = Align.Center;
-            head.style.justifyContent = Justify.SpaceBetween;
+            var head = ScreenUi.Row(spread: true);
             head.style.marginBottom = 8;
             row.Add(head);
 
-            var nameRow = new VisualElement();
-            nameRow.style.flexDirection = FlexDirection.Row;
-            nameRow.style.alignItems = Align.Center;
+            var nameRow = ScreenUi.Row();
             var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent);
             heart.style.marginRight = 7;
             nameRow.Add(heart);

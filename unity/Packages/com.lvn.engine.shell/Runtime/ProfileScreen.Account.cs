@@ -17,10 +17,7 @@ namespace Lvn.UI.Screens
         // Ссылка на настройки: звук/язык/загрузку ищут в профиле — дадим путь.
         private VisualElement SettingsLink()
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.justifyContent = Justify.SpaceBetween;
+            var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row, LvnTokens.SurfaceSoft);
             row.style.marginTop = 6; row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -50,10 +47,7 @@ namespace Lvn.UI.Screens
         // прямо в кнопке — отдельный диалог тут был бы тяжелее самого действия.
         private VisualElement DeleteAccountRow()
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.justifyContent = Justify.SpaceBetween;
+            var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -133,10 +127,7 @@ namespace Lvn.UI.Screens
         // ── Section 6: footer (UID + copy) ─────────────────────────────────
         private VisualElement BuildFooter()
         {
-            var footer = new VisualElement();
-            footer.style.flexDirection = FlexDirection.Row;
-            footer.style.alignItems = Align.Center;
-            footer.style.justifyContent = Justify.SpaceBetween;
+            var footer = ScreenUi.Row(spread: true);
             footer.style.marginTop = 8;
             footer.style.paddingTop = 12;
             footer.style.borderTopWidth = 1;

@@ -106,9 +106,7 @@ namespace Lvn.UI.Screens
             Add(sheet);
 
             // ── Top bar: back ‹ · title · balances ────────────────────────────
-            var top = new VisualElement();
-            top.style.flexDirection = FlexDirection.Row;
-            top.style.alignItems = Align.Center;
+            var top = ScreenUi.Row();
             top.style.marginBottom = 16;
             sheet.Add(top);
 
@@ -497,9 +495,7 @@ namespace Lvn.UI.Screens
                 chips.style.marginTop = 8;
                 foreach (var kv in pack.Grants)
                 {
-                    var chip = new VisualElement();
-                    chip.style.flexDirection = FlexDirection.Row;
-                    chip.style.alignItems = Align.Center;
+                    var chip = ScreenUi.Row();
                     chip.style.backgroundColor = LvnTokens.Faint;
                     LvnChrome.Round(chip, LvnTokens.RadiusSm);
                     chip.style.paddingTop = 5; chip.style.paddingBottom = 5;

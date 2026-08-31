@@ -65,8 +65,7 @@ namespace Lvn.UI.Screens
             _look = look ?? new Look();
 
             pickingMode = onTap != null ? PickingMode.Position : PickingMode.Ignore;
-            style.flexDirection = FlexDirection.Row;
-            style.alignItems = Align.Center;
+            ScreenUi.Row(this);
             style.marginLeft = _look.MarginLeft;
             if (_look.Height > 0f) style.height = _look.Height;
             style.paddingLeft = _look.PadLeft;

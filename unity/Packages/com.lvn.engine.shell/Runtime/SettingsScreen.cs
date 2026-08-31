@@ -466,10 +466,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement RowEx(string label, string hint)
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.justifyContent = Justify.SpaceBetween;
+            var row = ScreenUi.Row(spread: true);
             // ПЕРЕНОС УПРАВЛЕНИЯ, А НЕ ПОДПИСИ ПО БУКВАМ. Широкая гарнитура
             // (пиксельная) в крупном размере съедает ширину, и колонке текста
             // оставалось сорок пикселей: «ID игрока» рассыпался в столбик по

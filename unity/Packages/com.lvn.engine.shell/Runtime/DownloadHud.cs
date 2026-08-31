@@ -179,11 +179,9 @@ namespace Lvn.UI.Screens
             _full.style.opacity = 0f;
             _capsule.Add(_full);
 
-            var head = new VisualElement();
+            var head = ScreenUi.Row();
             head.pickingMode = PickingMode.Ignore;
-            head.style.flexDirection = FlexDirection.Row;
-            head.style.alignItems = Align.Center;
-            head.style.justifyContent = Justify.SpaceBetween;
+            ScreenUi.Row(head, spread: true);
             _full.Add(head);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("downloads.title", "Downloads"));
@@ -201,10 +199,9 @@ namespace Lvn.UI.Screens
             close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
             head.Add(close);
 
-            var active = new VisualElement();
+            var active = ScreenUi.Row();
             active.pickingMode = PickingMode.Ignore;
-            active.style.flexDirection = FlexDirection.Row;
-            active.style.alignItems = Align.Center;
+            ScreenUi.Row(active);
             active.style.marginTop = 10;
             _full.Add(active);
 
@@ -479,9 +476,10 @@ namespace Lvn.UI.Screens
             // мигнуть неподвижной дугой.
             private const float SpinDegreesPerSecond = 260f;
 
-            // За сколько дуга догоняет новую долю. Меньше — резче, больше —
-            // ватнее; треть секунды примерно равна шагу данных.
-            private const float SmoothingSeconds = 0.18f;
+            // Как догоняет показанное — общая модель прогресса (та же, что у
+            // бут-вуали и экрана загрузки): монотонно и по времени.
+            private readonly Lvn.Content.LoadingProgressModel _model =
+                new Lvn.Content.LoadingProgressModel(smoothRate: 5.5f);
             private RingGlyph _glyph = RingGlyph.Down;
 
             public RingGlyph Glyph
@@ -521,18 +519,18 @@ namespace Lvn.UI.Screens
                     // Время идёт ровно — и угол вместе с ним.
                     float now = Lvn.LvnClock.Now();
                     _spin = (now * SpinDegreesPerSecond) % 360f;
-                    // Дуга не скачет между тиками данных (300 мс), а плывёт.
-                    // Сглаживание ПО ВРЕМЕНИ: доля за тик зависела бы от того,
-                    // как часто он пришёл, и на просевшем кадре полоса ползла
-                    // медленнее самой загрузки.
+                    // Дуга не скачет между тиками данных (300 мс), а плывёт —
+                    // ТОЙ ЖЕ моделью, что вуаль и экран загрузки. Здесь стояло
+                    // своё сглаживание: одна работа («показанное догоняет
+                    // настоящее, монотонно и по времени») жила двумя правилами,
+                    // и «плавно» у кружка означало не то же, что у полосы.
                     if (_progress >= 0f)
                     {
                         float dt = _lastTick > 0f ? Mathf.Clamp(now - _lastTick, 0f, 0.25f) : 0.033f;
-                        float k = 1f - Mathf.Exp(-dt / SmoothingSeconds);
-                        _shown = _shown < 0f ? _progress : Mathf.Lerp(_shown, _progress, k);
-                        if (Mathf.Abs(_progress - _shown) < 0.002f) _shown = _progress; // хвост не тянем
+                        if (_shown < 0f) { _model.Reset(); _model.RaiseTo(_progress); }
+                        _shown = _model.TickToward(_progress, dt);
                     }
-                    else _shown = -1f;
+                    else { _shown = -1f; _model.Reset(); }
                     _lastTick = now;
                     MarkDirtyRepaint();
                 }).Every(16);

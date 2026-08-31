@@ -139,16 +139,12 @@ namespace Lvn.UI.Screens
 
             // Standard mobile-game top bar: player avatar + name/level on the left,
             // currency balances (with a "+" to buy) and settings on the right.
-            var topBar = new VisualElement();
-            topBar.style.flexDirection = FlexDirection.Row;
-            topBar.style.alignItems = Align.Center;
-            topBar.style.justifyContent = Justify.SpaceBetween;
+            var topBar = ScreenUi.Row(spread: true);
             topBar.style.marginBottom = 22;
 
-            var profile = new VisualElement();
+            var profile = ScreenUi.Row();
             _profileBlock = profile;
-            profile.style.flexDirection = FlexDirection.Row;
-            profile.style.alignItems = Align.Center;
+            ScreenUi.Row(profile);
             var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             avatar.style.width = 56; avatar.style.height = 56;
             avatar.style.backgroundColor = _theme.SurfaceHi;
@@ -166,12 +162,9 @@ namespace Lvn.UI.Screens
             profile.Add(nameCol);
             topBar.Add(profile);
 
-            var rightGroup = new VisualElement();
-            rightGroup.style.flexDirection = FlexDirection.Row;
-            rightGroup.style.alignItems = Align.Center;
+            var rightGroup = ScreenUi.Row();
             _topPills = new VisualElement();
-            _topPills.style.flexDirection = FlexDirection.Row;
-            _topPills.style.alignItems = Align.Center;
+            ScreenUi.Row(_topPills);
             rightGroup.Add(_topPills);
             // daily-rewards gift (badge dot hints there's something to claim)
             var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
@@ -294,9 +287,7 @@ namespace Lvn.UI.Screens
 
             // Действие и цена в один ряд: стоимость рядом с кнопкой, а не
             // спрятана в её надписи.
-            var dActions = new VisualElement();
-            dActions.style.flexDirection = FlexDirection.Row;
-            dActions.style.alignItems = Align.Center;
+            var dActions = ScreenUi.Row();
             dActions.style.marginTop = 14;
             // ПОДПИСЬ КНОПКИ ЗАВИСИТ ОТ ДВУХ ВЕЩЕЙ СРАЗУ: от языка и от того,
             // какую новеллу открыли (её цена, её замок). Держать оба ответа
@@ -315,8 +306,7 @@ namespace Lvn.UI.Screens
             _detailPlay.style.marginTop = 0;
             dActions.Add(_detailPlay);
             _detailChips = new VisualElement();
-            _detailChips.style.flexDirection = FlexDirection.Row;
-            _detailChips.style.alignItems = Align.Center;
+            ScreenUi.Row(_detailChips);
             _detailChips.style.marginLeft = 12;
             dActions.Add(_detailChips);
             _detailView.Add(dActions);
