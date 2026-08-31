@@ -121,7 +121,60 @@ namespace Lvn.Editor
                 }
                 outLines.Add(line);
             }
+            RefuseInlineCalls(outLines, funcs);
             return string.Join("\n", outLines);
+        }
+
+        /// <summary>
+        /// ВЫЗОВ ВНУТРИ ВЫРАЖЕНИЯ — ОТКАЗ, А НЕ МОЛЧАНИЕ.
+        ///
+        /// <para>Go подставляет тело функции прямо в выражение:
+        /// <c>x = 1 + add(2, 3)</c> становится <c>set expr="1 + (2 + 3)"</c>,
+        /// без единой метки. Этот порт так не умеет — он лоуэрит функцию
+        /// процедурой, и <c>add(2, 3)</c> оставался в выражении неразобранным.
+        /// Из одного исходника выходили два РАЗНЫХ скрипта: через CLI глава
+        /// считала, в редакторе — читала ноль и играла не ту ветку.</para>
+        ///
+        /// <para>Пока подстановки здесь нет, это ОБЯЗАНО падать, а не тихо
+        /// расходиться — ровно то же правило, по которому в этом файле объявлен
+        /// список неподдержанных исходных команд. Автору сказано, что делать:
+        /// собрать главу через lvnconv.</para>
+        /// </summary>
+        static void RefuseInlineCalls(List<string> lines, Dictionary<string, List<string>> funcs)
+        {
+            if (funcs.Count == 0) return;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                string t = lines[i].Trim();
+                bool carriesExpr = t.StartsWith("set ") || t.StartsWith("if ") || t.StartsWith("inc ");
+                foreach (var fname in funcs.Keys)
+                {
+                    int from = 0;
+                    while (true)
+                    {
+                        int at = t.IndexOf(fname + "(", from, StringComparison.Ordinal);
+                        if (at < 0) break;
+                        from = at + 1;
+                        // Имя должно стоять отдельным словом, а не хвостом чужого.
+                        if (at > 0 && (char.IsLetterOrDigit(t[at - 1]) || t[at - 1] == '_')) continue;
+                        // Считается либо строка-носитель выражения, либо любая
+                        // подстановка {…}: в прозе «беги(быстро)» — просто слова.
+                        if (!carriesExpr && !InsideBraces(t, at)) continue;
+                        throw new LvnsCompileException(
+                            $"line {i + 1}: {fname}() внутри выражения — редакторный импорт подстановку "
+                            + "тела в выражение не делает; соберите главу через lvnconv "
+                            + "(или вынесите вызов на отдельную строку)");
+                    }
+                }
+            }
+        }
+
+        static bool InsideBraces(string s, int at)
+        {
+            int open = s.LastIndexOf('{', at);
+            if (open < 0) return false;
+            int close = s.IndexOf('}', open);
+            return close > at;
         }
 
         static List<string> SplitArgs(string s)
