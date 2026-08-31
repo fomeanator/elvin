@@ -154,9 +154,8 @@ namespace Lvn.UI.Screens
         /// <summary>Tear down and rebuild the whole body from the current model.
         /// Cheap enough to call after mutating any of the public fields.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             _body.Clear();
             _body.Add(BuildIdentityCard());

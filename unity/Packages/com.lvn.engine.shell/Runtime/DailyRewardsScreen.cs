@@ -179,9 +179,8 @@ namespace Lvn.UI.Screens
         /// <summary>Re-render the subtitle, the seven cells, and the claim button
         /// from the current streak state. Safe to call any number of times.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             _subtitle.text = LvnWords.Of("daily.day", "Day {0}", _currentDay);
 

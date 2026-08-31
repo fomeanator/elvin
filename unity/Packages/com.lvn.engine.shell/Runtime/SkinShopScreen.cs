@@ -276,9 +276,8 @@ namespace Lvn.UI.Screens
 
         /// <summary>(Re)build every dynamic section from the current selection.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             _balanceAmount.text = LvnPriceTag.Amount(_gold);
             RebuildPreview();

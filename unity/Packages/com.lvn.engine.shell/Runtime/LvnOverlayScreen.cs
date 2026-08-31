@@ -140,9 +140,21 @@ namespace Lvn.UI.Screens
         /// </summary>
         public virtual void Redress() { RedressChrome(); RedressBody(); }
 
-        /// <summary>Пересобрать содержимое под новые слова, шрифт и размеры.
-        /// Экран без списка не переопределяет ничего.</summary>
-        protected virtual void RedressBody() { }
+        /// <summary>
+        /// СОБРАТЬ ТЕЛО ЭКРАНА ЗАНОВО — под новые слова, шрифт, размеры или
+        /// новые данные. Экран без списка не переопределяет ничего.
+        ///
+        /// <para>Это ОДНА работа с одним именем. Семь экранов писали её под
+        /// именем <c>Rebuild</c> и отдельной строкой связывали с переодеванием
+        /// (<c>RedressBody() => Rebuild()</c>) — семь одинаковых строк, каждую
+        /// из которых полагалось не забыть. Восьмой её и забыл: смена языка на
+        /// его открытом экране тело не трогала.</para>
+        /// </summary>
+        public virtual void Rebuild() { }
+
+        /// <summary>Тело переодевается ПЕРЕСБОРКОЙ. Отдельный крючок остаётся
+        /// для тех, у кого переодеть надо не всё тело.</summary>
+        protected virtual void RedressBody() => Rebuild();
 
         protected VisualElement Sheet(float sideInset = 5f, float topInset = 6f, Color? tint = null)
         {

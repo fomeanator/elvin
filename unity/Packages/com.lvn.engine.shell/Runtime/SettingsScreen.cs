@@ -117,7 +117,6 @@ namespace Lvn.UI.Screens
         // выигрыш — одно движение пальцем на четыре экрана текста. Прокрутка
         // честнее: она не врёт о том, где игрок находится.
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
         private Label _titleLabel;
         private Button _closeButton;
@@ -134,7 +133,7 @@ namespace Lvn.UI.Screens
             if (_closeButton != null) _closeButton.style.fontSize = LvnTokens.TextBase;
         }
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             _list.Clear();
             _sections = 0;
