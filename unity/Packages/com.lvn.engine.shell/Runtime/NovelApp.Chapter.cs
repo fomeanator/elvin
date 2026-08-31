@@ -63,30 +63,7 @@ namespace Lvn.UI.Screens
                 novelFreshStart = false; // only the entry chapter of this run counts
                 if (finished == null)
                 {
-                    // Уход ИЗ СЕРЕДИНЫ главы. Без этого события потеря внутри
-                    // главы выводилась вычитанием (start минус finish), и в
-                    // одно число сливались крах, гибель, упёршийся в энергию и
-                    // просто заскучавший. Позиция говорит, ГДЕ бросили: у
-                    // «дочитал до середины и вышел» и «вылетело на первом
-                    // кадре» разные причины и разные починки.
-                    // Контекст КАДРА, а не только позиции. Иначе «ушли на
-                    // команде 137» не отвечает ни на что: половина глав вообще
-                    // без выборов, и бросают там не из-за развилки, а из-за
-                    // того, ЧТО на экране — плохой спрайт персонажа, не тот
-                    // фон, зависшая сцена. Метка + фон + кто на сцене дают
-                    // место, которое можно открыть и посмотреть глазами.
-                    var snap = Stage?.Player?.Save();
-                    Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterAbandon,
-                        ("title", title?.id), ("chapter", chapter.id),
-                        ("at", Stage?.Player?.Index ?? -1),
-                        ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
-                        ("bg", Lvn.UI.VnStage.LastSceneBgUrl),
-                        ("actors", Stage?.ActorsOnStage()),
-                        // Брошенная глава — самый интересный случай для плавности:
-                        // уходят чаще всего оттуда, где дёргается.
-                        ("hitches", Lvn.LvnFrameWatch.Hitches),
-                        ("worst_ms", Lvn.LvnFrameWatch.WorstMs));
-                    FlushUnknownOps(title, chapter);
+                    AnnounceChapterAbandon(title, chapter);
                     break; // → carousel
                 }
                 AnnounceChapterFinish(title, finished);
@@ -193,6 +170,44 @@ namespace Lvn.UI.Screens
                 ("title", title?.id), ("chapter", finished.id),
                 ("hitches", hitches), ("worst_ms", worstMs));
             FlushUnknownOps(title, finished);
+        }
+
+        /// <summary>
+        /// УХОД ИЗ СЕРЕДИНЫ ГЛАВЫ — третья сторона того же обряда, рядом с
+        /// началом и концом.
+        ///
+        /// <para>Без этого события потеря внутри главы выводилась вычитанием
+        /// (start минус finish), и в одно число сливались крах, гибель,
+        /// упёршийся в энергию и просто заскучавший. Позиция говорит, ГДЕ
+        /// бросили: у «дочитал до середины и вышел» и «вылетело на первом
+        /// кадре» разные причины и разные починки.</para>
+        ///
+        /// <para>Контекст КАДРА, а не только позиции. «Ушли на команде 137» не
+        /// отвечает ни на что: половина глав вообще без выборов, и бросают там
+        /// не из-за развилки, а из-за того, ЧТО на экране — плохой спрайт, не
+        /// тот фон, зависшая сцена. Метка, фон и кто на сцене дают место,
+        /// которое можно открыть и посмотреть глазами.</para>
+        ///
+        /// <para>Стояло это всё прямо в цикле — и там же разошлось с концом
+        /// главы: конец ЗАБИРАЕТ счёт запинок (Take, со сбросом), а уход читал
+        /// те же счётчики, не сбрасывая. Запинки брошенной главы утекали в
+        /// следующую и портили её число — ту самую величину, ради которой счёт
+        /// и заведён.</para>
+        /// </summary>
+        private void AnnounceChapterAbandon(LvnTitle title, LvnChapter chapter)
+        {
+            var snap = Stage?.Player?.Save();
+            // Брошенная глава — самый интересный случай для плавности: уходят
+            // чаще всего оттуда, где дёргается.
+            var (hitches, worstMs) = Lvn.LvnFrameWatch.Take();
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterAbandon,
+                ("title", title?.id), ("chapter", chapter?.id),
+                ("at", Stage?.Player?.Index ?? -1),
+                ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
+                ("bg", Lvn.UI.VnStage.LastSceneBgUrl),
+                ("actors", Stage?.ActorsOnStage()),
+                ("hitches", hitches), ("worst_ms", worstMs));
+            FlushUnknownOps(title, chapter);
         }
 
         private async Task<bool> EnsureChapterScriptAsync(LvnChapter chapter)

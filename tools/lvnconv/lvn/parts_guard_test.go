@@ -719,3 +719,41 @@ func TestReachabilityAndBackoffHaveOneAnswer(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// СЧЁТ ЗАПИНОК ЗАБИРАЮТ, А НЕ ПОДСМАТРИВАЮТ.
+//
+// Плавность мерится за ГЛАВУ: сколько раз кадр вставал и насколько худший.
+// Конец главы ЗАБИРАЕТ счёт (Take — с обнулением), а уход из середины читал те
+// же счётчики напрямую и не сбрасывал: запинки брошенной главы утекали в
+// следующую и портили её число — ту самую величину, ради которой счёт заведён.
+//
+// Правило простое: в отчёте о конце главы (любом) стоит Take.
+func TestHitchCountIsTakenNotPeeked(t *testing.T) {
+	root := repoRoot(t)
+	peek := regexp.MustCompile(`\("(?:hitches|worst_ms)"\s*,\s*[\w.]*LvnFrameWatch\.(?:Hitches|WorstMs)`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		if strings.Contains(filepath.ToSlash(path), "/Tests/") {
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if peek.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d", filepath.Base(path), i+1))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("счёт запинок отправлен подсматриванием (%d):\n  %s\n\n"+
+			"Возьмите LvnFrameWatch.Take(): глава, ушедшая без сброса, дарит свои "+
+			"запинки следующей — и обе цифры перестают что-либо значить.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
