@@ -699,6 +699,7 @@ func TestСловарьЦветаПроверкиМанифестаСовпад�
 	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(cs[at:end], -1) {
 		engine[m[1]] = true
 	}
+	atLeast(t, len(engine), 20, "слов словаря цвета")
 	for w := range engine {
 		if !inSet(ColorWords, w) {
 			t.Fatalf("движок знает цвет %q, а проверка манифеста нет — "+

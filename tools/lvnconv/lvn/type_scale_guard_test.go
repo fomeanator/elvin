@@ -33,6 +33,7 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 	re := regexp.MustCompile(`style\.fontSize\s*=\s*(\d+)`)
 
 	offScale := 0
+	scanned := 0
 	novel := map[int]int{}
 	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
 		dir := filepath.Join(root, "unity", "Packages", pkg, "Runtime")
@@ -47,6 +48,7 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			scanned++
 			for _, line := range strings.Split(string(b), "\n") {
 				code := line
 				if c := strings.Index(code, "//"); c >= 0 {
@@ -66,6 +68,10 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	// Порог охвата: «мимо шкалы ноль» и «обход сломался» дают одну и ту же
+	// зелёную строку, а значат прямо противоположное.
+	atLeast(t, scanned, 150, "просмотренных файлов")
 
 	if offScale > budget {
 		var sizes []int

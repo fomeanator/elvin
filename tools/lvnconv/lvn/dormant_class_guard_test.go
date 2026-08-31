@@ -83,6 +83,10 @@ func TestDormantClassesExplainThemselves(t *testing.T) {
 			mute = append(mute, fmt.Sprintf("%s (%s)", name, filepath.ToSlash(rel)))
 		}
 	}
+	// Порог охвата: «спящих классов нет» и «обход не нашёл ни одного файла»
+	// выглядят одинаково зелёными.
+	atLeast(t, len(sources), 150, "просмотренных файлов")
+
 	if len(mute) > 0 {
 		t.Fatalf("класс не зовут нигде и он молчит об этом:\n  %s\n\nНапишите в его сводке"+
 			" «НЕ ПОДКЛЮЧЁН» и чего он ждёт: «готово и ждёт решения» иначе неотличимо от"+
