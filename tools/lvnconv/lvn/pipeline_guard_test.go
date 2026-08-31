@@ -1,0 +1,120 @@
+package lvn
+
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+)
+
+// СТРАЖИ ТРАКТА — что генерируется, что копируется, что разложено по темам.
+//
+// Общее у них одно: файл, который кто-то однажды собрал и больше не
+// пересобирал. Отставший генерируемый файл и отставшая вшитая копия выглядят
+// как справка и врут с уверенным видом.
+
+func TestПодсказкиНеОтстаютОтГрамматики(t *testing.T) {
+	root := repoRoot(t)
+	jsonRaw, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", "grammar.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsRaw, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", "grammar.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := func(src, key, open, close string) map[string]bool {
+		m := regexp.MustCompile(`(?s)` + regexp.QuoteMeta(key) + open + `(.*?)\n` + close).FindStringSubmatch(src)
+		if m == nil {
+			t.Fatalf("не нашёл список %q — поправь якорь сторожа", key)
+		}
+		out := map[string]bool{}
+		for _, w := range regexp.MustCompile(`"([a-z_0-9]+)"`).FindAllStringSubmatch(m[1], -1) {
+			out[w[1]] = true
+		}
+		return out
+	}
+	truth := names(string(jsonRaw), `"ops":`, ` \[`, `  \],`)
+	shown := names(string(jsRaw), `export const OPS =`, ` \[`, `\];`)
+	for w := range truth {
+		if !shown[w] {
+			t.Fatalf("команду %q грамматика знает, а подсказки нет — забыли `npm run gen` "+
+				"в tools/lvn-lang после правки grammar.json", w)
+		}
+	}
+	for w := range shown {
+		if !truth[w] {
+			t.Fatalf("подсказки предлагают %q, чего в grammar.json нет — "+
+				"grammar.js правили руками, а он генерируемый", w)
+		}
+	}
+}
+
+// Компилятор .lvns разложен по темам — и режут его РАЗБОРОМ, а не подсчётом.
+//
+// Файл был крупнейшим в репозитории (1703 строки) и неучтённым нарушением
+// собственного правила канона. Две попытки разрезать его подсчётом фигурных
+// скобок развалили сборку: в компиляторе полно строковых литералов со
+// скобками — он про них и написан. Сторож держит разложение и заодно ловит
+// возврат к «одному файлу на всё».
+
+func TestКомпиляторРазложенПоТемам(t *testing.T) {
+	dir := filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine", "Editor")
+	for _, f := range []string{"LvnsCompiler.Expand.cs", "LvnsCompiler.Anim.cs"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Fatalf("%s пропал — темы компилятора снова съехались в один файл", f)
+		}
+	}
+	// Развороты живут в .Expand: в корне их быть не должно.
+	core, err := os.ReadFile(filepath.Join(dir, "LvnsCompiler.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := stripCommentsAndStrings(string(core))
+	for _, gone := range []string{"static string ExpandLoops(", "static string ExpandCalls(", "static JObject BuildAnimCmd("} {
+		if strings.Contains(src, gone) {
+			t.Fatalf("LvnsCompiler.cs: %q вернулся в корень — у него свой файл", gone)
+		}
+	}
+	// Правило канона, из-за которого всё и делалось.
+	lines := strings.Count(string(core), "\n") + 1
+	if lines > 1400 {
+		t.Fatalf("LvnsCompiler.cs снова разросся (%d строк): файл в тысячу строк — "+
+			"это несколько классов, которые забыли разделить", lines)
+	}
+}
+
+// «Что это за адрес» решает дом, а не место вызова.
+//
+// Различать приходилось в семи местах, и написано это было тремя разными
+// способами. Один из трёх считал ЛОКАЛЬНЫЙ адрес относительным — приписывал к
+// нему базу и кодировал, — а за file:// стоит чтение с диска, где «%20»
+// означает файл, которого нет.
+
+func TestКопияГрамматикиВРасширенииНеФорк(t *testing.T) {
+	root := repoRoot(t)
+	for _, name := range []string{"grammar.js", "grammar.json"} {
+		src, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		vendored, err := os.ReadFile(filepath.Join(root, "tools", "vscode-lvn", "lib", "lvn-lang", name))
+		if err != nil {
+			t.Fatalf("вшитая копия %s пропала: %v", name, err)
+		}
+		if string(src) != string(vendored) {
+			t.Fatalf("tools/vscode-lvn/lib/lvn-lang/%s разошлась с правдой.\n"+
+				"Перегенерируйте обе одним шагом:\n"+
+				"  (cd tools/lvn-lang && npm run gen)\n"+
+				"Пока копия своя, расширение подсказывает другой язык.", name)
+		}
+	}
+}
+
+// Встроенные функции выражений сверяются С ДВИЖКОМ, а не только между собой.
+//
+// ExprFuncs был пришпилен к Go-компилятору и к веб-плееру, но НЕ к C#
+// вычислителю — то есть к тому, кто их и исполняет. Ровно та расстановка, при
+// которой две стороны согласны, а третья тихо уезжает: так уже протухли
+// золотые эталоны.

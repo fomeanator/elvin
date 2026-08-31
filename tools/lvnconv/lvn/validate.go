@@ -612,7 +612,15 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			var walk func(any, int)
 			walk = func(n any, depth int) {
 				node, ok := n.(map[string]any)
-				if !ok || depth > 16 {
+				if !ok {
+					return
+				}
+				if depth > 16 {
+					// Молчаливый предел — та же болезнь, что и молчаливый
+					// default: ниже мы не смотрели, и опечатка вида там снова
+					// станет невидимой. Скажем об этом хотя бы раз.
+					addWarn(i, op, "дерево глубже 17 уровней — дальше виды узлов не проверены; "+
+						"если это сгенерированное дерево, проверьте его отдельно")
 					return
 				}
 				if kind, _ := node["kind"].(string); kind != "" && !inSet(UiNodeKinds, kind) {

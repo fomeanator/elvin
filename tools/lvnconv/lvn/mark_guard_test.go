@@ -55,4 +55,3 @@ func TestМеткиВыдаётПаспортист(t *testing.T) {
 			len(bad), strings.Join(bad, "\n  "))
 	}
 }
-

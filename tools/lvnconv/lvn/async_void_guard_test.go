@@ -22,7 +22,7 @@ import (
 func TestBackgroundWorkGoesThroughFire(t *testing.T) {
 	root := repoRoot(t)
 	allowed := map[string]string{
-		"unity/Packages/com.lvn.engine.shell/Runtime/NovelApp.Boot.cs": "Start",          // точка входа Unity
+		"unity/Packages/com.lvn.engine.shell/Runtime/NovelApp.Boot.cs": "Start",           // точка входа Unity
 		"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.SaveLoad.cs": "RestoreSnapshot", // ловит и продолжает
 	}
 	var strays []string
