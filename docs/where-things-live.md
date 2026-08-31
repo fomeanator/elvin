@@ -147,7 +147,7 @@ partial-файлами с общим именем: искать нужное п�
 | Класс | Файлы |
 |---|---|
 | `VnStage` | `.Actors` показ фигуры, `.Actors.Placement` куда и какого размера, `.Actors.Wardrobe` примерка, `.Dialogue` реплика, `.Choice` выбор игрока, `.Playback` ход главы, `.Background` задник, `.Solo` кто остаётся в кадре, `.Commands` разбор команд, `.SaveLoad`, `.Preload`, `.Input`/`.Pointer` касания, `.Drag` перетаскивание, `.Spine` костяные фигуры, `.Effects`, `.Labels`, `.Pins`, `.Health` самолечение, `.Roster` явочный лист, `.Fonts`, `.Panel`, `.Reads`, `.Thumbnails` |
-| `NovelApp` | `.Menu` витрина, `.Chapter` вход в главу, `.Wardrobe` два входа в лист, `.Storage` мегабайты, `.Music` трек меню, `.Player` профиль и кошелёк игрока, `.State` переменные и сейвы, `.Locale` смена языка на лету, `.Boot` подъём, `.QuickMenu`, `.Chronicle`, `.Cashier` |
+| `NovelApp` | `.Menu` витрина, `.Chapter` вход в главу, `.Wardrobe` два входа в лист, `.Storage` мегабайты, `.Music` трек меню, `.Player` профиль и кошелёк игрока, `.State` переменные и сейвы, `.Locale` смена языка на лету, `.Manifest` откуда берётся каталог и как он раздаётся домам, `.Boot` подъём, `.QuickMenu`, `.Chronicle`, `.Cashier` |
 | `BrowseHub` | `.Cards` карточки новелл, `.Bits` мелкие детали, `.Nav` нижнее меню, `.Entrance` вход витрины (страница сбоку, меню снизу, ряды фейдом) |
 | `NovelShell` | `.Navigation` вкладки и модалки, `.Flow` главный цикл игры |
 | `WardrobeSheet` | `.Axes` вопросы к каталогу (какие оси, что надето, что игрок встречал), `.Tabs` полоса осей и поднастройки, `.Strip` витрина и колонка эмоций, `.Buy` выбор и покупка, `.Roster` кого одевать |
