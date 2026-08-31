@@ -414,3 +414,72 @@ func TestУходФигурыОтдельноОтПоказа(t *testing.T) {
 			"рантайма темы отделяются, а не копятся", n)
 	}
 }
+
+// Дом, хранящий данные игрока, обязан уметь их забыть — и быть в обряде.
+//
+// «Забыть меня» знал три дома из восьми. Самое острое — очереди: долговечная
+// очередь событий ПЕРЕЖИВАЛА обряд и уходила на сервер уже ПОСЛЕ него, а обряд
+// честно рапортовал об успехе. Молчаливый пропуск здесь дороже прочих: игрок
+// попросил себя удалить.
+func TestСервисныеДомаУчаствуютВЗабвении(t *testing.T) {
+	root := repoRoot(t)
+	boot, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine.shell",
+		"Runtime", "NovelApp.Boot.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rite := string(boot)
+	// Дома сервисов, которые пишут данные игрока в записную книжку.
+	dir := filepath.Join(root, "unity", "Packages", "com.lvn.engine.services", "Runtime")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := stripCommentsAndStrings(string(raw))
+		if !strings.Contains(src, "LvnKeep.Put") && !strings.Contains(src, "LvnOutbox(") {
+			continue
+		}
+		checked++
+		name := strings.TrimSuffix(e.Name(), ".cs")
+		// НАЗВАННОЕ ИСКЛЮЧЕНИЕ. Токен и id роняет DeleteAccountAsync — и
+		// только ПОСЛЕ того, как сервер подтвердил удаление. Уронить их
+		// локально раньше значило бы оставить живую учётку без ключа: игрок
+		// просил удалить аккаунт, а получил бы потерянный доступ к нему.
+		if name == "LvnBackend" {
+			if !strings.Contains(src, "DeleteAccountAsync") {
+				t.Fatal("LvnBackend: путь удаления учётки пропал — токен переживёт «забыть меня»")
+			}
+			continue
+		}
+		// Либо дом сам умеет забыть и назван в обряде, либо он ничего личного
+		// не держит — и тогда пусть скажет об этом словом.
+		if strings.Contains(src, "public static void Forget()") {
+			if !strings.Contains(rite, name+".Forget") {
+				t.Fatalf("%s умеет забыть себя, но в обряде забвения не назван — "+
+					"данные игрока переживут «удалить аккаунт»", name)
+			}
+			continue
+		}
+		// Очередь — не дом, а ВЕЩЬ: у неё несколько экземпляров с разными
+		// ключами, и в обряде названы их хозяева (аналитика, отгрузка логов),
+		// а не она сама. Ей достаточно уметь забыть себя.
+		if strings.Contains(src, "public void Forget()") {
+			continue
+		}
+		if !strings.Contains(string(raw), "не личные данные") {
+			t.Fatalf("%s пишет в записную книжку, но забывать себя не умеет и в обряде "+
+				"не назван.\nЛибо заведите Forget() и зарегистрируйте его, либо напишите "+
+				"в докблоке «не личные данные» и почему", name)
+		}
+	}
+	atLeast(t, checked, 4, "сервисных домов с хранением")
+}

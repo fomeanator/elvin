@@ -407,6 +407,17 @@ namespace Lvn.Services
             Changed?.Invoke();
         }
 
+        /// <summary>Забыть кошелёк ВМЕСТЕ С ХОЗЯИНОМ. ResetLocal чистит
+        /// зеркало и очередь, но метка владельца оставалась: обряд забвения
+        /// рапортовал об успехе, а на диске лежал баланс и чужой id — до
+        /// первого входа под новым.</summary>
+        public static void Forget()
+        {
+            ResetLocal();
+            try { LvnKeep.Drop(POwner); } catch { /* уже нечего */ }
+            Changed?.Invoke();
+        }
+
         internal static void ResetLocal()
         {
             _balances = new Dictionary<string, long>();

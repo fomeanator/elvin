@@ -42,6 +42,10 @@ namespace Lvn.Services
             batchMax: 200,
             send: SendAsync);
 
+        /// <summary>Забыть накопленное этим игроком: очередь переживала обряд
+        /// забвения и уходила на сервер уже после него.</summary>
+        public static void Forget() => _box.Forget();
+
         /// <summary>Start capturing. Call once, as early as possible.</summary>
         /// <summary>
         /// Последние строки лога — для отзыва из игры. Берём из ТОГО ЖЕ

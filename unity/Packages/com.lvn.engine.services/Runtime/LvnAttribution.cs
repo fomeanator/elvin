@@ -24,6 +24,14 @@ namespace Lvn.Services
     /// </summary>
     public static class LvnAttribution
     {
+        /// <summary>Забыть, откуда игрок пришёл: источник установки — тоже
+        /// его данные, и обряд забвения их не трогал.</summary>
+        public static void Forget()
+        {
+            foreach (var k in new[] { PSent, PPending })
+                try { LvnKeep.Drop(k); } catch { /* уже нечего */ }
+        }
+
         private const string PSent = "lvn.svc.attr.sent";
         private const string PPending = "lvn.svc.attr.pending";
 

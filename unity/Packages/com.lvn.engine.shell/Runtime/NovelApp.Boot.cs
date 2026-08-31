@@ -41,6 +41,16 @@ namespace Lvn.UI.Screens
             Lvn.UI.LvnForget.Register("прогресс", LvnProgress.ResetTitle, null);
             Lvn.UI.LvnForget.Register("сейф прогресса", null, ProgressVault.Forget);
             Lvn.UI.LvnForget.Register("идентификатор", null, ForgetUserId);
+            // СЕРВИСНЫЕ ДОМА ТОЖЕ ХРАНЯТ ИГРОКА, и обряд их не знал.
+            // Самое острое — очереди: долговечная очередь событий переживала
+            // забвение и уходила на сервер УЖЕ ПОСЛЕ него, а обряд честно
+            // рапортовал об успехе. Плюс баланс с меткой владельца, источник
+            // установки и группы экспериментов.
+            Lvn.UI.LvnForget.Register("кошелёк", null, Lvn.Services.LvnWallet.Forget);
+            Lvn.UI.LvnForget.Register("очередь событий", null, Lvn.Services.LvnAnalytics.Forget);
+            Lvn.UI.LvnForget.Register("очередь логов", null, Lvn.Services.LvnLogShip.Forget);
+            Lvn.UI.LvnForget.Register("источник установки", null, Lvn.Services.LvnAttribution.Forget);
+            Lvn.UI.LvnForget.Register("группы экспериментов", null, Lvn.Services.LvnExperiments.Forget);
 
             try { await StartAsync(); }
             catch (Exception e)
