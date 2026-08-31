@@ -597,3 +597,39 @@ func TestFileKindHasOneAnswer(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// КРИВАЯ ДВИЖЕНИЯ ПИШЕТСЯ ИМЕНЕМ, А НЕ ФОРМУЛОЙ.
+//
+// «Тормозит у цели» было написано девятью одинаковыми строками в шести файлах,
+// а в доме движения этой кривой не было вовсе — соседний дом появления так и
+// отметил: «своей Ease нет». Пока у кривой нет имени, «как выглядит движение» —
+// не решение дома, а привычка автора файла: поправить его разом негде.
+func TestMotionCurvesHaveNames(t *testing.T) {
+	root := repoRoot(t)
+	formula := regexp.MustCompile(`1f\s*-\s*Mathf\.Pow\(1f\s*-\s*\w+,\s*3f\)`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		if filepath.Base(path) == "LvnMotion.cs" { // сам дом кривых
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if formula.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d", filepath.Base(path), i+1))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("кривая движения записана формулой (%d):\n  %s\n\n"+
+			"Возьмите LvnMotion.Settle (приход тормозит у цели) или LvnMotion.Leave "+
+			"(уход разгоняется прочь): у движения оболочки должен быть один почерк.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

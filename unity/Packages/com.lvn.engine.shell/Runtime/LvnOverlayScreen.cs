@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
                 this.experimental.animation.Start(0f, 1f,
                     Mathf.RoundToInt(FadeSeconds * 1000f * 1.4f), (e, p) =>
                 {
-                    float k = 1f - Mathf.Pow(1f - p, 3f);
+                    float k = LvnMotion.Settle(p);
                     e.style.translate = new Translate(Mathf.Lerp(from2, to2, k), 0f);
                 });
                 return;
@@ -248,7 +248,7 @@ namespace Lvn.UI.Screens
             int ms = Mathf.RoundToInt(FadeSeconds * 1000f * (opening ? 1f : 0.8f));
             s.experimental.animation.Start(0f, 1f, Mathf.Max(1, ms), (_, p) =>
             {
-                float e = 1f - Mathf.Pow(1f - p, 3f);
+                float e = LvnMotion.Settle(p);
                 float k = opening ? e : 1f - e;
                 s.style.translate = new Translate(0f, Mathf.Lerp(26f, 0f, k));
                 float sc = Mathf.Lerp(0.965f, 1f, k);

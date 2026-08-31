@@ -117,7 +117,7 @@ namespace Lvn.UI.Screens
                 el.schedule.Execute(() =>
                     el.experimental.animation.Start(0f, 1f, LvnMotion.Ms(220), (e2, t) =>
                     {
-                        float e = 1f - Mathf.Pow(1f - t, 3f);
+                        float e = LvnMotion.Settle(t);
                         e2.style.opacity = e;
                         e2.style.translate = new Translate(0f, Mathf.Lerp(10f, 0f, e));
                     })).ExecuteLater(delay);

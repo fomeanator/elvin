@@ -84,5 +84,38 @@ namespace Lvn.Tests
             Assert.That(v, Is.LessThan(3f).And.GreaterThan(-1f),
                 "после долгой паузы значение должно остаться осмысленным, а не улететь");
         }
+
+        // ПОЧЕРК ДВИЖЕНИЯ. Проверяем не формулу, а её смысл: приход тормозит у
+        // цели (за первую половину времени проходит БОЛЬШЕ половины пути), уход
+        // разгоняется прочь (за первую половину — меньше). Кривая была написана
+        // девятью одинаковыми строками, и ни одна из них не была проверена.
+        [Test]
+        public void ПриходТормозитУЦелиАУходРазгоняется()
+        {
+            Assert.AreEqual(0f, LvnMotion.Settle(0f), 1e-5f, "приход обязан начинаться с места");
+            Assert.AreEqual(1f, LvnMotion.Settle(1f), 1e-5f, "приход обязан доводить до цели");
+            Assert.Greater(LvnMotion.Settle(0.5f), 0.5f,
+                "за половину времени приход должен пройти больше половины пути — иначе он не тормозит, а разгоняется");
+
+            Assert.AreEqual(0f, LvnMotion.Leave(0f), 1e-5f);
+            Assert.AreEqual(1f, LvnMotion.Leave(1f), 1e-5f);
+            Assert.Less(LvnMotion.Leave(0.5f), 0.5f, "уход обязан трогаться мягко и разгоняться");
+        }
+
+        // Кривые монотонны: доля пути не может пойти назад посреди хода —
+        // поверхность дёрнулась бы обратно на глазах.
+        [Test]
+        public void КривыеИдутТолькоВперёд()
+        {
+            float prevIn = -1f, prevOut = -1f;
+            for (int i = 0; i <= 20; i++)
+            {
+                float p = i / 20f;
+                float a = LvnMotion.Settle(p), b = LvnMotion.Leave(p);
+                Assert.GreaterOrEqual(a, prevIn, "приход пошёл назад");
+                Assert.GreaterOrEqual(b, prevOut, "уход пошёл назад");
+                prevIn = a; prevOut = b;
+            }
+        }
     }
 }

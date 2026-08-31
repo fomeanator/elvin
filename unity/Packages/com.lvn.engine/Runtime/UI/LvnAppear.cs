@@ -364,7 +364,7 @@ namespace Lvn.UI
                 .Start(0f, 1f, ms, (e, p) =>
                 {
                     if (!Owns(run, generation)) return;
-                    float settle = 1f - Mathf.Pow(1f - p, 3f);
+                    float settle = LvnMotion.Settle(p);
                     e.style.opacity = Mathf.Clamp01(p); // фейд на весь ход — как у актёра
                     e.style.translate = new Translate(
                         Mathf.Lerp(from.x, 0f, settle), Mathf.Lerp(from.y, 0f, settle));
@@ -390,10 +390,9 @@ namespace Lvn.UI
               .Start(0f, 1f, ms, (e, p) =>
               {
                   if (!Owns(run, generation)) return;
-                  float eased = appearing ? 1f - Mathf.Pow(1f - p, 3f)   // OutCubic
-                                          : p * p;                       // InQuad
+                  float eased = appearing ? LvnMotion.Settle(p) : LvnMotion.Leave(p);
                   set(e, Mathf.Lerp(from, to, eased));
-              });   // своей Ease нет: кривые разные для входа и выхода, они внутри
+              });   // кривые названы в доме движения: приход тормозит, уход разгоняется
             Keep(run, generation, animation);
         }
     }

@@ -42,7 +42,7 @@ namespace Lvn.UI.Screens
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(260), (_, p) =>
             {
-                float e = 1f - Mathf.Pow(1f - p, 3f); // OutCubic — тормозит у цели
+                float e = LvnMotion.Settle(p);
                 ApplyMorph(Mathf.Lerp(from, to, e));
             });
         }
