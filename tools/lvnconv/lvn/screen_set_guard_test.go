@@ -833,3 +833,56 @@ func TestСловарьСвойствАнимацииОдин(t *testing.T) {
 		}
 	}
 }
+
+// Как фигура входит и уходит — словарь один, и разница с панелями видна.
+//
+// Знал его только рантайм (VnStage.ParseTransition), и незнакомое слово давало
+// не ошибку, а TransitionType.None: появление БЕЗ перехода, молча. Автор,
+// выучивший `slide_up` на панелях `ui`, писал его актёру и получал мгновенное
+// возникновение без единого слова — наборы у панели и у фигуры разные.
+func TestСловарьПереходовФигурыОдин(t *testing.T) {
+	root := repoRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "VnStage.Reads.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := regexp.MustCompile(`(?s)ParseTransition\(string name\)(.*?)\n        \}`).
+		FindStringSubmatch(string(raw))
+	if body == nil {
+		t.Fatal("ParseTransition не найден — поправь якорь сторожа")
+	}
+	engine := map[string]bool{"": true} // пустое значение законно: поле без слова
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(body[1], -1) {
+		engine[m[1]] = true
+	}
+	if len(engine) < 10 {
+		t.Fatalf("в ParseTransition %d слов — похоже, якорь промахнулся: %v", len(engine), engine)
+	}
+	for w := range engine {
+		if !inSet(ActorTransitions, w) {
+			t.Fatalf("рантайм понимает переход %q, а валидатор его отвергнет — "+
+				"жалоба на законное слово", w)
+		}
+	}
+	for _, w := range ActorTransitions {
+		if !engine[w] {
+			t.Fatalf("валидатор считает %q переходом, а рантайм его не знает — "+
+				"фигура появится БЕЗ перехода и промолчит", w)
+		}
+	}
+	// Наборы фигуры и панели РАЗНЫЕ намеренно — но пусть это будет видно, а не
+	// обнаружено автором на экране.
+	appearRaw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "LvnAppear.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(string(appearRaw), -1) {
+		panel[m[1]] = true
+	}
+	if panel["slide_up"] && engine["slide_up"] {
+		t.Fatalf("наборы сошлись — обнови этот сторож и канон: разница больше не разница")
+	}
+}
