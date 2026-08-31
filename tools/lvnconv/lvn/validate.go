@@ -249,6 +249,19 @@ var ActorTransitions = []string{
 	"rise", "sink", "drop", "unfold", "dissolve", "burn", "drift", "side",
 }
 
+// AnimPropHints — прицельные подсказки для описок, до которых не дотягивается
+// сравнение по буквам. Слова не похожи, а перепутать их естественно.
+var AnimPropHints = map[string]string{
+	"opacity": `прозрачность у трека зовётся "alpha" (это "opacity" у actor и obj — имена разные, увы)`,
+	"fill":    `заполнения полосы движок не анимирует; тяните "scalex" у самой полосы`,
+	"width":   `ширину тянут через "scalex"`,
+	"height":  `высоту тянут через "scaley"`,
+	"angle":   `поворот зовётся "rotation"`,
+	"rot":     `поворот зовётся "rotation"`,
+	"pos_x":   `по экрану двигает "screen_x", внутри места — "x"`,
+	"pos_y":   `по экрану двигает "screen_y", внутри места — "y"`,
+}
+
 // AnimProps — что вообще можно анимировать. Словарь ЯЗЫКА, и жил он только в
 // рантайме (Lvn.UI.LvnAnimProp.Known): ни компилятор, ни валидатор, ни
 // подсказки редактора его не знали. Незнакомое имя не давало ошибки — рантайм
@@ -608,7 +621,14 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 						}
 						msg := fmt.Sprintf("prop=%q — такого свойства движок не знает, трек будет пропущен (есть: %s)",
 							prop, strings.Join(AnimProps, ", "))
-						if sg := suggest(prop, AnimProps); sg != "" {
+						// Прицельная подсказка там, где расстояние между словами
+						// её не даёт. «opacity» — не случайная описка: у actor и
+						// obj прозрачность ТАК И НАЗЫВАЕТСЯ (`opacity=0.4`), а у
+						// трека она `alpha`. Описка следует из самого языка, и
+						// перечень из десяти имён ей не помогает.
+						if hint, ok := AnimPropHints[prop]; ok {
+							msg += fmt.Sprintf(" — %s", hint)
+						} else if sg := suggest(prop, AnimProps); sg != "" {
 							msg += fmt.Sprintf(" — может быть %q?", sg)
 						}
 						addWarn(i, op, msg)
