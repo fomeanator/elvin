@@ -32,7 +32,12 @@ func init() {
 
 var (
 	reClass = regexp.MustCompile(`(?m)^\s*public (?:sealed )?class (\w+)`)
-	reField = regexp.MustCompile(`(?m)^\s*public ([\w<>,\s\.\?\[\]]+?)\s+(\w+)\s*;`)
+	// Поле МОЖЕТ ИМЕТЬ ЗНАЧЕНИЕ ПО УМОЛЧАНИЮ (`public float duration = 1f;`).
+	// Без этого хвоста снимок терял такие поля, и гейт объявлял
+	// несуществующими настоящие — ровно та ложная тревога, которую он должен
+	// был убрать.
+	reJSONName = regexp.MustCompile(`JsonProperty\("([^"]+)"\)`)
+	reField    = regexp.MustCompile(`(?m)^\s*public ([\w<>,\s\.\?\[\]]+?)\s+(\w+)\s*(?:=[^;]*)?;`)
 )
 
 // ScrapeManifestSchema снимает «класс → поля» с исходника DTO.
@@ -43,7 +48,7 @@ var (
 func ScrapeManifestSchema(src string) ManifestSchema {
 	out := ManifestSchema{}
 	lines := strings.Split(src, "\n")
-	cur := ""
+	cur, alias := "", ""
 	for _, ln := range lines {
 		if m := reClass.FindStringSubmatch(ln); m != nil {
 			cur = m[1]
@@ -53,6 +58,14 @@ func ScrapeManifestSchema(src string) ManifestSchema {
 		if cur == "" {
 			continue
 		}
+		// ИМЯ В JSON МОЖЕТ ОТЛИЧАТЬСЯ от имени поля: `var` — ключевое слово C#,
+		// и в DTO оно объявлено как storyVar с псевдонимом. Схема обязана
+		// знать то имя, которое пишет АВТОР, иначе гейт объявит несуществующим
+		// поле из живого манифеста.
+		if m := reJSONName.FindStringSubmatch(ln); m != nil {
+			alias = m[1]
+			continue
+		}
 		if m := reField.FindStringSubmatch(ln); m != nil {
 			typ := strings.TrimSpace(m[1])
 			// `public static readonly` и прочее — не поля данных.
@@ -60,15 +73,33 @@ func ScrapeManifestSchema(src string) ManifestSchema {
 				strings.Contains(typ, "readonly") {
 				continue
 			}
-			out[cur][m[2]] = simpleType(typ)
+			name := m[2]
+			if alias != "" {
+				name, alias = alias, ""
+			}
+			out[cur][name] = simpleType(typ)
 		}
 	}
 	return out
 }
 
 // simpleType сводит объявление к имени типа, по которому можно спуститься
-// глубже: `BrowseConfig`, `Dictionary<string, CurrencyLook>` → `CurrencyLook`.
+// глубже: `BrowseConfig`, `List<LvnTitle>` → `LvnTitle`.
+//
+// СЛОВАРЬ ПОМЕЧАЕТСЯ ОСОБО (`map:LvnSpriteEntity`). У него ключи авторские —
+// это ИМЕНА ГЕРОЕВ, а не поля, и проверять их по схеме нельзя: гейт объявил бы
+// несуществующими всех персонажей игры. Проверять надо ЗНАЧЕНИЯ, спускаясь
+// внутрь с типом значения.
 func simpleType(t string) string {
+	t = strings.TrimSuffix(strings.TrimSpace(t), "?")
+	isMap := strings.Contains(t, "Dictionary<")
+	if isMap {
+		return "map:" + simpleInner(t)
+	}
+	return simpleInner(t)
+}
+
+func simpleInner(t string) string {
 	t = strings.TrimSuffix(strings.TrimSpace(t), "?")
 	if i := strings.LastIndex(t, "<"); i >= 0 {
 		inner := t[i+1:]

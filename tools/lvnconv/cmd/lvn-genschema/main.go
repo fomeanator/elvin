@@ -22,14 +22,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	src := filepath.Join(root, "..", "..", "unity", "Packages", "com.lvn.engine",
-		"Runtime", "Content", "LvnUiConfig.cs")
-	raw, err := os.ReadFile(src)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "не читается", src, err)
-		os.Exit(1)
+	// ДВА ИСХОДНИКА, ОДНА СХЕМА. Облик описан в LvnUiConfig, каталог — в
+	// LvnManifest; для игрока это один файл, и гейт обязан знать обе половины.
+	base := filepath.Join(root, "..", "..", "unity", "Packages", "com.lvn.engine", "Runtime", "Content")
+	schema := lvn.ManifestSchema{}
+	for _, name := range []string{"LvnUiConfig.cs", "LvnManifest.cs"} {
+		raw, err := os.ReadFile(filepath.Join(base, name))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "не читается", name, err)
+			os.Exit(1)
+		}
+		for cls, fields := range lvn.ScrapeManifestSchema(string(raw)) {
+			if _, clash := schema[cls]; clash {
+				fmt.Fprintln(os.Stderr, "класс", cls, "объявлен в обоих исходниках — снимок был бы неоднозначен")
+				os.Exit(1)
+			}
+			schema[cls] = fields
+		}
 	}
-	schema := lvn.ScrapeManifestSchema(string(raw))
 	if len(schema) < 15 {
 		fmt.Fprintf(os.Stderr, "снялось всего %d классов — похоже, разбор промахнулся\n", len(schema))
 		os.Exit(1)

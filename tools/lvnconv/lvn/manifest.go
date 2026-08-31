@@ -72,11 +72,29 @@ func ValidateManifest(data []byte) []Issue {
 		}
 		switch n := node.(type) {
 		case map[string]any:
+			// СЛОВАРЬ АВТОРА: ключи — его имена (герои, валюты, языки), а не
+			// поля схемы. Проверяем значения, ключи не трогаем.
+			if strings.HasPrefix(class, "map:") {
+				inner := strings.TrimPrefix(class, "map:")
+				for k, v := range n {
+					here := k
+					if path != "" {
+						here = path + "." + k
+					}
+					walk(v, here, inner, depth+1)
+				}
+				return
+			}
 			fields := manifestSchema[class]
 			for k, v := range n {
 				here := k
 				if path != "" {
 					here = path + "." + k
+				}
+				// Ключ на `$` — заметка автора в JSON, а не поле: так пишут
+				// комментарии там, где их нет в языке (см. grammar.json).
+				if strings.HasPrefix(k, "$") {
+					continue
 				}
 				// ИМЯ ПОЛЯ, КОТОРОГО НЕТ. Newtonsoft молча пропускает
 				// незнакомое, поэтому `titel_color` не даёт ни ошибки, ни
@@ -107,18 +125,10 @@ func ValidateManifest(data []byte) []Issue {
 			}
 		}
 	}
-	// Схему знаем только про поддерево `ui` — она снята с LvnUiConfig.
-	// Остальной манифест (titles, collections, sprites) описан другими DTO, и
-	// врать про него нельзя: там имена не проверяются, только значения.
-	if top, ok := root.(map[string]any); ok {
-		for k, v := range top {
-			class := ""
-			if k == "ui" {
-				class = "LvnUiConfig"
-			}
-			walk(v, k, class, 1)
-		}
-	}
+	// Корень манифеста описан LvnManifest, поддерево `ui` — LvnUiConfig.
+	// Спуск дальше идёт по ТИПАМ полей из снимка, так что и каталог, и облик
+	// проверяются одинаково.
+	walk(root, "", "LvnManifest", 0)
 	return out
 }
 

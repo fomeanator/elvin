@@ -229,6 +229,149 @@
     "tip_seconds": "float",
     "tips": "string"
   },
+  "Lvn3DBundle": {
+    "asset": "string",
+    "bytes": "long",
+    "hash": "string",
+    "scene": "bool",
+    "url": "string"
+  },
+  "Lvn3DSet": {
+    "fallback_resource": "string",
+    "platforms": "map:Lvn3DBundle"
+  },
+  "LvnAnim": {
+    "auto": "string",
+    "duration": "float",
+    "loop": "bool",
+    "tracks": "LvnAnimTrack",
+    "yoyo": "bool"
+  },
+  "LvnAnimTrack": {
+    "axis": "string",
+    "ease": "string",
+    "interp": "string",
+    "keys": "object",
+    "layer": "string",
+    "orient": "bool",
+    "prop": "string"
+  },
+  "LvnBox": {
+    "h": "float x, y, w,"
+  },
+  "LvnCardArt": {
+    "description": "string",
+    "image": "string"
+  },
+  "LvnChapter": {
+    "assets": "map:LvnAssetMeta",
+    "bg_url": "string",
+    "id": "string",
+    "name": "string",
+    "number": "int",
+    "script_url": "string"
+  },
+  "LvnCollection": {
+    "card": "LvnCardArt",
+    "id": "string",
+    "name": "string",
+    "subtitle": "string",
+    "titles": "string",
+    "type": "string"
+  },
+  "LvnCost": {
+    "amount": "int",
+    "currency": "string"
+  },
+  "LvnDebugGrantConfig": {
+    "amount": "int",
+    "currency": "string",
+    "label": "string"
+  },
+  "LvnEconomyConfig": {
+    "chapter_cost": "int",
+    "chapter_currency": "string",
+    "debug_grant": "LvnDebugGrantConfig",
+    "free_chapters": "string",
+    "gate_buy": "string",
+    "gate_cancel": "string",
+    "gate_denied": "string",
+    "gate_message": "string",
+    "gate_title": "string"
+  },
+  "LvnGalleryItem": {
+    "id": "string",
+    "name": "string",
+    "url": "string"
+  },
+  "LvnManifest": {
+    "assets": "map:LvnAssetMeta",
+    "collections": "LvnCollection",
+    "economy": "LvnEconomyConfig",
+    "hero": "string",
+    "language": "string",
+    "languages": "string",
+    "sets3d": "map:Lvn3DSet",
+    "sprites": "map:LvnSpriteEntity",
+    "titles": "LvnTitle",
+    "ui": "LvnUiConfig"
+  },
+  "LvnSeason": {
+    "chapters": "LvnChapter"
+  },
+  "LvnSpineRef": {
+    "atlas": "string",
+    "auto": "string",
+    "bg": "string",
+    "fit": "string",
+    "json": "string",
+    "scale": "float",
+    "texture": "string"
+  },
+  "LvnSpriteEntity": {
+    "anim": "map:LvnAnim",
+    "aspect": "float",
+    "axes": "map:string",
+    "color": "string",
+    "content": "LvnBox",
+    "defaults": "map:string",
+    "kind": "string",
+    "layers": "LvnLayer",
+    "meters": "float",
+    "name": "string",
+    "slots": "map:float",
+    "spine": "LvnSpineRef",
+    "wardrobe": "map:LvnWardrobeSlot"
+  },
+  "LvnStatDef": {
+    "key": "string",
+    "kind": "string",
+    "label": "string",
+    "max": "int",
+    "neg_key": "string",
+    "neg_label": "string",
+    "pos_key": "string",
+    "pos_label": "string",
+    "relationship": "bool"
+  },
+  "LvnTitle": {
+    "author": "string",
+    "card": "LvnCardArt",
+    "cost": "LvnCost",
+    "cover_url": "string",
+    "gallery": "LvnGalleryItem",
+    "hero": "string",
+    "id": "string",
+    "locked_hint": "string",
+    "name": "string",
+    "seasons": "LvnSeason",
+    "stats": "LvnStatDef",
+    "subtitle": "string",
+    "type": "string",
+    "ui": "LvnUiConfig",
+    "unlock": "string",
+    "vars_url": "string"
+  },
   "LvnUiConfig": {
     "auth": "AuthConfig",
     "boot": "BootScreenConfig",
@@ -237,7 +380,7 @@
     "chapter_end": "ChapterEndConfig",
     "chapter_word": "string",
     "choices": "ChoicesConfig",
-    "currency_look": "CurrencyLook",
+    "currency_look": "map:CurrencyLook",
     "dialogue": "DialogueConfig",
     "guest_name": "string",
     "hud": "HudConfig",
@@ -254,7 +397,24 @@
     "title": "TitleCardConfig",
     "transitions": "TransitionsConfig",
     "wardrobe": "WardrobeConfig",
-    "words": "string"
+    "words": "map:string"
+  },
+  "LvnWardrobeItem": {
+    "color": "string",
+    "currency": "string",
+    "icon": "string",
+    "name": "string",
+    "price": "long",
+    "rarity": "string",
+    "value": "string"
+  },
+  "LvnWardrobeSlot": {
+    "icon": "string",
+    "items": "LvnWardrobeItem",
+    "name": "string",
+    "removable": "bool",
+    "subOf": "string",
+    "var": "string"
   },
   "MenuConfig": {
     "bg_color": "string",
@@ -263,7 +423,7 @@
     "fab_color": "string",
     "hide": "string",
     "history_jump": "bool",
-    "labels": "string",
+    "labels": "map:string",
     "scrim_color": "string",
     "show_menu": "bool",
     "show_rollback": "bool",
@@ -395,8 +555,8 @@
     "card_color": "string",
     "close_text": "string",
     "corner_radius": "float",
-    "currency_icons": "string",
-    "currency_names": "string",
+    "currency_icons": "map:string",
+    "currency_names": "map:string",
     "dim_text_color": "string",
     "empty_text": "string",
     "menu_label": "string",
@@ -409,7 +569,7 @@
     "peek_text": "string",
     "scrim_color": "string",
     "section_title_color": "string",
-    "section_titles": "string",
+    "section_titles": "map:string",
     "show_menu_item": "bool",
     "text_color": "string",
     "title": "string",
@@ -441,20 +601,20 @@
     "collection_only": "bool",
     "confirm_text": "string",
     "corner_radius": "float",
-    "currency_icons": "string",
+    "currency_icons": "map:string",
     "dim_text_color": "string",
     "empty_text": "string",
     "entity": "string",
     "equip_text": "string",
     "equipped_text": "string",
-    "framing": "FramingConfig",
+    "framing": "map:FramingConfig",
     "insufficient_text": "string",
     "menu_label": "string",
     "panel_color": "string",
     "peek_text": "string",
     "preview_bg_color": "string",
     "preview_bg_image": "string",
-    "rarity_colors": "string",
+    "rarity_colors": "map:string",
     "remove_text": "string",
     "scrim_color": "string",
     "show_menu_item": "bool",
