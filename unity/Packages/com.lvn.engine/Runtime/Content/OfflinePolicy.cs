@@ -128,16 +128,6 @@ namespace Lvn.Content
 
     public static class OfflinePolicy
     {
-        /// <summary>True if a content URL is the chapter script itself (.lvn),
-        /// tracked separately from art/audio in readiness accounting.</summary>
-        public static bool IsScriptUrl(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return false;
-            int q = url.IndexOf('?');
-            var u = q >= 0 ? url.Substring(0, q) : url;
-            return u.EndsWith(".lvn", StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>Builds a readiness snapshot from the server's release set and
         /// pure predicates. The script entry inside the release set is ignored
         /// here (counted via scriptCached); only art/audio feed required/deferred.</summary>
@@ -152,7 +142,7 @@ namespace Lvn.Content
                 foreach (var kv in releaseSet)
                 {
                     var url = kv.Key;
-                    if (string.IsNullOrEmpty(url) || IsScriptUrl(url)) continue;
+                    if (string.IsNullOrEmpty(url) || DownloadPolicy.IsScript(url)) continue;
                     var meta = kv.Value;
                     // Everything is REQUIRED now (the full-preload rule): a
                     // chapter is playable only когда она целиком на диске.

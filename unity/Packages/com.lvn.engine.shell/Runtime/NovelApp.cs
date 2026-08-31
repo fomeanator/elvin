@@ -459,8 +459,7 @@ namespace Lvn.UI.Screens
         {
             var locale = CurrentLocale;
             if (string.IsNullOrEmpty(locale) || string.IsNullOrEmpty(scriptUrl)) return null;
-            var baseUrl = scriptUrl.EndsWith(".lvn") ? scriptUrl.Substring(0, scriptUrl.Length - 4) : scriptUrl;
-            var url = baseUrl + "." + locale + ".json";
+            var url = Lvn.Content.LvnUrl.Sibling(scriptUrl, "." + locale + ".json");
             if (_stringsCache.TryGetValue(url, out var cached)) return cached;
             try
             {

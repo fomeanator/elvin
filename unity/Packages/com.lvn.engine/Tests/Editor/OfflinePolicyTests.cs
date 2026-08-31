@@ -200,12 +200,12 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public void IsScriptUrl_DetectsLvnIgnoringQuery()
+        public void СкриптУзнаётсяПоАдресуДажеСЗапросом()
         {
-            Assert.IsTrue(OfflinePolicy.IsScriptUrl("/content/scripts/ch1.lvn"));
-            Assert.IsTrue(OfflinePolicy.IsScriptUrl("/content/scripts/ch1.lvn?v=abc123"));
-            Assert.IsFalse(OfflinePolicy.IsScriptUrl("/content/bg/a.png"));
-            Assert.IsFalse(OfflinePolicy.IsScriptUrl(null));
+            Assert.IsTrue(DownloadPolicy.IsScript("/content/scripts/ch1.lvn"));
+            Assert.IsTrue(DownloadPolicy.IsScript("/content/scripts/ch1.lvn?v=abc123"));
+            Assert.IsFalse(DownloadPolicy.IsScript("/content/bg/a.png"));
+            Assert.IsFalse(DownloadPolicy.IsScript(null));
         }
     }
 }

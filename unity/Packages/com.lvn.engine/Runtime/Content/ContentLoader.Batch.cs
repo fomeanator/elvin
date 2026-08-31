@@ -23,7 +23,7 @@ namespace Lvn.Content
             if (string.IsNullOrEmpty(url)) return Task.CompletedTask;
             return kind switch
             {
-                "script" => DownloadScriptText(url, ct),
+                LvnParts.Script => DownloadScriptText(url, ct),
                 _ => DownloadAssetBytes(url, ct),
             };
         }

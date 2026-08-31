@@ -236,7 +236,11 @@ namespace Lvn.Content
             foreach (var part in LvnParts.OfChapter(next))
             {
                 if (!part.Critical) continue;   // отложенное дождётся своей сцены
-                if (part.Kind == LvnParts.Script || DownloadPolicy.IsScript(part.Url))
+                // Опись называет РОЛЬ («это скрипт главы»), адрес — ФОРМУ
+                // (расширение .lvn). Хватает любого из двух: скрипт, записанный
+                // автором в assets, ролью не помечен. Определитель при этом
+                // один — до сих пор рядом стоял его самодельный двойник.
+                if (part.Kind == LvnParts.Script || DownloadPolicy.Kind(part.Url) == LvnParts.Script)
                     _loader.RefreshScriptInBackground(part.Url, reloadIndex: false);
                 else
                 {

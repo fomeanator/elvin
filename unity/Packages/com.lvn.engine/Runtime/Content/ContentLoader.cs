@@ -468,7 +468,7 @@ namespace Lvn.Content
                 await WriteAllBytesAsync(path, bytes, ct);
             }
             var fileUrl = "file://" + path;
-            var type = GuessAudioType(url);
+            var type = Lvn.Content.DownloadPolicy.AudioTypeOf(url);
             using var req = UnityWebRequestMultimedia.GetAudioClip(fileUrl, type);
 
             await AwaitRequest(req, req.SendWebRequest(), ct);
@@ -476,14 +476,6 @@ namespace Lvn.Content
             return DownloadHandlerAudioClip.GetContent(req);
         }
 
-        private static AudioType GuessAudioType(string url)
-        {
-            var lower = url.ToLowerInvariant();
-            if (lower.EndsWith(".ogg")) return AudioType.OGGVORBIS;
-            if (lower.EndsWith(".wav")) return AudioType.WAV;
-            if (lower.EndsWith(".mp3")) return AudioType.MPEG;
-            return AudioType.UNKNOWN;
-        }
 
         /// <summary>Kicks off a background fetch for <paramref name="url"/> with
         /// the given <paramref name="kind"/> ("sprite"|"audio"|"script"|"bin").
