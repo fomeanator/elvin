@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -171,5 +173,126 @@ func TestSettingsLiveInTheCatalog(t *testing.T) {
 			"Состав настроек — в %s: экран берёт определение и решает только, "+
 			"как его показать. Иначе второй экран о настройке не узнает.",
 			len(found), strings.Join(found, "\n  "), home)
+	}
+}
+
+// ПСЕВДОНИМ СЛОВА ОБЯЗАН УКАЗЫВАТЬ НА НАСТОЯЩИЕ ИМЕНА.
+//
+// Таблица `LvnWordAliases` чинит расхождение двух пространств ключей: меню
+// сцены спрашивало голые имена (`close`, `window_opacity`), экраны оболочки —
+// с приставкой (`common.close`, `settings.box_opacity`), а перевод автора лежал
+// под первыми. Семнадцать подписей живого манифеста Time Romance оживают
+// именно ею.
+//
+// Цена ошибки в такой таблице — тихая подмена слова: опечатка в паре либо не
+// сработает вовсе, либо (хуже) свяжет два РАЗНЫХ слова. Поэтому обе стороны
+// каждой пары должны существовать в коде: канон кто-то спрашивает, прежнее имя
+// кто-то спрашивал.
+func TestWordAliasesPointAtRealKeys(t *testing.T) {
+	root := repoRoot(t)
+	home := filepath.Join(root, filepath.FromSlash(
+		"unity/Packages/com.lvn.engine/Runtime/Content/LvnWordAliases.cs"))
+	src, err := os.ReadFile(home)
+	if err != nil {
+		t.Fatalf("LvnWordAliases.cs: %v", err)
+	}
+	pair := regexp.MustCompile(`\["([a-z_.]+)"\]\s*=\s*"([a-z_.]+)"`)
+	pairs := pair.FindAllStringSubmatch(stripComments(string(src)), -1)
+	atLeast(t, len(pairs), 15, "пар в таблице псевдонимов")
+
+	// Всё, что где-либо спрашивают словом: LvnWords.Of/Pick("…"), L("…") сцены
+	// и определения каталога (`Key = "settings.…"`) — там ключ не вызов, а
+	// поле, но спрашивают его точно так же.
+	asked := map[string]bool{}
+	askRe := regexp.MustCompile(`(?:LvnWords\.(?:Of|Pick)|\bL)\(\s*"([a-z_.]+)"|Key\s*=\s*"([a-z_.]+)"`)
+	scanned := 0
+	for _, rel := range storageRoots {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			if strings.HasSuffix(path, "LvnWordAliases.cs") {
+				return nil
+			}
+			scanned++
+			for _, m := range askRe.FindAllStringSubmatch(stripComments(string(mustRead(t, path))), -1) {
+				for _, g := range m[1:] {
+					if g != "" {
+						asked[g] = true
+					}
+				}
+			}
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	atLeast(t, len(asked), 100, "имён, которые где-то спрашивают")
+
+	// Проверяется КАНОН: прежнее имя код уже не спрашивает — в том и смысл
+	// пары, что код ушёл вперёд, а словарь автора остался. Зато канон обязан
+	// быть живым: пара к имени, которого никто не показывает, — опечатка.
+	var orphan []string
+	seenLegacy := map[string]string{}
+	for _, p := range pairs {
+		canon, legacy := p[1], p[2] // p[0] — вся строка совпадения
+		if !asked[canon] {
+			orphan = append(orphan, fmt.Sprintf("%s (канон никто не спрашивает)", canon))
+		}
+		if was, dup := seenLegacy[legacy]; dup {
+			orphan = append(orphan, fmt.Sprintf("%s: прежнее имя занято каноном %s", legacy, was))
+		}
+		seenLegacy[legacy] = canon
+	}
+	sort.Strings(orphan)
+	if len(orphan) > 0 {
+		t.Errorf("псевдонимы указывают в пустоту (%d):\n  %s\n\n"+
+			"Пара должна связывать два ЖИВЫХ имени: иначе она либо не сработает, "+
+			"либо однажды свяжет два разных слова.",
+			len(orphan), strings.Join(orphan, "\n  "))
+	}
+}
+
+// ПОЛЕ-ПОДПИСЬ ИДЁТ ЧЕРЕЗ СЛОВАРЬ, А НЕ НАПРЯМУЮ.
+//
+// Автор задаёт подписи полями секций (`gate_title`, `menu_label`,
+// `regen_ready_text`). Прочитанное НАПРЯМУЮ (`cfg.gate_title ?? "…"`) такое
+// поле нельзя ни перевести каталогом языка, ни переопределить словарём: слово
+// автора становится последним, и переключатель языка на нём молча
+// останавливается. Попап «не хватает энергии» так и жил — четыре подписи мимо
+// словаря, — а пункт меню настроек не переводился ВООБЩЕ ничем.
+//
+// Правило: `LvnWords.Pick(ключ, поле, английское)` — перевод сильнее поля,
+// поле сильнее умолчания.
+func TestAuthoredCaptionsGoThroughWords(t *testing.T) {
+	root := repoRoot(t)
+	raw := regexp.MustCompile(`\.(\w*(?:_label|_text|_title))\s*\?\?\s*"`)
+
+	var found []string
+	scanned := 0
+	for _, rel := range storageRoots {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			slash := filepath.ToSlash(path)
+			if strings.Contains(slash, "/Tests/") || strings.HasSuffix(slash, "LvnWords.cs") ||
+				strings.HasSuffix(slash, "LvnAuthoredWords.cs") {
+				return nil
+			}
+			scanned++
+			for i, line := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+				if m := raw.FindStringSubmatch(line); m != nil {
+					found = append(found, fmt.Sprintf("%s:%d — %s", filepath.Base(path), i+1, m[1]))
+				}
+			}
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("подпись автора читается мимо словаря (%d):\n  %s\n\n"+
+			"Возьмите LvnWords.Pick(ключ, поле, английское): иначе слово автора "+
+			"нельзя перевести каталогом языка, и переключатель на нём остановится.",
+			len(found), strings.Join(found, "\n  "))
 	}
 }

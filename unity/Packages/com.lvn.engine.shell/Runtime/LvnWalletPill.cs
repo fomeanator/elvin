@@ -160,9 +160,10 @@ namespace Lvn.UI.Screens
             if (_amount != null) _amount.text = LvnWallet.Display(_currency);
             if (_timer == null) return;
 
-            bool refilling = LvnWallet.Regen.TryGetValue(_currency, out var r)
-                             && r.Cap > 0 && r.NextRefillUnix > 0
-                             && LvnWallet.Balances.TryGetValue(_currency, out var bal) && bal < r.Cap;
+            // «Копится ли» спрашиваем у КОШЕЛЬКА: тот же вопрос решает показ
+            // суммы, и два ответа на него однажды разойдутся.
+            if (!LvnWallet.Regen.TryGetValue(_currency, out var r)) { _timer.style.display = DisplayStyle.None; return; }
+            bool refilling = LvnWallet.BelowCap(_currency) && r.NextRefillUnix > 0;
             if (!refilling) { _timer.style.display = DisplayStyle.None; return; }
 
             long left = r.NextRefillUnix - DateTimeOffset.UtcNow.ToUnixTimeSeconds();

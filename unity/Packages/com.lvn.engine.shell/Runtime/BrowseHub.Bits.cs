@@ -107,7 +107,10 @@ namespace Lvn.UI.Screens
             bar.style.flexDirection = FlexDirection.Row;
             bar.style.alignItems = Align.Center;
             bar.style.marginBottom = 14;
-            var back = new Button(onBack) { text = _cfg.back_text ?? "‹" };
+            // Источник, а не готовая строка: при смене языка подпись обязана
+            // спроситься заново (правило Переодевания).
+            var back = Lvn.UI.LvnRedress.Bind(new Button(onBack),
+                () => LvnWords.Pick("hub.back", _cfg.back_text, "‹"));
             back.style.fontSize = Lvn.UI.LvnFonts.Size(48f); back.style.minWidth = 52;
             back.style.color = _titleColor;
             back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);

@@ -73,10 +73,15 @@ namespace Lvn.UI.Screens
                 Currency = currency,
                 Amount = amount,
                 Reason = reason,
-                Title = eco?.gate_title ?? "Not enough energy",
-                Message = (eco?.gate_message ?? fallbackMessage) + RefillHint(currency),
-                BuyText = eco?.gate_buy ?? "Store",
-                CancelText = eco?.gate_cancel ?? "Not now",
+                // ЧЕРЕЗ СЛОВАРЬ, а не полем напрямую: попап о нехватке —
+                // такой же текст на экране, как любой другой, и каталог языка
+                // обязан его доставать. Поле автора остаётся сильнее
+                // умолчания, но слабее перевода.
+                Title = LvnWords.Pick("economy.gate_title", eco?.gate_title, "Not enough energy"),
+                Message = LvnWords.Pick("economy.gate_message", eco?.gate_message, fallbackMessage)
+                          + RefillHint(currency),
+                BuyText = LvnWords.Pick("economy.gate_buy", eco?.gate_buy, "Store"),
+                CancelText = LvnWords.Pick("economy.gate_cancel", eco?.gate_cancel, "Not now"),
                 DeniedTitle = eco?.gate_denied,
             };
 

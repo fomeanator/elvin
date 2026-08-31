@@ -24,6 +24,24 @@ namespace Lvn.Tests
         };
 
         [Test]
+        public void ИмяПунктаМенюСтановитсяОбычнымСловом()
+        {
+            // Поле menu_label читалось тремя способами, и у настроек — мимо
+            // словаря вовсе: пункт не переводился ничем.
+            var ui = new LvnUiConfig
+            {
+                store = new StoreConfig { menu_label = "Лавка" },
+                wardrobe = new WardrobeConfig { menu_label = "Наряды" },
+                settings = new SettingsConfig { menu_label = "Настройки" },
+            };
+            LvnWords.Learn(null, null, ui);
+            Assert.AreEqual("Лавка", LvnWords.Of("menu.store", "Store"));
+            Assert.AreEqual("Наряды", LvnWords.Of("menu.wardrobe", "Wardrobe"),
+                "то же имя видит и кнопка верхней панели — ключ один");
+            Assert.AreEqual("Настройки", LvnWords.Of("menu.settings", "Settings"));
+        }
+
+        [Test]
         public void ПолеСекцииСтановитсяКлючомСловаря()
         {
             var map = LvnAuthoredWords.Fold(Ui());

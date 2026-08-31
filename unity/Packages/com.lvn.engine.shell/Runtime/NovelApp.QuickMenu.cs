@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
             // the story holds while the shop is open, then rolls on.
             var storeCfg = manifest.ui?.store;
             if (storeCfg != null && (storeCfg.show_menu_item ?? true))
-                StageMenu.AddMenuItem(LvnWords.Pick("menu.store", storeCfg.menu_label, "Store"), stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
+                StageMenu.AddMenuItem(LvnWords.Of("menu.store", "Store"), stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
                 // ONE store everywhere (the KR rule).
@@ -55,7 +55,7 @@ namespace Lvn.UI.Screens
             var wardrobeCfg = manifest.ui?.wardrobe;
             if ((wardrobeCfg != null || AnyWardrobeEntity())
                 && (wardrobeCfg?.show_menu_item ?? true))
-                StageMenu.AddMenuItem(LvnWords.Pick("menu.wardrobe", wardrobeCfg?.menu_label, "Wardrobe"),
+                StageMenu.AddMenuItem(LvnWords.Of("menu.wardrobe", "Wardrobe"),
                     stage => LvnAsync.Fire(OpenWardrobeFromMenuAsync(stage), "OpenWardrobeFromMenu"));
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {
@@ -93,7 +93,11 @@ namespace Lvn.UI.Screens
             // surface this fuller screen there too).
             var settingsCfg = manifest.ui?.settings;
             if (settingsCfg != null && (settingsCfg.show_menu_item ?? false))
-                StageMenu.AddMenuItem(settingsCfg.menu_label ?? "Settings", stage => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings"));
+                // ЧЕРЕЗ СЛОВАРЬ, как два пункта выше. Здесь стояло поле
+                // напрямую — и пункт не переводился ничем: ни каталогом языка,
+                // ни подписями меню, где автор давно написал «Настройки».
+                StageMenu.AddMenuItem(LvnWords.Of("menu.settings", "Settings"),
+                    stage => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings"));
 
             // Wallet-priced choices (imported "[premium]" options carry
             // wallet_cost): route the spend through the product wallet. A failed
