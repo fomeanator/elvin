@@ -314,8 +314,12 @@ namespace Lvn.UI.Screens
             Hud = new GameHud(ui.hud, assets); Add(Hud);
             // Режим интерфейса — закрытое слово: всё, кроме «choices», молча
             // означало полный HUD, включая опечатку в нём же.
-            HudChoicesOnly = Lvn.UI.LvnAuthorWord.Pick(ui.hud?.mode, "ui.hud.mode", "full",
-                                                       "full", "choices") == "choices";
+            // «always» — то слово, которое обещает документация поля, и автор
+            // читает её, а не этот код. Синоним «full»: ругать за правильное
+            // по документации значило бы ровно тот шум, ради которого дом
+            // закрытого слова и заводился.
+            HudChoicesOnly = Lvn.UI.LvnAuthorWord.Pick(ui.hud?.mode, "ui.hud.mode", "always",
+                                                       "always", "full", "choices") == "choices";
             // Between-chapters screen: opt-in via manifest ui.chapter_end (absent
             // → chapters flow seamlessly, the historical behaviour).
             if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }
