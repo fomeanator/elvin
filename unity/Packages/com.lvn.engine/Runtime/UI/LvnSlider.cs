@@ -54,13 +54,13 @@ namespace Lvn.UI
                 // нормально и должно быть видно: обрезка превратила бы его в
                 // полоску той же высоты, что дорожка.
                 tracker.style.overflow = Overflow.Visible;
-                LvnChrome.Round(tracker, 4f);
+                LvnChrome.Round(tracker, LvnTokens.RadiusXs);
                 LvnChrome.ClearBorder(tracker);
                 fill = new VisualElement { pickingMode = PickingMode.Ignore };
                 fill.style.position = Position.Absolute;
                 fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
                 fill.style.backgroundColor = acc;
-                LvnChrome.Round(fill, 4f);
+                LvnChrome.Round(fill, LvnTokens.RadiusXs);
                 tracker.Add(fill);
             }
             // БЕГУНОК И ЗАЛИВКА ЖИВУТ В ОДНОЙ СИСТЕМЕ КООРДИНАТ.

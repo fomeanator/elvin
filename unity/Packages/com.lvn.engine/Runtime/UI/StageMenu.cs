@@ -71,11 +71,11 @@ namespace Lvn.UI
             _modeBadge.style.height = 44;
             _modeBadge.style.marginRight = 8;
             _modeBadge.style.paddingLeft = 12; _modeBadge.style.paddingRight = 12;
-            _modeBadge.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            _modeBadge.style.fontSize = LvnTokens.TextXs;
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
             _modeBadge.style.backgroundColor = _theme.MenuFabColor;
-            LvnChrome.Round(_modeBadge, 22);
+            LvnChrome.Round(_modeBadge, LvnTokens.RadiusLg);
             LvnChrome.ClearBorder(_modeBadge);
             _modeBadge.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             LvnFonts.Apply(_modeBadge, _theme.Font);
@@ -114,10 +114,10 @@ namespace Lvn.UI
             var b = new Button(onClick) { text = glyph };
             b.style.width = 44; b.style.height = 44;
             b.style.marginLeft = 8;
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = _theme.MenuFabColor;
-            LvnChrome.Round(b, 22);
+            LvnChrome.Round(b, LvnTokens.RadiusLg);
             LvnChrome.ClearBorder(b);
             // A press on the chrome must never bubble into tap-to-advance.
             b.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -372,7 +372,7 @@ namespace Lvn.UI
         {
             var b = new Button(onClick) { text = label };
             b.style.height = 64;
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = Color.clear;
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -441,7 +441,7 @@ namespace Lvn.UI
         private void StyleGhost(Button b)
         {
             LvnStyler.Ghost(b, _theme.MenuTextColor);
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(38f);
+            b.style.fontSize = LvnTokens.TextLg;
             b.style.width = 52; b.style.height = 46;
             LvnFonts.Apply(b, _theme.Font);
         }

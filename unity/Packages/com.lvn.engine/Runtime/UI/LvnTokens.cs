@@ -80,8 +80,12 @@ namespace Lvn.UI
 
         // Скругления. Были const; стали свойствами — константа не может
         // зависеть от темы, а зависеть обязана.
+        public static float RadiusXs => LvnTheme.Current.RadiusXs;
         public static float Radius   => LvnTheme.Current.Radius;
         public static float RadiusSm => LvnTheme.Current.RadiusSm;
+        public static float RadiusLg => LvnTheme.Current.RadiusLg;
+        /// <summary>«Таблетка» — скругление во всю высоту.</summary>
+        public static float RadiusPill => LvnTheme.RadiusPill;
 
         // Типографская шкала и шкала отступов. Здесь же, а не в каждом экране:
         // размер — такая же часть темы, как цвет.
@@ -89,6 +93,10 @@ namespace Lvn.UI
         // выглядит вдвое мельче гротеска, пиксельная — крупнее и шире. Без
         // поправки выбор шрифта ломал бы вёрстку там, где до него всё
         // помещалось.
+        // Нижняя ступень (бейдж, счётчик, метка на плитке) добавлена 01.09:
+        // без неё мелкое (12–17) прыгало сразу на 20 — а это уже другой
+        // размер, а не та же вещь.
+        public static int TextMicro   => LvnFonts.Size(LvnTheme.Current.TextMicro);
         public static int TextXs      => LvnFonts.Size(LvnTheme.Current.TextXs);
         public static int TextSm      => LvnFonts.Size(LvnTheme.Current.TextSm);
         public static int TextBase    => LvnFonts.Size(LvnTheme.Current.TextBase);

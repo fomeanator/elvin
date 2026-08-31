@@ -68,7 +68,7 @@ namespace Lvn.UI.Screens
             chip.style.backgroundColor = LvnTokens.Veil(0.28f);
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
-            LvnChrome.Round(chip, 10f);
+            LvnChrome.Round(chip, LvnTokens.RadiusSm);
             return chip;
         }
 
@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(text))
             {
                 var lb = new Label(text) { pickingMode = PickingMode.Ignore };
-                lb.style.color = color; lb.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+                lb.style.color = color; lb.style.fontSize = LvnTokens.TextBase;
                 chip.Add(lb);
             }
             return chip;
@@ -111,7 +111,7 @@ namespace Lvn.UI.Screens
             // спроситься заново (правило Переодевания).
             var back = Lvn.UI.LvnRedress.Bind(new Button(onBack),
                 () => LvnWords.Pick("hub.back", _cfg.back_text, "‹"));
-            back.style.fontSize = Lvn.UI.LvnFonts.Size(48f); back.style.minWidth = 52;
+            back.style.fontSize = LvnTokens.TextXl; back.style.minWidth = 52;
             back.style.color = _titleColor;
             back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
             LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);

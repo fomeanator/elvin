@@ -65,12 +65,12 @@ namespace Lvn.UI.Screens
             panel.style.paddingLeft = 26;
             panel.style.paddingRight = 26;
             panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
-            LvnChrome.Round(panel, 16f);
+            LvnChrome.Round(panel, LvnTokens.Radius);
             Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
             title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
-            title.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
+            title.style.fontSize = LvnTokens.TextLg;
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
             panel.Add(title);
 
@@ -78,7 +78,7 @@ namespace Lvn.UI.Screens
             {
                 var subtitle = new Label(_cfg.subtitle);
                 subtitle.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
-                subtitle.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+                subtitle.style.fontSize = LvnTokens.TextSm;
                 subtitle.style.marginTop = 6;
                 subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
                 subtitle.style.whiteSpace = WhiteSpace.Normal;
@@ -93,13 +93,13 @@ namespace Lvn.UI.Screens
             {
                 var prompt = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
                 prompt.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
-                prompt.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+                prompt.style.fontSize = LvnTokens.TextSm;
                 prompt.style.marginTop = 20;
                 prompt.style.marginBottom = 8;
                 panel.Add(prompt);
 
                 _field = new TextField { maxLength = _maxLength };
-                _field.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
+                _field.style.fontSize = LvnTokens.TextBase;
                 LvnChrome.Field(_field, UiColor.Named(_cfg.field_color, LvnTokens.Surface), textColor);
                 _field.RegisterCallback<KeyDownEvent>(e =>
                 {
@@ -110,13 +110,13 @@ namespace Lvn.UI.Screens
             }
 
             var start = Lvn.UI.LvnRedress.Bind(new Button(Confirm), () => LvnWords.Pick("auth.start", _cfg.start_text, "Start"));
-            start.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
+            start.style.fontSize = LvnTokens.TextBase;
             start.style.marginTop = 22;
             start.style.paddingTop = 16;
             start.style.paddingBottom = 16;
             start.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.OnAccent);
             start.style.backgroundColor = UiColor.Named(_cfg.button_color, LvnTokens.Accent);
-            LvnChrome.Round(start, 12f);
+            LvnChrome.Round(start, LvnTokens.RadiusSm);
             panel.Add(start);
             if (!string.IsNullOrEmpty(_cfg.button_url)) LvnPicture.Skin(start, _cfg.button_url, _assets);
 
@@ -139,7 +139,7 @@ namespace Lvn.UI.Screens
 
             _status = new Label("");
             _status.style.color = UiColor.Named(_cfg.status_color, LvnTokens.TextDim);
-            _status.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            _status.style.fontSize = LvnTokens.TextXs;
             _status.style.marginTop = 14;
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;
             _status.pickingMode = PickingMode.Ignore;
@@ -196,13 +196,13 @@ namespace Lvn.UI.Screens
         {
             if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
             var b = new Button { text = label };
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.marginLeft = 6; b.style.marginRight = 6;
             b.style.paddingTop = 10; b.style.paddingBottom = 10;
             b.style.paddingLeft = 18; b.style.paddingRight = 18;
             b.style.color = textColor;
             b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
-            LvnChrome.Round(b, 10f);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             // Через дом занятости: вход ждёт СЕТЬ, и сорванное ожидание
             // оставляло кнопку выключенной навсегда, а подпись — «Connecting…».
             Lvn.UI.LvnBusy.OnClick(b, async () =>

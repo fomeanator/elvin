@@ -32,7 +32,7 @@ namespace Lvn.UI.Screens
             if (el == null) return;
             var bg = LvnTokens.PanelBg;
             el.style.backgroundColor = new Color(bg.r, bg.g, bg.b, opacity);
-            LvnChrome.Round(el, LvnTokens.Radius + 4f);
+            LvnChrome.Round(el, LvnTokens.Radius);
             var edge = LvnTokens.Accent;
             LvnChrome.Border(el, new Color(edge.r, edge.g, edge.b, 0.30f), 1f);
             el.style.borderTopWidth = 2f;
@@ -132,7 +132,7 @@ namespace Lvn.UI.Screens
         {
             lbl.style.flexShrink = 0;
             lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.whiteSpace = WhiteSpace.Normal;   // длинный заголовок переносится, а не режется
             lbl.style.marginTop = 8;

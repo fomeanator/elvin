@@ -46,7 +46,7 @@ namespace Lvn.UI.Screens
                     b.style.height = 40;
                     b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginBottom = 8;
                     b.style.paddingLeft = 14; b.style.paddingRight = 14;
-                    b.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+                    b.style.fontSize = LvnTokens.TextXs;
                     bool active = pid == _entity;
                     SkinButton(b, active);
                     LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);

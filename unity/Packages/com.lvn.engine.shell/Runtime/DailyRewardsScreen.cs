@@ -104,7 +104,7 @@ namespace Lvn.UI.Screens
             card.style.width = Length.Percent(90f);
             card.style.maxWidth = 760;
             card.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(card, LvnTokens.Radius + 4f);
+            LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Border(card, LvnTokens.Border, 1f);
             card.style.paddingTop = 26;
             card.style.paddingBottom = 22;
@@ -130,7 +130,7 @@ namespace Lvn.UI.Screens
 
             _subtitle = new Label();
             _subtitle.style.color = LvnTokens.TextDim;
-            _subtitle.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+            _subtitle.style.fontSize = LvnTokens.TextSm;
             _subtitle.style.marginTop = 4;
             titleCol.Add(_subtitle);
 
@@ -152,7 +152,7 @@ namespace Lvn.UI.Screens
             _claim = Lvn.UI.LvnRedress.Bind(new Button(ClaimToday), () => _claimed
                 ? LvnWords.Of("daily.claimed", "Claimed")
                 : LvnWords.Of("daily.claim", "Claim"));
-            _claim.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _claim.style.fontSize = LvnTokens.TextBase;
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             _claim.style.marginTop = 22;
             _claim.style.paddingTop = 16;
@@ -259,7 +259,7 @@ namespace Lvn.UI.Screens
             labelRow.style.marginBottom = 8;
             var label = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.day", "Day {0}", day));
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
-            label.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            label.style.fontSize = LvnTokens.TextXs;
             label.style.unityFontStyleAndWeight = premium ? FontStyle.Bold : FontStyle.Normal;
             labelRow.Add(label);
             if (premium)
@@ -300,14 +300,14 @@ namespace Lvn.UI.Screens
                 badge.style.position = Position.Absolute;
                 badge.style.top = 6;
                 badge.style.right = 8;
-                badge.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
+                badge.style.fontSize = LvnTokens.TextXs;
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
                 badge.style.paddingLeft = 8;
                 badge.style.paddingRight = 8;
                 badge.style.paddingTop = 2;
                 badge.style.paddingBottom = 2;
-                LvnChrome.Round(badge, LvnTokens.RadiusSm - 4f);
+                LvnChrome.Round(badge, LvnTokens.RadiusXs);
                 cell.Add(badge);
             }
 

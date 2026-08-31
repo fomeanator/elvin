@@ -56,7 +56,7 @@ namespace Lvn.Content
 
         /// <summary>
         /// То же, но с ТРЕТЬИМ источником — подписями, заданными ПОЛЯМИ секций
-        /// (<c>ui.wardrobe.equip_text</c>). Их переводит в ключи
+        /// (<c>ui.wardrobe.remove_text</c>). Их переводит в ключи
         /// <see cref="LvnAuthoredWords"/>; там же сказано, почему поле и словарь
         /// живы одновременно.
         ///

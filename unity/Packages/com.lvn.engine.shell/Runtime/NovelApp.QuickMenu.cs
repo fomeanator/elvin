@@ -271,8 +271,7 @@ namespace Lvn.UI.Screens
                 // Гардероб → the REAL, wallet-synced wardrobe for the game's main
                 // heroine (title.hero ?? manifest.hero). Ownership lives in the
                 // shared LvnWallet.Inventory, so it stays in sync with the in-story
-                // wardrobe. (The prettier SkinShop screen gets wired to this same
-                // data next.)
+                // wardrobe.
                 // ЛЕНТА ВКЛАДОК (Илья 26.08): Главная(0) → Магазин(1) →
                 // Гардероб(2) → Профиль(3). Переход едет по ленте: хаб уезжает,
                 // промежуточные вкладки ПРОЛЕТАЮТ через кадр, цель въезжает.

@@ -161,9 +161,6 @@ namespace Lvn.Content
         public string accent_color;   // equipped ring / action fill; default #c8a050
         public string accent_text_color; // action button text; default #14141a
         public float? corner_radius;  // default 12
-
-        public string equip_text;     // default "Equip"
-        public string equipped_text;  // default "Equipped"
         public string remove_text;    // default "Take off"
         public string confirm_text;   // the in-story sheet's commit button; default "Choose"
         public string buy_text;       // the sheet's purchase button (unowned item browsed); default "Buy"

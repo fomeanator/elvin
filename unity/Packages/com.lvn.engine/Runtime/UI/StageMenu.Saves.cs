@@ -129,7 +129,7 @@ namespace Lvn.UI
                 img.style.height = 45;
                 img.style.marginRight = 10;
                 img.style.flexShrink = 0;
-                LvnChrome.Round(img, 4f);
+                LvnChrome.Round(img, LvnTokens.RadiusXs);
                 row.Add(img);
             }
 

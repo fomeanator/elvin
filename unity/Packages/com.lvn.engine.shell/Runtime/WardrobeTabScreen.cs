@@ -119,7 +119,7 @@ namespace Lvn.UI.Screens
             var bg = LvnTokens.PanelBg;
             _panel.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
             LvnChrome.Edge(_panel);
-            LvnChrome.Round(_panel, 20f);
+            LvnChrome.Round(_panel, LvnTokens.Radius);
             _panel.style.borderTopWidth = 2.5f;
             _panel.style.borderTopColor = LvnTokens.Accent;
             _panel.style.paddingTop = 14; _panel.style.paddingBottom = 14;

@@ -37,7 +37,7 @@ namespace Lvn.UI.Screens
                 () => _theme.Heading(cid == LibraryId
                     ? LvnWords.Pick("hub.library", _cfg?.library_text, "Novels")
                     : Lvn.Content.LvnWords.Name("collection", cid, cname)));
-            title.style.color = _text; title.style.fontSize = Lvn.UI.LvnFonts.Size(54f);
+            title.style.color = _text; title.style.fontSize = LvnTokens.TextXl;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
             head.Add(title);
@@ -50,7 +50,7 @@ namespace Lvn.UI.Screens
             var allText = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => _theme.Heading(LvnWords.Pick("hub.all", _cfg?.all_text, "All")));
             allText.pickingMode = PickingMode.Ignore;
-            allText.style.color = _accent; allText.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
+            allText.style.color = _accent; allText.style.fontSize = LvnTokens.TextLg;
             allText.style.unityFontStyleAndWeight = FontStyle.Bold;
             allText.style.letterSpacing = _theme.Tracking;
             all.Add(allText);
@@ -157,7 +157,7 @@ namespace Lvn.UI.Screens
             var tid0 = t.id; var tname0 = t.name;
             var name = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => Lvn.Content.LvnWords.Name("title", tid0, tname0));
-            name.style.color = _text; name.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
+            name.style.color = _text; name.style.fontSize = LvnTokens.TextBase;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
             name.style.maxHeight = 54;      // две строки не съедают метаданные
@@ -173,7 +173,7 @@ namespace Lvn.UI.Screens
             {
                 var subLbl = Lvn.UI.LvnRedress.Bind(new Label(),
                     () => Lvn.Content.LvnWords.Name("subtitle", tid0, tsub0));
-                subLbl.style.color = _dim; subLbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f); subLbl.style.marginTop = 4;
+                subLbl.style.color = _dim; subLbl.style.fontSize = LvnTokens.TextSm; subLbl.style.marginTop = 4;
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
                 subLbl.style.textOverflow = TextOverflow.Ellipsis;
@@ -228,7 +228,7 @@ namespace Lvn.UI.Screens
             var tid0 = t.id; var tname0 = t.name;
             var name = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => Lvn.Content.LvnWords.Name("title", tid0, tname0));
-            name.style.color = _text; name.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
+            name.style.color = _text; name.style.fontSize = LvnTokens.TextLg;
             name.style.unityFontStyleAndWeight = FontStyle.Bold; name.style.flexGrow = 1;
             top.Add(name);
             if (locked) top.Add(Chip(LvnWords.Pick("hub.locked", _cfg?.locked_text, "Locked"), _dim, LvnIcon.Lock));
@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
             var tid1 = t.id; var tsub1 = t.card?.description ?? t.subtitle ?? "";
             var desc = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => Lvn.Content.LvnWords.Name("subtitle", tid1, tsub1));
-            desc.style.color = _dim; desc.style.fontSize = Lvn.UI.LvnFonts.Size(24f); desc.style.marginTop = 5;
+            desc.style.color = _dim; desc.style.fontSize = LvnTokens.TextSm; desc.style.marginTop = 5;
             desc.style.whiteSpace = WhiteSpace.Normal;
             desc.style.overflow = Overflow.Hidden;
             col.Add(desc);
@@ -252,11 +252,11 @@ namespace Lvn.UI.Screens
             {
                 var track = new VisualElement();
                 track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
-                track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, 3f); track.style.overflow = Overflow.Hidden;
+                track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, LvnTokens.RadiusXs); track.style.overflow = Overflow.Hidden;
                 var fill = new VisualElement();
                 fill.style.height = Length.Percent(100f);
                 fill.style.width = Length.Percent(read * 100f);
-                fill.style.backgroundColor = _accent; LvnChrome.Round(fill, 3f);
+                fill.style.backgroundColor = _accent; LvnChrome.Round(fill, LvnTokens.RadiusXs);
                 track.Add(fill); col.Add(track);
             }
 

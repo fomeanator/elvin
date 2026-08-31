@@ -171,7 +171,7 @@ namespace Lvn.UI.Screens
             iconSlot.Add(iconEl);
             tab.Add(iconSlot);
             var lb = new Label(_theme.Heading(label)) { pickingMode = PickingMode.Ignore };
-            lb.style.fontSize = Lvn.UI.LvnFonts.Size(26f); lb.style.color = _dim; lb.style.marginTop = 5;
+            lb.style.fontSize = LvnTokens.TextSm; lb.style.color = _dim; lb.style.marginTop = 5;
             lb.style.letterSpacing = _theme.Tracking;
             tab.Add(lb);
             if (onTap != null) { tab.AddManipulator(new Clickable(onTap)); LvnMotion.Tappable(tab); }

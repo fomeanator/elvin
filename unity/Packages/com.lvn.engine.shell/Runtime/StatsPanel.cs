@@ -36,7 +36,7 @@ namespace Lvn.UI.Screens
             panel.style.backgroundColor = LvnTokens.PanelBg;
             panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
             panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
-            LvnChrome.Round(panel, LvnTokens.RadiusSm + 4f);
+            LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
 
             panel.Add(ScreenUi.SectionHeader(() => LvnWords.Of("stats.title", "Your stats")));
@@ -50,7 +50,7 @@ namespace Lvn.UI.Screens
 
             var close = Lvn.UI.LvnRedress.Bind(new Button(Hide), () => LvnWords.Of("common.close", "Close"));
             close.style.marginTop = 16;
-            close.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            close.style.fontSize = LvnTokens.TextSm;
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;

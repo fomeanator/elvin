@@ -19,7 +19,7 @@ namespace Lvn.Tests
 
         private static LvnUiConfig Ui() => new LvnUiConfig
         {
-            wardrobe = new WardrobeConfig { equip_text = "Надеть", equipped_text = "Надето", remove_text = "Снять" },
+            wardrobe = new WardrobeConfig { remove_text = "Снять" },
             store = new StoreConfig { bonus_text = "+{0} бонусом" },
         };
 
@@ -45,8 +45,6 @@ namespace Lvn.Tests
         public void ПолеСекцииСтановитсяКлючомСловаря()
         {
             var map = LvnAuthoredWords.Fold(Ui());
-            Assert.AreEqual("Надеть", map["skinshop.equip"]);
-            Assert.AreEqual("Надето", map["skinshop.equipped"]);
             Assert.AreEqual("Снять", map["wardrobe.none"], "снятие — тот же выбор, что надеть");
             Assert.AreEqual("+{0} бонусом", map["shop.bonus"]);
         }
@@ -54,7 +52,7 @@ namespace Lvn.Tests
         [Test]
         public void ПустоеПолеНеЗаводитКлюча()
         {
-            var ui = new LvnUiConfig { wardrobe = new WardrobeConfig { equip_text = "" } };
+            var ui = new LvnUiConfig { wardrobe = new WardrobeConfig { remove_text = "" } };
             CollectionAssert.IsEmpty(LvnAuthoredWords.Fold(ui), "пустая строка — не слово");
             CollectionAssert.IsEmpty(LvnAuthoredWords.Fold(null), "нет облика — нет и слов");
         }
@@ -63,7 +61,7 @@ namespace Lvn.Tests
         public void ЭкранПолучаетАвторскоеСловоЧерезОбычныйВызов()
         {
             LvnWords.Learn(null, null, Ui());
-            Assert.AreEqual("Надеть", LvnWords.Of("skinshop.equip", "Equip"),
+            Assert.AreEqual("Снять", LvnWords.Of("wardrobe.none", "None"),
                 "экран зовёт словарь как всегда — поле уже влито");
             Assert.AreEqual("+300 бонусом", LvnWords.Of("shop.bonus", "+{0} bonus", 300),
                 "шаблон с числом работает и у авторского слова");
@@ -72,8 +70,8 @@ namespace Lvn.Tests
         [Test]
         public void СловарьСильнееПоля()
         {
-            LvnWords.Learn(new Dictionary<string, string> { ["skinshop.equip"] = "Примерить" }, null, Ui());
-            Assert.AreEqual("Примерить", LvnWords.Of("skinshop.equip", "Equip"),
+            LvnWords.Learn(new Dictionary<string, string> { ["wardrobe.none"] = "Ничего" }, null, Ui());
+            Assert.AreEqual("Ничего", LvnWords.Of("wardrobe.none", "None"),
                 "автор, написавший слово дважды, имел в виду то, что ближе к словарю");
         }
 
@@ -81,7 +79,7 @@ namespace Lvn.Tests
         public void БезПоляОстаётсяУмолчаниеВызывающего()
         {
             LvnWords.Learn(null, null, new LvnUiConfig());
-            Assert.AreEqual("Equip", LvnWords.Of("skinshop.equip", "Equip"));
+            Assert.AreEqual("None", LvnWords.Of("wardrobe.none", "None"));
         }
     }
 }

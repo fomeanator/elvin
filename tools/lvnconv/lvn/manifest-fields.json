@@ -591,8 +591,6 @@
     "dim_text_color": "string",
     "empty_text": "string",
     "entity": "string",
-    "equip_text": "string",
-    "equipped_text": "string",
     "framing": "map:FramingConfig",
     "insufficient_text": "string",
     "menu_label": "string",

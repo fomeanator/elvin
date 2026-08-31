@@ -170,13 +170,13 @@ namespace Lvn.UI.Screens
             var pbg = LvnTokens.PanelBg;
             _miniProgress.style.backgroundColor = new Color(pbg.r, pbg.g, pbg.b, 0.72f);
             LvnChrome.Edge(_miniProgress);
-            LvnChrome.Round(_miniProgress, 21f);
+            LvnChrome.Round(_miniProgress, LvnTokens.Radius);
             _miniProgress.style.display = DisplayStyle.None;
             _miniProgress.pickingMode = PickingMode.Ignore;
             _miniProgressLabel = new Label("0%");
             _miniProgressLabel.pickingMode = PickingMode.Ignore;
             _miniProgressLabel.style.color = LvnTokens.Text;
-            _miniProgressLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            _miniProgressLabel.style.fontSize = LvnTokens.TextXs;
             _miniProgressLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             _miniProgress.Add(_miniProgressLabel);
             Add(_miniProgress);
@@ -218,14 +218,14 @@ namespace Lvn.UI.Screens
             b.style.alignItems = Align.Center;
             b.style.paddingTop = 6; b.style.paddingBottom = 6;
             b.style.paddingLeft = 14; b.style.paddingRight = 14;
-            LvnChrome.Round(b, 12f);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent);
             ic.pickingMode = PickingMode.Ignore;
             b.Add(ic);
             var l = Lvn.UI.LvnRedress.Bind(new Label(), label);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
-            l.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            l.style.fontSize = LvnTokens.TextXs;
             l.style.marginTop = 5;
             b.Add(l);
             b.RegisterCallback<ClickEvent>(_ => onTap());
@@ -312,14 +312,14 @@ namespace Lvn.UI.Screens
             var circle = new VisualElement();
             circle.pickingMode = PickingMode.Ignore;
             circle.style.width = 50; circle.style.height = 50;
-            LvnChrome.Round(circle, 25f);
+            LvnChrome.Round(circle, LvnTokens.RadiusLg);
             circle.style.backgroundColor = LvnTokens.Accent;
             circle.style.alignItems = Align.Center;
             circle.style.justifyContent = Justify.Center;
             var t = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("app.logo", "L"));
             t.pickingMode = PickingMode.Ignore;
             t.style.color = LvnTokens.OnAccent;
-            t.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            t.style.fontSize = LvnTokens.TextBase;
             t.style.unityFontStyleAndWeight = FontStyle.Bold;
             circle.Add(t);
             return circle;
@@ -333,7 +333,7 @@ namespace Lvn.UI.Screens
             b.style.marginLeft = 10;
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
-            LvnChrome.Round(b, 12f);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             b.style.backgroundColor = LvnTokens.Faint;
             for (int i = 0; i < 3; i++)
             {

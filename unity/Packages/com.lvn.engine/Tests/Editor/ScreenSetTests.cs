@@ -234,7 +234,7 @@ namespace Lvn.Tests
             ("Loading", об.Loading), ("Title", об.Title), ("Hud", об.Hud),
             ("Auth", об.Auth), ("Settings", об.Settings), ("Detail", об.Detail),
             ("Gallery", об.Gallery), ("Profile", об.Profile), ("Daily", об.Daily),
-            ("Leaderboard", об.Leaderboard), ("SkinShop", об.SkinShop),
+            ("Leaderboard", об.Leaderboard),
             ("PackShop", об.PackShop), ("PackShopModal", об.PackShopModal),
             ("Popup", об.Popup), ("WardrobeTab", об.WardrobeTab),
             ("ChapterEnd", об.ChapterEnd),
