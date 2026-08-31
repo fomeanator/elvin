@@ -1,0 +1,322 @@
+{
+  "scene": "anim_forms",
+  "script": [
+    {
+      "id": "hall",
+      "op": "bg"
+    },
+    {
+      "at": "center",
+      "id": "hero",
+      "op": "actor"
+    },
+    {
+      "anim": {
+        "duration": 2,
+        "loop": true,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                1.05
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "prop": "scale"
+          }
+        ],
+        "yoyo": true
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 3,
+        "loop": true,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                2,
+                -4
+              ],
+              [
+                3,
+                0
+              ]
+            ],
+            "prop": "rotation"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 1,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                1
+              ],
+              [
+                0.5,
+                0.4
+              ],
+              [
+                1,
+                1
+              ]
+            ],
+            "prop": "alpha"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 0.4,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "outBack",
+            "keys": [
+              [
+                0,
+                1
+              ],
+              [
+                0.4,
+                1.2
+              ]
+            ],
+            "prop": "scalex"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "id": "hero",
+      "op": "anim",
+      "stop": "all"
+    },
+    {
+      "anim": {
+        "duration": 2,
+        "loop": true,
+        "tracks": [
+          {
+            "ease": "inOutSine",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                6
+              ],
+              [
+                2,
+                0
+              ]
+            ],
+            "prop": "rotation"
+          }
+        ],
+        "yoyo": true
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 4,
+        "loop": false,
+        "tracks": [
+          {
+            "interp": "spline",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                1
+              ]
+            ],
+            "layer": "face",
+            "prop": "alpha"
+          }
+        ]
+      },
+      "channel": "veil",
+      "id": "hero",
+      "mode": "queue",
+      "op": "anim"
+    },
+    {
+      "id": "hero",
+      "op": "anim",
+      "stop": "rotation"
+    },
+    {
+      "anim": {
+        "duration": 2,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0.2
+              ],
+              [
+                1,
+                0.5
+              ],
+              [
+                2,
+                0.8
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "keys": [
+              [
+                0,
+                0.5
+              ],
+              [
+                1,
+                0.8
+              ],
+              [
+                2,
+                0.5
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 1.5,
+        "loop": false,
+        "tracks": [
+          {
+            "ease": "inOutQuad",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.5,
+                0.9
+              ]
+            ],
+            "prop": "screen_x"
+          },
+          {
+            "ease": "inOutQuad",
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                1.5,
+                0.4
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 3,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0.1
+              ],
+              [
+                1.5,
+                0.5
+              ],
+              [
+                3,
+                0.9
+              ]
+            ],
+            "orient": true,
+            "prop": "screen_x"
+          },
+          {
+            "keys": [
+              [
+                0,
+                0.9
+              ],
+              [
+                1.5,
+                0.6
+              ],
+              [
+                3,
+                0.9
+              ]
+            ],
+            "prop": "screen_y"
+          }
+        ]
+      },
+      "id": "hero",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Отыграно.",
+      "who": "Рассказчик"
+    }
+  ]
+}

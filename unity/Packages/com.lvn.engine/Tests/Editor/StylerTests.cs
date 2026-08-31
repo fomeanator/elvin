@@ -54,6 +54,110 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ВкладкаМеняетИЦвет_ИВес_ИВозвращаетИхОбратно()
+        {
+            // Правил на одну вкладку было ТРИ, и каждое сломалось по-своему.
+            // Магазин звал общий выбор и добавлял жирность отдельной строкой;
+            // витрина скинов жирность только ВКЛЮЧАЛА и никогда не снимала —
+            // походив по вкладкам, игрок получал жирными все сразу; таблица
+            // лидеров красила всё сама, и невыбранная вкладка выходила
+            // ПРОЗРАЧНОЙ вместо приглушённой, то есть переставала выглядеть
+            // кнопкой. Ряды на вид одинаковые, ведут себя по-разному.
+            //
+            // Вес здесь не украшение: на солнце и на дешёвом экране одного
+            // цвета мало, чтобы понять, где ты стоишь.
+            var вкладка = new Button();
+
+            LvnStyler.Tab(вкладка, active: true);
+            Assert.AreEqual(LvnTokens.Accent, вкладка.style.backgroundColor.value,
+                "активная вкладка не горит акцентом — раздел, в котором стоит игрок, ничем не отмечен");
+            Assert.AreEqual(FontStyle.Bold, вкладка.style.unityFontStyleAndWeight.value,
+                "активная вкладка держится на одном цвете — на солнце его не видно");
+
+            LvnStyler.Tab(вкладка, active: false);
+            Assert.AreEqual(FontStyle.Normal, вкладка.style.unityFontStyleAndWeight.value,
+                "вкладка не похудела обратно — походив по разделам, игрок получит жирными все сразу");
+            Assert.AreEqual(LvnTokens.Faint, вкладка.style.backgroundColor.value,
+                "невыбранная вкладка стала прозрачной — она перестала выглядеть кнопкой");
+        }
+
+        [Test]
+        public void ГнездоПодЗнакДержитСимволВЦентреКвадрата()
+        {
+            // Собиралось вручную в пяти местах по десять строк, и ни одна не
+            // выглядит лишней — потому их и переписывали заново, а не искали
+            // общее. Обнулить ВСЕ ЧЕТЫРЕ отступа обязательно: у кнопки они свои
+            // по умолчанию, и символ уезжает из центра гнезда — «назад» стоит
+            // криво, а увидеть это можно только глазами.
+            var гнездо = LvnStyler.IconSlot(new Button(), 48f);
+
+            Assert.AreEqual(48f, гнездо.style.width.value.value, 1e-4f, "гнездо не квадратное");
+            Assert.AreEqual(48f, гнездо.style.height.value.value, 1e-4f, "гнездо не квадратное");
+            Assert.AreEqual(0f, гнездо.style.paddingLeft.value.value, 1e-4f, "символ уехал из центра гнезда");
+            Assert.AreEqual(0f, гнездо.style.paddingRight.value.value, 1e-4f, "символ уехал из центра гнезда");
+            Assert.AreEqual(0f, гнездо.style.paddingTop.value.value, 1e-4f, "символ уехал из центра гнезда");
+            Assert.AreEqual(0f, гнездо.style.paddingBottom.value.value, 1e-4f, "символ уехал из центра гнезда");
+            Assert.AreEqual(Align.Center, гнездо.style.alignItems.value, "символ не выровнен поперёк гнезда");
+            Assert.AreEqual(Justify.Center, гнездо.style.justifyContent.value, "символ не выровнен вдоль гнезда");
+            Assert.AreEqual(LvnTokens.Faint, гнездо.style.backgroundColor.value,
+                "плашка гнезда взята мимо палитры — «назад» в галерее и в таблице лидеров станут разными кнопками");
+            Assert.AreEqual(LvnTokens.RadiusSm, гнездо.style.borderTopLeftRadius.value.value, 1e-4f,
+                "скругление гнезда взято не у темы");
+        }
+
+        [Test]
+        public void РазмерГнездаОстаётсяЭкрану()
+        {
+            // Разнобой был не в размере: над постером во весь экран уместна
+            // кнопка крупнее, чем в плотной шапке списка. Разъезжалось ВСЁ
+            // ОСТАЛЬНОЕ, что каждый решал заново. Забери роль ещё и размер — и
+            // экранам придётся чинить её поверх.
+            Assert.AreEqual(60f, LvnStyler.IconSlot(new Button(), 60f).style.height.value.value, 1e-4f);
+            Assert.AreEqual(4f, LvnStyler.IconSlot(new Button(), 44f, 4f).style.borderTopLeftRadius.value.value, 1e-4f,
+                "экран настоял на своём скруглении, и его не услышали");
+        }
+
+        [Test]
+        public void ПилюляСкругляетсяПодСобственнуюВысоту()
+        {
+            // Пилюля читается ярлыком именно из-за полукруглых торцов. Задай ей
+            // скругление числом — при другой высоте она превратится в
+            // прямоугольник со срезанными углами, и в одном ряду с настоящей
+            // пилюлей (счётчик валюты рядом с меткой) разнобой виден сразу.
+            var высокая = LvnStyler.Pill(new VisualElement(), 28f);
+            var низкая = LvnStyler.Pill(new VisualElement(), 18f);
+
+            Assert.AreEqual(14f, высокая.style.borderTopLeftRadius.value.value, 1e-4f,
+                "торцы пилюли не полукруглые — ярлык стал прямоугольником");
+            Assert.AreEqual(9f, низкая.style.borderTopLeftRadius.value.value, 1e-4f,
+                "скругление не поехало за высотой — пилюли в одном ряду выглядят разными");
+            Assert.AreEqual(LvnTokens.Faint, высокая.style.backgroundColor.value,
+                "плашка пилюли взята не у темы");
+        }
+
+        [Test]
+        public void КарточкаНоситКромкуТемы_АКнопкаНет()
+        {
+            // Кромка — примета ГРАНЁНЫХ тем: ею карточка отделяется от живого
+            // фона, на котором иначе тонет. Но она свойство ТЕМЫ, а не роли:
+            // в теме без кромки карточка обязана остаться гладкой, иначе
+            // «Полночь» получит обводку, которой в ней нет по замыслу.
+            // Кнопке кромка не полагается ни в какой теме: её край задаёт
+            // плашка, а рамка от умолчаний UITK — мусор.
+            LvnTheme.Use("cyber");
+            Assert.Greater(LvnStyler.Card(new VisualElement()).style.borderTopWidth.value, 0f,
+                "карточка осталась без кромки в гранёной теме — она утонет в живом фоне");
+            Assert.AreEqual(0f, LvnStyler.Primary(new Button()).style.borderTopWidth.value, 1e-4f,
+                "кнопке досталась кромка карточки");
+
+            LvnTheme.Use("midnight");
+            Assert.AreEqual(0f, LvnStyler.Card(new VisualElement()).style.borderTopWidth.value, 1e-4f,
+                "кромка появилась в теме, которая её не носит");
+            Assert.AreEqual(LvnTokens.Surface, LvnStyler.Card(new VisualElement()).style.backgroundColor.value,
+                "поверхность карточки взята не у темы — смена темы её не перекрасит");
+        }
+
+        [Test]
         public void Ghost_HasNoPlateAtAll()
         {
             var b = LvnStyler.Ghost(new Button());

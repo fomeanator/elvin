@@ -1,0 +1,32 @@
+{
+  "scene": "include_nested",
+  "script": [
+    {
+      "op": "say",
+      "text": "Начали.",
+      "who": "Аня"
+    },
+    {
+      "label": "middle",
+      "op": "goto"
+    },
+    {
+      "id": "middle",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Первое звено на месте.",
+      "who": "Рассказчик"
+    },
+    {
+      "id": "tail",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Второе звено на месте.",
+      "who": "Рассказчик"
+    }
+  ]
+}
