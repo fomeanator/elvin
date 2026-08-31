@@ -978,3 +978,32 @@ func TestВидыУзловДереваUiОдинСловарь(t *testing.T) {
 	}
 	_ = src
 }
+
+// Вшитая в расширение копия грамматики — КОПИЯ, а не форк.
+//
+// Её не обновлял никто, и она отстала настолько, что учила НЕСУЩЕСТВУЮЩЕМУ:
+// предлагала `obj fill`, `fill_from`, `in3d`, `world` — поля, которых в движке
+// нет, — и не знала `cutscene`, `ui`, `track`. Автор, поставивший расширение,
+// получал подсказки к другому языку. Копия, которую никто не пересобирает,
+// хуже отсутствия копии.
+//
+// Обновляется тем же `npm run gen`, что и сама грамматика.
+func TestКопияГрамматикиВРасширенииНеФорк(t *testing.T) {
+	root := repoRoot(t)
+	for _, name := range []string{"grammar.js", "grammar.json"} {
+		src, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		vendored, err := os.ReadFile(filepath.Join(root, "tools", "vscode-lvn", "lib", "lvn-lang", name))
+		if err != nil {
+			t.Fatalf("вшитая копия %s пропала: %v", name, err)
+		}
+		if string(src) != string(vendored) {
+			t.Fatalf("tools/vscode-lvn/lib/lvn-lang/%s разошлась с правдой.\n"+
+				"Перегенерируйте обе одним шагом:\n"+
+				"  (cd tools/lvn-lang && npm run gen)\n"+
+				"Пока копия своя, расширение подсказывает другой язык.", name)
+		}
+	}
+}

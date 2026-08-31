@@ -39,8 +39,9 @@
     "load",
     "wardrobe_show",
     "bg3d",
-    "o3d",
-    "light"
+    "track",
+    "ui",
+    "cutscene"
   ],
   "structural_ops": [
     "label"
@@ -48,7 +49,11 @@
   "op_fields": {
     "bg": [
       "sprite_url",
-      "id"
+      "id",
+      "fade",
+      "pan",
+      "pan_to",
+      "pan_dur"
     ],
     "actor": [
       "id",
@@ -74,15 +79,7 @@
       "on_drop",
       "on_drop_miss",
       "loop",
-      "drag_bounds",
-      "depth",
-      "world",
-      "fill",
-      "fill_from",
-      "fill_time",
-      "parent",
-      "world_height",
-      "in3d"
+      "drag_bounds"
     ],
     "obj": [
       "id",
@@ -103,16 +100,7 @@
       "on_drop_miss",
       "loop",
       "play",
-      "drag_bounds",
-      "fill",
-      "fill_from",
-      "fill_time",
-      "depth",
-      "world",
-      "rotation",
-      "parent",
-      "world_height",
-      "in3d"
+      "drag_bounds"
     ],
     "fade": [
       "to",
@@ -231,11 +219,7 @@
     "wardrobe_show": [
       "char"
     ],
-    "clear": [
-      "dialogue",
-      "labels",
-      "all"
-    ],
+    "clear": [],
     "fx": [
       "vignette",
       "grain",
@@ -277,6 +261,13 @@
       "sepia",
       "posterize",
       "letterbox",
+      "sketch",
+      "halftone",
+      "heat",
+      "ripple",
+      "dust",
+      "ink",
+      "ink_color",
       "dur",
       "off"
     ],
@@ -330,106 +321,25 @@
       "fov",
       "dur",
       "off",
-      "live",
-      "sway",
-      "sway_speed",
-      "walk",
-      "build",
-      "focus",
-      "dof",
-      "dof_range",
-      "stats",
-      "rim",
-      "warm",
-      "steps",
-      "shadow_tint",
-      "rim_color",
-      "tone",
-      "exposure",
-      "saturation",
-      "contrast",
-      "dither",
-      "knee",
-      "white",
-      "bloom",
-      "bloom_threshold",
-      "bloom_knee"
+      "live"
     ],
-    "o3d": [
+    "track": [
+      "name"
+    ],
+    "ui": [
       "id",
-      "shape",
-      "model",
-      "sprite",
-      "texture",
-      "pos",
-      "size",
-      "height",
-      "pitch",
-      "yaw",
-      "roll",
-      "color",
-      "alpha",
-      "glow",
-      "ground",
-      "shadow",
-      "flip",
-      "on_click",
-      "off",
-      "count",
-      "area",
-      "seed",
-      "scale_var",
-      "yaw_var",
-      "gap",
-      "kinds",
-      "colors",
-      "wind",
-      "shader",
-      "at",
-      "dur",
-      "dissolve",
-      "spin",
-      "bob",
-      "bob_speed",
-      "pulse",
-      "pulse_speed",
-      "normal",
-      "bump",
-      "tiling",
-      "edge",
-      "ruts",
-      "wet",
-      "outline",
-      "outline_color",
-      "rim",
-      "hills",
-      "hill_size",
-      "detail",
-      "cells",
-      "sound",
-      "sound_range",
-      "sound_volume",
-      "near",
+      "action",
+      "layer",
+      "block",
+      "appear",
+      "when",
+      "tree"
+    ],
+    "cutscene": [
       "on",
-      "dist",
-      "side",
-      "fade"
-    ],
-    "light": [
-      "kind",
-      "id",
-      "angle",
-      "pos",
-      "color",
-      "power",
-      "range",
-      "near",
-      "far",
-      "top",
-      "bottom",
       "off",
-      "dur",
-      "flicker"
+      "zoom",
+      "dur"
     ],
     "portal": [
       "open",
@@ -470,8 +380,6 @@
     "load",
     "wardrobe_show",
     "label",
-    "o3d",
-    "light",
     "portal"
   ],
   "$enums_comment": "Fully-CLOSED value sets per (op, field) — the validator warns outside them. Colour names are NOT here (they also accept hex). An empty string means 'absent is fine'.",
@@ -512,87 +420,132 @@
     "sfx": {
       "aura_style": [
         "basic",
+        "neutral",
+        "plain",
         "guard",
+        "ward",
+        "protection",
         "fire",
         "frost",
+        "ice",
         "storm",
+        "thunder",
         "shadow",
+        "dark",
         "holy",
+        "light",
         "space",
+        "void",
         "distortion",
+        "rift",
         "spirit",
-        "ascendant"
+        "soul",
+        "aether",
+        "ascendant",
+        "monarch",
+        "overlord"
       ]
     },
     "actor": {
       "position": [
-        "left",
-        "center",
-        "right",
-        "far_left",
-        "far_right",
         "offscreen_left",
-        "offscreen_right"
-      ]
-    },
-    "bg3d": {
-      "tone": [
-        "off",
-        "neutral",
-        "khronos"
-      ]
-    },
-    "o3d": {
-      "shape": [
-        "box",
-        "plane",
-        "sphere",
-        "cylinder",
-        "cone",
-        "disc",
-        "ground",
-        "terrain",
-        "земля"
-      ],
-      "shader": [
-        "toon",
-        "wind",
-        "aura",
-        "water",
-        "glass",
-        "dissolve",
-        "fire",
-        "smoke",
-        "triplanar",
-        "road",
-        "any",
-        "metal",
-        "cloth",
-        "unlit"
-      ],
-      "side": [
+        "far_left",
         "left",
+        "center_left",
+        "center",
+        "center_right",
         "right",
-        "front",
-        "back",
-        "слева",
-        "справа",
-        "спереди",
-        "сзади"
+        "far_right",
+        "offscreen_right"
+      ],
+      "enter": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
+      ],
+      "exit": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
       ]
     },
-    "light": {
-      "kind": [
-        "sun",
-        "fill",
-        "point",
-        "spot",
-        "fog",
-        "sky"
+    "ui": {
+      "layer": [
+        "hud",
+        "over"
+      ],
+      "when": [
+        "always",
+        "idle",
+        "say",
+        "choice"
+      ],
+      "appear": [
+        "fade",
+        "rise",
+        "pop",
+        "slide_up",
+        "slide_down",
+        "slide_left",
+        "slide_right",
+        "drop",
+        "unfold"
+      ]
+    },
+    "obj": {
+      "enter": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
+      ],
+      "exit": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
       ]
     }
   },
-  "$attr_comment": "Editor completions after `key=` — a superset of enums keyed by attribute name (colours and booleans included; they are open-valued for the validator).",
+  "$attr_comment": "Editor completions after `key=` — a superset of enums keyed by attribute name (colours and booleans included; they are open-valued for the validator). Цвет: тот же словарь, что у UiColor.Named в движке — токены темы, имена движка и мнемоники настроения. Список был четвёртым перечнем одного понятия и знал только вторую его треть; страж tools/lvnconv/lvn сверяет его с движком.",
   "attr_values": {
     "to": [
       "black",
@@ -600,6 +553,19 @@
       "clear"
     ],
     "color": [
+      "bg",
+      "surface",
+      "surface_hi",
+      "panel",
+      "text",
+      "dim",
+      "accent",
+      "on_accent",
+      "gold",
+      "warn",
+      "border",
+      "veil",
+      "clear",
       "white",
       "black",
       "red",
@@ -609,7 +575,9 @@
       "cyan",
       "magenta",
       "cold",
+      "tint_cold",
       "warm",
+      "tint_warm",
       "sepia"
     ],
     "type": [
@@ -617,12 +585,14 @@
       "snow"
     ],
     "position": [
-      "left",
-      "center",
-      "right",
-      "far_left",
-      "far_right",
       "offscreen_left",
+      "far_left",
+      "left",
+      "center_left",
+      "center",
+      "center_right",
+      "right",
+      "far_right",
       "offscreen_right"
     ],
     "show": [
@@ -652,16 +622,81 @@
     ],
     "aura_style": [
       "basic",
+      "neutral",
+      "plain",
       "guard",
+      "ward",
+      "protection",
       "fire",
       "frost",
+      "ice",
       "storm",
+      "thunder",
       "shadow",
+      "dark",
       "holy",
+      "light",
       "space",
+      "void",
       "distortion",
+      "rift",
       "spirit",
-      "ascendant"
+      "soul",
+      "aether",
+      "ascendant",
+      "monarch",
+      "overlord"
+    ],
+    "prop": [
+      "x",
+      "y",
+      "screen_x",
+      "screen_y",
+      "scale",
+      "scalex",
+      "scaley",
+      "rotation",
+      "alpha",
+      "frame"
+    ],
+    "enter": [
+      "fade",
+      "slide_left",
+      "slide_right",
+      "pop",
+      "rise",
+      "sink",
+      "drop",
+      "unfold",
+      "dissolve",
+      "burn",
+      "drift",
+      "side"
+    ],
+    "exit": [
+      "fade",
+      "slide_left",
+      "slide_right",
+      "pop",
+      "rise",
+      "sink",
+      "drop",
+      "unfold",
+      "dissolve",
+      "burn",
+      "drift",
+      "side"
+    ],
+    "kind": [
+      "panel",
+      "row",
+      "column",
+      "text",
+      "button",
+      "bar",
+      "icon",
+      "image",
+      "scroll"
     ]
   },
   "op_docs": {
@@ -691,7 +726,7 @@
     ],
     "obj": [
       "obj id=\"x\" sprite_url=\"…\" x= y= on_click=\"label\"",
-      "A placeable, optionally clickable sprite. `fill=0..1` shows only PART of it — cropped, not squashed (progress/health bars); `fill_from=left|right|top|bottom` picks the side it grows from."
+      "A placeable, optionally clickable sprite."
     ],
     "fade": [
       "fade to=\"black|white|clear\" duration=0.8",
@@ -809,7 +844,8 @@
       "clear",
       "Hide every actor and obj at once. Leaves the background, effects and HUD untouched. Takes no fields."
     ],
-    "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном."
+    "bg3d": "Ставит за сценой ПОСТРОЕННУЮ 3D-сцену вместо нарисованного фона и наводит на неё камеру: `bg3d id=apartment` строит набор, `bg3d yaw=45 dur=1.2` поворачивает уже стоящий. Один набор даёт столько ракурсов, сколько попросит сценарий. `bg3d off` — вернуться к плоским фонам. Требует загрузчика префабов у игры; без него сцена молча остаётся с прежним фоном.",
+    "track": "track \"первый поцелуй\" — метка конверсии: ничего не делает в кадре, её работа попасть в отчёт «важные места». Сахар над ext track name=…"
   },
   "$groups_comment": "Reference-panel grouping (presentation order). Field summaries are generated from op_fields + enums.",
   "groups": [
