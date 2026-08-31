@@ -577,23 +577,23 @@ func foe_bar() {
   // ПРИЗРАК урона (приём из Dota): тот же спрайт, бледнее и ПОД основной
   // заливкой. Едет к той же доле, но втрое дольше — глаз успевает прочитать,
   // сколько именно отняли, даже когда удар прошёл за долю секунды.
-  obj id=foe_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
-  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31 fill_from=left
-  anim id=foe_bar_fill prop=fill to="{max(foe_hp, 0) / max(foe_hp_max, 1)}" dur=0.25 ease=outCubic
-  anim id=foe_bar_ghost prop=fill to="{max(foe_hp, 0) / max(foe_hp_max, 1)}" dur=0.9 ease=inOutSine
+  obj id=foe_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4
+  obj id=foe_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_hp.png" x=0.075 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31
+  anim id=foe_bar_fill prop=scalex to="{max(foe_hp, 0) / max(foe_hp_max, 1)}" dur=0.25 ease=outCubic
+  anim id=foe_bar_ghost prop=scalex to="{max(foe_hp, 0) / max(foe_hp_max, 1)}" dur=0.9 ease=inOutSine
 }
 
-// Заливка врага во всю длину трека — режет её fill, а не ширина.
+// Заливка врага во всю длину трека — её длину задаёт scalex.
 
 func hero_bar() {
   obj id=hero_bar_bg sprite_url="/content/packages/lvn-uikit/ui/bar_track.png" x=0.735 y=0.875 width=0.38 height=0.025 anchor="0.5,0.5" z=30
-  obj id=hero_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4 fill_from=left
-  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31 fill_from=left
-  anim id=hero_bar_fill prop=fill to="{max(duel_hp, 0) / max(duel_hp_max, 1)}" dur=0.25 ease=outCubic
-  anim id=hero_bar_ghost prop=fill to="{max(duel_hp, 0) / max(duel_hp_max, 1)}" dur=0.9 ease=inOutSine
+  obj id=hero_bar_ghost sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=30 opacity=0.4
+  obj id=hero_bar_fill sprite_url="/content/packages/lvn-uikit/ui/bar_fill_resource.png" x=0.545 y=0.875 width=0.380 height=0.025 anchor="0,0.5" z=31
+  anim id=hero_bar_fill prop=scalex to="{max(duel_hp, 0) / max(duel_hp_max, 1)}" dur=0.25 ease=outCubic
+  anim id=hero_bar_ghost prop=scalex to="{max(duel_hp, 0) / max(duel_hp_max, 1)}" dur=0.9 ease=inOutSine
 }
 
-// Заливка героя во всю длину трека — режет её fill.
+// Заливка героя во всю длину трека — её длину задаёт scalex.
 
 func bars_hide() {
   obj id=duel_hud_plate show=false
@@ -1428,32 +1428,32 @@ func duel() {
   // иначе ряд выглядит поломанным, а не пустым.
   obj id=tri1 sprite_url="/content/packages/lvn-duel/ui/icon_aura.png" x=0.115 y=23% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_blade_owned * 0.74}"
   obj id=trb1 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=24.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf1 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=24.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_blade / 100}"
+  obj id=trf1 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=24.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_blade / 100}"
   text trt1 x=19 y=20.4 size=18 color=#b28a33 «КЛИНОК · бессмертная · {lvl_blade}% · за {cost_blade} · урон ×2 сквозь щит»
 
   obj id=tri2 sprite_url="/content/packages/lvn-duel/ui/icon_vampire.png" x=0.115 y=31% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_thirst_owned * 0.74}"
   obj id=trb2 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=32.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf2 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=32.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_thirst / 100}"
+  obj id=trf2 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=32.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_thirst / 100}"
   text trt2 x=19 y=28.4 size=18 color=#4b69ff «ЖАЖДА · редкая · {lvl_thirst}% · за {cost_thirst} · 4 такта чужая кровь лечит»
 
   obj id=tri3 sprite_url="/content/packages/lvn-duel/ui/icon_ghost.png" x=0.115 y=39% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_shade_owned * 0.74}"
   obj id=trb3 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=40.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf3 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=40.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_shade / 100}"
+  obj id=trf3 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=40.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_shade / 100}"
   text trt3 x=19 y=36.4 size=18 color=#8847ff «ТЕНЬ · мистическая · {lvl_shade}% · за {cost_shade} · 3 удара сквозь тебя»
 
   obj id=tri4 sprite_url="/content/packages/lvn-duel/ui/icon_might.png" x=0.115 y=47% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_might_owned * 0.74}"
   obj id=trb4 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=48.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf4 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=48.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_might / 100}"
+  obj id=trf4 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=48.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_might / 100}"
   text trt4 x=19 y=44.4 size=18 color=#b0c3d9 «СИЛА · обычная · {lvl_might}% · за {cost_might} · +2 к урону, до конца боя»
 
   obj id=tri5 sprite_url="/content/packages/lvn-duel/ui/icon_vitality.png" x=0.115 y=55% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_vigor_owned * 0.74}"
   obj id=trb5 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=56.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf5 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=56.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_vigor / 100}"
+  obj id=trf5 sprite_url="/content/packages/lvn-duel/ui/bar_hero.png" x=0.19 y=56.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_vigor / 100}"
   text trt5 x=19 y=52.4 size=18 color=#5e98d9 «ЖИЗНЬ · необычная · {lvl_vigor}% · за {cost_vigor} · +3 тела и +1 такт»
 
   obj id=tri6 sprite_url="/content/packages/lvn-duel/ui/icon_will.png" x=0.115 y=63% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_will_owned * 0.74}"
   obj id=trb6 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=64.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf6 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=64.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_will / 100}"
+  obj id=trf6 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=64.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_will / 100}"
   text trt6 x=19 y=60.4 size=18 color=#e33b2e «ВОЛЯ · тайная · {lvl_will}% · за {cost_will} · чужая аура не берёт»
 
   text tr_c1 x=19 y=24.6 size=15 color=#8f96a8 «{cond_blade}»
@@ -1464,7 +1464,7 @@ func duel() {
   text tr_c6 x=19 y=64.6 size=15 color=#8f96a8 «{cond_will}»
   obj id=tri7 sprite_url="/content/packages/lvn-duel/ui/icon_despair.png" x=0.115 y=71% width=0.078 height=0.048 anchor="0.5,0.5" z=57 opacity="{0.26 + aura_despair_owned * 0.74}"
   obj id=trb7 sprite_url="/content/packages/lvn-duel/ui/bar_back.png" x=0.19 y=72.6% width=0.40 height=0.014 anchor="0,0.5" z=56
-  obj id=trf7 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=72.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill_from=left fill="{lvl_despair / 100}"
+  obj id=trf7 sprite_url="/content/packages/lvn-duel/ui/bar_foe.png" x=0.19 y=72.6% width=0.40 height=0.014 anchor="0,0.5" z=57 fill="{lvl_despair / 100}"
   text trt7 x=19 y=68.4 size=18 color=#d32ce6 «ОТЧАЯНИЕ · легендарная · {lvl_despair}% · за {cost_despair} · +1 за потерянное сердце»
   text tr_c7 x=19 y=72.6 size=15 color=#8f96a8 «{cond_despair}»
   text tr_7 x=19 y=78 size=18 color=#c9b98a «Навык: {skill} — пробив {break_lvl}%, оглушение {stun_lvl}%»
