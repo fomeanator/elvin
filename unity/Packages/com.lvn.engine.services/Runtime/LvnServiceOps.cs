@@ -59,8 +59,7 @@ namespace Lvn.Services
             {
                 var placement = (string)cmd["placement"];
                 if (string.IsNullOrEmpty(placement) || !LvnAds.Available) return;
-                ctx.Hold();
-                LvnAsync.Fire(RunAdAsync(placement, ctx), "RunAd");
+                LvnOps.Awaiting(ctx, () => RunAdAsync(placement, ctx), "RunAd");
             });
 
             // ── КОМНАТА НА ДВОИХ И БОЛЬШЕ ───────────────────────────────
@@ -69,27 +68,26 @@ namespace Lvn.Services
             // (дуэль), и ход по очереди (карты), и гонка «кто первый». Новая
             // игра не требует ни строчки в движке: меняется ключ ящика и
             // правило, а не код.
-            LvnOps.Register("net_open", (cmd, ctx) => { ctx.Hold(); LvnAsync.Fire(NetOpenAsync(ctx), "NetOpen"); });
+            LvnOps.Register("net_open", (cmd, ctx) => LvnOps.Awaiting(ctx, () => NetOpenAsync(ctx), "NetOpen"));
 
             LvnOps.Register("net_join", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(NetJoinAsync(Arg(cmd, "code", ctx.Vars), ctx), "NetJoin");
+                LvnOps.Awaiting(ctx, () => NetJoinAsync(Arg(cmd, "code", ctx.Vars), ctx), "NetJoin");
             });
 
             // ext net_wait need=2 — держит, пока за стол не сядут все.
             LvnOps.Register("net_wait", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(NetWaitAsync((int)NumFrom(cmd, "need", "need_var", ctx.Vars), ctx), "NetWait");
+                LvnOps.Awaiting(ctx,
+                    () => NetWaitAsync((int)NumFrom(cmd, "need", "need_var", ctx.Vars), ctx), "NetWait");
             });
 
             // ext net_put key="обмен:3" value_var=план reveal=all
             LvnOps.Register("net_put", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(NetPutAsync(Arg(cmd, "key", ctx.Vars), Packed(cmd, "value", ctx.Vars),
-                                (string)cmd["reveal"] ?? "all", ctx), "NetPut");
+                LvnOps.Awaiting(ctx,
+                    () => NetPutAsync(Arg(cmd, "key", ctx.Vars), Packed(cmd, "value", ctx.Vars),
+                                     (string)cmd["reveal"] ?? "all", ctx), "NetPut");
             });
 
             // ext net_get key="обмен:3" into=чужой [one=1] [wait=0]
@@ -97,7 +95,7 @@ namespace Lvn.Services
             // Держит скрипт, пока ящик не откроется. Это НЕ недостаток:
             // одновременный выбор тем и держится, что чужое не видно раньше
             // времени, а значит кто-то обязан ждать.
-            LvnOps.Register("net_get", (cmd, ctx) => { ctx.Hold(); LvnAsync.Fire(NetGetAsync(cmd, ctx), "NetGet"); });
+            LvnOps.Register("net_get", (cmd, ctx) => LvnOps.Awaiting(ctx, () => NetGetAsync(cmd, ctx), "NetGet"));
 
             // ext net_rng — ОДИН ПОТОК СЛУЧАЙНОСТИ НА ВСЮ КОМНАТУ.
             //
@@ -134,8 +132,7 @@ namespace Lvn.Services
             // становится 1, и сценарий решает, что с этим делать.
             LvnOps.Register("net_check", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(NetCheckAsync(cmd, ctx), "NetCheck");
+                LvnOps.Awaiting(ctx, () => NetCheckAsync(cmd, ctx), "NetCheck");
             });
 
             LvnOps.Register("net_leave", (cmd, ctx) => LvnNetRoom.Leave());
@@ -153,70 +150,52 @@ namespace Lvn.Services
 
         // ── комната: тела операций ──────────────────────────────────────────
         //
-        // Каждая кладёт результат в переменные истории и снимает удержание в
-        // finally. Пропущенный Resume означает намертво вставший скрипт, и
-        // случиться это должно только при исключении — поэтому finally, а не
-        // «в конце удачной ветки».
+        // Каждая кладёт результат в переменные истории. Удержание и отпускание
+        // держит дом (LvnOps.Awaiting): обряд из трёх частей был написан здесь
+        // семь раз подряд, и цена забытой третьей — намертво вставшая глава.
 
         private static async System.Threading.Tasks.Task NetOpenAsync(ILvnOpContext ctx)
-        {
-            try { NetState(ctx, await LvnNetRoom.OpenAsync()); }
-            finally { ctx.Resume(); }
-        }
+            => NetState(ctx, await LvnNetRoom.OpenAsync());
 
         private static async System.Threading.Tasks.Task NetJoinAsync(string code, ILvnOpContext ctx)
-        {
-            try { NetState(ctx, await LvnNetRoom.JoinAsync(code)); }
-            finally { ctx.Resume(); }
-        }
+            => NetState(ctx, await LvnNetRoom.JoinAsync(code));
 
         private static async System.Threading.Tasks.Task NetWaitAsync(int need, ILvnOpContext ctx)
-        {
-            try { NetState(ctx, await LvnNetRoom.WaitSeatsAsync(need > 0 ? need : 2)); }
-            finally { ctx.Resume(); }
-        }
+            => NetState(ctx, await LvnNetRoom.WaitSeatsAsync(need > 0 ? need : 2));
 
         private static async System.Threading.Tasks.Task NetPutAsync(
             string key, string value, string reveal, ILvnOpContext ctx)
         {
-            try
-            {
-                bool ok = await LvnNetRoom.PutAsync(key, value, reveal);
-                ctx.Vars["net_error"] = ok ? "" : (LvnNetRoom.LastError ?? "нет связи");
-            }
-            finally { ctx.Resume(); }
+            bool ok = await LvnNetRoom.PutAsync(key, value, reveal);
+            ctx.Vars["net_error"] = ok ? "" : (LvnNetRoom.LastError ?? "нет связи");
         }
 
         private static async System.Threading.Tasks.Task NetGetAsync(JObject cmd, ILvnOpContext ctx)
         {
             string into = (string)cmd["into"] ?? "net_value";
-            try
+            bool wait = !Off(cmd, "wait");
+            var others = await LvnNetRoom.GetAsync(Arg(cmd, "key", ctx.Vars), wait);
+            ctx.Vars["net_error"] = others != null ? "" : (LvnNetRoom.LastError ?? "нет связи");
+            if (others == null) { ctx.Vars[into] = new JArray(); }
+            else if (On(cmd, "one"))
             {
-                bool wait = !Off(cmd, "wait");
-                var others = await LvnNetRoom.GetAsync(Arg(cmd, "key", ctx.Vars), wait);
-                ctx.Vars["net_error"] = others != null ? "" : (LvnNetRoom.LastError ?? "нет связи");
-                if (others == null) { ctx.Vars[into] = new JArray(); }
-                else if (On(cmd, "one"))
-                {
-                    // За столом ровно двое — отдаём соседа напрямую, без
-                    // лишнего уровня вложенности. Самый частый случай, и
-                    // заставлять автора писать get(get(…)) ради него незачем.
-                    string first = "";
-                    foreach (var kv in others) { first = kv.Value; break; }
-                    ctx.Vars[into] = Unpacked(first);
-                }
-                else
-                {
-                    var bySeat = new JObject();
-                    foreach (var kv in others) bySeat[kv.Key] = Unpacked(kv.Value);
-                    ctx.Vars[into] = bySeat;
-                }
-                // Порядок — то, чего клиент сам не узнает: кто нажал раньше.
-                var order = new JArray();
-                foreach (var seat in LvnNetRoom.Order) order.Add(seat);
-                ctx.Vars["net_order"] = order;
+                // За столом ровно двое — отдаём соседа напрямую, без
+                // лишнего уровня вложенности. Самый частый случай, и
+                // заставлять автора писать get(get(…)) ради него незачем.
+                string first = "";
+                foreach (var kv in others) { first = kv.Value; break; }
+                ctx.Vars[into] = Unpacked(first);
             }
-            finally { ctx.Resume(); }
+            else
+            {
+                var bySeat = new JObject();
+                foreach (var kv in others) bySeat[kv.Key] = Unpacked(kv.Value);
+                ctx.Vars[into] = bySeat;
+            }
+            // Порядок — то, чего клиент сам не узнает: кто нажал раньше.
+            var order = new JArray();
+            foreach (var seat in LvnNetRoom.Order) order.Add(seat);
+            ctx.Vars["net_order"] = order;
         }
 
         /// <summary>
@@ -237,30 +216,26 @@ namespace Lvn.Services
         {
             string key = Arg(cmd, "key", ctx.Vars);
             if (string.IsNullOrEmpty(key)) key = "сверка";
-            try
+            var rng = LvnExpression.Random;
+            // Отпечаток состояния: зерно, позиция потока и добавка автора.
+            string mine = rng.Seed + ":" + rng.Draws + ":" + Packed(cmd, "value", ctx.Vars);
+            if (!await LvnNetRoom.PutAsync(key, mine, "all"))
             {
-                var rng = LvnExpression.Random;
-                // Отпечаток состояния: зерно, позиция потока и добавка автора.
-                string mine = rng.Seed + ":" + rng.Draws + ":" + Packed(cmd, "value", ctx.Vars);
-                if (!await LvnNetRoom.PutAsync(key, mine, "all"))
-                {
-                    ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
-                    return;
-                }
-                var others = await LvnNetRoom.GetAsync(key, true);
-                if (others == null)
-                {
-                    ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
-                    return;
-                }
-                bool same = true;
-                foreach (var kv in others) if (kv.Value != mine) same = false;
-                ctx.Vars["net_desync"] = same ? 0 : 1;
-                ctx.Vars["net_error"] = "";
-                if (!same)
-                    UnityEngine.Debug.LogWarning($"[lvn-net] РАССИНХРОН на «{key}»: у меня {mine}");
+                ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
+                return;
             }
-            finally { ctx.Resume(); }
+            var others = await LvnNetRoom.GetAsync(key, true);
+            if (others == null)
+            {
+                ctx.Vars["net_error"] = LvnNetRoom.LastError ?? "нет связи";
+                return;
+            }
+            bool same = true;
+            foreach (var kv in others) if (kv.Value != mine) same = false;
+            ctx.Vars["net_desync"] = same ? 0 : 1;
+            ctx.Vars["net_error"] = "";
+            if (!same)
+                UnityEngine.Debug.LogWarning($"[lvn-net] РАССИНХРОН на «{key}»: у меня {mine}");
         }
 
         private static void NetState(ILvnOpContext ctx, bool ok)
@@ -324,8 +299,7 @@ namespace Lvn.Services
 
         private static async System.Threading.Tasks.Task RunAdAsync(string placement, ILvnOpContext ctx)
         {
-            try { await LvnAds.WatchAndRewardAsync(placement); }
-            finally { ctx.Resume(); }
+            await LvnAds.WatchAndRewardAsync(placement);
         }
 
         private static (string currency, long amount) MoneyArgs(
