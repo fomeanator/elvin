@@ -419,11 +419,13 @@ namespace Lvn.UI.Screens
             card.style.marginBottom = 14;
             card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             LvnChrome.Round(card, LvnTokens.Radius);
-            var quietEdge = LvnTokens.Border;
-            LvnChrome.Border(card, new Color(quietEdge.r, quietEdge.g, quietEdge.b, quietEdge.a * 0.9f), 1f);
+            LvnChrome.BorderSoft(card, 0.9f);
             card.style.overflow = Overflow.Hidden;
             if (pack.Best)
             {
+                // Верх акцентный, остальные три — тот же тихий тон, что у
+                // обычной карточки: выделяется одна сторона, а не рамка целиком.
+                var quietEdge = LvnChrome.BorderTone(0.9f);
                 card.style.borderTopWidth = 2; card.style.borderBottomWidth = 1;
                 card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
                 card.style.borderTopColor = LvnTokens.Accent;
