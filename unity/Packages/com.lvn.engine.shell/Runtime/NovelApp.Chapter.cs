@@ -28,26 +28,14 @@ namespace Lvn.UI.Screens
         // finishing the last chapter clears it so a replay starts clean.
         private async Task PlayChapterAsync(LvnTitle title, LvnChapter chapter, string playerName)
         {
-            var resume = LvnProgress.Current(title);
-            // Computed BEFORE any SetCurrent: a novel-fresh start (first ever
-            // play, or a post-finale replay) re-asks the player's name inside
-            // the first chapter's entry.
-            bool novelFreshStart = resume == null;
-            if (resume != null) chapter = resume;
-            // A COMPLETED novel replays clean: Current is cleared on the finale
-            // but the title-scope vars still hold the whole playthrough — route
-            // the fresh entry through the restart machinery so chapter one seeds
-            // from its pristine entry checkpoint, not from endgame stats.
-            if (resume == null && LvnProgress.Reached(title) > 0 && chapter != null)
-                LvnProgress.RequestRestart(title?.id, chapter.id);
-            // Resuming a chapter the player already paid to enter must not charge
-            // again. "Already entered" = ITS autosave exists (written at entry) —
-            // the progress marker alone isn't enough: finishing a chapter moves
-            // the marker to the NEXT one, and that entry hasn't been paid yet.
-            var entrySlot = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
-            bool alreadyEntered = resume != null && entrySlot?.Snap != null
-                && Lvn.Content.LvnScriptRef.Same(entrySlot.Snap.ScriptUrl, resume.script_url)
-                && !entrySlot.Snap.Finished;
+            // ЧЕМ ЭТОТ ЗАХОД ЯВЛЯЕТСЯ — спрашиваем у дома прогресса: с какой
+            // главы, впервые ли, и оплачен ли уже вход. Четыре сплетённых
+            // правила стояли здесь же, и порядок между ними держался
+            // комментариями (см. LvnProgress.BeginEntry).
+            var entry = LvnProgress.BeginEntry(title, chapter);
+            chapter = entry.Chapter;
+            bool novelFreshStart = entry.NovelFreshStart;
+            bool alreadyEntered = entry.AlreadyPaid;
             while (chapter != null)
             {
                 // The script must be REACHABLE before anything is charged — an
@@ -70,19 +58,7 @@ namespace Lvn.UI.Screens
                 if (_downloads != null && !ReferenceEquals(chapter, _preparedChapter))
                     _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
                 _preparedChapter = null;
-                LvnProgress.StartChapter(title, chapter);
-                // Пока игрок внутри новеллы, каждое событие обязано знать, в
-                // какой именно: без этого сбой не отнести к истории, а таких
-                // событий в отчёте больше половины.
-                // ГДЕ МЫ — одно объявление на все журналы: аналитика, жалоба
-                // игрока и диагностика читают один контекст. Поля хоста и этот
-                // контекст ставит один обряд (EnterChapterContext).
-                EnterChapterContext(title, chapter);
-                lock (_reachedLabels) _reachedLabels.Clear(); // воронка считается ПО ГЛАВЕ
-                SyncProgressVault(); // every progress move lands in all three homes
-                ChapterStarted?.Invoke(title, chapter);
-                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterStart,
-                    ("title", title?.id), ("chapter", chapter.id));
+                AnnounceChapterStart(title, chapter);
                 var finished = await PlayOneChapterAsync(title, chapter, playerName, novelFreshStart);
                 novelFreshStart = false; // only the entry chapter of this run counts
                 if (finished == null)
@@ -109,10 +85,7 @@ namespace Lvn.UI.Screens
                     FlushUnknownOps(title, chapter);
                     break; // → carousel
                 }
-                ChapterFinished?.Invoke(title, finished);
-                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
-                    ("title", title?.id), ("chapter", finished.id));
-                FlushUnknownOps(title, finished);
+                AnnounceChapterFinish(title, finished);
                 // A cross-chapter save load can land the player in another title —
                 // continue along whichever title the finished chapter belongs to.
                 var (owner, _) = FindChapterByScriptUrl(finished.script_url);
@@ -178,6 +151,42 @@ namespace Lvn.UI.Screens
         // a live fetch) BEFORE the entry charge — money never burns on a
         // chapter that can't start. The later fetch inside PlayOneChapterAsync
         // then hits the cache.
+        /// <summary>
+        /// ГЛАВА НАЧАЛАСЬ — обряд из пяти шагов, который обязан пройти ЦЕЛИКОМ.
+        ///
+        /// <para>Точка прогресса едет, объявляется КОНТЕКСТ (пока игрок внутри
+        /// новеллы, каждое событие обязано знать, в какой именно — без этого
+        /// сбой не отнести к истории, а таких событий в отчёте больше
+        /// половины), обнуляется счёт воронки (она считается ПО ГЛАВЕ), свёрток
+        /// прогресса догоняет все три хранилища, и только потом о начале
+        /// узнают хост и аналитика.</para>
+        ///
+        /// <para>Шаги стояли в теле игрового цикла подряд, и порядок между ними
+        /// держался соседством строк. Забыть один — значит получить события без
+        /// адреса, воронку, склеенную из двух глав, или расхождение свёртка.</para>
+        /// </summary>
+        private void AnnounceChapterStart(LvnTitle title, LvnChapter chapter)
+        {
+            LvnProgress.StartChapter(title, chapter);
+            EnterChapterContext(title, chapter);
+            lock (_reachedLabels) _reachedLabels.Clear();
+            SyncProgressVault();
+            ChapterStarted?.Invoke(title, chapter);
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterStart,
+                ("title", title?.id), ("chapter", chapter.id));
+        }
+
+        /// <summary>ГЛАВА КОНЧИЛАСЬ — обратная сторона того же обряда: хост,
+        /// аналитика и слив незнакомых команд. Порядок тот же, что у начала:
+        /// сперва хост, потом отчёт.</summary>
+        private void AnnounceChapterFinish(LvnTitle title, LvnChapter finished)
+        {
+            ChapterFinished?.Invoke(title, finished);
+            Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
+                ("title", title?.id), ("chapter", finished.id));
+            FlushUnknownOps(title, finished);
+        }
+
         private async Task<bool> EnsureChapterScriptAsync(LvnChapter chapter)
         {
             if (chapter == null || string.IsNullOrEmpty(chapter.script_url)) return false;
