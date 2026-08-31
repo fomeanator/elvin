@@ -31,8 +31,26 @@ namespace Lvn.UI.Screens
         private static string FilePath =>
             System.IO.Path.Combine(Application.persistentDataPath, "lvn_progress.json");
 
-        /// <summary>Snapshot every progress store into one bundle.</summary>
-        public static JObject Collect(LvnManifest manifest)
+        /// <summary>Снимок для записи: то же, что <see cref="Collect"/>, но с
+        /// оглядкой на ПРЕЖНИЙ свёрток. Дверь для хозяина — читать старый файл
+        /// сам он не обязан.</summary>
+        public static JObject Snapshot(LvnManifest manifest) => Collect(manifest, ReadLocal());
+
+        /// <summary>Snapshot every progress store into one bundle.
+        ///
+        /// <para>СЪЁМКА ПОДЧИНЯЕТСЯ ТОМУ ЖЕ ПРАВИЛУ, ЧТО И ВОССТАНОВЛЕНИЕ:
+        /// свёрток НЕ ЗАБЫВАЕТ. Восстановление всегда было аддитивным (потолок
+        /// растёт, точка садится только на пустое, галерея доливается), а
+        /// съёмка строилась по живому манифесту с нуля — и запись заменяла обе
+        /// копии целиком. Новелла, которой в текущем манифесте нет (урезанный
+        /// каталог, сменившийся id, кэшированный манифест), вылетала и из
+        /// файла, и с сервера при первом же ходе прогресса. Прохождение было
+        /// не восстановить НИОТКУДА — а свёрток существует ровно затем, чтобы
+        /// такого не случалось.</para>
+        ///
+        /// <para><paramref name="prior"/> — прежний свёрток; всё, чего нет в
+        /// свежем снимке, переносится вперёд как есть.</para></summary>
+        public static JObject Collect(LvnManifest manifest, JObject prior = null)
         {
             var titles = new JObject();
             if (manifest?.titles != null)
@@ -81,14 +99,53 @@ namespace Lvn.UI.Screens
                     wardrobe[kv.Key] = ent;
                 }
 
+            string name = LvnPrefs.PlayerName;
+            if (string.IsNullOrEmpty(name)) name = (string)prior?["name"];
+
+            CarryForward(prior?["titles"] as JObject, titles, MergeTitle);
+            CarryForward(prior?["wardrobe"] as JObject, wardrobe, null);
+
             return new JObject
             {
                 ["v"] = Version,
                 ["at"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                ["name"] = LvnPrefs.PlayerName,
+                ["name"] = name,
                 ["titles"] = titles,
                 ["wardrobe"] = wardrobe,
             };
+        }
+
+        /// <summary>Перенести из прежнего свёртка всё, чего в свежем нет.
+        /// Знакомое сводит <paramref name="merge"/>, незнакомое переезжает
+        /// целиком.</summary>
+        private static void CarryForward(JObject old, JObject fresh, Action<JObject, JObject> merge)
+        {
+            if (old == null) return;
+            foreach (var prop in old.Properties())
+            {
+                if (fresh[prop.Name] == null) { fresh[prop.Name] = prop.Value?.DeepClone(); continue; }
+                if (merge != null && prop.Value is JObject was && fresh[prop.Name] is JObject now)
+                    merge(was, now);
+            }
+        }
+
+        /// <summary>Знакомая новелла: тем же правилом, что и восстановление —
+        /// потолок только растёт, галерея только доливается. Стёртые локально
+        /// префы иначе опускали бы обе копии до нуля.</summary>
+        private static void MergeTitle(JObject was, JObject now)
+        {
+            int wasReached = (int?)was["reached"] ?? 0, nowReached = (int?)now["reached"] ?? 0;
+            if (wasReached > nowReached) now["reached"] = wasReached;
+            if (was["gallery"] is JArray old)
+            {
+                var seen = new HashSet<string>();
+                var merged = new JArray();
+                foreach (var src in new[] { now["gallery"] as JArray, old })
+                    if (src != null)
+                        foreach (var g in src)
+                        { var id = (string)g; if (!string.IsNullOrEmpty(id) && seen.Add(id)) merged.Add(id); }
+                if (merged.Count > 0) now["gallery"] = merged;
+            }
         }
 
         /// <summary>Write the bundle to its file home — atomically (tmp +
