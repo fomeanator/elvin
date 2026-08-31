@@ -182,16 +182,31 @@ namespace Lvn.UI
         public void HideActor(string id, LvnSender sender = LvnSender.Story)
         {
             if (string.IsNullOrEmpty(id)) return;
-            string op = "actor";
-            if (_memory.TryCommand(id, out var staged)
-                && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
-                op = "obj";
-            // Без exit=: уход возьмётся из темы (drift/fade/что выбрала
-            // новелла). Жёсткий "fade" здесь затирал бы дефолт постановки.
-            ApplyStage(new JObject
-            {
-                ["op"] = op, ["id"] = id, ["show"] = false,
-            }, sender);
+            ApplyStage(HideCommandFor(id), sender);
+        }
+
+        /// <summary>
+        /// КОМАНДА «УЙТИ» ДЛЯ ЭТОЙ ФИГУРЫ.
+        ///
+        /// <para>Исполнителя выбирает ПАМЯТЬ: тот, кто вышел предметом,
+        /// уводится предметом — иначе команда уедет не тому, и уход не
+        /// сыграет.</para>
+        ///
+        /// <para>Без <c>exit=</c>: уход возьмётся из темы (drift/fade — что
+        /// выбрала новелла). Жёсткий «fade» затирал бы умолчание
+        /// постановки.</para>
+        ///
+        /// <para>Выбор исполнителя был записан дважды — здесь и там, где
+        /// катсцена убирает фигуру С ЭКРАНА, не трогая партитуру. Второй раз он
+        /// сопровождался комментарием «тот же выбор, что и у обычного увода»:
+        /// правило знали оба, а дома у него не было.</para>
+        /// </summary>
+        private JObject HideCommandFor(string id)
+        {
+            string op = _memory.TryCommand(id, out var staged)
+                        && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase)
+                ? "obj" : "actor";
+            return new JObject { ["op"] = op, ["id"] = id, ["show"] = false };
         }
 
         /// <summary>Temporarily remove a wardrobe mannequin and wait until its
