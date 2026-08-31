@@ -336,8 +336,7 @@ namespace Lvn.UI.Screens
             if (chapters.Count < 2) return;
             CloseChapterPicker();
 
-            int reached = LvnProgress.Reached(t);
-            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(t);
+            var marks = LvnChapterMarks.ForAll(t, chapters);
 
             // Scrim: swallow every tap; tapping outside the panel closes.
             _picker = new VisualElement();
@@ -431,13 +430,13 @@ namespace Lvn.UI.Screens
                 scroll.Add(cont);
             }
 
-            foreach (var c in chapters)
+            for (int ci = 0; ci < chapters.Count; ci++)
             {
-                var ch = c;
-                // Правило доступности главы — у ПРИВРАТНИКА: та же строка
-                // стояла дословно на карточке новеллы, и первая же правка
-                // правила разошлась бы между экранами.
-                bool unlocked = Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber);
+                var ch = chapters[ci];
+                // «Что с этой главой» — у ДОМА СОСТОЯНИЙ: тот же вопрос задают
+                // карточка новеллы и окно перезапуска, и каждый собирал ответ
+                // из своих половин.
+                bool unlocked = LvnChapterMarks.Playable(marks[ci]);
                 var row = new Button(() =>
                 {
                     // An explicit pick means "start THIS chapter from its top,

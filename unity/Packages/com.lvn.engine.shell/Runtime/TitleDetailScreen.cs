@@ -316,48 +316,19 @@ namespace Lvn.UI.Screens
             section.style.marginTop = 36;
             section.Add(SectionHeader(LvnWords.Of("chapters.title", "Chapters")));
 
-            int reached = LvnProgress.Reached(Title);
-            var current = LvnProgress.Current(Title);
-            // Завершённая новелла: тогда и глава на границе достигнутого честно
-            // «пройдена». Спрашиваем прогресс, а не считаем сами: своё правило
-            // не знало, что НЕПОЧАТАЯ новелла не пройдена, и новелла с первой
-            // главой под номером 0 показывала все главы галочками на чистом
-            // устройстве.
-            bool finished = LvnProgress.Finished(Title);
-            // Доступность спрашиваем у Швейцара, а не считаем сами. Своё правило
-            // («номер не больше достигнутого») забывало про ПЕРВУЮ главу, которая
-            // открыта всегда, — и у новеллы, к которой ещё не притрагивались
-            // (reached = 0), список рисовал замок на главе, играбельной кнопкой
-            // рядом. Соседнее окно «перезапустить с главы» в этом же экране
-            // спрашивало Швейцара и замка не рисовало.
-            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
-            foreach (var ch in chapterList)
-            {
-                // ПРОЙДЕНА — строго раньше достигнутой: сама достигнутая ещё
-                // не сыграна (партнёр прошёл гл.2, перезапустил её — и
-                // «пройденной» рисовалась гл.3).
-                var state = current != null && ch.id == current.id ? ChapterMark.Current
-                    : ch.number < reached || (finished && ch.number <= reached) ? ChapterMark.Done
-                    : Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber) ? ChapterMark.Open
-                    : ChapterMark.Locked;
-                section.Add(ChapterRow(ch.number, ChapterLabel(ch), state));
-            }
+            // «Что с этой главой» спрашиваем у дома: правило одно на все три
+            // списка глав в приложении, а жило оно здесь одним выражением, и
+            // соседи знали от него только половину.
+            var marks = LvnChapterMarks.ForAll(Title, chapterList);
+            for (int i = 0; i < chapterList.Count; i++)
+                section.Add(ChapterRow(chapterList[i].number, ChapterLabel(chapterList[i]), marks[i]));
 
             return section;
         }
 
-        /// <summary>
-        /// ЧЕМ ГЛАВА ОТМЕЧЕНА В СПИСКЕ. Состояние жило числом 0..3, объяснённым
-        /// комментарием в одном месте и разобранным `state == N` в шести
-        /// других: прочитать «state == 2» без возврата к комментарию нельзя, а
-        /// пятое состояние (скажем, «открыта, но стоит энергии») заставило бы
-        /// перечитать все шесть.
-        /// </summary>
-        private enum ChapterMark { Done, Current, Open, Locked }
-
-        private VisualElement ChapterRow(int no, string name, ChapterMark state)
+        private VisualElement ChapterRow(int no, string name, LvnChapterMark state)
         {
-            bool locked = state == ChapterMark.Locked;
+            bool locked = state == LvnChapterMark.Locked;
 
             var row = LvnStyler.ListRow(new VisualElement());
             row.style.marginTop = 12;
@@ -372,8 +343,8 @@ namespace Lvn.UI.Screens
             numBadge.style.unityTextAlign = TextAnchor.MiddleCenter;
             numBadge.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             numBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
-            numBadge.style.color = state == ChapterMark.Current ? LvnTokens.OnAccent : LvnTokens.Text;
-            numBadge.style.backgroundColor = state == ChapterMark.Current ? LvnTokens.Accent : LvnTokens.SurfaceHi;
+            numBadge.style.color = state == LvnChapterMark.Current ? LvnTokens.OnAccent : LvnTokens.Text;
+            numBadge.style.backgroundColor = state == LvnChapterMark.Current ? LvnTokens.Accent : LvnTokens.SurfaceHi;
             LvnChrome.Round(numBadge, 24f);
             row.Add(numBadge);
 
@@ -390,9 +361,9 @@ namespace Lvn.UI.Screens
             // Состояние главы: иконка И слово. Одной иконки мало — «пройдено» и
             // «текущая» слишком близки по смыслу, чтобы различаться только
             // фигуркой; одного слова мало — глаз ищет метку слева от текста.
-            var stateColor = state == ChapterMark.Done ? LvnTokens.Gold
-                : state == ChapterMark.Current ? LvnTokens.Accent
-                : state == ChapterMark.Open ? LvnTokens.Text
+            var stateColor = state == LvnChapterMark.Done ? LvnTokens.Gold
+                : state == LvnChapterMark.Current ? LvnTokens.Accent
+                : state == LvnChapterMark.Open ? LvnTokens.Text
                 : LvnTokens.TextDim;
             var stateBox = new VisualElement();
             stateBox.style.flexDirection = FlexDirection.Row;
@@ -400,15 +371,15 @@ namespace Lvn.UI.Screens
             stateBox.style.flexShrink = 0;
             stateBox.style.marginLeft = 12;
             var stateIcon = LvnIcons.Make(
-                state == ChapterMark.Done ? LvnIcon.Check
-                    : state == ChapterMark.Current || state == ChapterMark.Open ? LvnIcon.Play
+                state == LvnChapterMark.Done ? LvnIcon.Check
+                    : state == LvnChapterMark.Current || state == LvnChapterMark.Open ? LvnIcon.Play
                     : LvnIcon.Lock,
                 17f, stateColor);
             stateIcon.style.marginRight = 5;
             stateBox.Add(stateIcon);
-            var stateLbl = new Label(state == ChapterMark.Done ? LvnWords.Of("chapter.done", "finished")
-                : state == ChapterMark.Current ? LvnWords.Of("chapter.current", "current")
-                : state == ChapterMark.Open ? LvnWords.Of("chapter.available", "available") : LvnWords.Of("chapter.locked", "locked"));
+            var stateLbl = new Label(state == LvnChapterMark.Done ? LvnWords.Of("chapter.done", "finished")
+                : state == LvnChapterMark.Current ? LvnWords.Of("chapter.current", "current")
+                : state == LvnChapterMark.Open ? LvnWords.Of("chapter.available", "available") : LvnWords.Of("chapter.locked", "locked"));
             stateLbl.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             stateLbl.style.color = stateColor;
             stateBox.Add(stateLbl);

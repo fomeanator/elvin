@@ -289,3 +289,28 @@ func TestВкладкуНеАдресуютГолымЧислом(t *testing.T) 
 		t.Fatalf("NovelShell.Navigation.cs: сколько у ленты страниц — знает набор вкладок, не ограничитель на месте")
 	}
 }
+
+// «Что с этой главой» спрашивают у дома, а не собирают на месте.
+//
+// Правило одно на все три списка глав, но два из них собирали свою половину
+// сами: брали достигнутую главу и номер первой и звали Швейцара напрямую.
+// Половины уже расходились — свой расчёт рисовал замок на первой главе
+// непочатой новеллы, рядом с играбельной кнопкой.
+func TestСостояниеГлавыСпрашиваютУДома(t *testing.T) {
+	dir := shellRuntimeDir(t)
+	// Экраны, показывающие СПИСОК глав.
+	for _, name := range []string{"TitleDetailScreen.cs", "TitleDetailScreen.Restart.cs", "TitleCarousel.cs"} {
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := stripCommentsAndStrings(string(raw))
+		if strings.Contains(src, "LvnGatekeeper.ChapterOpen") {
+			t.Fatalf("%s: экран снова зовёт Швейцара напрямую — состояние главы "+
+				"целиком отвечает LvnChapterMarks, иначе половины опять разойдутся", name)
+		}
+		if !strings.Contains(src, "LvnChapterMarks") {
+			t.Fatalf("%s: список глав рисуется мимо дома состояний", name)
+		}
+	}
+}
