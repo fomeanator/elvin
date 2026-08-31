@@ -178,10 +178,12 @@ namespace Lvn.Content
                 var server = await TryGet(titleId, ct);
                 if (server != null)
                 {
-                    var pick = Newer(server, local);
-                    LocalStateStore.WriteDoc(titleId, pick); // keep local aligned with the winner
-                    if (ReferenceEquals(pick, server))
-                        LocalStateStore.WriteBase(titleId, LocalStateStore.Vars(server)); // in sync now
+                    var pick = Reconcile(server, local, LocalStateStore.ReadBase(titleId), Rule(titleId));
+                    LocalStateStore.WriteDoc(titleId, pick); // локальная копия — уже сведённая
+                    // База — то, на чём мы в последний раз СОШЛИСЬ С СЕРВЕРОМ,
+                    // а не то, что получилось после сведения: иначе следующая
+                    // запись сочтёт свои же непосланные правки чужими.
+                    LocalStateStore.WriteBase(titleId, LocalStateStore.Vars(server));
                     return LocalStateStore.Vars(pick);
                 }
             }
@@ -214,6 +216,55 @@ namespace Lvn.Content
             }
             return merged;
         }
+
+        /// <summary>
+        /// СВЕРКА ПРИ ЗАГРУЗКЕ — тем же пополевым правилом, что и конфликт при
+        /// записи.
+        ///
+        /// <para>Здесь стояло «новее побеждает ЦЕЛИКОМ», и это теряло игру:
+        /// телефон играл в самолёте (статы записаны локально, PUT не ушёл),
+        /// планшет тем временем писал на сервер — и первая же онлайн-загрузка
+        /// выбрасывала офлайн-сессию. Пополевое слияние для конфликта ЗАПИСИ
+        /// уже существовало рядом: одна и та же работа шла по двум правилам,
+        /// и в дверь, которой пользуются чаще, поставили правило похуже.</para>
+        ///
+        /// <para>Порядок разбора: сначала ПРАВИЛО ОБЛАСТИ, если оно
+        /// зарегистрировано (<see cref="RuleFor"/>) — свёрток прогресса не
+        /// плоский набор статов, и пополевое слияние отдало бы «titles»
+        /// целиком одной стороне; потом пополевое слияние по базе; и только
+        /// без базы (свежая установка — сравнивать не с чем) остаётся прежнее
+        /// «новее побеждает».</para>
+        /// </summary>
+        internal static JObject Reconcile(JObject server, JObject local, JObject baseVars,
+                                          Func<JObject, JObject, JObject> rule)
+        {
+            if (server == null) return local ?? new JObject();
+            if (local == null) return server;
+            var mine = LocalStateStore.Vars(local);
+            var theirs = LocalStateStore.Vars(server);
+            if (rule != null) return LocalStateStore.MakeDoc(rule(mine, theirs));
+            if (baseVars == null) return Newer(server, local);
+            return LocalStateStore.MakeDoc(MergeVars(theirs, mine, baseVars));
+        }
+
+        // ПРАВИЛА ОБЛАСТЕЙ. Область (титул или служебный скоуп вроде
+        // «__progress») вправе объявить своё слияние: у прогресса, статов и
+        // настроек разная цена ошибки, и одно правило на всех — это выбор в
+        // пользу того, чью потерю заметят позже.
+        private static readonly System.Collections.Generic.Dictionary<string, Func<JObject, JObject, JObject>> _rules
+            = new System.Collections.Generic.Dictionary<string, Func<JObject, JObject, JObject>>(StringComparer.Ordinal);
+
+        /// <summary>Объявить правило слияния для области. <c>rule(мои, чужие)</c>
+        /// возвращает сведённое.</summary>
+        public static void RuleFor(string scope, Func<JObject, JObject, JObject> rule)
+        {
+            if (string.IsNullOrEmpty(scope)) return;
+            if (rule == null) _rules.Remove(scope);
+            else _rules[scope] = rule;
+        }
+
+        internal static Func<JObject, JObject, JObject> Rule(string scope)
+            => !string.IsNullOrEmpty(scope) && _rules.TryGetValue(scope, out var r) ? r : null;
 
         // Pick the doc with the later updatedAt; a null side loses to a real one.
         private static JObject Newer(JObject a, JObject b)

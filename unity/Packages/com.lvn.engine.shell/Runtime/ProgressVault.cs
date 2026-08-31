@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
     /// Restore never overwrites live progress: markers only move forward
     /// (reached is monotonic; current restores only onto emptiness).
     /// </summary>
-    internal static class ProgressVault
+    internal static partial class ProgressVault
     {
         public const string Scope = "__progress";
         private const int Version = 1;
@@ -200,12 +200,22 @@ namespace Lvn.UI.Screens
         /// forward-only: reached maxes, current lands only where none exists,
         /// wardrobe/gallery/name merge in — live progress is never regressed.</summary>
         public static void Apply(JObject bundle, LvnManifest manifest)
+            => Plant(bundle, manifest, authoritative: false);
+
+        /// <summary>Посадка свёртка в живые сторы. Два обряда, одно тело:
+        /// ВОССТАНОВЛЕНИЕ (<paramref name="authoritative"/> = false) садится
+        /// только на пустое — оно поднимает устройство без своего прогресса и
+        /// обгонять живую игру не вправе; ВПИТЫВАНИЕ чужого свёртка исполняет
+        /// уже решённый свежестью спор, вплоть до снятия закладки чужим
+        /// финалом. Разница ровно в этом праве, поэтому и код один: два тела
+        /// разошлись бы на первой же правке правил.</summary>
+        internal static void Plant(JObject bundle, LvnManifest manifest, bool authoritative)
         {
             if (bundle == null || manifest == null) return;
             try
             {
                 var name = (string)bundle["name"];
-                if (!string.IsNullOrEmpty(name) && string.IsNullOrEmpty(LvnPrefs.PlayerName))
+                if (!string.IsNullOrEmpty(name) && (authoritative || string.IsNullOrEmpty(LvnPrefs.PlayerName)))
                     LvnPrefs.PlayerName = name;
 
                 if (bundle["titles"] is JObject titles && manifest.titles != null)
@@ -223,8 +233,11 @@ namespace Lvn.UI.Screens
                         // расходились.
                         var resolved = t.ChapterByIdOrNumber(curId, num);
                         bool hasLive = LvnProgress.Current(t) != null;
+                        // Чужой финал снимает закладку и здесь: держать её
+                        // значило бы врать игроку, что финала не было.
+                        if (authoritative && resolved == null && hasLive) LvnProgress.ClearCurrent(t);
                         LvnProgress.RestoreMarker(t.id,
-                            hasLive ? null : resolved?.id,
+                            hasLive && !authoritative ? null : resolved?.id,
                             resolved?.number ?? num, reached);
                         if (entry["gallery"] is JArray cg)
                             foreach (var g in cg)
@@ -238,7 +251,7 @@ namespace Lvn.UI.Screens
                         if (ent == null) continue;
                         if (ent["worn"] is JObject worn)
                             foreach (var a in worn.Properties())
-                                if (!LvnWardrobe.Equipped(prop.Name).ContainsKey(a.Name))
+                                if (authoritative || !LvnWardrobe.Equipped(prop.Name).ContainsKey(a.Name))
                                     LvnWardrobe.Equip(prop.Name, a.Name, (string)a.Value);
                         if (ent["seen"] is JObject seen)
                             foreach (var a in seen.Properties())

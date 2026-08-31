@@ -202,6 +202,19 @@ namespace Lvn.UI.Screens
                             await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
                             manifest);
                 }
+                else if (_state != null)
+                {
+                    // НЕ ЧИСТОЕ УСТРОЙСТВО — и это не повод пройти мимо. Подъём
+                    // работал только на пустом, поэтому второй телефон игрока,
+                    // у которого свой прогресс есть, не узнавал о вечере,
+                    // сыгранном на планшете, НИКОГДА. Здесь обе стороны
+                    // настоящие: не восстановление, а слияние по правилам вида
+                    // данных (потолок и галерея доливаются, закладка едет за
+                    // тем устройством, где играли позже).
+                    ProgressVault.Absorb(
+                        await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                        manifest);
+                }
             }
             catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
