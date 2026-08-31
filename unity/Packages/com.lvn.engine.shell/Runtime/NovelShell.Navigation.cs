@@ -56,15 +56,25 @@ namespace Lvn.UI.Screens
             return true;
         }
 
-        // Системная «назад» ВНЕ сцены: сначала верхняя модаль, затем — домой по
-        // ленте. Алерт (Popup) закрывается только своими кнопками — решение
-        // должно быть осознанным.
+        // Системная «назад»: КТО НАВЕРХУ — не наше решение, а Режиссёра. Своя
+        // лесенка условий здесь и была вторым ответом на тот же вопрос: сцена
+        // спрашивала Режиссёра, оболочка перебирала признаки сама, и алерта в
+        // этой картине не было вовсе. Оболочка исполняет «назад» для СВОИХ
+        // поверхностей: стопка модалей и лента вкладок.
         private void Update()
         {
             if (!UnityEngine.Input.GetKeyDown(KeyCode.Escape)) return;
-            if (Popup != null && Popup.style.display == DisplayStyle.Flex) return;
-            if (CloseTopModal()) return;
-            if (_inChapter) return; // сюжетные панели и квик-меню закрывает VnStage
+            switch (Lvn.UI.LvnScreenDirector.Current.BackTarget)
+            {
+                // Алерт закрывается только своими кнопками — решение должно
+                // быть осознанным.
+                case Lvn.UI.LvnScreenDirector.Alert: return;
+                case Lvn.UI.LvnScreenDirector.ShellModal: CloseTopModal(); return;
+                // Сюжетную панель и квик-меню закрывает сцена.
+                case Lvn.UI.LvnScreenDirector.StoryPanel:
+                case Lvn.UI.LvnScreenDirector.QuickMenu: return;
+            }
+            if (_inChapter) return;    // экран чист, глава идёт — «назад» не наш
             if (_tab != 0 && !_tabBusy) LvnAsync.Fire(TabGoTo(0), "BackHome");
         }
 

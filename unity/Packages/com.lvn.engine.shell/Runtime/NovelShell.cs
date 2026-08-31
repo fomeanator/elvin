@@ -269,6 +269,7 @@ namespace Lvn.UI.Screens
             if (_doc == null) InitDocument(30);
             _root = _doc.rootVisualElement;
             _root.Clear();
+            _screens.Clear();   // сборка идемпотентна: старое поколение — не наш набор
             _root.style.flexGrow = 1;
             // Отклик на нажатие — на КОРЕНЬ, то есть сразу на все экраны
             // оболочки. Ставить его поэкранно значит однажды забыть.

@@ -163,6 +163,47 @@ namespace Lvn.Tests
             Assert.IsFalse(_d.SceneSurfaceOpen, "закрылась сценная — модаль оболочки тут ни при чём");
         }
 
+        // Алерт поднимают ПОВЕРХ чего угодно: «не хватает валюты, купить?» —
+        // над открытым магазином, предупреждение — над сюжетной панелью. Пока
+        // Режиссёр про алерт не знал, верхней в такой связке оставалась
+        // панель, и «назад» закрывал её из-под поднятого над ней вопроса.
+        [Test]
+        public void АлертНакрываетВсёОстальное()
+        {
+            _d.Open(LvnScreenDirector.StoryPanel);
+            _d.Open(LvnScreenDirector.Alert);
+            Assert.AreEqual(LvnScreenDirector.Alert, _d.BackTarget,
+                "вопрос задан поверх панели — «назад» не имеет права трогать панель");
+
+            _d.Close(LvnScreenDirector.Alert);
+            Assert.AreEqual(LvnScreenDirector.StoryPanel, _d.BackTarget,
+                "ответили — и панель снова верхняя");
+        }
+
+        [Test]
+        public void АлертНеСценнаяПоверхностьИНеМодальОболочки()
+        {
+            _d.Open(LvnScreenDirector.Alert);
+            Assert.IsTrue(_d.AnyOpen);
+            Assert.IsFalse(_d.SceneSurfaceOpen, "алерт не держит ввод сцены");
+            Assert.IsFalse(_d.IsOpen(LvnScreenDirector.ShellModal),
+                "алерт — не модаль: закрывать его стопкой модалей нельзя");
+        }
+
+        [Test]
+        public void АлертПоверхМагазинаНеПутаетсяСНим()
+        {
+            // Живой путь: в магазине не хватило валюты, поверх него встал
+            // вопрос «пополнить?». «Назад» обязан молчать, а не закрыть
+            // магазин из-под вопроса.
+            _d.Open(LvnScreenDirector.ShellModal);
+            _d.Open(LvnScreenDirector.Alert);
+            Assert.AreEqual(LvnScreenDirector.Alert, _d.BackTarget);
+
+            _d.Close(LvnScreenDirector.Alert);
+            Assert.AreEqual(LvnScreenDirector.ShellModal, _d.BackTarget);
+        }
+
         [Test]
         public void SetChapter_IsTheSameTruthAsEnterLeave()
         {
