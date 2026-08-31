@@ -112,52 +112,21 @@ namespace Lvn.Tests
             Assert.AreEqual(0f, s.Angle, 0.5f, "catches up with the parent");
         }
 
-        // End-to-end doll: the demo entity's exact chain (body → head → hair
-        // with a spring, body → arm) driven through the real compositor.
-        [Test]
-        public void Doll_IdleBob_CarriesChainAndSwingsHair()
-        {
-            ActorAnimator.Clock = () => 0f;
-            var rig = new UnityEngine.UIElements.VisualElement();
-            var a = new ActorAnimator(rig);
-            var imgs = new Dictionary<string, UnityEngine.UIElements.Image>();
-            foreach (var lid in new[] { "body", "arm", "head", "hair" })
-            {
-                var img = new UnityEngine.UIElements.Image();
-                imgs[lid] = img;
-                a.SetLayer(lid, img, null);
-            }
-            a.SetLayerBone("body", null, new Vector2(0.5f, 0.9f), new Vector4(0.26f, 0.35f, 0.48f, 0.63f), 0f, 6f);
-            a.SetLayerBone("arm", "body", new Vector2(0.49f, 0.07f), new Vector4(0.60f, 0.36f, 0.12f, 0.26f), 0f, 6f);
-            a.SetLayerBone("head", "body", new Vector2(0.5f, 0.84f), new Vector4(0.29f, 0.08f, 0.42f, 0.32f), 0f, 6f);
-            a.SetLayerBone("hair", "head", new Vector2(0.5f, 0.15f), new Vector4(0.24f, 0.06f, 0.52f, 0.44f), 12f, 5f);
-
-            var idle = new LvnAnim
-            {
-                loop = true, duration = 2.8f,
-                tracks = new List<LvnAnimTrack>
-                {
-                    new LvnAnimTrack { layer = "body", prop = "y", keys = K(new object[]{0f,0f}, new object[]{1.4f,0.015f}, new object[]{2.8f,0f}) },
-                    new LvnAnimTrack { layer = "head", prop = "rotation", keys = K(new object[]{0f,-3f}, new object[]{1.4f,3f}, new object[]{2.8f,-3f}) },
-                },
-            };
-            a.Play("base", idle);
-
-            // walk a second of ticks so the spring integrates
-            for (int f = 1; f <= 60; f++)
-            {
-                float tf = f / 60f;
-                ActorAnimator.Clock = () => tf;
-                a.Composite();
-            }
-
-            var headRot = imgs["head"].style.rotate.value.angle.value;
-            var hairRot = imgs["hair"].style.rotate.value.angle.value;
-            var hairTy = imgs["hair"].style.translate.value.y.value;
-            Assert.AreNotEqual(0f, headRot, "head is turning");
-            Assert.AreNotEqual(headRot, hairRot, "hair LAGS the head (spring), not welded to it");
-            Assert.Greater(Mathf.Abs(hairTy), 1e-3f, "body bob carries the hair down the chain");
-        }
+        // СКВОЗНОЙ ТЕСТ КУКЛЫ СНЯТ ВМЕСТЕ С ТЕМ, ЧТО ЕГО ВЕЗЛО.
+        //
+        // Он гонял цепочку «тело → голова → волосы с пружиной» через плоский
+        // компоновщик UI Toolkit — вторую, НЕПОДКЛЮЧЁННУЮ реализацию анимации:
+        // из игры её не создавал никто, кроме этого теста. Держать ради него
+        // второй рантайм значило обязывать каждую правку правил трогать оба —
+        // и они расходились молча.
+        //
+        // Что осталось покрытым: сам решатель (прямая кинематика, пружина,
+        // затухание) — тестами выше; выборка анимации во времени —
+        // AnimSamplerTests; композиция на живой фигуре — WorldActorTests.
+        // Чего НЕ осталось: сквозной проверки «поворот головы доезжает по цепи
+        // до волос с отставанием». Её место — у трёхмерной фигуры, но кости она
+        // берёт из каталога сущности, а не через SetLayerBone, и стенд под это
+        // ещё нужно собрать.
 
         [Test]
         public void Spring_FirstTickPrimesWithoutKick()

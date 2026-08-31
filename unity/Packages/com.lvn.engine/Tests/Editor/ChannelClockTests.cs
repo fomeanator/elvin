@@ -7,7 +7,7 @@ namespace Lvn.Tests
 {
     /// <summary>
     /// ЧАСЫ КАНАЛА — где анимация находится ПРЯМО СЕЙЧАС
-    /// (<see cref="ActorAnimator.ChannelClock"/> и <c>ClockOf</c>).
+    /// (<see cref="LvnAnimSampler.ChannelClock"/> и <c>ClockOf</c>).
     ///
     /// <para>Между «сколько прошло секунд» и «какое значение брать у дорожки»
     /// лежат три решения, и все три — про ВРЕМЯ, а не про то, что
@@ -36,10 +36,10 @@ namespace Lvn.Tests
 
         /// <summary>Часы на свежем канале: таблица длины дуги у него ещё не
         /// построена, как и у только что запущенной анимации.</summary>
-        private static ActorAnimator.ChannelClock Clock(LvnAnim anim, float elapsed)
+        private static LvnAnimSampler.ChannelClock Clock(LvnAnim anim, float elapsed)
         {
             float[] cache = null;
-            return ActorAnimator.ClockOf(anim, elapsed, ref cache);
+            return LvnAnimSampler.ClockOf(anim, elapsed, ref cache);
         }
 
         /// <summary>Ровный по времени путь из угла в угол — по нему часы
@@ -224,9 +224,9 @@ namespace Lvn.Tests
             Assert.AreEqual(clock.PathT, clock.OrientT, 0.0001f,
                 "разворот берёт наклон в точке, где фигуры уже (или ещё) нет");
 
-            Assert.Greater(ActorAnimator.Sample(x, clock.T, easeless: true), 0.85f,
+            Assert.Greater(LvnAnimSampler.Sample(x, clock.T, easeless: true), 0.85f,
                 "по сырому времени середина времени — это почти конец пути (потому дугу и выправляют)");
-            Assert.AreEqual(0.5f, ActorAnimator.Sample(x, clock.PathT, easeless: true), 0.07f,
+            Assert.AreEqual(0.5f, LvnAnimSampler.Sample(x, clock.PathT, easeless: true), 0.07f,
                 "половина ВРЕМЕНИ обязана быть половиной ПУТИ — иначе фигура выстреливает и ползёт");
         }
 
@@ -245,7 +245,7 @@ namespace Lvn.Tests
                     new object[] { 0f, 0f }, new object[] { 0.2f, 0.4f }, new object[] { 2f, 0f }));
 
             float[] cache = null;
-            Assert.AreEqual(0f, ActorAnimator.ClockOf(anim, 0f, ref cache).PathT, 0.0001f,
+            Assert.AreEqual(0f, LvnAnimSampler.ClockOf(anim, 0f, ref cache).PathT, 0.0001f,
                 "путь начинается не с начала");
             Assert.IsNotNull(cache, "таблица длины дуги не построена — выправлять время нечем");
             var built = cache;
@@ -254,7 +254,7 @@ namespace Lvn.Tests
             for (int i = 1; i <= 20; i++)
             {
                 float t = 2f * i / 20f;
-                float now = ActorAnimator.ClockOf(anim, t, ref cache).PathT;
+                float now = LvnAnimSampler.ClockOf(anim, t, ref cache).PathT;
                 Assert.GreaterOrEqual(now, prev - 0.0001f, $"на {t:0.00}с время вдоль пути попятилось — фигура дёрнулась назад");
                 prev = now;
             }
@@ -262,8 +262,8 @@ namespace Lvn.Tests
             Assert.AreSame(built, cache, "таблица длины перестраивается на каждом кадре");
 
             float[] second = null;
-            Assert.AreEqual(ActorAnimator.ClockOf(anim, 1f, ref cache).PathT,
-                            ActorAnimator.ClockOf(anim, 1f, ref second).PathT, 0.0001f,
+            Assert.AreEqual(LvnAnimSampler.ClockOf(anim, 1f, ref cache).PathT,
+                            LvnAnimSampler.ClockOf(anim, 1f, ref second).PathT, 0.0001f,
                 "тёплая таблица отвечает не то же, что холодная, — движение задрожит на первом кадре");
         }
 
@@ -276,7 +276,7 @@ namespace Lvn.Tests
             var idle = Anim(true, false, 1f, Tr("y", null, new object[] { 0f, 0f }, new object[] { 1f, 0.01f }));
 
             float[] cache = null;
-            ActorAnimator.ClockOf(idle, 0.5f, ref cache);
+            LvnAnimSampler.ClockOf(idle, 0.5f, ref cache);
 
             Assert.IsNull(cache, "для анимации без пути построена таблица длины дуги");
         }

@@ -11,7 +11,7 @@ namespace Lvn.UI.World
     /// in the Update loop for smooth 60fps — the rendering path Liminal uses and
     /// the one that also hosts Spine (SkeletonGraphic). It plays the SAME
     /// <see cref="LvnAnim"/> data and channels (base/blink/talk/gesture) as the
-    /// UITK path, reusing the static sampling in <see cref="ActorAnimator"/>; only
+    /// the 3D twin of the old UITK path, reusing the sampling in <see cref="LvnAnimSampler"/>; only
     /// the apply target differs (RectTransform/CanvasGroup/Image vs VisualElement).
     ///
     /// <para>Composition: this MonoBehaviour's RectTransform is the placed slot;
@@ -414,7 +414,7 @@ namespace Lvn.UI.World
             _slotMoveFrom = from;
             _slotMoveTo = to;
             _slotMoveDuration = seconds;
-            _slotMoveStart = ActorAnimator.Clock();
+            _slotMoveStart = LvnAnimSampler.Clock();
             _slotBase = from;
             _slot.anchoredPosition = from;
         }
@@ -426,7 +426,7 @@ namespace Lvn.UI.World
         public void Play(string channel, LvnAnim anim, Action onDone = null)
         {
             if (!LvnAnim.Playable(anim)) { onDone?.Invoke(); return; }
-            _channels[channel] = new Active { anim = anim, start = ActorAnimator.Clock(), onDone = onDone };
+            _channels[channel] = new Active { anim = anim, start = LvnAnimSampler.Clock(), onDone = onDone };
         }
 
         /// <summary>Play after the current anim on this channel finishes (mode=queue).
@@ -472,7 +472,7 @@ namespace Lvn.UI.World
 
         private void Update()
         {
-            float now = ActorAnimator.Clock();
+            float now = LvnAnimSampler.Clock();
             bool moved = StepSlotMove(now);
             // Springs keep swinging after their driving channel ends.
             if (_channels.Count > 0 || BoneSolver.AnySpringLive(_bones.Values)) Tick(now);
@@ -489,7 +489,7 @@ namespace Lvn.UI.World
             return true;
         }
 
-        // One composite step — internal so tests can drive it with ActorAnimator.Clock.
+        // One composite step — internal so tests can drive it with LvnAnimSampler.Clock.
         internal void Tick(float now)
         {
             if (_rig == null) EnsureRig();
@@ -504,8 +504,8 @@ namespace Lvn.UI.World
                 var anim = act.anim;
                 // Где анимация сейчас — спрашиваем у часов канала: петля,
                 // качание, конец и равномерная скорость вдоль пути одинаковы
-                // для плоской фигуры и для этой (см. ActorAnimator.ChannelClock).
-                var clock = ActorAnimator.ClockOf(anim, now - act.start, ref act.Arc);
+                // для плоской фигуры и для этой (см. LvnAnimSampler.ChannelClock).
+                var clock = LvnAnimSampler.ClockOf(anim, now - act.start, ref act.Arc);
                 float t = clock.T;
 
                 LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
@@ -516,11 +516,11 @@ namespace Lvn.UI.World
                     if (tr.prop == "frame")
                     {
                         if (!string.IsNullOrEmpty(tr.layer))
-                            (layerFrame ??= new Dictionary<string, string>())[tr.layer] = ActorAnimator.SampleFrame(tr, t);
+                            (layerFrame ??= new Dictionary<string, string>())[tr.layer] = LvnAnimSampler.SampleFrame(tr, t);
                         continue;
                     }
                     bool onPath = clock.OnPath(tr);
-                    float v = ActorAnimator.Sample(tr, clock.TimeOf(tr), easeless: onPath);
+                    float v = LvnAnimSampler.Sample(tr, clock.TimeOf(tr), easeless: onPath);
                     if (string.IsNullOrEmpty(tr.layer))
                     {
                         switch (tr.prop)
@@ -554,7 +554,7 @@ namespace Lvn.UI.World
                 // OrientAngle is y-down clockwise-positive; Canvas euler z is
                 // counter-clockwise-positive — negate.
                 if (orientX != null && pathY != null)
-                    rot = -ActorAnimator.OrientAngle(orientX, pathY, clock.OrientT, clock.Duration);
+                    rot = -LvnAnimSampler.OrientAngle(orientX, pathY, clock.OrientT, clock.Duration);
                 if (clock.Finished) (done ??= new List<string>()).Add(kv.Key);
             }
 
