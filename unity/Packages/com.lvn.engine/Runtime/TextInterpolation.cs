@@ -62,25 +62,25 @@ namespace Lvn
             if (vars != null && vars.TryGetValue(key, out var v))
                 return (v == null || v.Type == JTokenType.Null) ? "" : Show(v);
 
-            // Dotted path into a nested object: `Wardrobe.mainCh_Clothes` /
-            // `global.rep`. The store nests these under the root key (SetVarPath), so a
-            // flat lookup above misses them and the expression engine has no dot member
-            // access — resolve by navigating the root object here.
-            if (vars != null && key.IndexOf('.') > 0)
-            {
-                // ПОПЫТКА, А НЕ ПРИГОВОР. Точка в ключе ещё не значит путь:
-                // `{global.rep + 1}` — это ВЫРАЖЕНИЕ, и разбор пути на нём
-                // бросает JsonException — чужое исключение, мимо перехвата
-                // ниже. Оно уходило наверх из шага чтеца и РОНЯЛО ГЛАВУ посреди
-                // сцены, а автор всего лишь поставил пробелы вокруг плюса:
-                // `{global.rep+1}` работал, `{global.rep + 1}` убивал игру.
-                // Не путь — значит пробуем выражением, как и обещано шапкой.
-                JToken nested = null;
-                try { nested = ResolvePath(key, vars); }
-                catch { /* ключ оказался выражением, а не путём */ }
-                if (nested != null)
-                    return nested.Type == JTokenType.Null ? "" : nested.ToString();
-            }
+            // ТОЧКА — РАБОТА ВЫЧИСЛИТЕЛЯ, а не вторая её реализация здесь.
+            //
+            // Раньше `Wardrobe.mainCh_Clothes` и `global.rep` разбирались тут
+            // же, своим проходом по JSON: комментарий объяснял это тем, что
+            // «у вычислителя нет доступа к полям». С 2026 года он есть
+            // (LvnExpression.ParsePostfix понимает и `bag.potion`, и
+            // `bag["potion"]`), а второй разбор остался — и жил по СВОИМ
+            // правилам, отличным от общих:
+            //
+            //   * печатал значение сырым ToString мимо правил показа:
+            //     `{global.ratio}` давал «0.6666666666666666», а плоский
+            //     `{ratio}` — «0.67». Одна величина, два вида, в зависимости
+            //     от того, лежит она под корнем или нет;
+            //   * на опечатке в корне (`{globl.rep}`) отдавал ПУСТОТУ вместо
+            //     обещанного `{key}` — у автора число пропадало посреди фразы
+            //     без единого следа;
+            //   * бросал на выражении с точкой, и это роняло главу.
+            //
+            // Одна дорога вниз лечит все три сразу.
 
             // not a known plain var — try it as an expression
             try
@@ -136,17 +136,6 @@ namespace Lvn
                     : r.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
             return v.ToString();
-        }
-
-        // Navigate a dotted path: the first segment is a root var, the remainder a
-        // JSON path into it (Wardrobe.mainCh_Clothes → vars["Wardrobe"] → .mainCh_Clothes).
-        // Null when any segment is missing.
-        private static JToken ResolvePath(string key, IReadOnlyDictionary<string, JToken> vars)
-        {
-            int dot = key.IndexOf('.');
-            var root = key.Substring(0, dot);
-            if (!vars.TryGetValue(root, out var tok) || tok == null) return null;
-            return tok.SelectToken(key.Substring(dot + 1));
         }
 
         private static bool IsPlainIdentifier(string s)
