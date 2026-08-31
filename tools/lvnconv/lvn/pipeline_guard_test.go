@@ -40,6 +40,9 @@ func TestПодсказкиНеОтстаютОтГрамматики(t *testing
 	}
 	truth := names(string(jsonRaw), `"ops":`, ` \[`, `  \],`)
 	shown := names(string(jsRaw), `export const OPS =`, ` \[`, `\];`)
+	// Порог охвата: пустые списки сверяются друг с другом безупречно.
+	atLeast(t, len(truth), 25, "команд в грамматике")
+	atLeast(t, len(shown), 25, "команд в подсказках")
 	for w := range truth {
 		if !shown[w] {
 			t.Fatalf("команду %q грамматика знает, а подсказки нет — забыли `npm run gen` "+

@@ -53,6 +53,10 @@ func TestCSharpPortKnowsEveryLvnsOp(t *testing.T) {
 	}
 	known := block("KnownOps = new HashSet<string>")
 	unsupported := block("UnsupportedSourceOps = new Dictionary<string, string>")
+	// Порог охвата: промахнись якорь блока — множества окажутся пустыми, и
+	// сверять станет нечего.
+	atLeast(t, len(known), 25, "команд в KnownOps порта")
+	atLeast(t, len(unsupported), 3, "объявленных неподдержанными")
 	if len(known) == 0 {
 		t.Fatal("не удалось прочитать словарь C#-порта — разбор сломался, а не порт")
 	}
