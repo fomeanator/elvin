@@ -194,9 +194,29 @@ var EnumValues = map[string]map[string][]string{
 	// в грамматике). center_left/center_right движок знал, а здесь их не было:
 	// валидатор ругался на место, которое рантайм понимает.
 	"actor": {"position": {"offscreen_left", "far_left", "left", "center_left", "center",
-		"center_right", "right", "far_right", "offscreen_right"}},
+		"center_right", "right", "far_right", "offscreen_right"},
+		// Как фигура ВХОДИТ и УХОДИТ. Словарь знал только рантайм
+		// (VnStage.ParseTransition), и незнакомое слово давало не ошибку, а
+		// TransitionType.None — то есть появление БЕЗ перехода, молча. Автор,
+		// выучивший `slide_up` на панелях `ui`, писал его актёру и получал
+		// мгновенное возникновение без единого слова: наборы у панели и у
+		// фигуры РАЗНЫЕ, и разницу теперь видно.
+		"enter": ActorTransitions, "exit": ActorTransitions},
+	"obj": {"enter": ActorTransitions, "exit": ActorTransitions},
 	"ui": {"layer": {"hud", "over"}, "when": {"always", "idle", "say", "choice"},
 		"appear": {"fade", "rise", "pop", "slide_up", "slide_down", "slide_left", "slide_right", "drop", "unfold"}},
+}
+
+// ActorTransitions — как фигура входит и уходит. Пустое значение законно:
+// поле может стоять без слова. `sink`, `burn` и `side` — принятые синонимы
+// (`rise`, `dissolve`, `drift`), они есть в рантайме и потому есть здесь.
+//
+// Набор НЕ совпадает с набором панелей `ui appear=`: у фигуры есть `dissolve`
+// и `drift`, у панели — `slide_up`/`slide_down`. Это разные механизмы, и
+// сводить их значило бы дописывать эффекты; но молчать о разнице нельзя.
+var ActorTransitions = []string{
+	"", "fade", "slide_left", "slide_right", "pop",
+	"rise", "sink", "drop", "unfold", "dissolve", "burn", "drift", "side",
 }
 
 // AnimProps — что вообще можно анимировать. Словарь ЯЗЫКА, и жил он только в

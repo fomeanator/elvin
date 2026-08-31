@@ -443,6 +443,36 @@
         "right",
         "far_right",
         "offscreen_right"
+      ],
+      "enter": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
+      ],
+      "exit": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
       ]
     },
     "ui": {
@@ -466,6 +496,38 @@
         "slide_right",
         "drop",
         "unfold"
+      ]
+    },
+    "obj": {
+      "enter": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
+      ],
+      "exit": [
+        "",
+        "fade",
+        "slide_left",
+        "slide_right",
+        "pop",
+        "rise",
+        "sink",
+        "drop",
+        "unfold",
+        "dissolve",
+        "burn",
+        "drift",
+        "side"
       ]
     }
   },
@@ -568,6 +630,34 @@
       "rotation",
       "alpha",
       "frame"
+    ],
+    "enter": [
+      "fade",
+      "slide_left",
+      "slide_right",
+      "pop",
+      "rise",
+      "sink",
+      "drop",
+      "unfold",
+      "dissolve",
+      "burn",
+      "drift",
+      "side"
+    ],
+    "exit": [
+      "fade",
+      "slide_left",
+      "slide_right",
+      "pop",
+      "rise",
+      "sink",
+      "drop",
+      "unfold",
+      "dissolve",
+      "burn",
+      "drift",
+      "side"
     ]
   },
   "op_docs": {
