@@ -35,6 +35,7 @@ func TestFullRoundingGoesThroughChrome(t *testing.T) {
 	}
 
 	var found []string
+	scanned := 0
 	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell", "com.lvn.engine.services"} {
 		dir := filepath.Join(root, "unity", "Packages", pkg, "Runtime")
 		if _, err := os.Stat(dir); err != nil {
@@ -44,6 +45,7 @@ func TestFullRoundingGoesThroughChrome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if base == "LvnChrome.cs" {
 				return nil // сам дом
@@ -83,6 +85,10 @@ func TestFullRoundingGoesThroughChrome(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	// «Ничего не нашли» — законный результат этого стража, и потому он обязан
+	// доказать, что вообще смотрел: иначе сбитый обход выглядит как чистота.
+	atLeast(t, scanned, 200, "просмотренных файлов")
 
 	if len(found) > 0 {
 		t.Fatalf("углы скругляются вручную: %s\n"+

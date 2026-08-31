@@ -53,6 +53,10 @@ func TestOneKeyOneDefault(t *testing.T) {
 		}
 	}
 
+	// Промахнись якорь вызова — `seen` окажется пустым, и страж позеленеет,
+	// не сверив ни одного ключа.
+	atLeast(t, len(seen), 40, "ключей словаря")
+
 	var bad []string
 	for key, defs := range seen {
 		if _, empty := defs[""]; empty {
