@@ -39,6 +39,39 @@ namespace Lvn.UI.Screens
             el.style.borderTopColor = new Color(edge.r, edge.g, edge.b, 0.72f);
         }
 
+        /// <summary>
+        /// ВКЛАДКА ХАБА — экран, который не закрывает собой мир.
+        ///
+        /// <para>Это не окно поверх игры, а ещё одна вкладка той же витрины:
+        /// скрима нет, корень прозрачен и НЕ ЛОВИТ ТАПЫ (нижнее меню хаба живёт
+        /// под ним и обязано нажиматься), содержимое прижато вниз — верх экрана
+        /// остаётся воздухом с героиней и полотном, а внизу оставлена дырка под
+        /// то же нижнее меню.</para>
+        ///
+        /// <para>Все эти числа — одно решение (Илья, 26.08, «как гардероб»), и
+        /// записано оно было ДВАЖДЫ: в профиле и в лавке. Разъехались бы они
+        /// молча — две вкладки одной витрины с разной высотой воздуха читаются
+        /// как небрежность, а не как разные экраны.</para>
+        /// </summary>
+        public static void HubTabSheet(VisualElement root, VisualElement sheet)
+        {
+            if (root != null)
+            {
+                root.style.backgroundColor = Color.clear;
+                root.pickingMode = PickingMode.Ignore;
+            }
+            if (sheet == null) return;
+            sheet.style.position = Position.Absolute;
+            sheet.style.left = 10; sheet.style.right = 10;
+            sheet.style.top = Length.Percent(39f);   // лицо героини остаётся в чистой зоне
+            sheet.style.bottom = 132;                // дырка нижнего меню
+            sheet.style.paddingTop = 18;
+            sheet.style.paddingBottom = 14;
+            sheet.style.paddingLeft = 18;
+            sheet.style.paddingRight = 18;
+            SceneSheet(sheet, 0.92f);
+        }
+
         // ПОКАЗ КАРТИНКИ ЖИВЁТ В ДВИЖКЕ (роль 212). Вписывание стояло здесь
         // отдельно от загрузки — и работало БЕЗ неё молча: картинка вставала
         // растянутой под форму своего места. Теперь картинка обязана назвать,

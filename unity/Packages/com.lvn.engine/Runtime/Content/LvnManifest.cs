@@ -304,6 +304,12 @@ namespace Lvn.Content
         public string auto;
         /// <summary>The animated channels.</summary>
         public List<LvnAnimTrack> tracks;
+
+        /// <summary>ЕСТЬ ЧТО ИГРАТЬ: анимация названа и в ней есть дорожки.
+        /// Пустая — не ошибка, а обычное дело (автор объявил и не заполнил,
+        /// имя не нашлось в каталоге), и играть её нечем. Проверка стояла
+        /// ЧЕТЫРЕЖДЫ дословно, тремя частями каждая.</summary>
+        public static bool Playable(LvnAnim a) => a?.tracks != null && a.tracks.Count > 0;
     }
 
     /// <summary>One animated property over time. <c>keys</c> is a list of

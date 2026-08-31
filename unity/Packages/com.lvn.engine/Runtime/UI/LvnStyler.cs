@@ -153,6 +153,28 @@ namespace Lvn.UI
             return el;
         }
 
+        /// <summary>
+        /// СТРОКА СПИСКА: плитка во всю ширину, содержимое в ряд по центру,
+        /// поверхность темы, малое скругление и вертикальный воздух.
+        ///
+        /// <para>Ею набраны списки глав, сейвов, наград и достижений. Поля
+        /// СНАРУЖИ (отступ до соседней строки) и по горизонтали остаются
+        /// экрану: они про его поля, а не про саму строку, и у разных списков
+        /// честно разные.</para>
+        /// </summary>
+        public static T ListRow<T>(T el) where T : VisualElement
+        {
+            if (el == null) return null;
+            el.style.flexShrink = 0;
+            el.style.flexDirection = FlexDirection.Row;
+            el.style.alignItems = Align.Center;
+            el.style.backgroundColor = LvnTokens.Surface;
+            LvnChrome.Round(el, LvnTokens.RadiusSm);
+            el.style.paddingTop = 14;
+            el.style.paddingBottom = 14;
+            return el;
+        }
+
         /// <summary>ПИЛЮЛЯ: приглушённая плашка, скруглённая под собственную
         /// высоту. Счётчики, метки, значения — всё, что читается ярлыком.</summary>
         public static T Pill<T>(T el, float height) where T : VisualElement

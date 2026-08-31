@@ -128,7 +128,7 @@ namespace Lvn.UI
 
         public void Play(string channel, LvnAnim anim, Action onDone = null)
         {
-            if (anim == null || anim.tracks == null || anim.tracks.Count == 0) { onDone?.Invoke(); return; }
+            if (!LvnAnim.Playable(anim)) { onDone?.Invoke(); return; }
             _channels[channel] = new Active { anim = anim, start = Clock(), onDone = onDone };
             if (_tick == null) _tick = _rig.schedule.Execute(Composite).Every(16);
         }
@@ -138,7 +138,7 @@ namespace Lvn.UI
         /// anim never finishes, so don't queue behind one.</summary>
         public void PlayQueued(string channel, LvnAnim anim)
         {
-            if (anim == null || anim.tracks == null || anim.tracks.Count == 0) return;
+            if (!LvnAnim.Playable(anim)) return;
             if (!_channels.ContainsKey(channel)) { Play(channel, anim); return; }
             if (!_queue.TryGetValue(channel, out var q)) _queue[channel] = q = new Queue<LvnAnim>();
             q.Enqueue(anim);

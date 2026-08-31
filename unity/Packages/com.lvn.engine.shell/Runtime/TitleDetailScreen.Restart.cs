@@ -73,17 +73,10 @@ namespace Lvn.UI.Screens
 
         private VisualElement SaveRow(string slot, string where, System.Action onLoad)
         {
-            var row = new VisualElement();
-            row.style.flexShrink = 0;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            var row = LvnStyler.ListRow(new VisualElement());
             row.style.marginTop = 12;
             row.style.paddingLeft = 18;
             row.style.paddingRight = 14;
-            row.style.paddingTop = 14;
-            row.style.paddingBottom = 14;
 
             var col = new VisualElement();
             col.style.flexGrow = 1;

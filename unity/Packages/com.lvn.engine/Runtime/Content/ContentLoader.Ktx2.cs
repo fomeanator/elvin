@@ -271,11 +271,7 @@ namespace Lvn.Content
             if (string.IsNullOrEmpty(url)) return null;
             var basis = url.Contains("@2k") ? url : DownloadPolicy.DownscaleVariant(url);
             if (basis == null) return null;
-            int dot = basis.LastIndexOf('.');
-            if (dot < 0) return null;
-            var ext = basis.Substring(dot).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") return null;
-            return basis.Substring(0, dot) + ".ktx2";
+            return DownloadPolicy.SplitSourceImage(basis, out var stem, out _) ? stem + ".ktx2" : null;
         }
     }
 }

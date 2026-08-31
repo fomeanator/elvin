@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -157,6 +158,25 @@ namespace Lvn.Services
         /// <summary>Запрос не дошёл вовсе: сети нет, сервер не отвечает, DNS
         /// молчит. Не то же самое, что отказ сервера — см. <see cref="Ok"/>.</summary>
         public static bool Offline(long code) => code == 0;
+
+        /// <summary>
+        /// ОТВЕТ, ПРИГОДНЫЙ К ЧТЕНИЮ, — или ничего.
+        ///
+        /// <para>Ответ читают, только если он ВЕСЬ в порядке: код успешный,
+        /// тело есть и это разбираемый JSON. Разнобой хоть в одном из трёх
+        /// разбирают уже как данные — и падают на пустой строке или молча берут
+        /// поля из тела ошибки.</para>
+        ///
+        /// <para>Три проверки стояли врозь в пяти службах: код с телом в одном
+        /// условии, разбор — в собственном try у каждой. Здесь они одно
+        /// действие: null значит «читать нечего», и звонящий возвращает свой
+        /// пустой ответ.</para>
+        /// </summary>
+        public static JObject Json(long code, string body)
+        {
+            if (!Ok(code) || string.IsNullOrEmpty(body)) return null;
+            try { return JObject.Parse(body); } catch { return null; }
+        }
 
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>

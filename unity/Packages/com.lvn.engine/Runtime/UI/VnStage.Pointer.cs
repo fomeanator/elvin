@@ -94,7 +94,7 @@ namespace Lvn.UI
             // возврат не сработал заодно как продвижение реплики.
             if (PanelPeeking) { SetPanelPeek(false); evt.StopPropagation(); return; }
             if (InputBlocked) return; // an overlay (quick menu) owns the screen
-            if (_player == null || _player.Finished) return;
+            if (!Playing) return;
             if (_awaitingInput) return;
             // A `wait` swallows input — EXCEPT on a timed hotspot screen (icons +
             // wait), where the click must reach the hotspot and cancel the timer.
@@ -195,7 +195,7 @@ namespace Lvn.UI
         {
             if (InputBlocked) { LogSwallow("InputBlocked (панель/окно держит ввод)"); return; }
             if (EntryGatePending) { LogSwallow("EntryGatePending (карточка главы)"); return; }
-            if (_player == null || _player.Finished) return;
+            if (!Playing) return;
             if (_awaitingInput) { LogSwallow("awaitingInput (форма ввода)"); return; }
             // Same exception as OnPointerDown: a timed hotspot screen stays
             // clickable through the wait.

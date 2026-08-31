@@ -360,17 +360,10 @@ namespace Lvn.UI.Screens
         {
             bool locked = state == ChapterMark.Locked;
 
-            var row = new VisualElement();
-            row.style.flexShrink = 0;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            var row = LvnStyler.ListRow(new VisualElement());
             row.style.marginTop = 12;
             row.style.paddingLeft = 16;
             row.style.paddingRight = 16;
-            row.style.paddingTop = 14;
-            row.style.paddingBottom = 14;
 
             var numBadge = new Label(no.ToString());
             numBadge.style.width = 48;

@@ -63,11 +63,12 @@ namespace Lvn.Services
         public static async Task<List<Placement>> GetCatalogAsync()
         {
             var (code, body) = await LvnBackend.GetAsync("/v1/ads/catalog");
-            if (!LvnBackend.Ok(code) || string.IsNullOrEmpty(body)) return null;
+            var answer = LvnBackend.Json(code, body);
+            if (answer == null) return null;
             try
             {
                 var list = new List<Placement>();
-                foreach (var t in JObject.Parse(body)["placements"] as JArray ?? new JArray())
+                foreach (var t in answer["placements"] as JArray ?? new JArray())
                 {
                     if (!(t is JObject o)) continue;
                     list.Add(new Placement

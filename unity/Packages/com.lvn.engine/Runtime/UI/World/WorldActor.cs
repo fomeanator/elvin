@@ -425,7 +425,7 @@ namespace Lvn.UI.World
 
         public void Play(string channel, LvnAnim anim, Action onDone = null)
         {
-            if (anim == null || anim.tracks == null || anim.tracks.Count == 0) { onDone?.Invoke(); return; }
+            if (!LvnAnim.Playable(anim)) { onDone?.Invoke(); return; }
             _channels[channel] = new Active { anim = anim, start = ActorAnimator.Clock(), onDone = onDone };
         }
 
@@ -433,7 +433,7 @@ namespace Lvn.UI.World
         /// Free lane → plays now; queued steps run FIFO. Don't queue behind a loop.</summary>
         public void PlayQueued(string channel, LvnAnim anim)
         {
-            if (anim == null || anim.tracks == null || anim.tracks.Count == 0) return;
+            if (!LvnAnim.Playable(anim)) return;
             if (!_channels.ContainsKey(channel)) { Play(channel, anim); return; }
             if (!_queue.TryGetValue(channel, out var q)) _queue[channel] = q = new Queue<LvnAnim>();
             q.Enqueue(anim);

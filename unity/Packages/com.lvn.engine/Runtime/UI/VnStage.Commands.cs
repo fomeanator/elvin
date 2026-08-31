@@ -170,7 +170,7 @@ namespace Lvn.UI
             LvnAnim anim;
             try { anim = payload.ToObject<LvnAnim>(); }
             catch { return; }
-            if (anim == null || anim.tracks == null || anim.tracks.Count == 0) return;
+            if (!LvnAnim.Playable(anim)) return;
             // Channel: explicit if given, else derived from the first track's target
             // (e.g. "script:rotation", "script:face:y") — so distinct properties run
             // and compose at once, while re-animating the same property replaces it.
