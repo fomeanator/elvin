@@ -506,3 +506,41 @@ func TestTitleKeysComeFromKeep(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ВИТРИНА ОТВЕЧАЕТ ОДНИМ СПОСОБОМ.
+//
+// Витрин у движка две — карусель и хаб, — и вопрос к ним один: какую новеллу
+// выбрал игрок. Пока ответов было два, цикл оболочки знал устройство карусели
+// (событие, защёлка, отписка, номер карточки), а запрос «открыть новеллу по id»
+// уходил в карусель даже тогда, когда на экране был хаб: ссылка молчала и
+// рапортовала об успехе.
+//
+// Страж держит границу с двух сторон: цикл не зовёт витрины по именам, и обе
+// витрины остаются витринами.
+func TestBrowseAnswersOneWay(t *testing.T) {
+	root := repoRoot(t)
+	shell := filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime")
+
+	flow := stripComments(string(mustRead(t, filepath.Join(shell, "NovelShell.Flow.cs"))))
+	byName := regexp.MustCompile(`\b(Carousel|Hub)\s*[.?]`)
+	var found []string
+	for i, l := range strings.Split(flow, "\n") {
+		if byName.MatchString(l) {
+			found = append(found, fmt.Sprintf("NovelShell.Flow.cs:%d: %s", i+1, strings.TrimSpace(l)))
+		}
+	}
+	if len(found) > 0 {
+		t.Errorf("цикл оболочки зовёт витрину по имени (%d):\n  %s\n\n"+
+			"Спрашивайте ILvnBrowse: у вопроса «какую новеллу выбрал игрок» один ответ, "+
+			"а как витрина его получит — карточкой, каруселью, защёлкнутой ссылкой — её дело.",
+			len(found), strings.Join(found, "\n  "))
+	}
+
+	for _, name := range []string{"TitleCarousel.cs", "BrowseHub.cs"} {
+		src := string(mustRead(t, filepath.Join(shell, name)))
+		if !regexp.MustCompile(`class\s+\w+\s*:[^{]*\bILvnBrowse\b`).MatchString(src) {
+			t.Errorf("%s больше не витрина (нет ILvnBrowse) — значит, у оболочки снова "+
+				"появился экран выбора новеллы со своим личным способом отвечать", name)
+		}
+	}
+}

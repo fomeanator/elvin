@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// and only then resolves. <see cref="PickTitleAsync"/> returns the chosen,
     /// unlocked, paid-for title (or null if cancelled).
     /// </summary>
-    public sealed partial class BrowseHub : VisualElement, ILvnEntrance, Lvn.UI.ILvnRedress
+    public sealed partial class BrowseHub : VisualElement, ILvnBrowse, ILvnEntrance, Lvn.UI.ILvnRedress
     {
         /// <summary>Служебный сборник «всё, что не разложено по полкам». Его id
         /// не приходит из манифеста — по нему подпись узнаёт, что название
@@ -91,6 +91,7 @@ namespace Lvn.UI.Screens
         private LvnTitle _detailTarget;
 
         private TaskCompletionSource<LvnTitle> _tcs;
+        private LvnTitle _requested;   // защёлка: открыть эту, как только хаб возьмёт управление
 
         public BrowseHub(BrowseConfig cfg, ILvnAssets assets)
         {
@@ -451,6 +452,14 @@ namespace Lvn.UI.Screens
         /// paid via <see cref="OnPlay"/>), or null if the player never picks one.</summary>
         public async Task<LvnTitle> PickTitleAsync(CancellationToken ct = default)
         {
+            // Запрос, поданный ДО того, как хаб взял управление (диплинк во
+            // время заставки), ждал в защёлке. Забираем его, не открывая
+            // витрину, — но через те же ворота: ссылка не обход кассы.
+            if (_requested != null)
+            {
+                var r = _requested; _requested = null;
+                if (OnPlay == null || await OnPlay(r)) return r;
+            }
             _globalVars = (GlobalStatsProvider != null ? await GlobalStatsProvider() : null) ?? new JObject();
             LvnAsync.Fire(Lvn.Services.LvnWallet.NudgeAsync(), "Refresh"); // свежие балансы навбара
             RefreshTopBar();
@@ -460,6 +469,36 @@ namespace Lvn.UI.Screens
             using var reg = ct.Register(() => _tcs?.TrySetResult(null));
             return await _tcs.Task;
         }
+
+        // ── ВИТРИНА (ILvnBrowse) ────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public VisualElement View => this;
+
+        /// <inheritdoc/>
+        public bool RequestTitle(string titleId)
+        {
+            if (string.IsNullOrEmpty(titleId) || !_titles.TryGetValue(titleId, out var t) || t == null)
+                return false;
+            if (_tcs != null && !_tcs.Task.IsCompleted)
+            {
+                LvnAsync.Fire(PlayRequestedAsync(t), "BrowseRequest");
+                return true;
+            }
+            _requested = t; // хаб ещё не спрашивает — подождём его
+            return true;
+        }
+
+        /// <summary>Вход по запросу идёт теми же воротами, что и «Играть» на
+        /// карточке: цена входа берётся один раз и по одному правилу.</summary>
+        private async Task PlayRequestedAsync(LvnTitle t)
+        {
+            if (OnPlay == null || await OnPlay(t)) _tcs?.TrySetResult(t);
+        }
+
+        /// <inheritdoc/>
+        public void SetContent(LvnManifest manifest) =>
+            SetData(manifest?.collections, manifest?.titles);
 
         // ── navigation ──────────────────────────────────────────────────────────
         private void ShowHub()
