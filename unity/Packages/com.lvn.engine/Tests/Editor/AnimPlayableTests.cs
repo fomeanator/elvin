@@ -3,7 +3,6 @@ using Lvn.Content;
 using Lvn.UI;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace Lvn.Tests
 {
@@ -23,7 +22,15 @@ namespace Lvn.Tests
     public class AnimPlayableTests
     {
         [TearDown]
-        public void RestoreClock() => ActorAnimator.Clock = () => Time.realtimeSinceStartup;
+        public void RestoreClock() => LvnAnimSampler.Clock = () => Time.realtimeSinceStartup;
+
+        /// <summary>Фигура, которой правила и проверяются. Раньше здесь стоял
+        /// плоский компоновщик UI Toolkit — вторая, неподключённая реализация
+        /// анимации; её удалили, и правила переехали на ту фигуру, которой
+        /// движок рисует на самом деле.</summary>
+        private static Lvn.UI.World.WorldActor NewActor()
+            => new GameObject("anim-probe", typeof(RectTransform))
+               .AddComponent<Lvn.UI.World.WorldActor>();
 
         private static LvnAnim WithTracks(params LvnAnimTrack[] tracks) =>
             new LvnAnim { duration = 1f, tracks = new List<LvnAnimTrack>(tracks) };
@@ -56,8 +63,8 @@ namespace Lvn.Tests
         [Test]
         public void ЗапускПустышкиОтвечаетСразуИНеЗанимаетДорожку()
         {
-            ActorAnimator.Clock = () => 0f;
-            var a = new ActorAnimator(new VisualElement());
+            LvnAnimSampler.Clock = () => 0f;
+            var a = NewActor();
             bool ответил = false;
 
             a.Play("gesture", null, () => ответил = true);
@@ -73,8 +80,8 @@ namespace Lvn.Tests
         [Test]
         public void ПустойШагВОчередьНеПопадает()
         {
-            ActorAnimator.Clock = () => 0f;
-            var a = new ActorAnimator(new VisualElement());
+            LvnAnimSampler.Clock = () => 0f;
+            var a = NewActor();
 
             a.PlayQueued("gesture", WithTracks());          // свободная дорожка
             Assert.IsFalse(a.Has("gesture"), "пустой шаг занял свободную дорожку");
@@ -82,8 +89,7 @@ namespace Lvn.Tests
             a.Play("gesture", WithTracks(SomeTrack()));
             a.PlayQueued("gesture", null);                   // дорожка занята — шаг встал бы в очередь
 
-            ActorAnimator.Clock = () => 2f;                  // первая анимация доиграла
-            a.Composite();
+            a.Tick(2f);                                      // первая анимация доиграла
 
             Assert.IsFalse(a.Has("gesture"),
                 "после доигравшей анимации дорожку занял пустой шаг из очереди — она больше не освободится");

@@ -50,8 +50,20 @@ while pgrep -f "batchmode.*TestHost" >/dev/null 2>&1; do
   fi
 done
 
-if [ -f "$REPO_ROOT/unity/TestHost/Temp/UnityLockfile" ] && pgrep -x Unity >/dev/null 2>&1; then
-  echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
+# РЕДАКТОР, ОТКРЫТЫЙ ИМЕННО НА TestHost, — а не любой открытый Unity.
+#
+# Раньше здесь стояло «замок на месте И где-то запущен Unity». Обе половины
+# врут по отдельности: замок остаётся лежать после batchmode-прогона, а Unity у
+# автора почти всегда открыт — на ИГРЕ, а не на стенде. Вместе они давали
+# отказ «закрой TestHost» человеку, у которого TestHost не открыт, и глушили
+# прогоны на весь рабочий день.
+#
+# Спрашиваем прямо: есть ли процесс редактора, которому передан путь стенда.
+if pgrep -f -- "-projectpath.*unity/TestHost" >/dev/null 2>&1 \
+   || pgrep -f -- "-projectPath.*unity/TestHost" >/dev/null 2>&1; then
+  if ! pgrep -f "batchmode.*TestHost" >/dev/null 2>&1; then
+    echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
+  fi
 fi
 
 # ── 0a. СТРАЖИ ФОРМЫ И ЯЗЫКА (Go) ──────────────────────────────────────────

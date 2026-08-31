@@ -14,7 +14,7 @@ namespace Lvn.Tests
     public class WorldActorTests
     {
         [TearDown]
-        public void RestoreClock() => ActorAnimator.Clock = () => Time.realtimeSinceStartup;
+        public void RestoreClock() => LvnAnimSampler.Clock = () => Time.realtimeSinceStartup;
 
         private static List<object[]> K(params object[][] keys) => new List<object[]>(keys);
         private static Sprite NewSprite() => Sprite.Create(new Texture2D(2, 2), new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
@@ -49,7 +49,7 @@ namespace Lvn.Tests
                 },
             };
 
-            ActorAnimator.Clock = () => 0f;
+            LvnAnimSampler.Clock = () => 0f;
             actor.Play("base", anim);
             actor.Tick(0.5f);
 
