@@ -418,9 +418,12 @@ namespace Lvn.UI
         private void EndChapterFrame()
         {
             _clock.NewEpoch(); // работа прошлой сцены теряет право рисовать (и барьеры с ней)
-            // Луп печати не должен пережить сцену: жёсткая смена главы может
-            // снести диалог, не дав ему сообщить «печать кончилась».
-            _audio?.StopTypingLoop();
+            // ЗВУК УХОДИТ С ГЛАВОЙ ЦЕЛИКОМ. Здесь снимали только луп печати, а
+            // музыка и эмбиент оставались играть — и в меню их слышно поверх
+            // витринного трека («выходишь из главы, музыка дублируется»).
+            // Список того, что уносит уходящая глава, живёт в ЭТОМ методе, и
+            // звук в нём был неполон.
+            _audio?.SilenceChapter();
             // Close the quick menu FIRST: it may be mid-open (IsOpen + InputBlocked
             // set, its clean-frame screenshot coroutine pending). The StopAllCoroutines
             // below would kill that coroutine before its OpenSheetChrome callback,

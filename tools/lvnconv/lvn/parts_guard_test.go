@@ -381,3 +381,25 @@ func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
 			count, budget)
 	}
 }
+
+// ЗВУК УХОДИТ ВМЕСТЕ С ГЛАВОЙ.
+//
+// «Выходишь из главы — музыка дублируется» (живой репорт 01.09). Диагноз был
+// не про музыку, а про список: обряд «снять всё, что принадлежит уходящей
+// главе» (VnStage.EndChapterFrame) снимал эпоху работ, печать, корутины,
+// хотспоты и вуаль — а музыку с эмбиентом не снимал. Трек главы продолжал
+// играть, и поверх него отпускалась музыка витрины.
+//
+// Дом был правильный, неполон был перечень. Страж держит именно перечень: в
+// обряде завершения обязано быть глушение звука.
+func TestChapterEndTakesItsSound(t *testing.T) {
+	root := repoRoot(t)
+	path := filepath.Join(root, filepath.FromSlash(
+		"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Playback.cs"))
+	body := methodBody(t, path, "private void EndChapterFrame()")
+	if !strings.Contains(body, "SilenceChapter") {
+		t.Errorf("обряд завершения главы не глушит её звук.\n\n" +
+			"Музыка и эмбиент переживут главу и зазвучат в меню поверх витринного трека — " +
+			"это уже случалось. Зовите StageAudio.SilenceChapter в EndChapterFrame.")
+	}
+}

@@ -149,7 +149,9 @@ namespace Lvn.UI
             set
             {
                 EnsureLoaded();
-                var v = Mathf.Clamp(value, 0.25f, 3f);
+                // Пределы — у КАТАЛОГА настроек: ползунок и зажим обязаны знать
+                // один диапазон, иначе ручка «пружинит» назад без объяснения.
+                var v = Mathf.Clamp(value, LvnSettingsCatalog.TextSpeedMin, LvnSettingsCatalog.TextSpeedMax);
                 TypewriterClock.UserSpeedMultiplier = v;
                 Set(ref _textSpeed, "text_speed", v);
             }
@@ -167,7 +169,7 @@ namespace Lvn.UI
         public static float AutoDelayScale
         {
             get { EnsureLoaded(); return _autoDelayScale; }
-            set { EnsureLoaded(); Set(ref _autoDelayScale, "auto_delay", Mathf.Clamp(value, 0.5f, 2.5f)); }
+            set { EnsureLoaded(); Set(ref _autoDelayScale, "auto_delay", Mathf.Clamp(value, LvnSettingsCatalog.AutoDelayMin, LvnSettingsCatalog.AutoDelayMax)); }
         }
 
         /// <summary>Music channel volume (0–1), multiplied onto authored volume.</summary>
@@ -267,7 +269,7 @@ namespace Lvn.UI
         public static float DialogOpacity
         {
             get { EnsureLoaded(); return _dialogOpacity; }
-            set { EnsureLoaded(); Set(ref _dialogOpacity, "dialog_opacity", Mathf.Clamp(value, 0.2f, 1f)); }
+            set { EnsureLoaded(); Set(ref _dialogOpacity, "dialog_opacity", Mathf.Clamp(value, LvnSettingsCatalog.BoxOpacityMin, LvnSettingsCatalog.BoxOpacityMax)); }
         }
 
         /// <summary>РАЗМЕР ТЕКСТА РЕПЛИК — множитель к авторскому кеглю
