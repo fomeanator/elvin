@@ -145,7 +145,7 @@ namespace Lvn.Content
             if (_local)
             {
                 var resolved = ResolveUrl(url);
-                if (resolved.StartsWith("file://"))
+                if (LvnUrl.Local(resolved))
                 {
                     var direct = resolved.Substring("file://".Length);
                     return File.Exists(direct) ? direct : null;
