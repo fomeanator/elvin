@@ -50,9 +50,11 @@ namespace Lvn.Editor
         static Dictionary<string, List<string>> CollectFuncs(string src)
         {
             var m = new Dictionary<string, List<string>>();
-            foreach (string line in src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+            var declaredAt = new Dictionary<string, int>();
+            string[] lines = src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
             {
-                Match mm = reFuncDef.Match(line);
+                Match mm = reFuncDef.Match(lines[i]);
                 if (!mm.Success) continue;
                 var ps = new List<string>();
                 foreach (string p in mm.Groups[2].Value.Split(','))
@@ -60,7 +62,16 @@ namespace Lvn.Editor
                     string t = p.Trim();
                     if (t != "") ps.Add(t);
                 }
-                m[mm.Groups[1].Value] = ps;
+                string name = mm.Groups[1].Value;
+                // ДВА ОПРЕДЕЛЕНИЯ ОДНОГО ИМЕНИ — ошибка, а не тихая замена.
+                // Второе молча затирало первое, и половина вызовов уходила не
+                // туда: автор видит не ошибку, а игру, которая ведёт себя не
+                // так. Go отвечает на это ошибкой с номером строки.
+                if (declaredAt.TryGetValue(name, out int prev))
+                    throw new LvnsCompileException(
+                        $"line {i + 1}: func {name}: already declared on line {prev}");
+                declaredAt[name] = i + 1;
+                m[name] = ps;
             }
             return m;
         }
@@ -68,8 +79,10 @@ namespace Lvn.Editor
         static string ExpandCalls(string src, Dictionary<string, List<string>> funcs)
         {
             var outLines = new List<string>();
+            int lineNo = 0;
             foreach (string line in src.Split('\n'))
             {
+                lineNo++;
                 string t = line.Trim();
 
                 if (t.StartsWith("return "))
@@ -92,8 +105,15 @@ namespace Lvn.Editor
                     if (funcs.TryGetValue(fname, out var pars))
                     {
                         var args = SplitArgs(argstr);
+                        // ЧИСЛО ДОВОДОВ СВЕРЯЕТСЯ. Недостающие молча оставляли
+                        // параметр со значением от ПРОШЛОГО вызова, лишние —
+                        // молча пропадали. И то и другое даёт не ошибку сборки,
+                        // а не ту игру.
+                        if (args.Count != pars.Count)
+                            throw new LvnsCompileException(
+                                $"line {lineNo}: {fname}() takes {pars.Count} argument(s), got {args.Count}");
                         for (int k = 0; k < pars.Count; k++)
-                            if (k < args.Count) outLines.Add(pars[k] + " = " + args[k]);
+                            outLines.Add(pars[k] + " = " + args[k]);
                         outLines.Add("call __fn_" + fname);
                         if (lhs != "") outLines.Add(lhs + " = __ret");
                         continue;

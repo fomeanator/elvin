@@ -226,7 +226,27 @@ namespace Lvn.Editor
                 if (string.IsNullOrEmpty(prop))
                     throw new LvnsCompileException("anim: prop required");
                 var tr = new JObject { ["prop"] = prop };
-                if (NumParam(p.TryGetValue("to", out var tov) ? tov : null, out double toNum))
+                // to="{выражение}" — цель СЧИТАЕТСЯ, а не задана числом. Так
+                // тянут полосу здоровья к доле, которую ещё предстоит
+                // вычислить. Компилятор выражение не трогает: считать его
+                // здесь нечем, переменные появятся только во время игры. Он
+                // лишь переносит его в трек, а игрок подставляет число перед
+                // самым запуском (ResolveAnimTargets).
+                //
+                // Редакторный путь этого не умел вовсе: число не разбиралось,
+                // управление уходило в ветку ключей, и глава ПАДАЛА с «no
+                // keyframes». Та же глава через CLI собиралась.
+                var toRaw = p.TryGetValue("to", out var tov) ? tov : null;
+                if (toRaw is string toExpr && toExpr.IndexOf('{') >= 0)
+                {
+                    double d = dur;
+                    if (!durSet || d <= 0) d = 1;
+                    var rest = PropIdentity(prop);
+                    tr["to_expr"] = toExpr.Trim();
+                    tr["keys"] = new JArray { new JArray { 0.0, rest }, new JArray { d, rest } };
+                    duration = d;
+                }
+                else if (NumParam(toRaw, out double toNum))
                 {
                     double d = dur;
                     if (!durSet || d <= 0) d = 1;

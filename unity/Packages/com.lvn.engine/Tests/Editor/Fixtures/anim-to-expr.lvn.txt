@@ -1,0 +1,71 @@
+{
+  "scene": "anim_to_expr",
+  "script": [
+    {
+      "id": "start",
+      "op": "label"
+    },
+    {
+      "key": "hp",
+      "op": "set",
+      "value": 40
+    },
+    {
+      "key": "hp_max",
+      "op": "set",
+      "value": 100
+    },
+    {
+      "anim": {
+        "duration": 0.6,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                0.6,
+                0
+              ]
+            ],
+            "prop": "scale_x",
+            "to_expr": "{hp / hp_max}"
+          }
+        ]
+      },
+      "id": "bar",
+      "op": "anim"
+    },
+    {
+      "anim": {
+        "duration": 0.2,
+        "loop": false,
+        "tracks": [
+          {
+            "keys": [
+              [
+                0,
+                0
+              ],
+              [
+                0.2,
+                0.5
+              ]
+            ],
+            "prop": "opacity"
+          }
+        ]
+      },
+      "id": "bar",
+      "op": "anim"
+    },
+    {
+      "op": "say",
+      "text": "Полоса поехала.",
+      "who": "Лекарь"
+    }
+  ]
+}
