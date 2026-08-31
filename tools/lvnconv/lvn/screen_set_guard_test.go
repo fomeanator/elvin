@@ -240,3 +240,52 @@ func TestЖдущийЭкранУмеетУйти(t *testing.T) {
 		}
 	}
 }
+
+// Вкладку не адресуют голым числом.
+//
+// Вкладка была размазана по пяти перечням: место в ряду, подпись, страница,
+// цвет полотна и вызовы вида TabGoTo(1) с пояснением в комментарии. Теперь
+// набор один (LvnTabs), а сторож следит, чтобы номера не вернулись.
+func TestВкладкуНеАдресуютГолымЧислом(t *testing.T) {
+	dir := shellRuntimeDir(t)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bare := regexp.MustCompile(`TabGoTo\(\s*\d`)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") || e.Name() == "LvnTabs.cs" {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m := bare.FindString(stripCommentsAndStrings(string(raw))); m != "" {
+			t.Fatalf("%s: %q — номер вкладки живёт в LvnTabs, а не в месте вызова "+
+				"(иначе смысл числа опять уедет в комментарий рядом)", e.Name(), m)
+		}
+	}
+	// Подпись вкладки собирает набор, а не хаб своим switch.
+	nav, err := os.ReadFile(filepath.Join(dir, "BrowseHub.Nav.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := stripCommentsAndStrings(string(nav))
+	for _, gone := range []string{`"nav.home"`, `"nav.store"`, `"nav.wardrobe"`, `"nav.profile"`, `"nav.gallery"`} {
+		if strings.Contains(string(nav), gone) {
+			t.Fatalf("BrowseHub.Nav.cs: %s снова здесь — слово вкладки берут у LvnTabs", gone)
+		}
+	}
+	if !strings.Contains(src, "LvnTabs.Shown") {
+		t.Fatalf("BrowseHub.Nav.cs: ряд вкладок собирается не по набору — место вкладки опять задаёт рука")
+	}
+	// Число страниц ленты не зашито.
+	shell, err := os.ReadFile(filepath.Join(dir, "NovelShell.Navigation.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(shell), "LvnTabs.PageCount") {
+		t.Fatalf("NovelShell.Navigation.cs: сколько у ленты страниц — знает набор вкладок, не ограничитель на месте")
+	}
+}

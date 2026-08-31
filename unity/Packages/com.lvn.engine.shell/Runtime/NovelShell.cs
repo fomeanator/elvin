@@ -96,10 +96,16 @@ namespace Lvn.UI.Screens
         // после переноса полотна на канвас, где живут наши шейдеры).
         // «Реализм на все» (Илья 26.08): цветные настроения вкладок сняты —
         // фото чистое на всех экранах. Слоты оставлены под будущие пресеты.
-        private static readonly Color[] TabTints =
+        // Длина — у НАБОРА вкладок: зашитая четвёрка разошлась бы с ним
+        // молча, и пятая страница уронила бы переход прямо в движении.
+        private static readonly Color[] TabTints = ClearTints();
+
+        private static Color[] ClearTints()
         {
-            Color.clear, Color.clear, Color.clear, Color.clear,
-        };
+            var a = new Color[Mathf.Max(1, LvnTabs.PageCount)];
+            for (int i = 0; i < a.Length; i++) a[i] = Color.clear;
+            return a;
+        }
 
 
 
