@@ -54,8 +54,6 @@ namespace Lvn.UI
             public Vector2 Size;                    // measured at drag begin (normalized)
         }
         private readonly Dictionary<string, DragInfo> _draggables = new Dictionary<string, DragInfo>();
-        // The actor's last APPLIED placement — the base sticky actor commands merge over.
-        private readonly Dictionary<string, Placement> _placements = new Dictionary<string, Placement>();
         private string _dragCandidate, _dragId;
         private Vector2 _dragGrab; // pointer→anchor offset in screen fractions
 
@@ -140,7 +138,7 @@ namespace Lvn.UI
             var clEnd = ClampToScreen(new Vector2(np.x - _dragGrab.x, np.y - _dragGrab.y), di);
             di.Home.X = clEnd.x;
             di.Home.Y = clEnd.y;
-            _placements[id] = di.Home; // future actor commands keep the dropped spot
+            _memory.SetWhere(id, di.Home); // future actor commands keep the dropped spot
 
             string label = null;
             foreach (var kv in di.Drop)

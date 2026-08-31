@@ -36,7 +36,7 @@ namespace Lvn.UI
         {
             await Task.Yield(); // каскад Preview этого кадра схлопнулся в один реплей
             _wardrobeRefreshPending.Remove(id);
-            if (!_actorCmds.TryGetValue(id, out var cmd)) return;
+            if (!_memory.TryCommand(id, out var cmd)) return;
             // Реплей НИКОГДА не воспроизводит hide: смена наряда скрытого
             // актёра доедет с его следующим показом, а реплей hide с новым gen
             // убивал летящий показ соседней команды.
@@ -71,8 +71,8 @@ namespace Lvn.UI
         private void RememberBeforeWardrobe(string id)
         {
             if (string.IsNullOrEmpty(id) || _preWardrobe.ContainsKey(id)) return;
-            bool hadCmd = _actorCmds.TryGetValue(id, out var cmd);
-            bool hadPl = _placements.TryGetValue(id, out var pl);
+            bool hadCmd = _memory.TryCommand(id, out var cmd);
+            bool hadPl = _memory.TryWhere(id, out var pl);
             _preWardrobe[id] = (hadCmd ? (JObject)cmd.DeepClone() : null, pl, hadCmd, hadPl);
         }
 
@@ -113,7 +113,7 @@ namespace Lvn.UI
             foreach (var id in ActorsInFrame())
             {
                 if (id == keepId) continue;
-                if (_actorCmds.TryGetValue(id, out var cmd) && !IsCharacterCommand(cmd)) continue;
+                if (_memory.TryCommand(id, out var cmd) && !IsCharacterCommand(cmd)) continue;
                 HideActorTemporarily(id, LvnSender.Wardrobe);
             }
         }
@@ -128,8 +128,8 @@ namespace Lvn.UI
             foreach (var kv in _preWardrobe)
             {
                 var (cmd, pl, hadCmd, hadPl) = kv.Value;
-                if (hadCmd) _actorCmds[kv.Key] = cmd; else _actorCmds.Remove(kv.Key);
-                if (hadPl) _placements[kv.Key] = pl;
+                if (hadCmd) _memory.RestoreCommand(kv.Key, cmd); else _memory.Forget(kv.Key);
+                if (hadPl) _memory.SetWhere(kv.Key, pl);
             }
             _preWardrobe.Clear();
         }

@@ -204,10 +204,10 @@ namespace Lvn.UI
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
             int epoch = _stageEpoch; // the scene this build belongs to (see ResetStage)
-            var placement = _placements.TryGetValue(id, out var prevSp)
+            var placement = _memory.TryWhere(id, out var prevSp)
                 ? PlacementFrom(cmd, prevSp, SlotsOf(id)) : PlacementFrom(cmd, SlotsOf(id));
             FillTransitionDefaults(cmd, ref placement);
-            _placements[id] = placement; // sticky base (spine actors too)
+            _memory.SetWhere(id, placement); // sticky base (spine actors too)
 
             if (!LvnSpineBridge.Available)
             {
@@ -358,7 +358,7 @@ namespace Lvn.UI
             // Show=false here would hide an actor the script just revealed.
             if (existing != null)
             {
-                bool show = _placements.TryGetValue(id, out var cur) ? cur.Show : placement.Show;
+                bool show = _memory.TryWhere(id, out var cur) ? cur.Show : placement.Show;
                 // Real-time size: re-fit to the screen each command, so `scale`/
                 // `fit` resize the Spine on the fly. Refit BEFORE the fade so the
                 // reveal is already correctly sized.

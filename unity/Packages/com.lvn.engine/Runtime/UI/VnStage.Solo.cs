@@ -135,7 +135,7 @@ namespace Lvn.UI
             // Тот же выбор op, что и у обычного увода: предмет уводится как
             // предмет, иначе команда уедет не тому исполнителю.
             string op = "actor";
-            if (_actorCmds.TryGetValue(id, out var staged)
+            if (_memory.TryCommand(id, out var staged)
                 && string.Equals((string)staged["op"], "obj", StringComparison.OrdinalIgnoreCase))
                 op = "obj";
             ApplyDispatch(new JObject { ["op"] = op, ["id"] = id, ["show"] = false },

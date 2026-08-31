@@ -186,7 +186,7 @@ namespace Lvn.UI
             // суффикс варианта (@2k/@1k) подставляет тракт загрузки уже под
             // капотом. Без этой строки выбор качества не тронул бы ни одну
             // видимую фигуру — «героиню не перекачала» вернулось бы тем же днём.
-            _actorLook.Clear();
+            _memory.ForgetLooks();
             if (_lastBgCmd != null)
             {
                 var cmd = (JObject)_lastBgCmd.DeepClone();
