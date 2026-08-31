@@ -273,7 +273,14 @@ namespace Lvn.Editor
                             outLines.Add(":" + f.endLbl);
                             break;
                         case "func":
-                            outLines.Add("return");
+                            // Страховочный `return` — ТОЛЬКО если тело им не
+                            // кончается. Иначе лоуэринг ставил его дважды, и
+                            // второй недостижим: валидатор потом на него и
+                            // жалуется. Go так и делает; редакторный путь
+                            // ставил всегда.
+                            var lastStmt = outLines.Count > 0 ? outLines[outLines.Count - 1].Trim() : "";
+                            if (lastStmt != "return" && !lastStmt.StartsWith("return "))
+                                outLines.Add("return");
                             outLines.Add(":" + f.endLbl);
                             break;
                         case "if":

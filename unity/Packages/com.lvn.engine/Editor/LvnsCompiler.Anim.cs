@@ -165,6 +165,14 @@ namespace Lvn.Editor
             ParseLoop(p.TryGetValue("loop", out var lp) ? lp : null, out bool loop, out bool yoyo);
             string ease = p.TryGetValue("ease", out var es) ? es as string : null;
             string interp = p.TryGetValue("interp", out var ip) ? ip as string : null;
+            // Опечатка в способе сглаживания — ОШИБКА, а не молчание. Рантайм
+            // считает незнакомое значение линейным, и кривая автора молча
+            // выпрямляется: он видит не ошибку, а «анимация какая-то не такая».
+            // Go отвечает на это ошибкой с номером строки; редакторный путь
+            // переносил значение как есть.
+            if (!string.IsNullOrEmpty(interp)
+                && interp != "linear" && interp != "spline" && interp != "step")
+                throw new LvnsCompileException($"{op}: interp=\"{interp}\" is not linear|spline|step");
             bool durSet = NumParam(p.TryGetValue("dur", out var du) ? du : null, out double dur);
 
             JObject WithShaping(JObject tr)

@@ -1,0 +1,72 @@
+{
+  "scene": "func_return",
+  "script": [
+    {
+      "label": "__fnskip_stop_here",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_stop_here",
+      "op": "label"
+    },
+    {
+      "expr": "a",
+      "key": "x",
+      "op": "set"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_stop_here",
+      "op": "label"
+    },
+    {
+      "label": "__fnskip_falls_through",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_falls_through",
+      "op": "label"
+    },
+    {
+      "expr": "b",
+      "key": "y",
+      "op": "set"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_falls_through",
+      "op": "label"
+    },
+    {
+      "id": "start",
+      "op": "label"
+    },
+    {
+      "expr": "1",
+      "key": "a",
+      "op": "set"
+    },
+    {
+      "label": "__fn_stop_here",
+      "op": "call"
+    },
+    {
+      "expr": "2",
+      "key": "b",
+      "op": "set"
+    },
+    {
+      "label": "__fn_falls_through",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Готово, {x} и {y}.",
+      "who": "Кладовщик"
+    }
+  ]
+}
