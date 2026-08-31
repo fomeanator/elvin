@@ -467,7 +467,7 @@
       ]
     }
   },
-  "$attr_comment": "Editor completions after `key=` — a superset of enums keyed by attribute name (colours and booleans included; they are open-valued for the validator).",
+  "$attr_comment": "Editor completions after `key=` — a superset of enums keyed by attribute name (colours and booleans included; they are open-valued for the validator). Цвет: тот же словарь, что у UiColor.Named в движке — токены темы, имена движка и мнемоники настроения. Список был четвёртым перечнем одного понятия и знал только вторую его треть; страж tools/lvnconv/lvn сверяет его с движком.",
   "attr_values": {
     "to": [
       "black",
@@ -475,6 +475,19 @@
       "clear"
     ],
     "color": [
+      "bg",
+      "surface",
+      "surface_hi",
+      "panel",
+      "text",
+      "dim",
+      "accent",
+      "on_accent",
+      "gold",
+      "warn",
+      "border",
+      "veil",
+      "clear",
       "white",
       "black",
       "red",
@@ -484,7 +497,9 @@
       "cyan",
       "magenta",
       "cold",
+      "tint_cold",
       "warm",
+      "tint_warm",
       "sepia"
     ],
     "type": [

@@ -389,35 +389,74 @@ func TestСловарьЦветаОдинВездеГдеЕгоПишут(t *tes
 	if len(named) < 20 {
 		t.Fatalf("в словаре цвета всего %d слов — похоже, якорь сторожа промахнулся", len(named))
 	}
-	// Каждая грамматика (исходная и вшитая в расширение) подсказывает ровно их.
-	for _, rel := range []string{
-		filepath.Join("tools", "lvn-lang", "src", "grammar.js"),
-		filepath.Join("tools", "vscode-lvn", "lib", "lvn-lang", "grammar.js"),
-	} {
-		path := filepath.Join(root, rel)
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
+	// Грамматика — ОДНА, и это grammar.json: grammar.js из неё генерируется
+	// (npm run gen), править его руками бесполезно.
+	rel := filepath.Join("tools", "lvn-lang", "src", "grammar.json")
+	raw, err := os.ReadFile(filepath.Join(root, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := regexp.MustCompile(`(?s)"color":\s*\[(.*?)\]`).FindStringSubmatch(string(raw))
+	if list == nil {
+		t.Fatalf("%s: подсказок для color= нет вовсе", rel)
+	}
+	got := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(list[1], -1) {
+		got[m[1]] = true
+	}
+	for w := range named {
+		if !got[w] {
+			t.Fatalf("%s: движок знает цвет %q, а редактор его не подсказывает —\n"+
+				"автор не узна́ет о слове, которое работает", rel, w)
 		}
-		list := regexp.MustCompile(`(?s)"color":\s*\[(.*?)\]`).FindStringSubmatch(string(raw))
-		if list == nil {
-			t.Fatalf("%s: подсказок для color= нет вовсе", rel)
+	}
+	for w := range got {
+		if !named[w] {
+			t.Fatalf("%s: редактор подсказывает цвет %q, которого движок не знает —\n"+
+				"автор напишет его и получит умолчание с жалобой в журнале", rel, w)
 		}
-		got := map[string]bool{}
-		for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(list[1], -1) {
-			got[m[1]] = true
+	}
+}
+
+// Сгенерированная грамматика не отстаёт от своей правды.
+//
+// grammar.js делает npm run gen из grammar.json, но правку JSON без перегона
+// ничто не ловило: узел `portal` жил в правде и не доезжал до подсказок —
+// автор про целую команду просто не знал. Проверка есть и в node-тестах
+// пакета, но их не гоняет ни run-all, ни CI движка.
+func TestПодсказкиНеОтстаютОтГрамматики(t *testing.T) {
+	root := repoRoot(t)
+	jsonRaw, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", "grammar.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsRaw, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", "grammar.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := func(src, key, open, close string) map[string]bool {
+		m := regexp.MustCompile(`(?s)` + regexp.QuoteMeta(key) + open + `(.*?)\n` + close).FindStringSubmatch(src)
+		if m == nil {
+			t.Fatalf("не нашёл список %q — поправь якорь сторожа", key)
 		}
-		for w := range named {
-			if !got[w] {
-				t.Fatalf("%s: движок знает цвет %q, а редактор его не подсказывает —\n"+
-					"автор не узна́ет о слове, которое работает", rel, w)
-			}
+		out := map[string]bool{}
+		for _, w := range regexp.MustCompile(`"([a-z_0-9]+)"`).FindAllStringSubmatch(m[1], -1) {
+			out[w[1]] = true
 		}
-		for w := range got {
-			if !named[w] {
-				t.Fatalf("%s: редактор подсказывает цвет %q, которого движок не знает —\n"+
-					"автор напишет его и получит умолчание с жалобой в журнале", rel, w)
-			}
+		return out
+	}
+	truth := names(string(jsonRaw), `"ops":`, ` \[`, `  \],`)
+	shown := names(string(jsRaw), `export const OPS =`, ` \[`, `\];`)
+	for w := range truth {
+		if !shown[w] {
+			t.Fatalf("команду %q грамматика знает, а подсказки нет — забыли `npm run gen` "+
+				"в tools/lvn-lang после правки grammar.json", w)
+		}
+	}
+	for w := range shown {
+		if !truth[w] {
+			t.Fatalf("подсказки предлагают %q, чего в grammar.json нет — "+
+				"grammar.js правили руками, а он генерируемый", w)
 		}
 	}
 }
