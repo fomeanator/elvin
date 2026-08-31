@@ -119,6 +119,58 @@ namespace Lvn.UI
             }
         }
 
+        /// <summary>
+        /// УХОД ФИГУРЫ — работа без арта, и потому отдельная.
+        ///
+        /// <para>Раньше он шёл общим путём показа и ЖДАЛ те самые слои, которые
+        /// собирался увести: на медленной сети фигура оставалась в кадре целыми
+        /// тактами после своего ухода. Уходу картинка не нужна — ему нужно
+        /// место, где фигура стоит сейчас, и повод её убрать.</para>
+        ///
+        /// <para>Жил внутри метода показа сорока строками с ранним возвратом —
+        /// самая длинная работа рантайма (379 строк) начиналась с чужой темы.</para>
+        /// </summary>
+        private void HideActor(string id, JObject cmd)
+        {
+            bool freshHide = !_memory.TryWhere(id, out var prevHide);
+            bool wasVisible = !freshHide && prevHide.Show;
+            var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
+            FillTransitionDefaults(cmd, ref hidePl);
+            ApplyPresentationTempo(ref hidePl);
+            LengthenCharacterVisibility(cmd, wasVisible, ref hidePl);
+            ShortenCharacterMovement(cmd, ref hidePl);
+            ArmActorVisibilityBarrier(cmd, wasVisible, hidePl);
+            _memory.SetTarget(id, hidePl);
+
+            if (!freshHide)
+            {
+                // Both renderer paths: Canvas PlaceActor updates geometry
+                // without revealing, then ApplyActor runs the exit; UITK's
+                // PlaceActor is a no-op and ApplyActor owns both operations.
+                _renderer?.PlaceActor(id, hidePl);
+                _renderer?.ApplyActor(id, null, hidePl, null, null, null);
+            }
+            // Ушёл — окно свободно. КРОМЕ ТОЙ, ЧТО ЖИВЁТ МЕЖДУ ГЛАВАМИ:
+            // героиня уходит со сцены десять раз за сессию (её ход кончился,
+            // катсцена расчистила кадр), и каждый уход отдавал её слои кэшу.
+            // Показать снова значило качать и декодировать их заново — а
+            // пока они летят, Image рисует свой прямоугольник сплошняком:
+            // «появляется с промелькнувшим серым квадратом» (Илья, 27.08).
+            // Её арт держим постоянно: он всё равно понадобится через миг.
+            if (!string.Equals(id, KeepActorAlive, StringComparison.Ordinal))
+                RepinSceneSprites("actor:" + id, null);
+            if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
+            _memory.SetWhere(id, hidePl);
+            // Скрытие НЕ НАЗНАЧАЕТ ПОЗУ: место фигуры осталось тем же, его
+            // поставил кто-то раньше. Записать сюда себя значило бы объявить
+            // гардероб (или катсцену) автором позы — и следующая авторская
+            // команда без position сочла бы фигуру свежей и увела её в слот
+            // по умолчанию.
+            _memory.RememberCommandOnly(id, cmd);
+            _hotspots.RemoveAll(h => h.id == id);
+            _draggables.Remove(id); // a hidden object must not be draggable
+        }
+
         private async Task ApplyActorAsync(JObject cmd, bool wardrobeSwap = false,
                                            bool wardrobeFromTop = false,
                                            LvnSender sender = LvnSender.Story)
@@ -138,51 +190,8 @@ namespace Lvn.UI
                 return;
             }
 
-            // A HIDE needs no art — apply it immediately. Routing it through
-            // the show pipeline made the exit WAIT for the very layer fetches
-            // it was about to fade out; on a busy/stalled network the actor
-            // lingered on stage for whole beats past her dismissal.
-            if (!BoolOr(cmd["show"], true))
-            {
-                bool freshHide = !_memory.TryWhere(id, out var prevHide);
-                bool wasVisible = !freshHide && prevHide.Show;
-                var hidePl = freshHide ? PlacementFrom(cmd, SlotsOf(id)) : PlacementFrom(cmd, prevHide, SlotsOf(id));
-                FillTransitionDefaults(cmd, ref hidePl);
-                ApplyPresentationTempo(ref hidePl);
-                LengthenCharacterVisibility(cmd, wasVisible, ref hidePl);
-                ShortenCharacterMovement(cmd, ref hidePl);
-                ArmActorVisibilityBarrier(cmd, wasVisible, hidePl);
-                _memory.SetTarget(id, hidePl);
-
-                if (!freshHide)
-                {
-                    // Both renderer paths: Canvas PlaceActor updates geometry
-                    // without revealing, then ApplyActor runs the exit; UITK's
-                    // PlaceActor is a no-op and ApplyActor owns both operations.
-                    _renderer?.PlaceActor(id, hidePl);
-                    _renderer?.ApplyActor(id, null, hidePl, null, null, null);
-                }
-                // Ушёл — окно свободно. КРОМЕ ТОЙ, ЧТО ЖИВЁТ МЕЖДУ ГЛАВАМИ:
-                // героиня уходит со сцены десять раз за сессию (её ход кончился,
-                // катсцена расчистила кадр), и каждый уход отдавал её слои кэшу.
-                // Показать снова значило качать и декодировать их заново — а
-                // пока они летят, Image рисует свой прямоугольник сплошняком:
-                // «появляется с промелькнувшим серым квадратом» (Илья, 27.08).
-                // Её арт держим постоянно: он всё равно понадобится через миг.
-                if (!string.Equals(id, KeepActorAlive, StringComparison.Ordinal))
-                    RepinSceneSprites("actor:" + id, null);
-                if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
-                _memory.SetWhere(id, hidePl);
-                // Скрытие НЕ НАЗНАЧАЕТ ПОЗУ: место фигуры осталось тем же, его
-                // поставил кто-то раньше. Записать сюда себя значило бы объявить
-                // гардероб (или катсцену) автором позы — и следующая авторская
-                // команда без position сочла бы фигуру свежей и увела её в слот
-                // по умолчанию.
-                _memory.RememberCommandOnly(id, cmd);
-                _hotspots.RemoveAll(h => h.id == id);
-                _draggables.Remove(id); // a hidden object must not be draggable
-                return;
-            }
+            // Уход — своя работа и свой файл мыслей: он не ждёт арта.
+            if (!BoolOr(cmd["show"], true)) { HideActor(id, cmd); return; }
 
             var art = ResolveActorArt(id, cmd);
             var urls = art.Urls;
