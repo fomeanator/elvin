@@ -20,6 +20,7 @@ export const OPS = [
   "flash",
   "tint",
   "blur",
+  "portal",
   "camera",
   "particles",
   "fx",
@@ -352,6 +353,14 @@ export const OP_FIELDS = {
     "off",
     "zoom",
     "dur"
+  ],
+  "portal": [
+    "open",
+    "x",
+    "y",
+    "radius",
+    "color",
+    "dur"
   ]
 };
 
@@ -362,11 +371,6 @@ export const ATTR_VALUES = {
     "white",
     "clear"
   ],
-  // Тот же словарь, что у UiColor.Named в движке: токены темы, имена
-  // движка и мнемоники настроения. Список подсказок был четвёртым перечнем
-  // одного понятия и знал только вторую его треть — токены темы автор в
-  // командах кадра писать не догадывался, хотя в дереве `ui` они работали.
-  // Сторож (tools/lvnconv/lvn) сверяет эти слова с движком.
   "color": [
     "bg",
     "surface",
