@@ -57,7 +57,7 @@ namespace Lvn.UI.Screens
             _text = UiColor.Named(_cfg.text_color, LvnTokens.Text);
             _dim = UiColor.Named(_cfg.dim_text_color, LvnTokens.TextDim);
             _accent = UiColor.Named(_cfg.accent_color, LvnTokens.Accent);
-            _radius = _cfg.corner_radius ?? 12f;
+            _radius = _cfg.corner_radius ?? LvnTokens.RadiusSm;
 
             Lvn.UI.LvnChrome.Scrim(this, Close, UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim));
 

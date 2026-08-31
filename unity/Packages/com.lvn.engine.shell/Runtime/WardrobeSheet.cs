@@ -170,7 +170,7 @@ namespace Lvn.UI.Screens
             _dim = UiColor.Named(_cfg.dim_text_color, LvnTokens.TextDim);
             _accent = UiColor.Named(_cfg.accent_color ?? _dlg?.speaker_color, LvnTokens.Accent);
             _accentText = UiColor.Named(_cfg.accent_text_color, LvnTokens.OnAccent);
-            _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? 12f;
+            _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? LvnTokens.RadiusSm;
 
             // balance pills FLOAT above the sheet (the genre-standard "wallet
             // over the wardrobe"), including zero balances for any currency the

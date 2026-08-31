@@ -365,6 +365,13 @@ func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
 	// (правка прошла компиляцию как «float вместо decimal»).
 	arithmetic := regexp.MustCompile(`\b(?:Math|Mathf)\.Round\(`)
 	numeric := regexp.MustCompile(`Round\(\s*[\w.]+\s*,\s*\d`)
+	// УМОЛЧАНИЕ ЗА `??` — то же число, просто с другой стороны. Страж его не
+	// видел, и мимо шкалы жили 18, 26 и два 12: `Round(b, cfg.x ?? 26f)` не
+	// подходит под правило выше — после запятой стоит не цифра, а имя поля.
+	// Ищем ИМЕННО скругление: вызов .Round( (арифметика к этому месту уже
+	// заменена на ARITH() выше) и поля вида *_radius. Мировой радиус портала и
+	// доля высоты HUD — не углы, и попадать сюда им незачем.
+	defaulted := regexp.MustCompile(`(?:\.Round\(|\w*_radius\b)[^;]*\?\?[^;]*\b\d+(?:\.\d+)?f?\b`)
 
 	count, scanned := 0, 0
 	for _, rel := range storageRoots {
@@ -378,6 +385,7 @@ func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
 			scanned++
 			text := arithmetic.ReplaceAllString(stripComments(string(mustRead(t, path))), "ARITH(")
 			count += len(numeric.FindAllString(text, -1))
+			count += len(defaulted.FindAllString(text, -1))
 			return nil
 		})
 	}

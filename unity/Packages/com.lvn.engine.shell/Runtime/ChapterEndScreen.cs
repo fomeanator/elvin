@@ -40,14 +40,14 @@ namespace Lvn.UI.Screens
             _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("chapter_end.title", _cfg.title, "End of chapter"));
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
             _title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
-            _title.style.fontSize = _cfg.title_size ?? 64f;
+            _title.style.fontSize = LvnTokens.TextOr(_cfg.title_size, LvnTokens.TextDisplay);
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             column.Add(_title);
 
             _chapter = new Label();
             _chapter.style.unityTextAlign = TextAnchor.MiddleCenter;
             _chapter.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
-            _chapter.style.fontSize = _cfg.subtitle_size ?? 34f;
+            _chapter.style.fontSize = LvnTokens.TextOr(_cfg.subtitle_size, LvnTokens.TextLg);
             _chapter.style.marginTop = LvnTokens.Space2;
             _chapter.style.whiteSpace = WhiteSpace.Normal;
             column.Add(_chapter);
@@ -75,7 +75,7 @@ namespace Lvn.UI.Screens
                 ? UiColor.Named(_cfg.button_color, LvnTokens.Accent)
                 : UiColor.Named(_cfg.button_secondary_color, LvnTokens.Faint);
             LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, _cfg.button_radius ?? 26f);
+            LvnChrome.Round(b, _cfg.button_radius ?? LvnTokens.RadiusLg);
             return b;
         }
 

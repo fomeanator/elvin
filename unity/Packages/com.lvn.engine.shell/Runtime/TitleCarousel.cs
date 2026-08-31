@@ -316,7 +316,7 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.flexShrink = 0;
             card.style.backgroundColor = UiColor.Named(_cfg.card_bg_color, LvnTokens.Surface);
-            float r = _cfg.card_radius ?? 18f;
+            float r = _cfg.card_radius ?? LvnTokens.Radius;
             LvnChrome.Round(card, r);
             card.style.overflow = Overflow.Hidden;
             card.style.justifyContent = Justify.FlexEnd;
@@ -335,7 +335,7 @@ namespace Lvn.UI.Screens
 
             var name = new Label(string.IsNullOrEmpty(t?.name) ? (t?.id ?? "") : t.name);
             name.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
-            name.style.fontSize = _cfg.title_size ?? 40f;
+            name.style.fontSize = LvnTokens.TextOr(_cfg.title_size, LvnTokens.TextLg);
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
             caption.Add(name);
@@ -344,7 +344,7 @@ namespace Lvn.UI.Screens
             {
                 var sub = new Label(t.subtitle);
                 sub.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
-                sub.style.fontSize = _cfg.subtitle_size ?? 22f;
+                sub.style.fontSize = LvnTokens.TextOr(_cfg.subtitle_size, LvnTokens.TextSm);
                 sub.style.marginTop = 4;
                 sub.style.whiteSpace = WhiteSpace.Normal;
                 caption.Add(sub);

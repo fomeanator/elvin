@@ -44,8 +44,10 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 
 	root := repoRoot(t)
 	scale := map[int]bool{16: true, 20: true, 24: true, 30: true, 38: true, 48: true, 64: true}
-	// Обе записи кегля: прямое число и через шов масштаба.
-	re := regexp.MustCompile(`style\.fontSize\s*=\s*(?:Lvn\.UI\.)?(?:LvnFonts\.Size\()?(\d+)`)
+	// ВСЕ записи кегля: прямое число, через шов масштаба и УМОЛЧАНИЕ ЗА `??`.
+	// Последнее было слепым пятном: `fontSize = cfg.x ?? 22f` страж не видел, и
+	// мимо шкалы жили 22, 34 и 40 — ровно шесть настраиваемых заголовков.
+	re := regexp.MustCompile(`style\.fontSize\s*=\s*(?:[^;]*\?\?\s*)?(?:Lvn\.UI\.)?(?:LvnFonts\.Size\()?(\d+)`)
 
 	offScale := 0
 	scanned := 0
