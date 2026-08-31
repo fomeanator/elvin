@@ -15,10 +15,11 @@ namespace Lvn.UI.Screens
     /// гардероба — пункт гардероба; оболочка ничего не знает про конкретный
     /// продукт и лишь читает объявленное.</para>
     ///
-    /// <para>И одно правило на все опы: пока экран открыт, история ДЕРЖИТСЯ
-    /// (<c>ctx.Hold</c>) и продолжается ровно там, где стояла. Оп, забывший
-    /// отпустить историю, вешает игру — поэтому отпускание живёт в тех же
-    /// нескольких строках, что и открытие.</para>
+    /// <para>И одно правило на все опы: пока экран открыт, история ДЕРЖИТСЯ и
+    /// продолжается ровно там, где стояла. Обряд из трёх частей — придержать,
+    /// сделать, отпустить что бы ни случилось — держит дом
+    /// (<see cref="Lvn.LvnOps.Awaiting"/>): оп, забывший третью часть, вешает
+    /// главу насмерть, и правило, которое надо помнить, помнят не все.</para>
     /// </summary>
     public sealed partial class NovelApp
     {
@@ -42,8 +43,8 @@ namespace Lvn.UI.Screens
                 StageMenu.AddMenuItem(LvnWords.Pick("menu.store", storeCfg.menu_label, "Store"), stage => LvnAsync.Fire(_shell.OpenPackShopAsync(), "OpenPackShop"));
             Lvn.LvnOps.Register("store_show", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(OpenStoreFromScriptAsync(ctx), "OpenStoreFromScript");
+                // ONE store everywhere (the KR rule).
+                Lvn.LvnOps.Awaiting(ctx, () => _shell.OpenPackShopAsync(), "OpenStoreFromScript");
             });
 
             // The wardrobe: a quick-menu entry when any character has one (or
@@ -58,10 +59,11 @@ namespace Lvn.UI.Screens
                     stage => LvnAsync.Fire(OpenWardrobeFromMenuAsync(stage), "OpenWardrobeFromMenu"));
             Lvn.LvnOps.Register("wardrobe_show", (cmd, ctx) =>
             {
-                ctx.Hold();
                 // Default: the in-story bottom sheet (the live actor is the
                 // mirror). mode=full opens the full-screen overlay instead.
-                LvnAsync.Fire(OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx), "OpenWardrobeFromScript");
+                Lvn.LvnOps.Awaiting(ctx,
+                    () => OpenWardrobeFromScriptAsync((string)cmd["char"], (string)cmd["mode"] == "full", ctx),
+                    "OpenWardrobeFromScript");
             });
 
             // ВХОД В АККАУНТ — ШАГОМ ИСТОРИИ. Гардероб и покупки живут на
@@ -71,8 +73,7 @@ namespace Lvn.UI.Screens
             // осмыслен. Уже вошедшего не переспрашиваем.
             Lvn.LvnOps.Register("auth_show", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(AuthFromScriptAsync(ctx), "AuthFromScript");
+                Lvn.LvnOps.Awaiting(ctx, () => AuthFromScriptAsync(ctx), "AuthFromScript");
             });
 
             // РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ — ТОЖЕ ШАГОМ ИСТОРИИ. Системный диалог
@@ -83,8 +84,7 @@ namespace Lvn.UI.Screens
             // продолжается в любом случае.
             Lvn.LvnOps.Register("push_ask", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(PushAskFromScriptAsync(ctx), "PushAskFromScript");
+                Lvn.LvnOps.Awaiting(ctx, () => PushAskFromScriptAsync(ctx), "PushAskFromScript");
             });
 
             // The app-level settings screen: `ext settings_show` for scripts, and
@@ -120,8 +120,7 @@ namespace Lvn.UI.Screens
             }
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>
             {
-                ctx.Hold();
-                LvnAsync.Fire(OpenSettingsFromScriptAsync(ctx), "OpenSettingsFromScript");
+                Lvn.LvnOps.Awaiting(ctx, () => _shell.OpenSettingsAsync(), "OpenSettingsFromScript");
             });
 
             // The long-press art view hides the stage's chrome; mirror it onto the
@@ -398,17 +397,8 @@ namespace Lvn.UI.Screens
                     Lvn.Content.LvnWords.Of("daily.failed", "The server did not confirm it — try again later."));
         }
 
-        private async Task OpenStoreFromScriptAsync(Lvn.ILvnOpContext ctx)
-        {
-            try { await _shell.OpenPackShopAsync(); } // ONE store everywhere (the KR rule)
-            finally { ctx.Resume(); }
-        }
-
-        private async Task OpenSettingsFromScriptAsync(Lvn.ILvnOpContext ctx)
-        {
-            try { await _shell.OpenSettingsAsync(); }
-            finally { ctx.Resume(); }
-        }
+        // Удержание истории — у дома (Lvn.LvnOps.Awaiting): здесь оставалось
+        // только то, что экран делает.
 
         // The in-story sheet as CONTENT of the stage's shared window: the
         // dialogue fades out, the same-skinned frame fades in with the
@@ -417,15 +407,11 @@ namespace Lvn.UI.Screens
 
         private async Task OpenWardrobeFromScriptAsync(string entity, bool full, Lvn.ILvnOpContext ctx)
         {
-            try
-            {
-                // ONE wardrobe, one shell: mode=full historically opened a
-                // separate fullscreen screen — it's gone; every path is the
-                // sheet over the stage canvas now.
-                await ShowStorySheetAsync(entity, onlySeen: false);
-                _ = full; // accepted and ignored — deprecated authoring flag
-            }
-            finally { ctx.Resume(); }
+            // ONE wardrobe, one shell: mode=full historically opened a
+            // separate fullscreen screen — it's gone; every path is the
+            // sheet over the stage canvas now.
+            await ShowStorySheetAsync(entity, onlySeen: false);
+            _ = full; // accepted and ignored — deprecated authoring flag
         }
 
         // The ALWAYS-OPEN wardrobe (quick-menu «Гардероб»): the exact story-
@@ -449,8 +435,7 @@ namespace Lvn.UI.Screens
                     }
                 }
             }
-            catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается */ }
-            finally { ctx.Resume(); }
+            catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается домом */ }
         }
 
         // Окно в Режиссёра: своей копии режима у приложения больше нет.
@@ -495,7 +480,6 @@ namespace Lvn.UI.Screens
 #endif
             }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] push_ask: {ex.Message}"); }
-            finally { ctx.Resume(); }
         }
     }
 }

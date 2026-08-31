@@ -109,11 +109,8 @@ namespace Lvn.UI.Screens
         {
             _assets = assets;
 
-            ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Bg; // full-screen opaque page
             LvnChrome.Backdrop(this);   // тема без атмосферы не делает ничего
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
 
             _scroll = Lvn.UI.LvnScroll.Vertical();
             _scroll.style.flexGrow = 1;
@@ -141,7 +138,7 @@ namespace Lvn.UI.Screens
         /// <summary>(Re)build the whole content column. Public so tests/hosts can
         /// render the page without driving <see cref="ShowAsync"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public override void Redress() { RedressChrome(); Rebuild(); }
+        protected override void RedressBody() => Rebuild();
 
         public void Rebuild()
         {

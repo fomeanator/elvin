@@ -71,10 +71,7 @@ namespace Lvn.UI.Screens
         {
             _assets = assets;
 
-            ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Scrim;
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
             // tap the scrim (not the sheet) to close
             RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
@@ -279,7 +276,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>(Re)build every dynamic section from the current selection.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public override void Redress() => Rebuild();
+        protected override void RedressBody() => Rebuild();
 
         public void Rebuild()
         {
