@@ -220,7 +220,10 @@ namespace Lvn.UI.Screens
             if (_manifest == null) return;
             try
             {
-                var bundle = ProgressVault.Collect(_manifest);
+                // Snapshot, а не Collect: съёмка обязана перенести вперёд
+                // новеллы, которых в ЭТОМ манифесте нет, — иначе запись
+                // сотрёт их из обеих копий, и восстанавливать будет неоткуда.
+                var bundle = ProgressVault.Snapshot(_manifest);
                 ProgressVault.WriteLocal(bundle);
                 if (_state != null) LvnAsync.Fire(_state.SaveVarsAsync(ProgressVault.Scope, bundle, default), "SaveVars");
             }
