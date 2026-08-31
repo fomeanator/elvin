@@ -37,6 +37,12 @@ namespace Lvn.Content
 
             // Гардероб. Пункт «снять» в полосе примерки — тот же выбор, что
             // надеть, поэтому авторское remove_text ложится на его ключ.
+            //
+            // Первые два ключа принадлежат ВИТРИНЕ СКИНОВ, у которой сегодня
+            // нет точки входа (`NovelShell.OpenSkinShopAsync` объявлен НЕ
+            // ПОДКЛЮЧЁННЫМ). Слова автора там не пропадут, но и не покажутся,
+            // пока витрину не приведут к настоящим данным. Убирать поля из-за
+            // этого не за что: автор написал их правильно.
             Put(map, "skinshop.equip", ui.wardrobe?.equip_text);
             Put(map, "skinshop.equipped", ui.wardrobe?.equipped_text);
             Put(map, "wardrobe.none", ui.wardrobe?.remove_text);

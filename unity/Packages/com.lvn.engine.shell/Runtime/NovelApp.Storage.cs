@@ -39,34 +39,8 @@ namespace Lvn.UI.Screens
                 var eff = DownloadPolicy.Effective(kind, url);
                 if (seen.Add(eff)) items.Add((eff, kind, size));
             }
-            var m = _manifest;
-            if (m?.titles == null) return items;
-            foreach (var t in m.titles)
-            {
-                if (t == null) continue;
-                // ОБА адреса, а не «правильный»: карусель показывает обложку,
-                // а хаб — арт карточки, и это РАЗНЫЕ файлы, когда автор задал
-                // card.image. Грели только обложку — карточка хаба ждала сеть
-                // после «всё скачано»; грей только карточку — то же случилось бы
-                // с каруселью. Повтор безвреден: одинаковые адреса отсеет seen.
-                Add(t.cover_url, "sprite", 0);
-                Add(t.CardArt(), "sprite", 0);
-                foreach (var ch in t.ChaptersOf())
-                {
-                    if (ch == null) continue;
-                    Add(ch.script_url, "script", 0);
-                    Add(ch.bg_url, "sprite", 0);
-                    if (ch.assets == null) continue;
-                    foreach (var kv in ch.assets)
-                        Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
-                }
-            }
-            foreach (var u in MenuArtUrls()) Add(u, "sprite", 0);
-            var ui = m.ui;
-            Add(ui?.browse?.music, "audio", 0);
-            Add(ui?.sounds?.click, "audio", 0);
-            Add(ui?.sounds?.choice, "audio", 0);
-            Add(ui?.sounds?.type, "audio", 0);
+            // ЧТО перечислять — у Описи (LvnParts), здесь только глагол.
+            foreach (var part in LvnParts.OfAll(_manifest)) Add(part.Url, part.Kind, part.Size);
             return items;
         }
 
@@ -117,11 +91,7 @@ namespace Lvn.UI.Screens
                         items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
                         bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                     }
-                    Add(ch.script_url, "script", 0);
-                    Add(ch.bg_url, "sprite", 0);
-                    if (ch.assets != null)
-                        foreach (var kv in ch.assets)
-                            Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                    foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
                     if (items.Count > 0)
                         perChapter.Add((ChapterEntryLabel(t, ch), bytes, items));
                 }
@@ -222,11 +192,7 @@ namespace Lvn.UI.Screens
                 items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
                 bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
-            Add(ch.script_url, "script", 0);
-            Add(ch.bg_url, "sprite", 0);
-            if (ch.assets != null)
-                foreach (var kv in ch.assets)
-                    Add(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+            foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
             _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items);
         }
 
@@ -251,11 +217,8 @@ namespace Lvn.UI.Screens
                         var eff = DownloadPolicy.Effective(kind, url);
                         if (!loader.IsAssetCached(eff)) ok = false;
                     }
-                    Check(ch.script_url, "script");
-                    Check(ch.bg_url, "sprite");
-                    if (ch.assets != null)
-                        foreach (var kv in ch.assets)
-                        { Check(kv.Key, kv.Value?.kind ?? "sprite"); if (!ok) break; }
+                    foreach (var part in LvnParts.OfChapter(ch))
+                    { Check(part.Url, part.Kind); if (!ok) break; }
                     res.Add((ChapterEntryLabel(t, ch), ok));
                 }
             }
@@ -275,31 +238,22 @@ namespace Lvn.UI.Screens
                 if (t == null) continue;
                 bool intro = string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase);
                 var current = LvnProgress.Current(t);
-                Add(live, t.cover_url);
-                Add(live, t.CardArt());
+                foreach (var part in LvnParts.OfTitleArt(t)) Add(live, part.Url);
                 foreach (var ch in t.ChaptersOf())
                 {
                     if (ch == null) continue;
                     // Вводная и глава, на которой стоит прогресс, — неприкосновенны:
                     // им играть следующими.
                     bool keep = intro || (current != null && ch.id == current.id);
-                    Add(live, ch.script_url);
-                    Add(live, ch.bg_url);
-                    if (keep) { Add(prot, ch.script_url); Add(prot, ch.bg_url); }
-                    if (ch.assets == null) continue;
-                    foreach (var url in ch.assets.Keys)
+                    foreach (var part in LvnParts.OfChapter(ch))
                     {
-                        Add(live, url);
-                        if (keep) Add(prot, url);
+                        Add(live, part.Url);
+                        if (keep) Add(prot, part.Url);
                     }
                 }
             }
             foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
-            var ui = m.ui;
-            Add(live, ui?.browse?.music);
-            Add(live, ui?.sounds?.click);
-            Add(live, ui?.sounds?.choice);
-            Add(live, ui?.sounds?.type);
+            foreach (var part in LvnParts.OfShellSound(m)) Add(live, part.Url);
             var (removed, freed) = await loader.SweepAssetCacheAsync(live, prot, DiskCacheQuotaBytes);
             if (removed > 0)
                 Debug.Log($"[content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
@@ -316,18 +270,7 @@ namespace Lvn.UI.Screens
         {
             if (_menuArt != null && ReferenceEquals(_menuArtFor, _manifest)) return _menuArt;
             var set = new HashSet<string>();
-            void Take(string u) { if (!string.IsNullOrEmpty(u)) set.Add(u); }
-            if (_manifest?.titles != null)
-                foreach (var t in _manifest.titles)
-                {
-                    if (t == null) continue;
-                    Take(t.cover_url);
-                    Take(t.card?.image); // detail-screen hero art
-                    foreach (var c in t.ChaptersOf()) Take(c.bg_url);
-                }
-            if (_manifest?.collections != null)
-                foreach (var col in _manifest.collections)
-                    Take(col?.card?.image);
+            foreach (var part in LvnParts.OfMenuArt(_manifest)) set.Add(part.Url);
             _menuArt = set;
             _menuArtFor = _manifest;
             return set;

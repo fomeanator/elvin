@@ -128,12 +128,7 @@ namespace Lvn.UI.Screens
             sheet.Add(top);
 
             var titleBlock = new VisualElement();
-            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.eyebrow", "PROFILE"));
-            eyebrow.style.color = LvnTokens.Gold;
-            eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
-            eyebrow.style.letterSpacing = 2.2f;
-            eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
-            titleBlock.Add(eyebrow);
+            titleBlock.Add(ScreenUi.Eyebrow(() => LvnWords.Of("profile.eyebrow", "PROFILE")));
             var title = SectionTitle(() => LvnWords.Of("profile.title", "Profile"));
             titleBlock.Add(title);
             top.Add(titleBlock);

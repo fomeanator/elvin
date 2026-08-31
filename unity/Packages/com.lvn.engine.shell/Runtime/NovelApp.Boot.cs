@@ -319,11 +319,8 @@ namespace Lvn.UI.Screens
                             if (loader.IsAssetCached(eff)) return;
                             miss++; bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                         }
-                        Probe(ch.script_url, "script", 0);
-                        Probe(ch.bg_url, "sprite", 0);
-                        if (ch.assets != null)
-                            foreach (var kv in ch.assets)
-                                Probe(kv.Key, kv.Value?.kind ?? "sprite", kv.Value?.size ?? 0);
+                        foreach (var part in Lvn.Content.LvnParts.OfChapter(ch))
+                            Probe(part.Url, part.Kind, part.Size);
                         if (miss == 0) return null;
                         string label = LvnWords.Of("download.chapter", "Download chapter {n} · ≈{mb} MB")
                     .Replace("{n}", ch.number.ToString())

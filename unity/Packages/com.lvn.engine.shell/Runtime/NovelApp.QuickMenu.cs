@@ -221,7 +221,8 @@ namespace Lvn.UI.Screens
                 _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
                 _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
                 {
-                    if (_chapterPlaying || Stage == null || !_menuBgSet) return;
+                    if (_chapterPlaying || Stage == null
+                        || !Stage.ShowsBackdrop(_manifest?.ui?.browse?.canvas)) return;
                     Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
                 };
                 // Смена наряда в гардеробе не должна ронять фон (живой скрин:
@@ -243,7 +244,7 @@ namespace Lvn.UI.Screens
                 // такой же вызов — оба идемпотентны, поэтому дубль не ломался,
                 // но «кто объявляет режим» имело два ответа, а это ровно то,
                 // от чего роль Режиссёра и заводилась.
-                _shell.OnChapterSessionStart += () => { _menuBgSet = false; _menuMusic?.Pause(); HideMenuSceneActor(); };
+                _shell.OnChapterSessionStart += () => { _menuMusic?.Pause(); HideMenuSceneActor(); };
                 _shell.OnChapterSessionEnd += () =>
                 {
                     if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();

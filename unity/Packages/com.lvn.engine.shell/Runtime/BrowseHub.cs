@@ -196,10 +196,8 @@ namespace Lvn.UI.Screens
 
             var brand = new VisualElement();
             brand.style.marginTop = 2; brand.style.marginBottom = 20;
-            _hubEyebrow = new Label(HubEyebrow());
-            var eyebrow = _hubEyebrow;
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
-            eyebrow.style.letterSpacing = 4f; eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
+            var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
+            _hubEyebrow = eyebrow;
             eyebrow.style.marginBottom = 8;
             brand.Add(eyebrow);
             _hubTitle = Heading(LvnWords.Pick("browse.title", _cfg.title, ""), 58);
@@ -731,11 +729,11 @@ namespace Lvn.UI.Screens
             b.style.paddingLeft = 24; b.style.paddingRight = 24; b.style.paddingBottom = 24;
 
             bool res0 = resume;
-            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () =>
+            var eyebrow = ScreenUi.Eyebrow(() =>
                 (res0 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
-                      : LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured")).ToUpperInvariant());
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(24f); eyebrow.style.letterSpacing = 3f;
-            eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
+                      : LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured")).ToUpperInvariant(),
+                24f, _accent);
+            eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Name("title", t.id, t.name));
             title.style.color = _text; title.style.fontSize = Lvn.UI.LvnFonts.Size(57f); title.style.unityFontStyleAndWeight = FontStyle.Bold;
