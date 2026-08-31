@@ -170,8 +170,8 @@ namespace Lvn.UI
             el.style.alignItems = Align.Center;
             el.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Round(el, LvnTokens.RadiusSm);
-            el.style.paddingTop = 14;
-            el.style.paddingBottom = 14;
+            el.style.paddingTop = LvnTokens.Space2;
+            el.style.paddingBottom = LvnTokens.Space2;
             return el;
         }
 

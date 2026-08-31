@@ -68,7 +68,7 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.flexShrink = 0;
             row.style.flexDirection = FlexDirection.Column;
-            row.style.marginTop = 20;
+            row.style.marginTop = LvnTokens.Space3;
             return row;
         }
 
@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             var head = new VisualElement();
             head.style.flexShrink = 0;
             ScreenUi.Row(head, spread: true);
-            head.style.marginBottom = 10;
+            head.style.marginBottom = LvnTokens.Space2;
             return head;
         }
 

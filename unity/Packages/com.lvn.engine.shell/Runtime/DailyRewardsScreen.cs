@@ -106,10 +106,10 @@ namespace Lvn.UI.Screens
             card.style.backgroundColor = LvnTokens.PanelBg;
             LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Border(card, LvnTokens.Border, 1f);
-            card.style.paddingTop = 26;
+            card.style.paddingTop = LvnTokens.Space4;
             card.style.paddingBottom = 22;
-            card.style.paddingLeft = 24;
-            card.style.paddingRight = 24;
+            card.style.paddingLeft = LvnTokens.Space4;
+            card.style.paddingRight = LvnTokens.Space4;
             Add(card);
             AdoptSheet(card); // единый враппер попапа: стекло, окантовка, подъезд
 
@@ -118,7 +118,7 @@ namespace Lvn.UI.Screens
             header.style.flexDirection = FlexDirection.Row;
             header.style.alignItems = Align.FlexStart;
             header.style.justifyContent = Justify.SpaceBetween;
-            header.style.marginBottom = 20;
+            header.style.marginBottom = LvnTokens.Space3;
             card.Add(header);
 
             var titleCol = new VisualElement();
@@ -136,7 +136,7 @@ namespace Lvn.UI.Screens
 
             var close = new Button(Close) { text = "" };
             LvnStyler.IconSlot(close, 44f);
-            close.style.marginLeft = 12;
+            close.style.marginLeft = LvnTokens.Space2;
             header.Add(close);
 
             // ── The 7-day grid (wraps: 4 + 3) ──────────────────────────────────
@@ -155,8 +155,8 @@ namespace Lvn.UI.Screens
             _claim.style.fontSize = LvnTokens.TextBase;
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             _claim.style.marginTop = 22;
-            _claim.style.paddingTop = 16;
-            _claim.style.paddingBottom = 16;
+            _claim.style.paddingTop = LvnTokens.Space3;
+            _claim.style.paddingBottom = LvnTokens.Space3;
             LvnStyler.Primary(_claim, LvnTokens.RadiusSm);
             card.Add(_claim);
 
@@ -207,16 +207,16 @@ namespace Lvn.UI.Screens
             var cell = new VisualElement();
             cell.style.width = premium ? 172 : 148;
             cell.style.height = state == State.Today ? 176 : 160;
-            cell.style.marginLeft = 6;
-            cell.style.marginRight = 6;
-            cell.style.marginTop = 6;
-            cell.style.marginBottom = 6;
+            cell.style.marginLeft = LvnTokens.Space1;
+            cell.style.marginRight = LvnTokens.Space1;
+            cell.style.marginTop = LvnTokens.Space1;
+            cell.style.marginBottom = LvnTokens.Space1;
             cell.style.alignItems = Align.Center;
             cell.style.justifyContent = Justify.Center;
-            cell.style.paddingTop = 12;
-            cell.style.paddingBottom = 12;
-            cell.style.paddingLeft = 10;
-            cell.style.paddingRight = 10;
+            cell.style.paddingTop = LvnTokens.Space2;
+            cell.style.paddingBottom = LvnTokens.Space2;
+            cell.style.paddingLeft = LvnTokens.Space2;
+            cell.style.paddingRight = LvnTokens.Space2;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
 
             // Fills & borders per state.
@@ -254,7 +254,7 @@ namespace Lvn.UI.Screens
             // то, что нужный символ найдётся в шрифте телефона.
             var labelRow = ScreenUi.Row();
             labelRow.style.justifyContent = Justify.Center;
-            labelRow.style.marginBottom = 8;
+            labelRow.style.marginBottom = LvnTokens.Space1;
             var label = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.day", "Day {0}", day));
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
             label.style.fontSize = LvnTokens.TextXs;
@@ -280,7 +280,7 @@ namespace Lvn.UI.Screens
             amount.style.color = reward.Gold ? LvnTokens.Gold : LvnTokens.Text;
             amount.style.fontSize = premium ? 26 : 24;
             amount.style.unityFontStyleAndWeight = FontStyle.Bold;
-            amount.style.marginTop = 6;
+            amount.style.marginTop = LvnTokens.Space1;
             cell.Add(amount);
 
             // CLAIMED tick badge, TODAY "сегодня" pill.
@@ -301,8 +301,8 @@ namespace Lvn.UI.Screens
                 badge.style.fontSize = LvnTokens.TextXs;
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
-                badge.style.paddingLeft = 8;
-                badge.style.paddingRight = 8;
+                badge.style.paddingLeft = LvnTokens.Space1;
+                badge.style.paddingRight = LvnTokens.Space1;
                 badge.style.paddingTop = 2;
                 badge.style.paddingBottom = 2;
                 LvnChrome.Round(badge, LvnTokens.RadiusXs);

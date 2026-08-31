@@ -68,8 +68,8 @@ namespace Lvn.UI
                 var b = new Button { text = label != null ? label(value) : value?.ToString() ?? "" };
                 // Отступ СПРАВА, а не слева: при переносе левый отступ первой
                 // кнопки строки сдвигал бы её от края, и ряд выглядел бы кривым.
-                b.style.marginRight = 8;
-                b.style.marginBottom = 8;   // перенос без него слипается со следующей строкой
+                b.style.marginRight = Lvn.UI.LvnTokens.Space1;
+                b.style.marginBottom = Lvn.UI.LvnTokens.Space1;   // перенос без него слипается со следующей строкой
                 b.style.flexShrink = 0;     // сжатая кнопка теряет подпись раньше, чем ряд — ширину
                 // ПОДПИСЬ ПЕРЕНОСИТСЯ. Крупный кегль и широкая гарнитура
                 // (пиксельная, плакатная) не влезают в одну строку, а кнопка

@@ -240,8 +240,8 @@ namespace Lvn.UI
                     var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}") { name = EffectName };
                     chip.style.color = _theme.ChoiceCostColor;
                     chip.style.fontSize = Mathf.RoundToInt(ChoiceSize * EffectSizeRatio);
-                    chip.style.marginLeft = 6;
-                    chip.style.marginRight = 6;
+                    chip.style.marginLeft = LvnTokens.Space1;
+                    chip.style.marginRight = LvnTokens.Space1;
                     chip.style.opacity = 0.85f;
                     LvnFonts.Apply(chip, _theme.Font);
                     effRow.Add(chip);

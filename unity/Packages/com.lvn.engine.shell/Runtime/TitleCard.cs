@@ -45,8 +45,8 @@ namespace Lvn.UI.Screens
             _card.style.top = Length.Percent(38f); // title block at 36-40% (visual standard)
             _card.style.alignItems = Align.Center;
             _card.style.justifyContent = Justify.Center;
-            _card.style.paddingTop = 40;
-            _card.style.paddingBottom = 40;
+            _card.style.paddingTop = LvnTokens.Space5;
+            _card.style.paddingBottom = LvnTokens.Space5;
             Add(_card);
 
             _chapter = new Label();
@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
             _subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
             _subtitle.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
             _subtitle.style.fontSize = _cfg.subtitle_size ?? 34f;
-            _subtitle.style.marginTop = 12;
+            _subtitle.style.marginTop = LvnTokens.Space2;
             _card.Add(_subtitle);
 
             LvnPicture.Skin(_fog, _cfg.fog_url, _assets);

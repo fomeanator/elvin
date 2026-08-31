@@ -179,7 +179,7 @@ namespace Lvn.UI.Screens
             _balances.style.position = Position.Absolute;
             _balances.style.left = 0;
             _balances.style.bottom = Length.Percent(100f);
-            _balances.style.marginBottom = 10;
+            _balances.style.marginBottom = LvnTokens.Space2;
             ScreenUi.Row(_balances);
             Add(_balances);
 
@@ -212,11 +212,11 @@ namespace Lvn.UI.Screens
             _peekLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
             var peekLabel = _peekLabel;
             peekLabel.style.fontSize = LvnTokens.TextXs;
-            peekLabel.style.marginLeft = 8;
+            peekLabel.style.marginLeft = LvnTokens.Space1;
             peekLabel.style.color = LvnTokens.Text;
             peek.Add(peekLabel);
-            peek.style.paddingLeft = 14; peek.style.paddingRight = 14;
-            peek.style.paddingTop = 6; peek.style.paddingBottom = 6;
+            peek.style.paddingLeft = LvnTokens.Space2; peek.style.paddingRight = LvnTokens.Space2;
+            peek.style.paddingTop = LvnTokens.Space1; peek.style.paddingBottom = LvnTokens.Space1;
             SkinButton(peek, false);
 
             // Character pills — ONLY the always-open wardrobe shows them, and
@@ -306,7 +306,7 @@ namespace Lvn.UI.Screens
             // углу), имя на серой подложке снизу. Тап = примерка; лента и
             // карусель ниже — два руля одного состояния (_index).
             _strip = Lvn.UI.LvnScroll.Horizontal();
-            _strip.style.marginTop = 12;
+            _strip.style.marginTop = LvnTokens.Space2;
             _strip.contentContainer.style.flexDirection = FlexDirection.Row;
             Add(_strip);
 
@@ -317,13 +317,13 @@ namespace Lvn.UI.Screens
             _subRow = new VisualElement();
             ScreenUi.Row(_subRow);
             _subRow.style.justifyContent = Justify.Center;
-            _subRow.style.marginTop = 10;
+            _subRow.style.marginTop = LvnTokens.Space2;
             _subRow.style.display = DisplayStyle.None;
             Add(_subRow);
 
             // ◀ item name ▶
             var carousel = ScreenUi.Row();
-            carousel.style.marginTop = 12;
+            carousel.style.marginTop = LvnTokens.Space2;
             Add(carousel);
 
             var prev = new Button(() => Step(-1)) { text = "" };
@@ -337,8 +337,8 @@ namespace Lvn.UI.Screens
             {
                 b.style.alignItems = Align.Center;
                 b.style.justifyContent = Justify.Center;
-                b.style.paddingLeft = 16; b.style.paddingRight = 16;
-                b.style.paddingTop = 10; b.style.paddingBottom = 10;
+                b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
+                b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
                 SkinButton(b, false);
             }
             carousel.Add(prev);
@@ -349,8 +349,8 @@ namespace Lvn.UI.Screens
             _itemName.style.fontSize = LvnTokens.TextBase;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
             _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            _itemName.style.marginLeft = 10; _itemName.style.marginRight = 10;
-            _itemName.style.paddingTop = 10; _itemName.style.paddingBottom = 10;
+            _itemName.style.marginLeft = LvnTokens.Space2; _itemName.style.marginRight = LvnTokens.Space2;
+            _itemName.style.paddingTop = LvnTokens.Space2; _itemName.style.paddingBottom = LvnTokens.Space2;
             LvnChrome.Round(_itemName, _radius);
             carousel.Add(_itemName);
             carousel.Add(next);
@@ -361,7 +361,7 @@ namespace Lvn.UI.Screens
             // выйти, ни сохранится ли надетое.
             var actions = new VisualElement();
             actions.style.flexDirection = FlexDirection.Row;
-            actions.style.marginTop = 12;
+            actions.style.marginTop = LvnTokens.Space2;
             Add(actions);
 
             _cancel = Lvn.UI.LvnRedress.Bind(new Button(Cancel),
@@ -369,9 +369,9 @@ namespace Lvn.UI.Screens
             _cancel.style.fontSize = LvnTokens.TextBase;
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;
-            _cancel.style.marginRight = 10;
-            _cancel.style.paddingTop = 14;
-            _cancel.style.paddingBottom = 14;
+            _cancel.style.marginRight = LvnTokens.Space2;
+            _cancel.style.paddingTop = LvnTokens.Space2;
+            _cancel.style.paddingBottom = LvnTokens.Space2;
             SkinButton(_cancel, false);
             actions.Add(_cancel);
 
@@ -379,8 +379,8 @@ namespace Lvn.UI.Screens
             _confirm.style.fontSize = LvnTokens.TextBase;
             _confirm.style.flexGrow = 1;
             _confirm.style.flexBasis = 0;
-            _confirm.style.paddingTop = 14;
-            _confirm.style.paddingBottom = 14;
+            _confirm.style.paddingTop = LvnTokens.Space2;
+            _confirm.style.paddingBottom = LvnTokens.Space2;
             SkinButton(_confirm, true);
             // Цена стоит НА кнопке, поэтому подпись у кнопки составная: слово,
             // число и значок валюты. Собственный text у Button остаётся пустым —
@@ -523,8 +523,8 @@ namespace Lvn.UI.Screens
                 var b = new Button(() => SelectTab(axis)) { text = "" };
                 b.style.height = 56;
                 ScreenUi.Row(b);
-                b.style.marginLeft = 6; b.style.marginRight = 6;
-                b.style.paddingLeft = 18; b.style.paddingRight = 20;
+                b.style.marginLeft = LvnTokens.Space1; b.style.marginRight = LvnTokens.Space1;
+                b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
                 LvnChrome.Round(b, LvnTokens.RadiusLg);
                 Smooth(b, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
@@ -534,7 +534,7 @@ namespace Lvn.UI.Screens
                     var img = new VisualElement { pickingMode = PickingMode.Ignore };
                     img.name = "ax-art";
                     img.style.width = 30; img.style.height = 30;
-                    img.style.marginRight = 10;
+                    img.style.marginRight = LvnTokens.Space2;
                     LvnPicture.Photo(img, slot.icon, _assets, cover: false);
                     b.Add(img);
                 }
@@ -545,10 +545,10 @@ namespace Lvn.UI.Screens
                     // display (вектор не перекрашивается на месте).
                     var off = LvnIcons.Make(icon, 24f, _text);
                     off.name = "ax-ic-off"; off.pickingMode = PickingMode.Ignore;
-                    off.style.marginRight = 10;
+                    off.style.marginRight = LvnTokens.Space2;
                     var on = LvnIcons.Make(icon, 24f, _accentText);
                     on.name = "ax-ic-on"; on.pickingMode = PickingMode.Ignore;
-                    on.style.marginRight = 10;
+                    on.style.marginRight = LvnTokens.Space2;
                     on.style.display = DisplayStyle.None;
                     b.Add(off); b.Add(on);
                 }
@@ -573,18 +573,18 @@ namespace Lvn.UI.Screens
                 var all = new Button(() => SelectTab(AllTab)) { text = "" };
                 all.style.height = 56;
                 ScreenUi.Row(all);
-                all.style.marginLeft = 6; all.style.marginRight = 6;
-                all.style.paddingLeft = 18; all.style.paddingRight = 20;
+                all.style.marginLeft = LvnTokens.Space1; all.style.marginRight = LvnTokens.Space1;
+                all.style.paddingLeft = LvnTokens.Space3; all.style.paddingRight = LvnTokens.Space3;
                 LvnChrome.Round(all, LvnTokens.RadiusLg);
                 Smooth(all, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
                 all.userData = AllTab;
                 var offA = LvnIcons.Make(LvnIcon.Star, 24f, _text);
                 offA.name = "ax-ic-off"; offA.pickingMode = PickingMode.Ignore;
-                offA.style.marginRight = 10;
+                offA.style.marginRight = LvnTokens.Space2;
                 var onA = LvnIcons.Make(LvnIcon.Star, 24f, _accentText);
                 onA.name = "ax-ic-on"; onA.pickingMode = PickingMode.Ignore;
-                onA.style.marginRight = 10;
+                onA.style.marginRight = LvnTokens.Space2;
                 onA.style.display = DisplayStyle.None;
                 all.Add(offA); all.Add(onA);
                 var lblA = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("wardrobe.mine", "Mine"));

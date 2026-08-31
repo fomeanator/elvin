@@ -140,9 +140,9 @@ namespace Lvn.UI.Screens
                 Lvn.UI.LvnRedress.Bind(chip, () => EmotionLabel(value));
                 chip.name = "emo-" + v;
                 chip.style.height = 44;
-                chip.style.marginBottom = 8;
+                chip.style.marginBottom = LvnTokens.Space1;
                 chip.style.flexShrink = 0;
-                chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
+                chip.style.paddingLeft = LvnTokens.Space3; chip.style.paddingRight = LvnTokens.Space3;
                 chip.style.fontSize = LvnTokens.TextXs;
                 LvnChrome.Round(chip, LvnTokens.RadiusLg);
                 Smooth(chip, LvnMotion.Normal, "background-color", "color");
@@ -357,7 +357,7 @@ namespace Lvn.UI.Screens
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
             badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
-            badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
+            badge.style.paddingLeft = LvnTokens.Space1; badge.style.paddingRight = LvnTokens.Space1;
             badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
             LvnChrome.Round(badge, LvnTokens.RadiusSm);
             return badge;
@@ -377,7 +377,7 @@ namespace Lvn.UI.Screens
             // вовсе (живой репорт 01.09). По имени видно, что это за вещь.
             card.name = "card-" + axis + "/" + item.value;
             card.style.width = 150; card.style.height = 208;
-            card.style.marginRight = 10;
+            card.style.marginRight = LvnTokens.Space2;
             card.style.flexShrink = 0;
             // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
             // арт скинов тёмный, и светлый задник держит его силуэт.
@@ -428,8 +428,8 @@ namespace Lvn.UI.Screens
             plate.style.position = Position.Absolute;
             plate.style.left = 0; plate.style.right = 0; plate.style.bottom = 0;
             plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
-            plate.style.paddingTop = 6; plate.style.paddingBottom = 8;
-            plate.style.paddingLeft = 6; plate.style.paddingRight = 6;
+            plate.style.paddingTop = LvnTokens.Space1; plate.style.paddingBottom = LvnTokens.Space1;
+            plate.style.paddingLeft = LvnTokens.Space1; plate.style.paddingRight = LvnTokens.Space1;
             card.Add(plate);
 
             var name = Lvn.UI.LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },

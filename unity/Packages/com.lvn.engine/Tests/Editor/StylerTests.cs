@@ -246,9 +246,13 @@ namespace Lvn.Tests
 
             Assert.AreEqual(0f, строка.style.flexShrink.value, 1e-4f,
                 "строку разрешено сжимать — длинный список схлопнет её в полоску");
-            Assert.AreEqual(14f, строка.style.paddingTop.value.value, 1e-4f,
+            // Воздух берётся СТУПЕНЬЮ ТЕМЫ, а не числом: до 01.09 здесь стояло
+            // 14 — на два пикселя мимо ступени, как ещё в семидесяти местах.
+            // Проверяем именно ступень, чтобы смена шага в теме не роняла тест
+            // ложно, но исчезновение воздуха роняло по-прежнему.
+            Assert.AreEqual(LvnTokens.Space2, строка.style.paddingTop.value.value, 1e-4f,
                 "у строки пропал вертикальный воздух — список читается как сплошная стена");
-            Assert.AreEqual(14f, строка.style.paddingBottom.value.value, 1e-4f,
+            Assert.AreEqual(LvnTokens.Space2, строка.style.paddingBottom.value.value, 1e-4f,
                 "воздух снизу разошёлся с воздухом сверху — строка стала кривой");
         }
 

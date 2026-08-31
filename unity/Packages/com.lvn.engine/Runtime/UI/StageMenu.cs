@@ -69,8 +69,8 @@ namespace Lvn.UI
                 else LvnPrefs.AutoAdvance = false;
             });
             _modeBadge.style.height = 44;
-            _modeBadge.style.marginRight = 8;
-            _modeBadge.style.paddingLeft = 12; _modeBadge.style.paddingRight = 12;
+            _modeBadge.style.marginRight = LvnTokens.Space1;
+            _modeBadge.style.paddingLeft = LvnTokens.Space2; _modeBadge.style.paddingRight = LvnTokens.Space2;
             _modeBadge.style.fontSize = LvnTokens.TextXs;
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
@@ -113,7 +113,7 @@ namespace Lvn.UI
         {
             var b = new Button(onClick) { text = glyph };
             b.style.width = 44; b.style.height = 44;
-            b.style.marginLeft = 8;
+            b.style.marginLeft = LvnTokens.Space1;
             b.style.fontSize = LvnTokens.TextSm;
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = _theme.MenuFabColor;
@@ -242,7 +242,7 @@ namespace Lvn.UI
             _pane = SaveFailedNotice;
             var p = Panel(L("save", "Save"));
             var msg = Text(L("save_failed", "Could not save — storage refused the write."), 26, FontStyle.Normal);
-            msg.style.marginBottom = 12;
+            msg.style.marginBottom = LvnTokens.Space2;
             p.Add(msg);
             p.Add(Item(L("close", "Close"), Close));
         }
@@ -254,15 +254,15 @@ namespace Lvn.UI
             var p = LvnChrome.Sheet(new VisualElement());
             p.style.top = Length.Percent(12); p.style.bottom = Length.Percent(12);
             p.style.backgroundColor = _theme.MenuBgColor;
-            p.style.paddingLeft = 18; p.style.paddingRight = 18;
-            p.style.paddingTop = 14; p.style.paddingBottom = 14;
+            p.style.paddingLeft = LvnTokens.Space3; p.style.paddingRight = LvnTokens.Space3;
+            p.style.paddingTop = LvnTokens.Space2; p.style.paddingBottom = LvnTokens.Space2;
             LvnChrome.Round(p, _theme.MenuCornerRadius + 2f);
             _scrim.Add(p);
 
             var head = new VisualElement();
             head.style.flexDirection = FlexDirection.Row;
             head.style.justifyContent = Justify.SpaceBetween;
-            head.style.marginBottom = 10;
+            head.style.marginBottom = LvnTokens.Space2;
             var t = Text(title, 34, FontStyle.Bold);
             head.Add(t);
             var back = new Button(ShowMain) { text = "‹" };
@@ -282,7 +282,7 @@ namespace Lvn.UI
             sheet.style.top = Length.Percent(10);
             sheet.style.width = 310;
             sheet.style.backgroundColor = _theme.MenuBgColor;
-            sheet.style.paddingTop = 8; sheet.style.paddingBottom = 8;
+            sheet.style.paddingTop = LvnTokens.Space1; sheet.style.paddingBottom = LvnTokens.Space1;
             LvnChrome.Round(sheet, _theme.MenuCornerRadius);
             sheet.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(sheet);
@@ -376,7 +376,7 @@ namespace Lvn.UI
             b.style.color = _theme.MenuTextColor;
             b.style.backgroundColor = Color.clear;
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
-            b.style.paddingLeft = 20;
+            b.style.paddingLeft = LvnTokens.Space3;
             LvnChrome.ClearBorder(b);
             LvnFonts.Apply(b, _theme.Font);
             return b;

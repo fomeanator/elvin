@@ -19,9 +19,9 @@ namespace Lvn.UI.Screens
         {
             var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row, LvnTokens.SurfaceSoft);
-            row.style.marginTop = 6; row.style.marginBottom = 10;
-            row.style.paddingTop = 14; row.style.paddingBottom = 14;
-            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+            row.style.marginTop = LvnTokens.Space1; row.style.marginBottom = LvnTokens.Space2;
+            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3; row.style.paddingRight = LvnTokens.Space3;
             var col = new VisualElement();
             col.style.flexGrow = 1;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));
@@ -49,14 +49,14 @@ namespace Lvn.UI.Screens
         {
             var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row);
-            row.style.marginBottom = 10;
-            row.style.paddingTop = 14; row.style.paddingBottom = 14;
-            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+            row.style.marginBottom = LvnTokens.Space2;
+            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3; row.style.paddingRight = LvnTokens.Space3;
 
             var col = new VisualElement();
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
-            col.style.marginRight = 10;
+            col.style.marginRight = LvnTokens.Space2;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete", "Delete account"));
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = LvnTokens.TextSm;
@@ -79,8 +79,8 @@ namespace Lvn.UI.Screens
                 ? LvnWords.Of("account.delete_sure", "Really delete?")
                 : LvnWords.Of("account.delete_do", "Delete"));
             btn.style.fontSize = LvnTokens.TextXs;
-            btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
-            btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
+            btn.style.paddingTop = LvnTokens.Space2; btn.style.paddingBottom = LvnTokens.Space2;
+            btn.style.paddingLeft = LvnTokens.Space3; btn.style.paddingRight = LvnTokens.Space3;
             LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
 
             btn.clicked += () =>
@@ -128,8 +128,8 @@ namespace Lvn.UI.Screens
         private VisualElement BuildFooter()
         {
             var footer = ScreenUi.Row(spread: true);
-            footer.style.marginTop = 8;
-            footer.style.paddingTop = 12;
+            footer.style.marginTop = LvnTokens.Space1;
+            footer.style.paddingTop = LvnTokens.Space2;
             footer.style.borderTopWidth = 1;
             footer.style.borderTopColor = LvnTokens.Border;
 
@@ -142,10 +142,10 @@ namespace Lvn.UI.Screens
 
             var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("settings.copy", "Copy"));
             copy.style.fontSize = LvnTokens.TextXs;
-            copy.style.paddingTop = 10;
-            copy.style.paddingBottom = 10;
-            copy.style.paddingLeft = 16;
-            copy.style.paddingRight = 16;
+            copy.style.paddingTop = LvnTokens.Space2;
+            copy.style.paddingBottom = LvnTokens.Space2;
+            copy.style.paddingLeft = LvnTokens.Space3;
+            copy.style.paddingRight = LvnTokens.Space3;
             LvnStyler.Primary(copy, LvnTokens.RadiusSm);
             copy.clicked += () =>
             {

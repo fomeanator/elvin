@@ -280,8 +280,8 @@ namespace Lvn.UI.Screens
             card.Add(cover);
             LvnPicture.Photo(cover, t?.cover_url, _assets);
             var caption = new VisualElement();
-            caption.style.paddingLeft = 18; caption.style.paddingRight = 18;
-            caption.style.paddingTop = 14; caption.style.paddingBottom = 18;
+            caption.style.paddingLeft = LvnTokens.Space3; caption.style.paddingRight = LvnTokens.Space3;
+            caption.style.paddingTop = LvnTokens.Space2; caption.style.paddingBottom = LvnTokens.Space3;
             caption.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
             caption.pickingMode = PickingMode.Ignore;
             card.Add(caption);
@@ -353,8 +353,8 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(10f); panel.style.bottom = Length.Percent(10f);
             panel.style.backgroundColor = UiColor.Named(_cfg.card_bg_color, LvnTokens.Surface);
             LvnChrome.Round(panel, LvnTokens.Radius);
-            panel.style.paddingLeft = 16; panel.style.paddingRight = 16;
-            panel.style.paddingTop = 14; panel.style.paddingBottom = 14;
+            panel.style.paddingLeft = LvnTokens.Space3; panel.style.paddingRight = LvnTokens.Space3;
+            panel.style.paddingTop = LvnTokens.Space2; panel.style.paddingBottom = LvnTokens.Space2;
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
@@ -362,7 +362,7 @@ namespace Lvn.UI.Screens
             head.style.fontSize = LvnTokens.TextSm;
             head.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
-            head.style.marginBottom = 10;
+            head.style.marginBottom = LvnTokens.Space2;
             panel.Add(head);
 
             var scroll = Lvn.UI.LvnScroll.Vertical();
@@ -392,8 +392,8 @@ namespace Lvn.UI.Screens
                     OnPlay?.Invoke(_index);
                 });
                 cont.style.height = 64;
-                cont.style.marginBottom = 12;
-                cont.style.paddingLeft = 14;
+                cont.style.marginBottom = LvnTokens.Space2;
+                cont.style.paddingLeft = LvnTokens.Space2;
                 cont.style.flexDirection = FlexDirection.Column;
                 cont.style.justifyContent = Justify.Center;
                 cont.style.alignItems = Align.FlexStart;
@@ -451,10 +451,10 @@ namespace Lvn.UI.Screens
                 })
                 { text = ChapterLabel(ch) };
                 row.style.height = 52;
-                row.style.marginBottom = 6;
+                row.style.marginBottom = LvnTokens.Space1;
                 row.style.fontSize = LvnTokens.TextXs;
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
-                row.style.paddingLeft = 14;
+                row.style.paddingLeft = LvnTokens.Space2;
                 row.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
                 var bg = _playBg;
                 row.style.backgroundColor = new Color(bg.r, bg.g, bg.b, unlocked ? bg.a : bg.a * 0.35f);

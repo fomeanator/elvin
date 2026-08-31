@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
             var val = new Label(shortId);
             val.style.color = _dim;
             val.style.fontSize = LvnTokens.TextSm;
-            val.style.marginRight = 10;
+            val.style.marginRight = LvnTokens.Space2;
             row.Add(val);
 
             var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Pick("settings.copy", _cfg.copy_text, "Copy"));
@@ -77,11 +77,11 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
-            row.style.marginTop = 8; row.style.marginBottom = 6;
+            row.style.marginTop = LvnTokens.Space1; row.style.marginBottom = LvnTokens.Space1;
             if (hasTerms) row.Add(LinkLabel(LvnWords.Pick("account.terms", _cfg.terms_text, "Terms of Use"), _cfg.terms_url));
             if (hasTerms && hasPrivacy)
             {
-                var dot = new Label("·"); dot.style.color = _dim; dot.style.marginLeft = 10; dot.style.marginRight = 10;
+                var dot = new Label("·"); dot.style.color = _dim; dot.style.marginLeft = LvnTokens.Space2; dot.style.marginRight = LvnTokens.Space2;
                 row.Add(dot);
             }
             if (hasPrivacy) row.Add(LinkLabel(LvnWords.Pick("account.privacy", _cfg.privacy_text, "Privacy Policy"), _cfg.privacy_url));
@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
-            row.style.marginTop = 12;
+            row.style.marginTop = LvnTokens.Space2;
             foreach (var s in _cfg.social)
             {
                 if (s == null || string.IsNullOrEmpty(s.url)) continue;
@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
                     lbl.style.fontSize = LvnTokens.TextSm;
                     el = lbl;
                 }
-                el.style.marginLeft = 10; el.style.marginRight = 10;
+                el.style.marginLeft = LvnTokens.Space2; el.style.marginRight = LvnTokens.Space2;
                 var url = s.url;
                 el.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
                 row.Add(el);
@@ -162,7 +162,7 @@ namespace Lvn.UI.Screens
             var val = new Label(text);
             val.style.color = _dim;
             val.style.fontSize = LvnTokens.TextSm;
-            val.style.marginRight = 10;
+            val.style.marginRight = LvnTokens.Space2;
             _accountRow.Add(val);
             if (showSignIn)
             {

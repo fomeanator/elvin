@@ -57,7 +57,7 @@ namespace Lvn.UI
             btn.style.minWidth = 150;
             btn.style.height = 48;
             btn.style.fontSize = LvnTokens.TextSm;
-            btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
+            btn.style.paddingLeft = LvnTokens.Space3; btn.style.paddingRight = LvnTokens.Space3;
             LvnStyler.Primary(btn, 14f);
             LvnFonts.Apply(btn, _theme.Font);
             btn.clicked += () =>
@@ -79,7 +79,7 @@ namespace Lvn.UI
         {
             var card = SettingCard();
             card.Add(Text(label, 24, FontStyle.Normal));
-            seg.style.marginTop = 8;
+            seg.style.marginTop = LvnTokens.Space1;
             card.Add(seg);
             return card;
         }
@@ -91,8 +91,8 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             b.style.fontSize = LvnTokens.TextSm;
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
-            b.style.paddingLeft = 14; b.style.paddingRight = 14;
-            b.style.paddingTop = 8; b.style.paddingBottom = 8;
+            b.style.paddingLeft = LvnTokens.Space2; b.style.paddingRight = LvnTokens.Space2;
+            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             b.style.backgroundColor = active
@@ -128,9 +128,9 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             card.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
-            card.style.paddingLeft = 16; card.style.paddingRight = 16;
-            card.style.paddingTop = 12; card.style.paddingBottom = 12;
-            card.style.marginBottom = 10;
+            card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
+            card.style.paddingTop = LvnTokens.Space2; card.style.paddingBottom = LvnTokens.Space2;
+            card.style.marginBottom = LvnTokens.Space2;
             return card;
         }
 

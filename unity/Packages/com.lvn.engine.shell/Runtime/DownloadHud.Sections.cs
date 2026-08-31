@@ -70,7 +70,7 @@ namespace Lvn.UI.Screens
                     var chBtn = new Button { text = offer.Value.label };
                     chBtn.style.height = 48;
                     chBtn.style.fontSize = LvnTokens.TextXs;
-                    chBtn.style.marginTop = 8;
+                    chBtn.style.marginTop = LvnTokens.Space1;
                     LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
                     var startCh = offer.Value.start;
                     chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
@@ -82,7 +82,7 @@ namespace Lvn.UI.Screens
                     + " " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
                 btn.style.height = 52;
                 btn.style.fontSize = LvnTokens.TextSm;
-                btn.style.marginTop = 8;
+                btn.style.marginTop = LvnTokens.Space1;
                 LvnStyler.Primary(btn, 14f);
                 btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
                 card.Add(btn);
@@ -97,9 +97,9 @@ namespace Lvn.UI.Screens
             card.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(card); // тонкий бордер токеном — карточка, не пятно
             LvnChrome.Round(card, LvnTokens.Radius);
-            card.style.paddingTop = 12; card.style.paddingBottom = 12;
-            card.style.paddingLeft = 14; card.style.paddingRight = 14;
-            card.style.marginBottom = 10;
+            card.style.paddingTop = LvnTokens.Space2; card.style.paddingBottom = LvnTokens.Space2;
+            card.style.paddingLeft = LvnTokens.Space2; card.style.paddingRight = LvnTokens.Space2;
+            card.style.marginBottom = LvnTokens.Space2;
             return card;
         }
 
@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
             var cell = new VisualElement();
             cell.pickingMode = PickingMode.Ignore;
             cell.style.width = Length.Percent(50f);
-            cell.style.marginBottom = 8;
+            cell.style.marginBottom = LvnTokens.Space1;
             var c = Lvn.UI.LvnRedress.Bind(new Label(), caption);
             c.pickingMode = PickingMode.Ignore;
             c.style.color = LvnTokens.TextDim;
@@ -190,7 +190,7 @@ namespace Lvn.UI.Screens
             var row = ScreenUi.Row();
             row.pickingMode = PickingMode.Ignore;
             ScreenUi.Row(row);
-            row.style.marginTop = 6;
+            row.style.marginTop = LvnTokens.Space1;
             var mark = new Label(cached ? "√" : "○");
             mark.pickingMode = PickingMode.Ignore;
             mark.style.color = cached ? LvnTokens.Accent : LvnTokens.TextDim;
@@ -208,14 +208,14 @@ namespace Lvn.UI.Screens
         private VisualElement QueueRow(DownloadCenter.Entry e)
         {
             var row = ScreenUi.Row(spread: true);
-            row.style.marginTop = 6;
+            row.style.marginTop = LvnTokens.Space1;
             if (e.Active)
             {
                 // Активная глава помечена акцентной кромкой слева — бордер
                 // работает как маркер состояния, в языке Полуночи.
                 row.style.borderLeftWidth = 3f;
                 row.style.borderLeftColor = LvnTokens.Accent;
-                row.style.paddingLeft = 8;
+                row.style.paddingLeft = LvnTokens.Space1;
             }
             var l = new Label((e.Active ? "▶ " : "") + e.Label
                 + (e.Bytes > 0 ? " · " + Lvn.Content.LvnBytes.Short(e.Bytes) : ""));
@@ -230,7 +230,7 @@ namespace Lvn.UI.Screens
             var x = new Label("×");
             x.style.color = LvnTokens.TextDim;
             x.style.fontSize = LvnTokens.TextXs;
-            x.style.paddingLeft = 10; x.style.paddingRight = 4;
+            x.style.paddingLeft = LvnTokens.Space2; x.style.paddingRight = 4;
             x.style.flexShrink = 0;
             var entry = e;
             x.RegisterCallback<ClickEvent>(ev =>

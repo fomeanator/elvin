@@ -37,10 +37,10 @@ namespace Lvn.UI.Screens
             {
                 var cont = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.continue", "Continue"));
                 cont.style.flexShrink = 0;
-                cont.style.marginTop = 14;
+                cont.style.marginTop = LvnTokens.Space2;
                 cont.style.fontSize = LvnTokens.TextBase;
-                cont.style.paddingTop = 18;
-                cont.style.paddingBottom = 18;
+                cont.style.paddingTop = LvnTokens.Space3;
+                cont.style.paddingBottom = LvnTokens.Space3;
                 cont.style.unityFontStyleAndWeight = FontStyle.Bold;
                 LvnStyler.Primary(cont, LvnTokens.RadiusSm);
                 section.Add(cont);
@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
                 var empty = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("saves.empty", "No saves yet — start reading."));
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = LvnTokens.TextXs;
-                empty.style.marginTop = 10;
+                empty.style.marginTop = LvnTokens.Space2;
                 empty.style.whiteSpace = WhiteSpace.Normal;
                 section.Add(empty);
             }
@@ -74,9 +74,9 @@ namespace Lvn.UI.Screens
         private VisualElement SaveRow(string slot, string where, System.Action onLoad)
         {
             var row = LvnStyler.ListRow(new VisualElement());
-            row.style.marginTop = 12;
-            row.style.paddingLeft = 18;
-            row.style.paddingRight = 14;
+            row.style.marginTop = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3;
+            row.style.paddingRight = LvnTokens.Space2;
 
             var col = new VisualElement();
             col.style.flexGrow = 1;
@@ -97,12 +97,12 @@ namespace Lvn.UI.Screens
             var load = Lvn.UI.LvnRedress.Bind(new Button(onLoad), () => LvnWords.Of("saves.load", "Load"));
             load.SetEnabled(onLoad != null);
             load.style.flexShrink = 0;
-            load.style.marginLeft = 12;
+            load.style.marginLeft = LvnTokens.Space2;
             load.style.fontSize = LvnTokens.TextSm;
-            load.style.paddingTop = 10;
-            load.style.paddingBottom = 10;
-            load.style.paddingLeft = 18;
-            load.style.paddingRight = 18;
+            load.style.paddingTop = LvnTokens.Space2;
+            load.style.paddingBottom = LvnTokens.Space2;
+            load.style.paddingLeft = LvnTokens.Space3;
+            load.style.paddingRight = LvnTokens.Space3;
             LvnStyler.Quiet(load, LvnTokens.RadiusSm);
             row.Add(load);
 
@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
             msg.style.color = LvnTokens.TextDim;
             msg.style.fontSize = LvnTokens.TextSm;
             msg.style.whiteSpace = WhiteSpace.Normal;
-            msg.style.marginBottom = 8;
+            msg.style.marginBottom = LvnTokens.Space1;
             panel.Add(msg);
 
             panel.Add(ModalButton(LvnWords.Of("restart.whole", "Restart everything"), primary: true,
@@ -206,8 +206,8 @@ namespace Lvn.UI.Screens
             panel.style.maxHeight = Length.Percent(80f);
             panel.style.backgroundColor = LvnTokens.PanelBg;
             LvnChrome.Round(panel, LvnTokens.Radius);
-            panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
-            panel.style.paddingLeft = 20; panel.style.paddingRight = 20;
+            panel.style.paddingTop = 22; panel.style.paddingBottom = LvnTokens.Space3;
+            panel.style.paddingLeft = LvnTokens.Space3; panel.style.paddingRight = LvnTokens.Space3;
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             scrim.Add(panel);
 
@@ -222,9 +222,9 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.marginTop = 10;
-            b.style.paddingTop = 14; b.style.paddingBottom = 14;
-            b.style.paddingLeft = 16; b.style.paddingRight = 16;
+            b.style.marginTop = LvnTokens.Space2;
+            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
+            b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
             b.style.whiteSpace = WhiteSpace.Normal;
             LvnStyler.Choice(b, primary, LvnTokens.RadiusSm);
             return b;

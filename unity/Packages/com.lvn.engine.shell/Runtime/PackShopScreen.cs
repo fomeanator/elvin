@@ -89,10 +89,10 @@ namespace Lvn.UI.Screens
                 sheet.style.left = 16; sheet.style.right = 16;
                 sheet.style.top = Length.Percent(12f);
                 sheet.style.bottom = Length.Percent(5f);
-                sheet.style.paddingTop = 18;
-                sheet.style.paddingBottom = 14;
-                sheet.style.paddingLeft = 20;
-                sheet.style.paddingRight = 20;
+                sheet.style.paddingTop = LvnTokens.Space3;
+                sheet.style.paddingBottom = LvnTokens.Space2;
+                sheet.style.paddingLeft = LvnTokens.Space3;
+                sheet.style.paddingRight = LvnTokens.Space3;
                 AdoptSheet(sheet); // общий вид листа: фон, окантовка, подъезд
             }
             else
@@ -107,7 +107,7 @@ namespace Lvn.UI.Screens
 
             // ── Top bar: back ‹ · title · balances ────────────────────────────
             var top = ScreenUi.Row();
-            top.style.marginBottom = 16;
+            top.style.marginBottom = LvnTokens.Space3;
             sheet.Add(top);
 
             var titleBlock = new VisualElement();
@@ -136,7 +136,7 @@ namespace Lvn.UI.Screens
             _tabsRow = new VisualElement();
             _tabsRow.style.flexDirection = FlexDirection.Row;
             _tabsRow.style.flexWrap = Wrap.Wrap;
-            _tabsRow.style.marginBottom = 14;
+            _tabsRow.style.marginBottom = LvnTokens.Space2;
             sheet.Add(_tabsRow);
             BuildTabs();
 
@@ -271,7 +271,7 @@ namespace Lvn.UI.Screens
                 var empty = new Label(word);
                 empty.style.color = LvnTokens.TextDim;
                 empty.style.fontSize = LvnTokens.TextSm;
-                empty.style.marginTop = 40;
+                empty.style.marginTop = LvnTokens.Space5;
                 empty.style.unityTextAlign = TextAnchor.MiddleCenter;
                 _list.Add(empty);
                 return;
@@ -312,9 +312,9 @@ namespace Lvn.UI.Screens
             if (st == null) return null;
 
             var card = new VisualElement();
-            card.style.marginBottom = 12;
-            card.style.paddingLeft = 18; card.style.paddingRight = 18;
-            card.style.paddingTop = 16; card.style.paddingBottom = 16;
+            card.style.marginBottom = LvnTokens.Space2;
+            card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
+            card.style.paddingTop = LvnTokens.Space3; card.style.paddingBottom = LvnTokens.Space3;
             LvnStyler.Card(card);
 
             // ЧИСЛО БЕЗ ВАЛЮТЫ НЕ ГОВОРИТ НИЧЕГО: «получите 5» — пять чего? В
@@ -330,11 +330,11 @@ namespace Lvn.UI.Screens
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = LvnTokens.TextXs;
             hint.style.whiteSpace = WhiteSpace.Normal;
-            hint.style.marginTop = 8;
+            hint.style.marginTop = LvnTokens.Space1;
             card.Add(hint);
 
             var btn = new Button();
-            btn.style.marginTop = 12;
+            btn.style.marginTop = LvnTokens.Space2;
             card.Add(btn);
 
             void Paint()
@@ -384,10 +384,10 @@ namespace Lvn.UI.Screens
                 var pill = new Button(() => { _tab = idx; Rebuild(); });
                 Lvn.UI.LvnRedress.Bind(pill, () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]) : string.Empty);
                 pill.style.fontSize = LvnTokens.TextSm;
-                pill.style.marginRight = 10;
-                pill.style.marginBottom = 8;
-                pill.style.paddingTop = 10; pill.style.paddingBottom = 10;
-                pill.style.paddingLeft = 20; pill.style.paddingRight = 20;
+                pill.style.marginRight = LvnTokens.Space2;
+                pill.style.marginBottom = LvnTokens.Space1;
+                pill.style.paddingTop = LvnTokens.Space2; pill.style.paddingBottom = LvnTokens.Space2;
+                pill.style.paddingLeft = LvnTokens.Space3; pill.style.paddingRight = LvnTokens.Space3;
                 LvnChrome.Round(pill, LvnTokens.Radius);
                 LvnChrome.ClearBorder(pill);
                 StyleTab(pill, i == _tab);
@@ -409,7 +409,7 @@ namespace Lvn.UI.Screens
             bool wide = pack.Best || pack.Grants != null; // герой и наборы — во всю ширину
             var card = new VisualElement();
             card.style.width = Length.Percent(wide ? 100f : 48.5f);
-            card.style.marginBottom = 14;
+            card.style.marginBottom = LvnTokens.Space2;
             LvnChrome.Card(card, pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface, LvnTokens.Radius);
             card.style.overflow = Overflow.Hidden;
             if (pack.Best)
@@ -460,10 +460,10 @@ namespace Lvn.UI.Screens
 
             // Текстовый этаж: количество/название, бонус и состав набора.
             var body = new VisualElement();
-            body.style.paddingTop = 10;
-            body.style.paddingBottom = 12;
-            body.style.paddingLeft = 12;
-            body.style.paddingRight = 12;
+            body.style.paddingTop = LvnTokens.Space2;
+            body.style.paddingBottom = LvnTokens.Space2;
+            body.style.paddingLeft = LvnTokens.Space2;
+            body.style.paddingRight = LvnTokens.Space2;
             body.style.alignItems = wide ? Align.FlexStart : Align.Center;
             card.Add(body);
 
@@ -492,15 +492,15 @@ namespace Lvn.UI.Screens
                 var chips = new VisualElement();
                 chips.style.flexDirection = FlexDirection.Row;
                 chips.style.flexWrap = Wrap.Wrap;
-                chips.style.marginTop = 8;
+                chips.style.marginTop = LvnTokens.Space1;
                 foreach (var kv in pack.Grants)
                 {
                     var chip = ScreenUi.Row();
                     chip.style.backgroundColor = LvnTokens.Faint;
                     LvnChrome.Round(chip, LvnTokens.RadiusSm);
                     chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
-                    chip.style.paddingLeft = 10; chip.style.paddingRight = 12;
-                    chip.style.marginRight = 8; chip.style.marginBottom = 6;
+                    chip.style.paddingLeft = LvnTokens.Space2; chip.style.paddingRight = LvnTokens.Space2;
+                    chip.style.marginRight = LvnTokens.Space1; chip.style.marginBottom = LvnTokens.Space1;
                     // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
                     // значок акцентным, сумма цветом текста, — и та же валюта
                     // в хабе и в гардеробе выглядела иначе. Заодно уходит
@@ -524,9 +524,9 @@ namespace Lvn.UI.Screens
 
             var buy = new Button { text = pack.Price };
             buy.style.fontSize = LvnTokens.TextSm;
-            buy.style.marginTop = 10;
+            buy.style.marginTop = LvnTokens.Space2;
             buy.style.alignSelf = Align.Stretch;
-            buy.style.paddingTop = 12; buy.style.paddingBottom = 12;
+            buy.style.paddingTop = LvnTokens.Space2; buy.style.paddingBottom = LvnTokens.Space2;
             buy.style.color = pack.Best ? LvnTokens.OnAccent : LvnTokens.Text;
             buy.style.backgroundColor = pack.Best
                 ? LvnTokens.Accent
@@ -554,7 +554,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
                 ribbon.style.paddingTop = 3; ribbon.style.paddingBottom = 3;
-                ribbon.style.paddingLeft = 10; ribbon.style.paddingRight = 10;
+                ribbon.style.paddingLeft = LvnTokens.Space2; ribbon.style.paddingRight = LvnTokens.Space2;
                 LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
                 card.Add(ribbon);
             }

@@ -64,7 +64,7 @@ namespace Lvn.UI.Screens
                     lbl.style.color = _dim;
                     lbl.style.fontSize = LvnTokens.TextSm;
                     lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
-                    lbl.style.marginRight = 10;
+                    lbl.style.marginRight = LvnTokens.Space2;
                     _subRow.Add(lbl);
                     int n = 0;
                     foreach (var it in items)

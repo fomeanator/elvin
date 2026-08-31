@@ -66,18 +66,18 @@ namespace Lvn.UI.Screens
             // tap the scrim (not the sheet) to close
 
             var sheet = Sheet();   // положение и вид — общие; поля свои
-            sheet.style.paddingTop = 20;
-            sheet.style.paddingBottom = 18;
-            sheet.style.paddingLeft = 20;
-            sheet.style.paddingRight = 20;
+            sheet.style.paddingTop = LvnTokens.Space3;
+            sheet.style.paddingBottom = LvnTokens.Space3;
+            sheet.style.paddingLeft = LvnTokens.Space3;
+            sheet.style.paddingRight = LvnTokens.Space3;
 
             // ── Header: back + title ────────────────────────────────────────
             var header = ScreenUi.Row();
-            header.style.marginBottom = 14;
+            header.style.marginBottom = LvnTokens.Space2;
             sheet.Add(header);
 
             var back = ScreenUi.BackButton(Close, 52f, 36f);
-            back.style.marginRight = 12;
+            back.style.marginRight = LvnTokens.Space2;
             header.Add(back);
 
             var title = SectionTitle(() => LvnWords.Of("leaderboard.title", "Leaderboard"));
@@ -88,7 +88,7 @@ namespace Lvn.UI.Screens
             var tabs = new VisualElement();
             tabs.style.flexDirection = FlexDirection.Row;
             tabs.style.alignSelf = Align.Center;
-            tabs.style.marginBottom = 18;
+            tabs.style.marginBottom = LvnTokens.Space3;
             tabs.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tabs);
             LvnChrome.Round(tabs, LvnTokens.Radius);
@@ -106,7 +106,7 @@ namespace Lvn.UI.Screens
             _podium.style.flexDirection = FlexDirection.Row;
             _podium.style.justifyContent = Justify.Center;
             _podium.style.alignItems = Align.FlexEnd;
-            _podium.style.marginBottom = 18;
+            _podium.style.marginBottom = LvnTokens.Space3;
             sheet.Add(_podium);
 
             // ── Ranked list (#4..) ──────────────────────────────────────────
@@ -158,8 +158,8 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.paddingTop = 10; b.style.paddingBottom = 10;
-            b.style.paddingLeft = 24; b.style.paddingRight = 24;
+            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
+            b.style.paddingLeft = LvnTokens.Space4; b.style.paddingRight = LvnTokens.Space4;
             b.style.marginLeft = 0; b.style.marginRight = 0;
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
@@ -187,9 +187,9 @@ namespace Lvn.UI.Screens
 
             var col = new VisualElement();
             col.style.alignItems = Align.Center;
-            col.style.marginLeft = 8; col.style.marginRight = 8;
+            col.style.marginLeft = LvnTokens.Space1; col.style.marginRight = LvnTokens.Space1;
             col.style.width = first ? 138 : 112;
-            if (!first) col.style.marginBottom = 10; // sink the flanks below the winner
+            if (!first) col.style.marginBottom = LvnTokens.Space2; // sink the flanks below the winner
 
             // Crown for the champion.
             // Место под корону занято и у не-победителей: иначе первый столбец
@@ -230,7 +230,7 @@ namespace Lvn.UI.Screens
             var name = new Label(e.Name);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = LvnTokens.TextSm;
-            name.style.marginTop = 8;
+            name.style.marginTop = LvnTokens.Space1;
             name.style.unityFontStyleAndWeight = first ? FontStyle.Bold : FontStyle.Normal;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
             name.style.whiteSpace = WhiteSpace.NoWrap;
@@ -261,9 +261,9 @@ namespace Lvn.UI.Screens
         private VisualElement Row(Entry e)
         {
             var row = ScreenUi.Row();
-            row.style.marginBottom = 8;
-            row.style.paddingTop = 10; row.style.paddingBottom = 10;
-            row.style.paddingLeft = 14; row.style.paddingRight = 16;
+            row.style.marginBottom = LvnTokens.Space1;
+            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space2; row.style.paddingRight = LvnTokens.Space3;
             row.style.backgroundColor = e.IsYou
                 ? new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.18f)
                 : LvnTokens.Surface;
@@ -282,14 +282,14 @@ namespace Lvn.UI.Screens
             rank.style.color = e.IsYou ? LvnTokens.Accent : LvnTokens.TextDim;
             rank.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             rank.style.unityTextAlign = TextAnchor.MiddleRight;
-            rank.style.marginRight = 12;
+            rank.style.marginRight = LvnTokens.Space2;
             row.Add(rank);
 
             row.Add(Avatar(e, 48f));
 
             var nameCol = new VisualElement();
             nameCol.style.flexGrow = 1;
-            nameCol.style.marginLeft = 12;
+            nameCol.style.marginLeft = LvnTokens.Space2;
             ScreenUi.Row(nameCol);
             row.Add(nameCol);
 
@@ -309,8 +309,8 @@ namespace Lvn.UI.Screens
                 you.style.backgroundColor = LvnTokens.Accent;
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
                 you.style.unityTextAlign = TextAnchor.MiddleCenter;
-                you.style.marginLeft = 10;
-                you.style.paddingLeft = 10; you.style.paddingRight = 10;
+                you.style.marginLeft = LvnTokens.Space2;
+                you.style.paddingLeft = LvnTokens.Space2; you.style.paddingRight = LvnTokens.Space2;
                 you.style.paddingTop = 2; you.style.paddingBottom = 2;
                 LvnChrome.Round(you, LvnTokens.RadiusSm);
                 nameCol.Add(you);

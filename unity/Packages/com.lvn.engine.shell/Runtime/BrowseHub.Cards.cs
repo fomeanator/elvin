@@ -25,7 +25,7 @@ namespace Lvn.UI.Screens
             row.style.marginBottom = 30;
 
             var head = ScreenUi.Row(spread: true);
-            head.style.marginBottom = 14;
+            head.style.marginBottom = LvnTokens.Space2;
             // Подпись знает свой источник: при смене языка её перечитает дом,
             // а карточки не придётся пересобирать — вместе с ними уехали бы
             // прокрутка и то, на чём игрок остановился.
@@ -101,7 +101,7 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.width = 250;
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
-            card.style.marginRight = 18;
+            card.style.marginRight = LvnTokens.Space3;
             card.style.opacity = locked ? 0.5f : 1f;
             var plinth = LvnTokens.PanelBg;
             card.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.93f);
@@ -144,8 +144,8 @@ namespace Lvn.UI.Screens
             // A solid caption field is the readability contract for a shelf:
             // title and chapter metadata must never compete with the moving scene.
             var caption = new VisualElement { pickingMode = PickingMode.Ignore };
-            caption.style.paddingTop = 13; caption.style.paddingBottom = 12;
-            caption.style.paddingLeft = 14; caption.style.paddingRight = 14;
+            caption.style.paddingTop = LvnTokens.Space2; caption.style.paddingBottom = LvnTokens.Space2;
+            caption.style.paddingLeft = LvnTokens.Space2; caption.style.paddingRight = LvnTokens.Space2;
             caption.style.flexGrow = 1;
             caption.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.98f);
 
@@ -199,7 +199,7 @@ namespace Lvn.UI.Screens
             Lvn.UI.LvnChrome.Tint(card, _border);
             card.style.opacity = locked ? 0.55f : 1f;
             LvnChrome.Round(card, _radius);
-            card.style.marginBottom = 14;
+            card.style.marginBottom = LvnTokens.Space2;
             card.style.overflow = Overflow.Hidden;
 
             // thumbnail (left)
@@ -214,8 +214,8 @@ namespace Lvn.UI.Screens
             // text column (right)
             var col = new VisualElement();
             col.style.flexGrow = 1; col.style.justifyContent = Justify.Center;
-            col.style.paddingLeft = 18; col.style.paddingRight = 16;
-            col.style.paddingTop = 14; col.style.paddingBottom = 14;
+            col.style.paddingLeft = LvnTokens.Space3; col.style.paddingRight = LvnTokens.Space3;
+            col.style.paddingTop = LvnTokens.Space2; col.style.paddingBottom = LvnTokens.Space2;
 
             var top = new VisualElement();
             top.style.flexDirection = FlexDirection.Row; top.style.justifyContent = Justify.SpaceBetween;
@@ -246,7 +246,7 @@ namespace Lvn.UI.Screens
             if (read > 0f)
             {
                 var track = new VisualElement();
-                track.style.height = 6; track.style.marginTop = 10; track.style.flexShrink = 0;
+                track.style.height = 6; track.style.marginTop = LvnTokens.Space2; track.style.flexShrink = 0;
                 track.style.backgroundColor = _theme.SurfaceHi; LvnChrome.Round(track, LvnTokens.RadiusXs); track.style.overflow = Overflow.Hidden;
                 var fill = new VisualElement();
                 fill.style.height = Length.Percent(100f);

@@ -194,20 +194,20 @@ namespace Lvn.UI.Screens
             var close = new Label("×");
             close.style.color = LvnTokens.TextDim;
             close.style.fontSize = LvnTokens.TextSm;
-            close.style.paddingTop = 6; close.style.paddingBottom = 6;
-            close.style.paddingLeft = 10; close.style.paddingRight = 6;
+            close.style.paddingTop = LvnTokens.Space1; close.style.paddingBottom = LvnTokens.Space1;
+            close.style.paddingLeft = LvnTokens.Space2; close.style.paddingRight = LvnTokens.Space1;
             close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
             head.Add(close);
 
             var active = ScreenUi.Row();
             active.pickingMode = PickingMode.Ignore;
             ScreenUi.Row(active);
-            active.style.marginTop = 10;
+            active.style.marginTop = LvnTokens.Space2;
             _full.Add(active);
 
             _fullRing = new ProgressRing(24f, 4.5f, drawArrow: true);
             _fullRing.style.width = 58; _fullRing.style.height = 58;
-            _fullRing.style.marginRight = 12;
+            _fullRing.style.marginRight = LvnTokens.Space2;
             _fullRing.style.flexShrink = 0;
             _fullRing.pickingMode = PickingMode.Ignore;
             active.Add(_fullRing);
@@ -240,12 +240,12 @@ namespace Lvn.UI.Screens
             // высоты, читается блоком.
             var info = new VisualElement();
             info.pickingMode = PickingMode.Ignore;
-            info.style.marginTop = 10;
+            info.style.marginTop = LvnTokens.Space2;
             info.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(info);
             LvnChrome.Round(info, LvnTokens.Radius);
-            info.style.paddingTop = 10; info.style.paddingBottom = 6;
-            info.style.paddingLeft = 14; info.style.paddingRight = 14;
+            info.style.paddingTop = LvnTokens.Space2; info.style.paddingBottom = LvnTokens.Space1;
+            info.style.paddingLeft = LvnTokens.Space2; info.style.paddingRight = LvnTokens.Space2;
             info.style.flexDirection = FlexDirection.Row;
             info.style.flexWrap = Wrap.Wrap;
             _full.Add(info);
@@ -258,7 +258,7 @@ namespace Lvn.UI.Screens
             // перестраиваются при развороте и по изменению очереди.
             _sections = Lvn.UI.LvnScroll.Vertical();
             _sections.style.flexGrow = 1;
-            _sections.style.marginTop = 10;
+            _sections.style.marginTop = LvnTokens.Space2;
             _full.Add(_sections);
 
             ApplyMorph(0f);
