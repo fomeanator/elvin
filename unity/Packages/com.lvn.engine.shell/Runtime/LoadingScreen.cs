@@ -55,14 +55,14 @@ namespace Lvn.UI.Screens
             _scrimOpacity = _cfg.scrim_opacity ?? 0.65f;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, Color.black);
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, Color.black);
             pickingMode = PickingMode.Position; // swallow taps under the loader
 
             _bg = ScreenUi.Stretch(new VisualElement());
             Add(_bg);
 
             _scrim = ScreenUi.Stretch(new VisualElement());
-            _scrim.style.backgroundColor = UiColor.Parse(_cfg.scrim_color, Color.black);
+            _scrim.style.backgroundColor = UiColor.Named(_cfg.scrim_color, Color.black);
             _scrim.style.opacity = _scrimOpacity;
             Add(_scrim);
 
@@ -79,8 +79,8 @@ namespace Lvn.UI.Screens
 
             var bar = ScreenUi.ProgressBar(
                 barX, barY, barW, barH,
-                UiColor.Parse(_cfg.bar_track_color, LvnTokens.Track),
-                UiColor.Parse(_cfg.bar_fill_color, LvnTokens.Accent),
+                UiColor.Named(_cfg.bar_track_color, LvnTokens.Track),
+                UiColor.Named(_cfg.bar_fill_color, LvnTokens.Accent),
                 out var track, out _fill);
             Add(bar);
 
@@ -89,26 +89,26 @@ namespace Lvn.UI.Screens
             bar.Add(frame);
 
             // ── labels (placed relative to the bar) ──
-            _hint = ScreenUi.CenterLabel(barY - 0.07f, UiColor.Parse(_cfg.hint_color, LvnTokens.TextDim), 24);
+            _hint = ScreenUi.CenterLabel(barY - 0.07f, UiColor.Named(_cfg.hint_color, LvnTokens.TextDim), 24);
             _hint.style.display = (_cfg.show_hint ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_hint);
 
-            _percent = ScreenUi.CenterLabel(barY + 0.02f, UiColor.Parse(_cfg.percent_color, Color.white), 26);
+            _percent = ScreenUi.CenterLabel(barY + 0.02f, UiColor.Named(_cfg.percent_color, Color.white), 26);
             _percent.style.display = (_cfg.show_percent ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_percent);
 
             // Chapter-title reveal, Liminal-style: the name lives ON the loading
             // screen (over the chapter's backdrop) instead of being a separate
             // screen after it — one entry surface, no flash between stages.
-            _chapterTitle = ScreenUi.CenterLabel(0.34f, UiColor.Parse(_cfg.percent_color, LvnTokens.Text), 64);
+            _chapterTitle = ScreenUi.CenterLabel(0.34f, UiColor.Named(_cfg.percent_color, LvnTokens.Text), 64);
             _chapterTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _chapterTitle.style.opacity = 0f;
             Add(_chapterTitle);
-            _chapterSubtitle = ScreenUi.CenterLabel(0.40f, UiColor.Parse(_cfg.hint_color, LvnTokens.TextDim), 34);
+            _chapterSubtitle = ScreenUi.CenterLabel(0.40f, UiColor.Named(_cfg.hint_color, LvnTokens.TextDim), 34);
             _chapterSubtitle.style.opacity = 0f;
             Add(_chapterSubtitle);
 
-            _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Parse(_cfg.file_color, LvnTokens.TextDim), 18);
+            _file = ScreenUi.CenterLabel(barY + 0.055f, UiColor.Named(_cfg.file_color, LvnTokens.TextDim), 18);
             _file.style.display = (_cfg.show_file ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(_file);
 

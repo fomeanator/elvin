@@ -61,7 +61,7 @@ namespace Lvn.UI
                     Unit = kv.Value.unit,
                     Icon = ParseIcon(kv.Value.icon, DefaultIcon(kv.Key)),
                     Tint = string.IsNullOrEmpty(kv.Value.color)
-                        ? DefaultTint(kv.Key) : UiColor.Parse(kv.Value.color, DefaultTint(kv.Key)),
+                        ? DefaultTint(kv.Key) : UiColor.Named(kv.Value.color, DefaultTint(kv.Key)),
                 };
             }
         }

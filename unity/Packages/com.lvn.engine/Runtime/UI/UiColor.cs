@@ -17,7 +17,18 @@ namespace Lvn.UI
     /// </summary>
     public static class UiColor
     {
-        /// <summary>Hex вида #rrggbb / #rrggbbaa. Мусор и пустота — fallback.</summary>
+        /// <summary>
+        /// Hex вида #rrggbb / #rrggbbaa. Мусор и пустота — fallback, МОЛЧА.
+        ///
+        /// <para>Это разбор «шестнадцати цифр», а не словарь: им пользуется
+        /// СБОРКА ТЕМЫ, и звать оттуда словарь нельзя — словарь спрашивает
+        /// цвет у действующей темы, а она в этот момент ещё строится.</para>
+        ///
+        /// <para>Всё остальное авторское — через <see cref="Named"/>. Сто три
+        /// поля манифеста читались этим разбором, и `title_color: "accent"`
+        /// молча не срабатывал: в скрипте то же слово работало, в манифесте —
+        /// нет, хотя пишет их один человек.</para>
+        /// </summary>
         public static Color Parse(string hex, Color fallback)
             => TryParse(hex, out var c) ? c : fallback;
 

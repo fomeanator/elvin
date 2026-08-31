@@ -166,10 +166,10 @@ namespace Lvn.UI.Screens
             _dlg = dlg;
             _ch = ch;
             _assets = assets;
-            _text = UiColor.Parse(_cfg.text_color ?? _dlg?.text_color, new Color(0.95f, 0.93f, 0.88f));
-            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
-            _accent = UiColor.Parse(_cfg.accent_color ?? _dlg?.speaker_color, LvnTokens.Accent);
-            _accentText = UiColor.Parse(_cfg.accent_text_color, LvnTokens.OnAccent);
+            _text = UiColor.Named(_cfg.text_color ?? _dlg?.text_color, new Color(0.95f, 0.93f, 0.88f));
+            _dim = UiColor.Named(_cfg.dim_text_color, LvnTokens.TextDim);
+            _accent = UiColor.Named(_cfg.accent_color ?? _dlg?.speaker_color, LvnTokens.Accent);
+            _accentText = UiColor.Named(_cfg.accent_text_color, LvnTokens.OnAccent);
             _radius = _cfg.corner_radius ?? _dlg?.corner_radius ?? 12f;
 
             // balance pills FLOAT above the sheet (the genre-standard "wallet
@@ -480,7 +480,7 @@ namespace Lvn.UI.Screens
                     Radius = 16f,
                     IconSize = 24f,
                     FontSize = 22f,
-                    Background = UiColor.Parse(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f)),
+                    Background = UiColor.Named(_cfg.panel_color, new Color(0.078f, 0.078f, 0.10f, 0.97f)),
                     TextColor = _text,
                     IconUrl = _cfg.currency_icons != null
                               && _cfg.currency_icons.TryGetValue(cur, out var url) ? url : null,
@@ -723,8 +723,8 @@ namespace Lvn.UI.Screens
         private void SkinButton(Button b, bool accent)
         {
             LvnStyler.Skinned(b,
-                accent ? _accent : UiColor.Parse(_ch?.color, LvnTokens.Faint),
-                accent ? _accentText : UiColor.Parse(_ch?.text_color, _text),
+                accent ? _accent : UiColor.Named(_ch?.color, LvnTokens.Faint),
+                accent ? _accentText : UiColor.Named(_ch?.text_color, _text),
                 _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
                 LvnAsync.Fire(Lvn.UI.LvnPicture.Frame(b, _ch.button_image, _ch.button_slice ?? 0, _assets), "ApplyNineSlice");

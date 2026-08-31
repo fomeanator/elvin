@@ -32,7 +32,7 @@ namespace Lvn.UI.Screens
             _showPercent = _cfg.show_percent ?? true;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Bg);
             pickingMode = PickingMode.Position;
 
             var bg = ScreenUi.Stretch(new VisualElement());
@@ -57,8 +57,8 @@ namespace Lvn.UI.Screens
             float barH = _cfg.bar_height ?? 0.014f;
             var bar = ScreenUi.ProgressBar(
                 0.5f, barY, barW, barH,
-                UiColor.Parse(_cfg.bar_track_color, LvnTokens.Track),
-                UiColor.Parse(_cfg.bar_fill_color, LvnTokens.Accent),
+                UiColor.Named(_cfg.bar_track_color, LvnTokens.Track),
+                UiColor.Named(_cfg.bar_fill_color, LvnTokens.Accent),
                 out _, out _fill);
             Add(bar);
 
@@ -68,7 +68,7 @@ namespace Lvn.UI.Screens
             _percent.style.right = 0;
             _percent.style.top = Length.Percent((barY + 0.03f) * 100f);
             _percent.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _percent.style.color = UiColor.Parse(_cfg.percent_color, LvnTokens.TextDim);
+            _percent.style.color = UiColor.Named(_cfg.percent_color, LvnTokens.TextDim);
             _percent.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             _percent.style.display = _showPercent ? DisplayStyle.Flex : DisplayStyle.None;
             _percent.pickingMode = PickingMode.Ignore;

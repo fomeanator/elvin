@@ -50,8 +50,8 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new HudConfig();
             _assets = assets;
-            _pillBg = UiColor.Parse(_cfg.pill_bg_color, LvnTokens.Veil(0.40f));
-            _pillText = UiColor.Parse(_cfg.pill_text_color, LvnTokens.Text);
+            _pillBg = UiColor.Named(_cfg.pill_bg_color, LvnTokens.Veil(0.40f));
+            _pillText = UiColor.Named(_cfg.pill_text_color, LvnTokens.Text);
 
             // Designed bar height in REFERENCE pixels (panel units track the
             // 1080×1920 reference, so this is device-independent). The bar bleeds
@@ -75,7 +75,7 @@ namespace Lvn.UI.Screens
             style.alignItems = Align.Center;
             style.justifyContent = Justify.SpaceBetween;
             style.paddingLeft = 24; style.paddingRight = 24;
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Veil(0.53f));
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Veil(0.53f));
             pickingMode = PickingMode.Ignore;
 
             // left: progress
@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
             left.Add(_progressIcon);
 
             _progressLabel = new Label("0%") { pickingMode = PickingMode.Ignore };
-            _progressLabel.style.color = UiColor.Parse(_cfg.progress_color, LvnTokens.Text);
+            _progressLabel.style.color = UiColor.Named(_cfg.progress_color, LvnTokens.Text);
             _progressLabel.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             left.Add(_progressLabel);
 
