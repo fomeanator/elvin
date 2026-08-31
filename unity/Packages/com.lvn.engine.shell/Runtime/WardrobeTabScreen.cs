@@ -41,12 +41,36 @@ namespace Lvn.UI.Screens
         private bool _live;    // цикл показов листа жив, пока вкладка на экране
         private bool _peeking; // «Во весь рост»: плашка спрятана до касания
 
+        // ── крючки хоста ────────────────────────────────────────────────────
+        //
+        // ВКЛАДКА ИХ НЕ ХРАНИТ ВТОРОЙ КОПИЕЙ, а передаёт листу сразу. Хранила:
+        // лист создаётся лениво (первый показ), хост вешает крючки раньше — и
+        // связывать их приходилось на КАЖДОМ показе, «на случай, если повесили
+        // после конструктора». Две копии одного крючка живут врозь ровно до
+        // первой правки: повесил новый обработчик между показами — до листа он
+        // не дошёл, и кнопка «в магазин» молча ничего не делает.
+        private System.Func<Task> _openStore;
+        private System.Func<string, string, Task<bool>> _confirmTopUp;
+        private System.Func<string, string, Task> _alert;
+
         /// <summary>Открыть быстрый магазин (модаль) — вешает NovelShell.</summary>
-        public System.Func<Task> OpenStore;
+        public System.Func<Task> OpenStore
+        {
+            get => _openStore;
+            set { _openStore = value; if (_sheet != null) _sheet.OpenStore = value; }
+        }
         /// <summary>Подтверждение «не хватает — в магазин?» — вешает NovelShell.</summary>
-        public System.Func<string, string, Task<bool>> ConfirmTopUp;
+        public System.Func<string, string, Task<bool>> ConfirmTopUp
+        {
+            get => _confirmTopUp;
+            set { _confirmTopUp = value; if (_sheet != null) _sheet.ConfirmTopUp = value; }
+        }
         /// <summary>Финальное «всё ещё не хватает» — вешает NovelShell.</summary>
-        public System.Func<string, string, Task> Alert;
+        public System.Func<string, string, Task> Alert
+        {
+            get => _alert;
+            set { _alert = value; if (_sheet != null) _sheet.Alert = value; }
+        }
 
         // Текущий персонаж вкладки: фаворит меню, иначе героиня по умолчанию.
         private string Entity
@@ -136,6 +160,11 @@ namespace Lvn.UI.Screens
             // Смена персонажа в ростере = назначить фаворита меню: кукла
             // сцены меняется хостом (NovelApp слушает LvnPrefs.Changed).
             _sheet.OnCharacterPicked = (_, to) => LvnPrefs.MenuFavorite = to;
+            // Крючки, повешенные до того, как лист появился, догоняют его здесь
+            // — один раз, а не на каждом показе.
+            _sheet.OpenStore = _openStore;
+            _sheet.ConfirmTopUp = _confirmTopUp;
+            _sheet.Alert = _alert;
             _panel.Add(_sheet);
         }
 
@@ -151,11 +180,6 @@ namespace Lvn.UI.Screens
         protected override void OnOpening()
         {
             EnsureSheet();
-            // Хуки хоста могли повеситься после конструктора — пробрасываем
-            // на каждый показ.
-            _sheet.OpenStore = OpenStore;
-            _sheet.ConfirmTopUp = ConfirmTopUp;
-            _sheet.Alert = Alert;
             SetPeek(false);
             LvnAsync.Fire(RunSheetLoopAsync(), "WardrobeTabLoop");
         }
