@@ -95,8 +95,7 @@ namespace Lvn.UI.Screens
             // Список того, что стереть, держит ЗАБВЕНИЕ, а не этот метод: здесь
             // перечислялись сейвы и статы, а галерея с прочитанным оставались.
             Lvn.UI.LvnForget.Title(title.id);
-            try { await _state.SaveVarsAsync(title.id, new Newtonsoft.Json.Linq.JObject(), default); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe failed: {ex.Message}"); }
+            await WipeServerVarsAsync(title.id);
             Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
             SyncProgressVault(); // the wipe is progress too — all homes agree
         }
@@ -182,6 +181,25 @@ namespace Lvn.UI.Screens
                 await _state.SaveVarsAsync(GlobalScopeId, global, default);
             }
             await _state.SaveVarsAsync(titleId, vars, default);
+        }
+
+        /// <summary>
+        /// СТЕРЕТЬ СТАТЫ НОВЕЛЛЫ НА СЕРВЕРЕ — пустой набор вместо удаления.
+        ///
+        /// <para>Пустой набор, а не «удали»: у хранилища переменных нет глагола
+        /// удаления, и не должно быть — пустота это тоже значение, которое надо
+        /// СИНХРОНИЗИРОВАТЬ. Удали запись — и следующая синхронизация с другого
+        /// устройства вернёт старые статы как «более свежие».</para>
+        ///
+        /// <para>Отказ сети — предупреждение, а не провал обряда: локальное уже
+        /// стёрто, и заставлять игрока ждать сеть, чтобы «сброс состоялся»,
+        /// значит держать его в новелле, из которой он попросил выйти.</para>
+        /// </summary>
+        private async Task WipeServerVarsAsync(string titleId)
+        {
+            if (_state == null || string.IsNullOrEmpty(titleId)) return;
+            try { await _state.SaveVarsAsync(titleId, new Newtonsoft.Json.Linq.JObject(), default); }
+            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe {titleId}: {ex.Message}"); }
         }
 
         // Snapshot the player's live variables as a JObject the state store persists.

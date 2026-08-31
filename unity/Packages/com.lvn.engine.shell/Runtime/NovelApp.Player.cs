@@ -148,9 +148,7 @@ namespace Lvn.UI.Screens
             var titles = _manifest?.titles;
             if (titles != null)
                 foreach (var t in titles)
-                    if (t?.id != null)
-                        try { await _state.SaveVarsAsync(t.id, new Newtonsoft.Json.Linq.JObject(), default); }
-                        catch (Exception e) { Debug.LogWarning($"[novelapp] wipe {t.id}: {e.Message}"); }
+                    await WipeServerVarsAsync(t?.id);
             // Всё локальное — одним обрядом: перечисление здесь знало сейвы,
             // прогресс, имя и два флага, но не галерею, прочитанное, гардероб,
             // миниатюры и статы игрока.
