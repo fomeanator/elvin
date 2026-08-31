@@ -765,123 +765,14 @@ namespace Lvn.UI.Screens
             return b;
         }
 
-        // ── bottom nav ──
-        private void AnimateIn(VisualElement container)
-        {
-            int i = 0;
-            foreach (var child in container.Children())
-            {
-                // РАЗОМ, БЕЗ ВОЛНЫ (Илья 26.08): каскад по строкам читался как
-                // «интерфейс скачет», особенно когда лента пересобиралась.
-                var el = child;
-                i++;
-                Lvn.UI.LvnMotion.FadeIn(el);
-            }
-        }
 
-        /// <summary>Сколько едет нижняя навигация. Общий срок с верхним баром
-        /// живёт в моторике движка — полосы обязаны ехать в один такт.</summary>
-        public const int NavEntranceMs = Lvn.UI.LvnMotion.Curtain;
 
-        /// <summary>Экран заряжен на вход: уведён за кромку и ждёт своего
-        /// движения. Пока флаг стоит, никакой обычный показ вида его не
-        /// выставляет — иначе меню появляется раньше собственного входа.</summary>
-        private bool _entranceArmed;
 
-        /// <summary>
-        /// ЗАРЯДИТЬ ВХОД: страница главной уведена за кромку, нижнее меню — под
-        /// экран, ЕЩЁ ДО ПОКАЗА.
-        ///
-        /// <para>Уводить их в момент старта движения поздно: на старте
-        /// приложения хаб показывается под брендовой вуалью и ждёт её ухода уже
-        /// нарисованным, а при возврате из главы между показом и первым кадром
-        /// анимации остаётся щель. В обоих случаях заголовок успевал мелькнуть
-        /// готовым и только потом начинал проявляться («заголовки тоже opacity
-        /// 0 должны по умолчанию» — Илья 28.08).</para>
-        /// </summary>
-        public void ArmEntrance()
-        {
-            _entranceArmed = true;
-            if (_hubView != null)
-                _hubView.style.translate = new Translate(EntranceOffset(), 0f);
-            if (_bottomNav != null)
-                _bottomNav.style.translate = new Translate(0f, Length.Percent(120f));
-            // Предохранители держит ШВЕЙЦАР: он один знает, когда движение
-            // должно было начаться и когда закончиться. Поверхность знает
-            // только своё движение — иначе сроки разъезжаются по файлам.
-        }
 
-        /// <summary>Поставить меню на место — зовёт Швейцар, когда вход не
-        /// состоялся.</summary>
-        public void RestoreEntrance()
-        {
-            _entranceArmed = false;
-            if (_hubView != null) _hubView.style.translate = new Translate(0f, 0f);
-            if (_bottomNav != null) _bottomNav.style.translate = new Translate(0f, 0f);
-        }
 
-        public void PlayEntrance()
-        {
-            _entranceArmed = false;
-            SlideNavFromBelow();
-            SlideContentIn();
-        }
 
-        /// <summary>Откуда приезжает страница: ширина экрана ВЛЕВО (Илья
-        /// 28.08). Считаем от живого корня, а не от Screen — на планшете и в
-        /// редакторе окно шире кадра игры, и лишний запас превратился бы в
-        /// паузу перед приездом.</summary>
-        private float EntranceOffset()
-        {
-            float w = resolvedStyle.width;
-            if (w <= 1f || float.IsNaN(w)) w = Screen.width;
-            return -w;
-        }
 
-        /// <summary>
-        /// СТРАНИЦА ГЛАВНОЙ ПРИЕЗЖАЕТ СБОКУ — ровно как при смене вкладки
-        /// (уточнение Ильи 28.08: «контент не фейдом, а сбоку приезжать, как при
-        /// смене таба»).
-        ///
-        /// <para>Тот же приём, что у <c>TabGoTo</c>: страница живёт в одном
-        /// слое и ездит по X. Отличается только сроком — вход меню идёт в такт
-        /// с полосами (<see cref="Lvn.UI.LvnMotion.Curtain"/>), а переезд
-        /// вкладок остаётся быстрым, иначе листание становится вязким.</para>
-        /// </summary>
-        private void SlideContentIn()
-        {
-            if (_hubView == null) return;
-            float from = EntranceOffset();
-            // ВДВОЕ БЫСТРЕЕ ПОЛОС (Илья 28.08): страница идёт длинный путь через
-            // весь экран, и на общем сроке этот путь читался как медленное
-            // ползание, тогда как полосы проходят свою кромку почти мгновенно.
-            Lvn.UI.LvnMotion.Enter(_hubView, Lvn.UI.LvnMotion.Curtain / 2,
-                k => _hubView.style.translate = new Translate(Mathf.Lerp(from, 0f, k), 0f));
-        }
 
-        /// <summary>
-        /// НИЖНЯЯ НАВИГАЦИЯ ВЫЕЗЖАЕТ СНИЗУ ЗА 0.9 с.
-        ///
-        /// <para>26.08 въезд отсюда убрали — тогда он играл на каждый показ
-        /// хаба и низ экрана дёргался постоянно. Сейчас эта точка зовётся ровно
-        /// дважды: на старте приложения и на возврате из главы (переключение
-        /// вкладок живёт внутри PickTitleAsync и сюда не заходит), поэтому
-        /// движение читается как появление меню, а не как тик интерфейса.</para>
-        ///
-        /// <para>Сдвиг задан В ПРОЦЕНТАХ от высоты самой панели: в первом кадре
-        /// её высота ещё не посчитана, и любое значение в пикселях означало бы
-        /// «выезд из ниоткуда» — панель стартовала бы с середины экрана.</para>
-        /// </summary>
-        private void SlideNavFromBelow()
-        {
-            var nav = _bottomNav;
-            if (nav == null) return;
-            nav.style.opacity = 1f;
-            // 120%, а не 100%: под панелью ещё живёт отступ безопасной зоны,
-            // и на «сотне» её кромка остаётся видна у нижнего края.
-            Lvn.UI.LvnMotion.Enter(nav, NavEntranceMs,
-                k => nav.style.translate = new Translate(0f, Length.Percent(120f * (1f - k))));
-        }
 
         // One collection as a streaming-style row: a header (name + "Все →") over
         // a horizontal slider of title cards. "Все →" opens the full list; a card
